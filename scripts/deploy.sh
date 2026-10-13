@@ -6,6 +6,8 @@
 #        scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]
 #        scripts/deploy.sh sepolia --repoint [--check-only]
 #        scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]
+#        scripts/deploy.sh sepolia --d18 [--check-only]
+#        scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): MockUSDC (a bounded faucet,
@@ -84,6 +86,30 @@
 # router's quote; nothing is sent and the file is not written; a failed check exits non-zero. The file's `deployed_block` and addresses (but the MockRouter's) do not change: the indexer
 # and the client read nothing that the repoint changes (docs/programme/OPERATIONS.md).
 #
+# --d18 (sepolia, and its rehearsal; D-18c): upgrades the deployed Daily, Tutorial and Account to the D-18 classes
+# (characters leave the game), points Daily and Tutorial at the D-18 Lobby, and sets Economy's slope to 12,220 bps
+# (P-46). It deploys nothing and keeps every address. It runs after R-1's repoint, with the same checks, signer and
+# build (from main-equivalent sources on Sepolia), reads the same deployment file (`--deployment` in the rehearsal) and
+# checks, before anything is estimated or sent: the file is a sepolia one for the node's chain; its `repoint` key
+# records a new MockRouter that is the file's MockRouter and Economy.router() answers it (otherwise it refuses: D-18c
+# runs after R-1 part B); the deployer is owner() of Daily, Tutorial, Account and Economy; the classes of Daily,
+# Tutorial and Account are the file's or the D-18 ones; the Lobby class Daily and Tutorial run (their `lobby_class`
+# storage: no view exists) is the file's or the D-18 one; Economy.config() is printed, and differs from the recorded
+# previous one, if any, by the slope alone; the smoke's 2 USDC are held or within the faucet's cap. The funding check
+# then estimates the declares still to send. In order, each step skipped when what it would send has landed:
+#   1. declare the D-18 Account, Daily, Tutorial and Lobby (declareIfNot);
+#   2. one multicall of the owner: Daily.upgrade, Tutorial.upgrade, Account.upgrade, Daily.set_lobby_class,
+#      Tutorial.set_lobby_class, Economy.configure (the config read, slope 12,220; only the calls still missing);
+#   3. contracts.<Daily|Tutorial|Account>.class_hash and classes.Lobby in the file;
+#   4. the smoke: the four classes, the Lobby class of Daily and Tutorial, the config, owner() on the five upgradable
+#      contracts, a paid Daily spawn at stake 1, one D-18 build(game_id, orientation, x, y) next to the starter (the
+#      first of the 16 placements whose fee estimate the node accepts), the four fields of builder(), the surrender.
+# Every step is recorded under the file's `d18` key as it lands (the previous classes and config, each transaction
+# hash as the signer sends it), with the same receipt wait, `not landed` clearing and REPOINT_WAIT_S as --repoint: a
+# rerun sends only what is left, and a complete one sends nothing and needs no funding margin. --check-only: the checks,
+# the funding check and what a run would send; nothing is sent, the file is not written, and it ends "every check
+# passed; nothing was sent". A downgrade after a D-18 move is unsupported for open games (docs/programme/OPERATIONS.md).
+#
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).
 #
@@ -158,7 +184,7 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
@@ -168,6 +194,9 @@ ESTIMATE_ARGS=()
 REPOINT=0
 REPOINT_CHECK_ONLY=0
 REPOINT_FILE=""
+D18=0
+# The key of the deployment file under which --repoint (`repoint`) or --d18 (`d18`) records what it sent.
+RECORD_KEY=repoint
 if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
   # sepolia [--rehearse] --estimate-only [diagnostics]: the diagnostics reach the signer as its own options, which it
   # checks again (six integers in range, a block tag of the spec).
@@ -187,24 +216,28 @@ if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" =
     esac
   done
   set -- sepolia
-elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--repoint" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--repoint" ) ) ]]; then
+elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == --repoint || "${2:-}" == --d18 ||
+    ( "${2:-}" == "--rehearse" && ( "${3:-}" == --repoint || "${3:-}" == --d18 ) ) ) ]]; then
   # sepolia [--rehearse] --repoint (R-1): repoints the deployed Economy at a new MockRouter (see "--repoint" above).
+  # sepolia [--rehearse] --d18 (D-18c): the D-18 upgrade, after the repoint (see "--d18" above). Both take the same
+  # options; the variables keep the repoint's names (REPOINT_FILE, REPOINT_CHECK_ONLY).
   [[ "$2" == "--rehearse" ]] && { REHEARSE=1; shift; }
-  REPOINT=1
+  MODE_FLAG="$2"
+  if [[ "$MODE_FLAG" == --d18 ]]; then D18=1; RECORD_KEY=d18; else REPOINT=1; fi
   shift 2
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --check-only) REPOINT_CHECK_ONLY=1; shift ;;
       --deployment)
-        ((REHEARSE)) || { echo "deploy.sh: --deployment is for the rehearsal only: sepolia --repoint reads contracts/deployments/sepolia.json" >&2; exit 2; }
+        ((REHEARSE)) || { echo "deploy.sh: --deployment is for the rehearsal only: sepolia $MODE_FLAG reads contracts/deployments/sepolia.json" >&2; exit 2; }
         [[ -n "${2:-}" && -f "$2" ]] || { echo "deploy.sh: --deployment expects an existing deployment file" >&2; exit 2; }
         REPOINT_FILE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
         shift 2 ;;
-      *) echo "deploy.sh: unknown option '$1' for 'sepolia --repoint'" >&2; echo "$USAGE" >&2; exit 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'sepolia $MODE_FLAG'" >&2; echo "$USAGE" >&2; exit 2 ;;
     esac
   done
   if [[ "$REHEARSE" == 1 && -z "$REPOINT_FILE" ]]; then
-    echo "deploy.sh: sepolia --rehearse --repoint needs --deployment <file>, the rehearsal's own deployment file" >&2
+    echo "deploy.sh: sepolia --rehearse $MODE_FLAG needs --deployment <file>, the rehearsal's own deployment file" >&2
     exit 2
   fi
   set -- sepolia
@@ -326,8 +359,8 @@ SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
 SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
-# --repoint: the deployment it reads and updates; sepolia's committed file unless the rehearsal names its own.
-[[ "$REPOINT" == 1 && -z "$REPOINT_FILE" ]] && REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
+# --repoint and --d18: the deployment they read and update; sepolia's committed file unless the rehearsal names its own.
+[[ ( "$REPOINT" == 1 || "$D18" == 1 ) && -z "$REPOINT_FILE" ]] && REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -339,7 +372,7 @@ die() { echo "deploy.sh: $*" >&2; exit 1; }
 # -32601 (a Sepolia endpoint did, at random, with HTTP 200 or 400): at most 5 attempts, waits 1, 2, 4, 8 s. Any other
 # method goes once (deploy.sh sends no transaction through curl; a starknet_add* method would never be retried). A
 # node that does not answer at all is not retried. Fails unless the last answer is HTTP 2xx.
-RPC_RETRIED=" starknet_specVersion starknet_chainId starknet_getClassHashAt starknet_getClass starknet_getTransactionReceipt "
+RPC_RETRIED=" starknet_specVersion starknet_chainId starknet_getClassHashAt starknet_getClass starknet_getTransactionReceipt starknet_getStorageAt "
 RPC_DELAYS=(1 2 4 8)
 rpc() {
   local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}" answer code attempt=1
@@ -428,7 +461,7 @@ send() {
   # Exit 97: stream_sending could not record a hash (--repoint); otherwise the signer's own status.
   res="$(run_signer "$@" | stream_sending; s=("${PIPESTATUS[@]}"); [[ "${s[1]}" == 0 ]] || exit 97; exit "${s[0]}")" || status=$?
   if [[ "$status" == 97 ]]; then
-    die "signer $1: a transaction was sent but its hash (shown above) could not be recorded under repoint.$RECORD_SENDING in
+    die "signer $1: a transaction was sent but its hash (shown above) could not be recorded under $RECORD_KEY.$RECORD_SENDING in
 $REPOINT_FILE: record it there, or check it, before any rerun"
   fi
   if [[ "$status" != 0 ]]; then
@@ -444,7 +477,7 @@ $REPOINT_FILE: record it there, or check it, before any rerun"
       if [[ "$recorded" =~ ^0x[0-9a-f]+$ ]] &&
           grep -qE "^signer: refused \(-?[0-9]+\); no receipt for $recorded after [0-9]+ s; not landed \([^)]*\); check it before any rerun\$" <<<"$res"; then
         rp_set "$RECORD_SENDING=" &&
-          echo "deploy.sh: the signer found $recorded not landed: repoint.$RECORD_SENDING cleared, so a rerun sends it again" >&2
+          echo "deploy.sh: the signer found $recorded not landed: $RECORD_KEY.$RECORD_SENDING cleared, so a rerun sends it again" >&2
       fi
     fi
     # The lines already shown left out, then redacted whole, then cut: a value across the cut is still replaced.
@@ -476,7 +509,7 @@ stream_sending() {
       # short (it may have sent already): the output is still copied, and stream_sending fails at its end, which stops
       # the run (`send`, exit 97).
       if [[ -n "${RECORD_SENDING:-}" ]] && ! rp_set "$RECORD_SENDING=${line##* }"; then
-        printf '   deploy.sh: could not record %s under repoint.%s\n' "${line##* }" "$RECORD_SENDING" >&2
+        printf '   deploy.sh: could not record %s under %s.%s\n' "${line##* }" "$RECORD_KEY" "$RECORD_SENDING" >&2
         unrecorded=1
       fi
     fi
@@ -641,16 +674,16 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
-# --repoint (R-1, E-9): the deployment file's `repoint` record. rp_set <key=value>...: sets each dotted key under
-# `repoint` (an empty value removes it) and rewrites the file through a temporary file in its directory, renamed over it,
+# --repoint (R-1, E-9) and --d18 (D-18c): the deployment file's record, under RECORD_KEY (`repoint` or `d18`).
+# rp_set <key=value>...: sets each dotted key under it (an empty value removes it) and rewrites the file through a temporary file in its directory, renamed over it,
 # so a kill leaves the old file or the new one, never half of it. Every other field is kept. rp_get <key>: the value, or
 # nothing.
 rp_set() {
-  python3 -I - "$REPOINT_FILE" "$@" <<'PY'
+  python3 -I - "$REPOINT_FILE" "$RECORD_KEY" "$@" <<'PY'
 import json, os, sys, tempfile
-path, *pairs = sys.argv[1:]
+path, top, *pairs = sys.argv[1:]
 d = json.load(open(path))
-record = d.setdefault("repoint", {})
+record = d.setdefault(top, {})
 for pair in pairs:
     key, _, value = pair.partition("=")
     *parents, leaf = key.split(".")
@@ -670,10 +703,10 @@ os.replace(tmp, path)
 PY
 }
 rp_get() {
-  python3 -I - "$REPOINT_FILE" "$1" <<'PY'
+  python3 -I - "$REPOINT_FILE" "$RECORD_KEY" "$1" <<'PY'
 import json, sys
-node = json.load(open(sys.argv[1])).get("repoint", {})
-for p in sys.argv[2].split("."):
+node = json.load(open(sys.argv[1])).get(sys.argv[2], {})
+for p in sys.argv[3].split("."):
     node = node.get(p, {}) if isinstance(node, dict) else {}
 print(node if isinstance(node, str) else "")
 PY
@@ -1182,8 +1215,9 @@ repoint_smoke() {
     echo "== repoint: smoke ok"
     return
   fi
-  # The player: the deployer's account, created by the deploy's smoke; created here if not.
-  v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r player _ <<<"$raw"
+  # The player: the deployer's account, created by the deploy's smoke; created here if not. Player is (id, name, master):
+  # the id is the key, so the name says whether the player exists.
+  v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r _ player _ <<<"$raw"
   [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
   # The 2 USDC of the spawn: what the deployer lacks of them, from the faucet (the seed left that much room).
   v raw call "$USDC" balance_of "$DEPLOYER_ARG"; read -r held _ <<<"$raw"
@@ -1211,6 +1245,406 @@ repoint_smoke() {
   echo "   paid Daily game $game_id at stake 1 (min_out $min_out) through the new MockRouter, tx $spawn_tx; Economy holds nothing"
   repoint_surrender "$game_id"
   echo "== repoint: smoke ok"
+}
+
+# --d18 (D-18c): the storage address of `lobby_class` in Daily and Tutorial (sn_keccak("lobby_class"), as starknet.js's
+# hash.starknetKeccak computes it): no view reads it, so the tool reads the storage. The slope of P-46.
+D18_LOBBY_SLOT=0x1c0e9fda53e89cd336bc111e75bd8cf021d5625f837a8e56cbb7c31c545c7c7
+D18_SLOPE_BPS=12220
+D18_GAMES=(Daily Tutorial Account)
+
+# d18_lobby_class <address>: the Lobby class that Daily or Tutorial runs, from its storage; fails unless the node answers
+# a felt (through `v`, a failed read stops the run).
+d18_lobby_class() {
+  local answer
+  # Named params: starknet-devnet 0.10.0 (spec 0.10.2) wants four positional ones here, the spec three.
+  answer="$(rpc starknet_getStorageAt "{\"contract_address\":\"$1\",\"key\":\"$D18_LOBBY_SLOT\",\"block_id\":\"latest\"}")" || return 1
+  python3 -I -c '
+import json, re, sys
+d = json.load(sys.stdin)
+r = d.get("result") if isinstance(d, dict) and "error" not in d else None
+sys.exit(1) if not isinstance(r, str) or not re.fullmatch("0x[0-9a-fA-F]+", r) else print(r)' <<<"$answer" 2>/dev/null
+}
+
+# d18_config_text <5 felts>: Economy's Config (burn_bps, sigma_bps signed, slope_bps, cap, target), for the log.
+d18_config_text() {
+  python3 -I -c '
+import sys
+p = 2**251 + 17 * 2**192 + 1
+b, s, c, h, t = (int(x, 16) for x in sys.argv[1:])
+s = s - p if s > p // 2 else s
+print(f"burn_bps {b}, sigma_bps {s}, slope_bps {c}, cap {h}, target {t}")' "$@"
+}
+
+# d18_same_but_slope <5 felts> <5 felts>: the two configs are equal but for the slope.
+d18_same_but_slope() {
+  python3 -I -c '
+import sys
+a, b = [int(x, 16) for x in sys.argv[1:6]], [int(x, 16) for x in sys.argv[6:11]]
+sys.exit(0 if len(sys.argv) == 11 and a[:2] + a[3:] == b[:2] + b[3:] else 1)' "$@"
+}
+
+# d18_state: reads the deployment file and the chain, checks what must hold before anything is sent, and sets what has
+# landed already. Read-only: nothing is estimated, signed or sent here.
+d18_state() {
+  echo "== d18: state (read-only)"
+  [[ -f "$REPOINT_FILE" ]] || die "no deployment file $REPOINT_FILE"
+  local fields name raw
+  fields="$(python3 -I - "$REPOINT_FILE" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+c, r, x = d.get("contracts", {}), d.get("repoint", {}), d.get("d18", {})
+prev = x.get("previous", {})
+def addr(name):
+    return c.get(name, {}).get("address", "")
+# Before the upgrade completes, the previous classes are the file's; after, the record keeps them.
+def old(name):
+    return prev.get(name, {}).get("class_hash", c.get(name, {}).get("class_hash", ""))
+print(d.get("network", "-"), d.get("chain_id", "-"), addr("Economy"), addr("Account"), addr("Daily"), addr("Tutorial"),
+      addr("Collection"), addr("PavedToken"), addr("MockUSDC"), addr("MockRouter") or "-",
+      r.get("MockRouter", {}).get("address", "") or "-", r.get("multicall_tx", "") or "-",
+      old("Daily"), old("Tutorial"), old("Account"),
+      prev.get("Lobby", {}).get("class_hash", d.get("classes", {}).get("Lobby", "")))
+PY
+)" || die "$REPOINT_FILE is not a deployment file"
+  read -r RP_NETWORK RP_CHAIN ECONOMY ACCOUNT DAILY TUTORIAL COLLECTION PAVED USDC FILE_ROUTER REPOINT_ROUTER \
+    REPOINT_TX OLD_DAILY_CLASS OLD_TUTORIAL_CLASS OLD_ACCOUNT_CLASS OLD_LOBBY_CLASS <<<"$fields"
+  [[ "$RP_NETWORK" == sepolia ]] || die "$REPOINT_FILE is a '$RP_NETWORK' deployment, not sepolia"
+  [[ -n "$OLD_LOBBY_CLASS" ]] || die "$REPOINT_FILE lacks an address or class hash the D-18 upgrade needs"
+  felt_eq "$RP_CHAIN" "$CHAIN_ID" || die "$REPOINT_FILE is for chain $RP_CHAIN, the node is $CHAIN_ID"
+
+  # The order: R-1's repoint first (its record names the file's MockRouter, and Economy answers it).
+  if [[ "$REPOINT_ROUTER" == - || "$REPOINT_TX" == - ]] || ! felt_eq "$REPOINT_ROUTER" "$FILE_ROUTER"; then
+    die "R-1's repoint is not complete in ${REPOINT_FILE#"$ROOT/"} (its repoint key records no multicall and no new MockRouter that is contracts.MockRouter): D-18c runs after R-1 part B; nothing was sent"
+  fi
+  raw="$(call "$ECONOMY" router 2>/dev/null)" ||
+    die "Economy.router() does not answer (its class predates E-9): R-1's repoint has not landed; D-18c runs after R-1 part B; nothing was sent"
+  felt_eq "$raw" "$FILE_ROUTER" ||
+    die "Economy.router() is $raw, not the file's MockRouter $FILE_ROUTER: R-1's repoint has not landed; D-18c runs after R-1 part B; nothing was sent"
+  echo "   R-1's repoint: complete (multicall $REPOINT_TX), Economy.router() is the file's MockRouter $FILE_ROUTER"
+
+  # The D-18 classes, from the release build (the hashes sncast computes, as declare_class checks the signer's).
+  for name in Daily Tutorial Account Lobby; do
+    raw="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
+    printf -v "NEW_$(tr '[:lower:]' '[:upper:]' <<<"$name")_CLASS" '%s' "$raw"
+  done
+  if [[ -z "$(rp_get previous.Daily.class_hash)" ]]; then
+    for name in DAILY TUTORIAL ACCOUNT LOBBY; do
+      local old="OLD_${name}_CLASS" new="NEW_${name}_CLASS"
+      ! felt_eq "${!old}" "${!new}" || die "the built ${name,,} class is the file's (${!old}): nothing to upgrade to"
+    done
+  fi
+  echo "   file ${REPOINT_FILE#"$ROOT/"}: Daily $DAILY, Tutorial $TUTORIAL, Account $ACCOUNT, Economy $ECONOMY"
+  echo "   D-18 classes: Daily $NEW_DAILY_CLASS, Tutorial $NEW_TUTORIAL_CLASS, Account $NEW_ACCOUNT_CLASS, Lobby $NEW_LOBBY_CLASS"
+
+  # The deployer owns the four contracts the multicall calls.
+  local entry owner
+  for entry in "Daily=$DAILY" "Tutorial=$TUTORIAL" "Account=$ACCOUNT" "Economy=$ECONOMY"; do
+    v owner call "${entry#*=}" owner
+    [[ "$(hex_int "$owner")" == "$DEPLOYER_INT" ]] || die "the deployer $DEPLOYER_LABEL is not ${entry%%=*}.owner()"
+  done
+  echo "   owner() of Daily, Tutorial, Account and Economy: the deployer"
+
+  # Each class: the file's or the D-18 one, nothing else.
+  local class old new
+  D18_LEFT=0
+  for name in DAILY TUTORIAL ACCOUNT; do
+    local addr_var="$name" old="OLD_${name}_CLASS" new="NEW_${name}_CLASS"
+    v class class_of "${!addr_var}"
+    if felt_eq "$class" "${!new}"; then echo "   ${name,,}: D-18 class (upgraded)"
+    elif felt_eq "$class" "${!old}"; then echo "   ${name,,}: class ${!old} (not upgraded)"; D18_LEFT=1
+    else die "${name,,}'s class on the node is $class: neither the file's ${!old} nor the D-18 class"; fi
+  done
+  # The Lobby class Daily and Tutorial run: the file's or the D-18 one.
+  for name in DAILY TUTORIAL; do
+    v class d18_lobby_class "${!name}"
+    if felt_eq "$class" "$NEW_LOBBY_CLASS"; then echo "   ${name,,}: runs the D-18 Lobby"
+    elif felt_eq "$class" "$OLD_LOBBY_CLASS"; then echo "   ${name,,}: runs the Lobby $OLD_LOBBY_CLASS (not set)"; D18_LEFT=1
+    else die "${name,,} runs the Lobby class $class: neither the file's $OLD_LOBBY_CLASS nor the D-18 one"; fi
+  done
+
+  # Economy's config: printed; the new one is the same with the slope of P-46. A recorded previous config (a stopped
+  # run) must still match but for the slope.
+  v raw call "$ECONOMY" config
+  read -r -a D18_CONFIG <<<"$raw"
+  [[ "${#D18_CONFIG[@]}" == 5 ]] || die "Economy.config() returned ${#D18_CONFIG[@]} felts, expected 5"
+  echo "   Economy.config(): $(d18_config_text "${D18_CONFIG[@]}")"
+  local previous
+  previous="$(rp_get previous.config)"
+  # shellcheck disable=SC2086
+  [[ -z "$previous" ]] || d18_same_but_slope $previous "${D18_CONFIG[@]}" ||
+    die "Economy.config() differs from the config recorded before the upgrade ($(d18_config_text $previous)) by more than the slope"
+  D18_NEW_CONFIG=("${D18_CONFIG[0]}" "${D18_CONFIG[1]}" "$D18_SLOPE_BPS" "${D18_CONFIG[3]}" "${D18_CONFIG[4]}")
+  if [[ "$(hex_int "${D18_CONFIG[2]}")" == "$D18_SLOPE_BPS" ]]; then
+    echo "   slope: $D18_SLOPE_BPS bps already"
+  else
+    echo "   new config: $(d18_config_text "$(felt64 "${D18_NEW_CONFIG[0]}")" "$(felt64 "${D18_NEW_CONFIG[1]}")" \
+      "$(printf '0x%x' "$D18_SLOPE_BPS")" "$(felt64 "${D18_NEW_CONFIG[3]}")" "$(felt64 "${D18_NEW_CONFIG[4]}")") (the slope alone changes)"
+    D18_LEFT=1
+  fi
+
+  # The smoke's paid spawn needs 2 USDC: held, or within the faucet's cap (20,000 USDC per address), unless it is done.
+  if [[ -z "$(rp_get smoke.game_id)" ]]; then
+    local held minted
+    v raw call "$USDC" balance_of "$DEPLOYER_ARG"; held="$(u256_of $raw)"
+    v raw call "$USDC" minted "$DEPLOYER_ARG"; minted="$(u256_of $raw)"
+    python3 -I -c 'import sys;h,m=map(int,sys.argv[1:]);sys.exit(0 if h>=2*10**6 or m+2*10**6-h<=20_000*10**6 else 1)' \
+      "$held" "$minted" ||
+      die "the smoke's paid spawn needs 2 USDC: the deployer holds $held base units and the faucet has minted $minted of its 20,000 USDC cap"
+    echo "   smoke: the deployer holds $held USDC base units, the faucet has minted it $minted"
+  fi
+  d18_complete
+}
+
+# d18_complete: sets D18_COMPLETE when nothing is left to send (classes, Lobby and slope set, the smoke's game recorded
+# with its build and surrender, every recorded transaction landed), so the funding check need not refuse a rerun that
+# sends nothing. Read-only.
+D18_COMPLETE=0
+d18_complete() {
+  local key raw t
+  ((D18_LEFT == 0)) || return 0
+  [[ -n "$(rp_get smoke.game_id)" && -n "$(rp_get smoke.build_tx)" ]] || return 0
+  v raw call "$ECONOMY" terms "$(rp_get smoke.game_id)"; read -r -a t <<<"$raw"
+  [[ "$(hex_int "${t[9]}")" == 1 ]] || return 0
+  for key in declare.Account declare.Daily declare.Tutorial declare.Lobby multicall_tx smoke.spawn_tx smoke.build_tx \
+      smoke.surrender_tx; do
+    [[ -z "$(rp_get "$key")" || "$(repoint_tx_status "$(rp_get "$key")")" == SUCCEEDED ]] || return 0
+  done
+  D18_COMPLETE=1
+  echo "   complete: upgraded, Lobby and slope set, smoke recorded; nothing is left to send"
+}
+
+# d18_calls: the multicall's calls still missing (one spec per line), read from the chain now, in the order of the
+# brief: the three upgrades, the two Lobby classes, the configure.
+d18_calls() {
+  local name class
+  for name in DAILY TUTORIAL ACCOUNT; do
+    local new="NEW_${name}_CLASS"
+    class="$(class_of "${!name}")" || return 1
+    felt_eq "$class" "${!new}" || echo "${!name} upgrade ${!new}"
+  done
+  for name in DAILY TUTORIAL; do
+    class="$(d18_lobby_class "${!name}")" || return 1
+    felt_eq "$class" "$NEW_LOBBY_CLASS" || echo "${!name} set_lobby_class $NEW_LOBBY_CLASS"
+  done
+  local raw c
+  raw="$(call "$ECONOMY" config)" || return 1
+  read -r -a c <<<"$raw"
+  [[ "$(hex_int "${c[2]}")" == "$D18_SLOPE_BPS" ]] || echo "$ECONOMY configure ${c[0]} ${c[1]} $D18_SLOPE_BPS ${c[3]} ${c[4]}"
+}
+
+# d18_run: declares the D-18 classes, sends the multicall, records each step in the deployment file as it lands, writes
+# the new classes there, then smokes. Each step reads what already landed first and is skipped when done, so a rerun
+# sends only what is left; a complete one sends nothing.
+d18_run() {
+  local name raw calls=() spec entry
+  if ((REPOINT_CHECK_ONLY)); then
+    echo "== d18: check only (nothing is sent, the file is not written)"
+    for name in Account Daily Tutorial Lobby; do
+      local new="NEW_$(tr '[:lower:]' '[:upper:]' <<<"$name")_CLASS"
+      if rpc starknet_getClass "[\"latest\",\"${!new}\"]" | class_declared; then
+        echo "   declare $name: declared already"
+      else
+        echo "   declare $name ${!new}: a run would send it"
+      fi
+    done
+    v raw d18_calls
+    if [[ -z "$raw" ]]; then
+      echo "   multicall: nothing left to send"
+    else
+      echo "   multicall a run would send:"
+      while IFS= read -r spec; do
+        name=Economy
+        for entry in "Daily=$DAILY" "Tutorial=$TUTORIAL" "Account=$ACCOUNT"; do
+          [[ "${spec%% *}" != "${entry#*=}" ]] || name="${entry%%=*}"
+        done
+        echo "     $name.$(cut -d' ' -f2- <<<"$spec")"
+      done <<<"$raw"
+    fi
+    echo "== d18: check only: every check passed; nothing was sent"
+    exit 0
+  fi
+  # The previous classes and config and the commit of the run, once, before anything is sent.
+  if [[ -z "$(rp_get previous.Daily.class_hash)" ]]; then
+    rp_set "previous.Daily.class_hash=$(felt64 "$OLD_DAILY_CLASS")" \
+      "previous.Tutorial.class_hash=$(felt64 "$OLD_TUTORIAL_CLASS")" \
+      "previous.Account.class_hash=$(felt64 "$OLD_ACCOUNT_CLASS")" \
+      "previous.Lobby.class_hash=$(felt64 "$OLD_LOBBY_CLASS")" \
+      "previous.config=${D18_CONFIG[*]}" "at=$DEPLOYED_AT"
+  fi
+
+  echo "== d18: declare"
+  for name in Account Daily Tutorial Lobby; do
+    # A declare a stopped run sent: its receipt first, so it is not sent twice.
+    repoint_settled "declare.$name" || true
+    RECORD_SENDING="declare.$name"
+    declare_class "$name" >/dev/null
+    RECORD_SENDING=""
+  done
+  rp_set "Daily.class_hash=$(felt64 "$NEW_DAILY_CLASS")" "Tutorial.class_hash=$(felt64 "$NEW_TUTORIAL_CLASS")" \
+    "Account.class_hash=$(felt64 "$NEW_ACCOUNT_CLASS")" "Lobby.class_hash=$(felt64 "$NEW_LOBBY_CLASS")"
+  for name in Account Daily Tutorial Lobby; do
+    local new="NEW_$(tr '[:lower:]' '[:upper:]' <<<"$name")_CLASS"
+    rpc starknet_getClass "[\"latest\",\"${!new}\"]" | class_declared || die "the D-18 $name class ${!new} is not declared on the node"
+  done
+
+  echo "== d18: upgrade"
+  # A multicall a stopped run sent: its receipt first, then what is missing is read again.
+  repoint_settled multicall_tx || true
+  v raw d18_calls
+  if [[ -z "$raw" ]]; then
+    echo "   upgraded, Lobby and slope set already$( [[ -n "$(rp_get multicall_tx)" ]] && echo ", tx $(rp_get multicall_tx)")"
+  else
+    calls=()
+    while IFS= read -r spec; do calls+=("$spec"); done <<<"$raw"
+    RECORD_SENDING=multicall_tx
+    invoke_all "${calls[@]}"
+    RECORD_SENDING=""
+    rp_set "multicall_tx=$LAST_TX"
+  fi
+  v raw d18_calls
+  [[ -z "$raw" ]] || die "after the multicall, still missing: $(cut -d' ' -f2 <<<"$raw" | tr '\n' ' ')"
+  echo "   Daily, Tutorial and Account on the D-18 classes, Daily and Tutorial on the D-18 Lobby, slope $D18_SLOPE_BPS"
+
+  # The deployment file: the new classes where the client and the indexer would read them, every other field kept.
+  python3 -I - "$REPOINT_FILE" "$NEW_DAILY_CLASS" "$NEW_TUTORIAL_CLASS" "$NEW_ACCOUNT_CLASS" "$NEW_LOBBY_CLASS" <<'PY'
+import json, os, sys, tempfile
+path, daily, tutorial, account, lobby = sys.argv[1:]
+d = json.load(open(path))
+h = lambda x: "0x%064x" % int(x, 16)
+d["contracts"]["Daily"]["class_hash"] = h(daily)
+d["contracts"]["Tutorial"]["class_hash"] = h(tutorial)
+d["contracts"]["Account"]["class_hash"] = h(account)
+d["classes"]["Lobby"] = h(lobby)
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+with os.fdopen(fd, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+os.replace(tmp, path)
+PY
+  echo "== d18: wrote ${REPOINT_FILE#"$ROOT/"}"
+  d18_smoke
+}
+
+# d18_first_build <game id>: the first of the 16 placements next to the starter, (CENTER +- 1, CENTER) and (CENTER,
+# CENTER +- 1) in each orientation, whose fee estimate the node accepts (`signer estimate invoke`, read-only); prints
+# `orientation x y`, fails when none is accepted.
+d18_first_build() {
+  local c=2147483647 o x y out line l spec
+  for spec in "$c $((c + 1))" "$((c + 1)) $c" "$c $((c - 1))" "$((c - 1)) $c"; do
+    read -r x y <<<"$spec"
+    for o in 1 2 3 4; do
+      out="$(run_signer estimate invoke --contract "$DAILY" --function build --calldata "$1" "$o" "$x" "$y")" || true
+      line=""
+      while IFS= read -r l; do [[ "$l" == "{"* ]] && line="$l"; done <<<"$out"
+      if [[ -n "$line" && "$(pyj 'd.get("ok") is True' <<<"$line" 2>/dev/null)" == True ]]; then
+        echo "$o $x $y"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
+# d18_smoke: the classes, the Lobby class of Daily and Tutorial, the config (slope 12,220, the rest as recorded),
+# owner() on the five upgradable contracts; then a paid Daily spawn at stake 1, one D-18 build, the four fields of
+# builder(), and the surrender (score as the build left it; P-24: a score under 100 enters no mean). Each is sent once:
+# the spawn, the build and the surrender are recorded and a rerun cites them instead of sending again.
+d18_smoke() {
+  local name raw class entry quote swap min_out held player spawn_tx game_id g b t placement
+  echo "== d18: smoke"
+  for name in DAILY TUTORIAL ACCOUNT; do
+    local new="NEW_${name}_CLASS"
+    v class class_of "${!name}"
+    felt_eq "$class" "${!new}" || die "${name,,}'s class is $class, not the D-18 class"
+  done
+  echo "   class of Daily, Tutorial and Account: the D-18 classes"
+  for name in DAILY TUTORIAL; do
+    v class d18_lobby_class "${!name}"
+    felt_eq "$class" "$NEW_LOBBY_CLASS" || die "${name,,} runs the Lobby class $class, not the D-18 one"
+  done
+  echo "   lobby_class (storage $D18_LOBBY_SLOT) of Daily and Tutorial: the D-18 Lobby $NEW_LOBBY_CLASS"
+  v raw call "$ECONOMY" config; read -r -a t <<<"$raw"
+  [[ "$(hex_int "${t[2]}")" == "$D18_SLOPE_BPS" ]] || die "Economy's slope is $(hex_int "${t[2]}"), not $D18_SLOPE_BPS"
+  # shellcheck disable=SC2046
+  d18_same_but_slope $(rp_get previous.config) "${t[@]}" || die "Economy.config() differs from the previous one by more than the slope"
+  echo "   Economy.config(): $(d18_config_text "${t[@]}"); the rest as before the upgrade"
+  for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
+    v raw call "${entry#*=}" owner
+    [[ "$(hex_int "$raw")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
+  done
+  echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
+
+  # The paid spawn, once: a spawn a stopped run sent is read from its receipt.
+  if [[ -z "$(rp_get smoke.game_id)" ]] && repoint_settled smoke.spawn_tx; then
+    spawn_tx="$(rp_get smoke.spawn_tx)"
+    game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | repoint_spawned_game)" ||
+      die "the recorded smoke spawn $spawn_tx succeeded but spawned no Daily game: check it"
+    rp_set "smoke.game_id=$game_id"
+  fi
+  if [[ -n "$(rp_get smoke.game_id)" ]]; then
+    game_id="$(rp_get smoke.game_id)"
+    echo "   paid Daily spawn done already: game $game_id, tx $(rp_get smoke.spawn_tx); not sent again"
+  else
+    # Player is (id, name, master): the id is the key, so the name says whether the player exists.
+    v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r _ player _ <<<"$raw"
+    [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
+    v raw call "$USDC" balance_of "$DEPLOYER_ARG"; read -r held _ <<<"$raw"
+    gt "$(hex_int "$held")" 1999999 ||
+      invoke "$USDC" mint "$DEPLOYER_ARG" "$(python3 -I -c 'import sys;print(2000000-int(sys.argv[1],16))' "$held")" 0 >/dev/null
+    invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
+    v raw call "$ECONOMY" quote 1; read -r -a quote <<<"$raw"
+    v raw call "$ECONOMY" quote_swap "${quote[2]}" "${quote[3]}"; read -r swap _ <<<"$raw"
+    min_out="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$swap")"
+    RECORD_SENDING=smoke.spawn_tx
+    spawn_tx="$(invoke "$DAILY" spawn 1 0 $(u256 "$min_out"))"
+    RECORD_SENDING=""
+    game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | repoint_spawned_game)" ||
+      die "no GameSpawned event in the Daily spawn receipt"
+    rp_set "smoke.spawn_tx=$spawn_tx" "smoke.game_id=$game_id"
+    echo "   paid Daily game $game_id at stake 1 (min_out $min_out), tx $spawn_tx"
+  fi
+
+  # One D-18 build, once: a build a stopped run sent is awaited first; a game with a tile placed besides the starter
+  # (or over) has had it.
+  repoint_settled smoke.build_tx || true
+  v raw call "$DAILY" game "$game_id"; read -r -a g <<<"$raw"
+  if [[ "$(hex_int "${g[5]}")" == 0 && "$(hex_int "${g[7]}")" == 1 ]]; then
+    v placement d18_first_build "$game_id"
+    read -r -a b <<<"$placement"
+    echo "   build(game $game_id, orientation ${b[0]}, x ${b[1]}, y ${b[2]}): the first placement next to the starter the node estimates"
+    RECORD_SENDING=smoke.build_tx
+    raw="$(invoke "$DAILY" build "$game_id" "${b[@]}")" || die "the smoke's build failed"
+    RECORD_SENDING=""
+    rp_set "smoke.build_tx=$raw"
+    v raw call "$DAILY" game "$game_id"; read -r -a g <<<"$raw"
+    [[ "$(hex_int "${g[7]}")" == 2 ]] || die "game $game_id has $(hex_int "${g[7]}") tiles placed after the build, expected 2"
+  else
+    echo "   build done already$( [[ -n "$(rp_get smoke.build_tx)" ]] && echo ", tx $(rp_get smoke.build_tx)"); not sent again"
+  fi
+  echo "   game $game_id: score $(hex_int "${g[4]}"), placed_count $(hex_int "${g[7]}"), over $(hex_int "${g[5]}")"
+  # The D-18 builder view: four fields (game_id, player_id, tile_id, plan), the player the deployer.
+  v raw call "$DAILY" builder "$game_id" "$DEPLOYER_ARG"; read -r -a b <<<"$raw"
+  [[ "${#b[@]}" == 4 ]] || die "Daily.builder() returned ${#b[@]} felts, expected the four of D-18"
+  [[ "$(hex_int "${b[0]}")" == "$game_id" && "$(hex_int "${b[1]}")" == "$DEPLOYER_INT" ]] ||
+    die "Daily.builder($game_id) does not name the game and the player"
+  echo "   builder(): game_id $(hex_int "${b[0]}"), player_id the deployer, tile_id $(hex_int "${b[2]}"), plan $(hex_int "${b[3]}")"
+
+  # The surrender, once (the game is recorded by Economy then).
+  repoint_settled smoke.surrender_tx || true
+  v raw call "$ECONOMY" terms "$game_id"; read -r -a t <<<"$raw"
+  if [[ "$(hex_int "${t[9]}")" == 1 ]]; then
+    echo "   game $game_id recorded by Economy already$( [[ -n "$(rp_get smoke.surrender_tx)" ]] && echo ", surrendered in tx $(rp_get smoke.surrender_tx)")"
+  else
+    RECORD_SENDING=smoke.surrender_tx
+    invoke "$DAILY" surrender "$game_id" >/dev/null
+    RECORD_SENDING=""
+    v raw call "$ECONOMY" terms "$game_id"; read -r -a t <<<"$raw"
+    [[ "$(hex_int "${t[9]}")" == 1 ]] || die "the surrender of game $game_id was not recorded by Economy"
+    echo "   daily game $game_id surrendered, recorded (score $(hex_int "${t[8]}"))"
+  fi
+  echo "== d18: smoke ok"
 }
 
 SPEC_VERSION="$(rpc starknet_specVersion '[]')" || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
@@ -1265,6 +1699,8 @@ if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
     echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes are estimated, nothing is deployed"
   elif ((REPOINT)); then
     echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes repoint the deployment of $REPOINT_FILE"
+  elif ((D18)); then
+    echo "== unmerged, sepolia rehearsal on a local node: the working tree's D-18 classes upgrade the deployment of $REPOINT_FILE"
   else
     echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
   fi
@@ -1290,6 +1726,7 @@ cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 # --repoint: what is deployed and what already landed, read before anything is estimated or sent.
 ((REPOINT)) && repoint_state
+((D18)) && d18_state
 
 # Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
 # so the address stays out of argv and output), printed as an amount only. Before its first declare, a real run
@@ -1317,9 +1754,11 @@ FUNDING_MARGIN_STRK=20
 # files of RELEASE_DIR, whatever the environment says.
 ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
-# The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only.
+# The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
+# Account, Daily, Tutorial and Lobby.
 FUNDING_CLASSES=(Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
+((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 if ((USE_SIGNER)); then
   v STRK_RAW call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG"
   read -r BAL_LOW BAL_HIGH <<<"$STRK_RAW"
@@ -1423,12 +1862,18 @@ PY
   fi
   if [[ "$funded" != 0 && "$REPOINT" == 1 && "$RP_COMPLETE" == 1 ]]; then
     echo "   --repoint: nothing is left to send, so the need does not apply"
+  elif [[ "$funded" != 0 && "$D18" == 1 && "$D18_COMPLETE" == 1 ]]; then
+    echo "   --d18: nothing is left to send, so the need does not apply"
   else
     [[ "$funded" == 0 ]] || die "the deployer's STRK balance is below the need above: fund it before deploying; nothing was sent"
   fi
 fi
 if ((REPOINT)); then
   repoint_run
+  exit 0
+fi
+if ((D18)); then
+  d18_run
   exit 0
 fi
 
