@@ -107,7 +107,7 @@ export type {
   TournamentSummary,
 } from "./indexer";
 export { GameSession } from "./session";
-export type { BoardCharacter, BoardTile, PlaceMove, ScoredStructure, SessionState } from "./session";
+export type { BoardTile, PlaceMove, ScoredStructure, SessionState } from "./session";
 
 // React
 export { PavedProvider, connectionStatus, useAsyncRead, useGameSession, usePaved, useRead } from "./react";

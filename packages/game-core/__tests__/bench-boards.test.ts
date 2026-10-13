@@ -38,9 +38,8 @@ describe("bench board fixtures", () => {
         expect(pairs).toBeGreaterThanOrEqual(size - 1);
       });
 
-      it("has a mix of plans and no characters (D-18)", () => {
+      it("has a mix of plans", () => {
         expect(new Set(board.tiles.map((t) => t.plan)).size).toBeGreaterThanOrEqual(8);
-        expect(board.characters).toEqual([]);
       });
 
       it("matches what the generator produces from the fixed seed", () => {

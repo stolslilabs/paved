@@ -22,8 +22,7 @@ export function fakeGame(playerId = PLAYER, over = false): FakeGame {
       { id: 1, status: 1, plan: 4, orientation: 1, x: C, y: C },
       ...(over ? [] : [{ id: 2, status: 3, plan: 7, orientation: 0, x: 0, y: 0 }]),
     ],
-    builder: { gameId: 4, playerId, tileId: over ? 0 : 2, plan: over ? 0 : 7, placedCount: 0, availableCount: 7 },
-    characters: [1, 2, 3, 4, 5, 6, 7].map((role) => ({ role, placed: false, tileId: 0, x: 0, y: 0, spot: 0 })),
+    builder: { gameId: 4, playerId, tileId: over ? 0 : 2, plan: over ? 0 : 7 },
   };
 }
 

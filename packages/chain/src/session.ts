@@ -19,17 +19,6 @@ export interface BoardTile {
   pending?: boolean;
 }
 
-/** @deprecated D-18, removed once app-web stops reading `SessionState.characters` */
-export interface BoardCharacter {
-  /** Role code, 1 Lord to 7 Herdsman (6 and 7 since P4). */
-  role: number;
-  tileId: number;
-  x: number;
-  y: number;
-  spot: number;
-  pending?: boolean;
-}
-
 /** A structure a move closed, from one `Scored` event of its receipt. */
 export interface ScoredStructure {
   category: number;
@@ -48,16 +37,6 @@ export interface SessionState {
   tiles: BoardTile[];
   /** Tile to place now; null while a write is pending or when the game is over. */
   hand: { tileId: number; plan: number } | null;
-  /**
-   * Always empty: characters left the game (D-18).
-   * @deprecated D-18, removed once app-web stops reading it
-   */
-  characters: BoardCharacter[];
-  /**
-   * Always 0: characters left the game (D-18).
-   * @deprecated D-18, removed once app-web stops reading it
-   */
-  packedCharacters: number;
   /**
    * The structures the last write closed, one entry per `Scored` event of its receipt (a forest closed at 0 points
    * included), in receipt order. Empty before the first write, after a discard that closed nothing, and cleared when
@@ -81,10 +60,6 @@ export interface PlaceMove {
   orientation: number;
   x: number;
   y: number;
-  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
-  role?: number;
-  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
-  spot?: number;
 }
 
 /**
@@ -108,8 +83,6 @@ export class GameSession {
       game: null,
       tiles: [],
       hand: null,
-      characters: [],
-      packedCharacters: 0,
       lastScored: [],
       readonly: true,
       pending: false,
