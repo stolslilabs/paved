@@ -10,8 +10,8 @@
 #        scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
-# is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): MockUSDC (a bounded faucet,
-# S-1) and MockRouter, with the same pool. `deploy` refuses MockUSDC and MockRouter by name on mainnet, and the old
+# is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): the Faucet (D-25 B, a bounded USDC
+# faucet, S-1; the deployments file still keys it MockUSDC) and MockRouter, with the same pool. `deploy` refuses the Faucet and MockRouter by name on mainnet, and the old
 # mock Token off devnet.
 #
 # --unmerged (devnet): deploys the working tree of a pull request (the source check below is skipped) and writes
@@ -117,8 +117,8 @@
 # The Lobby class hash is checked as declared on the node (starknet_getClass) before Daily and Tutorial are
 # deployed; the script refuses otherwise.
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
-#   MockUSDC, Token (devnet only: the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
-#   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 MockUSDC its constructor preminted to the deployer
+#   Faucet, Token (devnet only: the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
+#   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 USDC its constructor preminted to the deployer
 #   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(paved, usdc) with the
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
@@ -263,7 +263,7 @@ fi
 case "$NETWORK" in
   devnet | sepolia) ;;
   mainnet)
-    echo "deploy.sh: refusing mainnet: a mainnet deployment is the owner's act (D-16), and MockUSDC is refused there by name." >&2
+    echo "deploy.sh: refusing mainnet: a mainnet deployment is the owner's act (D-16), and the Faucet is refused there by name." >&2
     echo "$USAGE" >&2
     exit 2 ;;
   *)
@@ -651,10 +651,10 @@ declare_class() { # <Contract> -> class hash
 
 deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   local name="$1" class="$2"; shift 2
-  # The mocks are for tests, devnet and Sepolia (E1's audit, P-39): MockUSDC and MockRouter are refused by name on
+  # The mocks are for tests, devnet and Sepolia (E1's audit, P-39): the Faucet and MockRouter are refused by name on
   # mainnet (the network check at the top refuses it already), the old mock Token off devnet.
   case "$name" in
-    MockUSDC|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+    Faucet|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
     Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
   esac
   local args=() out
@@ -1756,7 +1756,7 @@ ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
 # Account, Daily, Tutorial and Lobby.
-FUNDING_CLASSES=(Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection)
+FUNDING_CLASSES=(Account Daily Tutorial Faucet PavedToken MockRouter Vault Economy Lobby Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 if ((USE_SIGNER)); then
@@ -1884,7 +1884,7 @@ if [[ "$NETWORK" == "devnet" ]]; then TOKEN_CLASS="$(declare_class Token)"; fi
 ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
 TUTORIAL_CLASS="$(declare_class Tutorial)"
-USDC_CLASS="$(declare_class MockUSDC)"
+USDC_CLASS="$(declare_class Faucet)"
 PAVED_CLASS="$(declare_class PavedToken)"
 ROUTER_CLASS="$(declare_class MockRouter)"
 VAULT_CLASS="$(declare_class Vault)"
@@ -1915,19 +1915,19 @@ MEAN0=3980000
 LAUNCH_RATE=76000000000000000000000000000000
 
 echo "== deploy"
-USDC="$(deploy MockUSDC "$USDC_CLASS")"
+USDC="$(deploy Faucet "$USDC_CLASS")"
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN="$(deploy Token "$TOKEN_CLASS")"; fi
 PAVED="$(deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
 
 echo "== pool and stake"
-# The launch pool, in the router's token order, from the initial supply and MockUSDC's premint to the deployer (its
+# The launch pool, in the router's token order, from the initial supply and the Faucet's premint to the deployer (its
 # constructor, outside the faucet's caps: S-1's audit).
 read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
 python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
   "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
-  die "the deployer does not hold MockUSDC's 10,000 USDC premint"
+  die "the deployer does not hold the Faucet's 10,000 USDC premint"
 # The approvals and the pool: one multicall through the signer, one invoke each on devnet.
 if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
   LIQUIDITY="$(u256 "$POOL_PAVED") $(u256 "$POOL_USDC")"
@@ -1993,7 +1993,7 @@ DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/de
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
 [[ "$DECIMALS" == 6 ]] || die "MockUSDC has $DECIMALS decimals, expected 6"
 SYMBOL="USDC"
-echo "   token MockUSDC, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
+echo "   token Faucet, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
@@ -2014,7 +2014,7 @@ for item in items:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
 names = ["Account", "Daily", "Tutorial", "Collection", "Token", "Economy", "PavedToken", "Vault"]
-# The old mock Token is devnet only; devnet and Sepolia both run MockUSDC and MockRouter (P-39).
+# The old mock Token is devnet only; devnet and Sepolia both run the Faucet and MockRouter (P-39).
 if network != "devnet":
     names.remove("Token")
 names += ["MockUSDC", "MockRouter"]
@@ -2024,7 +2024,7 @@ doc = {
     "rpc_url": rpc_url,
     "deployed_at": commit,
     "deployed_block": int(block),
-    # The ERC20 Daily charges: USDC (MockUSDC on devnet and Sepolia).
+    # The ERC20 Daily charges: USDC (the Faucet, keyed MockUSDC, on devnet and Sepolia).
     "token": {**c["MockUSDC"], "decimals": int(decimals), "symbol": symbol},
     "contracts": {k: c[k] for k in names},
     # Declared, not deployed: a class hash and no address, so not under `contracts`.
@@ -2079,7 +2079,7 @@ done
 echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
-[[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not MockUSDC"
+[[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not the Faucet"
 [[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"
 echo "   entry_price: 2 USDC per stake unit"
 
