@@ -6,6 +6,7 @@ import { LeaderboardPage } from "./pages/Leaderboard";
 import { PlayerPage } from "./pages/Player";
 import { QuestsPage } from "./pages/Quests";
 import { EconomyPage } from "./pages/Economy";
+import { TutorialPage } from "./pages/Tutorial";
 
 export function App({ supportsMint = false }: { supportsMint?: boolean }) {
   const loading = useUIStore((s) => s.loading);
@@ -15,6 +16,7 @@ export function App({ supportsMint = false }: { supportsMint?: boolean }) {
       <Routes>
         <Route path="/" element={<LandingPage supportsMint={supportsMint} />} />
         <Route path="/game" element={<GamePage />} />
+        <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/leaderboard/:tournamentId?" element={<LeaderboardPage />} />
         <Route path="/economy" element={<EconomyPage />} />
         <Route path="/quests/:day?" element={<QuestsPage />} />

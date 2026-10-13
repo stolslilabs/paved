@@ -173,7 +173,7 @@ export const TUTORIAL_STAGES = [
       ["rotate-button", "Rotate the tile to match example placement"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "",
+    "ROTATE THE TILE UNTIL ITS EDGES MATCH ITS NEIGHBOURS, THEN CONFIRM.",
     1,
     { x: 0.85, y: 0 },
   ),
@@ -181,7 +181,7 @@ export const TUTORIAL_STAGES = [
     { x: 3, y: 0 },
     {
       orientation: 4,
-      tile_id: 9,
+      tile_id: 10, // tile 9 (CCCCCCCCC) is discarded, as in the Cairo deck
       x: 2147483648,
       y: 2147483647,
     },
@@ -190,7 +190,7 @@ export const TUTORIAL_STAGES = [
       ["rotate-button", "Rotate the tile to match example placement"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "",
+    "THE LAST TILE CLOSES WHAT IS STILL OPEN: WATCH THE POINTS.",
     1,
     { x: 0.85, y: 0 },
   ),
