@@ -48,4 +48,30 @@ describe("GameModeCard", () => {
     expect(mod.GameModeCardDescription).toBeDefined();
     expect(mod.GameModeCardStats).toBeDefined();
   });
+
+  it("renders a free card: Free badge, no prize, time or podium line, its own action label", async () => {
+    const { GameModeCardView } = await import("../src/components/GameModeCard");
+    const { collectText } = await import("./helpers/collect-text");
+    const text = collectText(
+      GameModeCardView({
+        mode: "training",
+        title: "Training",
+        description: "Free, no wallet, no rewards",
+        tileCount: 38,
+        duration: "No limit",
+        entryFee: "50",
+        free: true,
+        prizePool: "100",
+        topPlayers: [{ name: "Zed", score: 9 }],
+        timeRemaining: "3h",
+        tokenLabel: "TILE",
+        onPress: vi.fn(),
+      }),
+    );
+    expect(text).toContain("Free, no wallet, no rewards");
+    expect(text).toContain("Free");
+    expect(text).not.toContain("50");
+    expect(text).not.toMatch(/Prize|Time:|Zed/);
+    expect(text).toContain("Play");
+  });
 });
