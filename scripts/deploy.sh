@@ -66,7 +66,7 @@
 # step skipped when what it would send has landed:
 #   1. declare MockRouter and Economy (declareIfNot);
 #   2. deploy MockRouter(PAVED, USDC), salt recorded first;
-#   3. seed it, one multicall: Vault.unstake and MockUSDC.mint of what the deployer lacks, both approvals,
+#   3. seed it, one multicall: Vault.unstake and Faucet.mint (the file's MockUSDC) of what the deployer lacks, both approvals,
 #      add_liquidity. The amounts: the old pool's ratio (its reserves); its depth as far as the deployer's PAVED allows,
 #      its balance plus an unstake that keeps 10 % of its stake staked (E-7); the USDC at that ratio from its balance,
 #      then the faucet (10,000 per call, 20,000 per address), less the smoke's 2 USDC, less PAVED when that falls short;
@@ -918,7 +918,7 @@ PY
 # repoint_seed_plan: the seed of the new pool (R-1), unless one is recorded: the old pool's ratio, read from its
 # reserves; its depth as far as the deployer's PAVED allows, which is its balance plus an unstake that leaves 10 % of
 # its Vault stake staked (E-7: USDC that reaches a Vault nobody stakes in goes to the first staker); the USDC at that
-# ratio, from the deployer's balance and then the MockUSDC faucet (10,000 USDC per call, 20,000 per address), less the
+# ratio, from the deployer's balance and then the Faucet (the file's MockUSDC) (10,000 USDC per call, 20,000 per address), less the
 # 2 USDC the smoke's paid spawn needs, and less PAVED when that cannot cover it. Recorded before anything is sent, so a rerun seeds the same amounts (not with
 # --check-only, which writes nothing).
 repoint_seed_plan() {
@@ -1991,7 +1991,7 @@ echo "   Collection: minters Daily and Tutorial, registered in Account"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
-[[ "$DECIMALS" == 6 ]] || die "MockUSDC has $DECIMALS decimals, expected 6"
+[[ "$DECIMALS" == 6 ]] || die "the Faucet has $DECIMALS decimals, expected 6"
 SYMBOL="USDC"
 echo "   token Faucet, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
