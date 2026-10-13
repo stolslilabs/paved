@@ -386,3 +386,28 @@ PR body additions:
 - "For CLIENT": the claim and the views that move.
 
 Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-25
+
+Fourth addendum to this task, from the PM, 2026-10-13. It is small: decision rows and one naming change.
+
+1. DECISIONS.md: add rows D-25 and P-52.
+   - D-25 (owner, via the PM, 2026-10-13): Paved's architecture and macro features follow Glitchbomb as the
+     reference. The systems gain Setup (configuration, wiring, achievements and quests), Token and Vault (moved into
+     systems), Faucet (test USDC, test networks only) and Treasury (Ekubo LP fees). Account moves to the mocks; a
+     player's identity becomes the wallet address. Reversed by: "The owner drops Glitchbomb as the reference".
+   - P-52 (PM, 2026-10-13):
+     - the target systems are Challenge, Setup, Token, Vault, Faucet, Collection and Treasury. Treasury is
+       provisional, pending the owner's answer; Governor comes after mainnet;
+     - Setup is the D-24 system;
+     - Account goes to the mocks;
+     - a gap analysis comes first (a separate PR), and the PM rules on the mapping;
+     - Sepolia: a fresh deployment or chained upgrades, CORE's choice;
+     - audits: access control for Setup and the Faucet, security and economy for Economy, Vault and Token.
+     Reversed by: "The PM's ruling on the gap analysis, or the owner's answer on Treasury".
+2. Naming: in the D-24 section and in public-interface.md's "Breaking change D-24", the quest system is named
+   **Setup** (P-52: Setup holds the configuration, the wiring and the quests and achievements). One line can say "the
+   D-24 system, named Setup by D-25". Do not plan the rest of D-25 here: the separate gap-analysis PR
+   (docs/architecture/glitchbomb-gap.md) does that.
+
+Everything else holds. Plain pushes, never rebase. Do not merge.
