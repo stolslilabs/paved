@@ -1,7 +1,7 @@
 // Stores
 export {
   useActionsStore,
-  useLobbyStore,
+  useModesStore,
   useCameraStore,
   useGameStore,
   useUIStore,

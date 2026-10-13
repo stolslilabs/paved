@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
 import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, useGameSession, usePaved } from "@paved/chain";
-import type { GameKey } from "@paved/chain";
+import type { GameKey, PlaceMove } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
 import { ClosedStructures } from "../components/ClosedStructures";
 import { GameNft, useCollection } from "../components/GameNft";
 import { CENTER, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
-import { buildGameRoute } from "../utils/mode-routing";
+import { buildGameRoute, isTrainingParam } from "../utils/mode-routing";
+import type { MoveSenders, PageSession, PageState } from "../training/page-session";
+import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";
 import { useEconomy } from "../utils/economy-context";
 import { readPurchaseIntent, spawnForIntent, type ReadPurchase } from "../utils/economy-start";
@@ -126,6 +128,12 @@ function Screen({ text, onBack, backDisabled, action }: { text: string; onBack?:
  * malformed id is "Game not found"; no id and no consent spawns nothing.
  */
 export function GamePage() {
+  const [searchParams] = useSearchParams();
+  // Training is a mode of this route; it never reads the chain providers.
+  return isTrainingParam(searchParams.get("mode")) ? <TrainingBoard /> : <ChainGamePage />;
+}
+
+function ChainGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -231,7 +239,6 @@ export function GamePage() {
 }
 
 function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly: boolean }) {
-  const navigate = useNavigate();
   const { writer } = usePaved();
   const { session, state } = useGameSession(gameKey);
   const collection = useCollection();
@@ -243,7 +250,81 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
       return null;
     }
   }, [gameKey.mode, gameKey.gameId]);
+  const senders = useMemo<MoveSenders | null>(
+    () =>
+      writer && {
+        build: (move) => writer.build(gameKey, move),
+        discard: () => writer.discard(gameKey),
+        surrender: () => writer.surrender(gameKey),
+      },
+    [writer, gameKey],
+  );
+  return (
+    <GameBoardView
+      session={session}
+      state={state}
+      senders={senders}
+      forceReadonly={forceReadonly}
+      gameLabel={`${gameKey.mode} game ${gameKey.gameId}`}
+      extras={<GameNft tokenId={tokenId} collection={collection} verify />}
+    />
+  );
+}
 
+/** A Training game: the off-chain engine behind the same page. No wallet, writer, account or indexer is read. */
+function TrainingBoard() {
+  const { session, state, newGame } = useTrainingSession();
+  return <GameBoardView session={session} state={state} senders={NO_CHAIN} forceReadonly={false} gameLabel="training game" onNewGame={newGame} />;
+}
+
+/** The senders a Training game gets: `LocalSession` never calls them, and none could reach a chain. */
+const NO_CHAIN: MoveSenders = {
+  build: () => Promise.reject(new Error("Training sends nothing on chain")),
+  discard: () => Promise.reject(new Error("Training sends nothing on chain")),
+  surrender: () => Promise.reject(new Error("Training sends nothing on chain")),
+};
+
+interface GameBoardViewProps {
+  /** The session driving the game: `GameSession` on chain, `LocalSession` in Training. */
+  session: PageSession | null;
+  state: PageState | null;
+  /** The chain writes of the game; null when there is no writer (read only). */
+  senders: MoveSenders | null;
+  forceReadonly: boolean;
+  /** Names the game in the "Game not found" screen. */
+  gameLabel: string;
+  /** Shown under the points (the game's NFT on chain). */
+  extras?: ReactNode;
+  /** Set in Training: a finished game offers a new game instead of the chain's "Continue". */
+  onNewGame?: () => void;
+}
+
+function TrainingComplete({ score, onNewGame, onBack }: { score: number; onNewGame: () => void; onBack: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-label="Game complete"
+      style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}
+    >
+      <div style={{ background: "#171717", border: "1px solid #555", borderRadius: 12, padding: 24, display: "flex", flexDirection: "column", gap: 16, maxWidth: 360, color: "#f5f5f5", alignItems: "center" }}>
+        <span style={{ fontFamily: "RubikMonoOne" }}>Training complete</span>
+        <span>Final score</span>
+        <span data-testid="final-score" style={{ color: "#f59e0b", fontFamily: "RubikMonoOne", fontSize: 32 }}>{score.toLocaleString()}</span>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button type="button" onClick={onNewGame} style={{ background: "#f59e0b", border: "none", color: "#0a0a0a", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+            New game
+          </button>
+          <button type="button" onClick={onBack} style={{ background: "transparent", border: "1px solid #555", color: "#999", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+            Back
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extras, onNewGame }: GameBoardViewProps) {
+  const navigate = useNavigate();
   const [scene, setScene] = useState<GameScene | null>(null);
   const orientation = useGameStore((s) => s.orientation);
   const setOrientation = useGameStore((s) => s.setOrientation);
@@ -254,7 +335,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const [hoverGrid, setHoverGrid] = useState<{ x: number; y: number } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>("play");
 
-  const readonly = forceReadonly || !writer || (state?.readonly ?? true);
+  const readonly = forceReadonly || !senders || (state?.readonly ?? true);
   const loading = state?.pending ?? false;
   const hand = state?.hand ?? null;
   const game = state?.game ?? null;
@@ -347,26 +428,26 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
 
   // The tile is drawn at once (pending); the receipt's events confirm it; one read reconciles.
   const handleConfirm = useCallback(async () => {
-    if (!session || !writer || readonly) return;
-    const move = { orientation, x, y };
+    if (!session || !senders || readonly) return;
+    const move: PlaceMove = { orientation, x, y };
     useGameStore.getState().setSelectedTile(null);
     // Keep hoverGrid so the ghost stays visible with the next tile
-    const placed = await session.place(move, () => writer.build(gameKey, move));
+    const placed = await session.place(move, () => senders.build(move));
     if (placed) setOrientation(1); // reset rotation for the new tile
-  }, [session, writer, readonly, orientation, x, y, gameKey, setOrientation]);
+  }, [session, senders, readonly, orientation, x, y, setOrientation]);
 
   const handleDiscard = useCallback(async () => {
-    if (!session || !writer || readonly) return;
-    await session.discard(() => writer.discard(gameKey));
-  }, [session, writer, readonly, gameKey]);
+    if (!session || !senders || readonly) return;
+    await session.discard(() => senders.discard());
+  }, [session, senders, readonly]);
 
   const [confirmingSurrender, setConfirmingSurrender] = useState(false);
   // Surrender ends the game with its score so far; it asks first and is serialised by the writer.
   const handleSurrender = useCallback(async () => {
     setConfirmingSurrender(false);
-    if (!session || !writer || readonly) return;
-    await session.surrender(() => writer.surrender(gameKey));
-  }, [session, writer, readonly, gameKey]);
+    if (!session || !senders || readonly) return;
+    await session.surrender(() => senders.surrender());
+  }, [session, senders, readonly]);
   const canSurrender = !readonly && !loading && game !== null && !game.over;
 
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
@@ -429,7 +510,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   if (!state || state.status === "loading") return <Screen text="Loading game..." />;
   if (state.status === "error") {
     const text =
-      state.error === "game-not-found" ? `Game not found: ${gameKey.mode} game ${gameKey.gameId}` : `Cannot read the game: ${state.message}`;
+      state.error === "game-not-found" ? `Game not found: ${gameLabel}` : `Cannot read the game: ${state.message}`;
     return <Screen text={text} onBack={() => navigate("/")} />;
   }
 
@@ -438,7 +519,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     : state.readError
       ? { text: `Move applied; refresh failed: ${state.readError}`, background: "rgba(120,53,15,0.9)" }
     : !forceReadonly && state.readonly
-      ? { text: writer ? "Not your game: read only" : "Not connected: read only", background: "rgba(120,53,15,0.9)" }
+      ? { text: senders ? "Not your game: read only" : "Not connected: read only", background: "rgba(120,53,15,0.9)" }
       : null;
 
   return (
@@ -500,7 +581,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             discarded={game?.discardedCount ?? 0}
           />
           <ClosedStructures closures={closures} />
-          <GameNft tokenId={tokenId} collection={collection} verify />
+          {extras}
         </div>
 
         <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 1, justifySelf: "end" }}>
@@ -599,7 +680,11 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
         </div>
       )}
 
-      <GameCompleteDialog score={game?.score ?? 0} visible={game?.over === true} onClose={() => navigate("/")} />
+      {onNewGame ? (
+        game?.over === true && <TrainingComplete score={game.score} onNewGame={onNewGame} onBack={() => navigate("/")} />
+      ) : (
+        <GameCompleteDialog score={game?.score ?? 0} visible={game?.over === true} onClose={() => navigate("/")} />
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ vi.mock("@paved/ui", () => ({
       ))}
     </div>
   ),
+  GameModeCardView: () => null,
   ModeDetailDialog: ({ children }: any) => <div>{children}</div>,
   ModeDetailDialogStat: ({ children }: any) => <div>{children}</div>,
   TokenPanel: ({ error }: any) => <div>{error && <div role="alert">{error}</div>}</div>,
