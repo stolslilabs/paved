@@ -2,7 +2,6 @@
 export { GameScene } from "./core/GameScene";
 export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
-export { CharRenderer } from "./core/CharRenderer";
 export { CameraController } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";
@@ -28,6 +27,5 @@ export type {
   SurfaceInputEventType,
   SurfaceSize,
   TileRenderData,
-  CharacterRenderData,
   HoverState,
 } from "./core/types";

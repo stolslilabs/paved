@@ -1,14 +1,12 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer } from "./TileRenderer";
-import { CharRenderer } from "./CharRenderer";
 import { CameraController } from "./CameraController";
 import { Effects } from "./Effects";
 import { screenToGrid, isClick, createThrottled } from "./interaction";
 import type {
   RendererConfig,
   TileRenderData,
-  CharacterRenderData,
   HoverState,
   CameraMode,
   BoardBounds,
@@ -75,7 +73,6 @@ export class GameScene {
   camera!: THREE.PerspectiveCamera;
   renderer!: THREE.WebGLRenderer;
   tiles: TileRenderer;
-  characters: CharRenderer;
   controls!: CameraController;
   assets: AssetLoader;
   effects: Effects;
@@ -89,7 +86,6 @@ export class GameScene {
   private shadowsDirty = true;
   private isWebGPU = false;
   private latestTiles: TileRenderData[] = [];
-  private latestCharacters: CharacterRenderData[] = [];
   private renderProfile: RenderProfile = "play";
   private ambientLight: THREE.AmbientLight | null = null;
   private hemisphereLight: THREE.HemisphereLight | null = null;
@@ -110,11 +106,9 @@ export class GameScene {
     this.scene.add(this.sceneGroup);
     this.assets = new AssetLoader();
     this.tiles = new TileRenderer(this.assets);
-    this.characters = new CharRenderer();
     this.effects = new Effects();
 
     this.sceneGroup.add(this.tiles.getGroup());
-    this.sceneGroup.add(this.characters.getGroup());
 
     this.dependencies = dependencies;
   }
@@ -147,7 +141,6 @@ export class GameScene {
       // Re-add to scene group
       this.sceneGroup.clear();
       this.sceneGroup.add(this.tiles.getGroup());
-      this.sceneGroup.add(this.characters.getGroup());
     }
 
     const rendererFactory = this.dependencies.createRenderer ?? createDefaultRenderer;
@@ -203,10 +196,9 @@ export class GameScene {
 
     this.setupInteraction(surface);
 
-    // Tiles and characters handed over while the models were loading were drawn from nothing:
+    // Tiles handed over while the models were loading were drawn from nothing:
     // draw the last ones given now that they can be.
     this.updateTiles(this.latestTiles);
-    this.updateCharacters(this.latestCharacters);
   }
 
   private setupLighting(): void {
@@ -353,13 +345,6 @@ export class GameScene {
     this.requestRender();
   }
 
-  /** Update character meshes */
-  updateCharacters(chars: CharacterRenderData[]): void {
-    this.latestCharacters = chars.slice();
-    this.characters.updateCharacters(chars);
-    this.requestRender();
-  }
-
   /** Set hover preview at grid position */
   setHoveredTile(state: HoverState | null): void {
     this.tiles.setHover(state);
@@ -435,7 +420,7 @@ export class GameScene {
 
   /**
    * Redraw the shadow map with the next frame. Needed whenever a shadow caster is added,
-   * removed or moved; tiles are the only casters (hover preview, slots and characters cast none).
+   * removed or moved; tiles are the only casters (hover preview and slots cast none).
    */
   requestShadowUpdate(): void {
     this.shadowsDirty = true;
@@ -446,7 +431,6 @@ export class GameScene {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowsDirty = false;
     }
-    this.characters.updateBillboards(this.camera);
     this.effects.render();
   }
 
@@ -514,7 +498,6 @@ export class GameScene {
 
     this.stop();
     this.tiles.dispose();
-    this.characters.dispose();
     this.effects.dispose();
     this.controls.dispose();
     this.assets.dispose();
