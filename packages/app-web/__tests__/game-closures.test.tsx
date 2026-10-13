@@ -38,7 +38,7 @@ const scored = (category: number, size: number, points: number) => ({
   name: "Scored",
   fields: { gameId: 4n, playerId: 0xabcn, category: BigInt(category), size: BigInt(size), points: BigInt(points) },
 });
-const built = { name: "Built", fields: { gameId: 4n, playerId: 0xabcn, tileId: 2n, plan: 7n, orientation: 1n, x: 0n, y: 0n, role: 0n, spot: 0n } };
+const built = { name: "Built", fields: { gameId: 4n, playerId: 0xabcn, tileId: 2n, plan: 7n, orientation: 1n, x: 0n, y: 0n } };
 
 async function confirmWith(events: unknown[]) {
   const views = new FakeGameViews();
@@ -55,9 +55,9 @@ async function confirmWith(events: unknown[]) {
 }
 
 describe("Points on closing (D-18)", () => {
-  it("sends the move with no character", async () => {
+  it("sends the move once the tile is on a valid slot, with no spot step", async () => {
     const build = await confirmWith([built]);
-    expect(build.mock.calls[0][1]).toMatchObject({ role: 0, spot: 0 });
+    expect(build.mock.calls[0][0]).toEqual(gameKey);
   });
 
   it("shows each structure the move closed, with its points", async () => {
