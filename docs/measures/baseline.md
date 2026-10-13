@@ -794,7 +794,7 @@ no figure before.
 | l | game over on the last `build` | 6,957,515 | 7,128,685 | +171,170 (+2.46 %) | 7,774,092 | 91.7 % |
 | s | game over on the last `discard` (new) | not measured | 3,360,103 | not measured before | 3,528,109 | 95.2 % |
 | g | closing move in its day (surrender) | 2,988,628 | 3,169,908 | +181,280 (+6.07 %) | 3,672,907 | 86.3 % |
-| i | game over after its day (surrender) | 2,531,088 | 2,712,368 | +181,280 (+7.16 %) | 2,690,889 | 100.8 % **above** |
+| i | game over after its day (surrender) | 2,531,088 | 2,712,368 | +181,280 (+7.16 %) | **2,847,987** (was 2,690,889) | 95.2 % |
 | k | closing move, largest report (surrender) | 3,317,508 | 3,604,088 | +286,580 (+8.64 %) | 4,018,231 | 89.7 % |
 | m | Daily spawn, stake 1 | 50,271,386 | 49,988,176 | -283,210 (-0.56 %) | 52,743,229 | 94.8 % |
 | n | Daily spawn, stake 10, referred | 51,297,496 | 51,014,286 | -283,210 (-0.55 %) | 53,820,644 | 94.8 % |
@@ -805,9 +805,10 @@ no figure before.
 | e | closes a forest of 4 tiles | 8,726,746 | 8,720,646 | -6,100 (-0.07 %) | 8,962,300 | 97.3 % |
 | f | closes a forest of 16 nodes, the worst scan | 18,560,976 | 18,554,876 | -6,100 (-0.03 %) | 18,923,195 | 98.1 % |
 
-- **i passes its ceiling: 2,712,368 against 2,690,889 (100.8 %).** The brief says to stop and report it: the ceiling is
-  left as it was and `test_gas_i_closing_move_after_its_day` fails. Every other scenario stays under its ceiling; the
-  largest share of a ceiling after i is f's, 98.05 %.
+- **i's ceiling is raised to measured + 5 %, 2,847,987 (was 2,690,889).** It measured 2,712,368, 100.8 % of the old
+  ceiling: the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20. CORE's decision
+  (2026-10-13, after the step D escalation), the rule the other ceilings follow; it reverses if the PM asks for savings
+  instead. Every other ceiling is unchanged and none is passed; the largest share of a ceiling is f's, 98.05 %.
 - **The game overs, g, i, k, l: +170,000 to +287,000.** g and i +181,280 each, l +171,170, k +286,580 (k's report has 9
   entries, against 3 for g and i and 7 for l). The external call (`call_contract_syscall`, the calldata of the player and of up
   to 9 entries, `Setup`'s dispatch, its reporter read) costs more than the library call of `build` (about 118,650 L2

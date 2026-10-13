@@ -46,7 +46,10 @@ pub const CEILING_FOREST_WORST: u128 = 18923195;
 // (the closing move that did not rank) and j (the `tournament` view) out with it; the ceilings are
 // those set when the ranking was there (`docs/measures/baseline.md`, "After D-20").
 pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
-pub const CEILING_CLOSING_AFTER: u128 = 2690889;
+// i: raised at D-24 to measured + 5 % (2,712,368; CORE's decision, reversed if the PM asks for
+// savings): the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20
+// (2,531,088).
+pub const CEILING_CLOSING_AFTER: u128 = 2847987;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
