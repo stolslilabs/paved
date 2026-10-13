@@ -14,7 +14,7 @@ const PA = padded(A);
 async function served() {
   const node = new FakeNode();
   node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
-  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("tutorial", 1, A)]);
+  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY + 1 })]);
   node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
   node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
   const indexer = indexerOf(node);
@@ -47,7 +47,7 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
+      contracts: { daily: "0x1111", setup: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
       checks: { definitions_excluded: 0 },
     });
   });
@@ -92,17 +92,17 @@ describe("routes", () => {
 
   test("the tournaments list, the player, its games, its entry and one game", async () => {
     const { indexer } = await served();
-    expect(get(indexer, "/v1/tournaments?limit=5").body).toMatchObject({ tournaments: [{ id: DAY }], next: null });
+    expect(get(indexer, "/v1/tournaments?limit=5").body).toMatchObject({ tournaments: [{ id: DAY + 1 }, { id: DAY }], next: null });
     expect(get(indexer, `/v1/players/${PA}`).body).toMatchObject({
       player: { player_id: PA, name: "Ada" },
-      stats: { daily_games: 1, daily_finished: 1, best_score: 50, tutorial_games: 1 },
+      stats: { daily_games: 2, daily_finished: 1, best_score: 50 },
     });
     expect(get(indexer, `/v1/players/${padded(0xeeen)}`)).toMatchObject({ code: 200, body: { player: null, stats: null } });
     const games = get(indexer, `/v1/players/${PA}/games?contract=daily`).body.games as { game_id: number }[];
-    expect(games.map((g) => g.game_id)).toEqual([1]);
+    expect(games.map((g) => g.game_id)).toEqual([3, 1]);
     expect(get(indexer, `/v1/players/${PA}/tournaments/100`).body).toMatchObject({ entry: { rank: 1 } });
     expect(get(indexer, `/v1/players/${PA}/tournaments/99`).body).toMatchObject({ entry: null });
-    expect(get(indexer, "/v1/games/tutorial/1").body).toMatchObject({ game: { contract: "tutorial", game_id: 1, over: false } });
+    expect(get(indexer, "/v1/games/daily/3").body).toMatchObject({ game: { contract: "daily", game_id: 3, over: false } });
     expect(get(indexer, "/v1/games/daily/99")).toMatchObject({ code: 404, body: { status: "error" } });
   });
 
@@ -203,19 +203,18 @@ describe("Economy's fields (appended in E3)", () => {
 });
 
 describe("the game token (appended in E5b)", () => {
-  test("token_id is the game id for Daily, 2^32 + the id for Tutorial, null before the mint; always a safe integer", async () => {
+  test("token_id is the game id, null before the mint; a past Tutorial token is skipped (D-21)", async () => {
     const node = new FakeNode();
     node.mine([ev.created(A, 0x416461)]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
-    node.mine([ev.spawned("tutorial", 1, A), ev.minted(A, 2 ** 32 + 1)]);
+    node.mine([ev.minted(A, 2 ** 32 + 1)]);
     node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
     const indexer = indexerOf(node);
     await settle(indexer);
     const token = (target: string) => (get(indexer, target).body.game as { token_id: number | null }).token_id;
     expect(token("/v1/games/daily/1")).toBe(1);
-    expect(token("/v1/games/tutorial/1")).toBe(2 ** 32 + 1);
     expect(token("/v1/games/daily/2")).toBeNull();
-    expect(Number.isSafeInteger(token("/v1/games/tutorial/1"))).toBe(true);
+    expect(indexer.status).toBe("ok");
   });
 });
 
@@ -240,7 +239,11 @@ describe("strict parameters", () => {
     [`/v1/players/${PA}/games?contract=weekly`],
     [`/v1/players/${PA}/games?before=1:daily`],
     [`/v1/players/${PA}/games?before=1:daily:0`],
-    [`/v1/players/${PA}/games?contract=daily&contract=tutorial`],
+    [`/v1/players/${PA}/games?contract=daily&contract=daily`],
+    // The on-chain Tutorial's games are dropped (D-21).
+    [`/v1/players/${PA}/games?contract=tutorial`],
+    [`/v1/players/${PA}/games?before=1:tutorial:1`],
+    ["/v1/games/tutorial/1"],
     [`/v1/players/${PA}/tournaments/x`],
     ["/v1/games/weekly/1"],
     ["/v1/games/daily/0"],

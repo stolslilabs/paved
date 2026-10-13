@@ -1,7 +1,7 @@
 # @paved/indexer
 
-Paved's indexer: one Node process that follows a Starknet node over JSON-RPC, keeps the games and the players of `Daily`,
-`Tutorial` and `Account`, and the paid games' terms and settlements of `Economy`, in SQLite, and serves the daily
+Paved's indexer: one Node process that follows a Starknet node over JSON-RPC, keeps the games and the players of `Daily`
+and `Account`, the quests and achievements of `Setup`, and the paid games' terms and settlements of `Economy`, in SQLite, and serves the daily
 leaderboard over a read-only HTTP API. It is display only: it
 holds no key, sends nothing, and its database can be deleted at any time (`rebuild` makes the same tables from the
 chain). Design: `docs/architecture/indexer.md` (with an "As built" section at its end).
@@ -34,7 +34,7 @@ curl -s http://127.0.0.1:8787/v1/head
 
 | Option | Meaning |
 |---|---|
-| `--deployment <file>` | `contracts/deployments/<network>.json`: the four addresses (`Daily`, `Tutorial`, `Account`, `Economy`; all required), `deployed_block`, `chain_id` |
+| `--deployment <file>` | `contracts/deployments/<network>.json`: the addresses of `Daily`, `Setup`, `Account` and `Economy` (all required) and of `Collection` (optional), `deployed_block`, `chain_id` |
 | `--db <file>` | SQLite file (WAL). A database built for another deployment, start or chain is refused: `rebuild` it |
 | `--rpc <url>` or `INDEXER_RPC_URL` | The node. Default: the file's `rpc_url`, only for `network: devnet` and only at localhost. Never logged (a short hash is) |
 | `--port`, `--host` | The API, default `127.0.0.1` and port `8787`; `--port 0` picks a free port (the log line says which) |
@@ -76,7 +76,18 @@ day (`day_closes`), ranks 1 to 3 of that day go to the `podium` table, three dif
 closing block. The past prize events of `Daily` (`Sponsored`, `Claimed`, `Reclaimed`, emitted before D-20) are known by
 name and skipped, so a replay of a history holding them never halts.
 
-Schema 7 (D-20): a database of schema 6 is refused at start with a message naming `rebuild`; rebuild it from the chain.
+Since D-21 and D-24 the on-chain Tutorial is gone and the quests and achievements live in `Setup`: their six events
+(`QuestDefined`, `QuestProgressed`, `QuestRetired`, `AchievementDefined`, `AchievementProgressed`,
+`AchievementRetired`) are read from Setup's address only. The tutorial claim, `Setup.claim_tutorial()`, emits
+`AchievementProgressed { task 10, count 1 }` the first time a player calls it (nothing after): it credits First Stone like
+any achievement progress. Gone with D-21: the `tutorial` source and the `Tutorial` key of the deployment file, the
+`tutorial` contract of the game routes (`/v1/games/tutorial/...` and `contract=tutorial` are `400`), and `tutorial_games`
+of a player's stats. A replay of an older history never halts: the six events from Daily's address (Sepolia's past
+progress, not carried over, P-51 ruling 5), `LobbyClassSet` and the mint of a past Tutorial game's token (id `2^32 +
+game id`) are skipped; the Tutorial's address is not read.
+
+Schema 8 (D-21, D-24: Setup's address replaces Tutorial's in the deployment the database is built for): a database of
+schema 7 or older is refused at start with a message naming `rebuild`; rebuild it from the chain.
 
 ## Tests
 

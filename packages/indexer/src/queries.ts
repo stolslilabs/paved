@@ -273,9 +273,6 @@ export class Queries {
           "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'daily' AND over = 1 AND over_block <= ?",
         ),
         best_score: best === null || best === undefined ? null : Number(best),
-        tutorial_games: count(
-          "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'tutorial' AND spawned_block <= ?",
-        ),
         paid_games: count("SELECT count(*) AS n FROM purchases WHERE player_id = ? AND purchased_block <= ?"),
         settled_games: rewards.length,
         rewards: total(rewards.map((row) => row.reward!)),

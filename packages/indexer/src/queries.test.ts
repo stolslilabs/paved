@@ -135,7 +135,6 @@ describe("tournaments", () => {
         [ev.spawned("daily", 2, B, { day: 99 })],
         [ev.spawned("daily", 3, A, { day: 100 })],
         [ev.spawned("daily", 4, B, { day: 100 })],
-        [ev.spawned("tutorial", 1, A)],
       );
       node.mine([ev.over("daily", 3, A, 5, { day: 100 })]);
     });
@@ -157,9 +156,9 @@ describe("tournaments", () => {
 describe("players and games", () => {
   const build = (node: FakeNode) => {
     players(node);
-    node.mine([ev.spawned("daily", 1, A, { start: 1000 })], [ev.spawned("tutorial", 1, A, { start: 1000 })], [ev.spawned("daily", 2, A, { start: 2000 })]);
+    node.mine([ev.spawned("daily", 1, A, { start: 1000 })], [ev.spawned("daily", 6, A, { start: 1000 })], [ev.spawned("daily", 2, A, { start: 2000 })]);
     node.mine([ev.over("daily", 1, A, 30)]);
-    node.mine([ev.spawned("tutorial", 2, A, { start: 3000 }), ev.spawned("daily", 3, B, { start: 3000 })]);
+    node.mine([ev.spawned("daily", 7, A, { start: 3000 }), ev.spawned("daily", 3, B, { start: 3000 })]);
   };
 
   test("a player's stats, and null for a player the indexer does not know", async () => {
@@ -167,10 +166,9 @@ describe("players and games", () => {
     expect(queries.player(head, id(A))).toEqual({
       player: { player_id: id(A), name: "Ada", created: expect.any(Number) },
       stats: {
-        daily_games: 2,
+        daily_games: 4,
         daily_finished: 1,
         best_score: 30,
-        tutorial_games: 2,
         paid_games: 0,
         settled_games: 0,
         rewards: "0",
@@ -182,7 +180,6 @@ describe("players and games", () => {
       daily_games: 1,
       daily_finished: 0,
       best_score: null,
-      tutorial_games: 0,
       paid_games: 0,
       settled_games: 0,
       rewards: "0",
@@ -190,13 +187,13 @@ describe("players and games", () => {
     expect(queries.player(head, id(0xffffn))).toBeNull();
   });
 
-  test("games list: newest first over both contracts, filtered by contract, paged by cursor", async () => {
+  test("games list: newest first, then the highest id, filtered by contract, paged by cursor", async () => {
     const { queries, head } = await open(build);
     const all = queries.games(head, id(A), undefined, 20, undefined);
     expect(all.games.map((g) => [g.contract, g.game_id])).toEqual([
-      ["tutorial", 2],
+      ["daily", 7],
       ["daily", 2],
-      ["tutorial", 1],
+      ["daily", 6],
       ["daily", 1],
     ]);
     expect(all.next).toBeNull();
@@ -204,19 +201,19 @@ describe("players and games", () => {
     expect(all.games[1]).toMatchObject({ over: false, score: null, end_time: null });
 
     const first = queries.games(head, id(A), undefined, 3, undefined);
-    expect(first.games.map((g) => g.game_id)).toEqual([2, 2, 1]);
-    expect(first.next).toBe("1000:tutorial:1");
-    const second = queries.games(head, id(A), undefined, 3, { startTime: 1000, contract: "tutorial", gameId: 1 });
+    expect(first.games.map((g) => g.game_id)).toEqual([7, 2, 6]);
+    expect(first.next).toBe("1000:daily:6");
+    const second = queries.games(head, id(A), undefined, 3, { startTime: 1000, contract: "daily", gameId: 6 });
     expect(second.games.map((g) => [g.contract, g.game_id])).toEqual([["daily", 1]]);
     expect(second.next).toBeNull();
 
-    expect(queries.games(head, id(A), "daily", 20, undefined).games.map((g) => g.game_id)).toEqual([2, 1]);
+    expect(queries.games(head, id(A), "daily", 20, undefined).games.map((g) => g.game_id)).toEqual([7, 2, 6, 1]);
     expect(queries.games(head, id(C), undefined, 20, undefined)).toEqual({ games: [], next: null });
   });
 
   test("a game by contract and id", async () => {
     const { queries, head } = await open(build);
-    expect(queries.game(head, "tutorial", 2)).toMatchObject({ contract: "tutorial", game_id: 2, mode: 3, day_id: 0 });
+    expect(queries.game(head, "daily", 7)).toMatchObject({ contract: "daily", game_id: 7, mode: 1, day_id: 100 });
     expect(queries.game(head, "daily", 99)).toBeNull();
   });
 });
@@ -224,14 +221,13 @@ describe("players and games", () => {
 describe("Economy", () => {
   const BIG = 2n ** 100n; // above 2^53 and 2^63: only a decimal string holds it
   // Day 100: A buys games 1 (stake 1) and 2 (stake 3, referred by B), B buys game 3; game 1 is recorded and settled, game 2
-  // recorded late (expired), game 3 never ends. Day 101: A buys game 4, recorded. A Tutorial game and a game not bought too.
+  // recorded late (expired), game 3 never ends. Day 101: A buys game 4, recorded. A game not bought too.
   const build = (node: FakeNode) => {
     players(node);
     node.mine(
       [ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })],
       [ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
       [ev.spawned("daily", 3, B, { day: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
-      [ev.spawned("tutorial", 1, A)],
       [ev.spawned("daily", 5, A, { day: DAY })], // not bought
     );
     node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
@@ -241,7 +237,7 @@ describe("Economy", () => {
     node.mine([ev.dayClosed(DAY, { mean: 4_215_689, weight: 4, prior: 3_353_000, emaAfter: 3_400_000 }), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: BIG })]);
   };
 
-  test("a game's terms and settlement, null for a Tutorial game and a game not bought", async () => {
+  test("a game's terms and settlement, null for a game not bought", async () => {
     const { queries, head } = await open(build);
     expect(queries.game(head, "daily", 1)!.economy).toEqual({
       day: DAY,
@@ -271,7 +267,6 @@ describe("Economy", () => {
       reward: null,
     });
     expect(queries.game(head, "daily", 3)!.economy).toMatchObject({ reference: String(BIG), recorded: false, expired: false, settled: false });
-    expect(queries.game(head, "tutorial", 1)!.economy).toBeNull();
     expect(queries.game(head, "daily", 5)!.economy).toBeNull();
     const games = queries.games(head, id(A), "daily", 20, undefined).games;
     expect(games.map((g) => [g.game_id, g.economy?.stake ?? null])).toEqual([[5, null], [4, 1], [2, 3], [1, 1]]);
