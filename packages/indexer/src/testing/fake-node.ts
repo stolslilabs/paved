@@ -234,7 +234,7 @@ export const ev = {
     raw("daily", "Sponsored", [day], [sponsor, amount]),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
-    raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6, 7, 8]),
+    raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6]),
 };
 
 export class FakeNode {

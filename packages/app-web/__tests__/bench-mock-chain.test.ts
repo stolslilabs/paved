@@ -45,7 +45,7 @@ function setup(options?: MockOptions) {
   /** The `build` of the placement the mock expects next, or with changes. */
   const build = (over: Partial<{ game: number; orientation: number; x: number; y: number }> = {}) => {
     const next = mock.next()!;
-    return [BENCH.Daily, "build", [over.game ?? gameId, over.orientation ?? next.orientation, over.x ?? next.x, over.y ?? next.y, 0, 0]] as [bigint, string, number[]];
+    return [BENCH.Daily, "build", [over.game ?? gameId, over.orientation ?? next.orientation, over.x ?? next.x, over.y ?? next.y]] as [bigint, string, number[]];
   };
   const events = (receipt: any): DecodedEvent[] => receiptEvents(receipt, codecs, "Daily", hex(BENCH.Daily));
   return { mock, rpc, view, daily, gameId, invoke, build, events };
@@ -84,15 +84,13 @@ describe("views, decoded with the real ABIs", () => {
     expect(page.every((t: any) => t.status === 1)).toBe(true);
   });
 
-  it("builder, characters, tournament, entry_price, player and balance_of", () => {
+  it("builder, tournament, entry_price, player and balance_of", () => {
     const { daily, view, gameId, mock } = setup();
     const b = daily("builder", [gameId, BENCH.player]);
     expect(Number(b.gameId)).toBe(gameId);
     expect(Number(b.tileId)).toBe(mock.next()!.id);
-    expect(Number(b.placedCount) + Number(b.availableCount)).toBe(5);
-    const chars = daily("characters", [gameId, BENCH.player]);
-    expect(chars.map((c: any) => Number(c.role))).toEqual([1, 2, 3, 4, 5]);
-    expect(chars.filter((c: any) => c.placed)).toHaveLength(Number(b.placedCount));
+    expect(Number(b.plan)).toBe(mock.next()!.plan);
+    expect(Object.keys(b)).toEqual(["gameId", "playerId", "tileId", "plan"]);
     const id = daily("current_tournament_id");
     expect(Number(daily("tournament", [id]).id)).toBe(Number(id));
     const price = daily("entry_price");
@@ -167,9 +165,8 @@ describe("what the bench does not expect", () => {
     const { mock, view, gameId } = setup();
     view("Daily", BENCH.Daily, "game", [gameId + 1]); // answered, but recorded
     view("Daily", BENCH.Daily, "builder", [gameId, 0x7777]);
-    view("Daily", BENCH.Daily, "characters", [gameId, 0x7777]);
     view("Token", BENCH.Token, "balance_of", [0x7777]);
-    expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player", "other-player"]);
+    expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player"]);
   });
 
   it("records a view it does not serve, and fails it", () => {
