@@ -14,8 +14,6 @@ use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStore
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use quiver_achievement::component::AchievementComponent;
 use quiver_achievement::events::index::{AchievementDefined, AchievementProgressed};
 use quiver_achievement::types::task::AchievementTask;
@@ -380,9 +378,7 @@ fn test_quests_counters_follow_the_scoring() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::South);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     let game = store.game(context.game_id);
     assert(game.score > 0, 'Quests: scored');
     assert(game.structures() == 1, 'Quests: structures');
@@ -475,9 +471,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::RFFFRFFFR.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
     assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);

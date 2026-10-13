@@ -16,7 +16,6 @@ pub mod types {
     pub mod move;
     pub mod orientation;
     pub mod plan;
-    pub mod role;
     pub mod spot;
 }
 
@@ -70,7 +69,6 @@ pub mod helpers {
 
 pub mod models {
     pub mod builder;
-    pub mod character;
     pub mod game;
     pub mod index;
     pub mod player;
@@ -126,6 +124,7 @@ pub mod tests {
     pub mod economy;
     pub mod golden;
     pub mod leaderboard;
+    pub mod legacy;
     pub mod oracle;
     pub mod seed;
     pub mod setup;

@@ -23,7 +23,7 @@
 
 // Internal imports
 
-use paved::elements::decks::interface::{DeckTrait, Orientation, Plan, Role, Spot};
+use paved::elements::decks::interface::{DeckTrait, Orientation, Plan};
 
 // Constants
 
@@ -145,8 +145,8 @@ pub impl DeckImpl of DeckTrait {
     }
 
     #[inline]
-    fn parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
-        (Orientation::None, 0, 0, Role::None, Spot::None)
+    fn parameters(index: u32) -> (Orientation, u32, u32) {
+        (Orientation::None, 0, 0)
     }
 }
 

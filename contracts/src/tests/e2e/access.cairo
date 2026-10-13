@@ -15,8 +15,6 @@ use paved::tests::setup::setup::{
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
@@ -223,9 +221,7 @@ fn test_access_tutorial_spawn_reverts_for_unregistered_caller() {
 fn test_access_daily_build_reverts_on_another_players_game() {
     let (_, systems, context) = setup::spawn_game(Mode::Daily);
     start_cheat_caller_address(systems.daily.contract_address, NOONE());
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 }
 
 #[test]

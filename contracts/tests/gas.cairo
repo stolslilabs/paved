@@ -27,43 +27,43 @@ use paved::constants::{self, CENTER};
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tournament::TournamentTrait;
-use paved::structure::placement::role_bit;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
 use snforge_std::{interact_with_state, start_cheat_block_timestamp_global};
 use crate::setup::setup;
 use crate::setup::setup::{ANYONE, IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 5869212;
-pub const CEILING_SIMPLE: u128 = 5329081;
-pub const CEILING_CHARACTER: u128 = 6350300;
-pub const CEILING_CLOSE_LARGE: u128 = 6392332;
-pub const CEILING_WORST_CASE: u128 = 7325796;
-pub const CEILING_FOREST: u128 = 9756082;
-pub const CEILING_FOREST_WORST: u128 = 19956685;
+pub const CEILING_OPEN: u128 = 5709834;
+pub const CEILING_SIMPLE: u128 = 5315180;
+pub const CEILING_CLOSE_LARGE: u128 = 5393424;
+pub const CEILING_WORST_CASE: u128 = 5662074;
+pub const CEILING_FOREST: u128 = 8962300;
+pub const CEILING_FOREST_WORST: u128 = 18923195;
 // g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
 // `Economy.record` add about 1.46M (1.11M on i).
-pub const CEILING_CLOSING_PLACES: u128 = 3700987;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 3277673;
-pub const CEILING_CLOSING_AFTER: u128 = 2718591;
+pub const CEILING_CLOSING_PLACES: u128 = 3672907;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 3249593;
+pub const CEILING_CLOSING_AFTER: u128 = 2690889;
 pub const CEILING_VIEW: u128 = 388740;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 4046311;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7961200;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
-pub const CEILING_SPAWN_DAILY: u128 = 52732319;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53809525;
-pub const CEILING_SPAWN_TUTORIAL: u128 = 5440053;
+pub const CEILING_SPAWN_DAILY: u128 = 52743229;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
+pub const CEILING_SPAWN_TUTORIAL: u128 = 5363508;
 // p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
-pub const CEILING_SPONSOR: u128 = 1960255;
-pub const CEILING_CLAIM: u128 = 2037502;
+pub const CEILING_SPONSOR: u128 = 1956265;
+pub const CEILING_CLAIM: u128 = 2033722;
 pub const CEILING_RECLAIM: u128 = 1611612;
+// The scores of the forest scenarios after their last move, checked against the oracle's walks by
+// `src/tests/differential.cairo` (D-18b).
+pub const SCORE_E: u32 = 767;
+pub const SCORE_F: u32 = 5618;
 
 #[derive(Drop)]
 struct Scenario {
@@ -82,15 +82,7 @@ impl ScenarioImpl of ScenarioTrait {
 
     /// Overwrites the plan of the tile held by the builder, then builds it. Returns the L2 gas
     /// consumed by the `build` call alone.
-    fn build(
-        self: @Scenario,
-        plan: Plan,
-        orientation: Orientation,
-        x: u32,
-        y: u32,
-        role: Role,
-        spot: Spot,
-    ) -> u128 {
+    fn build(self: @Scenario, plan: Plan, orientation: Orientation, x: u32, y: u32) -> u128 {
         let game = self.store.game(*self.game_id);
         let builder = self.store.builder(game, *self.player_id);
         let mut tile = self.store.tile(game, builder.tile_id);
@@ -98,14 +90,14 @@ impl ScenarioImpl of ScenarioTrait {
         self.store.set_tile(tile);
 
         let before = get_available_gas();
-        self.systems.daily.build(*self.game_id, orientation, x, y, role, spot);
+        self.systems.daily.build(*self.game_id, orientation, x, y);
         let after = get_available_gas();
         before - after
     }
 
-    /// Builds a tile without a character.
+    /// Builds a tile, the gas not kept.
     fn step(self: @Scenario, plan: Plan, orientation: Orientation, x: u32, y: u32) {
-        self.build(plan, orientation, x, y, Role::None, Spot::None);
+        self.build(plan, orientation, x, y);
     }
 }
 
@@ -114,64 +106,48 @@ fn report(name: ByteArray, gas: u128, ceiling: u128) {
     assert(gas <= ceiling, 'Gas: above ceiling');
 }
 
-/// a0. Open simple move: a road tile east of the starter tile; it closes nothing, no character.
+/// a0. Open simple move: a road tile east of the starter tile; it closes nothing.
 #[test]
 fn test_gas_a0_open_simple_move() {
     let s = ScenarioTrait::new();
-    let gas = s
-        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     report("a0_open_simple_move", gas, CEILING_OPEN);
 }
 
-/// a. Simple move that closes a 2-tile city: the new tile's S cap meets the starter's N cap (the
-/// city is scored only if a character is in it, none here), no character.
+/// a. Simple move that closes a 2-tile city: the new tile's S cap meets the starter's N cap. Since
+/// D-18 the city scores (before, it scored only with a character in it, none here).
 #[test]
 fn test_gas_a_simple_move() {
     let s = ScenarioTrait::new();
-    let gas = s
-        .build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+    let gas = s.build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1);
     report("a_simple_move", gas, CEILING_SIMPLE);
 }
 
-/// b. Same move as (a) with a character placed on the new tile.
-#[test]
-fn test_gas_b_move_with_character() {
-    let s = ScenarioTrait::new();
-    let gas = s
-        .build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
-    report("b_move_with_character", gas, CEILING_CHARACTER);
-}
-
-/// c. Closes a 6-tile city that holds one character (scoring and character recovery included).
+/// c. Closes a 6-tile city (scoring included; before D-18 a character on it was recovered too).
 ///
 /// starter (cap N) - corridor - corridor - corridor - corner - cap, going north then east.
 #[test]
 fn test_gas_c_close_large_city() {
     let s = ScenarioTrait::new();
-    // The character sits on the first corridor, which is idle when it is placed.
-    s.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2);
     s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
     s.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
-    // The cap closes the city: the character is scored and recovered.
-    let gas = s
-        .build(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4, Role::None, Spot::None);
+    // The cap closes the city: it scores.
+    let gas = s.build(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4);
     let game = s.store.game(s.game_id);
     assert(game.score > 0, 'Gas: city not scored');
     report("c_close_large_city", gas, CEILING_CLOSE_LARGE);
 }
 
-/// d. Worst case we can build: the last tile of a 12-tile city tree, placed with a character.
+/// d. Worst case of the walks of P0: the last tile of a 12-tile city tree (placed with a character
+/// before D-18).
 ///
 /// The city is a tree rooted on the starter tile: two corridors and a T-junction going north, then
 /// two arms of four and three tiles that stay open until the last move. The last tile (a cap)
-/// closes the second arm and therefore the whole tree. On this single move:
-/// - the conflict check (`assert_structure_idle`) walks the 11 existing tiles, none of them holds
-///   a character, so the walk is not short-circuited;
-/// - the assessment walks the whole closed tree again (12 tiles), finds the new character, solves
-///   it, recovers it and scores the structure.
-/// Every earlier closing attempt stops at the first open end, so only the last move pays for the
-/// whole tree.
+/// closes the second arm and therefore the whole tree. Under P0's walks this move walked the 11
+/// existing tiles for the conflict check and the 12 of the closed tree for the assessment; under
+/// the structure state it is a counter reaching 0 and one `Scored`.
 #[test]
 fn test_gas_d_worst_case() {
     let s = ScenarioTrait::new();
@@ -184,55 +160,46 @@ fn test_gas_d_worst_case() {
     s.step(Plan::FFFFCCCFF, Orientation::North, CENTER - 2, CENTER + 3);
     s.step(Plan::FFFFCCCFF, Orientation::South, CENTER - 2, CENTER + 2);
     s.step(Plan::FFFFFFCFF, Orientation::West, CENTER - 3, CENTER + 2);
-    // [East arm] corner, corner, corner, then the closing cap with a character
+    // [East arm] corner, corner, corner, then the closing cap
     s.step(Plan::FFFFCCCFF, Orientation::South, CENTER + 1, CENTER + 3);
     s.step(Plan::FFFFCCCFF, Orientation::North, CENTER + 1, CENTER + 4);
     s.step(Plan::FFFFCCCFF, Orientation::East, CENTER + 2, CENTER + 4);
-    let gas = s
-        .build(
-            Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3, Role::Lord, Spot::North,
-        );
+    let gas = s.build(Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3);
     let game = s.store.game(s.game_id);
     assert(game.score > 0, 'Gas: tree not scored');
     report("d_worst_case", gas, CEILING_WORST_CASE);
 }
 
-/// e. Closes a forest of 4 tiles that holds a Woodsman (scoring, character recovery and the forest
-/// scan included).
+/// e. Closes a forest of 4 tiles (the forest scan included).
 ///
 /// Four road curves under the starter close a loop of road around one corner; their inner corners
-/// are one forest. The Woodsman waits on the first curve, the fourth closes the loop and scores
-/// 1 road x 300 x bonus(4) = 329 (the P4 golden `daily_forest_woodsman_ring`).
+/// are one forest. The fourth curve closes the loop of road and the forest: the golden
+/// `daily_forest_woodsman_ring` (its expected score comes from the oracle). Before D-18 a Woodsman
+/// waited on the first curve; the same move without it is scenario e0 of `baseline.md`, whose
+/// figure before D-18 is measured on the frozen class (`src/tests/e2e/upgrade_d18.cairo`): without
+/// a forest character nothing was scanned. Since D-18 every forest closure is scanned, so e is the
+/// figure of both.
 #[test]
 fn test_gas_e_close_forest() {
     let s = ScenarioTrait::new();
-    s
-        .build(
-            Plan::RFRFFFFFR,
-            Orientation::South,
-            CENTER,
-            CENTER - 1,
-            Role::Woodsman,
-            Spot::SouthEast,
-        );
+    s.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
     s.step(Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
     s.step(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
-    let gas = s
-        .build(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, Role::None, Spot::None);
+    let gas = s.build(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     let game = s.store.game(s.game_id);
-    assert(game.score == 329, 'Gas: forest not scored');
+    assert(game.score == SCORE_E, 'Gas: forest not scored');
     report("e_close_forest", gas, CEILING_FOREST);
 }
 
-/// f. Worst forest scan we can build: the last tile closes a forest of 16 nodes that holds a
-/// Woodsman, inside a loop of 12 road tiles.
+/// f. Worst forest scan we can build: the last tile closes a forest of 16 nodes inside a loop of 12
+/// road tiles (before D-18, a Woodsman waited on it).
 ///
 /// The starter tile is the top edge of the loop (its south forest is the inside). The loop goes
 /// east along the top, down the right column, west along the bottom, up the left column; four
 /// wonder tiles (`WFFFFFFFF`, every edge forest) fill the 2 x 2 inside. The last tile is the
 /// top-left curve: it closes the loop of road and the forest, and the scan walks the 16 nodes (the
 /// four wonder tiles, the eight inner sides of the straights, the four inner corners), every tile
-/// of the inside read from its position. The Woodsman waits on the first straight.
+/// of the inside read from its position.
 ///
 /// ```text
 ///   y=0    curve*  starter  straight  curve
@@ -246,8 +213,8 @@ fn test_gas_f_worst_forest_scan() {
     let s = ScenarioTrait::new();
     let straight = Plan::RFFFRFFFR;
     let curve = Plan::RFRFFFFFR;
-    // [Top and right] the first straight carries the Woodsman on its inner forest
-    s.build(straight, Orientation::North, CENTER + 1, CENTER, Role::Woodsman, Spot::South);
+    // [Top and right]
+    s.step(straight, Orientation::North, CENTER + 1, CENTER);
     s.step(curve, Orientation::West, CENTER + 2, CENTER);
     s.step(straight, Orientation::East, CENTER + 2, CENTER - 1);
     s.step(straight, Orientation::East, CENTER + 2, CENTER - 2);
@@ -264,13 +231,10 @@ fn test_gas_f_worst_forest_scan() {
     s.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 2);
     s.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 2);
     // [Last tile] the top-left curve closes the loop and the forest
-    let gas = s.build(curve, Orientation::South, CENTER - 1, CENTER, Role::None, Spot::None);
+    let gas = s.build(curve, Orientation::South, CENTER - 1, CENTER);
     let game = s.store.game(s.game_id);
-    // The forest scores exactly this, and its Woodsman is back in the builder's hand
-    assert_eq!(game.score, 434);
-    let builder = s.store.builder(game, s.player_id);
-    let woodsman: u8 = Role::Woodsman.into();
-    assert(builder.characters & role_bit(woodsman) == 0, 'Gas: Woodsman not recovered');
+    // The game scores exactly this (the oracle's figure, `differential.cairo`)
+    assert_eq!(game.score, SCORE_F);
     println!("SCORE f_worst_forest_scan: {}", game.score);
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
 }
@@ -307,7 +271,7 @@ fn tournament_id(s: @Scenario) -> u64 {
 /// The game of scenario c, one tile later: a 6-tile city closed and scored, the game not over.
 fn scored_game() -> Scenario {
     let s = ScenarioTrait::new();
-    s.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2);
     s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
     s.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
@@ -366,8 +330,7 @@ fn test_gas_l_game_over_on_build() {
     let mut game = s.store.game(s.game_id);
     game.tile_limit = game.tile_count.try_into().unwrap();
     s.store.set_game(game);
-    let gas = s
-        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
     report("l_game_over_on_build", gas, CEILING_GAME_OVER_ON_BUILD);
 }

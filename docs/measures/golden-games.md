@@ -4,6 +4,10 @@ Characterisation tests of the rules: fixed move sequences whose score after ever
 counters are asserted exactly. They must stay identical through the later phases (removing Dojo,
 toolchain bump, gas work), so they prove that the rules did not change.
 
+**D-18 changed the rules once** (characters leave the game, P-45): the expected values were derived again in
+D-18b, from the oracle's walks, and the sections below that give the figures of P0 to P5 are history. The current
+figures and how they were derived: "Regenerated in D-18b" at the end.
+
 Code: `contracts/src/tests/golden.cairo` and `contracts/src/tests/golden/` (`harness`, `daily`,
 `tutorial`). Moves are data (`GoldenMove`, `TutorialStep`) replayed by `play_daily` and
 `play_tutorial`; a later phase that changes the storage or the entry points only has to adapt the
@@ -306,3 +310,58 @@ generator keeps its limit).
 | daily_forest_lord_and_woodsman_ring_structures_agree | 209,934,279 | 198,096,173 | -5.6 % | 208,000,982 |
 | daily_full_deck | 586,423,537 | 542,367,578 | -7.5 % | 569,485,957 |
 | daily_full_deck_structures_agree | 1,337,226,473 | 1,293,170,514 | -3.3 % | 1,357,829,040 |
+
+## Regenerated in D-18b (D-18, characters leave the game)
+
+D-18 took the characters out, so every case changed: the moves keep their tiles, orientations and positions (the
+draw depends on the positions, not on the scores) and lose their roles and spots; every structure scores on the move
+that closes it, `size x base x bonus(size)` for a road or a city, 900 for a wonder, `(closed roads + closed cities) x
+300 x bonus(size)` for a forest (a forest with 0 points still emits its `Scored`).
+
+**Independence.** The expected scores do not come from the code under test. The oracle's walks
+(`src/tests/oracle.cairo`) were rewritten to the rules without characters, and `score::move_points` gives the points
+of a build from the walks alone (the finished structures of its start spots, each once, then the finished wonders
+around it); `score::board_points` gives the points of every finished structure of a board. A record run (`RECORD`
+in `harness.cairo`, the `*_structures_agree` tests, the Tutorial golden; the full-deck game with
+`--max-n-steps 100000000`, by hand) printed, step by step, the score before plus the oracle's points of the build
+(less the discard penalty for a discard); those numbers are the literals of the cases. The checked replays then
+assert, after every build, that the structure state agrees with the walks and that the move scored exactly the
+oracle's points ("closed structure left unscored", every category), and at the end that the board's finished
+structures all scored once (`assert_board_scored`). The full-deck checked replay keeps its lighter tile check and
+checks the points once, on the whole board at the end (the per-move check passes the VM's step limit of a test).
+
+| Case | P5 final | D-18b final | Score after each move (D-18b) |
+|---|---:|---:|---|
+| `daily_city5` | 2,245 | **1,122** | 0, 0, 0, 1,122 (game over, top score 1,122) |
+| `daily_road6` | 1,379 | **689** | 0, 0, 0, 0, 689 |
+| `daily_mixed` (`mixed_roles`) | 1,715 | **857** | 0, 419, 419, 857 |
+| `daily_deck` (discards) | 0 | **0** | 0 x 7 |
+| `forest_ring` (`woodsman_ring`) | 329 | **767** | 0, 0, 0, 767 |
+| `forest_caps` (`herdsman_caps`) | 628 | **1,914** | 0, 643, 643, 643, 1,914 |
+| `forest_both` (`both_roles`) | 643 | **2,460** | 0, 0, 0, 0, 0, 0, 0, 1,693, 2,460 |
+| `forest_open` (`herdsman_open_city`) | 0 | **0** | 0 x 5 (the forest closes with 0 points and emits its `Scored`) |
+| `forest_last` (`woodsman_ring_last_tile`) | 329 | **767** | 0, 0, 0, 767 (game over, top score 767) |
+| `daily_full_deck` | 3,554 | **5,121** | 38 tiles, see `full_deck.cairo` |
+| `tutorial_full` | 5,078 | **2,794** | 0, 0, 643, 643, 1,062, 1,062, 1,062, 1,012 (discard), 2,794 |
+
+The P4 cases keep their names (`woodsman_ring`, `herdsman_caps`, ...). The checked board A of the P5-5 audit (the
+ring with a Lord on the road, `lord_and_woodsman_ring`) is gone: without its Lord it is the ring itself. The other
+final counters (`built`, `discarded`, `tile_count`, `over`) do not depend on scoring and did not change; the
+builder's characters left `GoldenOutcome`.
+
+**Hand check, `forest_caps`, structure by structure** (bonus(2) = 10475, bonus(3) = 10721, over 10000). The board:
+the starter (city cap north, road west to east, forest south), two city corridors `CFFFCFFFC` facing East at (0, 1)
+and (1, 1), caps `FFFFFFCFF` at (0, 2) and (1, 2), a copy of the starter at (1, 0).
+
+1. Move 1, corridor at (0, 1): its city joins the starter's cap, open to the north. 0.
+2. Move 2, cap at (0, 2): closes the city starter cap + corridor + cap, 3 nodes: 3 x 200 x 10721 / 10000 = **643**
+   (643.26). Nothing else closes (the forests east and west of the corridor look at empty positions). 643.
+3. Move 3, cap at (1, 2): its city looks south at an empty position. 643.
+4. Move 4, the starter's copy at (1, 0): its city cap looks north at the empty (1, 1); its road joins the starter's
+   road, open at both ends. 643.
+5. Move 5, corridor at (1, 1): closes the city cap of (1, 0) + corridor + cap of (1, 2), 3 nodes: **643**; and the
+   forest of 2 tiles between the corridors (the east side of (0, 1), the west side of (1, 1)), whose own edges all
+   land and which touches no road: 2 closed cities (the two distinct cities above) x 300 x 10475 / 10000 = **628**
+   (628.5). The road and the other forests stay open. 643 + 643 + 628 = **1,914**.
+
+The oracle gives the same per move (643 at move 2, 1,271 at move 5), and so does the structure state.

@@ -1,7 +1,8 @@
 //! Differential check of P5-4 on the boards that are not golden games: the gas scenarios of
 //! `contracts/tests/gas.cairo` (that crate cannot reach the test-only oracle, so the sequences are
 //! replayed here), the scripted Tutorial and the wonder ring of `e2e/events.cairo`. After every
-//! build, `oracle::check` compares the structure state of the built tile with the walks.
+//! build, `oracle::check` compares the structure state of the built tile with the walks, and the
+//! points the move scored with the points the walks give it (D-18b).
 
 use paved::models::index::Tile;
 use paved::models::tile::CENTER;
@@ -15,8 +16,6 @@ use paved::tests::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, Test
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::interact_with_state;
 
 #[derive(Drop)]
@@ -34,42 +33,41 @@ impl BoardImpl of BoardTrait {
         Board { systems, store, game_id: context.game_id, player_id: context.player_id }
     }
 
-    /// Builds `plan` (written over the tile in hand) and checks the built tile.
-    fn build(
-        self: @Board, plan: Plan, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot,
-    ) {
+    /// Builds `plan` (written over the tile in hand) and checks the built tile and what it
+    /// scored.
+    fn build(self: @Board, plan: Plan, orientation: Orientation, x: u32, y: u32) {
         let game = self.store.game(*self.game_id);
+        let before = game.score;
         let builder = self.store.builder(game, *self.player_id);
         let mut tile = self.store.tile(game, builder.tile_id);
         tile.plan = plan.into();
         self.store.set_tile(tile);
-        self.systems.daily.build(*self.game_id, orientation, x, y, role, spot);
+        self.systems.daily.build(*self.game_id, orientation, x, y);
         check::assert_tile_agrees(*self.store, *self.game_id, builder.tile_id);
+        check::assert_move_scored(*self.store, *self.game_id, builder.tile_id, before);
     }
 
     fn step(self: @Board, plan: Plan, orientation: Orientation, x: u32, y: u32) {
-        self.build(plan, orientation, x, y, Role::None, Spot::None);
+        self.build(plan, orientation, x, y);
     }
 }
 
-/// Gas scenarios a0, a and b: one move each.
+/// Gas scenarios a0 and a (and b, whose move is a's since D-18 took its Lord): one move each.
 #[test]
-#[available_gas(l2_gas: 419128000)]
+#[available_gas(l2_gas: 321647000)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
-    board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     let board = BoardTrait::new();
-    board.build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
-    let board = BoardTrait::new();
-    board.build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
+    board.build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1);
 }
 
-/// Gas scenario c: a 6-tile city closed with its character scored.
+/// Gas scenario c: a 6-tile city closed and scored.
 #[test]
-#[available_gas(l2_gas: 234989905)]
+#[available_gas(l2_gas: 306303000)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
-    board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
+    board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2);
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
     board.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
@@ -78,9 +76,9 @@ fn test_differential_gas_scenario_c() {
     assert(game.score > 0, 'Differential: city not scored');
 }
 
-/// Gas scenario d: a 12-tile city tree closed by a tile placed with a character.
+/// Gas scenario d: a 12-tile city tree closed and scored.
 #[test]
-#[available_gas(l2_gas: 423731119)]
+#[available_gas(l2_gas: 582165000)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -93,12 +91,53 @@ fn test_differential_gas_scenario_d() {
     board.step(Plan::FFFFCCCFF, Orientation::South, CENTER + 1, CENTER + 3);
     board.step(Plan::FFFFCCCFF, Orientation::North, CENTER + 1, CENTER + 4);
     board.step(Plan::FFFFCCCFF, Orientation::East, CENTER + 2, CENTER + 4);
-    board
-        .build(
-            Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3, Role::Lord, Spot::North,
-        );
+    board.build(Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3);
     let game = board.store.game(board.game_id);
     assert(game.score > 0, 'Differential: tree not scored');
+}
+
+/// Gas scenario e: four road curves close a loop of road and the forest of 4 tiles inside it. The
+/// score the oracle's walks give the board is `SCORE_E` of `contracts/tests/gas.cairo`.
+#[test]
+#[available_gas(l2_gas: 360171000)]
+fn test_differential_gas_scenario_e() {
+    let board = BoardTrait::new();
+    board.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
+    board.step(Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
+    board.step(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
+    board.step(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    let expected = check::board_points(board.store, board.game_id);
+    println!("SCORE e (oracle): {}", expected);
+    assert_eq!(board.store.game(board.game_id).score, expected);
+}
+
+/// Gas scenario f: a loop of 12 road tiles around four wonders; the last curve closes the loop and
+/// the forest of 16 nodes. The score the oracle's walks give the board is `SCORE_F` of
+/// `contracts/tests/gas.cairo`.
+#[test]
+#[available_gas(l2_gas: 1353892000)]
+fn test_differential_gas_scenario_f() {
+    let board = BoardTrait::new();
+    let straight = Plan::RFFFRFFFR;
+    let curve = Plan::RFRFFFFFR;
+    board.step(straight, Orientation::North, CENTER + 1, CENTER);
+    board.step(curve, Orientation::West, CENTER + 2, CENTER);
+    board.step(straight, Orientation::East, CENTER + 2, CENTER - 1);
+    board.step(straight, Orientation::East, CENTER + 2, CENTER - 2);
+    board.step(curve, Orientation::North, CENTER + 2, CENTER - 3);
+    board.step(straight, Orientation::North, CENTER + 1, CENTER - 3);
+    board.step(straight, Orientation::North, CENTER, CENTER - 3);
+    board.step(curve, Orientation::East, CENTER - 1, CENTER - 3);
+    board.step(straight, Orientation::East, CENTER - 1, CENTER - 2);
+    board.step(straight, Orientation::East, CENTER - 1, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 2);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 2);
+    board.step(curve, Orientation::South, CENTER - 1, CENTER);
+    let expected = check::board_points(board.store, board.game_id);
+    println!("SCORE f (oracle): {}", expected);
+    assert_eq!(board.store.game(board.game_id).score, expected);
 }
 
 /// Two areas of one tile join one structure (the re-rooting branch of
@@ -109,7 +148,7 @@ fn test_differential_gas_scenario_d() {
 /// search over legal boards (a model of the placement in Python, not kept) and then confirmed
 /// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
 #[test]
-#[available_gas(l2_gas: 579918245)]
+#[available_gas(l2_gas: 733532000)]
 fn test_differential_two_areas_of_one_tile_join_one_structure() {
     let board = BoardTrait::new();
     board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
@@ -147,7 +186,7 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
-#[available_gas(l2_gas: 425629810)]
+#[available_gas(l2_gas: 508164000)]
 fn test_differential_tutorial_full_sequence() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
@@ -159,12 +198,14 @@ fn test_differential_tutorial_full_sequence() {
         }
         let builder = store.builder(game, context.player_id);
         let mode: Mode = game.mode.into();
-        let (orientation, _, _, _, _) = mode.parameters(game.tiles);
+        let (orientation, _, _) = mode.parameters(game.tiles);
         if orientation == Orientation::None {
             systems.tutorial.discard(game_id);
         } else {
+            let before = game.score;
             systems.tutorial.build(game_id);
             check::assert_tile_agrees(store, game_id, builder.tile_id);
+            check::assert_move_scored(store, game_id, builder.tile_id, before);
             built += 1;
         }
     }
@@ -174,13 +215,10 @@ fn test_differential_tutorial_full_sequence() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 367926072)]
+#[available_gas(l2_gas: 363925000)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
-    board
-        .build(
-            Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, Role::Pilgrim, Spot::Center,
-        );
+    board.build(Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER);
     let mut id = 100;
     for (x, y) in array![
         (CENTER + 1, CENTER + 1), (CENTER + 2, CENTER + 1), (CENTER + 2, CENTER),
@@ -196,15 +234,14 @@ fn test_differential_wonder_ring() {
                     orientation: Orientation::North.into(),
                     x,
                     y,
-                    occupied_spot: 0,
                 },
             );
         check::assert_tile_agrees(board.store, board.game_id, id);
         id += 1;
     }
     let score_before = board.store.game(board.game_id).score;
-    board.build(Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+    board.build(Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1);
     assert(board.store.game(board.game_id).score > score_before, 'Differential: wonder');
-    // The wonder tile itself, now closed and recovered
+    // The wonder tile itself, now closed
     check::assert_tile_agrees(board.store, board.game_id, 2);
 }

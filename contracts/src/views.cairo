@@ -2,17 +2,16 @@
 //!
 //! The view structs are a published interface, independent of the storage layout: fields are only
 //! appended, never removed, reordered or repurposed. Reference:
-//! `docs/architecture/public-interface.md`.
+//! `docs/architecture/public-interface.md`. D-18 broke that promise once: `characters` and the
+//! counters of `BuilderView` went with the characters.
 
 use paved::constants;
-use paved::helpers::bitmap::Bitmap;
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
 use paved::models::game::{Game, GameAssert, GameImpl};
 use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
-use paved::types::role::Role;
 use starknet::ContractAddress;
 
 // Constants
@@ -21,8 +20,6 @@ use starknet::ContractAddress;
 pub const MAX_PAGE: u32 = 64;
 /// Last tournament id whose end time fits in a `u64`: `(2^64 - 1) / 86400 - 1`.
 pub const MAX_TOURNAMENT_ID: u64 = 213503982334600;
-/// Characters of a player, one per role.
-pub const CHARACTER_COUNT: u8 = 7;
 
 pub const TILE_PLACED: u8 = 1;
 pub const TILE_DISCARDED: u8 = 2;
@@ -70,18 +67,6 @@ pub struct BuilderView {
     pub player_id: felt252,
     pub tile_id: u32,
     pub plan: u8,
-    pub placed_count: u8,
-    pub available_count: u8,
-}
-
-#[derive(Copy, Drop, Serde, Debug, PartialEq)]
-pub struct CharacterView {
-    pub role: u8,
-    pub placed: bool,
-    pub tile_id: u32,
-    pub x: u32,
-    pub y: u32,
-    pub spot: u8,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -117,7 +102,6 @@ pub trait IGameView<TContractState> {
     fn game(self: @TContractState, game_id: u32) -> GameView;
     fn tiles(self: @TContractState, game_id: u32, from: u32, count: u32) -> Array<TileView>;
     fn builder(self: @TContractState, game_id: u32, player_id: felt252) -> BuilderView;
-    fn characters(self: @TContractState, game_id: u32, player_id: felt252) -> Array<CharacterView>;
 }
 
 /// Views of the Daily tournaments, on `Daily`.
@@ -216,52 +200,7 @@ pub impl ViewsImpl of ViewsTrait {
         } else {
             store.tile(game, builder.tile_id).plan
         };
-        let mut placed_count: u8 = 0;
-        let mut index: u8 = 1;
-        while index <= CHARACTER_COUNT {
-            if Bitmap::get_bit_at(builder.characters, index) {
-                placed_count += 1;
-            }
-            index += 1;
-        }
-        BuilderView {
-            game_id,
-            player_id,
-            tile_id: builder.tile_id,
-            plan,
-            placed_count,
-            available_count: CHARACTER_COUNT - placed_count,
-        }
-    }
-
-    fn characters(store: Store, game_id: u32, player_id: felt252) -> Array<CharacterView> {
-        let game = Self::existing_game(store, game_id);
-        Self::assert_game_player(store, game, player_id);
-        let builder = game.builder_of(player_id);
-        let roles = array![
-            Role::Lord, Role::Lady, Role::Adventurer, Role::Paladin, Role::Pilgrim, Role::Woodsman,
-            Role::Herdsman,
-        ];
-        let mut characters: Array<CharacterView> = array![];
-        for role in roles {
-            let index: u8 = role.into();
-            let view = if Bitmap::get_bit_at(builder.characters, index) {
-                let character = store.character(game, player_id, role);
-                let tile = store.tile(game, character.tile_id);
-                CharacterView {
-                    role: index,
-                    placed: true,
-                    tile_id: character.tile_id,
-                    x: tile.x,
-                    y: tile.y,
-                    spot: character.spot,
-                }
-            } else {
-                CharacterView { role: index, placed: false, tile_id: 0, x: 0, y: 0, spot: 0 }
-            };
-            characters.append(view);
-        }
-        characters
+        BuilderView { game_id, player_id, tile_id: builder.tile_id, plan }
     }
 
     fn tournament(store: Store, id: u64, time: u64) -> TournamentView {

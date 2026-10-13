@@ -10,8 +10,6 @@ use paved::types::orientation::Orientation;
 // Internal imports
 
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 
 // Constants
 
@@ -102,9 +100,9 @@ pub impl DeckImpl of DeckTrait {
     }
 
     #[inline]
-    fn parameters(self: Deck, index: u32) -> (Orientation, u32, u32, Role, Spot) {
+    fn parameters(self: Deck, index: u32) -> (Orientation, u32, u32) {
         match self {
-            Deck::None => (Orientation::None, 0, 0, Role::None, Spot::None),
+            Deck::None => (Orientation::None, 0, 0),
             Deck::Simple => Simple::parameters(index),
             Deck::Tutorial => Tutorial::parameters(index),
         }

@@ -1,39 +1,24 @@
-//! Assessment of roads, cities and wonders from their roots (phase P5, PR P5-4): step 4 of the
+//! Scoring of roads, cities and wonders from their roots (phase P5, PR P5-4; D-18): step 4 of the
 //! update algorithm, the arms that `GenericCount` and `WonderCount` held.
 //!
-//! A structure scores when it is closed (`open == 0`) and holds characters. Scoring recovers every
-//! character of it, so a second start spot on the same structure finds nothing, as the walks did.
-//! The game has one player, who always wins a structure that holds one of their characters: every
-//! role allowed on a road or a city weighs at least 1 there, so `GenericCount::solve` always found
-//! a winner.
+//! D-18: a structure scores once, on the move that closes it (`open == 0`), with no character. Its
+//! points are the formula of one character of power 1 and weight 1 (P-45). `Game::assess` reads
+//! the root, checks that it is closed and not yet scored by the move, and calls these arms; scoring
+//! writes no record.
 
 use paved::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
-use paved::models::builder::BuilderImpl;
 use paved::models::game::{Game, GameImpl};
 use paved::store::{Store, StoreImpl};
-use paved::structure::placement::role_bit;
-use paved::structure::record::{chars_of, open_of, size_of, without_chars};
-use paved::structure::state::{Structures, StructuresTrait};
+use paved::structure::record::size_of;
 use paved::types::category::{Category, CategoryImpl};
 
-/// The roles a `chars` bitmap can hold today.
-const MAX_ROLE: u8 = 7;
-
-/// Scores the road or city of `sid` if it is closed and holds characters: points `size x base x
-/// max power x bonus(size)`, one `Scored`, every character recovered. Returns whether it scored.
-pub fn assess_generic(
-    ref game: Game, ref structures: Structures, ref store: Store, sid: u32, category: Category,
-) -> bool {
-    let (root, record) = structures.find(sid);
-    let chars = chars_of(record);
-    if open_of(record) != 0 || chars == 0 {
-        return false;
-    }
-    let power = recover_all(ref game, chars, ref structures);
+/// Scores the closed road or city of root record `record`: points `size x base x bonus(size)`,
+/// one `Scored`.
+pub fn score_generic(ref game: Game, ref store: Store, record: u64, category: Category) {
     let size: u32 = size_of(record).into();
     let (num, den) = compute_multiplier(size);
-    let points = size * category.base_points() * power * num / den;
+    let points = size * category.base_points() * num / den;
     game.add_score(points);
     game.count_structure(size);
 
@@ -50,33 +35,11 @@ pub fn assess_generic(
                 },
             ),
         );
-
-    structures.set(root, without_chars(record, chars));
-    true
 }
 
-/// Scores the wonder of `sid` if the 8 positions around it are taken and a character stands on
-/// it: points `base x power`, `Scored` with size 0, the character recovered. Returns whether it
-/// scored.
-pub fn assess_wonder(
-    ref game: Game, ref structures: Structures, ref store: Store, sid: u32,
-) -> bool {
-    let (root, record) = structures.find(sid);
-    let chars = chars_of(record);
-    if open_of(record) != 0 || chars == 0 {
-        return false;
-    }
-    // [Info] A wonder is one area of one tile: it holds one character at most
-    let mut role: u8 = 1;
-    while role <= MAX_ROLE {
-        if chars & role_bit(role) != 0 {
-            break;
-        }
-        role += 1;
-    }
-    let character = structures.character(game.player_id, role);
-    let power: u32 = character.power.into();
-    let points = Category::Wonder.base_points() * power;
+/// Scores a wonder whose 8 surrounding positions are taken: points `base`, `Scored` with size 0.
+pub fn score_wonder(ref game: Game, ref store: Store) {
+    let points = Category::Wonder.base_points();
     game.add_score(points);
     game.count_wonder();
 
@@ -93,48 +56,4 @@ pub fn assess_wonder(
                 },
             ),
         );
-
-    // [Effect] Recover the character
-    recover(ref game, ref structures, role);
-
-    structures.set(root, without_chars(record, chars));
-    true
-}
-
-/// Recovers every character of a `chars` bitmap, in role order. Returns their highest power.
-fn recover_all(ref game: Game, chars: u16, ref structures: Structures) -> u32 {
-    let mut power: u32 = 0;
-    let mut role: u8 = 1;
-    while role <= MAX_ROLE {
-        if chars & role_bit(role) != 0 {
-            let character_power = recover(ref game, ref structures, role);
-            if character_power > power {
-                power = character_power;
-            }
-        }
-        role += 1;
-    }
-    power
-}
-
-/// Recovers the character of `role`: its tile spot is cleared (in the cache when the tile is the
-/// one the move built, in its slot otherwise), the role goes back to the builder (the game's
-/// `characters`, written with its state at the end of the move) and its entry of `Characters` is
-/// cleared. Returns its power.
-pub fn recover(ref game: Game, ref structures: Structures, role: u8) -> u32 {
-    let mut character = structures.character(game.player_id, role);
-    let power: u32 = character.power.into();
-    let mut builder = game.builder_of(game.player_id);
-    if character.tile_id == structures.built.id {
-        let mut tile = structures.built;
-        builder.recover(ref character, ref tile);
-        structures.built = tile;
-    } else {
-        let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
-        builder.recover(ref character, ref tile);
-        StoreImpl::write_tile(tile, refs);
-    }
-    game.set_builder(builder);
-    structures.put_character(character);
-    power
 }

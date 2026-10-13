@@ -48,7 +48,7 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 | 1 | `GAME_FINISHED` | A Daily game over (any, ranked in its tournament or not) |
 | 2 | `STRUCTURE_SCORED` | A `Scored` event of a road or a city: one per structure, on the move that closes it |
 | 3 | `POINTS` | A point of a finished game's score (reported once, the game's final score) |
-| 4 | `FOREST_SCORED` | A `Scored` event of a forest: one per forest, on the move that closes it (D-18: no longer one per character), emitted even with 0 points (to confirm in D-18b) |
+| 4 | `FOREST_SCORED` | A `Scored` event of a forest: one per forest, on the move that closes it (D-18: no longer one per character), emitted even with 0 points (`Scored` with points 0, one `count_forest`) |
 | 5 | `WONDER_SCORED` | A `Scored` event of a wonder: one per structure, on the move that closes it |
 | 6 | `BIG_STRUCTURE` | A road or a city scored with size of at least `BIG_SIZE` (8, to calibrate) |
 | 7 | `HIGH_SCORE` | A finished Daily game with a score of at least `HIGH_SCORE` (4,000, to calibrate) |
@@ -70,7 +70,7 @@ is reachable in one Daily game, so a player is not pushed to buy several entries
 |---|---|---|---|---|---|
 | 1 | Daily Run | Finish today's Daily. | `GAME_FINISHED` 1 | each UTC day | none |
 | 2 | Master Builder | Score six roads and cities in a day. | `STRUCTURE_SCORED` 6 | each UTC day | none |
-| 3 | Into the Woods | Score a forest with your Woodsman or Herdsman. | `FOREST_SCORED` 1 | each UTC day | none |
+| 3 | Into the Woods | Close a forest: it scores its closed roads and cities. | `FOREST_SCORED` 1 | each UTC day | none |
 | 4 | Point Chaser | Collect 3,000 points in a day: the **sum of the scores of the day's finished Daily games**, not a single game. | `POINTS` 3,000, summed over the day's finished Daily games | each UTC day | none |
 
 Not proposed for v1: a Nums-style finisher ("complete the four", +1 task reported from the claim hook). It needs
@@ -236,7 +236,7 @@ player who wants their partial scoring to count can `surrender`.
 
 **Storage of the counters.** `GameState` is two felts: the seed, and one word with the 128-bit deck bitmap
 (`tiles`) in its low half and, in its high half, `tile_count`, `score`, `discarded`, `built`, `over`, `held_tile`,
-`characters` (88 of the 128 bits; `store.cairo` `set_game_state`). The felt252 bound leaves about 35 of the high bits,
+`characters` (dead since D-18, written 0) (88 of the 128 bits; `store.cairo` `set_game_state`). The felt252 bound leaves about 35 of the high bits,
 and the four counters need about 23 (7 + 6 + 4 + 6, saturating). **No new slot, so no new 0.45M storage write**; the
 layout of `GameState` changes (`docs/architecture/native-storage.md` is updated by the implementation), the public
 views do not (they build their own structs, `public-interface.md`), and nothing is deployed on a public network, so

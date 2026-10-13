@@ -14,10 +14,8 @@ use paved::tests::setup::setup::{
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use paved::views::{
-    CharacterView, IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
+    BuilderView, IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
     ITournamentViewDispatcherTrait, MAX_PAGE, MAX_TOURNAMENT_ID, TILE_DISCARDED, TILE_HELD,
     TILE_PLACED,
 };
@@ -42,14 +40,14 @@ fn force_plan(store: TestStore, game_id: u32, player_id: felt252, plan: Plan) {
     store.set_tile(tile);
 }
 
-/// Builds tile 2 north of the starter with a Lord on its open north city (it stays), then tile 3
-/// on top, which closes that city and gives the Lord back.
+/// Builds tile 2 north of the starter (it closes the starter's city), then tile 3 on top, which
+/// closes the north city of tile 2.
 fn build_two(store: TestStore, systems: @Systems, game_id: u32, player_id: felt252) {
     let daily = *systems.daily;
     force_plan(store, game_id, player_id, Plan::FFCFFFCFF);
-    daily.build(game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
+    daily.build(game_id, Orientation::North, CENTER, CENTER + 1);
     force_plan(store, game_id, player_id, Plan::FFCFFFCFF);
-    daily.build(game_id, Orientation::North, CENTER, CENTER + 2, Role::None, Spot::None);
+    daily.build(game_id, Orientation::North, CENTER, CENTER + 2);
     // [Check] The structure state agrees with the walks on the board (P5-4)
     check::assert_board_agrees(store, game_id);
 }
@@ -98,8 +96,6 @@ fn test_views_game_player_answerable_without_any_build() {
     assert(view.discarded_count == 0, 'Views: discarded count');
     let builder = views.builder(context.game_id, context.player_id);
     assert(builder.tile_id == view.tile_count, 'Views: builder tile');
-    assert(builder.placed_count == 0, 'Views: no character');
-    assert(views.characters(context.game_id, context.player_id).len() == 7, 'Views: characters');
 }
 
 #[test]
@@ -308,63 +304,30 @@ fn test_views_tiles_missing_game() {
     daily_views(@systems).tiles(context.game_id + 1, 0, 1);
 }
 
-// Builder and characters
+// Builder
 
+/// D-18: the builder view is the tile in hand, four fields; it no longer counts characters.
 #[test]
 #[available_gas(l2_gas: 148836000)]
-fn test_views_builder_and_characters_placed_then_returned() {
+fn test_views_builder_is_the_tile_in_hand() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let views = daily_views(@systems);
 
     let builder = views.builder(context.game_id, context.player_id);
-    assert(builder.game_id == context.game_id, 'Views: builder game');
-    assert(builder.player_id == context.player_id, 'Views: builder player');
-    assert(builder.tile_id == 2, 'Views: builder tile');
-    assert(builder.plan == store.tile(store.game(context.game_id), 2).plan, 'Views: builder plan');
-    assert(builder.placed_count == 0, 'Views: none placed');
-    assert(builder.available_count == 7, 'Views: all available');
-
-    // A Lord on the open north city of tile 2: it stays on the board.
-    force_plan(store, context.game_id, context.player_id, Plan::FFCFFFCFF);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
-    let builder = views.builder(context.game_id, context.player_id);
-    assert(builder.placed_count == 1, 'Views: one placed');
-    assert(builder.available_count == 6, 'Views: six available');
-    let characters = views.characters(context.game_id, context.player_id);
-    assert(characters.len() == 7, 'Views: seven characters');
-    let lord = *characters.at(0);
-    let expected = CharacterView {
-        role: Role::Lord.into(),
-        placed: true,
+    let expected = BuilderView {
+        game_id: context.game_id,
+        player_id: context.player_id,
         tile_id: 2,
-        x: CENTER,
-        y: CENTER + 1,
-        spot: Spot::North.into(),
+        plan: store.tile(store.game(context.game_id), 2).plan,
     };
-    assert(lord == expected, 'Views: lord placed');
-    let mut index: u32 = 1;
-    while index < 7 {
-        let character = *characters.at(index);
-        let role: u32 = character.role.into();
-        assert(role == index + 1, 'Views: role order');
-        assert(!character.placed, 'Views: not placed');
-        assert(character.tile_id == 0 && character.spot == 0, 'Views: off board');
-        index += 1;
-    }
+    assert(builder == expected, 'Views: builder');
 
-    // Tile 3 closes the city: the Lord comes back.
+    // After a build, the tile in hand is the next one drawn
     force_plan(store, context.game_id, context.player_id, Plan::FFCFFFCFF);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 2, Role::None, Spot::None);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     let builder = views.builder(context.game_id, context.player_id);
-    assert(builder.placed_count == 0, 'Views: lord back');
-    assert(builder.available_count == 7, 'Views: all available again');
-    let lord = *views.characters(context.game_id, context.player_id).at(0);
-    assert(!lord.placed, 'Views: lord not placed');
-    assert(lord.tile_id == 0 && lord.x == 0 && lord.y == 0, 'Views: lord off board');
+    assert(builder.tile_id == 3, 'Views: next tile');
+    assert(builder.plan == store.tile(store.game(context.game_id), 3).plan, 'Views: next plan');
 }
 
 #[test]
@@ -372,20 +335,6 @@ fn test_views_builder_and_characters_placed_then_returned() {
 fn test_views_builder_other_player() {
     let (_, systems, context) = setup::spawn_game(Mode::Daily);
     daily_views(@systems).builder(context.game_id, SOMEONE().into());
-}
-
-#[test]
-#[should_panic(expected: 'View: not the game player')]
-fn test_views_characters_other_player() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    daily_views(@systems).characters(context.game_id, 0);
-}
-
-#[test]
-#[should_panic(expected: 'Game: does not exist')]
-fn test_views_characters_missing_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    daily_views(@systems).characters(context.game_id + 1, context.player_id);
 }
 
 // Tournament

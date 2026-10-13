@@ -4,7 +4,6 @@
 use core::num::traits::Bounded;
 use paved::constants;
 use paved::models::builder::Builder;
-use paved::models::character::Char;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TilePosition};
@@ -13,8 +12,6 @@ use paved::store::{StoreImpl, StoreTrait};
 use paved::tests::setup::setup;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::interact_with_state;
 
 const MAX_U8: u32 = 255;
@@ -32,7 +29,6 @@ fn test_store_round_trips_at_maximum_values() {
                 id: Bounded::MAX,
                 player_id: BIG,
                 held_tile: MAX_U8,
-                characters: Bounded::MAX,
                 over: true,
                 discarded: Bounded::MAX,
                 built: Bounded::MAX,
@@ -55,21 +51,17 @@ fn test_store_round_trips_at_maximum_values() {
             store.set_game(game);
             assert_eq!(store.game(game.id), game);
 
-            // The builder is the tile in hand and the roles placed of the game's player
-            let builder = Builder {
-                game_id: game.id, player_id: BIG, tile_id: MAX_U8, characters: Bounded::MAX,
-            };
+            // The builder is the tile in hand of the game's player
+            let builder = Builder { game_id: game.id, player_id: BIG, tile_id: MAX_U8 };
             assert_eq!(store.builder(game, BIG), builder);
-            let other = Builder { game_id: game.id, player_id: 'OTHER', tile_id: 0, characters: 0 };
+            let other = Builder { game_id: game.id, player_id: 'OTHER', tile_id: 0 };
             assert_eq!(store.builder(game, 'OTHER'), other);
-            let moved = Builder {
-                game_id: game.id, player_id: BIG, tile_id: 7, characters: 0x1234,
-            };
+            let moved = Builder { game_id: game.id, player_id: BIG, tile_id: 7 };
             store.set_builder(moved);
             assert_eq!(store.builder(game, BIG), moved);
             let after = store.live_game(game.id);
             assert_eq!(after.held_tile, 7);
-            assert_eq!(after.characters, 0x1234);
+            assert_eq!(after.counts, game.counts);
             assert_eq!(after.tiles, game.tiles);
             assert_eq!(after.score, game.score);
             assert_eq!(after.seed, game.seed);
@@ -82,7 +74,6 @@ fn test_store_round_trips_at_maximum_values() {
                 orientation: Orientation::West.into(),
                 x: Bounded::MAX,
                 y: Bounded::MAX,
-                occupied_spot: Bounded::MAX,
             };
             store.set_tile(tile);
             assert_eq!(store.tile(game, tile.id), tile);
@@ -90,28 +81,6 @@ fn test_store_round_trips_at_maximum_values() {
                 store.tile_position(game, tile.x, tile.y),
                 TilePosition { game_id: game.id, x: tile.x, y: tile.y, tile_id: tile.id },
             );
-
-            let role = Role::Pilgrim;
-            let character = Char {
-                game_id: game.id,
-                player_id: BIG,
-                index: role.into(),
-                tile_id: tile.id,
-                spot: Spot::NorthWest.into(),
-                weight: 3,
-                power: 3,
-            };
-            store.set_character(character);
-            assert_eq!(store.character(game, BIG, role), character);
-            assert_eq!(store.character_at(game, tile, Spot::NorthWest), character);
-            // Another role in the same slot leaves the first one untouched.
-            let other = Char {
-                index: Role::Herdsman.into(), spot: Spot::South.into(), ..character,
-            };
-            store.set_character(other);
-            assert_eq!(store.character(game, BIG, role), character);
-            assert_eq!(store.character(game, BIG, Role::Herdsman), other);
-            assert_eq!(store.character_at(game, tile, Spot::South), other);
 
             let tournament = Tournament {
                 id: Bounded::MAX,
@@ -141,55 +110,7 @@ fn test_store_missing_entries_read_as_zero_with_keys() {
             assert_eq!(game.tile_count, 0);
             assert_eq!(game.player_id, 0);
             let builder = store.builder(game, 'NOBODY');
-            assert_eq!(
-                builder, Builder { game_id: 42, player_id: 'NOBODY', tile_id: 0, characters: 0 },
-            );
-        },
-    );
-}
-
-/// A character the packed word cannot hold: the tile id does not fit its 8 bits.
-#[test]
-#[should_panic(expected: ('Char: Out of range',))]
-#[available_gas(l2_gas: 56986626)]
-fn test_store_character_tile_out_of_range() {
-    let (_, systems, context) = setup::spawn_game(Mode::None);
-    interact_with_state(
-        systems.daily.contract_address,
-        || {
-            let character = Char {
-                game_id: context.game_id,
-                player_id: context.player_id,
-                index: Role::Lord.into(),
-                tile_id: 256,
-                spot: Spot::North.into(),
-                weight: 1,
-                power: 1,
-            };
-            StoreImpl::new().set_character(character);
-        },
-    );
-}
-
-/// A role index past the seven roles has no entry in the word.
-#[test]
-#[should_panic(expected: ('Char: Invalid role',))]
-#[available_gas(l2_gas: 56985996)]
-fn test_store_character_invalid_role() {
-    let (_, systems, context) = setup::spawn_game(Mode::None);
-    interact_with_state(
-        systems.daily.contract_address,
-        || {
-            let character = Char {
-                game_id: context.game_id,
-                player_id: context.player_id,
-                index: 8,
-                tile_id: 1,
-                spot: Spot::North.into(),
-                weight: 1,
-                power: 1,
-            };
-            StoreImpl::new().set_character(character);
+            assert_eq!(builder, Builder { game_id: 42, player_id: 'NOBODY', tile_id: 0 });
         },
     );
 }

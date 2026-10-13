@@ -3,7 +3,7 @@
 // Internal imports
 
 use paved::constants;
-pub use paved::models::index::Char;
+pub use paved::tests::legacy::index::Char;
 use paved::types::spot::Spot;
 
 pub mod errors {

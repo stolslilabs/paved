@@ -1,0 +1,172 @@
+// Core imports
+
+// Internal imports
+
+use paved::constants;
+use paved::helpers::bitmap::Bitmap;
+use paved::models::player::{Player, PlayerImpl};
+use paved::tests::legacy::character::{Char, CharImpl};
+use paved::tests::legacy::game::{Game, GameImpl};
+pub use paved::tests::legacy::index::Builder;
+use paved::tests::legacy::placement::role_bit;
+use paved::tests::legacy::role::{Role, RoleAssert, RoleImpl};
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::{Tile, TileImpl, TileIntoLayout};
+use paved::types::category::Category;
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
+use paved::types::spot::Spot;
+
+pub mod errors {
+    pub const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
+    pub const BUILDER_ALREADY_EXIST: felt252 = 'Builder: already exist';
+    pub const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
+    pub const BUILDER_IS_HOST: felt252 = 'Builder: is host';
+    pub const INVALID_ORDER: felt252 = 'Builder: invalid order';
+    pub const ALREADY_PLACED: felt252 = 'Builder: already placed';
+    pub const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
+    pub const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
+    pub const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
+    pub const CANNOT_BUILD: felt252 = 'Builder: cannot build';
+    pub const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
+    pub const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
+    pub const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
+}
+
+#[generate_trait]
+pub impl BuilderImpl of BuilderTrait {
+    #[inline]
+    fn new(game_id: u32, player_id: felt252) -> Builder {
+        // [Return] Builder
+        Builder { game_id, player_id, tile_id: 0, characters: 0 }
+    }
+
+    #[inline]
+    fn nullify(ref self: Builder) {
+        // [Effect] Nullify builder
+        self.tile_id = 0;
+        self.characters = 0;
+    }
+
+    #[inline]
+    fn reveal(ref self: Builder, tile_id: u32, plan: Plan) -> Tile {
+        // [Check] Can reveal
+        self.assert_revealable();
+        // [Effect] Update tile_id
+        self.tile_id = tile_id;
+        // [Return] New tile
+        TileImpl::new(self.game_id, self.tile_id, plan.into())
+    }
+
+    #[inline]
+    fn discard(ref self: Builder, ref game: Game) {
+        // [Check] Have a tile to place
+        self.assert_discardable();
+        // [Effect] Substract penalty
+        let mut malus = constants::DISCARD_POINTS;
+        game.sub_score(ref malus);
+        // [Effect] Remove tile from tile count
+        self.tile_id = 0;
+    }
+
+    #[inline]
+    fn build(ref self: Builder, ref tile: Tile, orientation: Orientation, x: u32, y: u32) {
+        // [Check] Have a tile to place
+        self.assert_buildable();
+        // [Effect] Place tile (the caller checks that it fits its neighbours)
+        tile.settle(orientation, x, y);
+        // [Effect] Remove tile from tile count
+        self.tile_id = 0;
+    }
+
+    #[inline]
+    fn place(ref self: Builder, role: Role, ref tile: Tile, spot: Spot) -> Char {
+        // [Check] Available character
+        let index: u8 = role.into();
+        self.assert_available(index);
+        // [Check] Char compatibility
+        let layout: Layout = tile.into();
+        let category: Category = layout.get_category(spot);
+        role.assert_is_allowed(category);
+        // [Effect] Set character as placed
+        self.characters = self.characters | role_bit(index);
+        // [Effect] Update tile status
+        tile.occupe(spot);
+        // [Return] New character
+        let weight: u8 = role.weight(category);
+        let power: u8 = role.power(category);
+        CharImpl::new(self.game_id, self.player_id, index.into(), tile.id, spot, weight, power)
+    }
+
+    #[inline]
+    fn recover(ref self: Builder, ref character: Char, ref tile: Tile) {
+        // [Check] Recoverable
+        let index: u8 = character.index;
+        self.assert_recoverable(index);
+        // [Effect] Collect character
+        self.characters = self.characters & ~role_bit(index);
+        // [Effect] Update character
+        character.remove();
+        // [Effect] Update tile status
+        tile.leave();
+    }
+}
+
+#[generate_trait]
+pub impl BuilderAssert of AssertTrait {
+    #[inline]
+    fn assert_exists(self: Builder) {
+        assert(self.is_non_zero(), errors::BUILDER_DOES_NOT_EXIST);
+    }
+
+    #[inline]
+    fn assert_not_exists(self: Builder) {
+        assert(self.is_zero(), errors::BUILDER_ALREADY_EXIST);
+    }
+
+    #[inline]
+    fn assert_revealable(self: Builder) {
+        assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
+    }
+
+    #[inline]
+    fn assert_discardable(self: Builder) {
+        assert(0 != self.tile_id.into(), errors::CANNOT_DISCARD);
+    }
+
+    #[inline]
+    fn assert_buildable(self: Builder) {
+        assert(0 != self.tile_id.into(), errors::CANNOT_BUILD);
+    }
+
+    #[inline]
+    fn assert_available(self: Builder, index: u8) {
+        let placed = self.characters & role_bit(index) != 0;
+        assert(!placed, errors::ALREADY_PLACED);
+    }
+
+    #[inline]
+    fn assert_recoverable(self: Builder, index: u8) {
+        let placed = self.characters & role_bit(index) != 0;
+        assert(placed, errors::CHARACTER_NOT_PLACED);
+    }
+}
+
+#[generate_trait]
+pub impl ZeroableBuilderImpl of ZeroableBuilderTrait {
+    #[inline]
+    fn zero() -> Builder {
+        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0 }
+    }
+
+    #[inline]
+    fn is_zero(self: Builder) -> bool {
+        0 == self.tile_id.into()
+    }
+
+    #[inline]
+    fn is_non_zero(self: Builder) -> bool {
+        !self.is_zero()
+    }
+}

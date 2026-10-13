@@ -1,71 +1,68 @@
-//! Assessment of forests from their roots (phase P5, PR P5-5): the forest arm of step 4 of the
-//! update algorithm, which `ForestCount` walked.
+//! Assessment of forests from their roots (phase P5, PR P5-5; D-18): the forest arm of step 4 of
+//! the update algorithm, which `ForestCount` walked.
 //!
-//! A forest is a structure like the others (size, own open half-edges, characters). What a root
-//! cannot keep is the set of distinct roads and cities adjacent to the forest: it is computed by a
-//! scan, only past the O(1) gate (`open == 0` and a Woodsman or a Herdsman on it).
+//! A forest is a structure like the others (size, own open half-edges). What a root cannot keep is
+//! the set of distinct roads and cities adjacent to the forest: it is computed by a scan, on the
+//! move that closes the forest's own half-edges (`open == 0`).
 //!
 //! The scan walks the nodes of the forest (one tile read per node, every position is taken since
 //! `open == 0`) and, for each adjacent road or city area of a node, takes the root of its record:
 //! - an adjacent road whose root still has open half-edges keeps the forest open (2024 rule):
 //!   nothing scores;
-//! - the Woodsman scores the distinct closed road roots, the Herdsman the distinct closed city
-//!   roots. A city whose root is open is not counted (P-15, the correction of the 2024 walk, which
-//!   could count an open city that a forest touched twice).
+//! - otherwise the forest scores the distinct closed road roots plus the distinct closed city
+//!   roots (D-18, P-45: what a Woodsman and a Herdsman scored, together). A city whose root is open
+//!   is not counted (P-15, the correction of the 2024 walk, which could count an open city that a
+//!   forest touched twice).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
-use paved::models::builder::BuilderImpl;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::Tile;
 use paved::store::{Store, StoreImpl};
-use paved::structure::assessment::recover;
-use paved::structure::placement::role_bit;
-use paved::structure::record::{chars_of, open_of, ref_of, size_of, without_chars};
+use paved::structure::record::{open_of, ref_of, size_of};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, tables};
 use paved::types::category::{Category, CategoryImpl};
-use paved::types::role::Role;
 
-/// Scores the forest of `area` of the built `tile` (of refs `refs`) if it is closed and holds a
-/// Woodsman or a Herdsman: one `Scored` per character (the Woodsman first), even with 0 points, and
-/// the characters recovered. Returns whether it scored.
+/// Scores the forest of `area` of the built `tile` (of refs `refs`), whose root `record` is closed,
+/// unless an adjacent road is open: points `(roads + cities) x base x bonus(size)`, one `Scored`,
+/// even with 0 points (the unit of the quests is the forest closure).
 pub fn assess_forest(
-    ref game: Game, tile: Tile, refs: u128, area: u8, ref structures: Structures, ref store: Store,
-) -> bool {
-    // [Check] The gate: no half-edge of the forest points to an empty position, and a character
-    // stands on it (the only roles a forest takes are the Woodsman and the Herdsman)
-    let (root, record) = structures.find(ref_of(refs, area));
-    let chars = chars_of(record);
-    if open_of(record) != 0 || chars == 0 {
-        return false;
-    }
-
+    ref game: Game,
+    tile: Tile,
+    refs: u128,
+    area: u8,
+    record: u64,
+    ref structures: Structures,
+    ref store: Store,
+) {
     // [Compute] The roads and cities around the forest
     let (open_road, roads, cities) = scan(game.id, tile, refs, area, ref structures);
     if open_road {
-        return false;
+        return;
     }
 
-    // [Effect] Solve and collect the characters, the Woodsman first
+    // [Effect] Score the forest
     let size: u32 = size_of(record).into();
-    let mut recovered: u16 = 0;
-    let woodsman: u8 = Role::Woodsman.into();
-    if chars & role_bit(woodsman) != 0 {
-        solve(ref game, size, roads, woodsman, ref structures, ref store);
-        recovered = recovered | role_bit(woodsman);
-    }
-    let herdsman: u8 = Role::Herdsman.into();
-    if chars & role_bit(herdsman) != 0 {
-        solve(ref game, size, cities, herdsman, ref structures, ref store);
-        recovered = recovered | role_bit(herdsman);
-    }
-    if recovered == 0 {
-        return false;
-    }
-    structures.set(root, without_chars(record, recovered));
-    true
+    let (num, den) = compute_multiplier(size);
+    let points = (roads + cities) * Category::Forest.base_points() * num / den;
+    game.add_score(points);
+    game.count_forest();
+
+    // [Event] Forest scored
+    store
+        .emit(
+            Event::Scored(
+                Scored {
+                    game_id: game.id,
+                    player_id: game.player_id,
+                    category: Category::Forest.into(),
+                    size,
+                    points,
+                },
+            ),
+        );
 }
 
 /// Walks the forest of `area` of `tile` and returns whether an adjacent road is still open, the
@@ -162,38 +159,6 @@ pub fn scan(
         }
     }
     (open_road, roads, cities)
-}
-
-/// The points of the characters of `role` standing on a forest of `size` nodes with `distinct`
-/// closed roads or cities around it: `distinct x base x bonus(size)`, one `Scored`, the character
-/// recovered.
-fn solve(
-    ref game: Game,
-    size: u32,
-    distinct: u32,
-    role: u8,
-    ref structures: Structures,
-    ref store: Store,
-) {
-    let (num, den) = compute_multiplier(size);
-    let points = distinct * Category::Forest.base_points() * num / den;
-    recover(ref game, ref structures, role);
-    game.add_score(points);
-    game.count_forest();
-
-    // [Event] Forest scored
-    store
-        .emit(
-            Event::Scored(
-                Scored {
-                    game_id: game.id,
-                    player_id: game.player_id,
-                    category: Category::Forest.into(),
-                    size,
-                    points,
-                },
-            ),
-        );
 }
 
 /// The key of a node (an area of a tile) in the sets of a scan.

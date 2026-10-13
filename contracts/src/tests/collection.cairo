@@ -29,7 +29,7 @@ pub trait IDouble<TContractState> {
 
 #[starknet::contract]
 pub mod Double {
-    use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView};
+    use paved::views::{BuilderView, GameView, IGameView, TileView};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
 
     #[storage]
@@ -77,12 +77,6 @@ pub mod Double {
 
         fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
             panic!("unused")
-        }
-
-        fn characters(
-            self: @ContractState, game_id: u32, player_id: felt252,
-        ) -> Array<CharacterView> {
-            array![]
         }
     }
 }

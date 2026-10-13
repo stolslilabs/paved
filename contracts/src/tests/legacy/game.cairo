@@ -1,0 +1,474 @@
+// Core imports
+
+use core::dict::{Felt252Dict, Felt252DictTrait};
+use core::hash::HashStateTrait;
+use core::num::traits::Pow;
+use core::poseidon::{HashState, PoseidonTrait};
+
+// Internal imports
+
+use paved::constants;
+use paved::helpers::bitmap::Bitmap;
+use paved::helpers::random_deck::draw_from_bitmap;
+use paved::models::player::{Player, PlayerTrait};
+use paved::structure::{oriented, tables};
+use paved::tests::legacy::assessment::{assess_generic, assess_wonder};
+use paved::tests::legacy::builder::{Builder, BuilderTrait};
+use paved::tests::legacy::character::{Char, CharAssert, CharTrait};
+use paved::tests::legacy::forest::assess_forest;
+pub use paved::tests::legacy::index::Game;
+use paved::tests::legacy::placement;
+use paved::tests::legacy::placement::{Neighborhood, NeighborhoodTrait};
+use paved::tests::legacy::record::ref_of;
+use paved::tests::legacy::role::Role;
+use paved::tests::legacy::state::{Structures, StructuresTrait};
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
+use paved::types::area::Area;
+use paved::types::category::{Category, CategoryImpl};
+use paved::types::deck::{Deck, DeckImpl};
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::mode::{Mode, ModeTrait};
+use paved::types::move::{Move, MoveImpl};
+use paved::types::orientation::{IntoOrientationU8, IntoU8Orientation, Orientation};
+use paved::types::plan::Plan;
+use paved::types::spot::{Spot, SpotImpl};
+
+pub mod errors {
+    pub const INVALID_NAME: felt252 = 'Game: invalid name';
+    pub const INVALID_HOST: felt252 = 'Game: invalid host';
+    pub const INVALID_MODE: felt252 = 'Game: invalid mode';
+    pub const INVALID_PRIZE: felt252 = 'Game: invalid prize';
+    pub const INVALID_TILE_LIMIT: felt252 = 'Game: invalid tile limit';
+    pub const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
+    pub const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
+    pub const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
+    pub const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
+    pub const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
+    pub const STRUCTURE_NOT_IDLE: felt252 = 'Game: structure not idle';
+    pub const GAME_IS_OVER: felt252 = 'Game: is over';
+    pub const GAME_NOT_OVER: felt252 = 'Game: not over';
+    pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+}
+
+/// Where each counter starts in `Game.counts` (the structures start at bit 0).
+const FOREST_UNIT: u32 = 0x80;
+const WONDER_UNIT: u32 = 0x2000;
+const BIG_UNIT: u32 = 0x20000;
+
+#[inline]
+fn min_u32(value: u32, max: u32) -> u32 {
+    if value > max {
+        max
+    } else {
+        value
+    }
+}
+
+/// `2^index`, the bit of a card in the deck bitmap (`Bitmap::set_bit_at` computes it with a
+/// loop of 256-bit products, which costs about 0.25M L2 gas).
+#[inline]
+fn bit(index: u8) -> u128 {
+    2_u128.pow(index.into())
+}
+
+#[generate_trait]
+pub impl GameImpl of GameTrait {
+    #[inline]
+    fn new(id: u32, time: u64, mode: Mode, player_id: felt252) -> Game {
+        // [Check] Validate parameters
+        let mode: Mode = mode.into();
+        assert(Mode::None != mode, errors::INVALID_MODE);
+        // [Check] The tile count is packed in 8 bits (`GameState`)
+        let tile_limit: u16 = mode.deck().count().into();
+        assert(tile_limit <= 255, errors::INVALID_TILE_LIMIT);
+        // [Effect] Create the game
+        // [Info] A game belongs to the player that spawns it
+        Game {
+            id,
+            player_id,
+            held_tile: 0,
+            characters: 0,
+            over: false,
+            discarded: 0,
+            built: 0,
+            tiles: 0,
+            tile_count: 0,
+            start_time: 0,
+            end_time: 0,
+            score: 0,
+            seed: 0,
+            mode: mode.into(),
+            tournament_id: 0,
+            tile_limit,
+            counts: 0,
+        }
+    }
+
+    /// The builder of `player_id` in this game: the one of the game's player, the zero builder for
+    /// anyone else (so `Builder: does not exist` reverts as it did with a builder per player).
+    #[inline]
+    fn builder_of(self: Game, player_id: felt252) -> Builder {
+        if player_id != 0 && player_id == self.player_id {
+            Builder {
+                game_id: self.id, player_id, tile_id: self.held_tile, characters: self.characters,
+            }
+        } else {
+            Builder { game_id: self.id, player_id, tile_id: 0, characters: 0 }
+        }
+    }
+
+    /// Takes the tile in hand and the roles placed back from the builder.
+    #[inline]
+    fn set_builder(ref self: Game, builder: Builder) {
+        self.held_tile = builder.tile_id;
+        self.characters = builder.characters;
+    }
+
+    #[inline]
+    fn price(self: Game) -> felt252 {
+        let mode: Mode = self.mode.into();
+        mode.price()
+    }
+
+    #[inline]
+    fn duration(self: Game) -> u64 {
+        let mode: Mode = self.mode.into();
+        mode.duration()
+    }
+
+    #[inline]
+    fn deck(self: Game) -> Deck {
+        let mode: Mode = self.mode.into();
+        mode.deck()
+    }
+
+    #[inline]
+    fn is_payable(self: Game) -> bool {
+        true
+    }
+
+    #[inline]
+    fn nullify(ref self: Game) {
+        // [Effect] Nullify the game
+        self.over = false;
+        self.tiles = 0;
+        self.tile_count = 0;
+        self.start_time = 0;
+        self.score = 0;
+        self.seed = 0;
+    }
+
+    #[inline]
+    fn start(ref self: Game, time: u64, seed: felt252) -> Tile {
+        // [Effect] Create the starter tile
+        let tile_id = self.add_tile();
+        let mut tile = TileTrait::new(self.id, tile_id, Plan::RFFFRFCFR);
+        tile.orientation = Orientation::South.into();
+        // [Info] Writing it places it on the structure state (`Store::set_tile`)
+
+        // [Effect] Remove the starter tile from the deck
+        let plan: Plan = tile.plan.into();
+        let deck: Deck = self.deck();
+        let mut indexes = deck.indexes(plan);
+        let index = indexes.pop_front().unwrap();
+        self.tiles = self.tiles | bit(index);
+
+        // [Effect] Update game start time and seed (the seed comes from a `SeedSource`)
+        self.seed = seed;
+        self.tiles = deck.tiles(self.tiles, self.seed);
+        self.start_time = time;
+
+        tile
+    }
+
+    #[inline]
+    fn is_over(self: Game) -> bool {
+        self.over
+    }
+
+    #[inline]
+    fn reseed(ref self: Game, tile: Tile) {
+        let state: HashState = PoseidonTrait::new();
+        let state = state.update(self.seed);
+        let state = state.update(tile.x.into());
+        let state = state.update(tile.y.into());
+        self.seed = state.finalize();
+    }
+
+    #[inline]
+    fn assess_over(ref self: Game) {
+        self.over = self.tile_count >= self.tile_limit.into();
+    }
+
+    #[inline]
+    fn surrender(ref self: Game) {
+        // [Comment] Only available for solo mode
+        self.over = true;
+    }
+
+    #[inline]
+    fn add_tile(ref self: Game) -> u32 {
+        self.tile_count += 1;
+        self.tile_count
+    }
+
+    #[inline]
+    fn add_score(ref self: Game, score: u32) {
+        self.score += score;
+    }
+
+    /// A road or a city scored: counts a structure, and a big one from `constants::BIG_SIZE`
+    /// tiles. The counters saturate at their bit width in `GameState`.
+    #[inline]
+    fn count_structure(ref self: Game, size: u32) {
+        if self.counts & 0x7f != 0x7f {
+            self.counts += 1;
+        }
+        if size >= constants::BIG_SIZE && (self.counts / BIG_UNIT) & 0x3f != 0x3f {
+            self.counts += BIG_UNIT;
+        }
+    }
+
+    /// A forest scored (one `Scored` per character, even with 0 points).
+    #[inline]
+    fn count_forest(ref self: Game) {
+        if (self.counts / FOREST_UNIT) & 0x3f != 0x3f {
+            self.counts += FOREST_UNIT;
+        }
+    }
+
+    /// A wonder scored.
+    #[inline]
+    fn count_wonder(ref self: Game) {
+        if (self.counts / WONDER_UNIT) & 0xf != 0xf {
+            self.counts += WONDER_UNIT;
+        }
+    }
+
+    /// The counters packed: structures (7 bits), forests (6), wonders (4), big structures (6),
+    /// each clamped to its width.
+    fn counts_of(structures: u8, forests: u8, wonders: u8, big: u8) -> u32 {
+        min_u32(structures.into(), 0x7f)
+            + min_u32(forests.into(), 0x3f) * FOREST_UNIT
+            + min_u32(wonders.into(), 0xf) * WONDER_UNIT
+            + min_u32(big.into(), 0x3f) * BIG_UNIT
+    }
+
+    fn structures(self: Game) -> u8 {
+        (self.counts & 0x7f).try_into().unwrap()
+    }
+
+    fn forests(self: Game) -> u8 {
+        ((self.counts / FOREST_UNIT) & 0x3f).try_into().unwrap()
+    }
+
+    fn wonders(self: Game) -> u8 {
+        ((self.counts / WONDER_UNIT) & 0xf).try_into().unwrap()
+    }
+
+    fn big(self: Game) -> u8 {
+        ((self.counts / BIG_UNIT) & 0x3f).try_into().unwrap()
+    }
+
+    #[inline]
+    fn sub_score(ref self: Game, ref score: u32) {
+        // [Check] Update score
+        if self.score < score {
+            score = self.score;
+        }
+        self.score -= score;
+    }
+
+    #[inline]
+    fn draw_plan(ref self: Game) -> (u32, Plan) {
+        let deck: Deck = self.deck();
+        let (plan, tiles) = if deck == Deck::Tutorial {
+            if self.tiles == 0 {
+                (deck.plan(0), 1)
+            } else {
+                let index: u8 = 1 + Bitmap::most_significant_bit(self.tiles).unwrap();
+                let plan: Plan = deck.plan(index.into());
+                let tiles = self.tiles | bit(index);
+                (plan, tiles)
+            }
+        } else {
+            let number: u32 = deck.total_count().into();
+            let (plan_id, remaining) = draw_from_bitmap(self.seed, number, self.tiles);
+            let tiles = if remaining == 0 {
+                0
+            } else {
+                let index = plan_id - 1;
+                self.tiles | bit(index)
+            };
+            (deck.plan(plan_id.into()), tiles)
+        };
+        self.tiles = tiles;
+        self.tile_count += 1;
+        // The drawn tile is the tile in hand
+        self.held_tile = self.tile_count;
+        // Update the seed after draw
+        let state = PoseidonTrait::new();
+        let state = state.update(self.seed);
+        let state = state.update(self.tile_count.into());
+        self.seed = state.finalize();
+        (self.tile_count, plan)
+    }
+
+    /// Places the built tile on the structure state (steps 1 and 2 of
+    /// `docs/architecture/structure-state.md`): returns its refs.
+    #[inline]
+    fn place_structures(
+        self: Game, tile: Tile, around: @Neighborhood, ref structures: Structures,
+    ) -> u128 {
+        placement::place(ref structures, tile, around)
+    }
+
+    /// The character placed on `spot` of the built tile joins the structure of that area (step 3).
+    #[inline]
+    fn occupy_structure(
+        self: Game, tile: Tile, refs: u128, spot: Spot, role: Role, ref structures: Structures,
+    ) {
+        placement::occupy(ref structures, tile, refs, spot.into(), role.into());
+    }
+
+    /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
+    /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
+    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed
+    /// and holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure
+    /// scored (and characters were recovered).
+    fn assess(
+        ref self: Game,
+        tile: Tile,
+        refs: u128,
+        around: @Neighborhood,
+        ref structures: Structures,
+        ref store: Store,
+    ) -> bool {
+        // [Compute] The start spots of the tile
+        let mut scored = false;
+        let row = oriented::plan_row(tile.plan, tile.orientation);
+        let mut count = oriented::start_count(row);
+        let mut starts = oriented::starts(row);
+        while count > 0 {
+            let (_, area, rest) = oriented::next_start(starts);
+            starts = rest;
+            count -= 1;
+            let area_row = oriented::area_row(tile.plan, tile.orientation, area);
+            let category: Category = tables::row_category(area_row).into();
+            match category {
+                Category::Road |
+                Category::City => {
+                    let sid = ref_of(refs, area);
+                    if assess_generic(ref self, ref structures, ref store, sid, category) {
+                        scored = true;
+                    }
+                },
+                Category::Wonder => {
+                    let sid = ref_of(refs, area);
+                    if assess_wonder(ref self, ref structures, ref store, sid) {
+                        scored = true;
+                    }
+                },
+                Category::Forest => {
+                    if assess_forest(ref self, tile, refs, area, ref structures, ref store) {
+                        scored = true;
+                    }
+                },
+                _ => {},
+            }
+        }
+
+        // [Compute] The wonders of the neighbours
+        let mut directions = array![
+            tables::NORTH, tables::EAST, tables::SOUTH, tables::WEST, tables::NORTH_WEST,
+            tables::NORTH_EAST, tables::SOUTH_EAST, tables::SOUTH_WEST,
+        ]
+            .span();
+        while let Option::Some(direction) = directions.pop_front() {
+            if *around.wonders & placement::role_bit(*direction) != 0 {
+                let wonder = oriented::wonder_area(around.tile(*direction).plan);
+                let sid = around.reference(*direction, wonder);
+                if assess_wonder(ref self, ref structures, ref store, sid) {
+                    scored = true;
+                }
+            }
+        }
+        scored
+    }
+}
+
+#[generate_trait]
+pub impl ZeroableGame of ZeroableGameTrait {
+    #[inline]
+    fn zero() -> Game {
+        Game {
+            id: 0,
+            player_id: 0,
+            held_tile: 0,
+            characters: 0,
+            over: false,
+            discarded: 0,
+            built: 0,
+            tiles: 0,
+            tile_count: 0,
+            start_time: 0,
+            end_time: 0,
+            score: 0,
+            seed: 0,
+            mode: 0,
+            tournament_id: 0,
+            tile_limit: 0,
+            counts: 0,
+        }
+    }
+
+    #[inline]
+    fn is_zero(self: Game) -> bool {
+        0 == self.tile_count.into()
+    }
+
+    #[inline]
+    fn is_non_zero(self: Game) -> bool {
+        !self.is_zero()
+    }
+}
+
+#[generate_trait]
+pub impl GameAssert of AssertTrait {
+    #[inline]
+    fn assert_exists(self: Game) {
+        assert(self.is_non_zero(), errors::GAME_NOT_EXISTS);
+    }
+
+    #[inline]
+    fn assert_not_started(self: Game) {
+        assert(0 == self.tile_count.into(), errors::GAME_ALREADY_STARTED);
+    }
+
+    #[inline]
+    fn assert_started(self: Game) {
+        assert(0 != self.tile_count.into(), errors::GAME_NOT_STARTED);
+    }
+
+    /// No structure that the area of `at` of the built tile touches holds a character (read from
+    /// the roots, before the tile joins them: see `placement::is_idle`).
+    #[inline]
+    fn assert_structure_idle(
+        self: Game, tile: Tile, at: Spot, around: @Neighborhood, ref structures: Structures,
+    ) {
+        let idle = placement::is_idle(ref structures, tile, at.into(), around);
+        assert(idle, errors::STRUCTURE_NOT_IDLE);
+    }
+
+    #[inline]
+    fn assert_not_over(self: Game) {
+        assert(!self.is_over(), errors::GAME_IS_OVER);
+    }
+
+    #[inline]
+    fn assert_is_over(self: Game) {
+        assert(self.is_over(), errors::GAME_NOT_OVER);
+    }
+}

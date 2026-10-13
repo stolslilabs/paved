@@ -16,8 +16,6 @@ pub mod PlayableComponent {
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
     use paved::types::orientation::Orientation;
-    use paved::types::role::Role;
-    use paved::types::spot::Spot;
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
 
     // Storage
@@ -184,8 +182,6 @@ pub mod PlayableComponent {
             orientation: Orientation,
             x: u32,
             y: u32,
-            role: Role,
-            spot: Spot,
         ) -> u128 {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
@@ -233,30 +229,13 @@ pub mod PlayableComponent {
                             orientation: orientation.into(),
                             x,
                             y,
-                            role: role.into(),
-                            spot: spot.into(),
                         },
                     ),
                 );
 
-            // [Check] Character to place: its structure is idle
-            let mut structures = StructuresTrait::new(game_id);
-            let placing = role != Role::None && spot != Spot::None;
-            if placing {
-                game.assert_structure_idle(tile, spot, @around, ref structures);
-            }
-
             // [Effect] Place the tile on the structure state
+            let mut structures = StructuresTrait::new(game_id);
             let refs = game.place_structures(tile, @around, ref structures);
-
-            if placing {
-                // [Effect] Place character
-                let character = builder.place(role, ref tile, spot);
-                game.occupy_structure(tile, refs, spot, role, ref structures);
-
-                // [Effect] Update character (written with the structure state, at the end)
-                structures.put_character(character);
-            }
 
             // [Effect] Update tile (written with its position by `flush`, after the assessment)
             structures.track(tile, refs);
@@ -272,12 +251,11 @@ pub mod PlayableComponent {
                 store.set_tile(new_tile);
             }
 
-            // [Effect] Update builder: the tile in hand and the roles placed are part of the game
-            // state, which the assessment recovers characters into
+            // [Effect] Update builder: the tile in hand is part of the game state
             game.set_builder(builder);
 
             // [Effect] Assessment, then what the move changed outside the game state: the record
-            // pages, the `Characters` word and the built tile
+            // pages and the built tile
             game.assess(tile, refs, @around, ref structures, ref store);
             structures.flush(store);
 

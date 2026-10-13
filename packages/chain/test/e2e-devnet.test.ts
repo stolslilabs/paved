@@ -140,7 +140,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const call = {
       contractAddress: client.deployment.addresses.Daily,
       entrypoint: "build",
-      calldata: client.codecs.Daily.encodeCall("build", [key.gameId, move.orientation, move.x, move.y, move.role, move.spot]),
+      calldata: client.codecs.Daily.encodeCall("build", [key.gameId, move.orientation, move.x, move.y]),
     };
     try {
       await player.account.estimateInvokeFee([call], { tip: 0n });
@@ -152,7 +152,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
 
   /**
    * The naive player (bob and carol): a Daily game for at most `maxMoves` placements, a legal placement next to the tiles placed
-   * (found by probing the node), with a character when one fits, then sent through the writer. It
+   * (found by probing the node), then sent through the writer. It
    * surrenders if the game is still running after that.
    */
   async function playDaily(player: Player, key: GameKey, maxMoves: number): Promise<{ moves: number; score: number; hash: string }> {
@@ -168,20 +168,9 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
           const y = t.y + dy;
           if (taken.has(`${x},${y}`)) continue;
           for (let orientation = 0; orientation < 4; orientation++) {
-            const bare = { orientation, x, y, role: 0, spot: 0 };
-            if (!(await legal(player, key, bare))) continue;
-            chosen = bare;
-            const builder = await client.views.builder(key, player.address);
-            if (builder.availableCount > 0) {
-              for (let role = 1; role <= 5 && chosen === bare; role++) {
-                for (let spot = 1; spot <= 9; spot++) {
-                  if (await legal(player, key, { ...bare, role, spot })) {
-                    chosen = { ...bare, role, spot };
-                    break;
-                  }
-                }
-              }
-            }
+            const move = { orientation, x, y };
+            if (!(await legal(player, key, move))) continue;
+            chosen = move;
             break search;
           }
         }
@@ -284,7 +273,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     let moves = 0;
     let hash = spawned.transactionHash;
     for (let game = await client.views.game(key); !game.over && moves < 20; game = await client.views.game(key)) {
-      const result = await alice.writer.build(key, { orientation: 0, x: 0, y: 0, role: 0, spot: 0 }).catch((error) => {
+      const result = await alice.writer.build(key, { orientation: 0, x: 0, y: 0 }).catch((error) => {
         if (!String(error?.message).includes("Orientation: not valid")) throw error;
         return alice.writer.discard(key);
       });
