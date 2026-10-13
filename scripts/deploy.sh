@@ -1256,7 +1256,8 @@ D18_GAMES=(Daily Tutorial Account)
 # a felt (through `v`, a failed read stops the run).
 d18_lobby_class() {
   local answer
-  answer="$(rpc starknet_getStorageAt "[\"$1\",\"$D18_LOBBY_SLOT\",\"latest\"]")" || return 1
+  # Named params: starknet-devnet 0.10.0 (spec 0.10.2) wants four positional ones here, the spec three.
+  answer="$(rpc starknet_getStorageAt "{\"contract_address\":\"$1\",\"key\":\"$D18_LOBBY_SLOT\",\"block_id\":\"latest\"}")" || return 1
   python3 -I -c '
 import json, re, sys
 d = json.load(sys.stdin)
@@ -1435,7 +1436,7 @@ d18_calls() {
 # the new classes there, then smokes. Each step reads what already landed first and is skipped when done, so a rerun
 # sends only what is left; a complete one sends nothing.
 d18_run() {
-  local name raw calls=() spec
+  local name raw calls=() spec entry
   if ((REPOINT_CHECK_ONLY)); then
     echo "== d18: check only (nothing is sent, the file is not written)"
     for name in Account Daily Tutorial Lobby; do
@@ -1451,7 +1452,13 @@ d18_run() {
       echo "   multicall: nothing left to send"
     else
       echo "   multicall a run would send:"
-      while IFS= read -r spec; do echo "     $(cut -d' ' -f2- <<<"$spec")  ($(cut -d' ' -f1 <<<"$spec"))"; done <<<"$raw"
+      while IFS= read -r spec; do
+        name=Economy
+        for entry in "Daily=$DAILY" "Tutorial=$TUTORIAL" "Account=$ACCOUNT"; do
+          [[ "${spec%% *}" != "${entry#*=}" ]] || name="${entry%%=*}"
+        done
+        echo "     $name.$(cut -d' ' -f2- <<<"$spec")"
+      done <<<"$raw"
     fi
     echo "== d18: check only: every check passed; nothing was sent"
     exit 0
@@ -1579,7 +1586,8 @@ d18_smoke() {
     game_id="$(rp_get smoke.game_id)"
     echo "   paid Daily spawn done already: game $game_id, tx $(rp_get smoke.spawn_tx); not sent again"
   else
-    v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r player _ <<<"$raw"
+    # Player is (id, name, master): the id is the key, so the name says whether the player exists.
+    v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r _ player _ <<<"$raw"
     [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
     v raw call "$USDC" balance_of "$DEPLOYER_ARG"; read -r held _ <<<"$raw"
     gt "$(hex_int "$held")" 1999999 ||
