@@ -124,126 +124,20 @@
   },
   {
     "type": "impl",
-    "name": "DailyQuestsImpl",
-    "interface_name": "paved::systems::daily::IDailyQuests"
-  },
-  {
-    "type": "struct",
-    "name": "quiver_quest::types::schedule::QuestSchedule",
-    "members": [
-      {
-        "name": "start",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "end",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "duration",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "interval",
-        "type": "core::integer::u32"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "quiver_quest::types::task::QuestTask",
-    "members": [
-      {
-        "name": "task_id",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "total",
-        "type": "core::integer::u32"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::array::Span::<quiver_quest::types::task::QuestTask>",
-    "members": [
-      {
-        "name": "snapshot",
-        "type": "@core::array::Array::<quiver_quest::types::task::QuestTask>"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::array::Span::<core::integer::u32>",
-    "members": [
-      {
-        "name": "snapshot",
-        "type": "@core::array::Array::<core::integer::u32>"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "quiver_achievement::types::window::AchievementWindow",
-    "members": [
-      {
-        "name": "start",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "end",
-        "type": "core::integer::u64"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "quiver_achievement::types::task::AchievementTask",
-    "members": [
-      {
-        "name": "task_id",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "total",
-        "type": "core::integer::u32"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::array::Span::<quiver_achievement::types::task::AchievementTask>",
-    "members": [
-      {
-        "name": "snapshot",
-        "type": "@core::array::Array::<quiver_achievement::types::task::AchievementTask>"
-      }
-    ]
+    "name": "DailySetupImpl",
+    "interface_name": "paved::systems::daily::IDailySetup"
   },
   {
     "type": "interface",
-    "name": "paved::systems::daily::IDailyQuests",
+    "name": "paved::systems::daily::IDailySetup",
     "items": [
       {
         "type": "function",
-        "name": "define_quest",
+        "name": "set_setup",
         "inputs": [
           {
-            "name": "quest_id",
-            "type": "core::integer::u32"
-          },
-          {
-            "name": "schedule",
-            "type": "quiver_quest::types::schedule::QuestSchedule"
-          },
-          {
-            "name": "tasks",
-            "type": "core::array::Span::<quiver_quest::types::task::QuestTask>"
-          },
-          {
-            "name": "conditions",
-            "type": "core::array::Span::<core::integer::u32>"
+            "name": "setup",
+            "type": "core::starknet::contract_address::ContractAddress"
           }
         ],
         "outputs": [],
@@ -251,51 +145,14 @@
       },
       {
         "type": "function",
-        "name": "retire_quest",
-        "inputs": [
+        "name": "setup",
+        "inputs": [],
+        "outputs": [
           {
-            "name": "quest_id",
-            "type": "core::integer::u32"
+            "type": "core::starknet::contract_address::ContractAddress"
           }
         ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "define_achievement",
-        "inputs": [
-          {
-            "name": "achievement_id",
-            "type": "core::integer::u32"
-          },
-          {
-            "name": "window",
-            "type": "quiver_achievement::types::window::AchievementWindow"
-          },
-          {
-            "name": "tasks",
-            "type": "core::array::Span::<quiver_achievement::types::task::AchievementTask>"
-          },
-          {
-            "name": "points",
-            "type": "core::integer::u16"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "retire_achievement",
-        "inputs": [
-          {
-            "name": "achievement_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
+        "state_mutability": "view"
       }
     ]
   },
@@ -314,29 +171,6 @@
         "inputs": [
           {
             "name": "new_class_hash",
-            "type": "core::starknet::class_hash::ClassHash"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "LobbyClassImpl",
-    "interface_name": "paved::systems::lobby::ILobbyClass"
-  },
-  {
-    "type": "interface",
-    "name": "paved::systems::lobby::ILobbyClass",
-    "items": [
-      {
-        "type": "function",
-        "name": "set_lobby_class",
-        "inputs": [
-          {
-            "name": "class_hash",
             "type": "core::starknet::class_hash::ClassHash"
           }
         ],
@@ -668,8 +502,8 @@
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        "name": "lobby_class",
-        "type": "core::starknet::class_hash::ClassHash"
+        "name": "setup_address",
+        "type": "core::starknet::contract_address::ContractAddress"
       }
     ]
   },
@@ -988,270 +822,6 @@
   },
   {
     "type": "event",
-    "name": "quiver_quest::events::index::QuestDefined",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "quest_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "schedule",
-        "type": "quiver_quest::types::schedule::QuestSchedule",
-        "kind": "data"
-      },
-      {
-        "name": "tasks",
-        "type": "core::array::Span::<quiver_quest::types::task::QuestTask>",
-        "kind": "data"
-      },
-      {
-        "name": "conditions",
-        "type": "core::array::Span::<core::integer::u32>",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::events::index::QuestProgressed",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "task_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "count",
-        "type": "core::integer::u32",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::events::index::QuestCompleted",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "quest_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "interval_id",
-        "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::events::index::QuestClaimed",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "quest_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "interval_id",
-        "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::events::index::QuestRetired",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "quest_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::events::index::QuestReporterSet",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "reporter",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "allowed",
-        "type": "core::bool",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_quest::component::QuestComponent::Event",
-    "kind": "enum",
-    "variants": [
-      {
-        "name": "QuestDefined",
-        "type": "quiver_quest::events::index::QuestDefined",
-        "kind": "nested"
-      },
-      {
-        "name": "QuestProgressed",
-        "type": "quiver_quest::events::index::QuestProgressed",
-        "kind": "nested"
-      },
-      {
-        "name": "QuestCompleted",
-        "type": "quiver_quest::events::index::QuestCompleted",
-        "kind": "nested"
-      },
-      {
-        "name": "QuestClaimed",
-        "type": "quiver_quest::events::index::QuestClaimed",
-        "kind": "nested"
-      },
-      {
-        "name": "QuestRetired",
-        "type": "quiver_quest::events::index::QuestRetired",
-        "kind": "nested"
-      },
-      {
-        "name": "QuestReporterSet",
-        "type": "quiver_quest::events::index::QuestReporterSet",
-        "kind": "nested"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_achievement::events::index::AchievementDefined",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "achievement_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "window",
-        "type": "quiver_achievement::types::window::AchievementWindow",
-        "kind": "data"
-      },
-      {
-        "name": "tasks",
-        "type": "core::array::Span::<quiver_achievement::types::task::AchievementTask>",
-        "kind": "data"
-      },
-      {
-        "name": "points",
-        "type": "core::integer::u16",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_achievement::events::index::AchievementProgressed",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "task_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "count",
-        "type": "core::integer::u32",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_achievement::events::index::AchievementRetired",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "achievement_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_achievement::events::index::AchievementReporterSet",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "reporter",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "allowed",
-        "type": "core::bool",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "quiver_achievement::component::AchievementComponent::Event",
-    "kind": "enum",
-    "variants": [
-      {
-        "name": "AchievementDefined",
-        "type": "quiver_achievement::events::index::AchievementDefined",
-        "kind": "nested"
-      },
-      {
-        "name": "AchievementProgressed",
-        "type": "quiver_achievement::events::index::AchievementProgressed",
-        "kind": "nested"
-      },
-      {
-        "name": "AchievementRetired",
-        "type": "quiver_achievement::events::index::AchievementRetired",
-        "kind": "nested"
-      },
-      {
-        "name": "AchievementReporterSet",
-        "type": "quiver_achievement::events::index::AchievementReporterSet",
-        "kind": "nested"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
     "kind": "struct",
     "members": [
@@ -1276,12 +846,12 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::lobby::LobbyClassSet",
+    "name": "paved::systems::daily::SetupSet",
     "kind": "struct",
     "members": [
       {
-        "name": "class_hash",
-        "type": "core::starknet::class_hash::ClassHash",
+        "name": "setup",
+        "type": "core::starknet::contract_address::ContractAddress",
         "kind": "data"
       }
     ]
@@ -1317,23 +887,13 @@
         "kind": "flat"
       },
       {
-        "name": "QuestEvent",
-        "type": "quiver_quest::component::QuestComponent::Event",
-        "kind": "flat"
-      },
-      {
-        "name": "AchievementEvent",
-        "type": "quiver_achievement::component::AchievementComponent::Event",
-        "kind": "flat"
-      },
-      {
         "name": "UpgradeableEvent",
         "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
         "kind": "flat"
       },
       {
-        "name": "LobbyClassSet",
-        "type": "paved::systems::lobby::LobbyClassSet",
+        "name": "SetupSet",
+        "type": "paved::systems::daily::SetupSet",
         "kind": "nested"
       }
     ]

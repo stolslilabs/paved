@@ -1,7 +1,7 @@
 // TEST ONLY: never deploy this contract. It moves no balance and calls back into `Daily`.
 
-//! A token whose `transferFrom` and `transfer` call back into `Daily` once, during a `Lobby`
-//! library call, to see whether the state written before the transfer holds (S1 audit, P-26:
+//! A token whose `transferFrom` and `transfer` call back into `Daily` once, during its spawn, to
+//! see whether the state written before the transfer holds (S1 audit, P-26:
 //! checks, effects, interactions). It reports whether the re-entry reverted.
 
 use starknet::ContractAddress;
