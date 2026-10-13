@@ -153,8 +153,9 @@ describe("writer on recorded receipts", () => {
     const { client: c } = client();
     const acc = account([record.receipts.buildTutorial, record.receipts.buildTutorial]);
     const writer = c.writer(acc);
-    await writer.build(tutorial, { orientation: 1, x: 2, y: 3 });
-    await writer.build(daily, { orientation: 1, x: 2, y: 3 });
+    // The deprecated role and spot (app-web still passes them) are ignored, never sent.
+    await writer.build(tutorial, { orientation: 1, x: 2, y: 3, role: 4, spot: 5 });
+    await writer.build(daily, { orientation: 1, x: 2, y: 3, role: 4, spot: 5 });
     expect(acc.sent[0][0].calldata).toEqual(["0x1"]);
     expect(acc.sent[1][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3"]);
   });
