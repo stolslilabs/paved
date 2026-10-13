@@ -1,6 +1,5 @@
 // Typed client of the indexer's read API v1 (docs/architecture/indexer.md, section "Read API").
-// Display only: the indexer never supplies a prize amount or a claim, those come from the contract's
-// `tournament` view.
+// Display only. Since D-20 the daily leaderboard is the indexer's own: the contracts keep no ranking.
 
 /** The only API version this client reads. */
 export const INDEXER_API_VERSION = 1;
@@ -73,29 +72,11 @@ export interface IndexerAnswer<T> {
   freshness: Freshness;
 }
 
-/** One prize slot of a mismatch: the three slots of the view, then of the replay of the events (player 0x0.. and score 0 when empty). */
-export interface MismatchSlot {
-  playerId: string;
-  score: number;
-}
-
-export interface IndexerMismatch {
-  tournamentId: number;
-  /** The block the view was read at. */
-  headNumber: number;
-  view: MismatchSlot[];
-  indexed: MismatchSlot[];
-}
-
 export interface IndexerHeadInfo {
   state: string;
   chainId: string;
   fromBlock: number;
   contracts: Record<string, string>;
-  /** The last closed day whose prize slots differed from the `tournament` view (`checks.last_mismatch`), or null. */
-  lastMismatch: IndexerMismatch | null;
-  /** Closed days the indexer has compared with the `tournament` view since it started (`checks.tournaments_checked`); null when the answer has no such count. */
-  tournamentsChecked: number | null;
 }
 
 export interface TournamentSummary {
@@ -142,7 +123,7 @@ export interface TournamentList {
   next: number | null;
 }
 
-/** One row of a leaderboard: a player, with the prize slots (of the contract, games ranked) they hold. */
+/** One row of a leaderboard: a player and their best game of the day. */
 export interface LeaderboardEntry {
   rank: number;
   playerId: string;
@@ -152,8 +133,6 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   gamesFinished: number;
   finishedAt: number;
-  /** Slots 1 to 3 this player holds: one player may hold several, as the contract ranks games. */
-  prizeRanks: number[];
 }
 
 export interface Leaderboard {
@@ -196,13 +175,13 @@ export interface IndexedGame {
   gameId: number;
   mode: number;
   startTime: number;
-  /** Tournament of the spawn. */
-  tournamentId: number;
+  /** Day of the spawn (`GameSpawned.day_id`); 0 for Tutorial. */
+  dayId: number;
   over: boolean;
   /** 0 while the game runs: the indexer answers null then, and the screens show "In progress". */
   score: number;
-  /** 0 when the game ranks in no tournament (Tutorial, or over after its day closed, or still running). */
-  countedTournamentId: number;
+  /** The day the game counted for (`GameOver.day_id`); 0 when it ranks in no day (Tutorial, or over after its day closed, or still running). */
+  countedDayId: number;
   /** 0 while the game runs (`over` is false). */
   endTime: number;
   /** The game's NFT id in the Collection (E5b, schema 5); null when it has none (minted before the Collection existed), undefined from an indexer that predates it: no NFT is shown then. */
@@ -242,15 +221,6 @@ export interface PlayerGames {
   games: IndexedGame[];
   /** Pass as `before` for the next page; null on the last. */
   next: string | null;
-}
-
-/** The days an account sponsored (`Daily.Sponsored`), newest first; the indexer's schema 6 route. */
-export interface SponsorDays {
-  sponsorId: string;
-  /** Tournament ids, descending, each once. */
-  days: number[];
-  /** Pass as `before` for the next page (the last day listed); null on the last. */
-  next: number | null;
 }
 
 /** A task of a definition or of a player's progress: the id the game reports and the count that completes it. */
@@ -456,8 +426,6 @@ function parseTournament(v: unknown, what: string): TournamentDetail {
 
 function parseEntry(v: unknown, what: string): LeaderboardEntry {
   const o = obj(v, what);
-  const ranks = list(o, "prize_ranks", what);
-  if (!ranks.every((r) => typeof r === "number" && Number.isInteger(r) && r >= 1 && r <= 3)) bad(`${what}.prize_ranks is not slots 1 to 3`);
   return {
     rank: num(o, "rank", what),
     playerId: str(o, "player_id", what),
@@ -467,22 +435,6 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
     gamesPlayed: num(o, "games_played", what),
     gamesFinished: num(o, "games_finished", what),
     finishedAt: num(o, "finished_at", what),
-    prizeRanks: ranks as number[],
-  };
-}
-
-function parseSlot(v: unknown, what: string): MismatchSlot {
-  const o = obj(v, what);
-  return { playerId: str(o, "player_id", what), score: num(o, "score", what) };
-}
-
-function parseMismatch(v: unknown, what: string): IndexerMismatch {
-  const o = obj(v, what);
-  return {
-    tournamentId: num(o, "tournament_id", what),
-    headNumber: num(o, "head_number", what),
-    view: list(o, "view", what).map((s, i) => parseSlot(s, `${what}.view[${i}]`)),
-    indexed: list(o, "indexed", what).map((s, i) => parseSlot(s, `${what}.indexed[${i}]`)),
   };
 }
 
@@ -497,10 +449,10 @@ function parseGame(v: unknown, what: string): IndexedGame {
     gameId: num(o, "game_id", what),
     mode: num(o, "mode", what),
     startTime: num(o, "start_time", what),
-    tournamentId: num(o, "tournament_id", what),
+    dayId: num(o, "day_id", what),
     over,
     score: numUnlessRunning(o, "score", what, over),
-    countedTournamentId: numUnlessRunning(o, "counted_tournament_id", what, over),
+    countedDayId: numUnlessRunning(o, "counted_day_id", what, over),
     endTime: numUnlessRunning(o, "end_time", what, over),
   };
   // Schema 5: `token_id` is a safe integer or null. Absent (an older answer) stays undefined; a wrong type is a bad answer.
@@ -588,13 +540,6 @@ function answerPlayer(b: Obj, asked: string, what: string): string {
   return id;
 }
 
-/** The sponsor an answer is about must be the one asked, so a mixed-up answer is never read as theirs. */
-function answerSponsor(b: Obj, asked: string): string {
-  const id = str(b, "sponsor_id", "sponsor days");
-  if (id !== asked) bad("sponsor days.sponsor_id is not the sponsor asked");
-  return id;
-}
-
 /** A player id as the API writes it: `0x`, 64 lowercase hex digits. Throws on anything else. */
 export function indexerPlayerId(id: string | bigint): string {
   let value: bigint;
@@ -629,8 +574,7 @@ export class IndexerClient {
 
   async head(): Promise<IndexerAnswer<IndexerHeadInfo>> {
     return this.get("/v1/head", {}, (b) => {
-      // Keys the client does not read (as built: `checks.tournaments_checked` and later fields) are ignored; `checks` itself may be absent.
-      const checks = b.checks === null || b.checks === undefined ? null : obj(b.checks, "checks");
+      // `checks` is not read (as built: `checks.definitions_excluded`); it may be absent.
       return {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
@@ -641,8 +585,6 @@ export class IndexerClient {
             .filter(([k, v]) => !(k === "collection" && v === null))
             .map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)]),
         ),
-        lastMismatch: checks ? orNull(checks, "last_mismatch", (o, k) => parseMismatch(o[k], "checks.last_mismatch"), "checks") : null,
-        tournamentsChecked: checks && checks.tournaments_checked !== undefined ? num(checks, "tournaments_checked", "checks") : null,
       };
     });
   }
@@ -711,25 +653,6 @@ export class IndexerClient {
     return this.get(`/v1/players/${indexerPlayerId(playerId)}/tournaments/${tournamentPath(id)}`, {}, (b) =>
       b.entry === null ? null : parseEntry(b.entry, "entry"),
     );
-  }
-
-  /**
-   * The days `sponsor` put something into, newest first (at most `limit`, default the indexer's 20, cap 100); `before` is
-   * a previous page's `next`. An indexer older than schema 6 has no such route: it answers not-found. An account that
-   * never sponsored has no days (200).
-   */
-  async sponsorDays(sponsor: string | bigint, params: { limit?: number; before?: number } = {}): Promise<IndexerAnswer<SponsorDays>> {
-    const id = indexerPlayerId(sponsor);
-    if (params.before !== undefined) tournamentPath(params.before);
-    const limit = params.limit ?? MAX_INDEXER_PAGE;
-    return this.get(`/v1/sponsors/${id}/days`, params, (b) => {
-      const days = list(b, "days", "sponsor days").map((d, i) =>
-        typeof d === "number" && Number.isSafeInteger(d) && d >= 0 && d <= MAX_TOURNAMENT_ID ? d : bad(`sponsor days.days[${i}] is not a day`),
-      );
-      if (days.length > limit) bad("sponsor days.days is longer than the limit asked");
-      if (days.some((d, i) => i > 0 && d >= days[i - 1]!)) bad("sponsor days.days is not strictly descending");
-      return { sponsorId: answerSponsor(b, id), days, next: orNull(b, "next", num, "sponsor days") };
-    });
   }
 
   /** One game; not-found when the indexer has no such game. */

@@ -25,7 +25,8 @@ the end. Where the sections before it mention characters (`role`, `spot`, `chara
 - **Exception, D-18:** the promise above is broken once, by "Breaking change D-18" below. It is
   accepted for Sepolia because mainnet is not launched. The promise holds again from the D-18
   release on.
-- **Exception, D-20 (planned):** broken once more by "Breaking change D-20" below, for the same reason.
+- **Exception, D-20:** broken once more by "Breaking change D-20" below, for the same reason. The promise holds
+  again from the D-20 release on.
 
 A client that decodes by ABI (starknet.js, starknet.py) keeps working when fields are appended, as
 long as it reads the ABI of the deployed class.
@@ -79,8 +80,8 @@ long as it reads the ABI of the deployed class.
 | 12 | `remaining_count` | `u32` | Tiles still to draw after the tile to place now; `0` when the game is over |
 | 13 | `deck_size` | `u32` | Tiles in a full game of this mode, the starter tile included (Daily 38, Tutorial 10) |
 | 14 | `start_time` | `u64` | Time of the spawn |
-| 15 | `end_time` | `u64` | Time of the end of the game when it counted for its tournament; `0` otherwise (game not over, ended after its tournament closed). Always `0` for a Tutorial game, even when it is over: no tournament, so no end time |
-| 16 | `tournament_id` | `u64` | The tournament the game counted for, set when the game ends in time; `0` otherwise. `0` while a Daily game runs, set at game over, and still `0` for a Daily game over after its day closed. Always `0` for a Tutorial game: it belongs to no tournament |
+| 15 | `end_time` | `u64` | Time of the end of the game when it ended in the day it started; `0` otherwise (game not over, ended after its day closed). Always `0` for a Tutorial game, even when it is over: no day, so no end time |
+| 16 | `day_id` | `u64` | The day the game counted for (`timestamp / 86400`), set when the game ends in the day it started; `0` otherwise. `0` while a Daily game runs, set at game over, and still `0` for a Daily game over after its day closed. Always `0` for a Tutorial game: it belongs to no day. Named `tournament_id` before D-20 (same position, type and values) |
 
 `tile_count = placed_count + discarded_count + (1 if a tile is held, else 0)`. A game abandoned by
 `surrender` keeps the tile that was in hand: it is in `tile_count` but neither placed nor
@@ -136,32 +137,14 @@ appended.
 | 5 | `y` | `u32` | Position of that tile; `0` unless placed |
 | 6 | `spot` | `u8` | Spot on that tile; `0` unless placed |
 
-## Views of `Daily` only (`ITournamentView`)
+## Views of `Daily` only (`IDailyView`)
 
-### `current_tournament_id() -> u64`
+`ITournamentView` before D-20; the `tournament(id)` view and its `TournamentView` left with the prize (D-20).
 
-The tournament of the current block time: `block_timestamp / 86400`. One tournament per UTC day.
+### `current_day() -> u64`
 
-### `tournament(id: u64) -> TournamentView`
-
-| # | Field | Type | Meaning |
-|---|---|---|---|
-| 1 | `id` | `u64` | `id` |
-| 2 | `start_time` | `u64` | `id * 86400`; games spawned from then on enter this tournament; `0` above `MAX_TOURNAMENT_ID` |
-| 3 | `end_time` | `u64` | `(id + 1) * 86400`; first second when the tournament is over and prizes can be claimed; `0` above `MAX_TOURNAMENT_ID` |
-| 4 | `over` | `bool` | `block_timestamp >= end_time` |
-| 5 | `prize` | `u256` | Prize pool: entry prices and sponsored amounts. Claims do not reduce it |
-| 6 | `top1_player_id` | `felt252` | First place; `0` when empty |
-| 7 | `top1_score` | `u32` | Its score |
-| 8 | `top1_claimed` | `bool` | Its reward was claimed |
-| 9 | `top2_player_id` | `felt252` | Second place; `0` when empty |
-| 10 | `top2_score` | `u32` | Its score |
-| 11 | `top2_claimed` | `bool` | Its reward was claimed |
-| 12 | `top3_player_id` | `felt252` | Third place; `0` when empty |
-| 13 | `top3_score` | `u32` | Its score |
-| 14 | `top3_claimed` | `bool` | Its reward was claimed |
-
-A game counts for the tournament of its spawn only if it ends before that tournament is over.
+The day of the current block time: `block_timestamp / 86400`. One day per UTC day. `current_tournament_id()` before
+D-20 (same value; a new selector, since a selector is the name's hash).
 
 ### `entry_price() -> PriceView`
 
@@ -181,14 +164,14 @@ needs, so a node can filter them (`starknet_getEvents` with `keys`):
 
 | Event | Keys, in order | Data |
 |---|---|---|
-| `GameSpawned` | selector, `game_id`, `player_id` | `mode`, `tournament_id` (`0` for Tutorial), `start_time`, `price` |
-| `GameOver` | selector, `game_id`, `player_id`, `tournament_id` | `mode`, `score` (final), `start_time`, `end_time` |
+| `GameSpawned` | selector, `game_id`, `player_id` | `mode`, `day_id` (`0` for Tutorial), `start_time`, `price` |
+| `GameOver` | selector, `game_id`, `player_id`, `day_id` | `mode`, `score` (final), `start_time`, `end_time` |
 
 "My games": `GameSpawned` with keys `[[selector], [], [player_id]]`. "My finished games and their
-scores": `GameOver` with the same filter. "Games of a tournament": `GameOver` with keys
-`[[selector], [], [], [tournament_id]]` (`tournament_id` is `0` for a game that did not count, and
-for every Tutorial game). A Tutorial game belongs to no tournament: its `GameSpawned` and its
-`GameOver` carry `tournament_id = 0`.
+scores": `GameOver` with the same filter. "Games of a day": `GameOver` with keys
+`[[selector], [], [], [day_id]]` (`day_id` is `0` for a game that did not count, and
+for every Tutorial game). A Tutorial game belongs to no day: its `GameSpawned` and its
+`GameOver` carry `day_id = 0`. The field was `tournament_id` before D-20: same position, type and values.
 The other events are listed in `native-storage.md`.
 
 ## How the views are read today
@@ -198,7 +181,7 @@ For the record, not part of the interface: the views are computed from the stora
 with no build has one too). `placed_count = built + 1`, `discarded_count = discarded`, the tile to
 place now is tile `tile_count` while the game is not over, and a tile is `held` when it is the
 builder's `tile_id`, which is `GameState.held_tile` (kept by a surrender, 0 after the last tile).
-`end_time` and `tournament_id` come from `GameEnd`. Phase P5 may compute them otherwise; the fields
+`end_time` and `day_id` come from `GameEnd`. Phase P5 may compute them otherwise; the fields
 keep their meaning.
 
 ## Changes since publication
@@ -408,63 +391,83 @@ What the multiplayer mode would add (each one decided with that mode, not by D-1
 
 ## Breaking change D-20
 
-D-20 and P-48 (`docs/programme/DECISIONS.md`): tournaments leave the code. The daily prize goes (sponsoring,
-claiming, reclaiming, the `tournament` view); the daily seed, the day id, the economy settlement and the daily
-leaderboard (served by the indexer) stay. **Not built yet**: the lists below are read from the ABIs on main
-(`contracts/abis/Daily.json`, `Tutorial.json`, `Lobby.json`, `Account.json`) and the code; part B regenerates them
-with `scripts/abis.sh`. The inventory and what becomes of the on-chain ranking are in `leaderboard.md`, "D-20:
-tournaments leave the code (planned)". D-20 ships to Sepolia in the same upgrade as D-19.
+D-20 and P-48 (`docs/programme/DECISIONS.md`), with the PM's rulings of 2026-10-13: tournaments leave the code. The
+daily prize goes (sponsoring, claiming, reclaiming, the `tournament` view), the on-chain ranking goes (task 9 is no
+longer reported), and the day id is renamed `day_id`; the daily seed, the economy settlement and the daily leaderboard
+(served by the indexer) stay. **Built by D-20b**: the lists below are the diff of `contracts/abis/*.json` regenerated
+with `scripts/abis.sh` on the D-20b branch against main. The inventory is in `leaderboard.md`, "As built: D-20". D-20
+reaches Sepolia with the fresh deployment of P-53, not as an upgrade (`upgrades.md`, "D-20 on Sepolia").
 
 **Stability promise.** D-20 is a stated exception, as D-18 was: a view, two entry points, a struct and three events
-leave the interface, which the promise above does not allow. It is accepted for the same reason (mainnet is not
-launched; Sepolia only). The promise holds again from the D-20 release on.
+leave the interface, and the day id's names change, which the promise above does not allow. It is accepted for the
+same reason (mainnet is not launched; Sepolia only). The promise holds again from the D-20 release on.
+
+### The renames (ruling 2)
+
+Layouts, order and types unchanged; only the names change. A renamed event field keeps every selector and every
+key and data position; a renamed function gets a new selector (the hash of its name), so a caller must use the new
+name.
+
+| Before (main) | After | Where |
+|---|---|---|
+| `GameSpawned.tournament_id: u64` (data, 2nd field) | `GameSpawned.day_id: u64` | `Daily`, `Tutorial`, `Account` ABIs (`paved::events::GameSpawned`) |
+| `GameOver.tournament_id: u64` (3rd key) | `GameOver.day_id: u64` | `Daily`, `Tutorial`, `Account` ABIs (`paved::events::GameOver`) |
+| `GameView.tournament_id: u64` (16th field) | `GameView.day_id: u64` | `Daily`, `Tutorial` ABIs (`paved::views::GameView`) |
+| `current_tournament_id() -> u64` | `current_day() -> u64` (new selector) | `Daily` |
+| interface `paved::views::ITournamentView`, impl `TournamentViewImpl` | `paved::views::IDailyView`, `DailyViewImpl` | `Daily` ABI only: no selector depends on it |
+
+`entry_price() -> PriceView` stays, now under `IDailyView`.
 
 ### `Daily`: entry points and views
 
 | Item | Before (main) | After |
 |---|---|---|
-| `claim(tournament_id: u64, rank: u8)` (`IDaily`, `systems/daily.cairo:17`) | rank 1 to 3: the reward; rank 0: a sponsor's reclaim of a day nobody ranked in (P-37b) | **removed** |
-| `sponsor(amount: felt252)` (`IDaily`, `daily.cairo:18`) | adds to the current day's prize | **removed** |
-| `tournament(id: u64) -> TournamentView` (`ITournamentView`, `views.cairo:110`) | see "Views of `Daily` only" | **removed** |
-| `TournamentView` (struct, `views.cairo:72-88`) | `id` u64, `start_time` u64, `end_time` u64, `over` bool, `prize` u256, `top1_player_id` felt252, `top1_score` u32, `top1_claimed` bool, `top2_player_id` felt252, `top2_score` u32, `top2_claimed` bool, `top3_player_id` felt252, `top3_score` u32, `top3_claimed` bool | **removed** from the ABI with the view |
-| `current_tournament_id() -> u64` (`ITournamentView`, `views.cairo:111`) | `block_timestamp / 86400` | **unchanged** (proposed): the day id, ruling 2 |
-| `entry_price() -> PriceView` (`ITournamentView`, `views.cairo:112`) | | **unchanged** |
-| `spawn`, `discard`, `surrender`, `build`, `IDailyQuests`, `IGameView`, `IOwnable`, `upgrade`, `set_lobby_class` | | unchanged |
+| `claim(tournament_id: u64, rank: u8)` (`IDaily`) | rank 1 to 3: the reward; rank 0: a sponsor's reclaim of a day nobody ranked in (P-37b) | **removed** |
+| `sponsor(amount: felt252)` (`IDaily`) | adds to the current day's prize | **removed** |
+| `tournament(id: u64) -> TournamentView` (`ITournamentView`) | the prize, the claimed flags and the three ranks of a day | **removed** |
+| `TournamentView` (struct) | `id` u64, `start_time` u64, `end_time` u64, `over` bool, `prize` u256, `top1_player_id` felt252, `top1_score` u32, `top1_claimed` bool, `top2_player_id` felt252, `top2_score` u32, `top2_claimed` bool, `top3_player_id` felt252, `top3_score` u32, `top3_claimed` bool | **removed** from the ABI with the view |
+| `current_tournament_id() -> u64` | `block_timestamp / 86400` | **renamed** `current_day()` (above) |
+| `entry_price() -> PriceView` | | unchanged |
+| `spawn`, `discard`, `surrender`, `build`, `IDailyQuests`, `IGameView`, `IOwnable`, `upgrade`, `set_lobby_class` | | unchanged (`GameView`'s 16th field renamed) |
 
 The errors of the prize leave with it: `Tournament: not found`, `not over`, `already claimed`, `invalid player`,
-`nothing to claim`, `prize overflow`, `nothing to reclaim`, and `ERC20: refund failed` (`PayableComponent::refund`).
-`ERC20: pay failed` stays (`Lobby`'s purchase, `lobby.cairo:110`).
+`nothing to claim`, `prize overflow`, `nothing to reclaim`, and `ERC20: refund failed`. `ERC20: pay failed` stays, from
+`Lobby`'s purchase only (`PayableComponent::pay` raised it too, and went).
 
-### `Tutorial`
+### `Tutorial` and `Account`
 
-No entry point or view changes (it never had `claim`, `sponsor` or `tournament`). Its ABI loses the events
-`Sponsored` and `Claimed`, which it declares through `paved::events::Event` and never emits. `Account`'s ABI loses
-them for the same reason.
+No entry point or view changes (they never had `claim`, `sponsor` or `tournament`). Their ABIs lose the events
+`Sponsored` and `Claimed`, which they declared through `paved::events::Event` and never emitted, and the struct
+`core::integer::u256`, which only `Claimed` used in them. `GameSpawned` and `GameOver` carry `day_id` (above), and so
+does `Tutorial`'s `GameView`.
 
 ### `Lobby` (declared class, never deployed)
 
 | Item | Before (main) | After |
 |---|---|---|
-| `ILobby.claim(tournament_id: u64, rank: u8)` (`lobby.cairo:30`) | | **removed** |
-| `ILobby.sponsor(amount: felt252)` (`lobby.cairo:31`) | | **removed** |
-| event `Reclaimed` (`Lobby::Event`, `lobby.cairo:215`, `:218-227`) | | **removed** |
+| `ILobby.claim(tournament_id: u64, rank: u8)` | | **removed** |
+| `ILobby.sponsor(amount: felt252)` | | **removed** |
+| event `Reclaimed` (`Lobby::Event`) | | **removed** |
 | the other `ILobby` functions, `ILobbyClass` | | unchanged |
 
-A new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class` (`LobbyClassSet` emitted). Superseded by D-24: the `Lobby` class ends and its cold paths go back into Challenge.
+On an existing deployment a new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class`
+(`LobbyClassSet` emitted); Sepolia gets it with the fresh deployment of P-53.
+Superseded by D-24: the `Lobby` class ends and its cold paths go back into Challenge.
 
 ### Events
 
 | Event | Emitted by | Before (main) | After |
 |---|---|---|---|
-| `Sponsored` (`events.cairo:88-94`) | `Daily` | keys `tournament_id`; data `sponsor, amount` | **removed** from the ABIs of `Daily`, `Tutorial` and `Account`; a past event (below) |
-| `Claimed` (`events.cairo:96-103`) | `Daily` | keys `tournament_id`; data `player_id, rank, reward` | **removed**, as `Sponsored`; a past event |
-| `Reclaimed` (`lobby.cairo:218-227`) | `Daily`'s address (declared by `Lobby` only, so it is in `Lobby.json`, not in `Daily.json`) | keys `tournament_id, sponsor`; data `amount` | **removed** from `Lobby.json`; a past event |
-| `GameSpawned` | `Daily`, `Tutorial` | keys `game_id, player_id`; data `mode, tournament_id, start_time, price` | **unchanged**: layout, names and values |
-| `GameOver` | `Daily`, `Tutorial` | keys `game_id, player_id, tournament_id`; data `mode, score, start_time, end_time` | **unchanged**: layout, names and values |
-| `PlayerCreated`, `Built`, `Discarded`, `Scored`, `LobbyClassSet`, the quest and achievement events | | | unchanged |
+| `Sponsored` | `Daily` | keys `tournament_id`; data `sponsor, amount` | **removed** from the ABIs of `Daily`, `Tutorial` and `Account`; a past event (below) |
+| `Claimed` | `Daily` | keys `tournament_id`; data `player_id, rank, reward` | **removed**, as `Sponsored`; a past event |
+| `Reclaimed` | `Daily`'s address (declared by `Lobby` only, so it was in `Lobby.json`, not in `Daily.json`) | keys `tournament_id, sponsor`; data `amount` | **removed** from `Lobby.json`; a past event |
+| `GameSpawned` | `Daily`, `Tutorial` | keys `game_id, player_id`; data `mode, tournament_id, start_time, price` | layout and values unchanged; `tournament_id` renamed `day_id` |
+| `GameOver` | `Daily`, `Tutorial` | keys `game_id, player_id, tournament_id`; data `mode, score, start_time, end_time` | layout and values unchanged; `tournament_id` renamed `day_id` |
+| `AchievementProgressed` with `task_id` 9 (`WIN`) | `Daily` | at the game over of a game that took rank 1 of its day at that moment | **never emitted** from the D-20 upgrade on (ruling 1); task 9 stays defined, never reused |
+| `PlayerCreated`, `Built`, `Discarded`, `Scored`, `LobbyClassSet`, the other quest and achievement events | | | unchanged |
 
-`Vault`'s own `Claimed { account, amount }` (`economy/vault.cairo:118`, the stakers' USDC) is another event of
-another contract and stays. Its selector is the same as `paved::events::Claimed`'s (the hash of the name): a reader
+`Vault`'s own `Claimed { account, amount }` (`economy/vault.cairo`, the stakers' USDC) is another event of another
+contract and stays. Its selector is the same as the past `paved::events::Claimed`'s (the hash of the name): a reader
 tells them apart by the emitting address.
 
 ### Past events: what an indexer replaying history must know
@@ -473,26 +476,28 @@ Emitted before the D-20 upgrade, from `Daily`'s address only, and never after it
 strictly (ruling 7) keeps knowing them and skips them. Their layouts, in felts (selector = `sn_keccak` of the name,
 `u256` as two felts, low then high):
 
-| Event | `keys` | `data` | Emitted by (main) |
+| Event | `keys` | `data` | Emitted by (main, before D-20) |
 |---|---|---|---|
-| `Sponsored` | `[selector("Sponsored"), tournament_id: u64]` | `[sponsor: ContractAddress, amount: felt252]` | `Daily.sponsor` (`hostable.cairo:163-168`) |
-| `Claimed` | `[selector("Claimed"), tournament_id: u64]` | `[player_id: felt252, rank: u8, reward.low, reward.high]` | `Daily.claim`, rank 1 to 3 (`hostable.cairo:136-141`) |
-| `Reclaimed` | `[selector("Reclaimed"), tournament_id: u64, sponsor: ContractAddress]` | `[amount.low, amount.high]` | `Daily.claim`, rank 0 (`lobby.cairo:266`) |
+| `Sponsored` | `[selector("Sponsored"), tournament_id: u64]` | `[sponsor: ContractAddress, amount: felt252]` | `Daily.sponsor` (`hostable.cairo`) |
+| `Claimed` | `[selector("Claimed"), tournament_id: u64]` | `[player_id: felt252, rank: u8, reward.low, reward.high]` | `Daily.claim`, rank 1 to 3 (`hostable.cairo`) |
+| `Reclaimed` | `[selector("Reclaimed"), tournament_id: u64, sponsor: ContractAddress]` | `[amount.low, amount.high]` | `Daily.claim`, rank 0 (`lobby.cairo`) |
 
-### The day id in `GameSpawned` and `GameOver`
+On Sepolia none of the three was ever emitted (`Daily` at `0x06a9...5ac8`, read on 2026-10-13 from block 0 to block
+16,538,960; `leaderboard.md`, "As built: D-20"), so an indexer replaying Sepolia meets none of them.
 
-Both keep the day id, in the field they carry today, **`tournament_id: u64`**, with the same layout and the same
-values: the day id is `timestamp / 86400` (`TournamentImpl::compute_id`, which stays under another home).
+### The day id in `GameSpawned`, `GameOver` and `GameView`
 
-- `GameSpawned.tournament_id` (data, 2nd field): the day of the spawn for a Daily game, `0` for a Tutorial game
-  (`hostable.cairo:84-107`).
-- `GameOver.tournament_id` (3rd key): the day the game counted for, set when the game ends in the day it started;
-  `0` for a game that ended after its day and for every Tutorial game (`playable.cairo:36-52`, `events.cairo:105-117`).
-- `GameView.tournament_id` (16th field) and `current_tournament_id()` keep it too.
+Same layout and values as before D-20, under the name `day_id`: the day id is `timestamp / 86400`
+(`paved::day::day_id`, which was `TournamentImpl::compute_id`).
 
-The daily leaderboard groups on these keys (`indexer.md`, "What is derived") and keeps working unchanged. The
-field keeps its name: a rename to `day` would keep every selector and layout but break decoders by name, so it is not
-proposed (`leaderboard.md`, "Open for the PM").
+- `GameSpawned.day_id` (data, 2nd field): the day of the spawn for a Daily game, `0` for a Tutorial game.
+- `GameOver.day_id` (3rd key): the day the game counted for, set when the game ends in the day it started; `0` for a
+  game that ended after its day and for every Tutorial game.
+- `GameView.day_id` (16th field) and `current_day()` carry it too.
+
+The daily leaderboard groups on these keys (`indexer.md`, "What is derived") and keeps working: an indexer that
+decodes by position is unaffected; one that decodes by name reads `day_id` from the D-20 classes on and
+`tournament_id` before.
 
 ## Breaking change D-21
 
@@ -549,8 +554,8 @@ only the contract, interface, impl, enum and file names do.
 **`spawn`.** `Challenge.spawn(stake: u8, referrer: ContractAddress, min_out: u256) -> u32`: the signature of
 `Daily.spawn` (`systems/daily.cairo:14-16`), unchanged. What changes is the game it creates: its seed is
 Poseidon(salt, token id) instead of the day's seed, so `GameView.seed` (same field, same type) differs for every game,
-and two games of one day no longer draw the same deck. The day id stays in `GameSpawned.tournament_id`,
-`GameOver.tournament_id`, `GameView.tournament_id` and `current_tournament_id()`.
+and two games of one day no longer draw the same deck. The day id stays in `GameSpawned.day_id`,
+`GameOver.day_id`, `GameView.day_id` and `current_day()` (renamed by D-20).
 
 **What the indexer and the client must rename** (read only here): the key `contracts.Daily` (META:
 `packages/indexer/src/deployment.ts:53`; CLIENT: `packages/chain/src/deployment.ts:45`), the ABI import

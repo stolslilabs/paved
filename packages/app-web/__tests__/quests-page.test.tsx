@@ -36,7 +36,7 @@ const visible = () => act(async () => void document.dispatchEvent(new Event("vis
 const ME = (id: string) => ({ id, name: "Me", master: "0xabc" });
 const quests = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
   const views = new FakeGameViews();
-  views.currentTournament = FIXTURE_TOURNAMENT;
+  views.today = FIXTURE_TOURNAMENT;
   return renderPage({ page: <QuestsPage />, path: "/quests", route: "/quests/:day?", indexer, views, player: ME(FIXTURE_ADA), ...opts });
 };
 // A quest or an achievement is named in its progress and again in the definitions: tests look in one region.

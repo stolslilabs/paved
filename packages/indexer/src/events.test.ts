@@ -52,8 +52,8 @@ describe("the ABIs", () => {
 
   test("the keys and data of the three events are the ABI's, in order", () => {
     const shapes = {
-      GameSpawned: { keys: ["game_id", "player_id"], data: ["mode", "tournament_id", "start_time", "price"] },
-      GameOver: { keys: ["game_id", "player_id", "tournament_id"], data: ["mode", "score", "start_time", "end_time"] },
+      GameSpawned: { keys: ["game_id", "player_id"], data: ["mode", "day_id", "start_time", "price"] },
+      GameOver: { keys: ["game_id", "player_id", "day_id"], data: ["mode", "score", "start_time", "end_time"] },
       PlayerCreated: { keys: ["player_id"], data: ["name", "master"] },
     };
     for (const contract of ["Daily", "Tutorial", "Account"]) {
@@ -195,25 +195,25 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
 
 describe("decode", () => {
   test("GameSpawned", () => {
-    const e = ev.spawned("daily", 7, 0x1234, { tournament: 20733, start: 1791869000, price: 9 });
+    const e = ev.spawned("daily", 7, 0x1234, { day: 20733, start: 1791869000, price: 9 });
     expect(decode("daily", e.keys, e.data)).toEqual({
       name: "GameSpawned",
       gameId: 7,
       playerId: 0x1234n,
       mode: 1,
-      tournamentId: 20733n,
+      dayId: 20733n,
       startTime: 1791869000n,
       price: 9n,
     });
   });
 
-  test("GameOver, a Tutorial one with tournament 0", () => {
+  test("GameOver, a Tutorial one with day 0", () => {
     const e = ev.over("tutorial", 55, 0x1234, 64);
     expect(decode("tutorial", e.keys, e.data)).toEqual({
       name: "GameOver",
       gameId: 55,
       playerId: 0x1234n,
-      tournamentId: 0n,
+      dayId: 0n,
       mode: 3,
       score: 64,
       startTime: 1000000n,
@@ -254,17 +254,17 @@ describe("decode", () => {
   });
 });
 
-describe("the tournament id bound", () => {
-  test("a tournament id above MAX_TOURNAMENT_ID (the API's bound) is a DecodeError, the bound itself decodes", () => {
+describe("the day id bound", () => {
+  test("a day id above MAX_TOURNAMENT_ID (the API's bound) is a DecodeError, the bound itself decodes", () => {
     const id = BigInt(MAX_TOURNAMENT_ID);
-    const spawned = ev.spawned("daily", 1, 1, { tournament: id });
-    expect(decode("daily", spawned.keys, spawned.data)).toMatchObject({ tournamentId: id });
-    const over = ev.over("daily", 1, 1, 10, { tournament: id });
-    expect(decode("daily", over.keys, over.data)).toMatchObject({ tournamentId: id });
+    const spawned = ev.spawned("daily", 1, 1, { day: id });
+    expect(decode("daily", spawned.keys, spawned.data)).toMatchObject({ dayId: id });
+    const over = ev.over("daily", 1, 1, 10, { day: id });
+    expect(decode("daily", over.keys, over.data)).toMatchObject({ dayId: id });
     // Below 2^53, so the old check let these through
-    const spawnedAbove = ev.spawned("daily", 1, 1, { tournament: id + 1n });
+    const spawnedAbove = ev.spawned("daily", 1, 1, { day: id + 1n });
     expect(() => decode("daily", spawnedAbove.keys, spawnedAbove.data)).toThrow(DecodeError);
-    const overAbove = ev.over("daily", 1, 1, 10, { tournament: id + 1n });
+    const overAbove = ev.over("daily", 1, 1, 10, { day: id + 1n });
     expect(() => decode("daily", overAbove.keys, overAbove.data)).toThrow(DecodeError);
   });
 });
@@ -381,16 +381,19 @@ describe("Economy's events", () => {
     });
   });
 
-  test("Sponsored: key the day, data the sponsor and the amount; Daily only", () => {
-    expect(EMITTERS.Sponsored).toEqual(["daily"]);
-    expect((IGNORED as readonly string[]).includes("Sponsored")).toBe(false);
-    const sponsored = ev.sponsored(20733, 0xabc, 2n ** 100n);
-    expect(decode("daily", sponsored.keys, sponsored.data)).toEqual({ name: "Sponsored", tournamentId: 20733n, sponsor: 0xabcn, amount: 2n ** 100n });
-    expect(() => decode("tutorial", sponsored.keys, sponsored.data)).toThrow(DecodeError);
-    expect(() => decode("daily", sponsored.keys, ["0xabc"])).toThrow(DecodeError);
-    expect(() => decode("daily", [SELECTORS.Sponsored], sponsored.data)).toThrow(DecodeError);
-    const late = ev.sponsored(MAX_TOURNAMENT_ID + 1, 0xabc);
-    expect(() => decode("daily", late.keys, late.data)).toThrow(DecodeError);
+  test("the past prize events (D-20) are known by name and skipped, and no ABI declares them any more", () => {
+    for (const name of ["Sponsored", "Claimed", "Reclaimed"] as const) {
+      expect(name in EMITTERS, name).toBe(false);
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
+      for (const contract of ["Daily", "Tutorial", "Account", "Lobby"]) {
+        const declared = abi(contract).filter((item) => item.type === "event" && item.kind === "struct").map(shortOf);
+        expect(declared, `${contract}.${name}`).not.toContain(name);
+      }
+    }
+    // Their layouts before D-20 (public-interface.md, "Past events"), each from Daily's address.
+    for (const event of [ev.sponsored(20733, 0xabc), ev.claimed(20733, 0x1234, 1), ev.reclaimed(20733, 0xabc)]) {
+      expect(decode("daily", event.keys, event.data)).toBeNull();
+    }
   });
 
   test("the owner events of Economy are known and skipped", () => {

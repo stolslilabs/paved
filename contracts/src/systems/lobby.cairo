@@ -1,4 +1,4 @@
-// What does not run on an ordinary move: spawn, claim, sponsor, discard and surrender of `Daily`
+// What does not run on an ordinary move: spawn, discard and surrender of `Daily`
 // and `Tutorial`, as one class those two run through `library_call_syscall`
 // (`docs/architecture/class-headroom.md`, option e). Under a library call the storage, the caller
 // and the address that emits the events stay the calling contract's. The components use flat
@@ -27,8 +27,6 @@ pub trait ILobby<TContractState> {
         referrer: starknet::ContractAddress,
         min_out: u256,
     ) -> u32;
-    fn claim(ref self: TContractState, tournament_id: u64, rank: u8);
-    fn sponsor(ref self: TContractState, amount: felt252);
     fn discard(ref self: TContractState, game_id: u32);
     fn surrender(ref self: TContractState, game_id: u32);
     fn tutorial_discard(ref self: TContractState, game_id: u32);
@@ -212,18 +210,6 @@ pub mod Lobby {
         QuestEvent: QuestComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
-        Reclaimed: Reclaimed,
-    }
-
-    /// A sponsor took back what it put in a day nobody ranked in (P-37b); emitted from
-    /// `Daily`'s address, as every event of this class.
-    #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct Reclaimed {
-        #[key]
-        pub tournament_id: u64,
-        #[key]
-        pub sponsor: ContractAddress,
-        pub amount: u256,
     }
 
     // Constructor
@@ -255,28 +241,6 @@ pub mod Lobby {
             self.mint(mode, game_id);
             // [Return] Game ID
             game_id
-        }
-
-        fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Rank 0 is a sponsor's reclaim of a day nobody ranked in (P-37b); 1 to 3 a
-            // reward
-            let caller = get_caller_address();
-            let amount = if rank == 0 {
-                let amount = self.hostable.reclaim(tournament_id, Mode::Daily);
-                self.emit(Reclaimed { tournament_id, sponsor: caller, amount });
-                amount
-            } else {
-                self.hostable.claim(tournament_id, rank, Mode::Daily)
-            };
-            // [Interaction] Pay it out of the prize pool
-            self.payable.refund(caller, amount);
-        }
-
-        fn sponsor(ref self: ContractState, amount: felt252) {
-            // [Effect] Add to the prize pool
-            let amount = self.hostable.sponsor(amount, Mode::Daily);
-            // [Interaction] Pay the amount
-            self.payable.pay(get_caller_address(), amount);
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
@@ -320,7 +284,7 @@ pub mod Lobby {
         ) {
             // [Check] Caller is the owner
             self.ownable.assert_only_owner();
-            // [Check] A recurring quest rolls over at 00:00 UTC, where the tournament id does
+            // [Check] A recurring quest rolls over at 00:00 UTC, where the day id does
             if schedule.interval != 0 {
                 assert(schedule.start % 86400 == 0, errors::MISALIGNED_QUEST);
             }
@@ -448,7 +412,7 @@ pub mod Lobby {
         }
 
         /// A Daily game over reports its tally to the quests and to the achievements, once each,
-        /// after the ranking is written and the `GameOver` emitted. Entries come from constants
+        /// after the `GameOver` is emitted. Entries come from constants
         /// (`paved::quests`), so the calls cannot revert and the game over cannot fail. Its score
         /// is then recorded by `Economy` (P-34).
         fn finish(ref self: ContractState, game_id: u32, over: u128) {

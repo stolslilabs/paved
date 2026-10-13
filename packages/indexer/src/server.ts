@@ -28,7 +28,6 @@ import {
   type GameContract,
 } from "./api.ts";
 import { sameBlock, type Header } from "./chain.ts";
-import type { CrossCheck } from "./crosscheck.ts";
 import { canonical, felt, padded } from "./events.ts";
 import type { Indexer } from "./indexer.ts";
 import { Queries } from "./queries.ts";
@@ -198,18 +197,6 @@ function route(url: URL): Read | null {
         };
       }
       return null;
-    }
-    case "sponsors": {
-      // A sponsor is an account address, written as a player id is (66 characters, a felt).
-      if (b !== "days" || parts.length !== 5 || a === undefined || a === "") return null;
-      const sponsor = playerId(a, "sponsor_id");
-      const p = parameters(url, [], ["limit", "before"]);
-      const limit = limitOf(p.limit);
-      const before = p.before === undefined ? undefined : tournamentId(p.before, "before");
-      return (queries, served) => ({
-        sponsor_id: sponsor,
-        ...queries.sponsorDays(served.number, sponsor, limit, before),
-      });
     }
     case "definitions": {
       if (parts.length !== 3) return null;
@@ -381,7 +368,6 @@ export type HeadInfo = {
     economy: string;
     collection: string | null;
   };
-  checks?: CrossCheck;
 };
 
 const unavailable = (indexer: Indexer): Answer => ({
@@ -427,8 +413,6 @@ export function answer(indexer: Indexer, target: string, info?: HeadInfo): Answe
         from_block: info?.fromBlock ?? Number(indexer.store.meta("from_block")),
         contracts: info?.contracts ?? stored,
         checks: {
-          tournaments_checked: info?.checks?.checked.size ?? 0,
-          last_mismatch: info?.checks?.lastMismatch ?? null,
           definitions_excluded: cacheOf(indexer).queries.excludedDefinitions(served.number),
         },
       },

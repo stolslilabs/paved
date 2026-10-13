@@ -87,7 +87,7 @@ export function quoteBelowFloor(poolOut: bigint, burnQuote: bigint, rate: bigint
   return poolOut * BPS * RATE_SCALE < burnQuote * rate * SANITY_FLOOR_BPS;
 }
 
-/** The economy's day of a Unix time (the Daily tournament id). */
+/** The economy's day of a Unix time (the Daily day id, `day_id`). */
 export function dayOf(unixSeconds: number): number {
   return Math.floor(unixSeconds / SECONDS_PER_DAY);
 }

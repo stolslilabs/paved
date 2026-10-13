@@ -399,7 +399,7 @@ try {
     const pid = game.player_id;
     keep("player", await get(`players/${pid}`));
     keep("player-games", await get(`players/${pid}/games`));
-    const day = game.tournament_id;
+    const day = game.day_id;
     keep("tournament", await get(`tournaments/${day}`));
     keep("leaderboard", await get(`tournaments/${day}/leaderboard?limit=20`));
     log.player_id = pid;

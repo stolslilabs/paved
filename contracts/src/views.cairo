@@ -3,12 +3,12 @@
 //! The view structs are a published interface, independent of the storage layout: fields are only
 //! appended, never removed, reordered or repurposed. Reference:
 //! `docs/architecture/public-interface.md`. D-18 broke that promise once: `characters` and the
-//! counters of `BuilderView` went with the characters.
+//! counters of `BuilderView` went with the characters; D-20 removed the `tournament` view and its
+//! `TournamentView`, and renamed `GameView.tournament_id` to `day_id`.
 
 use paved::constants;
-use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
+use paved::day::day_id;
 use paved::models::game::{Game, GameAssert, GameImpl};
-use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
@@ -18,8 +18,6 @@ use starknet::ContractAddress;
 
 /// Largest page `tiles` returns.
 pub const MAX_PAGE: u32 = 64;
-/// Last tournament id whose end time fits in a `u64`: `(2^64 - 1) / 86400 - 1`.
-pub const MAX_TOURNAMENT_ID: u64 = 213503982334600;
 
 pub const TILE_PLACED: u8 = 1;
 pub const TILE_DISCARDED: u8 = 2;
@@ -48,7 +46,7 @@ pub struct GameView {
     pub deck_size: u32,
     pub start_time: u64,
     pub end_time: u64,
-    pub tournament_id: u64,
+    pub day_id: u64,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -69,24 +67,6 @@ pub struct BuilderView {
     pub plan: u8,
 }
 
-#[derive(Copy, Drop, Serde, Debug, PartialEq)]
-pub struct TournamentView {
-    pub id: u64,
-    pub start_time: u64,
-    pub end_time: u64,
-    pub over: bool,
-    pub prize: u256,
-    pub top1_player_id: felt252,
-    pub top1_score: u32,
-    pub top1_claimed: bool,
-    pub top2_player_id: felt252,
-    pub top2_score: u32,
-    pub top2_claimed: bool,
-    pub top3_player_id: felt252,
-    pub top3_score: u32,
-    pub top3_claimed: bool,
-}
-
 /// The entry price of `Daily`: the ERC20 `spawn` pulls from the player and the amount it pulls.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct PriceView {
@@ -104,11 +84,11 @@ pub trait IGameView<TContractState> {
     fn builder(self: @TContractState, game_id: u32, player_id: felt252) -> BuilderView;
 }
 
-/// Views of the Daily tournaments, on `Daily`.
+/// Views of the Daily days, on `Daily` (`ITournamentView` before D-20).
 #[starknet::interface]
-pub trait ITournamentView<TContractState> {
-    fn tournament(self: @TContractState, id: u64) -> TournamentView;
-    fn current_tournament_id(self: @TContractState) -> u64;
+pub trait IDailyView<TContractState> {
+    /// The day id of now: `block_timestamp / 86400` (`current_tournament_id` before D-20).
+    fn current_day(self: @TContractState) -> u64;
     fn entry_price(self: @TContractState) -> PriceView;
 }
 
@@ -144,7 +124,7 @@ pub impl ViewsImpl of ViewsTrait {
             deck_size: game.tile_limit.into(),
             start_time: game.start_time,
             end_time: game.end_time,
-            tournament_id: game.tournament_id,
+            day_id: game.day_id,
         }
     }
 
@@ -203,50 +183,8 @@ pub impl ViewsImpl of ViewsTrait {
         BuilderView { game_id, player_id, tile_id: builder.tile_id, plan }
     }
 
-    fn tournament(store: Store, id: u64, time: u64) -> TournamentView {
-        // [Check] Beyond the last day a u64 time can end: a zeroed view, no revert
-        if id > MAX_TOURNAMENT_ID {
-            return TournamentView {
-                id,
-                start_time: 0,
-                end_time: 0,
-                over: false,
-                prize: 0,
-                top1_player_id: 0,
-                top1_score: 0,
-                top1_claimed: false,
-                top2_player_id: 0,
-                top2_score: 0,
-                top2_claimed: false,
-                top3_player_id: 0,
-                top3_score: 0,
-                top3_claimed: false,
-            };
-        }
-        let tournament: Tournament = store.tournament(id);
-        let top = LeaderboardImpl::new().top(id);
-        let duration = constants::DAILY_TOURNAMENT_DURATION;
-        let end_time = (id + 1) * duration;
-        TournamentView {
-            id,
-            start_time: id * duration,
-            end_time,
-            over: time >= end_time,
-            prize: tournament.prize.into(),
-            top1_player_id: top.first.player_id,
-            top1_score: top.first.score,
-            top1_claimed: tournament.top1_claimed,
-            top2_player_id: top.second.player_id,
-            top2_score: top.second.score,
-            top2_claimed: tournament.top2_claimed,
-            top3_player_id: top.third.player_id,
-            top3_score: top.third.score,
-            top3_claimed: tournament.top3_claimed,
-        }
-    }
-
-    fn current_tournament_id(time: u64) -> u64 {
-        TournamentTrait::compute_id(time, constants::DAILY_TOURNAMENT_DURATION)
+    fn current_day(time: u64) -> u64 {
+        day_id(time, constants::DAILY_DURATION)
     }
 
     /// The entry price of a Daily game, from the same source as `spawn` (`Mode::price`).

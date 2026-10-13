@@ -69,10 +69,10 @@ own fake node (no chain, no browser) and reads every route.
 `packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
 `EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
 three players are created; one plays a Tutorial game; all three buy a Daily game (stakes 3, 2 and 1) and play it to
-game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the prizes are claimed through the
-contract view; the leaderboard, the players and the games read from the indexer are compared with the contract
-views and the events (scores, ranks, `prize_ranks`, `checks.last_mismatch`); the games are settled, the Vault, a
-sponsor's reclaim and an expired game follow. It runs only with `PAVED_E2E=1` (CI does not). On the VPS
+game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the leaderboard, the players and the
+games read from the indexer are compared with the contract views and the events (scores, ranks, `day_id`); the games
+are settled, the Vault, a day nobody plays and an expired game follow (D-20 removed the prize: no claim, sponsor or
+reclaim step). It runs only with `PAVED_E2E=1` (CI does not). On the VPS
 (2026-10-10), before D-18, it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process); the D-18 figures are below.
 
 alice plays with the search player of `packages/chain/test/daily-player.ts`: for every candidate placement (each empty
@@ -102,4 +102,4 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 `E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
 Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
 (`deploy.sh`) plays only a Tutorial game: no deployer game is left in the Daily day, so nothing of it counts in the
-day's prize or game counts. Rerun on a fresh node, not on the same.
+day's game counts. Rerun on a fresh node, not on the same.

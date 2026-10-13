@@ -12,13 +12,10 @@ export interface GameModeCardProps {
   tileCount: number;
   duration: string;
   entryFee: string;
-  prizePool?: string;
-  /** The entry token's label, shown after the prize amount. */
-  tokenLabel: string;
   topPlayers?: { name: string; score: number }[];
   timeRemaining?: string;
   hasActiveGame?: boolean;
-  /** A free card (Training): the fee badge says "Free" and no prize, time or podium line shows. */
+  /** A free card (Training): the fee badge says "Free" and no time or podium line shows. */
   free?: boolean;
   /** The button's label; "Resume" or "Play" by default. */
   actionLabel?: string;
@@ -71,8 +68,6 @@ export function GameModeCardView({
   tileCount,
   duration,
   entryFee,
-  prizePool,
-  tokenLabel,
   topPlayers,
   timeRemaining,
   hasActiveGame,
@@ -81,7 +76,6 @@ export function GameModeCardView({
   onPress,
 }: GameModeCardProps) {
   const fee = free ? "Free" : entryFee;
-  const prize = free ? undefined : prizePool;
   const time = free ? undefined : timeRemaining;
   const podium = free ? undefined : topPlayers;
   return (
@@ -102,11 +96,6 @@ export function GameModeCardView({
           <BadgeText>{fee}</BadgeText>
         </Badge>
       </GameModeCardStats>
-      {prize ? (
-        <Text color="$muted" fontSize="$2">
-          {`Prize: ${prize} ${tokenLabel}`}
-        </Text>
-      ) : null}
       {time ? (
         <Text color="$muted" fontSize="$1">
           {`Time: ${time}`}

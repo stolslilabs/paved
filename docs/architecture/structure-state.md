@@ -718,3 +718,8 @@ No entry point lets two players build in one game, so the majority is tested bel
   `src/tests/legacy_d18.cairo`) with a road, a city, a forest and a wonder open, upgraded to the D-19 class and
   finished, scores as a twin that stays on the D-18 class (the same `Scored` events in the same order, compared as
   lists, the same score and counters), and its tiles read seat 0.
+
+**D-20** (tournaments leave the code, `leaderboard.md`, "As built: D-20") touches no structure state: no field of
+`structure/**`, of the tile slot or of the record pages changes, and the scores do not move (the goldens are
+unchanged). The "tournament ranking" of a multiplayer game above no longer exists on chain: the daily leaderboard is
+the indexer's.

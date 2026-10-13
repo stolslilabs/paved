@@ -19,7 +19,6 @@ pub mod setup {
     use paved::models::game::{Game, GameImpl};
     use paved::models::player::Player;
     use paved::models::tile::Tile;
-    use paved::models::tournament::Tournament;
     use paved::store::{StoreImpl, StoreTrait};
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
@@ -125,20 +124,12 @@ pub mod setup {
             interact_with_state(self.contract, || StoreImpl::new().tile(game, tile_id))
         }
 
-        fn tournament(self: TestStore, tournament_id: u64) -> Tournament {
-            interact_with_state(self.contract, || StoreImpl::new().tournament(tournament_id))
-        }
-
         fn set_game(self: TestStore, game: Game) {
             interact_with_state(self.contract, || StoreImpl::new().set_game(game))
         }
 
         fn set_tile(self: TestStore, tile: Tile) {
             interact_with_state(self.contract, || StoreImpl::new().set_tile(tile))
-        }
-
-        fn set_tournament(self: TestStore, tournament: Tournament) {
-            interact_with_state(self.contract, || StoreImpl::new().set_tournament(tournament))
         }
     }
 

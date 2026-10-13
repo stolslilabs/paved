@@ -135,9 +135,7 @@ fn full_deck_moves() -> Array<GoldenMove> {
 }
 
 fn full_deck_outcome() -> GoldenOutcome {
-    GoldenOutcome {
-        score: 5121, built: 37, discarded: 0, tile_count: 38, over: true, top1_score: 5121,
-    }
+    GoldenOutcome { score: 5121, built: 37, discarded: 0, tile_count: 38, over: true }
 }
 
 #[test]

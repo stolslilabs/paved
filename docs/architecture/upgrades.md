@@ -114,6 +114,26 @@ map). So, for every upgradable contract and for `Lobby`:
   it is never the `Lobby` class. Only class hash 0 is refused: a class without these entry points freezes the contract
   for good, with no owner able to upgrade it again.
 
+## D-20 on Sepolia (superseded by P-53: fresh deployment)
+
+P-53 decided one fresh Sepolia deployment after D-23b, so **no D-20 upgrade runs on Sepolia**: the fresh deployment
+starts with the D-20 classes. The funds were read anyway (P-48 (4)): on 2026-10-13, block 16,538,960, `balanceOf(Daily)`
+on MockUSDC was 0 and `Daily` had never emitted `Sponsored`, `Claimed` or `Reclaimed` (`leaderboard.md`, "As built:
+D-20").
+
+Lesson for any future in-place upgrade that removes a token path: set the new `Lobby` class and upgrade `Daily` in one
+multicall (no window where an old `Lobby` runs under a new `Daily` or the reverse), and hold the upgrade if a balance
+re-read right before it is not 0 (after it, no path could send that balance out but another `upgrade`).
+
+**Dead fields under P-42**, declared, never written or read again, never reused (a comment says so where each is
+declared): `PavedStorage.tournaments` (`store.cairo`), `PavedStorage.rankings` (`store.cairo`) and
+`HostableComponent.sponsorships` (`components/hostable.cairo`, flat in `Daily` and `Tutorial`). Their names keep
+"tournament" and "sponsor": a storage name never changes.
+`tests::e2e::lobby_audit::test_lobby_and_daily_pin_the_dead_fields_by_name` pins all three by name: the address the
+code resolves through each field (in `Daily`'s and `Lobby`'s `HostableComponent`, and in `PavedStorage`) must equal the
+one computed from the literal name, and sentinels written there must survive a whole game through `Daily` and its
+`Lobby`. D-20 touches no structure state (`structure-state.md`).
+
 ## Not upgradable: migrations
 
 A fix to `PavedToken` or `Vault` is a migration to a new contract, never an in-place upgrade. Outline, to detail in

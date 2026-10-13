@@ -7,11 +7,12 @@ pub const WONDER_BASE_POINTS: u32 = 900;
 pub const DISCARD_POINTS: u32 = 50;
 pub const CENTER: u32 = 0x7fffffff;
 
-// Tournament
+// Daily
 
 /// The price of one stake unit of a Daily game: 2 USDC (6 decimals), `economy::BASE_PRICE`.
-pub const DAILY_TOURNAMENT_PRICE: felt252 = 2_000_000;
-pub const DAILY_TOURNAMENT_DURATION: u64 = 86400; // 1 day
+pub const DAILY_PRICE: felt252 = 2_000_000;
+/// The length of a day, which `day::day_id` divides by.
+pub const DAILY_DURATION: u64 = 86400; // 1 day
 
 // Bonus curve
 
@@ -35,6 +36,8 @@ pub const TASK_BIG_STRUCTURE: u32 = 6;
 pub const TASK_HIGH_SCORE: u32 = 7;
 /// Defined for the Podium achievement, credited by the indexer: the contract never reports it.
 pub const TASK_PODIUM: u32 = 8;
+/// Rank 1 of a day: since D-20 the contract never reports it (no ranking on chain); kept defined
+/// so that the id is never given to another task, for an indexer-credited Champion.
 pub const TASK_WIN: u32 = 9;
 pub const TASK_TUTORIAL_FINISHED: u32 = 10;
 
@@ -49,7 +52,7 @@ pub const MAX_FORESTS: u8 = 63;
 pub const MAX_WONDERS: u8 = 15;
 pub const MAX_BIG: u8 = 63;
 
-/// Entries of one report: tasks 1 to 4 for the quests, 1, 4 to 7 and 9 for the achievements (the
+/// Entries of one report: tasks 1 to 4 for the quests, 1 and 4 to 7 for the achievements (the
 /// package bound is 16).
 pub const QUEST_ENTRIES: u32 = 4;
-pub const ACHIEVEMENT_ENTRIES: u32 = 6;
+pub const ACHIEVEMENT_ENTRIES: u32 = 5;

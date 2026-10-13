@@ -15,7 +15,7 @@ describe("endpoints", () => {
   test("/v1/head", async () => {
     const { data, head } = await client.head();
     expect(head).toEqual(FIXTURE_HEAD);
-    expect(data).toMatchObject({ state: "ok", fromBlock: 12, lastMismatch: null, tournamentsChecked: 2 });
+    expect(data).toEqual({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" } });
     expect(data.contracts.daily).toBe("0x2");
     expect(fixture.requests).toEqual(["/v1/head"]);
   });
@@ -26,11 +26,10 @@ describe("endpoints", () => {
       fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...extra }), httpStatus: 200 };
       return client.head();
     };
-    expect((await raw({ checks: { tournaments_checked: 4, last_mismatch: null, later_field: [1] }, later: "x" })).data).toMatchObject({ lastMismatch: null, tournamentsChecked: 4 });
-    expect((await raw({ checks: { last_mismatch: null } })).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
-    expect((await raw({})).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
-    fixture.state.rawBody = { text: JSON.stringify({ ...ok, checks: { tournaments_checked: -1, last_mismatch: null } }), httpStatus: 200 };
-    expect(await kindOf(client.head())).toBe("bad-response");
+    // `checks` is not read: a schema 6 indexer's `tournaments_checked` and `last_mismatch` (D-20 removed them) are ignored.
+    expect((await raw({ checks: { definitions_excluded: 0, later_field: [1] }, later: "x" })).data).toMatchObject({ fromBlock: 3 });
+    expect((await raw({ checks: { tournaments_checked: 4, last_mismatch: null } })).data).not.toHaveProperty("lastMismatch");
+    expect((await raw({})).data).toMatchObject({ fromBlock: 3 });
   });
 
   test("a games row and a head with appended fields (token_id, contracts.collection, unknown keys) still parse", async () => {
@@ -46,29 +45,9 @@ describe("endpoints", () => {
     expect((await client.head()).data.contracts).toMatchObject({ daily: "0x2", collection: "0x5" });
   });
 
-  test("/v1/head reads last_mismatch as a typed object, and refuses any other shape", async () => {
-    const slot = (player: string, score: number) => ({ player_id: player, score });
-    fixture.state.lastMismatch = {
-      tournament_id: 20730,
-      head_number: 41,
-      view: [slot(FIXTURE_BO, 40), slot(FIXTURE_ADA, 50), slot("0x0", 0)],
-      indexed: [slot(FIXTURE_ADA, 50), slot(FIXTURE_BO, 40), slot("0x0", 0)],
-    };
-    expect((await client.head()).data.lastMismatch).toEqual({
-      tournamentId: 20730,
-      headNumber: 41,
-      view: [{ playerId: FIXTURE_BO, score: 40 }, { playerId: FIXTURE_ADA, score: 50 }, { playerId: "0x0", score: 0 }],
-      indexed: [{ playerId: FIXTURE_ADA, score: 50 }, { playerId: FIXTURE_BO, score: 40 }, { playerId: "0x0", score: 0 }],
-    });
-    for (const wrong of [20730, "20730", [], { tournament_id: 20730 }, { tournament_id: 1, head_number: 2, view: [{ player_id: "0x1" }], indexed: [] }, { tournament_id: 1, head_number: 2, view: [], indexed: {} }]) {
-      fixture.state.lastMismatch = wrong as never;
-      expect(await kindOf(client.head())).toBe("bad-response");
-    }
-  });
-
-  test("null score, end time or counted tournament is accepted only on a running game", async () => {
+  test("null score, end time or counted day is accepted only on a running game", async () => {
     const finished = fixture.games[0];
-    for (const key of ["score", "end_time", "counted_tournament_id"]) {
+    for (const key of ["score", "end_time", "counted_day_id"]) {
       fixture.games = [{ ...RUNNING_GAME }, { ...finished }];
       expect((await client.playerGames(FIXTURE_ADA)).data.games[0].over).toBe(false);
       fixture.games = [{ ...finished, [key]: null }];
@@ -82,7 +61,7 @@ describe("endpoints", () => {
   test("a running game: the null score, tournament and end time read as 0, not as a bad answer", async () => {
     fixture.games = [RUNNING_GAME, ...fixture.games];
     const { data } = await client.playerGames(FIXTURE_ADA);
-    expect(data.games[0]).toEqual({ contract: "daily", gameId: 913, mode: 1, startTime: 1791875000, tournamentId: 20733, over: false, score: 0, countedTournamentId: 0, endTime: 0 });
+    expect(data.games[0]).toEqual({ contract: "daily", gameId: 913, mode: 1, startTime: 1791875000, dayId: 20733, over: false, score: 0, countedDayId: 0, endTime: 0 });
     expect((await client.game("daily", 913)).data.over).toBe(false);
   });
 
@@ -104,15 +83,16 @@ describe("endpoints", () => {
     expect(fixture.requests[1]).toBe("/v1/tournaments/5");
   });
 
-  test("/v1/tournaments/{id}/leaderboard: the doc's example, with several prize slots for one player", async () => {
+  test("/v1/tournaments/{id}/leaderboard: the doc's example, one row per player", async () => {
     const board = await client.leaderboard(FIXTURE_TOURNAMENT, { limit: 3 });
     expect(fixture.requests[0]).toBe(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     expect(board.data).toMatchObject({ tournamentId: FIXTURE_TOURNAMENT, total: 41, nextOffset: 3 });
     expect(board.data.entries[0]).toEqual({
-      rank: 1, playerId: FIXTURE_ADA, name: "Ada", bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203, prizeRanks: [1, 3],
+      rank: 1, playerId: FIXTURE_ADA, name: "Ada", bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203,
     });
-    expect(board.data.entries[1]).toMatchObject({ name: null, prizeRanks: [2] });
-    expect(board.data.entries[2]).toMatchObject({ playerId: FIXTURE_BO, prizeRanks: [] });
+    expect(board.data.entries[1]).toMatchObject({ name: null });
+    expect(board.data.entries[2]).toMatchObject({ playerId: FIXTURE_BO });
+    expect(board.data.entries[0]).not.toHaveProperty("prizeRanks");
   });
 
   test("leaderboard: offset pages to the end", async () => {
@@ -136,7 +116,7 @@ describe("endpoints", () => {
     const all = await client.playerGames(FIXTURE_ADA, { limit: 1 });
     expect(all.data.games).toHaveLength(1);
     expect(all.data.games[0]).toEqual({
-      contract: "daily", gameId: 912, mode: 1, startTime: 1791869000, tournamentId: 20733, over: true, score: 187, countedTournamentId: 20733, endTime: 1791871203, tokenId: 912,
+      contract: "daily", gameId: 912, mode: 1, startTime: 1791869000, dayId: 20733, over: true, score: 187, countedDayId: 20733, endTime: 1791871203, tokenId: 912,
     });
     expect(all.data.next).toBe("1791869000:daily:912");
     const rest = await client.playerGames(FIXTURE_ADA, { limit: 1, before: all.data.next! });
@@ -149,13 +129,13 @@ describe("endpoints", () => {
 
   test("/v1/players/{id}/tournaments/{id}: the player's row, or null", async () => {
     const row = await client.playerTournament(FIXTURE_ADA, FIXTURE_TOURNAMENT);
-    expect(row.data).toMatchObject({ rank: 1, prizeRanks: [1, 3] });
+    expect(row.data).toMatchObject({ rank: 1, playerId: FIXTURE_ADA });
     expect((await client.playerTournament(FIXTURE_ADA, 7)).data).toBeNull();
     expect((await client.playerTournament(FIXTURE_NAMELESS, FIXTURE_TOURNAMENT)).data?.name).toBeNull();
   });
 
   test("/v1/games/{contract}/{id}: one game, or not-found", async () => {
-    expect((await client.game("tutorial", 55)).data).toMatchObject({ contract: "tutorial", gameId: 55, score: 64, countedTournamentId: 0 });
+    expect((await client.game("tutorial", 55)).data).toMatchObject({ contract: "tutorial", gameId: 55, score: 64, countedDayId: 0 });
     expect(await kindOf(client.game("daily", 31337))).toBe("not-found");
   });
 });
@@ -270,10 +250,6 @@ describe("envelope", () => {
     expect("gamesFinished" in list).toBe(false);
   });
 
-  test("a prize slot outside 1 to 3 is bad-response", async () => {
-    fixture.entries.set(1, [{ ...fixture.entries.get(FIXTURE_TOURNAMENT)![0], prize_ranks: [4] }]);
-    expect(await kindOf(client.leaderboard(1))).toBe("bad-response");
-  });
 });
 
 describe("errors", () => {

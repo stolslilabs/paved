@@ -14,7 +14,6 @@ export {
   FakeGameViews,
   RpcGameViews,
   ViewError,
-  emptyTournament,
   gameContract,
   modeFromCode,
   toViewError,
@@ -28,7 +27,6 @@ export type {
   GameViews,
   PriceView,
   TileView,
-  TournamentView,
   ViewErrorKind,
 } from "./views";
 export {
@@ -48,20 +46,13 @@ export {
 } from "./nft";
 export type { CollectionViews, NftAttribute, NftMetadata } from "./nft";
 export { EventReader, receiptEvents } from "./events";
-export type { PlayerGame, Sponsorship } from "./events";
+export type { PlayerGame } from "./events";
 export { placementOutcome } from "./placement";
 export type { PlacementOutcome } from "./placement";
-export { claimableRanks, countedTournamentIds, reclaimableAmount, rewardOf } from "./prize";
-export type { Rank } from "./prize";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
   FaucetCapError,
-  NoPrizeDayError,
-  NothingToReclaimError,
-  ReclaimAmountChangedError,
-  RewardChangedError,
-  SponsorAmountChangedError,
   WriteError,
 } from "./writer";
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";

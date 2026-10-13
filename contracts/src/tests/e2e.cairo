@@ -8,7 +8,6 @@ pub mod lobby;
 pub mod lobby_audit;
 pub mod mint;
 pub mod quests;
-pub mod reclaim;
 pub mod store;
 pub mod tutorial;
 pub mod tutorial_advanced;

@@ -14,9 +14,7 @@
 use paved::constants::DISCARD_POINTS;
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
-use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
-use paved::tests::leaderboard;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
@@ -49,11 +47,9 @@ pub struct GoldenOutcome {
     /// Tile count, the starter tile included.
     pub tile_count: u32,
     pub over: bool,
-    /// Top score written to the tournament of the game (0 if the game is not over).
-    pub top1_score: u32,
 }
 
-/// Seconds of the first tournament day used by the Daily golden games, plus a day offset.
+/// Seconds of the first day used by the Daily golden games, plus a day offset.
 pub fn day(index: u64) -> u64 {
     86400 * (1000 + index) + 3600
 }
@@ -74,21 +70,12 @@ pub fn discard(plan: Plan, score: u32) -> GoldenMove {
     GoldenMove { drawn: plan, plan, orientation: Orientation::None, x: 0, y: 0, score }
 }
 
-pub fn assert_outcome(
-    store: TestStore, name: felt252, game: Game, player_id: felt252, outcome: GoldenOutcome,
-) {
+pub fn assert_outcome(name: felt252, game: Game, outcome: GoldenOutcome) {
     assert_eq!(game.score, outcome.score, "Golden {}: final score", name);
     assert_eq!(game.built, outcome.built, "Golden {}: built count", name);
     assert_eq!(game.discarded, outcome.discarded, "Golden {}: discard count", name);
     assert_eq!(game.tile_count, outcome.tile_count, "Golden {}: tile count", name);
     assert_eq!(game.is_over(), outcome.over, "Golden {}: game over", name);
-    let first = leaderboard::ranked(
-        store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
-    );
-    assert_eq!(first.score, outcome.top1_score, "Golden {}: tournament top score", name);
-    if outcome.top1_score != 0 {
-        assert_eq!(first.player_id, player_id, "Golden {}: tournament top player", name);
-    }
 }
 
 /// Set to true to print the scores the oracle gives instead of asserting them (to record the
@@ -254,7 +241,7 @@ fn replay_daily(
         );
         assert(false, 'Golden: record run');
     } else {
-        assert_outcome(store, name, game, caller.into(), outcome);
+        assert_outcome(name, game, outcome);
     }
     game
 }
@@ -330,7 +317,7 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
         );
         assert(false, 'Golden: record run');
     } else {
-        assert_outcome(store, name, game, context.player_id, outcome);
+        assert_outcome(name, game, outcome);
     }
     game
 }

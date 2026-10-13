@@ -2,16 +2,12 @@
 // in-memory store, its own HTTP server answers on a free local port, and `IndexerClient` reads every route over
 // real HTTP. No chain, no browser. Needs Node 24 (the indexer runs on `node:sqlite`).
 import type { AddressInfo } from "node:net";
-import { hash } from "starknet";
 import { afterEach, describe, expect, test } from "vitest";
 import { IndexerClient, MAX_TOURNAMENT_ID, indexerPlayerId } from "../src/indexer";
 import type { IndexerError } from "../src/indexer";
-import { Chain } from "../../indexer/src/chain.ts";
-import { CrossCheck } from "../../indexer/src/crosscheck.ts";
-import { canonical, padded } from "../../indexer/src/events.ts";
-import { Queries } from "../../indexer/src/queries.ts";
+import { padded } from "../../indexer/src/events.ts";
 import { serve } from "../../indexer/src/server.ts";
-import { ACCOUNT, DAILY, ECONOMY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
+import { FakeNode, ev } from "../../indexer/src/testing/fake-node.ts";
 import { indexerOf, settle } from "../../indexer/src/testing/setup.ts";
 
 const A = 0xa1n;
@@ -32,10 +28,10 @@ afterEach(() => {
 async function start(): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
   const node = new FakeNode();
   node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]); // "Ada", "Bo"
-  node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, B, { tournament: DAY })], [ev.spawned("tutorial", 1, A)]);
-  node.mine([ev.over("daily", 1, A, 50, { tournament: DAY, end: 77 })]);
-  node.mine([ev.over("daily", 2, B, 40, { tournament: DAY, end: 78 })]);
-  node.mine([ev.spawned("daily", 3, A, { tournament: DAY })]); // still running: null score, day and end time
+  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("tutorial", 1, A)]);
+  node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
+  node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
+  node.mine([ev.spawned("daily", 3, A, { day: DAY })]); // still running: null score, day and end time
   return serveNode(node);
 }
 
@@ -57,9 +53,9 @@ async function startQuests() {
     [ev.achievementDefined(3, { tasks: [[1, 10]], points: 20 })],
     [ev.achievementDefined(9, { tasks: [[8, 1]], points: 50 })],
   );
-  node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, A, { tournament: DAY })], [ev.spawned("daily", 3, A, { tournament: DAY })]);
-  node.mine([ev.over("daily", 1, A, 1200, { tournament: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed("daily", A, 1, 1)]);
-  node.mine([ev.over("daily", 2, A, 1500, { tournament: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed("daily", A, 1, 1)]);
+  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, A, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY })]);
+  node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed("daily", A, 1, 1)]);
+  node.mine([ev.over("daily", 2, A, 1500, { day: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed("daily", A, 1, 1)]);
   node.mine([ev.questRetired(2)]);
   return { node, ...(await serveNode(node)) };
 }
@@ -82,7 +78,7 @@ describe("IndexerClient against the real indexer", () => {
   test("/v1/head: the as-built fields are read, the rest ignored", async () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
-    expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1, lastMismatch: null, tournamentsChecked: 0 });
+    expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1 });
     expect(data.contracts).toMatchObject({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
@@ -92,8 +88,8 @@ describe("IndexerClient against the real indexer", () => {
   test("E3's appended economy fields are read: game, player stats and the day's economy", async () => {
     const node = new FakeNode();
     node.mine([ev.created(A, 0x41)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 1200, { tournament: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
     const { client } = await serveNode(node);
 
     const { data: games } = await client.playerGames(ADA);
@@ -122,42 +118,10 @@ describe("IndexerClient against the real indexer", () => {
   test("an indexer without the E3 fields is still read; a malformed economy is a bad response", async () => {
     const answer = (body: unknown) => new IndexerClient({ url: "http://x", fetch: (async () => Response.json(body)) as unknown as typeof fetch });
     const envelope = { version: 1, status: "ok", behind: 0, head: { number: 1, hash: "0x1", timestamp: 1 } };
-    const row = { contract: "daily", game_id: 1, mode: 1, start_time: 1, tournament_id: 1, over: false, score: null, counted_tournament_id: null, end_time: null };
+    const row = { contract: "daily", game_id: 1, mode: 1, start_time: 1, day_id: 1, over: false, score: null, counted_day_id: null, end_time: null };
     const old = await kindOf(answer({ ...envelope, games: [row], next: null }).playerGames(ADA));
     expect(old).not.toBe("bad-response");
     expect(await kindOf(answer({ ...envelope, games: [{ ...row, economy: { day: 1 } }], next: null }).playerGames(ADA))).toBe("bad-response");
-  });
-
-  test("/v1/head: a real cross-check mismatch is read as a typed object", async () => {
-    // Day 100 closes; the `tournament` view ranks B above A, the events say the opposite.
-    const node = new FakeNode();
-    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, B, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
-    node.mine([ev.over("daily", 2, B, 40, { tournament: DAY })]);
-    const slots = [[B, 40], [A, 50], [0n, 0]] as const;
-    node.views = (_address, selector) => {
-      expect(selector).toBe(canonical(hash.getSelectorFromName("tournament")));
-      return ["0x64", "0x0", "0x0", "0x1", "0x0", "0x0", ...slots.flatMap(([p, score]) => [`0x${p.toString(16)}`, `0x${score.toString(16)}`, "0x0"])];
-    };
-    node.time = (DAY + 1) * 86400 + 5;
-    node.mine();
-    const indexer = indexerOf(node);
-    await settle(indexer);
-    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), new Queries(indexer.store));
-    await checks.run(indexer.served!);
-    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }, checks } });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const client = new IndexerClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });
-    const { data } = await client.head();
-    expect(data.tournamentsChecked).toBe(1);
-    expect(data.lastMismatch).toEqual({
-      tournamentId: DAY,
-      headNumber: indexer.served!.number,
-      view: [{ playerId: padded(B), score: 40 }, { playerId: padded(A), score: 50 }, { playerId: padded(0n), score: 0 }],
-      indexed: [{ playerId: padded(A), score: 50 }, { playerId: padded(B), score: 40 }, { playerId: padded(0n), score: 0 }],
-    });
   });
 
   test("/v1/tournaments, /v1/tournaments/{id}: the day, and zeros for a day with no game", async () => {
@@ -173,11 +137,11 @@ describe("IndexerClient against the real indexer", () => {
     expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID + 1))).toBe("rejected");
   });
 
-  test("/v1/tournaments/{id}/leaderboard: rows, prize slots and paging", async () => {
+  test("/v1/tournaments/{id}/leaderboard: rows and paging", async () => {
     const { client } = await start();
     const first = await client.leaderboard(DAY, { limit: 1 });
     expect(first.data).toMatchObject({ tournamentId: DAY, total: 2, nextOffset: 1 });
-    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, name: "Ada", bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77, prizeRanks: [1] });
+    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, name: "Ada", bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77 });
     const second = await client.leaderboard(DAY, { limit: 1, offset: first.data.nextOffset! });
     expect(second.data.entries[0]).toMatchObject({ rank: 2, playerId: BO, name: "Bo", bestScore: 40 });
     expect(second.data.nextOffset).toBeNull();
@@ -197,8 +161,8 @@ describe("IndexerClient against the real indexer", () => {
     const all = await client.playerGames(ADA);
     expect(all.data.games.map((g) => `${g.contract}:${g.gameId}`).sort()).toEqual(["daily:1", "daily:3", "tutorial:1"]);
     const running = all.data.games.find((g) => g.contract === "daily" && g.gameId === 3)!;
-    expect(running).toMatchObject({ over: false, score: 0, countedTournamentId: 0, endTime: 0, tournamentId: DAY });
-    expect(all.data.games.find((g) => g.gameId === 1 && g.contract === "daily")).toMatchObject({ over: true, score: 50, countedTournamentId: DAY, endTime: 77 });
+    expect(running).toMatchObject({ over: false, score: 0, countedDayId: 0, endTime: 0, dayId: DAY });
+    expect(all.data.games.find((g) => g.gameId === 1 && g.contract === "daily")).toMatchObject({ over: true, score: 50, countedDayId: DAY, endTime: 77 });
     const page = await client.playerGames(ADA, { limit: 1 });
     expect(page.data.games).toHaveLength(1);
     expect(page.data.next).toMatch(/^\d+:(daily|tutorial):\d+$/);
@@ -210,7 +174,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("/v1/players/{id}/tournaments/{id}: the row of that day, or null", async () => {
     const { client } = await start();
-    expect((await client.playerTournament(ADA, DAY)).data).toMatchObject({ rank: 1, playerId: ADA, prizeRanks: [1] });
+    expect((await client.playerTournament(ADA, DAY)).data).toMatchObject({ rank: 1, playerId: ADA });
     expect((await client.playerTournament(ADA, 99)).data).toBeNull();
   });
 
@@ -323,19 +287,6 @@ describe("IndexerClient against the real indexer", () => {
     expect(allowed.headers.get("access-control-allow-origin")).toBe(ORIGIN);
     const other = await fetch(`${url}/v1/head`, { headers: { origin: "http://evil.example" } });
     expect(other.headers.get("access-control-allow-origin")).toBeNull();
-  });
-
-  test("/v1/sponsors/{id}/days: the days a sponsor put something into, paged", async () => {
-    const node = new FakeNode();
-    node.mine([ev.sponsored(7, A), ev.sponsored(9, A), ev.sponsored(9, B)]);
-    node.mine([ev.sponsored(8, A), ev.sponsored(7, A, 5)]);
-    const { client } = await serveNode(node);
-    expect((await client.sponsorDays(A)).data).toEqual({ sponsorId: ADA, days: [9, 8, 7], next: null });
-    const first = await client.sponsorDays(A, { limit: 2 });
-    expect(first.data).toEqual({ sponsorId: ADA, days: [9, 8], next: 8 });
-    expect((await client.sponsorDays(A, { limit: 2, before: first.data.next! })).data).toEqual({ sponsorId: ADA, days: [7], next: null });
-    expect((await client.sponsorDays(0x9999n)).data.days).toEqual([]);
-    expect((await client.sponsorDays(B)).data.days).toEqual([9]);
   });
 
   test("the padded id the client writes is the one the indexer serves", () => {

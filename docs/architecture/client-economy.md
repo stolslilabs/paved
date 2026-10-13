@@ -38,9 +38,9 @@ What E3 removed from the client:
 - `PavedWriter.spawn("daily")`, with its approve of `entry_price` and `EntryPriceChangedError`: it now throws and sends
   nothing, a Daily game is bought only by `EconomyWriter.purchase`. `spawn("tutorial")` stays: the Tutorial is free and
   unchanged. The Landing dialog of a Daily game only resumes one; a new one is bought with the stake picker.
-- The prize no longer grows with entries (economy.md section 7, P-31): it is **sponsor-only**. The Landing labels the
-  prize and the entry in USDC (`TOKEN_LABEL`), and a sponsorship approves the token `Daily.entry_price` names, not the old mock.
-  `PavedClient.balance` reads that same token.
+- The prize no longer grew with entries (economy.md section 7, P-31): it was **sponsor-only**, and D-20 removed it with
+  sponsoring, claiming and reclaiming. The Landing labels the entry in USDC (`TOKEN_LABEL`).
+  `PavedClient.balance` reads the token `Daily.entry_price` names.
 - "Price unavailable" on the purchase button is only a failed price read now, never the stubs.
 
 The indexer's appended fields (API v1, indexer.md "As built (P8 E3)") are parsed by `IndexerClient` and optional, so an indexer
@@ -93,25 +93,14 @@ ignored and not sent.
 - `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
   `addresses.Token`: a different entry token, or no USDC address known, is "Unknown token".
 
-## Claim reverts, and a sponsor's reclaim (P-37)
+## The prize, its claims and the reclaim (D-20)
 
-| Revert text | Where | Clear state |
-|---|---|---|
-| `Tournament: not found` | a top-3 `claim` on a day nobody sponsored (no tournament) | `NoPrizeDayError`: "This day has no prize: nobody sponsored it, so there is nothing to claim." |
-| `Tournament: nothing to reclaim` | `claim(day, 0)` on a ranked day, from a non-sponsor, or a second time | `NothingToReclaimError`: nothing moved |
-
-Both match as text and as the hex of the short string the node may return, in the receipt's revert and in the node's refusal at fee estimation before anything is sent (the same for the Economy's `swap below min_out` and `day cannot close yet`). Any other revert stays as it is.
-
-**The reclaim line.** Rank rewards are unchanged (rank 1 absorbs the empty ranks). A sponsor takes back their part of a prize
-nobody ranked for, an empty top 3 or every score 0 (the view shows no first place), with `PavedWriter.reclaim(day,
-{ confirmedAmount })` = `Daily.claim(day, 0)` sent by the sponsor. The part is not in any view, and `tournament(day).prize` keeps
-the historical total after a reclaim, so it comes from events: `EventReader.sponsorship(day, sponsor)` is their `Sponsored` events
-(Daily) less their `Reclaimed { tournament_id, sponsor, amount }` events (declared in `Lobby.json`, emitted from Daily's address,
-read with `LOBBY_ABI`); `reclaimedTotal(day)` is what went back to all sponsors; `sponsoredDays(sponsor)` lists the days (the node
-cannot filter on `sponsor`, which is event data). `reclaim` reads the day and the part again at send and refuses, sending nothing:
-a day not over, a ranked day, nothing sponsored or already taken back (`NothingToReclaimError`), and a part that is not the one
-confirmed (`ReclaimAmountChangedError`). The Landing prize panel lists "Prizes nobody ranked for" with the part, what already went back,
-a confirm showing the amount, and the re-check at send.
+D-20 removed the day's prize: `claim` (ranks 1 to 3, and rank 0, a sponsor's reclaim of P-37), `sponsor` and the
+`tournament` view. The client follows: `PavedWriter` has no `claim`, `sponsor` or `reclaim`, `EventReader` no
+`sponsorship`, `sponsoredDays` or `reclaimedTotal`, the controller session no `claim` or `sponsor` policy, and the Landing no
+prize panel. Their errors (`NoPrizeDayError`, `NothingToReclaimError`, `RewardChangedError`, `SponsorAmountChangedError`,
+`ReclaimAmountChangedError`) went with them. The Economy's reverts (`swap below min_out`, `day cannot close yet`) still match
+as text and as the hex of the short string the node may return, in the receipt's revert and at fee estimation.
 
 ## Deployment
 
@@ -385,8 +374,8 @@ the history state to the game page, which sends it, as from the Landing.
 
 - The devnet run of the economy (`PAVED_E2E=1`, `bun run test:e2e` in `packages/chain`, t-0073 PR b) passes on a fresh
   `starknet-devnet --seed 42` after `scripts/deploy.sh devnet`, with the indexer on 127.0.0.1:8787: faucet, a paid purchase with a
-  referrer (price = burn + referral + margin against the balances), play to game over (recorded in the Economy), the prizes, the
-  settlement, the Vault, a sponsor's reclaim and an expired game. Since t-0081 (2026-10-10, 18 of 18 on day 20738): alice plays with
+  referrer (price = burn + referral + margin against the balances), play to game over (recorded in the Economy), the
+  settlement, the Vault and an expired game (the prize and the sponsor's reclaim steps left with D-20). Since t-0081 (2026-10-10, 18 of 18 on day 20738): alice plays with
   the search player of `test/daily-player.ts` and scores 9,084 against a threshold of 3,455.877 (prior 3,353, her stake 3, bob's and
   carol's 1,257 at stakes 2 and 1); her settlement mints 1,566.385536085290946482 PAVED, and the `Settled` event, `terms.reward`, her
   balance change and `R x c x score / threshold` from the chain's terms (`test/economy-curve.ts`) agree; bob and carol get 0. carol
@@ -394,7 +383,7 @@ the history state to the game page, which sends it, as from the Landing.
   The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that records them, `test/devnet.test.ts`,
   deploys the old four contracts): the paid spawn is not re-recorded.
   These figures were measured before D-18 with prior 3,353 and slope 18,130; new deploys use slope 12,220 and a mean of 3,980 (P-46), and the client's fakes follow.
-- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` and a sponsor's approve use
+- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` uses
   its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
 - If a batch settle is ever added, it skips expired games.

@@ -36,7 +36,7 @@ class `Lobby` of P-26, which has no address), is ignored.
 
 The token is labelled `PAVED` whatever its on-chain symbol (D-10, which replaces D-2's old label; reading the symbol waits for P8's token); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
-amount and offers no Daily confirm, claim or sponsor, rather than assume 18).
+amount and offers no Daily confirm, rather than assume 18).
 
 ### Sepolia (D-16, P-39)
 
@@ -57,7 +57,7 @@ differs from devnet:
   (`supportsMint`), and never on mainnet.
 - **Pool quote**: `Economy.quote_swap` on the MockRouter (`EconomyPoolQuoter`), as on devnet: Ekubo serves no Sepolia. Mainnet keeps
   Ekubo's quoter; its route guard (a single hop through `Economy.pool()`) is a separate mainnet gate, not done here.
-- **Block time**: 1.72 s, measured on 2026-10-11 (see "Sponsored days"; the bounded scan reads 350,000 blocks for a week).
+- **Block time**: 1.72 s, measured on 2026-10-11 (1,000 blocks took 1,720 s at block 16421969).
 
 ## Clients
 
@@ -76,8 +76,8 @@ unknown variant of an enum with a payload variant could carry felts of unknown l
 throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
 Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
-(Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
-`mint` (test token). After D-18 (characters leave the game) `build` takes a tile, an orientation and a position, with no role and no spot, and there is no role picker; the chain and UI changes land in D-18 PR 1 (chain) and PR 2 (UI, renderer, app-web). Art from `packages/app-web/public/assets` stays limited to real files of the package, kept to the ones the packages load (`__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
+(Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`,
+`mint` (test token). D-20 removed `claim` and `sponsor` (and the reclaim, a `claim` of rank 0) with the prize. After D-18 (characters leave the game) `build` takes a tile, an orientation and a position, with no role and no spot, and there is no role picker; the chain and UI changes land in D-18 PR 1 (chain) and PR 2 (UI, renderer, app-web). Art from `packages/app-web/public/assets` stays limited to real files of the package, kept to the ones the packages load (`__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
 devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node). Sepolia, like every
@@ -130,35 +130,20 @@ when it is not configured: no policy on an empty target). The controller is the 
 outside devnet, now wired: see [Signing](#signing). Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
-### Surrender, claim, sponsor, name (t-0028)
+### Surrender, name (t-0028)
 
 - **Surrender**: a button on the game screen, enabled for the player's own unfinished game with no
   write pending; it opens a confirm dialog with the score the game ends with, and only "Confirm
   surrender" calls `GameSession.surrender` (the writer serialises it; a pending write disables the
   button). A reverted surrender is the same `writeError` notice as any write.
-- **Claim a Daily prize** (landing): the claimable tournaments are found from **events and views**:
-  the `tournament_id` of the player's finished Daily games (`GameOver`, `countedTournamentIds`; 0
-  means the game did not count), newest 30, then one `Daily.tournament(id)` each. A rank is claimable
-  when the tournament is `over`, the player's id is the holder of rank 1, 2 or 3, that rank is not
-  `claimed` and its reward is above 0 (`claimableRanks`). The reward is computed from the view as the
-  contract does (`rewardOf`: third a sixth of the prize, second a third of the rest, first the
-  remainder). It is read on connect, on visibility and after a claim. No new event is needed.
-- **Sponsor** (landing): an amount field in the token's decimals (`parseTokenAmount`: positive, at
-  most `decimals` fraction digits); the button only opens the confirm, which shows the amount; the
-  confirm sends `approve` + `sponsor` of exactly that amount in one multicall.
-- **Paying and paid actions keep the Daily rule**: an explicit confirm, the amount shown, and the
-  amount re-checked at send. The panel reads the field again at the confirm click and hands the writer
-  the amount it confirmed: `sponsor(amount, { confirmedAmount })` refuses a difference
-  (`SponsorAmountChangedError`) and an amount of 0; `claim(id, rank, { confirmedReward })` reads the
-  tournament again and refuses a changed reward (`RewardChangedError`), a rank already claimed or a
-  tournament not over (`WriteError`), sending nothing. Both options are required.
 - **Player name**: a field on the landing page when "Create Account" is offered; 1 to 31 printable
   ASCII characters (`playerNameError`), checked before anything is sent, and again by the writer.
 
 ## Views
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
-short page), `builder`, `tournament`, `currentTournamentId`. `RpcGameViews` calls the
+short page), `builder`, `currentDay` (`Daily.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`.
+The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
 Every game read names its contract: game ids are counted per contract, so the client's game key is
@@ -172,39 +157,14 @@ found" and "not your game: read only" for the first two.
 ## Events
 
 `EventReader` (`events.ts`) reads `starknet_getEvents` from `deployed_block`, page by page
-(continuation token; the one list that no key narrows, the sponsored days, is bounded below), and decodes the events from the ABIs. Lists use the keys, so the node does the
+(continuation token), and decodes the events from the ABIs. Lists use the keys, so the node does the
 filtering:
 
 - "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Daily` and on `Tutorial`.
 - "My finished games": `GameOver` with the same filter. A spawned game with no `GameOver` is active.
-  Tutorial has no tournament: its `GameSpawned`, `GameOver` and `game` give `tournament_id` 0 and
+  Tutorial belongs to no day: its `GameSpawned`, `GameOver` and `game` give `day_id` 0 (`tournament_id` before D-20) and
   `end_time` 0 (#205), read as they are.
 - The receipt of a write: its events from the contract written to.
-
-### Sponsored days
-
-Landing lists the days where the account may take back its part of a prize nobody ranked for (P-37). The days come from
-`EventReader.sponsoredDays(sponsor, indexer)`, which never reads `Sponsored` from `deployed_block`:
-
-- **With the indexer** (`VITE_INDEXER_URL`), one page of `GET /v1/sponsors/{sponsor_id}/days?limit=30`
-  (`IndexerClient.sponsorDays`), newest first. Used when the answer is valid and not `behind`.
-- **Behind** (the answer is valid but more than `maxLag` blocks behind the node): the indexer's days are kept and merged
-  with the bounded scan below. The union is deduplicated by day, a day in both is the scan's record (the fresher read of
-  the chain), and the result is sorted newest first and cut to `SPONSORED_DAYS_LIMIT`. A lag of a few blocks therefore
-  no longer drops the days older than the scan's range. Display only: the sponsor's part stays on chain.
-- **Otherwise** (no indexer, an error of any kind, or an indexer older than schema 6 that answers not-found) a bounded
-  scan alone: `Daily.Sponsored` from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)` to the latest
-  block, paged by the RPC's continuation token (`chunk_size` 100), filtered on the sponsor in the client (the sponsor is
-  event data, not a key). `SPONSORED_FALLBACK_BLOCKS` is 350,000 blocks, about a week at Sepolia's block time of 1.72 s
-  (measured on 2026-10-11: 1,000 blocks took 1,720 s at block 16421969 and 1,714 s 50,000 blocks earlier, so 350,000 blocks
-  are 6.97 days; it was 100,000 blocks at an assumed 6 s, which is 2 days on Sepolia). A provider
-  that cannot give the latest block is refused: the scan is never left unbounded.
-- **What the scan can miss**: a sponsoring older than the range, which Landing then does not list when the scan is
-  alone (only the days read are shown). The part is still on the chain and is offered again as soon as the indexer
-  answers. The indexer path, and the merge when it is behind, have no such gap.
-- Both paths return at most `SPONSORED_DAYS_LIMIT` (30) days. Landing then reads one `tournament` view, the day's
-  `Sponsored` and `Reclaimed` events (keyed by the day) and the total returned, for each of them. Its flow is unchanged:
-  `claim(day, 0)` with the amount re-checked when it is sent.
 
 ## Who reads what, and when
 
@@ -213,13 +173,13 @@ Landing lists the days where the account may take back its part of a prize nobod
 | Landing: player registered, name | `Account.player(address)` | on connect, after `create` |
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
-| Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
+| Landing: today's day (its end) | `Daily.current_day` (D-20: no prize and no on-chain top 3 any more) | on connect, when the page becomes visible |
 | Landing: Daily entry fee | `Daily.entry_price()` | on connect, when the page becomes visible, after a write |
 | Daily spawn: the approve | `Daily.entry_price()` | before each Daily spawn |
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
-| Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_tournament_id` | on open, when the page becomes visible, on paging |
+| Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_day` | on open, when the page becomes visible, on paging |
 | Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |
-| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id from `Account.player(address)`; today's id from `Daily.current_tournament_id`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
+| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id from `Account.player(address)`; today's id from `Daily.current_day`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
 | Player screen: quests and achievements | indexer `playerQuests`, `playerAchievements` (not `definitions`), same day rules | on open, when the page becomes visible, on a day change |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -233,18 +193,17 @@ receipt arrives, its `Built` event confirms the tile (plan, orientation, positio
 
 Why no polling: a game is single-player and only its player can write it (`native-storage.md`,
 access control), so its state changes only through the client's own transactions, whose receipts
-the client waits for. The tournament changes when other players finish games; it is read again on
+the client waits for. The leaderboard changes when other players finish games; it is read again on
 visibility and on demand, not on a timer. A live feed (a websocket subscription or META's indexer)
 can replace that later.
 
 ## Indexer client
 
 `packages/chain/src/indexer.ts` reads the indexer's API v1 (`docs/architecture/indexer.md`, "Read API"). It is for
-display only: a prize amount, who may claim and whether a rank was claimed come from the contract's `tournament`
-view, never from here.
+display only. Since D-20 the contracts keep no prize and no ranking: the daily leaderboard is the indexer's own.
 
 - `IndexerClient({ url })` has one method per route (`head`, `tournaments`, `tournament`, `leaderboard`, `player`,
-  `playerGames`, `playerTournament`, `game`, `sponsorDays(sponsor, { limit, before })` (schema 6), and the P7 routes `definitions`, `playerQuests(player, { day })`,
+  `playerGames`, `playerTournament`, `game`, and the P7 routes `definitions`, `playerQuests(player, { day })`,
   `playerAchievements(player)`), checks its ids and days before sending, and returns rows in camelCase.
 - Every answer is `{ data, head, behind, freshness }`. `freshness` is `ok` up to `maxLag` blocks behind (default 5,
   the indexer doc's figure) and `behind` above it; the screens print `behind` as it is.
@@ -261,19 +220,20 @@ view, never from here.
 - `IndexerProvider`, `useIndexer` and `useIndexerRead` follow the rules of `useRead`: a read on its inputs, on
   `refresh`, and on visibility; no timer. After a failure the last answer stays in `data`, so a screen can show it
   marked stale beside the error.
-- As built (`indexer.md`, "As built"): `head()` also reads `checks.tournaments_checked` (`tournamentsChecked`, null when
-  absent) and `checks.last_mismatch` (`lastMismatch`: null, or `{ tournamentId, headNumber, view, indexed }` with
-  slots `{ playerId, score }`; any other shape is `bad-response`), and ignores any other key, known or later, and a missing `checks`; the 503 of `/v1/head` when the state is
-  not `ok` is `unavailable` with its `status`, like every other route; a game that is still running answers `score`,
-  `counted_tournament_id` and `end_time` as null, which the client reads as 0 and shows as "In progress"; a null on a
+- As built (`indexer.md`, "As built"): `head()` does not read `checks` (D-20 removed `checks.tournaments_checked` and
+  `checks.last_mismatch` with the cross-check against the `tournament` view; a leaderboard row has no `prize_ranks`), and
+  ignores any other key, known or later, and a missing `checks`; the 503 of `/v1/head` when the state is
+  not `ok` is `unavailable` with its `status`, like every other route; a game row's days are `day_id` and
+  `counted_day_id` (`dayId`, `countedDayId`; `tournament_id` and `counted_tournament_id` before D-20); a game that is
+  still running answers `score`, `counted_day_id` and `end_time` as null, which the client reads as 0 and shows as "In progress"; a null on a
   game with `over` true is `bad-response`.
 - A read never shows another input's answer: `useAsyncRead` (and so `useIndexerRead`) hides what was read for earlier
   inputs at once, in the render that changes them, so the leaderboard never shows rows of another day or page, nor
   another day's failure. A refresh of the same inputs still keeps its last answer, marked stale.
 - A `tournament` answer for an id near `MAX_TOURNAMENT_ID` carries `start_time` above 2^53; the client refuses it as
   `bad-response` (reported to META).
-- Not done: the `head.hash` check against the node's block (the fork guard of the indexer doc) and the fallback to the
-  on-chain top 3 when the indexer is down.
+- Not done: the `head.hash` check against the node's block (the fork guard of the indexer doc). There is no on-chain top 3
+  to fall back to since D-20.
 - Tests run against `FixtureIndexer`, imported from `@paved/chain/testing` only (not from the public entry, so no app code can reach it), an in-process `fetch` built from the doc's examples that
   refuses parameters as the API does and can be put `behind`, `loading`, `rewinding`, `halted`, `down` or on another
   `version`; `RUNNING_GAME` is a game row as the real indexer writes a running game. Its answers follow the real
@@ -295,7 +255,7 @@ view, never from here.
   a description.
 - **No reward is shown or promised anywhere.** Achievement points are shown as points, never as a grant. The tests assert no
   `reward`, `prize`, `claim` or token label on these screens. "On the Podium" is credited by the indexer after the day
-  closes, from the contract's `tournament` view; the screen says so and nothing more.
+  closes, from its own daily leaderboard (D-20); the screen says so and nothing more.
 - States, as for the leaderboard: not configured (`Quests unavailable`, no request), loading, unavailable by kind (down,
   halted, rewinding, loading, another API version, unexpected answer) with Retry for each read, stale (the rows stay with
   the reason after a failed refresh), and one lag line (`progress-lag`) for the furthest-behind of the screen's reads.
@@ -390,7 +350,7 @@ runs in Cartridge's iframe. The connector is configured as follows:
     gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
     this account...") and the call cap into its own words, never a raw revert;
   - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
-    Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
+    Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and Tutorial
     `spawn`/`build`/`discard`/`surrender`. Since E3 the Daily `spawn` is the paid purchase's
     (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns
     Tutorial games only;
@@ -400,12 +360,8 @@ runs in Cartridge's iframe. The connector is configured as follows:
     `ENTRY_MAX_STAKE` (the economy's `MAX_STAKE`, 10) times the unit price, which is the most one
     purchase approves: `USDC.approve(Daily, stake x unit)`.
 
-  An approve to Daily on the entry token up to 10 times the unit price is signed in the session,
-  whether it is a purchase's or a sponsor's, because the policy cannot tell which call made it.
-  `PavedWriter.sponsor` sends `approve(Daily, amount)` on the entry token (USDC since E3), so a sponsor
-  within the cap is signed without a prompt. No more money is
-  at risk: `sponsor` itself is a policy, and the app asks for an explicit confirm of the amount. Above
-  the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
+  An approve to Daily on the entry token up to 10 times the unit price is signed in the session: since
+  D-20 only a purchase sends one. Above the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
   session holds no approve and every approve prompts.
 
   The cap is read once per page load, when the controller is first used, and kept for the session. If
@@ -423,13 +379,14 @@ runs in Cartridge's iframe. The connector is configured as follows:
     point, and for an approve its spender and an amount within the cap);
   - the policies hold exactly those calls;
   - a purchase at stake 10 approves exactly the cap;
-  - settle, the Vault writes and a sponsor's approve above the cap fall outside the session.
+  - settle and the Vault writes fall outside the session;
+  - no policy holds `claim` or `sponsor` (D-20).
 
 When the app opens, `probe` restores a session already approved in the browser without a prompt. A
 connect that the player abandons leaves the app read-only and says why.
 
 Within the session, the controller signs an approve of the entry token to the Daily contract, up to
-10 times the unit price, without asking, whether it is a purchase's or a sponsor's. What guards each payment is still the client's own confirm, which shows the amount,
+10 times the unit price, without asking. What guards each payment is still the client's own confirm, which shows the amount,
 and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
 `usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
 never loses its account to a reconnect.

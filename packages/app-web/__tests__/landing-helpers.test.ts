@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { emptyTournament } from "@paved/chain";
-import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL, parseTokenAmount, playerNameError, tokenLabel } from "../src/utils/landing-helpers";
+import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, shortAddress, TOKEN_LABEL, playerNameError, tokenLabel } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
-  it("labels the entry and prize token USDC (E3)", () => {
+  it("labels the entry token USDC (E3)", () => {
     expect(TOKEN_LABEL).toBe("USDC");
   });
 
@@ -18,12 +17,6 @@ describe("landing helpers", () => {
     expect(formatTimeRemaining(1000, 2000)).toBe("Ended");
     expect(formatTimeRemaining(2 * 86400 + 3 * 3600, 0)).toBe("2d 3h");
     expect(formatTimeRemaining(3 * 3600 + 5 * 60, 0)).toBe("3h 5m");
-  });
-
-  it("lists the filled places of a tournament", () => {
-    const t = { ...emptyTournament(5), top1PlayerId: "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691", top1Score: 40 };
-    expect(podium(t)).toEqual([{ name: "0x64b4…5691", score: 40 }]);
-    expect(podium(emptyTournament(5))).toEqual([]);
   });
 
   it("shortens addresses", () => {
@@ -87,14 +80,6 @@ describe("amounts, names and missing decimals (t-0028)", () => {
     expect(entryFee({ data: { token: "0x4", amount: 0n }, error: null }, "0x04", null)).toEqual({ kind: "free" });
     expect(tokenLabel(5n, null)).toBe("—");
     expect(tokenLabel(10n ** 18n, 18)).toBe(`1 ${TOKEN_LABEL}`);
-  });
-
-  it("parseTokenAmount", () => {
-    expect(parseTokenAmount("1.5", 18)).toBe(15n * 10n ** 17n);
-    expect(parseTokenAmount(" 2 ", 6)).toBe(2_000_000n);
-    expect(parseTokenAmount("0.000001", 6)).toBe(1n);
-    for (const bad of ["", "0", "0.0", "-1", "1e3", "1.1234567", ".5", "1,5", "abc"]) expect(parseTokenAmount(bad, 6)).toBeNull();
-    expect(parseTokenAmount("1", null)).toBeNull();
   });
 
   it("playerNameError: 1 to 31 printable ASCII", () => {

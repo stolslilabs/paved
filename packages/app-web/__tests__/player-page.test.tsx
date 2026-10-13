@@ -46,13 +46,14 @@ describe("Player page", () => {
     expect(within(rows[2]).getByText("–")).toBeTruthy();
   });
 
-  it("their tournaments: rank, score, games and several prize slots, linking to the day", async () => {
+  it("their tournaments: rank, score and games, linking to the day; no prize slots (D-20)", async () => {
     player(FIXTURE_ADA);
     const link = await screen.findByText(`Day ${FIXTURE_TOURNAMENT}`);
     expect(link.getAttribute("href")).toBe(`/leaderboard/${FIXTURE_TOURNAMENT}`);
     const row = link.closest("tr")!;
-    await waitFor(() => expect(within(row).getByText("1st and 3rd (2 slots)")).toBeTruthy());
-    expect(within(row).getByText("187")).toBeTruthy();
+    await waitFor(() => expect(within(row).getByText("187")).toBeTruthy());
+    expect(screen.queryByText("Prize slots")).toBeNull();
+    expect(row.textContent).not.toMatch(/slot/);
     expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/tournaments/${FIXTURE_TOURNAMENT}`);
   });
 
@@ -80,7 +81,7 @@ describe("Player page", () => {
   it("games page with before and next", async () => {
     // many games: one more than a page
     fixture.games = Array.from({ length: 12 }, (_, i) => ({
-      contract: "daily", game_id: 100 - i, mode: 1, start_time: 1791869000 - i, tournament_id: 0, over: true, score: i, counted_tournament_id: 0, end_time: 0,
+      contract: "daily", game_id: 100 - i, mode: 1, start_time: 1791869000 - i, day_id: 0, over: true, score: i, counted_day_id: 0, end_time: 0,
     }));
     player(FIXTURE_ADA);
     await screen.findByText("#100");
@@ -110,7 +111,7 @@ describe("Player page", () => {
   describe("quests and achievements", () => {
     const withViews = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
       const views = new FakeGameViews();
-      views.currentTournament = FIXTURE_TOURNAMENT;
+      views.today = FIXTURE_TOURNAMENT;
       return player(FIXTURE_ADA, { views, ...opts });
     };
     const region = (name: string) => within(screen.getByRole("region", { name }));

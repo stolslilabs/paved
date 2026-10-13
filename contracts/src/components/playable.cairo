@@ -4,13 +4,11 @@
 pub mod PlayableComponent {
     // Internal imports
 
-    use paved::constants;
+    use paved::day::day_id;
     use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
-    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
-    use paved::models::tournament::TournamentImpl;
     use paved::quests::encode;
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
@@ -29,26 +27,18 @@ pub mod PlayableComponent {
     #[derive(Drop, starknet::Event)]
     pub enum Event {}
 
-    /// A game that ends in the tournament it started in is submitted to the leaderboard, then gets
-    /// the tournament id and its end time. One that ends after its tournament closed ranks in
-    /// nothing and keeps `tournament_id` 0. Returns the rank it took, 1 to 3, or 0.
+    /// A game that ends in the day it started in gets the day id and its end time (`GameEnd`).
+    /// One that ends after its day keeps `day_id` 0. Since D-20 nothing is ranked on chain: the
+    /// daily leaderboard is the indexer's.
     #[inline(always)]
-    fn end_in_tournament(store: Store, ref game: Game, player_id: felt252) -> u8 {
+    fn end_in_day(store: Store, ref game: Game) {
         let time = get_block_timestamp();
-        let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-        let id_end = TournamentImpl::compute_id(time, game.duration());
-        if tournament_id == id_end {
-            // [Effect] Submit to the leaderboard
-            let submission = Submission { player_id, game_id: game.id, score: game.score, time };
-            let rank = LeaderboardImpl::new().submit(tournament_id, submission);
-
-            // [Effect] Add tournament id to game
-            game.tournament_id = tournament_id;
+        let day = day_id(game.start_time, game.duration());
+        if day == day_id(time, game.duration()) {
+            // [Effect] Add the day id to the game
+            game.day_id = day;
             game.end_time = time;
             store.set_game_end(game);
-            rank
-        } else {
-            0
         }
     }
 
@@ -112,10 +102,9 @@ pub mod PlayableComponent {
             // [Effect] Update builder
             game.set_builder(builder);
 
-            // [Effect] Rank the game in its tournament on game over
-            let mut rank: u8 = 0;
+            // [Effect] The day of the game on game over
             if game.is_over() {
-                rank = end_in_tournament(store, ref game, player_id);
+                end_in_day(store, ref game);
             }
 
             // [Effect] Update game
@@ -125,9 +114,8 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] The tally the caller reports to the quests, once the ranking is written
-                // (0: not over)
-                encode(game, rank)
+                // [Return] The tally the caller reports to the quests (0: not over)
+                encode(game)
             } else {
                 0
             }
@@ -156,10 +144,9 @@ pub mod PlayableComponent {
             // [Effect] Game over
             game.surrender();
 
-            // [Effect] Rank the game in its tournament on game over
-            let mut rank: u8 = 0;
+            // [Effect] The day of the game on game over
             if game.is_over() {
-                rank = end_in_tournament(store, ref game, player_id);
+                end_in_day(store, ref game);
             }
 
             // [Effect] Update game
@@ -168,9 +155,8 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] The tally the caller reports to the quests, once the ranking is written
-                // (0: not over)
-                encode(game, rank)
+                // [Return] The tally the caller reports to the quests (0: not over)
+                encode(game)
             } else {
                 0
             }
@@ -259,10 +245,9 @@ pub mod PlayableComponent {
             game.assess(tile, refs, @around, ref structures, ref store);
             structures.flush(store);
 
-            // [Effect] Rank the game in its tournament on game over
-            let mut rank: u8 = 0;
+            // [Effect] The day of the game on game over
             if game.is_over() {
-                rank = end_in_tournament(store, ref game, player_id);
+                end_in_day(store, ref game);
             }
 
             // [Effect] Update game
@@ -272,9 +257,8 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] The tally the caller reports to the quests, once the ranking is written
-                // (0: not over)
-                encode(game, rank)
+                // [Return] The tally the caller reports to the quests (0: not over)
+                encode(game)
             } else {
                 0
             }

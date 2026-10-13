@@ -1,7 +1,6 @@
 use paved::constants;
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::models::tournament::TournamentTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
@@ -26,7 +25,7 @@ fn test_daily_e2e_spawn_starts_game() {
 fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     // No game spawned by the setup: spawn here to observe the balances around it.
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
+    let price: u256 = constants::DAILY_PRICE.into();
     let daily = systems.daily.contract_address;
 
     let economy = systems.economy.contract_address;
@@ -34,17 +33,12 @@ fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
 
     let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
 
-    let game = store.game(game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
-    let prize: u256 = store.tournament(tournament_id).prize.into();
+    assert(store.game(game_id).id == game_id, 'Daily: game spawned');
 
-    // The price went to Economy, which split it at once; the entry no longer feeds the prize
+    // The price went to Economy, which split it at once; `Daily` holds nothing (no prize, D-20)
     assert(player_before - context.token.balance_of(PLAYER()) == price, 'Daily: player debit');
     assert(context.token.balance_of(daily) == 0, 'Daily: holds nothing');
     assert(context.token.balance_of(economy) == 0, 'Daily: economy holds nothing');
-    assert(prize == 0, 'Daily: prize is sponsor-only');
 }
 
 #[test]

@@ -10,7 +10,9 @@
 //! did (with the scripted roles and spots of 07aab8a, `tutorial_parameters`), on the same storage
 //! node (`selector!("paved")`), and upgrades as `Daily` and `Tutorial` do (owner only,
 //! OpenZeppelin's `UpgradeableComponent`). Their game-over tails (tournament, quests, achievements)
-//! are left out: the test ends its games under the new classes.
+//! are left out: the test ends its games under the new classes. D-20 removed its
+//! `Store::tournament`
+//! and `set_tournament`, with the `Tournament` model they read.
 
 pub mod assessment;
 pub mod builder;

@@ -67,7 +67,7 @@ pub mod Double {
                 deck_size: 0,
                 start_time: self.start_time.read(),
                 end_time: 0,
-                tournament_id: 0,
+                day_id: 0,
             }
         }
 

@@ -7,7 +7,6 @@ use paved::models::builder::Builder;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TilePosition};
-use paved::models::tournament::Tournament;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::tests::setup::setup;
 use paved::types::mode::Mode;
@@ -39,7 +38,7 @@ fn test_store_round_trips_at_maximum_values() {
                 score: Bounded::MAX,
                 seed: BIG,
                 mode: Bounded::MAX,
-                tournament_id: Bounded::MAX,
+                day_id: Bounded::MAX,
                 tile_limit: Bounded::MAX,
                 counts: GameImpl::counts_of(
                     constants::MAX_STRUCTURES,
@@ -83,16 +82,6 @@ fn test_store_round_trips_at_maximum_values() {
                 store.tile_position(game, tile.x, tile.y),
                 TilePosition { game_id: game.id, x: tile.x, y: tile.y, tile_id: tile.id },
             );
-
-            let tournament = Tournament {
-                id: Bounded::MAX,
-                prize: BIG,
-                top1_claimed: true,
-                top2_claimed: false,
-                top3_claimed: true,
-            };
-            store.set_tournament(tournament);
-            assert_eq!(store.tournament(tournament.id), tournament);
         },
     );
 }

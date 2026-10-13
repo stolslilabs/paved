@@ -2,10 +2,11 @@
 //!
 //! Every contract declares `#[flat] PavedEvent: paved::events::Event` in its own event enum, so
 //! these events are in its ABI; `Store::emit` writes them with the same keys and data.
-//! Reference: `docs/architecture/native-storage.md`.
+//! Reference: `docs/architecture/native-storage.md`. D-20 removed `Sponsored` and `Claimed` (past
+//! events, documented in `docs/architecture/public-interface.md`) and renamed the `tournament_id`
+//! of `GameSpawned` and `GameOver` to `day_id`.
 
 use paved::models::game::Game;
-use starknet::ContractAddress;
 
 #[derive(Drop, starknet::Event)]
 pub enum Event {
@@ -15,8 +16,6 @@ pub enum Event {
     Discarded: Discarded,
     Scored: Scored,
     GameOver: GameOver,
-    Sponsored: Sponsored,
-    Claimed: Claimed,
 }
 
 #[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
@@ -34,7 +33,7 @@ pub struct GameSpawned {
     #[key]
     pub player_id: felt252,
     pub mode: u8,
-    pub tournament_id: u64,
+    pub day_id: u64,
     pub start_time: u64,
     pub price: felt252,
 }
@@ -78,28 +77,11 @@ pub struct GameOver {
     #[key]
     pub player_id: felt252,
     #[key]
-    pub tournament_id: u64,
+    pub day_id: u64,
     pub mode: u8,
     pub score: u32,
     pub start_time: u64,
     pub end_time: u64,
-}
-
-#[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
-pub struct Sponsored {
-    #[key]
-    pub tournament_id: u64,
-    pub sponsor: ContractAddress,
-    pub amount: felt252,
-}
-
-#[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
-pub struct Claimed {
-    #[key]
-    pub tournament_id: u64,
-    pub player_id: felt252,
-    pub rank: u8,
-    pub reward: u256,
 }
 
 /// The `GameOver` event of a game that is over.
@@ -108,7 +90,7 @@ pub fn game_over(game: Game, player_id: felt252) -> Event {
         GameOver {
             game_id: game.id,
             player_id,
-            tournament_id: game.tournament_id,
+            day_id: game.day_id,
             mode: game.mode,
             score: game.score,
             start_time: game.start_time,

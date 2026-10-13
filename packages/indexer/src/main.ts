@@ -15,7 +15,6 @@
 // The RPC URL may carry a provider's key: it is never logged, not even when it is refused.
 import { parseArgs } from "node:util";
 import { Chain, httpRpc, parseRpcUrl, redact } from "./chain.ts";
-import { CrossCheck } from "./crosscheck.ts";
 import {
   DeploymentError,
   defaultRpcUrl,
@@ -150,7 +149,6 @@ if (command === "rebuild")
   log(`rebuild: the database is empty; following from block ${config.from}`);
 
 const chain = new Chain(httpRpc(rpcUrl), config);
-let checks: CrossCheck | undefined;
 let indexer: Indexer;
 try {
   indexer = new Indexer({
@@ -161,16 +159,11 @@ try {
     batch,
     recheck,
     log,
-    afterServed: async (served) => {
-      await checks?.run(served);
-    },
   });
 } catch (error) {
   console.error((error as Error).message);
   process.exit(2);
 }
-checks = new CrossCheck(chain, store, log);
-indexer.listen({ rewound: () => checks!.reset() });
 
 const abort = new AbortController();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
@@ -208,7 +201,6 @@ const server = serve(indexer, {
       economy: config.economy,
       collection: config.collection ?? null,
     },
-    checks,
   },
 });
 server.listen(

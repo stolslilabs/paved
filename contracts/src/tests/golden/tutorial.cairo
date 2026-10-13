@@ -27,8 +27,6 @@ fn test_golden_tutorial_full_sequence() {
     play_tutorial(
         'tutorial_full',
         steps.span(),
-        GoldenOutcome {
-            score: 2794, built: 8, discarded: 1, tile_count: 10, over: true, top1_score: 0,
-        },
+        GoldenOutcome { score: 2794, built: 8, discarded: 1, tile_count: 10, over: true },
     );
 }

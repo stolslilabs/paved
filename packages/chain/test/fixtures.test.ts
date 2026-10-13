@@ -65,12 +65,9 @@ describe("views on recorded answers", () => {
     expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, tileId: expect.any(Number), plan: expect.any(Number) });
   });
 
-  test("the current tournament holds the Daily entry price", async () => {
+  test("the current day (`current_day`, recorded as `current_tournament_id` before D-20: same value)", async () => {
     const { client: c } = client();
-    const id = await c.views.currentTournamentId();
-    expect(id).toBeGreaterThan(20000);
-    const t = await c.views.tournament(id);
-    expect(t).toMatchObject({ id, startTime: id * 86400, endTime: (id + 1) * 86400, over: false, prize: DAILY_PRICE });
+    expect(await c.views.currentDay()).toBeGreaterThan(20000);
   });
 
   test("player and balance", async () => {
@@ -92,8 +89,8 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
-        // Tutorial's GameSpawned gives tournament_id 0 since #205 (no client workaround).
-        expect.objectContaining({ mode: "tutorial", gameId: 1, over: true, tournamentId: 0, countedTournamentId: 0 }),
+        // Tutorial's GameSpawned gives day_id 0 since #205 (no client workaround).
+        expect.objectContaining({ mode: "tutorial", gameId: 1, over: true, dayId: 0, countedDayId: 0 }),
         expect.objectContaining({ mode: "daily", gameId: 1, over: true }),
       ]),
     );
@@ -139,7 +136,7 @@ describe("writer on recorded receipts", () => {
     const last = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0 })).events, 1);
     expect(last.built).toMatchObject({ tileId: 10 });
     expect(last.over?.score).toBe((await c.views.game(tutorial)).score);
-    expect(last.over?.tournamentId).toBe(0);
+    expect(last.over?.dayId).toBe(0);
   });
 
   test("discard and surrender of a Daily game", async () => {

@@ -14,8 +14,6 @@ pub trait IDaily<TContractState> {
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;
-    fn claim(ref self: TContractState, tournament_id: u64, rank: u8);
-    fn sponsor(ref self: TContractState, amount: felt252);
     fn discard(ref self: TContractState, game_id: u32);
     fn surrender(ref self: TContractState, game_id: u32);
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
@@ -67,8 +65,7 @@ pub mod Daily {
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::views::{
-        BuilderView, GameView, IGameView, ITournamentView, PriceView, TileView, TournamentView,
-        ViewsImpl,
+        BuilderView, GameView, IDailyView, IGameView, PriceView, TileView, ViewsImpl,
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
@@ -187,17 +184,6 @@ pub mod Daily {
                 .spawn(Mode::Daily, stake, referrer, min_out)
         }
 
-        fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Claim the reward and pay it, in the lobby class
-            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
-                .claim(tournament_id, rank);
-        }
-
-        fn sponsor(ref self: ContractState, amount: felt252) {
-            // [Effect] Add to the prize pool and pay it, in the lobby class
-            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.sponsor(amount);
-        }
-
         fn discard(ref self: ContractState, game_id: u32) {
             // [Effect] Discard tile, in the lobby class
             ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.discard(game_id);
@@ -290,13 +276,9 @@ pub mod Daily {
     }
 
     #[abi(embed_v0)]
-    impl TournamentViewImpl of ITournamentView<ContractState> {
-        fn tournament(self: @ContractState, id: u64) -> TournamentView {
-            ViewsImpl::tournament(StoreImpl::new(), id, get_block_timestamp())
-        }
-
-        fn current_tournament_id(self: @ContractState) -> u64 {
-            ViewsImpl::current_tournament_id(get_block_timestamp())
+    impl DailyViewImpl of IDailyView<ContractState> {
+        fn current_day(self: @ContractState) -> u64 {
+            ViewsImpl::current_day(get_block_timestamp())
         }
 
         fn entry_price(self: @ContractState) -> PriceView {

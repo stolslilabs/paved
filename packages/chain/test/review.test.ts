@@ -43,7 +43,7 @@ describe("encodeCall checks integer ranges", () => {
   test("u32 and u8 out of range, negative, felt over the prime", () => {
     expect(() => codecs.Daily.encodeCall("discard", [2 ** 32])).toThrow(RangeError);
     expect(() => codecs.Daily.encodeCall("discard", [-1])).toThrow(RangeError);
-    expect(() => codecs.Daily.encodeCall("claim", [1, 256])).toThrow(RangeError);
+    expect(() => codecs.Daily.encodeCall("spawn", [256, "0x0", 1n])).toThrow(RangeError);
     expect(() => codecs.Daily.encodeCall("builder", [1, 1n << 252n])).toThrow(RangeError);
     expect(codecs.Daily.encodeCall("discard", [2 ** 32 - 1])).toEqual(["0xffffffff"]);
     // A felt is in [0, P): P - 1 is the largest.
@@ -151,12 +151,12 @@ describe("own receipts in the lists", () => {
     const reader = new EventReader({ getEvents: async () => ({ events: [] }) }, deployment, codecs);
     const spawned: DecodedEvent = {
       name: "GameSpawned",
-      fields: { gameId: 7, playerId: "0xabc", mode: 1, tournamentId: 20000, startTime: 100, price: "0x0" },
+      fields: { gameId: 7, playerId: "0xabc", mode: 1, dayId: 20000, startTime: 100, price: "0x0" },
       fromAddress: "0x2",
     };
     reader.remember("Daily", [spawned]);
     expect(await reader.playerGames("0xabc")).toEqual([
-      expect.objectContaining({ mode: "daily", gameId: 7, over: false, tournamentId: 20000 }),
+      expect.objectContaining({ mode: "daily", gameId: 7, over: false, dayId: 20000 }),
     ]);
     expect(await reader.playerGames("0xdef")).toEqual([]);
   });

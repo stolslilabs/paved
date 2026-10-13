@@ -84,15 +84,14 @@ describe("views, decoded with the real ABIs", () => {
     expect(page.every((t: any) => t.status === 1)).toBe(true);
   });
 
-  it("builder, tournament, entry_price, player and balance_of", () => {
+  it("builder, current_day, entry_price, player and balance_of", () => {
     const { daily, view, gameId, mock } = setup();
     const b = daily("builder", [gameId, BENCH.player]);
     expect(Number(b.gameId)).toBe(gameId);
     expect(Number(b.tileId)).toBe(mock.next()!.id);
     expect(Number(b.plan)).toBe(mock.next()!.plan);
     expect(Object.keys(b)).toEqual(["gameId", "playerId", "tileId", "plan"]);
-    const id = daily("current_tournament_id");
-    expect(Number(daily("tournament", [id]).id)).toBe(Number(id));
+    expect(Number(daily("current_day"))).toBe(Math.floor(Date.parse("2026-10-06T08:00:00Z") / 1000 / 86400));
     const price = daily("entry_price");
     expect(BigInt(price.token)).toBe(BENCH.Token);
     expect(BigInt(price.amount)).toBeGreaterThan(0n);
@@ -130,7 +129,7 @@ describe("a build of the next placement", () => {
     while (mock.next()) last = invoke([build()]).receipt;
     expect(mock.violations).toEqual([]);
     const out = placementOutcome(events(last), gameId);
-    expect(out.over).toMatchObject({ tournamentId: 0 });
+    expect(out.over).toMatchObject({ dayId: 0 });
     expect(out.over!.score).toBeGreaterThan(0);
     const names = events(last).map((e) => e.name);
     expect(names).toEqual(["Built", "Scored", "GameOver"]);
@@ -169,9 +168,9 @@ describe("what the bench does not expect", () => {
     expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player"]);
   });
 
-  it("records a view it does not serve, and fails it", () => {
+  it("records a view it does not serve (the `tournament` view D-20 removed), and fails it", () => {
     const { mock, rpc } = setup();
-    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Daily), entry_point_selector: selector("sponsor_pool"), calldata: [] } });
+    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Daily), entry_point_selector: selector("tournament"), calldata: [] } });
     expect(out.error).toBeDefined();
     const other = rpc("starknet_call", { request: { contract_address: hex(0x99), entry_point_selector: selector("game"), calldata: ["0x1"] } });
     expect(other.error).toBeDefined();

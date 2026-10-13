@@ -390,6 +390,16 @@ describe("the database", () => {
     store.close();
   });
 
+  test("D-20: schema 7, and a database of schema 6 (with the tournament columns, sponsorships, the view's podium) is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("7");
+    const path = tempDb();
+    const raw = new DatabaseSync(path);
+    raw.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '6')");
+    raw.close();
+    expect(() => new Store(path)).toThrow(SchemaMismatch);
+    expect(() => new Store(path)).toThrow(/schema 6, this indexer 7: rebuild it/);
+  });
+
   test("a database is never reused for another deployment, another start or another chain", () => {
     const path = tempDb();
     const first = new Store(path);
