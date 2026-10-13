@@ -1260,10 +1260,10 @@ fn test_fixture_matches_sim() {
         }
     }
     println!("fixture: worst gap {} ppm", worst);
-    // The day means and the EMA (sim: 4,215.689655, 4,387.025132; EMA after 4,366.567164); the
-    // second day's mean is 1 milli-point under sim's, as its prior is the EMA rounded down
+    // The day means and the EMA (sim: 4,893.103448, 4,961.104617; EMA after 4,952.985075); the
+    // EMA is 1 milli-point under sim's, as the integer EMA rounds down at each step
     assert_eq!(s.economy.day(DAY0).mean, 4_893_103);
-    assert_eq!(s.economy.day(DAY0 + 2).mean, 4_387_024);
+    assert_eq!(s.economy.day(DAY0 + 2).mean, 4_961_104);
     let (_, mean) = s.economy.ema();
-    assert_eq!(mean, 4_952_985);
+    assert_eq!(mean, 4_952_984);
 }
