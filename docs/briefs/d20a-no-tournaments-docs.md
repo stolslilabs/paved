@@ -1,0 +1,413 @@
+# D-20a brief: tournaments leave the code, the documents (no code)
+
+Track CORE of Paved. Documents only: no file under `contracts/`, `scripts/` or `packages/` changes. Commit this brief
+as `docs/briefs/d20a-no-tournaments-docs.md`, as the first commit of your PR.
+
+## The decision (owner, via the PM, 2026-10-13)
+
+**D-20.** Tournaments leave the code. The owner does not want to keep that feature.
+
+**The PM's rulings** (PM, 2026-10-13). Record them as **P-48**:
+1. **These go:**
+   - the day prize pool and everything around it: `sponsor`, `claim` and `reclaim`;
+   - the `Tournament` model and the prize storage;
+   - the `Sponsored` and `Claimed` events;
+   - the on-chain Top3, if only prizes use it.
+2. **These stay:**
+   - the daily seed and the day id;
+   - the economy settlement;
+   - the daily leaderboard. It is the owner's own goal ("daily seed and leaderboard"), and the indexer can serve it.
+   If something else reads the on-chain ranking (the economy mean, the quests, the keeper), show it, and keep what it
+   needs.
+3. An audit follows the implementation (security and economy lenses): the change touches code that holds and pays
+   tokens.
+4. Sepolia: D-20 ships in the later upgrade, with D-19. D-18c is not held for it. The test prize funds left in
+   `Daily` on Sepolia are reported before that upgrade removes their claim path.
+5. Storage follows P-42: removed fields are left dead, never reused.
+
+**The PM's further rulings, from CLIENT's inventory** (PM, 2026-10-13). Add them to P-48:
+6. **On the Podium** (`quests.md`, P-22/O-37) today reads the prize slots of `Daily.tournament`. From D-20 it is
+   credited from the indexer's daily leaderboard: the top 3, by the leaderboard's existing ranking rule.
+7. **The indexer replays history strictly.** `Sponsored`, `Claimed` and `Reclaimed` stay documented as past events
+   (their layouts kept in the docs); CLIENT keeps them known as skipped.
+8. **Sepolia order:** the D-20 upgrade goes together with the indexer's rebuild (schema 7), right after CLIENT's
+   PR 1 merges.
+
+## What to write
+
+1. **`docs/programme/DECISIONS.md`**: two rows after the last one, in the table's format.
+   - D-20: who "owner, via the PM", date 2026-10-13. What reverses it: "The owner brings tournaments back".
+   - P-48: the five rulings, condensed. Who "PM", date 2026-10-13. What reverses it: "A contract fact that something
+     kept depends on what goes".
+   - Mark rows that D-20 makes obsolete (P-31, P-37 and any other prize or tournament ruling) as "(reversed by
+     D-20)". Do not delete any row.
+2. **An inventory: what goes and what stays.** Add a section "D-20: tournaments leave the code (planned)" to
+   `docs/architecture/leaderboard.md`, or to the note that holds the prize design today (say which, and why). Read it
+   from main's code, and cite file:line for each item.
+   - **Every piece of the prize path:**
+     - entry points: `claim` (`systems/daily.cairo:17`), `sponsor`, `reclaim`, and any `Lobby` or `Tutorial` one;
+     - components: `components/hostable.cairo`;
+     - models: `models/tournament.cairo`, and fields in `models/index.cairo` and `game.cairo`;
+     - storage: the prize and sponsor maps, the `Tournament` records;
+     - events: `Sponsored`, `Claimed`;
+     - views: `views.cairo`;
+     - constants;
+     - the token movements, and who holds the tokens: is it `Daily`, or `Vault` (`economy/vault.cairo`)?
+   - **Top3 and the on-chain ranking** (`leaderboard.cairo`). Who writes it, and who reads it besides the prize:
+     - the economy mean and the settlement;
+     - the quests (`quests.cairo`);
+     - the keeper;
+     - `GameOver`;
+     - the views.
+     For each reader, say whether it needs the ranking. Then state what stays (a ranking, a best score per day, or
+     nothing on chain) and what goes.
+   - **The daily seed, the day id and the settlement**: show they do not depend on what goes.
+   - **Storage under P-42**: every map or field that becomes dead. Name each one, and say that it stays declared,
+     never written or read, never reused.
+   - **What `Lobby` and `Tutorial` lose.** Does `Lobby`'s class change? `lobby.cairo` cites tournaments.
+   - **The tokens.**
+     - Can funds be stuck once `claim` and `reclaim` go: sponsored but unclaimed prizes, or prizes of past days?
+     - What must the Sepolia upgrade do first? (Read the code only. Nothing is sent and nothing is read on chain in
+       this task: the Sepolia figure comes with the implementation.)
+     - Propose how part B reads and reports them.
+   - **The mocks and tests that go** (`mocks/reentrant_token.cairo`, if only the prize uses it), and the goldens: do
+     any golden or expected score change? (They should not.)
+3. **`docs/architecture/public-interface.md`**: a section "Breaking change D-20".
+   - The ABI diff for `Daily`, `Tutorial` and `Lobby`, read from `contracts/abis/**`: every entry point, view,
+     struct and event that goes or changes. Keep the D-19 section and every other line as they are.
+   - The stability promise: say that D-20 is a stated exception, as D-18 was.
+   - **Past events** (ruling 7): `Sponsored`, `Claimed` and `Reclaimed` (check the exact name of the third in
+     `events.cairo`) stay documented with their layouts, as events emitted before D-20 that an indexer replaying
+     history must still know and skip.
+   - **The day id in `GameSpawned` and `GameOver`:** say whether both keep the day id (or the tournament id that
+     carries it) after D-20, with the field names and layouts. The daily leaderboard groups on it. If either event
+     carries it only as `tournament_id`, say whether the field stays (same layout, the day id) or changes, and
+     flag a change under "For the PM".
+4. **`docs/architecture/quests.md`** (ruling 6): rewrite On the Podium's source: from D-20, it is credited from the
+   indexer's daily leaderboard, the top 3 by its existing ranking rule (name the rule and where it is written).
+   Say what the contract still does for that quest (nothing on chain, or a counter), from the code.
+5. **The other notes that describe the prize** (`economy.md`, `class-headroom.md`,
+   `native-storage.md`): add a one-line "Planned: D-20 removes …" pointer
+   where they describe the prize. No other edit. Do not edit CLIENT's or META's notes (`client-*.md`,
+   `docs/client/**`) or `indexer.md`: list them in the PR body instead.
+
+## Facts first
+
+Check each fact against the code on main. If a ruling is wrong for the contracts (something kept reads what goes),
+do not change the ruling. Write what the code says, and flag it under "For the PM" with file:line.
+
+## For other tracks (PR body only)
+
+- **META (indexer):** the events that go, and whether the indexer decodes `Sponsored` or `Claimed` or serves prizes
+  (`packages/indexer/**`, read only). Can it serve the daily leaderboard alone?
+- **CLIENT:** the entry points and views that go; what the client shows of prizes today (`packages/**`, read only).
+
+## Allowlist
+
+- `docs/programme/DECISIONS.md`.
+- `docs/architecture/leaderboard.md` (or the note you name), `docs/architecture/public-interface.md` (a new D-20
+  section only).
+- `docs/architecture/quests.md`: On the Podium (ruling 6) and pointers.
+- One-line pointers in: `economy.md`, `class-headroom.md`, `native-storage.md` (under
+  `docs/architecture/`).
+- Not `structure-state.md` or `upgrades.md`: the D-19b PR holds them now. List there what D-20b must add.
+- `docs/briefs/d20a-no-tournaments-docs.md`.
+- Nothing else.
+
+## Checks
+
+- Documents only. `ci` must be green.
+- Read the result once against this brief: every ruling is there, and nothing contradicts D-20.
+
+## Git
+
+- Push the branch the plugin created for this thread. Do not create or rename a branch.
+- **Never `git rebase`.** If main moves, `git merge origin/main`. Plain pushes only.
+
+## PR
+
+- Title: `docs: D-20, tournaments leave the code (decision, inventory, ABI diff)`.
+- Body:
+  - the summary;
+  - the inventory in short: what goes, what stays, and who reads the ranking;
+  - "Tokens at risk";
+  - the Sepolia order (ruling 8);
+  - "For the PM";
+  - "For META";
+  - "For CLIENT".
+- Report: the PR's number and head, the diff stat, each fact checked (file:line), and the CI result. Do not merge.
+
+## Addendum: D-21
+
+Addition to this task, from the PM, 2026-10-13. Fold two new owner decisions into this same docs PR. Retitle it
+`docs: D-20 and D-21, tournaments and the on-chain tutorial leave the code (decisions, inventory, ABI diff)`.
+
+### The decisions (owner, via the PM, 2026-10-13)
+
+- **D-21.** The tutorial goes fully off-chain. On chain there is only a claim of the tutorial achievement, which is
+  not really verified. The aim is to lighten the contracts.
+- **D-22.** The game engine is reproduced off-chain, with a free "Training" mode that has no on-chain gain. This is
+  CLIENT's work. For CORE it means parity (ruling 3).
+
+**P-49, the PM's rulings:**
+1. **Leaving the contracts:** the `Tutorial` contract, the tutoriable component and the tutorial deck. The Sepolia
+   `Tutorial` stays deployed but unused. D-18c is not reworked: it still upgrades `Tutorial`, which is harmless.
+2. **The claim:**
+   - one call per player, idempotent, that emits the achievement's progress;
+   - no verification, by design: the owner accepts that it can be cheated;
+   - no token or value attached;
+   - the host contract (`Daily` or `Account`) is CORE's call, whichever costs less CASM.
+3. **Parity.** The client's off-chain engine must give the same scores as the contracts after D-18 and D-19. CORE
+   publishes the goldens and the differential games as a fixture file that the client's CI can replay: moves, the
+   expected `Scored` events and the final scores. CORE keeps it current when a rule changes.
+4. **Mode.** Removing Tutorial follows P-42: dead storage and enum codes are never reused.
+5. An audit is needed only if the removal touches the shared structure-state code (correctness lens). Sepolia: in
+   the same later upgrade as D-19 and D-20.
+
+### What to add
+
+1. **DECISIONS.md:** rows D-21, D-22 and P-49 (rulings 1 to 5, condensed). For each:
+   - who: "owner, via the PM" for D-21 and D-22, "PM" for P-49;
+   - date: 2026-10-13;
+   - what reverses it:
+     - D-21: "The owner brings the tutorial back on chain";
+     - D-22: "The owner drops the off-chain engine";
+     - P-49: "A contract fact that something kept depends on what goes".
+   Mark the rows of the on-chain tutorial (its deck, its script, its quests) "(reversed by D-21)". Delete none.
+2. **The inventory of the removal**, cited to main's code (file:line). Put it in a section "D-21: the tutorial leaves
+   the contracts (planned)" of the note you chose for D-20, or a note you name.
+   - Everything that goes:
+     - `systems/tutorial.cairo`;
+     - `components/tutoriable.cairo`;
+     - `elements/decks/tutorial.cairo` and its use in `types/deck.cairo` and `helpers/random_deck.cairo`;
+     - `Mode::Tutorial` in `types/mode.cairo`: its code becomes dead (P-42);
+     - the references in `lobby.cairo`, `collection.cairo`, `hostable.cairo`, `views.cairo`, `seed.cairo`,
+       `quests.cairo`, `models/game.cairo`, `constants.cairo` and `lib.cairo`;
+     - the tests and goldens that run the tutorial: `tests/golden/tutorial.cairo` and others.
+   - **Does the removal touch the shared structure-state code** (`structure/**`, `models/game.cairo`'s assess,
+     `store.cairo`)? Answer plainly: it decides whether an audit is needed.
+   - What `Lobby` loses (it shares `PavedStorage` and cites the tutorial 24 times), and whether `Lobby`'s and
+     `Collection`'s classes change.
+   - The tutorial's storage left dead.
+3. **The claim's host: recommend one, by CASM.**
+   - The achievements live in `Daily` today (the quiver `AchievementComponent`).
+   - Compare hosting the claim in `Daily` (one entry point added to the existing component) with hosting it in
+     `Account` (`Account` would need the achievement emission).
+   - Use `class-headroom.md`'s figures. Give no new measured figure: the implementation measures. D-19b puts `Daily`
+     at about 58,300 felts against the 72,947 cap.
+   - Name the achievement and the event it emits (read `quests.md` and the quiver integration).
+   - Say what "idempotent" stores: one flag per player, a new field under P-42.
+4. **public-interface.md:** a section "Breaking change D-21":
+   - the `Tutorial` ABI: unused from the upgrade on, still deployed;
+   - every entry point or view of `Daily`, `Lobby`, `Account` or `Collection` that goes or changes;
+   - the new claim entry point, planned, with its signature and its event;
+   - any `Mode` code in a view or event that changes meaning.
+   Keep the D-19 and D-20 sections.
+5. **quests.md:** the tutorial achievement is now credited by the claim (ruling 2), with no on-chain check. Mark the
+   tutorial's on-chain quest wording obsolete.
+6. **The parity fixture (ruling 3): the design only, in a section "Parity fixture (planned)".** Put it in the same
+   note as the inventory, or in a new `docs/architecture/parity-fixture.md`, which is added to your allowlist.
+   - Its path in the repository.
+   - Its format: JSON, one game per entry, with the seed or deck, the moves, the expected `Scored` events per move
+     and the final score.
+   - Its sources: the 20 goldens of `golden-games.md` and the differential games.
+   - How a Cairo test keeps it current: the contract replays the file and fails when a rule changes it.
+   - What the client's CI does with it.
+   - Single-player games only, unless the multiplayer mode needs owners (D-19's seat).
+
+Allowlist additions: `docs/architecture/parity-fixture.md` (new), and `class-headroom.md` for the claim's host (a
+short section). The rest of the allowlist is unchanged. `structure-state.md`, `upgrades.md`, `indexer.md` and the
+client notes stay out: list there what the implementation must add.
+
+PR body additions:
+- "D-21 inventory";
+- "Audit needed for D-21?" (yes or no, with the evidence);
+- "Claim host" (the recommendation);
+- "For CLIENT": the parity fixture, and the tutorial's entry points that go.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-23
+
+Second addendum to this task, from the PM, 2026-10-13. Fold one more owner decision into this same docs PR. Retitle
+it `docs: D-20 to D-23, tournaments and the on-chain tutorial leave, Daily becomes Challenge (decisions, inventory,
+ABI diff)`.
+
+### The decision (owner, via the PM, 2026-10-13)
+
+**D-23.** `Daily` is renamed `Challenge`. The shared daily seed is dropped for now: a global counter (the token id)
+generates the seed, so every Challenge game is different.
+
+**P-50, the PM's rulings:**
+1. **The rename applies to every external name:** the contract, the ABI, `Mode`, events, views, `deploy.sh` and
+   `sepolia.json` keys, and the docs. Storage field names do not change (P-42). Report any storage key that depends
+   on a name that changes.
+2. **Seed = Poseidon(salt, token id)**, where the token id is the `Collection`'s global counter at spawn. The
+   `SeedSource` interface stays, so that a VRF can come back.
+3. **Leaderboard:** the indexer still ranks Challenge scores per UTC day. The daily quests are unchanged; their names
+   follow the rename.
+4. **The selective buyer's edge** is measured in the simulation. That is a separate task, not this one.
+   - E-1 (the replay of the shared day deck) goes away with this change.
+5. **Sepolia:** in the same later upgrade as D-19, D-20 and D-21. D-18c is unchanged.
+
+### What to add
+
+1. **DECISIONS.md:**
+   - rows D-23 (who: "owner, via the PM"; reversed by "The owner restores a shared daily seed") and P-50 (rulings 1
+     to 5, condensed; who: "PM"; reversed by "A contract fact, or the selective-buyer measurement").
+   - Mark D-13 (the predictable daily seed), E-1 and any other row of the shared day seed "(reversed by D-23)".
+     Delete none.
+2. **The rename inventory**, in a section "D-23: Daily becomes Challenge (planned)" of the note. Cite each item to
+   file:line.
+   - **External names that change:**
+     - the contract and its interface names (`IDaily`, the ABI file `Daily.json`);
+     - `Mode::Daily` and its code: the code keeps its value, only the name changes;
+     - every event, view and struct whose name holds "Daily" or "daily";
+     - the `deploy.sh` modes and messages, and the `sepolia.json` keys (`contracts.Daily`).
+   - **Storage (ruling 1):** does any storage address or key derive from a name that changes? Check:
+     - the component substorage names (`#[substorage(v0)]`) and the storage node names;
+     - any `sn_keccak` of a string, any `selector!`;
+     - the `Mode` codes stored in records.
+     For each one: its address does not move, or it moves (flag under "For the PM").
+   - **Who reads `contracts.Daily` and the ABI name.** `deploy.sh`'s `--repoint` and `--d18`; the indexer
+     (`packages/indexer`) and the client (`packages/**`), read only. The `sepolia.json` key rename must land with the
+     code that reads it: say in which upgrade, and what META and CLIENT must change at the same time.
+3. **The seed (ruling 2)**, in the same section.
+   - Today: `seed.cairo` (`DailySeed`, `SeedSource`), `Mode::seed` (`types/mode.cairo:54`) and
+     `HostableComponent::spawn_with`.
+   - The new source: Poseidon(salt, token id). Where is the `Collection`'s counter read at spawn: does `Daily` call
+     `Collection`, or does `Collection` call `Daily`, and in which order? Read `systems/collection.cairo` and the
+     spawn path.
+   - Name the new `SeedSource` impl. Say what happens to the day id, which the leaderboard (ruling 3) and the economy
+     settlement still need.
+   - Say what E-1's code and tests were, and that they go.
+   - The new risk: the next token id is known before a purchase. One line that points to the simulation task.
+4. **public-interface.md, "Breaking change D-23":**
+   - the full rename table, old name to new name, for contracts, interfaces, events, views and structs;
+   - any `spawn` signature change;
+   - what the indexer and the client must rename.
+   Keep the D-19, D-20 and D-21 sections.
+5. **quests.md:** the daily quests follow the rename (names only). Their rules are unchanged.
+
+Docs naming: in the files of the allowlist, keep "Daily" where it names history (D-18, D-19 and earlier), and use
+"Challenge" in the planned sections. Do not rename across the docs in this PR: the implementation does it.
+
+PR body additions:
+- "D-23 rename table";
+- "Storage keys and names" (ruling 1's answer);
+- "Seed and day id";
+- "For META" and "For CLIENT": the renames, and the `sepolia.json` keys.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-24
+
+Third addendum to this task, from the PM, 2026-10-13. Fold one more owner decision into this same docs PR. Retitle
+it `docs: D-20 to D-24, tournaments and the on-chain tutorial leave, Challenge, a quest system (decisions, inventory,
+ABI diff)`.
+
+### The decision (owner, via the PM, 2026-10-13)
+
+**D-24.**
+- The system is renamed Challenge too. That was already in D-23, P-50 ruling 1.
+- Lobby is scoped exclusively to creating a lobby and to multiplayer play.
+- Quests and achievements become one or more separate systems, transverse to the game modes.
+
+**P-51, the PM's rulings:**
+1. **Today's `Lobby` library class** (the cold paths of `Daily` and `Tutorial`) stops being "Lobby":
+   - `spawn`, `discard` and `surrender` go back into Challenge, or into a library under another name if Challenge's
+     CASM needs it;
+   - `claim` and `sponsor` go (D-20), and `tutorial_*` goes (D-21);
+   - `report` and the quest and achievement definitions move to the new system or systems.
+2. **The name Lobby is reserved for multiplayer:** creating a lobby and playing multiplayer games. No Lobby contract
+   is built before the multiplayer mode is planned. The D-19 seat stays as it is.
+3. **Quests and achievements:** one or two systems, CORE's call by CASM and clarity.
+   - Authorized mode contracts (Challenge now, multiplayer later) report progress to them through an owner-set
+     allowlist.
+   - The player calls the D-21 tutorial claim there directly. **This replaces the D-21 "claim host" question** of the
+     first addendum: the claim lives in the new system. Drop the Daily-or-Account comparison, or keep it in one line
+     as superseded.
+   - The owner-only definitions live there.
+   - Training reports nothing.
+   - The quiver components move with them.
+4. Challenge stays under the P-44 cap, measured after the code moves back.
+5. **Sepolia:** the new system or systems are deployed in the same later upgrade (test network, deployer account).
+   Past progress is not migrated: it is test data. The indexer follows the new contract's events in CLIENT's W1.
+6. **An audit with a security lens** on the access control of the progress reports: who may report for whom.
+
+### What to add
+
+1. **DECISIONS.md:** rows D-24 (who: "owner, via the PM"; reversed by "The owner merges quests back into the modes or
+   widens Lobby") and P-51 (rulings 1 to 6, condensed; who: "PM"; reversed by "A measurement of Challenge's CASM, or
+   a contract fact"). Mark the rows that created the Lobby library split (P-42, class-headroom option (e), and the
+   others found) "(scope changed by D-24)" where it applies. Delete none.
+2. **The Lobby inventory**, in a section "D-24: Lobby's cold paths and a quest system (planned)" of the note. Cite
+   each item to file:line.
+   - **Every entry point and internal path of today's `Lobby` class** (`systems/lobby.cairo`), and where each one
+     goes: back to Challenge; gone with D-20 or D-21; to the quest system.
+   - **How `Daily` and `Tutorial` reach `Lobby` today:** `library_call_syscall`, `lobby_class`, `set_lobby_class`.
+     What goes with it once the cold paths return, and what stays dead under P-42: the `lobby_class` slot.
+   - **Challenge's CASM after the move back: a projection only**, from `class-headroom.md`'s figures and today's
+     sizes (Daily 53,418 after D-18 and about 58,300 with D-19b; `Lobby`'s own size). Subtract what D-20 and D-21
+     remove. Say whether `spawn`, `discard` and `surrender` are likely to fit under 72,947, or whether a library
+     under another name is likely needed. The implementation measures.
+   - **The quest and achievement code today:** the quiver `QuestComponent` and `AchievementComponent`, the `report`
+     path, the owner-only definitions (`IDailyQuests`), their storage and their events. Also say where the progress
+     is computed during a move: Daily's build path calls something on every move. The new system receives a call
+     from a mode contract: what does that call carry, and how often per move?
+3. **The quest system's design (ruling 3), recommended:**
+   - **One system or two** (quests and achievements). Recommend by CASM and clarity.
+   - **The reporting interface:** what a mode contract calls, its arguments (player, quest or task id, amount), and
+     the event emitted.
+   - **The allowlist:** the owner sets which contracts may report. A reporter may report only for its own game's
+     player. Say how the system knows that, or whether it trusts the reporter for whom (the audit's question,
+     ruling 6).
+   - **The tutorial claim:** the player calls it, it is idempotent with one flag per player, and it emits the
+     achievement's progress.
+   - **The definitions:** owner-only.
+   - **The cost on a Challenge move:** an extra external call per move, or batched at game end? The cost per move
+     matters, since every move pays it. Recommend.
+   - **Storage:** fresh in the new contract; Daily's quest storage is left dead (P-42).
+   - **Events** the indexer will follow: names and layouts, old against new.
+4. **public-interface.md, "Breaking change D-24":**
+   - the entry points and views that leave `Daily` for the quest system, or leave `Lobby`;
+   - the quest system's planned ABI;
+   - the `Lobby` class's end: no Lobby contract until multiplayer.
+   Keep the earlier sections.
+5. **quests.md:** the quests and achievements live in the new system. Name who reports: Challenge, never Training.
+   The tutorial claim is there.
+
+PR body additions:
+- "D-24 inventory";
+- "Quest system: one or two, and the reporting interface";
+- "Challenge's CASM after the move back (projection)";
+- "Who may report for whom" (the audit's question);
+- "For META": the new contract's events;
+- "For CLIENT": the claim and the views that move.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-25
+
+Fourth addendum to this task, from the PM, 2026-10-13. It is small: decision rows and one naming change.
+
+1. DECISIONS.md: add rows D-25 and P-52.
+   - D-25 (owner, via the PM, 2026-10-13): Paved's architecture and macro features follow Glitchbomb as the
+     reference. The systems gain Setup (configuration, wiring, achievements and quests), Token and Vault (moved into
+     systems), Faucet (test USDC, test networks only) and Treasury (Ekubo LP fees). Account moves to the mocks; a
+     player's identity becomes the wallet address. Reversed by: "The owner drops Glitchbomb as the reference".
+   - P-52 (PM, 2026-10-13):
+     - the target systems are Challenge, Setup, Token, Vault, Faucet, Collection and Treasury. Treasury is
+       provisional, pending the owner's answer; Governor comes after mainnet;
+     - Setup is the D-24 system;
+     - Account goes to the mocks;
+     - a gap analysis comes first (a separate PR), and the PM rules on the mapping;
+     - Sepolia: a fresh deployment or chained upgrades, CORE's choice;
+     - audits: access control for Setup and the Faucet, security and economy for Economy, Vault and Token.
+     Reversed by: "The PM's ruling on the gap analysis, or the owner's answer on Treasury".
+2. Naming: in the D-24 section and in public-interface.md's "Breaking change D-24", the quest system is named
+   **Setup** (P-52: Setup holds the configuration, the wiring and the quests and achievements). One line can say "the
+   D-24 system, named Setup by D-25". Do not plan the rest of D-25 here: the separate gap-analysis PR
+   (docs/architecture/glitchbomb-gap.md) does that.
+
+Everything else holds. Plain pushes, never rebase. Do not merge.
