@@ -5,14 +5,11 @@
 //! the calling contract. Maps are keyed by the fields that were the Dojo model keys, keys are not
 //! stored, and values are packed into whole felts (see `docs/architecture/native-storage.md`).
 
-use core::num::traits::Zero;
 use paved::events::Event;
 use paved::models::builder::Builder;
 use paved::models::game::Game;
-use paved::models::player::Player;
 use paved::models::tile::{Tile, TileIntoPosition, TilePosition, ZeroableTile};
 use paved::structure::placement;
-use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::types::orientation::Orientation;
 use starknet::storage::{
     Map, Mutable, StorageAsPath, StorageBase, StoragePath, StoragePathEntry,
@@ -77,7 +74,8 @@ pub struct Slots4 {
 pub struct PavedStorage {
     /// Last game id given (Dojo: `world.uuid()`).
     pub game_count: u32,
-    /// `Account` contract that keeps the players; zero in `Account` itself.
+    /// Dead since D-25 E (P-42): the `Account` contract that kept the players. Kept declared so
+    /// that its address is never given to another field; never written or read again.
     pub account: ContractAddress,
     /// `GameConfig`: written once, at spawn.
     pub game_configs: Map<u32, Slots2>,
@@ -85,6 +83,8 @@ pub struct PavedStorage {
     pub game_states: Map<u32, Slots2>,
     /// `GameEnd`: written once, when the game ends in time.
     pub game_ends: Map<u32, felt252>,
+    /// Dead since D-25 E (P-42): a player's name and master, never written in a game contract
+    /// (`Account` kept them). Kept declared, never read or written: a player is an address.
     pub players: Map<felt252, Slots2>,
     /// `Tile`: plan (bits 0..8), orientation (8..16), x (16..48), y (48..80), the dead occupied
     /// spot (80..88), the owner's seat (96..104, D-19), the refs (128..236); see `tile_with_refs`.
@@ -126,11 +126,6 @@ pub impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn new() -> Store {
         Store {}
-    }
-
-    /// Records the `Account` contract that keeps the players (game contracts only).
-    fn initialize(self: Store, account: ContractAddress) {
-        storage().account.write(account);
     }
 
     /// Returns a new game id (1 for the first game of the contract).
@@ -183,15 +178,6 @@ pub impl StoreImpl of StoreTrait {
             // [Info] Nothing is above the counters: the quotient is the 23 bits
             counts: (s.high / TWO_POW_88).try_into().unwrap(),
         }
-    }
-
-    fn player(self: Store, player_id: felt252) -> Player {
-        let account = storage().account.read();
-        if account.is_non_zero() {
-            return IAccountDispatcher { contract_address: account }.player(player_id);
-        }
-        let slots = storage().players.entry(player_id).read();
-        Player { id: player_id, name: slots.a, master: slots.b }
     }
 
     /// The builder of `player_id`, read from `GameState` as it is now (a move that changes the
@@ -340,10 +326,6 @@ pub impl StoreImpl of StoreTrait {
     fn set_game_end(self: Store, game: Game) {
         let word: u128 = game.end_time.into() + game.day_id.into() * TWO_POW_64;
         storage().game_ends.entry(game.id).write(word.into());
-    }
-
-    fn set_player(self: Store, player: Player) {
-        storage().players.entry(player.id).write(Slots2 { a: player.name, b: player.master });
     }
 
     /// Writes the tile in hand of the builder into `GameState` (the dead bits 72 to 88 as 0).

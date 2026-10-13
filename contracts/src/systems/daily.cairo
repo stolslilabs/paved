@@ -5,8 +5,9 @@ use paved::types::orientation::Orientation;
 #[starknet::interface]
 pub trait IDaily<TContractState> {
     /// A paid game: approve `Daily` on USDC for `stake x entry_price().amount` first (stake 1 to
-    /// 10). `referrer`: a registered player other than the caller, or zero; `min_out`: the least
-    /// PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
+    /// 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
+    /// address other than the caller, or zero (no referral); `min_out`: the least PAVED the burn's
+    /// swap must buy (`docs/architecture/economy.md`, section 5).
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;
@@ -15,8 +16,9 @@ pub trait IDaily<TContractState> {
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
 }
 
-/// The `Setup` that `Daily` reports its game overs to (D-24): the owner sets it (needed on a
-/// contract upgraded in place, whose constructor does not run again).
+/// The `Setup` that `Daily` reports its game overs to (D-24) and reads its wiring from (D-25 E):
+/// the owner sets it (needed on a contract upgraded in place, whose constructor does not run
+/// again).
 #[starknet::interface]
 pub trait IDailySetup<TContractState> {
     /// Sets the `Setup` reported to from now on: the owner only, never zero. Emits `SetupSet`.
@@ -45,13 +47,11 @@ pub mod Daily {
     // Internal imports
 
     use paved::events::Event as PavedEvent;
-    use paved::models::player::ZeroablePlayerTrait;
     use paved::quests::{achievement_entries, decode, quest_entries};
-    use paved::store::{PavedStorage, StoreImpl, StoreTrait};
-    use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::store::StoreImpl;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
-    use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
+    use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Wiring};
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::views::{
@@ -59,11 +59,9 @@ pub mod Daily {
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
-    use starknet::storage::{
-        StorageAsPath, StorageBase, StoragePointerReadAccess, StoragePointerWriteAccess,
-    };
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     #[cfg(test)]
-    use starknet::storage::{StorageAsPointer, StoragePathEntry};
+    use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
@@ -73,7 +71,6 @@ pub mod Daily {
     // Errors
 
     pub mod errors {
-        pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Daily: account is zero';
         pub const ZERO_TOKEN_ADDRESS: felt252 = 'Daily: token is zero';
         pub const ZERO_SETUP_ADDRESS: felt252 = 'Daily: setup is zero';
         pub const NO_ECONOMY: felt252 = 'Daily: economy not set';
@@ -151,20 +148,16 @@ pub mod Daily {
     fn constructor(
         ref self: ContractState,
         owner: ContractAddress,
-        account_address: ContractAddress,
         token_address: ContractAddress,
         setup_address: ContractAddress,
     ) {
         // [Check] Addresses are set
-        assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
         assert(token_address.is_non_zero(), errors::ZERO_TOKEN_ADDRESS);
         assert(setup_address.is_non_zero(), errors::ZERO_SETUP_ADDRESS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
         self.payable.initialize(token_address);
         self.setup.write(setup_address);
-        // [Effect] Players are read from the Account contract
-        StoreImpl::new().initialize(account_address);
     }
 
     // Implementations
@@ -174,12 +167,14 @@ pub mod Daily {
         fn spawn(
             ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
+            // [Interaction] The wiring, in one call to `Setup`
+            let wiring = wiring(self.setup_dispatcher());
             // [Effect] Spawn a game
             let (game_id, unit) = self.hostable.spawn(Mode::Daily);
             // [Interaction] The game is purchased
-            self.purchase(game_id, unit, stake, referrer, min_out);
+            self.purchase(wiring.economy, game_id, unit, stake, referrer, min_out);
             // [Interaction] The game is minted to its player, under its own id and no other
-            self.mint(game_id);
+            self.mint(wiring.collection, game_id);
             // [Return] Game ID
             game_id
         }
@@ -288,44 +283,45 @@ pub mod Daily {
             .into()
     }
 
-    /// The `Account` registry that keeps the players and the wiring (`docs/architecture/
-    /// economy.md`, section 6).
-    fn account() -> IAccountDispatcher {
-        let base: StorageBase<PavedStorage> = StorageBase { __base_address__: selector!("paved") };
-        IAccountDispatcher { contract_address: base.as_path().account.read() }
-    }
-
-    /// The `Economy` of the paid Daily games, from `Account`: set once, never zero after that.
-    fn economy() -> IEconomyDispatcher {
-        let economy = account().economy();
-        assert(economy.is_non_zero(), errors::NO_ECONOMY);
-        IEconomyDispatcher { contract_address: economy }
-    }
-
-    /// The `Collection` of the game NFTs, from `Account`: set once, never zero after that.
-    fn collection() -> ICollectionDispatcher {
-        let collection = account().collection();
-        assert(collection.is_non_zero(), errors::NO_COLLECTION);
-        ICollectionDispatcher { contract_address: collection }
+    /// The wiring of `setup`, in one call; neither address is zero once `Setup`'s owner has set
+    /// them (`'Daily: economy not set'`, `'Daily: collection not set'` before).
+    fn wiring(setup: ISetupDispatcher) -> Wiring {
+        let wiring = setup.wiring();
+        assert(wiring.economy.is_non_zero(), errors::NO_ECONOMY);
+        assert(wiring.collection.is_non_zero(), errors::NO_COLLECTION);
+        wiring
     }
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
+        /// The `Setup` of the wiring and the reports; the wiring is read from it in one call
+        /// (`wiring`, P-53 ruling 2). With no `Setup` (a zero slot: an in-place upgrade before
+        /// `set_setup`) nothing can be paid, minted or recorded, so the call reverts (`'Daily:
+        /// setup is zero'`): a spawn spawns nothing, and a move that ends a game reverts and
+        /// leaves the game live until the owner sets the `Setup`.
+        fn setup_dispatcher(self: @ContractState) -> ISetupDispatcher {
+            let setup = self.setup.read();
+            assert(setup.is_non_zero(), errors::ZERO_SETUP_ADDRESS);
+            ISetupDispatcher { contract_address: setup }
+        }
+
         /// A game is a token (economy.md section 9): its id, minted to the caller, who is the
-        /// player (`spawn` checks that they are registered). `Collection` accepts it from `Daily`
-        /// only, a plain mint with no receiver callback. The id is never an input: it is the id
-        /// the spawn just drew, so no entry point lets a caller mint another one.
-        fn mint(ref self: ContractState, game_id: u32) {
-            collection().mint(get_caller_address(), game_id.into());
+        /// player. `Collection` accepts it from `Daily` only, a plain mint with no receiver
+        /// callback. The id is never an input: it is the id the spawn just drew, so no entry
+        /// point lets a caller mint another one.
+        fn mint(ref self: ContractState, collection: ContractAddress, game_id: u32) {
+            ICollectionDispatcher { contract_address: collection }
+                .mint(get_caller_address(), game_id.into());
         }
 
         /// The purchase of a Daily game (economy.md section 1, P-31): `stake x unit` USDC go
         /// from the player straight to `Economy`, then `Economy.purchase` splits them, in the same
         /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A
-        /// referrer counts only if it is a registered player other than the payer; any other is
-        /// ignored (no referral).
+        /// referrer counts only if it is a non-zero address other than the payer (D-25: no
+        /// registration); the payer as referrer is ignored (no referral).
         fn purchase(
             ref self: ContractState,
+            economy: ContractAddress,
             game_id: u32,
             unit: u256,
             stake: u8,
@@ -333,10 +329,8 @@ pub mod Daily {
             min_out: u256,
         ) {
             let player = get_caller_address();
-            let economy = economy();
-            let referred = referrer.is_non_zero()
-                && referrer != player
-                && StoreImpl::new().player(referrer.into()).is_non_zero();
+            let economy = IEconomyDispatcher { contract_address: economy };
+            let referred = referrer.is_non_zero() && referrer != player;
             let referrer = if referred {
                 referrer
             } else {
@@ -356,22 +350,19 @@ pub mod Daily {
         /// is emitted: the progress of the caller of the move, who is the game's player (the
         /// move reverted otherwise, `PlayableComponent`). Entries come from constants
         /// (`paved::quests`), so the report cannot revert for its content. Its score is then
-        /// recorded by `Economy` (P-34). With no `Setup` (a zero slot: an in-place upgrade before
-        /// `set_setup`) the game still ends and is recorded, and no progress is reported for it.
+        /// recorded by `Economy` (P-34), whose address is read from `Setup`'s wiring (D-25 E). With
+        /// no `Setup` (a zero slot) the move reverts (`setup`): the economy is out of reach.
         fn finish(ref self: ContractState, game_id: u32, over: u128) {
             if over != 0 {
                 let player_id: felt252 = get_caller_address().into();
                 let tally = decode(over, player_id);
-                let setup = self.setup.read();
-                if setup.is_non_zero() {
-                    ISetupDispatcher { contract_address: setup }
-                        .report(
-                            player_id,
-                            quest_entries(tally).span(),
-                            achievement_entries(tally).span(),
-                        );
-                }
-                economy().record(game_id, tally.score);
+                let setup = self.setup_dispatcher();
+                let economy = wiring(setup).economy;
+                setup
+                    .report(
+                        player_id, quest_entries(tally).span(), achievement_entries(tally).span(),
+                    );
+                IEconomyDispatcher { contract_address: economy }.record(game_id, tally.score);
             }
         }
     }

@@ -13,7 +13,6 @@ pub mod HostableComponent {
     use paved::events::{Event as PavedEvent, GameSpawned};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
-    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
     use paved::seed::{DailySeed, SeedSource};
     use paved::store::{Store, StoreImpl};
@@ -69,15 +68,13 @@ pub mod HostableComponent {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
-            // [Check] Player exists
-            let caller = get_caller_address();
-            let player = store.player(caller.into());
-            player.assert_exists();
+            // [Info] The player is the caller's address: any account may play (D-25)
+            let player_id: felt252 = get_caller_address().into();
 
             // [Effect] Create game
             let game_id = store.uuid();
             let time = get_block_timestamp();
-            let mut game = GameImpl::new(game_id, time, mode, player.id);
+            let mut game = GameImpl::new(game_id, time, mode, player_id);
 
             // [Effect] Start game
             let seed = source.seed(mode, time, game.id, game.seed);
@@ -87,7 +84,7 @@ pub mod HostableComponent {
             store.set_tile(tile);
 
             // [Effect] The first tile is in the builder's hand (`GameState`, stored with the game)
-            let mut builder = BuilderImpl::new(game.id, player.id);
+            let mut builder = BuilderImpl::new(game.id, player_id);
             let (tile_id, plan) = game.draw_plan();
             let tile = builder.reveal(tile_id, plan);
 
@@ -106,7 +103,7 @@ pub mod HostableComponent {
                     PavedEvent::GameSpawned(
                         GameSpawned {
                             game_id,
-                            player_id: player.id,
+                            player_id,
                             mode: game.mode,
                             day_id: day,
                             start_time: time,

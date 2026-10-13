@@ -1,5 +1,5 @@
-//! Upgrades (D-17, P-42, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Account`,
-//! `Economy` and `Collection` replace their class through OpenZeppelin's `UpgradeableComponent`,
+//! Upgrades (D-17, P-42, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Economy` and
+//! `Collection` replace their class through OpenZeppelin's `UpgradeableComponent`,
 //! gated by the two-step owner; `PavedToken` and `Vault` have no `upgrade` at all. Since D-24
 //! `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo` pins
 //! the dead `lobby_class` slot).
@@ -69,11 +69,6 @@ fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, fel
             *systems.setup.contract_address,
             map_entry_address(selector!("Quest_reporters"), array![daily].span()),
             1,
-        ),
-        (
-            *systems.account.contract_address,
-            selector!("economy"),
-            (*systems.economy.contract_address).into(),
         ),
         (*systems.economy.contract_address, selector!("game"), daily),
         (*systems.collection.contract_address, selector!("daily"), daily),
@@ -188,7 +183,7 @@ fn test_paved_token_and_vault_have_no_upgrade() {
     }
 }
 
-// Storage layout: the key variables of `Account` and `Economy`, pinned by name
+// Storage layout: the key variables of `Setup`'s wiring and of `Economy`, pinned by name
 
 /// The raw slot of a map entry.
 fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> felt252 {
@@ -196,27 +191,28 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 }
 
 /// An upgrade keeps the storage only if the new class finds every variable at its slot, and the
-/// slot is the name (`docs/architecture/upgrades.md`). These are the variables of `Account` and
-/// `Economy` that hold their wiring and their money terms, read at the raw address of their name
+/// slot is the name (`docs/architecture/upgrades.md`). These are the variables of `Setup` (its
+/// ownable and the wiring it holds since D-25 E; `Account` left the systems) and of `Economy` that
+/// hold their wiring and their money terms, read at the raw address of their name
 /// after a paid spawn. A rename or a retype fails here; whoever adds one adds it here.
 #[test]
-fn test_upgrade_layout_pins_account_and_economy_by_name() {
+fn test_upgrade_layout_pins_setup_and_economy_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    let account = systems.account.contract_address;
+    let wiring = systems.setup.contract_address;
     let economy = systems.economy.contract_address;
     let addresses = systems.economy.addresses();
     let (pool_key, _) = systems.economy.pool();
 
-    // [Account] the ownable, the two addresses set once
-    start_cheat_caller_address(account, OWNER());
-    IOwnableDispatcher { contract_address: account }.transfer_ownership(ANYONE());
-    stop_cheat_caller_address(account);
-    assert(raw(account, selector!("owner")) == OWNER().into(), 'Pin: account owner');
-    assert(raw(account, selector!("pending_owner")) == ANYONE().into(), 'Pin: account pending');
-    assert(raw(account, selector!("economy")) == economy.into(), 'Pin: account economy');
+    // [Setup] the ownable, the two addresses set once
+    start_cheat_caller_address(wiring, OWNER());
+    IOwnableDispatcher { contract_address: wiring }.transfer_ownership(ANYONE());
+    stop_cheat_caller_address(wiring);
+    assert(raw(wiring, selector!("owner")) == OWNER().into(), 'Pin: setup owner');
+    assert(raw(wiring, selector!("pending_owner")) == ANYONE().into(), 'Pin: setup pending');
+    assert(raw(wiring, selector!("economy")) == economy.into(), 'Pin: setup economy');
     assert(
-        raw(account, selector!("collection")) == systems.collection.contract_address.into(),
-        'Pin: account collection',
+        raw(wiring, selector!("collection")) == systems.collection.contract_address.into(),
+        'Pin: setup collection',
     );
 
     // [Economy] the ownable, the addresses, the pool, the packed records, the purchase's maps

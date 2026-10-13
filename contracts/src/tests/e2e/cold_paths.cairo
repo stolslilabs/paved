@@ -10,12 +10,11 @@ use paved::constants;
 use paved::models::game::GameImpl;
 use paved::models::tile::CENTER;
 use paved::quests::{achievement_entries, quest_entries, tally};
-use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 use paved::systems::daily::{IDailyDispatcher, IDailySafeDispatcher, IDailySafeDispatcherTrait};
+use paved::systems::setup::Wiring;
 use paved::tests::setup::setup::{
-    ANYONE, ANYONE_NAME, IDailyDispatcherTrait, OWNER, PLAYER, PLAYER_NAME, TestStore,
-    TestStoreTrait,
+    ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
 };
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -219,9 +218,12 @@ pub mod SpyEconomy {
 }
 
 /// A `Setup` that records each `report`: how many, who called, for whom, and the Poseidon of the
-/// entries (`entries_hash`). It accepts any caller.
+/// entries (`entries_hash`). It accepts any caller. It serves the wiring it is given (`wire`), as
+/// `Setup.wiring` does.
 #[starknet::interface]
 pub trait ISpySetup<TContractState> {
+    fn wire(ref self: TContractState, economy: ContractAddress, collection: ContractAddress);
+    fn wiring(self: @TContractState) -> Wiring;
     fn report(
         ref self: TContractState,
         player_id: felt252,
@@ -248,10 +250,12 @@ pub mod SpySetup {
     use quiver_quest::types::batch::TaskProgress as QuestProgress;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
-    use super::{ISpySetup, entries_hash};
+    use super::{ISpySetup, Wiring, entries_hash};
 
     #[storage]
     struct Storage {
+        economy: ContractAddress,
+        collection: ContractAddress,
         count: u32,
         caller: ContractAddress,
         player_id: felt252,
@@ -260,6 +264,15 @@ pub mod SpySetup {
 
     #[abi(embed_v0)]
     impl SpySetupImpl of ISpySetup<ContractState> {
+        fn wire(ref self: ContractState, economy: ContractAddress, collection: ContractAddress) {
+            self.economy.write(economy);
+            self.collection.write(collection);
+        }
+
+        fn wiring(self: @ContractState) -> Wiring {
+            Wiring { economy: self.economy.read(), collection: self.collection.read() }
+        }
+
         fn report(
             ref self: ContractState,
             player_id: felt252,
@@ -285,7 +298,7 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 }
 
 /// `Daily` with its spies: paid in the spy token into the spy `Economy`, reporting to the spy
-/// `Setup`, with PLAYER and ANYONE registered and PLAYER calling `Daily`.
+/// `Setup` (which serves the wiring), with PLAYER calling `Daily`.
 #[derive(Copy, Drop)]
 pub struct Spied {
     pub daily: IDailyDispatcher,
@@ -316,22 +329,13 @@ pub fn daily_paid_in(
     let token = deploy(token_name, array![]);
     let economy = deploy("SpyEconomy", array![]);
     let setup = deploy("SpySetup", array![]);
-    let account = deploy("Account", array![owner]);
-    let daily = deploy("Daily", array![owner, account.into(), token.into(), setup.into()]);
+    let daily = deploy("Daily", array![owner, token.into(), setup.into()]);
     ISpyEconomyDispatcher { contract_address: economy }.watch_setup(setup);
-    start_cheat_caller_address(account, OWNER());
-    IAccountDispatcher { contract_address: account }.set_economy(economy);
     let collection = deploy("Collection", array![owner]);
-    IAccountDispatcher { contract_address: account }.set_collection(collection);
-    stop_cheat_caller_address(account);
+    ISpySetupDispatcher { contract_address: setup }.wire(economy, collection);
     start_cheat_caller_address(collection, OWNER());
     ICollectionDispatcher { contract_address: collection }.set_minters(daily, Zero::zero());
     stop_cheat_caller_address(collection);
-    start_cheat_caller_address(account, ANYONE());
-    IAccountDispatcher { contract_address: account }.create(ANYONE_NAME, ANYONE());
-    start_cheat_caller_address(account, PLAYER());
-    IAccountDispatcher { contract_address: account }.create(PLAYER_NAME, PLAYER());
-    stop_cheat_caller_address(account);
     start_cheat_caller_address(daily, PLAYER());
     (
         IDailyDispatcher { contract_address: daily },
@@ -376,13 +380,43 @@ fn test_cold_paths_spawn_writes_state_before_the_transfer() {
     assert(reports == 0, 'Spawn: reported');
 }
 
-/// A registered referrer other than the payer is passed on to `Economy.purchase`.
+// The referral (D-25 E, economy lens): a non-zero address other than the payer. Any other is
+// ignored, as before: the spawn goes on with no referrer.
+
+/// Any non-zero address other than the payer is passed on to `Economy.purchase`, registered or
+/// not: here ANYONE, and an address no test ever funded or used.
 #[test]
 #[available_gas(l2_gas: 70668000)]
-fn test_cold_paths_spawn_passes_a_registered_referrer() {
+fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
     let spied = spied_daily();
     spied.daily.spawn(1, ANYONE(), 0);
     assert(spied.economy.purchased().referrer == ANYONE(), 'Spawn: referrer');
+    let unknown: ContractAddress = 'NEVER SEEN'.try_into().unwrap();
+    spied.daily.spawn(1, unknown, 0);
+    assert(spied.economy.purchased().referrer == unknown, 'Spawn: unknown referrer');
+}
+
+/// The payer as its own referrer is ignored: the purchase goes on with no referrer.
+#[test]
+#[available_gas(l2_gas: 70668000)]
+fn test_cold_paths_spawn_ignores_the_payer_as_referrer() {
+    let spied = spied_daily();
+    let game_id = spied.daily.spawn(1, PLAYER(), 0);
+    let purchase = spied.economy.purchased();
+    assert(purchase.game_id == game_id, 'Self: no purchase');
+    assert(purchase.referrer.is_zero(), 'Self: referrer kept');
+}
+
+/// A zero referrer is no referral (`test_cold_paths_spawn_writes_state_before_the_transfer`
+/// passes zero too): the purchase gets zero.
+#[test]
+#[available_gas(l2_gas: 70668000)]
+fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
+    let spied = spied_daily();
+    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let purchase = spied.economy.purchased();
+    assert(purchase.game_id == game_id, 'Zero: no purchase');
+    assert(purchase.referrer.is_zero(), 'Zero: referrer');
 }
 
 // The game over: one report to `Setup`, then `Economy.record`
@@ -477,8 +511,8 @@ fn test_cold_paths_moves_that_do_not_end_the_game_report_nothing() {
 }
 
 /// Who may report for whom (P-51 ruling 6): `Daily` reports only for the caller of the move that
-/// ends the game, and that caller must be the game's player. A registered player who is not the
-/// game's has no builder in it: the closing build, discard and surrender all revert
+/// ends the game, and that caller must be the game's player. Another player, who is not the
+/// game's, has no builder in it: the closing build, discard and surrender all revert
 /// (`'Builder: does not exist'`) before any report or record. The player then ends it.
 #[test]
 #[feature("safe_dispatcher")]
@@ -513,42 +547,59 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
 }
 
 /// A `Daily` with no `Setup` (its `setup` slot zero, as after an in-place upgrade before
-/// `set_setup`): a game over by build, by discard and by surrender still ends the game and records
-/// it in `Economy`, and makes no report.
+/// `set_setup`): since D-25 E the wiring is `Setup`'s, so nothing can be paid, minted or recorded.
+/// A spawn reverts (`'Daily: setup is zero'`) and leaves no game; a game over by build, by discard
+/// and by surrender reverts too, and the game stays live, unrecorded and unreported, until the
+/// owner sets the `Setup`; then the same move ends it.
 #[test]
 #[available_gas(l2_gas: 300000000)]
-fn test_cold_paths_game_over_without_a_setup_ends_and_records_without_a_report() {
+#[feature("safe_dispatcher")]
+fn test_cold_paths_without_a_setup_spawn_and_game_over_revert() {
     let spied = spied_daily();
     let address = spied.daily.contract_address;
-    snforge_std::store(address, selector!("setup"), array![0].span());
-    assert(
-        paved::systems::daily::IDailySetupDispatcherTrait::setup(
-            paved::systems::daily::IDailySetupDispatcher { contract_address: address },
-        )
-            .is_zero(),
-        'No setup: slot not zero',
-    );
-    let mut records = 0;
+    let safe = IDailySafeDispatcher { contract_address: address };
+    // [Setup] Three games, almost over, spawned while the `Setup` is there
+    let mut games: Array<u32> = array![];
     let mut way: u8 = 0;
     while way < 3 {
         let game_id = spied.daily.spawn(1, Zero::zero(), 0);
         almost_over(@spied, game_id);
-        if way == 0 {
-            hold(@spied, game_id, Plan::RFFFRFFFR);
-            spied.daily.build(game_id, Orientation::North, CENTER + 1, CENTER);
-        } else if way == 1 {
-            spied.daily.discard(game_id);
-        } else {
-            spied.daily.surrender(game_id);
-        }
-        records += 1;
-        let game = spied.store.game(game_id);
-        assert(game.over, 'No setup: not over');
-        let (count, recorded_game, recorded_score) = spied.economy.recorded();
-        assert(count == records, 'No setup: not recorded');
-        assert(recorded_game == game_id && recorded_score == game.score, 'No setup: record');
+        games.append(game_id);
         way += 1;
     }
+    hold(@spied, *games.at(0), Plan::RFFFRFFFR);
+    let setup = spied.setup.contract_address;
+    snforge_std::store(address, selector!("setup"), array![0].span());
+    // [Spawn] reverts, no game left
+    let error = safe.spawn(1, Zero::zero(), 0).unwrap_err();
+    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: spawn');
+    assert(spied.store.game(4).player_id == 0, 'No setup: a game was left');
+    // [Game over] each way reverts, the game stays live
+    let error = safe.build(*games.at(0), Orientation::North, CENTER + 1, CENTER).unwrap_err();
+    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: build');
+    let error = safe.discard(*games.at(1)).unwrap_err();
+    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: discard');
+    let error = safe.surrender(*games.at(2)).unwrap_err();
+    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: surrender');
+    for game_id in games.span() {
+        assert(!spied.store.game(*game_id).over, 'No setup: over');
+    }
+    let (records, _, _) = spied.economy.recorded();
+    assert(records == 0, 'No setup: recorded');
     let (reports, _, _, _) = spied.setup.reported();
     assert(reports == 0, 'No setup: reported');
+    // [Set] the owner sets the `Setup` back: the same moves end the games
+    start_cheat_caller_address(address, OWNER());
+    paved::systems::daily::IDailySetupDispatcherTrait::set_setup(
+        paved::systems::daily::IDailySetupDispatcher { contract_address: address }, setup,
+    );
+    start_cheat_caller_address(address, PLAYER());
+    spied.daily.build(*games.at(0), Orientation::North, CENTER + 1, CENTER);
+    spied.daily.discard(*games.at(1));
+    spied.daily.surrender(*games.at(2));
+    for game_id in games.span() {
+        assert(spied.store.game(*game_id).over, 'No setup: not over after');
+    }
+    let (records, _, _) = spied.economy.recorded();
+    assert(records == 3, 'No setup: records after');
 }

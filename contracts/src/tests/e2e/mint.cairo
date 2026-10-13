@@ -1,12 +1,11 @@
 //! P8 E5b: `Daily.spawn` mints the game's token to its player (`docs/architecture/economy.md`,
-//! section 9), through the real `Daily`, `Account` and `Collection`: the id is the game id, the
+//! section 9), through the real `Daily`, `Setup` and `Collection`: the id is the game id, the
 //! player owns it right after the spawn, no entry point lets a caller choose an id, and a spawn
 //! without a collection reverts and leaves no game. Since D-21 no Tutorial token is minted: the
 //! Tutorial minter of a new deployment is zero, so its range (`2^32 + game id`) has no minter.
 
 use core::byte_array::ByteArrayTrait;
 use core::num::traits::Zero;
-use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::systems::collection::{
     Collection, ICollectionSafeDispatcher, ICollectionSafeDispatcherTrait,
     IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
@@ -14,6 +13,7 @@ use paved::systems::collection::{
     IERC721SoulboundSafeDispatcherTrait, TUTORIAL_OFFSET, metadata,
 };
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
+use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
@@ -122,24 +122,18 @@ fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
     assert(erc721.owner_of(5) == PLAYER(), 'Mint: fifth token');
 }
 
-/// The Account's collection is not set: the spawn reverts, as without an economy, and leaves no
-/// game and no token.
+/// `Setup`'s collection is not set: the spawn reverts, as without an economy, and leaves no game
+/// and no token.
 #[test]
 #[feature("safe_dispatcher")]
 fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     let owner: felt252 = OWNER().into();
     let (economy, usdc) = setup::deploy_economy();
-    let account = deploy_one("Account", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one(
-        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
-    );
-    start_cheat_caller_address(account, OWNER());
-    IAccountDispatcher { contract_address: account }.set_economy(economy);
-    stop_cheat_caller_address(account);
-    start_cheat_caller_address(account, PLAYER());
-    IAccountDispatcher { contract_address: account }.create('PLAYER', PLAYER());
-    stop_cheat_caller_address(account);
+    let daily = deploy_one("Daily", array![owner, usdc.into(), setup_address.into()]);
+    start_cheat_caller_address(setup_address, OWNER());
+    ISetupDispatcher { contract_address: setup_address }.set_economy(economy);
+    stop_cheat_caller_address(setup_address);
     // The Daily spawn is paid first: give the player USDC and the economy its game
     paved::systems::faucet::IFaucetDispatcherTrait::mint(
         paved::systems::faucet::IFaucetDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
@@ -202,26 +196,20 @@ fn test_mint_token_uri_of_running_and_finished_games() {
     assert(finished_daily != daily_uri, 'Mint: daily uri unchanged');
 }
 
-/// The collection is set in `Account` but `set_minters` was never called: no one may mint, so the
+/// The collection is set in `Setup` but `set_minters` was never called: no one may mint, so the
 /// spawn reverts 'Collection: not minter' and leaves no game.
 #[test]
 #[feature("safe_dispatcher")]
 fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     let owner: felt252 = OWNER().into();
     let (economy, usdc) = setup::deploy_economy();
-    let account = deploy_one("Account", array![owner]);
     let collection = deploy_one("Collection", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one(
-        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
-    );
-    start_cheat_caller_address(account, OWNER());
-    IAccountDispatcher { contract_address: account }.set_economy(economy);
-    IAccountDispatcher { contract_address: account }.set_collection(collection);
-    stop_cheat_caller_address(account);
-    start_cheat_caller_address(account, PLAYER());
-    IAccountDispatcher { contract_address: account }.create('PLAYER', PLAYER());
-    stop_cheat_caller_address(account);
+    let daily = deploy_one("Daily", array![owner, usdc.into(), setup_address.into()]);
+    start_cheat_caller_address(setup_address, OWNER());
+    ISetupDispatcher { contract_address: setup_address }.set_economy(economy);
+    ISetupDispatcher { contract_address: setup_address }.set_collection(collection);
+    stop_cheat_caller_address(setup_address);
     paved::systems::faucet::IFaucetDispatcherTrait::mint(
         paved::systems::faucet::IFaucetDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
     );

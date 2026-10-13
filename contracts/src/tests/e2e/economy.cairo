@@ -102,24 +102,29 @@ fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
     assert(context.token.balance_of(PLAYER()) == before, 'Economy: player debited');
 }
 
-/// A referrer counts only if it is a registered player other than the payer: it then gets 5 %
-/// of the price; an unregistered address or the payer itself gets nothing.
+/// A referrer counts if it is a non-zero address other than the payer (D-25 E: no registration):
+/// it then gets 5 % of the price, whether it ever played or not; the payer itself gets nothing,
+/// and a zero referrer is no referral.
 #[test]
 #[available_gas(l2_gas: 230372000)]
-fn test_economy_referrer_is_a_registered_player_not_the_payer() {
+fn test_economy_referrer_is_any_address_but_the_payer() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
-    // A registered player: 5 % of 2 USDC
+    // An address that plays: 5 % of 2 USDC
     let before = token.balance_of(ANYONE());
     systems.daily.spawn(1, ANYONE(), 0);
     assert(token.balance_of(ANYONE()) - before == 100_000, 'Economy: referral paid');
-    // An unregistered address
+    // An address that never played nor held USDC: 5 % too
     systems.daily.spawn(1, STRANGER(), 0);
-    assert(token.balance_of(STRANGER()) == 0, 'Economy: stranger paid');
-    // The payer
+    assert(token.balance_of(STRANGER()) == 100_000, 'Economy: stranger not paid');
+    // The payer: no referral, the payer pays the whole price
     let before = token.balance_of(PLAYER());
     systems.daily.spawn(1, PLAYER(), 0);
     assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Economy: self-referral');
+    // Zero: no referral
+    let before = token.balance_of(PLAYER());
+    systems.daily.spawn(1, Zero::zero(), 0);
+    assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Economy: zero referral');
 }
 
 /// The score of a Daily game reaches `Economy`, for its own id, whichever way it ends.
@@ -161,9 +166,9 @@ fn test_economy_records_a_game_over_on_surrender() {
     assert_recorded(store, @systems, context.game_id);
 }
 
-/// A `Daily` whose `Account` has no economy yet: a spawn reverts and leaves no game.
+/// A `Daily` whose `Setup` has no economy yet: a spawn reverts and leaves no game (without a
+/// collection: `tests::e2e::mint`).
 #[test]
-#[available_gas(l2_gas: 50926209)]
 #[feature("safe_dispatcher")]
 fn test_economy_spawn_reverts_before_set_economy() {
     let owner: felt252 = setup::OWNER().into();
@@ -172,31 +177,20 @@ fn test_economy_spawn_reverts_before_set_economy() {
         snforge_std::DeclareResultTrait::contract_class(@usdc), @array![],
     )
         .unwrap();
-    let account = snforge_std::declare("Account").unwrap();
-    let (account, _) = snforge_std::ContractClassTrait::deploy(
-        snforge_std::DeclareResultTrait::contract_class(@account), @array![owner],
+    let wiring = snforge_std::declare("Setup").unwrap();
+    let (wiring, _) = snforge_std::ContractClassTrait::deploy(
+        snforge_std::DeclareResultTrait::contract_class(@wiring), @array![owner],
     )
         .unwrap();
-    // [Info] `Setup` is not reached: the spawn reverts first
-    let setup_address: felt252 = 'setup';
     let daily = snforge_std::declare("Daily").unwrap();
     let (daily, _) = snforge_std::ContractClassTrait::deploy(
         snforge_std::DeclareResultTrait::contract_class(@daily),
-        @array![owner, account.into(), usdc.into(), setup_address],
+        @array![owner, usdc.into(), wiring.into()],
     )
         .unwrap();
-    start_cheat_caller_address(account, PLAYER());
-    paved::systems::account::IAccountDispatcherTrait::create(
-        paved::systems::account::IAccountDispatcher { contract_address: account },
-        'PLAYER',
-        PLAYER(),
-    );
-    stop_cheat_caller_address(account);
     start_cheat_caller_address(daily, PLAYER());
-    let reason = *IDailySafeDispatcher { contract_address: daily }
-        .spawn(1, Zero::zero(), 0)
-        .unwrap_err()
-        .at(0);
+    let safe = IDailySafeDispatcher { contract_address: daily };
+    let reason = *safe.spawn(1, Zero::zero(), 0).unwrap_err().at(0);
     assert(reason == 'Daily: economy not set', 'Economy: reason');
     assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Economy: a game was left');
 }
