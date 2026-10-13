@@ -6,6 +6,10 @@ the forest walk calls), with the `Game` split and the packing that go with it. T
 are in [`docs/briefs/p5-plan.md`](../briefs/p5-plan.md). Status: roads, cities, wonders and the conflict check built in P5-4, forests in P5-5 (section "As
 built" at the end says where the code differs from this design).
 
+**D-18 (2026-10-13) reverses the character rules described below** (placement, `chars`, Woodsman and
+Herdsman): see "D-18: scoring without characters (planned)" at the end. Until D-18b is merged, the
+sections above describe the code on main.
+
 Every gas figure in this document is an **estimate** unless it is quoted from
 `docs/measures/baseline.md` (P4 figures, scarb 2.20.1 / snforge 0.64.0). No measurement was run for
 this design.
@@ -489,3 +493,82 @@ the sections above, and why:
   `test_differential_two_areas_of_one_tile_join_one_structure` fails
   (`assertion ref_of(refs, first) == root failed. ref_of(refs, first): 97 root: 32`,
   `Tests: 0 passed, 1 failed`); restored, it passes (`Tests: 1 passed, 0 failed`).
+
+## D-18: scoring without characters (planned)
+
+Status: **planned** (D-18 and P-45 in `docs/programme/DECISIONS.md`; the code is D-18b). Everything
+below is read from `contracts/src` on main at the time of writing. "Today" is the code on main.
+
+**When each category scores, and the formula.** A structure scores once, on the move that closes it.
+The formulas are today's with one character of power 1 and weight 1; `bonus(size) = num / den` from
+`compute_multiplier(size)` (`helpers/multiplier.cairo:5`). The base points are 100 (road), 200 (city),
+300 (forest), 900 (wonder) (`constants.cairo:3-6`).
+
+| Category | Closed when | Points | Today (file:line) |
+|---|---|---|---|
+| Road, city | the root has `open == 0` | `size x base x bonus(size)` | condition `assessment.cairo:30` (without the `chars == 0` half), points `assessment.cairo:36` (`power` = 1) |
+| Wonder | the root has `open == 0`, which is its 8 neighbours placed | `900` | condition `assessment.cairo:66`; `open` counts one per untaken direction (`placement.cairo:253-257`); points `assessment.cairo:79` (`power` = 1); `Scored` has `size` 0 |
+| Forest | its own half-edges land (`open == 0`) **and** every adjacent road is closed | `(distinct closed road roots + distinct closed city roots) x 300 x bonus(size)` | condition `forest.cairo:41` (without `chars == 0`) and `forest.cairo:104-107` (`open_road`); points `forest.cairo:179`, today once per role with `distinct` = roads (Woodsman) or cities (Herdsman) |
+
+- Roots are the union-find roots: a road or city counts once per root (`road_roots`, `city_roots`,
+  `forest.cairo:89-90`, filled at `:108-109` and `:126-127`). A city counts only if its root is closed
+  (P-15, `forest.cairo:126`). An adjacent road that is open ends the scan (`forest.cairo:116`).
+- The two forest sums become one: one `Scored` (category FOREST, `size`, `points`), one `count_forest`
+  per forest (today two of each when both roles stand on it, `forest.cairo:179-193`). Whether a
+  forest with 0 points still emits is the implementation's call; today it does (`forest.cairo:32-33`).
+- **Once per move.** Today a scored structure cannot score again because scoring clears its
+  `chars` (`assessment.cairo:54`, `:100`, `forest.cairo:67`). Without characters nothing marks it, and
+  `Game::assess` (`game.cairo:340-401`) visits each start spot of the tile and each neighbour wonder, so
+  two start spots in one root would score it twice. D-18b must keep a per-move set of scored roots.
+- Per-structure counters (`count_structure`, `count_forest`, `count_wonder`, `game.cairo:224-243`)
+  keep their meaning, one per scored structure. `Game::count_forest` moves from one per character to
+  one per forest, so the quests' forest tally (`quests.cairo:83`) can drop for a forest that held both.
+
+**What the structure state no longer needs.**
+
+- Read by nothing: the `chars` field of a record (`record.cairo:58`, bits 32..48, `:18`), with
+  `chars_of`, `with_chars`, `without_chars` and `placement::occupy` (`placement.cairo:308`); the
+  `Characters` slot per game (`store.cairo:103-104`, `:511-538`) with `Structures::character` and
+  `put_character` (`state.cairo:90-100`) and `recover` (`assessment.cairo:124`); the builder's
+  `characters` (`models/index.cairo:43`, `GameState` bits 72..88, `store.cairo:418`);
+  `Tile.occupied_spot` (`store.cairo:500`); `placement::is_idle` and `assert_structure_idle`
+  (`placement.cairo:188`, `game.cairo:457`).
+- Trigger gone: the "a forest character is there" half of the forest gate (`forest.cairo:41`).
+- D-17's rule: on an upgrade no field is renamed or retyped. So the packed words keep their layout:
+  `chars` stays declared in `Record` and is always 0 on new games; the `Characters` map and
+  `GameState.characters` stay as dead slots (declared, never written); `Tile.occupied_spot` stays,
+  always 0. The code that reads or writes them (`Char`, `CharImpl`, `Role`, `Spot` in the call path,
+  the cache words of `Structures`) is removed; the storage declarations are not.
+- Games open across the upgrade (Sepolia): no character left on such a game scores or blocks a spot. The
+  implementation (D-18b) states how they end, scored under the new rules or settled as they are, and
+  tests it. Characters sit in the game's `Characters` word (`store.cairo:103-104`) and in the `chars` of
+  the roots (`record.cairo:58`); a character blocks a spot only through `placement::is_idle`
+  (`placement.cairo:188-212`, called by `assert_structure_idle`, `game.cairo:457`, from `build` at
+  `playable.cairo:242-250`), which no longer runs.
+
+**The forest scan on every forest closure.** The gate becomes `open == 0` alone, so the scan
+(`forest.cairo:74-165`) runs on the move that closes any forest. It walks the nodes of the forest, one
+tile read per node (`StoreImpl::tile_slot_at`, `:150`), and reads the adjacent road and city roots of
+each node. Cost is bounded by the forest's tiles (at most the deck, 38 in Daily). A forest closes once
+per game, so the extra cost lands once per forest. Compare with `docs/measures/baseline.md`: scenario e
+(closes a 4-tile forest with a Woodsman) at P4 23,285,560, P5-6 12,020,508, P-17 9,291,506; scenario f
+(16-node forest, the worst scan) at P4 49,286,395, P5-6 21,679,674, P-17 19,006,366 (L2 gas). No new
+figure here: the implementation measures, and `Daily` must stay under the P-44 cap (72,947 CASM felts).
+P-16 (`A road closed away from its forest`, above) still holds: the closing move of a forest is the
+move that assesses it, because it has a forest start spot.
+
+**End of a game.** Today nothing scores at the end: `assess_over` only sets `over` (`game.cairo:200-203`),
+and `build` ends with the ranking (`playable.cairo:39-55`, `:286-299`). A structure still open, with or
+without a character, scores nothing and its characters stay on the board. Ruling 3 matches this; nothing
+changes at the end, the code simply has no characters to leave.
+
+**Goldens and oracle, regenerated from the new rules in D-18b.** Golden games:
+`src/tests/golden/daily.cairo`, `forest.cairo`, `full_deck.cairo`, `tutorial.cairo` (and
+`harness.cairo`), with `docs/measures/golden-games.md`. Every move that placed a character changes
+(scores, `Scored` events, the `Built` event fields) and so do the scored sets: structures that held no
+character now score. The oracle (`src/tests/oracle.cairo`) and `src/tests/differential.cairo` compare
+the structure state with the walks of the 2024 code, which score by character: the oracle's walks must
+become the no-character rules, and its check "forest left unscored" (above) becomes "closed structure
+left unscored". The e2e and gas files that place characters change too (`src/tests/e2e/*.cairo`,
+`contracts/tests/gas.cairo` ceilings). The Tutorial's scripted deck carries a role and a spot per move
+(`Mode::parameters`, `types/mode.cairo:80`), which go with them.
