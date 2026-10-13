@@ -504,12 +504,12 @@ promise, as D-18 and D-20 are.
 | `Collection.tutorial() -> ContractAddress` | the Tutorial minter | unchanged: the Sepolia `Tutorial`, or zero on a new network |
 | `Collection.set_minters(daily, tutorial)` | refuses a zero `tutorial` (`collection.cairo:324`) | accepts a zero `tutorial` (a new network has none); with D-23 its first argument is `challenge` |
 | `Daily` (Challenge), `Account` | | no entry point or view changes for D-21 |
-| **New, planned:** `Quests.claim_tutorial()` | | the player's claim of First Stone: idempotent (one flag per player), no check, no value. Emits `AchievementProgressed { #[key] player_id: felt252, #[key] task_id: u32 = 10, count: u32 = 1 }` from the `Quests` address, once per player (D-24 below) |
+| **New, planned:** `Setup.claim_tutorial()` | | the player's claim of First Stone: idempotent (one flag per player), no check, no value. Emits `AchievementProgressed { #[key] player_id: felt252, #[key] task_id: u32 = 10, count: u32 = 1 }` from the `Setup` address, once per player (D-24 below) |
 
 **Codes.** `mode` 3 (Tutorial) in `GameSpawned`, `GameOver` and `GameView`, and the token ids from `TUTORIAL_OFFSET`
 (`0x100000000`) up, keep their meaning for what was emitted and minted before D-21, and are never given to anything
 else (P-42, ruling 4). No other `mode` code changes meaning. A task 10 `AchievementProgressed` comes from `Tutorial`'s
-address before D-21 and from `Quests` after.
+address before D-21 and from `Setup` after.
 
 **Open for the PM.** The Sepolia `Tutorial` keeps its class and its `lobby_class`, so it stays playable by anyone who
 calls it, mints Tutorial tokens through `Collection` and emits task 10. Nothing in the contracts can switch it off
@@ -530,7 +530,7 @@ only the contract, interface, impl, enum and file names do.
 | Contract | `Daily` (`paved::systems::daily::Daily`) | `Challenge` (`paved::systems::challenge::Challenge`) |
 | ABI file | `contracts/abis/Daily.json` | `contracts/abis/Challenge.json` |
 | Interface | `IDaily` | `IChallenge` |
-| Interface | `IDailyQuests` | leaves for `Quests` (D-24) |
+| Interface | `IDailyQuests` | leaves for `Setup` (D-24) |
 | Impl names in the ABI | `DailyImpl`, `DailyQuestsImpl` | `ChallengeImpl` (the quests impl leaves) |
 | Event enum | `paved::systems::daily::Daily::Event` | `paved::systems::challenge::Challenge::Event`; its variants and their keys are unchanged |
 | Enum `Mode` (in `Lobby.json`, the `spawn` argument) | `Daily` | `Challenge`: u8 code 1 and Serde index 1 unchanged; `Lobby` itself ends with D-24 |
@@ -538,7 +538,7 @@ only the contract, interface, impl, enum and file names do.
 | Collection view | `daily() -> ContractAddress` | `challenge() -> ContractAddress` |
 | Collection argument | `set_minters(daily, tutorial)` | `set_minters(challenge, tutorial)` |
 | Errors | `'Daily: account is zero'`, `'Daily: token is zero'`, `'Daily: lobby class is zero'` | `'Challenge: ...'`; the third goes with `lobby_class` (D-24) |
-| Errors (quest definitions) | `'Daily: quest not on UTC day'`, `'Daily: task total is zero'`, `'Daily: task id repeated'` | the `Quests` contract's own (D-24) |
+| Errors (quest definitions) | `'Daily: quest not on UTC day'`, `'Daily: task total is zero'`, `'Daily: task id repeated'` | the `Setup` contract's own (D-24) |
 | Deployment key | `contracts.Daily` in `contracts/deployments/<network>.json` | `contracts.Challenge` |
 | Views, events, structs of `paved::views` and `paved::events` | | none holds "Daily": unchanged names |
 
@@ -558,21 +558,21 @@ the Sepolia upgrade of D-19 to D-24; proposed: both read `Challenge` with a fall
 ## Breaking change D-24
 
 D-24 and P-51 (`docs/programme/DECISIONS.md`): `Lobby`'s cold paths go back into Challenge, and the quests and
-achievements move to a new contract, **`Quests`** (one system, recommended). **Not built yet**; inventory and design:
+achievements move to a new contract, **`Setup`** (one system, recommended; the D-24 system, named Setup by D-25). **Not built yet**; inventory and design:
 `leaderboard.md`, "D-24: Lobby's cold paths and a quest system (planned)". A stated exception to the stability promise.
 
 ### What leaves Challenge (`Daily`) and `Lobby`
 
 | Item | Before (main) | After |
 |---|---|---|
-| `IDailyQuests`: `define_quest(quest_id, schedule, tasks, conditions)`, `retire_quest(quest_id)`, `define_achievement(achievement_id, window, tasks, points)`, `retire_achievement(achievement_id)` (`systems/daily.cairo:28-46`) | on `Daily`, owner-only | **moved to `Quests`**, same signatures |
+| `IDailyQuests`: `define_quest(quest_id, schedule, tasks, conditions)`, `retire_quest(quest_id)`, `define_achievement(achievement_id, window, tasks, points)`, `retire_achievement(achievement_id)` (`systems/daily.cairo:28-46`) | on `Daily`, owner-only | **moved to `Setup`**, same signatures |
 | `ILobbyClass.set_lobby_class(class_hash)`, event `LobbyClassSet { class_hash }` (`daily.cairo:265-275`, `:153`) | on `Daily` and `Tutorial` | **removed** from Challenge |
 | Constructor of `Daily` | `(owner, account_address, token_address, lobby_class)` (`daily.cairo:159-165`) | `(owner, account_address, token_address)` for a new deploy (Sepolia upgrades in place) |
-| The quiver events in Challenge's ABI (`QuestDefined`, `QuestProgressed`, `QuestRetired`, `QuestCompleted`, `QuestClaimed`, `QuestReporterSet`, the `Achievement*` ones) | declared and emitted by `Daily` | emitted by `Quests` only. They stay in Challenge's ABI, never emitted, only if part B keeps the components declared to hold their dead storage |
+| The quiver events in Challenge's ABI (`QuestDefined`, `QuestProgressed`, `QuestRetired`, `QuestCompleted`, `QuestClaimed`, `QuestReporterSet`, the `Achievement*` ones) | declared and emitted by `Daily` | emitted by `Setup` only. They stay in Challenge's ABI, never emitted, only if part B keeps the components declared to hold their dead storage |
 | `spawn`, `discard`, `surrender`, `build` | wrappers of a library call (`spawn`, `discard`, `surrender`), `build` in `Daily` | same signatures; the code runs in Challenge |
 | The `Lobby` class (`Lobby.json`): `ILobby` (`spawn`, `claim`, `sponsor`, `discard`, `surrender`, `tutorial_*`, `report`, the four definitions), event `Reclaimed` | declared, never deployed, run by library call | **ends**: no Lobby class or contract until the multiplayer mode is planned (the name is reserved for it, P-51 (2)) |
 
-### `Quests`: the planned ABI
+### `Setup`: the planned ABI (the quest part)
 
 | Entry point or view | Who | What |
 |---|---|---|
@@ -584,10 +584,10 @@ achievements move to a new contract, **`Quests`** (one system, recommended). **N
 | `is_reporter(reporter: ContractAddress) -> bool`, `tutorial_claimed(player_id: felt252) -> bool` | anyone | views (proposed: the client shows whether First Stone was claimed) |
 | `IOwnable` (`owner`, `pending_owner`, `transfer_ownership`, `accept_ownership`), `upgrade(new_class_hash)` | owner | as the other contracts (P-42) |
 
-Events of `Quests`, with quiver 0.2.0's layouts (unchanged from those `Daily` emits today): `QuestDefined { #[key]
+Events of `Setup`, with quiver 0.2.0's layouts (unchanged from those `Daily` emits today): `QuestDefined { #[key]
 quest_id, schedule, tasks, conditions }`, `QuestProgressed { #[key] player_id, #[key] task_id, count }`, `QuestRetired
 { #[key] quest_id }`, `AchievementDefined { #[key] achievement_id, window, tasks, points }`, `AchievementProgressed
 { #[key] player_id, #[key] task_id, count }`, `AchievementRetired { #[key] achievement_id }`, `QuestReporterSet
 { #[key] reporter, allowed }`, `AchievementReporterSet { #[key] reporter, allowed }`; plus `Upgraded` and the ownership
-events. The indexer follows them from `Quests`' deployment block; the ones `Daily` and `Tutorial` emitted before stay
+events. The indexer follows them from `Setup`'s deployment block; the ones `Daily` and `Tutorial` emitted before stay
 history (not migrated, P-51 (5)).

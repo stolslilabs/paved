@@ -812,7 +812,8 @@ purchase (the biggest piece that is not on the move path), with the same flat-st
 
 ### The quest system's design (recommended)
 
-- **One system, not two.** One contract, proposed name **`Quests`**, holding both quiver components. Clarity: one
+- **One system, not two.** One contract, **`Setup`** (the D-24 system, named Setup by D-25, which also gives it the configuration and the
+  wiring; the rest of D-25 is planned in `glitchbomb-gap.md`), holding both quiver components. Clarity: one
   address for the indexer, one owner, one reporter allowlist, one place for the tutorial claim. CASM: quiver's two
   internal layers measured 6,491 felts together in `Daily` (P7), plus the external definitions, `Ownable`,
   `Upgradeable`, the allowlist and the claim: an estimate of 12,000 to 16,000, far under any cap, so CASM does not
@@ -848,26 +849,26 @@ purchase (the biggest piece that is not on the move path), with the same flat-st
   `Lobby` (about 118,650 L2 gas in release for the call itself, `class-headroom.md`). An external call costs the same
   order. A call per move is refused: every move would pay it, for nothing the game over cannot carry.
 - **Training reports nothing**: it is off chain (D-22) and no contract of it is a reporter.
-- **Storage.** Fresh in `Quests`. `Daily`'s (Challenge's) `Quest_*` and `Achievement_*` members are left dead, never
+- **Storage.** Fresh in `Setup`. `Daily`'s (Challenge's) `Quest_*` and `Achievement_*` members are left dead, never
   read or written, never reused (P-42); `Tutorial`'s achievement storage stays in the unused contract. Past progress
   is not migrated (ruling 5).
 - **Events the indexer follows.**
 
 | Event | Before: emitter | After: emitter | Layout |
 |---|---|---|---|
-| `QuestDefined`, `QuestRetired`, `QuestProgressed` | `Daily` | `Quests` | unchanged (quiver 0.2.0) |
-| `AchievementDefined`, `AchievementRetired` | `Daily` | `Quests` | unchanged |
-| `AchievementProgressed` | `Daily` (tasks 1 to 9), `Tutorial` (task 10) | `Quests` (task 10 from `claim_tutorial`) | unchanged: keys `player_id`, `task_id`; data `count` |
-| `QuestReporterSet`, `AchievementReporterSet` | declared, never emitted | `Quests`, at each `set_reporter` | keys `reporter`; data `allowed` |
+| `QuestDefined`, `QuestRetired`, `QuestProgressed` | `Daily` | `Setup` | unchanged (quiver 0.2.0) |
+| `AchievementDefined`, `AchievementRetired` | `Daily` | `Setup` | unchanged |
+| `AchievementProgressed` | `Daily` (tasks 1 to 9), `Tutorial` (task 10) | `Setup` (task 10 from `claim_tutorial`) | unchanged: keys `player_id`, `task_id`; data `count` |
+| `QuestReporterSet`, `AchievementReporterSet` | declared, never emitted | `Setup`, at each `set_reporter` | keys `reporter`; data `allowed` |
 | `QuestCompleted`, `QuestClaimed` | declared, never emitted | declared, never emitted (event mode) | unchanged |
 
-Past events from `Daily` and `Tutorial` stay in history; the indexer follows `Quests` from its deployment block in
+Past events from `Daily` and `Tutorial` stay in history; the indexer follows `Setup` from its deployment block in
 CLIENT's W1 (ruling 5).
 
 ### Sepolia
 
-The later upgrade (ruling 5, with D-19 to D-23): deploy `Quests` (deployer account), set Challenge as its reporter,
-define the quests and achievements there again (the definition script runs against `Quests`), upgrade `Daily` to the
+The later upgrade (ruling 5, with D-19 to D-23): deploy `Setup` (deployer account), set Challenge as its reporter,
+define the quests and achievements there again (the definition script runs against `Setup`), upgrade `Daily` to the
 Challenge class. No migration of past progress. `Tutorial` and the declared `Lobby` class are left alone.
 
 ## What Paved needs from a leaderboard package
