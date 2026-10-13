@@ -161,6 +161,16 @@ export class Game {
     this.id = id;
   }
 
+  /** Discards the held tile; false when the contract refuses (the tile can be placed). */
+  async discard(): Promise<boolean> {
+    try {
+      await this.player.send({ contractAddress: this.daily, entrypoint: "discard", calldata: [this.id] });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Builds the held tile on the first legal placement around the placed tiles; true when one was built. */
   async build(): Promise<boolean> {
     const candidates = this.placed.flatMap(([x, y]) => [

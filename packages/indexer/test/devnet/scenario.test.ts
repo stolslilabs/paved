@@ -145,12 +145,13 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     return { score: Number(g[4]), over: g[5] === 1n, startTime: Number(g[13]), endTime: Number(g[14]), tournamentId: Number(g[15]) };
   };
   /**
-   * Plays `moves` placements, then gives up; `Infinity` plays the deck to its end. Since D-18 a structure scores when it
+   * Plays `moves` turns (a placement, or a discard when the tile fits nowhere), then gives up; `Infinity` plays the deck to its end. Since D-18 a structure scores when it
    * closes, with no character on it.
    */
   const play = async (g: Game, moves: number, p: Player) => {
     for (let i = 0; i < moves; i++) {
-      if (!(await g.build())) break;
+      // No legal placement for this tile (the deck has tiles that fit nowhere): discard it, as the contract allows.
+      if (!(await g.build()) && !(await g.discard())) break;
       if (moves === Infinity && (await view(p, g.id)).over) return;
     }
     if (!(await view(p, g.id)).over) await send(p, deployment.contracts.Daily.address, "surrender", [g.id]);
