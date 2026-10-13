@@ -3,10 +3,9 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, placementOutcome, useGameSession, usePaved } from "@paved/chain";
+import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
-import { ClosedStructures, type Closure } from "../components/ClosedStructures";
 import { GameNft, useCollection } from "../components/GameNft";
 import { CENTER, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
@@ -19,8 +18,6 @@ import { REFERRAL_PARAM } from "../utils/economy-view";
 
 /** How long a start consent waits for a ready writer before it is dropped. */
 const START_CONSENT_MS = 30_000;
-/** How long the structures a move closed stay on screen. */
-const CLOSURES_MS = 6_000;
 
 let _debugOnce = true;
 
@@ -266,14 +263,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     [state, game?.playerId],
   );
 
-  // The structures the last move closed (its `Scored` events), shown for a while next to the score.
-  const [closures, setClosures] = useState<Closure[] | null>(null);
-  useEffect(() => {
-    if (!closures) return;
-    const timer = setTimeout(() => setClosures(null), CLOSURES_MS);
-    return () => clearTimeout(timer);
-  }, [closures]);
-
   const handleReady = useCallback((s: GameScene) => {
     setScene(s);
   }, []);
@@ -358,14 +347,8 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     // D-18: no character; the fields leave with the chain change (PR 1)
     const move = { orientation, x, y, role: 0, spot: 0 };
     useGameStore.getState().setSelectedTile(null);
-    setClosures(null);
     // Keep hoverGrid so the ghost stays visible with the next tile
-    const placed = await session.place(move, async () => {
-      const result = await writer.build(gameKey, move);
-      const { scored } = placementOutcome(result.events, gameKey.gameId);
-      if (scored.length > 0) setClosures(scored);
-      return result;
-    });
+    const placed = await session.place(move, () => writer.build(gameKey, move));
     if (placed) setOrientation(1); // reset rotation for the new tile
   }, [session, writer, readonly, orientation, x, y, gameKey, setOrientation]);
 
@@ -513,7 +496,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             totalTiles={game?.deckSize ?? 0}
             discarded={game?.discardedCount ?? 0}
           />
-          <ClosedStructures closures={closures} />
           <GameNft tokenId={tokenId} collection={collection} verify />
         </div>
 

@@ -22,7 +22,7 @@ vi.mock("@paved/ui", async () => {
   const { makeUiMock } = await import("./helpers/page-fixtures");
   return {
     ...makeUiMock(),
-    IngameStatus: ({ score }: { score: number }) => <div>Score {score}</div>,
+    IngameStatus: () => null,
     GameCompleteDialog: () => null,
     ActionBar: ({ onConfirm, confirmDisabled }: { onConfirm: () => void; confirmDisabled: boolean }) => (
       <button type="button" disabled={confirmDisabled} onClick={onConfirm}>
@@ -34,10 +34,6 @@ vi.mock("@paved/ui", async () => {
 
 afterEach(cleanup);
 
-const scored = (category: number, size: number, points: number) => ({
-  name: "Scored",
-  fields: { gameId: 4n, playerId: 0xabcn, category: BigInt(category), size: BigInt(size), points: BigInt(points) },
-});
 const built = { name: "Built", fields: { gameId: 4n, playerId: 0xabcn, tileId: 2n, plan: 7n, orientation: 1n, x: 0n, y: 0n } };
 
 async function confirmWith(events: unknown[]) {
@@ -54,33 +50,9 @@ async function confirmWith(events: unknown[]) {
   return build;
 }
 
-describe("Points on closing (D-18)", () => {
+describe("Confirming a move (D-18)", () => {
   it("sends the move once the tile is on a valid slot, with no spot step", async () => {
     const build = await confirmWith([built]);
     expect(build.mock.calls[0][0]).toEqual(gameKey);
-  });
-
-  it("shows each structure the move closed, with its points", async () => {
-    await confirmWith([built, scored(2, 3, 6), scored(3, 2, 8)]);
-    await waitFor(() =>
-      expect(screen.getByTestId("closures").textContent).toBe("Road closed: size 3, +6 pointsCity closed: size 2, +8 points"),
-    );
-  });
-
-  it("shows a closure at 0 points", async () => {
-    await confirmWith([built, scored(1, 4, 0)]);
-    await waitFor(() => expect(screen.getByTestId("closures").textContent).toBe("Forest closed: size 4, 0 points"));
-  });
-
-  it("shows nothing for a move that closes nothing", async () => {
-    await confirmWith([built]);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(screen.getByTestId("closures").textContent).toBe("");
-  });
-
-  it("ignores the closures of another game", async () => {
-    await confirmWith([built, { ...scored(2, 3, 6), fields: { ...scored(2, 3, 6).fields, gameId: 5n } }]);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(screen.getByTestId("closures").textContent).toBe("");
   });
 });

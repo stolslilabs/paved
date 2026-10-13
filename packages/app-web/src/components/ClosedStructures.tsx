@@ -15,7 +15,8 @@ export function closureLine({ category, size, points }: Closure): string {
 }
 
 /**
- * What the last move closed, next to the score. The live region is always there, so that a screen
+ * What the last move closed, to sit next to the score. Not wired yet: it takes the session's
+ * `lastScored` (PR 1, D-18) in the D-18 cleanup. The live region is always there, so that a screen
  * reader hears each new line; it is empty when the move closed nothing.
  */
 export function ClosedStructures({ closures }: { closures: readonly Closure[] | null }) {
