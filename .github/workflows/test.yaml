@@ -33,6 +33,7 @@ jobs:
               - 'contracts/**'
               - 'scripts/abis.sh'
               - 'scripts/class-sizes.sh'
+              - 'scripts/check-artifact-names.sh'
               - 'scripts/deploy.sh'
               - 'scripts/test-deploy-url.sh'
               - 'scripts/signer/**'
