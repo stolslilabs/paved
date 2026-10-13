@@ -377,6 +377,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const handleSurrender = useCallback(async () => {
     setConfirmingSurrender(false);
     if (!session || !writer || readonly) return;
+    setClosures(null);
     await session.surrender(() => writer.surrender(gameKey));
   }, [session, writer, readonly, gameKey]);
   const canSurrender = !readonly && !loading && game !== null && !game.over;

@@ -24,10 +24,15 @@ vi.mock("@paved/ui", async () => {
     ...makeUiMock(),
     IngameStatus: () => null,
     GameCompleteDialog: () => null,
-    ActionBar: ({ onConfirm, confirmDisabled }: { onConfirm: () => void; confirmDisabled: boolean }) => (
-      <button type="button" disabled={confirmDisabled} onClick={onConfirm}>
-        Confirm move
-      </button>
+    ActionBar: ({ onConfirm, confirmDisabled, onDiscard }: { onConfirm: () => void; confirmDisabled: boolean; onDiscard: () => void }) => (
+      <>
+        <button type="button" disabled={confirmDisabled} onClick={onConfirm}>
+          Confirm move
+        </button>
+        <button type="button" onClick={onDiscard}>
+          Discard tile
+        </button>
+      </>
     ),
   };
 });
@@ -80,5 +85,71 @@ describe("Points on closing (D-18)", () => {
     await confirmWith([built, scored(2, 3, 6, 5n)]);
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.getByTestId("closures").textContent).toBe("");
+  });
+});
+
+describe("The closures clear with the next write (D-18)", () => {
+  const receipt = (events: unknown[]) => ({ transactionHash: "0x1", events });
+  const lines = () => screen.getByTestId("closures").textContent;
+
+  /** A first move that closes a road, then the writer for what follows. */
+  async function afterClosingMove(next: { build?: () => Promise<unknown>; discard?: () => Promise<unknown>; surrender?: () => Promise<unknown> }) {
+    const views = new FakeGameViews();
+    views.setGame(gameKey, fakeGame());
+    const build = vi.fn(async () => receipt([built, scored(2, 3, 6)]));
+    if (next.build) build.mockImplementationOnce(async () => receipt([built, scored(2, 3, 6)])).mockImplementation(next.build);
+    const writer = { build, discard: vi.fn(next.discard ?? (async () => receipt([]))), surrender: vi.fn(next.surrender ?? (async () => receipt([]))) };
+    renderPage({ page: <GamePage />, path: "/game", search: "?mode=daily&id=4", views, writer });
+    fireEvent.click(await screen.findByText("Slot"));
+    const confirm = () => screen.getByText("Confirm move") as HTMLButtonElement;
+    await waitFor(() => expect(confirm().disabled).toBe(false));
+    fireEvent.click(confirm());
+    await waitFor(() => expect(lines()).toBe("Road closed: size 3, +6 points"));
+    return { writer, confirm };
+  }
+
+  async function confirmAgain(confirm: () => HTMLButtonElement) {
+    fireEvent.click(screen.getByText("Slot"));
+    await waitFor(() => expect(confirm().disabled).toBe(false));
+    fireEvent.click(confirm());
+  }
+
+  it("the next move empties them as soon as it is sent, and they stay empty when it closes nothing", async () => {
+    let finish!: () => void;
+    const { writer, confirm } = await afterClosingMove({ build: () => new Promise((r) => (finish = () => r(receipt([built])))) });
+    await confirmAgain(confirm);
+    await waitFor(() => expect(writer.build).toHaveBeenCalledTimes(2));
+    expect(lines()).toBe("");
+    finish();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(lines()).toBe("");
+  });
+
+  it("a move whose write fails leaves them empty", async () => {
+    const { writer, confirm } = await afterClosingMove({
+      build: async () => {
+        throw new Error("Game: invalid position");
+      },
+    });
+    await confirmAgain(confirm);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Game: invalid position"));
+    expect(writer.build).toHaveBeenCalledTimes(2);
+    expect(lines()).toBe("");
+  });
+
+  it("a discard empties them", async () => {
+    const { writer } = await afterClosingMove({});
+    fireEvent.click(screen.getByText("Discard tile"));
+    await waitFor(() => expect(writer.discard).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(lines()).toBe(""));
+  });
+
+  it("a surrender empties them", async () => {
+    const { writer } = await afterClosingMove({});
+    await waitFor(() => expect((screen.getByText("Surrender") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByText("Surrender"));
+    fireEvent.click(screen.getByText("Confirm surrender"));
+    await waitFor(() => expect(writer.surrender).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(lines()).toBe(""));
   });
 });
