@@ -323,11 +323,18 @@ big='["0xffffffffffffffffffffffff","0x0"]'
 # Addresses compared without their padding (the record pads them, O-19).
 contract="0x$(sed 's/^0x0*//' <<<"$contract")"
 case "$cmd:$fn" in
-  call:owner) r="[\"$STARKNET_ACCOUNT_ADDRESS\"]" ;;
+  # not_owner (--d18): every owner() is another account.
+  call:owner) r="[\"$STARKNET_ACCOUNT_ADDRESS\"]"; [[ -e "$dir/not_owner" ]] && r='["0x999"]' ;;
   call:addresses) r="[\"0x10\",\"0x20\",\"0x30\",\"$([[ -e "$dir/repointed" ]] && echo 0x90 || echo 0x80)\",\"0x50\"]" ;;
-  call:router) [[ -e "$dir/repointed" ]] || { echo "signer: call failed: ENTRYPOINT_NOT_FOUND" >&2; exit 1; }; r='["0x90"]' ;;
+  # router (--d18): the address Economy.router() answers, when not the new MockRouter 0x90.
+  call:router) [[ -e "$dir/repointed" ]] || { echo "signer: call failed: ENTRYPOINT_NOT_FOUND" >&2; exit 1; }
+    r="[\"$(cat "$dir/router" 2>/dev/null || echo 0x90)\"]" ;;
   call:pool_key) r='["0x10","0x20","0x1","0x1","0x0"]' ;;
-  call:config) r='["0x1b58","0x0","0x46d2","0x5","0xd3c21bcecceda1000000"]' ;;
+  # config (--d18): Economy.config() as a JSON list, when not the one before P-46 (slope 18,130).
+  call:config) r="$(cat "$dir/config" 2>/dev/null || echo '["0x1b58","0x0","0x46d2","0x5","0xd3c21bcecceda1000000"]')" ;;
+  # --d18's smoke on a complete upgrade: game 7 over with 2 tiles placed, and its builder (game, player, tile, plan).
+  call:game) r='["0x7","0x1","0x1","0x0","0x0","0x1","0x3","0x2","0x0","0x0","0x0","0x0","0x26","0x0","0x0","0x0"]' ;;
+  call:builder) r="[\"0x7\",\"$STARKNET_ACCOUNT_ADDRESS\",\"0x3\",\"0xe\"]" ;;
   call:pool) r='["0x10","0x20","0x1","0x1","0x0","0x0","0x0"]' ;;
   call:reserves)
     # PAVED (0x10) is token0: 800,000 PAVED and 10,000 USDC, the old pool's size.
@@ -404,7 +411,7 @@ rp_json="$rp/root/contracts/deployments/sepolia.json"
 # The deployment (written after the commit: the source check reads contracts/src, Scarb.toml and Scarb.lock only), with
 # an optional `repoint` record, as JSON. Each case starts from clean signer and node files.
 rp_case() { # [repoint record]
-  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby}
+  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby,router,not_owner,config}
   rp_classes
   python3 -I - "$rp_json" "${1:-}" <<'PY'
 import json, sys
@@ -643,6 +650,107 @@ if [[ $rc -ne 1 || "$out" != *"not landed: d18.multicall_tx cleared, so a rerun 
   d18_fail "a multicall refused 'not landed': expected exit 1, d18.multicall_tx cleared, the previous state recorded, got $rc (refused: $refused)" "$out"
 else
   echo "ok: sepolia --d18: one multicall of the six calls; refused 'not landed', its d18.multicall_tx is cleared; the previous classes and config are recorded; repoint untouched"
+fi
+
+# The order guard (review of #329): Economy.router() answers an address other than the file's MockRouter: refused before
+# anything is estimated or sent, --check-only included, the file unchanged.
+for mode in --check-only ""; do
+  d18_case
+  printf '0x91' >"$rp/bin/router"
+  before="$(cat "$rp_json")"
+  # shellcheck disable=SC2086
+  out="$(rp_run --d18 $mode)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"Economy.router() is 0x91, not the file's MockRouter 0x90: R-1's repoint has not landed; D-18c runs after R-1 part B; nothing was sent"* ||
+      "$out" == *"== funding"* || -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] || leaks -q <<<"$out"; then
+    d18_fail "${mode:-full run} with Economy.router() another router: expected a refusal, nothing sent, the file unchanged, got $rc" "$out"
+  else
+    echo "ok: sepolia --d18 ${mode:-(full run)} refuses when Economy.router() is not the file's MockRouter, nothing sent, the file unchanged"
+  fi
+done
+
+# Checks that refuse before anything is sent (review of #329), each a full run, the file unchanged: the deployer is not
+# owner(); a class that is neither the file's nor the D-18 one; a config that differs from the recorded previous one by
+# more than the slope.
+d18_refuses() { # <label> <expected fragment>
+  local before out rc
+  before="$(cat "$rp_json")"
+  out="$(rp_run --d18)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"$2"* || "$out" == *"== funding"* || -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] ||
+      leaks -q <<<"$out"; then
+    d18_fail "$1: expected '$2', nothing sent, the file unchanged, got $rc" "$out"
+  else
+    echo "ok: sepolia --d18 refuses $1 (exit $rc), nothing sent, the file unchanged"
+  fi
+}
+d18_case
+touch "$rp/bin/not_owner"
+d18_refuses "a deployer that is not owner()" "the deployer \$STARKNET_ACCOUNT_ADDRESS is not Daily.owner()"
+d18_case
+printf '0x50 0x777\n' >>"$rp/bin/classes"
+d18_refuses "a Daily class that is neither the file's nor the D-18 one" "daily's class on the node is 0x777: neither the file's 0xd nor the D-18 class"
+d18_case "$d18_repointed"
+python3 -I - "$rp_json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["d18"] = {"previous": {"Daily": {"class_hash": "0xd"}, "Tutorial": {"class_hash": "0xb"}, "Account": {"class_hash": "0xa"},
+                         "Lobby": {"class_hash": "0x1b"}, "config": "0x1388 0x0 0x46d2 0x5 0xd3c21bcecceda1000000"}}
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+d18_refuses "a config that differs from the recorded one by more than the slope" "differs from the config recorded before the upgrade (burn_bps 5000"
+
+# A recorded declare, or a recorded multicall, with no receipt is awaited, not sent again: the wait (REPOINT_WAIT_S=0
+# here) ends the run, the hash kept, nothing sent.
+for key in declare.Account multicall_tx; do
+  d18_case
+  python3 -I - "$rp_json" "$key" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+node = d.setdefault("d18", {})
+*parents, leaf = sys.argv[2].split(".")
+for p in parents:
+    node = node.setdefault(p, {})
+node[leaf] = "0xdead2"
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+  out="$(REPOINT_WAIT_S=0 rp_run --d18)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"$key 0xdead2 (recorded) has no receipt after 0 s (node: UNKNOWN): check it before any rerun"* ||
+      "$(d18_get_test "$key")" != 0xdead2 || -s "$rp/bin/sent.log" || -s "$rp/bin/refused.log" ]] || leaks -q <<<"$out"; then
+    d18_fail "a recorded $key with no receipt: expected exit 1, the hash kept, nothing sent, got $rc" "$out"
+  else
+    echo "ok: sepolia --d18: a recorded $key with no receipt stops the run (exit $rc), its hash kept, nothing sent"
+  fi
+done
+
+# A complete upgrade and no STRK (review of #329): every class D-18, both Lobby classes D-18, slope 12,220, the smoke's
+# game recorded over, every recorded transaction landed. The funding check does not refuse, the smoke reads back, nothing
+# is sent (exit 0).
+d18_case
+for a in "0x50 Daily" "0x60 Tutorial" "0x40 Account"; do
+  set -- $a; printf '%s %s\n0x%064x %s\n' "$1" "$(hexname "$2")" "$1" "$(hexname "$2")"
+done >>"$rp/bin/classes"
+hexname Lobby >"$rp/bin/lobby"
+printf '%s' '["0x1b58","0x0","0x2fbc","0x5","0xd3c21bcecceda1000000"]' >"$rp/bin/config"
+touch "$rp/bin/poor"
+python3 -I - "$rp_json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["d18"] = {"previous": {"Daily": {"class_hash": "0xd"}, "Tutorial": {"class_hash": "0xb"}, "Account": {"class_hash": "0xa"},
+                         "Lobby": {"class_hash": "0x1b"}, "config": "0x1b58 0x0 0x46d2 0x5 0xd3c21bcecceda1000000"},
+            "multicall_tx": "0x5eed00aa", "smoke": {"game_id": "7", "spawn_tx": "0x5eed00ab", "build_tx": "0x5eed00ac",
+                                                    "surrender_tx": "0x5eed00ad"}}
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+printf '0x5eed00aa SUCCEEDED\n0x5eed00ab SUCCEEDED\n0x5eed00ac SUCCEEDED\n0x5eed00ad SUCCEEDED\n' >"$rp/bin/receipts"
+out="$(rp_run --d18)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"complete: upgraded, Lobby and slope set, smoke recorded; nothing is left to send"* ||
+    "$out" != *"deployer STRK balance 0.00 STRK: BELOW the need of 20.00 STRK"* ||
+    "$out" != *"--d18: nothing is left to send, so the need does not apply"* ||
+    "$out" != *"upgraded, Lobby and slope set already, tx 0x5eed00aa"* || "$out" != *"build done already, tx 0x5eed00ac; not sent again"* ||
+    "$out" != *"builder(): game_id 7, player_id the deployer, tile_id 3, plan 14"* || "$out" != *"== d18: smoke ok"* ||
+    -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  d18_fail "a complete upgrade with no STRK: expected exit 0, the funding need waived, smoke ok, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --d18: a complete upgrade with 0 STRK passes the funding check (nothing left to send), smoke ok, nothing sent"
 fi
 
 # sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a

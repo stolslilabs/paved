@@ -184,7 +184,7 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia [--rehearse] --d18 [--deployment <file>] [--check-only]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
@@ -1215,8 +1215,9 @@ repoint_smoke() {
     echo "== repoint: smoke ok"
     return
   fi
-  # The player: the deployer's account, created by the deploy's smoke; created here if not.
-  v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r player _ <<<"$raw"
+  # The player: the deployer's account, created by the deploy's smoke; created here if not. Player is (id, name, master):
+  # the id is the key, so the name says whether the player exists.
+  v raw call "$ACCOUNT" player "$DEPLOYER_ARG"; read -r _ player _ <<<"$raw"
   [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
   # The 2 USDC of the spawn: what the deployer lacks of them, from the faucet (the seed left that much room).
   v raw call "$USDC" balance_of "$DEPLOYER_ARG"; read -r held _ <<<"$raw"
