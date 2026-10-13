@@ -136,3 +136,93 @@ do not change the ruling. Write what the code says, and flag it under "For the P
   - "For META";
   - "For CLIENT".
 - Report: the PR's number and head, the diff stat, each fact checked (file:line), and the CI result. Do not merge.
+
+## Addendum: D-21
+
+Addition to this task, from the PM, 2026-10-13. Fold two new owner decisions into this same docs PR. Retitle it
+`docs: D-20 and D-21, tournaments and the on-chain tutorial leave the code (decisions, inventory, ABI diff)`.
+
+### The decisions (owner, via the PM, 2026-10-13)
+
+- **D-21.** The tutorial goes fully off-chain. On chain there is only a claim of the tutorial achievement, which is
+  not really verified. The aim is to lighten the contracts.
+- **D-22.** The game engine is reproduced off-chain, with a free "Training" mode that has no on-chain gain. This is
+  CLIENT's work. For CORE it means parity (ruling 3).
+
+**P-49, the PM's rulings:**
+1. **Leaving the contracts:** the `Tutorial` contract, the tutoriable component and the tutorial deck. The Sepolia
+   `Tutorial` stays deployed but unused. D-18c is not reworked: it still upgrades `Tutorial`, which is harmless.
+2. **The claim:**
+   - one call per player, idempotent, that emits the achievement's progress;
+   - no verification, by design: the owner accepts that it can be cheated;
+   - no token or value attached;
+   - the host contract (`Daily` or `Account`) is CORE's call, whichever costs less CASM.
+3. **Parity.** The client's off-chain engine must give the same scores as the contracts after D-18 and D-19. CORE
+   publishes the goldens and the differential games as a fixture file that the client's CI can replay: moves, the
+   expected `Scored` events and the final scores. CORE keeps it current when a rule changes.
+4. **Mode.** Removing Tutorial follows P-42: dead storage and enum codes are never reused.
+5. An audit is needed only if the removal touches the shared structure-state code (correctness lens). Sepolia: in
+   the same later upgrade as D-19 and D-20.
+
+### What to add
+
+1. **DECISIONS.md:** rows D-21, D-22 and P-49 (rulings 1 to 5, condensed). For each:
+   - who: "owner, via the PM" for D-21 and D-22, "PM" for P-49;
+   - date: 2026-10-13;
+   - what reverses it:
+     - D-21: "The owner brings the tutorial back on chain";
+     - D-22: "The owner drops the off-chain engine";
+     - P-49: "A contract fact that something kept depends on what goes".
+   Mark the rows of the on-chain tutorial (its deck, its script, its quests) "(reversed by D-21)". Delete none.
+2. **The inventory of the removal**, cited to main's code (file:line). Put it in a section "D-21: the tutorial leaves
+   the contracts (planned)" of the note you chose for D-20, or a note you name.
+   - Everything that goes:
+     - `systems/tutorial.cairo`;
+     - `components/tutoriable.cairo`;
+     - `elements/decks/tutorial.cairo` and its use in `types/deck.cairo` and `helpers/random_deck.cairo`;
+     - `Mode::Tutorial` in `types/mode.cairo`: its code becomes dead (P-42);
+     - the references in `lobby.cairo`, `collection.cairo`, `hostable.cairo`, `views.cairo`, `seed.cairo`,
+       `quests.cairo`, `models/game.cairo`, `constants.cairo` and `lib.cairo`;
+     - the tests and goldens that run the tutorial: `tests/golden/tutorial.cairo` and others.
+   - **Does the removal touch the shared structure-state code** (`structure/**`, `models/game.cairo`'s assess,
+     `store.cairo`)? Answer plainly: it decides whether an audit is needed.
+   - What `Lobby` loses (it shares `PavedStorage` and cites the tutorial 24 times), and whether `Lobby`'s and
+     `Collection`'s classes change.
+   - The tutorial's storage left dead.
+3. **The claim's host: recommend one, by CASM.**
+   - The achievements live in `Daily` today (the quiver `AchievementComponent`).
+   - Compare hosting the claim in `Daily` (one entry point added to the existing component) with hosting it in
+     `Account` (`Account` would need the achievement emission).
+   - Use `class-headroom.md`'s figures. Give no new measured figure: the implementation measures. D-19b puts `Daily`
+     at about 58,300 felts against the 72,947 cap.
+   - Name the achievement and the event it emits (read `quests.md` and the quiver integration).
+   - Say what "idempotent" stores: one flag per player, a new field under P-42.
+4. **public-interface.md:** a section "Breaking change D-21":
+   - the `Tutorial` ABI: unused from the upgrade on, still deployed;
+   - every entry point or view of `Daily`, `Lobby`, `Account` or `Collection` that goes or changes;
+   - the new claim entry point, planned, with its signature and its event;
+   - any `Mode` code in a view or event that changes meaning.
+   Keep the D-19 and D-20 sections.
+5. **quests.md:** the tutorial achievement is now credited by the claim (ruling 2), with no on-chain check. Mark the
+   tutorial's on-chain quest wording obsolete.
+6. **The parity fixture (ruling 3): the design only, in a section "Parity fixture (planned)".** Put it in the same
+   note as the inventory, or in a new `docs/architecture/parity-fixture.md`, which is added to your allowlist.
+   - Its path in the repository.
+   - Its format: JSON, one game per entry, with the seed or deck, the moves, the expected `Scored` events per move
+     and the final score.
+   - Its sources: the 20 goldens of `golden-games.md` and the differential games.
+   - How a Cairo test keeps it current: the contract replays the file and fails when a rule changes it.
+   - What the client's CI does with it.
+   - Single-player games only, unless the multiplayer mode needs owners (D-19's seat).
+
+Allowlist additions: `docs/architecture/parity-fixture.md` (new), and `class-headroom.md` for the claim's host (a
+short section). The rest of the allowlist is unchanged. `structure-state.md`, `upgrades.md`, `indexer.md` and the
+client notes stay out: list there what the implementation must add.
+
+PR body additions:
+- "D-21 inventory";
+- "Audit needed for D-21?" (yes or no, with the evidence);
+- "Claim host" (the recommendation);
+- "For CLIENT": the parity fixture, and the tutorial's entry points that go.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
