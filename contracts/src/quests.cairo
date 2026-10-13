@@ -30,8 +30,8 @@ const OVER: u128 = 0x80000000000000000000000000000000;
 
 /// The tally of a game that is over, in one `u128` (a move that does not end the game returns 0,
 /// which costs nothing next to an `Option` of a struct): score (32 bits), 8 bits always 0 (the
-/// rank until D-20, left unused so that `Daily` and a `Lobby` class of either side of D-20 read
-/// the same layout), structures, forests, wonders and big (8 bits each), and the `OVER` flag. The
+/// rank until D-20, left unused so that the layout is the same on either side of D-20),
+/// structures, forests, wonders and big (8 bits each), and the `OVER` flag. The
 /// counters are clamped to the widths of their `GameState` bits.
 pub fn encode(game: Game) -> u128 {
     let t = tally(game, 0);

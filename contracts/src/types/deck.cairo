@@ -3,7 +3,6 @@
 use core::hash::HashStateTrait;
 use core::poseidon::{HashState, PoseidonTrait};
 use paved::elements::decks::simple::DeckImpl as Simple;
-use paved::elements::decks::tutorial::DeckImpl as Tutorial;
 use paved::helpers::bitmap::Bitmap;
 use paved::types::orientation::Orientation;
 
@@ -16,14 +15,14 @@ use paved::types::plan::Plan;
 pub const NONE: felt252 = 0;
 pub const MULTIPLIER: u128 = 10_000;
 
-// The u8 code of Simple stays 2 and Tutorial 3 (1 was Base, used by Weekly), so the codes do not
-// shift.
+// The u8 code of Simple stays 2 (1 was Base, used by Weekly; 3 was Tutorial, gone with D-21), so
+// the codes do not shift. 1 and 3 stay reserved, never given to another deck (P-42): they read as
+// `None`.
 
 #[derive(Copy, Drop, Serde)]
 pub enum Deck {
     None,
     Simple,
-    Tutorial,
 }
 
 pub impl IntoDeckFelt252 of Into<Deck, felt252> {
@@ -32,7 +31,6 @@ pub impl IntoDeckFelt252 of Into<Deck, felt252> {
         match self {
             Deck::None => NONE,
             Deck::Simple => 'SIMPLE',
-            Deck::Tutorial => 'TUTORIAL',
         }
     }
 }
@@ -43,7 +41,6 @@ pub impl IntoDeckU8 of Into<Deck, u8> {
         match self {
             Deck::None => 0,
             Deck::Simple => 2,
-            Deck::Tutorial => 3,
         }
     }
 }
@@ -55,7 +52,6 @@ pub impl IntoDeck of Into<u8, Deck> {
         match deck {
             0 => Deck::None,
             2 => Deck::Simple,
-            3 => Deck::Tutorial,
             _ => Deck::None,
         }
     }
@@ -68,7 +64,6 @@ pub impl DeckImpl of DeckTrait {
         match self {
             Deck::None => 0,
             Deck::Simple => Simple::total_count(),
-            Deck::Tutorial => Tutorial::total_count(),
         }
     }
 
@@ -77,7 +72,6 @@ pub impl DeckImpl of DeckTrait {
         match self {
             Deck::None => 0,
             Deck::Simple => Simple::count(),
-            Deck::Tutorial => Tutorial::count(),
         }
     }
 
@@ -86,7 +80,6 @@ pub impl DeckImpl of DeckTrait {
         match self {
             Deck::None => Plan::None,
             Deck::Simple => Simple::plan(index),
-            Deck::Tutorial => Tutorial::plan(index),
         }
     }
 
@@ -95,7 +88,6 @@ pub impl DeckImpl of DeckTrait {
         match self {
             Deck::None => array![],
             Deck::Simple => Simple::indexes(plan),
-            Deck::Tutorial => Tutorial::indexes(plan),
         }
     }
 
@@ -104,7 +96,6 @@ pub impl DeckImpl of DeckTrait {
         match self {
             Deck::None => (Orientation::None, 0, 0),
             Deck::Simple => Simple::parameters(index),
-            Deck::Tutorial => Tutorial::parameters(index),
         }
     }
 

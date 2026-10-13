@@ -15,8 +15,8 @@
 //! The walks read the seat from the tile slots they read anyway, so the count adds no storage read
 //! to a road, a city or a forest, and writes nothing. A winning seat becomes a player id in one
 //! place, `player_of_seat`. In a game with one player every tile is seat 0, so the winner is the
-//! player and the count is skipped (`Game::assess`, on `Mode::solo`): Daily and Tutorial score as
-//! they did before D-19.
+//! player and the count is skipped (`Game::assess`, on `Mode::solo`): Daily scores as it did before
+//! D-19.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::Tile;

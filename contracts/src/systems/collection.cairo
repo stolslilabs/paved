@@ -9,7 +9,9 @@
 //! `TUTORIAL_OFFSET + game id` (`Daily` and `Tutorial` count their own game ids, so the same game
 //! id exists twice). `mint` and `token_uri` route by that range. Only `Daily` mints Daily ids and
 //! only `Tutorial` mints Tutorial ids; both are set once by the owner (`set_minters`). The mint is
-//! a plain mint: no receiver callback.
+//! a plain mint: no receiver callback. Since D-21 the tutorial is off chain: no Tutorial token is
+//! minted on a new network (its `tutorial` minter is zero), and the ids minted on Sepolia before
+//! stay readable through the `Tutorial` still deployed there.
 //!
 //! `token_uri` returns `data:application/json;base64,` + the base64 of the JSON of section 9, read
 //! from the `game` view of the game contract the id belongs to. It has no `image` yet.
@@ -27,7 +29,7 @@ pub const TOKEN_LIMIT: u256 = 0x200000000;
 
 #[starknet::interface]
 pub trait ICollection<TContractState> {
-    /// Sets the two minters, once. Owner only.
+    /// Sets the two minters, once. Owner only. `tutorial` may be zero (no Tutorial since D-21).
     fn set_minters(ref self: TContractState, daily: ContractAddress, tutorial: ContractAddress);
     /// Mints `token_id` to `to`. The minter of the id's range only.
     fn mint(ref self: TContractState, to: ContractAddress, token_id: u256);
@@ -321,7 +323,9 @@ pub mod Collection {
         fn set_minters(ref self: ContractState, daily: ContractAddress, tutorial: ContractAddress) {
             self.ownable.assert_only_owner();
             assert(self.daily.read().is_zero(), errors::MINTERS_SET);
-            assert(daily.is_non_zero() && tutorial.is_non_zero(), errors::ZERO_MINTER);
+            // [Check] A Daily minter; the Tutorial one is zero on a network deployed after D-21,
+            // which mints no Tutorial token (the range stays readable where it was minted)
+            assert(daily.is_non_zero(), errors::ZERO_MINTER);
             // [Check] Two contracts: one address minting both ranges would defeat the split
             assert(daily != tutorial, errors::SAME_MINTER);
             self.daily.write(daily);

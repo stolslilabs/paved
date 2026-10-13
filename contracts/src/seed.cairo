@@ -12,7 +12,7 @@ pub trait SeedSource<T> {
     fn seed(self: @T, mode: Mode, time: u64, game_id: u32, salt: felt252) -> felt252;
 }
 
-/// Today's seed: Poseidon of the salt and the day id for a Daily game, 0 for the Tutorial.
+/// Today's seed: Poseidon of the salt and the day id for a Daily game.
 #[derive(Copy, Drop)]
 pub struct DailySeed {}
 

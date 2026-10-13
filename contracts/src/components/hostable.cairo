@@ -100,12 +100,7 @@ pub mod HostableComponent {
             // [Effect] Store game
             store.set_game(game);
 
-            // [Event] Game spawned: a Tutorial game belongs to no day (id 0)
-            let event_day_id = if mode == Mode::Tutorial {
-                0
-            } else {
-                day
-            };
+            // [Event] Game spawned
             store
                 .emit(
                     PavedEvent::GameSpawned(
@@ -113,14 +108,14 @@ pub mod HostableComponent {
                             game_id,
                             player_id: player.id,
                             mode: game.mode,
-                            day_id: event_day_id,
+                            day_id: day,
                             start_time: time,
                             price: game.price(),
                         },
                     ),
                 );
 
-            // [Return] Game ID and the price of one stake unit (0 for the Tutorial)
+            // [Return] Game ID and the price of one stake unit
             let amount: u256 = game.price().into();
             (game_id, amount)
         }
