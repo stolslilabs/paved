@@ -494,38 +494,12 @@
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        "name": "account_address",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
         "name": "token_address",
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
         "name": "setup_address",
         "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::PlayerCreated",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "master",
-        "type": "core::felt252",
-        "kind": "data"
       }
     ]
   },
@@ -719,11 +693,6 @@
     "name": "paved::events::Event",
     "kind": "enum",
     "variants": [
-      {
-        "name": "PlayerCreated",
-        "type": "paved::events::PlayerCreated",
-        "kind": "nested"
-      },
       {
         "name": "GameSpawned",
         "type": "paved::events::GameSpawned",

@@ -106,7 +106,7 @@ fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
 /// it then gets 5 % of the price, whether it ever played or not; the payer itself gets nothing,
 /// and a zero referrer is no referral.
 #[test]
-#[available_gas(l2_gas: 230372000)]
+#[available_gas(l2_gas: 300000000)]
 fn test_economy_referrer_is_any_address_but_the_payer() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;

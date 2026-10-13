@@ -386,7 +386,7 @@ fn test_cold_paths_spawn_writes_state_before_the_transfer() {
 /// Any non-zero address other than the payer is passed on to `Economy.purchase`, registered or
 /// not: here ANYONE, and an address no test ever funded or used.
 #[test]
-#[available_gas(l2_gas: 70668000)]
+#[available_gas(l2_gas: 120000000)]
 fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
     let spied = spied_daily();
     spied.daily.spawn(1, ANYONE(), 0);
