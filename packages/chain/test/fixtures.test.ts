@@ -21,7 +21,8 @@ const deployment = resolveDeployment({
   env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Account" | "Daily" | "Token", string> },
 });
 const player = record.player!;
-const daily: GameKey = { mode: "daily", gameId: 1 };
+const gameId = record.gameId ?? 1;
+const daily: GameKey = { mode: "daily", gameId };
 
 function client() {
   const provider = replay(record);
@@ -76,7 +77,7 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ mode: "daily", gameId: 1, over: true }),
+        expect.objectContaining({ mode: "daily", gameId, over: true }),
       ]),
     );
     expect(games).toHaveLength(1);
@@ -98,8 +99,8 @@ describe("writer on recorded receipts", () => {
   test("discard and surrender of a Daily game", async () => {
     const { client: c } = client();
     const writer = c.writer(account([record.receipts.discardDaily, record.receipts.surrenderDaily]));
-    expect(placementOutcome((await writer.discard(daily)).events, 1).discarded).not.toBeNull();
-    expect(placementOutcome((await writer.surrender(daily)).events, 1).over).not.toBeNull();
+    expect(placementOutcome((await writer.discard(daily)).events, gameId).discarded).not.toBeNull();
+    expect(placementOutcome((await writer.surrender(daily)).events, gameId).over).not.toBeNull();
   });
 
   test("a Daily build sends the game id and the move", async () => {

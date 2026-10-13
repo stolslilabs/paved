@@ -116,11 +116,13 @@ describe("off-chain routes build no chain client (W2a)", () => {
   });
 
   it("an old tutorial link, with or without an id, lands on /tutorial", () => {
-    chainRoute.on = true; // the link is still a chain route until the page redirects: the real factories may run
+    // Off chain from the first render: the redirect builds no client (the factories throw if called).
+    expect(isOffChainRoute({ pathname: "/game", search: "?mode=tutorial&id=3" })).toBe(true);
     for (const route of ["/game?mode=tutorial", "/game?mode=tutorial&id=3"]) {
       cleanup();
       render(<AppTree Router={at(route)} Chain={Chain} />);
       expect(screen.getByRole("heading", { name: /Tutorial: step 1 of/ })).toBeTruthy();
+      expect(built).toEqual([]);
     }
   });
 

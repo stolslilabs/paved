@@ -1,9 +1,9 @@
 /**
  * Integration test against a local starknet-devnet that `scripts/deploy.sh devnet` has deployed to (see
  * `devnet/devnet.ts`), through the client layer on the paid Daily path: the faucet, `EconomyWriter.purchase`, then play.
- * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. Needs a FRESH node (it buys the player's
- * first game; run it on its own node, not on the one of `e2e-devnet.test.ts`, which moves the clock). It uses the
- * predeployed accounts 1 and 2; account 0 is the deployer, whose smoke game is another game.
+ * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. It uses the first two
+ * predeployed accounts after account 0 (the deployer, whose smoke game is another game) that are not registered players
+ * yet, so it re-runs on one node and can run after the end-to-end test on it.
  * With PAVED_RECORD=1 it also rewrites `fixtures/devnet.json`, which the unit tests replay.
  */
 import { writeFileSync } from "node:fs";
@@ -40,9 +40,14 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const provider = recording(devnet.provider as unknown as PavedRpc, record);
     client = new PavedClient(devnet.deployment, provider);
     other = new PavedClient(devnet.deployment, devnet.provider as unknown as PavedRpc);
-    player = devnet.accounts[1].address;
-    bystander = devnet.accounts[2].address;
-    writer = client.writer(devnet.accounts[1].account, { tip: 0n });
+    const free: typeof devnet.accounts = [];
+    for (const a of devnet.accounts.slice(1)) {
+      if (free.length < 2 && (await other.player(a.address)) === null) free.push(a);
+    }
+    if (free.length < 2) throw new Error("devnet: fewer than two predeployed accounts after account 0 are unregistered; start a fresh node");
+    player = free[0].address;
+    bystander = free[1].address;
+    writer = client.writer(free[0].account, { tip: 0n });
     // Built on the raw provider: the economy checks the chain id, which the recording wrapper does not forward.
     economy = createEconomyClient(devnet.economy, other)!;
     econ = economy.writer(writer);
@@ -53,6 +58,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
       record.addresses = devnet.deployment.addresses;
       record.player = player;
       record.other = bystander;
+      record.gameId = gameId;
       writeFileSync(resolve(__dirname, "fixtures/devnet.json"), JSON.stringify(record, null, 2) + "\n");
     }
   });
