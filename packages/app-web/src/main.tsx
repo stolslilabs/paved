@@ -2,10 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TamaguiProvider } from "tamagui";
 import { tamaguiConfig } from "@paved/ui";
-import { IndexerProvider } from "@paved/chain";
 import { AppTree } from "./AppTree";
-import { WalletProvider } from "./components/WalletProvider";
-import { resolveAppNetwork } from "./utils/network";
+import type { ChainBoundary } from "./AppTree";
+import { ChainProviders } from "./components/WalletProvider";
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
   window.addEventListener("load", () => {
@@ -26,22 +25,20 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 // contracts/deployments/<network>.json, written by CORE's deploy script; absent until a deployment exists.
 const deploymentFiles = import.meta.glob("../../../contracts/deployments/*.json", { eager: true });
 const env = import.meta.env as Record<string, string | undefined>;
-const network = resolveAppNetwork(env, deploymentFiles);
 
-if (!network.deployment.configured) {
-  console.error(`Paved: not connected, ${network.deployment.missing.join(", ")} missing.`);
-}
+// The network is resolved, and the chain clients are built, by `ChainProviders`, on the first route that reads the chain.
+const Chain: ChainBoundary = ({ children }) => (
+  <ChainProviders env={env} files={deploymentFiles}>
+    {children}
+  </ChainProviders>
+);
 
 const root = createRoot(document.getElementById("root")!);
 
 root.render(
   <StrictMode>
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-      <WalletProvider env={env} network={network}>
-        <IndexerProvider client={network.indexer}>
-          <AppTree supportsMint={network.supportsMint} />
-        </IndexerProvider>
-      </WalletProvider>
+      <AppTree Chain={Chain} />
     </TamaguiProvider>
   </StrictMode>
 );
