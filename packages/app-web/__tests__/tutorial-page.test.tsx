@@ -77,8 +77,7 @@ describe("Tutorial page", () => {
     expect(screen.getByTestId("final-score").textContent).toBe("Final score: 2794");
     expect(screen.getByTestId("score").textContent).toBe("2794");
     expect(screen.getByText("THE TUTORIAL IS COMPLETE.")).toBeTruthy();
-    // Training (the Landing until T1's route exists) and the Landing.
-    expect(screen.getByRole("link", { name: "Training" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Training" }).getAttribute("href")).toBe("/game?mode=training");
     expect(screen.getByRole("link", { name: "Landing" }).getAttribute("href")).toBe("/");
     expect(chainTouched.count).toBe(0);
   });
@@ -192,5 +191,67 @@ describe("Tutorial page", () => {
     mount();
     for (let i = 0; i < steps.length; i++) playStep(i);
     expect(chainTouched.count).toBe(0);
+  });
+
+  it("Restart with no move played also resets the clicked square, the notice and the orientation", () => {
+    mount();
+    const want = orientationCode(steps[0]!.placement!.orientation);
+    fireEvent.click(screen.getByRole("button", { name: "Rotate" }));
+    act(() => canvas.props!.onTileClick!(5, 5));
+    expect(screen.getByTestId("notice").textContent).toBe(WRONG_SQUARE);
+    expect(orientationOnBar()).not.toBe(want);
+    expect(canvas.props!.hover).toMatchObject({ x: 5, y: 5 });
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(screen.getByTestId("notice").textContent).toBe("");
+    expect(orientationOnBar()).toBe(want);
+    const preset = steps[0]!.placement!;
+    expect(canvas.props!.hover).toMatchObject({ x: preset.x, y: 0 - preset.y });
+  });
+
+  it("keeps the alert rendered, empty when there is nothing to say", () => {
+    mount();
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe("");
+    expect(alert.style.display).not.toBe("none");
+  });
+
+  it("announces a refusal again when its text repeats: the alert is cleared before the same text is set", () => {
+    mount();
+    const alert = screen.getByTestId("notice");
+    const observer = new MutationObserver(() => {});
+    observer.observe(alert, { childList: true, characterData: true, subtree: true });
+    const refuse = () => {
+      fireEvent.click(screen.getByRole("button", { name: "Rotate" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    };
+    refuse();
+    expect(alert.textContent).toBe(WRONG_ORIENTATION);
+    observer.takeRecords();
+    // back to the preset orientation, then the same refusal again: the text is the same
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Rotate" }));
+    observer.takeRecords();
+    refuse();
+    const records = observer.takeRecords();
+    observer.disconnect();
+    expect(alert.textContent).toBe(WRONG_ORIENTATION);
+    // the old text left the alert and the same text came back: a change a screen reader announces
+    expect(records.some((r) => r.removedNodes.length > 0)).toBe(true);
+    expect(records.some((r) => r.addedNodes.length > 0)).toBe(true);
+  });
+
+  it("moves focus to the completion heading when the tutorial ends", () => {
+    mount();
+    expect(document.activeElement).toBe(document.body);
+    steps.forEach((_, i) => playStep(i));
+    const heading = screen.getByRole("heading", { name: "Tutorial complete" });
+    expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(heading);
+  });
+
+  it("does not steal focus on a load that is already complete", () => {
+    window.localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify({ version: 1, moves: scriptedMoves() }));
+    mount();
+    expect(screen.getByTestId("tutorial-complete")).toBeTruthy();
+    expect(document.activeElement).toBe(document.body);
   });
 });

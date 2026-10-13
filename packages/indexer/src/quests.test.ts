@@ -407,6 +407,21 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     expect(indexer.store.dump().podium).toEqual([]);
   });
 
+  test("a GameOver in the closing block is not credited: only games over before it count", async () => {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]); // before the close: credited
+    node.time = END + 5;
+    node.mine([ev.over("daily", 2, B, 90, { day: DAY })]); // in the closing block: not credited
+    node.mine();
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(podium(indexer)).toEqual([[padded(A), 1]]);
+  });
+
   test("a rewind across the day's close forgets the credit; a new closing block credits again", async () => {
     const { node, indexer, queries, closing } = await podiumDay([[A, 50], [B, 40], [C, 30]]);
     expect(indexer.store.dump().podium).toHaveLength(3);

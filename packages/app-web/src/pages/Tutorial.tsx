@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { ActionBar, IngameStatus } from "@paved/ui";
@@ -7,6 +8,7 @@ import type { HoverState, TileRenderData } from "@paved/renderer";
 import { PlanType } from "@paved/game-core";
 import { ClosedStructures } from "../components/ClosedStructures";
 import { CENTER } from "../utils/game-helpers";
+import { buildGameRoute } from "../utils/mode-routing";
 import {
   attempt,
   back,
@@ -79,6 +81,12 @@ export function TutorialPage() {
     setNotice(null);
   }, [stageIndex]);
 
+  // A refusal is announced by the alert: clearing it first makes a repeated text a change the screen readers say again.
+  const say = useCallback((text: string) => {
+    flushSync(() => setNotice(null));
+    setNotice(text);
+  }, []);
+
   const commit = useCallback((next: TutorialMove[]) => {
     setMoves(next);
     saveMoves(next);
@@ -88,9 +96,9 @@ export function TutorialPage() {
     (move: TutorialMove) => {
       const result = attempt(moves, move);
       if (result.ok) commit(result.moves);
-      else setNotice(result.reason);
+      else say(result.reason);
     },
-    [moves, commit],
+    [moves, commit, say],
   );
 
   const confirm = useCallback(() => {
@@ -102,7 +110,21 @@ export function TutorialPage() {
   }, [over, play]);
   const rotateTile = useCallback(() => setOrientation(rotate), []);
   const goBack = useCallback(() => commit(back(moves)), [commit, moves]);
-  const restart = useCallback(() => commit([]), [commit]);
+  // With no move played the stage does not change, so its effect does not run: reset the rest here.
+  const restart = useCallback(() => {
+    commit([]);
+    setOrientation(initialOrientation(tutorialSteps()[0] ?? null));
+    setClicked(null);
+    setNotice(null);
+  }, [commit]);
+
+  // When the tutorial ends, focus moves to the completion heading (not on a load that is already over).
+  const completeHeading = useRef<HTMLHeadingElement>(null);
+  const wasOver = useRef(over);
+  useEffect(() => {
+    if (over && !wasOver.current) completeHeading.current?.focus();
+    wasOver.current = over;
+  }, [over]);
 
   const tiles = useMemo<TileRenderData[]>(
     () =>
@@ -135,12 +157,12 @@ export function TutorialPage() {
       const y = 0 - gridY;
       setClicked({ x, y });
       if (preset && (x !== preset.x || y !== preset.y)) {
-        setNotice("Not this move: place the tile on the highlighted square.");
+        say("Not this move: place the tile on the highlighted square.");
       } else {
         setNotice(null);
       }
     },
-    [preset],
+    [preset, say],
   );
 
   // Keyboard: R rotates, C confirms, D discards (the buttons are reachable by Tab as well).
@@ -209,7 +231,7 @@ export function TutorialPage() {
           </p>
           {!over && !burn && <p style={{ margin: 0, opacity: 0.8 }}>Keys: R rotates, C confirms.</p>}
           {burn && <p style={{ margin: 0, opacity: 0.8 }}>Keys: D discards.</p>}
-          <p role="alert" data-testid="notice" style={{ margin: 0, color: "#fca5a5", display: notice ? "block" : "none" }}>
+          <p role="alert" data-testid="notice" style={{ margin: 0, color: "#fca5a5" }}>
             {notice}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
@@ -231,13 +253,14 @@ export function TutorialPage() {
             data-testid="tutorial-complete"
             style={{ pointerEvents: "auto", gridColumn: "1 / -1", gridRow: 2, alignSelf: "center", justifySelf: "center", ...panel, textAlign: "center", display: "flex", flexDirection: "column", gap: 10 }}
           >
-            <h2 style={{ margin: 0 }}>Tutorial complete</h2>
+            <h2 ref={completeHeading} tabIndex={-1} style={{ margin: 0 }}>
+              Tutorial complete
+            </h2>
             <p data-testid="final-score" style={{ margin: 0 }}>Final score: {game.score}</p>
             <p style={{ margin: 0 }}>You know how roads, cities, forests and wonders score. Now play for real.</p>
             {/* U2: the claim button of the tutorial achievement goes here, once CORE's Setup system lands (D-24, D-25). */}
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              {/* Training's route, buildGameRoute with mode training, once T1 is on main; until then the Landing. */}
-              <Link to="/" style={linkStyle}>
+              <Link to={buildGameRoute({ mode: "training" })} style={linkStyle}>
                 Training
               </Link>
               <Link to="/" style={linkStyle}>
