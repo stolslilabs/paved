@@ -11,8 +11,9 @@ becomes a mainnet gate is the owner's decision.
 
 ## 1. The model
 
-**What the buyer sees.** The seed of the next id: the counter is public, and so is the salt, since contract
-storage is readable by anyone. The seed fixes the 38 tiles of the deck (`Deck::tiles`). The order of the draws
+**What the buyer sees.** The seed of the next id. `leaderboard.md` ("D-23: Daily becomes Challenge (planned)")
+gives the planned source: the token id is the game id, the next is `game_count + 1`, and the salt is 0. Even a
+non-zero salt would be readable, since contract storage is public. The seed fixes the 38 tiles of the deck (`Deck::tiles`). The order of the draws
 also depends on the moves, because each build and discard reseeds the game (`Game::reseed`, from the tile's
 position). So a deck is not one fixed sequence of tiles. But the whole game is a deterministic function of the
 seed and of the moves, so the buyer can play any line offline before buying.
@@ -61,8 +62,11 @@ the bot's skill alone earns.
   `sampler.cairo` unchanged. A new deck only needs a new day.
 - **410 distinct decks.** The sampler's seed is `Poseidon(0, 1000 + day)`: the Daily seed of the salt 0 and
   the tournament id `day(index) / 86400`. Every day has its own tournament id, so every day is a distinct
-  Poseidon seed. That is exactly the shape of D-23's `Poseidon(salt, token id)`, with the token id in place of
-  the tournament id. The script also checks that no day appears twice with two scores.
+  Poseidon seed. With D-23's salt 0, that is exactly the seed of token id `1000 + day`. So the 410 decks are the
+  decks of token ids 1,011 to 1,420, as long as the deck and the draw code stay as they are. The script also
+  checks that no day appears twice with two scores.
+- **D-19.** The sample was played at main 7d04872, before D-19 (#331). D-19 skips the majority walk in single
+  player and changes no golden, so the bot's scores carry over.
 - **The 205 games of `scores.csv` are not 205 decks.** They are 50 decks: four bots on each of 50 days. Only the
   50 greedy games are one score per deck for this bot.
 - **Why 410 is enough.**
