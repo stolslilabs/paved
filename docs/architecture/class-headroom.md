@@ -484,3 +484,16 @@ D-18b removes the characters from the build path (placement, idle check, recover
 other classes (`Economy`, `Vault`, the mocks) are unchanged. `Lobby`'s class changes too (it runs `spawn`,
 `discard` and `surrender` over the same `Game`, `Builder` and `Store`), so its class hash changes: see the PR of
 D-18b for `lobby_class` on Sepolia.
+
+## Planned: D-20 to D-24 (projection, not measured)
+
+- **The tutorial claim's host (D-21, P-49 (2)).** Superseded by D-24 (P-51 (3)): the claim lives in the quest
+  system, Setup, not in `Daily` or `Account`. For the record, `Daily` would have been the cheaper host (one wrapper of
+  the order of `set_lobby_class`'s +325, with the progress code already in `Lobby`), against `Account` (2,879 felts),
+  which would have needed quiver's achievement layer (part of the 6,491 felts quiver measured in `Daily`, P7).
+- **Challenge after `Lobby`'s cold paths come back (D-24).** About 61,000 to 64,000 CASM felts against the P-44 cap of
+  72,947, from the figures of this note; the projection and its two derivations are in `leaderboard.md`, "D-24:
+  Lobby's cold paths and a quest system (planned)", "Challenge's CASM after the move back". The implementation
+  measures with `scripts/class-sizes.sh`.
+- **`Lobby`** (59,957 felts after D-18) ends with D-24; `Tutorial` (47,823 after D-18) leaves the repository with
+  D-21.
