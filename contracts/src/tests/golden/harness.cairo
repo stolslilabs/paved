@@ -127,8 +127,10 @@ pub fn play_daily_checked(
     replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, Check::Full)
 }
 
-/// `play_daily_checked` with the lighter check (`oracle::check::assert_tile_agrees_lite`): the
-/// full-deck game, whose test is at the gas cap already.
+/// `play_daily_checked` with the lighter check (`oracle::check::assert_tile_agrees_lite`), and the
+/// points of the moves checked once, on the whole board at the end (`assert_board_scored`): the
+/// full-deck game, whose test is at the step limit of the VM with more. Its record run checks every
+/// move (`snforge test --max-n-steps`, by hand).
 pub fn play_daily_checked_lite(
     name: felt252,
     timestamp: u64,
@@ -213,9 +215,13 @@ fn replay_daily(
             systems.daily.build(game_id, *golden.orientation, *golden.x, *golden.y);
             if checked != Check::None {
                 run_check(store, game_id, builder.tile_id, checked);
-                let (points, _) = check::move_points(store, game_id, builder.tile_id);
-                oracle += points;
-                check::assert_move_scored(store, game_id, builder.tile_id, score_before);
+                // [Info] The lite check (the full-deck game) leaves the move's points to the board
+                // check at the end, for the steps of the VM; its record run has them all
+                if checked == Check::Full || RECORD {
+                    let (points, _) = check::move_points(store, game_id, builder.tile_id);
+                    oracle += points;
+                    check::assert_move_scored(store, game_id, builder.tile_id, score_before);
+                }
             }
         }
         let game = store.game(game_id);

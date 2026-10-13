@@ -260,7 +260,7 @@ fn test_events_tutorial_spawn_and_surrender() {
 }
 
 #[test]
-#[available_gas(l2_gas: 131876000)]
+#[available_gas(l2_gas: 146756000)]
 fn test_events_daily_last_build_emits_game_over() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);

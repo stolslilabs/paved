@@ -58,7 +58,7 @@ fn woodsman_ring_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER,
             CENTER - 2,
-            329,
+            767,
         ),
     ]
 }
@@ -84,7 +84,7 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER,
             CENTER + 2,
-            0,
+            643,
         ),
         forced(
             Plan::FFFFFFCFF,
@@ -92,7 +92,7 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 1,
             CENTER + 2,
-            0,
+            643,
         ),
         forced(
             Plan::RFRFFFFFR,
@@ -100,7 +100,7 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
             Orientation::South,
             CENTER + 1,
             CENTER,
-            0,
+            643,
         ),
         forced(
             Plan::RFRFCCCFR,
@@ -108,7 +108,7 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER + 1,
             CENTER + 1,
-            628,
+            1914,
         ),
     ]
 }
@@ -182,7 +182,7 @@ fn both_roles_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER + 1,
             CENTER + 1,
-            314,
+            1693,
         ),
         forced(
             Plan::RFFFRFFFR,
@@ -190,7 +190,7 @@ fn both_roles_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER,
             CENTER - 2,
-            643,
+            2460,
         ),
     ]
 }
@@ -256,7 +256,7 @@ fn herdsman_open_city_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 168719000)]
+#[available_gas(l2_gas: 181814000)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -267,7 +267,7 @@ fn test_golden_daily_forest_woodsman_ring() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 329,
+            score: 767,
             built: 4,
             discarded: 0,
             tile_count: 6,
@@ -278,7 +278,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 180142000)]
+#[available_gas(l2_gas: 194393000)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -289,7 +289,7 @@ fn test_golden_daily_forest_herdsman_caps() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 628,
+            score: 1914,
             built: 5,
             discarded: 0,
             tile_count: 7,
@@ -300,7 +300,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 230833193)]
+#[available_gas(l2_gas: 244454000)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -311,7 +311,7 @@ fn test_golden_daily_forest_both_roles() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 643,
+            score: 2460,
             built: 9,
             discarded: 0,
             tile_count: 11,
@@ -324,7 +324,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 180011000)]
+#[available_gas(l2_gas: 193853000)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -349,7 +349,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 275968300)]
+#[available_gas(l2_gas: 440028000)]
 fn test_golden_daily_forest_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_ring',
@@ -359,7 +359,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
         0,
         woodsman_ring_moves().span(),
         GoldenOutcome {
-            score: 329,
+            score: 767,
             built: 4,
             discarded: 0,
             tile_count: 6,
@@ -370,7 +370,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 268207440)]
+#[available_gas(l2_gas: 433100000)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',
@@ -380,7 +380,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
         0,
         herdsman_caps_moves().span(),
         GoldenOutcome {
-            score: 628,
+            score: 1914,
             built: 5,
             discarded: 0,
             tile_count: 7,
@@ -391,7 +391,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 431364636)]
+#[available_gas(l2_gas: 758797000)]
 fn test_golden_daily_forest_both_roles_structures_agree() {
     play_daily_checked(
         'forest_both',
@@ -401,7 +401,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
         0,
         both_roles_moves().span(),
         GoldenOutcome {
-            score: 643,
+            score: 2460,
             built: 9,
             discarded: 0,
             tile_count: 11,
@@ -412,7 +412,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 272179717)]
+#[available_gas(l2_gas: 458009000)]
 fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
     play_daily_checked(
         'forest_open',
@@ -438,7 +438,7 @@ fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
 /// tournament. (Board A of the audit, the ring with a Lord on the road, is the ring itself since
 /// D-18: it left with its Lord.)
 #[test]
-#[available_gas(l2_gas: 281232535)]
+#[available_gas(l2_gas: 445519000)]
 fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
     play_daily_checked(
         'forest_last',
@@ -448,12 +448,12 @@ fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
         5,
         woodsman_ring_moves().span(),
         GoldenOutcome {
-            score: 329,
+            score: 767,
             built: 4,
             discarded: 0,
             tile_count: 5,
             over: true,
-            top1_score: 329,
+            top1_score: 767,
         },
     );
 }

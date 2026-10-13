@@ -62,8 +62,8 @@ pub const CEILING_CLAIM: u128 = 2037502;
 pub const CEILING_RECLAIM: u128 = 1611612;
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
-pub const SCORE_E: u32 = 0;
-pub const SCORE_F: u32 = 0;
+pub const SCORE_E: u32 = 767;
+pub const SCORE_F: u32 = 5618;
 
 #[derive(Drop)]
 struct Scenario {

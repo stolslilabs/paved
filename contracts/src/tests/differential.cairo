@@ -54,7 +54,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0 and a (and b, whose move is a's since D-18 took its Lord): one move each.
 #[test]
-#[available_gas(l2_gas: 419128000)]
+#[available_gas(l2_gas: 321647000)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
@@ -64,7 +64,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed and scored.
 #[test]
-#[available_gas(l2_gas: 234989905)]
+#[available_gas(l2_gas: 306303000)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -78,7 +78,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed and scored.
 #[test]
-#[available_gas(l2_gas: 423731119)]
+#[available_gas(l2_gas: 582165000)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -98,6 +98,50 @@ fn test_differential_gas_scenario_d() {
     assert(game.score > 0, 'Differential: tree not scored');
 }
 
+/// Gas scenario e: four road curves close a loop of road and the forest of 4 tiles inside it. The
+/// score the oracle's walks give the board is `SCORE_E` of `contracts/tests/gas.cairo`.
+#[test]
+#[available_gas(l2_gas: 360171000)]
+fn test_differential_gas_scenario_e() {
+    let board = BoardTrait::new();
+    board.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
+    board.step(Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
+    board.step(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
+    board.step(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    let expected = check::board_points(board.store, board.game_id);
+    println!("SCORE e (oracle): {}", expected);
+    assert_eq!(board.store.game(board.game_id).score, expected);
+}
+
+/// Gas scenario f: a loop of 12 road tiles around four wonders; the last curve closes the loop and
+/// the forest of 16 nodes. The score the oracle's walks give the board is `SCORE_F` of
+/// `contracts/tests/gas.cairo`.
+#[test]
+#[available_gas(l2_gas: 1353892000)]
+fn test_differential_gas_scenario_f() {
+    let board = BoardTrait::new();
+    let straight = Plan::RFFFRFFFR;
+    let curve = Plan::RFRFFFFFR;
+    board.step(straight, Orientation::North, CENTER + 1, CENTER);
+    board.step(curve, Orientation::West, CENTER + 2, CENTER);
+    board.step(straight, Orientation::East, CENTER + 2, CENTER - 1);
+    board.step(straight, Orientation::East, CENTER + 2, CENTER - 2);
+    board.step(curve, Orientation::North, CENTER + 2, CENTER - 3);
+    board.step(straight, Orientation::North, CENTER + 1, CENTER - 3);
+    board.step(straight, Orientation::North, CENTER, CENTER - 3);
+    board.step(curve, Orientation::East, CENTER - 1, CENTER - 3);
+    board.step(straight, Orientation::East, CENTER - 1, CENTER - 2);
+    board.step(straight, Orientation::East, CENTER - 1, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 1);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 2);
+    board.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 2);
+    board.step(curve, Orientation::South, CENTER - 1, CENTER);
+    let expected = check::board_points(board.store, board.game_id);
+    println!("SCORE f (oracle): {}", expected);
+    assert_eq!(board.store.game(board.game_id).score, expected);
+}
+
 /// Two areas of one tile join one structure (the re-rooting branch of
 /// `structure::placement::place`):
 /// the last tile, a road crossing, has an area that joins one structure while a later area of the
@@ -106,7 +150,7 @@ fn test_differential_gas_scenario_d() {
 /// search over legal boards (a model of the placement in Python, not kept) and then confirmed
 /// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
 #[test]
-#[available_gas(l2_gas: 579918245)]
+#[available_gas(l2_gas: 733532000)]
 fn test_differential_two_areas_of_one_tile_join_one_structure() {
     let board = BoardTrait::new();
     board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
@@ -144,7 +188,7 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
-#[available_gas(l2_gas: 425629810)]
+#[available_gas(l2_gas: 508164000)]
 fn test_differential_tutorial_full_sequence() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
@@ -173,7 +217,7 @@ fn test_differential_tutorial_full_sequence() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 367926072)]
+#[available_gas(l2_gas: 363925000)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
     board

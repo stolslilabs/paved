@@ -15,20 +15,20 @@ fn step(plan: Plan, discard: bool, score: u32) -> TutorialStep {
 }
 
 #[test]
-#[available_gas(l2_gas: 171486000)]
+#[available_gas(l2_gas: 759630000)]
 fn test_golden_tutorial_full_sequence() {
     let steps = array![
         step(Plan::SFRFRFCFR, false, 0), step(Plan::CFFFCFFFC, false, 0),
-        step(Plan::FFCFFFFFC, false, 1286), step(Plan::WFFFFFFFR, false, 1286),
-        step(Plan::RFRFFFCFR, false, 2124), step(Plan::RFRFFFFFR, false, 2124),
-        step(Plan::RFFFRFFFR, false, 2124), step(Plan::CCCCCCCCC, true, 2074),
-        step(Plan::SFRFRFFFR, false, 5078),
+        step(Plan::FFCFFFFFC, false, 643), step(Plan::WFFFFFFFR, false, 643),
+        step(Plan::RFRFFFCFR, false, 1062), step(Plan::RFRFFFFFR, false, 1062),
+        step(Plan::RFFFRFFFR, false, 1062), step(Plan::CCCCCCCCC, true, 1012),
+        step(Plan::SFRFRFFFR, false, 2794),
     ];
     play_tutorial(
         'tutorial_full',
         steps.span(),
         GoldenOutcome {
-            score: 5078,
+            score: 2794,
             built: 8,
             discarded: 1,
             tile_count: 10,

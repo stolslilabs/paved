@@ -51,7 +51,7 @@ fn city5_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER,
             CENTER + 4,
-            2245,
+            1122,
         ),
     ]
 }
@@ -97,7 +97,7 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 1,
             CENTER,
-            1379,
+            689,
         ),
     ]
 }
@@ -121,7 +121,7 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER,
             CENTER + 1,
-            838,
+            419,
         ),
         forced(
             Plan::CCCCCFFFC,
@@ -129,7 +129,7 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 1,
             CENTER,
-            838,
+            419,
         ),
         forced(
             Plan::WFFFFFFFF,
@@ -137,13 +137,13 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 2,
             CENTER,
-            1715,
+            857,
         ),
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 171848000)]
+#[available_gas(l2_gas: 184949000)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -154,18 +154,18 @@ fn test_golden_daily_city5_game_over() {
         5,
         moves.span(),
         GoldenOutcome {
-            score: 2245,
+            score: 1122,
             built: 4,
             discarded: 0,
             tile_count: 5,
             over: true,
-            top1_score: 2245,
+            top1_score: 1122,
         },
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 176743000)]
+#[available_gas(l2_gas: 189879000)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -176,7 +176,7 @@ fn test_golden_daily_road6() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 1379,
+            score: 689,
             built: 5,
             discarded: 0,
             tile_count: 7,
@@ -187,7 +187,7 @@ fn test_golden_daily_road6() {
 }
 
 #[test]
-#[available_gas(l2_gas: 172893000)]
+#[available_gas(l2_gas: 182574000)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
@@ -198,7 +198,7 @@ fn test_golden_daily_mixed_roles() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 1715,
+            score: 857,
             built: 4,
             discarded: 0,
             tile_count: 6,
@@ -210,7 +210,7 @@ fn test_golden_daily_mixed_roles() {
 
 /// Real deck, no forced plan: pins the draw order of the seed (tournament day 3) through discards.
 #[test]
-#[available_gas(l2_gas: 164834000)]
+#[available_gas(l2_gas: 186283000)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),
@@ -239,7 +239,7 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 238792631)]
+#[available_gas(l2_gas: 406213000)]
 fn test_golden_daily_city5_structures_agree() {
     play_daily_checked(
         'daily_city5',
@@ -249,18 +249,18 @@ fn test_golden_daily_city5_structures_agree() {
         5,
         city5_moves().span(),
         GoldenOutcome {
-            score: 2245,
+            score: 1122,
             built: 4,
             discarded: 0,
             tile_count: 5,
             over: true,
-            top1_score: 2245,
+            top1_score: 1122,
         },
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 321382743)]
+#[available_gas(l2_gas: 535945000)]
 fn test_golden_daily_road6_structures_agree() {
     play_daily_checked(
         'daily_road6',
@@ -270,7 +270,7 @@ fn test_golden_daily_road6_structures_agree() {
         0,
         road6_moves().span(),
         GoldenOutcome {
-            score: 1379,
+            score: 689,
             built: 5,
             discarded: 0,
             tile_count: 7,
@@ -281,7 +281,7 @@ fn test_golden_daily_road6_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 284507263)]
+#[available_gas(l2_gas: 419739000)]
 fn test_golden_daily_mixed_roles_structures_agree() {
     play_daily_checked(
         'daily_mixed',
@@ -291,7 +291,7 @@ fn test_golden_daily_mixed_roles_structures_agree() {
         0,
         mixed_moves().span(),
         GoldenOutcome {
-            score: 1715,
+            score: 857,
             built: 4,
             discarded: 0,
             tile_count: 6,
@@ -302,7 +302,7 @@ fn test_golden_daily_mixed_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 176854000)]
+#[available_gas(l2_gas: 210034000)]
 fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),

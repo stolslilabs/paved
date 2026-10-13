@@ -32,5 +32,5 @@ fn test_tutorial_e2e_scripted_run_is_deterministic() {
 
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Tutorial e2e: game over');
-    assert(game.score == 5078, 'Tutorial: score');
+    assert(game.score == 2794, 'Tutorial: score');
 }

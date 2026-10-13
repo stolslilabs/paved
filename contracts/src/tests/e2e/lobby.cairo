@@ -366,7 +366,7 @@ fn test_lobby_class_is_never_written_after_construction() {
 /// the game state of a build) is what `Lobby`'s code reads (it finds the player, pays the token
 /// `Daily` stores, and discards on the state the build left).
 #[test]
-#[available_gas(l2_gas: 147807000)]
+#[available_gas(l2_gas: 163829000)]
 fn test_lobby_and_daily_share_the_storage_layout() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
