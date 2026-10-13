@@ -5,12 +5,14 @@
 // Run `bun run generate:parity` in `packages/game-core`; `engine-parity.test.ts` fails while the
 // fixture is out of date. The file has the format of CORE's parity fixture
 // (`docs/architecture/parity-fixture.md`); where a value is not literal in the Cairo source, this
-// hand transcription leaves it out (see `src/engine/README.md`). The Cairo source line of each game
-// and of each added value goes to `__tests__/fixtures/parity-sources.json`.
+// hand transcription leaves it out (see `src/engine/README.md`). The Cairo test function (and file)
+// of each game and the source of each added value go to `__tests__/fixtures/parity-sources.json`, by name and
+// never by line number: a `scarb fmt` or an edit above a golden moves no source. A changed golden is caught by
+// `parity.json` itself, which holds every move and expected value the script reads.
 //
 // What the script reads from the Cairo source, and nothing else: the moves, the forced plans, the
 // day, the tile limit, the score after each move and the final counters (`GoldenOutcome`). The few
-// values it adds are listed in `EXTRAS` and `DIFFERENTIAL`, each with the source line it comes from.
+// values it adds are listed in `EXTRAS` and `DIFFERENTIAL`, each with the source it comes from.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -92,7 +94,7 @@ const EXTRAS: Record<string, { move: number; scored: ParityScored[]; source: str
   forest_ring: [
     {
       move: 3,
-      source: "contracts/src/tests/golden/forest.cairo:28-31",
+      source: "contracts/src/tests/golden/forest.cairo, doc comment of woodsman_ring_moves",
       scored: [
         { category: "Road", size: 4, points: 438 },
         { category: "Forest", size: 4, points: 329 },
@@ -102,7 +104,7 @@ const EXTRAS: Record<string, { move: number; scored: ParityScored[]; source: str
   forest_last: [
     {
       move: 3,
-      source: "contracts/src/tests/golden/forest.cairo:28-31",
+      source: "contracts/src/tests/golden/forest.cairo, doc comment of woodsman_ring_moves",
       scored: [
         { category: "Road", size: 4, points: 438 },
         { category: "Forest", size: 4, points: 329 },
@@ -127,7 +129,7 @@ const EXTRAS: Record<string, { move: number; scored: ParityScored[]; source: str
   forest_both: [
     {
       move: 8,
-      source: "contracts/src/tests/golden/forest.cairo:53-57",
+      source: "contracts/src/tests/golden/forest.cairo, doc comment of both_roles_moves",
       scored: [
         { category: "Road", size: 4, points: 438 },
         { category: "Forest", size: 4, points: 329 },
@@ -137,7 +139,7 @@ const EXTRAS: Record<string, { move: number; scored: ParityScored[]; source: str
   forest_open: [
     {
       move: 4,
-      source: "contracts/src/tests/golden/forest.cairo:84-86",
+      source: "contracts/src/tests/golden/forest.cairo, doc comment of herdsman_open_city_moves",
       scored: [{ category: "Forest", size: 2, points: 0 }],
     },
   ],
@@ -159,11 +161,11 @@ const DIFFERENTIAL: Record<string, { outcome: ParityGame["outcome"]; source: str
   },
   test_differential_gas_scenario_e: {
     outcome: { score: 767 },
-    source: "contracts/tests/gas.cairo:65 (SCORE_E)",
+    source: "contracts/tests/gas.cairo (SCORE_E)",
   },
   test_differential_gas_scenario_f: {
     outcome: { score: 5618 },
-    source: "contracts/tests/gas.cairo:66 (SCORE_F)",
+    source: "contracts/tests/gas.cairo (SCORE_F)",
   },
   test_differential_two_areas_of_one_tile_join_one_structure: {
     outcome: {},
@@ -189,10 +191,6 @@ const NOT_COVERED = [
     reason: "the tournament's leaderboard is not part of the engine",
   },
 ];
-
-function lineOf(source: string, index: number): number {
-  return source.slice(0, index).split("\n").length;
-}
 
 /** `CENTER`, `CENTER + 2`, `CENTER - 1` relative to the starter. */
 function coordinate(text: string): number {
@@ -290,8 +288,7 @@ function parseGoldens(file: string, source: string): ParityGame[] {
   for (const test of source.matchAll(tests)) {
     const name = test[1];
     const body = test[2];
-    const line = lineOf(source, test.index ?? 0);
-    const call = body.match(/play_daily(?:_checked(?:_lite)?)?\(\s*'(\w+)',\s*day\((\d+)\),\s*\w+\(\),\s*(true|false),\s*(\d+),\s*([\w.()]+)/);
+        const call = body.match(/play_daily(?:_checked(?:_lite)?)?\(\s*'(\w+)',\s*day\((\d+)\),\s*\w+\(\),\s*(true|false),\s*(\d+),\s*([\w.()]+)/);
     if (!call) throw new Error(`goldens: ${name} has no play_daily call`);
     let moves: ParityMove[];
     const inline = body.match(/let moves = array!\[([\s\S]*?)\];/);
@@ -309,7 +306,7 @@ function parseGoldens(file: string, source: string): ParityGame[] {
     const forced = call[3] === "true";
     games.push({
       name: call[1],
-      source: `${file}:${line} (${name})`,
+      source: `${file} (${name})`,
       deck: "simple",
       seed: dailySeed(Number(call[2])),
       seedSource: `Poseidon(0, ${1000 + Number(call[2])}): Mode::seed of day(${call[2]}) (golden/harness.cairo), salt 0 (hostable.cairo)`,
@@ -354,7 +351,7 @@ function parseDifferential(source: string): ParityGame[] {
       const last = index === boards.length - 1;
       games.push({
         name: boards.length > 1 ? `${name}#${index + 1}` : name,
-        source: `${DIFFERENTIAL_FILE}:${lineOf(source, test.index ?? 0)} (${name}); expectation: ${extra.source}`,
+        source: `${DIFFERENTIAL_FILE} (${name}); expectation: ${extra.source}`,
         deck: "simple",
         seed: "0x0",
         seedSource: "any: the plans are forced and no draw is asserted",
@@ -380,7 +377,10 @@ export function transcribe(read: (path: string) => string): Transcription {
     }
   }
   // The Tutorial golden, after the Cairo goldens as when it was read from `golden/tutorial.cairo` (frozen at 38f1c95, D-21)
-  games.push(structuredClone(FROZEN_TUTORIAL_GAME));
+  // Its frozen source names a line of a file that no longer exists: the sources file keeps the test name only
+  const tutorial = structuredClone(FROZEN_TUTORIAL_GAME);
+  tutorial.source = tutorial.source.replace(/(\.cairo):\d+/g, "$1");
+  games.push(tutorial);
   for (const game of games) {
     for (const extra of EXTRAS[game.name] ?? []) {
       game.moves[extra.move] = { ...game.moves[extra.move], scored: extra.scored, scoredSource: extra.source };

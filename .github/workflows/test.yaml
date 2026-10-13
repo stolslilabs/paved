@@ -59,10 +59,17 @@ jobs:
               - 'tsconfig*.json'
               - '.github/workflows/test.yaml'
               # What the client consumes from the contracts: the ABIs and the deploy output (addresses,
-              # class hashes). Not `contracts/**`: Cairo sources alone do not change the client. P2
-              # (#197) removed the manifests the client imported and no client job ran.
+              # class hashes). Not `contracts/**`: most Cairo sources do not change the client. P2
+              # (#197) removed the manifests the client imported and no client job ran. The rule sources
+              # that game-core's scripts transcribe (generate-tables.ts reads structure/tables.cairo;
+              # transcribe-goldens.ts reads the goldens and differential.cairo) run its table and parity
+              # tests, and so does the parity fixture CORE records (P-49).
               - 'contracts/abis/**'
               - 'contracts/deployments/**'
+              - 'contracts/src/structure/tables.cairo'
+              - 'contracts/src/tests/golden/**'
+              - 'contracts/src/tests/differential.cairo'
+              - 'contracts/fixtures/**'
             # The starknet.js signer that signs with the deployer key on Sepolia (P-40): its unit tests gate a merge.
             signer:
               - 'scripts/signer/**'
