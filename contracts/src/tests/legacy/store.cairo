@@ -7,7 +7,6 @@
 
 use core::num::traits::Zero;
 use paved::models::player::Player;
-use paved::models::tournament::Tournament;
 use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::tests::legacy::builder::Builder;
 use paved::tests::legacy::character::Char;
@@ -215,18 +214,6 @@ pub impl StoreImpl of StoreTrait {
             player_id,
             tile_id: ((s.high / TWO_POW_64) & MASK_8).try_into().unwrap(),
             characters: ((s.high / TWO_POW_72) & MASK_16).try_into().unwrap(),
-        }
-    }
-
-    fn tournament(self: Store, tournament_id: u64) -> Tournament {
-        let slots = storage().tournaments.entry(tournament_id).read();
-        let flags: u256 = slots.b.into();
-        Tournament {
-            id: tournament_id,
-            prize: slots.a,
-            top1_claimed: flags.low & MASK_1 == 1,
-            top2_claimed: (flags.low / 2) & MASK_1 == 1,
-            top3_claimed: (flags.low / 4) & MASK_1 == 1,
         }
     }
 
@@ -536,21 +523,6 @@ pub impl StoreImpl of StoreTrait {
     fn set_character(self: Store, character: Char) {
         let word = Self::characters_word(character.game_id);
         Self::set_characters_word(character.game_id, Self::with_character(word, character));
-    }
-
-    fn set_tournament(self: Store, tournament: Tournament) {
-        let mut flags: u128 = 0;
-        if tournament.top1_claimed {
-            flags += 1;
-        }
-        if tournament.top2_claimed {
-            flags += 2;
-        }
-        if tournament.top3_claimed {
-            flags += 4;
-        }
-        let slots = Slots2 { a: tournament.prize, b: flags.into() };
-        storage().tournaments.entry(tournament.id).write(slots);
     }
 
     /// The ranking of a tournament as the native leaderboard keeps it (`a`: the scores, `b`, `c`

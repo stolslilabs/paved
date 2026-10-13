@@ -95,7 +95,7 @@ pub impl GameImpl of GameTrait {
             score: 0,
             seed: 0,
             mode: mode.into(),
-            tournament_id: 0,
+            day_id: 0,
             tile_limit,
             counts: 0,
         }
@@ -456,7 +456,7 @@ pub impl ZeroableGame of ZeroableGameTrait {
             score: 0,
             seed: 0,
             mode: 0,
-            tournament_id: 0,
+            day_id: 0,
             tile_limit: 0,
             counts: 0,
         }

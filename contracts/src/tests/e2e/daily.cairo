@@ -26,7 +26,7 @@ fn test_daily_e2e_spawn_starts_game() {
 fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     // No game spawned by the setup: spawn here to observe the balances around it.
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
+    let price: u256 = constants::DAILY_PRICE.into();
     let daily = systems.daily.contract_address;
 
     let economy = systems.economy.contract_address;
@@ -35,10 +35,8 @@ fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
 
     let game = store.game(game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
-    let prize: u256 = store.tournament(tournament_id).prize.into();
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
+    let prize: u256 = store.tournament(day_id).prize.into();
 
     // The price went to Economy, which split it at once; the entry no longer feeds the prize
     assert(player_before - context.token.balance_of(PLAYER()) == price, 'Daily: player debit');

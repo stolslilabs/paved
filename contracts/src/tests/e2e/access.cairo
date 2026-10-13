@@ -363,13 +363,11 @@ fn close_tournament(
     store: setup::TestStore, systems: @setup::Systems, game_id: u32, player_id: felt252,
 ) -> u64 {
     let game = store.game(game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
-    leaderboard::submit(store.contract, tournament_id, player_id, 1);
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
+    leaderboard::submit(store.contract, day_id, player_id, 1);
     systems.daily.sponsor(2_000_000);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
-    tournament_id
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    day_id
 }
 
 #[test]
@@ -377,10 +375,10 @@ fn close_tournament(
 fn test_access_claim_reverts_for_registered_non_holder() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
+    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
     // ANYONE is registered but is not at rank 1.
     start_cheat_caller_address(systems.daily.contract_address, ANYONE());
-    systems.daily.claim(tournament_id, 1);
+    systems.daily.claim(day_id, 1);
 }
 
 #[test]
@@ -388,9 +386,9 @@ fn test_access_claim_reverts_for_registered_non_holder() {
 fn test_access_claim_reverts_on_an_empty_rank() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
+    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
     // Nobody holds rank 2 (id 0), and no registered player has id 0.
-    systems.daily.claim(tournament_id, 2);
+    systems.daily.claim(day_id, 2);
 }
 
 #[test]
@@ -398,9 +396,9 @@ fn test_access_claim_reverts_on_an_empty_rank() {
 fn test_access_claim_reverts_on_a_second_claim_of_the_same_rank() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
-    systems.daily.claim(tournament_id, 1);
-    systems.daily.claim(tournament_id, 1);
+    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
+    systems.daily.claim(day_id, 1);
+    systems.daily.claim(day_id, 1);
 }
 
 #[test]
@@ -418,8 +416,8 @@ fn test_access_sponsor_funds_a_day_without_entries() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let before = context.token.balance_of(PLAYER());
     systems.daily.sponsor(1000);
-    let tournament_id = TournamentTrait::compute_id(0, constants::DAILY_TOURNAMENT_DURATION);
-    assert(store.tournament(tournament_id).prize == 1000, 'Sponsor: prize');
+    let day_id = TournamentTrait::compute_id(0, constants::DAILY_DURATION);
+    assert(store.tournament(day_id).prize == 1000, 'Sponsor: prize');
     assert(before - context.token.balance_of(PLAYER()) == 1000, 'Sponsor: debit');
 }
 

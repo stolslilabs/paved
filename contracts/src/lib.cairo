@@ -1,6 +1,6 @@
 pub mod constants;
+pub mod day;
 pub mod events;
-pub mod leaderboard;
 pub mod quests;
 pub mod seed;
 pub mod store;
@@ -73,7 +73,6 @@ pub mod models {
     pub mod index;
     pub mod player;
     pub mod tile;
-    pub mod tournament;
 }
 
 pub mod components {
@@ -125,7 +124,6 @@ pub mod tests {
     pub mod e2e;
     pub mod economy;
     pub mod golden;
-    pub mod leaderboard;
     pub mod legacy;
     pub mod legacy_d18;
     pub mod oracle;

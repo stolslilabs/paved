@@ -19,7 +19,7 @@ use snforge_std::{
 };
 use starknet::ContractAddress;
 
-const DAY: u64 = constants::DAILY_TOURNAMENT_DURATION;
+const DAY: u64 = constants::DAILY_DURATION;
 /// The day of the tests (an hour into it).
 const D: u64 = 3;
 
@@ -63,7 +63,7 @@ fn test_reclaim_whole_prize_when_nobody_played() {
                 (
                     daily,
                     Lobby::Event::Reclaimed(
-                        Lobby::Reclaimed { tournament_id: D, sponsor: PLAYER(), amount: 3_000_000 },
+                        Lobby::Reclaimed { day_id: D, sponsor: PLAYER(), amount: 3_000_000 },
                     ),
                 ),
             ],

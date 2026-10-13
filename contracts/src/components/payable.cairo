@@ -4,9 +4,11 @@ use starknet::ContractAddress;
 
 // Interfaces
 
+/// What `Lobby`'s purchase calls on the entry token. Since D-20 nothing here transfers out of
+/// the game contract: the prize's `refund` (and `pay`) left with it.
+
 #[starknet::interface]
 pub trait IERC20<TContractState> {
-    fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
     fn transferFrom(
         ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256,
     ) -> bool;
@@ -18,18 +20,7 @@ pub trait IERC20<TContractState> {
 pub mod PayableComponent {
     // Starknet imports
 
-    use starknet::{ContractAddress, get_contract_address};
-
-    // Internal imports
-
-    use super::{IERC20Dispatcher, IERC20DispatcherTrait};
-
-    // Errors
-
-    mod errors {
-        pub const ERC20_PAY_FAILED: felt252 = 'ERC20: pay failed';
-        pub const ERC20_REFUND_FAILED: felt252 = 'ERC20: refund failed';
-    }
+    use starknet::ContractAddress;
 
     // Storage
 
@@ -51,35 +42,6 @@ pub mod PayableComponent {
         fn initialize(ref self: ComponentState<TContractState>, token_address: ContractAddress) {
             // [Storage] Set token address
             self.token_address.write(token_address);
-        }
-
-        fn pay(self: @ComponentState<TContractState>, caller: ContractAddress, amount: u256) {
-            // [Check] Amount is not null, otherwise return
-            if amount == 0 {
-                return;
-            }
-
-            // [Interaction] Transfer
-            let contract = get_contract_address();
-            let erc20 = IERC20Dispatcher { contract_address: self.token_address.read() };
-            let status = erc20.transferFrom(caller, contract, amount);
-
-            // [Check] Status
-            assert(status, errors::ERC20_PAY_FAILED);
-        }
-
-        fn refund(self: @ComponentState<TContractState>, recipient: ContractAddress, amount: u256) {
-            // [Check] Amount is not null, otherwise return
-            if amount == 0 {
-                return;
-            }
-
-            // [Interaction] Transfer
-            let erc20 = IERC20Dispatcher { contract_address: self.token_address.read() };
-            let status = erc20.transfer(recipient, amount);
-
-            // [Check] Status
-            assert(status, errors::ERC20_REFUND_FAILED);
         }
     }
 }

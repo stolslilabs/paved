@@ -125,8 +125,8 @@ pub mod setup {
             interact_with_state(self.contract, || StoreImpl::new().tile(game, tile_id))
         }
 
-        fn tournament(self: TestStore, tournament_id: u64) -> Tournament {
-            interact_with_state(self.contract, || StoreImpl::new().tournament(tournament_id))
+        fn tournament(self: TestStore, day_id: u64) -> Tournament {
+            interact_with_state(self.contract, || StoreImpl::new().tournament(day_id))
         }
 
         fn set_game(self: TestStore, game: Game) {

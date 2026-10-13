@@ -1,8 +1,8 @@
 //! What a finished game reports to the quests and the achievements (`docs/architecture/quests.md`,
 //! P7): the tally taken from the game at game over, and the entries built from it.
 //!
-//! Every task id is a constant: non-zero, distinct (also modulo 128), and at most 8 entries are
-//! built (4 for the quests, 6 for the achievements), against the 16 of the package. Those are the
+//! Every task id is a constant: non-zero, distinct (also modulo 128), and at most 9 entries are
+//! built (4 for the quests, 5 for the achievements), against the 16 of the package. Those are the
 //! only two ways `progress_many` can revert in event mode (ruling P-23, quiver 0.2.0 @ 2e6bb77),
 //! and both are decided by the array built here, so a game over cannot fail because of quests: the
 //! unit tests below prove the bounds on every shape of report. The list of the accepted quests and
@@ -13,14 +13,12 @@ use paved::models::game::{Game, GameImpl};
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_quest::types::batch::TaskProgress as QuestProgress;
 
-/// What a Daily game over reports, from the game and the rank it took in its tournament.
+/// What a Daily game over reports, from the game. Since D-20 it holds no rank: nothing is ranked
+/// on chain, and task 9 (`WIN`) is never reported by the contract.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Tally {
     pub player_id: felt252,
     pub score: u32,
-    /// 1 to 3 when the game took a place in its tournament, 0 otherwise (not placed, or ended
-    /// after its tournament closed).
-    pub rank: u8,
     pub structures: u8,
     pub forests: u8,
     pub wonders: u8,
@@ -31,14 +29,14 @@ pub struct Tally {
 const OVER: u128 = 0x80000000000000000000000000000000;
 
 /// The tally of a game that is over, in one `u128` (a move that does not end the game returns 0,
-/// which costs nothing next to an `Option` of a struct): score (32 bits), rank, structures,
-/// forests, wonders and big (8 bits each), and the `OVER` flag. The counters are clamped to the
-/// widths of their `GameState` bits.
-pub fn encode(game: Game, rank: u8) -> u128 {
-    let t = tally(game, 0, rank);
+/// which costs nothing next to an `Option` of a struct): score (32 bits), 8 bits always 0 (the
+/// rank until D-20, left unused so that `Daily` and a `Lobby` class of either side of D-20 read
+/// the same layout), structures, forests, wonders and big (8 bits each), and the `OVER` flag. The
+/// counters are clamped to the widths of their `GameState` bits.
+pub fn encode(game: Game) -> u128 {
+    let t = tally(game, 0);
     OVER
         + t.score.into()
-        + t.rank.into() * 0x100000000
         + t.structures.into() * 0x10000000000
         + t.forests.into() * 0x1000000000000
         + t.wonders.into() * 0x100000000000000
@@ -51,7 +49,6 @@ pub fn decode(word: u128, player_id: felt252) -> Tally {
     Tally {
         player_id,
         score: (low & 0xffffffff).try_into().unwrap(),
-        rank: ((low / 0x100000000) & 0xff).try_into().unwrap(),
         structures: ((low / 0x10000000000) & 0xff).try_into().unwrap(),
         forests: ((low / 0x1000000000000) & 0xff).try_into().unwrap(),
         wonders: ((low / 0x100000000000000) & 0xff).try_into().unwrap(),
@@ -61,11 +58,10 @@ pub fn decode(word: u128, player_id: felt252) -> Tally {
 
 /// The tally of a game that is over. The counters are clamped to the widths of their `GameState`
 /// bits, whatever the game holds.
-pub fn tally(game: Game, player_id: felt252, rank: u8) -> Tally {
+pub fn tally(game: Game, player_id: felt252) -> Tally {
     Tally {
         player_id,
         score: game.score,
-        rank,
         structures: game.structures(),
         forests: game.forests(),
         wonders: game.wonders(),
@@ -84,8 +80,8 @@ pub fn quest_counts(tally: Tally) -> Array<(u32, u32)> {
     counts
 }
 
-/// The non-zero `(task id, count)` pairs the achievements count, in task order: tasks 1, 4, 5, 6,
-/// 7 and 9 (task 8, the podium, is credited by the indexer).
+/// The non-zero `(task id, count)` pairs the achievements count, in task order: tasks 1, 4, 5, 6
+/// and 7 (task 8, the podium, and task 9, the win, are left to the indexer since D-20).
 pub fn achievement_counts(tally: Tally) -> Array<(u32, u32)> {
     let mut counts: Array<(u32, u32)> = array![];
     counts.append((constants::TASK_GAME_FINISHED, 1));
@@ -94,9 +90,6 @@ pub fn achievement_counts(tally: Tally) -> Array<(u32, u32)> {
     push(ref counts, constants::TASK_BIG_STRUCTURE, tally.big.into());
     if tally.score >= constants::HIGH_SCORE {
         counts.append((constants::TASK_HIGH_SCORE, 1));
-    }
-    if tally.rank == 1 {
-        counts.append((constants::TASK_WIN, 1));
     }
     counts
 }
@@ -133,8 +126,8 @@ mod tests {
     use paved::constants;
     use super::{Tally, achievement_counts, achievement_entries, quest_counts, quest_entries};
 
-    fn tally(score: u32, rank: u8, n: u8, f: u8, w: u8, b: u8) -> Tally {
-        Tally { player_id: 'PLAYER', score, rank, structures: n, forests: f, wonders: w, big: b }
+    fn tally(score: u32, n: u8, f: u8, w: u8, b: u8) -> Tally {
+        Tally { player_id: 'PLAYER', score, structures: n, forests: f, wonders: w, big: b }
     }
 
     /// The bounds that decide whether `progress_many` can revert (P-23): at most 16 entries, no
@@ -168,56 +161,52 @@ mod tests {
         assert_eq!(achievement_entries(report).len(), achievement_counts(report).len());
     }
 
-    /// Every shape a closing move can produce: each rank, scores around the thresholds, and each
-    /// of the four counters independently at zero or at the maximum of its width.
+    /// Every shape a closing move can produce: scores around the thresholds, and each of the four
+    /// counters independently at zero or at the maximum of its width.
     #[test]
     #[available_gas(l2_gas: 230266947)]
     fn test_report_bounds_on_every_shape() {
         let scores = array![0, 1, constants::HIGH_SCORE - 1, constants::HIGH_SCORE, 0xffffffff];
-        let ranks = array![0_u8, 1, 2, 3];
         let mut s = scores.span();
         while let Option::Some(score) = s.pop_front() {
-            let mut r = ranks.span();
-            while let Option::Some(rank) = r.pop_front() {
-                // [Info] Bit i of `mask` puts the counter i at its maximum
-                let mut mask: u8 = 0;
-                while mask < 16 {
-                    let structures = if mask & 1 != 0 {
-                        constants::MAX_STRUCTURES
-                    } else {
-                        0
-                    };
-                    let forests = if mask & 2 != 0 {
-                        constants::MAX_FORESTS
-                    } else {
-                        0
-                    };
-                    let wonders = if mask & 4 != 0 {
-                        constants::MAX_WONDERS
-                    } else {
-                        0
-                    };
-                    let big = if mask & 8 != 0 {
-                        constants::MAX_BIG
-                    } else {
-                        0
-                    };
-                    assert_bounds(tally(*score, *rank, structures, forests, wonders, big));
-                    mask += 1;
-                }
+            // [Info] Bit i of `mask` puts the counter i at its maximum
+            let mut mask: u8 = 0;
+            while mask < 16 {
+                let structures = if mask & 1 != 0 {
+                    constants::MAX_STRUCTURES
+                } else {
+                    0
+                };
+                let forests = if mask & 2 != 0 {
+                    constants::MAX_FORESTS
+                } else {
+                    0
+                };
+                let wonders = if mask & 4 != 0 {
+                    constants::MAX_WONDERS
+                } else {
+                    0
+                };
+                let big = if mask & 8 != 0 {
+                    constants::MAX_BIG
+                } else {
+                    0
+                };
+                assert_bounds(tally(*score, structures, forests, wonders, big));
+                mask += 1;
             }
         }
     }
 
-    /// The largest reports are 4 entries for the quests and 6 for the achievements, and a report
+    /// The largest reports are 4 entries for the quests and 5 for the achievements, and a report
     /// with every count zero is the single entry of the finished game.
     #[test]
     #[available_gas(l2_gas: 94416)]
     fn test_report_extremes() {
-        let most = tally(0xffffffff, 1, 127, 63, 15, 63);
+        let most = tally(0xffffffff, 127, 63, 15, 63);
         assert_eq!(quest_counts(most).len(), 4);
-        assert_eq!(achievement_counts(most).len(), 6);
-        let least = tally(0, 0, 0, 0, 0, 0);
+        assert_eq!(achievement_counts(most).len(), 5);
+        let least = tally(0, 0, 0, 0, 0);
         assert_eq!(quest_counts(least).len(), 1);
         assert_eq!(achievement_counts(least).len(), 1);
     }

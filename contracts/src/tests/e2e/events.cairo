@@ -61,11 +61,9 @@ fn test_events_daily_spawn_emits_game_spawned() {
                 game_id,
                 player_id: context.player_id,
                 mode: Mode::Daily.into(),
-                tournament_id: TournamentTrait::compute_id(
-                    100, constants::DAILY_TOURNAMENT_DURATION,
-                ),
+                day_id: TournamentTrait::compute_id(100, constants::DAILY_DURATION),
                 start_time: 100,
-                price: constants::DAILY_TOURNAMENT_PRICE,
+                price: constants::DAILY_PRICE,
             },
         ),
     );
@@ -160,12 +158,12 @@ fn test_events_daily_surrender_emits_game_over() {
     systems.daily.surrender(context.game_id);
 
     let game = store.game(context.game_id);
-    assert(game.tournament_id != 0, 'Events: tournament set');
+    assert(game.day_id != 0, 'Events: tournament set');
     let event = daily(
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
-                tournament_id: game.tournament_id,
+                day_id: game.day_id,
                 player_id: context.player_id,
                 mode: Mode::Daily.into(),
                 score: game.score,
@@ -183,28 +181,24 @@ fn test_events_daily_sponsor_and_claim() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
 
     let mut spy = spy_events();
     systems.daily.sponsor(1000);
     let sponsored = daily(
-        PavedEvent::Sponsored(Sponsored { tournament_id, sponsor: PLAYER(), amount: 1000 }),
+        PavedEvent::Sponsored(Sponsored { day_id, sponsor: PLAYER(), amount: 1000 }),
     );
     spy.assert_emitted(@array![(systems.daily.contract_address, sponsored)]);
 
     // Force PLAYER as the top-1 winner, then claim after the tournament.
-    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    leaderboard::submit(store.contract, day_id, context.player_id, 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
     let balance_before = context.token.balance_of(PLAYER());
-    systems.daily.claim(tournament_id, 1);
+    systems.daily.claim(day_id, 1);
     let reward = context.token.balance_of(PLAYER()) - balance_before;
     assert(reward > 0, 'Events: reward paid');
     let claimed = daily(
-        PavedEvent::Claimed(
-            Claimed { tournament_id, player_id: context.player_id, rank: 1, reward },
-        ),
+        PavedEvent::Claimed(Claimed { day_id, player_id: context.player_id, rank: 1, reward }),
     );
     spy.assert_emitted(@array![(systems.daily.contract_address, claimed)]);
 }
@@ -228,7 +222,7 @@ fn test_events_tutorial_spawn_and_surrender() {
                 game_id,
                 player_id: context.player_id,
                 mode: Mode::Tutorial.into(),
-                tournament_id: 0,
+                day_id: 0,
                 start_time: game.start_time,
                 price: game.price(),
             },
@@ -238,7 +232,7 @@ fn test_events_tutorial_spawn_and_surrender() {
         PavedEvent::GameOver(
             GameOver {
                 game_id,
-                tournament_id: 0,
+                day_id: 0,
                 player_id: context.player_id,
                 mode: Mode::Tutorial.into(),
                 score: game.score,
@@ -251,7 +245,7 @@ fn test_events_tutorial_spawn_and_surrender() {
 
     // The game, its view and both events agree: no tournament, and none was written.
     assert(game.start_time == 100, 'Events: start time');
-    assert(game.tournament_id == 0, 'Events: game tournament');
+    assert(game.day_id == 0, 'Events: game tournament');
     assert(tutorial_store.tournament(100).prize == 0, 'Events: tutorial tournament');
     assert(
         TestStoreTrait::new(systems.daily.contract_address).tournament(100).prize == 0,
@@ -296,7 +290,7 @@ fn test_events_daily_last_build_emits_game_over() {
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
-                tournament_id: game.tournament_id,
+                day_id: game.day_id,
                 player_id: context.player_id,
                 mode: Mode::Daily.into(),
                 score: game.score,
@@ -329,12 +323,12 @@ fn test_events_daily_last_discard_emits_game_over() {
 
     let game = store.game(context.game_id);
     assert(game.over, 'Events: game over');
-    assert(game.tournament_id != 0, 'Events: tournament set');
+    assert(game.day_id != 0, 'Events: tournament set');
     let over = daily(
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
-                tournament_id: game.tournament_id,
+                day_id: game.day_id,
                 player_id: context.player_id,
                 mode: Mode::Daily.into(),
                 score: game.score,

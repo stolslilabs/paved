@@ -39,7 +39,7 @@ fn test_store_round_trips_at_maximum_values() {
                 score: Bounded::MAX,
                 seed: BIG,
                 mode: Bounded::MAX,
-                tournament_id: Bounded::MAX,
+                day_id: Bounded::MAX,
                 tile_limit: Bounded::MAX,
                 counts: GameImpl::counts_of(
                     constants::MAX_STRUCTURES,

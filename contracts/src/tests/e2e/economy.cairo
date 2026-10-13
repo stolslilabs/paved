@@ -54,7 +54,7 @@ fn assert_paid_spawn(
 
 #[test]
 fn test_economy_entry_price_is_the_stake_unit() {
-    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
+    let price: u256 = constants::DAILY_PRICE.into();
     assert(price == BASE_PRICE, 'Economy: unit price');
 }
 

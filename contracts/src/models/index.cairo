@@ -18,7 +18,7 @@ pub struct Game {
     pub score: u32,
     pub seed: felt252,
     pub mode: u8,
-    pub tournament_id: u64,
+    pub day_id: u64,
     pub tile_limit: u16,
     /// The four scoring counters (structures, forests, wonders, big structures scored), packed in
     /// 23 bits as `GameState` holds them: see `GameImpl::counts_of` and
@@ -59,13 +59,4 @@ pub struct TilePosition {
     pub x: u32,
     pub y: u32,
     pub tile_id: u32,
-}
-
-#[derive(Copy, Drop, Serde, Debug, PartialEq)]
-pub struct Tournament {
-    pub id: u64,
-    pub prize: felt252,
-    pub top1_claimed: bool,
-    pub top2_claimed: bool,
-    pub top3_claimed: bool,
 }

@@ -6,21 +6,14 @@
 
 use starknet::ContractAddress;
 
-/// What the re-entry calls: `Daily.spawn(1, 0, 0)`.
+/// What the re-entry calls: `Daily.spawn(1, 0, 0)`. The only action since D-20 (the prize's
+/// `claim` and `sponsor` re-entries, actions 2 to 4, left with them).
 pub const SPAWN: u8 = 1;
-/// `Daily.claim(tournament_id, rank)`.
-pub const CLAIM: u8 = 2;
-/// `Daily.claim(tournament_id, 0)`, the sponsors' reclaim (P-37).
-pub const RECLAIM: u8 = 3;
-/// `Daily.sponsor(1000)`.
-pub const SPONSOR: u8 = 4;
 
 #[starknet::interface]
 pub trait IReentrantToken<TContractState> {
     /// Arms one re-entry into `daily`, made on the next transfer, whatever it is.
-    fn arm(
-        ref self: TContractState, daily: ContractAddress, action: u8, tournament_id: u64, rank: u8,
-    );
+    fn arm(ref self: TContractState, daily: ContractAddress, action: u8);
     /// How many re-entries ran and how many of them reverted.
     fn outcome(self: @TContractState) -> (u32, u32);
     /// The first panic datum of the reverted re-entry (0 if none reverted).
@@ -39,14 +32,12 @@ pub mod ReentrantToken {
     use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
     use starknet::ContractAddress;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use super::{CLAIM, IReentrantToken, RECLAIM, SPAWN, SPONSOR};
+    use super::{IReentrantToken, SPAWN};
 
     #[storage]
     struct Storage {
         daily: ContractAddress,
         action: u8,
-        tournament_id: u64,
-        rank: u8,
         attempts: u32,
         reverted: u32,
         error: felt252,
@@ -64,20 +55,8 @@ pub mod ReentrantToken {
             }
             self.attempts.write(1);
             let daily = IDailySafeDispatcher { contract_address: self.daily.read() };
-            let result = if action == SPAWN {
-                match daily.spawn(1, Zero::zero(), 0) {
-                    Result::Ok(_) => Result::Ok(()),
-                    Result::Err(e) => Result::Err(e),
-                }
-            } else if action == CLAIM {
-                daily.claim(self.tournament_id.read(), self.rank.read())
-            } else if action == RECLAIM {
-                daily.claim(self.tournament_id.read(), 0)
-            } else {
-                assert(action == SPONSOR, 'Reentrant: unknown action');
-                daily.sponsor(1000)
-            };
-            if let Result::Err(data) = result {
+            assert(action == SPAWN, 'Reentrant: unknown action');
+            if let Result::Err(data) = daily.spawn(1, Zero::zero(), 0) {
                 self.reverted.write(self.reverted.read() + 1);
                 self.error.write(*data.at(0));
             }
@@ -86,17 +65,9 @@ pub mod ReentrantToken {
 
     #[abi(embed_v0)]
     impl ReentrantTokenImpl of IReentrantToken<ContractState> {
-        fn arm(
-            ref self: ContractState,
-            daily: ContractAddress,
-            action: u8,
-            tournament_id: u64,
-            rank: u8,
-        ) {
+        fn arm(ref self: ContractState, daily: ContractAddress, action: u8) {
             self.daily.write(daily);
             self.action.write(action);
-            self.tournament_id.write(tournament_id);
-            self.rank.write(rank);
             self.attempts.write(0);
             self.reverted.write(0);
             self.error.write(0);

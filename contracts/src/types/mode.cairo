@@ -6,11 +6,11 @@ use core::poseidon::{HashState, PoseidonTrait};
 // Internal imports
 
 use paved::constants;
-use paved::helpers::bitmap::Bitmap;
 
 // External imports
 
-use paved::models::tournament::TournamentTrait;
+use paved::day::day_id;
+use paved::helpers::bitmap::Bitmap;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
 use paved::types::plan::PlanImpl;
@@ -35,7 +35,7 @@ pub impl ModeImpl of ModeTrait {
     #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
-            Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
+            Mode::Daily => constants::DAILY_PRICE,
             Mode::Tutorial => 0,
             _ => 0,
         }
@@ -44,7 +44,7 @@ pub impl ModeImpl of ModeTrait {
     #[inline]
     fn duration(self: Mode) -> u64 {
         match self {
-            Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
+            Mode::Daily => constants::DAILY_DURATION,
             Mode::Tutorial => 1,
             _ => 0,
         }
@@ -54,10 +54,10 @@ pub impl ModeImpl of ModeTrait {
     fn seed(self: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
         match self {
             Mode::Daily => {
-                let tournament_id = TournamentTrait::compute_id(time, self.duration());
+                let day = day_id(time, self.duration());
                 let state: HashState = PoseidonTrait::new();
                 let state = state.update(salt);
-                let state = state.update(tournament_id.into());
+                let state = state.update(day.into());
                 state.finalize()
             },
             Mode::Tutorial => 0,

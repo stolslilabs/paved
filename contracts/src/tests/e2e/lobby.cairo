@@ -36,7 +36,7 @@ use starknet::ContractAddress;
 /// views of that caller say at that moment. It moves no balance and always succeeds.
 #[starknet::interface]
 pub trait ISpyToken<TContractState> {
-    fn watch(ref self: TContractState, tournament_id: u64, game_id: u32);
+    fn watch(ref self: TContractState, day_id: u64, game_id: u32);
     fn seen(self: @TContractState) -> Seen;
     fn transferFrom(
         ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256,
@@ -70,7 +70,7 @@ pub mod SpyToken {
 
     #[storage]
     struct Storage {
-        tournament_id: u64,
+        day_id: u64,
         game_id: u32,
         seen: Seen,
     }
@@ -80,7 +80,7 @@ pub mod SpyToken {
         fn record(ref self: ContractState, recipient: ContractAddress) {
             let caller = get_caller_address();
             let tournament = ITournamentViewDispatcher { contract_address: caller }
-                .tournament(self.tournament_id.read());
+                .tournament(self.day_id.read());
             let game = IGameViewDispatcher { contract_address: caller }.game(self.game_id.read());
             self
                 .seen
@@ -98,8 +98,8 @@ pub mod SpyToken {
 
     #[abi(embed_v0)]
     impl SpyTokenImpl of ISpyToken<ContractState> {
-        fn watch(ref self: ContractState, tournament_id: u64, game_id: u32) {
-            self.tournament_id.write(tournament_id);
+        fn watch(ref self: ContractState, day_id: u64, game_id: u32) {
+            self.day_id.write(day_id);
             self.game_id.write(game_id);
         }
 
@@ -322,12 +322,10 @@ fn test_lobby_class_is_never_written_after_construction() {
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by sponsor');
     systems.daily.surrender(context.game_id);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by surrender');
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
-    leaderboard::submit(daily, tournament_id, context.player_id, 1);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
-    systems.daily.claim(tournament_id, 1);
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
+    leaderboard::submit(daily, day_id, context.player_id, 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    systems.daily.claim(day_id, 1);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by claim');
 
     // [Tutorial] spawn, build, discard (the script discards the 8th tile), surrender
@@ -371,7 +369,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
     let daily = systems.daily.contract_address;
     let views = IGameViewDispatcher { contract_address: daily };
     let tournaments = ITournamentViewDispatcher { contract_address: daily };
-    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
+    let price: u256 = constants::DAILY_PRICE.into();
 
     // [Daily -> Lobby] the token stored by `Daily`'s constructor at its raw address, paid by
     // `Lobby`
@@ -392,11 +390,9 @@ fn test_lobby_and_daily_share_the_storage_layout() {
     assert(game.start_time == 100, 'Lobby: game start');
     assert(game.tile_count == 2, 'Lobby: game tiles');
     assert(game.tile_id != 0, 'Lobby: tile in hand');
-    let tournament_id = views.game(game_id).start_time;
-    let tournament_id = TournamentTrait::compute_id(
-        tournament_id, constants::DAILY_TOURNAMENT_DURATION,
-    );
-    assert(tournaments.tournament(tournament_id).prize == 0, 'Lobby: no entry in prize');
+    let day_id = views.game(game_id).start_time;
+    let day_id = TournamentTrait::compute_id(day_id, constants::DAILY_DURATION);
+    assert(tournaments.tournament(day_id).prize == 0, 'Lobby: no entry in prize');
 
     // [Daily -> Lobby] a build by `Daily`, then a discard by `Lobby` on the state it left
     let builder = store.builder(store.game(game_id), context.player_id);
@@ -413,24 +409,24 @@ fn test_lobby_and_daily_share_the_storage_layout() {
 
     // [Lobby -> Daily] sponsor, surrender, claim
     systems.daily.sponsor(1000);
-    assert(tournaments.tournament(tournament_id).prize == 1000, 'Lobby: sponsored');
+    assert(tournaments.tournament(day_id).prize == 1000, 'Lobby: sponsored');
     // [Lobby -> Daily] the sponsorship `Lobby` wrote sits at the raw address of `Daily`'s own
     // `sponsorships` map, under the (day, sponsor) key
     let slot = map_entry_address(
-        selector!("sponsorships"), array![tournament_id.into(), PLAYER().into()].span(),
+        selector!("sponsorships"), array![day_id.into(), PLAYER().into()].span(),
     );
     assert(*load(daily, slot, 1).at(0) == 1000, 'Lobby: sponsorship slot');
     systems.daily.surrender(game_id);
     let over = views.game(game_id);
     assert(over.over, 'Lobby: over');
-    assert(over.tournament_id == tournament_id, 'Lobby: game tournament');
+    assert(over.day_id == day_id, 'Lobby: game tournament');
     assert(over.end_time == 100, 'Lobby: game end');
     // [Effect] A game of score 0 ranks nowhere: force PLAYER first
-    leaderboard::submit(daily, tournament_id, context.player_id, 1);
-    start_cheat_block_timestamp_global(100 + constants::DAILY_TOURNAMENT_DURATION);
+    leaderboard::submit(daily, day_id, context.player_id, 1);
+    start_cheat_block_timestamp_global(100 + constants::DAILY_DURATION);
     let player_before = context.token.balance_of(PLAYER());
-    systems.daily.claim(tournament_id, 1);
-    assert(tournaments.tournament(tournament_id).top1_claimed, 'Lobby: claimed');
+    systems.daily.claim(day_id, 1);
+    assert(tournaments.tournament(day_id).top1_claimed, 'Lobby: claimed');
     assert(context.token.balance_of(PLAYER()) > player_before, 'Lobby: reward paid');
 }
 
@@ -471,9 +467,9 @@ fn test_lobby_and_tutorial_share_the_storage_layout() {
 fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, economy) = spied_daily();
-    let tournament_id = TournamentTrait::compute_id(100, constants::DAILY_TOURNAMENT_DURATION);
-    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
-    spy.watch(tournament_id, 1);
+    let day_id = TournamentTrait::compute_id(100, constants::DAILY_DURATION);
+    let price: u256 = constants::DAILY_PRICE.into();
+    spy.watch(day_id, 1);
 
     let game_id = daily.spawn(3, core::num::traits::Zero::zero(), 7);
     let seen = spy.seen();
@@ -506,16 +502,16 @@ fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
 fn test_lobby_claim_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, _) = spied_daily();
-    let tournament_id = TournamentTrait::compute_id(100, constants::DAILY_TOURNAMENT_DURATION);
-    spy.watch(tournament_id, 1);
+    let day_id = TournamentTrait::compute_id(100, constants::DAILY_DURATION);
+    spy.watch(day_id, 1);
     let game_id = daily.spawn(1, core::num::traits::Zero::zero(), 0);
     daily.sponsor(1000);
     daily.surrender(game_id);
     // [Effect] A game of score 0 ranks nowhere: force PLAYER first
-    leaderboard::submit(daily.contract_address, tournament_id, PLAYER().into(), 1);
-    start_cheat_block_timestamp_global(100 + constants::DAILY_TOURNAMENT_DURATION);
+    leaderboard::submit(daily.contract_address, day_id, PLAYER().into(), 1);
+    start_cheat_block_timestamp_global(100 + constants::DAILY_DURATION);
 
-    daily.claim(tournament_id, 1);
+    daily.claim(day_id, 1);
     let seen = spy.seen();
     assert(seen.caller == daily.contract_address, 'Lobby: claim payer');
     assert(seen.recipient == PLAYER(), 'Lobby: claim recipient');

@@ -121,7 +121,7 @@ pub mod metadata {
         text
     }
 
-    /// The JSON of a game: `id` is the token id, `day` the tournament day.
+    /// The JSON of a game: `id` is the token id, `day` the day of its start.
     pub fn json(token_id: u256, score: u32, over: bool, day: u64) -> ByteArray {
         let id: u64 = token_id.try_into().unwrap();
         let mut text: ByteArray = "{\"name\":\"Paved Games #";

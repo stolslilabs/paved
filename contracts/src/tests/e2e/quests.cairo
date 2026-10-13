@@ -291,8 +291,8 @@ fn test_quests_game_over_every_counter_at_maximum() {
     // [Assert] Game over, ranked first in its tournament
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
-    assert(game.tournament_id != 0, 'Quests: ranked');
-    let id = game.tournament_id;
+    assert(game.day_id != 0, 'Quests: ranked');
+    let id = game.day_id;
     let top = interact_with_state(daily, || LeaderboardImpl::new().top(id));
     assert(top.first.score == 0xffffffff, 'Quests: first rank');
     let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
@@ -352,10 +352,10 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
     let mut game = store.game(context.game_id);
     game.score = 5000;
     store.set_game(game);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
     let mut spy = spy_events();
     systems.daily.surrender(context.game_id);
-    assert(store.game(context.game_id).tournament_id == 0, 'Quests: ranked');
+    assert(store.game(context.game_id).day_id == 0, 'Quests: ranked');
     let p = context.player_id;
     spy
         .assert_emitted(

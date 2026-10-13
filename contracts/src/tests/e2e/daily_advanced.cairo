@@ -34,17 +34,15 @@ fn test_daily_e2e_sponsor_updates_prize_and_balance() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
 
-    let prize_before = store.tournament(tournament_id).prize;
+    let prize_before = store.tournament(day_id).prize;
     let balance_before = context.token.balance_of(PLAYER());
 
     let sponsor_amount: felt252 = 20_000_000;
     systems.daily.sponsor(sponsor_amount);
 
-    let prize_after = store.tournament(tournament_id).prize;
+    let prize_after = store.tournament(day_id).prize;
     let balance_after = context.token.balance_of(PLAYER());
 
     assert(prize_after == prize_before + sponsor_amount, 'Daily: sponsor prize');
@@ -59,22 +57,20 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
 
     // Force a deterministic top-1 winner for this test; the prize is sponsor-only (P-31).
-    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
+    leaderboard::submit(store.contract, day_id, context.player_id, 1);
     let sponsored: felt252 = 2_000_000;
     systems.daily.sponsor(sponsored);
 
     let balance_before = context.token.balance_of(PLAYER());
     let pool_before = context.token.balance_of(systems.daily.contract_address);
 
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
-    systems.daily.claim(tournament_id, 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    systems.daily.claim(day_id, 1);
 
-    let tournament = store.tournament(tournament_id);
+    let tournament = store.tournament(day_id);
     let balance_after = context.token.balance_of(PLAYER());
     let pool_after = context.token.balance_of(systems.daily.contract_address);
     let prize: u256 = tournament.prize.into();
@@ -93,19 +89,17 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
 
     // Force the three ranks: PLAYER first, ANYONE second, SOMEONE third.
-    leaderboard::submit(store.contract, tournament_id, context.player_id, 3);
-    leaderboard::submit(store.contract, tournament_id, context.anyone_id, 2);
-    leaderboard::submit(store.contract, tournament_id, context.someone_id, 1);
+    leaderboard::submit(store.contract, day_id, context.player_id, 3);
+    leaderboard::submit(store.contract, day_id, context.anyone_id, 2);
+    leaderboard::submit(store.contract, day_id, context.someone_id, 1);
 
     // A sponsored prize of 7 USDC (entries no longer feed it, P-31): rank 3 = prize / 6, rank 2 =
     // (prize - rank 3) / 3, rank 1 = the rest.
     systems.daily.sponsor(7_000_000);
-    let tournament = store.tournament(tournament_id);
+    let tournament = store.tournament(day_id);
     let prize: u256 = tournament.prize.into();
     assert(prize == 7_000_000_u256, 'Daily: prize');
     let reward_1: u256 = 3_888_890;
@@ -119,12 +113,12 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     let before_2 = context.token.balance_of(ANYONE());
     let before_3 = context.token.balance_of(SOMEONE());
 
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
-    systems.daily.claim(tournament_id, 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    systems.daily.claim(day_id, 1);
     start_cheat_caller_address(daily, ANYONE());
-    systems.daily.claim(tournament_id, 2);
+    systems.daily.claim(day_id, 2);
     start_cheat_caller_address(daily, SOMEONE());
-    systems.daily.claim(tournament_id, 3);
+    systems.daily.claim(day_id, 3);
     stop_cheat_caller_address(daily);
 
     assert(context.token.balance_of(PLAYER()) - before_1 == reward_1, 'Daily: reward 1');
@@ -132,7 +126,7 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     assert(context.token.balance_of(SOMEONE()) - before_3 == reward_3, 'Daily: reward 3');
     assert(pool_before - context.token.balance_of(daily) == prize, 'Daily: pool debit');
 
-    let tournament = store.tournament(tournament_id);
+    let tournament = store.tournament(day_id);
     assert(tournament.top1_claimed, 'Daily: claim 1 marked');
     assert(tournament.top2_claimed, 'Daily: claim 2 marked');
     assert(tournament.top3_claimed, 'Daily: claim 3 marked');
@@ -146,14 +140,12 @@ fn test_daily_e2e_claim_reverts_before_tournament_end() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
-    );
+    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
 
-    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
+    leaderboard::submit(store.contract, day_id, context.player_id, 1);
     systems.daily.sponsor(2_000_000);
 
-    systems.daily.claim(tournament_id, 1);
+    systems.daily.claim(day_id, 1);
 }
 
 #[test]
