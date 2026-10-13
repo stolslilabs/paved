@@ -28,7 +28,7 @@ afterEach(() => {
 async function start(): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
   const node = new FakeNode();
   node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]); // "Ada", "Bo"
-  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("tutorial", 1, A)]);
+  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
   node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
   node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
   node.mine([ev.spawned("daily", 3, A, { day: DAY })]); // still running: null score, day and end time
@@ -54,8 +54,8 @@ async function startQuests() {
     [ev.achievementDefined(9, { tasks: [[8, 1]], points: 50 })],
   );
   node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, A, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY })]);
-  node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed("daily", A, 1, 1)]);
-  node.mine([ev.over("daily", 2, A, 1500, { day: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed("daily", A, 1, 1)]);
+  node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed(A, 1, 1)]);
+  node.mine([ev.over("daily", 2, A, 1500, { day: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed(A, 1, 1)]);
   node.mine([ev.questRetired(2)]);
   return { node, ...(await serveNode(node)) };
 }
@@ -79,7 +79,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1 });
-    expect(data.contracts).toMatchObject({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
+    expect(data.contracts).toMatchObject({ daily: "0x1111", setup: "0x2222", account: "0x3333", economy: "0x4444" });
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });
@@ -152,23 +152,23 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const known = await client.player(ADA);
     expect(known.data.player).toMatchObject({ playerId: ADA, name: "Ada" });
-    expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, tutorialGames: 1, paidGames: 0, settledGames: 0, rewards: "0" });
+    expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, paidGames: 0, settledGames: 0, rewards: "0" });
     expect(await client.player(0xeen)).toMatchObject({ data: { player: null, stats: null } });
   });
 
   test("/v1/players/{id}/games: a running game reads as in progress, paging and the contract filter", async () => {
     const { client } = await start();
     const all = await client.playerGames(ADA);
-    expect(all.data.games.map((g) => `${g.contract}:${g.gameId}`).sort()).toEqual(["daily:1", "daily:3", "tutorial:1"]);
+    expect(all.data.games.map((g) => `${g.contract}:${g.gameId}`).sort()).toEqual(["daily:1", "daily:3"]);
     const running = all.data.games.find((g) => g.contract === "daily" && g.gameId === 3)!;
     expect(running).toMatchObject({ over: false, score: 0, countedDayId: 0, endTime: 0, dayId: DAY });
     expect(all.data.games.find((g) => g.gameId === 1 && g.contract === "daily")).toMatchObject({ over: true, score: 50, countedDayId: DAY, endTime: 77 });
     const page = await client.playerGames(ADA, { limit: 1 });
     expect(page.data.games).toHaveLength(1);
-    expect(page.data.next).toMatch(/^\d+:(daily|tutorial):\d+$/);
+    expect(page.data.next).toMatch(/^\d+:daily:\d+$/);
     const rest = await client.playerGames(ADA, { before: page.data.next! });
-    expect(rest.data.games).toHaveLength(2);
-    expect((await client.playerGames(ADA, { contract: "tutorial" })).data.games).toHaveLength(1);
+    expect(rest.data.games).toHaveLength(1);
+    expect((await client.playerGames(ADA, { contract: "daily" })).data.games).toHaveLength(2);
     expect((await client.playerGames(BO)).data.games.map((g) => g.gameId)).toEqual([2]);
   });
 
@@ -180,7 +180,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("/v1/games/{contract}/{id}: one game, not-found for another", async () => {
     const { client } = await start();
-    expect((await client.game("tutorial", 1)).data).toMatchObject({ contract: "tutorial", gameId: 1, over: false });
+    expect((await client.game("daily", 3)).data).toMatchObject({ contract: "daily", gameId: 3, over: false });
     expect((await client.game("daily", 2)).data).toMatchObject({ over: true, score: 40 });
     expect(await kindOf(client.game("daily", 99))).toBe("not-found");
   });
@@ -260,6 +260,18 @@ describe("IndexerClient against the real indexer", () => {
     expect(data.achievements.map((a) => [a.achievementId, a.completed, a.tasks[0].count, a.points])).toEqual([[2, true, 1, 10], [3, false, 2, 20], [9, false, 0, 50]]);
     expect(data.achievements[0].completedAt).toBeGreaterThan(T0);
     expect(data.achievements[1]).toMatchObject({ completedAt: null, retired: false });
+  });
+
+  test("the tutorial claim (D-21): Setup's task 10 completes First Stone, read through the client", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x41)], [ev.achievementDefined(1, { tasks: [[10, 1]], points: 10 })]);
+    node.mine([ev.tutorialClaimed(A)]);
+    const { client } = await serveNode(node);
+    const { data } = await client.playerAchievements(ADA);
+    expect(data.points).toBe(10);
+    expect(data.achievements.map((a) => [a.achievementId, a.completed, a.tasks[0].taskId, a.tasks[0].count])).toEqual([[1, true, 10, 1]]);
+    const other = await client.playerAchievements(BO);
+    expect(other.data.achievements[0]).toMatchObject({ achievementId: 1, completed: false });
   });
 
   test("/v1/players/{id}/achievements: no progress is zero points, and so is an unknown player", async () => {
