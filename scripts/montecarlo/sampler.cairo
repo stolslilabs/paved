@@ -3,22 +3,23 @@
 //! `contracts/src/tests/golden/sampler.cairo`, add `pub mod sampler;` to `contracts/src/tests/golden.cairo`, make
 //! `edge_table`, `edge`, `key` and `fits` of `golden/full_deck.cairo` public, then, one game per run:
 //!     DAY=11 STRATEGY=0 SEED=0 snforge test --ignored test_sampler --max-n-steps 200000000
-//! Strategies: 0 greedy (the full-deck golden's bot), 1 random legal with characters on half the moves,
-//! 2 greedy without characters, 3 random legal without characters, 4 greedy with random ties. SEED drives the
-//! bot's own randomness; DAY picks the deck of the day.
+//! Strategies: 0 greedy (the full-deck golden's bot), 1 random legal, 2 greedy, 3 random legal, 4 greedy
+//! with random ties. SEED drives the bot's own randomness; DAY picks the deck of the day.
+//!
+//! D-18: characters left the game, so the bot places none. The strategies that differed only by
+//! characters play the same game now: 2 is 0 (greedy) and 3 is 1 (random legal). The ids stay, so the
+//! rows of `scores.csv` keep their keys. Strategy 1 no longer draws the coin that chose, on each
+//! candidate, whether to try a character: its random stream is the placement's alone, so its games
+//! are not those of the sample before D-18 (the deal is: the day and the seed are unchanged).
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::structure::{oriented, placement, tables};
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::tests::golden::full_deck::{edge_table, fits, key};
 use paved::tests::golden::harness::day;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, PLAYER, TestStoreTrait};
-use paved::types::category::Category;
 use paved::types::mode::Mode;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::env::var;
 
 fn env(name: ByteArray) -> u64 {
@@ -43,12 +44,11 @@ fn test_sampler() {
     let day_index = env("DAY");
     let strategy = env("STRATEGY");
     let mut rng: u64 = env("SEED") * 2654435761 + day_index + 1;
-    let use_characters = strategy == 0 || strategy == 1 || strategy == 4;
     let random = strategy == 1 || strategy == 3;
     snforge_std::start_cheat_block_timestamp_global(day(day_index));
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, PLAYER());
-    let game_id = systems.daily.spawn();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
     let safe = IDailySafeDispatcher { contract_address: systems.daily.contract_address };
     let table = edge_table();
     let mut board: Felt252Dict<u8> = Default::default();
@@ -140,44 +140,8 @@ fn test_sampler() {
         while c < order.len() && !done {
             let (cx, cy, co) = *order.at(c);
             c += 1;
-            let mut attempts: u8 = 0;
-            let mut tried: u16 = 0;
-            let row = oriented::plan_row(plan, co);
-            let mut at: u8 = 1;
-            let try_character = use_characters && (!random || next(ref rng) % 2 == 0);
-            while try_character && at <= 9 && !done && attempts < 2 {
-                let area = oriented::area_of(row, at);
-                if area != 0 && tried & placement::role_bit(area) == 0 {
-                    tried = tried | placement::role_bit(area);
-                    let category: Category = tables::row_category(
-                        oriented::area_row(plan, co, area),
-                    )
-                        .into();
-                    let candidate: Role = match category {
-                        Category::Wonder => Role::Pilgrim,
-                        Category::City => Role::Paladin,
-                        Category::Road => Role::Adventurer,
-                        Category::Forest => Role::Woodsman,
-                        _ => Role::None,
-                    };
-                    let bit: u8 = candidate.into();
-                    let placed = builder.characters & placement::role_bit(bit);
-                    if candidate != Role::None && placed == 0 {
-                        attempts += 1;
-                        let s: Spot = at.into();
-                        if safe.build(game_id, co.into(), cx, cy, candidate, s).is_ok() {
-                            done = true;
-                        }
-                    }
-                }
-                at += 1;
-            }
-            if !done {
-                if safe.build(game_id, co.into(), cx, cy, Role::None, Spot::None).is_ok() {
-                    done = true;
-                }
-            }
-            if done {
+            if safe.build(game_id, co.into(), cx, cy).is_ok() {
+                done = true;
                 best_x = cx;
                 best_y = cy;
                 best_o = co;
