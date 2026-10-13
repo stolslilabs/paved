@@ -8,7 +8,7 @@
 // the event's name (Economy's own `Event` variants are not flat: they are named as their structs, so the selector is the
 // struct's name too; its ownable and upgradeable components are flat, their events keep their own names); then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
 // list, a count of keys or data that differs, or a value wider than its type is a DecodeError, and the indexer halts on
-// it (it never guesses). The events of the contracts that are not indexed (the board events, claims, ownership) are
+// it (it never guesses). The events of the contracts that are not indexed (the board events, the past prize events, ownership) are
 // known by name and skipped; any other selector is a contract change the indexer was not told about.
 import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
@@ -41,7 +41,7 @@ export type Decoded =
       gameId: number;
       playerId: bigint;
       mode: number;
-      tournamentId: bigint;
+      dayId: bigint;
       startTime: bigint;
       price: bigint;
     }
@@ -49,7 +49,7 @@ export type Decoded =
       name: "GameOver";
       gameId: number;
       playerId: bigint;
-      tournamentId: bigint;
+      dayId: bigint;
       mode: number;
       score: number;
       startTime: bigint;
@@ -136,14 +136,6 @@ export type Decoded =
       emaAfter: bigint;
     }
   | {
-      /** A sponsor's addition to a day's prize (`Daily.sponsor`): the day is the tournament id. */
-      name: "Sponsored";
-      tournamentId: bigint;
-      sponsor: bigint;
-      /** Token base units (a felt252). */
-      amount: bigint;
-    }
-  | {
       name: "Settled";
       gameId: number;
       playerId: bigint;
@@ -183,7 +175,6 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   Recorded: ["economy"],
   DayClosed: ["economy"],
   Settled: ["economy"],
-  Sponsored: ["daily"],
   Transfer: ["collection"],
 };
 
@@ -192,7 +183,6 @@ export const IGNORED = [
   "Built",
   "Discarded",
   "Scored",
-  "Claimed",
   "OwnershipTransferStarted",
   "OwnershipTransferred",
   "Upgraded",
@@ -208,7 +198,11 @@ export const IGNORED = [
   "GameSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
-  // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
+  // The prize of a day (D-20 removed it): `Daily.sponsor`, `Daily.claim` of a rank, and a sponsor's reclaim (P-37, declared
+  // by the Lobby class, emitted from Daily's address). Past events only: the ABIs no longer declare them, and a replay of
+  // a history that holds them skips them (public-interface.md, "Past events").
+  "Sponsored",
+  "Claimed",
   "Reclaimed",
   // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class).
   "LobbyClassSet",
@@ -230,7 +224,6 @@ const INDEXED: readonly EventName[] = [
   "Recorded",
   "DayClosed",
   "Settled",
-  "Sponsored",
   "Transfer",
 ];
 
@@ -329,10 +322,10 @@ function safe(value: bigint, field: string): bigint {
 }
 
 /**
- * A tournament id (or an Economy day, the same UTC day id): at most `MAX_TOURNAMENT_ID`, the API's bound, so that no
+ * A day id (`day_id`, or an Economy day, the same UTC day id): at most `MAX_TOURNAMENT_ID`, the API's bound, so that no
  * indexed day can exceed it.
  */
-function tournamentId(value: string | undefined, field = "tournament_id"): bigint {
+function dayId(value: string | undefined, field = "day_id"): bigint {
   const id = uint(value, 64, field);
   if (id > BigInt(MAX_TOURNAMENT_ID)) {
     throw new DecodeError(`${field} ${id} is above the API bound ${MAX_TOURNAMENT_ID}`);
@@ -410,7 +403,7 @@ export function decode(
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
         mode: small(data[0], 8, "mode"),
-        tournamentId: tournamentId(data[1]),
+        dayId: dayId(data[1]),
         startTime: safe(uint(data[2], 64, "start_time"), "start_time"),
         price: felt(data[3]),
       };
@@ -420,7 +413,7 @@ export function decode(
         name,
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
-        tournamentId: tournamentId(keys[3]),
+        dayId: dayId(keys[3]),
         mode: small(data[0], 8, "mode"),
         score: small(data[1], 32, "score"),
         startTime: safe(uint(data[2], 64, "start_time"), "start_time"),
@@ -505,7 +498,7 @@ export function decode(
         name,
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
-        day: tournamentId(data[0], "day"),
+        day: dayId(data[0], "day"),
         stake: small(data[1], 8, "stake"),
         price: u256(data, 2, "price"),
         referrer: felt(data[4]),
@@ -550,19 +543,11 @@ export function decode(
       shape(name, keys, data, 1, 4);
       return {
         name,
-        day: tournamentId(keys[1], "day"),
+        day: dayId(keys[1], "day"),
         mean: u64(data[0], "mean"),
         weight: small(data[1], 32, "weight"),
         prior: u64(data[2], "prior"),
         emaAfter: u64(data[3], "ema_after"),
-      };
-    case "Sponsored":
-      shape(name, keys, data, 1, 2);
-      return {
-        name,
-        tournamentId: tournamentId(keys[1]),
-        sponsor: felt(data[0]),
-        amount: felt(data[1]),
       };
     case "Settled":
       shape(name, keys, data, 2, 4);
@@ -570,7 +555,7 @@ export function decode(
         name,
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
-        day: tournamentId(data[0], "day"),
+        day: dayId(data[0], "day"),
         score: small(data[1], 32, "score"),
         threshold: u64(data[2], "threshold"),
         reward: uint(data[3], 128, "reward"),

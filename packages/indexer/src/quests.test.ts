@@ -1,18 +1,16 @@
-import { hash } from "starknet";
 import { describe, expect, test } from "vitest";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
-import { CrossCheck } from "./crosscheck.ts";
-import { Chain } from "./chain.ts";
-import { canonical, padded } from "./events.ts";
+import { padded } from "./events.ts";
 import { Queries } from "./queries.ts";
 import { PODIUM_TASK, consistent, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
 import { respond } from "./server.ts";
-import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
+import { FakeNode, ev } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
 
 const A = 0xa1n;
 const B = 0xb2n;
 const C = 0xc3n;
+const D = 0xd4n;
 const DAY = 100;
 const T0 = DAY * 86400; // 00:00 UTC of day 100
 const END = T0 + 86400;
@@ -321,117 +319,116 @@ describe("the definitions", () => {
   });
 });
 
-const SELECTOR = canonical(hash.getSelectorFromName("tournament"));
-const view = (slots: [bigint, number][]) => {
-  const top = [0, 1, 2].flatMap((rank) => {
-    const [player, score] = slots[rank] ?? [0n, 0];
-    return [`0x${player.toString(16)}`, `0x${score.toString(16)}`, "0x0"];
-  });
-  return ["0x64", "0x0", "0x0", "0x1", "0x0", "0x0", ...top];
-};
-
-describe("On the Podium", () => {
-  async function podiumDay(slots: [bigint, number][]) {
+describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () => {
+  /** A day of three players' games, then (with `close`) a block past its end. */
+  async function podiumDay(games: [bigint, number][], close = true) {
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
-    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)], [ev.created(C, 0x43)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, B, { tournament: DAY })], [ev.spawned("daily", 3, C, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
-    node.mine([ev.over("daily", 2, B, 40, { tournament: DAY })]);
-    node.mine([ev.over("daily", 3, C, 30, { tournament: DAY })]);
-    const calls: string[] = [];
-    node.views = (address, selector, calldata, blockHash) => {
-      expect(selector).toBe(SELECTOR);
-      calls.push(blockHash);
-      return view(slots);
-    };
+    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)], [ev.created(C, 0x43)], [ev.created(D, 0x44)]);
+    node.mine(...games.map(([player], index) => [ev.spawned("daily", index + 1, player, { day: DAY })]));
+    for (const [index, [player, score]] of games.entries()) node.mine([ev.over("daily", index + 1, player, score, { day: DAY })]);
+    if (close) {
+      node.time = END + 5;
+      node.mine();
+    }
     const indexer = indexerOf(node);
     await settle(indexer);
-    const chain = new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
-    const check = new CrossCheck(chain, indexer.store);
-    const queries = new Queries(indexer.store);
-    return { node, indexer, check, queries, calls };
+    expect(indexer.status).toBe("ok");
+    return { node, indexer, queries: new Queries(indexer.store), closing: node.tip };
   }
 
   const credited = (queries: Queries, head: number, player: bigint) =>
     queries.playerAchievements(head, padded(player)).achievements.find((a) => a.achievement_id === 9)!;
+  const podium = (indexer: Awaited<ReturnType<typeof podiumDay>>["indexer"]) =>
+    indexer.store
+      .dump()
+      .podium.map((row) => [row.player_id, row.rank])
+      .sort((x, y) => Number(x[1]) - Number(y[1]));
 
-  test("nothing is credited while the day is open, whatever the ranking", async () => {
-    const { indexer, check, queries, calls } = await podiumDay([[A, 50], [B, 40], [C, 30]]);
+  test("the day not yet closed: nothing is credited, whatever the ranking", async () => {
+    const { indexer, queries } = await podiumDay([[A, 50], [B, 40], [C, 30]], false);
     expect(indexer.served!.timestamp).toBeLessThan(END);
-    await check.run(indexer.served!);
-    expect(calls).toHaveLength(0); // the view is not even read
     expect(indexer.store.dump().podium).toEqual([]);
     expect(credited(queries, indexer.served!.number, A)).toMatchObject({ completed: false, tasks: [{ count: 0 }] });
   });
 
-  test("after the day closes, each player of the view's top 3 is credited, from the view and at the served head", async () => {
-    const { node, indexer, check, queries, calls } = await podiumDay([[A, 50], [B, 40], [C, 30]]);
-    node.time = END + 5;
-    node.mine();
-    await settle(indexer);
-    const served = indexer.served!;
-    await check.run(served);
-    expect(calls).toEqual([served.hash]);
+  test("after the day closes, ranks 1 to 3 of the leaderboard are credited, at the closing block", async () => {
+    const { indexer, queries, closing } = await podiumDay([[A, 50], [B, 40], [C, 30], [D, 20]]);
+    expect(indexer.store.dump().podium).toEqual([
+      { day_id: DAY, player_id: padded(A), rank: 1, day_end: END, close_block: closing },
+      { day_id: DAY, player_id: padded(B), rank: 2, day_end: END, close_block: closing },
+      { day_id: DAY, player_id: padded(C), rank: 3, day_end: END, close_block: closing },
+    ]);
     for (const player of [A, B, C]) {
-      expect(credited(queries, served.number, player)).toMatchObject({
+      expect(credited(queries, closing, player)).toMatchObject({
         completed: true,
         completed_at: END,
         tasks: [{ task_id: PODIUM_TASK, count: 1 }],
       });
     }
-    expect(queries.playerAchievements(served.number, padded(A)).points).toBe(50);
-    expect(indexer.store.dump().podium).toEqual([
-      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: served.number },
-      { tournament_id: DAY, player_id: padded(B), ranks: "[2]", day_end: END, close_block: served.number },
-      { tournament_id: DAY, player_id: padded(C), ranks: "[3]", day_end: END, close_block: served.number },
-    ]);
-    // read at a block before the credit was recorded: not there
-    expect(credited(queries, served.number - 1, A)).toMatchObject({ completed: false });
-    // credited once, checked again: unchanged
-    check.checked.clear();
-    await check.run(served);
-    expect(indexer.store.dump().podium).toHaveLength(3);
+    expect(credited(queries, closing, D)).toMatchObject({ completed: false });
+    expect(queries.playerAchievements(closing, padded(A)).points).toBe(50);
+    // read at a block before the close: not there
+    expect(credited(queries, closing - 1, A)).toMatchObject({ completed: false });
+    // the podium is the leaderboard's top 3
+    expect(queries.leaderboard(closing, DAY, 3, 0).entries.map((e) => [e.player_id, e.rank])).toEqual(podium(indexer));
   });
 
-  test("the contract's view decides, not the events; an empty slot and a player in two slots credit once", async () => {
-    // The events rank A, B, C; the view says B holds slots 1 and 2 and slot 3 is empty
-    const { node, indexer, check, queries } = await podiumDay([[B, 60], [B, 55]]);
+  test("ties are broken by the chain order of the GameOver, earliest first", async () => {
+    // D finishes first with 40, then C, B and A tie with 40 later: D, C, B take the places, A does not.
+    const { indexer } = await podiumDay([[D, 40], [C, 40], [B, 40], [A, 40]]);
+    expect(podium(indexer)).toEqual([[padded(D), 1], [padded(C), 2], [padded(B), 3]]);
+  });
+
+  test("a player with two top games takes one place: three different players", async () => {
+    const { indexer } = await podiumDay([[A, 90], [A, 80], [B, 70], [A, 60], [C, 50], [D, 40]]);
+    expect(podium(indexer)).toEqual([[padded(A), 1], [padded(B), 2], [padded(C), 3]]);
+  });
+
+  test("fewer than three players: only they are credited", async () => {
+    const { indexer, queries, closing } = await podiumDay([[B, 60], [B, 55], [A, 10]]);
+    expect(podium(indexer)).toEqual([[padded(B), 1], [padded(A), 2]]);
+    expect(credited(queries, closing, C)).toMatchObject({ completed: false });
+    const empty = await podiumDay([]);
+    expect(empty.indexer.store.dump().podium).toEqual([]);
+  });
+
+  test("a game that ended after its day counts for no day, and no podium", async () => {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
     node.time = END + 5;
+    node.mine([ev.over("daily", 1, A, 99, { day: 0, end: 0 })]);
     node.mine();
+    const indexer = indexerOf(node);
     await settle(indexer);
-    await check.run(indexer.served!);
-    expect(check.lastMismatch).not.toBeNull(); // reported as ever
-    expect(credited(queries, indexer.served!.number, B)).toMatchObject({ completed: true, tasks: [{ count: 1 }] });
-    expect(credited(queries, indexer.served!.number, A)).toMatchObject({ completed: false });
-    expect(indexer.store.dump().podium).toEqual([
-      expect.objectContaining({ player_id: padded(B), ranks: "[1,2]" }),
-    ]);
+    expect(indexer.store.dump().podium).toEqual([]);
   });
 
-  test("the store refuses a podium read before the day ends", async () => {
-    const { indexer } = await podiumDay([[A, 1]]);
-    expect(() => indexer.store.recordPodium(DAY, END, [{ playerId: padded(A), rank: 1 }], indexer.served!)).toThrow(/before the day ends/);
-  });
-
-  test("a rewind below the read forgets the credit; the next read credits again", async () => {
-    const { node, indexer, check, queries } = await podiumDay([[A, 50], [B, 40], [C, 30]]);
-    node.time = END + 5;
-    node.mine();
-    await settle(indexer);
-    const read = indexer.served!.number;
-    await check.run(indexer.served!);
+  test("a rewind across the day's close forgets the credit; a new closing block credits again", async () => {
+    const { node, indexer, queries, closing } = await podiumDay([[A, 50], [B, 40], [C, 30]]);
     expect(indexer.store.dump().podium).toHaveLength(3);
     // the closing block is replaced by one still inside the day: the day is open again
     node.reorg(1, [[]]);
-    node.time = T0 + 20;
     node.blocks[node.blocks.length - 1]!.timestamp = T0 + 20;
-    indexer.listen({ rewound: () => check.reset() });
+    node.time = T0 + 30;
     await settle(indexer);
-    expect(indexer.store.tip()!.number).toBe(read);
+    expect(indexer.store.tip()!.number).toBe(closing);
     expect(indexer.store.dump().podium).toEqual([]);
+    expect(indexer.store.dump().day_closes).toEqual([]);
     expect(credited(queries, indexer.served!.number, A)).toMatchObject({ completed: false });
+    // a game of D ends in the reopened day and takes a place; then the day closes again
+    node.mine([ev.spawned("daily", 9, D, { day: DAY })]);
+    node.mine([ev.over("daily", 9, D, 45, { day: DAY })]);
+    node.time = END + 9;
+    node.mine();
+    await settle(indexer);
+    expect(podium(indexer)).toEqual([[padded(A), 1], [padded(D), 2], [padded(B), 3]]);
+    const fresh = indexerOf(node);
+    await settle(fresh);
+    expect(indexer.store.dump()).toEqual(fresh.store.dump());
   });
 });
 
@@ -441,32 +438,25 @@ describe("the podium credit is ordered at the day's close", () => {
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
     node.mine([ev.created(A, 0x41)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
-    node.views = () => view([[A, 50]]);
-    const chainOf = () => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
 
     const live = indexerOf(node);
-    const liveCheck = new CrossCheck(chainOf(), live.store);
     await settle(live);
-    await liveCheck.run(live.served!); // the day is open: nothing
     node.time = END + 1;
     node.mine([ev.achievementRetired(9)]); // the closing block retires the achievement
     await settle(live);
-    await liveCheck.run(live.served!);
     node.mine(); // later blocks
     node.mine();
     await settle(live);
-    await liveCheck.run(live.served!);
 
     const rebuilt = indexerOf(node);
     await settle(rebuilt);
-    await new CrossCheck(chainOf(), rebuilt.store).run(rebuilt.served!); // read at the tip, two blocks later
 
     expect(rebuilt.store.dump()).toEqual(live.store.dump());
     const closing = node.blocks.findIndex((b) => b.timestamp >= END);
     expect(live.store.dump().podium).toEqual([
-      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: closing },
+      { day_id: DAY, player_id: padded(A), rank: 1, day_end: END, close_block: closing },
     ]);
     // the credit precedes the retirement of the closing block, in both
     for (const subject of [live, rebuilt]) {
@@ -482,15 +472,13 @@ describe("the podium credit is ordered at the day's close", () => {
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
     node.mine([ev.created(A, 0x41)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
     node.mine([ev.achievementRetired(9)]); // still inside the day
-    node.views = () => view([[A, 50]]);
     node.time = END + 1;
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
-    await new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store).run(indexer.served!);
     expect(new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0]).toMatchObject({
       retired: true,
       completed: false,
@@ -498,7 +486,7 @@ describe("the podium credit is ordered at the day's close", () => {
     });
   });
 
-  test("a reported task 8 is not a podium: only the view credits On the Podium", async () => {
+  test("a reported task 8 is not a podium: only the indexer's leaderboard credits On the Podium", async () => {
     const { queries, head } = await open((node) => {
       node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
       node.mine([ev.achievementProgressed("daily", A, PODIUM_TASK, 1)]);
@@ -542,92 +530,52 @@ describe("rewinding the new tables", () => {
     expect(dump.progress.map((p) => p.player_id)).toContain(padded(C));
     expect(dump.progress.map((p) => p.player_id)).not.toContain(padded(B));
   });
-
-  test("a reorg of the block that closed the day takes the podium with it", async () => {
-    const node = new FakeNode();
-    node.time = T0 + 10;
-    node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
-    node.mine([ev.created(A, 0x41)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
-    node.views = () => view([[A, 50]]);
-    node.time = END + 1;
-    node.mine();
-    const indexer = indexerOf(node);
-    await settle(indexer);
-    const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store);
-    await check.run(indexer.served!);
-    expect(indexer.store.dump().podium).toHaveLength(1);
-    expect(indexer.store.dump().day_closes).toHaveLength(1);
-    node.reorg(1, [[]]);
-    node.blocks[node.blocks.length - 1]!.timestamp = T0 + 50;
-    await settle(indexer);
-    expect(indexer.store.dump().podium).toEqual([]);
-    expect(indexer.store.dump().day_closes).toEqual([]);
-  });
 });
 
 describe("the day's closing block survives the pruning of its header", () => {
   // Blocks 1-4 inside the day, 5 closes it, 6 retires the achievement, 7-9 are empty; with a depth of 2 the first step
   // (one batch) applies all of them, and the floor is then block 7: the closing block is forgotten.
   const CLOSE = 5;
-  function chainRun(failures: number) {
+  function chainRun() {
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
     node.mine([ev.created(A, 0x41)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
     node.time = END + 1;
     node.mine();
     node.mine([ev.achievementRetired(9)]);
     for (let i = 0; i < 3; i++) node.mine();
-    let calls = 0;
-    node.views = () => {
-      if (calls++ < failures) throw new Error("node unreachable");
-      return view([[A, 50]]);
-    };
-    let check: CrossCheck;
-    const indexer = indexerOf(node, 2, undefined, (served) => check.run(served));
-    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store);
-    indexer.listen({ rewound: () => check.reset() });
-    return { node, indexer };
+    return { node, indexer: indexerOf(node, 2) };
   }
-  const retiredBeforeCredit = (indexer: Awaited<ReturnType<typeof chainRun>>["indexer"]) =>
-    new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0];
 
-  test("a view call that fails once during a catch-up leaves the database equal to a run without the failure", async () => {
-    const clean = chainRun(0);
-    await settle(clean.indexer);
-    await settle(clean.indexer);
-    const retried = chainRun(1);
-    await settle(retried.indexer); // the hook fails, then the history is pruned
-    await settle(retried.indexer); // the next poll retries it
-    expect(retried.indexer.store.lowest()!.number).toBeGreaterThan(CLOSE + 1); // the header is forgotten in both
-    expect(retried.indexer.store.block(CLOSE)).toBeUndefined();
-    expect(retried.indexer.store.dump().podium).toEqual([
-      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: CLOSE },
+  test("the credit stays at the closing block once its header is pruned", async () => {
+    const { indexer } = chainRun();
+    await settle(indexer);
+    await settle(indexer);
+    expect(indexer.store.lowest()!.number).toBeGreaterThan(CLOSE + 1);
+    expect(indexer.store.block(CLOSE)).toBeUndefined();
+    expect(indexer.store.dump().podium).toEqual([
+      { day_id: DAY, player_id: padded(A), rank: 1, day_end: END, close_block: CLOSE },
     ]);
-    expect(retried.indexer.store.dump()).toEqual(clean.indexer.store.dump());
     // the retirement of block 6 comes after the credit at block 5
-    expect(retiredBeforeCredit(retried.indexer)).toMatchObject({ retired: true, completed: true });
+    expect(new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0]).toMatchObject({
+      retired: true,
+      completed: true,
+    });
   });
 
-  test("a rewind to a fork after the close behaves the same with and without the failure", async () => {
-    const dumps = [];
-    for (const failures of [0, 1]) {
-      const { node, indexer } = chainRun(failures);
-      await settle(indexer);
-      await settle(indexer);
-      const fork = node.tip - 2;
-      node.reorg(2, [[], []]);
-      await settle(indexer);
-      expect(indexer.store.tip()!.number).toBe(node.tip);
-      expect(indexer.store.dump().podium).toHaveLength(1); // the close (block 5) is below the fork
-      expect(indexer.store.block(fork)).toBeDefined();
-      dumps.push(indexer.store.dump());
-    }
-    expect(dumps[1]).toEqual(dumps[0]);
+  test("a rewind to a fork after the close keeps the credit", async () => {
+    const { node, indexer } = chainRun();
+    await settle(indexer);
+    await settle(indexer);
+    const fork = node.tip - 2;
+    node.reorg(2, [[], []]);
+    await settle(indexer);
+    expect(indexer.store.tip()!.number).toBe(node.tip);
+    expect(indexer.store.dump().podium).toHaveLength(1); // the close (block 5) is below the fork
+    expect(indexer.store.block(fork)).toBeDefined();
   });
 
   test("the closing block is not recorded twice for a gap of several days, and none before the first block indexed", async () => {

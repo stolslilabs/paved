@@ -1,5 +1,5 @@
 // The queries of the read API (docs/architecture/indexer.md). Derived data are queries, not tables: the leaderboard is a
-// window function over `games`, and the prize slots replay a tournament's counting games in chain order.
+// window function over `games`.
 //
 // Every query is read as of a served block `head` (a number): a game spawned after it is not there, a game finished after
 // it is still running. The tables hold the state at the stored tip, which may be above the served block while a batch is
@@ -19,12 +19,11 @@ import {
   type PlayerQuest,
   type PlayerStats,
   type QuestDefinition,
-  type PrizeSlot,
   type TournamentDetail,
   type TournamentSummary,
   type UnsettledGame,
 } from "./api.ts";
-import { padded, shortString, type TaskTarget } from "./events.ts";
+import { shortString, type TaskTarget } from "./events.ts";
 import {
   PODIUM_TASK,
   consistent,
@@ -40,41 +39,6 @@ import type { Store } from "./store.ts";
 
 type Row = Record<string, SQLInputValue>;
 
-/** One slot of the contract's top 3, and the game that holds it. */
-export type Slot = { playerId: string; score: number; gameId: number } | null;
-
-/**
- * The three prize slots of `Tournament`, replayed with the exact rule of `Tournament.score`
- * (contracts/src/models/tournament.cairo) over the counting games in chain order. A score that is not above the third
- * slot's (0 when empty) is dropped; an equal score never displaces an earlier one.
- */
-export function replaySlots(
-  games: readonly { playerId: string; score: number; gameId: number }[],
-): [Slot, Slot, Slot] {
-  const slots: [Slot, Slot, Slot] = [null, null, null];
-  const top = (slot: Slot) => slot?.score ?? 0;
-  for (const game of games) {
-    if (game.score <= top(slots[2])) continue;
-    const entry = { ...game };
-    if (game.score <= top(slots[1])) {
-      slots[2] = entry;
-    } else if (game.score <= top(slots[0])) {
-      slots[2] = slots[1];
-      slots[1] = entry;
-    } else {
-      slots[2] = slots[1];
-      slots[1] = slots[0];
-      slots[0] = entry;
-    }
-  }
-  return slots;
-}
-
-export const slotView = (slot: Slot): PrizeSlot => ({
-  player_id: slot ? slot.playerId : padded(0n),
-  score: slot ? slot.score : 0,
-});
-
 const nameOf = (value: SQLInputValue | undefined): string | null =>
   typeof value === "string" ? shortString(BigInt(value)) : null;
 
@@ -87,10 +51,10 @@ function gameRow(row: Row, head: number): GameRow {
     player_id: String(row.player_id),
     mode: Number(row.mode),
     start_time: Number(row.start_time),
-    tournament_id: Number(row.spawn_tournament),
+    day_id: Number(row.spawn_day),
     over,
     score: over ? Number(row.score) : null,
-    counted_tournament_id: over ? Number(row.tournament_id) : null,
+    counted_day_id: over ? Number(row.day_id) : null,
     end_time: over ? Number(row.end_time) : null,
     economy: gameEconomy(row, head),
     token_id: row.token_id === null || row.token_id === undefined ? null : Number(row.token_id),
@@ -129,8 +93,8 @@ const total = (amounts: readonly SQLInputValue[]): string =>
 const GAME_FROM = `games g LEFT JOIN purchases p
   ON g.contract = 'daily' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
 
-const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_tournament, g.start_time, g.over, g.score,
-  g.tournament_id, g.end_time, g.over_block, g.token_id,
+const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_day, g.start_time, g.over, g.score,
+  g.day_id, g.end_time, g.over_block, g.token_id,
   p.day AS p_day, p.stake AS p_stake, p.price AS p_price, p.referrer AS p_referrer, p.referral AS p_referral,
   p.burned AS p_burned, p.factor AS p_factor, p.reference AS p_reference, p.purchased_time AS p_time,
   p.purchased_block AS p_block, p.expired AS p_expired, p.recorded_block AS p_recorded, p.threshold AS p_threshold,
@@ -142,7 +106,7 @@ const BOARD = `
     SELECT player_id, game_id, score, end_time, over_block, over_tx, over_idx,
       ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY score DESC, over_block, over_tx, over_idx) AS pr
     FROM games
-    WHERE over = 1 AND tournament_id = :t AND over_block <= :h
+    WHERE over = 1 AND day_id = :t AND over_block <= :h
   ),
   best AS (SELECT * FROM counted WHERE pr = 1),
   ranked AS (
@@ -151,7 +115,7 @@ const BOARD = `
   SELECT ranked.rank AS rank, ranked.player_id AS player_id, players.name AS name,
     ranked.score AS best_score, ranked.game_id AS best_game_id, ranked.end_time AS finished_at,
     (SELECT count(*) FROM counted c WHERE c.player_id = ranked.player_id) AS games_finished,
-    (SELECT count(*) FROM games g WHERE g.contract = 'daily' AND g.spawn_tournament = :t
+    (SELECT count(*) FROM games g WHERE g.contract = 'daily' AND g.spawn_day = :t
        AND g.player_id = ranked.player_id AND g.spawned_block <= :h) AS games_played
   FROM ranked LEFT JOIN players ON players.player_id = ranked.player_id
   WHERE (:p IS NULL OR ranked.player_id = :p)
@@ -176,7 +140,7 @@ export class Queries {
           (
             this.store
               .statement(
-                "SELECT count(*) AS n FROM games WHERE contract = 'daily' AND spawn_tournament = ? AND spawned_block <= ?",
+                "SELECT count(*) AS n FROM games WHERE contract = 'daily' AND spawn_day = ? AND spawned_block <= ?",
               )
               .get(id, head) as Row
           ).n,
@@ -186,7 +150,7 @@ export class Queries {
       : (this.store
           .statement(
             `SELECT count(*) AS finished, count(DISTINCT player_id) AS players, coalesce(max(score), 0) AS best
-             FROM games WHERE over = 1 AND tournament_id = ? AND over_block <= ?`,
+             FROM games WHERE over = 1 AND day_id = ? AND over_block <= ?`,
           )
           .get(id, head) as { finished: number; players: number; best: number });
     return {
@@ -209,10 +173,10 @@ export class Queries {
     const ids = (
       this.store
         .statement(
-          `SELECT spawn_tournament AS id FROM games
-           WHERE contract = 'daily' AND spawn_tournament > 0 AND spawned_block <= :h
-             AND (:before IS NULL OR spawn_tournament < :before)
-           GROUP BY spawn_tournament ORDER BY spawn_tournament DESC LIMIT :n`,
+          `SELECT spawn_day AS id FROM games
+           WHERE contract = 'daily' AND spawn_day > 0 AND spawned_block <= :h
+             AND (:before IS NULL OR spawn_day < :before)
+           GROUP BY spawn_day ORDER BY spawn_day DESC LIMIT :n`,
         )
         .all({ h: head, before: before ?? null, n: limit + 1 }) as Row[]
     ).map((row) => Number(row.id));
@@ -226,25 +190,6 @@ export class Queries {
     };
   }
 
-  /** The prize slots of a tournament, replayed from its counting games in chain order. */
-  slots(head: number, id: number): [Slot, Slot, Slot] {
-    if (id === 0) return [null, null, null];
-    const games = (
-      this.store
-        .statement(
-          `SELECT player_id, game_id, score FROM games
-           WHERE over = 1 AND tournament_id = ? AND over_block <= ?
-           ORDER BY over_block, over_tx, over_idx`,
-        )
-        .all(id, head) as Row[]
-    ).map((row) => ({
-      playerId: String(row.player_id),
-      gameId: Number(row.game_id),
-      score: Number(row.score),
-    }));
-    return replaySlots(games);
-  }
-
   private entries(
     head: number,
     id: number,
@@ -253,7 +198,6 @@ export class Queries {
     offset: number,
   ): LeaderboardEntry[] {
     if (id === 0) return [];
-    const slots = this.slots(head, id);
     return (
       this.store
         .statement(BOARD)
@@ -267,9 +211,6 @@ export class Queries {
       games_played: Number(row.games_played),
       games_finished: Number(row.games_finished),
       finished_at: Number(row.finished_at),
-      prize_ranks: slots.flatMap((slot, index) =>
-        slot?.playerId === row.player_id ? [index + 1] : [],
-      ),
     }));
   }
 
@@ -289,20 +230,6 @@ export class Queries {
   /** One player's row of a tournament's leaderboard, or null. */
   entry(head: number, id: number, player: string): LeaderboardEntry | null {
     return this.entries(head, id, player, 1, 0)[0] ?? null;
-  }
-
-  /** The ids of the tournaments with games, over at `timestamp`: the days whose slots cannot move any more. */
-  closedTournaments(head: number, timestamp: number): number[] {
-    return (
-      this.store
-        .statement(
-          `SELECT DISTINCT spawn_tournament AS id FROM games
-           WHERE contract = 'daily' AND spawn_tournament > 0 AND spawned_block <= :h
-             AND (spawn_tournament + 1) * :duration <= :now
-           ORDER BY id`,
-        )
-        .all({ h: head, duration: TOURNAMENT_DURATION, now: timestamp }) as Row[]
-    ).map((row) => Number(row.id));
   }
 
   // --- players and games ---------------------------------------------------------------------------
@@ -444,21 +371,6 @@ export class Queries {
     };
   }
 
-  /** The days `sponsor` sponsored, newest first, strictly below `before`; `next` when more remain. An unknown sponsor has none. */
-  sponsorDays(head: number, sponsor: string, limit: number, before: number | undefined): { days: number[]; next: number | null } {
-    const days = (
-      this.store
-        .statement(
-          `SELECT day FROM sponsorships
-           WHERE sponsor = :s AND block <= :h AND (:before IS NULL OR day < :before)
-           GROUP BY day ORDER BY day DESC LIMIT :n`,
-        )
-        .all({ s: sponsor, h: head, before: before ?? null, n: limit + 1 }) as Row[]
-    ).map((row) => Number(row.day));
-    const page = days.slice(0, limit);
-    return { days: page, next: days.length > limit ? page[page.length - 1]! : null };
-  }
-
   game(head: number, contract: GameContract, gameId: number): GameRow | null {
     const row = this.store
       .statement(
@@ -565,7 +477,7 @@ export class Queries {
              SELECT block, tx, idx, task_id, count, time FROM progress
              WHERE kind = 'achievement' AND player_id = :p AND block <= :h AND task_id <> ${PODIUM_TASK}
              UNION ALL
-             SELECT close_block AS block, -1 AS tx, tournament_id AS idx, ${PODIUM_TASK} AS task_id, 1 AS count,
+             SELECT close_block AS block, -1 AS tx, day_id AS idx, ${PODIUM_TASK} AS task_id, 1 AS count,
                day_end AS time
              FROM podium WHERE player_id = :p AND close_block <= :h
            ) ORDER BY block, tx, idx`,

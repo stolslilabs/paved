@@ -7,7 +7,7 @@
 
 export const API_VERSION = 1;
 
-/** Seconds of a tournament (`DAILY_TOURNAMENT_DURATION` of the contracts). */
+/** Seconds of a tournament, a UTC day (`DAILY_DURATION` of the contracts). */
 export const TOURNAMENT_DURATION = 86400;
 
 /** The most unsettled games an answer lists (`unsettled`); the whole count is `unsettled_count`. API v1 has no cursor for them. */
@@ -16,7 +16,7 @@ export const UNSETTLED_PAGE = 100;
 /**
  * The largest tournament id the API accepts and returns (P-19): `floor((2^53 - 1) / 86400) - 1`, so that the end time
  * `(id + 1) * 86400` of the id, the largest number the API returns for it, is at most 2^53 - 1 (`Number.MAX_SAFE_INTEGER`).
- * The contract's `tournament` view accepts ids up to `2^64 / 86400`; above this bound the API answers 400.
+ * The contracts' `day_id` is a u64; above this bound the API answers 400.
  */
 export const MAX_TOURNAMENT_ID = Math.floor(Number.MAX_SAFE_INTEGER / 86400) - 1; // 104249991373
 
@@ -57,20 +57,6 @@ export interface UnavailableAnswer {
   head: ApiHead | null;
 }
 
-export interface Mismatch {
-  tournament_id: number;
-  /** The block the view was read at. */
-  head_number: number;
-  /** The three slots of the `tournament` view, then of the replay of the events (player_id 0x0.. and score 0 when empty). */
-  view: PrizeSlot[];
-  indexed: PrizeSlot[];
-}
-
-export interface PrizeSlot {
-  player_id: string;
-  score: number;
-}
-
 export interface HeadAnswer extends Envelope {
   state: "ok";
   chain_id: string;
@@ -84,9 +70,6 @@ export interface HeadAnswer extends Envelope {
     collection: string | null;
   };
   checks: {
-    /** Closed days compared with the `tournament` view since the process started (or the last rewind). */
-    tournaments_checked: number;
-    last_mismatch: Mismatch | null;
     /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
     definitions_excluded: number;
   };
@@ -155,8 +138,6 @@ export interface LeaderboardEntry {
   games_finished: number;
   /** `end_time` of the best game. */
   finished_at: number;
-  /** The prize slots (1 to 3) the player holds on chain, replayed from the events. A player may hold several. */
-  prize_ranks: number[];
 }
 
 export interface LeaderboardAnswer extends Envelope {
@@ -215,13 +196,13 @@ export interface GameRow {
   player_id: string;
   mode: number;
   start_time: number;
-  /** Tournament of the spawn (0 for Tutorial). */
-  tournament_id: number;
+  /** The day of the spawn, `GameSpawned.day_id` (0 for Tutorial). */
+  day_id: number;
   over: boolean;
   /** null while the game is running. */
   score: number | null;
-  /** The tournament the game counted for (0 when it ended after its day, and for Tutorial); null while running. */
-  counted_tournament_id: number | null;
+  /** The day the game counted for, `GameOver.day_id` (0 when it ended after its day, and for Tutorial); null while running. */
+  counted_day_id: number | null;
   /** 0 when the game did not count; null while running. */
   end_time: number | null;
   /** The terms and the settlement of a Daily game bought through Economy; null for a Tutorial game and a game not bought. Appended in E3. */
@@ -266,15 +247,6 @@ export interface PlayerGamesAnswer extends Envelope {
   games: GameRow[];
   /** Pass as `before` for the next page: `<start_time>:<contract>:<game_id>`; null on the last. */
   next: string | null;
-}
-
-/** The days a sponsor put something into the prize of (`Daily.Sponsored`), newest first. */
-export interface SponsorDaysAnswer extends Envelope {
-  sponsor_id: string;
-  /** Tournament ids (UTC days), each once, descending. */
-  days: number[];
-  /** Pass as `before` for the next page (the last day listed); null on the last. */
-  next: number | null;
 }
 
 export interface GameAnswer extends Envelope {

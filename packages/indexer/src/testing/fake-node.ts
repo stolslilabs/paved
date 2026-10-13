@@ -1,6 +1,6 @@
 // Copied from Grim World, indexer/src/testing/fake-node.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four contracts (daily, tutorial, account, economy) and Paved's event builders, `starknet_chainId`
-// and `starknet_call` (a scripted view). This copy is maintained by the Paved repository.
+// Apache-2.0. Adapted for Paved: four contracts (daily, tutorial, account, economy) and Paved's event builders, and
+// `starknet_chainId`. This copy is maintained by the Paved repository.
 //
 // A fake Starknet node for the unit tests: no network. It answers the read methods the indexer
 // uses (JSON-RPC 0.10 shapes, as starknet-devnet 0.10.0 answers them) from blocks held in memory,
@@ -62,7 +62,7 @@ export const ev = {
     player: bigint | number,
     options: {
       mode?: number;
-      tournament?: bigint | number;
+      day?: bigint | number;
       start?: bigint | number;
       price?: bigint | number;
     } = {},
@@ -73,7 +73,7 @@ export const ev = {
       [gameId, player],
       [
         options.mode ?? MODE[source],
-        options.tournament ?? (source === "daily" ? 100 : 0),
+        options.day ?? (source === "daily" ? 100 : 0),
         options.start ?? 1_000_000,
         options.price ?? 5,
       ],
@@ -85,7 +85,7 @@ export const ev = {
     score: number,
     options: {
       mode?: number;
-      tournament?: bigint | number;
+      day?: bigint | number;
       start?: bigint | number;
       end?: bigint | number;
     } = {},
@@ -93,7 +93,7 @@ export const ev = {
     raw(
       source,
       "GameOver",
-      [gameId, player, options.tournament ?? (source === "daily" ? 100 : 0)],
+      [gameId, player, options.day ?? (source === "daily" ? 100 : 0)],
       [
         options.mode ?? MODE[source],
         score,
@@ -229,9 +229,17 @@ export const ev = {
       [gameId, player],
       [options.day ?? 100, options.score ?? 5000, options.threshold ?? 4_215_689, options.reward ?? 231n * 10n ** 18n],
     ),
-  /** `Daily.Sponsored`: key the day, data the sponsor and the amount. */
+  /**
+   * The past prize events of `Daily`, before D-20 (public-interface.md, "Past events"): known by name and skipped.
+   * `Sponsored`: key the day, data the sponsor and the amount. `Claimed`: key the day, data the player, the rank and the
+   * reward (u256). `Reclaimed`: keys the day and the sponsor, data the amount (u256).
+   */
   sponsored: (day: number, sponsor: bigint | number, amount: bigint | number = 10n ** 18n) =>
     raw("daily", "Sponsored", [day], [sponsor, amount]),
+  claimed: (day: number, player: bigint | number, rank: number, reward: bigint | number = 10n ** 18n) =>
+    raw("daily", "Claimed", [day], [player, rank, reward, 0]),
+  reclaimed: (day: number, sponsor: bigint | number, amount: bigint | number = 10n ** 18n) =>
+    raw("daily", "Reclaimed", [day, sponsor], [amount, 0]),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6]),
@@ -313,9 +321,6 @@ export class FakeNode {
     };
   }
 
-  /** The felts `starknet_call` answers, by contract address and entry point selector (a scripted view). */
-  views: ((address: string, selector: string, calldata: string[], blockHash: string) => string[]) | null = null;
-
   /** Rewrites an answer: a test makes the node answer wrongly. */
   tamper:
     ((method: string, params: unknown, result: unknown) => unknown) | null =
@@ -333,22 +338,6 @@ export class FakeNode {
     switch (method) {
       case "starknet_chainId":
         return CHAIN_ID;
-      case "starknet_call": {
-        const request = p.request as {
-          contract_address: string;
-          entry_point_selector: string;
-          calldata: string[];
-        };
-        const block_id = p.block_id as { block_hash: string };
-        if (!this.views)
-          throw new RpcError(method, { code: 40, message: "Contract error" });
-        return this.views(
-          request.contract_address,
-          request.entry_point_selector,
-          request.calldata,
-          block_id.block_hash,
-        );
-      }
       case "starknet_blockHashAndNumber": {
         const block = this.blocks[this.tip]!;
         return { block_hash: block.hash, block_number: block.number };

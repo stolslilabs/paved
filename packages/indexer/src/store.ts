@@ -4,7 +4,7 @@
 // by block columns (docs/architecture/indexer.md, Storage: a game row changes at most twice, spawn then over, and never
 // back). This copy is maintained by the Paved repository.
 //
-// The indexer's tables, in SQLite (node:sqlite). Bounded integers (game id, score, mode, tournament id, every time: all
+// The indexer's tables, in SQLite (node:sqlite). Bounded integers (game id, score, mode, day id, every time: all
 // below 2^53) are INTEGER; only felts (player id, price, name, master) are fixed-width lowercase hex text, 66 characters.
 // Economy's amounts (u256 and u128: USDC and PAVED base units) can exceed 2^63 and are decimal text.
 //
@@ -52,7 +52,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "6";
+export const SCHEMA_VERSION = "7";
 
 /** The sha256 of the five addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
@@ -90,19 +90,19 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS games (
     contract TEXT NOT NULL,
     game_id INTEGER NOT NULL, player_id TEXT NOT NULL, mode INTEGER NOT NULL,
-    spawn_tournament INTEGER NOT NULL,
+    spawn_day INTEGER NOT NULL,
     start_time INTEGER NOT NULL, price TEXT NOT NULL, spawned_block INTEGER NOT NULL,
     over INTEGER NOT NULL DEFAULT 0,
-    score INTEGER, tournament_id INTEGER,
+    score INTEGER, day_id INTEGER,
     end_time INTEGER, over_block INTEGER, over_tx INTEGER, over_idx INTEGER,
     -- The id of the game's token (the mint of Collection, in the block of the spawn); NULL until minted.
     token_id INTEGER,
     PRIMARY KEY (contract, game_id)
   );
   CREATE INDEX IF NOT EXISTS games_player ON games (player_id, start_time DESC, contract DESC, game_id DESC);
-  CREATE INDEX IF NOT EXISTS games_board ON games (tournament_id, score DESC, over_block, over_tx, over_idx)
-    WHERE over = 1 AND tournament_id > 0;
-  CREATE INDEX IF NOT EXISTS games_spawn ON games (spawn_tournament, player_id) WHERE contract = 'daily';
+  CREATE INDEX IF NOT EXISTS games_board ON games (day_id, score DESC, over_block, over_tx, over_idx)
+    WHERE over = 1 AND day_id > 0;
+  CREATE INDEX IF NOT EXISTS games_spawn ON games (spawn_day, player_id) WHERE contract = 'daily';
   CREATE INDEX IF NOT EXISTS games_spawned ON games (spawned_block);
   CREATE INDEX IF NOT EXISTS games_over ON games (over_block) WHERE over = 1;
   -- Definitions (QuestDefined, AchievementDefined) and their retirement (a position in chain order: block, tx, idx).
@@ -127,16 +127,16 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS progress_player ON progress (kind, player_id, task_id, block, tx, idx);
   CREATE INDEX IF NOT EXISTS progress_time ON progress (kind, time);
-  -- The top 3 of a closed day, read from the contract's tournament view at the served block (not from events).
+  -- The top 3 of a closed day, from the indexer's own daily leaderboard (D-20), taken at the block that closed the day.
   CREATE TABLE IF NOT EXISTS podium (
-    tournament_id INTEGER NOT NULL, player_id TEXT NOT NULL, ranks TEXT NOT NULL,
+    day_id INTEGER NOT NULL, player_id TEXT NOT NULL, rank INTEGER NOT NULL,
     day_end INTEGER NOT NULL, close_block INTEGER NOT NULL,
-    PRIMARY KEY (tournament_id, player_id)
+    PRIMARY KEY (day_id, player_id)
   );
   CREATE INDEX IF NOT EXISTS podium_close ON podium (close_block);
   -- The block that closed each UTC day, recorded when it is applied: the first block whose time is at or past the day's end,
-  -- after a block (prev_time) before it. Rewound by block number, never pruned, so the podium credit does not depend on
-  -- which headers are still kept.
+  -- after a block (prev_time) before it, and the block where the podium of that day is taken. Rewound by block number,
+  -- never pruned.
   CREATE TABLE IF NOT EXISTS day_closes (
     block INTEGER PRIMARY KEY, prev_time INTEGER NOT NULL, time INTEGER NOT NULL
   );
@@ -160,13 +160,6 @@ const SCHEMA = `
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
     ema_after INTEGER NOT NULL, closed_block INTEGER NOT NULL, closed_time INTEGER NOT NULL
   );
-  -- Sponsored (Daily): one row per sponsoring, to list the days a sponsor put something into. The amount is decimal text.
-  CREATE TABLE IF NOT EXISTS sponsorships (
-    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
-    day INTEGER NOT NULL, sponsor TEXT NOT NULL, amount TEXT NOT NULL,
-    PRIMARY KEY (block, tx, idx)
-  );
-  CREATE INDEX IF NOT EXISTS sponsorships_sponsor ON sponsorships (sponsor, day DESC);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -433,7 +426,7 @@ export class Store {
               game_id: event.gameId,
               player_id: padded(event.playerId),
               mode: event.mode,
-              spawn_tournament: Number(event.tournamentId),
+              spawn_day: Number(event.dayId),
               start_time: Number(event.startTime),
               price: padded(event.price),
               spawned_block: at,
@@ -469,7 +462,7 @@ export class Store {
               contract,
               game_id: event.gameId,
               score: event.score,
-              tournament_id: Number(event.tournamentId),
+              day_id: Number(event.dayId),
               end_time: Number(event.endTime),
               over_block: at,
               over_tx: raw.transactionIndex,
@@ -623,17 +616,6 @@ export class Store {
             });
             break;
           }
-          case "Sponsored": {
-            this.sql.insertSponsorship.run({
-              block: at,
-              tx: raw.transactionIndex,
-              idx: raw.eventIndex,
-              day: Number(event.tournamentId),
-              sponsor: padded(event.sponsor),
-              amount: String(event.amount),
-            });
-            break;
-          }
           case "DayClosed": {
             if (this.sql.economyDay.get(Number(event.day))) {
               throw new Halt(`DayClosed of day ${event.day} ${where}: the day is already closed`);
@@ -704,6 +686,10 @@ export class Store {
         Math.floor(previous.timestamp / DAY_SECONDS) < Math.floor(block.timestamp / DAY_SECONDS)
       ) {
         this.sql.insertClose.run(at, previous.timestamp, block.timestamp);
+        // On the Podium (quests.md, D-20): the days this block closes take their top 3 now, from the games over before it
+        // (a game over in this block or after counts for a later day). The credit is ordered at this block, before its
+        // events; a rewind below it forgets it, and applying the block again takes it again.
+        this.sql.insertPodium.run({ prev: previous.timestamp, time: block.timestamp, block: at });
       }
       this.sql.insertBlock.run(
         block.number,
@@ -712,47 +698,6 @@ export class Store {
         block.commitments,
         block.timestamp,
       );
-    });
-  }
-
-  /**
-   * The top 3 of a closed day, as the `tournament` view gave it at the served block `served`: each player holding a slot
-   * is credited once for the day (the slots they hold are kept in `ranks`), at the block that closed the day (`close_block`:
-   * the credit comes after the events of the blocks before it and before those of that block, so a retirement in the closing
-   * block or after it comes after the credit). Never early: a `served` block whose time is
-   * before the end of the day is refused. A day already recorded is left as it is (the slots of a closed day cannot move;
-   * a rewind below `served` forgets them).
-   */
-  recordPodium(
-    tournamentId: number,
-    dayEnd: number,
-    slots: readonly { playerId: string; rank: number }[],
-    served: Header,
-  ) {
-    if (served.timestamp < dayEnd) {
-      throw new Error(
-        `podium of tournament ${tournamentId} recorded at block ${served.number} (time ${served.timestamp}) before the day ends (${dayEnd})`,
-      );
-    }
-    // The credit is ordered at the block that closed the day (the first block whose time is at or past the end, recorded by
-    // `apply` and never pruned), not at the block the view was read at: a live run, a rebuild in batches and a retried call
-    // then hold the same rows. `served` itself when no block closed the day in this database (the day ended before the
-    // first block indexed).
-    const closed = (this.sql.closeBlock.get(dayEnd, served.number) as { n: number } | undefined)?.n ?? served.number;
-    this.transaction(() => {
-      const players = new Map<string, number[]>();
-      for (const { playerId, rank } of slots) {
-        players.set(playerId, [...(players.get(playerId) ?? []), rank]);
-      }
-      for (const [playerId, ranks] of players) {
-        this.sql.insertPodium.run({
-          t: tournamentId,
-          p: playerId,
-          ranks: JSON.stringify(ranks.sort()),
-          end: dayEnd,
-          block: closed,
-        });
-      }
     });
   }
 
@@ -771,7 +716,6 @@ export class Store {
       this.sql.unrecordPurchases.run(to);
       this.sql.unsettlePurchases.run(to);
       this.sql.rewindEconomyDays.run(to);
-      this.sql.rewindSponsorships.run(to);
       this.sql.rewindPodium.run(to);
       this.sql.rewindCloses.run(to);
       this.sql.rewindEvents.run(to);
@@ -803,7 +747,6 @@ export class Store {
     | "day_closes"
     | "purchases"
     | "economy_days"
-    | "sponsorships"
     | "events"
     | "blocks",
     Row[]
@@ -815,11 +758,10 @@ export class Store {
       quests: all("SELECT * FROM quests ORDER BY quest_id"),
       achievements: all("SELECT * FROM achievements ORDER BY achievement_id"),
       progress: all("SELECT * FROM progress ORDER BY block, tx, idx"),
-      podium: all("SELECT * FROM podium ORDER BY tournament_id, player_id"),
+      podium: all("SELECT * FROM podium ORDER BY day_id, player_id"),
       day_closes: all("SELECT * FROM day_closes ORDER BY block"),
       purchases: all("SELECT * FROM purchases ORDER BY game_id"),
       economy_days: all("SELECT * FROM economy_days ORDER BY day"),
-      sponsorships: all("SELECT * FROM sponsorships ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -866,14 +808,14 @@ function statements(db: DatabaseSync) {
       "SELECT player_id, over, spawned_block, token_id FROM games WHERE contract = ? AND game_id = ?",
     ),
     insertGame: db.prepare(
-      `INSERT INTO games (contract, game_id, player_id, mode, spawn_tournament, start_time, price, spawned_block)
-       VALUES (:contract, :game_id, :player_id, :mode, :spawn_tournament, :start_time, :price, :spawned_block)`,
+      `INSERT INTO games (contract, game_id, player_id, mode, spawn_day, start_time, price, spawned_block)
+       VALUES (:contract, :game_id, :player_id, :mode, :spawn_day, :start_time, :price, :spawned_block)`,
     ),
     mintGame: db.prepare(
       "UPDATE games SET token_id = :token_id WHERE contract = :contract AND game_id = :game_id",
     ),
     finishGame: db.prepare(
-      `UPDATE games SET over = 1, score = :score, tournament_id = :tournament_id, end_time = :end_time,
+      `UPDATE games SET over = 1, score = :score, day_id = :day_id, end_time = :end_time,
          over_block = :over_block, over_tx = :over_tx, over_idx = :over_idx
        WHERE contract = :contract AND game_id = :game_id`,
     ),
@@ -883,7 +825,7 @@ function statements(db: DatabaseSync) {
     ),
     rewindGames: db.prepare("DELETE FROM games WHERE spawned_block > ?"),
     unfinishGames: db.prepare(
-      `UPDATE games SET over = 0, score = NULL, tournament_id = NULL, end_time = NULL,
+      `UPDATE games SET over = 0, score = NULL, day_id = NULL, end_time = NULL,
          over_block = NULL, over_tx = NULL, over_idx = NULL
        WHERE over_block > ?`,
     ),
@@ -914,12 +856,22 @@ function statements(db: DatabaseSync) {
       `INSERT INTO progress (block, tx, idx, kind, source, player_id, task_id, count, time)
        VALUES (:block, :tx, :idx, :kind, :source, :player_id, :task_id, :count, :time)`,
     ),
+    // The top 3 of each day that ends in (prev_time, time], by the leaderboard's rule (D-P6-1, queries.ts `BOARD`): one
+    // row per player, best score descending, ties by the chain order of the `GameOver`, earliest first.
     insertPodium: db.prepare(
-      `INSERT OR IGNORE INTO podium (tournament_id, player_id, ranks, day_end, close_block)
-       VALUES (:t, :p, :ranks, :end, :block)`,
-    ),
-    closeBlock: db.prepare(
-      "SELECT block AS n FROM day_closes WHERE prev_time < ?1 AND time >= ?1 AND block <= ?2 ORDER BY block LIMIT 1",
+      `WITH best AS (
+         SELECT day_id, player_id, score, over_block, over_tx, over_idx,
+           ROW_NUMBER() OVER (PARTITION BY day_id, player_id ORDER BY score DESC, over_block, over_tx, over_idx) AS pr
+         FROM games
+         WHERE over = 1 AND day_id > 0 AND (day_id + 1) * ${DAY_SECONDS} > :prev AND (day_id + 1) * ${DAY_SECONDS} <= :time
+       ),
+       ranked AS (
+         SELECT day_id, player_id,
+           ROW_NUMBER() OVER (PARTITION BY day_id ORDER BY score DESC, over_block, over_tx, over_idx) AS rank
+         FROM best WHERE pr = 1
+       )
+       INSERT OR IGNORE INTO podium (day_id, player_id, rank, day_end, close_block)
+       SELECT day_id, player_id, rank, (day_id + 1) * ${DAY_SECONDS}, :block FROM ranked WHERE rank <= 3`,
     ),
     insertClose: db.prepare("INSERT OR IGNORE INTO day_closes (block, prev_time, time) VALUES (?, ?, ?)"),
     rewindCloses: db.prepare("DELETE FROM day_closes WHERE block > ?"),
@@ -960,11 +912,6 @@ function statements(db: DatabaseSync) {
       "UPDATE purchases SET threshold = NULL, reward = NULL, settled_block = NULL WHERE settled_block > ?",
     ),
     rewindEconomyDays: db.prepare("DELETE FROM economy_days WHERE closed_block > ?"),
-    insertSponsorship: db.prepare(
-      `INSERT INTO sponsorships (block, tx, idx, day, sponsor, amount)
-       VALUES (:block, :tx, :idx, :day, :sponsor, :amount)`,
-    ),
-    rewindSponsorships: db.prepare("DELETE FROM sponsorships WHERE block > ?"),
     rewindPodium: db.prepare("DELETE FROM podium WHERE close_block > ?"),
     rewindEvents: db.prepare("DELETE FROM events WHERE block > ?"),
     rewindBlocks: db.prepare("DELETE FROM blocks WHERE number > ?"),
