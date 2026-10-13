@@ -7,6 +7,12 @@ Paved, recommends where Economy lives, what Setup holds, the Faucet, the identit
 and the Sepolia path. Documents only. Brief: `docs/briefs/d25a-glitchbomb-gap.md`. The PM rules on the mapping from
 this note (P-52 (4)).
 
+> **Status (D-25 A+B, `docs/briefs/ab-systems-layout.md`).** Steps A and B landed together: `economy/{token,vault,economy}.cairo`
+> are now `systems/{token,vault,economy}.cairo`, and `mocks/usdc.cairo` (`MockUSDC`) is `systems/faucet.cairo` (`Faucet`),
+> with a chain-id guard that refuses `SN_MAIN` and a mainnet refusal by name in `deploy.sh`. The file paths and line
+> references below are those of the code before the move; the contract names `PavedToken`, `Vault` and `Economy` are
+> unchanged.
+
 Sources and how they are cited:
 
 - **Glitchbomb** (`/home/claude/projects/glitchbomb`, read only) at commit **`5efcbce`**, clean tree. Cited as `GB:`

@@ -621,7 +621,7 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
 Sepolia) implements the same three entry points over its own constant-product reserves with the 5 % fee.
 `scripts/deploy.sh devnet` and `scripts/deploy.sh sepolia` seed it with 800,000 PAVED from the initial supply and
 10,000 MockUSDC (6 decimals, the constructor's premint to the deployer; a bounded faucet for everyone else). The deploy
-script refuses `MockRouter` and `MockUSDC` by name on mainnet, and the mock `Token` off devnet (O-22).
+script refuses `MockRouter` and the `Faucet` (`MockUSDC` before D-25 B) by name on mainnet, and the mock `Token` off devnet (O-22).
 
 ## 6. Contracts and class headroom
 
@@ -790,7 +790,7 @@ Not stacked: each one branches from main and targets main.
 - Goal: the token, the vault, `MockUSDC` (6 decimals, faucet) and `MockRouter` (constant product, 5 % fee, Ekubo's
   three entry points), with unit tests. No game change.
 - Allowlist:
-  - `contracts/src/economy/{token,vault,ekubo}.cairo` and `contracts/src/mocks/{usdc,router}.cairo` (new);
+  - `contracts/src/economy/ekubo.cairo`, `contracts/src/systems/{token,vault,faucet}.cairo` (they were `economy/{token,vault}.cairo` and `mocks/usdc.cairo`, `MockUSDC`, before D-25 A+B) and `contracts/src/mocks/router.cairo` (new);
   - `contracts/src/lib.cairo`; `contracts/Scarb.toml` (OpenZeppelin, pinned exactly: P-31), `contracts/Scarb.lock`;
   - their tests under `contracts/src/tests/`;
   - `contracts/abis/{PavedToken,Vault}.json` and `scripts/abis.sh`.
@@ -808,7 +808,7 @@ Not stacked: each one branches from main and targets main.
   accumulator, settle and mint, the EMA, configure, the views and the events. It is tested against `MockRouter`, with
   a test double standing in for `Daily`.
 - Allowlist:
-  - `contracts/src/economy/{economy,curve,mean}.cairo` (new) and their tests;
+  - `contracts/src/systems/economy.cairo` (it was `economy/economy.cairo` before D-25 A), `contracts/src/economy/{curve,mean}.cairo` (new) and their tests;
   - `contracts/abis/Economy.json`, `scripts/abis.sh`.
 - Acceptance:
   - unit tests of `h` against the formulas above, of `F` (#181's table), of the EMA (Nums' update, with the clamp and
@@ -1034,7 +1034,7 @@ D-13 lifts the seed gate. These gates stay:
 
 ### As built: E2 (`Economy`)
 
-`contracts/src/economy/{economy,curve,mean}.cairo`. `curve` and `mean` hold the arithmetic as pure functions,
+`contracts/src/systems/economy.cairo`, `contracts/src/economy/{curve,mean}.cairo` (D-25 A: `economy` moved to `systems/`). `curve` and `mean` hold the arithmetic as pure functions,
 unit tested against the formulas above. `Economy` holds the storage, the calls and the events. Where the code
 differs from the text above, or the text left the choice open, it is written here.
 
@@ -1195,7 +1195,7 @@ text left the choice open, it is written here.
   the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
   it, the decided configuration, initial mean 3,980 points, launch rate 7.6e31), `set_minter(Economy)` (then
   `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
-  `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
+  `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses the `Faucet`, `MockRouter`
   and `Token` by name off devnet. The smoke buys a paid game at stake 1 with the client's `min_out` (99 % of
   `quote_swap`), surrenders it, plays the Tutorial, moves devnet's time to `(D + 2) x 86400` and settles the paid
   game; it then checks that the day has no prize, no leader, weight 0 and that the EMA did not move (P-24). The
@@ -1237,9 +1237,9 @@ economy changed.
 
 - **The devnet economy path** (P-39). `MockUSDC` and `MockRouter` (800,000 PAVED and 10,000 USDC, 5 % fee, launch rate
   7.6e31, `sqrt_ratio_limit` 0), so `Economy.quote_swap` is the quote path on Sepolia as on devnet. No Ekubo wiring.
-  `deploy.sh` refuses `MockUSDC` and `MockRouter` by name on mainnet only, and the old mock `Token` off devnet.
+  `deploy.sh` refuses the `Faucet` (`MockUSDC` before D-25 B) and `MockRouter` by name on mainnet only, and the old mock `Token` off devnet.
 - **The bounded faucet** (S-1's audit, findings 1 and 2).
-  - `MockUSDC.mint` mints at most 10,000 USDC per call (`MINT_CAP_PER_CALL`), and at most 20,000 USDC per recipient
+  - `Faucet.mint` mints at most 10,000 USDC per call (`MINT_CAP_PER_CALL`), and at most 20,000 USDC per recipient
     in total (`MINT_CAP_PER_ADDRESS`, counted in `minted(account)`). The cap is cumulative: spending the USDC does
     not reopen the faucet. A balance cap would let one account mint without limit by spending between mints, and,
     through `MockRouter`'s permissionless swap, buy most of the pool's PAVED.
@@ -1248,6 +1248,11 @@ economy changed.
     is outside the caps, not counted, and the only way past them.
   - So nobody can push the deployer to the caps before `deploy.sh` funds the pool. The smoke mints its 2 USDC only
     when the deployer holds less.
+  - *As built (D-25 B):* `MockUSDC` is `Faucet` (`contracts/src/systems/faucet.cairo`, interface `IFaucet`, errors
+    `Faucet: over the call cap`, `Faucet: over the address cap`). The caps and the premint are unchanged, and `mint`
+    is open to anyone, within the caps. Mainnet is kept out twice: the constructor refuses chain id `SN_MAIN`
+    (`Faucet: not on mainnet`), and `deploy.sh` refuses the Faucet on mainnet by name. The deployments file still
+    keys it `MockUSDC` until the fresh deployment (D-25 F).
   - A test deploy has no transaction account, so it gets no premint, and the other tests are unchanged.
   - The per-call cap is the pool's 10,000 USDC rather than a smaller figure, because the existing tests mint 10,000
     USDC in one call (`deploy_economy`, the router and economy setups).
@@ -1266,7 +1271,7 @@ economy changed.
 
 ### As built: E-9 (on-chain quote through the router, mainnet fork test)
 
-`contracts/src/economy/{economy,ekubo}.cairo`, `contracts/src/mocks/router.cairo`, and the fork test
+`contracts/src/systems/economy.cairo`, `contracts/src/economy/ekubo.cairo`, `contracts/src/mocks/router.cairo`, and the fork test
 `contracts/src/tests/economy/fork.cairo` (opt-in, out of `ci`: `docs/programme/OPERATIONS.md`, "Checks that gate a
 merge").
 
