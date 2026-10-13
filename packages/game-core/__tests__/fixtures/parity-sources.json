@@ -80,7 +80,7 @@
       "scored": []
     },
     "tutorial_full": {
-      "source": "contracts/src/tests/golden/tutorial.cairo:17 (test_golden_tutorial_full_sequence)",
+      "source": "frozen at 38f1c95 from contracts/src/tests/golden/tutorial.cairo:17 (test_golden_tutorial_full_sequence); placements from contracts/src/elements/decks/tutorial.cairo (parameters)",
       "seed": "contracts/src/types/mode.cairo, Mode::seed: 0 for the Tutorial",
       "scored": []
     },
