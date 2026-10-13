@@ -18,7 +18,12 @@
     "build": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "generate:tables": "bun scripts/generate-tables.ts",
+    "generate:parity": "bun scripts/transcribe-goldens.ts"
+  },
+  "dependencies": {
+    "@scure/starknet": "1.1.0"
   },
   "devDependencies": {
     "vitest": "^5.0.3",

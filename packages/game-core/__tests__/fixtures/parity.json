@@ -1,0 +1,1409 @@
+{
+  "version": 1,
+  "rules": "D-19",
+  "games": [
+    {
+      "name": "daily_city5",
+      "source": "golden",
+      "seed": "0x75f339a886d70f2ec353584db1d5d5359c2ed1fb1524e53b54fdde0ee9fad37",
+      "tile_limit": 5,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 16,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 0
+        },
+        {
+          "drawn": 7,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649,
+          "score": 0
+        },
+        {
+          "drawn": 6,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483650,
+          "score": 0
+        },
+        {
+          "drawn": 13,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651,
+          "score": 1122
+        }
+      ],
+      "final": {
+        "score": 1122,
+        "built": 4,
+        "discarded": 0,
+        "tile_count": 5,
+        "over": true
+      }
+    },
+    {
+      "name": "daily_road6",
+      "source": "golden",
+      "seed": "0xa370e644a9538df1614364866cbbc10391e5136af41dcd90f53a0a8892715",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 8,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 3,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 5,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483651,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 3,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 689
+        }
+      ],
+      "final": {
+        "score": 689,
+        "built": 5,
+        "discarded": 0,
+        "tile_count": 7,
+        "over": false
+      }
+    },
+    {
+      "name": "daily_mixed",
+      "source": "golden",
+      "seed": "0x66e020c8c83c2ccdf9a57627dc805efba881071c38babad038d94364a1b980c",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 15,
+          "plan": 19,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 11,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 419
+        },
+        {
+          "drawn": 2,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 419
+        },
+        {
+          "drawn": 18,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
+          "score": 857
+        }
+      ],
+      "final": {
+        "score": 857,
+        "built": 4,
+        "discarded": 0,
+        "tile_count": 6,
+        "over": false
+      }
+    },
+    {
+      "name": "daily_deck",
+      "source": "golden",
+      "seed": "0x2e5ef8ae965c274538bcfc83dc5a9daa98de2f53057b2acf9b196aec476d05f",
+      "tile_limit": 8,
+      "forced": false,
+      "moves": [
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 17,
+          "plan": 17,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        }
+      ],
+      "final": {
+        "score": 0,
+        "built": 0,
+        "discarded": 7,
+        "tile_count": 8,
+        "over": true
+      }
+    },
+    {
+      "name": "forest_ring",
+      "source": "golden",
+      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 5,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 16,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 4,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 0
+        },
+        {
+          "drawn": 17,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
+          "scored": [
+            {
+              "category": 2,
+              "size": 4,
+              "points": 438
+            },
+            {
+              "category": 1,
+              "size": 4,
+              "points": 329
+            }
+          ],
+          "score": 767
+        }
+      ],
+      "final": {
+        "score": 767,
+        "built": 4,
+        "discarded": 0,
+        "tile_count": 6,
+        "over": false
+      }
+    },
+    {
+      "name": "forest_caps",
+      "source": "golden",
+      "seed": "0x3da61630f793f42accec0e235a3b3efefcd0fa3bdfc8bcc79e342b3959cb1cf",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 10,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 0
+        },
+        {
+          "drawn": 5,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
+          "scored": [
+            {
+              "category": 3,
+              "size": 3,
+              "points": 643
+            }
+          ],
+          "score": 643
+        },
+        {
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 643
+        },
+        {
+          "drawn": 13,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 643
+        },
+        {
+          "drawn": 11,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
+          "scored": [
+            {
+              "category": 3,
+              "size": 3,
+              "points": 643
+            },
+            {
+              "category": 1,
+              "size": 2,
+              "points": 628
+            }
+          ],
+          "score": 1914
+        }
+      ],
+      "final": {
+        "score": 1914,
+        "built": 5,
+        "discarded": 0,
+        "tile_count": 7,
+        "over": false
+      }
+    },
+    {
+      "name": "forest_both",
+      "source": "golden",
+      "seed": "0x37cfe4aa1a11307ac67e2d3180d100289834a60ebc363bef931de22977ae61f",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 15,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 7,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 0
+        },
+        {
+          "drawn": 11,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 0
+        },
+        {
+          "drawn": 13,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
+          "score": 0
+        },
+        {
+          "drawn": 2,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 0
+        },
+        {
+          "drawn": 10,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 18,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
+          "score": 1693
+        },
+        {
+          "drawn": 10,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
+          "scored": [
+            {
+              "category": 2,
+              "size": 4,
+              "points": 438
+            },
+            {
+              "category": 1,
+              "size": 4,
+              "points": 329
+            }
+          ],
+          "score": 2460
+        }
+      ],
+      "final": {
+        "score": 2460,
+        "built": 9,
+        "discarded": 0,
+        "tile_count": 11,
+        "over": false
+      }
+    },
+    {
+      "name": "forest_open",
+      "source": "golden",
+      "seed": "0x325cf6d40ecf3a3e2f5295c4d7a3d89fe71fdd812faa7b88e281208c3f5da5e",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 8,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 0
+        },
+        {
+          "drawn": 13,
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483649,
+          "score": 0
+        },
+        {
+          "drawn": 10,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
+          "scored": [
+            {
+              "category": 1,
+              "size": 2,
+              "points": 0
+            }
+          ],
+          "score": 0
+        }
+      ],
+      "final": {
+        "score": 0,
+        "built": 5,
+        "discarded": 0,
+        "tile_count": 7,
+        "over": false
+      }
+    },
+    {
+      "name": "forest_last",
+      "source": "golden",
+      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "tile_limit": 5,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": 5,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 16,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 4,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 0
+        },
+        {
+          "drawn": 17,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
+          "scored": [
+            {
+              "category": 2,
+              "size": 4,
+              "points": 438
+            },
+            {
+              "category": 1,
+              "size": 4,
+              "points": 329
+            }
+          ],
+          "score": 767
+        }
+      ],
+      "final": {
+        "score": 767,
+        "built": 4,
+        "discarded": 0,
+        "tile_count": 5,
+        "over": true
+      }
+    },
+    {
+      "name": "daily_full_deck",
+      "source": "golden",
+      "seed": "0x6a53ba54aaa22d5a7cae2a4b45d2b63ac4548a51178abb0fa3d3edc3b268982",
+      "tile_limit": 38,
+      "forced": false,
+      "moves": [
+        {
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
+          "score": 0
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 419
+        },
+        {
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483646,
+          "score": 419
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
+          "score": 419
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 857
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483648,
+          "score": 857
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483647,
+          "score": 857
+        },
+        {
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483645,
+          "score": 2176
+        },
+        {
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483646,
+          "score": 2176
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
+          "score": 2176
+        },
+        {
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483648,
+          "score": 2176
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644,
+          "score": 2176
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483644,
+          "score": 2176
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483645,
+          "score": 2176
+        },
+        {
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
+          "score": 2385
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483649,
+          "score": 2385
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483646,
+          "score": 2804
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483645,
+          "score": 3704
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483648,
+          "score": 4800
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 4800
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483644,
+          "score": 4800
+        },
+        {
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483649,
+          "score": 4800
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483644,
+          "score": 4800
+        },
+        {
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483649,
+          "score": 4800
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483647,
+          "score": 4800
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 4,
+          "x": 2147483650,
+          "y": 2147483648,
+          "score": 4800
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 3,
+          "x": 2147483650,
+          "y": 2147483646,
+          "score": 5121
+        },
+        {
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483643,
+          "score": 5121
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483643,
+          "score": 5121
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483645,
+          "score": 5121
+        },
+        {
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483643,
+          "score": 5121
+        },
+        {
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483650,
+          "score": 5121
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483644,
+          "y": 2147483647,
+          "score": 5121
+        }
+      ],
+      "final": {
+        "score": 5121,
+        "built": 37,
+        "discarded": 0,
+        "tile_count": 38,
+        "over": true
+      }
+    },
+    {
+      "name": "tutorial_full",
+      "source": "tutorial",
+      "seed": "0x0",
+      "tile_limit": 10,
+      "forced": false,
+      "moves": [
+        {
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 0
+        },
+        {
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646,
+          "score": 0
+        },
+        {
+          "drawn": 6,
+          "plan": 6,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483645,
+          "score": 643
+        },
+        {
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 643
+        },
+        {
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
+          "score": 1062
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 1062
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483646,
+          "score": 1062
+        },
+        {
+          "drawn": 1,
+          "plan": 1,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 1012
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 2794
+        }
+      ],
+      "final": {
+        "score": 2794,
+        "built": 8,
+        "discarded": 1,
+        "tile_count": 10,
+        "over": true
+      }
+    },
+    {
+      "name": "test_differential_gas_scenarios_a0_a_b#1",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647
+        }
+      ],
+      "final": {}
+    },
+    {
+      "name": "test_differential_gas_scenarios_a0_a_b#2",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 5,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483648
+        }
+      ],
+      "final": {}
+    },
+    {
+      "name": "test_differential_gas_scenario_c",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483650
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651
+        },
+        {
+          "drawn": null,
+          "plan": 8,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483651
+        }
+      ],
+      "final": {
+        "score_above": 0
+      }
+    },
+    {
+      "name": "test_differential_gas_scenario_d",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483650
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483650
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483650
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 8,
+          "orientation": 4,
+          "x": 2147483644,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483650
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483651
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483651
+        },
+        {
+          "drawn": null,
+          "plan": 8,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483650
+        }
+      ],
+      "final": {
+        "score_above": 0
+      }
+    },
+    {
+      "name": "test_differential_gas_scenario_e",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645
+        }
+      ],
+      "final": {
+        "score": 767
+      }
+    },
+    {
+      "name": "test_differential_gas_scenario_f",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483647
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483645
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483644
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483644
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483644
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483645
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483645
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483647
+        }
+      ],
+      "final": {
+        "score": 5618
+      }
+    },
+    {
+      "name": "test_differential_two_areas_of_one_tile_join_one_structure",
+      "source": "differential",
+      "seed": "0x0",
+      "tile_limit": 38,
+      "forced": true,
+      "moves": [
+        {
+          "drawn": null,
+          "plan": 5,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 17,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 12,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483648
+        },
+        {
+          "drawn": null,
+          "plan": 6,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483649
+        },
+        {
+          "drawn": null,
+          "plan": 12,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646
+        },
+        {
+          "drawn": null,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483647
+        },
+        {
+          "drawn": null,
+          "plan": 17,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647
+        }
+      ],
+      "final": {}
+    }
+  ]
+}
