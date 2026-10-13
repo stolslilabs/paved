@@ -1,1593 +1,1409 @@
 {
   "version": 1,
-  "generatedBy": "packages/game-core/scripts/transcribe-goldens.ts",
+  "rules": "D-19",
   "games": [
     {
       "name": "daily_city5",
-      "source": "contracts/src/tests/golden/daily.cairo:54 (test_golden_daily_city5_game_over)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x75f339a886d70f2ec353584db1d5d5359c2ed1fb1524e53b54fdde0ee9fad37",
-      "seedSource": "Poseidon(0, 1000): Mode::seed of day(0) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": 5,
+      "tile_limit": 5,
+      "forced": true,
       "moves": [
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
+          "drawn": 16,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 2,
+          "drawn": 7,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649,
           "score": 0
         },
         {
-          "drawn": "FFCFFFFFC",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 3,
+          "drawn": 6,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483650,
           "score": 0
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 4,
+          "drawn": 13,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651,
           "score": 1122
         }
       ],
-      "outcome": {
+      "final": {
         "score": 1122,
         "built": 4,
         "discarded": 0,
-        "tileCount": 5,
+        "tile_count": 5,
         "over": true
       }
     },
     {
       "name": "daily_road6",
-      "source": "contracts/src/tests/golden/daily.cairo:71 (test_golden_daily_road6)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0xa370e644a9538df1614364866cbbc10391e5136af41dcd90f53a0a8892715",
-      "seedSource": "Poseidon(0, 1001): Mode::seed of day(1) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "FFFFFFCFF",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 0,
+          "drawn": 8,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "CCCCCFRFC",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 2,
-          "y": 0,
+          "drawn": 3,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 3,
-          "y": 0,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 4,
-          "y": 0,
+          "drawn": 5,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483651,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "CCCCCFRFC",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": 0,
+          "drawn": 3,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
           "score": 689
         }
       ],
-      "outcome": {
+      "final": {
         "score": 689,
         "built": 5,
         "discarded": 0,
-        "tileCount": 7,
+        "tile_count": 7,
         "over": false
       }
     },
     {
       "name": "daily_mixed",
-      "source": "contracts/src/tests/golden/daily.cairo:88 (test_golden_daily_mixed_roles)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x66e020c8c83c2ccdf9a57627dc805efba881071c38babad038d94364a1b980c",
-      "seedSource": "Poseidon(0, 1002): Mode::seed of day(2) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "SFRFRFCFR",
-          "plan": "WFFFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 0,
+          "drawn": 15,
+          "plan": 19,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 1,
+          "drawn": 11,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483648,
           "score": 419
         },
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": 0,
+          "drawn": 2,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
           "score": 419
         },
         {
-          "drawn": "WFFFFFFFF",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -2,
-          "y": 0,
+          "drawn": 18,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
           "score": 857
         }
       ],
-      "outcome": {
+      "final": {
         "score": 857,
         "built": 4,
         "discarded": 0,
-        "tileCount": 6,
+        "tile_count": 6,
         "over": false
       }
     },
     {
       "name": "daily_deck",
-      "source": "contracts/src/tests/golden/daily.cairo:106 (test_golden_daily_real_deck_discards_to_game_over)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x2e5ef8ae965c274538bcfc83dc5a9daa98de2f53057b2acf9b196aec476d05f",
-      "seedSource": "Poseidon(0, 1003): Mode::seed of day(3) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": 8,
+      "tile_limit": 8,
+      "forced": false,
       "moves": [
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "CCCCCFFFC",
-          "action": "discard",
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "SFRFRFRFR",
-          "plan": "SFRFRFRFR",
-          "action": "discard",
+          "drawn": 17,
+          "plan": 17,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "discard",
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "SFRFRFFFR",
-          "action": "discard",
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "discard",
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "discard",
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "FFFFCCCFF",
-          "action": "discard",
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 0
         }
       ],
-      "outcome": {
+      "final": {
         "score": 0,
         "built": 0,
         "discarded": 7,
-        "tileCount": 8,
+        "tile_count": 8,
         "over": true
       }
     },
     {
       "name": "forest_ring",
-      "source": "contracts/src/tests/golden/forest.cairo:97 (test_golden_daily_forest_woodsman_ring)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
-      "seedSource": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -1,
+          "drawn": 5,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 1,
-          "y": -1,
+          "drawn": 16,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "CFFFCFFFC",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -2,
+          "drawn": 4,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
           "score": 0
         },
         {
-          "drawn": "SFRFRFRFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -2,
-          "score": 767,
+          "drawn": 17,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
           "scored": [
             {
-              "category": "Road",
+              "category": 2,
               "size": 4,
               "points": 438
             },
             {
-              "category": "Forest",
+              "category": 1,
               "size": 4,
               "points": 329
             }
           ],
-          "scoredSource": "contracts/src/tests/golden/forest.cairo:28-31"
+          "score": 767
         }
       ],
-      "outcome": {
+      "final": {
         "score": 767,
         "built": 4,
         "discarded": 0,
-        "tileCount": 6,
+        "tile_count": 6,
         "over": false
       }
     },
     {
       "name": "forest_caps",
-      "source": "contracts/src/tests/golden/forest.cairo:114 (test_golden_daily_forest_herdsman_caps)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x3da61630f793f42accec0e235a3b3efefcd0fa3bdfc8bcc79e342b3959cb1cf",
-      "seedSource": "Poseidon(0, 1005): Mode::seed of day(5) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
+          "drawn": 10,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 2,
-          "score": 643,
+          "drawn": 5,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
           "scored": [
             {
-              "category": "City",
+              "category": 3,
               "size": 3,
               "points": 643
             }
           ],
-          "scoredSource": "docs/measures/golden-games.md, hand check of forest_caps, step 2"
-        },
-        {
-          "drawn": "FFFFFFCFF",
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 2,
           "score": 643
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 0,
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649,
           "score": 643
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 1,
-          "score": 1914,
+          "drawn": 13,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 643
+        },
+        {
+          "drawn": 11,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
           "scored": [
             {
-              "category": "City",
+              "category": 3,
               "size": 3,
               "points": 643
             },
             {
-              "category": "Forest",
+              "category": 1,
               "size": 2,
               "points": 628
             }
           ],
-          "scoredSource": "docs/measures/golden-games.md, hand check of forest_caps, step 5"
+          "score": 1914
         }
       ],
-      "outcome": {
+      "final": {
         "score": 1914,
         "built": 5,
         "discarded": 0,
-        "tileCount": 7,
+        "tile_count": 7,
         "over": false
       }
     },
     {
       "name": "forest_both",
-      "source": "contracts/src/tests/golden/forest.cairo:131 (test_golden_daily_forest_both_roles)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x37cfe4aa1a11307ac67e2d3180d100289834a60ebc363bef931de22977ae61f",
-      "seedSource": "Poseidon(0, 1006): Mode::seed of day(6) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "SFRFRFCFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -1,
+          "drawn": 15,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 1,
-          "y": -1,
+          "drawn": 7,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "RFRFRFCFF",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -2,
+          "drawn": 14,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
           "score": 0
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
+          "drawn": 11,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 2,
+          "drawn": 13,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
           "score": 0
         },
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 2,
+          "drawn": 2,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483649,
           "score": 0
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 0,
+          "drawn": 10,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "WFFFFFFFF",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 1,
+          "drawn": 18,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
           "score": 1693
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -2,
-          "score": 2460,
+          "drawn": 10,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
           "scored": [
             {
-              "category": "Road",
+              "category": 2,
               "size": 4,
               "points": 438
             },
             {
-              "category": "Forest",
+              "category": 1,
               "size": 4,
               "points": 329
             }
           ],
-          "scoredSource": "contracts/src/tests/golden/forest.cairo:53-57"
+          "score": 2460
         }
       ],
-      "outcome": {
+      "final": {
         "score": 2460,
         "built": 9,
         "discarded": 0,
-        "tileCount": 11,
+        "tile_count": 11,
         "over": false
       }
     },
     {
       "name": "forest_open",
-      "source": "contracts/src/tests/golden/forest.cairo:150 (test_golden_daily_forest_herdsman_open_city)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x325cf6d40ecf3a3e2f5295c4d7a3d89fe71fdd812faa7b88e281208c3f5da5e",
-      "seedSource": "Poseidon(0, 1007): Mode::seed of day(7) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
-          "drawn": "FFFFFFCFF",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 0,
+          "drawn": 8,
+          "plan": 9,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "RFRFRFCFF",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 1,
+          "drawn": 14,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": "RFRFRFCFF",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 2,
+          "drawn": 14,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483649,
           "score": 0
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "CCCCCFFFC",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": 2,
+          "drawn": 13,
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483649,
           "score": 0
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
-          "score": 0,
+          "drawn": 10,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
           "scored": [
             {
-              "category": "Forest",
+              "category": 1,
               "size": 2,
               "points": 0
             }
           ],
-          "scoredSource": "contracts/src/tests/golden/forest.cairo:84-86"
+          "score": 0
         }
       ],
-      "outcome": {
+      "final": {
         "score": 0,
         "built": 5,
         "discarded": 0,
-        "tileCount": 7,
+        "tile_count": 7,
         "over": false
       }
     },
     {
       "name": "forest_last",
-      "source": "contracts/src/tests/golden/forest.cairo:239 (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
-      "seedSource": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": 5,
+      "tile_limit": 5,
+      "forced": true,
       "moves": [
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -1,
+          "drawn": 5,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 1,
-          "y": -1,
+          "drawn": 16,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "CFFFCFFFC",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -2,
+          "drawn": 4,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
           "score": 0
         },
         {
-          "drawn": "SFRFRFRFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -2,
-          "score": 767,
+          "drawn": 17,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
           "scored": [
             {
-              "category": "Road",
+              "category": 2,
               "size": 4,
               "points": 438
             },
             {
-              "category": "Forest",
+              "category": 1,
               "size": 4,
               "points": 329
             }
           ],
-          "scoredSource": "contracts/src/tests/golden/forest.cairo:28-31"
+          "score": 767
         }
       ],
-      "outcome": {
+      "final": {
         "score": 767,
         "built": 4,
         "discarded": 0,
-        "tileCount": 5,
+        "tile_count": 5,
         "over": true
       }
     },
     {
       "name": "daily_full_deck",
-      "source": "contracts/src/tests/golden/full_deck.cairo:143 (test_golden_daily_full_deck)",
-      "deck": "simple",
+      "source": "golden",
       "seed": "0x6a53ba54aaa22d5a7cae2a4b45d2b63ac4548a51178abb0fa3d3edc3b268982",
-      "seedSource": "Poseidon(0, 1010): Mode::seed of day(10) (golden/harness.cairo), salt 0 (hostable.cairo)",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": false,
       "moves": [
         {
-          "drawn": "WFFFFFFFF",
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": -1,
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "CCCCCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": "RFRFRFCFF",
-          "plan": "RFRFRFCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 0,
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "FFCFFFCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -2,
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
           "score": 0
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": -1,
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "RFFFRFCFR",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": -2,
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483645,
           "score": 419
         },
         {
-          "drawn": "WFFFFFFFF",
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": -1,
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483646,
           "score": 419
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 1,
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483648,
           "score": 419
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": 0,
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
           "score": 857
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": -1,
-          "y": 1,
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483648,
           "score": 857
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 2,
-          "y": 0,
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483647,
           "score": 857
         },
         {
-          "drawn": "FFFFFFCFF",
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "West",
-          "x": -1,
-          "y": -2,
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483645,
           "score": 2176
         },
         {
-          "drawn": "RFFFRFCFR",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 2,
-          "y": -1,
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483646,
           "score": 2176
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "RFRFCCCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 2,
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
           "score": 2176
         },
         {
-          "drawn": "WFFFFFFFR",
-          "plan": "WFFFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 2,
-          "y": 1,
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483648,
           "score": 2176
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "RFRFCCCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -3,
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644,
           "score": 2176
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -3,
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483644,
           "score": 2176
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "West",
-          "x": 2,
-          "y": -2,
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483645,
           "score": 2176
         },
         {
-          "drawn": "SFRFRFCFR",
-          "plan": "SFRFRFCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -2,
-          "y": 0,
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
           "score": 2385
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": 2,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483649,
           "score": 2385
         },
         {
-          "drawn": "RFRFRFCFF",
-          "plan": "RFRFRFCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": -2,
-          "y": -1,
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483646,
           "score": 2804
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": -2,
-          "y": -2,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483645,
           "score": 3704
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "RFRFCCCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": -2,
-          "y": 1,
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483648,
           "score": 4800
         },
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "CCCCCFFFC",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 2,
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649,
           "score": 4800
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": -3,
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483644,
           "score": 4800
         },
         {
-          "drawn": "FFCFFFCFF",
-          "plan": "FFCFFFCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 2,
-          "y": 2,
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483649,
           "score": 4800
         },
         {
-          "drawn": "CCCCCFFFC",
-          "plan": "CCCCCFFFC",
-          "action": "build",
-          "orientation": "South",
-          "x": 2,
-          "y": -3,
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483644,
           "score": 4800
         },
         {
-          "drawn": "RFFFRFCFR",
-          "plan": "RFFFRFCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -2,
-          "y": 2,
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483649,
           "score": 4800
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 3,
-          "y": 0,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483647,
           "score": 4800
         },
         {
-          "drawn": "FFFFCCCFF",
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "West",
-          "x": 3,
-          "y": 1,
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 4,
+          "x": 2147483650,
+          "y": 2147483648,
           "score": 4800
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "SFRFRFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 3,
-          "y": -1,
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 3,
+          "x": 2147483650,
+          "y": 2147483646,
           "score": 5121
         },
         {
-          "drawn": "CFFFCFFFC",
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": -4,
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483643,
           "score": 5121
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -4,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483643,
           "score": 5121
         },
         {
-          "drawn": "RFRFCCCFR",
-          "plan": "RFRFCCCFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 3,
-          "y": -2,
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483645,
           "score": 5121
         },
         {
-          "drawn": "RFRFFFCFR",
-          "plan": "RFRFFFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 2,
-          "y": -4,
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483643,
           "score": 5121
         },
         {
-          "drawn": "WFFFFFFFR",
-          "plan": "WFFFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 0,
-          "y": 3,
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483650,
           "score": 5121
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": -3,
-          "y": 0,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483644,
+          "y": 2147483647,
           "score": 5121
         }
       ],
-      "outcome": {
+      "final": {
         "score": 5121,
         "built": 37,
         "discarded": 0,
-        "tileCount": 38,
+        "tile_count": 38,
         "over": true
       }
     },
     {
       "name": "tutorial_full",
-      "source": "contracts/src/tests/golden/tutorial.cairo:17 (test_golden_tutorial_full_sequence)",
-      "deck": "tutorial",
+      "source": "tutorial",
       "seed": "0x0",
-      "seedSource": "contracts/src/types/mode.cairo, Mode::seed: 0 for the Tutorial",
-      "tileLimit": null,
+      "tile_limit": 10,
+      "forced": false,
       "moves": [
         {
-          "drawn": "SFRFRFCFR",
-          "plan": "SFRFRFCFR",
-          "action": "build",
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
           "score": 0
         },
         {
-          "drawn": "CFFFCFFFC",
-          "plan": "CFFFCFFFC",
-          "action": "build",
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646,
           "score": 0
         },
         {
-          "drawn": "FFCFFFFFC",
-          "plan": "FFCFFFFFC",
-          "action": "build",
+          "drawn": 6,
+          "plan": 6,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483645,
           "score": 643
         },
         {
-          "drawn": "WFFFFFFFR",
-          "plan": "WFFFFFFFR",
-          "action": "build",
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483646,
           "score": 643
         },
         {
-          "drawn": "RFRFFFCFR",
-          "plan": "RFRFFFCFR",
-          "action": "build",
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645,
           "score": 1062
         },
         {
-          "drawn": "RFRFFFFFR",
-          "plan": "RFRFFFFFR",
-          "action": "build",
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
           "score": 1062
         },
         {
-          "drawn": "RFFFRFFFR",
-          "plan": "RFFFRFFFR",
-          "action": "build",
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483646,
           "score": 1062
         },
         {
-          "drawn": "CCCCCCCCC",
-          "plan": "CCCCCCCCC",
-          "action": "discard",
+          "drawn": 1,
+          "plan": 1,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
           "score": 1012
         },
         {
-          "drawn": "SFRFRFFFR",
-          "plan": "SFRFRFFFR",
-          "action": "build",
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483647,
           "score": 2794
         }
       ],
-      "outcome": {
+      "final": {
         "score": 2794,
         "built": 8,
         "discarded": 1,
-        "tileCount": 10,
+        "tile_count": 10,
         "over": true
       }
     },
     {
       "name": "test_differential_gas_scenarios_a0_a_b#1",
-      "source": "contracts/src/tests/differential.cairo:56 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 0,
-          "score": null
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647
         }
       ],
-      "outcome": {}
+      "final": {}
     },
     {
       "name": "test_differential_gas_scenarios_a0_a_b#2",
-      "source": "contracts/src/tests/differential.cairo:56 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "FFCFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 1,
-          "score": null
+          "plan": 5,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483648
         }
       ],
-      "outcome": {}
+      "final": {}
     },
     {
       "name": "test_differential_gas_scenario_c",
-      "source": "contracts/src/tests/differential.cairo:66 (test_differential_gas_scenario_c); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 2,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 3,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483650
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": 4,
-          "score": null
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651
         },
         {
           "drawn": null,
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 1,
-          "y": 4,
-          "score": null
+          "plan": 8,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483651
         }
       ],
-      "outcome": {
-        "scoreAbove": 0
+      "final": {
+        "score_above": 0
       }
     },
     {
       "name": "test_differential_gas_scenario_d",
-      "source": "contracts/src/tests/differential.cairo:80 (test_differential_gas_scenario_d); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 1,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": 2,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "CCCCCFFFC",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": 3,
-          "score": null
+          "plan": 2,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483650
         },
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "North",
-          "x": -1,
-          "y": 3,
-          "score": null
+          "plan": 4,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483650
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": -2,
-          "y": 3,
-          "score": null
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483650
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": -2,
-          "y": 2,
-          "score": null
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "West",
-          "x": -3,
-          "y": 2,
-          "score": null
+          "plan": 8,
+          "orientation": 4,
+          "x": 2147483644,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 3,
-          "score": null
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483650
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 4,
-          "score": null
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483651
         },
         {
           "drawn": null,
-          "plan": "FFFFCCCFF",
-          "action": "build",
-          "orientation": "East",
-          "x": 2,
-          "y": 4,
-          "score": null
+          "plan": 7,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483651
         },
         {
           "drawn": null,
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": 2,
-          "y": 3,
-          "score": null
+          "plan": 8,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483650
         }
       ],
-      "outcome": {
-        "scoreAbove": 0
+      "final": {
+        "score_above": 0
       }
     },
     {
       "name": "test_differential_gas_scenario_e",
-      "source": "contracts/src/tests/differential.cairo:101 (test_differential_gas_scenario_e); expectation: contracts/tests/gas.cairo:65 (SCORE_E)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -1,
-          "score": null
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 1,
-          "y": -1,
-          "score": null
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483648,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -2,
-          "score": null
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 0,
-          "y": -2,
-          "score": null
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483647,
+          "y": 2147483645
         }
       ],
-      "outcome": {
+      "final": {
         "score": 767
       }
     },
     {
       "name": "test_differential_gas_scenario_f",
-      "source": "contracts/src/tests/differential.cairo:117 (test_differential_gas_scenario_f); expectation: contracts/tests/gas.cairo:66 (SCORE_F)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 0,
-          "score": null
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 2,
-          "y": 0,
-          "score": null
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483647
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 2,
-          "y": -1,
-          "score": null
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": 2,
-          "y": -2,
-          "score": null
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483645
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 2,
-          "y": -3,
-          "score": null
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483644
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -3,
-          "score": null
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": -3,
-          "score": null
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483644
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": -3,
-          "score": null
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483644
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": -2,
-          "score": null
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483645
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": -1,
-          "score": null
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": -1,
-          "score": null
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -1,
-          "score": null
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 0,
-          "y": -2,
-          "score": null
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483645
         },
         {
           "drawn": null,
-          "plan": "WFFFFFFFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -2,
-          "score": null
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645
         },
         {
           "drawn": null,
-          "plan": "RFRFFFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": -1,
-          "y": 0,
-          "score": null
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483647
         }
       ],
-      "outcome": {
+      "final": {
         "score": 5618
       }
     },
     {
       "name": "test_differential_two_areas_of_one_tile_join_one_structure",
-      "source": "contracts/src/tests/differential.cairo:150 (test_differential_two_areas_of_one_tile_join_one_structure); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
-      "deck": "simple",
+      "source": "differential",
       "seed": "0x0",
-      "seedSource": "any: the plans are forced and no draw is asserted",
-      "tileLimit": null,
+      "tile_limit": 38,
+      "forced": true,
       "moves": [
         {
           "drawn": null,
-          "plan": "FFCFFFCFF",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": 1,
-          "score": null
+          "plan": 5,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "RFRFFFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 1,
-          "score": null
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "FFFFFFCFF",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": 2,
-          "score": null
+          "plan": 8,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "SFRFRFRFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 2,
-          "y": 1,
-          "score": null
+          "plan": 17,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 0,
-          "y": -1,
-          "score": null
+          "plan": 10,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFRFFFCFR",
-          "action": "build",
-          "orientation": "North",
-          "x": 1,
-          "y": -1,
-          "score": null
+          "plan": 12,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFFFRFFFR",
-          "action": "build",
-          "orientation": "West",
-          "x": 2,
-          "y": 2,
-          "score": null
+          "plan": 10,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "CFFFCFFFC",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": 1,
-          "score": null
+          "plan": 4,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483648
         },
         {
           "drawn": null,
-          "plan": "FFCFFFFFC",
-          "action": "build",
-          "orientation": "West",
-          "x": 0,
-          "y": 2,
-          "score": null
+          "plan": 6,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483649
         },
         {
           "drawn": null,
-          "plan": "RFRFFFCFR",
-          "action": "build",
-          "orientation": "East",
-          "x": -1,
-          "y": -1,
-          "score": null
+          "plan": 12,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483646
         },
         {
           "drawn": null,
-          "plan": "RFRFFFCFR",
-          "action": "build",
-          "orientation": "South",
-          "x": -1,
-          "y": 0,
-          "score": null
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483647
         },
         {
           "drawn": null,
-          "plan": "SFRFRFRFR",
-          "action": "build",
-          "orientation": "South",
-          "x": 1,
-          "y": 0,
-          "score": null
+          "plan": 17,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647
         }
       ],
-      "outcome": {}
-    }
-  ],
-  "notCovered": [
-    {
-      "test": "test_differential_wonder_ring",
-      "source": "contracts/src/tests/differential.cairo",
-      "reason": "six of its tiles are written with Store::set_tile, without a build, and it asserts only that the score grows: replayed in __tests__/engine.test.ts with EngineGame.write instead"
-    },
-    {
-      "test": "test_differential_tutorial_full_sequence",
-      "source": "contracts/src/tests/differential.cairo",
-      "reason": "the same scripted run as test_golden_tutorial_full_sequence, which is covered"
-    },
-    {
-      "test": "GoldenOutcome.top1_score",
-      "source": "contracts/src/tests/golden/harness.cairo",
-      "reason": "the tournament's leaderboard is not part of the engine"
+      "final": {}
     }
   ]
 }

@@ -2,7 +2,10 @@
 // and the differential boards (`contracts/src/tests/differential.cairo`) into
 // `__tests__/fixtures/parity.json`, which `__tests__/engine-parity.test.ts` replays on the engine.
 // Run `bun run generate:parity` in `packages/game-core`; `engine-parity.test.ts` fails while the
-// fixture is out of date. The format is documented in `src/engine/README.md`.
+// fixture is out of date. The file has the format of CORE's parity fixture
+// (`docs/architecture/parity-fixture.md`); where a value is not literal in the Cairo source, this
+// hand transcription leaves it out (see `src/engine/README.md`). The Cairo source line of each game
+// and of each added value goes to `__tests__/fixtures/parity-sources.json`.
 //
 // What the script reads from the Cairo source, and nothing else: the moves, the forced plans, the
 // day, the tile limit, the score after each move and the final counters (`GoldenOutcome`). The few
@@ -16,6 +19,18 @@ import { poseidonHashMany } from "@scure/starknet";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../../..");
 export const PARITY_TARGET = resolve(HERE, "../__tests__/fixtures/parity.json");
+export const SOURCES_TARGET = resolve(HERE, "../__tests__/fixtures/parity-sources.json");
+const TUTORIAL_DECK_FILE = "contracts/src/elements/decks/tutorial.cairo";
+/** The contracts' `CENTER`: the fixture's coordinates are the contract's. */
+const CENTER = 0x7fffffff;
+const PLAN_CODES = [
+  "None", "CCCCCCCCC", "CCCCCFFFC", "CCCCCFRFC", "CFFFCFFFC", "FFCFFFCFF", "FFCFFFFFC", "FFFFCCCFF",
+  "FFFFFFCFF", "RFFFRFCFR", "RFFFRFFFR", "RFRFCCCFR", "RFRFFFCFR", "RFRFFFFFR", "RFRFRFCFF",
+  "SFRFRFCFR", "SFRFRFFFR", "SFRFRFRFR", "WFFFFFFFF", "WFFFFFFFR",
+];
+const ORIENTATION_CODES = ["None", "North", "East", "South", "West"];
+const CATEGORY_CODES = ["None", "Forest", "Road", "City", "Stop", "Wonder"];
+const DECK_COUNTS = { simple: 38, tutorial: 10 };
 const GOLDEN_FILES = ["daily", "forest", "full_deck", "tutorial"].map(
   (name) => `contracts/src/tests/golden/${name}.cairo`,
 );
@@ -66,9 +81,7 @@ export interface ParityGame {
   };
 }
 
-export interface ParityFixture {
-  version: 1;
-  generatedBy: string;
+export interface Transcription {
   games: ParityGame[];
   notCovered: { test: string; source: string; reason: string }[];
 }
@@ -367,7 +380,7 @@ function parseDifferential(source: string): ParityGame[] {
   return games;
 }
 
-export function transcribe(read: (path: string) => string): ParityFixture {
+export function transcribe(read: (path: string) => string): Transcription {
   const games: ParityGame[] = [];
   const seen = new Set<string>();
   for (const file of GOLDEN_FILES) {
@@ -385,16 +398,138 @@ export function transcribe(read: (path: string) => string): ParityFixture {
     }
   }
   games.push(...parseDifferential(read(DIFFERENTIAL_FILE)));
-  return {
-    version: 1,
-    generatedBy: "packages/game-core/scripts/transcribe-goldens.ts",
-    games,
-    notCovered: NOT_COVERED,
+  // [Info] The Tutorial's placements are its deck's (`parameters(index)`): step `i` holds index `i + 1`
+  const placements = parseTutorialPlacements(read(TUTORIAL_DECK_FILE));
+  for (const game of games.filter((entry) => entry.deck === "tutorial")) {
+    game.moves = game.moves.map((move, step) =>
+      move.action === "discard" ? move : { ...move, ...placements.get(step + 1) },
+    );
+  }
+  return { games, notCovered: NOT_COVERED };
+}
+
+/** The scripted placements of `elements/decks/tutorial.cairo`, by deck index. */
+function parseTutorialPlacements(source: string): Map<number, { orientation: string; x: number; y: number }> {
+  const placements = new Map<number, { orientation: string; x: number; y: number }>();
+  const body = source.match(/fn parameters\(index: u32\)[\s\S]*?match index \{([\s\S]*?)\n\s*\}/);
+  if (!body) throw new Error("tutorial.cairo: parameters not found");
+  for (const row of body[1].matchAll(/(\d+) => \((Orientation::\w+), (CENTER[^,]*), (CENTER[^)]*)\)/g)) {
+    placements.set(Number(row[1]), { orientation: orientation(row[2]), x: coordinate(row[3]), y: coordinate(row[4]) });
+  }
+  return placements;
+}
+
+// The format of CORE's parity fixture (`docs/architecture/parity-fixture.md`)
+
+export interface FixtureScored {
+  category: number;
+  size: number;
+  points: number;
+}
+
+export interface FixtureMove {
+  /** The plan code drawn before the move; `null` where the Cairo source does not assert it. */
+  drawn: number | null;
+  plan: number;
+  /** 0 for a discard (`x`, `y` 0). */
+  orientation: number;
+  x: number;
+  y: number;
+  /** Absent where the Cairo source does not state the move's `Scored` events. */
+  scored?: FixtureScored[];
+  /** Absent where the Cairo source does not assert the score after the move. */
+  score?: number;
+}
+
+export interface FixtureGame {
+  name: string;
+  source: "golden" | "tutorial" | "differential";
+  seed: string;
+  tile_limit: number;
+  forced: boolean;
+  moves: FixtureMove[];
+  final: {
+    score?: number;
+    /** Extension of the hand transcription: the source asserts only `score > score_above`. */
+    score_above?: number;
+    built?: number;
+    discarded?: number;
+    tile_count?: number;
+    over?: boolean;
   };
 }
 
-export function renderFixture(fixture: ParityFixture): string {
-  return `${JSON.stringify(fixture, null, 2)}\n`;
+export interface ParityFixture {
+  version: 1;
+  rules: string;
+  games: FixtureGame[];
+}
+
+function code(codes: string[], name: string): number {
+  const index = codes.indexOf(name);
+  if (index < 0) throw new Error(`goldens: unknown code ${name}`);
+  return index;
+}
+
+export function toFixture(transcription: Transcription): ParityFixture {
+  return {
+    version: 1,
+    rules: "D-19",
+    games: transcription.games.map((game) => {
+      const kind = game.deck === "tutorial" ? "tutorial" : game.source.startsWith(DIFFERENTIAL_FILE) ? "differential" : "golden";
+      const final: FixtureGame["final"] = {};
+      if (game.outcome.score !== undefined) final.score = game.outcome.score;
+      if (game.outcome.scoreAbove !== undefined) final.score_above = game.outcome.scoreAbove;
+      if (game.outcome.built !== undefined) final.built = game.outcome.built;
+      if (game.outcome.discarded !== undefined) final.discarded = game.outcome.discarded;
+      if (game.outcome.tileCount !== undefined) final.tile_count = game.outcome.tileCount;
+      if (game.outcome.over !== undefined) final.over = game.outcome.over;
+      return {
+        name: game.name,
+        source: kind,
+        seed: game.seed,
+        tile_limit: game.tileLimit ?? DECK_COUNTS[game.deck],
+        forced: game.moves.some((move) => move.drawn !== move.plan),
+        moves: game.moves.map((move) => {
+          const discard = move.action === "discard";
+          const entry: FixtureMove = {
+            drawn: move.drawn === null ? null : code(PLAN_CODES, move.drawn),
+            plan: code(PLAN_CODES, move.plan),
+            orientation: discard ? 0 : code(ORIENTATION_CODES, move.orientation as string),
+            x: discard ? 0 : CENTER + (move.x as number),
+            y: discard ? 0 : CENTER + (move.y as number),
+          };
+          if (move.scored) {
+            entry.scored = move.scored.map((scored) => ({ ...scored, category: code(CATEGORY_CODES, scored.category) }));
+          }
+          if (move.score !== null) entry.score = move.score;
+          return entry;
+        }),
+        final,
+      };
+    }),
+  };
+}
+
+/** Where each game and each added value comes from, and what is not covered. */
+export function toSources(transcription: Transcription): unknown {
+  return {
+    games: Object.fromEntries(
+      transcription.games.map((game) => [
+        game.name,
+        {
+          source: game.source,
+          seed: game.seedSource,
+          scored: game.moves.flatMap((move, step) => (move.scoredSource ? [{ move: step, source: move.scoredSource }] : [])),
+        },
+      ]),
+    ),
+    notCovered: transcription.notCovered,
+  };
+}
+
+export function render(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 export function readRepository(path: string): string {
@@ -402,6 +537,8 @@ export function readRepository(path: string): string {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  writeFileSync(PARITY_TARGET, renderFixture(transcribe(readRepository)));
-  console.log(`Wrote ${PARITY_TARGET}`);
+  const transcription = transcribe(readRepository);
+  writeFileSync(PARITY_TARGET, render(toFixture(transcription)));
+  writeFileSync(SOURCES_TARGET, render(toSources(transcription)));
+  console.log(`Wrote ${PARITY_TARGET} and ${SOURCES_TARGET}`);
 }

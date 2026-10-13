@@ -1,83 +1,71 @@
-// Parity of the off-chain engine with CORE's golden and differential games: each game of
-// `fixtures/parity.json` (transcribed from the Cairo tests by `scripts/transcribe-goldens.ts`)
-// replays on the engine with exactly the plans drawn, the scores, the `Scored` events and the final
-// counters the Cairo tests assert.
+// Parity of the off-chain engine with CORE's golden and differential games: each game of the
+// parity fixture (`fixtures/parity.json`, transcribed from the Cairo tests by
+// `scripts/transcribe-goldens.ts`) replays on the engine with exactly the plans drawn, the scores,
+// the `Scored` events and the final counters it gives.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   PARITY_TARGET,
+  SOURCES_TARGET,
   readRepository,
-  renderFixture,
+  render,
+  toFixture,
+  toSources,
   transcribe,
-  type ParityFixture,
 } from "../scripts/transcribe-goldens";
-import { EngineGame } from "../src/engine";
-import { OrientationType } from "../src/types/orientation";
-import { PlanType } from "../src/types/plan";
+import { PARITY_FIXTURE, loadParityFixture, replayParityGame } from "./parity-fixture";
 
-const fixture = JSON.parse(readFileSync(PARITY_TARGET, "utf8")) as ParityFixture;
+const fixture = loadParityFixture(PARITY_FIXTURE);
 
 describe("engine parity fixture", () => {
   it("is the transcription of the Cairo tests on this commit", () => {
-    expect(readFileSync(PARITY_TARGET, "utf8")).toBe(renderFixture(transcribe(readRepository)));
+    const transcription = transcribe(readRepository);
+    // Run `bun run generate:parity` in packages/game-core when this fails
+    expect(readFileSync(PARITY_TARGET, "utf8")).toBe(render(toFixture(transcription)));
+    expect(readFileSync(SOURCES_TARGET, "utf8")).toBe(render(toSources(transcription)));
   });
 
-  it("covers every golden file", () => {
-    for (const file of ["daily", "forest", "full_deck", "tutorial"]) {
-      expect(fixture.games.some((game) => game.source.includes(`golden/${file}.cairo`))).toBe(true);
+  it("covers the 11 golden games and the differential boards", () => {
+    const names = fixture.games.map((game) => game.name);
+    for (const name of [
+      "daily_city5", "daily_road6", "daily_mixed", "daily_deck", "forest_ring", "forest_caps",
+      "forest_both", "forest_open", "forest_last", "daily_full_deck", "tutorial_full",
+    ]) {
+      expect(names).toContain(name);
     }
+    expect(fixture.games.filter((game) => game.source === "differential").length).toBeGreaterThan(0);
   });
 });
 
 describe.each(fixture.games.map((game) => [game.name, game] as const))("parity: %s", (_, game) => {
   it("replays exactly", () => {
-    const engine = EngineGame.start({
-      deck: game.deck,
-      seed: BigInt(game.seed),
-      tileLimit: game.tileLimit ?? undefined,
-    });
+    const { engine, moves } = replayParityGame(game);
     game.moves.forEach((move, step) => {
-      const at = `step ${step}`;
-      expect(engine.hand?.plan, `${at}: drawn plan`).toBe(
-        move.drawn === null ? engine.hand?.plan : (move.drawn as PlanType),
-      );
-      if (move.plan !== engine.hand?.plan) engine.force(move.plan as PlanType);
-      const before = engine.score;
-      const result =
-        move.action === "discard"
-          ? engine.discard()
-          : engine.build(
-              move.orientation === undefined
-                ? undefined
-                : {
-                    orientation: move.orientation as OrientationType,
-                    x: move.x as number,
-                    y: move.y as number,
-                  },
-            );
-      if (move.score !== null) expect(result.score, `${at}: score`).toBe(move.score);
-      if (move.scored) {
-        expect(
-          result.scored.map(({ category, size, points }) => ({ category, size, points })),
-          `${at}: Scored`,
-        ).toEqual(move.scored);
-      }
-      // One player: every `Scored` goes to the game's player, and adds up to the move's points
-      for (const scored of result.scored) expect(scored.player).toBe(engine.player);
-      const points = result.scored.reduce((sum, scored) => sum + scored.points, 0);
-      if (move.action === "discard") {
-        expect(before - result.score, `${at}: penalty`).toBe(result.points);
-      } else {
-        expect(result.score - before, `${at}: points`).toBe(points);
-      }
+      const { drawn, result, scored } = moves[step];
+      const at = `move ${step}`;
+      if (move.drawn !== null) expect(drawn, `${at}: drawn`).toBe(move.drawn);
+      if (move.scored !== undefined) expect(scored, `${at}: scored`).toEqual(move.scored);
+      if (move.score !== undefined) expect(result.score, `${at}: score`).toBe(move.score);
+      // One player: every `Scored` goes to the game's player (D-19, ruling 4)
+      for (const event of result.scored) expect(event.player).toBe(engine.player);
     });
-    const { outcome } = game;
-    if (outcome.score !== undefined) expect(engine.score, "final score").toBe(outcome.score);
-    if (outcome.scoreAbove !== undefined) expect(engine.score).toBeGreaterThan(outcome.scoreAbove);
-    if (outcome.built !== undefined) expect(engine.built, "built").toBe(outcome.built);
-    if (outcome.discarded !== undefined) expect(engine.discarded, "discarded").toBe(outcome.discarded);
-    if (outcome.tileCount !== undefined) expect(engine.tileCount, "tile count").toBe(outcome.tileCount);
-    if (outcome.over !== undefined) expect(engine.over, "over").toBe(outcome.over);
+    const { final } = game;
+    if (final.score !== undefined) expect(engine.score, "final score").toBe(final.score);
+    if (final.score_above !== undefined) expect(engine.score).toBeGreaterThan(final.score_above);
+    if (final.built !== undefined) expect(engine.built, "built").toBe(final.built);
+    if (final.discarded !== undefined) expect(engine.discarded, "discarded").toBe(final.discarded);
+    if (final.tile_count !== undefined) expect(engine.tileCount, "tile count").toBe(final.tile_count);
+    if (final.over !== undefined) expect(engine.over, "over").toBe(final.over);
+  });
+
+  it("adds up: each build's Scored points are its score gain, a discard takes its penalty", () => {
+    const { moves } = replayParityGame(game);
+    let score = 0;
+    for (const { result } of moves) {
+      const gained = result.scored.reduce((sum, event) => sum + event.points, 0);
+      expect(result.score).toBe(result.action === "discard" ? score - result.points : score + gained);
+      score = result.score;
+    }
   });
 });
