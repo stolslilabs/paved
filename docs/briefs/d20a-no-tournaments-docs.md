@@ -226,3 +226,76 @@ PR body additions:
 - "For CLIENT": the parity fixture, and the tutorial's entry points that go.
 
 Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-23
+
+Second addendum to this task, from the PM, 2026-10-13. Fold one more owner decision into this same docs PR. Retitle
+it `docs: D-20 to D-23, tournaments and the on-chain tutorial leave, Daily becomes Challenge (decisions, inventory,
+ABI diff)`.
+
+### The decision (owner, via the PM, 2026-10-13)
+
+**D-23.** `Daily` is renamed `Challenge`. The shared daily seed is dropped for now: a global counter (the token id)
+generates the seed, so every Challenge game is different.
+
+**P-50, the PM's rulings:**
+1. **The rename applies to every external name:** the contract, the ABI, `Mode`, events, views, `deploy.sh` and
+   `sepolia.json` keys, and the docs. Storage field names do not change (P-42). Report any storage key that depends
+   on a name that changes.
+2. **Seed = Poseidon(salt, token id)**, where the token id is the `Collection`'s global counter at spawn. The
+   `SeedSource` interface stays, so that a VRF can come back.
+3. **Leaderboard:** the indexer still ranks Challenge scores per UTC day. The daily quests are unchanged; their names
+   follow the rename.
+4. **The selective buyer's edge** is measured in the simulation. That is a separate task, not this one.
+   - E-1 (the replay of the shared day deck) goes away with this change.
+5. **Sepolia:** in the same later upgrade as D-19, D-20 and D-21. D-18c is unchanged.
+
+### What to add
+
+1. **DECISIONS.md:**
+   - rows D-23 (who: "owner, via the PM"; reversed by "The owner restores a shared daily seed") and P-50 (rulings 1
+     to 5, condensed; who: "PM"; reversed by "A contract fact, or the selective-buyer measurement").
+   - Mark D-13 (the predictable daily seed), E-1 and any other row of the shared day seed "(reversed by D-23)".
+     Delete none.
+2. **The rename inventory**, in a section "D-23: Daily becomes Challenge (planned)" of the note. Cite each item to
+   file:line.
+   - **External names that change:**
+     - the contract and its interface names (`IDaily`, the ABI file `Daily.json`);
+     - `Mode::Daily` and its code: the code keeps its value, only the name changes;
+     - every event, view and struct whose name holds "Daily" or "daily";
+     - the `deploy.sh` modes and messages, and the `sepolia.json` keys (`contracts.Daily`).
+   - **Storage (ruling 1):** does any storage address or key derive from a name that changes? Check:
+     - the component substorage names (`#[substorage(v0)]`) and the storage node names;
+     - any `sn_keccak` of a string, any `selector!`;
+     - the `Mode` codes stored in records.
+     For each one: its address does not move, or it moves (flag under "For the PM").
+   - **Who reads `contracts.Daily` and the ABI name.** `deploy.sh`'s `--repoint` and `--d18`; the indexer
+     (`packages/indexer`) and the client (`packages/**`), read only. The `sepolia.json` key rename must land with the
+     code that reads it: say in which upgrade, and what META and CLIENT must change at the same time.
+3. **The seed (ruling 2)**, in the same section.
+   - Today: `seed.cairo` (`DailySeed`, `SeedSource`), `Mode::seed` (`types/mode.cairo:54`) and
+     `HostableComponent::spawn_with`.
+   - The new source: Poseidon(salt, token id). Where is the `Collection`'s counter read at spawn: does `Daily` call
+     `Collection`, or does `Collection` call `Daily`, and in which order? Read `systems/collection.cairo` and the
+     spawn path.
+   - Name the new `SeedSource` impl. Say what happens to the day id, which the leaderboard (ruling 3) and the economy
+     settlement still need.
+   - Say what E-1's code and tests were, and that they go.
+   - The new risk: the next token id is known before a purchase. One line that points to the simulation task.
+4. **public-interface.md, "Breaking change D-23":**
+   - the full rename table, old name to new name, for contracts, interfaces, events, views and structs;
+   - any `spawn` signature change;
+   - what the indexer and the client must rename.
+   Keep the D-19, D-20 and D-21 sections.
+5. **quests.md:** the daily quests follow the rename (names only). Their rules are unchanged.
+
+Docs naming: in the files of the allowlist, keep "Daily" where it names history (D-18, D-19 and earlier), and use
+"Challenge" in the planned sections. Do not rename across the docs in this PR: the implementation does it.
+
+PR body additions:
+- "D-23 rename table";
+- "Storage keys and names" (ruling 1's answer);
+- "Seed and day id";
+- "For META" and "For CLIENT": the renames, and the `sepolia.json` keys.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
