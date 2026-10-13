@@ -185,8 +185,8 @@ Rules:
 - **`lobby_class` is set by the owner only.** It is a `ClassHash` storage variable of `Daily` and `Tutorial`,
   written by the constructor and, since P-42 (which reverses P-26's "immutable"), by the owner's
   `set_lobby_class` (non-zero, `LobbyClassSet`); no other entry point writes it (`upgrades.md`). Tests:
-  `tests::e2e::lobby::test_lobby_class_is_never_written_after_construction` runs every entry point of both but
-  `upgrade` and `set_lobby_class` and reads the raw slot back after each; `tests::e2e::upgrades` covers the setter.
+  since D-24 (dead, setter gone) `tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name` pins it by
+  name and keeps a sentinel at its slot through a whole game (it replaced `tests::e2e::lobby`'s test of the slot).
 - **What runs as whom.** Under a library call the storage, `get_contract_address()`, `get_caller_address()` and the
   address that emits the events are those of the calling contract. So `Lobby`'s `spawn` reads the caller (the
   player) for the player check, its `transferFrom(player, Daily, price)` is made by `Daily` and the tokens land on

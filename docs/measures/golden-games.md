@@ -365,3 +365,17 @@ and (1, 1), caps `FFFFFFCFF` at (0, 2) and (1, 2), a copy of the starter at (1, 
    (628.5). The road and the other forests stay open. 643 + 643 + 628 = **1,914**.
 
 The oracle gives the same per move (643 at move 2, 1,271 at move 5), and so does the structure state.
+
+## After D-21 (step D: the tutorial leaves the contracts)
+
+`tests/golden/tutorial.cairo` (`test_golden_tutorial_full_sequence`, `tutorial_full`, final 2,794) and
+`play_tutorial` / `TutorialStep` of `harness.cairo` are removed with the tutorial deck; so is
+`test_differential_tutorial_full_sequence`. CLIENT keeps `tutorial_full` and its scripted placements frozen as a
+game-core fixture taken from 38f1c95 (`docs/architecture/parity-fixture.md`). **Every other golden is unchanged**: the
+files `golden/daily.cairo`, `golden/forest.cairo` and `golden/full_deck.cairo` are untouched (`git diff 38f1c959 --
+contracts/src/tests/golden/` shows only `harness.cairo` and `tutorial.cairo`), so the expected values of the table
+above stand to the unit (`daily_city5` 1,122, `daily_road6` 689, `daily_mixed` 857, `daily_deck` 0, `forest_ring` 767,
+`forest_caps` 1,914, `forest_both` 2,460, `forest_open` 0, `forest_last` 767, `daily_full_deck` 5,121), and
+`snforge test paved::tests::golden::` passes (19 passed, 1 ignored: `test_full_deck_generate`, the opt-in generator, as before). The
+real-deck goldens pin the `else` branch of `Game::draw_plan`, which stays as it was (only the scripted branch went).
+

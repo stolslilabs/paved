@@ -231,8 +231,6 @@ fn test_access_daily_surrender_reverts_on_another_players_game() {
 }
 
 
-
-
 /// A non-zero address for the constructor checks, which do not call `Setup`.
 const SETUP: felt252 = 'setup';
 
@@ -322,7 +320,6 @@ fn test_access_daily_set_setup_reverts_on_zero() {
 }
 
 
-
 #[test]
 #[available_gas(l2_gas: 1415736)]
 fn test_access_constructors_revert_on_zero_owner() {
@@ -333,7 +330,8 @@ fn test_access_constructors_revert_on_zero_owner() {
         'Access: account owner',
     );
     assert(
-        constructor_panic("Setup", array![0]) == 'Ownable: new owner is zero', 'Access: setup owner',
+        constructor_panic("Setup", array![0]) == 'Ownable: new owner is zero',
+        'Access: setup owner',
     );
     assert(
         constructor_panic(

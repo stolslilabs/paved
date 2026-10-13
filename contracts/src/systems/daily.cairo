@@ -59,11 +59,11 @@ pub mod Daily {
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
-    #[cfg(test)]
-    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::storage::{
         StorageAsPath, StorageBase, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    #[cfg(test)]
+    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
@@ -356,17 +356,21 @@ pub mod Daily {
         /// is emitted: the progress of the caller of the move, who is the game's player (the
         /// move reverted otherwise, `PlayableComponent`). Entries come from constants
         /// (`paved::quests`), so the report cannot revert for its content. Its score is then
-        /// recorded by `Economy` (P-34).
+        /// recorded by `Economy` (P-34). With no `Setup` (a zero slot: an in-place upgrade before
+        /// `set_setup`) the game still ends and is recorded, and no progress is reported for it.
         fn finish(ref self: ContractState, game_id: u32, over: u128) {
             if over != 0 {
                 let player_id: felt252 = get_caller_address().into();
                 let tally = decode(over, player_id);
-                ISetupDispatcher { contract_address: self.setup.read() }
-                    .report(
-                        player_id,
-                        quest_entries(tally).span(),
-                        achievement_entries(tally).span(),
-                    );
+                let setup = self.setup.read();
+                if setup.is_non_zero() {
+                    ISetupDispatcher { contract_address: setup }
+                        .report(
+                            player_id,
+                            quest_entries(tally).span(),
+                            achievement_entries(tally).span(),
+                        );
+                }
                 economy().record(game_id, tally.score);
             }
         }
