@@ -553,6 +553,10 @@ bit of a 16-bit set of directions or areas).
 `Game.characters`, `Builder.characters` and `Tile.occupied_spot` left the structs; the packing leaves their bits as
 the table says.
 
+**No downgrade.** Going back to a pre-D-18 class after a D-18 move is unsupported for open games: the roles bits of
+`GameState` and the `chars` of unioned roots are written 0, while the `Characters` word and the tiles' occupied
+spots keep their old values, so the old code would read characters that its structures no longer hold.
+
 **Games open across the upgrade (Sepolia).** They are **scored under the new rules from the upgrade on**; what they
 scored before stays. A structure closed before the upgrade is never touched again (no tile joins a closed
 structure), so it never scores again, whether it scored with a character (its `chars` cleared) or closed without one

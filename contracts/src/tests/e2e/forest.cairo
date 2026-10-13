@@ -17,7 +17,8 @@
 //! - crossings: four road crossings `SFRFRFRFR` in a 2x2 block. The four inner corner forests join
 //!   in one forest of 4 tiles bounded by four distinct closed roads (stop to stop).
 //! - sandwich: two straight roads `RFFFRFFFR` one above the other, the forest between them has 2
-//!   tiles and is bounded by two roads that are still open.
+//!   tiles, is bounded by two roads that are still open, and has open half-edges of its own (its
+//!   ends look at empty positions).
 //! - arch: two vertical city corridors `CFFFCFFFC` side by side, joined by a city arch on top and
 //!   closed below by the starter and by one more cap: the forest between the corridors (2 tiles)
 //!   touches one city twice.
@@ -148,7 +149,8 @@ fn crossings(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252, clos
 }
 
 /// Sandwich: a straight road east of the starter, and another one above it. The forest between
-/// them has 2 tiles and no open side, but both roads next to it are open at both ends.
+/// them has 2 tiles; its ends look at empty positions (east of both tiles, west of the upper one),
+/// and both roads next to it are open at both ends.
 fn sandwich(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252) {
     put(store, daily, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     put(store, daily, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER + 1);
@@ -220,7 +222,7 @@ fn test_forest_walk_sandwich_open_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
     sandwich(store, systems.daily, g, p);
-    // The forest has no open side of its own, but its roads are open: not finished.
+    // The forest's ends and its roads are open: not finished.
     assert_eq!(forest_at(store, g, CENTER + 1, CENTER, Spot::North), (0, 0, 0), "sandwich");
 }
 
@@ -319,10 +321,11 @@ fn test_forest_scores_four_roads() {
     assert_eq!(count_scored(ref spy, Category::Forest), 1, "one forest");
 }
 
-/// A forest whose own edges are all placed waits while a road next to it is open: no `Scored`.
+/// A forest bounded by open roads (and with open ends of its own) does not score: no `Scored`, no
+/// forest counted.
 #[test]
 #[available_gas(l2_gas: 300000000)]
-fn test_forest_waits_while_an_adjacent_road_is_open() {
+fn test_forest_bounded_by_open_roads_does_not_score() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
     let mut spy = spy_events();

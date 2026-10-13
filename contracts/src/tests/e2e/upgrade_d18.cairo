@@ -30,7 +30,9 @@ use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
 use paved::systems::daily::{Daily, IDailyDispatcher};
 use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
+use paved::tests::legacy::record::{chars_of, ref_of};
 use paved::tests::legacy::role::Role;
+use paved::tests::legacy::state::StructuresTrait as LegacyStructures;
 use paved::tests::legacy::store::StoreImpl as LegacyStore;
 use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherTrait};
 use paved::tests::oracle::check;
@@ -120,6 +122,24 @@ fn role_bit(role: Role) -> u16 {
 /// The roles placed, read as 07aab8a reads them (the bits 72 to 88 of `GameState`).
 fn roles_placed(store: TestStore, game_id: u32) -> u16 {
     interact_with_state(store.contract, || LegacyStore::new().live_game(game_id).characters)
+}
+
+/// The `chars` of the root of the structure on `spot` of the tile at (`x`, `y`), read as 07aab8a
+/// reads it (the legacy structure state and record).
+fn root_chars(store: TestStore, game_id: u32, x: u32, y: u32, spot: Spot) -> u16 {
+    interact_with_state(
+        store.contract,
+        || {
+            let s = LegacyStore::new();
+            let game = s.live_game(game_id);
+            let tile_id = s.tile_position(game, x, y).tile_id;
+            let (tile, refs) = LegacyStore::tile_with_refs(game_id, tile_id);
+            let area = paved::structure::tables::area_at(tile.plan, spot.into(), tile.orientation);
+            let mut structures = LegacyStructures::new(game_id);
+            let (_, record) = structures.find(ref_of(refs, area));
+            chars_of(record)
+        },
+    )
 }
 
 /// The roles that stand on the board, from the `Characters` word as 07aab8a keeps it.
@@ -247,6 +267,13 @@ fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
     assert_eq!(lord_tile, 0);
     let (pilgrim_tile, pilgrim_spot) = standing(store, g, Role::Pilgrim);
     assert!(pilgrim_tile != 0 && pilgrim_spot == Spot::Center.into());
+    // The open structures that hold them: their roots still hold the characters' bits
+    assert_eq!(root_chars(store, g, CENTER, CENTER + 2, Spot::Center), role_bit(Role::Lady));
+    assert_eq!(root_chars(store, g, CENTER + 1, CENTER, Spot::Center), role_bit(Role::Adventurer));
+    assert_eq!(root_chars(store, g, CENTER, CENTER - 1, Spot::SouthEast), role_bit(Role::Woodsman));
+    assert_eq!(root_chars(store, g, CENTER - 1, CENTER, Spot::Center), role_bit(Role::Pilgrim));
+    // The city the Lord scored: its `chars` were cleared
+    assert_eq!(root_chars(store, g, CENTER, CENTER + 1, Spot::South), 0);
 
     // [Upgrade]
     upgrade(contract, class_d18);

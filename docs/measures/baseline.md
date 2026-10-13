@@ -659,8 +659,10 @@ move and keep theirs).
 - **Moves a0 to d.** The character arguments, the idle check and the `Characters` word left the path. a now scores
   its city (one `Scored`) and is still cheaper. b is retired: its Lord left with D-18, so its move is a's.
 - **g to r.** The game's state packs one field fewer, and `Daily`'s dispatch is smaller; the moves of the prize do
-  not change. m and n come out 10,910 and 11,119 above their previous ceilings: those were set on the figures of E3
-  (49,361,586 and 50,387,496), not on 07aab8a's; the measure is lower than before all the same.
+  not change. m and n follow the same rule (measured + 5 %), which puts their ceilings 10,910 and 11,119 above the
+  previous ones, 52,732,319 and 53,809,525. Those were set in E5b (#283, the game NFT minted at spawn), 5 % over
+  figures this file does not record (50,221,256 and 51,247,166, inferred as ceiling / 1.05), not on E3's figures; the
+  spawns then rose to 07aab8a's 50,305,146 and 51,331,256 with no ceiling change, and D-18 lowers them by 73,500.
 - **Scores the scenarios assert.** e scores 767 (the loop of road 438, the forest 329) and f 5,618: the oracle's
   walks give both (`src/tests/differential.cairo`, `test_differential_gas_scenario_e`, `_f`), `gas.cairo` asserts
   them (`SCORE_E`, `SCORE_F`).
