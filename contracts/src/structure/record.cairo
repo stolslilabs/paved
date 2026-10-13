@@ -15,7 +15,8 @@
 //! | 0..12 | `parent` | `sid` of the parent; 0 for a root |
 //! | 12..22 | `size` | nodes of the structure (a root only) |
 //! | 22..32 | `open` | half-edges of its nodes that point to an empty position (a root only) |
-//! | 32..48 | `chars` | role bitmap of the characters on it, bit `r` for role `r` (a root only) |
+//! | 32..48 | `chars` | dead since D-18: the role bitmap of the characters on a root before D-18.
+//! |  |  | Never read; a root rebuilt by a union is written with 0 there (D-17: kept, not reused) |
 //!
 //! Refs (`u128`, kept in the high bits of the tile's slot): for each area 1..=9 of a placed tile,
 //! 12 bits at `12 (area - 1)`, the structure id the node was given when the tile was placed; 0 for
@@ -113,11 +114,11 @@ pub fn founded(open: u16) -> u64 {
     TWO_POW_12 + open.into() * TWO_POW_22
 }
 
-/// The packed record of a root.
+/// The packed record of a root (its dead `chars` bits 0).
 #[inline(always)]
-pub fn root_of(size: u16, open: u16, chars: u16) -> u64 {
+pub fn root_of(size: u16, open: u16) -> u64 {
     assert(size <= MAX_SIZE && open <= MAX_OPEN, errors::OUT_OF_RANGE);
-    size.into() * TWO_POW_12 + open.into() * TWO_POW_22 + chars.into() * TWO_POW_32
+    size.into() * TWO_POW_12 + open.into() * TWO_POW_22
 }
 
 #[inline(always)]
@@ -133,11 +134,6 @@ pub fn size_of(record: u64) -> u16 {
 #[inline(always)]
 pub fn open_of(record: u64) -> u16 {
     ((record / TWO_POW_22) & MASK_10).try_into().unwrap()
-}
-
-#[inline(always)]
-pub fn chars_of(record: u64) -> u16 {
-    ((record / TWO_POW_32) & MASK_16).try_into().unwrap()
 }
 
 /// A root record that one more node joins, with `open` half-edges to empty positions.
@@ -160,19 +156,6 @@ pub fn child_of(record: u64, parent: u32) -> u64 {
 pub fn close_one(record: u64) -> u64 {
     assert(record & OPEN_MASK != 0, errors::NOT_OPEN);
     record - OPEN_ONE
-}
-
-/// The roles of `bits` join the characters of a root.
-#[inline(always)]
-pub fn with_chars(record: u64, bits: u16) -> u64 {
-    record | (bits.into() * TWO_POW_32)
-}
-
-/// The roles of `bits` leave the characters of a root.
-#[inline(always)]
-pub fn without_chars(record: u64, bits: u16) -> u64 {
-    let gone = chars_of(record) & bits;
-    record - gone.into() * TWO_POW_32
 }
 
 /// The structure id of the record `index` of a tile.
@@ -341,14 +324,8 @@ mod tests {
         assert_eq!(RecordTrait::unpack(record), RecordTrait::found(3));
         let record = super::close_one(record);
         assert_eq!(super::open_of(record), 2);
-        let record = super::with_chars(record, 0x82);
-        assert_eq!(super::chars_of(record), 0x82);
-        let record = super::without_chars(record, 0x80);
-        assert_eq!(super::chars_of(record), 0x2);
-        let record = super::without_chars(record, 0x80);
-        assert_eq!(super::chars_of(record), 0x2);
-        let root = super::root_of(5, 0, 0x2);
-        assert_eq!(RecordTrait::unpack(root), Record { parent: 0, size: 5, open: 0, chars: 0x2 });
+        let root = super::root_of(5, 0);
+        assert_eq!(RecordTrait::unpack(root), Record { parent: 0, size: 5, open: 0, chars: 0 });
         assert_eq!(super::size_of(root), 5);
         let child = super::child_of(root, 0x123);
         assert_eq!(super::parent_of(child), 0x123);
@@ -358,7 +335,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Record: no open half-edge',))]
     fn test_record_close_one_without_open() {
-        super::close_one(super::root_of(2, 0, 0));
+        super::close_one(super::root_of(2, 0));
     }
 
     #[test]

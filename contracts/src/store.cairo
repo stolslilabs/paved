@@ -8,7 +8,6 @@
 use core::num::traits::Zero;
 use paved::events::Event;
 use paved::models::builder::Builder;
-use paved::models::character::Char;
 use paved::models::game::Game;
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TileIntoPosition, TilePosition, ZeroableTile};
@@ -16,8 +15,6 @@ use paved::models::tournament::Tournament;
 use paved::structure::placement;
 use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::types::orientation::Orientation;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use starknet::storage::{
     Map, Mutable, StorageAsPath, StorageAsPointer, StorageBase, StoragePath, StoragePathEntry,
     StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -30,21 +27,16 @@ use starknet::{ContractAddress, SyscallResultTrait};
 
 const TWO_POW_8: u128 = 0x100;
 const TWO_POW_16: u128 = 0x10000;
-const TWO_POW_32: u128 = 0x100000000;
 const TWO_POW_40: u128 = 0x10000000000;
 const TWO_POW_48: u128 = 0x1000000000000;
 const TWO_POW_56: u128 = 0x100000000000000;
 const TWO_POW_64: u128 = 0x10000000000000000;
 const TWO_POW_72: u128 = 0x1000000000000000000;
-const TWO_POW_80: u128 = 0x100000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
-const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
-const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
 const MASK_1: u128 = 0x1;
-const MASK_4: u128 = 0xf;
 const MASK_8: u128 = 0xff;
 const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
@@ -100,7 +92,8 @@ pub struct PavedStorage {
     /// The tile at a position: its id (8 bits) and `POSITION_WONDER` when it holds a wonder, so
     /// that a move reads the tile of a diagonal neighbour only if it can score a wonder.
     pub tile_positions: Map<(u32, u32, u32), u32>,
-    /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
+    /// `Characters`: dead since D-18 (one slot per game, 16 bits per role, before D-18). Kept
+    /// declared so that the layout stays as D-17 requires; never read or written.
     pub characters: Map<u32, felt252>,
     /// `Tournament`: the prize and the claimed flags (bits 0 to 2), two slots per tournament.
     pub tournaments: Map<u64, Slots2>,
@@ -173,7 +166,6 @@ pub impl StoreImpl of StoreTrait {
             id: game_id,
             player_id: config.a,
             held_tile: ((s.high / TWO_POW_64) & MASK_8).try_into().unwrap(),
-            characters: ((s.high / TWO_POW_72) & MASK_16).try_into().unwrap(),
             over: over == 1,
             discarded: ((s.high / TWO_POW_40) & MASK_8).try_into().unwrap(),
             built: ((s.high / TWO_POW_48) & MASK_8).try_into().unwrap(),
@@ -206,7 +198,7 @@ pub impl StoreImpl of StoreTrait {
     fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
         let config = storage().game_configs.entry(game.id).read();
         if player_id == 0 || player_id != config.a {
-            return Builder { game_id: game.id, player_id, tile_id: 0, characters: 0 };
+            return Builder { game_id: game.id, player_id, tile_id: 0 };
         }
         let state = storage().game_states.entry(game.id).read();
         let s: u256 = state.b.into();
@@ -214,7 +206,6 @@ pub impl StoreImpl of StoreTrait {
             game_id: game.id,
             player_id,
             tile_id: ((s.high / TWO_POW_64) & MASK_8).try_into().unwrap(),
-            characters: ((s.high / TWO_POW_72) & MASK_16).try_into().unwrap(),
         }
     }
 
@@ -236,7 +227,8 @@ pub impl StoreImpl of StoreTrait {
     }
 
     /// The tile and its refs: the tile's fields are the low 128 bits of its slot, the refs of its
-    /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits.
+    /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits. Bits 80
+    /// to 88 held the occupied spot before D-18: dead, never read, written 0 with a new tile.
     fn tile_with_refs(game_id: u32, tile_id: u32) -> (Tile, u128) {
         let word = storage().tiles.entry((game_id, tile_id)).read();
         Self::decode_tile(game_id, tile_id, word.into())
@@ -251,7 +243,6 @@ pub impl StoreImpl of StoreTrait {
             orientation: ((word.low / TWO_POW_8) & MASK_8).try_into().unwrap(),
             x: ((word.low / TWO_POW_16) & MASK_32).try_into().unwrap(),
             y: ((word.low / TWO_POW_48) & MASK_32).try_into().unwrap(),
-            occupied_spot: ((word.low / TWO_POW_80) & MASK_8).try_into().unwrap(),
         };
         (tile, word.high)
     }
@@ -314,76 +305,6 @@ pub impl StoreImpl of StoreTrait {
         storage().structures.entry((game_id, tile_id, slot)).write(word);
     }
 
-    /// The character of `role`, read from the `Characters` slot of the game: zero (`tile_id` 0)
-    /// when the role is not placed. `player_id` is the one asked for, as it was a key before.
-    fn character(self: Store, game: Game, player_id: felt252, role: Role) -> Char {
-        let word: u256 = storage().characters.entry(game.id).read().into();
-        let index: u8 = role.into();
-        Self::unpack_character(game.id, player_id, index, word.low)
-    }
-
-    /// The character that stands on `spot` of `tile`: the facade the walks use. One slot read,
-    /// the roles are scanned in order. Zero when no character stands there.
-    fn character_at(self: Store, game: Game, tile: Tile, spot: Spot) -> Char {
-        let word: u256 = storage().characters.entry(game.id).read().into();
-        let spot_u8: u8 = spot.into();
-        let mut index: u8 = 1;
-        let mut found: Char = Char {
-            game_id: game.id,
-            player_id: game.player_id,
-            index: 0,
-            tile_id: 0,
-            spot: 0,
-            weight: 0,
-            power: 0,
-        };
-        while index <= 7 {
-            let character = Self::unpack_character(game.id, game.player_id, index, word.low);
-            if character.tile_id == tile.id && character.spot == spot_u8 {
-                found = character;
-                break;
-            }
-            index += 1;
-        }
-        found
-    }
-
-    /// A role entry of the `Characters` word: `tile_id u8, spot u4, weight u2, power u2`.
-    fn unpack_character(game_id: u32, player_id: felt252, index: u8, low: u128) -> Char {
-        let entry = (low / Self::role_shift(index)) & MASK_16;
-        Char {
-            game_id,
-            player_id,
-            index,
-            tile_id: (entry & MASK_8).try_into().unwrap(),
-            spot: ((entry / 0x100) & MASK_4).try_into().unwrap(),
-            weight: ((entry / 0x1000) & 0x3).try_into().unwrap(),
-            power: ((entry / 0x4000) & 0x3).try_into().unwrap(),
-        }
-    }
-
-    /// `2^(16 r)`, the position of role `r` in the `Characters` word.
-    fn role_shift(index: u8) -> u128 {
-        if index == 0 {
-            1
-        } else if index == 1 {
-            TWO_POW_16
-        } else if index == 2 {
-            TWO_POW_32
-        } else if index == 3 {
-            TWO_POW_48
-        } else if index == 4 {
-            TWO_POW_64
-        } else if index == 5 {
-            TWO_POW_80
-        } else if index == 6 {
-            TWO_POW_96
-        } else {
-            assert(index == 7, 'Char: Invalid role');
-            TWO_POW_112
-        }
-    }
-
     /// Writes the three records of a game: the facade for the tests. A move writes `GameState`
     /// through `set_game_state`.
     fn set_game(self: Store, game: Game) {
@@ -402,7 +323,8 @@ pub impl StoreImpl of StoreTrait {
         storage().game_configs.entry(game.id).write(Slots2 { a: game.player_id, b: b.into() });
     }
 
-    /// `GameState`: the seed and the hot fields, rewritten by every action.
+    /// `GameState`: the seed and the hot fields, rewritten by every action. Bits 72 to 88 of the
+    /// high half held the roles placed before D-18: dead, written 0.
     fn set_game_state(self: Store, game: Game) {
         let over: u128 = if game.over {
             1
@@ -415,7 +337,6 @@ pub impl StoreImpl of StoreTrait {
             + game.built.into() * TWO_POW_48
             + over * TWO_POW_56
             + game.held_tile.into() * TWO_POW_64
-            + game.characters.into() * TWO_POW_72
             + game.counts.into() * TWO_POW_88;
         let slots = Slots2 { a: game.seed, b: game.tiles.into() + high.into() * TWO_POW_128 };
         storage().game_states.entry(game.id).write(slots);
@@ -431,15 +352,13 @@ pub impl StoreImpl of StoreTrait {
         storage().players.entry(player.id).write(Slots2 { a: player.name, b: player.master });
     }
 
-    /// Writes the tile in hand and the roles placed of the builder into `GameState`.
+    /// Writes the tile in hand of the builder into `GameState` (the dead bits 72 to 88 as 0).
     fn set_builder(self: Store, builder: Builder) {
         let state = storage().game_states.entry(builder.game_id).read();
         let s: u256 = state.b.into();
-        // [Info] The counters above the roles placed (bit 88 up) are kept
+        // [Info] The counters (bit 88 up) are kept
         let kept: u128 = (s.high & (TWO_POW_64 - 1)) + (s.high / TWO_POW_88) * TWO_POW_88;
-        let high: u128 = kept
-            + builder.tile_id.into() * TWO_POW_64
-            + builder.characters.into() * TWO_POW_72;
+        let high: u128 = kept + builder.tile_id.into() * TWO_POW_64;
         storage()
             .game_states
             .entry(builder.game_id)
@@ -496,8 +415,7 @@ pub impl StoreImpl of StoreTrait {
         let word: u128 = tile.plan.into()
             + tile.orientation.into() * TWO_POW_8
             + tile.x.into() * TWO_POW_16
-            + tile.y.into() * TWO_POW_48
-            + tile.occupied_spot.into() * TWO_POW_80;
+            + tile.y.into() * TWO_POW_48;
         assert(refs < TWO_POW_108, 'Tile: refs out of range');
         word.into() + refs.into() * TWO_POW_128
     }
@@ -506,36 +424,6 @@ pub impl StoreImpl of StoreTrait {
     /// that the move holds and has not written yet.
     fn tile_slot(tile: Tile, refs: u128) -> felt252 {
         Self::tile_word(tile, refs) + tile.id.into() * TWO_POW_88_FELT
-    }
-
-    /// The `Characters` word of a game (the 16 bits of each role).
-    fn characters_word(game_id: u32) -> u128 {
-        let word: u256 = storage().characters.entry(game_id).read().into();
-        word.low
-    }
-
-    fn set_characters_word(game_id: u32, word: u128) {
-        storage().characters.entry(game_id).write(word.into());
-    }
-
-    /// `word` with the entry of the role of `character` replaced by it.
-    fn with_character(word: u128, character: Char) -> u128 {
-        // [Info] Char are created when placed and can be removed (the entry is then zero).
-        let entry: u128 = character.tile_id.into()
-            + character.spot.into() * 0x100
-            + character.weight.into() * 0x1000
-            + character.power.into() * 0x4000;
-        assert(character.tile_id < 0x100 && character.spot < 0x10, 'Char: Out of range');
-        assert(character.weight < 4 && character.power < 4, 'Char: Out of range');
-        let shift = Self::role_shift(character.index);
-        let old = (word / shift) & MASK_16;
-        word - old * shift + entry * shift
-    }
-
-    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
-    fn set_character(self: Store, character: Char) {
-        let word = Self::characters_word(character.game_id);
-        Self::set_characters_word(character.game_id, Self::with_character(word, character));
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {

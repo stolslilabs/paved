@@ -4,19 +4,13 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::models::character::{Char, CharImpl};
 use paved::models::game::{Game, GameImpl};
 pub use paved::models::index::Builder;
 use paved::models::player::{Player, PlayerImpl};
-use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
+use paved::models::tile::{Tile, TileImpl};
 use paved::store::{Store, StoreImpl};
-use paved::structure::placement::role_bit;
-use paved::types::category::Category;
-use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::{Role, RoleAssert, RoleImpl};
-use paved::types::spot::Spot;
 
 pub mod errors {
     pub const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
@@ -24,8 +18,6 @@ pub mod errors {
     pub const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
     pub const BUILDER_IS_HOST: felt252 = 'Builder: is host';
     pub const INVALID_ORDER: felt252 = 'Builder: invalid order';
-    pub const ALREADY_PLACED: felt252 = 'Builder: already placed';
-    pub const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
     pub const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
     pub const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
     pub const CANNOT_BUILD: felt252 = 'Builder: cannot build';
@@ -39,14 +31,13 @@ pub impl BuilderImpl of BuilderTrait {
     #[inline]
     fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
-        Builder { game_id, player_id, tile_id: 0, characters: 0 }
+        Builder { game_id, player_id, tile_id: 0 }
     }
 
     #[inline]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
         self.tile_id = 0;
-        self.characters = 0;
     }
 
     #[inline]
@@ -79,38 +70,6 @@ pub impl BuilderImpl of BuilderTrait {
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
     }
-
-    #[inline]
-    fn place(ref self: Builder, role: Role, ref tile: Tile, spot: Spot) -> Char {
-        // [Check] Available character
-        let index: u8 = role.into();
-        self.assert_available(index);
-        // [Check] Char compatibility
-        let layout: Layout = tile.into();
-        let category: Category = layout.get_category(spot);
-        role.assert_is_allowed(category);
-        // [Effect] Set character as placed
-        self.characters = self.characters | role_bit(index);
-        // [Effect] Update tile status
-        tile.occupe(spot);
-        // [Return] New character
-        let weight: u8 = role.weight(category);
-        let power: u8 = role.power(category);
-        CharImpl::new(self.game_id, self.player_id, index.into(), tile.id, spot, weight, power)
-    }
-
-    #[inline]
-    fn recover(ref self: Builder, ref character: Char, ref tile: Tile) {
-        // [Check] Recoverable
-        let index: u8 = character.index;
-        self.assert_recoverable(index);
-        // [Effect] Collect character
-        self.characters = self.characters & ~role_bit(index);
-        // [Effect] Update character
-        character.remove();
-        // [Effect] Update tile status
-        tile.leave();
-    }
 }
 
 #[generate_trait]
@@ -139,25 +98,13 @@ pub impl BuilderAssert of AssertTrait {
     fn assert_buildable(self: Builder) {
         assert(0 != self.tile_id.into(), errors::CANNOT_BUILD);
     }
-
-    #[inline]
-    fn assert_available(self: Builder, index: u8) {
-        let placed = self.characters & role_bit(index) != 0;
-        assert(!placed, errors::ALREADY_PLACED);
-    }
-
-    #[inline]
-    fn assert_recoverable(self: Builder, index: u8) {
-        let placed = self.characters & role_bit(index) != 0;
-        assert(placed, errors::CHARACTER_NOT_PLACED);
-    }
 }
 
 #[generate_trait]
 pub impl ZeroableBuilderImpl of ZeroableBuilderTrait {
     #[inline]
     fn zero() -> Builder {
-        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0 }
+        Builder { game_id: 0, player_id: 0, tile_id: 0 }
     }
 
     #[inline]

@@ -6,19 +6,14 @@
 //! the cache, on packed records (`record.cairo`): `find` follows parents to the root, `merge` joins
 //! roots by size.
 //!
-//! The same cache holds what the assessment changes outside the pages, so that each slot of a move
-//! is read once and written once: the `Characters` word of the game (read at the first character,
-//! written by `flush` if a character was placed or recovered) and the built tile (written by
-//! `flush`
-//! with its position, after the assessment, which a recovered character on it changes).
+//! The same cache holds the built tile, written by `flush` with its position after the assessment
+//! (a forest scan reads it from here), so that each slot of a move is read once and written once.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
-use paved::models::character::Char;
 use paved::models::tile::{Tile, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::record::{
-    Record, RecordTrait, chars_of, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of,
-    unpack_slot,
+    Record, RecordTrait, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of, unpack_slot,
 };
 
 // Constants
@@ -45,9 +40,6 @@ pub struct Structures {
     /// The page slots in `records`, in the order they came in: `flush` writes those that hold a
     /// changed record.
     slots: Array<u32>,
-    /// The `Characters` word of the game, once read (`characters_state` 1) or changed (2).
-    characters: u128,
-    characters_state: u8,
     /// The tile built by the move (id 0 for none) and its refs: `flush` writes it with its
     /// position.
     pub built: Tile,
@@ -63,41 +55,17 @@ pub impl StructuresImpl of StructuresTrait {
             records: Default::default(),
             loaded: Default::default(),
             slots: array![],
-            characters: 0,
-            characters_state: 0,
             built: ZeroableTile::zero(),
             built_refs: 0,
         }
     }
 
-    /// Declares the tile the move built. It is written by `flush`, once, after the assessment: a
-    /// character recovered from it is cleared here, and a scan that reaches it reads it from here.
+    /// Declares the tile the move built. It is written by `flush`, once, after the assessment; a
+    /// scan that reaches it reads it from here.
     #[inline(always)]
     fn track(ref self: Structures, tile: Tile, refs: u128) {
         self.built = tile;
         self.built_refs = refs;
-    }
-
-    /// The `Characters` word of the game, read the first time.
-    fn characters_word(ref self: Structures) -> u128 {
-        if self.characters_state == 0 {
-            self.characters = StoreImpl::characters_word(self.game_id);
-            self.characters_state = 1;
-        }
-        self.characters
-    }
-
-    /// The character of `role` (zero, `tile_id` 0, when it is not placed).
-    fn character(ref self: Structures, player_id: felt252, role: u8) -> Char {
-        let word = self.characters_word();
-        StoreImpl::unpack_character(self.game_id, player_id, role, word)
-    }
-
-    /// Writes a character in the cached `Characters` word; `flush` writes the slot.
-    fn put_character(ref self: Structures, character: Char) {
-        let word = self.characters_word();
-        self.characters = StoreImpl::with_character(word, character);
-        self.characters_state = 2;
     }
 
     /// Declares the page of a tile that has just been placed, of one slot or two: it holds no
@@ -186,30 +154,23 @@ pub impl StructuresImpl of StructuresTrait {
             }
             index += 1;
         }
-        // [Effect] The others point at it, their sizes, opens and characters go to it
+        // [Effect] The others point at it, their sizes and opens go to it
         let mut size: u16 = 1;
         let mut opens: u16 = open;
-        let mut chars: u16 = 0;
         for other in roots {
             let record = self.record(*other);
             size += size_of(record);
             opens += open_of(record);
-            chars = chars | chars_of(record);
             if *other != root {
                 self.set(*other, child_of(record, root));
             }
         }
-        self.set(root, root_of(size, opens, chars));
+        self.set(root, root_of(size, opens));
         root
     }
 
-    /// Writes every page slot that holds a record the move changed, once, then the `Characters`
-    /// word if the move changed it, and the built tile.
+    /// Writes the built tile, then every page slot that holds a record the move changed, once.
     fn flush(ref self: Structures, store: Store) {
-        if self.characters_state == 2 {
-            StoreImpl::set_characters_word(self.game_id, self.characters);
-            self.characters_state = 1;
-        }
         if self.built.id != 0 {
             store.set_placed_tile(self.built, self.built_refs);
         }
@@ -310,7 +271,7 @@ mod tests {
                 let size = paved::structure::record::size_of(record)
                     + paved::structure::record::size_of(other);
                 structures.set(*second, paved::structure::record::child_of(other, *first));
-                structures.set(*first, root_of(size, 0, 0));
+                structures.set(*first, root_of(size, 0));
                 next.append(*first);
             }
             level = next;
@@ -344,11 +305,11 @@ mod tests {
     fn pages_round_trip(ref structures: Structures) {
         // Records of two slots of one page, written then read back from storage
         found_nodes(ref structures, 12, 6);
-        structures.set(sid(12, 5), root_of(9, 3, 0x82));
+        structures.set(sid(12, 5), root_of(9, 3));
         structures.flush(paved::store::StoreImpl::new());
         let mut fresh = StructuresTrait::new(7);
         assert_eq!(fresh.unpacked(sid(12, 0)), Record { parent: 0, size: 1, open: 1, chars: 0 });
-        assert_eq!(fresh.unpacked(sid(12, 5)), Record { parent: 0, size: 9, open: 3, chars: 0x82 });
+        assert_eq!(fresh.unpacked(sid(12, 5)), Record { parent: 0, size: 9, open: 3, chars: 0 });
         assert_eq!(fresh.unpacked(sid(12, 6)), Record { parent: 0, size: 0, open: 0, chars: 0 });
         assert_eq!(fresh.unpacked(sid(13, 0)), Record { parent: 0, size: 0, open: 0, chars: 0 });
     }

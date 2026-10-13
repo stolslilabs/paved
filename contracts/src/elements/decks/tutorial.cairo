@@ -22,7 +22,7 @@
 // Internal imports
 
 use paved::constants::CENTER;
-use paved::elements::decks::interface::{DeckTrait, Orientation, Plan, Role, Spot};
+use paved::elements::decks::interface::{DeckTrait, Orientation, Plan};
 
 // Constants
 
@@ -73,19 +73,19 @@ pub impl DeckImpl of DeckTrait {
     }
 
     #[inline]
-    fn parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
+    fn parameters(index: u32) -> (Orientation, u32, u32) {
         match index {
-            0 => (Orientation::None, 0, 0, Role::None, Spot::None),
-            1 => (Orientation::North, CENTER - 1, CENTER, Role::Adventurer, Spot::East),
-            2 => (Orientation::East, CENTER - 1, CENTER - 1, Role::Paladin, Spot::Center),
-            3 => (Orientation::East, CENTER - 1, CENTER - 2, Role::None, Spot::None),
-            4 => (Orientation::West, CENTER, CENTER - 1, Role::Pilgrim, Spot::Center),
-            5 => (Orientation::East, CENTER, CENTER - 2, Role::Paladin, Spot::West),
-            6 => (Orientation::North, CENTER + 1, CENTER - 2, Role::Lady, Spot::Center),
-            7 => (Orientation::East, CENTER + 1, CENTER - 1, Role::None, Spot::None),
-            8 => (Orientation::None, 0, 0, Role::None, Spot::None), // Must be burned
-            9 => (Orientation::West, CENTER + 1, CENTER, Role::None, Spot::None),
-            _ => (Orientation::None, 0, 0, Role::None, Spot::None),
+            0 => (Orientation::None, 0, 0),
+            1 => (Orientation::North, CENTER - 1, CENTER),
+            2 => (Orientation::East, CENTER - 1, CENTER - 1),
+            3 => (Orientation::East, CENTER - 1, CENTER - 2),
+            4 => (Orientation::West, CENTER, CENTER - 1),
+            5 => (Orientation::East, CENTER, CENTER - 2),
+            6 => (Orientation::North, CENTER + 1, CENTER - 2),
+            7 => (Orientation::East, CENTER + 1, CENTER - 1),
+            8 => (Orientation::None, 0, 0), // Must be burned
+            9 => (Orientation::West, CENTER + 1, CENTER),
+            _ => (Orientation::None, 0, 0),
         }
     }
 }
