@@ -8,7 +8,8 @@ built" at the end says where the code differs from this design).
 
 **D-18 (2026-10-13) reverses the character rules described below** (placement, `chars`, Woodsman and
 Herdsman): see "As built: D-18" at the end, which describes the code since D-18b. The sections before it
-describe the design and the code up to P5-8, characters included.
+describe the design and the code up to P5-8, characters included. **D-19 (2026-10-13)** adds tile owners and
+majority scoring: see "As built: D-19", the last section.
 
 Every gas figure in this document is an **estimate** unless it is quoted from
 `docs/measures/baseline.md` (P4 figures, scarb 2.20.1 / snforge 0.64.0). No measurement was run for
@@ -584,153 +585,136 @@ forest character on a finished forest) became "closed structure left unscored", 
 penalties) at the end of the checked goldens. The goldens' expected scores were derived from `score`, not from the
 structure state: `docs/measures/golden-games.md`, "Regenerated in D-18b".
 
-## D-19: tile owners and majority scoring (planned)
+## As built: D-19 (tile owners and majority scoring)
 
 D-19 and P-47 in `docs/programme/DECISIONS.md` (2026-10-13), in preparation for a multiplayer mode: a tile's owner
 is the player who places it, and a closed structure's points go to the owner with the most tiles in it; on a tie,
-nobody scores. Not built yet: this section is the design note for the implementation (D-19b), read from the code on
-main after D-18c. It holds no figure; the implementation measures gas per move against the D-18 figures
-(`docs/measures/baseline.md`, "After D-18") and `Daily`'s CASM under the P-44 cap (72,947 felts).
+nobody scores. Built in D-19b (`docs/briefs/d19b-tile-owners-impl.md`) as this section describes: **the walk at
+scoring, skipped when the game has one player**, the owner a seat kept in the tile's own slot (the owner's
+ruling, via the PM, 2026-10-13, which replaced the separate owner map of the PR's first version). The design note it
+replaces (the two counting designs, read from
+main after D-18c) is in the history of this file (#330, 7d04872). The figures are in `docs/measures/baseline.md`,
+"After D-19", and `docs/architecture/class-headroom.md`.
 
 ### What a structure's tiles are
 
-**Road and city.** The structure state does not know a structure's tiles, only its nodes. A root holds `size`
-(nodes, an area of a tile each), `open` and the dead `chars` (`structure/record.cairo:11-19`); a union sums the sizes
-of the roots it joins (`structure/state.cairo:137-171`, `size += size_of(record)` at `:163`). A tile keeps, per area,
-the `sid` the area got at placement (its refs, `record.cairo:21-23`), so from a tile one can find the root of each of
-its areas; from a root one cannot list its tiles, and no record names the tiles below it. So **today the state
-cannot tell two areas of one tile from two tiles** (ruling 1): `size` counts both. The case arises in the deck:
-
-- a tile with two city areas whose cities join: `FFCFFFCFF` (two opposite caps, areas B and C,
-  `elements/layouts/ffcfffcff.cairo:30-31`) placed inside a ring of city tiles. The ring of
-  `test_once_per_move_city_reached_from_two_start_spots` (`tests/e2e/forest.cairo:438-459`) is a city of 7 nodes on
-  6 tiles; it scores `size` 7 today, and its majority count is 6 tiles;
-- a road through two arms of one tile: the stop `SFRFRFFFR` of `test_once_per_move_road_reached_from_two_start_spots`
-  (`tests/e2e/forest.cairo:415-422`) closes a loop through its north and east arms, a road of 5 nodes on 4 tiles; and
-  the re-rooting board of `test_differential_two_areas_of_one_tile_join_one_structure`
-  (`tests/differential.cairo:143-184`), where two pairs of areas of a crossing `SFRFRFRFR` each end in one structure;
-- the two areas need not join on the move that places the tile: a tile's two caps can sit in two open cities that
-  a later tile joins. The join then happens far from the tile, in a union of two roots.
-
-`size` stays what the formula uses (D-18: `size x base x bonus(size)`, nodes); the majority count is a separate count
-of distinct tiles.
+**Road and city.** The structure state knows a structure's nodes, not its tiles: a root holds `size` (nodes), `open`
+and the dead `chars` (`structure/record.cairo`), and a union sums the sizes of the roots it joins. So the state cannot
+tell two areas of one tile from two tiles (ruling 1), and `size` counts both. The case arises in the deck: the tile
+of two city caps `FFCFFFCFF` that closes a ring of city tiles (a city of 7 nodes on 6 tiles), the stop
+`SFRFRFFFR` that closes a road loop through two of its arms (5 nodes on 4 tiles), and two caps of one tile in two
+open cities that a later tile joins, far from the tile. `size` stays what the formula uses (D-18: `size x base x
+bonus(size)`, nodes); the majority is a separate count of distinct tiles, made by a walk.
 
 **Forest.** Its own tiles only (ruling 2): the distinct tiles of the forest's nodes, not those of the adjacent roads
-and cities that give it its points. A tile can hold two forest areas of one forest (a road tile's two sides joined
-around the road's end, the forest board of "Once per move"), so ruling 1 applies here too. The scan already walks
-exactly these nodes (`structure/forest.cairo:71-160`).
+and cities that give it its points. A tile can hold two forest areas of one forest, so ruling 1 applies too.
 
-**Wonder.** The wonder tile and its 8 neighbours (ruling 3). The neighbours are **not** part of the wonder's
-structure: the wonder area's moves have no spot (`tables`: one spotless half-edge per direction), a placement only
-closes one of its half-edges (`structure/placement.cairo:181-192`) and never joins a neighbour's area to it. So this
-count is positional: the 8 positions around the wonder. They are all placed when it scores: a wonder scores when its
-root has `open == 0` (D-18, P-45 ruling 4), i.e. when its 8 half-edges have closed, and a half-edge closes only when a
-tile is placed at that position (`set_placed_tile` writes the position, `store.cairo:394-406`). The count is over 9
-placed tiles.
+**Wonder.** The wonder tile and its 8 neighbours (ruling 3). The neighbours are not part of the wonder's structure
+(a wonder's half-edges have no spot: a placement only closes one), so the count is positional. They are all placed
+when it scores: a wonder scores when its root has `open == 0`, i.e. when a tile stands at each of the 8 positions.
 
-### The owner field
+### The walker (`structure/walk.cairo`)
 
-`Tile` (`models/index.cairo:44-51`) has no owner, and the D-17 rules (P-42, `upgrades.md`, "Storage layout
-discipline") allow new fields only. `Tile` is stored as one `felt252` per `(game_id, tile_id)` in
-`PavedStorage.tiles` (`store.cairo:91`): plan, orientation, x, y in the low 80 bits, the dead occupied spot at 80..88,
-bits 88..96 reserved for the tile id that `tile_slot_at` adds in memory (`store.cairo:265-276`), and the refs (108
-bits) in the high half (`store.cairo:414-421`). About 47 bits are free (32 in the low half, 15 in the high half under
-the felt's bound): enough for a seat index, **not for a player id** (a `felt252`, ruling 5).
+`Walker` walks the nodes of a closed structure: from a node it follows the moves of its area (the oriented rows) to
+the area they land on, so it visits exactly the structure's nodes, each once (a `Felt252Dict` of visited nodes),
+and reads each tile once (its slot kept by position). The built tile is not in storage yet (`Structures::flush` writes
+it after the assessment): the walker takes it from the cache of the move. A position a move looks at must be taken
+(`Walk: open structure`), which a closed root guarantees. It has two steps, `pop` (the next node) and `expand` (the
+nodes its moves land on), so that a caller does its work between them.
 
-So the owner is **a new map** of `PavedStorage`, `tile_owners: Map<(u32, u32), felt252>`, keyed `(game_id, tile_id)`,
-the player id as value. Appending a member to the `paved` storage node moves no other variable: a member's address
-is derived from its name (as `characters` stays declared after D-18 for that reason, `store.cairo:95-97`). A tile
-written before the upgrade has no entry and reads **0**.
+**One walker, two callers.** The forest scan (`structure/forest.cairo`, `scan`) is the walker plus, between `pop` and
+`expand`, the adjacency of the node (the open road that stops the scan, the distinct closed roads and cities) and the
+count of the node's tile. The road and city count (`structure/owners.cairo`, `structure_tally`) is the walker with
+the count alone. The scan's order and its reads are those of D-18 (the adjacency is checked before the next nodes
+are read, so an open road still stops it before any further read).
 
-**A zero owner means the game's player** (`GameConfig.player_id`). That keeps ruling 4 for the games open across
-the upgrade (their old tiles read 0, i.e. the player) and for the starter tile, which `spawn` places for nobody
-(`components/hostable.cairo:69-73`). It also lets a single-player build skip the write: the owner is written only
-when it differs from the game's player, which never happens in Daily or Tutorial (a build is accepted only from the
-game's player: `builder_of`, `models/game.cairo:106-111`, asserted at `components/playable.cairo:201-203`). D-19
-therefore adds no storage write to a Daily or Tutorial move.
+### The count and the winner (`structure/owners.cairo`)
 
-`Lobby` shares `PavedStorage` (`systems/lobby.cairo:88`, `:385`) and runs `spawn`, `discard` and `surrender`; it
-places the starter tile and draws tiles (`hostable.cairo:69-81`), and it never scores. With a zero owner meaning the
-game's player, `Lobby`'s code does not touch the new map, and its class need not change for D-19; the
-implementation confirms it by its class hash. Whoever adds the map adds it to the layout pins of `upgrades.md`.
+`Tally` counts the distinct tiles of a structure per seat, in memory: a set of the tiles counted (ruling 1), a count
+per seat, the seats in the order met. `add(tile)` takes the seat from the tile the walk already decoded (`Tile.owner`,
+from its slot), so the count adds no storage read to a road, a city or a forest; `winner()` is the seat with the most
+tiles, **`None` on a tie** (two or more seats share the most). Three entry points:
 
-### The two counting designs (ruling 6)
+- a road or a city: `structure_tally`, a walk of its nodes from the closing area;
+- a forest: the forest scan counts its own tiles in the tally it is given (`Option<Tally>`), as it walks them;
+- a wonder: `wonder_tally`, the wonder tile and the tiles at the 8 positions around it (a position read and a tile
+  read each, the built tile taken from the move's cache when it stands at one of them).
 
-**Counts per root, kept through unions.** A root would keep its owners' tile counts (a small map owner -> count, or
-a bounded list of pairs), merged by a union as `size` is. Ruling 1 breaks it: a union can join two roots that both
-counted one tile (the two caps above, joined later), and the counts alone cannot see it. Keeping it exact needs each
-root's **set of tiles**: tile ids stay below 256 (`record.cairo:8`), so a 256-bit bitmap, two slots per root, ORed by
-a union; the counts then come from a per-player bitmap of the game's tiles (one per player), `popcount(root & mine)`
-per player at scoring, with no walk. Cost: two more slots for each structure a tile founds (1 to 4 per move, new
-slots, about 0.45M L2 gas each in receipts by Grim World's fit, an estimate) and the bitmap rewrites of every union,
-on **every** move, single player included. It is exactly what the record pages were designed to avoid.
+Bound: the structure's tiles, at most the deck (as the forest scan's). Nothing is written.
 
-**A walk at scoring.** On the move that closes a structure, walk its nodes and count distinct tiles per owner:
+**A seat becomes a player id in one place**, `player_of_seat`: seat 0 is the game's player. No other seat has a
+player before the multiplayer mode, which builds the seats of a game (a seat -> player id map) and changes this
+function; until then it reverts on any other seat (`Owners: seat without player`), which no live path reaches: a
+build only places seat 0. `player_of` maps the tally's `winner()` through it, `None` to 0. A game's `player_id` is
+never 0 (it is the caller of `spawn`, and `builder_of` accepts no player 0), so a winner is never confused with the 0
+of a tie.
 
-- road and city: a walk from the closing area along the moves of its category, one tile read per node (slots cached
-  by position), a `Felt252Dict` of visited nodes and one of counted tiles, one owner read per distinct tile. It is
-  the forest scan's traversal (`forest.cairo:132-160`) without the adjacency part, so the two share one walker;
-- forest: the scan already visits every node; it adds the tile set and the owner reads;
-- wonder: the 8 positions around it (8 position reads; the tile ids are in the position value, `store.cairo:250-253`,
-  so no tile slot is read), and 9 owner reads.
+### The owner (`Tile.owner`, a seat in the tile's slot)
 
-Bound: the structure's tiles, at most the deck (38 in Daily), as the forest scan's (no move is unbounded). It costs
-nothing on a move that closes nothing and writes nothing.
+The owner is a small **seat index**, `Tile.owner: u8` (`models/index.cairo`), packed into the tile's existing slot
+(`PavedStorage.tiles`, `store.cairo`, `tile_word` and `decode_tile`) at **bits 96 to 104**: bits that every slot
+written before D-19 holds at 0, above the never-stored tile id of bits 88 to 96 and away from the dead occupied spot
+of bits 80 to 88 (P-42, D-17). The slot then has 39 free bits (104..128 and 236..251), against 47 before; the bit
+layout is in `upgrades.md`. No storage write is added: the seat goes with the tile's own write. **Seat 0 is the game's
+player** (`GameConfig.player_id`): a tile of a single-player game, the starter tile (which `spawn` places for nobody)
+and every tile written before D-19 read 0. A drawn tile is revealed with seat 0 (`TileImpl::new`) and keeps it when it
+is built, so in Daily and Tutorial a tile's slot is bit for bit D-18's (`test_owners_seat_zero_slot_is_the_d18_packing`
+reads it at its raw address). The multiplayer mode reveals or builds a tile with the seat of its player.
 
-**The single-player case.** In a game with one player every owner is that player, so the winner is the player and
-the count can be skipped: the result is identical by construction, which ruling 4 asks for. Either design can skip
-the count; only the walk also skips all its storage (the per-root sets cannot be skipped and rebuilt later, since the
-unions happen move by move). With the skip, a Daily or Tutorial move costs what it costs after D-18, plus a branch,
-and `Daily`'s CASM grows only by the walker code and the owner map (53,418 felts after D-18, cap 72,947). It leaves
-untested on chain the walk, the owner reads and the tie: no deployed mode runs them until the multiplayer mode does,
-so their tests carry the whole proof (below). The skip condition is the game's mode (Daily and Tutorial have one
-player); the multiplayer mode defines its own.
+`Lobby` (`spawn`, `discard`, `surrender`) writes tiles (the starter, the draws) through the same `Store`, so its code
+carries the new field: see the PR of D-19b for its class hash.
 
-**Recommendation: the walk at scoring, skipped when the game has one player.** It keeps ruling 1 exactly with
-in-memory sets, adds no storage to any move, shares the forest scan's walker, and costs only on closing moves of a
-multiplayer game, bounded by the deck. Counts per root pay on every move, single player included, for a value read
-once per structure. CORE decides from this note; the implementation may change the choice with a measurement (the
-walk's cost on a closing move of the full-deck board, measured once without the skip).
+### The single-player skip
+
+`Game::assess` asks `Game::solo`, which asks the mode: **`Mode::solo` is the one place of the condition** (Daily and
+Tutorial answer true, `None` false, each mode named with no fallthrough; a multiplayer mode adds its arm, false, and
+turns the count on). With `solo`, every winner is the game's player and nothing is walked: the road, city and wonder
+arms do not call their tally, and the forest scan gets no tally (`None`: no set is built). The scores, the events and
+the goldens are those of D-18 (ruling 4). `Game::assess_with(solo, ...)` takes the condition as an argument: the tests
+force it off to reach the walk, the seats and the tie through the scoring path.
 
 ### The tie and the result
 
-Today every score goes to the game: `GameState.score` is one `u32` per game (`store.cairo:176`), `add_score` adds to
-it (`models/game.cairo:209-211`), and `Scored` (`events.cairo:65-72`: keys `game_id`; data `player_id, category,
-size, points`) is emitted with `player_id = game.player_id` (`assessment.cairo:31`, `:52`, `forest.cairo:59`).
+The scorers (`structure/assessment.cairo`, `score_generic`, `score_wonder`; `forest.cairo`, `assess_forest`) take the
+winner, a player id (`player_of`). A winner adds the points to the game's one score (`GameState.score`) and `Scored`
+carries it as `player_id`. **On a tie** (`winner()` is `None`, the player id 0): no points are added; `Scored` is still emitted, with `player_id` 0 and `points` 0 (same
+layout, `size` still the node count); the closure counters (`count_structure`, `count_forest`, `count_wonder`) still
+count the closure, as a forest closing with 0 points does (D-18b ruling 3). A tie cannot happen in single player.
 
-D-19 computes the **winner** of each closed structure: the owner with the most distinct tiles, or none on a tie.
-In single player the winner is always the game's player (no tie: one owner holds every tile), so the score, the
-event and the goldens are unchanged. Proposed for a tie (unreachable in single player, so a recommendation for the
-multiplayer mode to confirm): no points are added; `Scored` is still emitted, with `player_id` 0 and `points` 0, so
-an indexer sees the closure; the closure counters of the quests (`count_structure`, `count_forest`, `count_wonder`)
-count it, as a forest closing with 0 points does (D-18b ruling 3).
+D-19 builds no per-player score: the winner's points go to the game's one score, which is the winner's in single
+player. Left to the multiplayer mode, not built: the players of a game (seats or a list in `GameConfig`), whose turn
+it is and who may build (`builder_of` accepts only `GameConfig.player_id`), a hand per player, per-player scores and
+`GameOver`, the tournament ranking of such games, the quest counters per player, `TileView.owner`, the seats of a game
+and their players (the seat -> player id map that `player_of_seat` will read), and a **starter tile owned by nobody**
+(seat 0 is the game's player, so the starter counts for the spawning player, which a multiplayer game must not do: a
+sentinel seat, or the starter excluded from the count).
 
-D-19 does **not** build a per-player score: a multiplayer score needs a new field (a map `(game_id, player_id) ->
-score`, or seats), and `GameOver` and the leaderboard read the game's one score. D-19 only computes the winner and
-leaves the per-player score to the multiplayer mode. What that mode needs and D-19 does not build: the players of a
-game (seats or a list in `GameConfig`), whose turn it is and who may build (today `builder_of` accepts only
-`GameConfig.player_id`), a hand per player (`GameState.held_tile` is one), per-player scores and `GameOver`, the
-tournament ranking of such games, the quest counters per player, and a **starter tile owned by nobody**: with a zero
-owner meaning the game's player, the starter tile counts for the spawning player, which a multiplayer game must not
-do (a sentinel owner, or the starter excluded from the count).
+### Tests
 
-### Tests without a multiplayer mode
+No entry point lets two players build in one game, so the majority is tested below the entry points:
 
-No entry point lets two players build in one game, so the majority is tested below the entry points, as the oracle
-and the differential tests do:
-
-- **A test harness on the structure state**: boards written with `Store::set_tile` (as `e2e/forest.cairo`'s
-  "Once per move" boards) plus owners written in `tile_owners`, then the winner function called on a closed root
-  (or a test-only class whose `build` takes the owner). Cases: a clear majority; a tie of two and of three owners
-  (no points, the event above); ruling 1 with the 7-node, 6-tile city ring and the stop's 5-node, 4-tile road loop, owned so that
-  counting nodes and counting tiles give different winners; ruling 2 with a forest whose adjacent roads and cities
-  belong to another owner; ruling 3 with a wonder whose own tile decides (4 against 4 among its neighbours) and a
-  three-way tie (3, 3, 3); a zero owner read as the game's player.
-- **The oracle**: `tests/oracle.cairo` gains a count of distinct tiles per owner from its walks (`GenericCount`,
-  `ForestCount`, the 8 positions of `WonderCount`), and `oracle::check` compares it with the walker after every
-  checked build, owners spread over two or three players by tile id.
-- **The goldens stay identical** (ruling 4), every expected value unchanged: `contracts/src/tests/golden/daily.cairo`,
-  `forest.cairo`, `full_deck.cairo`, `tutorial.cairo` (through `harness.cairo`), the 20 `test_golden_*` cases of
-  `docs/measures/golden-games.md`, the checked replays `*_structures_agree` included.
-- **The upgrade**: a game open across the upgrade (as `tests/e2e/upgrade_d18.cairo` does for D-18) scores the same
-  after it, its old tiles reading owner 0.
+- **The harness** (`src/tests/owners.cairo`): boards written with `Store::set_tile`, seats written into the tiles
+  (`Tile.owner`), the tally asked of a closed root. A clear majority; a tie of two and of three; ruling 1 with the
+  7-node, 6-tile city ring and the 5-node, 4-tile road loop of the stop, owned so that counting nodes would give a
+  winner where counting tiles gives a tie; ruling 2 with a forest (between two city corridors) whose adjacent cities'
+  tiles belong to another owner; ruling 3 with a wonder whose own tile decides (4 against 4 among the neighbours,
+  then turned) and a three-way tie (3, 3, 3); seat 0 read as the game's player, and another seat reverting in
+  `player_of_seat`.
+- **The tie's effects** through `Game::assess_with` with the skip off, on the city, the forest and the wonder: no
+  points, `Scored` with 0 and 0, the counter counts. Also with the skip off: a city whose seat-0 majority scores for
+  the game's player; a seat-1 majority that reverts in `player_of_seat`; a wonder tile placed last that closes on its
+  own placement (the first arm of `assess_with`), scoring for seat 0 and, with a seat-1 majority, reaching
+  `player_of_seat`. With the skip on, a tie scores for the game's player.
+- **The slot** (`test_owners_seat_zero_slot_is_the_d18_packing`): a placed seat-0 tile, read at the raw address of
+  `tiles`, is D-18's packing bit for bit; a seat moves bits 96 to 104 only. `e2e/store.cairo` round-trips a tile with
+  seat 255.
+- **The oracle** (`src/tests/oracle.cairo`, `owner_count`): its own walk counts the distinct tiles of a closed
+  structure per seat (the moves of `GenericCount` for a road, a city or a forest, the 8 positions of `WonderCount`
+  with the wonder tile), seats 0 to 2 spread by tile id; `check` writes them into the tiles, compares the counts and
+  the winner with the structure state's tally after every checked build, and puts the seats back.
+- **The goldens** are unchanged (ruling 4): no expected value of `src/tests/golden/` nor of
+  `docs/measures/golden-games.md` moved.
+- **The upgrade** (`src/tests/e2e/upgrade_d19.cairo`): a Daily game played on the D-18 class (frozen in
+  `src/tests/legacy_d18.cairo`) with a road, a city, a forest and a wonder open, upgraded to the D-19 class and
+  finished, scores as a twin that stays on the D-18 class (the same `Scored` events in the same order, compared as
+  lists, the same score and counters), and its tiles read seat 0.

@@ -74,6 +74,8 @@ fn test_store_round_trips_at_maximum_values() {
                 orientation: Orientation::West.into(),
                 x: Bounded::MAX,
                 y: Bounded::MAX,
+                // D-19: the owner's seat, bits 96 to 104 of the slot
+                owner: Bounded::MAX,
             };
             store.set_tile(tile);
             assert_eq!(store.tile(game, tile.id), tile);

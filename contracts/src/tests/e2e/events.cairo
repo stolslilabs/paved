@@ -375,6 +375,7 @@ fn test_events_daily_wonder_emits_scored() {
                     orientation: Orientation::North.into(),
                     x,
                     y,
+                    owner: 0,
                 },
             );
         id += 1;

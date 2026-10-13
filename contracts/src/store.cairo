@@ -33,6 +33,7 @@ const TWO_POW_56: u128 = 0x100000000000000;
 const TWO_POW_64: u128 = 0x10000000000000000;
 const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
+const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
@@ -88,6 +89,8 @@ pub struct PavedStorage {
     /// `GameEnd`: written once, when the game ends in time.
     pub game_ends: Map<u32, felt252>,
     pub players: Map<felt252, Slots2>,
+    /// `Tile`: plan (bits 0..8), orientation (8..16), x (16..48), y (48..80), the dead occupied
+    /// spot (80..88), the owner's seat (96..104, D-19), the refs (128..236); see `tile_with_refs`.
     pub tiles: Map<(u32, u32), felt252>,
     /// The tile at a position: its id (8 bits) and `POSITION_WONDER` when it holds a wonder, so
     /// that a move reads the tile of a diagonal neighbour only if it can score a wonder.
@@ -228,7 +231,10 @@ pub impl StoreImpl of StoreTrait {
 
     /// The tile and its refs: the tile's fields are the low 128 bits of its slot, the refs of its
     /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits. Bits 80
-    /// to 88 held the occupied spot before D-18: dead, never read, written 0 with a new tile.
+    /// to 88 held the occupied spot before D-18: dead, never read, written 0 with a new tile. Bits
+    /// 88 to 96 are never stored (the tile id that `tile_slot_at` adds in memory). Bits 96 to 104
+    /// hold the owner's seat (D-19), 0 for the game's player: a slot written before D-19 reads 0
+    /// there, and a seat-0 tile packs bit for bit as before D-19.
     fn tile_with_refs(game_id: u32, tile_id: u32) -> (Tile, u128) {
         let word = storage().tiles.entry((game_id, tile_id)).read();
         Self::decode_tile(game_id, tile_id, word.into())
@@ -243,6 +249,7 @@ pub impl StoreImpl of StoreTrait {
             orientation: ((word.low / TWO_POW_8) & MASK_8).try_into().unwrap(),
             x: ((word.low / TWO_POW_16) & MASK_32).try_into().unwrap(),
             y: ((word.low / TWO_POW_48) & MASK_32).try_into().unwrap(),
+            owner: ((word.low / TWO_POW_96) & MASK_8).try_into().unwrap(),
         };
         (tile, word.high)
     }
@@ -415,7 +422,8 @@ pub impl StoreImpl of StoreTrait {
         let word: u128 = tile.plan.into()
             + tile.orientation.into() * TWO_POW_8
             + tile.x.into() * TWO_POW_16
-            + tile.y.into() * TWO_POW_48;
+            + tile.y.into() * TWO_POW_48
+            + tile.owner.into() * TWO_POW_96;
         assert(refs < TWO_POW_108, 'Tile: refs out of range');
         word.into() + refs.into() * TWO_POW_128
     }

@@ -13,5 +13,6 @@ pub mod store;
 pub mod tutorial;
 pub mod tutorial_advanced;
 pub mod upgrade_d18;
+pub mod upgrade_d19;
 pub mod upgrades;
 pub mod views;
