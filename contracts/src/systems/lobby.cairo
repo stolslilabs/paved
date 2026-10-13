@@ -80,7 +80,6 @@ pub mod Lobby {
     use paved::components::playable::PlayableComponent;
     use paved::components::tutoriable::TutoriableComponent;
     use paved::constants;
-    use paved::economy::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
     use paved::models::player::ZeroablePlayerTrait;
     use paved::quests::{achievement_entries, decode, quest_entries};
     use paved::store::{PavedStorage, StoreImpl, StoreTrait};
@@ -88,6 +87,7 @@ pub mod Lobby {
     use paved::systems::collection::{
         ICollectionDispatcher, ICollectionDispatcherTrait, TUTORIAL_OFFSET,
     };
+    use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
     use paved::types::mode::Mode;
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;

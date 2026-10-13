@@ -172,8 +172,8 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     IAccountDispatcher { contract_address: account }.create('PLAYER', PLAYER());
     stop_cheat_caller_address(account);
     // The Daily spawn is paid first: give the player USDC and the economy its game
-    paved::mocks::usdc::IMockUSDCDispatcherTrait::mint(
-        paved::mocks::usdc::IMockUSDCDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
+    paved::systems::faucet::IFaucetDispatcherTrait::mint(
+        paved::systems::faucet::IFaucetDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
     );
     start_cheat_caller_address(usdc, PLAYER());
     paved::mocks::token::IERC20DispatcherTrait::approve(
@@ -181,8 +181,8 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     );
     stop_cheat_caller_address(usdc);
     start_cheat_caller_address(economy, OWNER());
-    paved::economy::economy::IEconomyDispatcherTrait::set_game(
-        paved::economy::economy::IEconomyDispatcher { contract_address: economy }, daily,
+    paved::systems::economy::IEconomyDispatcherTrait::set_game(
+        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, daily,
     );
     stop_cheat_caller_address(economy);
 
@@ -275,8 +275,8 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     start_cheat_caller_address(account, PLAYER());
     IAccountDispatcher { contract_address: account }.create('PLAYER', PLAYER());
     stop_cheat_caller_address(account);
-    paved::mocks::usdc::IMockUSDCDispatcherTrait::mint(
-        paved::mocks::usdc::IMockUSDCDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
+    paved::systems::faucet::IFaucetDispatcherTrait::mint(
+        paved::systems::faucet::IFaucetDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
     );
     start_cheat_caller_address(usdc, PLAYER());
     paved::mocks::token::IERC20DispatcherTrait::approve(
@@ -284,8 +284,8 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     );
     stop_cheat_caller_address(usdc);
     start_cheat_caller_address(economy, OWNER());
-    paved::economy::economy::IEconomyDispatcherTrait::set_game(
-        paved::economy::economy::IEconomyDispatcher { contract_address: economy }, daily,
+    paved::systems::economy::IEconomyDispatcherTrait::set_game(
+        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, daily,
     );
     stop_cheat_caller_address(economy);
 

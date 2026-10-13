@@ -54,7 +54,7 @@ fn test_daily_e2e_token_erc20_entrypoints() {
     let metadata = IERC20MetadataDispatcher { contract_address: token_address };
     let camel = IERC20CamelOnlyDispatcher { contract_address: token_address };
 
-    // The token of Daily is USDC (6 decimals; `MockUSDC` here, whose name and symbol are byte
+    // The token of Daily is USDC (6 decimals; `Faucet` here, whose name and symbol are byte
     // arrays). Camel ABI methods should stay in sync with standard ERC20 methods.
     assert(metadata.decimals() == 6, 'Token: decimals');
 

@@ -23,16 +23,16 @@
 use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, supply_factor};
-use paved::economy::economy::Economy::{Event, Purchased};
-use paved::economy::economy::{
-    BASE_PRICE, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
-    IEconomySafeDispatcherTrait, decided,
-};
 use paved::economy::ekubo::{
     Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
     IRouterSafeDispatcher, IRouterSafeDispatcherTrait, PoolKey, RouteNode, TokenAmount, i129,
 };
 use paved::mocks::router::{FEE, TICK_SPACING};
+use paved::systems::economy::Economy::{Event, Purchased};
+use paved::systems::economy::{
+    BASE_PRICE, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
+    IEconomySafeDispatcherTrait, decided,
+};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
     start_cheat_caller_address, stop_cheat_caller_address,

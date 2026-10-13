@@ -53,11 +53,8 @@ pub mod elements {
 
 pub mod economy {
     pub mod curve;
-    pub mod economy;
     pub mod ekubo;
     pub mod mean;
-    pub mod token;
-    pub mod vault;
 }
 
 pub mod helpers {
@@ -88,8 +85,12 @@ pub mod systems {
     pub mod account;
     pub mod collection;
     pub mod daily;
+    pub mod economy;
+    pub mod faucet;
     pub mod lobby;
+    pub mod token;
     pub mod tutorial;
+    pub mod vault;
 }
 
 pub mod structure {
@@ -108,7 +109,6 @@ pub mod mocks {
     pub mod reentrant_token;
     pub mod router;
     pub mod token;
-    pub mod usdc;
     pub mod erc20 {
         pub mod erc20;
         pub mod interface;

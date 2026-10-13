@@ -2,19 +2,12 @@ pub mod setup {
     // Core imports
 
     use core::num::traits::Zero;
-
-    // Internal imports
-
-    use paved::economy::economy::{IEconomyDispatcher, IEconomyDispatcherTrait, decided};
-    use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
-    use paved::economy::vault::{IVaultDispatcher, IVaultDispatcherTrait};
     use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
     use paved::mocks::token::IERC20Dispatcher;
 
     // Starknet imports
 
     pub use paved::mocks::token::IERC20DispatcherTrait;
-    use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
     use paved::models::builder::Builder;
     use paved::models::game::{Game, GameImpl};
     use paved::models::player::Player;
@@ -24,7 +17,14 @@ pub mod setup {
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::daily::IDailyDispatcher;
     pub use paved::systems::daily::IDailyDispatcherTrait;
+
+    // Internal imports
+
+    use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait, decided};
+    use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
+    use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
     use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
+    use paved::systems::vault::{IVaultDispatcher, IVaultDispatcherTrait};
     pub use paved::types::mode::Mode;
     use paved::types::plan::{Plan, PlanImpl};
     use snforge_std::{
@@ -155,17 +155,17 @@ pub mod setup {
     }
 
     /// The economy as `scripts/deploy.sh devnet` wires it: `PavedToken` (its initial supply to
-    /// `OWNER`), `MockUSDC`, `MockRouter` seeded with 800,000 PAVED and 10,000 USDC, the `Vault`
+    /// `OWNER`), `Faucet`, `MockRouter` seeded with 800,000 PAVED and 10,000 USDC, the `Vault`
     /// with 200,000 PAVED staked by `OWNER`, `Economy` (decided configuration, launch rate) as
     /// the token's minter. `Economy.set_game` is left to the caller. Returns `Economy` and USDC.
     pub fn deploy_economy() -> (ContractAddress, ContractAddress) {
         let owner = OWNER();
         let paved = deploy("PavedToken", array![owner.into(), owner.into()]);
-        let usdc = deploy("MockUSDC", array![]);
+        let usdc = deploy("Faucet", array![]);
         let router = deploy("MockRouter", array![paved.into(), usdc.into()]);
         let vault = deploy("Vault", array![paved.into(), usdc.into()]);
         // [Setup] The pool, from the owner's PAVED and the faucet's USDC
-        IMockUSDCDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
+        IFaucetDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
         let paved_token = IERC20Dispatcher { contract_address: paved };
         start_cheat_caller_address(paved, owner);
         paved_token.approve(router, 800_000 * PAVED);
@@ -211,7 +211,7 @@ pub mod setup {
         who: ContractAddress,
         name: felt252,
     ) {
-        IMockUSDCDispatcher { contract_address: usdc }.mint(who, FUNDS);
+        IFaucetDispatcher { contract_address: usdc }.mint(who, FUNDS);
         start_cheat_caller_address(usdc, who);
         IERC20Dispatcher { contract_address: usdc }.approve(daily, FUNDS);
         stop_cheat_caller_address(usdc);
