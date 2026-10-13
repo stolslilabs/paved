@@ -1893,7 +1893,7 @@ LOBBY_CLASS="$(declare_class Lobby)"
 COLLECTION_CLASS="$(declare_class Collection)"
 
 # Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
-# spawn, claim, sponsor, discard and surrender. Refuse before deploying anything.
+# spawn, discard and surrender. Refuse before deploying anything.
 rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | class_declared ||
   die "Lobby class $LOBBY_CLASS is not declared on $RPC_LABEL: refusing to deploy Daily and Tutorial"
 
@@ -2117,7 +2117,7 @@ read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
 echo "   daily game $PAID_ID surrendered (score 0), recorded"
 check_token "$PAID_ID" true
 
-# The Tutorial belongs to no tournament: spawn, one scripted build (the Tutorial refuses a discard while the
+# The Tutorial belongs to no day: spawn, one scripted build (the Tutorial refuses a discard while the
 # tile in hand has a legal placement, and `build` takes no placement), read back.
 SPAWN_TX="$(invoke "$TUTORIAL" spawn)"
 GAME_ID="$(rpc starknet_getTransactionReceipt "[\"$SPAWN_TX\"]" | python3 -I -c '
@@ -2150,20 +2150,17 @@ else
   echo "   daily game $PAID_ID left for the keeper: settleable from (D + 2) x 86400 = $SETTLE_AT"
 fi
 
-# No trace in the day's figures (P-24): the prize is sponsor-only and the game ranks nowhere (score 0); a
-# score under 100 enters no mean, so the day closes on its prior and the EMA does not move. On Sepolia the day is
-# still open (its time cannot move): the day's weight is 0 while open, and its close is the keeper's.
-read -r -a TOURNAMENT <<<"$(call "$DAILY" tournament "$DAY")"
-[[ "$(hex_int "${TOURNAMENT[4]}")" == 0 && "$(hex_int "${TOURNAMENT[5]}")" == 0 ]] || die "day $DAY has a prize"
-[[ "$(hex_int "${TOURNAMENT[6]}")" == 0 ]] || die "day $DAY has a leader"
+# No trace in the day's figures (P-24): a score under 100 enters no mean, so the day closes on its prior and the
+# EMA does not move (no prize and no on-chain ranking since D-20). On Sepolia the day is still open (its time
+# cannot move): the day's weight is 0 while open, and its close is the keeper's.
 read -r -a DAYVIEW <<<"$(call "$ECONOMY" day "$DAY")"
 [[ "$(call "$ECONOMY" ema)" == "$EMA_BEFORE" ]] || die "the EMA moved"
 if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
   [[ "$(hex_int "${DAYVIEW[2]}")" == 0 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY has a weight or is not closed"
-  echo "   day $DAY: no prize, no leader, closed with weight 0, EMA unchanged"
+  echo "   day $DAY: closed with weight 0, EMA unchanged"
 else
   [[ "$(hex_int "${DAYVIEW[2]}")" == 0 ]] || die "day $DAY has a weight"
-  echo "   day $DAY: no prize, no leader, weight 0 while open, EMA unchanged"
+  echo "   day $DAY: weight 0 while open, EMA unchanged"
 fi
 echo "== smoke ok"
 if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
