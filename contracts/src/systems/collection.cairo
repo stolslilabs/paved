@@ -34,7 +34,6 @@ pub trait ICollection<TContractState> {
     /// Mints `token_id` to `to`. The minter of the id's range only.
     fn mint(ref self: TContractState, to: ContractAddress, token_id: u256);
     fn daily(self: @TContractState) -> ContractAddress;
-    fn tutorial(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::interface]
@@ -253,6 +252,9 @@ pub mod Collection {
         #[substorage(v0)]
         upgradeable: UpgradeableComponent::Storage,
         daily: ContractAddress,
+        /// The Tutorial minter: written by `set_minters` only (zero on a network deployed after
+        /// D-21), read by `uri` for the Tutorial tokens minted on Sepolia before D-21. Its view
+        /// went with D-21.
         tutorial: ContractAddress,
         owners: Map<u256, ContractAddress>,
         balances: Map<ContractAddress, u256>,
@@ -350,10 +352,6 @@ pub mod Collection {
 
         fn daily(self: @ContractState) -> ContractAddress {
             self.daily.read()
-        }
-
-        fn tutorial(self: @ContractState) -> ContractAddress {
-            self.tutorial.read()
         }
     }
 

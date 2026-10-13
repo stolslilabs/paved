@@ -255,10 +255,9 @@ pub mod Setup {
             quests: Span<QuestProgress>,
             achievements: Span<AchievementProgress>,
         ) {
-            // [Check] Caller is a reporter, in both components (`set_reporter` keeps them equal)
-            let caller = get_caller_address();
-            self.quest.assert_reporter(caller);
-            self.achievement.assert_reporter(caller);
+            // [Check] Caller is a reporter. `set_reporter` is the only writer of both components'
+            // allowlists and writes them together, so the quests' one stands for both (one read)
+            self.quest.assert_reporter(get_caller_address());
             // [Effect] The progress, for the player the reporter names
             self.quest.progress_many(player_id, quests, QuestMode::Event);
             self.achievement.progress_many(player_id, achievements);

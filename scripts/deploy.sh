@@ -113,9 +113,8 @@
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).
 #
-# Declared only: Lobby (run by Daily and Tutorial through library calls; its constructor reverts).
-# The Lobby class hash is checked as declared on the node (starknet_getClass) before Daily and Tutorial are
-# deployed; the script refuses otherwise.
+# Since D-21 and D-24 a fresh run deploys no Tutorial and declares no Lobby: the cold paths are Daily's own code, and
+# the quests, the achievements and the tutorial claim are Setup's (--repoint and --d18 keep theirs, run from 06c024d).
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
 #   Faucet, Token (devnet only: the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
 #   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 USDC its constructor preminted to the deployer
@@ -123,14 +122,15 @@
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
 #   3,980 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
-#   minter() == Economy and admin() == 0 are checked), Account(owner), Daily(owner, account, USDC, lobby
-#   class), Tutorial(owner, account, lobby class), Economy.set_game(Daily) (after the stake),
-#   Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound ERC721 of the games), then as
-#   the owner Account.set_collection(Collection) and Collection.set_minters(Daily, Tutorial) (both checked
-#   by read back). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
+#   minter() == Economy and admin() == 0 are checked), Account(owner), Setup(owner), Daily(owner, account, USDC,
+#   Setup), Setup.set_reporter(Daily, true) (Daily.setup() and Setup.is_reporter(Daily) checked by read back),
+#   Economy.set_game(Daily) (after the stake), Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound
+#   ERC721 of the games), then as the owner Account.set_collection(Collection) and Collection.set_minters(Daily, 0)
+#   (no Tutorial minter since D-21; both checked by read back). The quests and achievements are defined on Setup
+#   by its owner after the deploy (no script defines them). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
-# Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Account, Daily, Tutorial and Collection is
-#   the deployer, who alone may `upgrade` them (and set the Lobby class of Daily and Tutorial); the smoke reads
+# Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Account, Daily, Setup and Collection is
+#   the deployer, who alone may `upgrade` them (and set Daily's Setup and Setup's reporters); the smoke reads
 #   owner() back on each. PavedToken and Vault have no owner and no upgrade.
 # Deployer, owner and smoke player: devnet and --rehearse, the first predeployed account, read from the node at run
 # time (public dev keys of the node), its key held in a temporary accounts file removed on exit (devnet) or in the
@@ -1756,7 +1756,7 @@ ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
 # Account, Daily, Tutorial and Lobby.
-FUNDING_CLASSES=(Account Daily Tutorial Faucet PavedToken MockRouter Vault Economy Lobby Collection)
+FUNDING_CLASSES=(Account Daily Setup Faucet PavedToken MockRouter Vault Economy Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 if ((USE_SIGNER)); then
@@ -1854,10 +1854,10 @@ sys.exit(0 if balance >= need else 1)
 PY
   if ((ESTIMATE_ONLY)); then
     if [[ "$failed" != 0 ]]; then
-      echo "== estimate only: $failed of 10 classes failed (neither an estimate nor already declared); nothing was sent"
+      echo "== estimate only: $failed of ${#FUNDING_CLASSES[@]} classes failed (neither an estimate nor already declared); nothing was sent"
       exit 1
     fi
-    echo "== estimate only: each of the 10 classes estimated or already declared; nothing was sent"
+    echo "== estimate only: each of the ${#FUNDING_CLASSES[@]} classes estimated or already declared; nothing was sent"
     exit 0
   fi
   if [[ "$funded" != 0 && "$REPOINT" == 1 && "$RP_COMPLETE" == 1 ]]; then
@@ -1883,19 +1883,13 @@ TOKEN=""
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN_CLASS="$(declare_class Token)"; fi
 ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
-TUTORIAL_CLASS="$(declare_class Tutorial)"
+SETUP_CLASS="$(declare_class Setup)"
 USDC_CLASS="$(declare_class Faucet)"
 PAVED_CLASS="$(declare_class PavedToken)"
 ROUTER_CLASS="$(declare_class MockRouter)"
 VAULT_CLASS="$(declare_class Vault)"
 ECONOMY_CLASS="$(declare_class Economy)"
-LOBBY_CLASS="$(declare_class Lobby)"
 COLLECTION_CLASS="$(declare_class Collection)"
-
-# Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
-# spawn, discard and surrender. Refuse before deploying anything.
-rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | class_declared ||
-  die "Lobby class $LOBBY_CLASS is not declared on $RPC_LABEL: refusing to deploy Daily and Tutorial"
 
 USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
@@ -1975,19 +1969,24 @@ echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
 ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER_ARG")"
-DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$USDC" "$LOBBY_CLASS")"
-TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$LOBBY_CLASS")"
+# The quests and achievements (D-24): Daily reports each game over to Setup, which accepts reporters only.
+SETUP="$(deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
+DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$USDC" "$SETUP")"
+invoke "$SETUP" set_reporter "$DAILY" 1 >/dev/null
+[[ "$(hex_int "$(call "$DAILY" setup)")" == "$(hex_int "$SETUP")" ]] || die "Daily.setup() is not Setup"
+[[ "$(hex_int "$(call "$SETUP" is_reporter "$DAILY")")" == 1 ]] || die "Setup.is_reporter(Daily) is not true"
+echo "   Setup: Daily reports to it, its one reporter"
 invoke "$ECONOMY" set_game "$DAILY" >/dev/null
 invoke "$ACCOUNT" set_economy "$ECONOMY" >/dev/null
 [[ "$(hex_int "$(call "$ACCOUNT" economy)")" == "$(hex_int "$ECONOMY")" ]] || die "Account.economy() is not Economy"
-# The game NFT: without it every spawn reverts ('Lobby: collection not set'), so it is wired before the smoke.
+# The game NFT: without it every spawn reverts ('Daily: collection not set'), so it is wired before the smoke. No
+# Tutorial minter since D-21: the Tutorial range has none.
 COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
 invoke "$ACCOUNT" set_collection "$COLLECTION" >/dev/null
-invoke "$COLLECTION" set_minters "$DAILY" "$TUTORIAL" >/dev/null
+invoke "$COLLECTION" set_minters "$DAILY" 0 >/dev/null
 [[ "$(hex_int "$(call "$ACCOUNT" collection)")" == "$(hex_int "$COLLECTION")" ]] || die "Account.collection() is not Collection"
 [[ "$(hex_int "$(call "$COLLECTION" daily)")" == "$(hex_int "$DAILY")" ]] || die "Collection.daily() is not Daily"
-[[ "$(hex_int "$(call "$COLLECTION" tutorial)")" == "$(hex_int "$TUTORIAL")" ]] || die "Collection.tutorial() is not Tutorial"
-echo "   Collection: minters Daily and Tutorial, registered in Account"
+echo "   Collection: minter Daily, registered in Account"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
@@ -1997,13 +1996,13 @@ echo "   token Faucet, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK
 
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
-  "$DECIMALS" "$SYMBOL" "$LOBBY_CLASS" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
+  "$DECIMALS" "$SYMBOL" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
-  "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" \
+  "Daily=$DAILY=$DAILY_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
   "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, sys
-out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *rest = sys.argv[1:]
+out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
 items = [r for r in rest if r.count("=") == 2]
 test_paved = next(r for r in rest if r.startswith("test_paved=")).split("=")[1]
 test_accounts = [r for r in rest if "=" not in r]
@@ -2013,7 +2012,7 @@ for item in items:
     if address:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
-names = ["Account", "Daily", "Tutorial", "Collection", "Token", "Economy", "PavedToken", "Vault"]
+names = ["Account", "Daily", "Setup", "Collection", "Token", "Economy", "PavedToken", "Vault"]
 # The old mock Token is devnet only; devnet and Sepolia both run the Faucet and MockRouter (P-39).
 if network != "devnet":
     names.remove("Token")
@@ -2027,8 +2026,6 @@ doc = {
     # The ERC20 Daily charges: USDC (the Faucet, keyed MockUSDC, on devnet and Sepolia).
     "token": {**c["MockUSDC"], "decimals": int(decimals), "symbol": symbol},
     "contracts": {k: c[k] for k in names},
-    # Declared, not deployed: a class hash and no address, so not under `contracts`.
-    "classes": {"Lobby": "0x%064x" % int(lobby, 16)},
 }
 if network == "devnet":
     # P-38: the PAVED each predeployed account (other than the deployer) received, in base units (18 decimals).
@@ -2073,10 +2070,10 @@ print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, 
 
 echo "== smoke"
 # P-42: the upgrade owner of every upgradable contract is the deployer.
-for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
+for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Setup=$SETUP" "Collection=$COLLECTION"; do
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
-echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
+echo "   owner() of Economy, Account, Daily, Setup and Collection: the deployer"
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not the Faucet"
@@ -2111,31 +2108,25 @@ USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
 [[ "$T_PLAYER" == "$DEPLOYER_INT" ]] || die "Economy.terms($PAID_ID) is not the player's"
 echo "   daily game $PAID_ID bought at stake 1 on day $DAY (min_out $MIN_OUT), Economy holds nothing"
-invoke "$DAILY" surrender "$PAID_ID" >/dev/null
+SURRENDER_TX="$(invoke "$DAILY" surrender "$PAID_ID")"
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
 [[ "$T_RECORDED" == 1 ]] || die "the surrender of game $PAID_ID was not recorded by Economy"
-echo "   daily game $PAID_ID surrendered (score 0), recorded"
-check_token "$PAID_ID" true
-
-# The Tutorial belongs to no day: spawn, one scripted build (the Tutorial refuses a discard while the
-# tile in hand has a legal placement, and `build` takes no placement), read back.
-SPAWN_TX="$(invoke "$TUTORIAL" spawn)"
-GAME_ID="$(rpc starknet_getTransactionReceipt "[\"$SPAWN_TX\"]" | python3 -I -c '
+# The game over reported to Setup: its QuestProgressed and AchievementProgressed (task 1, the game finished).
+REPORTED="$(rpc starknet_getTransactionReceipt "[\"$SURRENDER_TX\"]" | python3 -I -c '
 import sys, json
 d = json.load(sys.stdin)["result"]
-tutorial = int(sys.argv[1], 16)
-ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == tutorial and len(e["keys"]) == 3]
-print(ids[0])' "$TUTORIAL")" || die "no GameSpawned event in the spawn receipt"
-echo "   tutorial game $GAME_ID spawned"
-invoke "$TUTORIAL" build "$GAME_ID" >/dev/null
-GAME="$(call "$TUTORIAL" game "$GAME_ID")"
-read -r G_ID _ G_MODE _ _ G_OVER _ G_PLACED _ <<<"$GAME"
-[[ "$(hex_int "$G_ID")" == "$GAME_ID" ]] || die "game($GAME_ID) read back id $G_ID"
-[[ "$(hex_int "$G_MODE")" == 3 ]] || die "game($GAME_ID) mode is $(hex_int "$G_MODE"), expected 3 (Tutorial)"
-[[ "$(hex_int "$G_PLACED")" == 2 ]] || die "game($GAME_ID) placed_count is $(hex_int "$G_PLACED"), expected 2"
-echo "   game($GAME_ID) read back: id $GAME_ID, mode Tutorial, placed_count 2, over $(hex_int "$G_OVER")"
-# A Tutorial game's token id is 2^32 + its game id.
-check_token $((4294967296 + GAME_ID)) false
+setup = int(sys.argv[1], 16)
+print(sum(1 for e in d["events"] if int(e["from_address"], 16) == setup))' "$SETUP")" ||
+  die "no receipt for the surrender of game $PAID_ID"
+[[ "$REPORTED" -ge 2 ]] || die "the surrender of game $PAID_ID emitted $REPORTED events from Setup, expected 2 or more"
+echo "   daily game $PAID_ID surrendered (score 0), recorded, reported to Setup ($REPORTED events)"
+check_token "$PAID_ID" true
+
+# The tutorial is off chain (D-21): its achievement is claimed on Setup, once per player (a second claim does nothing).
+invoke "$SETUP" claim_tutorial >/dev/null
+[[ "$(hex_int "$(call "$SETUP" tutorial_claimed "$DEPLOYER_ARG")")" == 1 ]] || die "Setup.tutorial_claimed(player) is not true"
+invoke "$SETUP" claim_tutorial >/dev/null
+echo "   tutorial claimed on Setup, twice: one flag"
 
 # Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README). Only a local
 # node can move its time: on Sepolia the smoke leaves its paid game to the keeper, settleable from (D + 2) x 86400.

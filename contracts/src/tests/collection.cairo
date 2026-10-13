@@ -263,7 +263,6 @@ fn test_collection_minters_are_read() {
     let collection = ICollectionDispatcher { contract_address: world.collection };
     assert_eq!(IOwnableDispatcher { contract_address: world.collection }.owner(), OWNER());
     assert_eq!(collection.daily(), world.daily);
-    assert_eq!(collection.tutorial(), world.tutorial);
 }
 
 #[test]
@@ -301,7 +300,6 @@ fn test_collection_set_minters_zero_tutorial() {
     stop_cheat_caller_address(world.collection);
     let collection = ICollectionDispatcher { contract_address: world.collection };
     assert_eq!(collection.daily(), world.daily);
-    assert_eq!(collection.tutorial(), Zero::zero());
     let safe = ICollectionSafeDispatcher { contract_address: world.collection };
     for caller in array![world.daily, world.tutorial, Zero::zero()] {
         start_cheat_caller_address(world.collection, caller);
