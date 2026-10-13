@@ -87,7 +87,7 @@ fn test_store_round_trips_at_maximum_values() {
 }
 
 #[test]
-#[available_gas(l2_gas: 61348000)]
+#[available_gas(l2_gas: 64483000)]
 fn test_store_missing_entries_read_as_zero_with_keys() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(

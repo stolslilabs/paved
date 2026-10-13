@@ -38,7 +38,7 @@ pub mod HostableComponent {
 
     /// Test only: the address of a `sponsorships` entry, resolved through the field's name, for the
     /// pin of the dead fields
-    /// (`tests::e2e::lobby_audit::test_lobby_and_daily_pin_the_dead_fields_by_name`).
+    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`).
     #[cfg(test)]
     #[generate_trait]
     pub impl DeadFieldsImpl<

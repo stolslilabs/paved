@@ -29,7 +29,6 @@ use paved::events::{Event as PavedEvent, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
 use paved::systems::daily::{Daily, IDailyDispatcher};
-use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
 use paved::tests::legacy::record::{chars_of, ref_of};
 use paved::tests::legacy::role::Role;
 use paved::tests::legacy::state::StructuresTrait as LegacyStructures;
@@ -39,7 +38,7 @@ use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait};
 use paved::types::category::Category;
-use paved::types::mode::{Mode, ModeTrait};
+use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::spot::Spot;
@@ -318,59 +317,6 @@ fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
         views.builder(g, PLAYER().into()),
         BuilderView { game_id: g, player_id: PLAYER().into(), tile_id: 0, plan: 0 },
     );
-}
-
-/// The Tutorial's build has its own path (`tutoriable`, the scripted roles and spots of 07aab8a):
-/// a Tutorial game whose first two steps placed the Adventurer (on a road) and the Paladin (on a
-/// city) under the class of 07aab8a is finished under the D-18 class. Every build after the
-/// upgrade scores what the walks give, and the board check holds as for Daily.
-#[test]
-#[available_gas(l2_gas: 2000000000)]
-fn test_upgrade_d18_tutorial_game_open_across_the_upgrade() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let g = context.game_id;
-    let tutorial: ITutorialDispatcher = systems.tutorial;
-    let contract = tutorial.contract_address;
-    let class_d18 = install_before_d18(contract);
-
-    // [Before the upgrade] the first two scripted steps, with their characters
-    let frozen = IDailyBeforeD18Dispatcher { contract_address: contract };
-    frozen.build_tutorial(g);
-    frozen.build_tutorial(g);
-    let (adventurer_tile, _) = standing(store, g, Role::Adventurer);
-    let (paladin_tile, _) = standing(store, g, Role::Paladin);
-    assert!(adventurer_tile != 0 && paladin_tile != 0, "two characters stand");
-    assert_eq!(roles_placed(store, g), role_bit(Role::Adventurer) | role_bit(Role::Paladin));
-    let before = store.game(g).score;
-
-    // [Upgrade]
-    upgrade(contract, class_d18);
-    let board_before = check::board_points(store, g);
-
-    // [After the upgrade] the rest of the script, each build checked against the walks
-    let mut penalties: u32 = 0;
-    loop {
-        let game = store.game(g);
-        if game.over {
-            break;
-        }
-        let tile_id = store.builder(game, PLAYER().into()).tile_id;
-        let mode: Mode = game.mode.into();
-        let (orientation, _, _) = mode.parameters(game.tiles);
-        if orientation == Orientation::None {
-            tutorial.discard(g);
-            penalties += game.score - store.game(g).score;
-        } else {
-            tutorial.build(g);
-            check::assert_tile_agrees(store, g, tile_id);
-            check::assert_move_scored(store, g, tile_id, game.score);
-        }
-    }
-    assert_eq!(roles_placed(store, g), 0);
-    let game = store.game(g);
-    // The discard of the script (step 8) takes its penalty, which the board does not see
-    let board_after = check::board_points(store, g);
-    assert_eq!(board_after - board_before, game.score + penalties - before);
 }
 
 /// Gas of scenario e (`contracts/tests/gas.cairo`) on the class of 07aab8a, with and without its

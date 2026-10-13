@@ -14,7 +14,6 @@
 use paved::constants::DISCARD_POINTS;
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
@@ -229,82 +228,6 @@ fn replay_daily(
         // Every finished structure of the board scored, once
         check::assert_board_scored(store, game_id, penalties);
     }
-    if RECORD {
-        println!(
-            "GOLDEN {} end oracle={} built={} discarded={} tile_count={} over={}",
-            name,
-            oracle,
-            game.built,
-            game.discarded,
-            game.tile_count,
-            game.is_over(),
-        );
-        assert(false, 'Golden: record run');
-    } else {
-        assert_outcome(name, game, outcome);
-    }
-    game
-}
-
-/// One step of a golden Tutorial game: the tutorial places the tile by itself, the player only
-/// builds or discards.
-#[derive(Copy, Drop)]
-pub struct TutorialStep {
-    /// Plan of the tile that the builder must hold before the step.
-    pub plan: Plan,
-    pub discard: bool,
-    /// Game score once the step is played.
-    pub score: u32,
-}
-
-/// Spawns a Tutorial game and replays `steps` on it, with the oracle's checks (the game is 10
-/// tiles). Returns the final game.
-pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOutcome) -> Game {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let game_id = context.game_id;
-
-    let mut step: u32 = 0;
-    let mut oracle: u32 = 0;
-    let mut penalties: u32 = 0;
-    for golden in steps {
-        let game = store.game(game_id);
-        let score_before = game.score;
-        let builder = store.builder(game, context.player_id);
-        let tile: Tile = store.tile(game, builder.tile_id);
-        let before: u8 = tile.plan;
-        if RECORD {
-            println!("GOLDEN {} step={} plan_before={}", name, step, before);
-        } else {
-            let expected: u8 = (*golden.plan).into();
-            assert_eq!(before, expected, "Golden {}: drawn plan at step {}", name, step);
-        }
-        if *golden.discard {
-            systems.tutorial.discard(game_id);
-            let taken = if oracle < DISCARD_POINTS {
-                oracle
-            } else {
-                DISCARD_POINTS
-            };
-            oracle -= taken;
-            penalties += score_before - store.game(game_id).score;
-        } else {
-            systems.tutorial.build(game_id);
-            check::assert_tile_agrees(store, game_id, builder.tile_id);
-            let (points, _) = check::move_points(store, game_id, builder.tile_id);
-            oracle += points;
-            check::assert_move_scored(store, game_id, builder.tile_id, score_before);
-        }
-        let game = store.game(game_id);
-        if RECORD {
-            println!("GOLDEN {} step={} oracle={}", name, step, oracle);
-        } else {
-            assert_eq!(game.score, *golden.score, "Golden {}: score at step {}", name, step);
-        }
-        step += 1;
-    }
-
-    let game = store.game(game_id);
-    check::assert_board_scored(store, game_id, penalties);
     if RECORD {
         println!(
             "GOLDEN {} end oracle={} built={} discarded={} tile_count={} over={}",

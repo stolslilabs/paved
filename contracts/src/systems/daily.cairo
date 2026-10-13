@@ -59,6 +59,8 @@ pub mod Daily {
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
+    #[cfg(test)]
+    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::storage::{
         StorageAsPath, StorageBase, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
@@ -250,6 +252,40 @@ pub mod Daily {
         fn entry_price(self: @ContractState) -> PriceView {
             ViewsImpl::entry_price(self.payable.token_address.read())
         }
+    }
+
+    /// Test only: the addresses of the fields dead since D-24, resolved through their names in
+    /// this contract's storage, for the pin of the dead fields
+    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`): `lobby_class`,
+    /// then every member of the quests and of the achievements, at the keys given.
+    #[cfg(test)]
+    #[generate_trait]
+    pub impl DeadFieldsImpl of DeadFieldsTrait {
+        fn dead_addresses(
+            self: @ContractState, id: u32, player_id: felt252, reporter: ContractAddress,
+        ) -> Array<felt252> {
+            array![
+                address_of(self.lobby_class.as_path()),
+                address_of(self.quest.Quest_definitions.entry(id)),
+                address_of(self.quest.Quest_tasks.entry(id)),
+                address_of(self.quest.Quest_conditions.entry(id)),
+                address_of(self.quest.Quest_progress.entry((player_id, id, 0))),
+                address_of(self.quest.Quest_records.entry((player_id, id))),
+                address_of(self.quest.Quest_held.entry((player_id, 0))),
+                address_of(self.quest.Quest_reporters.entry(reporter)),
+                address_of(self.achievement.Achievement_definitions.entry(id)),
+                address_of(self.achievement.Achievement_extra_tasks.entry(id)),
+                address_of(self.achievement.Achievement_reporters.entry(reporter)),
+            ]
+        }
+    }
+
+    #[cfg(test)]
+    fn address_of<T, +Drop<T>, +starknet::storage::StorageAsPointer<T>>(path: T) -> felt252 {
+        starknet::storage_access::storage_address_from_base(
+            path.as_ptr().__storage_pointer_address__,
+        )
+            .into()
     }
 
     /// The `Account` registry that keeps the players and the wiring (`docs/architecture/

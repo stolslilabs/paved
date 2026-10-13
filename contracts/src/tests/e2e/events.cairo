@@ -10,7 +10,6 @@ use paved::models::game::GameTrait;
 use paved::models::tile::{CENTER, Tile};
 use paved::systems::account::{Account, IAccountDispatcherTrait};
 use paved::systems::daily::Daily;
-use paved::systems::tutorial::{ITutorialDispatcherTrait, Tutorial};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
@@ -30,7 +29,7 @@ fn daily(event: PavedEvent) -> Daily::Event {
 }
 
 #[test]
-#[available_gas(l2_gas: 62048000)]
+#[available_gas(l2_gas: 65217000)]
 fn test_events_account_create_emits_player_created() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let caller: ContractAddress = 'NEWCOMER'.try_into().unwrap();
@@ -171,51 +170,6 @@ fn test_events_daily_surrender_emits_game_over() {
         ),
     );
     spy.assert_emitted(@array![(systems.daily.contract_address, event)]);
-}
-
-#[test]
-#[available_gas(l2_gas: 73782000)]
-fn test_events_tutorial_spawn_and_surrender() {
-    // A non-zero time: at 0 the spawn time and 0 are the same value. A same-second game over is
-    // the worst case for a day id computed from the time (Tutorial duration is 1 second).
-    start_cheat_block_timestamp_global(100);
-    let (_, systems, context) = setup::spawn_game(Mode::None);
-    let mut spy = spy_events();
-    let game_id = systems.tutorial.spawn();
-    systems.tutorial.surrender(game_id);
-    let tutorial = systems.tutorial.contract_address;
-    let tutorial_store = TestStoreTrait::new(tutorial);
-    let game = tutorial_store.game(game_id);
-    let spawned = Tutorial::Event::PavedEvent(
-        PavedEvent::GameSpawned(
-            GameSpawned {
-                game_id,
-                player_id: context.player_id,
-                mode: Mode::Tutorial.into(),
-                day_id: 0,
-                start_time: game.start_time,
-                price: game.price(),
-            },
-        ),
-    );
-    let over = Tutorial::Event::PavedEvent(
-        PavedEvent::GameOver(
-            GameOver {
-                game_id,
-                day_id: 0,
-                player_id: context.player_id,
-                mode: Mode::Tutorial.into(),
-                score: game.score,
-                start_time: game.start_time,
-                end_time: 0,
-            },
-        ),
-    );
-    spy.assert_emitted(@array![(tutorial, spawned), (tutorial, over)]);
-
-    // The game, its view and both events agree: no day.
-    assert(game.start_time == 100, 'Events: start time');
-    assert(game.day_id == 0, 'Events: game day');
 }
 
 #[test]
@@ -366,93 +320,4 @@ fn test_events_daily_wonder_emits_scored() {
         ),
     );
     spy.assert_emitted(@array![(systems.daily.contract_address, scored)]);
-}
-
-/// Builds the next tile of the scripted tutorial and returns the `Built` event it must emit.
-fn tutorial_build(
-    store: setup::TestStore, systems: @setup::Systems, game_id: u32, player_id: felt252,
-) -> (Tutorial::Event, u32) {
-    let game = store.game(game_id);
-    let builder = store.builder(game, player_id);
-    let tile = store.tile(game, builder.tile_id);
-    let (orientation, x, y) = Mode::Tutorial.parameters(game.tiles);
-    systems.tutorial.build(game_id);
-    let built = Tutorial::Event::PavedEvent(
-        PavedEvent::Built(
-            Built {
-                game_id,
-                player_id,
-                tile_id: tile.id,
-                plan: tile.plan,
-                orientation: orientation.into(),
-                x,
-                y,
-            },
-        ),
-    );
-    (built, game.score)
-}
-
-#[test]
-#[available_gas(l2_gas: 104447000)]
-fn test_events_tutorial_build_emits_built_and_scored() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let tutorial = systems.tutorial.contract_address;
-    let store = TestStoreTrait::new(tutorial);
-    let mut spy = spy_events();
-
-    // The third scripted step closes a structure (the golden game scores 1286 there).
-    let (first, _) = tutorial_build(store, @systems, context.game_id, context.player_id);
-    let (second, _) = tutorial_build(store, @systems, context.game_id, context.player_id);
-    let (third, score_before) = tutorial_build(store, @systems, context.game_id, context.player_id);
-    spy.assert_emitted(@array![(tutorial, first), (tutorial, second), (tutorial, third)]);
-
-    let game = store.game(context.game_id);
-    assert(game.score > score_before, 'Events: tutorial scored');
-    let scored = Tutorial::Event::PavedEvent(
-        PavedEvent::Scored(
-            Scored {
-                game_id: context.game_id,
-                player_id: context.player_id,
-                category: Category::City.into(),
-                size: 3,
-                points: game.score - score_before,
-            },
-        ),
-    );
-    spy.assert_emitted(@array![(tutorial, scored)]);
-}
-
-#[test]
-#[available_gas(l2_gas: 134380000)]
-fn test_events_tutorial_discard_emits_discarded() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let tutorial = systems.tutorial.contract_address;
-    let store = TestStoreTrait::new(tutorial);
-    // The scripted tutorial only accepts a discard at its eighth step.
-    let mut step: u8 = 0;
-    while step < 7 {
-        systems.tutorial.build(context.game_id);
-        step += 1;
-    }
-    let game = store.game(context.game_id);
-    let builder = store.builder(game, context.player_id);
-    let tile = store.tile(game, builder.tile_id);
-
-    let mut spy = spy_events();
-    systems.tutorial.discard(context.game_id);
-
-    let after = store.game(context.game_id);
-    let event = Tutorial::Event::PavedEvent(
-        PavedEvent::Discarded(
-            Discarded {
-                game_id: context.game_id,
-                player_id: context.player_id,
-                tile_id: tile.id,
-                plan: tile.plan,
-                points: game.score - after.score,
-            },
-        ),
-    );
-    spy.assert_emitted(@array![(tutorial, event)]);
 }

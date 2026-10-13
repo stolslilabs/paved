@@ -6,10 +6,9 @@
 //! D-18b changed, copied from 07aab8a (`git show 07aab8a:contracts/src/<path>`), with their tests
 //! removed and their `paved::` paths turned to this module. The modules D-18b left alone (tables,
 //! oriented rows, layouts, decks, helpers) are shared. `DailyBeforeD18` runs `build` exactly as
-//! `PlayableComponent::build` of 07aab8a did, and `build_tutorial` as `TutoriableComponent::build`
-//! did (with the scripted roles and spots of 07aab8a, `tutorial_parameters`), on the same storage
-//! node (`selector!("paved")`), and upgrades as `Daily` and `Tutorial` do (owner only,
-//! OpenZeppelin's `UpgradeableComponent`). Their game-over tails (tournament, quests, achievements)
+//! `PlayableComponent::build` of 07aab8a did, on the same storage node (`selector!("paved")`), and
+//! upgrades as `Daily` does (owner only, OpenZeppelin's `UpgradeableComponent`). D-21 removed its
+//! `build_tutorial` (the Tutorial's build of 07aab8a), with the Tutorial. Their game-over tails (tournament, quests, achievements)
 //! are left out: the test ends its games under the new classes. D-20 removed its
 //! `Store::tournament`
 //! and `set_tournament`, with the `Tournament` model they read.
@@ -43,27 +42,7 @@ pub trait IDailyBeforeD18<TContractState> {
         role: Role,
         spot: Spot,
     );
-    fn build_tutorial(ref self: TContractState, game_id: u32);
     fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
-}
-
-/// The script of the Tutorial deck of 07aab8a (`elements/decks/tutorial.cairo`, `parameters`): the
-/// placement, role and spot of the tile of each index.
-pub fn tutorial_parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
-    let center = paved::constants::CENTER;
-    match index {
-        0 => (Orientation::None, 0, 0, Role::None, Spot::None),
-        1 => (Orientation::North, center - 1, center, Role::Adventurer, Spot::East),
-        2 => (Orientation::East, center - 1, center - 1, Role::Paladin, Spot::Center),
-        3 => (Orientation::East, center - 1, center - 2, Role::None, Spot::None),
-        4 => (Orientation::West, center, center - 1, Role::Pilgrim, Spot::Center),
-        5 => (Orientation::East, center, center - 2, Role::Paladin, Spot::West),
-        6 => (Orientation::North, center + 1, center - 2, Role::Lady, Spot::Center),
-        7 => (Orientation::East, center + 1, center - 1, Role::None, Spot::None),
-        8 => (Orientation::None, 0, 0, Role::None, Spot::None), // Must be burned
-        9 => (Orientation::West, center + 1, center, Role::None, Spot::None),
-        _ => (Orientation::None, 0, 0, Role::None, Spot::None),
-    }
 }
 
 #[starknet::contract]
@@ -118,18 +97,6 @@ pub mod DailyBeforeD18 {
             spot: Spot,
         ) {
             build_before_d18(game_id, orientation, x, y, role, spot, true);
-        }
-
-        /// `TutoriableComponent::build` of 07aab8a, without its game-over tail: the placement,
-        /// role and spot come from the script, and the seed is not stirred before the draw.
-        fn build_tutorial(ref self: ContractState, game_id: u32) {
-            let store: Store = StoreImpl::new();
-            let game = store.live_game(game_id);
-            let index = Bitmap::most_significant_bit(game.tiles).unwrap();
-            let (orientation, x, y, role, spot) = super::tutorial_parameters(index.into());
-            // [Check] Tile can be placed
-            orientation.assert_is_valid();
-            build_before_d18(game_id, orientation, x, y, role, spot, false);
         }
 
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {

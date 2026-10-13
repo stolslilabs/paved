@@ -25,7 +25,6 @@
 use core::testing::get_available_gas;
 use paved::constants::{self, CENTER};
 use paved::models::game::{GameImpl, GameTrait};
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -49,10 +48,9 @@ pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
 pub const CEILING_CLOSING_AFTER: u128 = 2690889;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
-// m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
+// m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
 pub const CEILING_SPAWN_DAILY: u128 = 52743229;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
-pub const CEILING_SPAWN_TUTORIAL: u128 = 5363508;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
@@ -327,14 +325,4 @@ fn test_gas_n_spawn_daily_referred() {
     systems.daily.spawn(10, ANYONE(), 0);
     let after = get_available_gas();
     report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
-}
-
-/// o. A Tutorial spawn: free, no call to `Economy`.
-#[test]
-fn test_gas_o_spawn_tutorial() {
-    let (_, systems, _) = setup::spawn_game(Mode::Tutorial);
-    let before = get_available_gas();
-    systems.tutorial.spawn();
-    let after = get_available_gas();
-    report("o_spawn_tutorial", before - after, CEILING_SPAWN_TUTORIAL);
 }

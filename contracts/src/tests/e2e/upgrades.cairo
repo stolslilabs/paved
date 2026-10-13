@@ -1,7 +1,8 @@
-//! Upgrades (D-17, P-42, `docs/architecture/upgrades.md`): `Daily`, `Tutorial`, `Account`,
+//! Upgrades (D-17, P-42, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Account`,
 //! `Economy` and `Collection` replace their class through OpenZeppelin's `UpgradeableComponent`,
-//! gated by the two-step owner; `Daily` and `Tutorial` take a new `Lobby` class from their owner;
-//! `PavedToken` and `Vault` have no `upgrade` at all.
+//! gated by the two-step owner; `PavedToken` and `Vault` have no `upgrade` at all. Since D-24
+//! `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo` pins
+//! the dead `lobby_class` slot).
 
 use core::num::traits::Zero;
 use openzeppelin_interfaces::upgrades::{
@@ -10,19 +11,13 @@ use openzeppelin_interfaces::upgrades::{
 };
 use openzeppelin_upgrades::UpgradeableComponent;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
-use paved::systems::daily::Daily;
 use paved::systems::economy::IEconomyDispatcherTrait;
-use paved::systems::lobby::{
-    ILobbyClassDispatcher, ILobbyClassDispatcherTrait, ILobbyClassSafeDispatcher,
-    ILobbyClassSafeDispatcherTrait, LobbyClassSet,
-};
-use paved::systems::tutorial::{ITutorialDispatcherTrait, Tutorial};
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER};
+use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
 use paved::types::mode::Mode;
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load,
-    map_entry_address, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+    DeclareResultTrait, EventSpyAssertionsTrait, declare, load, map_entry_address, spy_events,
+    start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::{ClassHash, ContractAddress};
 
@@ -51,39 +46,6 @@ pub mod UpgradeProbe {
     }
 }
 
-/// The `spawn` of a `Lobby` class that writes nothing and returns `LOBBY_MARK`, so that a spawn
-/// shows which class it ran.
-pub const LOBBY_MARK: u32 = 4242;
-
-#[starknet::interface]
-pub trait ILobbyProbe<TContractState> {
-    fn spawn(
-        ref self: TContractState, mode: Mode, stake: u8, referrer: ContractAddress, min_out: u256,
-    ) -> u32;
-}
-
-#[starknet::contract]
-pub mod LobbyProbe {
-    use paved::types::mode::Mode;
-    use starknet::ContractAddress;
-
-    #[storage]
-    struct Storage {}
-
-    #[abi(embed_v0)]
-    impl LobbyProbeImpl of super::ILobbyProbe<ContractState> {
-        fn spawn(
-            ref self: ContractState,
-            mode: Mode,
-            stake: u8,
-            referrer: ContractAddress,
-            min_out: u256,
-        ) -> u32 {
-            super::LOBBY_MARK
-        }
-    }
-}
-
 fn class_of(name: ByteArray) -> ClassHash {
     *declare(name).unwrap().contract_class().class_hash
 }
@@ -96,11 +58,18 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// Every upgradable contract, with one storage variable its constructor or the setup wrote: its
 /// name (the slot) and its value.
 fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, felt252)> {
-    let lobby: felt252 = class_of("Lobby").into();
     let daily: felt252 = (*systems.daily.contract_address).into();
     array![
-        (*systems.daily.contract_address, selector!("lobby_class"), lobby),
-        (*systems.tutorial.contract_address, selector!("lobby_class"), lobby),
+        (
+            *systems.daily.contract_address,
+            selector!("setup"),
+            (*systems.setup.contract_address).into(),
+        ),
+        (
+            *systems.setup.contract_address,
+            map_entry_address(selector!("Quest_reporters"), array![daily].span()),
+            1,
+        ),
         (
             *systems.account.contract_address,
             selector!("economy"),
@@ -216,98 +185,6 @@ fn test_paved_token_and_vault_have_no_upgrade() {
             .unwrap_err();
         assert(*error.at(0) == 'ENTRYPOINT_NOT_FOUND', 'Upgrade: entry point found');
         stop_cheat_caller_address(contract);
-    }
-}
-
-// The Lobby class
-
-fn games(systems: @setup::Systems) -> Array<ContractAddress> {
-    array![*systems.daily.contract_address, *systems.tutorial.contract_address]
-}
-
-#[test]
-#[available_gas(l2_gas: 64936000)]
-#[feature("safe_dispatcher")]
-fn test_set_lobby_class_reverts_for_non_owner() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let probe = class_of("LobbyProbe");
-    for contract in games(@systems) {
-        start_cheat_caller_address(contract, ANYONE());
-        let error = ILobbyClassSafeDispatcher { contract_address: contract }
-            .set_lobby_class(probe)
-            .unwrap_err();
-        assert(*error.at(0) == 'Ownable: caller is not owner', 'Lobby class: stranger');
-        stop_cheat_caller_address(contract);
-    }
-}
-
-#[test]
-#[available_gas(l2_gas: 64337000)]
-#[feature("safe_dispatcher")]
-fn test_set_lobby_class_reverts_on_zero() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let tutorial = systems.tutorial.contract_address;
-    start_cheat_caller_address(daily, OWNER());
-    let error = ILobbyClassSafeDispatcher { contract_address: daily }
-        .set_lobby_class(Zero::zero())
-        .unwrap_err();
-    assert(*error.at(0) == Daily::errors::ZERO_LOBBY_CLASS, 'Lobby class: daily zero');
-    start_cheat_caller_address(tutorial, OWNER());
-    let error = ILobbyClassSafeDispatcher { contract_address: tutorial }
-        .set_lobby_class(Zero::zero())
-        .unwrap_err();
-    assert(*error.at(0) == Tutorial::errors::ZERO_LOBBY_CLASS, 'Lobby class: tutorial zero');
-}
-
-/// The owner sets a new `Lobby` class: `LobbyClassSet` is emitted, the slot holds it, and the next
-/// spawn runs it.
-#[test]
-#[available_gas(l2_gas: 66200000)]
-fn test_set_lobby_class_by_owner_runs_the_new_class() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let probe = class_of("LobbyProbe");
-    let daily = systems.daily.contract_address;
-    let tutorial = systems.tutorial.contract_address;
-    let mut spy = spy_events();
-    for contract in games(@systems) {
-        start_cheat_caller_address(contract, OWNER());
-        ILobbyClassDispatcher { contract_address: contract }.set_lobby_class(probe);
-        assert(raw(contract, selector!("lobby_class")) == probe.into(), 'Lobby class: stored');
-        start_cheat_caller_address(contract, PLAYER());
-    }
-    let event = LobbyClassSet { class_hash: probe };
-    spy
-        .assert_emitted(
-            @array![(daily, Daily::Event::LobbyClassSet(LobbyClassSet { class_hash: probe }))],
-        );
-    spy.assert_emitted(@array![(tutorial, Tutorial::Event::LobbyClassSet(event))]);
-    assert(systems.daily.spawn(1, Zero::zero(), 0) == LOBBY_MARK, 'Lobby class: daily runs it');
-    assert(systems.tutorial.spawn() == LOBBY_MARK, 'Lobby class: tutorial runs it');
-}
-
-/// A new owner sets the class after a two-step transfer; the old owner no longer can.
-#[test]
-#[available_gas(l2_gas: 68824000)]
-#[feature("safe_dispatcher")]
-fn test_set_lobby_class_follows_the_ownership_transfer() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let probe = class_of("LobbyProbe");
-    for contract in games(@systems) {
-        let ownable = IOwnableDispatcher { contract_address: contract };
-        start_cheat_caller_address(contract, OWNER());
-        ownable.transfer_ownership(ANYONE());
-        start_cheat_caller_address(contract, ANYONE());
-        ownable.accept_ownership();
-        start_cheat_caller_address(contract, OWNER());
-        let error = ILobbyClassSafeDispatcher { contract_address: contract }
-            .set_lobby_class(probe)
-            .unwrap_err();
-        assert(*error.at(0) == 'Ownable: caller is not owner', 'Lobby class: old owner');
-        start_cheat_caller_address(contract, ANYONE());
-        ILobbyClassDispatcher { contract_address: contract }.set_lobby_class(probe);
-        stop_cheat_caller_address(contract);
-        assert(raw(contract, selector!("lobby_class")) == probe.into(), 'Lobby class: new owner');
     }
 }
 
