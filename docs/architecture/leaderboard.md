@@ -868,7 +868,7 @@ Challenge class. No migration of past progress. `Tutorial` and the declared `Lob
 - `Setup.report` checks one allowlist, the quests' (the plan said quiver's `assert_reporter`, which is per component):
   `set_reporter` writes both together, and the second read cost 50,530 L2 gas on every game over.
 - The game over costs more than "the same order" the plan expected: +171,000 to +287,000 L2 gas (`baseline.md`,
-  "After D-21/24"), and scenario i passes its ceiling (escalated).
+  "After D-21/24"), and scenario i passed its ceiling: raised to measured + 5 %, 2,847,987 (CORE's decision).
 - No script defined the quests or achievements against `Daily` (they were defined by hand): nothing to move.
 
 ## What Paved needs from a leaderboard package
