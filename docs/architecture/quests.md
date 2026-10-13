@@ -445,5 +445,5 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 The indexer side is in `docs/architecture/indexer.md` ("Daily quests and achievements", "As built (P7 indexer ...)"): it
 decodes the six events, applies the schedule, window, retirement and saturation rules above per player and per UTC day
 (Point Chaser is the sum of the day's `POINTS` reports), credits On the Podium from the `tournament` view once the day has
-closed, and serves `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and
+closed (from D-20: from its own daily leaderboard, "On the Podium" above), and serves `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and
 `GET /v1/players/{player_id}/achievements`. Prerequisites (`conditions`) are served and not applied.
