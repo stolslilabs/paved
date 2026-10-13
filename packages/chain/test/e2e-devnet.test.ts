@@ -78,7 +78,6 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   let price: bigint;
   let dayId: number;
   const dailyGames = new Map<string, number>(); // player name -> daily game id
-  const tutorialGames = new Map<string, number>();
   const scores = new Map<string, number>(); // player name -> final Daily score
   let economy: EconomyClient;
   const stakes = new Map<string, number>(); // player name -> stake k
@@ -236,7 +235,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(BigInt(head.data.chainId)).toBe(BigInt(await provider.getChainId()));
     expect(head.data.fromBlock).toBe(client.deployment.deployedBlock);
     expect(BigInt(head.data.contracts.daily)).toBe(BigInt(client.deployment.addresses.Daily));
-    expect(BigInt(head.data.contracts.tutorial)).toBe(BigInt(client.deployment.addresses.Tutorial));
+    expect(BigInt(head.data.contracts.setup)).toBe(BigInt(client.deployment.addresses.Setup));
     expect(BigInt(head.data.contracts.account)).toBe(BigInt(client.deployment.addresses.Account));
     pass("deployment, node and indexer agree", `chain ${head.data.chainId}, from_block ${head.data.fromBlock}, indexer head ${head.head.number}`);
   });
@@ -259,26 +258,16 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("faucet: MockUSDC.mint(self, N) through createPlayer", `${FAUCET_USDC_AMOUNT} base units each; ${hashes.join(", ")}`);
   }, 60_000);
 
-  test("spawns a Tutorial game and plays it to game over", async () => {
+  test("claims the tutorial on Setup (D-21): task 10 once, then nothing", async () => {
     const [alice] = players;
-    const spawned = await alice.writer.spawn("tutorial");
-    tutorialGames.set(alice.name, spawned.gameId);
-    const key: GameKey = { mode: "tutorial", gameId: spawned.gameId };
-    let moves = 0;
-    let hash = spawned.transactionHash;
-    for (let game = await client.views.game(key); !game.over && moves < 20; game = await client.views.game(key)) {
-      const result = await alice.writer.build(key, { orientation: 0, x: 0, y: 0 }).catch((error) => {
-        if (!String(error?.message).includes("Orientation: not valid")) throw error;
-        return alice.writer.discard(key);
-      });
-      hash = result.transactionHash;
-      moves++;
-    }
-    const game = await client.views.game(key);
-    expect(game.over).toBe(true);
-    expect(game.dayId).toBe(0);
-    pass("Tutorial: spawn and play to game over", `game ${key.gameId}, ${moves} moves, score ${game.score}, spawn ${short(spawned.transactionHash)}, last ${short(hash)}`);
-  }, 120_000);
+    expect(await client.views.tutorialClaimed(alice.address)).toBe(false);
+    const first = await alice.writer.claimTutorial();
+    expect(first.events.map((e) => [e.name, e.fields.taskId, e.fields.count])).toEqual([["AchievementProgressed", 10, 1]]);
+    expect(await client.views.tutorialClaimed(alice.address)).toBe(true);
+    const second = await alice.writer.claimTutorial();
+    expect(second.events).toEqual([]);
+    pass("tutorial claim: credited once, idempotent", `first ${short(first.transactionHash)}, second ${short(second.transactionHash)} (no event)`);
+  }, 60_000);
 
   test("buys three Daily games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
     dayId = await client.views.currentDay();
@@ -429,7 +418,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     for (const p of players) {
       const profile = await indexer.player(p.address);
       expect(profile.data.player?.name).toBe(p.name);
-      expect(profile.data.stats).toMatchObject({ dailyGames: 1, dailyFinished: 1, bestScore: scores.get(p.name), tutorialGames: tutorialGames.has(p.name) ? 1 : 0 });
+      expect(profile.data.stats).toMatchObject({ dailyGames: 1, dailyFinished: 1, bestScore: scores.get(p.name) });
       const row = await indexer.playerTournament(p.address, dayId);
       expect(row.data).not.toBeNull();
       expect((row.data as LeaderboardEntry).bestScore).toBe(scores.get(p.name));
@@ -446,7 +435,6 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
         expect(g).toMatchObject({ mode: view.mode, over: view.over, score: view.score, startTime: view.startTime, dayId: view.dayId });
         if (g.contract === "daily") expect(g.countedDayId).toBe(dayId);
         const one = (await indexer.game(g.contract, g.gameId)).data;
-        // Daily and Tutorial both number their games from 1: the contract is part of the key.
         expect(one.gameId).toBe(g.gameId);
       }
       lines.push(`${p.name}: ${indexed.length} games, id ${short(indexerPlayerId(p.address))}`);
@@ -456,8 +444,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("indexer players and games vs views and events", lines.join("; "));
   }, 120_000);
 
-  test("the deploy script's smoke games are the deployer's: a paid Daily game, finished and settled, and a running Tutorial game", async () => {
-    // deploy.sh buys a paid Daily game (stake 1), plays it, settles it two days later and starts a Tutorial game.
+  test("the deploy script's smoke game is the deployer's: a paid Daily game, finished and settled", async () => {
+    // deploy.sh buys a paid Daily game (stake 1), plays it and settles it two days later (no Tutorial since D-21).
     // The step fails when they are missing: a node not deployed by scripts/deploy.sh is not what this check is run on.
     const predeployed: Array<{ address: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
     const deployer = predeployed[0].address;
@@ -466,12 +454,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(daily[0]).toMatchObject({ contract: "daily", over: true });
     const smoke = await economy.views.terms(daily[0].gameId);
     expect(smoke).toMatchObject({ stake: 1, recorded: true, settled: true });
-    const games = (await indexer.playerGames(deployer, { contract: "tutorial" })).data.games;
-    expect(games).toHaveLength(1);
-    expect(games[0]).toMatchObject({ contract: "tutorial", countedDayId: 0, dayId: 0 });
-    const view = await client.views.game({ mode: "tutorial", gameId: games[0].gameId });
-    expect(BigInt(view.playerId)).toBe(BigInt(deployer));
-    pass("deployer's smoke games seen by the indexer", `Daily game ${daily[0].gameId} (stake 1, settled, reward ${smoke.reward}), Tutorial game ${games[0].gameId} over ${view.over}`);
+    pass("deployer's smoke game seen by the indexer", `Daily game ${daily[0].gameId} (stake 1, settled, reward ${smoke.reward})`);
   }, 120_000);
 
   test("past the end of the next day, each bought game settles and its PAVED reward is the chain's", async () => {

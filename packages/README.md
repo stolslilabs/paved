@@ -68,7 +68,7 @@ own fake node (no chain, no browser) and reads every route.
 
 `packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
 `EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
-three players are created; one plays a Tutorial game; all three buy a Daily game (stakes 3, 2 and 1) and play it to
+three players are created; one claims the tutorial on Setup (D-21); all three buy a Daily game (stakes 3, 2 and 1) and play it to
 game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the leaderboard, the players and the
 games read from the indexer are compared with the contract views and the events (scores, ranks, `day_id`); the games
 are settled, the Vault, a day nobody plays and an expired game follow (D-20 removed the prize: no claim, sponsor or
@@ -101,5 +101,5 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),
 `E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
 Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
-(`deploy.sh`) plays only a Tutorial game: no deployer game is left in the Daily day, so nothing of it counts in the
-day's game counts. Rerun on a fresh node, not on the same.
+(`deploy.sh`) is a paid Daily game of an earlier day, settled (its Tutorial game left with D-21): nothing of it counts in
+the players' day. Rerun on a fresh node, not on the same.

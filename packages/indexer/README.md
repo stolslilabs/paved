@@ -84,7 +84,8 @@ any achievement progress. Gone with D-21: the `tutorial` source and the `Tutoria
 `tutorial` contract of the game routes (`/v1/games/tutorial/...` and `contract=tutorial` are `400`), and `tutorial_games`
 of a player's stats. A replay of an older history never halts: the six events from Daily's address (Sepolia's past
 progress, not carried over, P-51 ruling 5), `LobbyClassSet` and the mint of a past Tutorial game's token (id `2^32 +
-game id`) are skipped; the Tutorial's address is not read.
+game id`) are skipped; the Tutorial's address is not read. Daily's `SetupSet` (its owner's `set_setup`) is known and
+skipped: the indexer takes Setup's address from the deployment file.
 
 Schema 8 (D-21, D-24: Setup's address replaces Tutorial's in the deployment the database is built for): a database of
 schema 7 or older is refused at start with a message naming `rebuild`; rebuild it from the chain.
