@@ -41,7 +41,7 @@ sections that follow give the reasons and the figures.
 | # | Point | DECIDED (P-31, 2026-10-09) | What would reverse it |
 |---|---|---|---|
 | 1 | Referral | The 5 % comes from the **margin**; the 70 % burn holds on every purchase (section 1) | The PM rules the burn |
-| 2 | Curve | As proposed: `sigma = 0`, `rho = 0.9` (`c = 1.813` on today's sample), `H = 5`, `T = 1,000,000`, Nums' supply factor; Glitchbomb's boost `1 + k/100` **kept** (the owner asked for it, D-10) (section 2) | E4's recalibration on real games, or the PM |
+| 2 | Curve | As proposed: `sigma = 0`, `rho = 0.9` (`c = 1.222` on the D-18 sample, 1.813 before it), `H = 5`, `T = 1,000,000`, Nums' supply factor; Glitchbomb's boost `1 + k/100` **kept** (the owner asked for it, D-10) (section 2) | E4's recalibration on real games, or the PM |
 | 3 | Mean | Weighted EMA: weight = stake, min score 100, max weight 1,000; 4x clamp; a push's weight capped at the max weight; no admin setter (section 2) | The PM |
 | 4 | Settlement | **Option B**: after the day, against the day's mean blended with the EMA; option A stays documented as the fallback (section 1) | The owner wants the payout at game over (then option A) |
 | 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet and Sepolia (P-39; refused by name on mainnet), `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
@@ -52,11 +52,11 @@ sections that follow give the reasons and the figures.
 **The owner's answers** (2026-10-09) to the two questions P-31 recorded:
 
 - **The structural house edge: accepted (D-12).** D-10's numbers (70 % burn, 5 % pool fee) give players back about
-  63 % of what they pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to
-  37.3 %, section 3). The curve parameters do not change it. Only the burn share or the fee does. D-10's numbers
+  63 % of what they pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 36.6 % to
+  36.7 %, section 3). The curve parameters do not change it. Only the burn share or the fee does. D-10's numbers
   stand.
-- **The predictable seed with paid games: kept for now (D-13).** Replaying the day's best known line pays 1.31x to
-  1.36x (section 3, E-1). The owner keeps the predictable daily seed, paid games included. A VRF may come back
+- **The predictable seed with paid games: kept for now (D-13).** Replaying the day's best known line pays 1.08x to
+  1.09x since D-18 (1.31x to 1.36x before it; section 3, E-1). The owner keeps the predictable daily seed, paid games included. A VRF may come back
   later, so E3 still puts the seed behind the `SeedSource` interface (section 8, "Seed source"). With it, a VRF or a
   seed revealed after the purchase can replace the daily seed without touching the move code.
 
@@ -75,21 +75,21 @@ mainnet" in section 8.
 - **The curve.** `h` is 0 below the threshold `(1 + sigma) x mean`, where the whole stake is lost. Above it, `h` is
   linear in the score, `c x score / threshold`, capped at `H`.
   - DECIDED (P-31): `sigma = 0`, so the threshold is the mean.
-  - `c` is calibrated so that `E[h] = rho = 0.9` on the score sample. That gives `c = 1.813` today.
+  - `c` is calibrated so that `E[h] = rho = 0.9` on the score sample. That gives `c = 1.222` on the sample resampled under D-18 (1.813 before; section 3).
   - DECIDED (P-31): cap `H = 5`, `T = 1,000,000`, and Glitchbomb's boost `1 + k/100` kept.
 - **The mean.** Nums' weighted mean: weight = stake, scores under 100 left out, cumulative up to a weight of 1,000,
   then an EMA. Two additions: a clamp at 4x the mean, and the initial mean taken from the calibration.
   - **DECIDED (P-31), option B: each game is settled against the mean of its own day**, blended with the EMA as a
     prior of weight 100. Settlement is one permissionless transaction once the day is over. The reason: every player
-    of a day plays the same deck, and the day's deck moves the mean score by **50 to 55 %** from one day to the next
+    of a day plays the same deck, and the day's deck moves the mean score by **21 to 31 %** from one day to the next
     (measured).
   - The fallback (option A, Nums) freezes the EMA at the purchase and mints at game over. It is simpler, but on
-    hard days everyone loses: up to 100 % of the games of a day in the simulation.
+    hard days many lose: up to 73 % of the games of a day at p90 in the base run since D-18 (up to 100 % before it).
 - **What the Monte-Carlo shows.** It ran on 205 whole Daily games played by bots on the contracts. Real players
   are not in it: these are the limits of the sample.
-  - **In steady state the supply factor drives the mint to equal the burn**: mint / burn is 0.99 in the base runs (0.95 to 1.02 across the runs). The house
+  - **In steady state the supply factor drives the mint to equal the burn**: mint / burn is 1.00 in the base runs (0.97 to 1.02 across the runs, the 500k target apart). The house
     edge is then structural: `1 - 0.7 x 0.95^2 = 36.8 %` (30 % margin, plus the pool fee on the buy and on the
-    player's sale), measured 37.0 % (option B) and 37.3 % (option A).
+    player's sale), measured 36.6 % (option B) and 36.7 % (option A).
   - Of `sigma`, `rho` and `H`, none moves the edge. They only decide **who** loses and where the supply settles:
     `S* = T (2 - 1/rho_eff)`.
 - **Contracts.** The paying logic lives in its own contracts: `PavedToken`, `Economy` (purchase split, swap, burn,
@@ -109,8 +109,8 @@ mainnet" in section 8.
   The player, the leaderboard, the quests and "my games" are unchanged. The indexer reads only the mints. Section 9.
 - **The predictable daily seed makes a paid Daily exploitable.** The owner keeps it for now (D-13, 2026-10-09).
   - The day's deck is public, so a player can find the day's best line offline and replay it at stake 10.
-  - Measured in the simulation: such "replayers" get back 1.31x to 1.36x of what they pay, while everyone else drops to
-    about half.
+  - Measured in the simulation: such "replayers" get back 1.08x to 1.09x of what they pay (1.31x to 1.36x before D-18),
+    while everyone else drops by a fifth to a quarter (0.75 and 0.60 against 1.01 and 0.76, option B, 10 % of the games).
   - The seed stays behind `SeedSource` (E3), so that a VRF can replace it later.
 
 ## 1. The flows of one paid game
@@ -244,7 +244,7 @@ payout = R x h(x)                          (PAVED base units)
 - `sigma` (bps on chain) is the **profitability shift** of the threshold: the cliff is at `(1 + sigma) x mean`.
 - `c` is the slope. At the threshold the player gets `c x R`, and at twice the threshold `2c x R`.
 - `H` caps the reward of one game at `H x R`, which bounds the mint per game whatever the score. The cap is a safety
-  net and rarely binds: the 99th percentile of `h` is about 4.6 on the sample (0.0 % of the games reach the cap of 5).
+  net and rarely binds: the 99th percentile of `h` is about 2.5 on the sample (0.0 % of the games reach the cap of 5).
 
 On chain, with integers: `threshold = mean x (10_000 + sigma_bps) / 10_000 / 1_000` (points, rounded down);
 `payout = min(R x c_bps x score / (threshold x 10_000), R x H)`; 0 if `score < threshold`. `R` fits in a `u128`
@@ -264,10 +264,10 @@ and the player's expected return is `burn x (1 - fee)^2 = 0.7 x 0.95^2 = 63.2 %`
 `c` or `H` are (section 3). The shift decides how many games lose everything, and `c` how much the others get.
 Values, DECIDED (P-31, 2026-10-09):
 
-- `sigma = 0`: the threshold is the mean. 69 % of the sampled games are below it. Negative shifts (a
+- `sigma = 0`: the threshold is the mean. 47 % of the sampled games are below it. Negative shifts (a
   threshold under the mean) lose fewer games and pay them less; positive shifts the reverse. Table in section 3.
-- `rho = E[h] = 0.9` on the sample, which gives `c = 1.813`. `rho` sets where the supply settles, not the edge:
-  `S* = T x (2 - 1/rho_eff)`, with `rho_eff = rho x E[k(1+k/100)] / E[k]`. That is about 947,000 in the limit (`rho_eff` = 0.95; 901,000 after the simulated year) with the stake
+- `rho = E[h] = 0.9` on the sample, which gives `c = 1.222`. `rho` sets where the supply settles, not the edge:
+  `S* = T x (2 - 1/rho_eff)`, with `rho_eff = rho x E[k(1+k/100)] / E[k]`. That is about 947,000 in the limit (`rho_eff` = 0.95; 987,000 after the simulated year) with the stake
   mix of the simulation, a mild deflation from the initial 1,000,000.
 - `H = 5`.
 
@@ -308,7 +308,7 @@ constant, no other change.
 | Parameter | Nums | DECIDED (P-31) | Why |
 |---|---|---|---|
 | Weight of a game | `multiplier / 1e6`, truncated (a paid game under 1x counts 0) | the stake `k` (1 to 10) | the same intent, without the truncation |
-| Initial mean | 10 (mainnet) | the calibration mean of the sample, 3,353 points, set at deploy | an initial mean far off only costs the first days (the cumulative phase converges) |
+| Initial mean | 10 (mainnet) | the calibration mean of the sample, 3,980 points (3,353 before D-18), set at deploy | an initial mean far off only costs the first days (the cumulative phase converges) |
 | Initial weight | 100 | 100 | |
 | Max weight | 1,000 | 1,000 | an EMA step of `k / 1,000` |
 | Min score | 5 | 100 | a game abandoned or surrendered at 0 does not pull the mean down |
@@ -335,20 +335,35 @@ day, and the mean in option A.
 
 | Bot | What it does |
 |---|---|
-| greedy | the bot of the full-deck golden (P5-6): the legal position with the most neighbours, a character on the first area that takes one |
+| greedy | the bot of the full-deck golden (P5-6): the legal position with the most neighbours |
 | noisy | the same, but a random choice among the positions with the most neighbours (two seeds a day) |
-| novice | a random legal position, a character on half of the moves |
-| bare | greedy, never a character (5 games, a check) |
+| novice | a random legal position |
+| bare | greedy again (5 games, a check: it plays the same game as greedy, so the same score on the same day) |
 
 The days are 11 to 60, each a different deck.
 
-**How it was played.** A test placed outside this PR (`scripts/montecarlo/sampler.cairo`, a copy of the
-`test_full_deck_generate` bot with these strategies) plays one game per `snforge` run, as `OPERATIONS.md` requires
-for game generation. The run reads the day, the strategy and the seed from the environment. The greedy bot on day
-10 reproduces the golden's 3,554 exactly, which validates the harness.
+**Resampled under D-18 (2026-10-13).** The first sample (2026-10-09) was played with characters. D-18 removed them: every
+structure now scores when it closes, so the scores moved (the full-deck golden went from 3,554 to 5,121) and so did the
+calibration. The same 205 games were played again, same days, same strategy ids, same seeds, by the sampler with its
+characters taken out. The strategies that differed only by characters now play the same game: 2 is 0 (greedy) and
+3 is 1 (random legal; 3 had no game in the sample). The `noisy` games (4) keep their random ties. Strategy 1 no longer
+draws the coin that chose whether to try a character, so its random stream is the placement's alone: its moves are not those of the
+first sample, only its decks are. The old figures are quoted next to the new ones below.
 
-Each run measured 13 to 40 s and 4.6 to 5.0 GB peak RSS (205 runs, none failed) on the VPS (scarb 2.20.1, snforge 0.64.0,
-`RAYON_NUM_THREADS=1`, `prlimit --as=8589934592`, `--max-n-steps 200000000`).
+**How it was played.** A test kept out of the package (`scripts/montecarlo/sampler.cairo`, a copy of the
+`test_full_deck_generate` bot with these strategies) plays one game per `snforge` run, as `OPERATIONS.md` requires
+for game generation. To run it, copy it to `contracts/src/tests/golden/sampler.cairo`, add `pub mod sampler;` to
+`contracts/src/tests/golden.cairo`, make `edge_table`, `edge`, `key` and `fits` of `golden/full_deck.cairo` public
+(`pub fn`; none of these edits is committed), then, one game per run, from `contracts/`:
+`DAY=11 STRATEGY=0 SEED=0 snforge test --ignored test_sampler --max-n-steps 200000000`. The run reads the day, the
+strategy and the seed from the environment and prints a `SAMPLE` line with the score. The greedy bot on day 10
+(`DAY=10 STRATEGY=0 SEED=0`) reproduces the golden's 5,121 exactly (3,554 before D-18), which validates the harness.
+
+First sample: each run measured 13 to 40 s and 4.6 to 5.0 GB peak RSS (205 runs, none failed) on the VPS (scarb 2.20.1,
+snforge 0.64.0, `RAYON_NUM_THREADS=1`, `prlimit --as=8589934592`, `--max-n-steps 200000000`). Resample (2026-10-13): 205
+runs, none failed, 2,629 s in all (12.8 s a run), 3.55 to 3.62 GiB peak RSS per run (3,717,596 to 3,798,188 kB, `/usr/bin/time`,
+largest process of the run), under `prlimit --as=16106127360` and `--max-threads 2`; the one test build, before the first game,
+peaked at 6.59 GB RSS.
 
 The output is `scripts/montecarlo/scores.csv`.
 
@@ -356,7 +371,7 @@ The output is `scripts/montecarlo/scores.csv`.
 
 - The players are bots, not people. The three kinds bracket a skill range (novice to greedy) but no human
   distribution. Real players may plan ahead, which none of the bots do.
-- The goldens are not in the sample, except the full-deck one (3,554, reproduced). The other goldens are cut decks
+- The goldens are not in the sample, except the full-deck one (5,121, reproduced). The other goldens are cut decks
   (5 to 11 tiles) with forced plans, and their scores say nothing about a whole game.
 - No devnet games were played. The bots run the same contract code on snforge, which is what devnet would run, at
   a fraction of the cost.
@@ -371,7 +386,7 @@ give the distribution, and `c`, `sigma` and `mean0` are re-derived with the same
 
 ### Script and output
 
-`python3 -I scripts/montecarlo/sim.py` (standard library only, fixed seeds, about 40 s; two runs give the same output byte for byte). It prints the tables
+`python3 -I scripts/montecarlo/sim.py` (standard library only, fixed seeds, about 25 s; two runs give the same output byte for byte). It prints the tables
 below; `scripts/montecarlo/output.md` is its committed output for the sample.
 
 What it models, per game:
@@ -395,81 +410,88 @@ From `scripts/montecarlo/output.md` (the full output, every run of both options)
 
 | Bot | Games | Mean | Median | Min | Max | Zero scores |
 |---|---:|---:|---:|---:|---:|---:|
-| greedy | 50 | 3,640 | 3,446 | 0 | 8,074 | 2 |
-| noisy | 100 | 2,965 | 2,443 | 0 | 9,062 | 14 |
-| novice | 50 | 287 | 0 | 0 | 1,755 | 37 |
-| bare (no character) | 5 | 0 | 0 | 0 | 0 | 5 |
+| greedy | 50 | 5,176 | 4,820 | 1,518 | 9,117 | 0 |
+| noisy | 100 | 4,670 | 4,694 | 900 | 8,599 | 0 |
+| novice | 50 | 1,405 | 1,257 | 209 | 4,343 | 0 |
+| bare (greedy again) | 5 | 4,248 | 4,327 | 3,305 | 4,980 | 0 |
 
-The day effect: the mean of the greedy bot's day is 3,640 with a standard deviation of 1,992 over 50 days (55 %); for
-the noisy bot, 2,965 and 1,495 (50 %). The same bot on the same rules scores twice as much on one day's deck as on
-another's.
+Before D-18 (first sample): greedy 3,640 mean, median 3,446, max 8,074, 2 zero scores; noisy 2,965, 2,443, 9,062, 14
+zero scores; novice 287, 0, 1,755, 37 zero scores; bare (no character) 0 in all five games.
+
+The day effect: the mean of the greedy bot's day is 5,176 with a standard deviation of 1,604 over 50 days (31 %); for
+the noisy bot, 4,670 and 1,003 (21 %). It was 55 % and 50 % before D-18. The deck of the day still moves a bot's mean by a fifth to a third.
 
 **Calibration** (`E[h] = rho` on the population 25 % greedy, 50 % noisy, 25 % novice; mean as the contract tracks it,
-scores under 100 left out: 3,353; cap 5):
+scores under 100 left out: 3,980, 3,353 before D-18; cap 5):
 
 | sigma | games below the threshold | `c` for rho 0.8 | rho 0.9 | rho 1.0 |
 |---:|---:|---:|---:|---:|
-| -0.3 | 56 % | 0.921 | 1.036 | 1.151 |
-| -0.2 | 62 % | 1.131 | 1.272 | 1.414 |
-| -0.1 | 64 % | 1.312 | 1.476 | 1.640 |
-| 0 | 69 % | 1.612 | **1.813** | 2.022 |
-| +0.1 | 72 % | 1.916 | 2.159 | 2.429 |
-| +0.2 | 74 % | 2.144 | 2.421 | 2.736 |
-| +0.3 | 76 % | 2.497 | 2.843 | 3.276 |
+| -0.3 | 28 % | 0.618 | 0.695 | 0.772 |
+| -0.2 | 32 % | 0.737 | 0.829 | 0.921 |
+| -0.1 | 39 % | 0.885 | 0.995 | 1.106 |
+| 0 | 47 % | 1.087 | **1.222** | 1.358 |
+| +0.1 | 55 % | 1.339 | 1.506 | 1.674 |
+| +0.2 | 65 % | 1.791 | 2.015 | 2.239 |
+| +0.3 | 73 % | 2.384 | 2.682 | 2.984 |
 
-At the decided point (`sigma` 0, `rho` 0.9, `c` 1.813), `h` has median 0, p90 3.16, p99 4.60, and no game of the
-sample reaches the cap.
+At the decided point (`sigma` 0, `rho` 0.9, `c` 1.222), `h` has median 1.27, p90 2.03, p99 2.54, and no game of the
+sample reaches the cap (0.0 %). Before D-18, at `c` 1.813: median 0, p90 3.16, p99 4.60, 0.0 % at the cap. At this point 47 %
+of the sampled games (69 % before D-18) are below the threshold, so the median game is above it.
 
 **Runs** (365 days x 200 games; "return" is what a player gets back in USDC per USDC paid, after selling the reward;
 "lost per day" is the share of a day's games that pay nothing, p10 to p90 over the days):
 
 | Run | mint / burn | house edge | games lost | lost per day | return p90 | p99 | supply after a year | greedy | noisy | novice | replayer |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| A, base | 0.989 | 37.3 % | 69 % | 46-100 % | 2.13 | 3.08 | 905k | 0.99 | 0.75 | 0.00 | |
-| **B, base** | 0.988 | 37.0 % | 66 % | 48-78 % | 2.00 | 2.58 | 901k | 1.05 | 0.73 | 0.00 | |
-| B, sigma -0.2 | 0.996 | 36.7 % | 56 % | 26-76 % | 1.68 | 2.17 | 961k | 1.08 | 0.71 | 0.02 | |
-| B, sigma +0.2 | 0.950 | 38.7 % | 76 % | 50-100 % | 2.53 | 3.27 | 706k | 0.93 | 0.76 | 0.00 | |
-| B, rho 0.8 | 0.963 | 37.9 % | 66 % | 48-78 % | 1.98 | 2.55 | 762k | 1.04 | 0.72 | 0.00 | |
-| B, rho 1.2 | 1.016 | 36.2 % | 66 % | 48-78 % | 2.04 | 2.64 | 1,217k | 1.06 | 0.74 | 0.00 | |
-| B, cap 2 | 0.919 | 39.3 % | 66 % | 48-78 % | 1.81 | 1.93 | 621k | 1.05 | 0.68 | 0.00 | |
-| B, stakes all 1 | 0.954 | 39.1 % | 68 % | 47-100 % | 2.07 | 2.67 | 823k | 0.96 | 0.73 | 0.00 | |
-| B, stakes all 10 | 0.999 | 36.5 % | 64 % | 48-78 % | 2.00 | 2.68 | 988k | 1.09 | 0.72 | 0.00 | |
-| B, pool depth x0.1 | 0.940 | 40.3 % | 66 % | 48-78 % | 1.90 | 2.60 | 956k | 0.99 | 0.69 | 0.00 | |
-| B, players keep half their reward | 0.963 | 37.9 % | 66 % | 48-78 % | 1.97 | 2.50 | 948k | 1.04 | 0.72 | 0.00 | |
-| B, all greedy | 0.943 | 38.0 % | 50 % | 0-100 % | 1.31 | 1.42 | 698k | 0.62 | | | |
-| B, half novices | 0.984 | 37.3 % | 76 % | 62-87 % | 2.57 | 3.67 | 873k | 1.60 | 1.10 | 0.00 | |
-| A, 10 % replayers | 1.008 | 36.6 % | 69 % | 42-100 % | 1.73 | 2.46 | 1,096k | 0.65 | 0.51 | 0.00 | 1.31 |
-| B, 10 % replayers | 1.011 | 36.5 % | 64 % | 45-72 % | 1.48 | 1.81 | 1,145k | 0.62 | 0.50 | 0.00 | 1.36 |
-| B, 30 % replayers | 1.016 | 36.8 % | 55 % | 42-61 % | 1.10 | 1.30 | 1,265k | 0.37 | 0.31 | 0.00 | 0.94 |
-| B, target 500k | 0.785 | 41.8 % | 66 % | 48-78 % | 1.88 | 2.44 | 456k | 0.98 | 0.67 | 0.00 | |
-| B, 20 games a day | 0.959 | 39.1 % | 67 % | 35-100 % | 2.03 | 2.79 | 920k | 0.99 | 0.70 | 0.00 | |
-| B, prior weight 20 | 0.996 | 36.6 % | 64 % | 47-78 % | 1.93 | 2.49 | 965k | 1.09 | 0.72 | 0.00 | |
-| B, prior weight 1,000 | 0.987 | 37.5 % | 68 % | 46-100 % | 2.08 | 2.93 | 887k | 1.00 | 0.74 | 0.00 | |
+| A, base | 0.998 | 36.7 % | 45 % | 24-73 % | 1.33 | 1.70 | 977k | 0.96 | 0.77 | 0.02 |  |
+| **B, base** | 0.999 | 36.6 % | 43 % | 24-70 % | 1.27 | 1.63 | 987k | 1.01 | 0.76 | 0.00 |  |
+| B, sigma -0.2 | 0.995 | 36.9 % | 30 % | 21-50 % | 1.09 | 1.39 | 957k | 0.90 | 0.79 | 0.02 |  |
+| B, sigma +0.2 | 0.999 | 36.7 % | 61 % | 46-78 % | 1.74 | 2.24 | 990k | 1.00 | 0.76 | 0.00 |  |
+| B, rho 0.8 | 0.981 | 37.1 % | 43 % | 24-70 % | 1.26 | 1.61 | 854k | 1.00 | 0.76 | 0.00 |  |
+| B, rho 1.2 | 1.018 | 36.1 % | 43 % | 24-70 % | 1.29 | 1.66 | 1,248k | 1.01 | 0.77 | 0.00 |  |
+| B, cap 2 | 1.002 | 36.4 % | 43 % | 24-70 % | 1.28 | 1.43 | 1,018k | 1.01 | 0.76 | 0.00 |  |
+| B, stakes all 1 | 0.986 | 37.3 % | 43 % | 24-70 % | 1.29 | 1.59 | 937k | 0.99 | 0.75 | 0.01 |  |
+| B, stakes all 10 | 1.002 | 36.4 % | 44 % | 24-72 % | 1.33 | 1.72 | 1,026k | 1.01 | 0.77 | 0.00 |  |
+| B, pool depth x0.1 | 0.983 | 37.3 % | 43 % | 24-70 % | 1.31 | 1.92 | 981k | 0.99 | 0.75 | 0.00 |  |
+| B, players keep half their reward | 0.992 | 35.9 % | 43 % | 24-70 % | 1.28 | 1.62 | 989k | 1.01 | 0.77 | 0.00 |  |
+| B, all greedy | 0.977 | 38.7 % | 50 % | 0-100 % | 1.31 | 1.42 | 813k | 0.61 |  |  |  |
+| B, half novices | 0.992 | 36.9 % | 54 % | 46-68 % | 1.60 | 2.03 | 933k | 1.35 | 1.20 | 0.02 |  |
+| A, 10 % replayers | 0.997 | 37.0 % | 50 % | 24-75 % | 1.24 | 1.55 | 966k | 0.72 | 0.61 | 0.00 | 1.08 |
+| B, 10 % replayers | 1.003 | 36.7 % | 45 % | 24-68 % | 1.11 | 1.29 | 1,033k | 0.75 | 0.60 | 0.00 | 1.09 |
+| B, 30 % replayers | 1.009 | 36.5 % | 43 % | 31-56 % | 0.94 | 1.09 | 1,119k | 0.46 | 0.41 | 0.00 | 0.89 |
+| B, target 500k | 0.819 | 40.6 % | 43 % | 24-70 % | 1.22 | 1.56 | 492k | 0.95 | 0.71 | 0.00 |  |
+| B, 20 games a day | 0.974 | 38.5 % | 44 % | 20-70 % | 1.30 | 1.59 | 945k | 0.94 | 0.73 | 0.02 |  |
+| B, prior weight 20 | 0.999 | 36.6 % | 43 % | 24-70 % | 1.28 | 1.65 | 990k | 1.00 | 0.76 | 0.00 |  |
+| B, prior weight 1,000 | 0.999 | 36.5 % | 44 % | 24-74 % | 1.32 | 1.66 | 988k | 0.98 | 0.77 | 0.02 |  |
 
 The initial mean (x0.5 or x2) and the max weight (100 instead of 1,000) change nothing visible after a year (rows in
-the output). The median return is 0 in every run: more than half the games lose their stake, as D-10 asks.
+the output). Since D-18 the median return is above 0 in the base runs (0.87 with A, 0.88 with B): 45 % (A) and 43 % (B) of the
+games lose their stake, fewer than half (more than half before: 69 % and 66 %, median return 0). The median is 0 again from `sigma`
++0.1 (54 % and 52 % lost).
 
 ### What the figures say
 
 - **The house edge is structural.** In every run where the supply has time to settle, mint / burn is close to 1
-  and the house edge is 36.2 % to 37.9 %. That is the analytic `1 - 0.7 x 0.95^2 = 36.8 %`: 30 points of margin (to
+  and the house edge is 35.9 % to 37.3 % (option B). That is the analytic `1 - 0.7 x 0.95^2 = 36.8 %`: 30 points of margin (to
   the Vault and the referrers), 3.5 points of pool fee on the buy, 3.3 points of pool fee on the player's sale. The
-  edge is higher only where the supply has not settled within the year: a low target (500k: 41.8 %), a thin pool
-  (40.3 %), a low cap (39.3 %), or few games (20 a day: 39.1 %). In those runs the token is still deflating.
-- **The supply factor is the regulator.** `rho` moves the supply after a year (762k at 0.8, 1,217k at 1.2), not
+  edge is higher only where the supply has not settled within the year: a low target (500k: 40.6 %), a population of greedy bots alone
+  (38.7 %), or few games (20 a day: 38.5 %); a thin pool raises it with option A only (39.0 %). In those runs the token is still deflating.
+- **The supply factor is the regulator.** `rho` moves the supply after a year (854k at 0.8, 1,248k at 1.2), not
   the edge. Its value is a choice of where the supply sits, and 0.9 keeps it a little under the initial million.
-- **`sigma` chooses who loses.** From -0.2 to +0.2, the share of games lost goes from 56 % to 76 % and the p99
-  return from 2.17 to 3.27; the edge stays at 36.7 to 38.7 %. D-10 asks for a cliff at the profitability-shifted
+- **`sigma` chooses who loses.** From -0.2 to +0.2, the share of games lost goes from 30 % to 61 % and the p99
+  return from 1.39 to 2.24; the edge stays at 36.6 to 36.9 %. D-10 asks for a cliff at the profitability-shifted
   mean; 0 puts it at the mean. A negative shift is gentler on the median player at no cost to the house.
-- **Skill pays, as it should.** The greedy bot gets back 1.05 per USDC (option B), the noisy bot 0.73, the novice
-  nothing. With half the population novices, the greedy bot earns 1.60: a skilled player gains from weaker ones.
-- **Option B is fairer by day.** With option A, on a hard deck every game of the day loses (p90 of 100 %); with B
-  the share of a day's games lost stays between 48 % and 78 %, and the p99 return falls from 3.08 to 2.58. The cost
+- **Skill pays, as it should.** The greedy bot gets back 1.01 per USDC (option B), the noisy bot 0.76, the novice
+  nothing. With half the population novices, the greedy bot earns 1.35: a skilled player gains from weaker ones.
+- **Option B is fairer by day.** With option A, the share of a day's games lost spans 24 % to 73 % (p10 to p90 over
+  the days); with B, 24 % to 70 %, and the p99 return is 1.70 against 1.63. The gap was wider before D-18 (46-100 % against 48-78 %,
+  p99 3.08 against 2.58), when the day effect was 50 to 55 %; at `sigma` +0.2 it is still 36-100 % against 46-78 %. The cost
   is the settlement after the day. With few games a day (20), B's day mean is noisy; a prior weight of 100 (about 30
   games at the mean stake) is the decided compromise (P-31).
-- **Replay is the hole (E-1).** A player who replays the best known line of the day at stake 10 gets back 1.31x to
-  1.36x what they pay with 10 % of the games theirs, and drags everyone else to about half. At 30 % they fall back
-  under 1 (0.94) because the mean adapts, but the others then get 0.31 to 0.37.
+- **Replay is the hole (E-1).** A player who replays the best known line of the day at stake 10 gets back 1.08x to
+  1.09x what they pay with 10 % of the games theirs (1.31x to 1.36x before D-18), and drags the others down by a fifth to a
+  quarter (0.75 and 0.60 against 1.01 and 0.76, option B). At 30 % they fall back under 1 (0.89) because the mean
+  adapts, but the others then get 0.41 to 0.46.
 
 ## 4. The Vault
 
@@ -721,8 +743,8 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
-| E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day. **Stale prior**: a day's prior is the EMA at its first purchase, and a day enters the EMA only at its first settlement, from `(D + 2) x 86400` (P-34). Day `D + 1`'s prior never includes day `D`; day `D + 2`'s includes it only if `D` was settled before `D + 2`'s first purchase | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B. A keeper settles each day just after `(D + 2) x 86400`, so that the prior lags by two days at most. The prior weighs 100 against the day's own games |
+| E-1 | **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.08x to 1.09x of their price since D-18 (1.31x to 1.36x before it); at 10 % of the games the others drop by a fifth to a quarter | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-2 | **Day effect**: one deck per day; the mean score moves 21 to 31 % from day to day (50 to 55 % before D-18). **Stale prior**: a day's prior is the EMA at its first purchase, and a day enters the EMA only at its first settlement, from `(D + 2) x 86400` (P-34). Day `D + 1`'s prior never includes day `D`; day `D + 2`'s includes it only if `D` was settled before `D + 2`'s first purchase | Option B (the day's own mean). With option A, the share of a day's games lost spans 24 % to 73 % (p10 to p90 over the days), against 24 % to 70 % with option B (46-100 % against 48-78 % before D-18). A keeper settles each day just after `(D + 2) x 86400`, so that the prior lags by two days at most. The prior weighs 100 against the day's own games |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich; the owner repointing `set_pool` at a thin pool (accepted trust, section 6); a stale guard rate | `min_out` from the player (pool quote minus 1 % to 5 %, P-35); the rate guard (+10 %, observation clamped to 10 % per purchase); a launch LP of at least ~10,000 USDC (the owner's act). The guard's rate follows the swaps, not the day's settlement, so the stale prior (E-2) does not touch it |
 | E-5 | `Daily` at 88.6 % after P8 (1,121 felts to 90 %) | P8 adds nothing more to `Daily`; growth of the move code goes to the PM (P-27); fallbacks (a) or (c2) of `class-headroom.md` |
@@ -887,7 +909,7 @@ there, stand as written:
 
 The two questions recorded by P-31 are answered (2026-10-09):
 
-- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %), is **accepted (D-12)**.
+- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 36.6 % to 36.7 %), is **accepted (D-12)**.
   It follows from D-10's 70 % burn and 5 % pool fee, and D-10's numbers stand.
 - **The predictable daily seed is kept for now, paid games included (D-13).** Paid games are exploitable by replay
   (E-1). A VRF may come back later. E3 keeps the seed behind `SeedSource`, so that a VRF would replace one
