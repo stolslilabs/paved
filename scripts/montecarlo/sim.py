@@ -7,8 +7,9 @@ Deterministic: fixed seeds, the standard library only, no input but the score sa
 
 The score sample (`scores.csv`: day, strategy, seed, score) holds whole Daily games played by bots on
 the contracts (`sampler.cairo`, run one game per snforge run). Strategies: 0 greedy (the bot of the
-full-deck golden), 4 greedy with random ties, 1 random legal placement with characters on half the
-moves, 2 greedy without characters.
+full-deck golden), 4 greedy with random ties, 1 random legal placement, 2 greedy again. Since D-18 (no
+characters) 2 plays the same game as 0, which `bare` checks; before it, 2 was greedy without characters
+and 1 placed characters on half the moves.
 
 Units: USDC in whole USDC (the contracts use 6 decimals), PAVED in whole tokens (18 decimals),
 scores in points. Every printed figure comes from this script; nothing is measured on chain.
