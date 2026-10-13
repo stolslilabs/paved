@@ -234,6 +234,7 @@ fn test_differential_wonder_ring() {
                     orientation: Orientation::North.into(),
                     x,
                     y,
+                    owner: 0,
                 },
             );
         check::assert_tile_agrees(board.store, board.game_id, id);

@@ -42,6 +42,7 @@ pub impl TileImpl of TileTrait {
             orientation: Orientation::None.into(),
             x: CENTER,
             y: CENTER,
+            owner: 0,
         }
     }
 
@@ -260,7 +261,7 @@ pub impl InternalImpl of InternalTrait {
 pub impl ZeroableTile of ZeroableTileTrait {
     #[inline]
     fn zero() -> Tile {
-        Tile { game_id: 0, id: 0, plan: 0, orientation: 0, x: 0, y: 0 }
+        Tile { game_id: 0, id: 0, plan: 0, orientation: 0, x: 0, y: 0, owner: 0 }
     }
 
     #[inline]
@@ -310,7 +311,13 @@ pub mod tests {
         #[inline]
         fn from(plan: Plan, orientation: Orientation, x: u32, y: u32) -> Tile {
             Tile {
-                game_id: 0, id: 0, plan: plan.into(), orientation: orientation.into(), x: x, y: y,
+                game_id: 0,
+                id: 0,
+                plan: plan.into(),
+                orientation: orientation.into(),
+                x: x,
+                y: y,
+                owner: 0,
             }
         }
     }

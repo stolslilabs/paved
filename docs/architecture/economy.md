@@ -721,7 +721,7 @@ lot as the contract**, per O-39's lesson.
 | Running day | `Economy.day(day) -> DayView { prior, sum, weight, mean, closed }`: sum, weight and mean are 0 until the day closes (P-34) |
 | A game's terms | `Economy.terms(game_id) -> TermsView { stake, reference, day, score, settled, reward }` |
 | Settlement | `Economy.settle(game_ids)`, from the end of the day after the purchase day (P-34); the client offers it then, and the indexer lists the unsettled games. A game recorded 24 h or more after its purchase is expired and earns nothing |
-| Prize | the daily top-3 prize no longer grows with entries (section 7): sponsor-only |
+| Prize | the daily top-3 prize no longer grows with entries (section 7): sponsor-only. Planned: D-20 removes the prize (`leaderboard.md`, "D-20") |
 | Deployments | `contracts/deployments/<network>.json` gains `Economy`, `PavedToken`, `Vault`, `Collection` (and `MockRouter`, `MockUSDC` on devnet); `token` becomes USDC; ABIs `Economy.json`, `PavedToken.json`, `Vault.json`, `Collection.json` |
 
 ## 7. What #181 left, reused and avoided
@@ -748,7 +748,7 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.08x to 1.09x of their price since D-18 (1.31x to 1.36x before it); at 10 % of the games the others drop by a fifth to a quarter | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-1 | (reversed by D-23) **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.08x to 1.09x of their price since D-18 (1.31x to 1.36x before it); at 10 % of the games the others drop by a fifth to a quarter | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
 | E-2 | **Day effect**: one deck per day; the mean score moves 21 to 31 % from day to day (50 to 55 % before D-18). **Stale prior**: a day's prior is the EMA at its first purchase, and a day enters the EMA only at its first settlement, from `(D + 2) x 86400` (P-34). Day `D + 1`'s prior never includes day `D`; day `D + 2`'s includes it only if `D` was settled before `D + 2`'s first purchase | Option B (the day's own mean). With option A, the share of a day's games lost spans 24 % to 73 % (p10 to p90 over the days), against 24 % to 70 % with option B (46-100 % against 48-78 % before D-18). A keeper settles each day just after `(D + 2) x 86400`, so that the prior lags by two days at most. The prior weighs 100 against the day's own games |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich; the owner repointing `set_pool` at a thin pool (accepted trust, section 6); a stale guard rate | `min_out` from the player (pool quote minus 1 % to 5 %, P-35); the rate guard (+10 %, observation clamped to 10 % per purchase); a launch LP of at least ~10,000 USDC (the owner's act). The guard's rate follows the swaps, not the day's settlement, so the stale prior (E-2) does not touch it |
@@ -1175,6 +1175,7 @@ text left the choice open, it is written here.
 - **Prize.** `HostableComponent::spawn` no longer adds the entry to the tournament: the prize is sponsor-only
   (P-31). `sponsor` no longer requires a tournament that exists, since entries no longer create one: any day can be
   sponsored.
+- Planned: D-20 removes the prize, `sponsor`, `claim` and the reclaim (`leaderboard.md`, "D-20: tournaments leave the code (planned)").
 - **Registry.** `Account.set_economy(economy)` (owner, once, non-zero; event `EconomySet`) and `Account.economy()`.
   `Lobby` reads the `Account` address from the `paved` storage node, as `Store` does.
 - **Price.** `constants::DAILY_TOURNAMENT_PRICE` is 2,000,000 (2 USDC, `economy::BASE_PRICE`, a test pins the two
@@ -1224,6 +1225,7 @@ text left the choice open, it is written here.
   - cost (one call, test profile): `sponsor` 1,688,689 to 1,866,909 (+178,220, the sponsor's slot), a rank's
     `claim` 1,920,578 to 1,940,478 (+19,900, the rank-0 branch), a reclaim 1,534,868. `Lobby` 60,228 to 60,996 CASM
     felts.
+  - Planned: D-20 removes the reclaim with the prize; the funds left in `Daily` are reported first (`leaderboard.md`, "D-20").
 - **Indexer.** `Economy` is a fourth address (`contracts.Economy`, required). `Purchased`, `Recorded`, `DayClosed`
   and `Settled` are stored and served in API v1 (appended fields; amounts as decimal strings, P-19);
   `EconomyConfigured`, `PoolSet`, `GameSet` and `EconomySet` are ignored.

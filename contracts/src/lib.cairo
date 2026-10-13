@@ -97,10 +97,12 @@ pub mod structure {
     pub mod assessment;
     pub mod forest;
     pub mod oriented;
+    pub mod owners;
     pub mod placement;
     pub mod record;
     pub mod state;
     pub mod tables;
+    pub mod walk;
 }
 
 pub mod mocks {
@@ -125,7 +127,10 @@ pub mod tests {
     pub mod golden;
     pub mod leaderboard;
     pub mod legacy;
+    pub mod legacy_d18;
     pub mod oracle;
+    pub mod owners;
     pub mod seed;
     pub mod setup;
+    pub mod walk_cost;
 }

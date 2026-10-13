@@ -99,7 +99,7 @@ fn test_views_game_player_answerable_without_any_build() {
 }
 
 #[test]
-#[available_gas(l2_gas: 179267000)]
+#[available_gas(l2_gas: 183826000)]
 fn test_views_game_after_builds_and_discard() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     build_two(store, @systems, context.game_id, context.player_id);
@@ -116,7 +116,7 @@ fn test_views_game_after_builds_and_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 186503399)]
+#[available_gas(l2_gas: 189715000)]
 fn test_views_game_closed_by_surrender() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -222,7 +222,7 @@ fn test_views_game_missing_on_tutorial() {
 // Tiles
 
 #[test]
-#[available_gas(l2_gas: 179890000)]
+#[available_gas(l2_gas: 184422000)]
 fn test_views_tiles_whole_game() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     build_two(store, @systems, context.game_id, context.player_id);
@@ -255,7 +255,7 @@ fn test_views_tiles_whole_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 180937162)]
+#[available_gas(l2_gas: 185440000)]
 fn test_views_tiles_paging_edges() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     build_two(store, @systems, context.game_id, context.player_id);
@@ -340,7 +340,7 @@ fn test_views_builder_other_player() {
 // Tournament
 
 #[test]
-#[available_gas(l2_gas: 192555851)]
+#[available_gas(l2_gas: 197263000)]
 fn test_views_tournament_lifecycle() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -436,7 +436,7 @@ fn test_views_entry_price_equals_the_spawn_debit() {
 // Events
 
 #[test]
-#[available_gas(l2_gas: 186351708)]
+#[available_gas(l2_gas: 190861000)]
 fn test_views_events_keys_carry_the_player() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::None);

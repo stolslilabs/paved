@@ -66,6 +66,8 @@ world did, so a missing entry reads as the model with its keys set and every val
 | game counter | none | 1 | `u32`, last game id given |
 | account | none | 1 | address of `Account` (zero in `Account` itself) |
 
+Planned: D-20 removes the `Tournament` record (its map stays dead under P-42; `leaderboard.md`, "D-20").
+
 `Store::player` reads the local `players` map when the `account` slot is zero (in `Account`), and
 calls `IAccount::player` otherwise. `Store::game` composes the `Game` struct of the three game records
 (`live_game` leaves `GameEnd` out, which a move does not need), and `set_game_config`,
@@ -99,6 +101,8 @@ and data as the contract's `self.emit` would.
 | `Upgraded` | all three, `Economy`, `Collection` | `class_hash` | `upgrade` (OpenZeppelin's event since U-1, same selector and data as before) |
 | `LobbyClassSet` | Daily, Tutorial | `class_hash` | `set_lobby_class` (P-42) |
 
+Planned: D-20 removes `Sponsored` and `Claimed` (past events, layouts kept in `public-interface.md`, "Breaking change D-20").
+
 `player_id` is a key of `GameSpawned` and `GameOver` so that a client lists a player's games from
 events (`docs/architecture/public-interface.md`).
 
@@ -126,6 +130,7 @@ Own, minimal, no Dojo permission:
   the callers accepted are the same. Games are single-player.
 - **Prize claim**: a tournament rank pays only the address recorded at that rank, once, after the
   tournament is over (`Tournament::claim`, unchanged).
+  Planned: D-20 removes the prize claim and `sponsor` (`leaderboard.md`, "D-20").
 - No entry point lets a caller write another player's record or another player's game.
 
 Entry points (every `external` function):

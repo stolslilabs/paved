@@ -80,7 +80,12 @@ fn put(
 fn write(
     store: TestStore, game_id: u32, id: u32, plan: Plan, orientation: Orientation, x: u32, y: u32,
 ) {
-    store.set_tile(Tile { game_id, id, plan: plan.into(), orientation: orientation.into(), x, y });
+    store
+        .set_tile(
+            Tile {
+                game_id, id, plan: plan.into(), orientation: orientation.into(), x, y, owner: 0,
+            },
+        );
 }
 
 /// Reads the forest at `at` of the tile placed at (`x`, `y`) with the walk of the oracle:

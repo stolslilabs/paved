@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Base } from "../src/elements/decks/base";
 import { Tutorial } from "../src/elements/decks/tutorial";
 import { PlanType } from "../src/types/plan";
+import { OrientationType } from "../src/types/orientation";
 
 describe("Base deck", () => {
   it("total_count() is 72", () => {
@@ -92,6 +93,12 @@ describe("Tutorial deck", () => {
       expect(params).not.toHaveProperty("role");
       expect(params).not.toHaveProperty("spot");
     }
+  });
+
+  it("burns index 8 and places index 9 west, as elements/decks/tutorial.cairo", () => {
+    expect(Tutorial.parameters(0).orientation).toBe(OrientationType.None);
+    expect(Tutorial.parameters(8)).toEqual({ orientation: OrientationType.None, x: 0, y: 0 });
+    expect(Tutorial.parameters(9)).toEqual({ orientation: OrientationType.West, x: 1, y: 0 });
   });
 
   it("includes CCCCCCCCC at index 8", () => {
