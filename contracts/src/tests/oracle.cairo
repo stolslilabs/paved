@@ -11,6 +11,10 @@
 //! `base`, a forest `(distinct closed roads + distinct closed cities) x base x bonus(count)`. The
 //! expected scores of the goldens are derived from `score`, never from the structure state.
 //!
+//! D-19b adds `owner_count`: the distinct tiles of a closed structure per owner, from walks of this
+//! oracle, and `check` compares them with the tally of the structure state after every checked
+//! build (owners spread over three players by tile id), with the winner they give.
+//!
 //! The walks themselves are those of 2024: the same moves, the same short-circuit at an empty
 //! position, P-15 for the cities around a forest.
 
@@ -684,6 +688,123 @@ pub mod score {
     }
 }
 
+/// The distinct tiles of a closed structure per owner (D-19b), from walks of this oracle: the
+/// moves of `GenericCount` for a road, a city or a forest (a forest's moves stay in the forest, as
+/// those of `ForestCount`, so the walk gives its own tiles only, ruling 2), and the 8 positions
+/// around a wonder that `WonderCount` asks for, with the wonder tile (ruling 3). A tile is counted
+/// once, however many of its areas the walk meets (ruling 1). The owners are spread by tile id
+/// over the game's player (0) and two others (`owner_of`); the expected winner is the owner of the
+/// most tiles from these counts, 0 on a tie.
+pub mod owner_count {
+    use core::dict::{Felt252Dict, Felt252DictTrait};
+    use paved::models::game::Game;
+    use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
+    use paved::store::{Store, StoreImpl};
+    use paved::types::area::Area;
+    use paved::types::move::{Move, MoveImpl};
+    use paved::types::spot::Spot;
+
+    pub const ALICE: felt252 = 'ALICE';
+    pub const BOB: felt252 = 'BOB';
+
+    /// The owner the checks give tile `tile_id`: 0 (the game's player), `ALICE` or `BOB`.
+    pub fn owner_of(tile_id: u32) -> felt252 {
+        match tile_id % 3 {
+            0 => 0,
+            1 => ALICE,
+            _ => BOB,
+        }
+    }
+
+    /// The tiles of the finished road, city or forest of `tile` at `at`, each once.
+    pub fn structure_tiles(game: Game, tile: Tile, at: Spot, ref store: Store) -> Array<u32> {
+        let mut visited: Felt252Dict<bool> = Default::default();
+        let mut seen: Felt252Dict<bool> = Default::default();
+        let mut tiles: Array<u32> = array![];
+        iter(game, tile, at, ref visited, ref seen, ref tiles, ref store);
+        tiles
+    }
+
+    fn iter(
+        game: Game,
+        tile: Tile,
+        at: Spot,
+        ref visited: Felt252Dict<bool>,
+        ref seen: Felt252Dict<bool>,
+        ref tiles: Array<u32>,
+        ref store: Store,
+    ) {
+        let area: Area = tile.area(at);
+        let visited_key = tile.get_key(area);
+        if visited.get(visited_key) {
+            return;
+        }
+        visited.insert(visited_key, true);
+        if !seen.get(tile.id.into()) {
+            seen.insert(tile.id.into(), true);
+            tiles.append(tile.id);
+        }
+        let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
+        while let Option::Some(north_oriented_move) = north_oriented_moves.pop_front() {
+            let move = north_oriented_move.rotate(tile.orientation.into());
+            let (x, y) = tile.proxy_coordinates(move.direction);
+            let tile_position: TilePosition = store.tile_position(game, x, y);
+            assert(tile_position.is_non_zero(), 'Oracle: structure not finished');
+            let neighbor = store.tile(game, tile_position.tile_id);
+            iter(game, neighbor, move.spot, ref visited, ref seen, ref tiles, ref store);
+        }
+    }
+
+    /// The wonder tile and the 8 tiles around it.
+    pub fn wonder_tiles(game: Game, tile: Tile, ref store: Store) -> Array<u32> {
+        let mut tiles: Array<u32> = array![tile.id];
+        let mut dx: u32 = 0;
+        while dx < 3 {
+            let mut dy: u32 = 0;
+            while dy < 3 {
+                if dx != 1 || dy != 1 {
+                    let position = store.tile_position(game, tile.x + dx - 1, tile.y + dy - 1);
+                    assert(position.is_non_zero(), 'Oracle: wonder not finished');
+                    tiles.append(position.tile_id);
+                }
+                dy += 1;
+            }
+            dx += 1;
+        }
+        tiles
+    }
+
+    /// The tiles of the game's player, of `ALICE` and of `BOB` among `tiles`, by `owner_of`.
+    pub fn counts(tiles: Span<u32>) -> (u32, u32, u32) {
+        let (mut player, mut alice, mut bob) = (0, 0, 0);
+        for tile_id in tiles {
+            let owner = owner_of(*tile_id);
+            if owner == ALICE {
+                alice += 1;
+            } else if owner == BOB {
+                bob += 1;
+            } else {
+                player += 1;
+            }
+        }
+        (player, alice, bob)
+    }
+
+    /// The owner of the most tiles (`player_id` for the game's player), 0 on a tie.
+    pub fn winner(player_id: felt252, counts: (u32, u32, u32)) -> felt252 {
+        let (player, alice, bob) = counts;
+        if player > alice && player > bob {
+            player_id
+        } else if alice > player && alice > bob {
+            ALICE
+        } else if bob > player && bob > alice {
+            BOB
+        } else {
+            0
+        }
+    }
+}
+
 /// The differential check of P5-4: after a move, the structure state of a tile agrees with the
 /// walks of this oracle on the board as it is.
 ///
@@ -694,6 +815,11 @@ pub mod score {
 ///   counts the 8 tiles around it, the record counts its one node);
 /// - a closed forest: the scan of the structure state finds the roads and cities the walk finds.
 ///
+/// D-19b: for every closed structure, the tiles per owner that the structure state counts
+/// (`owners::structure_tally`, the forest scan's tally, `owners::wonder_tally`) are the oracle's
+/// (`owner_count`), and so is the winner. The owners are written for the check (`owner_of`) and
+/// put back as they were after it.
+///
 /// D-18b: and the move scored what `score` gives (`assert_move_scored`, "closed structure left
 /// unscored", every category), and a finished game scored every finished structure of its board
 /// (`assert_board_scored`).
@@ -702,6 +828,7 @@ pub mod check {
     use paved::models::tile::{Tile, ZeroableTile};
     use paved::store::{Store, StoreImpl, StoreTrait};
     use paved::structure::forest::scan;
+    use paved::structure::owners::{Tally, TallyTrait, structure_tally, wonder_tally};
     use paved::structure::placement::NeighborhoodTrait;
     use paved::structure::record::{RecordTrait, ref_of};
     use paved::structure::state::{Structures, StructuresTrait};
@@ -713,7 +840,7 @@ pub mod check {
     use super::forest::ForestCount;
     use super::generic::GenericCount;
     use super::open_count::OpenCount;
-    use super::score;
+    use super::{owner_count, score};
 
     /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
     pub fn assert_tile_agrees(store: TestStore, game_id: u32, tile_id: u32) {
@@ -868,7 +995,67 @@ pub mod check {
         }
         if closed && category == Category::Forest.into() {
             check_forest(ref structures, ref s, game, tile, area, at, record.size.into());
+        } else if closed && is_wonder {
+            let tiles = owner_count::wonder_tiles(game, tile, ref s);
+            let kept = write_owners(ref s, game, tiles.span());
+            let mut tally = wonder_tally(game.player_id, tile, ref structures);
+            assert_owners_agree(game, tile, area, tiles.span(), ref tally);
+            restore_owners(ref s, game, tiles.span(), kept.span());
+        } else if closed {
+            let tiles = owner_count::structure_tiles(game, tile, at, ref s);
+            let kept = write_owners(ref s, game, tiles.span());
+            let (_, refs) = StoreImpl::tile_with_refs(tile.game_id, tile.id);
+            let mut tally = structure_tally(game.player_id, tile, refs, area, ref structures);
+            assert_owners_agree(game, tile, area, tiles.span(), ref tally);
+            restore_owners(ref s, game, tiles.span(), kept.span());
         }
+    }
+
+    /// Writes the owner `owner_count::owner_of` gives each of `tiles`; returns the owners they had.
+    fn write_owners(ref s: Store, game: Game, tiles: Span<u32>) -> Array<felt252> {
+        let mut kept: Array<felt252> = array![];
+        for tile_id in tiles {
+            kept.append(StoreImpl::tile_owner(game.id, *tile_id));
+            s.set_tile_owner(game, *tile_id, owner_count::owner_of(*tile_id));
+        }
+        kept
+    }
+
+    /// Puts back the owners `write_owners` found.
+    fn restore_owners(ref s: Store, game: Game, tiles: Span<u32>, kept: Span<felt252>) {
+        let mut index = 0;
+        for tile_id in tiles {
+            s.set_tile_owner(game, *tile_id, *kept.at(index));
+            index += 1;
+        }
+    }
+
+    /// The tally of the structure state counts the oracle's tiles per owner, and names its winner.
+    fn assert_owners_agree(game: Game, tile: Tile, area: u8, tiles: Span<u32>, ref tally: Tally) {
+        let (player, alice, bob) = owner_count::counts(tiles);
+        let counted = (
+            tally.count(0), tally.count(owner_count::ALICE), tally.count(owner_count::BOB),
+        );
+        if tally.total != tiles.len() || counted != (player, alice, bob) {
+            let (p, a, b) = counted;
+            println!(
+                "Check: tile {} area {}: walk {} tiles ({}, {}, {}), tally {} ({}, {}, {})",
+                tile.id,
+                area,
+                tiles.len(),
+                player,
+                alice,
+                bob,
+                tally.total,
+                p,
+                a,
+                b,
+            );
+        }
+        assert(tally.total == tiles.len(), 'Check: owned tiles differ');
+        assert(counted == (player, alice, bob), 'Check: owner counts differ');
+        let expected = owner_count::winner(game.player_id, (player, alice, bob));
+        assert(tally.winner() == expected, 'Check: winner differs');
     }
 
     /// A closed forest (no half-edge of its own towards an empty position): the scan of the
@@ -886,7 +1073,11 @@ pub mod check {
         size: u32,
     ) {
         let (_, refs) = StoreImpl::tile_with_refs(tile.game_id, tile.id);
-        let (open_road, roads, cities) = scan(tile.game_id, tile, refs, area, ref structures);
+        let tiles = owner_count::structure_tiles(game, tile, at, ref s);
+        let kept = write_owners(ref s, game, tiles.span());
+        let mut tally = TallyTrait::new(game.id, game.player_id);
+        let (open_road, roads, cities) = scan(tile, refs, area, ref structures, ref tally);
+        restore_owners(ref s, game, tiles.span(), kept.span());
         let (count, walk_roads, walk_cities) = ForestCount::start(game, tile, at, ref s);
         if (count != 0) == open_road {
             println!(
@@ -913,6 +1104,8 @@ pub mod check {
             }
             assert(walk_roads == roads, 'Check: forest roads differ');
             assert(walk_cities == cities, 'Check: forest cities differ');
+            // D-19b: the forest's own tiles per owner (ruling 2), as the scan counted them
+            assert_owners_agree(game, tile, area, tiles.span(), ref tally);
         }
     }
 
