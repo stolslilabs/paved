@@ -308,9 +308,7 @@ fn test_access_constructors_revert_on_zero_owner() {
         'Access: setup owner',
     );
     assert(
-        constructor_panic(
-            "Daily", array![0, token, SETUP],
-        ) == 'Ownable: new owner is zero',
+        constructor_panic("Daily", array![0, token, SETUP]) == 'Ownable: new owner is zero',
         'Access: daily owner',
     );
 }

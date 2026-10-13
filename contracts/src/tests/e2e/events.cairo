@@ -3,9 +3,7 @@
 
 use paved::constants;
 use paved::day::day_id;
-use paved::events::{
-    Built, Discarded, Event as PavedEvent, GameOver, GameSpawned, Scored,
-};
+use paved::events::{Built, Discarded, Event as PavedEvent, GameOver, GameSpawned, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::{CENTER, Tile};
 use paved::systems::daily::Daily;

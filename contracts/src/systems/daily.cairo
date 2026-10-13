@@ -59,9 +59,9 @@ pub mod Daily {
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
-    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     #[cfg(test)]
     use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports

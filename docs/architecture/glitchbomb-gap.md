@@ -601,7 +601,8 @@ This is flagged under "For the PM": "Account to the mocks" has a consumer only o
   than the payer"; zero and the payer are ignored as before (`economy.md`, section 1).
 - **`Account` and `manageable`** are deleted. **No mock `Account`**: no test needs one after the layout pin moved to
   Setup and the frozen D-18 class's unused `Store.player` went; Sepolia is redeployed fresh (P-53), so the chained path
-  that would have needed it is not taken. `Account.json` leaves `contracts/abis/`.
+  that would have needed it is not taken. `Account.json` stays in `contracts/abis/`, frozen at aff59e06 and no longer
+  written by `abis.sh`, only while `packages/chain` imports it (CLIENT removes the import, then the file).
 - **Events.** `PlayerCreated` is a past event (`public-interface.md`, "Breaking change D-25 (E)"); `EconomySet` and
   `CollectionSet` are emitted by Setup.
 - **Deploy.** `deploy.sh`'s fresh path deploys no `Account`, sets the economy and the collection on Setup (owner calls,

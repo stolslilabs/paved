@@ -620,7 +620,7 @@ promise. Sepolia gets one fresh deployment (P-53, step F), so no deployed contra
 | `IAccount.create(name: felt252, master: ContractAddress)`, `player(id: felt252) -> Player { id, name, master }` | registration and its view | **removed**: no registration; a player is any address (`get_caller_address()` as a felt, which it already was) |
 | `IAccount.set_economy`, `economy()`, `set_collection`, `collection()`, events `EconomySet { economy }`, `CollectionSet { collection }` | the wiring, owner, once, non-zero | **moved to `Setup`** (below), same events, same names and fields |
 | `IOwnable`, `upgrade`, the constructor `(owner)` | | removed with the contract |
-| `Account.json` | in `contracts/abis/` | **removed**: no deployed contract or tool needs its ABI, and no mock keeps it (history: `git show aff59e06:contracts/abis/Account.json`) |
+| `Account.json` | in `contracts/abis/`, written by `scripts/abis.sh` | **frozen** at aff59e06 (the `Account` deployed on Sepolia today): `abis.sh` no longer writes it, no mock keeps it. It stays only while `packages/chain/src/abis.ts` imports it, and goes when CLIENT drops that import |
 
 ### `Daily` (`Daily.json`)
 

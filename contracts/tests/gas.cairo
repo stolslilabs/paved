@@ -42,9 +42,10 @@ pub const CEILING_FOREST_WORST: u128 = 18923195;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the economy read (from
-// `Account` then, from `Setup.wiring` since D-25 E) and `Economy.record` add about 1.46M (1.11M on i). D-20 took the ranking out of g, k and l, and h
-// (the closing move that did not rank) and j (the `tournament` view) out with it; the ceilings are
-// those set when the ranking was there (`docs/measures/baseline.md`, "After D-20").
+// `Account` then, from `Setup.wiring` since D-25 E) and `Economy.record` add about 1.46M (1.11M on
+// i). D-20 took the ranking out of g, k and l, and h (the closing move that did not rank) and j
+// (the `tournament` view) out with it; the ceilings are those set when the ranking was there
+// (`docs/measures/baseline.md`, "After D-20").
 pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
 // i: raised at D-24 to measured + 5 % (2,712,368; CORE's decision, reversed if the PM asks for
 // savings): the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20
@@ -327,8 +328,9 @@ fn test_gas_k_closing_move_full_report() {
 }
 
 /// m. A Daily spawn at stake 1, no referrer: the wiring from `Setup` (one call, D-25 E), the game,
-/// then the price from the player to `Economy` and its purchase (referral none, swap through the router, burn, margin to the Vault,
-/// the terms). The second game of the day, so the day's prior is already written.
+/// then the price from the player to `Economy` and its purchase (referral none, swap through the
+/// router, burn, margin to the Vault, the terms). The second game of the day, so the day's prior is
+/// already written.
 #[test]
 fn test_gas_m_spawn_daily() {
     let (_, systems, _) = setup::spawn_game(Mode::Daily);
