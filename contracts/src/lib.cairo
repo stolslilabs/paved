@@ -132,4 +132,5 @@ pub mod tests {
     pub mod owners;
     pub mod seed;
     pub mod setup;
+    pub mod walk_cost;
 }

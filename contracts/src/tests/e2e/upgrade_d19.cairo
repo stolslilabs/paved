@@ -15,7 +15,7 @@
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::tile::CENTER;
-use paved::store::StoreImpl;
+use paved::store::{StoreImpl, StoreTrait};
 use paved::systems::daily::{Daily, IDailyDispatcher};
 use paved::tests::legacy_d18::{IDailyBeforeD19Dispatcher, IDailyBeforeD19DispatcherTrait};
 use paved::tests::oracle::check;
@@ -26,8 +26,8 @@ use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use snforge_std::{
-    DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash, interact_with_state,
-    spy_events, start_cheat_caller_address,
+    DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash, interact_with_state, load,
+    map_entry_address, spy_events, start_cheat_caller_address,
 };
 use starknet::{ClassHash, ContractAddress};
 
@@ -211,4 +211,26 @@ fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
     assert_eq!(board_after - board_before, game.score - 419);
     // No build of the single player wrote an owner: every tile still reads 0
     assert_no_owner(store, g);
+}
+
+/// The layout pin of `tile_owners` (D-19, `docs/architecture/upgrades.md`): the map is a member of
+/// the `paved` storage node, so its entry for `(game_id, tile_id)` sits at the Pedersen chain of
+/// `selector!("paved")`, `selector!("tile_owners")`, then the keys. An owner written through the
+/// store is read there; a rename or a move of the map fails here.
+#[test]
+fn test_upgrade_d19_pins_tile_owners_by_name() {
+    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let g = context.game_id;
+    interact_with_state(
+        store.contract, || {
+            let s = StoreImpl::new();
+            s.set_tile_owner(s.game(g), 7, 'ALICE');
+        },
+    );
+    let map = core::pedersen::pedersen(selector!("paved"), selector!("tile_owners"));
+    let address = map_entry_address(map, array![g.into(), 7].span());
+    assert_eq!(*load(store.contract, address, 1).at(0), 'ALICE');
+    // The game's player is not written: its tiles read 0
+    let address = map_entry_address(map, array![g.into(), 8].span());
+    assert_eq!(*load(store.contract, address, 1).at(0), 0);
 }
