@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
+import { GameModeCardView, LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmount, useIndexer, usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, IndexerClient, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
+import { hasSavedTraining } from "../training/storage";
 import { PrizePanel } from "../components/PrizePanel";
 import { EconomyPanel } from "../components/EconomyPanel";
 import { EconomyPurchase } from "../components/EconomyPurchase";
@@ -228,9 +229,26 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   // A new Daily game is bought with the stake picker (E3: `Daily.spawn` takes USDC and a swap floor); this dialog only resumes one.
   const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
 
+  // Training is free and off chain: its card does not wait for a wallet, a player or any read.
+  const training: GameModeCardProps = {
+    mode: "training",
+    title: "Training",
+    description: "Free, no wallet, no rewards",
+    tileCount: 38,
+    duration: "No limit",
+    entryFee: "Free",
+    free: true,
+    tokenLabel: TOKEN_LABEL,
+    hasActiveGame: hasSavedTraining(),
+    onPress: () => navigate(buildGameRoute({ mode: "training" })),
+  };
+
   return (
     <>
       <style>{PANEL_MAX_HEIGHT_CSS}</style>
+      <section aria-label="Training" data-testid="training-card" style={{ maxWidth: 960, width: "100%", margin: "0 auto", padding: "16px 24px 0", boxSizing: "border-box" }}>
+        <GameModeCardView {...training} />
+      </section>
       <div className="landing-right-panel" style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320, overflowY: "auto" }}>
         <TokenPanel
           networkLabel={deployment.network}

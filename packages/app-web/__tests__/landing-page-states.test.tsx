@@ -24,6 +24,11 @@ vi.mock("@paved/ui", () => ({
       ))}
     </div>
   ),
+  GameModeCardView: ({ mode, title, description, free, actionLabel, hasActiveGame, onPress }: any) => (
+    <button type="button" data-mode={mode} data-free={free ? "true" : "false"} onClick={onPress}>
+      {`${title}: ${description}: ${actionLabel ?? (hasActiveGame ? "Resume" : "Play")}`}
+    </button>
+  ),
   ModeDetailDialog: ({ children }: any) => <div role="dialog">{children}</div>,
   ModeDetailDialogStat: ({ children }: any) => <div>{children}</div>,
   TokenPanel: ({ error, balanceLabel, supportsMint, onMint }: any) => (
@@ -54,6 +59,25 @@ const unknownUsdc = (deployment: Deployment) => (routes: React.ReactElement) => 
   <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment }) }}>{routes}</EconomyProvider>
 );
 const result = { transactionHash: "0x1", events: [] };
+
+describe("Training card", () => {
+  it("opens with no wallet, no account and an unconfigured chain, and goes to the Training route", async () => {
+    localStorage.clear();
+    land({ deployment: notConfigured, account: null });
+    fireEvent.click(await screen.findByText("Training: Free, no wallet, no rewards: Play"));
+    expect(screen.getByTestId("where").textContent).toBe("/game?mode=training|null");
+  });
+
+  it("says Resume while a Training game is saved here", async () => {
+    localStorage.setItem("paved:training:v1", JSON.stringify({ v: 1, seed: "0x5", moves: [] }));
+    try {
+      land({ deployment: notConfigured, account: null });
+      expect(await screen.findByText("Training: Free, no wallet, no rewards: Resume")).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+});
 
 describe("Landing states", () => {
   it("the right panel is capped at the dynamic viewport height, with the vh fallback first", async () => {
