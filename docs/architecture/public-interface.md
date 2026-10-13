@@ -446,7 +446,7 @@ them for the same reason.
 | event `Reclaimed` (`Lobby::Event`, `lobby.cairo:215`, `:218-227`) | | **removed** |
 | the other `ILobby` functions, `ILobbyClass` | | unchanged |
 
-A new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class` (`LobbyClassSet` emitted).
+A new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class` (`LobbyClassSet` emitted). Superseded by D-24: the `Lobby` class ends and its cold paths go back into Challenge.
 
 ### Events
 
