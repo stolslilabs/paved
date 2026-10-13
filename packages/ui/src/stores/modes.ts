@@ -1,14 +1,14 @@
 import { create } from "zustand";
 import { ModeType } from "@paved/game-core";
 
-interface LobbyState {
+interface ModesState {
   playerEntity: string | null;
   mode: ModeType;
   setPlayerEntity: (entity: string | null) => void;
   setMode: (mode: ModeType) => void;
 }
 
-export const useLobbyStore = create<LobbyState>((set) => ({
+export const useModesStore = create<ModesState>((set) => ({
   playerEntity: null,
   mode: ModeType.Daily,
   setPlayerEntity: (playerEntity) => set({ playerEntity }),

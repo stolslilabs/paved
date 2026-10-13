@@ -5,7 +5,7 @@ import type { SessionState } from "@paved/chain";
 export const CENTER = 2147483647;
 
 /** The session's board as the renderer draws it (world x east, world z south). */
-export function toRenderBoard(state: SessionState, playerId: string): TileRenderData[] {
+export function toRenderBoard(state: Pick<SessionState, "tiles"> & { key: Pick<SessionState["key"], "gameId"> }, playerId: string): TileRenderData[] {
   return state.tiles.map((t) => ({
     game_id: state.key.gameId,
     id: t.id,

@@ -18,6 +18,10 @@ export interface GameModeCardProps {
   topPlayers?: { name: string; score: number }[];
   timeRemaining?: string;
   hasActiveGame?: boolean;
+  /** A free card (Training): the fee badge says "Free" and no prize, time or podium line shows. */
+  free?: boolean;
+  /** The button's label; "Resume" or "Play" by default. */
+  actionLabel?: string;
   onPress: () => void;
 }
 
@@ -72,8 +76,14 @@ export function GameModeCardView({
   topPlayers,
   timeRemaining,
   hasActiveGame,
+  free,
+  actionLabel,
   onPress,
 }: GameModeCardProps) {
+  const fee = free ? "Free" : entryFee;
+  const prize = free ? undefined : prizePool;
+  const time = free ? undefined : timeRemaining;
+  const podium = free ? undefined : topPlayers;
   return (
     <GameModeCard
       onPress={onPress}
@@ -88,23 +98,23 @@ export function GameModeCardView({
         <Badge>
           <BadgeText>{duration}</BadgeText>
         </Badge>
-        <Badge variant={entryFee === "Free" ? "success" : "warning"}>
-          <BadgeText>{entryFee}</BadgeText>
+        <Badge variant={fee === "Free" ? "success" : "warning"}>
+          <BadgeText>{fee}</BadgeText>
         </Badge>
       </GameModeCardStats>
-      {prizePool ? (
+      {prize ? (
         <Text color="$muted" fontSize="$2">
-          {`Prize: ${prizePool} ${tokenLabel}`}
+          {`Prize: ${prize} ${tokenLabel}`}
         </Text>
       ) : null}
-      {timeRemaining ? (
+      {time ? (
         <Text color="$muted" fontSize="$1">
-          {`Time: ${timeRemaining}`}
+          {`Time: ${time}`}
         </Text>
       ) : null}
-      {topPlayers && topPlayers.length > 0 ? (
+      {podium && podium.length > 0 ? (
         <Stack gap="$1">
-          {topPlayers.slice(0, 3).map((p: { name: string; score: number }, i: number) => (
+          {podium.slice(0, 3).map((p: { name: string; score: number }, i: number) => (
             <Text key={i} color="$muted" fontSize="$1">
               {`${i + 1}. ${p.name} - ${p.score}`}
             </Text>
@@ -112,7 +122,7 @@ export function GameModeCardView({
         </Stack>
       ) : null}
       <Button onPress={onPress}>
-        <ButtonText>{hasActiveGame ? "Resume" : "Play"}</ButtonText>
+        <ButtonText>{actionLabel ?? (hasActiveGame ? "Resume" : "Play")}</ButtonText>
       </Button>
     </GameModeCard>
   );
