@@ -85,11 +85,27 @@ map). So, for every upgradable contract and for `Lobby`:
 - **Pins.** `tests::e2e::lobby_audit::test_lobby_and_daily_pin_every_shared_storage_variable_by_name` (the variables
   `Lobby` shares with `Daily`) and `tests::e2e::upgrades::test_upgrade_layout_pins_account_and_economy_by_name` (the
   wiring of `Account`, the addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
-  raw address of its name. Whoever adds a variable adds it there. D-19 appends `tile_owners: Map<(u32, u32),
-  felt252>` (keyed `(game_id, tile_id)`, the player id as value, 0 for the game's player) to the `paved` storage node
-  that `Daily`, `Tutorial` and `Lobby` share; a member of a storage node sits at the Pedersen hash of the node's base
-  (`selector!("paved")`) and its name, so appending it moves no other member. Its pin is
-  `tests::e2e::upgrade_d19::test_upgrade_d19_pins_tile_owners_by_name`.
+  raw address of its name. Whoever adds a variable adds it there.
+- **Packed slots keep their bits.** A field added to a packed slot takes bits that are free in every slot written
+  before, so that an old slot reads the new field as 0; dead bits are never reused. The tile slot
+  (`PavedStorage.tiles`, `(game_id, tile_id)`, shared by `Daily`, `Tutorial` and `Lobby`) since D-19:
+
+  | Bits | Field |
+  |---|---|
+  | 0..8 | plan |
+  | 8..16 | orientation |
+  | 16..48 | x |
+  | 48..80 | y |
+  | 80..88 | the occupied spot, dead since D-18: never read, written 0, never reused |
+  | 88..96 | never stored: the tile id that `Store::tile_slot_at` adds in memory |
+  | 96..104 | the owner's seat (D-19; 0 is the game's player, what every slot written before D-19 reads) |
+  | 104..128 | free (24 bits) |
+  | 128..236 | the refs of the tile's nodes on the structure state (108 bits) |
+  | 236..251 | free (15 bits, under the felt's bound) |
+
+  Free bits: 47 before D-19 (96..128 and 236..251), 39 after. A seat-0 tile (every tile of Daily and Tutorial) packs
+  bit for bit as before D-19: `tests::owners::test_owners_seat_zero_slot_is_the_d18_packing` reads a placed tile at
+  the raw address of `tiles` and compares it with D-18's packing.
 - **Before an upgrade on a public network:** the new class is built from a commit that passes those pins, the storage
   of the old class is diffed against the new one by name and type (the `#[storage]` structs and the components), and
   the upgrade is rehearsed on devnet from the deployed state (`--rehearse`).
