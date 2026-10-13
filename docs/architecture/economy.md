@@ -438,6 +438,10 @@ At the decided point (`sigma` 0, `rho` 0.9, `c` 1.222), `h` has median 1.27, p90
 sample reaches the cap (0.0 %). Before D-18, at `c` 1.813: median 0, p90 3.16, p99 4.60, 0.0 % at the cap. At this point 47 %
 of the sampled games (69 % before D-18) are below the threshold, so the median game is above it.
 
+**Adopted (P-46, PM, 2026-10-13):** `sigma` stays 0 and `c` = 1.222 (`slope_bps` 12,220), the value `sim.py` gives on this sample,
+and the initial mean for a new deploy is 3,980 points. Sepolia gets `Economy.configure(slope_bps 12,220)` in D-18c; its mean
+converges by itself. The mainnet defaults (`deploy.sh`, `fixture.py`, `test_fixture_matches_sim`) follow in a CORE PR.
+
 **Runs** (365 days x 200 games; "return" is what a player gets back in USDC per USDC paid, after selling the reward;
 "lost per day" is the share of a day's games that pay nothing, p10 to p90 over the days):
 
@@ -466,8 +470,9 @@ of the sampled games (69 % before D-18) are below the threshold, so the median g
 
 The initial mean (x0.5 or x2) and the max weight (100 instead of 1,000) change nothing visible after a year (rows in
 the output). Since D-18 the median return is above 0 in the base runs (0.87 with A, 0.88 with B): 45 % (A) and 43 % (B) of the
-games lose their stake, fewer than half (more than half before: 69 % and 66 %, median return 0). The median is 0 again from `sigma`
-+0.1 (54 % and 52 % lost).
+games lose their stake at `sigma` 0, fewer than half (69 % and 66 % before D-18, median return 0). D-10 fixes the cliff (below the
+shifted mean, the whole stake is lost), not a share of losing games: a losing majority was a property of the first sample. The median
+is 0 again from `sigma` +0.1 (54 % and 52 % lost).
 
 ### What the figures say
 
