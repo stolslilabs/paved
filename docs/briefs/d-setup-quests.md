@@ -162,3 +162,26 @@ layout (#342) are merged, so the line numbers in the notes are stale. Re-read th
   - one line on the audits: security (report access control, Setup's owner-only paths) and economy (the purchase and
     the record moved back into Challenge).
 - Report: the PR's number and head, everything in the body, and the peaks. Do not merge.
+
+## Addendum (PM, from CLIENT's W1c, #345, built on this branch)
+
+1. **Parity.** Step D deletes `tests/golden/tutorial.cairo` and `elements/decks/tutorial.cairo`, which CLIENT's
+   engine parity test transcribed. CLIENT has frozen the tutorial golden (`tutorial_full`, 2,794) and its scripted
+   placements as a game-core fixture taken from 38f1c95; the PM accepts that. Add one line to
+   `docs/architecture/parity-fixture.md`: after D-21 the tutorial game is no longer in CORE's fixture, and CLIENT
+   keeps it frozen (from 38f1c95). `parity-fixture.md` is added to the allowlist, for that line only.
+2. **deploy.sh, the devnet and fresh path**, beyond what CI needs (CLIENT's devnet and e2e runs depend on it). On
+   devnet:
+   - stop deploying Tutorial and Lobby;
+   - deploy Setup;
+   - wire it: Daily gets Setup's address, and Setup's reporter allowlist holds Daily (`set_reporter(Daily, true)`);
+   - write `contracts.Setup` (address and class hash) into the deployment file it writes, like the other contracts.
+
+   The definitions (`define_quest` and `define_achievement`) that deploy.sh or a script ran against Daily now run
+   against Setup: say where they live and move them. Extend `scripts/test-deploy-url.sh` where it covers the devnet
+   path. `--repoint` and `--d18` stay pinned to 06c024d: do not touch them. No committed file under
+   `contracts/deployments/**` changes.
+3. **Collection.json still declares a `tutorial` view.** If it is the tutorial game's NFT path, it goes with D-21:
+   remove it. If it is something else, keep it and say exactly what it is (file:line) in the report.
+
+Everything else in the brief holds.
