@@ -73,3 +73,23 @@ export {
   fpToMultiplier,
   computeAdjustedReward,
 } from "./economy";
+
+// Off-chain game engine (E1)
+export {
+  EngineGame,
+  EngineError,
+  multiplier as engineMultiplier,
+  drawFromBitmap,
+  withdrawExtra,
+  poseidon,
+  DECKS as ENGINE_DECKS,
+} from "./engine";
+export type {
+  EngineConfig,
+  EngineDeck,
+  Placement as EnginePlacement,
+  Scored as EngineScored,
+  MoveResult as EngineMoveResult,
+  PlacedTile as EnginePlacedTile,
+  Counters as EngineCounters,
+} from "./engine";

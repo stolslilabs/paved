@@ -1,0 +1,544 @@
+// The game of the contracts, off chain: start, build, discard, surrender, game over and the
+// running score, as `contracts/src/models/game.cairo` and the `build`/`discard` of
+// `components/playable.cairo` (Daily) and `components/tutoriable.cairo` (Tutorial) play them,
+// with the scoring of `structure/assessment.cairo` and `structure/forest.cairo` (D-18) and the
+// tile owners of D-19 (`docs/architecture/structure-state.md`, "D-19").
+//
+// Pure: no I/O, no clock, no `Math.random`. Everything follows from the seed, the deck and the
+// moves. Coordinates are relative to the starter tile (the contracts' `CENTER`).
+
+import { CategoryType } from "../types/category";
+import { OrientationType } from "../types/orientation";
+import { PlanType } from "../types/plan";
+import { DECKS, type DeckRules, type EngineDeck } from "./decks";
+import { bit, drawFromBitmap, mostSignificantBit, poseidon, withdrawExtra } from "./draw";
+import {
+  CATEGORY_CITY,
+  CATEGORY_FOREST,
+  CATEGORY_ROAD,
+  CATEGORY_WONDER,
+  EAST,
+  NORTH,
+  SOUTH,
+  WEST,
+  areaAt,
+  categoryOf,
+  edgeCategory,
+  opposite,
+  planRow,
+  rotateSpot,
+  toward,
+  turns,
+  wonderArea,
+} from "./geometry";
+import { Board, type BoardTile } from "./structures";
+
+/** The contracts' `CENTER`: the starter's coordinates on chain, hashed by the reseeds. */
+export const CENTER = 0x7fffffff;
+export const ROAD_BASE_POINTS = 100;
+export const CITY_BASE_POINTS = 200;
+export const FOREST_BASE_POINTS = 300;
+export const WONDER_BASE_POINTS = 900;
+export const DISCARD_POINTS = 50;
+/** A road or a city of at least this many nodes is a big structure (`constants::BIG_SIZE`). */
+export const BIG_SIZE = 8;
+const BONUS_BASE = 10235n;
+const BONUS_DIVISOR = 10000n;
+
+const PLANS = Object.values(PlanType);
+const ORIENTATIONS = Object.values(OrientationType);
+const CATEGORIES = Object.values(CategoryType);
+
+export class EngineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EngineError";
+  }
+}
+
+export interface EngineConfig {
+  readonly deck: EngineDeck;
+  /** The initial seed (a felt). How it is derived is the caller's business. */
+  readonly seed: bigint;
+  /** The game's player: owner of the starter and of tiles built without an owner. Default 1. */
+  readonly player?: bigint;
+  /** The tile limit, the starter included. Default: the deck's count (38 Simple, 10 Tutorial). */
+  readonly tileLimit?: number;
+}
+
+export interface Placement {
+  readonly orientation: OrientationType;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** A `Scored` event: `player` is the winner of the structure, 0 on a tie (D-19). */
+export interface Scored {
+  readonly category: CategoryType;
+  readonly size: number;
+  readonly points: number;
+  readonly player: bigint;
+}
+
+export interface MoveResult {
+  readonly action: "build" | "discard";
+  readonly tileId: number;
+  readonly plan: PlanType;
+  /** The `Scored` events of the move, in the contract's order (none for a discard). */
+  readonly scored: readonly Scored[];
+  /** Points the move added (a build) or took (a discard, the `Discarded` event's `points`). */
+  readonly points: number;
+  readonly score: number;
+  readonly over: boolean;
+}
+
+export interface PlacedTile {
+  readonly id: number;
+  readonly plan: PlanType;
+  readonly orientation: OrientationType;
+  readonly x: number;
+  readonly y: number;
+  readonly owner: bigint;
+}
+
+export interface Counters {
+  /** Roads and cities scored. */
+  readonly structures: number;
+  readonly forests: number;
+  readonly wonders: number;
+  /** Roads and cities scored with at least `BIG_SIZE` nodes. */
+  readonly big: number;
+}
+
+/** `compute_multiplier(size)`: the bonus `1.0235^size` as a numerator over 10000. */
+export function multiplier(size: number): number {
+  const powDiv = (base: bigint, exp: bigint): bigint => {
+    if (exp === 0n) return BONUS_DIVISOR;
+    if (exp === 1n) return base;
+    const half = powDiv((base * base) / BONUS_DIVISOR, exp / 2n);
+    return exp % 2n === 0n ? half : (base * half) / BONUS_DIVISOR;
+  };
+  return Number(powDiv(BONUS_BASE, BigInt(size)));
+}
+
+function basePoints(category: number): number {
+  switch (category) {
+    case CATEGORY_ROAD:
+      return ROAD_BASE_POINTS;
+    case CATEGORY_CITY:
+      return CITY_BASE_POINTS;
+    case CATEGORY_FOREST:
+      return FOREST_BASE_POINTS;
+    case CATEGORY_WONDER:
+      return WONDER_BASE_POINTS;
+    default:
+      return 0;
+  }
+}
+
+function planCode(plan: PlanType): number {
+  const code = PLANS.indexOf(plan);
+  if (code <= 0) throw new EngineError(`Engine: invalid plan ${plan}`);
+  return code;
+}
+
+function orientationCode(orientation: OrientationType): number {
+  const code = ORIENTATIONS.indexOf(orientation);
+  if (code <= 0) throw new EngineError("Orientation: not valid");
+  return code;
+}
+
+/** `points x base x bonus(size)` in the contract's integer order. */
+function formula(count: number, base: number, size: number): number {
+  return Number((BigInt(count) * BigInt(base) * BigInt(multiplier(size))) / BONUS_DIVISOR);
+}
+
+export class EngineGame {
+  readonly deck: EngineDeck;
+  readonly player: bigint;
+  readonly tileLimit: number;
+  private readonly rules: DeckRules;
+  private board = new Board();
+  private _seed: bigint;
+  private _tiles = 0n;
+  private _tileCount = 0;
+  private _score = 0;
+  private _built = 0;
+  private _discarded = 0;
+  private _over = false;
+  private held: { id: number; plan: number } | null = null;
+  private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
+
+  private constructor(config: EngineConfig) {
+    this.deck = config.deck;
+    this.rules = DECKS[config.deck];
+    if (!this.rules) throw new EngineError("Game: invalid mode");
+    this.player = config.player ?? 1n;
+    this.tileLimit = config.tileLimit ?? this.rules.count;
+    if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
+    this._seed = config.seed;
+  }
+
+  /**
+   * Starts a game as `spawn` does: the starter tile `RFFFRFCFR` faces South at (0, 0), its deck
+   * index is withdrawn, then the deck's extra cards (Simple), and the first tile is drawn.
+   */
+  static start(config: EngineConfig): EngineGame {
+    const game = new EngineGame(config);
+    game._tileCount = 1;
+    game.board.place({
+      id: 1,
+      plan: planCode(PlanType.RFFFRFCFR),
+      orientation: orientationCode(OrientationType.South),
+      x: 0,
+      y: 0,
+      owner: game.player,
+    });
+    game._tiles = bit(game.rules.starter);
+    if (game.deck === "simple") {
+      game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
+    }
+    game.draw();
+    return game;
+  }
+
+  clone(): EngineGame {
+    const game = Object.create(EngineGame.prototype) as EngineGame;
+    Object.assign(game, this);
+    game.board = this.board.clone();
+    game.held = this.held ? { ...this.held } : null;
+    game.counters = { ...this.counters };
+    return game;
+  }
+
+  get seed(): bigint {
+    return this._seed;
+  }
+  /** The deck bitmap (`Game.tiles`): bit `i` set when deck index `i` is out. */
+  get tiles(): bigint {
+    return this._tiles;
+  }
+  /** Tiles drawn, the starter included. */
+  get tileCount(): number {
+    return this._tileCount;
+  }
+  get score(): number {
+    return this._score;
+  }
+  get built(): number {
+    return this._built;
+  }
+  get discarded(): number {
+    return this._discarded;
+  }
+  get over(): boolean {
+    return this._over;
+  }
+  get counts(): Counters {
+    return { ...this.counters };
+  }
+  /** The tile in hand, `null` once the game is over by its last tile. */
+  get hand(): { id: number; plan: PlanType } | null {
+    return this.held ? { id: this.held.id, plan: PLANS[this.held.plan] as PlanType } : null;
+  }
+
+  /** The placed tiles, in id order. */
+  placed(): PlacedTile[] {
+    return [...this.board.byId.values()]
+      .sort((a, b) => a.id - b.id)
+      .map((tile) => this.view(tile));
+  }
+
+  tileAt(x: number, y: number): PlacedTile | null {
+    const tile = this.board.at(x, y);
+    return tile ? this.view(tile) : null;
+  }
+
+  private view(tile: BoardTile): PlacedTile {
+    return {
+      id: tile.id,
+      plan: PLANS[tile.plan] as PlanType,
+      orientation: ORIENTATIONS[tile.orientation] as OrientationType,
+      x: tile.x,
+      y: tile.y,
+      owner: tile.owner,
+    };
+  }
+
+  /**
+   * Replaces the plan of the tile in hand, as the golden harness and the gas scenarios overwrite
+   * it (`Store::set_tile`). The draw is not touched. For tests and scripted boards.
+   */
+  force(plan: PlanType): void {
+    if (!this.held) throw new EngineError("Builder: does not exist");
+    this.held.plan = planCode(plan);
+  }
+
+  /** The scripted placement of the tile in hand (Tutorial), `null` when it must be discarded. */
+  scriptedPlacement(): Placement | null {
+    if (this.deck !== "tutorial") return null;
+    return this.rules.placement(mostSignificantBit(this._tiles));
+  }
+
+  /**
+   * Why a placement of `plan` (the tile in hand by default) is refused, or `null` when it is
+   * legal: the contract's rule, `assert_not_exists` on the position, then `assert_fits` (at least
+   * one side neighbour, and the same category on every facing edge).
+   */
+  refusal(placement: Placement, plan?: PlanType): string | null {
+    let code: number;
+    let orientation: number;
+    try {
+      code = plan ? planCode(plan) : (this.held?.plan ?? 0);
+      orientation = orientationCode(placement.orientation);
+    } catch (error) {
+      return (error as Error).message;
+    }
+    if (code === 0) return "Builder: does not exist";
+    if (this.board.at(placement.x, placement.y)) return "Tile: already exists";
+    let found = false;
+    let fits = true;
+    for (const direction of [NORTH, EAST, SOUTH, WEST]) {
+      const [x, y] = toward(placement.x, placement.y, direction);
+      const neighbor = this.board.at(x, y);
+      if (!neighbor) continue;
+      found = true;
+      const mine = edgeCategory(code, orientation, direction);
+      const theirs = edgeCategory(neighbor.plan, neighbor.orientation, opposite(direction));
+      if (mine !== theirs) fits = false;
+    }
+    if (!found) return "Tile: no neighbors";
+    if (!fits) return "Tile: cannot place";
+    return null;
+  }
+
+  canPlace(placement: Placement, plan?: PlanType): boolean {
+    return this.refusal(placement, plan) === null;
+  }
+
+  /** Every legal placement of `plan` (the tile in hand by default), by position then orientation. */
+  legalPlacements(plan?: PlanType): Placement[] {
+    const seen = new Set<string>();
+    const placements: Placement[] = [];
+    const tiles = [...this.board.byId.values()].sort((a, b) => a.id - b.id);
+    for (const tile of tiles) {
+      for (const direction of [NORTH, EAST, SOUTH, WEST]) {
+        const [x, y] = toward(tile.x, tile.y, direction);
+        const key = `${x},${y}`;
+        if (seen.has(key) || this.board.at(x, y)) continue;
+        seen.add(key);
+        for (const orientation of ORIENTATIONS.slice(1) as OrientationType[]) {
+          const placement = { orientation, x, y };
+          if (this.canPlace(placement, plan)) placements.push(placement);
+        }
+      }
+    }
+    return placements;
+  }
+
+  private assertPlaying(): { id: number; plan: number } {
+    if (this._over) throw new EngineError("Game: is over");
+    if (!this.held) throw new EngineError("Builder: does not exist");
+    return this.held;
+  }
+
+  /**
+   * Builds the tile in hand. A Tutorial game takes its scripted placement (a given placement must
+   * equal it). `owner` is the tile's owner (D-19), the game's player by default.
+   */
+  build(placement?: Placement, owner?: bigint): MoveResult {
+    const held = this.assertPlaying();
+    let where = placement;
+    if (this.deck === "tutorial") {
+      const scripted = this.scriptedPlacement();
+      if (!scripted) throw new EngineError("Orientation: not valid");
+      if (
+        where &&
+        (where.orientation !== scripted.orientation || where.x !== scripted.x || where.y !== scripted.y)
+      ) {
+        throw new EngineError("Tutorial: not the scripted placement");
+      }
+      where = scripted;
+    }
+    if (!where) throw new EngineError("Orientation: not valid");
+    const refused = this.refusal(where);
+    if (refused) throw new EngineError(refused);
+
+    // [Effect] Place the tile on the structure state
+    const tile = this.board.place({
+      id: held.id,
+      plan: held.plan,
+      orientation: orientationCode(where.orientation),
+      x: where.x,
+      y: where.y,
+      owner: owner ?? this.player,
+    });
+    this.held = null;
+
+    // [Effect] Assess game over, then draw a new tile if relevant (Daily reseeds from the position)
+    this.assessOver();
+    if (!this._over) {
+      if (this.deck !== "tutorial") this.reseed(CENTER + tile.x, CENTER + tile.y);
+      this.draw();
+    }
+
+    // [Effect] The assessment of the built tile
+    const before = this._score;
+    const scored = this.assess(tile);
+    this._built += 1;
+    return {
+      action: "build",
+      tileId: tile.id,
+      plan: PLANS[tile.plan] as PlanType,
+      scored,
+      points: this._score - before,
+      score: this._score,
+      over: this._over,
+    };
+  }
+
+  /** Discards the tile in hand for `DISCARD_POINTS` (at most the score). */
+  discard(): MoveResult {
+    const held = this.assertPlaying();
+    if (this.deck === "tutorial" && this.scriptedPlacement()) {
+      throw new EngineError("Orientation: is valid");
+    }
+    const taken = Math.min(this._score, DISCARD_POINTS);
+    this._score -= taken;
+    this.held = null;
+    this.assessOver();
+    if (!this._over) {
+      // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
+      this.reseed(CENTER, CENTER);
+      this.draw();
+    }
+    this._discarded += 1;
+    return {
+      action: "discard",
+      tileId: held.id,
+      plan: PLANS[held.plan] as PlanType,
+      scored: [],
+      points: taken,
+      score: this._score,
+      over: this._over,
+    };
+  }
+
+  /** Ends the game; the tile in hand stays in hand, as on chain. */
+  surrender(): void {
+    this.assertPlaying();
+    this._over = true;
+  }
+
+  private assessOver(): void {
+    this._over = this._tileCount >= this.tileLimit;
+  }
+
+  private reseed(x: number, y: number): void {
+    this._seed = poseidon(this._seed, x, y);
+  }
+
+  /** `Game::draw_plan`. */
+  private draw(): void {
+    let plan: PlanType;
+    if (this.deck === "tutorial") {
+      const index = this._tiles === 0n ? 0 : 1 + mostSignificantBit(this._tiles);
+      plan = this.rules.plan(index);
+      this._tiles = this._tiles === 0n ? 1n : this._tiles | bit(index);
+    } else {
+      const { card, remaining } = drawFromBitmap(this._seed, this.rules.total, this._tiles);
+      this._tiles = remaining === 0 ? 0n : this._tiles | bit(card - 1);
+      plan = this.rules.plan(card);
+    }
+    this._tileCount += 1;
+    this.held = { id: this._tileCount, plan: planCode(plan) };
+    this._seed = poseidon(this._seed, this._tileCount);
+  }
+
+  /**
+   * `Game::assess`: each start spot of the tile in `starts()` order, then the wonder of each
+   * neighbour, N, E, S, W, NW, NE, SE, SW. A closed root scores once per move.
+   */
+  private assess(tile: BoardTile): Scored[] {
+    const scored: Scored[] = [];
+    const done = new Set<number>();
+    const count = turns(tile.orientation);
+    for (const start of planRow(tile.plan).starts) {
+      const area = areaAt(tile.plan, tile.orientation, rotateSpot(start, count));
+      const category = categoryOf(tile.plan, area);
+      if (![CATEGORY_ROAD, CATEGORY_CITY, CATEGORY_WONDER, CATEGORY_FOREST].includes(category)) {
+        continue;
+      }
+      const { root, record } = this.board.rootOf(tile, area);
+      if (record.open !== 0 || done.has(root)) continue;
+      done.add(root);
+      if (category === CATEGORY_WONDER) {
+        scored.push(this.scoreWonder(tile));
+      } else if (category === CATEGORY_FOREST) {
+        const { openRoad, roads, cities } = this.board.scan(tile, area);
+        if (openRoad) continue;
+        const points = formula(roads + cities, FOREST_BASE_POINTS, record.size);
+        scored.push(this.award(CATEGORY_FOREST, record.size, points, record.tiles));
+        this.counters.forests += 1;
+      } else {
+        const points = formula(record.size, basePoints(category), record.size);
+        scored.push(this.award(category, record.size, points, record.tiles));
+        this.counters.structures += 1;
+        if (record.size >= BIG_SIZE) this.counters.big += 1;
+      }
+    }
+    for (const direction of [2, 4, 6, 8, 1, 3, 5, 7]) {
+      const [x, y] = toward(tile.x, tile.y, direction);
+      const neighbor = this.board.at(x, y);
+      if (!neighbor) continue;
+      const wonder = wonderArea(neighbor.plan);
+      if (wonder === 0) continue;
+      const { root, record } = this.board.rootOf(neighbor, wonder);
+      if (record.open === 0 && !done.has(root)) {
+        done.add(root);
+        scored.push(this.scoreWonder(neighbor));
+      }
+    }
+    return scored;
+  }
+
+  /** A closed wonder: 900, size 0; its tiles are the wonder and the 8 around it (D-19 ruling 3). */
+  private scoreWonder(wonder: BoardTile): Scored {
+    const tiles = new Set([wonder.id]);
+    for (let direction = 1; direction <= 8; direction++) {
+      const [x, y] = toward(wonder.x, wonder.y, direction);
+      const neighbor = this.board.at(x, y);
+      if (neighbor) tiles.add(neighbor.id);
+    }
+    this.counters.wonders += 1;
+    return this.award(CATEGORY_WONDER, 0, WONDER_BASE_POINTS, tiles);
+  }
+
+  /**
+   * D-19: the points go to the owner with the most distinct tiles of the structure; on a tie,
+   * nobody scores (`player` 0, 0 points). The event is emitted either way.
+   */
+  private award(category: number, size: number, points: number, tiles: Set<number>): Scored {
+    const counts = new Map<bigint, number>();
+    for (const id of tiles) {
+      const owner = (this.board.byId.get(id) as BoardTile).owner;
+      counts.set(owner, (counts.get(owner) ?? 0) + 1);
+    }
+    let winner = 0n;
+    let best = 0;
+    let tie = false;
+    for (const [owner, count] of counts) {
+      if (count > best) {
+        winner = owner;
+        best = count;
+        tie = false;
+      } else if (count === best) {
+        tie = true;
+      }
+    }
+    const player = tie ? 0n : winner;
+    const awarded = tie ? 0 : points;
+    this._score += awarded;
+    return { category: CATEGORIES[category] as CategoryType, size, points: awarded, player };
+  }
+}
