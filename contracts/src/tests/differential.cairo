@@ -1,6 +1,6 @@
 //! Differential check of P5-4 on the boards that are not golden games: the gas scenarios of
 //! `contracts/tests/gas.cairo` (that crate cannot reach the test-only oracle, so the sequences are
-//! replayed here), the scripted Tutorial and the wonder ring of `e2e/events.cairo`. After every
+//! replayed here) and the wonder ring of `e2e/events.cairo`. After every
 //! build, `oracle::check` compares the structure state of the built tile with the walks, and the
 //! points the move scored with the points the walks give it (D-18b).
 
@@ -9,7 +9,6 @@ use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::structure::record::ref_of;
 use paved::structure::state::StructuresTrait;
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
@@ -181,35 +180,6 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
             }
         },
     );
-}
-
-/// The scripted Tutorial to its end: each step builds when the script gives a placement for the
-/// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
-#[test]
-#[available_gas(l2_gas: 508164000)]
-fn test_differential_tutorial_full_sequence() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let game_id = context.game_id;
-    let mut built = 0;
-    loop {
-        let game = store.game(game_id);
-        if game.over {
-            break;
-        }
-        let builder = store.builder(game, context.player_id);
-        let mode: Mode = game.mode.into();
-        let (orientation, _, _) = mode.parameters(game.tiles);
-        if orientation == Orientation::None {
-            systems.tutorial.discard(game_id);
-        } else {
-            let before = game.score;
-            systems.tutorial.build(game_id);
-            check::assert_tile_agrees(store, game_id, builder.tile_id);
-            check::assert_move_scored(store, game_id, builder.tile_id, before);
-            built += 1;
-        }
-    }
-    assert_eq!(built, 8);
 }
 
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build

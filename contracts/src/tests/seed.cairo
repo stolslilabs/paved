@@ -29,15 +29,15 @@ fn started(mode: Mode, seed: felt252) -> Game {
 
 #[test]
 fn test_daily_seed_is_the_mode_seed() {
-    for mode in array![Mode::Daily, Mode::Tutorial] {
+    for mode in array![Mode::None, Mode::Daily] {
         let expected = mode.seed(TIME, GAME_ID, 0);
         assert_eq!(DailySeed {}.seed(mode, TIME, GAME_ID, 0), expected);
     }
 }
 
 #[test]
-fn test_daily_seed_tutorial_is_zero_and_daily_is_not() {
-    assert_eq!(DailySeed {}.seed(Mode::Tutorial, TIME, GAME_ID, 0), 0);
+fn test_daily_seed_none_is_zero_and_daily_is_not() {
+    assert_eq!(DailySeed {}.seed(Mode::None, TIME, GAME_ID, 0), 0);
     assert!(DailySeed {}.seed(Mode::Daily, TIME, GAME_ID, 0) != 0);
 }
 

@@ -23,8 +23,8 @@ pub mod setup {
 
     use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait, decided};
     use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
+    use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
     use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
-    use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
     use paved::systems::vault::{IVaultDispatcher, IVaultDispatcherTrait};
     pub use paved::types::mode::Mode;
     use paved::types::plan::{Plan, PlanImpl};
@@ -75,8 +75,8 @@ pub mod setup {
     #[derive(Drop)]
     pub struct Systems {
         pub account: IAccountDispatcher,
-        pub tutorial: ITutorialDispatcher,
         pub daily: IDailyDispatcher,
+        pub setup: ISetupDispatcher,
         pub economy: IEconomyDispatcher,
         pub collection: ICollectionDispatcher,
     }
@@ -221,27 +221,27 @@ pub mod setup {
         stop_cheat_caller_address(account.contract_address);
     }
 
-    /// Deploys the economy (`deploy_economy`) and `Account`, declares `Lobby`, deploys `Tutorial`
-    /// and `Daily` (with the class hash of `Lobby`, USDC as its token), wires `Economy` to `Daily`
-    /// and `Account` to `Economy`, registers four players with USDC approved for `Daily`, and
-    /// spawns a game of `mode` for `PLAYER` (none for `Mode::None`; a Daily game at stake 1).
-    /// Returns a `TestStore` of the contract of `mode` (`Daily` for `Mode::None`).
+    /// Deploys the economy (`deploy_economy`), `Account`, `Setup` and `Daily` (USDC as its token,
+    /// reporting to `Setup`), wires `Economy` to `Daily`, `Account` to `Economy`, `Daily` as the
+    /// reporter of `Setup` and the only minter of `Collection`, registers four players with USDC
+    /// approved for `Daily`, and spawns a game of `mode` for `PLAYER` (none for `Mode::None`; a
+    /// Daily game at stake 1). Returns a `TestStore` of `Daily`.
     #[inline]
     pub fn spawn_game(mode: Mode) -> (TestStore, Systems, Context) {
         // [Setup] Systems
         let owner: felt252 = OWNER().into();
         let (economy_address, token_address) = deploy_economy();
         let account_address = deploy("Account", array![owner]);
-        let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
         let collection_address = deploy("Collection", array![owner]);
-        let tutorial_address = deploy("Tutorial", array![owner, account_address.into(), lobby]);
+        let setup_address = deploy("Setup", array![owner]);
         let daily_address = deploy(
-            "Daily", array![owner, account_address.into(), token_address.into(), lobby],
+            "Daily",
+            array![owner, account_address.into(), token_address.into(), setup_address.into()],
         );
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
-            tutorial: ITutorialDispatcher { contract_address: tutorial_address },
             daily: IDailyDispatcher { contract_address: daily_address },
+            setup: ISetupDispatcher { contract_address: setup_address },
             economy: IEconomyDispatcher { contract_address: economy_address },
             collection: ICollectionDispatcher { contract_address: collection_address },
         };
@@ -253,8 +253,11 @@ pub mod setup {
         systems.account.set_collection(collection_address);
         stop_cheat_caller_address(account_address);
         start_cheat_caller_address(collection_address, OWNER());
-        systems.collection.set_minters(daily_address, tutorial_address);
+        systems.collection.set_minters(daily_address, Zero::zero());
         stop_cheat_caller_address(collection_address);
+        start_cheat_caller_address(setup_address, OWNER());
+        systems.setup.set_reporter(daily_address, true);
+        stop_cheat_caller_address(setup_address);
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
@@ -266,12 +269,10 @@ pub mod setup {
 
         // [Setup] Keep player as caller for game interactions
         start_cheat_caller_address(daily_address, PLAYER());
-        start_cheat_caller_address(tutorial_address, PLAYER());
 
         // [Setup] Game if mode is set
         let game_id = match mode {
             Mode::Daily => systems.daily.spawn(1, Zero::zero(), 0),
-            Mode::Tutorial => systems.tutorial.spawn(),
             _ => 0,
         };
 
@@ -291,10 +292,7 @@ pub mod setup {
         };
 
         // [Return]
-        let store = match mode {
-            Mode::Tutorial => TestStoreTrait::new(tutorial_address),
-            _ => TestStoreTrait::new(daily_address),
-        };
+        let store = TestStoreTrait::new(daily_address);
         (store, systems, context)
     }
 }

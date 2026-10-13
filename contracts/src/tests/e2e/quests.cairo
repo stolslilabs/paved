@@ -1,13 +1,15 @@
 //! Quests and achievements (P7, `docs/architecture/quests.md`): the owner-only definitions, the
 //! accepted list, and the report a game over makes, with the `GameOver` it must never prevent.
-//! Since D-20 nothing is ranked on chain and task 9 (`WIN`) is never reported.
+//! Since D-20 nothing is ranked on chain and task 9 (`WIN`) is never reported. Since D-24 the
+//! definitions and the progress are `Setup`'s: `Daily` emits `GameOver`, then reports to `Setup`,
+//! which emits the progress (`e2e/setup_system.cairo` tests `Setup` alone).
 
 use paved::constants;
 use paved::events::game_over;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::CENTER;
-use paved::systems::daily::{Daily, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
-use paved::systems::tutorial::{ITutorialDispatcherTrait, Tutorial};
+use paved::systems::daily::Daily;
+use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
@@ -29,21 +31,21 @@ use starknet::ContractAddress;
 
 const DAY: u32 = 86400;
 
-fn quest_event(event: QuestComponent::Event) -> Daily::Event {
-    Daily::Event::QuestEvent(event)
+fn quest_event(event: QuestComponent::Event) -> Setup::Event {
+    Setup::Event::QuestEvent(event)
 }
 
-fn achievement_event(event: AchievementComponent::Event) -> Daily::Event {
-    Daily::Event::AchievementEvent(event)
+fn achievement_event(event: AchievementComponent::Event) -> Setup::Event {
+    Setup::Event::AchievementEvent(event)
 }
 
-fn quest_progressed(player_id: felt252, task_id: u32, count: u32) -> Daily::Event {
+fn quest_progressed(player_id: felt252, task_id: u32, count: u32) -> Setup::Event {
     quest_event(
         QuestComponent::Event::QuestProgressed(QuestProgressed { player_id, task_id, count }),
     )
 }
 
-fn achievement_progressed(player_id: felt252, task_id: u32, count: u32) -> Daily::Event {
+fn achievement_progressed(player_id: felt252, task_id: u32, count: u32) -> Setup::Event {
     achievement_event(
         AchievementComponent::Event::AchievementProgressed(
             AchievementProgressed { player_id, task_id, count },
@@ -58,10 +60,10 @@ fn daily_quest(id_task: u32, total: u32) -> (QuestSchedule, Array<QuestTask>) {
     )
 }
 
-/// Defines the accepted list (P-22): 4 daily quests and 9 achievements, as the owner.
-fn define_accepted_list(daily: ContractAddress) {
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+/// Defines the accepted list (P-22) on `Setup`: 4 daily quests and 9 achievements, as the owner.
+pub fn define_accepted_list(setup_address: ContractAddress) {
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
     admin.define_quest(1, schedule, tasks.span(), array![].span());
     let (schedule, tasks) = daily_quest(constants::TASK_STRUCTURE_SCORED, 6);
@@ -88,33 +90,32 @@ fn define_accepted_list(daily: ContractAddress) {
                 *points,
             );
     }
-    stop_cheat_caller_address(daily);
-    start_cheat_caller_address(daily, PLAYER());
+    stop_cheat_caller_address(setup_address);
 }
 
-/// The definitions `Lobby`'s code writes are in `Daily`'s storage, at the addresses the components
-/// give (`Quest_definitions`, `Achievement_definitions`): the layout pin of the quiver components.
+/// The definitions are in `Setup`'s own storage, at the addresses the components give
+/// (`Quest_definitions`, `Achievement_definitions`): the layout pin of the quiver components.
 #[test]
 #[available_gas(l2_gas: 80224000)]
-fn test_quests_definitions_live_in_the_callers_storage() {
+fn test_quests_definitions_live_in_setups_storage() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
+    let setup_address = systems.setup.contract_address;
     let quest = map_entry_address(selector!("Quest_definitions"), array![1].span());
     let achievement = map_entry_address(selector!("Achievement_definitions"), array![9].span());
-    assert(*load(daily, quest, 1).at(0) == 0, 'Quests: stored before');
-    assert(*load(daily, achievement, 1).at(0) == 0, 'Achievements: stored before');
-    define_accepted_list(daily);
-    assert(*load(daily, quest, 1).at(0) != 0, 'Quests: not in the caller');
-    assert(*load(daily, achievement, 1).at(0) != 0, 'Achievements: not in the caller');
+    assert(*load(setup_address, quest, 1).at(0) == 0, 'Quests: stored before');
+    assert(*load(setup_address, achievement, 1).at(0) == 0, 'Achievements: stored before');
+    define_accepted_list(setup_address);
+    assert(*load(setup_address, quest, 1).at(0) != 0, 'Quests: not in setup');
+    assert(*load(setup_address, achievement, 1).at(0) != 0, 'Achievements: not in setup');
 }
 
 #[test]
 #[available_gas(l2_gas: 81634000)]
 fn test_quests_owner_defines_the_accepted_list() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
+    let setup_address = systems.setup.contract_address;
     let mut spy = spy_events();
-    define_accepted_list(daily);
+    define_accepted_list(setup_address);
 
     // [Assert] The indexer reads them from events
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
@@ -135,7 +136,7 @@ fn test_quests_owner_defines_the_accepted_list() {
             },
         ),
     );
-    spy.assert_emitted(@array![(daily, defined), (daily, defined_achievement)]);
+    spy.assert_emitted(@array![(setup_address, defined), (setup_address, defined_achievement)]);
 }
 
 #[test]
@@ -143,8 +144,8 @@ fn test_quests_owner_defines_the_accepted_list() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let admin = IDailyQuestsDispatcher { contract_address: systems.daily.contract_address };
-    start_cheat_caller_address(systems.daily.contract_address, PLAYER());
+    let admin = ISetupDispatcher { contract_address: systems.setup.contract_address };
+    start_cheat_caller_address(systems.setup.contract_address, PLAYER());
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
     admin.define_quest(1, schedule, tasks.span(), array![].span());
 }
@@ -154,8 +155,8 @@ fn test_quests_define_quest_not_owner() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let admin = IDailyQuestsDispatcher { contract_address: systems.daily.contract_address };
-    start_cheat_caller_address(systems.daily.contract_address, PLAYER());
+    let admin = ISetupDispatcher { contract_address: systems.setup.contract_address };
+    start_cheat_caller_address(systems.setup.contract_address, PLAYER());
     admin
         .define_achievement(
             1,
@@ -170,12 +171,12 @@ fn test_quests_define_achievement_not_owner() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
     admin.define_quest(1, schedule, tasks.span(), array![].span());
-    start_cheat_caller_address(daily, PLAYER());
+    start_cheat_caller_address(setup_address, PLAYER());
     admin.retire_quest(1);
 }
 
@@ -184,8 +185,8 @@ fn test_quests_retire_quest_not_owner() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let admin = IDailyQuestsDispatcher { contract_address: systems.daily.contract_address };
-    start_cheat_caller_address(systems.daily.contract_address, PLAYER());
+    let admin = ISetupDispatcher { contract_address: systems.setup.contract_address };
+    start_cheat_caller_address(systems.setup.contract_address, PLAYER());
     admin.retire_achievement(1);
 }
 
@@ -193,10 +194,10 @@ fn test_quests_retire_achievement_not_owner() {
 #[available_gas(l2_gas: 81348000)]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    define_accepted_list(daily);
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    define_accepted_list(setup_address);
+    start_cheat_caller_address(setup_address, OWNER());
     admin.retire_quest(1);
     admin.retire_achievement(9);
 }
@@ -205,12 +206,12 @@ fn test_quests_owner_retires() {
 /// hour where the day id (`day::day_id`) rolls over.
 #[test]
 #[available_gas(l2_gas: 57364781)]
-#[should_panic(expected: 'Daily: quest not on UTC day')]
+#[should_panic(expected: 'Setup: quest not on UTC day')]
 fn test_quests_define_quest_misaligned() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let schedule = QuestSchedule { start: 3600, end: 0, duration: DAY, interval: DAY };
     admin
         .define_quest(
@@ -224,10 +225,10 @@ fn test_quests_define_quest_misaligned() {
 #[should_panic(expected: 'Quest: already defined')]
 fn test_quests_define_twice() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    define_accepted_list(daily);
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    define_accepted_list(setup_address);
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
     admin.define_quest(1, schedule, tasks.span(), array![].span());
 }
@@ -238,23 +239,22 @@ fn test_quests_define_twice() {
 fn test_quests_game_over_every_count_zero() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
-    define_accepted_list(daily);
+    let setup_address = systems.setup.contract_address;
+    define_accepted_list(setup_address);
     let mut spy = spy_events();
     systems.daily.surrender(context.game_id);
 
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
     assert(game.score == 0 && game.counts == 0, 'Quests: counters');
-    let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
+    let p = context.player_id;
+    assert_order(kinds(@spy.get_events().events, daily, setup_address), 1, 1);
+    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
-                (daily, over),
-                (daily, quest_progressed(context.player_id, constants::TASK_GAME_FINISHED, 1)),
-                (
-                    daily,
-                    achievement_progressed(context.player_id, constants::TASK_GAME_FINISHED, 1),
-                ),
+                (setup_address, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
             ],
         );
 }
@@ -269,7 +269,8 @@ fn test_quests_game_over_every_counter_at_maximum() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
-    define_accepted_list(daily);
+    let setup_address = systems.setup.contract_address;
+    define_accepted_list(setup_address);
     let mut game = store.game(context.game_id);
     game.score = 0xffffffff;
     game
@@ -289,52 +290,31 @@ fn test_quests_game_over_every_counter_at_maximum() {
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
     assert(game.day_id != 0, 'Quests: day set');
-    let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
-    // [Assert] Order: `GameOver` before the first quiver event, the quests before the achievements
-    let events = spy.get_events().events;
-    let mut positions: Array<u32> = array![];
-    let mut i = 0;
-    while i < events.len() {
-        let (from, event) = events.at(i);
-        let selector = *event.keys.at(0);
-        if *from == daily {
-            if selector == selector!("GameOver") {
-                positions.append(0);
-            } else if selector == selector!("QuestProgressed") {
-                positions.append(1);
-            } else if selector == selector!("AchievementProgressed") {
-                positions.append(2);
-            }
-        }
-        i += 1;
-    }
-    let mut sorted = true;
-    let mut k = 1;
-    while k < positions.len() {
-        if *positions.at(k) < *positions.at(k - 1) {
-            sorted = false;
-        }
-        k += 1;
-    }
-    assert(positions.len() == 1 + 4 + 5 && sorted, 'Quests: event order');
+    // [Assert] Order: `GameOver` from `Daily` before the first quiver event from `Setup`, the
+    // quests before the achievements
+    assert_order(kinds(@spy.get_events().events, daily, setup_address), 4, 5);
     // [Assert] The report: tasks 1 to 4 to the quests, 1 and 4 to 7 to the achievements, after
     // `GameOver`; no task 9 (D-20)
     let p = context.player_id;
+    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
-                (daily, over), (daily, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 127)),
-                (daily, quest_progressed(p, constants::TASK_POINTS, 0xffffffff)),
-                (daily, quest_progressed(p, constants::TASK_FOREST_SCORED, 63)),
-                (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_FOREST_SCORED, 63)),
-                (daily, achievement_progressed(p, constants::TASK_WONDER_SCORED, 15)),
-                (daily, achievement_progressed(p, constants::TASK_BIG_STRUCTURE, 63)),
-                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 127)),
+                (setup_address, quest_progressed(p, constants::TASK_POINTS, 0xffffffff)),
+                (setup_address, quest_progressed(p, constants::TASK_FOREST_SCORED, 63)),
+                (setup_address, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_FOREST_SCORED, 63)),
+                (setup_address, achievement_progressed(p, constants::TASK_WONDER_SCORED, 15)),
+                (setup_address, achievement_progressed(p, constants::TASK_BIG_STRUCTURE, 63)),
+                (setup_address, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
-    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
+    spy
+        .assert_not_emitted(
+            @array![(setup_address, achievement_progressed(p, constants::TASK_WIN, 1))],
+        );
 }
 
 /// A game over after its day closed gets no day id but still reports (Q-6): no WIN.
@@ -342,7 +322,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
 #[available_gas(l2_gas: 124794000)]
 fn test_quests_game_over_after_its_day_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let daily = systems.daily.contract_address;
+    let setup_address = systems.setup.contract_address;
     let mut game = store.game(context.game_id);
     game.score = 5000;
     store.set_game(game);
@@ -354,11 +334,14 @@ fn test_quests_game_over_after_its_day_reports_without_win() {
     spy
         .assert_emitted(
             @array![
-                (daily, quest_progressed(p, constants::TASK_POINTS, 5000)),
-                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_POINTS, 5000)),
+                (setup_address, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
-    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
+    spy
+        .assert_not_emitted(
+            @array![(setup_address, achievement_progressed(p, constants::TASK_WIN, 1))],
+        );
 }
 
 /// D-20: a game over no longer reports task 9. The first game of an empty day, with a score
@@ -370,6 +353,7 @@ fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
+    let setup_address = systems.setup.contract_address;
     let mut game = store.game(context.game_id);
     game.score = 5000;
     store.set_game(game);
@@ -378,18 +362,21 @@ fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
     let game = store.game(context.game_id);
     assert(game.is_over() && game.day_id == 10, 'Quests: over in its day');
     let p = context.player_id;
-    assert_order(kinds(@spy.get_events().events, daily), 2, 2);
+    assert_order(kinds(@spy.get_events().events, daily, setup_address), 2, 2);
+    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
-                (daily, Daily::Event::PavedEvent(game_over(game, p))),
-                (daily, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, quest_progressed(p, constants::TASK_POINTS, 5000)),
-                (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_POINTS, 5000)),
+                (setup_address, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
-    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
+    spy
+        .assert_not_emitted(
+            @array![(setup_address, achievement_progressed(p, constants::TASK_WIN, 1))],
+        );
 }
 
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
@@ -410,24 +397,28 @@ fn test_quests_counters_follow_the_scoring() {
     assert(game.big() == 0 && game.forests() == 0 && game.wonders() == 0, 'Quests: others');
 }
 
-/// The kinds of the events of a game over, in the order they must come: `GameOver`, the quest
-/// events, then the achievement events.
-fn kinds(
-    events: @Array<(ContractAddress, snforge_std::Event)>, from: ContractAddress,
+/// The kinds of the events of a game over, in the order they must come: `GameOver` (from
+/// `daily`), the quest events, then the achievement events (from `setup_address`).
+pub fn kinds(
+    events: @Array<(ContractAddress, snforge_std::Event)>,
+    daily: ContractAddress,
+    setup_address: ContractAddress,
 ) -> Array<u8> {
     let mut kinds: Array<u8> = array![];
     let mut i = 0;
     while i < events.len() {
         let (address, event) = events.at(i);
-        if *address == from {
-            let selector = *event.keys.at(0);
-            if selector == selector!("GameOver") {
-                kinds.append(0);
-            } else if selector == selector!("QuestProgressed") {
-                kinds.append(1);
-            } else if selector == selector!("AchievementProgressed") {
-                kinds.append(2);
-            }
+        let selector = *event.keys.at(0);
+        if *address == daily && selector == selector!("GameOver") {
+            kinds.append(0);
+        } else if *address == setup_address && selector == selector!("QuestProgressed") {
+            kinds.append(1);
+        } else if *address == setup_address && selector == selector!("AchievementProgressed") {
+            kinds.append(2);
+        } else if selector == selector!("QuestProgressed")
+            || selector == selector!("AchievementProgressed") {
+            // [Info] Progress from any other address: never expected
+            kinds.append(3);
         }
         i += 1;
     }
@@ -435,7 +426,7 @@ fn kinds(
 }
 
 /// `GameOver`, then `quests` quest events, then `achievements` achievement events, nothing else.
-fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
+pub fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
     assert(kinds.len() == 1 + quests + achievements, 'Quests: event count');
     let mut i = 0;
     while i < kinds.len() {
@@ -468,26 +459,28 @@ pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context)
 /// The report a Daily game over makes, from the game as it ended: 4 quest entries and the
 /// achievement entries of a high score with a forest (3); no task 9, though the game is the first
 /// of its day (D-20: before, a fourth entry, task 9).
-fn assert_daily_report(
-    daily: ContractAddress, mut spy: snforge_std::EventSpy, p: felt252, score: u32,
-) {
-    assert_order(kinds(@spy.get_events().events, daily), 4, 3);
+fn assert_daily_report(systems: @setup::Systems, mut spy: snforge_std::EventSpy, p: felt252, score: u32) {
+    let setup_address = *systems.setup.contract_address;
+    assert_order(kinds(@spy.get_events().events, *systems.daily.contract_address, setup_address), 4, 3);
     spy
         .assert_emitted(
             @array![
-                (daily, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 2)),
-                (daily, quest_progressed(p, constants::TASK_POINTS, score)),
-                (daily, quest_progressed(p, constants::TASK_FOREST_SCORED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_FOREST_SCORED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 2)),
+                (setup_address, quest_progressed(p, constants::TASK_POINTS, score)),
+                (setup_address, quest_progressed(p, constants::TASK_FOREST_SCORED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_FOREST_SCORED, 1)),
+                (setup_address, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
-    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
+    spy
+        .assert_not_emitted(
+            @array![(setup_address, achievement_progressed(p, constants::TASK_WIN, 1))],
+        );
 }
 
-/// A Daily game over on the last `build` (the one library call from `Daily`) reports.
+/// A Daily game over on the last `build` reports to `Setup`.
 #[test]
 #[available_gas(l2_gas: 138771000)]
 fn test_quests_daily_game_over_on_the_last_build() {
@@ -501,10 +494,10 @@ fn test_quests_daily_game_over_on_the_last_build() {
     systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
-    assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);
+    assert_daily_report(@systems, spy, context.player_id, game.score);
 }
 
-/// A Daily game over on the last `discard` (in `Lobby`) reports.
+/// A Daily game over on the last `discard` reports to `Setup`.
 #[test]
 #[available_gas(l2_gas: 131544000)]
 fn test_quests_daily_game_over_on_the_last_discard() {
@@ -513,83 +506,38 @@ fn test_quests_daily_game_over_on_the_last_discard() {
     systems.daily.discard(context.game_id);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
-    assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);
+    assert_daily_report(@systems, spy, context.player_id, game.score);
 }
 
-/// A Tutorial game over (see the checks): `GameOver`, then one unit of task 10 from the Tutorial.
-fn assert_first_stone(tutorial: ContractAddress, mut spy: snforge_std::EventSpy, p: felt252) {
-    assert_order(kinds(@spy.get_events().events, tutorial), 0, 1);
-    let event = Tutorial::Event::AchievementEvent(
-        AchievementComponent::Event::AchievementProgressed(
-            AchievementProgressed {
-                player_id: p, task_id: constants::TASK_TUTORIAL_FINISHED, count: 1,
-            },
-        ),
+/// The tutorial claim (D-21, P-49 ruling 2) credits First Stone once: the achievement the accepted
+/// list gives task 10 (achievement 1).
+#[test]
+#[available_gas(l2_gas: 100000000)]
+fn test_quests_tutorial_claim_credits_first_stone_once() {
+    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let setup_address = systems.setup.contract_address;
+    define_accepted_list(setup_address);
+    let mut spy = spy_events();
+    start_cheat_caller_address(setup_address, PLAYER());
+    systems.setup.claim_tutorial();
+    systems.setup.claim_tutorial();
+    stop_cheat_caller_address(setup_address);
+    let first_stone = achievement_progressed(
+        context.player_id, constants::TASK_TUTORIAL_FINISHED, 1,
     );
-    spy.assert_emitted(@array![(tutorial, event)]);
-}
-
-/// P-28: a Tutorial ended by placing its last tile credits First Stone once.
-#[test]
-#[available_gas(l2_gas: 144920000)]
-fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let mut i: u8 = 0;
-    while i < 7 {
-        systems.tutorial.build(context.game_id);
-        i += 1;
-    }
-    systems.tutorial.discard(context.game_id);
-    assert(!store.game(context.game_id).is_over(), 'Quests: over too soon');
-    let mut spy = spy_events();
-    systems.tutorial.build(context.game_id);
-    assert(store.game(context.game_id).is_over(), 'Quests: not over');
-    assert_first_stone(systems.tutorial.contract_address, spy, context.player_id);
-}
-
-/// P-28: a Tutorial ended by discarding its last tile credits First Stone once.
-#[test]
-#[available_gas(l2_gas: 133841000)]
-fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let mut i: u8 = 0;
-    while i < 7 {
-        systems.tutorial.build(context.game_id);
-        i += 1;
-    }
-    // [Setup] The tile the script discards is the last one
-    let mut game = store.game(context.game_id);
-    game.tile_limit = game.tile_count.try_into().unwrap();
-    store.set_game(game);
-    let mut spy = spy_events();
-    systems.tutorial.discard(context.game_id);
-    assert(store.game(context.game_id).is_over(), 'Quests: not over');
-    assert_first_stone(systems.tutorial.contract_address, spy, context.player_id);
-}
-
-/// P-28: a Tutorial surrender credits nothing (no task 10 event, only the game over) and the game
-/// is over.
-#[test]
-#[available_gas(l2_gas: 71906000)]
-fn test_quests_tutorial_surrender_credits_no_task_10() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let tutorial = systems.tutorial.contract_address;
-    let mut spy = spy_events();
-    systems.tutorial.surrender(context.game_id);
-    assert(store.game(context.game_id).is_over(), 'Quests: not over');
-    let kinds = kinds(@spy.get_events().events, tutorial);
-    assert(kinds.len() == 1 && *kinds.at(0) == 0, 'Quests: surrender credited');
+    spy.assert_emitted(@array![(setup_address, first_stone)]);
+    assert(spy.get_events().events.len() == 1, 'Quests: claimed twice');
 }
 
 /// A task total of 0 is complete before any report: refused, in a quest and in an achievement.
 #[test]
 #[available_gas(l2_gas: 57496755)]
-#[should_panic(expected: 'Daily: task total is zero')]
+#[should_panic(expected: 'Setup: task total is zero')]
 fn test_quests_define_quest_total_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let schedule = QuestSchedule { start: 0, end: 0, duration: DAY, interval: DAY };
     let tasks = array![QuestTask { task_id: 1, total: 1 }, QuestTask { task_id: 3, total: 0 }];
     admin.define_quest(1, schedule, tasks.span(), array![].span());
@@ -597,12 +545,12 @@ fn test_quests_define_quest_total_zero() {
 
 #[test]
 #[available_gas(l2_gas: 57240041)]
-#[should_panic(expected: 'Daily: task total is zero')]
+#[should_panic(expected: 'Setup: task total is zero')]
 fn test_quests_define_achievement_total_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     admin
         .define_achievement(
             1,
@@ -615,12 +563,12 @@ fn test_quests_define_achievement_total_zero() {
 /// A task id twice in one definition gives two entries under one key: refused.
 #[test]
 #[available_gas(l2_gas: 57537884)]
-#[should_panic(expected: 'Daily: task id repeated')]
+#[should_panic(expected: 'Setup: task id repeated')]
 fn test_quests_define_quest_task_repeated() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     let schedule = QuestSchedule { start: 0, end: 0, duration: DAY, interval: DAY };
     let tasks = array![
         QuestTask { task_id: 1, total: 1 }, QuestTask { task_id: 3, total: 5 },
@@ -631,12 +579,12 @@ fn test_quests_define_quest_task_repeated() {
 
 #[test]
 #[available_gas(l2_gas: 57310265)]
-#[should_panic(expected: 'Daily: task id repeated')]
+#[should_panic(expected: 'Setup: task id repeated')]
 fn test_quests_define_achievement_task_repeated() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailyQuestsDispatcher { contract_address: daily };
-    start_cheat_caller_address(daily, OWNER());
+    let setup_address = systems.setup.contract_address;
+    let admin = ISetupDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
     admin
         .define_achievement(
             1,
