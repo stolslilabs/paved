@@ -63,7 +63,7 @@ pub mod setup {
     pub const FUNDS: u256 = 1_000 * USDC;
     /// The initial mean of `Economy` (points x 1,000) and the launch rate after the pool's fee
     /// (`docs/architecture/economy.md`, section 5): what the deploy passes.
-    pub const MEAN0: u64 = 3_353_000;
+    pub const MEAN0: u64 = 3_980_000;
     pub const LAUNCH_RATE: u256 = 76_000_000_000_000_000_000_000_000_000_000;
 
     pub const PLAYER_NAME: felt252 = 'PLAYER';

@@ -1128,7 +1128,7 @@ purchases of the fixture, `sim.py`'s pool gives an `R` up to 230 ppm away from t
 
 **Fixture against `sim.py`** (`test_fixture_matches_sim`). The inputs:
 - the launch pool: 800,000 PAVED and 10,000 USDC, with the 1,000,000 initial supply;
-- the decided configuration, the initial mean 3,353, and the guard's launch rate after the fee (7.6e31);
+- the decided configuration, the initial mean 3,980, and the guard's launch rate after the fee (7.6e31);
 - two days of games, two days apart (P-34): the first is settled before the second's purchases, as `sim.py` does,
   and players keep their rewards (`sell = 0`).
 
@@ -1138,20 +1138,20 @@ does not model (E4 adds it there). The pool keeps its fee in its reserves, as th
 `sim.py`'s pool instead, and measures the 230 ppm gap. The test's `expected()` table is the script's output. The
 guard does not bind on this pool. The PAVED bought matches
 to the base unit. `R` and the payout are within 120 ppm; the worst gap measured is 86 ppm. The gap comes from
-`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,215.689 and 4,387.024 points
-(sim: 4,215.690 and 4,387.025). The EMA after both days is 4,366.567 points.
+`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,893.103 and 4,961.104 points
+(sim: 4,893.103 and 4,961.105). The EMA after both days is 4,952.984 points (sim: 4,952.985).
 
 | Game | Day | Stake | Referred | Score | `R`, sim (PAVED) | `R` gap | Payout, sim (PAVED) | Payout gap |
 |---:|---:|---:|---|---:|---:|---:|---:|---:|
-| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 231.0738 | 6 ppm |
+| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 134.1863 | 6 ppm |
 | 2 | 0 | 3 | yes | 2,000 | 328.6949 | 25 ppm | 0 | exact |
-| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 5,846.5346 (cap) | 86 ppm |
+| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 4,380.3275 | 86 ppm |
 | 4 | 0 | 5 | yes | 50 | 557.2234 | 16 ppm | 0 | exact |
-| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 400.1023 | 27 ppm |
-| 6 | 1 | 4 | no | 6,000 | 438.1808 | 73 ppm | 1,086.5064 | 73 ppm |
-| 7 | 1 | 7 | yes | 9,000 | 788.3495 | 12 ppm | 2,932.1688 | 12 ppm |
-| 8 | 1 | 1 | no | 4,300 | 106.1996 | 17 ppm | 0 | exact |
-| 9 | 1 | 6 | no | 800 | 668.5417 | 50 ppm | 0 | exact |
+| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 0 | exact |
+| 6 | 1 | 4 | no | 6,000 | 439.0444 | 36 ppm | 648.8622 | 36 ppm |
+| 7 | 1 | 7 | yes | 9,000 | 789.9019 | 75 ppm | 1,751.0902 | 75 ppm |
+| 8 | 1 | 1 | no | 4,300 | 106.4087 | 81 ppm | 0 | exact |
+| 9 | 1 | 6 | no | 800 | 669.8573 | 13 ppm | 0 | exact |
 
 ### As built: E3 (wiring)
 
@@ -1192,7 +1192,7 @@ text left the choice open, it is written here.
 - **Deploy.** `scripts/deploy.sh devnet` deploys `MockUSDC`, `Token` (the old mock, kept while CLIENT still reads
   it), `PavedToken(deployer, deployer)`, `MockRouter` seeded with 800,000 PAVED and 10,000 MockUSDC, `Vault` with
   the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
-  it, the decided configuration, initial mean 3,353 points, launch rate 7.6e31), `set_minter(Economy)` (then
+  it, the decided configuration, initial mean 3,980 points, launch rate 7.6e31), `set_minter(Economy)` (then
   `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
   `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
   and `Token` by name off devnet. The smoke buys a paid game at stake 1 with the client's `min_out` (99 % of

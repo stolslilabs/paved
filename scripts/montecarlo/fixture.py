@@ -6,7 +6,7 @@ contracts/src/tests/economy/economy.cairo), from sim.py's formulas.
 
 It imports sim.py's `payout_factor` and `Ema` and runs the purchase and day lines of `simulate` on
 the fixture's inputs: the launch pool (800,000 PAVED and 10,000 USDC) and the initial supply, the
-decided configuration, the initial mean 3,353, nine games over two days, the first day settled
+decided configuration, the initial mean 3,980, nine games over two days, the first day settled
 before the second day's purchases, and players who keep their rewards (sell = 0). It adds what
 sim.py does not model and Economy does: the price guard, from the post-fee launch rate (76 PAVED per
 USDC), with its EMA and its clamp. The rate moves at most once per block, and the test buys each day's
@@ -25,8 +25,8 @@ import sim  # noqa: E402
 
 SIM_POOL = "--sim-pool" in sys.argv[1:]
 
-MEAN0 = 3353.0
-SIGMA, SLOPE, CAP = 0.0, 1.813, 5
+MEAN0 = 3980.0
+SIGMA, SLOPE, CAP = 0.0, 1.222, 5
 TARGET = 1_000_000.0
 # The guard: the launch rate after the pool's fee, its EMA step and its bound (Economy, curve.cairo)
 RATE0 = sim.POOL_PAVED / sim.POOL_USDC * (1 - sim.POOL_FEE)
