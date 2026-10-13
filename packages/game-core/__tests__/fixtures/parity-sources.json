@@ -85,37 +85,37 @@
       "scored": []
     },
     "test_differential_gas_scenarios_a0_a_b#1": {
-      "source": "contracts/src/tests/differential.cairo:56 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo:55 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenarios_a0_a_b#2": {
-      "source": "contracts/src/tests/differential.cairo:56 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo:55 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_c": {
-      "source": "contracts/src/tests/differential.cairo:66 (test_differential_gas_scenario_c); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
+      "source": "contracts/src/tests/differential.cairo:65 (test_differential_gas_scenario_c); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_d": {
-      "source": "contracts/src/tests/differential.cairo:80 (test_differential_gas_scenario_d); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
+      "source": "contracts/src/tests/differential.cairo:79 (test_differential_gas_scenario_d); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_e": {
-      "source": "contracts/src/tests/differential.cairo:101 (test_differential_gas_scenario_e); expectation: contracts/tests/gas.cairo:65 (SCORE_E)",
+      "source": "contracts/src/tests/differential.cairo:100 (test_differential_gas_scenario_e); expectation: contracts/tests/gas.cairo:65 (SCORE_E)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_f": {
-      "source": "contracts/src/tests/differential.cairo:117 (test_differential_gas_scenario_f); expectation: contracts/tests/gas.cairo:66 (SCORE_F)",
+      "source": "contracts/src/tests/differential.cairo:116 (test_differential_gas_scenario_f); expectation: contracts/tests/gas.cairo:66 (SCORE_F)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_two_areas_of_one_tile_join_one_structure": {
-      "source": "contracts/src/tests/differential.cairo:150 (test_differential_two_areas_of_one_tile_join_one_structure); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo:149 (test_differential_two_areas_of_one_tile_join_one_structure); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     }
