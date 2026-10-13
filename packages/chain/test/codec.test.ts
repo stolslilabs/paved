@@ -14,13 +14,20 @@ describe("view types follow the ABIs of contracts/abis", () => {
   }
 
   test("Daily and Tutorial expose the game views; only Daily the tournament views", () => {
-    for (const fn of ["game", "tiles", "builder", "characters"]) {
+    for (const fn of ["game", "tiles", "builder"]) {
       expect(codecs.Daily.hasFunction(fn)).toBe(true);
       expect(codecs.Tutorial.hasFunction(fn)).toBe(true);
     }
     expect(codecs.Daily.hasFunction("tournament")).toBe(true);
     expect(codecs.Daily.hasFunction("current_tournament_id")).toBe(true);
     expect(codecs.Tutorial.hasFunction("tournament")).toBe(false);
+  });
+
+  test("characters left the game (D-18): no view, no role or spot type in either ABI", () => {
+    for (const codec of [codecs.Daily, codecs.Tutorial]) {
+      expect(codec.hasFunction("characters")).toBe(false);
+      expect(JSON.stringify(codec.abi)).not.toMatch(/CharacterView|types::role|types::spot/);
+    }
   });
 
   test("every ABI is a non-empty array", () => {
@@ -30,13 +37,14 @@ describe("view types follow the ABIs of contracts/abis", () => {
 
 describe("AbiCodec", () => {
   test("encodes build: u32 and unit enums by variant index", () => {
-    expect(codecs.Daily.encodeCall("build", [7, 2, 0x7fffffff, 0x80000000, 3, 9])).toEqual([
-      "0x7", "0x2", "0x7fffffff", "0x80000000", "0x3", "0x9",
+    expect(codecs.Daily.encodeCall("build", [7, 2, 0x7fffffff, 0x80000000])).toEqual([
+      "0x7", "0x2", "0x7fffffff", "0x80000000",
     ]);
+    expect(codecs.Tutorial.encodeCall("build", [7])).toEqual(["0x7"]);
   });
 
   test("refuses an enum code the ABI does not have", () => {
-    expect(() => codecs.Daily.encodeCall("build", [1, 5, 0, 0, 0, 0])).toThrow(/Orientation has no variant 5/);
+    expect(() => codecs.Daily.encodeCall("build", [1, 5, 0, 0])).toThrow(/Orientation has no variant 5/);
   });
 
   test("encodes a u256 as low, high", () => {
@@ -84,6 +92,18 @@ describe("AbiCodec", () => {
       blockNumber: undefined,
       transactionHash: undefined,
     });
+  });
+
+  test("Built has six data fields (D-18); one from before the upgrade (role and spot, eight) still decodes to them", () => {
+    const keys = [hash.getSelectorFromName("Built"), "0x3"];
+    const fields = { gameId: 3, playerId: "0xabc", tileId: 2, plan: 7, orientation: 2, x: 0x80000000, y: 0x7fffffff };
+    for (const codec of [codecs.Daily, codecs.Tutorial]) {
+      const six = codec.decodeEvent({ keys, data: ["0xabc", "0x2", "0x7", "0x2", "0x80000000", "0x7fffffff"] });
+      expect(six?.fields).toEqual(fields);
+      // The two trailing felts are role and spot of the old layout: left unread, nothing else shifts.
+      const eight = codec.decodeEvent({ keys, data: ["0xabc", "0x2", "0x7", "0x2", "0x80000000", "0x7fffffff", "0x3", "0x5"] });
+      expect(eight?.fields).toEqual(fields);
+    }
   });
 
   test("ignores events it does not know", () => {

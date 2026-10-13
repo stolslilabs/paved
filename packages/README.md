@@ -76,13 +76,14 @@ sponsor's reclaim and an expired game follow. It runs only with `PAVED_E2E=1` (C
 (2026-10-10) it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process).
 
 alice plays with the search player of `packages/chain/test/daily-player.ts`: for every candidate placement (each empty
-position next to the board, each orientation, and a character on a spot) it asks the node with
-`starknet_simulateTransactions` (nothing is sent) whether it is legal and how many points it scores, places a
-character only on the move that closes its structure (it scores at once with the role of power 2 and comes back),
-and otherwise keeps the board compact. It is deterministic and looks one move ahead. It must score above the
-day's threshold (`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. Most of
-the run is alice's game (657 s, 13,724 simulations on the 2026-10-10 run). The Daily deck depends on the day, so
-the score does too: on day 20738 it scored 9,084 against a threshold of 3,455.877. The Vault step stakes carol's
+position next to the board, each orientation) it asks the node with `starknet_simulateTransactions` (nothing is sent)
+whether it is legal and how many points it scores, plays the one that scores most at once, and otherwise keeps the board
+compact (a wonder goes near the centre). Characters left the game with D-18, so a structure scores when it closes and
+there is nothing else to choose. It is deterministic and looks one move ahead. It must score above the day's threshold
+(`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. The run time, the number of
+simulations and the score above (12 min 41 s; 657 s and 13,724 simulations for alice's game; 9,084 on day 20738) were
+measured with the earlier player that also placed characters, before D-18: they are **stale** until the e2e is run again
+on the D-18 contracts. The Daily deck depends on the day, so the score does too. The Vault step stakes carol's
 own 1,000 test PAVED (`deploy.sh`, P-38).
 
 It starts nothing: the node must be **fresh** (the test moves its clock one day forward) and `scripts/deploy.sh devnet`

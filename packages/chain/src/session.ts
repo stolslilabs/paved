@@ -3,8 +3,6 @@ import { placementOutcome } from "./placement";
 import {
   TILE_STATUS,
   toViewError,
-  type BuilderView,
-  type CharacterView,
   type GameKey,
   type GameView,
   type GameViews,
@@ -21,6 +19,7 @@ export interface BoardTile {
   pending?: boolean;
 }
 
+/** @deprecated D-18, removed once app-web stops reading `SessionState.characters` */
 export interface BoardCharacter {
   /** Role code, 1 Lord to 7 Herdsman (6 and 7 since P4). */
   role: number;
@@ -29,6 +28,13 @@ export interface BoardCharacter {
   y: number;
   spot: number;
   pending?: boolean;
+}
+
+/** A structure a move closed, from one `Scored` event of its receipt. */
+export interface ScoredStructure {
+  category: number;
+  size: number;
+  points: number;
 }
 
 export interface SessionState {
@@ -42,10 +48,22 @@ export interface SessionState {
   tiles: BoardTile[];
   /** Tile to place now; null while a write is pending or when the game is over. */
   hand: { tileId: number; plan: number } | null;
-  /** Characters on the board. */
+  /**
+   * Always empty: characters left the game (D-18).
+   * @deprecated D-18, removed once app-web stops reading it
+   */
   characters: BoardCharacter[];
-  /** Placed roles as bits (bit `role` set when placed), the format of `getAvailableCharacters`. */
+  /**
+   * Always 0: characters left the game (D-18).
+   * @deprecated D-18, removed once app-web stops reading it
+   */
   packedCharacters: number;
+  /**
+   * The structures the last write closed, one entry per `Scored` event of its receipt (a forest closed at 0 points
+   * included), in receipt order. Empty before the first write, after a discard that closed nothing, and cleared when
+   * the next write starts.
+   */
+  lastScored: ScoredStructure[];
   /** True when the viewer is not the game's player (or has no account): no write. */
   readonly: boolean;
   /** A write of this session is in flight. */
@@ -63,18 +81,15 @@ export interface PlaceMove {
   orientation: number;
   x: number;
   y: number;
-  role: number;
-  spot: number;
-}
-
-function packRoles(characters: CharacterView[]): number {
-  return characters.reduce((packed, c) => (c.placed ? packed | (1 << c.role) : packed), 0);
+  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
+  role?: number;
+  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
+  spot?: number;
 }
 
 /**
  * The state of one game for the game page. It reads the views once on `load`, shows a write at
- * once (pending), applies the receipt's events, then reconciles with one read of `game`, `builder`
- * and `characters`. It never polls: only its player's own writes change a game.
+ * once (pending), applies the receipt's events, then reconciles with one read of `game`. It never polls: only its player's own writes change a game.
  */
 export class GameSession {
   private current: SessionState;
@@ -95,6 +110,7 @@ export class GameSession {
       hand: null,
       characters: [],
       packedCharacters: 0,
+      lastScored: [],
       readonly: true,
       pending: false,
       writeError: null,
@@ -124,7 +140,6 @@ export class GameSession {
           .map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y })),
         hand: own && game.tileId ? { tileId: game.tileId, plan: game.plan } : null,
       });
-      if (own) await this.readPlayer();
     } catch (error) {
       const e = toViewError(error);
       this.set({ status: "error", error: e.kind, message: e.message });
@@ -136,24 +151,16 @@ export class GameSession {
     const hand = this.current.hand;
     if (!hand || this.current.readonly || this.current.pending) return false;
     const tile: BoardTile = { id: hand.tileId, plan: hand.plan, orientation: move.orientation, x: move.x, y: move.y, pending: true };
-    const character: BoardCharacter | null =
-      move.role > 0 && move.spot > 0
-        ? { role: move.role, tileId: hand.tileId, x: move.x, y: move.y, spot: move.spot, pending: true }
-        : null;
     this.set({
       pending: true,
       writeError: null,
       readError: null,
+      lastScored: [],
       hand: null,
       tiles: [...this.current.tiles, tile],
-      characters: character ? [...this.current.characters, character] : this.current.characters,
     });
     return this.write(send, () => {
-      this.set({
-        tiles: this.current.tiles.filter((t) => t !== tile),
-        characters: this.current.characters.filter((c) => c !== character),
-        hand,
-      });
+      this.set({ tiles: this.current.tiles.filter((t) => t !== tile), hand });
     });
   }
 
@@ -168,7 +175,7 @@ export class GameSession {
   private async simpleWrite(send: () => Promise<WriteResult>): Promise<boolean> {
     const hand = this.current.hand;
     if (this.current.readonly || this.current.pending) return false;
-    this.set({ pending: true, writeError: null, readError: null, hand: null });
+    this.set({ pending: true, writeError: null, readError: null, lastScored: [], hand: null });
     return this.write(send, () => this.set({ hand }));
   }
 
@@ -191,17 +198,14 @@ export class GameSession {
   private apply(result: WriteResult): void {
     const outcome = placementOutcome(result.events, this.key.gameId);
     let tiles = this.current.tiles;
-    let characters = this.current.characters;
     if (outcome.built) {
       const b = outcome.built;
       tiles = tiles.filter((t) => t.id !== b.tileId).concat({ id: b.tileId, plan: b.plan, orientation: b.orientation, x: b.x, y: b.y });
-      characters = characters.filter((c) => !(c.pending && c.tileId === b.tileId));
-      if (b.role > 0) characters = characters.concat({ role: b.role, tileId: b.tileId, x: b.x, y: b.y, spot: b.spot });
     }
     const game = this.current.game;
     this.set({
       tiles,
-      characters,
+      lastScored: outcome.scored,
       game: game && {
         ...game,
         score: outcome.over ? outcome.over.score : game.score + outcome.scoredPoints,
@@ -210,29 +214,14 @@ export class GameSession {
     });
   }
 
-  /** One read of `game`, `builder` and `characters` after a write: next tile, exact score, characters back. */
+  /** One read of `game` after a write: next tile, exact score. `GameView` carries the tile in hand, so no `builder` read. */
   private async reconcile(): Promise<void> {
     try {
       const game = await this.views.game(this.key);
       this.set({ game, hand: game.tileId ? { tileId: game.tileId, plan: game.plan } : null });
-      await this.readPlayer();
     } catch (error) {
       this.set({ readError: toViewError(error).message });
     }
-  }
-
-  private async readPlayer(): Promise<void> {
-    if (!this.playerId) return;
-    const [builder, characters]: [BuilderView, CharacterView[]] = await Promise.all([
-      this.views.builder(this.key, this.playerId),
-      this.views.characters(this.key, this.playerId),
-    ]);
-    const placed = characters.filter((c) => c.placed);
-    this.set({
-      hand: builder.tileId && !this.current.game?.over ? { tileId: builder.tileId, plan: builder.plan } : null,
-      characters: placed.map(({ role, tileId, x, y, spot }) => ({ role, tileId, x, y, spot })),
-      packedCharacters: packRoles(characters),
-    });
   }
 
   private set(patch: Partial<SessionState>): void {

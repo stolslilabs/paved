@@ -3,7 +3,7 @@
 //
 // It plays the native contracts (packages/chain, docs/architecture/client-data-layer.md) on the
 // 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`,
-// `characters`, `tournament`, `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`)
+// `tournament`, `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`)
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
 // fixed sequence applies it, and its receipt holds the events the client shows the move from
@@ -34,12 +34,6 @@ interface TileRow {
   x: number;
   y: number;
   occupied_spot: number;
-}
-
-interface CharRow {
-  index: number;
-  tile_id: number;
-  spot: number;
 }
 
 /** The chain of the page (BENCH_ADDRESSES, one source): the four contracts and the playing account. */
@@ -84,7 +78,6 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
   const board = JSON.parse(readFileSync(join(fixtures, `board-${size}.json`), "utf8"));
   const sequence: TileRow[] = JSON.parse(readFileSync(join(fixtures, `placements-${size}.json`), "utf8")).placements;
   const gameId: number = board.tiles[0].game_id;
-  const chars: CharRow[] = board.characters;
   let placed = 0;
   let nonce = 0;
   const calls: MockCall[] = [];
@@ -99,7 +92,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
   const t0 = Date.parse("2026-10-06T08:00:00Z") / 1000;
 
   const SEL = Object.fromEntries(
-    ["game", "tiles", "builder", "characters", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
+    ["game", "tiles", "builder", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
       (name) => [name, BigInt(selector(name))],
     ),
   );
@@ -128,30 +121,19 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     return [page.length, ...page.flat()];
   };
 
-  const charactersView = () => {
-    const tiles = new Map(onBoard().map((t) => [t.id, t]));
-    const rows = [1, 2, 3, 4, 5].map((role) => {
-      const c = chars.find((ch) => ch.index === role);
-      const t = c && tiles.get(c.tile_id);
-      return c && t ? [role, 1, c.tile_id, t.x, t.y, c.spot] : [role, 0, 0, 0, 0, 0];
-    });
-    return [rows.length, ...rows.flat()];
-  };
-
   const builderView = () => {
     const hand = inHand();
-    const placedChars = charactersView().slice(1).filter((_, i) => i % 6 === 1 && _ === 1).length;
-    return [gameId, BENCH.player, hand?.id ?? 0, hand?.plan ?? 0, placedChars, 5 - placedChars];
+    return [gameId, BENCH.player, hand?.id ?? 0, hand?.plan ?? 0];
   };
 
   /** The view as the page asked it, after the checks of what the bench expects: this game, this player. */
   const call = (to: bigint, entry: bigint, args: bigint[]): Array<number | bigint> => {
     const daily = to === BENCH.Daily;
     const what = `${hex(entry)}(${args.map(hex).join(", ")}) on ${hex(to)}`;
-    if (daily && [SEL.game, SEL.tiles, SEL.builder, SEL.characters].includes(entry) && args[0] !== BigInt(gameId)) {
+    if (daily && [SEL.game, SEL.tiles, SEL.builder].includes(entry) && args[0] !== BigInt(gameId)) {
       violate("other-game", `${what}, the game is ${gameId}`);
     }
-    if (daily && [SEL.builder, SEL.characters].includes(entry) && args[1] !== BENCH.player) {
+    if (daily && entry === SEL.builder && args[1] !== BENCH.player) {
       violate("other-player", `${what}, the player is ${hex(BENCH.player)}`);
     }
     if (to === BENCH.Account && entry === SEL.player && args[0] !== BENCH.player) violate("other-player", `player(${hex(args[0])})`);
@@ -160,7 +142,6 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (daily && entry === SEL.game) return gameView();
     if (daily && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
     if (daily && entry === SEL.builder) return builderView();
-    if (daily && entry === SEL.characters) return charactersView();
     if (daily && entry === SEL.current_tournament_id) return [Math.floor(t0 / 86400)];
     if (daily && entry === SEL.tournament) {
       const id = Number(args[0]);
@@ -186,7 +167,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     nonce++;
     const hash = hex(0xbeef00 + nonce);
     const events: Event[] = [];
-    const accepted: Array<{ tile: TileRow; role: number; spot: number }> = [];
+    const accepted: TileRow[] = [];
     let reverted: string | null = null;
     const count = Number(calldata[0] ?? 0n);
     if (count === 0) {
@@ -203,10 +184,10 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
         reverted ??= `not a build: ${hex(to)}.${hex(entry)}`;
         continue;
       }
-      const [game, orientation, x, y, role, spot] = args.map(Number);
+      const [game, orientation, x, y] = args.map(Number);
       const next = sequence[placed + accepted.length];
       if (next && game === gameId && x === next.x && y === next.y && orientation === next.orientation) {
-        accepted.push({ tile: next, role, spot });
+        accepted.push(next);
       } else {
         const want = next ? `(${next.x}, ${next.y}, orientation ${next.orientation})` : "none, the sequence is over";
         violate("build-mismatch", `game ${game} at (${x}, ${y}) orientation ${orientation}; placement ${placed + accepted.length} is ${want} of game ${gameId}`);
@@ -215,13 +196,13 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     }
     if (options.revertBuilds) reverted ??= "bench self-test: every build is refused";
     if (!reverted) {
-      for (const { tile, role, spot } of accepted) {
+      for (const tile of accepted) {
         placed++;
         const from_address = hex(BENCH.Daily);
         events.push({
           from_address,
           keys: [hex(SEL.Built), hex(gameId)],
-          data: [BENCH.player, tile.id, tile.plan, tile.orientation, tile.x, tile.y, role, spot].map(hex),
+          data: [BENCH.player, tile.id, tile.plan, tile.orientation, tile.x, tile.y].map(hex),
         });
         // category, size, points: the mock scores 3 points per tile, as its game view says.
         events.push({ from_address, keys: [hex(SEL.Scored), hex(gameId)], data: [BENCH.player, 1, 1, 3].map(hex) });

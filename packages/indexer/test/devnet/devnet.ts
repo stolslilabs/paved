@@ -161,33 +161,27 @@ export class Game {
     this.id = id;
   }
 
-  /**
-   * Builds the held tile on the first legal placement around the placed tiles; true when one was built. With
-   * `character`, it also tries to put a character on it (a Lord or an Adventurer on a spot), which is what scores.
-   */
-  async build(character = false): Promise<boolean> {
+  /** Builds the held tile on the first legal placement around the placed tiles; true when one was built. */
+  async build(): Promise<boolean> {
     const candidates = this.placed.flatMap(([x, y]) => [
       [x + 1, y],
       [x - 1, y],
       [x, y + 1],
       [x, y - 1],
     ] as [number, number][]);
-    const roles = character ? [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [0, 0]] : [[0, 0]];
     for (const [x, y] of candidates) {
       if (this.placed.some(([px, py]) => px === x && py === y)) continue;
       for (const orientation of [1, 2, 3, 4]) {
-        for (const [role, spot] of roles) {
-          try {
-            await this.player.send({
-              contractAddress: this.daily,
-              entrypoint: "build",
-              calldata: [this.id, orientation, x, y, role!, spot!],
-            });
-            this.placed.push([x, y]);
-            return true;
-          } catch {
-            // not a legal placement: next
-          }
+        try {
+          await this.player.send({
+            contractAddress: this.daily,
+            entrypoint: "build",
+            calldata: [this.id, orientation, x, y],
+          });
+          this.placed.push([x, y]);
+          return true;
+        } catch {
+          // not a legal placement: next
         }
       }
     }

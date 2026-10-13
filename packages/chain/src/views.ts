@@ -61,17 +61,6 @@ export interface BuilderView {
   playerId: string;
   tileId: number;
   plan: number;
-  placedCount: number;
-  availableCount: number;
-}
-
-export interface CharacterView {
-  role: number;
-  placed: boolean;
-  tileId: number;
-  x: number;
-  y: number;
-  spot: number;
 }
 
 export interface TournamentView {
@@ -104,10 +93,7 @@ export const VIEW_FIELDS = {
     "tileId", "plan", "remainingCount", "deckSize", "startTime", "endTime", "tournamentId",
   ] satisfies (keyof GameView)[],
   "paved::views::TileView": ["id", "status", "plan", "orientation", "x", "y"] satisfies (keyof TileView)[],
-  "paved::views::BuilderView": [
-    "gameId", "playerId", "tileId", "plan", "placedCount", "availableCount",
-  ] satisfies (keyof BuilderView)[],
-  "paved::views::CharacterView": ["role", "placed", "tileId", "x", "y", "spot"] satisfies (keyof CharacterView)[],
+  "paved::views::BuilderView": ["gameId", "playerId", "tileId", "plan"] satisfies (keyof BuilderView)[],
   "paved::views::TournamentView": [
     "id", "startTime", "endTime", "over", "prize",
     "top1PlayerId", "top1Score", "top1Claimed",
@@ -157,7 +143,6 @@ export interface GameViews {
   /** Every tile of the game, in id order (pages of `MAX_PAGE` until a short page). */
   tiles(key: GameKey): Promise<TileView[]>;
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
-  characters(key: GameKey, playerId: string): Promise<CharacterView[]>;
   currentTournamentId(): Promise<number>;
   tournament(id: number): Promise<TournamentView>;
   /** The Daily entry: token and amount, from the same source `spawn` uses. */
@@ -195,9 +180,6 @@ export class RpcGameViews implements GameViews {
     return (await this.call(gameContract(key.mode), "builder", [key.gameId, playerId])) as BuilderView;
   }
 
-  async characters(key: GameKey, playerId: string): Promise<CharacterView[]> {
-    return (await this.call(gameContract(key.mode), "characters", [key.gameId, playerId])) as CharacterView[];
-  }
 
   async currentTournamentId(): Promise<number> {
     return Number(await this.call("Daily", "current_tournament_id", []));
@@ -232,8 +214,13 @@ export class RpcGameViews implements GameViews {
 export interface FakeGame {
   game: GameView;
   tiles: TileView[];
-  builder: BuilderView;
-  characters: CharacterView[];
+  /**
+   * `placedCount` and `availableCount` are ignored (the ABI no longer has them).
+   * @deprecated D-18, removed once app-web's fixtures stop passing them
+   */
+  builder: BuilderView & { placedCount?: number; availableCount?: number };
+  /** Ignored: the `characters` view is gone. @deprecated D-18, removed once app-web's fixtures stop passing it */
+  characters?: unknown[];
 }
 
 function gameKeyId(key: GameKey): string {
@@ -264,12 +251,8 @@ export class FakeGameViews implements GameViews {
 
   async builder(key: GameKey, playerId: string): Promise<BuilderView> {
     this.calls.push(`builder ${gameKeyId(key)}`);
-    return { ...this.ownGame(key, playerId).builder };
-  }
-
-  async characters(key: GameKey, playerId: string): Promise<CharacterView[]> {
-    this.calls.push(`characters ${gameKeyId(key)}`);
-    return this.ownGame(key, playerId).characters.map((c) => ({ ...c }));
+    const { gameId, playerId: player, tileId, plan } = this.ownGame(key, playerId).builder;
+    return { gameId, playerId: player, tileId, plan };
   }
 
   async currentTournamentId(): Promise<number> {

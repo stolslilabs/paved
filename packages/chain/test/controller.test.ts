@@ -68,7 +68,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   economy.vaults.set(BigInt(PLAYER).toString(16), { staked: 2n * P, pending: 3n, totalStaked: 2n * P });
   const econ = createEconomyClient(resolveEconomyDeployment({ base: { ...deployment, chainId: FAKE_CHAIN_ID }, file: FAKE_ROUTER_FILE, env: ECON }), client, economy, new FakePoolQuoter())!;
   const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
-  const move = { orientation: 1, x: 2, y: 3, role: 0, spot: 0 };
+  const move = { orientation: 1, x: 2, y: 3 };
   const writes: Record<string, () => Promise<unknown>> = {
     "create player": () => writer.createPlayer("ada"),
     // The faucet (MockUSDC.mint): signed in the controller's session on Sepolia, where the deployment has a MockUSDC.

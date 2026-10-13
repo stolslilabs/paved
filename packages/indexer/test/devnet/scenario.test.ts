@@ -145,12 +145,12 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     return { score: Number(g[4]), over: g[5] === 1n, startTime: Number(g[13]), endTime: Number(g[14]), tournamentId: Number(g[15]) };
   };
   /**
-   * Plays `moves` placements (a character on the first `characters`), then gives up; `Infinity` plays the deck to its end,
-   * which scores the characters' structures.
+   * Plays `moves` placements, then gives up; `Infinity` plays the deck to its end. Since D-18 a structure scores when it
+   * closes, with no character on it.
    */
-  const play = async (g: Game, moves: number, characters: number, p: Player) => {
+  const play = async (g: Game, moves: number, p: Player) => {
     for (let i = 0; i < moves; i++) {
-      if (!(await g.build(i < characters))) break;
+      if (!(await g.build())) break;
       if (moves === Infinity && (await view(p, g.id)).over) return;
     }
     if (!(await view(p, g.id)).over) await send(p, deployment.contracts.Daily.address, "surrender", [g.id]);
@@ -247,16 +247,16 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     await register(cy, "Cy");
     await fund(alice);
     // Bo's first game is bought at stake 10, referred by Cy: Cy gets 5 % of 20 USDC from the margin.
-    const games: [Player, number, number, number, bigint][] = [
-      [bo, Infinity, 3, 10, BigInt(cy.address)],
-      [bo, 3, 3, 1, 0n],
-      [cy, Infinity, 6, 1, 0n],
-      [cy, 0, 0, 1, 0n],
+    const games: [Player, number, number, bigint][] = [
+      [bo, Infinity, 10, BigInt(cy.address)],
+      [bo, 3, 1, 0n],
+      [cy, Infinity, 1, 0n],
+      [cy, 0, 1, 0n],
     ];
     const cyBefore = await balance(cy, deployment.contracts.MockUSDC.address);
-    for (const [p, moves, characters, stake, referrer] of games) {
+    for (const [p, moves, stake, referrer] of games) {
       const g = await spawn_(p, stake, referrer);
-      await play(g, moves, characters, p);
+      await play(g, moves, p);
       played.push({ id: g.id, player: p });
     }
     late = await spawn_(cy); // left running across the end of the day
@@ -307,7 +307,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(lateOver).toHaveLength(1);
     expect(BigInt(lateOver[0]!.keys[3]!)).toBe(0n); // tournament_id 0: it did not count
     const next = await spawn_(alice);
-    await play(next, 4, 3, alice);
+    await play(next, 4, alice);
     played.push({ id: next.id, player: alice });
     await rpc(node.url, "devnet_createBlock"); // a block after the last game, so the head is not the game's block
 
