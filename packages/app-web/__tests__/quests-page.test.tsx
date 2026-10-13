@@ -70,6 +70,7 @@ describe("Quests page", () => {
     const bar = chaser.getByRole("progressbar") as HTMLProgressElement;
     expect([bar.value, bar.max]).toEqual([2700, 3000]);
     expect(within(q("Master Builder")).getByText("0 / 6 roads and cities scored")).toBeTruthy();
+    expect(within(q("Into the Woods")).getByText("Close a forest: it scores its closed roads and cities.")).toBeTruthy();
     expect(screen.getByTestId("progress-lag").textContent).toContain("Up to date");
   });
 
