@@ -230,7 +230,7 @@ on purpose. Stop the service, then either delete the three files (`sepolia.db`, 
 `rebuild` command (the same arguments with `rebuild` instead of `run`) in the foreground until `/v1/head` says `state: "ok"` and
 `behind: 0`, stop it with Ctrl-C, and start the service. A `rebuild` also serves the API while it catches up; the routes answer
 `503 loading` until it has. For new code only (the same contracts), `git pull`, `bun install --frozen-lockfile`, `systemctl restart`.
-A database of another schema version is refused too (`SchemaMismatch`: `rebuild` it).
+A database of another schema version is refused too (`SchemaMismatch`: `rebuild` it). Schema 7 (D-20) needs a `rebuild` at the next deployment: the running database is schema 6, which the D-20 indexer refuses; the rebuild happens with the fresh Sepolia deployment (P-53), not before.
 
 **Health.** `curl -s http://127.0.0.1:8787/v1/head`: `state` is `ok` (not `loading`, `rewinding`, `halted`), `behind` is a few
 blocks at most, `checks.last_mismatch` is `null` (a day whose replayed prize slots differ from the contract's `tournament` view

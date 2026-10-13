@@ -168,9 +168,9 @@ describe("what the bench does not expect", () => {
     expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player"]);
   });
 
-  it("records a view it does not serve, and fails it", () => {
+  it("records a view it does not serve (the `tournament` view D-20 removed), and fails it", () => {
     const { mock, rpc } = setup();
-    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Daily), entry_point_selector: selector("sponsor_pool"), calldata: [] } });
+    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Daily), entry_point_selector: selector("tournament"), calldata: [] } });
     expect(out.error).toBeDefined();
     const other = rpc("starknet_call", { request: { contract_address: hex(0x99), entry_point_selector: selector("game"), calldata: ["0x1"] } });
     expect(other.error).toBeDefined();

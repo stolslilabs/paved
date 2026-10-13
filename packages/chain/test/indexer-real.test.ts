@@ -137,7 +137,7 @@ describe("IndexerClient against the real indexer", () => {
     expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID + 1))).toBe("rejected");
   });
 
-  test("/v1/tournaments/{id}/leaderboard: rows, prize slots and paging", async () => {
+  test("/v1/tournaments/{id}/leaderboard: rows and paging", async () => {
     const { client } = await start();
     const first = await client.leaderboard(DAY, { limit: 1 });
     expect(first.data).toMatchObject({ tournamentId: DAY, total: 2, nextOffset: 1 });
