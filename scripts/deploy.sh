@@ -96,7 +96,7 @@
 #   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(paved, usdc) with the
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
-#   3,353 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
+#   3,980 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
 #   minter() == Economy and admin() == 0 are checked), Account(owner), Daily(owner, account, USDC, lobby
 #   class), Tutorial(owner, account, lobby class), Economy.set_game(Daily) (after the stake),
 #   Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound ERC721 of the games), then as
