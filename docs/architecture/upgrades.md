@@ -114,6 +114,33 @@ map). So, for every upgradable contract and for `Lobby`:
   it is never the `Lobby` class. Only class hash 0 is refused: a class without these entry points freezes the contract
   for good, with no owner able to upgrade it again.
 
+## D-20 on Sepolia
+
+What the D-20 change (D-20b; `leaderboard.md`, "As built: D-20") needs if it reaches the Sepolia deployment as an
+upgrade. P-48 (8) puts it in one upgrade with D-19, together with the indexer's rebuild (schema 7), right after
+CLIENT's PR 1 merges. P-53 then plans one fresh Sepolia deployment after D-23b: if that comes first, this rollout is
+not run and the fresh deployment starts with the D-20 classes.
+
+1. **The funds report, first (P-48 (4)).** Read on 2026-10-13, block 16,538,960: `balanceOf(Daily)` on MockUSDC is 0
+   and `Daily` never emitted `Sponsored`, `Claimed` or `Reclaimed`. Nothing is left that the removed `claim` could
+   have paid; re-read it right before the upgrade (a `sponsor` remains callable on the old class until then).
+2. **Declare** the new `Daily`, `Tutorial` and `Lobby` classes (`Lobby` loses `claim`, `sponsor` and `Reclaimed`).
+3. **Upgrade `Daily` and `Tutorial`, and set the new `Lobby` class on both** (`set_lobby_class`, the owner), in one
+   multicall where the tool allows it. The order is not critical for the game over: the tally `Daily`'s `build` hands
+   to `Lobby.report` keeps its layout, with the old rank's 8 bits left 0 (`quests::encode`), so an old `Lobby` reading a
+   new `Daily`'s word sees rank 0 and reports no task 9, and a new `Lobby` ignores those bits. Between the two steps an
+   old `Lobby` class still has `claim` and `sponsor`, reachable only through the old `Daily` class's wrappers.
+4. **The indexer** reads `day_id` where it read `tournament_id` (same positions), calls `current_day()` instead of
+   `current_tournament_id()`, and keeps `Sponsored`, `Claimed` and `Reclaimed` known as skipped past events
+   (`public-interface.md`, "Breaking change D-20").
+
+**Dead fields under P-42**, declared, never written or read again, never reused (a comment says so where each is
+declared): `PavedStorage.tournaments` (`store.cairo`), `PavedStorage.rankings` (`store.cairo`) and
+`HostableComponent.sponsorships` (`components/hostable.cairo`, flat in `Daily` and `Tutorial`). Their names keep
+"tournament" and "sponsor": a storage name never changes. On Sepolia `rankings` keeps the rankings of the days played
+there, and `tournaments` and `sponsorships` are empty (step 1). `tests::e2e::lobby_audit` pins `sponsorships` as never
+written. D-20 touches no structure state (`structure-state.md`).
+
 ## Not upgradable: migrations
 
 A fix to `PavedToken` or `Vault` is a migration to a new contract, never an in-place upgrade. Outline, to detail in

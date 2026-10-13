@@ -731,3 +731,47 @@ unit), "after" on the D-19b branch (b5a15f76). Peak RSS of the run 5,549,652 kB 
   nothing there), so the skip off costs it nothing more; why that move is expensive is not analysed here. The
   per-move figures of the game on D-18 were not measured: "skip on" stands for them. The skip-off figures are
   estimates of a multiplayer move: the count runs here beside the call, with the same reads.
+
+## After D-20 (tournaments leave the code, D-20b)
+
+D-20 (P-48, PM's rulings of 2026-10-13) removes the prize path and the on-chain ranking: a closing move no longer
+submits to a leaderboard, and the game-over report no longer carries task 9 (`leaderboard.md`, "As built: D-20").
+Measured on the VPS, 2026-10-13, scarb 2.20.1, snforge 0.64.0,
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test test_gas_ --max-threads 2`, "before" on
+the tree of the branch's first commit (main 6552ae21 plus the brief: the figures of "After D-19", to the unit),
+"after" on the D-20b branch. Peak RSS of the run 6,805,288 kB before, 3,609,128 kB after.
+
+| | Scenario | Before (D-19) | After D-20 | Change | Ceiling (unchanged) | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| e | closes a forest of 4 tiles | 8,735,386 | 8,726,746 | -8,640 (-0.10 %) | 8,962,300 | 97.4 % |
+| f | closes a forest of 16 nodes, the worst scan | 18,569,616 | 18,560,976 | -8,640 (-0.05 %) | 18,923,195 | 98.1 % |
+| a0 | open simple move | 5,514,643 | 5,506,003 | -8,640 (-0.16 %) | 5,709,834 | 96.4 % |
+| a | closes a 2-tile city | 5,144,312 | 5,135,672 | -8,640 (-0.17 %) | 5,315,180 | 96.6 % |
+| c | closes a 6-tile city | 5,216,810 | 5,208,170 | -8,640 (-0.17 %) | 5,393,424 | 96.6 % |
+| d | closes a 12-tile city tree | 5,480,220 | 5,471,580 | -8,640 (-0.16 %) | 5,662,074 | 96.6 % |
+| g | closing move in its day (before: rank 1, two shifts) | 3,498,006 | 2,988,628 | -509,378 (-14.56 %) | 3,672,907 | 81.4 % |
+| h | closing move, not ranked | 3,094,850 | removed | the same move as g since D-20 | 3,249,593 (removed) | |
+| i | game over after its day | 2,562,751 | 2,531,088 | -31,663 (-1.24 %) | 2,690,889 | 94.1 % |
+| j | `tournament` view | 370,828 | removed | the view is gone | 388,740 (removed) | |
+| k | closing move, largest report | 3,826,886 | 3,317,508 | -509,378 (-13.31 %) | 4,018,231 | 82.6 % |
+| l | game over on the last `build` | 7,466,893 | 6,957,515 | -509,378 (-6.82 %) | 7,774,092 | 89.5 % |
+| m | Daily spawn, stake 1 | 50,271,386 | 50,271,386 | +0 (+0.00 %) | 52,743,229 | 95.3 % |
+| n | Daily spawn, stake 10, referred | 51,297,496 | 51,297,496 | +0 (+0.00 %) | 53,820,644 | 95.3 % |
+| o | Tutorial spawn | 5,147,842 | 5,147,842 | +0 (+0.00 %) | 5,363,508 | 96.0 % |
+| p | sponsor | 1,863,109 | removed | | 1,956,265 (removed) | |
+| q | claim | 1,936,878 | removed | | 2,033,722 (removed) | |
+| r | reclaim | 1,535,068 | removed | | 1,611,612 (removed) | |
+
+- **No ceiling moves and none is passed.** The largest share of a ceiling used is still f's, 98.1 % (98.09 %, against
+  98.13 % after D-19). The ceilings of `contracts/tests/gas.cairo` stay as they were; those of h, j, p, q and r left
+  with their tests. g's constant is renamed `CEILING_CLOSING_IN_DAY` (was `CEILING_CLOSING_PLACES`), same value.
+- **The closing moves g, k and l: -509,378 each.** Before, each took rank 1 of its day (g and k after three prefilled
+  ranks, l in an empty day): the ranking's update (the scores word and the shifted players) and the achievement entry
+  of task 9. Both are gone. g and k now run without the prefilled ranking (nothing to prefill). The leaderboard note's
+  estimate of the ranking update at rank 1 was about 516,000 including the `GameEnd` write that stays.
+- **i: -31,663.** A game over after its day never ranked; it saves the code around the ranking (`end_in_day` reads
+  two day ids and returns nothing).
+- **The building moves: -8,640 each** (a0 to f, the same figure on every one). Not analysed; the `build` path's own code
+  is unchanged up to the game over, so the cause is outside the move (an estimate would be a guess: `Daily`'s entry
+  point dispatch lost two entry points and a view).
+- **The spawns m, n, o: unchanged to the unit.** The spawn path is untouched (only the day id's function moved).

@@ -509,7 +509,30 @@ The D-24 projection below (from `leaderboard.md`) starts `Daily` at "about 58,30
 first version (a separate owner map, 58,320); the seat in the tile's slot measures 59,289, about 1,000 more, which
 moves that projection to about 62,000 to 65,000, still under the cap.
 
-## Planned: D-20 to D-24 (projection, not measured)
+## After D-20 (tournaments leave the code, D-20b)
+
+D-20b removes the prize path (`claim`, `sponsor`, the reclaim, `Tournament`, the `tournament` view), the on-chain
+ranking (`leaderboard.cairo`) and the report of task 9 (`leaderboard.md`, "As built: D-20"). Measured with
+`scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-13, under `prlimit --as=12884901888`), main 6552ae21 plus the
+brief (the D-20b branch's first commit), then the D-20b branch:
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Daily` | 26,072 | 59,289 | 25,048 | 56,374 | -2,915 | 68.8 % |
+| `Lobby` | 27,677 | 60,360 | 25,295 | 54,368 | -5,992 | 66.4 % |
+| `Tutorial` | 23,961 | 53,694 | 24,007 | 53,742 | +48 | 65.6 % |
+| `Account` | 1,617 | 3,844 | 1,500 | 3,577 | -267 | 4.4 % |
+
+`Daily` stays under the P-44 cap (72,947 CASM felts) with **16,573 felts of headroom (22.7 % of the cap)**, against
+13,658 after D-19. `Daily` loses its two prize wrappers, the `tournament` view and the ranking's `submit` from the
+closing `build`; `Lobby` loses `claim`, `sponsor`, the reclaim and the ranking from `discard` and `surrender`.
+`Tutorial` grows by 48 CASM felts although it loses two events it never emitted: not analysed (it shares
+`Store`, `events.cairo` and the day id module with the others; an estimate would be a guess). `Account` loses the two
+events and `u256`. The test mock `ReentrantToken` loses its prize actions (CASM 2,872 to 2,314). The other
+classes are unchanged. **`Lobby`'s class changes**: D-20's Sepolia upgrade sets the new
+class on `Daily` and `Tutorial` (`upgrades.md`, "D-20 on Sepolia").
+
+## Planned: D-21 to D-24 (projection, not measured)
 
 - **The tutorial claim's host (D-21, P-49 (2)).** Superseded by D-24 (P-51 (3)): the claim lives in the quest
   system, Setup, not in `Daily` or `Account`. For the record, `Daily` would have been the cheaper host (one wrapper of

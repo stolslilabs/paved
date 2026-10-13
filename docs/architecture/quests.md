@@ -22,9 +22,10 @@ The design below is as built for P7. Five decisions of 2026-10-13 change where i
 (`docs/programme/DECISIONS.md`; inventories in `leaderboard.md`, "D-20" to "D-24"); the rules of the quests and the
 achievements, their tasks and their targets do not change:
 
-- **D-20**: On the Podium is credited from the indexer's daily leaderboard, no longer from the `tournament` view
-  (below, "On the Podium"). Task 9 (`WIN`) loses its on-chain source if the ranking goes (`leaderboard.md`, "Open for
-  the PM").
+- **D-20 (built)**: On the Podium is credited from the indexer's daily leaderboard, no longer from the `tournament`
+  view (below, "On the Podium"). The on-chain ranking is gone (PM's ruling 1, 2026-10-13): the contract no longer
+  reports task 9 (`WIN`); a Champion, if wanted, is credited by the indexer (below, task 9; `leaderboard.md`, "As built:
+  D-20").
 - **D-21**: the tutorial leaves the contracts. First Stone (achievement 1, task 10) is credited by a claim the player
   calls, `claim_tutorial()`, idempotent, with **no on-chain check** that the tutorial was played (P-49 (2)). Every
   wording below where `Tutorial` or `TutoriableComponent` reports task 10 at its game over is obsolete from D-21 on.
@@ -74,7 +75,7 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 | 6 | `BIG_STRUCTURE` | A road or a city scored with size of at least `BIG_SIZE` (8, to calibrate) |
 | 7 | `HIGH_SCORE` | A finished Daily game with a score of at least `HIGH_SCORE` (4,000, to calibrate) |
 | 8 | `PODIUM` | A place in the top 3 of a closed day's tournament (from D-20: of the indexer's daily leaderboard). **Not reported by the contract** (see "On the Podium" below) |
-| 9 | `WIN` | A finished Daily game that took rank 1 |
+| 9 | `WIN` | A finished Daily game that took rank 1. **Not reported by the contract since D-20** (no on-chain ranking); defined, never reused; an indexer-credited Champion would use it |
 | 10 | `TUTORIAL_FINISHED` | A Tutorial game over (obsolete from D-21: the player's `claim_tutorial()`, unchecked) |
 
 Tutorial games count for task 10 only: the tutorial is free, so it must not feed dailies, which are tied to the paid
@@ -114,20 +115,22 @@ task, as the package intends.
 | 8 | High Roller | Finish a Daily game with 4,000 points or more. | `HIGH_SCORE` 1 | 30 |
 | 9 | On the Podium | Take a place in the top 3 of a day's tournament. | `PODIUM` 1, reported by the indexer | 50 |
 
-A tenth, `Champion` (`WIN` 5), is left out to keep the list at nine; task 9 is defined and reported anyway, because it
-costs nothing (below) and lets the ruling add it without a contract change.
+A tenth, `Champion` (`WIN` 5), is left out to keep the list at nine. Until D-20 task 9 was reported anyway (the rank
+the game took at its game over), so that the ruling could add it without a contract change; since D-20 the contract
+has no ranking and never reports it: a Champion would be credited by the indexer from its daily leaderboard of a
+closed day, as On the Podium is.
 
 ### On the Podium (orchestrator's choice under P-22)
 
-**From D-20 (P-48 (6), planned).** The `tournament` view goes with the prize, so the indexer credits On the Podium
+**From D-20 (P-48 (6), built).** The `tournament` view goes with the prize, so the indexer credits On the Podium
 from **its own daily leaderboard**: after a day closes, the players of ranks 1 to 3 of that day's leaderboard, by
 its existing ranking rule, D-P6-1 (`docs/architecture/indexer.md`, "What is derived" and "Decided here"): one row per
 player, by best score descending, ties broken by the chain order of the `GameOver` event `(over_block, over_tx,
-over_idx)`, earliest first, over the games whose `GameOver.tournament_id` is that day. One difference with the
+over_idx)`, earliest first, over the games whose `GameOver.day_id` (`tournament_id` before D-20) is that day. One difference with the
 contract's ranking: the leaderboard ranks players, the contract ranked games, so a player can no longer hold two
 podium places; the three places go to three different players. **What the contract still does for this quest:
-nothing on chain.** It never reported task 8 (`constants.cairo:36-37`); it keeps emitting `GameOver` with the day in
-`tournament_id`, which the leaderboard groups on. The paragraph below is the design as built before D-20.
+nothing on chain.** It never reported task 8 (`constants.cairo`); it keeps emitting `GameOver` with the day in
+`day_id`, which the leaderboard groups on. The paragraph below is the design as built before D-20.
 
 
 The contract cannot know a final rank before the day ends: a later game can push a player out of the top 3. So
@@ -136,7 +139,8 @@ contract's `tournament` view of that day, at a served head whose timestamp is pa
 read as the D-P6-5 cross-check, `docs/architecture/indexer.md`), and credits each player holding a rank 1 to 3.
 It is exact (the view is the contract's own ranking), never early, and does not depend on the player doing anything.
 Why not at `claim`: a player in the top 3 who never claims would never get the achievement. Consequence for the
-contract: the game-over report carries tasks 1 to 7 and 9 only, at most 8 entries; task 8 stays defined for the
+contract: the game-over report carries tasks 1 to 7 and 9 only, at most 8 entries (since D-20, tasks 1 to 7: at most
+4 + 5 entries, task 9 no longer reported); task 8 stays defined for the
 achievement and is credited off the contract's report path (the indexer applies it as it applies windows).
 
 ### What the ruling decided
@@ -253,12 +257,13 @@ reports once, when the game is over**:
   (`discard`, `surrender`, `build`: today `if game.is_over() { end_in_tournament(...) }`), builds the report from the
   game and from the rank that `end_in_tournament` now keeps (`Leaderboard::submit` already returns it, 1 to 3 or 0,
   and the call site ignores it today), and makes **one `progress_many` per component** (quest, achievement), each with
-  at most 8 entries (the package bound is 16 per call, one call per player per transaction).
+  at most 8 entries (the package bound is 16 per call, one call per player per transaction). Since D-20 there is no
+  rank: `end_in_tournament` is `end_in_day`, which ranks nothing, and the report holds no task 9.
 - `TutoriableComponent` does the same at its own game over (last build, last discard; never surrender, P-28) with the single entry of task 10.
 
 | Call site | File | Report |
 |---|---|---|
-| `build` game over | `components/playable.cairo` | tasks 1 to 7 and 9 from the game and the rank |
+| `build` game over | `components/playable.cairo` | tasks 1 to 7 and 9 from the game and the rank (since D-20: tasks 1 to 7 from the game, no rank) |
 | `discard` game over | `components/playable.cairo` | same |
 | `surrender` game over | `components/playable.cairo` | same |
 | Tutorial game over (last build, last discard; never surrender, P-28); obsolete from D-21: `claim_tutorial()` on Setup | `components/tutoriable.cairo` | task 10 |
