@@ -146,3 +146,11 @@ class-limit figure". Its text:
   - "For META" (events gone, renamed fields) and "For CLIENT" (entry points and views gone, renamed fields);
   - one line on why audits are asked: the change removes code that holds and pays tokens.
 - Report: the PR's number and head, everything in the body, and the peaks. Do not merge.
+
+## Addendum: D-26 (PM, 2026-10-13)
+
+One more DECISIONS row goes into this PR: D-26 (owner, 2026-10-13): the Ekubo LP fees are collected by hand, by the
+account that provides the liquidity, outside the Vault; the team does it. There is no on-chain Treasury. D-10 is
+untouched. Governor stays after mainnet, not planned. What reverses it: "The owner asks for on-chain fee collection".
+In the P-53 row: keep it as ruled, but mark its Treasury clause "(dropped by D-26)" and its order clause "(C dropped
+by D-26)". Nothing else changes.
