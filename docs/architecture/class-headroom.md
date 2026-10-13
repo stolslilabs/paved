@@ -467,3 +467,20 @@ The PM set `Daily`'s cap at 72,607 CASM felts (the prototype's figure, E3). U-1 
 Headroom for future move code comes from moving logic into the `Lobby` library (74.8 % used) or from a later upgrade.
 
 What reverses it: a planned `Daily` feature that needs those 340 felts; (c) is then reconsidered.
+
+## After D-18 (characters leave the game, D-18b)
+
+D-18b removes the characters from the build path (placement, idle check, recovery, the `Characters` word, the
+`characters` view, `Role`). Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-13), main at
+07aab8a, then the D-18b branch:
+
+| Class | Sierra before | CASM before | CASM after | Change | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|
+| `Daily` | 32,712 | 72,947 | 53,418 | -19,529 | 65.2 % |
+| `Tutorial` | 30,800 | 67,044 | 47,823 | -19,221 | 58.4 % |
+| `Lobby` | 27,946 | 61,301 | 59,957 | -1,344 | 73.2 % |
+
+`Daily` stays under the P-44 cap (72,947 CASM felts) with **19,529 felts of headroom (26.8 % of the cap)**. The
+other classes (`Economy`, `Vault`, the mocks) are unchanged. `Lobby`'s class changes too (it runs `spawn`,
+`discard` and `surrender` over the same `Game`, `Builder` and `Store`), so its class hash changes: see the PR of
+D-18b for `lobby_class` on Sepolia.

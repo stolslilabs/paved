@@ -236,7 +236,7 @@ player who wants their partial scoring to count can `surrender`.
 
 **Storage of the counters.** `GameState` is two felts: the seed, and one word with the 128-bit deck bitmap
 (`tiles`) in its low half and, in its high half, `tile_count`, `score`, `discarded`, `built`, `over`, `held_tile`,
-`characters` (dead since D-18, never set) (88 of the 128 bits; `store.cairo` `set_game_state`). The felt252 bound leaves about 35 of the high bits,
+`characters` (dead since D-18, written 0) (88 of the 128 bits; `store.cairo` `set_game_state`). The felt252 bound leaves about 35 of the high bits,
 and the four counters need about 23 (7 + 6 + 4 + 6, saturating). **No new slot, so no new 0.45M storage write**; the
 layout of `GameState` changes (`docs/architecture/native-storage.md` is updated by the implementation), the public
 views do not (they build their own structs, `public-interface.md`), and nothing is deployed on a public network, so

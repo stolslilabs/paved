@@ -615,3 +615,52 @@ now deploys and wires the economy as `scripts/deploy.sh` does: whole-test L2 gas
 main, 53,482,264 here (+30,423,374; 11.0M of it measured inside the test, the rest snforge's declare and deploy
 charges). The Tutorial golden rose from 132,797,718 to 162,980,323 (+30,182,605), exactly the setup's rise less the
 Tutorial spawn's saving: the golden less its setup and spawn is 101,493,507 on both.
+
+## After D-18 (characters leave the game, D-18b)
+
+D-18 (P-45) takes the characters out: every structure scores on the move that closes it, and the forest scan runs
+on every forest closure. Measured on the VPS, 2026-10-13, scarb 2.20.1, snforge 0.64.0,
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test test_gas_ --max-threads 2`, "before"
+on main at 07aab8a (the branch's first commit, code unchanged), "after" on the D-18b branch. Peak RSS of the run
+6,538,884 kB before, 5,522,140 kB after. Ceilings: measured + 5 %, rounded up, as the earlier phases (j and r did not
+move and keep theirs).
+
+| | Scenario | Before | After | Change | New ceiling |
+|---|---|---:|---:|---:|---:|
+| e | closes a forest of 4 tiles (before: with a Woodsman on it) | 9,357,939 | 8,535,523 | -822,416 | 8,962,300 |
+| e0 | the same move with no character before D-18 (new scenario) | 6,103,341 (frozen class) | 8,535,523 | +2,432,182 | (e's) |
+| f | closes a forest of 16 nodes, the worst scan (before: with a Woodsman) | 19,097,399 | 18,022,090 | -1,075,309 | 18,923,195 |
+| a0 | open simple move | 5,626,455 | 5,437,937 | -188,518 | 5,709,834 |
+| a | closes a 2-tile city (before: not scored, no character) | 5,112,775 | 5,062,076 | -50,699 | 5,315,180 |
+| b | a's move with a Lord | 6,087,164 | retired: since D-18 it is a's move | | |
+| c | closes a 6-tile city (before: with a Lord) | 6,160,191 | 5,136,594 | -1,023,597 | 5,393,424 |
+| d | closes a 12-tile city tree (before: placed with a Lord) | 7,049,564 | 5,392,451 | -1,657,113 | 5,662,074 |
+| g | closing move, rank 1, two shifts | 3,524,849 | 3,498,006 | -26,843 | 3,672,907 |
+| h | closing move, not ranked | 3,121,693 | 3,094,850 | -26,843 | 3,249,593 |
+| i | game over after its tournament | 2,589,504 | 2,562,751 | -26,753 | 2,690,889 |
+| j | `tournament` view | 370,828 | 370,828 | 0 | 388,740 (unchanged) |
+| k | closing move, largest report | 3,853,729 | 3,826,886 | -26,843 | 4,018,231 |
+| l | game over on the last `build` | 7,582,195 | 7,403,897 | -178,298 | 7,774,092 |
+| m | Daily spawn, stake 1 | 50,305,146 | 50,231,646 | -73,500 | 52,743,229 |
+| n | Daily spawn, stake 10, referred | 51,331,256 | 51,257,756 | -73,500 | 53,820,644 |
+| o | Tutorial spawn | 5,181,602 | 5,108,102 | -73,500 | 5,363,508 |
+| p | sponsor | 1,867,109 | 1,863,109 | -4,000 | 1,956,265 |
+| q | claim | 1,940,878 | 1,936,878 | -4,000 | 2,033,722 |
+| r | reclaim | 1,535,068 | 1,535,068 | 0 | 1,611,612 (unchanged) |
+
+- **The forest scenarios.** e and f no longer place a Woodsman nor recover it (the `Characters` word, the tile
+  rewrite), so they are cheaper than before, though the scan runs as it did. **e0 is the new cost of D-18**: a forest
+  that closed with no character on it was not scanned before (6,103,341) and is now (8,535,523, +2.43M, +39.8 %):
+  the 4-tile scan, one `Scored` and the forest counter. The scan is bounded by the forest's tiles (f, 16 nodes, is
+  the worst we built). e0's figure before D-18 is measured on the frozen build of 07aab8a
+  (`src/tests/e2e/upgrade_d18.cairo`, `test_upgrade_d18_gas_e_and_e0_before_d18`, a test-only class: the D-18 tree
+  cannot declare main's class); the same test measures e there at 9,334,249, 23,690 (0.25 %) under main's figure,
+  the frozen class lacking only `Daily`'s wrapper.
+- **Moves a0 to d.** The character arguments, the idle check and the `Characters` word left the path. a now scores
+  its city (one `Scored`) and is still cheaper. b is retired: its Lord left with D-18, so its move is a's.
+- **g to r.** The game's state packs one field fewer, and `Daily`'s dispatch is smaller; the moves of the prize do
+  not change. m and n come out 10,910 and 11,119 above their previous ceilings: those were set on the figures of E3
+  (49,361,586 and 50,387,496), not on 07aab8a's; the measure is lower than before all the same.
+- **Scores the scenarios assert.** e scores 767 (the loop of road 438, the forest 329) and f 5,618: the oracle's
+  walks give both (`src/tests/differential.cairo`, `test_differential_gas_scenario_e`, `_f`), `gas.cairo` asserts
+  them (`SCORE_E`, `SCORE_F`).
