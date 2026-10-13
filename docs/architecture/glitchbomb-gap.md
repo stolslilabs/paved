@@ -12,12 +12,15 @@ Sources and how they are cited:
 - **Glitchbomb** (`/home/claude/projects/glitchbomb`, read only) at commit **`5efcbce`**, clean tree. Cited as `GB:`
   plus the path from the repository root, e.g. `GB:contracts/src/systems/vault.cairo:283`. The `dojo_*.toml` files sit
   at the repository root.
-- **Paved** at `origin/main` **`7d04872d`**. Cited by path from the repository root. Paths under `contracts/src/` are
+- **Paved** at `origin/main` **`7d04872d`**, and at **`cde34ff7`** (#332, documents only) for the files #332
+  changed. Cited by path from the repository root. Paths under `contracts/src/` are
   written from `contracts/src/` when the context is clear.
-- **Open pull requests that change Paved:**
-  - **#331** (D-19b, head `6557571`): tile owners. Daily's CASM rises from 53,418 to 58,320.
-  - **#332** (thread t-0232, head `adf7d6c`): the D-20 to D-25 decision rows and the D-20 to D-24 plans. Its
-    sections are cited as "#332, `<file>`, `<section>`". They are not on main yet.
+- **Pull requests that change Paved:**
+  - **#331** (D-19b, open, head `dc4f6ee`): tile owners. Daily's CASM rises from 53,418 to **59,289**, with 13,658
+    felts of headroom under the P-44 cap. Its first version measured 58,320. Not on main yet.
+  - **#332** (thread t-0232): the D-20 to D-25 decision rows and the D-20 to D-24 plans. It **merged during this
+    work** (`cde34ff7`), and this branch has merged it. Its sections are cited as "#332, `<file>`, `<section>`", and
+    they are on main now. The rows D-25 and P-52 are `docs/programme/DECISIONS.md:52-53`.
 - **Class sizes** come from `scripts/class-sizes.sh` (release) as recorded in merged pull requests:
   - **#262** (E2): PavedToken 8,055, Vault 6,700 and MockUSDC 6,649 CASM felts.
   - **#309** (E-9, merge `55a5969`): Economy 26,567 CASM felts after E-9.
@@ -324,8 +327,9 @@ Paved's on-chain top 3 (`leaderboard.cairo`) loses its prize role with D-20; the
 **Weighed:**
 
 - **CASM of Challenge under the P-44 cap (72,947).**
-  - Daily is 58,320 with D-19b (#331). #332 projects Challenge at 61,000 to 64,000 once spawn, discard and surrender
+  - Daily is 59,289 with D-19b (#331). #332 projects Challenge at 61,000 to 64,000 once spawn, discard and surrender
     come back, cross-checked at 64,000 to 66,000 (#332, `leaderboard.md`, "Challenge's CASM after the move back").
+    That projection started from D-19b's first figure, 58,300; #331 now moves it to about 62,000 to 65,000.
   - Economy's code is 26,567 felts as a contract. Even allowing a few thousand felts of contract overhead that would
     not come along, (B1) puts Challenge near 85,000 to 90,000 (an estimate). That is above the cap and above
     Starknet's hard limit of 81,920.
@@ -637,8 +641,8 @@ run: the fresh path supersedes them.
    - The purchase, the settlement, the mean, the guard and the minter key live in `economy/economy.cairo` (`:1-21`,
      `:423-450`). They need a home.
    - Section 3 recommends keeping `Economy` a contract, so the target list becomes eight systems.
-   - The alternative is to put it inside Setup (B2). Inside Challenge (B1) it exceeds the class limit: 58,320 + 26,567
-     felts before the move back.
+   - The alternative is to put it inside Setup (B2). Inside Challenge (B1) it exceeds the class limit: 59,289 + 26,567 =
+     85,856 felts even before the move back, above Starknet's 81,920.
 2. **"Account to the mocks" has a consumer only on the chained Sepolia path.**
    - After the identity change nothing deployed calls `Account`.
    - The tests that read it pin the old layout (`upgrades.md:85-88`, `tests/e2e/upgrade_d18.cairo`).
