@@ -86,7 +86,8 @@ export class Tutorial {
           x: 1,
           y: -1,
         };
-      case 8:
+      // Index 8 (CCCCCCCCC) has no placement: it must be burned (`elements/decks/tutorial.cairo`)
+      case 9:
         return {
           orientation: OrientationType.West,
           x: 1,
