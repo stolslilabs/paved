@@ -33,6 +33,7 @@ jobs:
               - 'contracts/**'
               - 'scripts/abis.sh'
               - 'scripts/class-sizes.sh'
+              - 'scripts/check-artifact-names.sh'
               - 'scripts/deploy.sh'
               - 'scripts/test-deploy-url.sh'
               - 'scripts/signer/**'
@@ -88,6 +89,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
+      # Static (reads contracts/src, deploy.sh and scripts/signer/**; no build, no node): first, so a wrong name fails
+      # in seconds and not after the build. This job runs on contracts/**, deploy.sh and signer/** (the `contracts` filter).
+      - name: Artifact names the scripts load exist in the build
+        run: scripts/check-artifact-names.sh
+        shell: bash
       - name: Build
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: scarb build

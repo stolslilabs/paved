@@ -300,6 +300,8 @@ the upgrade: it is built from the commit where part B's `sepolia.json` merges, o
 - Client build and tests
 - Signer tests (`scripts/signer/`: `npm ci && npm test`, Node 24; its devnet rehearsal tests are skipped in CI,
   which has no build or node for them)
+- Artifact names (`scripts/check-artifact-names.sh`, a step of the CI build job): every `paved_<Contract>` that `deploy.sh`
+  and `scripts/signer/**` load must be a `#[starknet::contract]` module of `contracts/src` (T-0251)
 
 Not in `ci`: **the mainnet fork test (E-9)**, `contracts/src/tests/economy/fork.cairo`. It checks Ekubo's router
 `quote_swap`, the price limit and a partial fill on a fork of Starknet mainnet. Its tests are `#[ignore]`, so the
