@@ -27,6 +27,10 @@ describe("engine parity fixture", () => {
     expect(readFileSync(SOURCES_TARGET, "utf8")).toBe(render(toSources(transcription)));
   });
 
+  it("holds no line number in its sources", () => {
+    expect(readFileSync(SOURCES_TARGET, "utf8")).not.toMatch(/\.(cairo|md)[:#]\d|:\d+(-\d+)? \(/);
+  });
+
   it("covers the 11 golden games and the differential boards", () => {
     const names = fixture.games.map((game) => game.name);
     for (const name of [
@@ -36,6 +40,39 @@ describe("engine parity fixture", () => {
       expect(names).toContain(name);
     }
     expect(fixture.games.filter((game) => game.source === "differential").length).toBeGreaterThan(0);
+  });
+});
+
+// The sources are anchored by test name, so only the moves and expected values the script reads can change
+// the fixture. Shown on the real Cairo text with a reformat and with a changed golden.
+describe("the fixture's anchoring", () => {
+  const rendered = (read: (path: string) => string) => {
+    const transcription = transcribe(read);
+    return [render(toFixture(transcription)), render(toSources(transcription))];
+  };
+  const expected = rendered(readRepository);
+
+  it("ignores a reformat and a move within the file", () => {
+    const reformatted = rendered((path) => {
+      const text = readRepository(path);
+      // A comment block and blank lines above every function, and a deeper indent: every line number moves
+      return `// scarb fmt moved this\n\n\n${text.replace(/^(#\[test\])/gm, "\n// a new comment\n$1").replace(/^ {4}/gm, "      ")}`;
+    });
+    expect(reformatted).toEqual(expected);
+  });
+
+  it("fails when a golden's expected value changes", () => {
+    const changed = rendered((path) =>
+      path.endsWith("golden/daily.cairo") ? readRepository(path).replace(/\bscore: (\d+)/, (_, n) => `score: ${Number(n) + 1}`) : readRepository(path),
+    );
+    expect(changed[0]).not.toEqual(expected[0]);
+  });
+
+  it("fails when a golden's move changes", () => {
+    const changed = rendered((path) =>
+      path.endsWith("golden/forest.cairo") ? readRepository(path).replace("Orientation::South", "Orientation::North") : readRepository(path),
+    );
+    expect(changed[0]).not.toEqual(expected[0]);
   });
 });
 
