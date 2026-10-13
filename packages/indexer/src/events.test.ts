@@ -302,7 +302,7 @@ describe("Economy's events", () => {
   test("Economy's own variants are not flat: each is named as its struct, whose name is the selector", () => {
     type Enum = AbiItem & { variants: { name: string; type: string; kind: string }[] };
     const enums = abi("Economy").filter((item) => item.type === "event" && item.kind === "enum") as Enum[];
-    const event = enums.find((item) => item.name === "paved::economy::economy::Economy::Event")!;
+    const event = enums.find((item) => item.name === "paved::systems::economy::Economy::Event")!;
     const own = event.variants.filter((variant) => variant.kind !== "flat");
     for (const variant of own) {
       expect(variant.kind, variant.name).toBe("nested");
