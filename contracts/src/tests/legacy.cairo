@@ -8,7 +8,8 @@
 //! oriented rows, layouts, decks, helpers) are shared. `DailyBeforeD18` runs `build` exactly as
 //! `PlayableComponent::build` of 07aab8a did, on the same storage node (`selector!("paved")`), and
 //! upgrades as `Daily` does (owner only, OpenZeppelin's `UpgradeableComponent`). D-21 removed its
-//! `build_tutorial` (the Tutorial's build of 07aab8a), with the Tutorial. Their game-over tails (tournament, quests, achievements)
+//! `build_tutorial` (the Tutorial's build of 07aab8a), with the Tutorial. Their game-over tails
+//! (tournament, quests, achievements)
 //! are left out: the test ends its games under the new classes. D-20 removed its
 //! `Store::tournament`
 //! and `set_tournament`, with the `Tournament` model they read.

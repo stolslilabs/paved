@@ -7,11 +7,11 @@ use openzeppelin_interfaces::token::erc721::{IERC721_ID, IERC721_METADATA_ID};
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::collection::{
     Collection, ICollectionDispatcher, ICollectionDispatcherTrait, ICollectionSafeDispatcher,
-    ICollectionSafeDispatcherTrait,
-    IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
-    IERC721SoulboundCamelDispatcher, IERC721SoulboundCamelDispatcherTrait,
-    IERC721SoulboundCamelSafeDispatcher, IERC721SoulboundCamelSafeDispatcherTrait,
-    IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
+    ICollectionSafeDispatcherTrait, IERC721MetadataSoulboundDispatcher,
+    IERC721MetadataSoulboundDispatcherTrait, IERC721SoulboundCamelDispatcher,
+    IERC721SoulboundCamelDispatcherTrait, IERC721SoulboundCamelSafeDispatcher,
+    IERC721SoulboundCamelSafeDispatcherTrait, IERC721SoulboundDispatcher,
+    IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
     IERC721SoulboundSafeDispatcherTrait, ISRC5SoulboundDispatcher, ISRC5SoulboundDispatcherTrait,
     TUTORIAL_OFFSET, metadata,
 };

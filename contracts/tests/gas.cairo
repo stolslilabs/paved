@@ -39,8 +39,8 @@ pub const CEILING_CLOSE_LARGE: u128 = 5393424;
 pub const CEILING_WORST_CASE: u128 = 5662074;
 pub const CEILING_FOREST: u128 = 8962300;
 pub const CEILING_FOREST_WORST: u128 = 18923195;
-// g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one external call to
-// `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
+// g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
+// external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
 // `Economy.record` add about 1.46M (1.11M on i). D-20 took the ranking out of g, k and l, and h
 // (the closing move that did not rank) and j (the `tournament` view) out with it; the ceilings are
@@ -51,7 +51,8 @@ pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
-// m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
+// m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
+// `Economy.purchase` (swap, burn, Vault).
 pub const CEILING_SPAWN_DAILY: u128 = 52743229;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).

@@ -59,11 +59,11 @@ pub mod Daily {
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
-    #[cfg(test)]
-    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::storage::{
         StorageAsPath, StorageBase, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    #[cfg(test)]
+    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
@@ -363,9 +363,7 @@ pub mod Daily {
                 let tally = decode(over, player_id);
                 ISetupDispatcher { contract_address: self.setup.read() }
                     .report(
-                        player_id,
-                        quest_entries(tally).span(),
-                        achievement_entries(tally).span(),
+                        player_id, quest_entries(tally).span(), achievement_entries(tally).span(),
                     );
                 economy().record(game_id, tally.score);
             }

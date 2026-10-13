@@ -16,7 +16,9 @@ use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
 use paved::systems::daily::Daily::DeadFieldsTrait;
 use paved::systems::daily::{Daily, IDailyDispatcher};
-use paved::tests::e2e::cold_paths::{ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in};
+use paved::tests::e2e::cold_paths::{
+    ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in,
+};
 use paved::tests::e2e::quests::define_accepted_list;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};

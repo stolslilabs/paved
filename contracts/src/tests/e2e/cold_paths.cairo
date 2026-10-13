@@ -213,7 +213,9 @@ pub trait ISpySetup<TContractState> {
 }
 
 /// The Poseidon of the serialized entries of a report.
-pub fn entries_hash(quests: Span<QuestProgress>, achievements: Span<AchievementProgress>) -> felt252 {
+pub fn entries_hash(
+    quests: Span<QuestProgress>, achievements: Span<AchievementProgress>,
+) -> felt252 {
     let mut data: Array<felt252> = array![];
     quests.serialize(ref data);
     achievements.serialize(ref data);

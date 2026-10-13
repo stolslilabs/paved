@@ -131,7 +131,9 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     let (economy, usdc) = setup::deploy_economy();
     let account = deploy_one("Account", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one("Daily", array![owner, account.into(), usdc.into(), setup_address.into()]);
+    let daily = deploy_one(
+        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
+    );
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
     stop_cheat_caller_address(account);
@@ -210,7 +212,9 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     let account = deploy_one("Account", array![owner]);
     let collection = deploy_one("Collection", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one("Daily", array![owner, account.into(), usdc.into(), setup_address.into()]);
+    let daily = deploy_one(
+        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
+    );
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
     IAccountDispatcher { contract_address: account }.set_collection(collection);
