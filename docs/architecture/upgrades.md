@@ -42,8 +42,9 @@ day one and the playtest data survives fixes.
 
 **Since D-24 this path is history**: `Daily` runs its cold paths itself, `set_lobby_class`, `ILobbyClass` and
 `LobbyClassSet` are gone, and the `Lobby` class is deleted (the name is kept for multiplayer, P-51 (2)). `lobby_class`
-stays declared in `Daily`, dead (below, "Dead slots since D-21 and D-24"). The Sepolia `Daily` and `Tutorial` keep
-running their `Lobby` until `Daily` is upgraded; `Tutorial` keeps it for good. What follows is the path as it was.
+stays declared in `Daily`, dead (below, "Dead slots since D-21 and D-24"). Sepolia is not upgraded to these classes:
+P-53 decided one fresh deployment, where `Daily`'s constructor sets `setup`. The old Sepolia `Daily` and `Tutorial` keep
+their `Lobby`. What follows is the path as it was.
 
 `Daily` and `Tutorial` run `spawn`, `claim`, `sponsor`, `discard`, `surrender`, the reports and the quest definitions in
 the `Lobby` class by library call (P-26). P-26 made its class hash, `lobby_class`, immutable. P-42 reverses that:
@@ -144,9 +145,13 @@ for `tournaments` and `rankings`) equals the address computed from the literal n
 survive a whole game (the accepted list defined on `Setup`, then spawn, build, discard and surrender, each game over
 reported to `Setup`).
 
-**New live slot**: `Daily.setup: ContractAddress`, written by the constructor and by the owner's `set_setup` (P-42;
-needed on a contract upgraded in place, whose constructor does not run). Step E's single registry can keep it as the
-one address `Daily` reads its wiring from.
+**New live slot**: `Daily.setup: ContractAddress`, written by the constructor and by the owner's `set_setup` (P-42).
+Step E's single registry can keep it as the one address `Daily` reads its wiring from.
+
+**Rule for any future in-place upgrade of a `Daily` without `setup`** (D-17; mainnet later; not Sepolia, P-53): deploy
+`Setup` and call `Setup.set_reporter(Daily, true)` first, then send `Daily.upgrade` and `Daily.set_setup(Setup)` in one
+owner multicall, and read `Daily.setup()` back. If `setup` is still zero, a game over still ends and is recorded
+(`finish` skips the report when the slot is zero), but that game's progress is lost.
 
 ## D-20 on Sepolia (superseded by P-53: fresh deployment)
 

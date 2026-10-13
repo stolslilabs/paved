@@ -4,6 +4,9 @@ The views that `Daily` and `Tutorial` expose so that a client can show a game, i
 characters of its player and the Daily tournaments without an indexer. Events give the lists ("my
 games", history); views give the current state of one game or one tournament.
 
+**Since D-21 a fresh network has no Tutorial**: the rows below that name `Tutorial`, its deck or `mode` `3` describe the
+old Sepolia `Tutorial` only (legacy), and `Mode` `3` reads as `None` in the contracts.
+
 This is a published interface. Its types (`contracts/src/views.cairo`) are plain structs built for
 the client, not the storage structs: the storage will change in phase P5 (persistent structure
 state, packing) and these views will not.
@@ -39,7 +42,7 @@ long as it reads the ABI of the deployed class.
 | `player_id` | `felt252` | Address of the player's account, as a felt |
 | tile id | `u32` | Order of draw within the game, from 1. Tile 1 is the starter tile, placed at spawn. Each drawn tile is placed or discarded before the next is drawn, so the order of the placed tiles by id is their order of placement |
 | `x`, `y` | `u32` | Board position; the starter tile is at (`CENTER`, `CENTER`), `CENTER = 0x7fffffff`; `y + 1` is north, `x + 1` is east. `0, 0` means "not on the board" |
-| `mode` | `u8` | `1` Daily, `3` Tutorial (`2` was Weekly and is never given again) |
+| `mode` | `u8` | `1` Daily; `3` Tutorial (legacy: the old Sepolia `Tutorial` only, `None` on a fresh network); `2` was Weekly. `2` and `3` are never given again |
 | `plan` | `u8` | `Plan` code (`types/plan.cairo`); `0` means none |
 | `orientation` | `u8` | `0` none (not placed), `1` north, `2` east, `3` south, `4` west |
 | `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim, `6` Woodsman, `7` Herdsman (the last two since P4) Removed by D-18 |
@@ -576,7 +579,7 @@ ABI diff as built. Inventory and design: `leaderboard.md`, "As built: D-24, Lobb
 |---|---|---|
 | `IDailyQuests`: `define_quest(quest_id, schedule, tasks, conditions)`, `retire_quest(quest_id)`, `define_achievement(achievement_id, window, tasks, points)`, `retire_achievement(achievement_id)` (`systems/daily.cairo:28-46`) | on `Daily`, owner-only | **moved to `Setup`**, same signatures |
 | `ILobbyClass.set_lobby_class(class_hash)`, event `LobbyClassSet { class_hash }` (`daily.cairo:265-275`, `:153`) | on `Daily` and `Tutorial` | **removed** from Challenge |
-| Constructor of `Daily` | `(owner, account_address, token_address, lobby_class)` (`daily.cairo:159-165`) | `(owner, account_address, token_address, setup_address)` for a new deploy, `setup_address` non-zero (`'Daily: setup is zero'`); Sepolia upgrades in place and sets it with `set_setup` |
+| Constructor of `Daily` | `(owner, account_address, token_address, lobby_class)` (`daily.cairo:159-165`) | `(owner, account_address, token_address, setup_address)` for a new deploy, `setup_address` non-zero (`'Daily: setup is zero'`). Sepolia gets one fresh deployment (P-53), where the constructor sets it. A future in-place upgrade (D-17; mainnet later) sends `upgrade` and `set_setup` in one owner multicall, after `Setup` is deployed and allowlists `Daily`; until `set_setup` runs, a game over still ends and is recorded, with no progress reported |
 | **New:** `IDailySetup.set_setup(setup: ContractAddress)`, `setup() -> ContractAddress`, event `SetupSet { setup }` | | the `Setup` a game over reports to: the owner sets it (never zero), anyone reads it |
 | The quiver events in Challenge's ABI (`QuestDefined`, `QuestProgressed`, `QuestRetired`, `QuestCompleted`, `QuestClaimed`, `QuestReporterSet`, the `Achievement*` ones) | declared and emitted by `Daily` | **leave Challenge's ABI**: `Daily` keeps their storage, dead, without declaring the components; emitted by `Setup` only |
 | Errors of the cold paths | `'Lobby: economy not set'`, `'Lobby: collection not set'` | `'Daily: economy not set'`, `'Daily: collection not set'`; `'ERC20: pay failed'` unchanged |

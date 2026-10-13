@@ -567,3 +567,5 @@ the mint, `discard`, `surrender`, the game-over finish (the external call to `Se
 event declarations. `Setup` is under the 12,000 to 16,000 estimated. `Collection` loses its `tutorial` view. The other
 classes are unchanged to the felt.
 
+**Fix loop 1 (review #346):** the zero-`setup` guard in `finish` adds 16 CASM felts: `Daily` 60,576 (Sierra 27,430),
+**12,371 under the P-44 cap (17.0 %)**. `Setup` is unchanged (13,449).

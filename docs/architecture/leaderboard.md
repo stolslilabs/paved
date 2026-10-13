@@ -707,6 +707,9 @@ stays). **Built by step D**, as `Setup` (D-25's name). The inventory and the des
   `set_setup(setup)` (`IDailySetup`, never zero, emits `SetupSet { setup }`; `setup()` reads it). Step E's single
   registry can keep that field as the one address `Daily` reads its wiring from, replacing the `Account` reads of the
   economy and the collection.
+- **Owner acts can stop game overs:** `Daily.set_setup` to a contract that reverts, or `Setup.set_reporter(Daily,
+  false)`. Either adds no power beyond `upgrade`. A zero `setup` (an upgrade in place before `set_setup`) cannot: `finish`
+  then skips the report, and the game still ends and is recorded (`test_cold_paths_game_over_without_a_setup_*`).
 - `set_lobby_class`, `ILobbyClass`, `LobbyClassSet`, the library-call wrappers and `IDailyQuests` are gone;
   `systems/lobby.cairo` is deleted. `lobby_class` and the flat `quest` and `achievement` substorage stay declared in
   `Daily`, dead, pinned by name (`upgrades.md`, "Dead slots since D-21 and D-24").

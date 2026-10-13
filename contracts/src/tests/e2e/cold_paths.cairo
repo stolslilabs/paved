@@ -115,6 +115,10 @@ pub trait ISpyEconomy<TContractState> {
     fn record(ref self: TContractState, game_id: u32, score: u32);
     fn purchased(self: @TContractState) -> Purchase;
     fn recorded(self: @TContractState) -> (u32, u32, u32);
+    /// The spy `Setup` whose report count `record` reads, to pin the order of a game over.
+    fn watch_setup(ref self: TContractState, setup: ContractAddress);
+    /// The spy `Setup`'s report count when the last `record` ran.
+    fn reports_at_record(self: @TContractState) -> u32;
 }
 
 #[derive(Copy, Drop, Serde, PartialEq, Debug, starknet::Store)]
@@ -137,12 +141,14 @@ pub mod SpyEconomy {
     use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
-    use super::{ISpyEconomy, Purchase};
+    use super::{ISpyEconomy, ISpySetupDispatcher, ISpySetupDispatcherTrait, Purchase};
 
     #[storage]
     struct Storage {
         purchase: Purchase,
         records: u32,
+        setup: ContractAddress,
+        reports_at_record: u32,
         recorded_game: u32,
         recorded_score: u32,
     }
@@ -182,6 +188,12 @@ pub mod SpyEconomy {
         }
 
         fn record(ref self: ContractState, game_id: u32, score: u32) {
+            let setup = self.setup.read();
+            let watched: felt252 = setup.into();
+            if watched != 0 {
+                let (reports, _, _, _) = ISpySetupDispatcher { contract_address: setup }.reported();
+                self.reports_at_record.write(reports);
+            }
             self.records.write(self.records.read() + 1);
             self.recorded_game.write(game_id);
             self.recorded_score.write(score);
@@ -189,6 +201,14 @@ pub mod SpyEconomy {
 
         fn purchased(self: @ContractState) -> Purchase {
             self.purchase.read()
+        }
+
+        fn watch_setup(ref self: ContractState, setup: ContractAddress) {
+            self.setup.write(setup);
+        }
+
+        fn reports_at_record(self: @ContractState) -> u32 {
+            self.reports_at_record.read()
         }
 
         /// The number of records, the last game id and its score.
@@ -298,6 +318,7 @@ pub fn daily_paid_in(
     let setup = deploy("SpySetup", array![]);
     let account = deploy("Account", array![owner]);
     let daily = deploy("Daily", array![owner, account.into(), token.into(), setup.into()]);
+    ISpyEconomyDispatcher { contract_address: economy }.watch_setup(setup);
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
     let collection = deploy("Collection", array![owner]);
@@ -404,6 +425,8 @@ fn assert_reported_once(spied: @Spied, game_id: u32) {
     let (records, recorded_game, recorded_score) = (*spied.economy).recorded();
     assert(records == 1, 'Over: one record');
     assert(recorded_game == game_id && recorded_score == game.score, 'Over: record');
+    // [Order] `Setup.report`, then `Economy.record`: the report was in when the record ran
+    assert((*spied.economy).reports_at_record() == 1, 'Over: record before report');
 }
 
 #[test]
@@ -487,4 +510,45 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
     start_cheat_caller_address(address, PLAYER());
     spied.daily.surrender(game_id);
     assert_reported_once(@spied, game_id);
+}
+
+/// A `Daily` with no `Setup` (its `setup` slot zero, as after an in-place upgrade before
+/// `set_setup`): a game over by build, by discard and by surrender still ends the game and records
+/// it in `Economy`, and makes no report.
+#[test]
+#[available_gas(l2_gas: 300000000)]
+fn test_cold_paths_game_over_without_a_setup_ends_and_records_without_a_report() {
+    let spied = spied_daily();
+    let address = spied.daily.contract_address;
+    snforge_std::store(address, selector!("setup"), array![0].span());
+    assert(
+        paved::systems::daily::IDailySetupDispatcherTrait::setup(
+            paved::systems::daily::IDailySetupDispatcher { contract_address: address },
+        )
+            .is_zero(),
+        'No setup: slot not zero',
+    );
+    let mut records = 0;
+    let mut way: u8 = 0;
+    while way < 3 {
+        let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+        almost_over(@spied, game_id);
+        if way == 0 {
+            hold(@spied, game_id, Plan::RFFFRFFFR);
+            spied.daily.build(game_id, Orientation::North, CENTER + 1, CENTER);
+        } else if way == 1 {
+            spied.daily.discard(game_id);
+        } else {
+            spied.daily.surrender(game_id);
+        }
+        records += 1;
+        let game = spied.store.game(game_id);
+        assert(game.over, 'No setup: not over');
+        let (count, recorded_game, recorded_score) = spied.economy.recorded();
+        assert(count == records, 'No setup: not recorded');
+        assert(recorded_game == game_id && recorded_score == game.score, 'No setup: record');
+        way += 1;
+    }
+    let (reports, _, _, _) = spied.setup.reported();
+    assert(reports == 0, 'No setup: reported');
 }

@@ -815,6 +815,10 @@ no figure before.
   gas, `class-headroom.md`) and the internal quiver calls of `discard` and `surrender`. A first build, which checked the
   allowlist of both components, cost 50,530 more on each (i 2,762,898): `Setup` now reads one, the quests', since
   `set_reporter` is the only writer of both and writes them together.
+- **Fix loop 1 (review #346): the zero-`setup` guard in `finish` costs +3,100 on each game over** (g 3,173,008, i
+  2,715,468, k 3,607,188, l 7,131,685, s 3,363,203; the other scenarios unchanged to the unit). `setup` was read
+  before as well; the guard adds the zero check and its branch, not a read. Every scenario stays under its ceiling
+  (i: 95.3 % of 2,847,987).
 - **The spawns m, n: -283,210 each.** The library call to `Lobby` is gone (and #342's Faucet is inside this figure).
 - **The building moves a0 to f: -6,100 each.** Not analysed (the move's own code is unchanged; `Daily`'s dispatch
   changed: an estimate would be a guess).
