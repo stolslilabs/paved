@@ -8,11 +8,12 @@ import type { GameKey, PlaceMove } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
 import { ClosedStructures } from "../components/ClosedStructures";
 import { GameNft, useCollection } from "../components/GameNft";
-import { CENTER, toRenderBoard } from "../utils/game-helpers";
+import { toChainSlot, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute, isDailyParam, isTrainingParam, isTutorialParam, renamedModeSearch } from "../utils/mode-routing";
 import type { MoveSenders, PageSession, PageState } from "../training/page-session";
+import { attachE2eProbe, publishE2eView } from "../training/e2e-probe";
 import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";
 import { useEconomy } from "../utils/economy-context";
@@ -32,8 +33,7 @@ function canPlaceTile(
   tileOrientation: number,
   placedTiles: TileRenderData[],
 ): boolean {
-  const absX = gridX + CENTER;
-  const absY = CENTER - gridY;
+  const { x: absX, y: absY } = toChainSlot(gridX, gridY);
 
   // Build position lookup (contract coordinates)
   const byPos = new Map<string, TileRenderData>();
@@ -335,8 +335,6 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
   const orientation = useGameStore((s) => s.orientation);
   const setOrientation = useGameStore((s) => s.setOrientation);
   const strategyMode = useGameStore((s) => s.strategyMode);
-  const x = useGameStore((s) => s.x);
-  const y = useGameStore((s) => s.y);
   const selectedTile = useGameStore((s) => s.selectedTile);
   const [hoverGrid, setHoverGrid] = useState<{ x: number; y: number } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>("play");
@@ -356,13 +354,11 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
 
   const handleReady = useCallback((s: GameScene) => {
     setScene(s);
+    attachE2eProbe(s);
   }, []);
 
   const handleTileClick = useCallback((gridX: number, gridY: number) => {
-    const store = useGameStore.getState();
-    store.setX(gridX + CENTER);
-    store.setY(CENTER - gridY);
-    store.setSelectedTile({ col: gridX, row: gridY });
+    useGameStore.getState().setSelectedTile({ col: gridX, row: gridY });
   }, []);
 
   const handleTileHover = useCallback((gridX: number, gridY: number) => {
@@ -411,6 +407,10 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
     return slots;
   }, [hand, orientation, tiles]);
 
+  useEffect(() => {
+    publishE2eView({ orientation, slots: availableSlots });
+  }, [orientation, availableSlots]);
+
   const hoverState = useMemo(() => {
     if (!hand) return null;
     // If a tile position is locked (clicked), use it; otherwise follow the mouse
@@ -434,13 +434,14 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
 
   // The tile is drawn at once (pending); the receipt's events confirm it; one read reconciles.
   const handleConfirm = useCallback(async () => {
-    if (!session || !senders || readonly) return;
-    const move: PlaceMove = { orientation, x, y };
+    if (!session || !senders || readonly || !hoverState?.valid) return;
+    // The slot the ghost shows (the clicked one, else the hovered one): what the confirm guards checked.
+    const move: PlaceMove = { orientation, ...toChainSlot(hoverState.x, hoverState.y) };
     useGameStore.getState().setSelectedTile(null);
     // Keep hoverGrid so the ghost stays visible with the next tile
     const placed = await session.place(move, () => senders.build(move));
     if (placed) setOrientation(1); // reset rotation for the new tile
-  }, [session, senders, readonly, orientation, x, y, setOrientation]);
+  }, [session, senders, readonly, orientation, hoverState, setOrientation]);
 
   const handleDiscard = useCallback(async () => {
     if (!session || !senders || readonly) return;
@@ -467,6 +468,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
     hand,
     game,
     hoverState,
+    confirmingSurrender,
   });
   useEffect(() => {
     hotkeys.current = {
@@ -479,6 +481,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
       hand,
       game,
       hoverState,
+      confirmingSurrender,
     };
   });
 
@@ -496,6 +499,8 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
         h.handleRecenter();
         return;
       }
+      // The surrender dialog is modal: a key typed under it must not play a move.
+      if (h.confirmingSurrender) return;
       switch (e.key.toLowerCase()) {
         case "r":
           h.handleRotate();
