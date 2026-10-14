@@ -16,6 +16,12 @@ type Story = StoryObj<typeof meta>;
 /** The bottom bar on a phone (icon and label from 360 px), a left rail with labels from 1024 px (the theme's `desktop`): the Viewport control switches between them. */
 export const Default: Story = {};
 
+/** The Ranks tab active. */
+export const ActiveRanks: Story = { args: { active: "ranks" } };
+
+/** The Vault tab active. */
+export const ActiveVault: Story = { args: { active: "vault" } };
+
 /** Click a tab: the indicator slides (Motion `layoutId`). */
 export const Interactive: Story = {
   render: function Render(args) {

@@ -7,7 +7,7 @@ import { useGlobals } from "storybook/preview-api";
 import "../src/styles/fonts.css";
 import { preloadFonts } from "../src/styles/fonts";
 import "../src/styles/theme.css";
-import { DEFAULT_VIEWPORT, VIEWPORT_FRAMES, VIEWPORT_NAMES, isFramed, type ViewportName } from "../src/components/scenes/viewports";
+import { DEFAULT_VIEWPORT, TOOLBAR_KEY, TOOLBAR_VIEWPORTS, VIEWPORT_LABELS, VIEWPORT_NAMES, frameOf, isFramed, syncViewportGlobal, type ViewportGlobal, type ViewportName } from "../src/components/scenes/viewports";
 import { board } from "../src/styles/tokens";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
@@ -58,21 +58,28 @@ const withProviders: Decorator = (Story, { parameters }) => (
 /**
  * Frames a scene or container (see `isFramed`) at the `viewport` arg's width and height, and strips the arg from every
  * story's args so that no component gets it as a prop.
- * Media queries read the iframe, not the frame: in the Storybook UI the Viewport addon resizes the iframe to the same
- * size (the global is kept in step with the arg below); opened alone, the window has to be that wide.
+ * Media queries read the iframe, not the frame: in the Storybook UI the Viewport addon resizes the iframe, so the decorator
+ * keeps the toolbar's global in step with the arg (`syncViewportGlobal` has the rule: the radio wins, and the global is
+ * given back on an unframed story). Opened alone, the window has to be that wide.
  */
-const withViewport: Decorator = (Story, { args, title, parameters, viewMode }) => {
+let viewportGlobalOwned = false;
+const withViewport: Decorator = (Story, { args, title, parameters, viewMode, initialGlobals }) => {
   const { viewport = DEFAULT_VIEWPORT, ...props } = args as typeof args & { viewport?: ViewportName };
-  const [, updateGlobals] = useGlobals();
-  const frame = VIEWPORT_FRAMES[viewport] ?? VIEWPORT_FRAMES[DEFAULT_VIEWPORT];
+  const [globals, updateGlobals] = useGlobals();
+  const name = viewport in TOOLBAR_KEY ? viewport : DEFAULT_VIEWPORT;
+  const frame = frameOf(name);
   const framed = isFramed(title, parameters.viewportFrame);
+  const current = globals.viewport as ViewportGlobal;
   useEffect(() => {
-    if (framed && viewMode === "story") updateGlobals({ viewport: { value: viewport, isRotated: false } });
-  }, [framed, viewMode, viewport]);
+    if (viewMode !== "story") return;
+    const step = syncViewportGlobal({ framed, viewport: name, current, initial: initialGlobals?.viewport as ViewportGlobal, owned: viewportGlobalOwned });
+    viewportGlobalOwned = step.owned;
+    if (step.set) updateGlobals({ viewport: step.set });
+  }, [framed, viewMode, name, current?.value, current?.isRotated]);
   if (!framed) return <Story args={props} />;
   return (
     // `transform`: a transformed box holds the `fixed` bars (the nav, the HUD) inside the frame.
-    <div data-viewport-frame={viewport} className="mx-auto max-w-full overflow-auto" style={{ width: frame.width, height: frame.height, transform: "translateZ(0)" }}>
+    <div data-viewport-frame={name} className="mx-auto max-w-full overflow-auto" style={{ width: frame.width, height: frame.height, transform: "translateZ(0)" }}>
       <Story args={props} />
     </div>
   );
@@ -98,7 +105,7 @@ const preview: Preview = {
     viewport: {
       name: "Viewport",
       description: "The width the scene or container is told at (scenes and containers only).",
-      control: { type: "radio", labels: Object.fromEntries(Object.entries(VIEWPORT_FRAMES).map(([k, v]) => [k, v.label])) },
+      control: { type: "radio", labels: VIEWPORT_LABELS },
       options: VIEWPORT_NAMES,
       table: { category: "Frame" },
     },
@@ -108,11 +115,9 @@ const preview: Preview = {
     layout: "fullscreen",
     // The board's colour is the only background (spec A).
     backgrounds: { options: { board: { name: "Board", value: board().hex } } },
-    // The four frames of `VIEWPORT_FRAMES`, for the toolbar and for the decorator, which sets the global from the arg.
+    // The theme's four breakpoints, under their own names (`Foundations/Breakpoints` pins them); the `viewport` arg maps onto them.
     viewport: {
-      options: Object.fromEntries(
-        Object.entries(VIEWPORT_FRAMES).map(([k, v]) => [k, { name: v.label, styles: { width: `${v.width}px`, height: `${v.height}px` }, type: v.width < 1024 ? "mobile" : v.width < 1440 ? "tablet" : "desktop" }]),
-      ),
+      options: Object.fromEntries(Object.entries(TOOLBAR_VIEWPORTS).map(([k, v]) => [k, { name: v.name, styles: { width: `${v.width}px`, height: `${v.height}px` }, type: v.type }])),
     },
     controls: { matchers: { color: /(background|color)$/i } },
   },
