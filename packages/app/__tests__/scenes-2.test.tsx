@@ -22,7 +22,7 @@ import { Toaster, toast } from "../src/components/ui/sonner";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
-import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO } from "../src/mocks/quests";
+import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO, QUESTS_WEEKLY_DONE } from "../src/mocks/quests";
 import { REFERRAL_LINK } from "../src/mocks/referral";
 import { ACHIEVEMENTS, LEADERBOARD, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
@@ -417,6 +417,18 @@ describe("Quests", () => {
     await Promise.resolve();
     expect(success).not.toHaveBeenCalled();
     expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    success.mockRestore();
+  });
+
+  it("treats a return to today as a first read: Weekly Forester 2 of 5 yesterday, 5 of 5 today, no toast", async () => {
+    toast.dismiss();
+    const success = vi.spyOn(toast, "success");
+    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
+    const { rerender } = render(scene(QUESTS_ALL_DONE));
+    await Promise.resolve();
+    rerender(scene(QUESTS_WEEKLY_DONE));
+    await Promise.resolve();
+    expect(success).not.toHaveBeenCalled();
     success.mockRestore();
   });
 
