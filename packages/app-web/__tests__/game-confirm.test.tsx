@@ -11,7 +11,7 @@ vi.mock("@paved/renderer/react", () => ({
   GameCanvas: ({ availableSlots = [], onTileHover }: { availableSlots?: Array<{ x: number; y: number }>; onTileHover?: (x: number, y: number) => void }) => (
     <>
       {availableSlots.slice(0, 1).map((s) => (
-        <button key={`${s.x},${s.y}`} type="button" onClick={() => onTileHover?.(s.x, s.y)}>
+        <button key={`${s.x},${s.y}`} type="button" data-slot={`${s.x},${s.y}`} onClick={() => onTileHover?.(s.x, s.y)}>
           Slot
         </button>
       ))}
@@ -38,6 +38,9 @@ vi.mock("@paved/ui", async () => {
 });
 
 afterEach(cleanup);
+
+/** The contracts' board centre: the starter tile lies at (CENTER, CENTER). */
+const CENTER = 0x7fffffff;
 
 const scored = (category: number, size: number, points: number, gameId = 4n) => ({
   name: "Scored",
@@ -69,6 +72,34 @@ describe("Confirming a move (D-18)", () => {
     const move = build.mock.calls[0][1] as Record<string, unknown>;
     expect(Object.keys(move).sort()).toEqual(["orientation", "x", "y"]);
     expect(move).toEqual({ orientation: expect.any(Number), x: expect.any(Number), y: expect.any(Number) });
+  });
+});
+
+describe("The move's coordinates (D1)", () => {
+  /** The hovered slot's contract coordinates: grid x east, grid y south of the starter at (CENTER, CENTER). */
+  const slotOnChain = () => {
+    const [gx, gy] = screen.getByText("Slot").getAttribute("data-slot")!.split(",").map(Number);
+    return { x: gx + CENTER, y: CENTER - gy };
+  };
+
+  it("a hovered slot confirmed with the button is sent at its absolute coordinates, next to the starter", async () => {
+    const build = await confirmWith([built]);
+    const move = build.mock.calls[0][1] as { x: number; y: number };
+    expect({ x: move.x, y: move.y }).toEqual(slotOnChain());
+    expect(Math.abs(move.x - CENTER) + Math.abs(move.y - CENTER)).toBe(1);
+  });
+
+  it("a hovered slot confirmed with the C hotkey is sent at its absolute coordinates", async () => {
+    const views = new FakeGameViews();
+    views.setGame(gameKey, fakeGame());
+    const build = vi.fn(async () => ({ transactionHash: "0x1", events: [built] }));
+    renderPage({ page: <GamePage />, path: "/game", search: "?mode=challenge&id=4", views, writer: { build } });
+    fireEvent.click(await screen.findByText("Slot"));
+    await waitFor(() => expect((screen.getByText("Confirm move") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.keyDown(window, { key: "c" });
+    await waitFor(() => expect(build).toHaveBeenCalledTimes(1));
+    const move = build.mock.calls[0][1] as { x: number; y: number };
+    expect({ x: move.x, y: move.y }).toEqual(slotOnChain());
   });
 });
 
