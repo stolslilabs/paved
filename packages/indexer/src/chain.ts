@@ -150,6 +150,15 @@ type Resolved = Record<Exclude<Source, "collection">, string> & { collection: st
 /** Events asked per page of `starknet_getEvents`. */
 export const CHUNK_SIZE = 100;
 
+/** Events asked per page of a range read: the public Sepolia node's maximum (2026-10-14; code 31 above it). */
+export const RANGE_CHUNK_SIZE = 1024;
+
+/** `starknet_getEvents`: "Requested page size is too big". */
+export const PAGE_SIZE_TOO_BIG = 31;
+
+/** An event of a range read: a RawEvent with its block, by number and hash. */
+export type RangedEvent = RawEvent & { block: number; blockHash: string };
+
 export class Chain {
   readonly calls: Record<string, number> = {};
   private readonly rpc: Rpc;
@@ -314,6 +323,75 @@ export class Chain {
     return events.sort(
       (a, b) =>
         a.transactionIndex - b.transactionIndex || a.eventIndex - b.eventIndex,
+    );
+  }
+
+  /** The page size of `rangeEvents`: halved, for good, each time the node refuses it as too big. */
+  rangeChunkSize = RANGE_CHUNK_SIZE;
+
+  /**
+   * The events of the four contracts in blocks `from` to `to` (by number), one filter per contract followed through its
+   * continuation tokens (a node may answer an empty page with a token: it bounds its own scan), merged in chain order:
+   * block, then transaction index, then event index, the order `events` gives within a block. For final blocks only: a
+   * number names one block there. A page size the node refuses (code 31) is halved and the read starts again; any other
+   * refusal is thrown (the caller halves the range). An event outside the range, of another contract, without its block
+   * hash or without its position, is a BadAnswer.
+   */
+  async rangeEvents(from: number, to: number): Promise<RangedEvent[]> {
+    for (;;) {
+      try {
+        return await this.readRange(from, to);
+      } catch (error) {
+        if (!(error instanceof RpcError) || error.code !== PAGE_SIZE_TOO_BIG || this.rangeChunkSize <= 1) throw error;
+        this.rangeChunkSize = Math.max(1, Math.floor(this.rangeChunkSize / 2));
+      }
+    }
+  }
+
+  private async readRange(from: number, to: number): Promise<RangedEvent[]> {
+    const events: RangedEvent[] = [];
+    for (const source of SOURCES) {
+      const address = this.addresses[source];
+      if (address === undefined) continue;
+      let token: string | undefined;
+      do {
+        const page = (await this.call("starknet_getEvents", {
+          filter: {
+            from_block: { block_number: from },
+            to_block: { block_number: to },
+            address,
+            chunk_size: this.rangeChunkSize,
+            ...(token ? { continuation_token: token } : {}),
+          },
+        })) as EventsPage;
+        for (const event of page.events) {
+          const block = event.block_number;
+          if (!event.block_hash || !Number.isInteger(block) || block! < from || block! > to) {
+            throw new BadAnswer(`an event of block ${block} in the answer for blocks ${from} to ${to}`);
+          }
+          if (canonical(event.from_address) !== address) {
+            throw new BadAnswer(`an event of another contract in the answer for ${source}`);
+          }
+          if (event.transaction_index === undefined || event.event_index === undefined) {
+            throw new BadAnswer("an event without its position (JSON-RPC 0.10 is needed)");
+          }
+          events.push({
+            source,
+            keys: event.keys,
+            data: event.data,
+            transaction: canonical(event.transaction_hash),
+            transactionIndex: event.transaction_index,
+            eventIndex: event.event_index,
+            block: block!,
+            blockHash: canonical(event.block_hash),
+          });
+        }
+        token = page.continuation_token;
+      } while (token);
+    }
+    // Stable: one contract's events keep the node's order where two positions would tie (they never do on a node).
+    return events.sort(
+      (a, b) => a.block - b.block || a.transactionIndex - b.transactionIndex || a.eventIndex - b.eventIndex,
     );
   }
 }

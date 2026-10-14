@@ -4,7 +4,8 @@
  * paid game two days later), three accounts buy and play complete Challenge games over two days and a keeper settles the first
  * day from the API's unsettled list, the indexer
  * (the real process, `src/main.ts`) follows live, is stopped and restarted mid-run, sees a replaced block, and a second
- * indexer rebuilt from the chain answers the same. The API is compared with the contracts' own views (D-20: the leaderboard
+ * indexer rebuilt from the chain answers the same. Last, the whole chain is replayed in process block by block and by range
+ * (an L1-accepted block simulated: devnet has none), and the two databases are compared table by table. The API is compared with the contracts' own views (D-20: the leaderboard
  * is the indexer's own; no `tournament` view remains to compare it with).
  *
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. Needs `starknet-devnet` 0.10 (DEVNET_BIN, else the
@@ -24,7 +25,11 @@ import type {
   PlayerGamesAnswer,
   TournamentAnswer,
 } from "../../src/api.ts";
+import { Chain, httpRpc } from "../../src/chain.ts";
+import { readDeployment } from "../../src/deployment.ts";
 import { padded } from "../../src/events.ts";
+import { Indexer } from "../../src/indexer.ts";
+import { Halt, Store } from "../../src/store.ts";
 import { deploy, Game, type Node, type Player, players, ROOT, rpc, startNode, writtenFile } from "./devnet.ts";
 
 const enabled = process.env.PAVED_DEVNET === "1";
@@ -399,5 +404,50 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     }
     await stopIndexer(API[1]!);
     await stopIndexer(API[0]!);
+  });
+
+  test("replayed block by block and by range (an L1 block simulated), every table is the same", async () => {
+    const parsed = readDeployment(file);
+    const config = {
+      challenge: parsed.challenge,
+      setup: parsed.setup,
+      economy: parsed.economy,
+      collection: parsed.collection,
+      from: parsed.deployedBlock,
+      chainId: parsed.chainId,
+    };
+    const tip = await latest();
+    // Devnet accepts nothing on L1: the simulated L1 block leaves a few blocks above it, which both read block by block.
+    class SimulatedL1 extends Chain {
+      override async l1Accepted() {
+        return tip - 3;
+      }
+    }
+    const replay = async (range: number) => {
+      const chain = new SimulatedL1(httpRpc(node.url), config);
+      const indexer = new Indexer({ chain, store: new Store(join(work, `replay-${range}.db`)), config, depth: "l1", range });
+      for (let i = 0; i < 10_000; i++) {
+        try {
+          if (!(await indexer.step())) break;
+        } catch (error) {
+          if (!(error instanceof Halt)) throw error;
+          indexer.halt(error.message);
+          break;
+        }
+      }
+      expect(indexer.reason).toBe("");
+      expect(indexer.served?.number).toBe(tip);
+      const calls = Object.values(chain.calls).reduce((sum, n) => sum + n, 0);
+      return { dump: indexer.store.dump(), calls };
+    };
+    const blockwise = await replay(0);
+    // 10,000: the whole range in one read; 7: many ranges, each day boundary inside one or on an edge.
+    for (const range of [10_000, 7]) {
+      const ranged = await replay(range);
+      expect(ranged.dump, `range ${range}`).toEqual(blockwise.dump);
+      expect(ranged.calls).toBeLessThan(blockwise.calls);
+    }
+    expect(blockwise.dump.day_closes.length).toBeGreaterThan(0);
+    expect(blockwise.dump.games.length).toBeGreaterThan(0);
   });
 });

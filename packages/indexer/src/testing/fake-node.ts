@@ -265,6 +265,10 @@ export class FakeNode {
   time = 1_000_000;
   /** Seconds between two blocks. */
   interval = 1;
+  /** The largest page `starknet_getEvents` serves (code 31 above it). */
+  maxChunk = 1024;
+  /** The widest block range `starknet_getEvents` serves, null for any (a "too many" refusal above it). */
+  maxSpan: number | null = null;
   private salt = 0;
 
   constructor(emptyBlocks = 1) {
@@ -372,24 +376,34 @@ export class FakeNode {
       }
       case "starknet_getEvents": {
         const filter = p.filter as {
-          from_block: { block_hash: string };
+          from_block: { block_hash: string } | { block_number: number };
+          to_block: { block_hash: string } | { block_number: number };
           address: string;
           chunk_size: number;
           continuation_token?: string;
         };
-        // By hash, as devnet: the highest block with that hash (a replacement shares it).
-        const block = [...this.blocks]
-          .reverse()
-          .find((b) => b.hash === filter.from_block.block_hash);
-        if (!block)
-          throw new RpcError(method, { code: 24, message: "Block not found" });
+        if (filter.chunk_size > this.maxChunk)
+          throw new RpcError(method, { code: 31, message: "Requested page size is too big" });
+        // By hash, as devnet: the highest block with that hash (a replacement shares it). By number: the blocks in range.
+        const find = (id: { block_hash: string } | { block_number: number }) => {
+          const block =
+            "block_hash" in id
+              ? [...this.blocks].reverse().find((b) => b.hash === id.block_hash)
+              : this.blocks[id.block_number];
+          if (!block) throw new RpcError(method, { code: 24, message: "Block not found" });
+          return block.number;
+        };
+        const from = find(filter.from_block);
+        const to = find(filter.to_block);
+        if (this.maxSpan !== null && to - from + 1 > this.maxSpan)
+          throw new RpcError(method, { code: -32005, message: "Too many blocks in range" });
         const source = (Object.keys(ADDRESS) as Source[]).find(
           (name) => BigInt(ADDRESS[name]) === BigInt(filter.address),
         );
         if (!source)
           throw new RpcError(method, { code: -1, message: "unknown address" });
-        const all = block.transactions.flatMap(
-          (transaction, transactionIndex) =>
+        const all = this.blocks.slice(from, to + 1).flatMap((block) =>
+          block.transactions.flatMap((transaction, transactionIndex) =>
             transaction.events.flatMap((event, eventIndex) =>
               event.source === source
                 ? [
@@ -406,6 +420,7 @@ export class FakeNode {
                   ]
                 : [],
             ),
+          ),
         );
         const start = Number(filter.continuation_token ?? 0);
         const end = start + filter.chunk_size;
