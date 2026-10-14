@@ -7,6 +7,8 @@ measure and a test plan: no contract or test code changes here. Every `file:line
 `e2e/position.cairo`. The `systems/challenge.cairo` lines cited below from 245 on are 10 lines lower on main.
 Nothing else in `contracts/src` moved.
 
+A re-measure after T1, T2, P-58 and #395 is at the end of this file, section "Re-measure (after T1, T2, P-58, #395)". The sections above are the history of the first measure.
+
 ## Summary
 
 - **Every test of the crate, 740 tests (731 passed, 9 ignored): 4,651 of 4,786 lines of `contracts/src`
@@ -454,3 +456,112 @@ is outside this brief's allowlist.
 
 Fixed (hp/paved-core/t-0319): `COVERAGE_GROUPS` has the eight groups that hold tests (`tests-legacy` has none), `measure.sh check-groups` fails when a test module is in no group,
 and `coverage` passes `--max-threads 2` (not re-measured).
+
+## Re-measure (after T1, T2, P-58, #395)
+
+Measured on 2026-10-14 on main at `f8ed19f5` (T1 #398, P-58 #399, `measure.sh` #395 `5c480528`). Brief:
+`docs/briefs/coverage-2-remeasure.md`. A measure only: no contract, test or script changed. T2 is not in this tree: the last
+commits of main are T1 (#398) and the P-58 documents (#399), so the access gaps of "Access" above are still open.
+
+### Command, toolchain, peaks
+
+- Command, from the worktree root, on the Mac: `scripts/measure.sh coverage-split` (the first run), then once
+  `scripts/measure.sh coverage` (unsplit, `--max-threads 2`). One run at a time.
+- PATH: `~/.asdf/shims` put ahead of `~/.local/bin`. `scarb 2.20.1 (dd18779a1 2026-08-21)`, `snforge 0.64.0`,
+  `cairo-coverage 0.6.1` (from the script's default `CAIRO_COVERAGE_BIN_DIR`). `RAYON_NUM_THREADS=1` (the script's).
+- The guard only warned, as #395 intends: `no shim at ~/.local/bin/scarb (a native binary, not a script)` and `no shim at
+  ~/.local/bin/snforge`. It also printed `tr: Illegal byte sequence` once, from `head -c 2 | tr -d '\0'` on the native
+  scarb binary. It is harmless (the guard still took the "native binary" branch), and it is a small script defect on macOS.
+  `PAVED_*_SHIM` were not set.
+- Memory stop: `/usr/bin/time -l` in `run_capped`, and a watchdog (outside the repository) that sampled the RSS of every
+  `snforge`, `scarb` and `cairo-coverage` process every 2 s and stopped the run above 15,625,000 kB (16 GB).
+- **`coverage-split`: exit 0, 956 s wall time (15.9 min), 35 groups, none stopped.** Peak per group, in `time -l` bytes
+  (decimal GB): largest **`tests-draw-mask` 15.89 GB**, then `e2e` 14.31, `golden` 14.12, `structure-tables-4` 13.61,
+  `elements` 13.18; the others 10.85 to 12.97; `gas` and `tests-walk-cost` 9.01. The largest group is 0.11 GB under the
+  stop and is 1.9 GB above the 13.99 GB of the first measure (the groups are not stable between runs by 1 to 2 GB, so
+  the margin to 16 GB is thin).
+- Tests: **774 passed, 0 failed, 9 ignored = 783**. That is the number of `#[test]` in `src/` and `tests/` (783), with
+  no test name run twice (783 `[PASS]`/`[IGNORE]` lines, all distinct). The first measure counted 740: 43 tests were
+  added since (T1 and others).
+
+### What #395's skip did (real snforge 0.64.0, cairo-coverage 0.6.1)
+
+The group `tests-walk-cost` (filter `paved::tests::walk_cost`) holds only `#[ignore] test_walk_cost_full_deck`.
+
+- snforge printed `[IGNORE] paved::tests::walk_cost::test_walk_cost_full_deck`, then
+  `[WARNING] No trace data to generate coverage from`, then `Tests: 0 passed, 0 failed, 1 ignored, 782 filtered out`.
+  It exited with a status that the script took as 0 (the group was not reported as failed), and it wrote no lcov.
+- `measure.sh` printed `group tests-walk-cost: no runnable test (all ignored), skipped`, did not look for
+  `coverage.lcov` for it, and carried on with `gas`, then the merge. The run ended with exit 0 and a table.
+- Before #395 this group stopped the run (no lcov). Now it is skipped, and no stale lcov of the previous group was copied.
+- The skip is not specific to that group: any group with `0 passed` and a non-zero `ignored` takes it.
+
+### Unsplit `scripts/measure.sh coverage` (optional run): does not fit
+
+With `--max-threads 2` the unsplit run was **stopped by the 16 GB stop**. The watchdog saw snforge at 15,928,448 kB, and
+`time -l` reports a peak of **16,311,123,968 bytes (16.31 GB)**, about 105 s after the start (test build warm). The 2 s
+sampling overshoots the stop a little. It produced no usable lcov: the `coverage.lcov` left in `contracts/coverage/`
+(ignored by git) is that of the stopped run and was not read. Before this change the same run, with default threads,
+reached 18.48 GB; `--max-threads 2` lowers it by about 2 GB and is not enough. Unsplit `coverage` (and so `all`) does not
+fit a 16 GB budget; `coverage-split` is the way. Whether it would finish with more headroom is not known.
+
+### Result of `coverage-split` alone
+
+| Directory | Lines hit / lines | Coverage | First measure |
+| --- | --- | --- | --- |
+| (root) | 268 / 268 | 100.00 % | 268 / 268 |
+| components | 119 / 123 | 96.75 % | 119 / 123 |
+| economy | 86 / 86 | 100.00 % | 86 / 86 |
+| elements | 656 / 675 | 97.19 % | 656 / 675 |
+| helpers | 207 / 216 | 95.83 % | 207 / 216 |
+| models | 333 / 336 | 99.11 % | 333 / 336 |
+| structure | 1592 / 1681 | 94.71 % | 1592 / 1681 |
+| systems | 719 / 719 | 100.00 % | 706 / 707 |
+| types | 684 / 694 | 98.56 % | 684 / 694 |
+| **TOTAL (mocks excluded)** | **4664 / 4798** | **97.21 %** | 4651 / 4786, 97.18 % |
+
+- The first measure's "every test" figure was 4,651 / 4,786 (97.18 %), and `coverage-split` alone reported 94.40 %.
+  Now `coverage-split` alone is the all-tests figure: every test module is in a group, 783 of 783 tests ran once. The 97.21 %
+  is the figure of the whole crate, and is no longer a union of two scripts.
+- Per-file rows that changed (all others are the same as in "Per module"):
+
+| File | Lines hit / lines, first measure | Now |
+| --- | --- | --- |
+| `systems/challenge.cairo` | 117 / 117 | 123 / 123 |
+| `systems/economy.cairo` | 296 / 296 | 302 / 302 |
+| `systems/vault.cairo` | 52 / 53 (the camelCase entry points, `:94`) | **53 / 53** |
+
+  The 6 lines each of `challenge.cairo` and `economy.cairo` are new code (the position check of #391, which the first
+  measure's table already listed, and the P-58 / PM rulings of #396); they are hit. The `vault.cairo` line is the one T1
+  was to cover. The 19 files of `elements/layouts/` are 595 / 595 (the first table gave 616 for 20 files; the merged lcov lists 19).
+- The measure was at `f8ed19f5`; line numbers of "Value" and "Access" above were taken at `420d9529` and are not re-checked here.
+
+### Remaining uncovered lines: value and access
+
+**None.** Every line of `systems/{economy,challenge,collection,setup,token,faucet,vault}`, of `economy/{curve,mean,ekubo}` and of
+`components/ownable` is hit (the lcov has no `DA:` record at 0 in any of them). The gaps of "Value" and "Access" above
+(branches on one line, the vPAVED maths in OpenZeppelin, lines that run but are not asserted, the access gaps T2 was to
+close) are not visible to line coverage, so this measure neither confirms nor closes them.
+
+### Remaining uncovered lines: everywhere else (134 lines)
+
+Outside value and access, line numbers at `f8ed19f5`, paths under `contracts/src/`:
+
+- `components/hostable.cairo:35`, `components/payable.cairo:35`, `components/playable.cairo:27, 236`
+- `elements/decks/base.cairo:124-131, 133-143` (19 lines)
+- `helpers/bitmap.cairo:54`; `helpers/random_deck.cairo:118, 126, 150, 176, 317, 355, 365, 374`
+- `models/game.cairo:362, 371, 380`
+- `structure/forest.cairo:98, 127, 151, 153`; `structure/owners.cairo:73, 94, 124`; `structure/placement.cairo:206, 288`;
+  `structure/record.cairo:218, 271`; `structure/state.cairo:75, 86, 121, 311`; `structure/walk.cairo:36, 61, 108`
+- `structure/oriented.cairo` (42 lines: 24, 51, 77, 103, 114, 137, 148, 175, 186, 221, 232, 263, 274, 305, 316, 347, 358, 385,
+  396, 423, 434, 469, 480, 511, 522, 557, 568, 603, 614, 645, 656, 691, 702, 753, 764, 811, 822, 877, 888, 915, 926, 958)
+- `structure/tables.cairo` (29 lines: 70, 96, 122, 130, 139, 150, 160, 170, 180, 189, 198, 209, 219, 230, 241, 251, 262, 277,
+  291, 307, 316, 963, 964, 975, 976, 999, 1000, 1008, 1009)
+- `types/area.cairo:129`, `deck.cairo:98`, `direction.cairo:107`, `layout.cairo:80`, `mode.cairo:96`,
+  `plan.cairo:187, 239, 291, 317`, `spot.cairo:113`
+
+### Not done
+
+- No fix of the script (brief). Two points found for the owner of `measure.sh`: the `tr: Illegal byte sequence` message of the
+  shim guard on macOS, and that `coverage` (unsplit) cannot fit 16 GB even with `--max-threads 2`, so its comment and
+  `AGENTS.md` ("not yet re-measured") can now say so.
