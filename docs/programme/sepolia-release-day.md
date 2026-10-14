@@ -34,6 +34,34 @@ Two words, in this order, before any transaction:
 Without both, nothing below runs. A reserved act on a production network never applies here (Sepolia is a test network, D-16),
 but the spending is the owner's account, so the go is theirs.
 
+### 1.1a The rehearsal at the deploy commit: after the go, before the funded run
+
+The two rehearsals above ran at `a28f1e8d` and `9924820a`; `main` has moved since (#415 at least). So the day rehearses again, at the commit
+named in 1.1, with the checkout clean. It runs on a fresh local starknet-devnet, sends nothing to Sepolia and needs no funded variable
+(`deploy.sh --rehearse` unsets them first), so the funded `--estimate-only` of 1.2 stays the first command against Sepolia.
+
+1. A fresh devnet, as `deploy.sh` documents it: `starknet-devnet --host 127.0.0.1 --port 5050 --seed 42` (a new process, not one that
+   already ran a deployment).
+2. The rehearsal, with its record in a temporary directory outside the repository (`<tmp>` is a file path in an existing directory):
+
+   ```
+   scripts/deploy.sh sepolia --rehearse --out <tmp> --guardian deployer
+   ```
+
+   Expected: `smoke ok`, then `== fresh: complete; a rerun sends nothing` and the record's content. Exit 0.
+3. The check on that record, still on the same devnet:
+
+   ```
+   scripts/deploy.sh sepolia --rehearse --check-only --out <that record>
+   ```
+
+   Expected last line: `== fresh: check only: every check passed; nothing was sent`. Exit 0.
+4. The commit's sha (`git rev-parse HEAD`) is written into the record of the day, with the result of both commands.
+
+**Stop** if either command fails or ends otherwise: nothing goes to Sepolia, not even the `--estimate-only` of 1.2. Report the failing
+step's output exactly to the PM; do not fix contracts or scripts on the day. The devnet and `<tmp>` are the rehearsal's own and are
+discarded after (stop the devnet process you started; remove only `<tmp>`).
+
 ### 1.2 The funding check: the first step of the day, with no earlier run
 
 ```
