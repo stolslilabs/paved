@@ -108,6 +108,15 @@ export function cartridgeLookup(options: { url?: string; fetch?: typeof fetch } 
   };
 }
 
+/**
+ * Whether the lookup runs: on by default, off on a devnet deployment (its addresses are test accounts, not for a public
+ * service), `--no-names` always off, `--names` forces it on (a by-hand check).
+ */
+export function namesEnabled(options: { network: string; noNames?: boolean; names?: boolean }): boolean {
+  if (options.noNames) return false;
+  return options.names === true || options.network !== "devnet";
+}
+
 export type ResolverOptions = {
   store: Store;
   lookup: Lookup;
@@ -137,6 +146,8 @@ export class NameResolver {
   private readonly log: (message: string) => void;
   private readonly pending = new Set<string>();
   private inFlight = false;
+  /** The addresses of the request in flight: a read does not queue them again before the answer lands. */
+  private readonly asking = new Set<string>();
   private nextAt = -Infinity;
   private failures = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -178,7 +189,7 @@ export class NameResolver {
       out.set(id, row?.name ?? null);
       const age = row ? now - row.checked_at : Infinity;
       const ttl = row?.name ? this.o.ttlMs : this.o.noNameTtlMs;
-      if (age >= ttl && this.pending.size < this.o.maxPending) this.pending.add(id);
+      if (age >= ttl && !this.asking.has(id) && this.pending.size < this.o.maxPending) this.pending.add(id);
     }
     return out;
   }
@@ -192,7 +203,10 @@ export class NameResolver {
     const mono = this.o.mono();
     if (mono < this.nextAt) return;
     const batch = [...this.pending].slice(0, this.o.maxBatch);
-    for (const id of batch) this.pending.delete(id);
+    for (const id of batch) {
+      this.pending.delete(id);
+      this.asking.add(id);
+    }
     this.inFlight = true;
     this.nextAt = mono + this.o.minIntervalMs;
     this.requests++;
@@ -217,6 +231,7 @@ export class NameResolver {
     } finally {
       clearTimeout(timer);
       this.inFlight = false;
+      this.asking.clear();
     }
   }
 

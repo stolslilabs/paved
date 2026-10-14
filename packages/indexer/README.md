@@ -44,8 +44,7 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--recheck <blocks>`, `--recheck-every <ms>` | The last blocks read again for a replaced block, default 10 every 10 s |
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
 | `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the right-most `X-Forwarded-For` entry, the one the proxy wrote (read from loopback peers only: the proxy must dial `127.0.0.1` or `::1`, not another `127.x` address) |
-
-| `--no-names` | Turns the display-name lookup off: every `name` is `null` |
+| `--no-names`, `--names` | The display-name lookup (N1) is on by default, except for a deployment with `network: devnet` (test accounts are not sent to a public service). `--no-names` turns it off everywhere: every `name` is `null`; `--names` forces it on, for a by-hand check on devnet |
 | `--names-url <url>` | The lookup endpoint, default `https://api.cartridge.gg/lookup` |
 
 Stop it with `SIGTERM`. The chain id of the node must be the file's.
@@ -62,8 +61,8 @@ that fails, hangs or finds nothing never slows or fails a route: the name stays 
 The service publishes no limits, so the budget is conservative: a batch of at most 50 addresses, at most one request every
 5 s (12 a minute), one in flight, a 5 s timeout, and after a failure a wait of 30 s doubling to 15 min (no retry storm). A
 found name is kept 24 h (and shown, stale, while it is refreshed); "no username" 1 h, shorter so that an account created
-later is found. The answer is parsed tolerantly (`{results: [...]}` or a bare array; `name` or `username`; an address in
-`address` when the item has one, else the position) and an answer that cannot be attributed to an address is refused. Names
+later is found. The answer is parsed tolerantly (`{results: [...]}` or a bare array; `name` or `username`; the addresses in `addresses`, which is what the service sends:
+`{"username": "bal", "addresses": ["0x2514…"]}` with the leading zeros dropped, or in `address` / `addr`, else the position) and an answer that cannot be attributed to an address is refused. Names
 are display only: never an identity, never used by anything else. Tests use a fake lookup and never call the service.
 
 ## API v1

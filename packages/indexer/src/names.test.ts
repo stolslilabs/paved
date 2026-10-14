@@ -11,6 +11,7 @@ import {
   cartridgeLookup,
   parseLookup,
   type Lookup,
+  namesEnabled,
   type ResolverOptions,
 } from "./names.ts";
 import { respond } from "./server.ts";
@@ -98,7 +99,39 @@ describe("cartridgeLookup", () => {
   });
 });
 
+describe("namesEnabled", () => {
+  test("on by default, off on a devnet deployment, --no-names always off, --names forces it on", () => {
+    expect(namesEnabled({ network: "sepolia" })).toBe(true);
+    expect(namesEnabled({ network: "devnet" })).toBe(false);
+    expect(namesEnabled({ network: "sepolia", noNames: true })).toBe(false);
+    expect(namesEnabled({ network: "devnet", names: true })).toBe(true);
+    expect(namesEnabled({ network: "devnet", names: true, noNames: true })).toBe(false);
+  });
+});
+
 describe("NameResolver", () => {
+  test("addresses in flight are not queued again by a read before the answer lands", async () => {
+    let release!: () => void;
+    const calls: string[][] = [];
+    const lookup: Lookup = (addresses) => {
+      calls.push([...addresses]);
+      if (calls.length > 1) return Promise.resolve(new Map());
+      return new Promise((resolve) => {
+        release = () => resolve(new Map([[addresses[0]!, "alice"]]));
+      });
+    };
+    const { resolver, advance } = setup(lookup);
+    resolver.read([id(1)]);
+    const flying = resolver.flush();
+    resolver.read([id(1), id(2)]);
+    expect(resolver.queued).toBe(1); // id(2) only
+    release();
+    await flying;
+    advance(MIN_INTERVAL_MS);
+    await resolver.flush();
+    expect(calls).toEqual([[id(1)], [id(2)]]);
+  });
+
   test("read is the cache only: null for the unknown, which it queues; nothing is fetched", () => {
     const { lookup, calls } = fake({ [id(1)]: "alice" });
     const { resolver } = setup(lookup);
