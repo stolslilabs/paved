@@ -1328,11 +1328,11 @@ take a neighbour at x = 2 and x = `MAX - 1`.
 **Storage and ABI.** No storage variable is added; `scripts/abis.sh` shows no diff in `contracts/abis/`.
 
 
-## After the Economy hardening (P-57)
+## After the Economy hardening (P-58)
 
 `Economy.swap` refuses a PAVED leg that is not paid out (`'Economy: wrong delta'`), and `Economy.purchase` ignores a
 referrer that is the Vault, the router, `Economy` or the game (`docs/architecture/economy.md`, "The referral rule since
-P-57"). Same tests: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, **the Mac** (aarch64), 2026-10-14,
+P-58"). Same tests: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, **the Mac** (aarch64), 2026-10-14,
 `RAYON_NUM_THREADS=1`, `--max-threads 2`. Before is main 56c4e237 (an export of `contracts/` by `git archive`, with the
 repository's `.tool-versions`), after is this branch; both measured in the same session. Peak RSS 7,183,433,728 bytes
 (before) and 6,108,397,568 bytes (after), by `/usr/bin/time -l`. Committed figures should be re-measured on Linux (CI or
