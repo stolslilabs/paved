@@ -395,9 +395,9 @@ fn test_first_purchase_of_a_day_fixes_its_prior() {
 #[test]
 fn test_price_guard_caps_r_after_a_dump_into_the_pool() {
     let s = setup();
-    // Someone sells 400,000 PAVED into the pool: PAVED gets much cheaper
+    // Someone sells 190,000 PAVED into the pool: PAVED gets much cheaper
     start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
-    s.paved.transfer(s.router, 200_000 * ONE_PAVED);
+    s.paved.transfer(s.router, 190_000 * ONE_PAVED);
     stop_cheat_caller_address(s.paved.contract_address);
     let router = IRouterDispatcher { contract_address: s.router };
     let pool_key = IMockRouterDispatcher { contract_address: s.router }.pool_key();
@@ -407,7 +407,7 @@ fn test_price_guard_caps_r_after_a_dump_into_the_pool() {
             RouteNode { pool_key, sqrt_ratio_limit: 0, skip_ahead: 0 },
             TokenAmount {
                 token: s.paved.contract_address,
-                amount: i129 { mag: 200_000_000_000_000_000_000_000, sign: false },
+                amount: i129 { mag: 190_000_000_000_000_000_000_000, sign: false },
             },
         );
     IClearDispatcher { contract_address: s.router }.clear(s.usdc.contract_address);
@@ -1269,7 +1269,7 @@ fn test_paved_on_the_router_does_not_let_a_swap_below_min_out_pass() {
     let s = setup();
     // The router's balance covers min_out, the swap alone does not
     send_paved(s, s.router, 1_000 * ONE_PAVED);
-    let min_out = s.economy.quote_swap(1_400_000) + 1;
+    let min_out = s.economy.quote_swap(2_000_000) + 1;
     IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());

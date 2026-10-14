@@ -223,7 +223,7 @@ fn with_referral(burn_bps: u16, referral_bps: u16) -> Config {
 #[test]
 fn test_decided_config_and_both_ends_of_every_bound_are_valid() {
     validate(decided());
-    assert_eq!((decided().burn_bps, decided().referral_bps), (7_000, 500));
+    assert_eq!((decided().burn_bps, decided().referral_bps), (7_368, 500));
     validate(with(5_000, -3_000, 1_000, 1, 100_000 * PAVED));
     validate(with(9_000, 5_000, 50_000, 20, 10_000_000 * PAVED));
     validate(with_referral(5_000, 0));

@@ -117,7 +117,7 @@ pub fn validate(config: Config) {
     // The referral comes out of the Vault's part (with the bounds above it always fits: the
     // Vault's part is at least 1,000 bps; kept as the rule itself, should a bound move)
     assert(
-        config.referral_bps.into() <= curve::BPS - config.burn_bps.into(),
+        config.referral_bps <= 10_000 - config.burn_bps,
         'Economy: referral above vault',
     );
 }
@@ -302,7 +302,6 @@ pub mod Economy {
     // Packed records
 
     const TWO_POW_8: u256 = 0x100;
-    const TWO_POW_8: u256 = 0x100;
     const TWO_POW_16: u256 = 0x10000;
     const TWO_POW_32: u256 = 0x100000000;
     const TWO_POW_40: u256 = 0x10000000000;
@@ -370,10 +369,7 @@ pub mod Economy {
 
     impl TermsStorePacking of starknet::storage_access::StorePacking<Terms, felt252> {
         fn pack(value: Terms) -> felt252 {
-            // The referral is stored plus one, so that a configuration packed before it existed
-            // (its top bits 0) reads as the default
-            let mut high: u256 = value.referral_bps.into() + 1;
-            high = high * TWO_POW_8 + value.cap.into();
+            let mut high: u256 = value.cap.into();
             high = high * TWO_POW_32 + value.slope_bps.into();
             high = high * TWO_POW_16 + sigma_to_u16(value.sigma_bps);
             high = high * TWO_POW_8 + value.stake.into();
@@ -427,7 +423,10 @@ pub mod Economy {
 
     impl ConfigStorePacking of starknet::storage_access::StorePacking<Config, felt252> {
         fn pack(value: Config) -> felt252 {
-            let mut high: u256 = value.cap.into();
+            // The referral is stored plus one, so that a configuration packed before it existed
+            // (its top bits 0) reads as the default
+            let mut high: u256 = value.referral_bps.into() + 1;
+            high = high * TWO_POW_8 + value.cap.into();
             high = high * TWO_POW_32 + value.slope_bps.into();
             high = high * TWO_POW_16 + sigma_to_u16(value.sigma_bps);
             high = high * TWO_POW_16 + value.burn_bps.into();
@@ -447,7 +446,7 @@ pub mod Economy {
             let cap = (high % TWO_POW_8).try_into().unwrap();
             high /= TWO_POW_8;
             let referral_bps = if high == 0 {
-                DEFAULT_REFERRAL_BPS
+                super::DEFAULT_REFERRAL_BPS
             } else {
                 (high - 1).try_into().unwrap()
             };

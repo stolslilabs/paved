@@ -220,10 +220,16 @@ fn test_vault_share_metadata_and_wiring() {
 }
 
 #[test]
-#[should_panic(expected: 'Vault: fee too high')]
 fn test_vault_constructor_refuses_a_fee_above_the_ceiling() {
     let paved = deploy_token(RECIPIENT());
-    deploy_vault(paved, MAX_EXIT_FEE_BPS + 1);
+    let class = declare("Vault").unwrap().contract_class();
+    let fee: felt252 = (MAX_EXIT_FEE_BPS + 1).into();
+    match class.deploy(@array![OWNER().into(), paved.into(), fee]) {
+        Result::Ok(_) => panic!("a fee of 1,001 bps was accepted"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Vault: fee too high'),
+    }
+    // The ceiling itself passes
+    deploy_vault(paved, MAX_EXIT_FEE_BPS);
 }
 
 #[test]
