@@ -97,6 +97,8 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 ///    build, discard, surrender, each reported to `Setup`) and the definition of the accepted list
 ///    on `Setup`. A field that a new code path writes again, or that another variable reuses,
 ///    overwrites it.
+/// The names `test_daily_pins_*` are kept from before D-23 (`Daily` became `Challenge`) on purpose:
+/// the docs and the comments of the code cite them.
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_daily_pins_the_dead_fields_by_name() {

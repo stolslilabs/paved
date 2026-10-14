@@ -599,7 +599,8 @@ an upgrade in place, so the "upgraded in place" lines are void and `sepolia.json
 the day id is `day_id` (D-20), not `tournament_id`; `IDailyQuests`, `lobby_class`'s setter and `DailySeed`'s tutorial
 branch were gone already (D-21, D-24); the constants are `CHALLENGE_PRICE` and `CHALLENGE_DURATION` (not `DAY`, which
 `paved::systems::economy` already names); `IDailySetup` and `IDailyView` are renamed too (`IChallengeSetup`,
-`IChallengeView`); `PlayerCreated` left the events (META's indexer no longer reads it from the ABI). The goldens spawn
+`IChallengeView`); `PlayerCreated` left the events (META's indexer no longer reads it from the ABI); the seed is Poseidon(salt,
+contract address, token id), with `Challenge`'s own address (PM, 2026-10-14: each deployment has its own decks). The goldens spawn
 through `Challenge`'s own path (`spawn_from`) with a test source of the day seed (`tests::seed::DaySeed`), and so do the
 gas scenarios of `contracts/tests/gas.cairo`: every expected value and every gas figure of a move stays. The ABI diff
 and the rest: `public-interface.md`, "Breaking change D-23", "As built (D-23b)".

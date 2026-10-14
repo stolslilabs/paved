@@ -1,7 +1,7 @@
 //! `Setup`, the system that holds the quests and the achievements (D-24, P-51 ruling 3, named by
 //! D-25; `docs/architecture/quests.md`, `leaderboard.md` "D-24").
 //!
-//! The mode contracts report to it: an allowlisted reporter (Challenge, today `Challenge`) sends
+//! The mode contracts report to it: an allowlisted reporter (today `Challenge`) sends
 //! one `report` per game over, with the entries its own tally gives (`paved::quests`); `Setup`
 //! knows tasks, not games. It trusts the reporter for whom the report is: it cannot read a game's
 //! player without calling the reporter back. The guarantee is the reporter's code (`Challenge`

@@ -82,7 +82,7 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   CLIENT's transcription (`packages/game-core/scripts/transcribe-goldens.ts`, which computes the same Poseidon(0, day
   id) from `play_daily`'s `day(n)`) stays valid. Only its `seedSource` text, which names `Mode::seed` (removed by
   D-23), is stale: CLIENT's to reword. The differential boards force every plan, so their seed is not read. A
-  Challenge game played on chain now has the seed Poseidon(0, game id); a client replaying one takes `GameView.seed`.
+  Challenge game played on chain now has the seed Poseidon(0, the Challenge contract's address, game id); a client replaying one takes `GameView.seed`.
 
 ## How a Cairo test keeps it current
 

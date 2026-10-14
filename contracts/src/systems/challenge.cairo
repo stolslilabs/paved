@@ -175,8 +175,11 @@ pub mod Challenge {
         fn spawn(
             ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
-            // [Effect] The seed of the game's token (D-23)
-            self.spawn_from(@TokenSeed {}, stake, referrer, min_out)
+            // [Effect] The seed of the game's token in this contract (D-23)
+            self
+                .spawn_from(
+                    @TokenSeed { contract: get_contract_address() }, stake, referrer, min_out,
+                )
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
@@ -251,7 +254,8 @@ pub mod Challenge {
 
     /// Test only: the addresses of the fields dead since D-24, resolved through their names in
     /// this contract's storage, for the pin of the dead fields
-    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`): `lobby_class`,
+    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`, a name kept from
+    /// before D-23 on purpose: the docs cite it): `lobby_class`,
     /// then every member of the quests and of the achievements, at the keys given.
     #[cfg(test)]
     #[generate_trait]
@@ -321,7 +325,7 @@ pub mod Challenge {
 
         /// The `Setup` of the wiring and the reports; the wiring is read from it in one call
         /// (`wiring`, P-53 ruling 2). With no `Setup` (a zero slot: an in-place upgrade before
-        /// `set_setup`) nothing can be paid, minted or recorded, so the call reverts (`'Daily:
+        /// `set_setup`) nothing can be paid, minted or recorded, so the call reverts (`'Challenge:
         /// setup is zero'`): a spawn spawns nothing, and a move that ends a game reverts and
         /// leaves the game live until the owner sets the `Setup`.
         fn setup_dispatcher(self: @ContractState) -> ISetupDispatcher {

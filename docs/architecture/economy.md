@@ -108,8 +108,8 @@ mainnet" in section 8.
 
   The player, the leaderboard, the quests and "my games" are unchanged. The indexer reads only the mints. Section 9.
 - **The predictable daily seed makes a paid Daily exploitable.** The owner keeps it for now (D-13, 2026-10-09).
-  Reversed by D-23: a Challenge game's seed is Poseidon(0, game id), from its token id (`TokenSeed`), so every game
-  has its own deck. What follows is the record of D-13.
+  Reversed by D-23: a Challenge game's seed is Poseidon(0, the Challenge contract's address, game id), from its token
+  id (`TokenSeed`), so every game has its own deck, and each deployment its own decks. What follows is the record of D-13.
   - The day's deck is public, so a player can find the day's best line offline and replay it at stake 10.
   - Measured in the simulation: such "replayers" get back 1.08x to 1.09x of what they pay (1.31x to 1.36x before D-18),
     while everyone else drops by a fifth to a quarter (0.75 and 0.60 against 1.01 and 0.76, option B, 10 % of the games).
@@ -381,6 +381,9 @@ for game generation. To run it, copy it to `contracts/src/tests/golden/sampler.c
 `DAY=11 STRATEGY=0 SEED=0 snforge test --ignored test_sampler --max-n-steps 200000000`. The run reads the day, the
 strategy and the seed from the environment and prints a `SAMPLE` line with the score. The greedy bot on day 10
 (`DAY=10 STRATEGY=0 SEED=0`) reproduces the golden's 5,121 exactly (3,554 before D-18), which validates the harness.
+Since D-23 (`Challenge`, a seed per token id) the sampler's names are renamed with no logic change, and its
+`systems.challenge.spawn` draws the deck of game 1 on every day: to replay a day's deck, swap that spawn for
+`golden::harness::spawn_on_the_day_seed` (as its header says; also an uncommitted edit).
 
 First sample: each run measured 13 to 40 s and 4.6 to 5.0 GB peak RSS (205 runs, none failed) on the VPS (scarb 2.20.1,
 snforge 0.64.0, `RAYON_NUM_THREADS=1`, `prlimit --as=8589934592`, `--max-n-steps 200000000`). Resample (2026-10-13): 205
@@ -771,7 +774,7 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Retired by D-23.** Since D-23 each game's seed is Poseidon(0, token id) (`TokenSeed`): there is no shared day deck to replay. What follows is the record. **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.08x to 1.09x of their price since D-18 (1.31x to 1.36x before it); at 10 % of the games the others drop by a fifth to a quarter | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows The Monte-Carlo's replayer strategy (`scripts/montecarlo/sim.py`) is left as it is: the base population does not use it, and its removal is the simulation's task, not D-23b's. What replaces E-1 is the selective buyer (the next deck is public before the purchase), measured in `docs/measures/selective-buyer.md` |
+| E-1 | **Retired by D-23.** Since D-23 each game's seed is Poseidon(0, the Challenge contract's address, token id) (`TokenSeed`): there is no shared day deck to replay. What follows is the record. **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.08x to 1.09x of their price since D-18 (1.31x to 1.36x before it); at 10 % of the games the others drop by a fifth to a quarter | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows. The Monte-Carlo's replayer strategy (`scripts/montecarlo/sim.py`) is left as it is: the base population does not use it, and its removal is the simulation's task, not D-23b's. What replaces E-1 is the selective buyer (the next deck is public before the purchase), measured in `docs/measures/selective-buyer.md` |
 | E-2 | **Day effect**: one deck per day; the mean score moves 21 to 31 % from day to day (50 to 55 % before D-18). **Stale prior**: a day's prior is the EMA at its first purchase, and a day enters the EMA only at its first settlement, from `(D + 2) x 86400` (P-34). Day `D + 1`'s prior never includes day `D`; day `D + 2`'s includes it only if `D` was settled before `D + 2`'s first purchase | Option B (the day's own mean). With option A, the share of a day's games lost spans 24 % to 73 % (p10 to p90 over the days), against 24 % to 70 % with option B (46-100 % against 48-78 % before D-18). A keeper settles each day just after `(D + 2) x 86400`, so that the prior lags by two days at most. The prior weighs 100 against the day's own games |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich; the owner repointing `set_pool` at a thin pool (accepted trust, section 6); a stale guard rate | `min_out` from the player (pool quote minus 1 % to 5 %, P-35); the rate guard (+10 %, observation clamped to 10 % per purchase); a launch LP of at least ~10,000 USDC (the owner's act). The guard's rate follows the swaps, not the day's settlement, so the stale prior (E-2) does not touch it |

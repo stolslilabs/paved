@@ -90,7 +90,8 @@ impl ScenarioImpl of ScenarioTrait {
     /// A Challenge game of `PLAYER` on the seed the ceilings were measured with: the day seed of
     /// the spawn's time, Poseidon(0, day id), which D-23 replaced by the token's (`DaySeed`). The
     /// plans are forced, but the draw that follows each build reads the seed, and its cost moves
-    /// with it (scenario a: 6,551,754 on Poseidon(0, game id), 5,129,292 on the day seed).
+    /// with it (scenario a: 6,551,754 on Poseidon(0, game id), the token seed before the contract
+    /// address joined it, 5,129,292 on the day seed).
     fn new() -> Scenario {
         let (store, systems, context) = setup::spawn_game(Mode::None);
         let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
@@ -124,10 +125,14 @@ struct DaySeed {}
 
 impl DaySeedImpl of SeedSource<DaySeed> {
     fn seed(self: @DaySeed, mode: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
-        PoseidonTrait::new()
-            .update(salt)
-            .update((time / constants::CHALLENGE_DURATION).into())
-            .finalize()
+        // As the removed `Mode::seed`, and `src/tests/seed.cairo`'s copy: 0 for any other mode
+        match mode {
+            Mode::Challenge => PoseidonTrait::new()
+                .update(salt)
+                .update((time / constants::CHALLENGE_DURATION).into())
+                .finalize(),
+            _ => 0,
+        }
     }
 }
 

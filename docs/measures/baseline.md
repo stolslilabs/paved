@@ -23,9 +23,9 @@ identical figures. Each test asserts `gas <= ceiling`, ceiling = measured + 5 %,
 seed they were calibrated with, Poseidon(0, day id) at time 0, through `Challenge`'s own spawn path (`spawn_from`, as
 the goldens do). The plans are forced, but the draw that follows each move, and the deck the spawn builds, read the
 seed, so on another seed the same move costs something else. The move cost of a real game varies with its deck (since
-D-23 each game has its own, Poseidon(0, game id)), and that is expected: a ceiling bounds the scenario, not every deck.
+D-23 each game has its own, Poseidon(0, the Challenge contract's address, game id)), and that is expected: a ceiling bounds the scenario, not every deck.
 The spawn scenarios m and n measure the entry point itself and so the token seed; it is fixed too in the test (game 2,
-Poseidon(0, 2)).
+Poseidon(0, 2); since fix loop 1, Poseidon(0, the contract's address, 2)).
 
 | | Scenario | Tiles in structure | L2 gas (delta) | Ceiling (+5 %) |
 | --- | --- | --- | --- | --- |
@@ -896,8 +896,20 @@ day seed (method note above): a0, a, c, d, e, f, g, i, k, l and s are identical 
 | m | Challenge spawn, stake 1 | 49,484,346 | 51,202,206 | +1,717,860 |
 | n | Challenge spawn, stake 10, referred | 50,210,796 | 51,928,656 | +1,717,860 |
 
+**Fix loop 1 (PM, 2026-10-14: the seed mixes in the Challenge contract's address).** Game 2's seed is now
+Poseidon(0, the test's Challenge address, 2); same command (peak RSS 3,584,444 kB). The moves are identical (day seed);
+the spawns move with the new deck:
+
+| | Scenario | After E (fix loop 1) | D-23b fix loop 1 | Change |
+|---|---|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 49,484,346 | 49,873,311 | +388,965 |
+| n | Challenge spawn, stake 10, referred | 50,210,796 | 50,599,761 | +388,965 |
+
+The cause below holds (the deck walk of that seed); the figures of the table below are those of the two-input seed.
+
 **Why the spawns rose: the deck of game 2's seed.** The spawn draws and places nothing new. m spawns game 2 at time 0:
-before D-23 its seed was the day's, Poseidon(0, 0); now it is Poseidon(0, 2). `Game::start` builds the deck with
+before D-23 its seed was the day's, Poseidon(0, 0); it became Poseidon(0, 2) (then, with fix loop 1, Poseidon(0, the
+contract's address, 2)). `Game::start` builds the deck with
 `Deck::tiles`, which walks the deck's indexes and draws a Poseidon per free index until the extra tiles are removed:
 how far it walks depends on the seed. Measured off chain (`GameImpl::new`, `start`, `draw_plan`, gas read around
 each; a probe, not committed):

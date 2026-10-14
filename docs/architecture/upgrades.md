@@ -7,9 +7,12 @@ day one and the playtest data survives fixes.
 
 ## What is upgradable
 
+Names in the tables of this note: a row or a column about the contract in today's tree says `Challenge`; one about
+the deployed Sepolia contract or a past step ("was written by", "run by") says `Daily`, its name before D-23.
+
 | Contract | Upgradable | Owner | Why |
 |---|---|---|---|
-| `Challenge` (named `Daily` before D-23) | yes | constructor `owner` | the game; holds the sponsored prize pools |
+| `Challenge` (named `Daily` before D-23) | yes | constructor `owner` | the game (the prize pools left with D-20) |
 | `Tutorial` | yes | constructor `owner` | the tutorial game |
 | `Account` | removed (D-25 E) | | the player registry and the wiring until step E; deleted, a minimal mock serves one test (below) |
 | `Setup` | yes | constructor `owner` | the quests and achievements (D-24) and, since D-25 E, the wiring `Challenge` reads |
@@ -125,11 +128,12 @@ map). So, for every upgradable contract and for `Lobby`:
 
 ## Dead slots since D-21 and D-24 (P-42)
 
-Declared, never written or read again, never reused; a comment says so where each is declared.
+Declared, never written or read again, never reused; a comment says so where each is declared. "Declared in" is
+today's tree (`Challenge`); "Was written by" is the past (`Daily`, `Lobby`).
 
 | Slot | Declared in | Was written by |
 |---|---|---|
-| `lobby_class: ClassHash` | `Challenge` (`systems/challenge.cairo`) | the constructor and `set_lobby_class` (gone) |
+| `lobby_class: ClassHash` | `Challenge` (`systems/challenge.cairo`) | `Daily`'s constructor and `set_lobby_class` (gone) |
 | `Quest_definitions`, `Quest_tasks`, `Quest_conditions`, `Quest_progress`, `Quest_records`, `Quest_held`, `Quest_reporters` (the flat `quest` substorage) | `Challenge` | the definitions and the reports run in `Lobby` (now `Setup`'s, in `Setup`'s own storage) |
 | `Achievement_definitions`, `Achievement_extra_tasks`, `Achievement_reporters` (the flat `achievement` substorage) | `Challenge` | the same |
 | `tutoriable` (empty substorage) | was `Lobby`'s and `Tutorial`'s | nothing: its storage was empty, so `Challenge` holds no slot of it |
@@ -173,6 +177,7 @@ economy note N1 of #350).
 
 `Account` left the systems (P-53 ruling 5): a player is the wallet address. Two members of the `paved` storage node
 (`store.cairo`, `PavedStorage`), declared in every game contract's layout, are now dead. Their names do not change.
+"Declared in" is today's tree (`Challenge`); "Was written by" is the past (`Daily`).
 
 | Slot | Declared in | Was written by |
 |---|---|---|
@@ -235,7 +240,7 @@ its own brief when needed:
 
 ## Trust
 
-The upgrade owner can replace the code of `Challenge` (which holds the sponsored prize pools), of `Economy` (the only
+The upgrade owner can replace the code of `Challenge` (the game; the prize pools left with D-20), of `Economy` (the only
 minter of PAVED: a new class can mint) and of `Account` and `Collection`. That is the custody of the prizes and of the
 PAVED supply. It cannot touch `Vault` (stakers' PAVED and USDC) or the PAVED already held, except through what
 `Economy` mints.

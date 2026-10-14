@@ -556,7 +556,8 @@ event's own name), only the contract, interface, impl, enum and file names do.
 
 **`spawn`.** `Challenge.spawn(stake: u8, referrer: ContractAddress, min_out: u256) -> u32`: the signature of
 `Daily.spawn` (`systems/daily.cairo:14-16`), unchanged. What changes is the game it creates: its seed is
-Poseidon(salt, token id) instead of the day's seed, so `GameView.seed` (same field, same type) differs for every game,
+Poseidon(salt, the Challenge contract's address, token id) instead of the day's seed (as built, with the PM's
+addition of 2026-10-14), so `GameView.seed` (same field, same type) differs for every game,
 and two games of one day no longer draw the same deck. The day id stays in `GameSpawned.day_id`,
 `GameOver.day_id`, `GameView.day_id` and `current_day()` (renamed by D-20).
 
@@ -591,8 +592,11 @@ selector). No other ABI changes.
 - **Storage**: no field is renamed and no address moves. `Collection`'s field stays `daily`, at `sn_keccak("daily")`,
   and `challenge()` reads it (`tests::collection::test_collection_pins_the_challenge_minter_at_daily`,
   `tests::e2e::upgrades::test_upgrade_layout_pins_setup_and_economy_by_name`).
-- **The seed**: `TokenSeed` (`seed.cairo`), Poseidon(salt, token id), the token id being the game id and the salt 0:
-  a Challenge game's initial seed is Poseidon(0, game id). `DailySeed` and `Mode::seed` are gone; the day id
+- **The seed**: `TokenSeed` (`seed.cairo`), Poseidon(salt, contract address, token id), the token id being the game
+  id, the contract `Challenge`'s own address and the salt 0: a Challenge game's initial seed is Poseidon(0,
+  `Challenge`'s address, game id), so each deployment has its own decks (PM, 2026-10-14; `TokenSeed { contract }`,
+  set to `get_contract_address()` at spawn). Three inputs where the day seed had two: Poseidon pads the inputs by
+  their count, so the two forms meet only through a Poseidon collision. `DailySeed` and `Mode::seed` are gone; the day id
   (`day_id`, `current_day()`, the economy's day) is unchanged. `GameView.seed` is still the current seed (moved on by
   the first draw at spawn).
 - **`PlayerCreated`**: removed from `paved::events::Event`, so from `Challenge.json`. No game contract ever emitted it
