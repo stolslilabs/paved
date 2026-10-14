@@ -68,7 +68,7 @@ second). Keep `deployed_block` as late as the contracts allow, and ask the provi
 | Disk | **224 KiB** for 149 blocks, 74 events, 9 games, 3 players (devnet scenario). Rows: blocks about 0.5 KB each (149 rows, 72 KiB), events about 0.28 KB each (74 rows, 20 KiB); the other tables are one 4 KiB page each at this size. | Measured |
 | Disk growth | **Estimate**, not measured on Sepolia: a game is on the order of ten events with its derived rows, so a few KB; 100,000 games would be a few hundred MB. A playtest is far below it. Block headers do not accumulate: `--depth l1` forgets those below the last L1-accepted block. Give it **1 GB** and the WAL file's few MB of headroom. | Estimate from the measured row sizes |
 | Backup | None needed: `rebuild` makes the same tables from the chain. Keeping the file only saves the catch-up. | `README.md` |
-| Network, out | HTTPS to the RPC host only. | |
+| Network, out | HTTPS to the RPC host, and (N1, display names; off with `--no-names`) to `api.cartridge.gg` port 443, `POST /lookup`, at most one small request every 5 s. Reachable from this VPS on 2026-10-14 (HTTP 200 on a read-only request). | `names.ts` |
 | Network, in | Loopback only for the indexer; 443 on the proxy (section 3). | |
 | RPC | JSON-RPC **0.10** (`starknet_specVersion`): the events must carry `transaction_index` and `event_index`, and `starknet_getBlockWithTxHashes` must accept the block tag `l1_accepted`. Read-only methods only: `chainId`, `blockHashAndNumber`, `getBlockWithTxHashes`, `getEvents` (by block hash), `call`. | `chain.ts` |
 

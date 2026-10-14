@@ -5,8 +5,8 @@ use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, Ow
 use paved::constants;
 use paved::mocks::account::{IMockAccountDispatcher, IMockAccountDispatcherTrait};
 use paved::models::tile::CENTER;
-use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
 use paved::systems::challenge::{IChallengeSetupDispatcher, IChallengeSetupDispatcherTrait};
+use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup, Wiring};
 use paved::tests::setup::setup;
@@ -329,7 +329,8 @@ fn test_access_daily_set_setup_reverts_on_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
     start_cheat_caller_address(challenge, OWNER());
-    IChallengeSetupDispatcher { contract_address: challenge }.set_setup(core::num::traits::Zero::zero());
+    IChallengeSetupDispatcher { contract_address: challenge }
+        .set_setup(core::num::traits::Zero::zero());
 }
 
 

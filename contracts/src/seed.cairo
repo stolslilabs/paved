@@ -2,9 +2,9 @@
 //!
 //! `HostableComponent::spawn` takes the initial seed from a `SeedSource` and passes it to
 //! `GameImpl::start`. The only implementation today is `TokenSeed`, the seed of the game's token id
-//! (D-23, P-50 ruling 2): every game draws its own deck. A VRF or a seed revealed after the purchase
-//! can replace it without touching the game. The reseeds of `build` and `discard` derive from this
-//! seed and do not go through here.
+//! (D-23, P-50 ruling 2): every game draws its own deck. A VRF or a seed revealed after the
+//! purchase can replace it without touching the game. The reseeds of `build` and `discard` derive
+//! from this seed and do not go through here.
 
 use core::hash::HashStateTrait;
 use core::poseidon::PoseidonTrait;

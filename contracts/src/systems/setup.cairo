@@ -1,18 +1,18 @@
 //! `Setup`, the system that holds the quests and the achievements (D-24, P-51 ruling 3, named by
 //! D-25; `docs/architecture/quests.md`, `leaderboard.md` "D-24").
 //!
-//! The mode contracts report to it: an allowlisted reporter (Challenge, today `Challenge`) sends one
-//! `report` per game over, with the entries its own tally gives (`paved::quests`); `Setup` knows
-//! tasks, not games. It trusts the reporter for whom the report is: it cannot read a game's player
-//! without calling the reporter back. The guarantee is the reporter's code (`Challenge` reports only
-//! for the caller of the move that ended the game, who must be the game's player).
+//! The mode contracts report to it: an allowlisted reporter (Challenge, today `Challenge`) sends
+//! one `report` per game over, with the entries its own tally gives (`paved::quests`); `Setup`
+//! knows tasks, not games. It trusts the reporter for whom the report is: it cannot read a game's
+//! player without calling the reporter back. The guarantee is the reporter's code (`Challenge`
+//! reports only for the caller of the move that ended the game, who must be the game's player).
 //!
 //! The tutorial is off chain (D-21): its achievement is claimed here by the player, once, with no
 //! check (P-49 ruling 2).
 //!
 //! Since step E (D-25) it is also the single registry of the wiring (P-53 ruling 2): the economy
-//! and collection addresses that `Account` held, set by the owner and read by `Challenge` through one
-//! view per call (`wiring`). They are new storage members: none of the earlier members moves.
+//! and collection addresses that `Account` held, set by the owner and read by `Challenge` through
+//! one view per call (`wiring`). They are new storage members: none of the earlier members moves.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;

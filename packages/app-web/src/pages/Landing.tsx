@@ -71,7 +71,7 @@ export function ChallengeTop({ day }: { day: number | null | undefined }) {
             <li key={e.playerId}>
               {`${e.rank}. `}
               <Link to={`/player/${e.playerId}`} style={{ color: "#f5f5f5" }}>
-                {label(e.playerId)}
+                {label(e.playerId, e.name)}
               </Link>
               {` - ${e.bestScore}`}
             </li>

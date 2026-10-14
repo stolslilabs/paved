@@ -86,9 +86,9 @@ describe("routes", () => {
         },
       ],
     });
-    // No name since D-25 (E): the client resolves the address off-chain.
+    // No name on chain since D-25 (E); `name` is the off-chain username of the names cache (N1), null without one.
     expect(Object.keys((answer.body.entries as object[])[0]!).sort()).toEqual(
-      ["best_game_id", "best_score", "finished_at", "games_finished", "games_played", "player_id", "rank"],
+      ["best_game_id", "best_score", "finished_at", "games_finished", "games_played", "name", "player_id", "rank"],
     );
     const last = get(indexer, "/v1/tournaments/100/leaderboard?limit=1&offset=1");
     expect((last.body as { next_offset: number | null }).next_offset).toBeNull();
@@ -102,8 +102,8 @@ describe("routes", () => {
       player: { player_id: PA, created: node.blocks[2]!.timestamp },
       stats: { challenge_games: 2, challenge_finished: 1, best_score: 50 },
     });
-    // The player is the address, created at its first GameSpawned (block 2), with no name (D-25 (E)).
-    expect(Object.keys(get(indexer, `/v1/players/${PA}`).body.player as object).sort()).toEqual(["created", "player_id"]);
+    // The player is the address, created at its first GameSpawned (block 2), with no name on chain (D-25 (E)); `name` is the off-chain cache's (N1), null here.
+    expect(Object.keys(get(indexer, `/v1/players/${PA}`).body.player as object).sort()).toEqual(["created", "name", "player_id"]);
     expect(get(indexer, `/v1/players/${padded(0xeeen)}`)).toMatchObject({ code: 200, body: { player: null, stats: null } });
     const games = get(indexer, `/v1/players/${PA}/games?contract=challenge`).body.games as { game_id: number }[];
     expect(games.map((g) => g.game_id)).toEqual([3, 1]);

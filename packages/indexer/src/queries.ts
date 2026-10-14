@@ -39,6 +39,9 @@ import type { Store } from "./store.ts";
 
 type Row = Record<string, SQLInputValue>;
 
+/** A row before the server adds `name` from the names cache (names.ts): the queries never read it. */
+type Unnamed<T> = Omit<T, "name">;
+
 /** A game row as the API serves it, read at `head`: a finish above `head` has not happened yet. */
 function gameRow(row: Row, head: number): GameRow {
   const over = row.over === 1 && Number(row.over_block) <= head;
@@ -193,7 +196,7 @@ export class Queries {
     player: string | null,
     limit: number,
     offset: number,
-  ): LeaderboardEntry[] {
+  ): Unnamed<LeaderboardEntry>[] {
     if (id === 0) return [];
     return (
       this.store
@@ -216,7 +219,7 @@ export class Queries {
     id: number,
     limit: number,
     offset: number,
-  ): { total: number; entries: LeaderboardEntry[] } {
+  ): { total: number; entries: Unnamed<LeaderboardEntry>[] } {
     return {
       total: this.tournament(head, id).players,
       entries: this.entries(head, id, null, limit, offset),
@@ -224,7 +227,7 @@ export class Queries {
   }
 
   /** One player's row of a tournament's leaderboard, or null. */
-  entry(head: number, id: number, player: string): LeaderboardEntry | null {
+  entry(head: number, id: number, player: string): Unnamed<LeaderboardEntry> | null {
     return this.entries(head, id, player, 1, 0)[0] ?? null;
   }
 
@@ -233,7 +236,7 @@ export class Queries {
   player(
     head: number,
     playerId: string,
-  ): { player: PlayerInfo; stats: PlayerStats; unsettled: UnsettledGame[]; unsettled_count: number } | null {
+  ): { player: Unnamed<PlayerInfo>; stats: PlayerStats; unsettled: UnsettledGame[]; unsettled_count: number } | null {
     const row = this.store
       .statement(
         "SELECT player_id, created_time FROM players WHERE player_id = ? AND created_block <= ?",

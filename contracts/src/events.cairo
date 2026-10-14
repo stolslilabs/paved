@@ -4,31 +4,19 @@
 //! these events are in its ABI; `Store::emit` writes them with the same keys and data.
 //! Reference: `docs/architecture/native-storage.md`. D-20 removed `Sponsored` and `Claimed` (past
 //! events, documented in `docs/architecture/public-interface.md`) and renamed the `tournament_id`
-//! of `GameSpawned` and `GameOver` to `day_id`. Since D-25 E nothing deployed emits
-//! `PlayerCreated`:
-//! `Account` left the systems and a player is the caller's address, with no registration. The
-//! variant stays declared (it never was emitted by a game contract) until the indexer, whose tests
-//! read it from `Challenge`'s ABI, drops it (META); `public-interface.md` documents it as a past event.
+//! of `GameSpawned` and `GameOver` to `day_id`. D-25 E took `Account` out of the systems (a player
+//! is the caller's address, with no registration), and D-23 removed its `PlayerCreated`, which no
+//! game contract ever emitted: a past event, documented in `public-interface.md`.
 
 use paved::models::game::Game;
 
 #[derive(Drop, starknet::Event)]
 pub enum Event {
-    PlayerCreated: PlayerCreated,
     GameSpawned: GameSpawned,
     Built: Built,
     Discarded: Discarded,
     Scored: Scored,
     GameOver: GameOver,
-}
-
-/// Emitted by nothing deployed since D-25 E (`Account.create` was its only emitter).
-#[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
-pub struct PlayerCreated {
-    #[key]
-    pub player_id: felt252,
-    pub name: felt252,
-    pub master: felt252,
 }
 
 #[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]

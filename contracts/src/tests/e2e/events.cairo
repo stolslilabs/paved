@@ -92,7 +92,8 @@ fn test_events_daily_build_emits_built_and_scored() {
     spy
         .assert_emitted(
             @array![
-                (systems.challenge.contract_address, built), (systems.challenge.contract_address, scored),
+                (systems.challenge.contract_address, built),
+                (systems.challenge.contract_address, scored),
             ],
         );
 }
@@ -202,7 +203,8 @@ fn test_events_daily_last_build_emits_game_over() {
     spy
         .assert_emitted(
             @array![
-                (systems.challenge.contract_address, built), (systems.challenge.contract_address, over),
+                (systems.challenge.contract_address, built),
+                (systems.challenge.contract_address, over),
             ],
         );
 }

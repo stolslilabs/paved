@@ -4,8 +4,8 @@ use paved::types::orientation::Orientation;
 
 #[starknet::interface]
 pub trait IChallenge<TContractState> {
-    /// A paid game: approve `Challenge` on USDC for `stake x entry_price().amount` first (stake 1 to
-    /// 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
+    /// A paid game: approve `Challenge` on USDC for `stake x entry_price().amount` first (stake 1
+    /// to 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
     /// address other than the caller, `Economy` and `Challenge`, or zero (no referral); `min_out`:
     /// the least PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
     fn spawn(
@@ -16,7 +16,8 @@ pub trait IChallenge<TContractState> {
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
 }
 
-/// The `Setup` that `Challenge` reports its game overs to (D-24) and reads its wiring from (D-25 E):
+/// The `Setup` that `Challenge` reports its game overs to (D-24) and reads its wiring from (D-25
+/// E):
 /// the owner sets it (needed on a contract upgraded in place, whose constructor does not run
 /// again).
 #[starknet::interface]
@@ -283,8 +284,8 @@ pub mod Challenge {
     }
 
     /// The wiring of `setup`, in one call, checked for what each path uses: a spawn needs both
-    /// addresses, a game over only the economy (`'Challenge: economy not set'`, `'Challenge: collection not
-    /// set'` while `Setup`'s owner has not set them).
+    /// addresses, a game over only the economy (`'Challenge: economy not set'`, `'Challenge:
+    /// collection not set'` while `Setup`'s owner has not set them).
     fn wiring(setup: ISetupDispatcher, collection: bool) -> Wiring {
         let wiring = setup.wiring();
         assert(wiring.economy.is_non_zero(), errors::NO_ECONOMY);
@@ -300,7 +301,11 @@ pub mod Challenge {
         /// golden games give the seed of the day they were recorded with
         /// (`tests::golden::harness`), through the same path.
         fn spawn_from<S, +SeedSource<S>, +Drop<S>>(
-            ref self: ContractState, source: @S, stake: u8, referrer: ContractAddress, min_out: u256,
+            ref self: ContractState,
+            source: @S,
+            stake: u8,
+            referrer: ContractAddress,
+            min_out: u256,
         ) -> u32 {
             // [Interaction] The wiring, in one call to `Setup`
             let wiring = wiring(self.setup_dispatcher(), true);
@@ -339,9 +344,9 @@ pub mod Challenge {
         /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A
         /// referrer counts only if it is a non-zero address other than the payer (D-25: no
         /// registration) and other than the two protocol addresses `Challenge` knows, `Economy` and
-        /// `Challenge` itself; any of those is ignored (no referral). Paid to `Economy`, the referral
-        /// would be swept back into the margin and `Purchased` would count it twice; paid to
-        /// `Challenge`, it would be stranded (nothing here transfers USDC out).
+        /// `Challenge` itself; any of those is ignored (no referral). Paid to `Economy`, the
+        /// referral would be swept back into the margin and `Purchased` would count it twice; paid
+        /// to `Challenge`, it would be stranded (nothing here transfers USDC out).
         fn purchase(
             ref self: ContractState,
             economy: ContractAddress,

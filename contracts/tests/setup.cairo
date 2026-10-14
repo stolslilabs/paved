@@ -13,9 +13,9 @@ pub mod setup {
     use paved::models::game::{Game, GameImpl};
     use paved::models::tile::Tile;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::challenge::IChallengeDispatcher;
     pub use paved::systems::challenge::IChallengeDispatcherTrait;
+    use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 
     // Internal imports
 

@@ -41,9 +41,9 @@ const tournament = (id: number, over: Partial<Row> = {}): Row => ({
 });
 
 const ENTRIES: Row[] = [
-  { rank: 1, player_id: FIXTURE_ADA, best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203 },
-  { rank: 2, player_id: FIXTURE_CY, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650 },
-  { rank: 3, player_id: FIXTURE_BO, best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011 },
+  { rank: 1, player_id: FIXTURE_ADA, best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203, name: null },
+  { rank: 2, player_id: FIXTURE_CY, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650, name: null },
+  { rank: 3, player_id: FIXTURE_BO, best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011, name: null },
   // The rest of the 41 players of the example's `total`.
   ...Array.from({ length: 38 }, (_, i): Row => ({
     rank: i + 4,
@@ -53,6 +53,7 @@ const ENTRIES: Row[] = [
     games_played: 1,
     games_finished: 1,
     finished_at: 1791860000 + i,
+    name: null,
   })),
 ];
 
@@ -93,6 +94,11 @@ export class FixtureIndexer {
   readonly requests: string[] = [];
   /** Rows by tournament id; a tournament not listed answers zeros and an empty board. */
   entries = new Map<number, Row[]>([[FIXTURE_TOURNAMENT, ENTRIES]]);
+  /** Usernames the indexer's cache holds (N1), by player id; none by default: every `name` is null. */
+  names: Record<string, string> = {};
+  private named(row: Row): Row {
+    return { ...row, name: this.names[row.player_id as string] ?? null };
+  }
   tournaments: Row[] = [
     tournament(FIXTURE_TOURNAMENT),
     tournament(FIXTURE_TOURNAMENT - 1, { players: 12, best_score: 150 }),
@@ -181,7 +187,7 @@ export class FixtureIndexer {
       if (typeof limit === "string") return fail(400, limit);
       if (typeof offset === "string") return fail(400, offset);
       const rows = this.entries.get(id) ?? [];
-      const page = rows.slice(offset, offset + limit);
+      const page = rows.slice(offset, offset + limit).map((r) => this.named(r));
       const t = this.tournaments.find((x) => x.id === id) ?? tournament(id);
       return ok({ tournament_id: id, start_time: t.start_time, end_time: t.end_time, total: rows.length, entries: page, next_offset: offset + limit < rows.length ? offset + limit : null });
     }
@@ -199,7 +205,7 @@ export class FixtureIndexer {
         if (!known) return ok({ player: null, stats: null });
         const mine = this.games.filter((g) => g.contract === "challenge");
         return ok({
-          player: { player_id: b, created: 1791000000 },
+          player: { player_id: b, name: this.named(known).name, created: 1791000000 },
           stats: { challenge_games: mine.length || (known.games_played as number), challenge_finished: known.games_finished, best_score: known.best_score },
         });
       }
@@ -238,7 +244,8 @@ export class FixtureIndexer {
         const e = allowed();
         const id = decimalId(d);
         if (e || id === null) return fail(400, e ?? "malformed tournament id");
-        return ok({ entry: (this.entries.get(id) ?? []).find((r) => r.player_id === b) ?? null });
+        const mine = (this.entries.get(id) ?? []).find((r) => r.player_id === b);
+        return ok({ entry: mine ? this.named(mine) : null });
       }
     }
     if (a === "games" && b && c && !d) {

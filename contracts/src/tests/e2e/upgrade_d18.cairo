@@ -36,7 +36,9 @@ use paved::tests::legacy::store::StoreImpl as LegacyStore;
 use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;

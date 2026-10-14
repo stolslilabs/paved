@@ -188,6 +188,16 @@ describe("Challenge card, top 3", () => {
     expect(screen.getByTestId("where").textContent).toBe("/leaderboard|null");
   });
 
+  it("N1: a row shows the indexer's name when it has one, still linking to the address", async () => {
+    fixture.names = { [FIXTURE_ADA]: "ada" };
+    challenge();
+    const list = await screen.findByTestId("challenge-top");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows[0].textContent).toBe("1. ada - 187");
+    expect(within(rows[0]).getByRole("link", { name: "ada" }).getAttribute("href")).toBe(`/player/${FIXTURE_ADA}`);
+    expect(rows[1].textContent).toMatch(/^2\. 0x/);
+  });
+
   it("fewer than three rows: shows those rows only", async () => {
     fixture.entries.set(FIXTURE_TOURNAMENT, fixture.entries.get(FIXTURE_TOURNAMENT)!.slice(0, 2));
     challenge();

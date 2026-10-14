@@ -274,11 +274,20 @@ describe("Leaderboard page", () => {
     expect(screen.getByText(/\(you\)/).closest("tr")!.textContent).toContain(shortId(FIXTURE_BO));
   });
 
-  it("names are short addresses: the indexer has none since D-25 (E), and no other player's name is looked up", async () => {
+  it("names are short addresses while the indexer has none (D-25 (E))", async () => {
     board();
     await screen.findByText(ADA);
     expect(screen.getByText(shortId(FIXTURE_BO))).toBeTruthy();
     expect(screen.queryByText("Ada")).toBeNull();
+  });
+
+  it("N1: the indexer's name shows where it has one, the short address elsewhere, and the link keeps the address", async () => {
+    fixture.names = { [FIXTURE_ADA]: "ada" };
+    board();
+    const link = await screen.findByRole("link", { name: "ada" });
+    expect(link.getAttribute("href")).toBe(`/player/${FIXTURE_ADA}`);
+    expect(screen.queryByText(ADA)).toBeNull();
+    expect(screen.getByText(shortId(FIXTURE_BO))).toBeTruthy();
   });
 
   it("a day above what the API serves is not a tournament, and is never asked", async () => {

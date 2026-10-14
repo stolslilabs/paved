@@ -58,7 +58,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     const log = openSync(join(work, `indexer-${port}.log`), "a");
     const child = spawn(
       process.execPath,
-      [MAIN, command, "--deployment", file, "--db", db, "--port", String(port), "--poll", "200", "--recheck-every", "500", "--rate", "0"],
+      [MAIN, command, "--deployment", file, "--db", db, "--port", String(port), "--poll", "200", "--recheck-every", "500", "--rate", "0", "--no-names"],
       { stdio: ["ignore", log, log], env: { PATH: process.env.PATH ?? "" } },
     );
     closeSync(log);

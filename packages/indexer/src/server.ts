@@ -30,6 +30,7 @@ import {
 import { sameBlock, type Header } from "./chain.ts";
 import { canonical, felt, padded } from "./events.ts";
 import type { Indexer } from "./indexer.ts";
+import { NameResolver } from "./names.ts";
 import { Queries } from "./queries.ts";
 import { clientAddress, limiterOf, type RateLimitOptions } from "./ratelimit.ts";
 
@@ -379,8 +380,31 @@ const unavailable = (indexer: Indexer): Answer => ({
   },
 });
 
+type Named = { player_id: string; name?: string | null };
+
+/**
+ * `rows` with `name` on every player row (the leaderboard's `entries`, `entry`, and `player`), read from the names cache
+ * only: null where unknown, and everywhere without a resolver. The cached rows are not changed (the answer cache keeps
+ * them per block; a name arrives between blocks).
+ */
+function withNames(rows: Record<string, unknown>, names: NameResolver | undefined): Record<string, unknown> {
+  const entries = Array.isArray(rows.entries) ? (rows.entries as Named[]) : null;
+  const entry = (rows.entry ?? null) as Named | null;
+  const player = (rows.player ?? null) as Named | null;
+  if (!entries && !entry && !player) return rows;
+  const ids = [...(entries ?? []), entry, player].filter((row): row is Named => row !== null).map((row) => row.player_id);
+  const found = names?.read(ids);
+  const named = <T extends Named>(row: T): T => ({ ...row, name: found?.get(row.player_id) ?? null });
+  return {
+    ...rows,
+    ...(entries ? { entries: entries.map(named) } : {}),
+    ...(entry ? { entry: named(entry) } : {}),
+    ...(player ? { player: named(player) } : {}),
+  };
+}
+
 /** The answer to a GET of `target`, a path and its query (the HTTP server's, without the socket). */
-export function answer(indexer: Indexer, target: string, info?: HeadInfo): Answer {
+export function answer(indexer: Indexer, target: string, info?: HeadInfo, names?: NameResolver): Answer {
   const url = new URL(target, "http://indexer");
   const path = url.pathname;
   const isHead = path === "/v1/head";
@@ -419,7 +443,7 @@ export function answer(indexer: Indexer, target: string, info?: HeadInfo): Answe
   }
   try {
     const rows = cacheOf(indexer).read(served, `${path}${url.search}`, read!);
-    return { code: 200, body: { ...envelope, ...rows } };
+    return { code: 200, body: { ...envelope, ...withNames(rows, names) } };
   } catch (error) {
     if (error instanceof NotFound) return refusal(indexer, 404, error.message);
     throw error;
@@ -441,12 +465,13 @@ export function respond(
   method: string | undefined,
   target: string | undefined,
   info?: HeadInfo,
+  names?: NameResolver,
 ): Answer {
   try {
     if (method !== "GET") return refusal(indexer, 405, "GET only");
     const raw = target ?? "/";
     if (!parsable(raw)) return refusal(indexer, 400, "bad request");
-    return answer(indexer, raw, info);
+    return answer(indexer, raw, info, names);
   } catch {
     return refusal(indexer, 500, "internal error");
   }
@@ -480,6 +505,8 @@ export type ServeOptions = {
   info?: HeadInfo;
   /** Per-address rate limit (P-43); none, or `rate` 0, means no limit. */
   rateLimit?: RateLimitOptions;
+  /** Display names (N1): added to the player rows from its cache; none (the default) means `name` is null. */
+  names?: NameResolver;
 };
 
 /** The HTTP server. */
@@ -503,7 +530,7 @@ export function serve(indexer: Indexer, options: ServeOptions = {}): Server {
     }
     let result: Answer;
     try {
-      result = respond(indexer, request.method, request.url, options.info);
+      result = respond(indexer, request.method, request.url, options.info, options.names);
     } catch {
       result = {
         code: 500,

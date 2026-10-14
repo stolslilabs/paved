@@ -83,7 +83,9 @@ fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
 #[feature("safe_dispatcher")]
 fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let challenge = IChallengeSafeDispatcher { contract_address: systems.challenge.contract_address };
+    let challenge = IChallengeSafeDispatcher {
+        contract_address: systems.challenge.contract_address,
+    };
     let before = context.token.balance_of(PLAYER());
     // Stakes 0 and 11
     let reason = *challenge.spawn(0, Zero::zero(), 0).unwrap_err().at(0);

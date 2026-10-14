@@ -44,8 +44,26 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--recheck <blocks>`, `--recheck-every <ms>` | The last blocks read again for a replaced block, default 10 every 10 s |
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
 | `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the right-most `X-Forwarded-For` entry, the one the proxy wrote (read from loopback peers only: the proxy must dial `127.0.0.1` or `::1`, not another `127.x` address) |
+| `--no-names`, `--names` | The display-name lookup (N1) is on only for a deployment with `network: sepolia` or `mainnet`; any other network, `devnet` (test accounts are not sent to a public service) or a file with no `network`, keeps it off (fails closed). `--no-names` turns it off everywhere: every `name` is `null`; `--names` forces it on, for a by-hand check on devnet |
+| `--names-url <url>` | The lookup endpoint, default `https://api.cartridge.gg/lookup` |
 
 Stop it with `SIGTERM`. The chain id of the node must be the file's.
+
+## Display names (N1)
+
+A player is a wallet address; a Cartridge Controller account also has a username. A background resolver (`src/names.ts`)
+asks `POST <names-url>` with `{"addresses": [...]}` for the addresses the routes have shown and not yet resolved, and keeps
+the answers in the `names` table (schema 10; a cache, dropped by `rebuild`). The routes that list players (the leaderboard's
+`entries[]`, `players/{id}`, `players/{id}/tournaments/{day}`) add `name: string | null` read **from that cache only**: null
+until resolved, and always null with `--no-names`. The resolver never runs in the follow, rewind or decode path, and a lookup
+that fails, hangs or finds nothing never slows or fails a route: the name stays null.
+
+The service publishes no limits, so the budget is conservative: a batch of at most 50 addresses, at most one request every
+5 s (12 a minute), one in flight, a 5 s timeout, and after a failure a wait of 30 s doubling to 15 min (no retry storm). A
+found name is kept 24 h (and shown, stale, while it is refreshed); "no username" 1 h, shorter so that an account created
+later is found. The answer is parsed tolerantly (`{results: [...]}` or a bare array; `name` or `username`; the addresses in `addresses`, which is what the service sends:
+`{"username": "bal", "addresses": ["0x2514…"]}` with the leading zeros dropped, or in `address` / `addr`, else the position) and an answer that cannot be attributed to an address is refused. Names
+are display only: never an identity, never used by anything else. Tests use a fake lookup and never call the service.
 
 ## API v1
 
@@ -103,11 +121,11 @@ and skipped from any source still read (the game contract's ABI declared it unti
 Schema 9 (D-25 (E): Account leaves the deployment the database is built for, players come from their first event): a
 database of schema 8 or older is refused at start with a message naming `rebuild`; rebuild it from the chain.
 
-Schema 10 (D-23b: the game contract `Daily` is named `Challenge`): the source, the stored `games.contract` value and the
+Schema 11 (D-23b, after N1's schema 10 and its `names` table: the game contract `Daily` is named `Challenge`): the source, the stored `games.contract` value and the
 deployment key are `challenge` (`contracts.Challenge` of the deployment file), and so are the values the API serves: the
 `contract` of a game, the games cursor `<start_time>:challenge:<game_id>`, `contracts.challenge` of `/v1/head`, and the player
 stats `challenge_games` and `challenge_finished`. The routes keep their names (`tournaments`, `tournaments/:id`, `leaderboard`).
-A database of schema 9 or older is refused at start, naming `rebuild`; the rebuild happens at the fresh deployment (F).
+A database of schema 10 or older is refused at start, naming `rebuild`; the rebuild happens at the fresh deployment (F).
 
 ## Tests
 

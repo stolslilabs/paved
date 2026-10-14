@@ -10,8 +10,10 @@ use paved::constants;
 use paved::models::game::GameImpl;
 use paved::models::tile::CENTER;
 use paved::quests::{achievement_entries, quest_entries, tally};
+use paved::systems::challenge::{
+    IChallengeDispatcher, IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait,
+};
 use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
-use paved::systems::challenge::{IChallengeDispatcher, IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::setup::Wiring;
 use paved::tests::setup::setup::{
     ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
@@ -587,9 +589,9 @@ fn test_cold_paths_game_over_needs_only_the_economy() {
 
 /// A `Daily` with no `Setup` (its `setup` slot zero, as after an in-place upgrade before
 /// `set_setup`): since D-25 E the wiring is `Setup`'s, so nothing can be paid, minted or recorded.
-/// A spawn reverts (`'Challenge: setup is zero'`) and leaves no game; a game over by build, by discard
-/// and by surrender reverts too, and the game stays live, unrecorded and unreported, until the
-/// owner sets the `Setup`; then the same move ends it.
+/// A spawn reverts (`'Challenge: setup is zero'`) and leaves no game; a game over by build, by
+/// discard and by surrender reverts too, and the game stays live, unrecorded and unreported, until
+/// the owner sets the `Setup`; then the same move ends it.
 #[test]
 #[available_gas(l2_gas: 300000000)]
 #[feature("safe_dispatcher")]

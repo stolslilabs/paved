@@ -43,9 +43,9 @@ import sys
 root = sys.argv[1]
 
 # Names that exist at 06c024d and may be gone from main: step D (t-0250) deletes Lobby and Tutorial, step E
-# (t-0260, D-25 E) deletes Account, and `deploy.sh --d18` still declares them from the pinned commit. Nothing else
-# belongs here.
-PINNED_06C024D = {"Account", "Lobby", "Tutorial"}
+# (t-0260, D-25 E) deletes Account, D-23 (t-0268) renames Daily to Challenge, and `deploy.sh --d18` still declares
+# them from the pinned commit. Nothing else belongs here.
+PINNED_06C024D = {"Account", "Daily", "Lobby", "Tutorial"}
 
 def read(path):
     with open(os.path.join(root, path), encoding="utf-8") as f:

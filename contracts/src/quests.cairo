@@ -13,8 +13,8 @@ use paved::models::game::{Game, GameImpl};
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_quest::types::batch::TaskProgress as QuestProgress;
 
-/// What a Challenge game over reports, from the game. Since D-20 it holds no rank: nothing is ranked
-/// on chain, and task 9 (`WIN`) is never reported by the contract.
+/// What a Challenge game over reports, from the game. Since D-20 it holds no rank: nothing is
+/// ranked on chain, and task 9 (`WIN`) is never reported by the contract.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Tally {
     pub player_id: felt252,

@@ -470,19 +470,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("D-23b: schema 10 (Daily renamed Challenge in the stored contract and the deployment), and a database of schema 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("10");
-    for (const old of ["9", "8", "7"]) {
+  test("D-23b: schema 11 (Daily renamed Challenge in the stored contract and the deployment; 10 added the names cache, N1), and a database of schema 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("11");
+    for (const old of ["10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 10: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 10.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 11: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 11.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("10");
+      expect(rebuilt.meta("schema")).toBe("11");
       rebuilt.close();
     }
   });
