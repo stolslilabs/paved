@@ -234,10 +234,38 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fireEvent.click(await screen.findByText(/mode challenge/));
     // Stake 1: 2 USDC swapped once; the PAVED of the fake's burn_bps (70 %) is burned, the margin's to the Vault (P-56).
     expect(await screen.findByText("Swapped for PAVED in one swap: 2 USDC")).toBeTruthy();
-    expect(screen.getByText("Burned: the PAVED of 1.4 USDC of the price (70 %), at today's terms; the rest goes to the Vault (vPAVED) for the stakers")).toBeTruthy();
+    expect(await screen.findByText("Burned: the PAVED of 1.4 USDC of the price (70 %), at today's terms; the Vault (vPAVED) gets the PAVED of 30 % of the price")).toBeTruthy();
     fireEvent.click(await enabled("Buy for 2 USDC"));
     const dialog = screen.getByRole("dialog", { name: "Confirm purchase" });
-    expect(dialog.textContent).toContain("2 USDC swapped for PAVED in one swap: the PAVED of 1.4 USDC of the price (70 %), at today's terms is burned, the rest goes to the Vault for the stakers.");
+    expect(dialog.textContent).toContain("2 USDC swapped for PAVED in one swap: the PAVED of 1.4 USDC of the price (70 %), at today's terms is burned, that of 30 % of the price goes to the Vault for the stakers.");
+  });
+
+  it("the split shown is the chain's (split_bps, owner-set): the deployed 73.68 / 26.32, and with a referrer the Vault's part less the referral", async () => {
+    const economy = new FakeEconomy();
+    economy.split_ = { burn: 7_368, vault: 2_632, referral: 500 };
+    const pool = new FakePoolQuoter();
+    land({ economy, pool, search: `?ref=${REFERRER}` });
+    fireEvent.click(await screen.findByText(/mode challenge/));
+    expect(await screen.findByText("Burned: the PAVED of 1.47 USDC of the price (73.68 %), at today's terms; the Vault (vPAVED) gets the PAVED of 21.32 % of the price, after the referrer's 5 %")).toBeTruthy();
+    // The margin's PAVED, as the contract splits the swap by input, from min_out: a floor.
+    const quote = await economy.quote(1);
+    const swapIn = quote.price - quote.referral;
+    const least = await economy.expectedMinOut(1, new FakePoolQuoter(), true);
+    expect(await screen.findByText(`To the Vault: at least ${paved((least * (swapIn - quote.burnQuote)) / swapIn)}, which raises its rate`)).toBeTruthy();
+    expect(economy.calls).toContain("split");
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).toMatch(/Referrer .+ gets 0\.1 USDC out of the stakers' margin/);
+  });
+
+  it("a split that cannot be read hides the breakdown; the purchase itself does not depend on it", async () => {
+    const economy = new FakeEconomy();
+    economy.split = async () => {
+      throw new Error("node down");
+    };
+    land({ economy });
+    fireEvent.click(await screen.findByText(/mode challenge/));
+    await enabled("Buy for 2 USDC");
+    expect(screen.queryByText(/^Burned: /)).toBeNull();
   });
 
   it("a pool quote at 95 % of the guard-rate value: no warning, no extra confirmation", async () => {

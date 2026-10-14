@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  BPS,
   DEFAULT_SLIPPAGE_BPS,
   MAX_SLIPPAGE_BPS,
   PAID_GAME_TTL_SECONDS,
@@ -11,6 +10,7 @@ import {
   STAKES,
   boostBps,
   formatBps,
+  formatPercentBps,
   formatUnits,
   impliedPaved,
   isQuoteRevert,
@@ -70,6 +70,8 @@ export function EconomyPurchase({
   const paused = useAsyncRead(() => client.base.views.spawnPaused(), [client], { onVisible: true });
   const spawnPaused = paused.data === true && paused.error === null;
   const quote = useAsyncRead(() => client.views.quote(stake), [client, stake], { onVisible: true });
+  // The split of the price in force (P-56, owner-set): the breakdown shows the chain's, never a constant.
+  const split = useAsyncRead(() => client.views.split(), [client], { onVisible: true });
   // The router pin and the guard's rate, read with the quote (the send reads both again in its own prepare).
   // The RPC must be on the deployment's chain; nothing else is read for a purchase before. A match is kept by the client, a
   // failed read is tried again when the page is shown again, a mismatch stays refused.
@@ -138,7 +140,15 @@ export function EconomyPurchase({
   const shownQuote = poolQuote.data;
   useEffect(() => setAcceptLow(false), [shownQuote, implied, lowQuote]);
   // The burn share of the price, at today's `burn_bps`: an owner act may change it before the transaction.
-  const burnShare = price !== null && burn !== null ? `${usdc(burn)} of the price (${formatUnits((burn * BPS) / price, 2)} %), at today's terms` : null;
+  const shares = split.data && split.error === null ? split.data : null;
+  const burnShare = price !== null && burn !== null && shares ? `${usdc(burn)} of the price (${formatPercentBps(shares.burn)}), at today's terms` : null;
+  // The Vault's part of the swap: the margin, the referral taken when a referrer is sent; its PAVED is split off the swap's
+  // by input, rounded down, as the contract does (`curve::vault_split`). From `min_out`, so a floor.
+  const vaultShare =
+    price !== null && shares && swapIn !== null && burn !== null
+      ? `${formatPercentBps(usedReferrer !== null ? shares.vault - shares.referral : shares.vault)} of the price${usedReferrer !== null ? `, after the referrer's ${formatPercentBps(shares.referral)}` : ""}`
+      : null;
+  const vaultPaved = minPaved !== null && swapIn !== null && burn !== null && swapIn > 0n ? (minPaved * (swapIn - burn)) / swapIn : null;
 
   return (
     <div aria-label="Purchase" style={{ display: "flex", flexDirection: "column", gap: 8, color: "#f5f5f5", fontSize: 13 }}>
@@ -169,7 +179,8 @@ export function EconomyPurchase({
         </span>
       )}
       {swapIn !== null && <span>{`Swapped for PAVED in one swap: ${usdc(swapIn)}`}</span>}
-      {burnShare && <span>{`Burned: the PAVED of ${burnShare}; the rest goes to the Vault (vPAVED) for the stakers`}</span>}
+      {burnShare && vaultShare && <span>{`Burned: the PAVED of ${burnShare}; the Vault (vPAVED) gets the PAVED of ${vaultShare}`}</span>}
+      {vaultPaved !== null && vaultPaved > 0n && <span>{`To the Vault: at least ${paved(vaultPaved)}, which raises its rate`}</span>}
       {minPaved !== null && minPaved > 0n && <span>{`PAVED bought: at least ${paved(minPaved)} (quoted again when sent)`}</span>}
       {lowQuote && implied !== null && <span role="alert" style={alert}>{lowQuoteText(poolQuote.data!, implied)}</span>}
       <span>{`Slippage on the swap: ${formatUnits(DEFAULT_SLIPPAGE_BPS, 2)} % (at most ${formatUnits(MAX_SLIPPAGE_BPS, 2)} %)`}</span>
@@ -202,8 +213,8 @@ export function EconomyPurchase({
         price !== null && (
           <div role="dialog" aria-label="Confirm purchase" style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #444", paddingTop: 8 }}>
             <span>{`Pay ${usdc(price)} (approve USDC, then buy) for a Challenge game at stake ${stake}?`}</span>
-            {swapIn !== null && burnShare && (
-              <span>{`${usdc(swapIn)} swapped for PAVED in one swap: the PAVED of ${burnShare} is burned, the rest goes to the Vault for the stakers.`}</span>
+            {swapIn !== null && burnShare && vaultShare && (
+              <span>{`${usdc(swapIn)} swapped for PAVED in one swap: the PAVED of ${burnShare} is burned, that of ${vaultShare} goes to the Vault for the stakers.`}</span>
             )}
             {minPaved !== null && minPaved > 0n && (
               <span>{`At least ${paved(minPaved)} bought: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`}</span>

@@ -1,9 +1,9 @@
 // FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it from `@paved/chain/testing`, the entry for
 // test doubles. No app code may import it.
 import { ViewError } from "../views";
-import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, referralOf, swapInputOf } from "./amounts";
+import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, swapInputOf } from "./amounts";
 import type { PoolQuoter } from "./pool";
-import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
+import type { DayView, EconomyViews, QuoteView, SplitView, TermsView, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Challenge` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
@@ -38,6 +38,8 @@ export class FakeEconomy implements EconomyViews {
   rate = { paved: 80n * 10n ** 18n, usdc: 1_000_000n };
   /** `Economy.rate()`, x `RATE_SCALE`: by default the same ratio as `rate`, so `FakePoolQuoter` quotes 95 % of implied. */
   guardRate_ = (80n * 10n ** 18n * RATE_SCALE) / 1_000_000n;
+  /** `Economy.split_bps()`: the quote follows it (burn and referral of the price, the Vault the rest). */
+  split_: SplitView = { burn: 7_000, vault: 3_000, referral: 500 };
   /** `Economy.router()`. */
   router_ = FAKE_ROUTER;
   threshold = 3_980_000;
@@ -60,13 +62,13 @@ export class FakeEconomy implements EconomyViews {
     this.check(`quote ${stake}`);
     if (!isStake(stake)) throw new ViewError("rpc", "Economy: bad stake");
     const price = priceOf(this.unit, stake);
-    const burnQuote = (price * 7_000n) / BPS;
+    const burnQuote = (price * BigInt(this.split_.burn)) / BPS;
     // An estimate at the guard's rate without the pool fee, as E2: above what the swap returns.
     const out = (burnQuote * this.rate.paved) / this.rate.usdc;
     return {
       price,
       burnQuote,
-      referral: referralOf(price),
+      referral: (price * BigInt(this.split_.referral)) / BPS,
       margin: price - burnQuote,
       minOutHint: out,
       factor: 10_000,
@@ -75,6 +77,11 @@ export class FakeEconomy implements EconomyViews {
       slope: 12_220,
       cap: 5,
     };
+  }
+
+  async split(): Promise<SplitView> {
+    this.check("split");
+    return { ...this.split_ };
   }
 
   async guardRate(): Promise<bigint> {

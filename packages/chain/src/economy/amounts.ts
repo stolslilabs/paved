@@ -146,6 +146,11 @@ export function parseUnits(text: string, decimals: number): bigint | null {
  */
 export const VPAVED_LABEL = "vPAVED";
 export const VPAVED_DECIMALS = 18;
+/**
+ * The most PAVED a controller session approves to the Vault without a prompt (the deposit's approve): 10,000 PAVED, ten
+ * times a test account's 1,000. Above it the approve prompts. A product choice (W1j); a measured deposit size may move it.
+ */
+export const VAULT_SESSION_APPROVE_CAP = 10_000n * 10n ** 18n;
 /** The scale of `vaultRate`: PAVED per vPAVED x 1e18. */
 export const VAULT_RATE_SCALE = 10n ** 18n;
 

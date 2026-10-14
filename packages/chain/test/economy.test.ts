@@ -566,6 +566,32 @@ describe("Vault (vPAVED, P-56): deposit, withdraw, withdraw all; no claim", () =
   });
 });
 
+describe("Economy.split_bps() (P-56): the owner-set split, read from the chain", () => {
+  const viewsOf = (felts: string[]) =>
+    new RpcEconomyViews({ callContract: async (c: { entrypoint: string }) => (c.entrypoint === "split_bps" ? felts : []) }, economyDeployment, createEconomyCodecs());
+
+  test("is in the committed ABI as a (u16, u16, u16) and decodes as burn, vault, referral", async () => {
+    const fn = (economyAbi as Abi).flatMap((e) => (e.type === "interface" ? ((e as unknown as { items: Array<{ name: string; outputs: Array<{ type: string }> }> }).items) : [])).find((f) => f.name === "split_bps");
+    expect(fn?.outputs).toEqual([{ type: "(core::integer::u16, core::integer::u16, core::integer::u16)" }]);
+    expect(await viewsOf(["0x1cc8", "0xa48", "0x1f4"]).split()).toEqual({ burn: 7_368, vault: 2_632, referral: 500 });
+  });
+
+  test("a reply that is not a split of the price is a ViewError, never a misread figure", async () => {
+    for (const felts of [["0x1cc8", "0xa48"], ["0x1cc8", "0xa48", "0x1f4", "0x0"], ["0x1cc8", "0xa49", "0x1f4"], ["0x10000", "0x0", "0x0"], ["0x1cc8", "0xa48", "0xa49"]]) {
+      await expect(viewsOf(felts).split(), felts.join(",")).rejects.toBeInstanceOf(ViewError);
+    }
+  });
+
+  test("the fake's quote follows its split: burn and referral of the price", async () => {
+    const economy = new FakeEconomy();
+    economy.split_ = { burn: 7_368, vault: 2_632, referral: 700 };
+    const quote = await economy.quote(1);
+    expect(quote.burnQuote).toBe((2_000_000n * 7_368n) / 10_000n);
+    expect(quote.referral).toBe((2_000_000n * 700n) / 10_000n);
+    expect(await economy.split()).toEqual(economy.split_);
+  });
+});
+
 describe("RpcEconomyViews decode the stub layouts", () => {
   test("quote and vault, bigints for amounts", async () => {
     const felts: Record<string, string[]> = {

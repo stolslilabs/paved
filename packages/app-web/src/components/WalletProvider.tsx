@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { IndexerProvider, MAX_STAKE, PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
-import type { ControllerConfig, PavedClient, WriteAccount } from "@paved/chain";
+import { IndexerProvider, MAX_STAKE, PavedProvider, VAULT_SESSION_APPROVE_CAP, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
+import type { ControllerConfig, Deployment, EconomyDeployment, PavedClient, WriteAccount } from "@paved/chain";
+import { appEconomy } from "../utils/economy-network";
 import { resolveAppNetwork, resolvePlayerAccount, signerOf, type AppNetwork, type NetworkEnv, type Signer } from "../utils/network";
 
 type Connector = ReturnType<typeof createControllerConnector>;
@@ -45,6 +46,15 @@ export async function entryApprove(client: PavedClient): Promise<{ token: string
   }
 }
 
+/**
+ * The session's Vault policies (vPAVED, P-56): the economy's Vault and PAVED when the build's economy is configured, with the
+ * PAVED approve capped at `VAULT_SESSION_APPROVE_CAP`; null otherwise (the Vault's writes then prompt).
+ */
+export function vaultPolicy(economy: Pick<EconomyDeployment, "configured" | "addresses">): { vault: string; pavedToken: string; cap: bigint } | null {
+  if (!economy.configured) return null;
+  return { vault: economy.addresses.Vault, pavedToken: economy.addresses.PavedToken, cap: VAULT_SESSION_APPROVE_CAP };
+}
+
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
@@ -58,6 +68,7 @@ export function WalletProvider({
   network,
   createConnector = createControllerConnector,
   client,
+  economy = appEconomy,
   children,
 }: {
   env: NetworkEnv;
@@ -66,6 +77,8 @@ export function WalletProvider({
   createConnector?: (config: ControllerConfig) => Connector;
   /** A client to use instead of one on the deployment's RPC URL (tests). */
   client?: PavedClient;
+  /** The economy of the deployment, for the Vault's session policies (tests give their own). */
+  economy?: (deployment: Deployment) => Pick<EconomyDeployment, "configured" | "addresses">;
   children: React.ReactNode;
 }) {
   const { deployment } = network;
@@ -82,9 +95,10 @@ export function WalletProvider({
       // An approve to Challenge on the entry token up to 10 x the unit price is signed in the session (only a
       // purchase sends one); above that it prompts. The price is read once, at first use; when the
       // read fails, the session holds no approve and every approve prompts.
-      policies: async () => controllerPolicies(deployment, { approve: await entryApprove(reader) }),
+      // The Vault's deposit, withdraw and redeem, and a PAVED approve to the Vault up to its cap, when the economy is deployed.
+      policies: async () => controllerPolicies(deployment, { approve: await entryApprove(reader), vault: vaultPolicy(economy(deployment)) }),
     });
-  }, [signer, deployment, reader, createConnector]);
+  }, [signer, deployment, reader, createConnector, economy]);
   const [controller, setController] = useState<WriteAccount | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);

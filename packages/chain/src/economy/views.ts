@@ -83,6 +83,17 @@ export interface VaultPosition {
   totalSupply: bigint;
 }
 
+/**
+ * `Economy.split_bps()` (P-56): how the price splits now, in bps. `burn` is swapped for the burn and `vault` for the Vault;
+ * they add up to 10,000. A referrer is paid `referral` of the price out of the Vault's part, which is not swapped then.
+ * Owner-set: the screens read it, never a constant.
+ */
+export interface SplitView {
+  burn: number;
+  vault: number;
+  referral: number;
+}
+
 /** Field lists in ABI order; a test checks them against `contracts/abis/Economy.json`. */
 export const ECONOMY_VIEW_FIELDS = {
   "paved::systems::economy::Quote": [
@@ -97,6 +108,8 @@ export const ECONOMY_VIEW_FIELDS = {
 /** The economy's reads. `RpcEconomyViews` calls the contracts; `FakeEconomy` (`economy/fake.ts`) is for unit tests. */
 export interface EconomyViews {
   quote(stake: number): Promise<QuoteView>;
+  /** `Economy.split_bps()`: the split of the price in force (P-56). */
+  split(): Promise<SplitView>;
   /** `Economy.rate()`: the guard's swap rate, PAVED base units per USDC base unit x `RATE_SCALE`; 0 before any purchase. */
   guardRate(): Promise<bigint>;
   /** `Economy.router()`, as 0x-hex: the router the purchase swaps through (checked against the pin, E-9b). */
@@ -123,6 +136,19 @@ export class RpcEconomyViews implements EconomyViews {
 
   async quote(stake: number): Promise<QuoteView> {
     return (await this.call("Economy", "quote", [stake])) as QuoteView;
+  }
+
+  async split(): Promise<SplitView> {
+    // A tuple `(u16, u16, u16)`, which the codec does not decode: three felts read here, each checked.
+    const felts = await this.raw("Economy", "split_bps", []);
+    if (felts.length !== 3) throw new ViewError("rpc", `split_bps: ${felts.length} felts, expected 3`);
+    const [burn, vault, referral] = felts.map((felt) => {
+      const value = BigInt(felt);
+      if (value < 0n || value >= 1n << 16n) throw new ViewError("rpc", `split_bps: ${felt} is not a u16`);
+      return Number(value);
+    });
+    if (burn + vault !== 10_000 || referral > vault) throw new ViewError("rpc", `split_bps: ${burn} / ${vault} / ${referral} is not a split of the price`);
+    return { burn, vault, referral };
   }
 
   async guardRate(): Promise<bigint> {
@@ -181,15 +207,23 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   private async call(contract: Exclude<EconomyContractName, "Challenge">, entrypoint: string, args: Encodable[]): Promise<unknown> {
-    if (!this.deployment.configured) throw new ViewError("not-configured", `Economy not deployed: ${this.deployment.missing.join(", ")} missing`);
-    const codec = this.codecs[contract];
+    const felts = await this.raw(contract, entrypoint, args);
     try {
-      const felts = await this.provider.callContract({
+      return this.codecs[contract].decodeResult(entrypoint, felts);
+    } catch (error) {
+      throw toViewError(error);
+    }
+  }
+
+  /** The felts a view returns, undecoded. */
+  private async raw(contract: Exclude<EconomyContractName, "Challenge">, entrypoint: string, args: Encodable[]): Promise<string[]> {
+    if (!this.deployment.configured) throw new ViewError("not-configured", `Economy not deployed: ${this.deployment.missing.join(", ")} missing`);
+    try {
+      return await this.provider.callContract({
         contractAddress: this.deployment.addresses[contract],
         entrypoint,
-        calldata: codec.encodeCall(entrypoint, args),
+        calldata: this.codecs[contract].encodeCall(entrypoint, args),
       });
-      return codec.decodeResult(entrypoint, felts);
     } catch (error) {
       throw toViewError(error);
     }

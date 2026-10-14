@@ -3,10 +3,10 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getChecksumAddress } from "starknet";
-import { PavedClient, controllerPolicies, createCodecs, createControllerConnector, indexerPlayerId, usePaved } from "@paved/chain";
+import { PavedClient, VAULT_SESSION_APPROVE_CAP, controllerPolicies, createCodecs, createControllerConnector, indexerPlayerId, usePaved } from "@paved/chain";
 import type { ControllerConfig, GameViews, PavedRpc, WriteResult } from "@paved/chain";
 import { ConnectionBanner } from "../src/components/ConnectionBanner";
-import { ENTRY_MAX_STAKE, WalletProvider, useWallet } from "../src/components/WalletProvider";
+import { ENTRY_MAX_STAKE, WalletProvider, useWallet, vaultPolicy } from "../src/components/WalletProvider";
 import { shortId } from "../src/utils/indexer-view";
 import { usePlayerLabel } from "../src/utils/player-label";
 import { resolveAppNetwork } from "../src/utils/network";
@@ -88,10 +88,14 @@ function Probe() {
   );
 }
 
-function setup(env: Record<string, string>, fake = fakeController(), entryPrice: EntryPrice = async () => ({ token: "0x4", amount: ENTRY })) {
+/** The build's economy in these tests: not deployed unless a test gives one (the Vault's policies then join the session). */
+type EconomyOf = NonNullable<React.ComponentProps<typeof WalletProvider>["economy"]>;
+const NO_ECONOMY: EconomyOf = () => ({ configured: false, addresses: { Economy: "", PavedToken: "", Vault: "", USDC: "" } });
+
+function setup(env: Record<string, string>, fake = fakeController(), entryPrice: EntryPrice = async () => ({ token: "0x4", amount: ENTRY }), economy: EconomyOf = NO_ECONOMY) {
   const network = resolveAppNetwork(env, FILES);
   render(
-    <WalletProvider env={env} network={network} createConnector={fake.createConnector} client={clientOf(network, entryPrice)}>
+    <WalletProvider env={env} network={network} createConnector={fake.createConnector} client={clientOf(network, entryPrice)} economy={economy}>
       <ConnectionBanner />
       <Probe />
     </WalletProvider>,
@@ -224,6 +228,31 @@ describe("signing (P-14)", () => {
     const session = sessionOf(fake);
     expect(session.contracts[getChecksumAddress("0x5")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
     expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
+  });
+
+  it("with the economy deployed, the session holds the Vault's deposit, withdraw and redeem and a PAVED approve to the Vault up to its cap (P-56)", async () => {
+    const fake = fakeController();
+    const economy: EconomyOf = () => ({ configured: true, addresses: { Economy: "0x10", PavedToken: "0x11", Vault: "0x12", USDC: "0x5" } });
+    setup(SEPOLIA_ENV, fake, async () => ({ token: "0x5", amount: 2_000_000n }), economy);
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const session = sessionOf(fake);
+    expect(session.contracts[getChecksumAddress("0x12")].methods.map((m) => m.entrypoint)).toEqual(["deposit", "withdraw", "redeem"]);
+    expect(session.contracts[getChecksumAddress("0x11")].methods).toEqual([
+      { entrypoint: "approve", spender: getChecksumAddress("0x12"), amount: `0x${VAULT_SESSION_APPROVE_CAP.toString(16)}` },
+    ]);
+    const methods = Object.values(session.contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
+    for (const gone of ["stake", "unstake", "claim"]) expect(methods).not.toContain(gone);
+  });
+
+  it("without the economy, no Vault policy: its writes prompt", async () => {
+    const fake = fakeController();
+    setup(SEPOLIA_ENV, fake);
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
+    for (const vault of ["deposit", "withdraw", "redeem"]) expect(methods).not.toContain(vault);
+    expect(vaultPolicy({ configured: false, addresses: { Economy: "", PavedToken: "", Vault: "", USDC: "" } })).toBeNull();
   });
 
   it("the cap counts the economy's MAX_STAKE stakes (10)", () => {

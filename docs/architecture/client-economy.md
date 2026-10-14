@@ -340,6 +340,20 @@ CORE's V1b made the Vault an OpenZeppelin ERC4626 over PAVED, "Vault PAVED" `vPA
   withdraw pays now, the fee taken; CORE's limit makes it equal to `preview_redeem(shares)`), `exitFeeBps` (`exit_fee`),
   `totalAssets` and `totalSupply` (the rate). The screen shows `value` as "worth" and `max_withdraw` as "Withdrawable now,
   after the exit fee"; the withdraw-all confirm shows `max_withdraw` as what the redeem pays.
+- **The split is the chain's** (`Economy.split_bps()`, `(burn, vault, referral)` in bps, owner-set since P-56; 7,368 /
+  2,632 / 500 at deployment). `EconomyViews.split()` reads it (a tuple the codec does not decode: three felts, each a
+  `u16`, `burn + vault = 10,000` and `referral <= vault`, else a `ViewError`). The purchase screen and its confirm show
+  the burn's part and the Vault's part from it ("the Vault (vPAVED) gets the PAVED of 26.32 % of the price", and with a
+  referrer "21.32 % of the price, after the referrer's 5 %"), and "To the Vault: at least X PAVED", the margin's PAVED split
+  off `min_out` by input as the contract does (a floor). The referrer's amount is `quote.referral`. A split that cannot
+  be read hides the breakdown; the purchase does not depend on it (`min_out` comes from the quote of `swap_in`).
+- **Controller session** (`controllerPolicies(deployment, { approve, vault })`, `auth/controller.ts`): given the
+  economy's Vault (`vaultPolicy`, `WalletProvider`, when the build's economy is configured), the session holds
+  `Vault.deposit`, `withdraw` and `redeem` (`VAULT_ENTRY_POINTS`) and a PAVED approve to the Vault capped at
+  `VAULT_SESSION_APPROVE_CAP` (10,000 PAVED), scoped like the entry approve (that spender, at most that amount; above it,
+  or to another spender, it prompts). No `stake`, `unstake` or `claim` is ever a policy. The purchase's policies are
+  unchanged under P-56: it still sends `USDC.approve(Challenge)` and `Challenge.spawn`; Challenge calls Economy, and
+  nothing in the session targets Economy or the router. `settle` stays outside the session.
 - **Votes and delegation**: nothing is read or wrapped; the delegation UI waits for its spec.
 - **The indexer** does not read the Vault (its sources are Challenge, Setup, Economy and Collection). `Purchased` gained
   `vault_paved` (u256, the PAVED the margin bought): the indexer decodes it, stores it in `purchases.vault_paved`, and moves

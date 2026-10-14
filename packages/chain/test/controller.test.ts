@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
 import {
   CONTROLLER_ENTRY_POINTS,
+  VAULT_ENTRY_POINTS,
   controllerPolicies,
   createControllerConnector,
   toControllerSessionPolicies,
@@ -10,7 +11,7 @@ import {
   type ControllerPolicy,
 } from "../src/auth/controller";
 import { resolveDeployment } from "../src/deployment";
-import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
+import { MAX_STAKE, VAULT_SESSION_APPROVE_CAP, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import { FakeGameViews } from "../src/views";
@@ -108,7 +109,11 @@ const GAME_AND_PURCHASE = [
   "tutorial claim", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
-const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
+const PROMPTED = ["settle"];
+const VAULT_WRITES = ["vault deposit", "vault withdraw", "vault withdraw all"];
+/** The Vault's policies the app gives the session when the economy is deployed (`vaultPolicy`, P-56). */
+const VAULT = { vault: ECON.vault, pavedToken: ECON.pavedToken, cap: VAULT_SESSION_APPROVE_CAP };
+const withVault = controllerPolicies(deployment, { approve: USDC_APPROVE, vault: VAULT });
 
 describe("controllerPolicies against what the writers send (E3)", () => {
   test("every game write and the paid Challenge purchase are signed in the session", async () => {
@@ -178,7 +183,53 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(priceOf(FAKE_UNIT, MAX_STAKE)).toBe(USDC_APPROVE.cap);
   });
 
-  test("settle and the Vault fall outside the session: each prompts", async () => {
+  test("vPAVED (P-56): deposit (its PAVED approve to the Vault within the cap), withdraw and redeem are in the session given the Vault", async () => {
+    const sent = await sentByEveryWrite();
+    expect(sent["vault deposit"].map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.pavedToken), "approve"], [BigInt(ECON.vault), "deposit"]]);
+    expect(sent["vault withdraw"].map((c) => c.entrypoint)).toEqual(["withdraw"]);
+    expect(sent["vault withdraw all"].map((c) => c.entrypoint)).toEqual(["redeem"]);
+    for (const label of VAULT_WRITES) {
+      for (const call of sent[label]) {
+        expect(inSession(call, withVault), `${label}: ${call.entrypoint}`).toBe(true);
+        // Without the Vault option they prompt.
+        expect(inSession(call, session), `${label}: ${call.entrypoint} without the Vault`).toBe(false);
+      }
+    }
+    // Exactly the Vault's three entry points and one PAVED approve, scoped to the Vault and capped.
+    const added = withVault.filter((p) => !session.some((q) => q.target === p.target && q.method === p.method && q.spender === p.spender));
+    expect(added).toEqual([
+      { target: ECON.vault, method: "deposit" },
+      { target: ECON.vault, method: "withdraw" },
+      { target: ECON.vault, method: "redeem" },
+      { target: ECON.pavedToken, method: "approve", spender: ECON.vault, amount: VAULT_SESSION_APPROVE_CAP },
+    ]);
+    expect([...VAULT_ENTRY_POINTS]).toEqual(["deposit", "withdraw", "redeem"]);
+    for (const gone of ["stake", "unstake", "claim"]) expect(withVault.map((p) => p.method)).not.toContain(gone);
+    // Above the cap, or to another spender, the PAVED approve prompts.
+    const approveOf = (spender: string, amount: bigint): Call => ({
+      contractAddress: ECON.pavedToken,
+      entrypoint: "approve",
+      calldata: [spender, `0x${(amount & ((1n << 128n) - 1n)).toString(16)}`, `0x${(amount >> 128n).toString(16)}`],
+    });
+    expect(inSession(approveOf(ECON.vault, VAULT_SESSION_APPROVE_CAP), withVault)).toBe(true);
+    expect(inSession(approveOf(ECON.vault, VAULT_SESSION_APPROVE_CAP + 1n), withVault)).toBe(false);
+    expect(inSession(approveOf(deployment.addresses.Challenge, 1n), withVault)).toBe(false);
+    // No Vault address, or a cap of 0: no Vault policy, or no PAVED approve.
+    expect(controllerPolicies(deployment, { vault: { ...VAULT, vault: "0x0" } })).toEqual(policies);
+    expect(controllerPolicies(deployment, { vault: { ...VAULT, cap: 0n } }).map((p) => p.method)).not.toContain("approve");
+    expect(toControllerSessionPolicies(withVault).contracts[getChecksumAddress(ECON.pavedToken)].methods).toEqual([
+      { entrypoint: "approve", spender: getChecksumAddress(ECON.vault), amount: `0x${VAULT_SESSION_APPROVE_CAP.toString(16)}` },
+    ]);
+  });
+
+  test("the purchase under P-56 (one swap in Economy, called by Challenge) sends the same two calls: USDC approve to Challenge, Challenge.spawn", async () => {
+    const sent = await sentByEveryWrite();
+    expect(sent["purchase, stake 1"].map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.usdc), "approve"], [BigInt(deployment.addresses.Challenge), "spawn"]]);
+    // No policy on Economy or the router: the player never calls them.
+    expect(withVault.some((p) => BigInt(p.target) === BigInt(ECON.economy))).toBe(false);
+  });
+
+  test("settle falls outside the session: it prompts", async () => {
     const sent = await sentByEveryWrite();
     for (const label of PROMPTED) {
       expect(sent[label].length, label).toBeGreaterThan(0);
