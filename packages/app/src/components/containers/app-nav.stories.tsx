@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
 import type { Tab } from "../../routes/pages";
-import { at } from "../scenes/viewports";
 import { AppNav } from "./app-nav";
 
 const meta = {
@@ -14,11 +13,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The bottom bar on a phone: icon and label from 360 px. */
-export const Mobile: Story = at<Story>("mobile", {});
-export const Tablet: Story = at<Story>("tablet", { args: { active: "ranks" } });
-/** From `desktop`, a left rail with labels. */
-export const Desktop: Story = at<Story>("desktop", { args: { active: "vault" } });
+/** The bottom bar on a phone (icon and label from 360 px), a left rail with labels from 1024 px (the theme's `desktop`): the Viewport control switches between them. */
+export const Default: Story = {};
 
 /** Click a tab: the indicator slides (Motion `layoutId`). */
 export const Interactive: Story = {
