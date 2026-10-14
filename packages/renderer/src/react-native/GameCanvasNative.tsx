@@ -28,6 +28,10 @@ export interface GameCanvasNativeProps {
   onHoverLeave?: () => void;
 }
 
+// The surface comes from the caller and outlives a scene (StrictMode remounts reuse it), and its
+// GL context belongs to the surface's owner: a scene must not lose it.
+const RELEASE_NOTHING = { releaseContext: false } as const;
+
 export function GameCanvasNative({
   surface,
   tiles = [],
@@ -65,16 +69,11 @@ export function GameCanvasNative({
     sceneRef.current = scene;
 
     let cancelled = false;
-    let settled = false;
 
     scene.init({ surface, basePath, effectsCapabilities }).then(
       () => {
-        settled = true;
-        // Unmounted while init was pending: free the scene, never start it.
-        if (cancelled) {
-          scene.dispose();
-          return;
-        }
+        // Unmounted while init was pending: never start the scene.
+        if (cancelled) return;
         scene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
         scene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         scene.onHoverLeave(() => onHoverLeaveRef.current?.());
@@ -82,8 +81,7 @@ export function GameCanvasNative({
         onReadyRef.current?.(scene);
       },
       (error: unknown) => {
-        settled = true;
-        scene.dispose();
+        scene.dispose(RELEASE_NOTHING);
         if (!cancelled) onErrorRef.current?.(error);
       },
     );
@@ -91,8 +89,8 @@ export function GameCanvasNative({
     return () => {
       cancelled = true;
       sceneRef.current = null;
-      // While init is pending the scene is still being built: init's settlement disposes it.
-      if (settled) scene.dispose();
+      // A pending init sees the scene disposed after its await and stops there.
+      scene.dispose(RELEASE_NOTHING);
     };
   }, [surface, basePath, createRenderer, createCameraController, effectsCapabilities]);
 

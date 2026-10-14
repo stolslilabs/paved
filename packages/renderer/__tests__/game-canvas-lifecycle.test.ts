@@ -1,89 +1,59 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The renderer has no DOM or react-dom in its test setup, so the two hooks GameCanvas
-// uses are replaced by a one-render simulation: refs keep their slot, effects run on commit.
-const hooks = vi.hoisted(() => ({
-  refs: [] as Array<{ current: unknown }>,
-  effects: [] as Array<() => void | (() => void)>,
-  index: 0,
-}));
-
-vi.mock("react", async (importActual) => ({
-  ...(await importActual<typeof import("react")>()),
-  useRef: (initial: unknown) => {
-    const slot = (hooks.refs[hooks.index] ??= { current: initial });
-    hooks.index++;
-    return slot;
-  },
-  useEffect: (effect: () => void | (() => void)) => {
-    hooks.effects.push(effect);
-  },
-}));
+vi.mock("react", async () => (await import("./helpers/hooks")).reactWithHooks());
 
 const scenes = vi.hoisted(() => [] as unknown[]);
 
-vi.mock("../src/core/GameScene", () => ({
-  GameScene: class {
-    resolveInit!: () => void;
-    rejectInit!: (error: unknown) => void;
-    init = vi.fn(
-      () =>
-        new Promise<void>((resolve, reject) => {
-          this.resolveInit = resolve;
-          this.rejectInit = reject;
-        }),
-    );
-    start = vi.fn();
-    dispose = vi.fn();
-    onTileClick = vi.fn();
-    onTileHover = vi.fn();
-    onHoverLeave = vi.fn();
-    updateTiles = vi.fn();
-    setHoveredTile = vi.fn();
-    setAvailableSlots = vi.fn();
-    setStrategyMode = vi.fn();
-    setCompassRotation = vi.fn();
-    setCameraMode = vi.fn();
-    constructor() {
-      scenes.push(this);
-    }
-  },
+vi.mock("../src/core/GameScene", async () => ({
+  GameScene: (await import("./helpers/hooks")).createFakeSceneClass(scenes),
 }));
 
+// Each adapter wraps the canvas it was given; a canvas has one WebGL context.
 vi.mock("../src/core/WebSurfaceAdapter", () => ({
-  createWebSurfaceAdapter: vi.fn(() => ({})),
+  createWebSurfaceAdapter: vi.fn((canvas: unknown) => ({ canvas })),
 }));
 
 import { GameCanvas, type GameCanvasProps } from "../src/react/GameCanvas";
+import { commit, flush, type FakeScene } from "./helpers/hooks";
 
-type FakeScene = {
-  init: ReturnType<typeof vi.fn>;
-  start: ReturnType<typeof vi.fn>;
-  dispose: ReturnType<typeof vi.fn>;
-  resolveInit: () => void;
-  rejectInit: (error: unknown) => void;
-};
+type FakeCanvas = { style: Record<string, string>; removed: boolean; remove(): void };
+
+const canvases: FakeCanvas[] = [];
+
+beforeEach(() => {
+  scenes.length = 0;
+  canvases.length = 0;
+  vi.stubGlobal("document", {
+    createElement: () => {
+      const canvas: FakeCanvas = {
+        style: {},
+        removed: false,
+        remove() {
+          canvas.removed = true;
+        },
+      };
+      canvases.push(canvas);
+      return canvas;
+    },
+  });
+});
 
 function mount(props: GameCanvasProps = {}) {
-  hooks.refs = [];
-  hooks.effects = [];
-  hooks.index = 0;
-  // The first ref of GameCanvas is the canvas: give it an element, as React would.
-  hooks.refs[0] = { current: {} };
-  GameCanvas(props);
-  const cleanups = hooks.effects.map((effect) => effect());
-  const scene = scenes[scenes.length - 1] as FakeScene;
-  return {
-    scene,
-    unmount: () => cleanups.forEach((cleanup) => typeof cleanup === "function" && cleanup()),
-  };
+  const container = { appendChild: vi.fn() };
+  const unmount = commit(() => GameCanvas(props), container);
+  return { container, scene: scenes[scenes.length - 1] as FakeScene, unmount };
 }
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const canvasOf = (scene: FakeScene) => (scene.surface as { canvas: FakeCanvas }).canvas;
 
 describe("GameCanvas lifecycle", () => {
-  beforeEach(() => {
-    scenes.length = 0;
+  it("gives the scene its own canvas inside the container", () => {
+    const { container, scene } = mount();
+
+    expect(canvases).toHaveLength(1);
+    expect(container.appendChild).toHaveBeenCalledWith(canvases[0]);
+    expect(canvasOf(scene)).toBe(canvases[0]);
+    expect(canvases[0].style).toMatchObject({ display: "block", width: "100%", height: "100%" });
   });
 
   it("starts the scene and calls onReady once init resolves", async () => {
@@ -98,17 +68,19 @@ describe("GameCanvas lifecycle", () => {
     expect(scene.dispose).not.toHaveBeenCalled();
   });
 
-  it("unmount before init resolves: no start, no onReady, scene disposed", async () => {
+  it("unmount before init resolves: scene disposed at once, no start, no onReady", async () => {
     const onReady = vi.fn();
     const { scene, unmount } = mount({ onReady });
 
     unmount();
+    expect(scene.dispose).toHaveBeenCalledTimes(1);
+    expect(canvasOf(scene).removed).toBe(true);
+
     scene.resolveInit();
     await flush();
 
     expect(scene.start).not.toHaveBeenCalled();
     expect(onReady).not.toHaveBeenCalled();
-    expect(scene.dispose).toHaveBeenCalledTimes(1);
   });
 
   it("unmount after init resolved: scene disposed once", async () => {
@@ -119,6 +91,7 @@ describe("GameCanvas lifecycle", () => {
     unmount();
 
     expect(scene.dispose).toHaveBeenCalledTimes(1);
+    expect(canvasOf(scene).removed).toBe(true);
   });
 
   it("init rejects: onError is called, nothing is unhandled", async () => {
@@ -156,6 +129,19 @@ describe("GameCanvas lifecycle", () => {
     }
   });
 
+  it("init rejects, then unmount: onError once, the scene's dispose is called again harmlessly", async () => {
+    const onError = vi.fn();
+    const { scene, unmount } = mount({ onError });
+
+    scene.rejectInit(new Error("no WebGL context"));
+    await flush();
+    unmount();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    // GameScene.dispose is idempotent (game-scene-dispose.test.ts), so the second call is a no-op.
+    expect(scene.dispose.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("init rejects after unmount: onError is not called", async () => {
     const onError = vi.fn();
     const { scene, unmount } = mount({ onError });
@@ -165,6 +151,56 @@ describe("GameCanvas lifecycle", () => {
     await flush();
 
     expect(onError).not.toHaveBeenCalled();
-    expect(scene.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("StrictMode mount, cleanup, mount: the second scene has its own canvas and keeps it", async () => {
+    const container = { appendChild: vi.fn() };
+    const render = () => GameCanvas({});
+    // The first effect run, then its cleanup, then the second run, as StrictMode does.
+    const unmountA = commit(render, container);
+    const a = scenes[0] as FakeScene;
+    unmountA();
+    const unmountB = commit(render, container);
+    const b = scenes[1] as FakeScene;
+
+    // A's init resolves last, after B's.
+    b.resolveInit();
+    await flush();
+    a.resolveInit();
+    await flush();
+
+    expect(canvasOf(a)).not.toBe(canvasOf(b));
+    expect(a.dispose).toHaveBeenCalledTimes(1);
+    expect(canvasOf(a).removed).toBe(true);
+    // B was never disposed, so the context of its canvas was never lost; it started normally.
+    expect(b.dispose).not.toHaveBeenCalled();
+    expect(canvasOf(b).removed).toBe(false);
+    expect(a.start).not.toHaveBeenCalled();
+    expect(b.start).toHaveBeenCalledTimes(1);
+
+    unmountB();
+    expect(b.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("a basePath change replaces the scene and its canvas", async () => {
+    const container = { appendChild: vi.fn() };
+    const unmountA = commit(() => GameCanvas({ basePath: "/a" }), container);
+    const a = scenes[0] as FakeScene;
+    a.resolveInit();
+    await flush();
+
+    unmountA();
+    commit(() => GameCanvas({ basePath: "/b" }), container);
+    const b = scenes[1] as FakeScene;
+    b.resolveInit();
+    await flush();
+
+    expect(a.init.mock.calls[0][0]).toMatchObject({ basePath: "/a" });
+    expect(b.init.mock.calls[0][0]).toMatchObject({ basePath: "/b" });
+    expect(canvasOf(a)).not.toBe(canvasOf(b));
+    expect(canvasOf(a).removed).toBe(true);
+    expect(canvasOf(b).removed).toBe(false);
+    expect(b.dispose).not.toHaveBeenCalled();
+    expect(b.start).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,7 +7,7 @@ function createSurface(): RenderSurfaceAdapter {
   return {
     getSize: () => ({ width: 320, height: 200 }),
     getDevicePixelRatio: () => 1,
-    onResize: () => vi.fn(),
+    onResize: vi.fn(() => vi.fn()),
     bindInput: vi.fn(),
     unbindInput: vi.fn(),
   };
@@ -69,5 +69,55 @@ describe("GameScene.dispose", () => {
   it("does not throw when init never created a renderer", () => {
     const { scene } = createScene();
     expect(() => scene.dispose()).not.toThrow();
+  });
+});
+
+describe("GameScene.dispose, idempotence and ownership", () => {
+  it("a second dispose changes nothing", async () => {
+    const { scene, renderer, controller } = createScene();
+    await scene.init({ surface: createSurface() });
+
+    scene.dispose();
+    scene.dispose();
+
+    expect(renderer.dispose).toHaveBeenCalledTimes(1);
+    expect(renderer.forceContextLoss).toHaveBeenCalledTimes(1);
+    expect(controller.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the context when the surface's owner frees it", async () => {
+    const { scene, renderer } = createScene();
+    await scene.init({ surface: createSurface() });
+
+    scene.dispose({ releaseContext: false });
+
+    expect(renderer.dispose).toHaveBeenCalledTimes(1);
+    expect(renderer.forceContextLoss).not.toHaveBeenCalled();
+  });
+
+  it("disposed while the models load: init binds no resize or input handler", async () => {
+    const { scene } = createScene();
+    const surface = createSurface();
+    let release!: () => void;
+    (scene as any).assets.preloadAll = vi.fn(() => new Promise<void>((r) => (release = r)));
+
+    const pending = scene.init({ surface });
+    scene.dispose();
+    release();
+    await pending;
+
+    expect(surface.bindInput).not.toHaveBeenCalled();
+    expect(surface.onResize).not.toHaveBeenCalled();
+  });
+
+  it("init after dispose works again on the same instance", async () => {
+    const { scene, renderer } = createScene();
+    await scene.init({ surface: createSurface() });
+    scene.dispose();
+
+    await scene.init({ surface: createSurface() });
+    scene.dispose();
+
+    expect(renderer.forceContextLoss).toHaveBeenCalledTimes(2);
   });
 });
