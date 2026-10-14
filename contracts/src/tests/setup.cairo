@@ -2,6 +2,7 @@ pub mod setup {
     // Core imports
 
     use core::num::traits::Zero;
+    use openzeppelin_interfaces::erc4626::{IERC4626Dispatcher, IERC4626DispatcherTrait};
     use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
     use paved::mocks::token::IERC20Dispatcher;
 
@@ -22,7 +23,7 @@ pub mod setup {
     use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
     use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
     use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
-    use paved::systems::vault::{IVaultDispatcher, IVaultDispatcherTrait};
+    use paved::systems::vault::{DEAD_ASSETS, DEFAULT_EXIT_FEE_BPS};
     pub use paved::types::mode::Mode;
     use paved::types::plan::{Plan, PlanImpl};
     use snforge_std::{
@@ -149,14 +150,17 @@ pub mod setup {
 
     /// The economy as `scripts/deploy.sh devnet` wires it: `PavedToken` (its initial supply to
     /// `OWNER`), `Faucet`, `MockRouter` seeded with 800,000 PAVED and 10,000 USDC, the `Vault`
-    /// with 200,000 PAVED staked by `OWNER`, `Economy` (decided configuration, launch rate) as
+    /// (vPAVED) with its 1,000 PAVED of dead shares and 199,000 PAVED deposited by `OWNER`,
+    /// `Economy` (decided configuration, launch rate) as
     /// the token's minter. `Economy.set_game` is left to the caller. Returns `Economy` and USDC.
     pub fn deploy_economy() -> (ContractAddress, ContractAddress) {
         let owner = OWNER();
         let paved = deploy("PavedToken", array![owner.into(), owner.into()]);
         let usdc = deploy("Faucet", array![]);
         let router = deploy("MockRouter", array![paved.into(), usdc.into()]);
-        let vault = deploy("Vault", array![paved.into(), usdc.into()]);
+        let vault = deploy(
+            "Vault", array![owner.into(), paved.into(), DEFAULT_EXIT_FEE_BPS.into()],
+        );
         // [Setup] The pool, from the owner's PAVED and the faucet's USDC
         IFaucetDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
         let paved_token = IERC20Dispatcher { contract_address: paved };
@@ -175,9 +179,11 @@ pub mod setup {
         start_cheat_caller_address(router, owner);
         IMockRouterDispatcher { contract_address: router }.add_liquidity(amount0, amount1);
         stop_cheat_caller_address(router);
-        // [Setup] The owner's stake
+        // [Setup] The dead shares, held by the Vault itself, then the owner's stake
         start_cheat_caller_address(vault, owner);
-        IVaultDispatcher { contract_address: vault }.stake(200_000 * PAVED);
+        let erc4626 = IERC4626Dispatcher { contract_address: vault };
+        erc4626.deposit(DEAD_ASSETS, vault);
+        erc4626.deposit(200_000 * PAVED - DEAD_ASSETS, owner);
         stop_cheat_caller_address(vault);
         // [Setup] Economy, the token's minter
         let pool_key = IMockRouterDispatcher { contract_address: router }.pool_key();

@@ -348,6 +348,7 @@ describe("Economy's events", () => {
       "supply: u256",
       "factor: u32",
       "reference: u128",
+      "vault_paved: u256",
     ]);
     expect(members("Recorded", "key")).toEqual(["game_id: u32"]);
     expect(members("Recorded", "data")).toEqual(["score: u32", "expired: bool"]);
@@ -394,6 +395,7 @@ describe("Economy's events", () => {
       supply: 2n ** 200n,
       factor: 9_876,
       reference: 2n ** 128n - 1n,
+      vaultPaved: big + 1n,
     });
     expect(decode("economy", e.keys, e.data)).toEqual({
       name: "Purchased",
@@ -410,7 +412,10 @@ describe("Economy's events", () => {
       supply: 2n ** 200n,
       factor: 9_876,
       reference: 2n ** 128n - 1n,
+      vaultPaved: big + 1n,
     });
+    // The 17 data of the purchase before P-56 (no vault_paved) are not this contract's event: the decoder halts on them.
+    expect(() => decode("economy", e.keys, e.data.slice(0, 17))).toThrow(DecodeError);
   });
 
   test("Recorded, DayClosed and Settled", () => {

@@ -19,6 +19,43 @@ are unchanged since `c52467ca`, where the note was written); `GB:` is Glitchbomb
 are those of the version Paved would use. `OZ:governance-4.0.1/…` is `openzeppelin_governance` 4.0.1, read from the
 local scarbs.xyz cache.
 
+### As built (V1b, P-56)
+
+The addendum is built, with the owner's two later decisions (2026-10-14) and these corrections.
+
+- **The exit fee: 500 bps by default, owner bounds 0 to 1,000** (owner; A2 proposed 100 and 500).
+  - It is `Fee::Assets` on both exits, rounded up: `withdraw` uses `fee_on_raw` (`assets x f` on top) and `redeem`
+    uses `fee_on_total` (`v x f / (1 + f)` inside), so both charge `f` of what the holder receives.
+  - `LimitConfigTrait::withdraw_limit` is `preview_redeem(balance)`, so `withdraw(max_withdraw)` burns at most the
+    balance (tested at an odd rate).
+  - The event is `ExitFeeSet { previous, fee }`, as A2 proposed; the brief's shorthand "FeeSet" names this event.
+- **The constructor is `(owner, paved, exit_fee)`**, as A7 says, and refuses a fee above the bound.
+- **The split is owner-set** (the PM's addendum "the split", the owner's figures):
+  - `Config` gains `referral_bps` (0 to 1,000, at most the Vault's part, paid out of it).
+  - The Vault's part is `10,000 - burn_bps`, derived and shown by `split_bps()`.
+  - The defaults are burn 7,368 and referral 500: 69.996 % of the price burned after the 5 % pool fee, and 25.004 % to
+    the Vault, or 20.254 % with a referral.
+  - The table with each residual is in `economy.md`, section 4.
+- **The swap's input is Economy's whole USDC balance after the referral**: the burn quote, the Vault's part, and any
+  USDC sent to `Economy` before. A3 says "quote + margin". Today's code already sends such strays to the Vault with the
+  margin; swapping them sends them on, and they count with the Vault's part of the split. One correction (security
+  audit note 1 of #382): the router's own stray USDC, returned by `clear(usdc)` after the swap, now waits in `Economy`
+  for the next purchase's margin. `Economy` does not hold "nothing" after a purchase.
+  - `min_out` bounds the whole swap.
+  - The full-fill check reads the swap's own USDC leg (`'Economy: partial fill'`).
+- **`Quote.min_out_hint`** now estimates a referred purchase's whole swap (`price - referral`), not the burn quote.
+- **One swap, split by input, is not sim.py's model** (A4 swaps the margin after the burn).
+  - The burn's part gets the average price of the one swap, a little below the first swap's. The contract's R and
+    guard are therefore lower than sim.py's by one swap's extra impact.
+  - `fixture.py --margin-paved` models the contract's way, and `test_fixture_matches_sim` checks it.
+  - `sim.py --margin-paved` reproduced A4 to the digit with A4's two swaps. Since fix loop 1 of #382 it models the
+    contract's one swap instead. The year figures move by 52 to 105 PAVED and 0.1 point of house edge at most
+    (`economy.md`, section 4).
+- **Votes.** The dead shares are held by the Vault and never delegated. `get_past_total_supply` counts them, as A6
+  says.
+- **The fork tests.** Their two partial-fill purchases now expect the revert. No fork test runs a full purchase: the
+  fork reads a public RPC, which this PR does not run.
+
 ### Summary
 
 - **The share**: "Vault PAVED", `vPAVED`, 18 decimals, SNIP-12 name `'vPAVED'`. It is an OpenZeppelin ERC4626 over
@@ -200,7 +237,7 @@ router, `swap`, `clear_minimum`, `clear` (`economy.cairo:993-1018`).
 | New code | the split in `purchase`; nothing in the Vault | a router, a pool key and a price limit in the Vault, and their setters | (b)'s code, plus a keeper role or an incentive |
 | Rate path | rises with every purchase | jumps at each swap | jumps once a day, so depositing just before the batch takes a day's margin pro rata: the exit fee must then exceed a day's yield |
 | Gas | about +1 call per purchase over today (an estimate, below) | a full router round trip in the Vault, paid by whoever triggers it | one round trip a day, so the cheapest per purchase |
-| Who holds USDC meanwhile | nobody: `Economy` holds nothing after the call (`economy.cairo:10-11`) | the Vault, between swaps | the batcher, a day at a time |
+| Who holds USDC meanwhile | nobody: `Economy` holds nothing after the call (`economy.cairo:10-11`; as built, the router's strays wait there for the next margin) | the Vault, between swaps | the batcher, a day at a time |
 | Against D-26 and P-56 | fits | the Vault gains swap setters | a keeper is a new trusted actor; D-26 keeps operations by hand |
 
 **Recommendation: (a), one swap.**
@@ -328,6 +365,12 @@ sell; `economy.md:405-407`):
   swap pays for the margin goes to the Vault, and nothing goes to a team or to Economy.
 - In the Vault it raises the rate of every vPAVED pro rata, which is "entirely to the Vault's beneficiaries
   (stakers)".
+- **The dead shares' cut** (As built, the economy audit of #382): the 1,000 dead shares are vPAVED too. They take
+  `1,000 / total_supply` of every margin and every exit fee, and that cut is locked forever, since nothing can redeem
+  them.
+  - At deploy.sh's launch amounts (1,000 dead shares, 199,000 staked) it is 0.5 %, and it grows as real stakers leave.
+  - With no real stake, all of it accrues to the dead shares until someone deposits.
+  - That PAVED stays in `total_supply`, so the supply factor counts it as circulating.
 - **One leak to name**: the pool keeps its 5 % fee on the margin's input as well, about 1.4 % of each price
   (0.275 × 5 %). That goes to the LP position, whose fees the team collects by hand (D-26). Today the margin pays no
   pool fee. "For the PM", item 3.

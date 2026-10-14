@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "11";
+export const SCHEMA_VERSION = "12";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -154,7 +154,7 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS purchases (
     game_id INTEGER PRIMARY KEY, player_id TEXT NOT NULL, day INTEGER NOT NULL, stake INTEGER NOT NULL,
     price TEXT NOT NULL, referrer TEXT NOT NULL, referral TEXT NOT NULL, burned_quote TEXT NOT NULL, burned TEXT NOT NULL,
-    margin TEXT NOT NULL, supply TEXT NOT NULL, factor INTEGER NOT NULL, reference TEXT NOT NULL,
+    margin TEXT NOT NULL, supply TEXT NOT NULL, factor INTEGER NOT NULL, reference TEXT NOT NULL, vault_paved TEXT NOT NULL,
     purchased_block INTEGER NOT NULL, purchased_time INTEGER NOT NULL,
     score INTEGER, expired INTEGER, recorded_block INTEGER,
     threshold INTEGER, reward TEXT, settled_block INTEGER
@@ -607,6 +607,7 @@ export class Store {
               supply: String(event.supply),
               factor: event.factor,
               reference: String(event.reference),
+              vault_paved: String(event.vaultPaved),
               block: at,
               time: block.timestamp,
             });
@@ -897,9 +898,9 @@ function statements(db: DatabaseSync) {
     purchase: db.prepare("SELECT player_id, day, score, recorded_block, settled_block FROM purchases WHERE game_id = ?"),
     insertPurchase: db.prepare(
       `INSERT INTO purchases (game_id, player_id, day, stake, price, referrer, referral, burned_quote, burned, margin, supply,
-         factor, reference, purchased_block, purchased_time)
+         factor, reference, vault_paved, purchased_block, purchased_time)
        VALUES (:game_id, :player_id, :day, :stake, :price, :referrer, :referral, :burned_quote, :burned, :margin, :supply,
-         :factor, :reference, :block, :time)`,
+         :factor, :reference, :vault_paved, :block, :time)`,
     ),
     recordPurchase: db.prepare(
       "UPDATE purchases SET score = :score, expired = :expired, recorded_block = :block WHERE game_id = :game_id",

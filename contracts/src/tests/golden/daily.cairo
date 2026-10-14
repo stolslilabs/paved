@@ -52,7 +52,7 @@ fn mixed_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 129759798)]
+#[available_gas(l2_gas: 136321278)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(

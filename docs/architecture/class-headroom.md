@@ -639,3 +639,28 @@ branch.
 constant table of the 128 bits takes the place of the 128-bit power's code, and the popcount loses four shifts and
 adds: the class is smaller. The other classes are unchanged to the felt (`Economy` 26,567, `Collection` 14,485,
 `Setup` 14,499, `PavedToken` 8,055). No ABI changes: `scripts/abis.sh` rewrites `contracts/abis/` identically.
+
+## After V1b (vPAVED, the margin as PAVED, the split; P-56)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, VPS, 2026-10-14, under
+`prlimit --as=12884901888`, peak RSS 3,773,244 kB) on the V1b branch.
+
+Before:
+- `Economy` is "After G5" above.
+- The former `Vault` was not rebuilt on main for this table. Its 6,700 CASM felts are #262's measure
+  (`glitchbomb-gap.md:31`), and its contracts did not change between #262 and main.
+
+| Class | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|
+| `Vault` (vPAVED) | 6,700 | 9,200 | 23,618 | +16,918 | 28.8 % |
+| `Economy` | 26,567 | 10,190 | 27,702 | +1,135 | 33.8 % |
+
+The addendum's estimate for vPAVED was 25,000 to 40,000 felts. Its contents:
+- ERC20 and ERC4626, with the twelve views;
+- Votes, Nonces and SNIP-12;
+- the two-step owner and Upgradeable;
+- the fee hooks and the limit.
+
+`Economy` grows by the split (`referral_bps`, its packing and checks, `split_bps`), the full-fill check, the split by
+input, and one field of `Purchased`. Every other class is unchanged to the felt (`Challenge` 62,045, `Collection`
+14,485, `Setup` 14,499, `PavedToken` 8,055).

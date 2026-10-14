@@ -1,6 +1,7 @@
 # Client economy (P8)
 
-How the web client buys a paid Challenge game in USDC, settles it after the day, and stakes PAVED in the Vault. The
+How the web client buys a paid Challenge game in USDC, settles it after the day, and deposits PAVED in the Vault for
+vPAVED (P-56: "The Vault as vPAVED" below). The
 contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are
 `client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels and the `/economy` page of
 `packages/app-web` (part b, below).
@@ -30,9 +31,10 @@ panel no longer prints that purchases are not possible.
 What a purchase sends (`EconomyWriter.purchase`), in one multicall:
 
 1. `USDC.approve(Challenge, price)`, `price = stake x Challenge.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
-2. `Challenge.spawn(stake, referrer, min_out)`, `min_out` = `Economy.quote_swap(Economy.quote(stake).burn_quote)` on every
-   network (the on-chain quote of the purchase's own route since E-9: "The pool quote" below) less the player's slippage
-   (1 % by default, at most 5 %, rounded down).
+2. `Challenge.spawn(stake, referrer, min_out)`, `min_out` = `Economy.quote_swap(swap_in)` on every network (the on-chain
+   quote of the purchase's own route since E-9: "The pool quote" below) less the player's slippage (1 % by default, at
+   most 5 %, rounded down). `swap_in` is the USDC of the purchase's one swap since P-56: the burn quote plus the margin,
+   that is the price less the referral when a referrer is sent (`swapInputOf`).
 
 The rules around it are unchanged and keep their tests: the confirm, the consent in history state only, the re-check of
 the price at send (`PurchasePriceChangedError`), no purchase from a URL alone, writes serialised through one writer, and
@@ -130,16 +132,22 @@ therefore the exact route the purchase swaps, and the client never calls a route
 `poolQuoterFor(deployment, provider, codec)` gives it for any configured deployment (devnet, sepolia, mainnet), and null
 when the economy is not deployed; `EconomyClient` takes it unless a test passes its own.
 
-**The amount quoted is the amount swapped.** `EconomyWriter.planPurchase` quotes `quote.burnQuote`, the `burn_quote` of
-`Economy.quote(stake)` read in the same plan: the burn part of the price, which `purchase` swaps (the devnet run checks
-`Purchased.burned_quote` against it). The line that ties the two is
-`poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote)` in `economy/writer.ts`. A `burn_quote` outside
-`(0, price]` is refused before any quote.
+**The amount quoted is the amount swapped.** Since P-56 `Economy.purchase` pays the referral (if any) out of the margin,
+then swaps the rest of the price, the burn quote and the margin, in **one swap** that must fill whole (`'Economy: partial
+fill'` reverts the purchase); the PAVED is split by input, the margin's part (`bought x margin / (burn_quote + margin)`,
+rounded down) to the Vault by a plain transfer, the rest burned. `EconomyWriter.planPurchase` quotes exactly that input,
+`swapIn = swapInputOf(quote, referred)`: `quote.price`, less `quote.referral` when a referrer is sent, read from
+`Economy.quote(stake)` in the same plan. The line that ties the two is
+`poolOut = await this.options.poolQuoter.quoteSwap(swapIn)` in `economy/writer.ts`, and `PurchasePlan.swapIn` keeps it. The
+devnet run proves it against the contract's own computation: `swapIn` equals `Purchased.burned_quote + margin` (what the
+contract swapped), the PAVED the swap paid (`burned + vault_paved`) equals the plan's `poolOut`, and it is at least
+`min_out`. A `burn_quote` outside `(0, price]`, or a `referral` above the margin, is refused before any quote. The
+referral changes no amount the player pays, but it leaves the swap, so a purchase with a referrer has a lower `min_out`.
 
 **Fresh at every send, never below what the player confirmed.** The quote is taken inside the writer's `prepare`, right
 before the account executes, at every purchase: nothing is cached, and the quote the purchase screen shows is never the
-one sent. There is no age bound to state: the send never uses an older quote. The confirm shows "At least X bought and
-burned", and X (the confirm's `min_out`, at the default slippage) rides in the purchase intent as `confirmedMinOut`, a
+one sent. There is no age bound to state: the send never uses an older quote. The confirm shows "At least X bought",
+and X (the confirm's `min_out`, at the default slippage) rides in the purchase intent as `confirmedMinOut`, a
 decimal string parsed as strictly as `confirmedPrice` (an intent without it, or with a malformed one, buys nothing).
 `PurchaseRequest.confirmedMinOut` must be a bigint above 0. At send, a fresh `min_out` below it is refused with
 `PoolPriceMovedError` ("The pool price moved: confirm again") and nothing is sent; an equal or higher one sends its own,
@@ -161,8 +169,9 @@ either case. Checked against Sepolia on 2026-10-12: the real revert of `quote_sw
 node is not. The game page shows it as "Cannot start a
 game: ..." (the purchase's consent is already cleared, so nothing is retried).
 
-The purchase screen reads the same quote for the stake shown and displays "PAVED bought and burned: at least <min_out>
-(quoted again when sent)", and the same figure in the confirm. When the read reverts or fails it shows only
+The purchase screen reads the same quote for the stake shown and displays "Swapped for PAVED in one swap: <swap_in>",
+"Burned: the PAVED of <burn quote> of the price (70 %), at today's terms; the rest goes to the Vault (vPAVED) for the
+stakers" and "PAVED bought: at least <min_out> (quoted again when sent)", and the same figures in the confirm. When the read reverts or fails it shows only
 `POOL_CANNOT_FILL` and a disabled "Pool cannot fill" button; a read that failed without a revert shows
 `POOL_QUOTE_UNAVAILABLE` and a disabled "Pool quote unavailable". **No stale quote**: the figure is shown only from an answer
 for the current stake that is not being read again and has no error (`useAsyncRead` keeps an old answer next to a new
@@ -200,18 +209,19 @@ screen reads `router()` too: it shows the same message, quotes nothing and offer
 pin** (economy.md gives the reasons): when Ekubo publishes a new router, CORE re-runs its fork test and the client
 updates `MAINNET_ROUTER` in the same release.
 
-**The sanity floor (ruling 1), a warning and never a refusal.** `implied = burn_quote x rate / RATE_SCALE`
+**The sanity floor (ruling 1), a warning and never a refusal.** `implied = swap_in x rate / RATE_SCALE` (the burn
+quote alone before P-56; the guard's rate is the same price per USDC, P-56 reads it from the burn's part of the swap)
 (`impliedPaved`, `economy/amounts.ts`), where `rate` is `Economy.rate()`, the guard's rate that `min_out_hint` and
 `curve::guarded` use (PAVED base units per USDC base unit, x `RATE_SCALE` = 1e18, `curve.cairo`). The quote is below the
-floor when `quote_swap(burn_quote) < 90 % x implied`. `SANITY_FLOOR_BPS` (9,000) holds the 90 %; E4, or a measured
+floor when `quote_swap(swap_in) < 90 % x implied`. `SANITY_FLOOR_BPS` (9,000) holds the 90 %; E4, or a measured
 false-warning rate on mainnet, may move it.
 
-- Arithmetic: bigint only. The comparison is exact, cross-multiplied (`quote x 10,000 x RATE_SCALE < burn_quote x rate x
+- Arithmetic: bigint only. The comparison is exact, cross-multiplied (`quote x 10,000 x RATE_SCALE < swap_in x rate x
   9,000`), so neither side is rounded: exactly 90 % is not below. The `implied` figure shown is rounded down.
 - At or above 90 %, and above `implied`: nothing changes (the on-chain guard caps `R` at `quote x rate x 1.10`).
 - A rate of 0 (the constructor refuses it, so only a mock or an unexpected upgrade has one): no `implied`, no warning; the
   contract has no guard then either (`guarded` counts the whole purchase). On mainnet it refuses instead (below). A rate that cannot be read: no purchase (screen and send), as any failed read.
-- Below 90 %: the purchase screen shows both figures ("The pool quotes X PAVED for the burn, below 90 % of the Y PAVED the
+- Below 90 %: the purchase screen shows both figures ("The pool quotes X PAVED for the swap, below 90 % of the Y PAVED the
   guard rate implies: the pool may have been pushed."); the confirm repeats them next to a checkbox ("I understand and
   buy anyway"), and "Confirm purchase" stays disabled until it is ticked. The acceptance rides in the purchase intent as
   `acceptedLowQuote` (only `true` counts).
@@ -247,8 +257,8 @@ checkbox is cleared.
 the price swapped and burned with that label, and the confirmation is unchanged: no check of `burn_bps` and no
 `max_burn`. The player's USDC is fixed on chain (`price = stake x BASE_PRICE`, 2 USDC, asserted by `purchase`, and the
 approve is exactly that), and `burn_bps`, which an owner act may change between the confirm and the transaction, only
-splits that price between the swap and the Vault's margin (5,000 to 9,000 bps): lowered, the swap falls below `min_out`
-and reverts, costing only the network fee; raised, the player gets more PAVED than confirmed.
+splits the PAVED of the one swap between the burn and the Vault (5,000 to 9,000 bps): the swap's input, and so `min_out`,
+does not depend on it since P-56.
 
 **Sepolia today** (read only, Cartridge `rpc/v0_10`, 2026-10-12, Economy `0x005aab18…6a18b`): `rate()` =
 75,997,157,987,455,519,998,088,182,721,818 (75.997 PAVED per USDC), `burn_quote` of stake 1 = 1.4 USDC, `implied` =
@@ -265,9 +275,11 @@ Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, econo
 |---|---|
 | Price `P` of stake `k` (1 to 10) | `k x Challenge.entry_price().amount` (2 USDC per stake unit after E3), and `Economy.quote(k).price` must be the same, else nothing is sent |
 | Boost | `1 + k/100` (`boostBps`), shown as a multiplier; the reward itself is the contract's |
-| Referral | 5 % of `P`, **out of the margin**: it changes no amount the player pays (P-31) |
-| `min_out` | the pool quote for `burn_quote` (`PoolQuoter.quoteSwap`, fee included) less the slippage, rounded down: 1 % by default (`DEFAULT_SLIPPAGE_BPS`), at most 5 % (`MAX_SLIPPAGE_BPS`), shown to the player (P-35). Never `min_out_hint` |
+| Referral | `Economy.quote(k).referral`: `referral_bps` of `P` (owner-set since P-56, 500 at deployment, at most 1,000), **out of the Vault's part**, never out of the burn: it changes no amount the player pays. The confirm shows the quote's figure, not a constant |
+| `min_out` | the pool quote for `swap_in`, the burn quote plus the margin less the referral (`swapInputOf`, P-56; `PoolQuoter.quoteSwap`, fee included) less the slippage, rounded down: 1 % by default (`DEFAULT_SLIPPAGE_BPS`), at most 5 % (`MAX_SLIPPAGE_BPS`), shown to the player (P-35). Never `min_out_hint` |
 | Reward | only `Economy.terms(game).reward` after settlement; the client computes and promises none |
+| vPAVED rate | `vaultRate(total_assets, total_supply)` = `(A + 1) x 1e18 / (S + 1)`, rounded down: OpenZeppelin's conversion at offset 0, shown as "1.0123 PAVED per vPAVED" (cut at 4 digits) |
+| Exit fee | `Vault.exit_fee()` bps, shown as "5 % exit fee, left to the other stakers" (`formatPercentBps`; 500 bps at deployment, owner-set from 0 to 1,000, P-56) |
 
 ## Writes
 
@@ -278,11 +290,11 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
-| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Challenge, P)`, `Challenge.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer, the Challenge or the Economy as the referrer (`RefusedReferrerError`, D-25 (E)). A zero referrer is sent as `0x0` |
-| `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each: not bought (stake 0), not recorded (not over, or expired: no reward), already settled, or its day not yet settleable (`now < settlesAfter(day)`, the end of the next day, `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); a failed block read sends nothing |
-| `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
-| `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
-| `claimDividends({ confirmedAmount })` | `Vault.claim()` | the pending USDC is 0 or not the confirmed one (it grows with every purchase: the player confirms again) |
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Challenge, P)`, `Challenge.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `referral` above the margin; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer, the Challenge or the Economy as the referrer (`RefusedReferrerError`, D-25 (E)). A zero referrer is sent as `0x0` |
+| `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each, refused as `Economy.settle` refuses it: not bought (stake 0, `'Economy: unknown game'`), not recorded (not over, or never recorded past its 24 h, "is expired: no reward"; `'Economy: not recorded'`), or its day not yet settleable (`now < settlesAfter(day)`, `'Economy: day cannot close yet'`; `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); and already settled (the contract skips it: a send would only pay a fee). A **recorded expired** game is sent: the contract settles it for a reward of 0 (P-34), and the result's `noReward` lists it. A failed block read sends nothing |
+| `deposit(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.deposit(amount, self)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short; `preview_deposit(amount)` is 0 (`VaultZeroSharesError`: the contract would revert, `'Vault: zero shares'`) |
+| `withdraw(amount, { confirmedAmount })` | `Vault.withdraw(amount, self, self)`: exactly `amount` PAVED out, the vPAVED of `amount` plus the exit fee burned | the amount is 0 or not the confirmed one; above `max_withdraw` (`VaultOverMaxWithdrawError`, "More than you can withdraw: at most X PAVED now, the exit fee taken. Nothing was sent.") |
+| `withdrawAll({ confirmedShares })` | `Vault.redeem(shares, self, self)` of every vPAVED held, for their PAVED less the exit fee | no vPAVED held; the vPAVED held is not the confirmed amount (`VaultAmountChangedError`) |
 
 **New games paused (G4).** `purchase` and `planPurchase` read `Challenge.spawn_paused()` first, before the chain check, the
 quote or any call is built: when it is true they throw `SpawnPausedError` ("New Challenge games are paused for now. Games
@@ -294,9 +306,13 @@ guard). `settle` and the Vault writes are not affected: the pause stops `spawn` 
 
 `planPurchase` runs the same reads and checks and returns the calls without sending them (tests).
 
-Stake and unstake check the amount handed over against the confirmed one (`VaultAmountChangedError`), then against the
-chain: the PAVED balance for a stake, the staked amount for an unstake. The player's consent for both is the confirm of the
-Vault screen (part b), which shows the amount and hands over the field read again at the click.
+Deposit and withdraw check the amount handed over against the confirmed one (`VaultAmountChangedError`), then against the
+chain: the PAVED balance and `preview_deposit` for a deposit, `max_withdraw` for a withdraw, the vPAVED held for a
+withdraw all. The player's consent is the confirm of the Vault screen (part b), which shows the amount and its preview and
+hands over the field read again at the click. The Vault's reverts read plainly: `'Vault: zero shares'`
+(`VaultZeroSharesError`), `'ERC4626: exceeds max withdraw'` or `'... max redeem'` (`VaultOverMaxWithdrawError`, with no
+figure), and `'ERC20: insufficient allowance'` (`VaultAllowanceError`: the deposit approves exactly its amount in the same
+multicall, so only an approval changed in between meets it). Each says the PAVED was not moved.
 
 **Sent, outcome unknown.** A purchase that was sent but whose receipt could not be read (the wait timed out, the RPC
 dropped), or whose receipt arrives without a `GameSpawned`, may have spent USDC: it is not a failure. A reverted receipt
@@ -307,8 +323,44 @@ nothing buys again without a new confirm.
 ## Reads
 
 `EconomyViews` (`RpcEconomyViews` on the contracts, `FakeEconomy` in tests): `quote(stake)`, `day(day)`,
-`terms(gameId)`, `vault(account)` (`staked`, `pending`, `total_staked`), `usdcBalance`, `pavedBalance`. Reverts map to
+`terms(gameId)`, `vault(account)` (below), `previewDeposit`, `previewWithdraw`, `previewRedeem`, `usdcBalance`, `pavedBalance`. Reverts map to
 `ViewError` as the game views do; a not configured economy is a `not-configured` `ViewError` with no call.
+
+## The Vault as vPAVED (P-56)
+
+CORE's V1b made the Vault an OpenZeppelin ERC4626 over PAVED, "Vault PAVED" `vPAVED`, 18 decimals, with votes
+(`docs/architecture/vault-share.md`, its addendum). The client follows on the current client (`packages/chain`,
+`packages/app-web`); client v2 (`packages/app`) gets its own page later (P10).
+
+- **No claim.** `stake`, `unstake`, `claim`, `pending`, `acc` and `accounted` are gone: the rate is the only reward. A
+  purchase's margin reaches the Vault as PAVED by a plain transfer, with no share minted, so the rate rises; the exit fee
+  stays in the Vault, so it rises again for those who stay. Nothing in USDC reaches the Vault any more.
+- **The position** (`EconomyViews.vault(account)`, `VaultPosition`): `shares` (`balance_of`), `value`
+  (`convert_to_assets(shares)`: the worth at the current rate, before the fee), `maxWithdraw` (`max_withdraw`: what a
+  withdraw pays now, the fee taken; CORE's limit makes it equal to `preview_redeem(shares)`), `exitFeeBps` (`exit_fee`),
+  `totalAssets` and `totalSupply` (the rate). The screen shows `value` as "worth" and `max_withdraw` as "Withdrawable now,
+  after the exit fee"; the withdraw-all confirm shows `max_withdraw` as what the redeem pays.
+- **The split is the chain's** (`Economy.split_bps()`, `(burn, vault, referral)` in bps, owner-set since P-56; 7,368 /
+  2,632 / 500 at deployment). `EconomyViews.split()` reads it (a tuple the codec does not decode: three felts, each a
+  `u16`, `burn + vault = 10,000` and `referral <= vault`, else a `ViewError`). The purchase screen and its confirm show
+  the burn's part and the Vault's part from it ("the Vault (vPAVED) gets the PAVED of 26.32 % of the price", and with a
+  referrer "21.32 % of the price, after the referrer's 5 %"), and "To the Vault: at least X PAVED", the margin's PAVED split
+  off `min_out` by input as the contract does (a floor). The referrer's amount is `quote.referral`. A split that cannot
+  be read hides the breakdown; the purchase does not depend on it (`min_out` comes from the quote of `swap_in`).
+- **No staking action in the Controller session** (PM ruling, 2026-10-14). `Vault.deposit(assets, receiver)`,
+  `withdraw(assets, receiver, owner)` and `redeem(shares, receiver, owner)` take a free `receiver`, which a Cartridge session
+  cannot constrain (it scopes only an approve's spender and amount): with them in the session, a leaked session key could
+  send a holder's vPAVED, or their PAVED as someone else's shares, to any address. So no Vault entry point, and no approve
+  whose spender is the Vault, is a policy; every deposit, withdraw and withdraw all prompts (a PAVED approve alone in the
+  session would gain nothing: the deposit's multicall prompts anyway). `controller.test.ts` asserts it on every network's
+  session. The purchase's policies are unchanged under P-56 (`USDC.approve(Challenge)`, `Challenge.spawn`; Challenge calls
+  Economy, and nothing in the session targets Economy or the router).
+- **The referral link** (`EconomyReferral`) shows the chain's share (`split_bps().referral`), and no figure when it cannot
+  be read.
+- **Votes and delegation**: nothing is read or wrapped; the delegation UI waits for its spec.
+- **The indexer** does not read the Vault (its sources are Challenge, Setup, Economy and Collection). `Purchased` gained
+  `vault_paved` (u256, the PAVED the margin bought): the indexer decodes it, stores it in `purchases.vault_paved`, and moves
+  to schema 12 (the rebuild at the fresh release covers it). No indexed contract emits a new event.
 
 ## Screens (part b)
 
@@ -320,9 +372,9 @@ is missing, the Challenge keeps today's confirm, and nothing of the economy is r
 
 | Screen | Where | What it shows and does |
 |---|---|---|
-| Purchase | the Challenge dialog (`EconomyPurchase`), when the economy is configured and no Challenge game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. The least PAVED bought (`Economy.quote_swap(burn_quote)` less the slippage, "quoted again when sent"). A quote that reverts or fails shows "The pool cannot fill this purchase right now. Try a smaller stake or later." and a disabled "Pool cannot fill", with no figure. Without a pool quoter (the economy not deployed) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=challenge` with the purchase in the history state |
+| Purchase | the Challenge dialog (`EconomyPurchase`), when the economy is configured and no Challenge game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. The least PAVED bought (`Economy.quote_swap(swap_in)` less the slippage, "quoted again when sent"), the one swap's USDC and the burn's part, the rest to the Vault. A quote that reverts or fails shows "The pool cannot fill this purchase right now. Try a smaller stake or later." and a disabled "Pool cannot fill", with no figure. Without a pool quoter (the economy not deployed) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=challenge` with the purchase in the history state |
 | Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
-| Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them); dividends that changed between the confirm and the send (`VaultAmountChangedError`) reopen the confirm with the new amount and say so, sending nothing |
+| Vault | panel (`EconomyVault`) | "Your share: X vPAVED, worth Y PAVED", "Withdrawable now: Z PAVED, after the exit fee" (`max_withdraw`), "Rate: R PAVED per vPAVED", "5 % exit fee, left to the other stakers" (the chain's `exit_fee`), that the rate rises with every purchase's margin and every exit fee and there is nothing to claim, the wallet's PAVED. Deposit, Withdraw and Withdraw all, each through a confirm: a deposit shows the vPAVED it mints (`preview_deposit`), a withdraw the vPAVED it uses with the fee (`preview_withdraw`), withdraw all the vPAVED and what they pay after the fee. A withdraw above `max_withdraw` and a deposit that would mint no vPAVED are refused at the first click with the writer's plain message, and nothing is sent; vPAVED that changed before a withdraw all (`VaultAmountChangedError`) say so and send nothing |
 | After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Challenge games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
 
 **While spawn is paused (G4)**, the Challenge card on the landing page carries the notice "New Challenge games are paused for
@@ -364,13 +416,24 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   decoding.
 - `packages/app-web/__tests__/economy-screens.test.tsx` (jsdom, `FakeEconomy`): the picker's price and boost, the
   explicit confirm and its history state, the referrer shown and the same price, self-referral, a failed read and a
-  quote that disagrees, the not-deployed state, the Vault confirms and a changed amount, the settle list and confirm, the
-  cliff text.
+  quote that disagrees, the not-deployed state, the Vault (vPAVED: its value, rate, exit fee and `max_withdraw`; deposit,
+  withdraw, withdraw all; a withdraw above `max_withdraw` and a zero-share deposit refused with nothing sent; a changed
+  amount), the settle list and confirm, the cliff text.
+- `packages/chain/test/economy.test.ts` (P-56): the Vault ABI's ERC4626 entry points and no claim, `deposit(amount,
+  self)`, `withdraw` and `redeem(shares, self, self)` calldata, above `max_withdraw` and a zero-share deposit refused before
+  sending, the Vault's reverts read plainly (zero shares, over max withdraw or redeem, a missing allowance), the position's
+  decoding.
+- `packages/chain/test/e2e-devnet.test.ts` (P-56, `PAVED_E2E=1`): each purchase's one swap against the contract (`swap_in`
+  = `burned_quote + margin`, the PAVED bought = the plan's quote, at least `min_out`, its split by input), `total_assets`
+  growing by `vault_paved` with no share minted; the slippage bound (a floor above the fresh quote sends nothing; a
+  `min_out` one above the swap reverts on chain); a deposit, a withdraw whose burned vPAVED equal `preview_withdraw`'s
+  formula with only the amount leaving `total_assets` (the fee stays), and a withdraw all paying `preview_redeem`.
 - `packages/chain/test/economy-quote.test.ts` (E-9, no network): one quoter, `Economy.quote_swap` on the deployed
   Economy, on devnet, sepolia and mainnet, with no `fetch`; a revert (`'Economy: partial fill'`, another router revert,
   `'Economy: wrong delta'`) or an RPC error refuses the purchase with `PoolCannotFillError` and sends nothing; rounding
-  down; a quote rounding to 0 refused; the quote for exactly `burn_quote` at stakes 1, 4 and 10; a `burn_quote` outside
-  `(0, price]` refused; a pool that moves between display and send (the send quotes again, nothing cached).
+  down; a quote rounding to 0 refused; the quote for exactly the one swap (burn quote + margin, P-56) at stakes 1, 4 and
+  10, and the price less the referral with a referrer; a `burn_quote` outside `(0, price]`, or a referral above the
+  margin, refused; a pool that moves between display and send (the send quotes again, nothing cached).
 - `packages/chain/test/codec.test.ts`: signed integers.
 - `packages/app-web/__tests__/economy-screens.test.tsx` also covers the `/economy` page, the expired state, an unregistered referrer sent at once (D-25 (E)), the `?ref=` bound and `spawnForIntent`.
 - `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;

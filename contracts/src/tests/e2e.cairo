@@ -5,6 +5,7 @@ pub mod cold_paths;
 pub mod cold_paths_audit;
 pub mod economy;
 pub mod events;
+pub mod expiry;
 pub mod forest;
 pub mod guardian;
 pub mod mint;

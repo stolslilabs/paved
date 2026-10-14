@@ -1187,3 +1187,102 @@ before and after the upgrade by construction; no upgrade test is added.
 
 **Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G5"):
 `Challenge` 62,323 -> 62,045 CASM felts (-278), 10,902 under the P-44 cap (72,947).
+
+## After S1 (a game expires 24 h after its start; `initial_seed`)
+
+S1 adds one check to `build` and `discard`: `get_block_timestamp() < start_time + 86400`, else `'Game: expired'`
+(`docs/architecture/client-spec-core.md`, section 1). `start_time` is already in `GameConfig`, which every move reads,
+so the check adds no storage read: one `get_execution_info` syscall and one comparison. `surrender` and the spawn get
+no check. `initial_seed` is a view (computed, no storage). Same tests and method: `contracts/tests/gas.cairo`, scarb
+2.20.1 / snforge 0.64.0, VPS, 2026-10-14, `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`; the whole run of the
+S1 branch: 698 passed, 0 failed, 9 ignored, peak RSS 3,803,580 kB, 35 min 32 s. Before is "After G5" above: `git diff
+c52467ca 22967eeb -- contracts/src contracts/tests contracts/Scarb.toml` is empty, so main has G5's contracts.
+
+| | Scenario | G5 | S1 | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,535,162 | 17,522,337 | -12,825 (-0.1 %) | 18,411,921 | 95.2 % |
+| n | Challenge spawn, stake 10, referred | 18,261,612 | 18,248,787 | -12,825 (-0.1 %) | 19,174,693 | 95.2 % |
+| c | Close a large city | 5,335,448 | 5,367,338 | +31,890 (+0.6 %) | 5,602,221 | 95.8 % |
+| e | Close a forest of 4 | 8,637,924 | 8,669,814 | +31,890 (+0.4 %) | 9,069,821 | 95.6 % |
+| f | Worst forest scan | 18,125,890 | 18,157,780 | +31,890 (+0.2 %) | 18,923,195 | **96.0 %** |
+| a0 | Open simple move | 5,128,117 | 5,160,007 | +31,890 (+0.6 %) | 5,384,523 | 95.8 % |
+| a | Simple move, closes a 2-tile city | 4,926,449 | 4,958,339 | +31,890 (+0.6 %) | 5,172,772 | 95.9 % |
+| d | Worst case of P0 | 5,286,777 | 5,318,667 | +31,890 (+0.6 %) | 5,551,116 | 95.8 % |
+| g | Closing move in its day (surrender) | 3,169,868 | 3,169,868 | 0 | 3,672,907 | 86.3 % |
+| i | Closing move after its day (surrender) | 2,712,328 | 2,712,328 | 0 | 2,847,987 | 95.2 % |
+| k | Closing move, full report (surrender) | 3,604,048 | 3,604,048 | 0 | 4,018,231 | 89.7 % |
+| l | Game over on a build | 7,127,745 | 7,159,635 | +31,890 (+0.4 %) | 7,774,092 | 92.1 % |
+| s | Game over on a discard | 3,359,163 | 3,391,053 | +31,890 (+0.9 %) | 3,528,109 | **96.1 %** |
+
+**The expiry check costs 31,890 L2 gas per `build` and `discard`**, the same on all eight move scenarios. The three
+surrenders are identical to the unit. Every scenario stays under its ceiling, and no ceiling changes. **s** is now the
+tightest at 96.1 %, with **f** at 96.0 %. The spawns fall by 12,825, and they do not run the check: a game's seed
+depends on `Challenge`'s address, which moves with its class hash (G4's note), so m and n draw another deck. That
+difference comes from the deck, not from S1's code.
+
+**Goldens unchanged.** The 19 golden tests pass with their expected moves and scores, and no golden plays after 24 h.
+`git diff 22967eeb -- contracts/src/tests/golden docs/measures/golden-games.md packages` is empty.
+
+**Test budgets.** Every `#[available_gas]` of the suite holds (the whole run above). The 9 tests of
+`src/tests/e2e/expiry.cairo` have no budget.
+
+**Storage and ABI.** No storage variable is added. `scripts/abis.sh` changes `contracts/abis/Challenge.json` only:
+`GameView.expires_at` (appended) and the `initial_seed` view.
+
+**Sizes** (`scripts/class-sizes.sh`, release, through the `scarb` shim under `prlimit --as=12884901888`, peak RSS
+3,585,520 kB): `Challenge` 62,045 -> 62,525 CASM felts (+480), 10,422 under the P-44 cap (72,947); 28,360 Sierra felts.
+
+## After V1b (vPAVED, the margin as PAVED, the split; P-56)
+
+**Method.**
+- Same tests and method: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0 through the machine's shims, VPS,
+  2026-10-14, `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`.
+- The whole run of the V1b branch, before the budgets below were reset: 645 passed, 73 failed, 9 ignored, peak RSS
+  4,042,740 kB. The 73 failures are 72 whole-test `#[available_gas]` budgets and one pin of the new layout test, read
+  at the wrong slot and dropped. No behaviour assertion failed.
+- Before is "After G5" above (main c52467ca).
+- The spawn now runs the purchase at the owner's split (`decided()`, burn 7,368 bps): one swap of the whole price
+  less any referral, the burn's part burned, and the Vault's part sent to the Vault as PAVED.
+
+| | Scenario | G5 | V1b | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,535,162 | 17,652,252 | +117,090 (+0.67 %) | 18,411,921 (kept) | 95.9 % |
+| n | Challenge spawn, stake 10, referred | 18,261,612 | 18,378,702 | +117,090 (+0.64 %) | 19,174,693 (kept) | 95.8 % |
+| g | Closing move in its day | 3,169,868 | 3,174,468 | +4,600 | 3,672,907 (kept) | 86.4 % |
+| i | Closing move after its day | 2,712,328 | 2,716,928 | +4,600 | 2,847,987 (kept) | 95.4 % |
+| k | Closing move, full report | 3,604,048 | 3,608,648 | +4,600 | 4,018,231 (kept) | 89.8 % |
+| l | Game over on a build | 7,127,745 | 7,132,345 | +4,600 | 7,774,092 (kept) | 91.7 % |
+| s | Game over on a discard | 3,359,163 | 3,363,763 | +4,600 | 3,528,109 (kept) | 95.3 % |
+| a0, a, c, d, e, f | the moves that end no game | | identical to the unit | 0 | kept | f stays the tightest: 95.8 % |
+
+**The causes, as measured.**
+- The purchase pays the same router round trip with a larger input, the split by input, and a PAVED `transfer` to the
+  Vault in place of the USDC one. It also reads the referral from the packed `Config`.
+- The +4,600 of the five game-over scenarios is `Economy.record`'s read of the larger packed `Config` (it unpacks the
+  referral too). The class is larger, and no other code path of `record` changed.
+
+**The Vault's calls** (new scenarios t to w). Each call is made by a holder who delegated to themselves, after a paid
+spawn, so the rate is above 1:
+
+| | Scenario | V1b | Ceiling (measured + 5 %) |
+|---|---|---:|---:|
+| t | `deposit` 1,000 PAVED | 3,717,820 | 3,903,711 |
+| u | `redeem` 1,000 shares at the 500 bps fee | 3,627,776 | 3,809,165 |
+| v | `withdraw` 1,000 PAVED at the fee | 5,237,300 | 5,499,165 |
+| w | `transfer` of 1,000 shares to a new holder | 1,507,892 | 1,583,287 |
+
+The former Vault's `stake` and `unstake` were not measured before. `contracts/tests/gas.cairo` had no Vault scenario,
+and main was not rebuilt for it, so this table has no before column.
+
+**Whole-test budgets.**
+- 72 tests that run `setup::spawn_game` or a game, the golden `test_golden_daily_city5_game_over` among them, exceeded
+  their `#[available_gas]` budget. Their setup now deploys vPAVED (23,618 CASM felts against 6,700) and makes two
+  deposits (the dead shares and the owner's stake), and each purchase runs the new path.
+- Their budgets are reset to the measured figure + 5 %, the rule of `golden-games.md`. The rises over the old budgets
+  run from 69,990 to 7,444,526 L2 gas.
+- The golden values are untouched: `git diff c52467ca -- contracts/src/tests/golden` changes only that one budget line.
+
+**Sizes**: `class-headroom.md`, "After V1b": `Vault` 23,618 CASM felts, `Economy` 26,567 -> 27,702.
+
+These V1b figures are measured against G5's base (main c52467ca), before S1 changed it: on top of them, S1 adds
+31,890 L2 gas per `build` and `discard` (a0 to f, l, s) and moves m and n by its deck change; not re-measured.

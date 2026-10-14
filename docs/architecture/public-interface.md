@@ -53,8 +53,8 @@ long as it reads the ABI of the deployed class.
 
 ## Missing data
 
-- **A game that does not exist** (id 0, or above the last id given): `game`, `tiles`, `builder` and
-  `characters` revert with `Game: does not exist`. A zeroed view would be indistinguishable from a
+- **A game that does not exist** (id 0, or above the last id given): `game`, `tiles`, `builder`,
+  `initial_seed` and `characters` revert with `Game: does not exist`. A zeroed view would be indistinguishable from a
   real game in some fields (score 0, not over), so the views refuse it.
 - **A player who is not the player of the game**: `builder` and `characters` revert with
   `View: not the game player`. Games are single-player; the player is the one who spawned it.
@@ -85,6 +85,7 @@ long as it reads the ABI of the deployed class.
 | 14 | `start_time` | `u64` | Time of the spawn |
 | 15 | `end_time` | `u64` | Time of the end of the game when it ended in the day it started; `0` otherwise (game not over, ended after its day closed). Always `0` for a Tutorial game, even when it is over: no day, so no end time |
 | 16 | `day_id` | `u64` | The day the game counted for (`timestamp / 86400`), set when the game ends in the day it started; `0` otherwise. `0` while a Daily game runs, set at game over, and still `0` for a Daily game over after its day closed. Always `0` for a Tutorial game: it belongs to no day. Named `tournament_id` before D-20 (same position, type and values) |
+| 17 | `expires_at` | `u64` | `start_time + 86400` (S1): from this second on, `build` and `discard` revert `'Game: expired'`; `surrender` stays open. The same second as `Economy`'s expiry (`terms.time + 86400`). Fixed for the life of the game, over or not. Appended by S1 |
 
 `tile_count = placed_count + discarded_count + (1 if a tile is held, else 0)`. A game abandoned by
 `surrender` keeps the tile that was in hand: it is in `tile_count` but neither placed nor
@@ -110,6 +111,22 @@ tiles with ids `from + 1` to `from + n`, where `n = min(count, MAX_PAGE, tile_co
 | 4 | `orientation` | `u8` | Orientation; `0` unless placed |
 | 5 | `x` | `u32` | Position; `0` unless placed |
 | 6 | `y` | `u32` | Position; `0` unless placed |
+
+The draw order is a promise (S1, for the client's next-tile prediction): `tiles` lists every drawn
+tile, ids `1..=tile_count` in the order they were drawn, with its status. A discarded tile reads
+`x = y = 0` here, but its reseed hashed the position it was drawn with, `(CENTER, CENTER)`
+(`docs/architecture/client-spec-core.md`, section 3).
+
+### `initial_seed(game_id: u32) -> felt252`
+
+The seed the game started with, before the deck's withdrawal and the first draw (S1): its token's
+seed, `Poseidon(0, Challenge, game_id)` (`TokenSeed`, D-23), right for every game. With `tiles`, what a
+client replays to compute the next draw locally (`client-spec-core.md`, section 3), for every game spawned
+by a class from G1 (78ab2ab0) on: the only games a network gets under D-27 (one fresh Sepolia deployment, no
+upgrade of the pre-G1 class live there). A game spawned by a pre-G1 class built its deck with the old walk
+(`tests::legacy_g1::tiles_before_g1`): if a class were ever upgraded over such games, the client's open-time
+check against `game()` fails for them, and it falls back to no prediction. Reverts `Game: does not exist`
+for no game.
 
 ### `builder(game_id: u32, player_id: felt252) -> BuilderView`
 
@@ -734,3 +751,65 @@ replaying history keeps knowing it and skips it, as for the D-20 prize events.
 
 On Sepolia it was emitted by the deployed `Account` of 06c024d; the fresh deployment (step F) has no `Account`, so an
 indexer of the new deployment meets none. Names come from the Controller (the Cartridge username), off chain.
+
+## Breaking change P-56 (V1b): vPAVED, the margin as PAVED, the split
+
+P-56 (`docs/architecture/vault-share.md`, addendum; `economy.md` section 4, "As built: V1b"). Sepolia starts from zero
+(D-27), so no client or indexer meets the old layouts and the new ones in one history.
+
+### `Vault` (`Vault.json`): vPAVED
+
+The Vault is now an ERC4626 share over PAVED, "Vault PAVED" / `vPAVED`, 18 decimals. Its constructor is
+`(owner, paved, exit_fee_bps)`, and the deploy passes 500.
+
+| Entry point or view | Who | What |
+|---|---|---|
+| `deposit(assets, receiver) -> shares` | anyone (approve PAVED first) | mints `assets x (S + 1) / (A + 1)` shares, rounded down; `'Vault: zero shares'` when that is 0 |
+| `mint(shares, receiver) -> assets` | anyone | pulls `shares x (A + 1) / (S + 1)` PAVED, rounded up |
+| `withdraw(assets, receiver, owner) -> shares` | the owner of the shares, or an approved spender | sends exactly `assets`; burns the shares of `assets` plus the exit fee (`assets x fee`), rounded up |
+| `redeem(shares, receiver, owner) -> assets` | the same | burns exactly `shares`; sends their PAVED less the fee (`v x fee / (1 + fee)`), rounded down |
+| `asset`, `total_assets`, `convert_to_shares`, `convert_to_assets`, `max_deposit`, `max_mint`, `max_withdraw`, `max_redeem`, `preview_*` | anyone | OpenZeppelin's ERC4626 views; the previews include the fee, `max_withdraw` is `preview_redeem(balance)` |
+| `name`, `symbol`, `decimals`, `total_supply`, `balance_of`, `allowance`, `transfer`, `transfer_from`, `approve`, `totalSupply`, `balanceOf`, `transferFrom` | anyone | the share, a plain ERC20 |
+| `get_votes`, `get_past_votes`, `get_past_total_supply`, `delegates`, `delegate`, `delegate_by_sig`, `clock`, `CLOCK_MODE`, `nonces` | anyone | votes on vPAVED: units count once delegated (the client's "delegate to myself"); a timestamp clock; `delegate_by_sig` signs the SNIP-12 `Delegation` against `'vPAVED'`, version `'1'` |
+| `exit_fee() -> u16` | anyone | bps of the PAVED that leaves (500 at launch) |
+| `set_exit_fee(fee: u16)` | owner | 0 to 1,000: `'Vault: fee too high'`; emits `ExitFeeSet { previous, fee }` |
+| `owner`, `pending_owner`, `transfer_ownership`, `accept_ownership`, `upgrade(class_hash)` | owner | the two-step owner of every owned contract; `upgrade` is OpenZeppelin's |
+
+**Gone**: `stake`, `unstake`, `claim`, `pending`, `staked`, `total_staked`, `acc`, `accounted` and `tokens`, with the
+events `Staked`, `Unstaked`, `Claimed` and `Distributed`. They map as follows:
+
+| Former | Now |
+|---|---|
+| `stake(amount)` | `deposit(amount, caller)` |
+| `unstake(amount)` | `redeem` (shares) or `withdraw` (PAVED) |
+| `staked(account)` | `balance_of(account)` in vPAVED, worth `convert_to_assets(balance)` PAVED |
+| `total_staked()` | `total_supply()`, which counts the 1,000 dead shares the Vault holds |
+| `tokens()` | `asset()`. There is no USDC any more |
+| `pending` and `claim` | none: the staker's income is the rate |
+
+**Events** of the Vault's address:
+
+- `Deposit { #[key] sender, #[key] owner, assets, shares }`;
+- `Withdraw { #[key] sender, #[key] receiver, #[key] owner, assets, shares }`;
+- `Transfer { #[key] from, #[key] to, value }` and `Approval { #[key] owner, #[key] spender, value }`;
+- `DelegateChanged { #[key] delegator, #[key] from_delegate, #[key] to_delegate }` and
+  `DelegateVotesChanged { #[key] delegate, previous_votes, new_votes }`;
+- `ExitFeeSet { previous, fee }`;
+- `OwnershipTransferStarted`, `OwnershipTransferred` and `Upgraded`.
+
+The earlier note above, that the Vault's `Claimed` stays, holds for history only: no new Vault emits it.
+
+### `Economy` (`Economy.json`)
+
+| Item | Before | Since P-56 |
+|---|---|---|
+| `purchase` | the burn quote swapped, the margin and any unswapped USDC sent to the Vault in USDC | one swap of the burn quote and the Vault's part, filled whole (`'Economy: partial fill'` otherwise); the PAVED split by input, the burn's part burned, the Vault's part sent to the Vault as PAVED. `min_out` bounds the whole swap: the client takes it from `quote_swap(price - referral)` |
+| `Config` | `burn_bps, sigma_bps, slope_bps, cap, target` | the same, then **`referral_bps: u16`** appended (Serde order); `configure` refuses `'Economy: referral out of bounds'` (above 1,000) and `'Economy: referral above vault'` |
+| `split_bps() -> (u16, u16, u16)` | none | new view: `(burn, vault, referral)` in force, the Vault's part `10,000 - burn` |
+| `Quote.min_out_hint` | 99 % of the burn quote at the guard's rate | 99 % of `price - referral` (a referred purchase's whole swap) at the guard's rate |
+| `Quote.burn_quote`, `referral`, `margin` | from the constants | from the configuration (7,368 bps and 500 bps at launch); `margin` is the Vault's part without a referrer |
+| Event `Purchased` | 17 data felts | **19**: `vault_paved: u256` appended (the PAVED sent to the Vault). `margin` keeps its meaning: the USDC of the Vault's part that went into the swap |
+| Event `EconomyConfigured` | `burn_bps, sigma_bps, slope_bps, cap, target` | `referral_bps` appended |
+
+The indexer decodes `Purchased` strictly (17 data felts) and `EconomyConfigured`: both move with this change (INDEXER
+follows on this branch).

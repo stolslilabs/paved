@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews } from "@paved/chain";
+import { FakeGameViews, GameExpiredError, GAME_EXPIRED_TEXT } from "@paved/chain";
 import { GamePage } from "../src/pages/Game";
 import { fakeGame, gameKey, notConfigured, renderPage, PLAYER } from "./helpers/page-fixtures";
 
@@ -80,6 +80,26 @@ describe("Game page states", () => {
     open({ views: viewsWith(), writer: { discard } });
     fireEvent.click(await screen.findByText("Discard tile"));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Game: tile not discardable"));
+  });
+
+  it("expired (S1): a discard sends nothing and the plain message is shown", async () => {
+    const game = fakeGame();
+    game.game.expiresAt = 2;
+    const discard = vi.fn();
+    open({ views: viewsWith(game), writer: { discard } });
+    fireEvent.click(await screen.findByText("Discard tile"));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(GAME_EXPIRED_TEXT));
+    expect(discard).not.toHaveBeenCalled();
+    expect(screen.queryByText("Surrender")).not.toBeNull();
+  });
+
+  it("expired after a race: the typed error's message is shown", async () => {
+    const discard = vi.fn(async () => {
+      throw new GameExpiredError("0x9");
+    });
+    open({ views: viewsWith(), writer: { discard } });
+    fireEvent.click(await screen.findByText("Discard tile"));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(GAME_EXPIRED_TEXT));
   });
 
   it("a finished game shows its completion and offers neither discard nor surrender", async () => {
