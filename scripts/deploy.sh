@@ -9,6 +9,8 @@
 #        scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]
 #        scripts/deploy.sh sepolia --d18 [--check-only]
 #        scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]
+#        scripts/deploy.sh sepolia --upgrade-challenge [--check-only] [--guardian deployer]
+#        scripts/deploy.sh sepolia --rehearse --upgrade-challenge --deployment <file> [--check-only] [--guardian deployer]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): the Faucet (D-25 B, a bounded USDC
@@ -142,6 +144,35 @@
 # the funding check and what a run would send; nothing is sent, the file is not written, and it ends "every check
 # passed; nothing was sent". A downgrade after a D-18 move is unsupported for open games (docs/programme/OPERATIONS.md).
 #
+# --upgrade-challenge (sepolia, and its rehearsal; G6, D-17, U-1): upgrades the deployed Challenge in place to the class
+# of the build (G1's deck walk and G4's pause guardian on F's deployment), and with --guardian deployer sets the
+# deployer as its guardian. It deploys nothing and keeps every address. It runs after the indexer release that knows
+# G4's events (GuardianSet, SpawnPaused, SpawnUnpaused: the indexer halts on an unknown selector), with the same checks,
+# signer and build as above (from main-equivalent sources on Sepolia), reads the same deployment file (`--deployment`
+# in the rehearsal) and checks, before anything is estimated or sent: the file is a sepolia one for the node's chain
+# (SN_SEPOLIA; SN_MAIN is refused above and by the signer); the deployer is Challenge.owner(); Challenge's class on the
+# node is the file's or the new one (a resume); every other contract of the file (Setup, Collection, Economy,
+# PavedToken, Vault, Faucet, MockRouter) is of the file's class on the node and the build's class is the same, so only
+# Challenge is upgraded; on the new class, guardian() is none or the deployer (another address is refused, never
+# printed) and spawn_paused() is false (unless the record is complete); F's smoke game (`fresh.smoke.game_id`) reads
+# back; the smoke's 2 USDC are held or within the faucet's cap. The funding check then estimates the declare if it is
+# still to send. In order, each step skipped when what it would send has landed:
+#   1. declare the new Challenge class (declareIfNot);
+#   2. Challenge.upgrade(new class);
+#   3. with --guardian deployer, Challenge.set_guardian(@account): the keyword stands for the deployer, its address read
+#      from STARKNET_ACCOUNT_ADDRESS by name by the signer, so it is in no argv and printed as `$STARKNET_ACCOUNT_ADDRESS`
+#      (the record says `guardian: deployer`);
+#   4. contracts.Challenge.class_hash in the file, every other field kept;
+#   5. the smoke: the class read back, owner(), guardian() the deployer (compared, never printed), spawn_paused() false,
+#      F's smoke game read back (a game spawned before the upgrade), a paid spawn at stake 1 and one build next to the
+#      starter on the new class (left open), then the deployer's STRK balance.
+# Every step is recorded under the file's `upgrade_g1g4` key as it lands (the previous class, the commit, each
+# transaction hash as the signer sends it), with the same receipt wait, `not landed` clearing and REPOINT_WAIT_S as
+# --repoint: a rerun sends only what is left, and a complete one sends nothing, needs no funding margin, and does not
+# assert the guardian and the pause (live state since, the guardian's and the owner's). --check-only: the checks, the
+# funding check and what a run would send; nothing is sent, the file is not written, and it ends "every check passed;
+# nothing was sent".
+#
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).
 #
@@ -218,7 +249,7 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] | scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] | scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only] | scripts/deploy.sh sepolia --upgrade-challenge [--check-only] [--guardian deployer] | scripts/deploy.sh sepolia --rehearse --upgrade-challenge --deployment <file> [--check-only] [--guardian deployer]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
@@ -229,10 +260,14 @@ REPOINT=0
 REPOINT_CHECK_ONLY=0
 REPOINT_FILE=""
 D18=0
+# --upgrade-challenge (G6): the mode, and --guardian deployer.
+UPGRADE_CHALLENGE=0
+UC_GUARDIAN_DEPLOYER=0
 # The fresh path (F): --check-only and --out <file>.
 FRESH_CHECK_ONLY=0
 FRESH_OUT=""
-# The key of the deployment file under which --repoint (`repoint`) or --d18 (`d18`) records what it sent.
+# The key of the deployment file under which --repoint (`repoint`), --d18 (`d18`) or --upgrade-challenge (`upgrade_g1g4`)
+# records what it sent.
 RECORD_KEY=repoint
 if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
   # sepolia [--rehearse] --estimate-only [diagnostics]: the diagnostics reach the signer as its own options, which it
@@ -253,14 +288,20 @@ if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" =
     esac
   done
   set -- sepolia
-elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == --repoint || "${2:-}" == --d18 ||
-    ( "${2:-}" == "--rehearse" && ( "${3:-}" == --repoint || "${3:-}" == --d18 ) ) ) ]]; then
+elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == --repoint || "${2:-}" == --d18 || "${2:-}" == --upgrade-challenge ||
+    ( "${2:-}" == "--rehearse" && ( "${3:-}" == --repoint || "${3:-}" == --d18 || "${3:-}" == --upgrade-challenge ) ) ) ]]; then
   # sepolia [--rehearse] --repoint (R-1): repoints the deployed Economy at a new MockRouter (see "--repoint" above).
-  # sepolia [--rehearse] --d18 (D-18c): the D-18 upgrade, after the repoint (see "--d18" above). Both take the same
-  # options; the variables keep the repoint's names (REPOINT_FILE, REPOINT_CHECK_ONLY).
+  # sepolia [--rehearse] --d18 (D-18c): the D-18 upgrade, after the repoint (see "--d18" above).
+  # sepolia [--rehearse] --upgrade-challenge (G6): Challenge upgraded in place (see "--upgrade-challenge" above). The
+  # three take the same options, and --upgrade-challenge also --guardian deployer; the variables keep the repoint's
+  # names (REPOINT_FILE, REPOINT_CHECK_ONLY).
   [[ "$2" == "--rehearse" ]] && { REHEARSE=1; shift; }
   MODE_FLAG="$2"
-  if [[ "$MODE_FLAG" == --d18 ]]; then D18=1; RECORD_KEY=d18; else REPOINT=1; fi
+  case "$MODE_FLAG" in
+    --d18) D18=1; RECORD_KEY=d18 ;;
+    --upgrade-challenge) UPGRADE_CHALLENGE=1; RECORD_KEY=upgrade_g1g4 ;;
+    *) REPOINT=1 ;;
+  esac
   shift 2
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -269,6 +310,14 @@ elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == --repoint || "${2:-}" == --d18 
         ((REHEARSE)) || { echo "deploy.sh: --deployment is for the rehearsal only: sepolia $MODE_FLAG reads contracts/deployments/sepolia.json" >&2; exit 2; }
         [[ -n "${2:-}" && -f "$2" ]] || { echo "deploy.sh: --deployment expects an existing deployment file" >&2; exit 2; }
         REPOINT_FILE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+        shift 2 ;;
+      --guardian)
+        # The keyword alone: the address is the deployer's, read from STARKNET_ACCOUNT_ADDRESS by name, never from
+        # argv; the refusal does not echo what was given.
+        [[ "$MODE_FLAG" == --upgrade-challenge ]] || { echo "deploy.sh: --guardian is for sepolia --upgrade-challenge only" >&2; exit 2; }
+        [[ "${2:-}" == deployer ]] ||
+          { echo "deploy.sh: --guardian expects the keyword deployer (the address is read from STARKNET_ACCOUNT_ADDRESS by name, never from argv)" >&2; exit 2; }
+        UC_GUARDIAN_DEPLOYER=1
         shift 2 ;;
       *) echo "deploy.sh: unknown option '$1' for 'sepolia $MODE_FLAG'" >&2; echo "$USAGE" >&2; exit 2 ;;
     esac
@@ -411,11 +460,14 @@ SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
 SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
-# --repoint and --d18: the deployment they read and update; sepolia's committed file unless the rehearsal names its own.
-[[ ( "$REPOINT" == 1 || "$D18" == 1 ) && -z "$REPOINT_FILE" ]] && REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
+# --repoint, --d18 and --upgrade-challenge: the deployment they read and update; sepolia's committed file unless the
+# rehearsal names its own.
+[[ ( "$REPOINT" == 1 || "$D18" == 1 || "$UPGRADE_CHALLENGE" == 1 ) && -z "$REPOINT_FILE" ]] &&
+  REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
 # The fresh path through the signer (sepolia and its rehearsal) keeps its record in the file it writes, under `fresh`.
 FRESH_RECORD=0
-if [[ "$NETWORK" == sepolia && "$REPOINT" == 0 && "$D18" == 0 && "$ESTIMATE_ONLY" == 0 && "$CHECK_SEND" == 0 ]]; then
+if [[ "$NETWORK" == sepolia && "$REPOINT" == 0 && "$D18" == 0 && "$UPGRADE_CHALLENGE" == 0 && "$ESTIMATE_ONLY" == 0 &&
+    "$CHECK_SEND" == 0 ]]; then
   FRESH_RECORD=1
   REPOINT_FILE="$OUT"
   RECORD_KEY=fresh
@@ -1706,6 +1758,313 @@ d18_smoke() {
   echo "== d18: smoke ok"
 }
 
+# --upgrade-challenge (G6, D-17): the contracts whose class must not change, with Challenge's address, class and the
+# smoke game of F read from the deployment file.
+UC_OTHERS=(Setup Collection Economy PavedToken Vault Faucet MockRouter)
+
+# uc_guardian_label <felt>: what Challenge.guardian() answers, as printed: `none`, `the deployer`, or `another address`.
+# The address itself is never printed (compared on stdin, `hex_int`).
+uc_guardian_label() {
+  local n
+  n="$(hex_int "$1")"
+  if [[ "$n" == 0 ]]; then echo none
+  elif [[ "$n" == "$DEPLOYER_INT" ]]; then echo "the deployer"
+  else echo "another address (not printed)"; fi
+}
+
+# uc_old_game: F's smoke game, spawned before the upgrade (the file's `fresh.smoke.game_id`), read back: its id, its
+# player the deployer. Prints nothing when the file records none.
+uc_old_game() {
+  local raw g
+  [[ "$UC_OLD_GAME" != - ]] || { echo "   no game before the upgrade in the file's record (fresh.smoke.game_id): none read"; return 0; }
+  v raw call "$CHALLENGE" game "$UC_OLD_GAME"
+  read -r -a g <<<"$raw"
+  [[ "${#g[@]}" -ge 16 && "$(hex_int "${g[0]}")" == "$UC_OLD_GAME" && "$(hex_int "${g[1]}")" == "$DEPLOYER_INT" ]] ||
+    die "Challenge.game($UC_OLD_GAME), F's smoke game, does not read back as the deployer's game $UC_OLD_GAME"
+  echo "   game $UC_OLD_GAME (F's smoke game, spawned before the upgrade): readable, the deployer's, score $(hex_int "${g[4]}"), placed_count $(hex_int "${g[7]}"), over $(hex_int "${g[5]}")"
+}
+
+# uc_state: reads the deployment file and the chain, checks what must hold before anything is sent, and sets what has
+# landed already. Read-only: nothing is estimated, signed or sent here.
+uc_state() {
+  echo "== upgrade-challenge: state (read-only)"
+  [[ -f "$REPOINT_FILE" ]] || die "no deployment file $REPOINT_FILE"
+  local fields others i name addr file_class built class raw pairs
+  fields="$(python3 -I - "$REPOINT_FILE" "${UC_OTHERS[@]}" <<'PY'
+import json, sys
+path, *others = sys.argv[1:]
+d = json.load(open(path))
+c, u = d.get("contracts", {}), d.get("upgrade_g1g4", {})
+f = d.get("fresh") if isinstance(d.get("fresh"), dict) else {}
+def get(name, key):
+    return c.get(name, {}).get(key, "") or "-"
+# Before the upgrade completes, the previous class is the file's; after, the record keeps it.
+old = u.get("previous", {}).get("Challenge", {}).get("class_hash", "") or get("Challenge", "class_hash")
+print(d.get("network") or "-", d.get("chain_id") or "-", get("Challenge", "address"), old,
+      f.get("smoke", {}).get("game_id", "") or "-", " ".join(get(n, "address") + " " + get(n, "class_hash") for n in others))
+PY
+)" || die "$REPOINT_FILE is not a deployment file"
+  read -r RP_NETWORK RP_CHAIN CHALLENGE OLD_CHALLENGE_CLASS UC_OLD_GAME others <<<"$fields"
+  [[ "$RP_NETWORK" == sepolia ]] || die "$REPOINT_FILE is a '$RP_NETWORK' deployment, not sepolia"
+  [[ "$CHALLENGE" != - && "$OLD_CHALLENGE_CLASS" != - ]] || die "$REPOINT_FILE lacks Challenge's address or class hash"
+  felt_eq "$RP_CHAIN" "$CHAIN_ID" || die "$REPOINT_FILE is for chain $RP_CHAIN, the node is $CHAIN_ID"
+  # The new class, from the release build (the hash sncast computes, as declare_class checks the signer's).
+  NEW_CHALLENGE_CLASS="$(sc sncast utils class-hash --contract-name Challenge | pyj 'd["class_hash"]')" || die "class-hash Challenge failed"
+  [[ -n "$(rp_get previous.Challenge.class_hash)" ]] || ! felt_eq "$NEW_CHALLENGE_CLASS" "$OLD_CHALLENGE_CLASS" ||
+    die "the built Challenge class is the file's ($OLD_CHALLENGE_CLASS): nothing to upgrade to"
+  echo "   file ${REPOINT_FILE#"$ROOT/"}: Challenge $CHALLENGE, class $OLD_CHALLENGE_CLASS"
+  echo "   new Challenge class (G1, G4): $NEW_CHALLENGE_CLASS"
+
+  # Every other contract: the build's class is the file's, and so is the node's. Only Challenge is upgraded.
+  read -r -a pairs <<<"$others"
+  for i in "${!UC_OTHERS[@]}"; do
+    name="${UC_OTHERS[i]}" addr="${pairs[2 * i]:--}" file_class="${pairs[2 * i + 1]:--}"
+    [[ "$addr" != - && "$file_class" != - ]] || die "$REPOINT_FILE lacks contracts.$name (its address and class hash)"
+    built="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
+    felt_eq "$built" "$file_class" ||
+      die "the build's $name class $built is not the file's $file_class: this tool upgrades Challenge alone; nothing was sent"
+    v class class_of "$addr"
+    felt_eq "$class" "$file_class" || die "$name's class on the node is $class, not the file's $file_class; nothing was sent"
+    case "$name" in
+      Economy) ECONOMY="$addr" ;; Faucet) USDC="$addr" ;;
+    esac
+  done
+  echo "   ${UC_OTHERS[*]}: unchanged (the build's class is the file's and the node's)"
+
+  # The deployer owns Challenge (its upgrade and set_guardian are the owner's).
+  v raw call "$CHALLENGE" owner
+  [[ "$(hex_int "$raw")" == "$DEPLOYER_INT" ]] || die "the deployer $DEPLOYER_LABEL is not Challenge.owner()"
+  echo "   Challenge.owner() is the deployer"
+  # Challenge's class: the file's or the new one, nothing else.
+  v class class_of "$CHALLENGE"
+  if felt_eq "$class" "$NEW_CHALLENGE_CLASS"; then UC_UPGRADED=1
+  elif felt_eq "$class" "$OLD_CHALLENGE_CLASS"; then UC_UPGRADED=0
+  else die "Challenge's class on the node is $class: neither the file's $OLD_CHALLENGE_CLASS nor the new one"; fi
+  UC_LEFT=0
+  ((UC_UPGRADED)) || UC_LEFT=1
+  echo "   Challenge: $( ((UC_UPGRADED)) && echo "the new class (upgraded)" || echo "class $OLD_CHALLENGE_CLASS (not upgraded)")"
+  # The guardian and the pause exist on the new class only: before the upgrade, no guardian and no pause.
+  UC_GUARDIAN=none UC_PAUSED=0
+  if ((UC_UPGRADED)); then
+    v raw call "$CHALLENGE" guardian
+    UC_GUARDIAN="$(uc_guardian_label "$raw")"
+    v raw call "$CHALLENGE" spawn_paused
+    UC_PAUSED="$(hex_int "$raw")"
+  fi
+  echo "   Challenge.guardian(): $UC_GUARDIAN; spawn_paused(): $( ((UC_PAUSED)) && echo true || echo false)"
+  if ((UC_GUARDIAN_DEPLOYER)); then
+    case "$UC_GUARDIAN" in
+      none) UC_LEFT=1 ;;
+      "the deployer") ;;
+      *) die "Challenge.guardian() is another address: --guardian deployer would replace it; nothing was sent" ;;
+    esac
+  fi
+  uc_old_game
+
+  # The smoke's paid spawn needs 2 USDC: held, or within the faucet's cap (20,000 USDC per address), unless it is done.
+  if [[ -z "$(rp_get smoke.game_id)" ]]; then
+    local held minted
+    v raw call "$USDC" balance_of "$DEPLOYER_ARG"; held="$(u256_of $raw)"
+    v raw call "$USDC" minted "$DEPLOYER_ARG"; minted="$(u256_of $raw)"
+    python3 -I -c 'import sys;h,m=map(int,sys.argv[1:]);sys.exit(0 if h>=2*10**6 or m+2*10**6-h<=20_000*10**6 else 1)' \
+      "$held" "$minted" ||
+      die "the smoke's paid spawn needs 2 USDC: the deployer holds $held base units and the faucet has minted $minted of its 20,000 USDC cap"
+    echo "   smoke: the deployer holds $held USDC base units, the faucet has minted it $minted"
+  fi
+  uc_complete
+  # A paused spawn would fail the smoke's: the owner unpauses first (unpause_spawn). A complete record sent its smoke
+  # already, and the pause is live state since (the guardian's), so it is not asserted then.
+  ((UC_COMPLETE || UC_PAUSED == 0)) ||
+    die "Challenge's spawn is paused: the smoke's paid spawn would fail; the owner unpauses it (unpause_spawn) first; nothing was sent"
+}
+
+# uc_complete: sets UC_COMPLETE when nothing is left to send (Challenge on the new class, the guardian set when asked,
+# the smoke's game and build recorded, every recorded transaction landed), so the funding check need not refuse a
+# rerun that sends nothing. Read-only.
+UC_COMPLETE=0
+uc_complete() {
+  local key
+  ((UC_LEFT == 0)) || return 0
+  [[ -n "$(rp_get smoke.game_id)" && -n "$(rp_get smoke.build_tx)" ]] || return 0
+  for key in declare_tx upgrade_tx guardian_tx smoke.spawn_tx smoke.build_tx; do
+    [[ -z "$(rp_get "$key")" || "$(repoint_tx_status "$(rp_get "$key")")" == SUCCEEDED ]] || return 0
+  done
+  UC_COMPLETE=1
+  echo "   complete: upgraded$( ((UC_GUARDIAN_DEPLOYER)) && echo ", guardian set"), smoke recorded; nothing is left to send"
+}
+
+# uc_run: declares the new Challenge class, upgrades Challenge, sets the guardian when asked, records each step in the
+# deployment file as it lands, writes the new class there, then smokes. Each step reads what already landed first and
+# is skipped when done, so a rerun sends only what is left; a complete one sends nothing.
+uc_run() {
+  local raw class tx
+  if ((REPOINT_CHECK_ONLY)); then
+    echo "== upgrade-challenge: check only (nothing is sent, the file is not written)"
+    if rpc starknet_getClass "[\"latest\",\"$NEW_CHALLENGE_CLASS\"]" | class_declared; then
+      echo "   declare Challenge: declared already"
+    else
+      echo "   declare Challenge $NEW_CHALLENGE_CLASS: a run would send it"
+    fi
+    if ((UC_UPGRADED)); then echo "   Challenge.upgrade: done already"
+    else echo "   Challenge.upgrade($NEW_CHALLENGE_CLASS): a run would send it"; fi
+    if ((UC_GUARDIAN_DEPLOYER)); then
+      if [[ "$UC_GUARDIAN" == "the deployer" ]]; then echo "   Challenge.set_guardian: the deployer is the guardian already"
+      else echo "   Challenge.set_guardian(\$STARKNET_ACCOUNT_ADDRESS): a run would send it"; fi
+    else
+      echo "   Challenge.set_guardian: not asked (--guardian deployer sets the deployer)"
+    fi
+    if [[ -n "$(rp_get smoke.game_id)" ]]; then echo "   smoke: game $(rp_get smoke.game_id) recorded; its spawn is not sent again"
+    else echo "   smoke: a run would send a paid spawn at stake 1 and one build on the new class"; fi
+    echo "== upgrade-challenge: check only: every check passed; nothing was sent"
+    exit 0
+  fi
+  # The previous class and the commit of the run, once, before anything is sent.
+  [[ -n "$(rp_get previous.Challenge.class_hash)" ]] ||
+    rp_set "previous.Challenge.class_hash=$(felt64 "$OLD_CHALLENGE_CLASS")" "at=$DEPLOYED_AT"
+
+  echo "== upgrade-challenge: declare"
+  # A declare a stopped run sent: its receipt first, so it is not sent twice.
+  repoint_settled declare_tx || true
+  RECORD_SENDING=declare_tx
+  declare_class Challenge >/dev/null
+  RECORD_SENDING=""
+  rpc starknet_getClass "[\"latest\",\"$NEW_CHALLENGE_CLASS\"]" | class_declared ||
+    die "the new Challenge class $NEW_CHALLENGE_CLASS is not declared on the node"
+  rp_set "Challenge.class_hash=$(felt64 "$NEW_CHALLENGE_CLASS")"
+
+  echo "== upgrade-challenge: upgrade"
+  # An upgrade a stopped run sent: its receipt first, then the class is read again.
+  repoint_settled upgrade_tx || true
+  v class class_of "$CHALLENGE"
+  if felt_eq "$class" "$NEW_CHALLENGE_CLASS"; then
+    echo "   Challenge on the new class already$( [[ -n "$(rp_get upgrade_tx)" ]] && echo ", tx $(rp_get upgrade_tx)")"
+  else
+    RECORD_SENDING=upgrade_tx
+    tx="$(invoke "$CHALLENGE" upgrade "$NEW_CHALLENGE_CLASS")" || die "Challenge.upgrade failed"
+    RECORD_SENDING=""
+    rp_set "upgrade_tx=$tx"
+    v class class_of "$CHALLENGE"
+    felt_eq "$class" "$NEW_CHALLENGE_CLASS" || die "after the upgrade, Challenge's class is $class, not $NEW_CHALLENGE_CLASS"
+    echo "   Challenge upgraded to $NEW_CHALLENGE_CLASS"
+  fi
+
+  if ((UC_GUARDIAN_DEPLOYER)); then
+    echo "== upgrade-challenge: guardian"
+    # A set_guardian a stopped run sent: its receipt first. The deployer's address is the signer's (`@account`): in no
+    # argv, and never printed.
+    repoint_settled guardian_tx || true
+    v raw call "$CHALLENGE" guardian
+    case "$(uc_guardian_label "$raw")" in
+      "the deployer")
+        echo "   Challenge.guardian() is the deployer already$( [[ -n "$(rp_get guardian_tx)" ]] && echo ", tx $(rp_get guardian_tx)")" ;;
+      none)
+        RECORD_SENDING=guardian_tx
+        tx="$(invoke "$CHALLENGE" set_guardian "$DEPLOYER_ARG")" || die "Challenge.set_guardian failed"
+        RECORD_SENDING=""
+        rp_set "guardian_tx=$tx" "guardian=deployer"
+        v raw call "$CHALLENGE" guardian
+        [[ "$(uc_guardian_label "$raw")" == "the deployer" ]] || die "after set_guardian, Challenge.guardian() is not the deployer"
+        echo "   Challenge.set_guardian(\$STARKNET_ACCOUNT_ADDRESS): the deployer is the guardian" ;;
+      *) die "Challenge.guardian() is another address: not replaced; nothing more was sent" ;;
+    esac
+  fi
+
+  # The deployment file: the new class where the client and the indexer read it, every other field kept.
+  python3 -I - "$REPOINT_FILE" "$NEW_CHALLENGE_CLASS" <<'PY'
+import json, os, sys, tempfile
+path, new = sys.argv[1:]
+d = json.load(open(path))
+d["contracts"]["Challenge"]["class_hash"] = "0x%064x" % int(new, 16)
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+with os.fdopen(fd, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+os.replace(tmp, path)
+PY
+  echo "== upgrade-challenge: wrote ${REPOINT_FILE#"$ROOT/"} (contracts.Challenge.class_hash)"
+  uc_smoke
+}
+
+# uc_smoke: the class read back, owner(), the guardian (the deployer, compared and never printed) and the pause (false)
+# unless the record is complete (live state since), F's smoke game read back; then a paid spawn at stake 1 and one
+# build on the new class. Each is sent once: the spawn and the build are recorded and a rerun cites them.
+uc_smoke() {
+  local raw class held quote swap min_out spawn_tx game_id g b build
+  echo "== upgrade-challenge: smoke"
+  v class class_of "$CHALLENGE"
+  felt_eq "$class" "$NEW_CHALLENGE_CLASS" || die "Challenge's class is $class, not $NEW_CHALLENGE_CLASS"
+  echo "   Challenge's class: $NEW_CHALLENGE_CLASS"
+  v raw call "$CHALLENGE" owner
+  [[ "$(hex_int "$raw")" == "$DEPLOYER_INT" ]] || die "Challenge.owner() is not the deployer"
+  echo "   Challenge.owner(): the deployer"
+  v raw call "$CHALLENGE" guardian
+  if ((UC_GUARDIAN_DEPLOYER && UC_COMPLETE == 0)); then
+    [[ "$(uc_guardian_label "$raw")" == "the deployer" ]] || die "Challenge.guardian() is not the deployer"
+    echo "   Challenge.guardian(): the deployer"
+  else
+    echo "   Challenge.guardian(): $(uc_guardian_label "$raw")$( ((UC_COMPLETE)) && echo "; not asserted (complete record)")"
+  fi
+  v raw call "$CHALLENGE" spawn_paused
+  if ((UC_COMPLETE)); then
+    echo "   Challenge.spawn_paused(): $( [[ "$(hex_int "$raw")" == 1 ]] && echo true || echo false); not asserted (complete record)"
+  else
+    [[ "$(hex_int "$raw")" == 0 ]] || die "Challenge.spawn_paused() is true"
+    echo "   Challenge.spawn_paused(): false"
+  fi
+  uc_old_game
+
+  # The paid spawn, once: a spawn a stopped run sent is read from its receipt.
+  if [[ -z "$(rp_get smoke.game_id)" ]] && repoint_settled smoke.spawn_tx; then
+    spawn_tx="$(rp_get smoke.spawn_tx)"
+    game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | fresh_spawned_game)" ||
+      die "the recorded smoke spawn $spawn_tx succeeded but spawned no Challenge game: check it"
+    rp_set "smoke.game_id=$game_id"
+  fi
+  if [[ -n "$(rp_get smoke.game_id)" ]]; then
+    game_id="$(rp_get smoke.game_id)"
+    echo "   paid spawn done already: game $game_id, tx $(rp_get smoke.spawn_tx); not sent again"
+  else
+    v raw call "$USDC" balance_of "$DEPLOYER_ARG"; read -r held _ <<<"$raw"
+    gt "$(hex_int "$held")" 1999999 ||
+      invoke "$USDC" mint "$DEPLOYER_ARG" "$(python3 -I -c 'import sys;print(2000000-int(sys.argv[1],16))' "$held")" 0 >/dev/null
+    invoke "$USDC" approve "$CHALLENGE" 2000000 0 >/dev/null
+    v raw call "$ECONOMY" quote 1; read -r -a quote <<<"$raw"
+    v raw call "$ECONOMY" quote_swap "${quote[2]}" "${quote[3]}"; read -r swap _ <<<"$raw"
+    min_out="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$swap")"
+    RECORD_SENDING=smoke.spawn_tx
+    spawn_tx="$(invoke "$CHALLENGE" spawn 1 0 $(u256 "$min_out"))" || die "the smoke's spawn failed"
+    RECORD_SENDING=""
+    game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | fresh_spawned_game)" ||
+      die "no GameSpawned event in the Challenge spawn receipt"
+    rp_set "smoke.spawn_tx=$spawn_tx" "smoke.game_id=$game_id"
+    echo "   paid game $game_id at stake 1 (min_out $min_out), tx $spawn_tx"
+  fi
+
+  # One build, once: a build a stopped run sent is awaited first; a game with a tile placed besides the starter (or
+  # over) has had it.
+  repoint_settled smoke.build_tx || true
+  v raw call "$CHALLENGE" game "$game_id"; read -r -a g <<<"$raw"
+  if [[ "$(hex_int "${g[5]}")" == 0 && "$(hex_int "${g[7]}")" == 1 ]]; then
+    v build fresh_first_build "$game_id"
+    read -r tx build <<<"$build"
+    rp_set "smoke.build_tx=$tx"
+    v raw call "$CHALLENGE" game "$game_id"; read -r -a g <<<"$raw"
+    [[ "$(hex_int "${g[7]}")" == 2 ]] || die "game $game_id has $(hex_int "${g[7]}") tiles placed after the build, expected 2"
+    echo "   build(game $game_id, $build), tx $tx"
+  else
+    echo "   build done already$( [[ -n "$(rp_get smoke.build_tx)" ]] && echo ", tx $(rp_get smoke.build_tx)"); not sent again"
+  fi
+  v raw call "$CHALLENGE" builder "$game_id" "$DEPLOYER_ARG"; read -r -a b <<<"$raw"
+  [[ "${#b[@]}" == 4 && "$(hex_int "${b[0]}")" == "$game_id" && "$(hex_int "${b[1]}")" == "$DEPLOYER_INT" ]] ||
+    die "Challenge.builder($game_id) is not the four fields of the game and the player"
+  echo "   game $game_id: score $(hex_int "${g[4]}"), placed_count $(hex_int "${g[7]}"); builder(): the deployer, tile $(hex_int "${b[2]}"), plan $(hex_int "${b[3]}")"
+  rp_set complete=yes
+  v raw call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG"
+  echo "   deployer STRK balance after: $(python3 -I -c 'import sys;l,h=sys.argv[1:3];print(f"{(int(l,16)+(int(h,16)<<128))/1e18:.6f}")' $raw) STRK"
+  echo "== upgrade-challenge: smoke ok; complete, a rerun sends nothing (record ${REPOINT_FILE#"$ROOT/"}, key upgrade_g1g4)"
+}
+
 # The fresh path (F): devnet, sepolia and its rehearsal share it. Through the signer (sepolia and its rehearsal) it keeps
 # a record under the deployment file's `fresh` key (FRESH_RECORD): the salt, the commit, each class hash and each
 # transaction hash as the signer sends it. fr_get, fr_set and fr_settled are rp_get, rp_set and repoint_settled on that
@@ -1989,6 +2348,8 @@ if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
     echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes repoint the deployment of $REPOINT_FILE"
   elif ((D18)); then
     echo "== unmerged, sepolia rehearsal on a local node: the working tree's D-18 classes upgrade the deployment of $REPOINT_FILE"
+  elif ((UPGRADE_CHALLENGE)); then
+    echo "== unmerged, sepolia rehearsal on a local node: the working tree's Challenge class upgrades the deployment of $REPOINT_FILE"
   else
     echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
   fi
@@ -2015,6 +2376,7 @@ RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 # --repoint: what is deployed and what already landed, read before anything is estimated or sent.
 ((REPOINT)) && repoint_state
 ((D18)) && d18_state
+((UPGRADE_CHALLENGE)) && uc_state
 if ((FRESH_RECORD)); then fresh_classes_check; fi
 
 # Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
@@ -2044,10 +2406,11 @@ FUNDING_MARGIN_STRK=20
 ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
-# Account, Daily, Tutorial and Lobby.
+# Account, Daily, Tutorial and Lobby, --upgrade-challenge the new Challenge.
 FUNDING_CLASSES=(Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
+((UPGRADE_CHALLENGE)) && FUNDING_CLASSES=(Challenge)
 if ((USE_SIGNER)); then
   v STRK_RAW call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG"
   read -r BAL_LOW BAL_HIGH <<<"$STRK_RAW"
@@ -2153,6 +2516,8 @@ PY
     echo "   --repoint: nothing is left to send, so the need does not apply"
   elif [[ "$funded" != 0 && "$D18" == 1 && "$D18_COMPLETE" == 1 ]]; then
     echo "   --d18: nothing is left to send, so the need does not apply"
+  elif [[ "$funded" != 0 && "$UPGRADE_CHALLENGE" == 1 && "$UC_COMPLETE" == 1 ]]; then
+    echo "   --upgrade-challenge: nothing is left to send, so the need does not apply"
   elif [[ "$funded" != 0 && "$FRESH_COMPLETE" == 1 ]]; then
     echo "   fresh: the record is complete, nothing is left to send, so the need does not apply"
   else
@@ -2165,6 +2530,10 @@ if ((REPOINT)); then
 fi
 if ((D18)); then
   d18_run
+  exit 0
+fi
+if ((UPGRADE_CHALLENGE)); then
+  uc_run
   exit 0
 fi
 
