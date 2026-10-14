@@ -100,6 +100,8 @@ export class GameScene {
   private directionalLight: THREE.DirectionalLight | null = null;
   private directionalTargetObject: THREE.Object3D | null = null;
   private settings: RendererSettings = resolveRendererSettings();
+  /** The tile size the outlines' stroke was last set for (NaN: set it on the next frame). */
+  private outlineTilePx = Number.NaN;
 
   private pointerDownPos: { x: number; y: number } | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
@@ -409,6 +411,7 @@ export class GameScene {
    */
   setSettings(input: RendererSettingsInput): void {
     this.settings = resolveRendererSettings(input);
+    this.outlineTilePx = Number.NaN;
     this.applyCameraLimits();
     this.effects.setMultisampling(this.settings.multisampling);
     this.requestRender();
@@ -423,10 +426,18 @@ export class GameScene {
    * and the outlines' stroke at that size.
    */
   getZoom(): { distance: number; tilePx: number; outline: OutlineStroke } {
-    const distance = this.camera && this.controls ? this.camera.position.distanceTo(this.controls.controls.target) : 0;
-    const height = this.surface?.getSize().height ?? 0;
-    const tilePx = this.camera ? tilePixels(this.camera, distance, height) : 0;
+    const distance = this.cameraDistance();
+    const tilePx = this.tilePx(distance);
     return { distance, tilePx, outline: outlineStroke(tilePx, this.settings.outlines) };
+  }
+
+  private cameraDistance(): number {
+    return this.camera && this.controls ? this.camera.position.distanceTo(this.controls.controls.target) : 0;
+  }
+
+  private tilePx(distance: number): number {
+    const height = this.surface?.getSize().height ?? 0;
+    return this.camera ? tilePixels(this.camera, distance, height) : 0;
   }
 
   private applyCameraLimits(): void {
@@ -476,7 +487,12 @@ export class GameScene {
   }
 
   private renderFrame(): void {
-    this.tiles.setOutlineStroke(this.getZoom().outline);
+    // The stroke changes only with the tile's on-screen size (or the settings): a still camera does no outline work.
+    const tilePx = this.tilePx(this.cameraDistance());
+    if (tilePx !== this.outlineTilePx) {
+      this.outlineTilePx = tilePx;
+      this.tiles.setOutlineStroke(outlineStroke(tilePx, this.settings.outlines));
+    }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowsDirty = false;

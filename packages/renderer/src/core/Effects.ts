@@ -129,7 +129,9 @@ export class Effects {
     });
     target.texture.name = "EffectComposer.rt1";
     this.composer = new EffectComposer(renderer, target);
-    // A given target makes the composer take its size as CSS pixels: give it the CSS size, with the pixel ratio.
+    // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
+    // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
+    this.composer.setPixelRatio(renderer.getPixelRatio());
     const css = renderer.getSize(new THREE.Vector2());
     this.composer.setSize(css.x, css.y);
 

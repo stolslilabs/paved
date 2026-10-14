@@ -62,4 +62,22 @@ describe("GameScene settings", () => {
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledWith(scene.getZoom().outline);
   });
+
+  it("sets the stroke again only when the zoom or the settings change", () => {
+    const { scene, camera } = sceneWithCamera();
+    const setOutlineStroke = vi.fn();
+    (scene as any).tiles = { setOutlineStroke };
+    (scene as any).renderer = { shadowMap: {} };
+    (scene as any).effects = { render: vi.fn(), setMultisampling: vi.fn() };
+    scene.render();
+    scene.render();
+    expect(setOutlineStroke).toHaveBeenCalledTimes(1);
+    camera.position.set(0, 60, 0);
+    scene.render();
+    expect(setOutlineStroke).toHaveBeenCalledTimes(2);
+    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline);
+    scene.setSettings({ outlines: { maxWidthPx: 3 } });
+    scene.render();
+    expect(setOutlineStroke).toHaveBeenCalledTimes(3);
+  });
 });

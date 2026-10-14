@@ -7,7 +7,11 @@ import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 export interface RendererSettings {
   /** The tiles' outlines and how they follow the zoom (`outlines.ts`). */
   outlines: OutlineSettings;
-  /** How close and how far the camera may go. */
+  /**
+   * How close and how far the camera may go. Applied to the web controller (`CameraController`) only:
+   * `NativeCameraController` has no setter for its limits, so on React Native these limits and the zoom-out cap do
+   * nothing.
+   */
   camera: CameraZoomSettings;
   /**
    * Multisampled anti-aliasing of the scene (4 samples). Off by default: the outlines are stable without it (their
