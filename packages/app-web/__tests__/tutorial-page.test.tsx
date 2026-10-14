@@ -82,7 +82,9 @@ describe("Tutorial page", () => {
     // U2: the claim is a link to its chain route; this page itself still touches no chain.
     expect(screen.getByRole("link", { name: "Claim your achievement" }).getAttribute("href")).toBe("/tutorial/claim");
     expect(chainTouched.count).toBe(0);
-  }, 20_000); // A whole replay on the engine, CPU-bound: 1 to 2 s on CI, 6 s on a loaded runner (vitest's default is 5 s).
+    // A whole tutorial through jsdom: every click re-renders the page and replays the saved moves through the engine,
+    // so it is CPU-bound (2.6 to 5.0 s locally, 6.1 to 7.3 s on CI), over vitest's 5 s default.
+  }, 30_000);
 
   it("highlights the preset's square and shows the closures of a move", () => {
     mount();

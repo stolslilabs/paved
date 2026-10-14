@@ -19,7 +19,7 @@ export function fakeGame(playerId = PLAYER, over = false): FakeGame {
   return {
     game: {
       id: 4, playerId, mode: 1, seed: "0x1", score: 12, over, tileCount: 2, placedCount: 1,
-      discardedCount: 0, tileId: over ? 0 : 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0,
+      discardedCount: 0, tileId: over ? 0 : 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0, expiresAt: 2 ** 40,
     },
     tiles: [
       { id: 1, status: 1, plan: 4, orientation: 1, x: C, y: C },

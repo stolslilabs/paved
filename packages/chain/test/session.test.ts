@@ -1,17 +1,18 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { FakeGameViews, type FakeGame, type GameKey } from "../src/views";
 import { GameSession } from "../src/session";
 import type { DecodedEvent } from "../src/codec";
+import { GameExpiredError, GAME_EXPIRED_TEXT } from "../src/writer";
 
 const C = 0x7fffffff;
 const PLAYER = "0xabc";
 const key: GameKey = { mode: "challenge", gameId: 4 };
 
-function fakeGame(): FakeGame {
+function fakeGame(expiresAt = 2 ** 40): FakeGame {
   return {
     game: {
       id: 4, playerId: PLAYER, mode: 1, seed: "0x1", score: 0, over: false, tileCount: 2, placedCount: 1,
-      discardedCount: 0, tileId: 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0,
+      discardedCount: 0, tileId: 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0, expiresAt,
     },
     tiles: [
       { id: 1, status: 1, plan: 4, orientation: 1, x: C, y: C },
@@ -197,5 +198,55 @@ describe("GameSession", () => {
     const session = new GameSession(views, key, null);
     await session.load();
     expect(await session.discard(async () => { throw new Error("must not be sent"); })).toBe(false);
+  });
+
+  describe("the 24 h expiry (S1)", () => {
+    const EXPIRES = 86401;
+    const ok = async () => ({ transactionHash: "0x2", events: [] });
+
+    async function loaded(now: number) {
+      const views = new FakeGameViews();
+      views.setGame(key, fakeGame(EXPIRES));
+      const session = new GameSession(views, key, PLAYER, () => now);
+      await session.load();
+      return { views, session };
+    }
+
+    test("before the boundary second a move is sent", async () => {
+      const { session } = await loaded(EXPIRES - 1);
+      const send = vi.fn(ok);
+      expect(await session.discard(send)).toBe(true);
+      expect(send).toHaveBeenCalledTimes(1);
+    });
+
+    test("from the boundary second, build and discard send nothing and say why", async () => {
+      for (const now of [EXPIRES, EXPIRES + 5000]) {
+        const { session } = await loaded(now);
+        const send = vi.fn(ok);
+        expect(await session.place({ orientation: 0, x: C + 1, y: C }, send)).toBe(false);
+        expect(session.state.writeError).toBe(GAME_EXPIRED_TEXT);
+        expect(await session.discard(send)).toBe(false);
+        expect(send).not.toHaveBeenCalled();
+        expect(session.state).toMatchObject({ pending: false, hand: { tileId: 2, plan: 7 } });
+        expect(session.state.tiles.map((t) => t.id)).toEqual([1]);
+      }
+    });
+
+    test("surrender is never blocked by the pre-check", async () => {
+      const { session } = await loaded(EXPIRES + 1);
+      const send = vi.fn(ok);
+      expect(await session.surrender(send)).toBe(true);
+      expect(send).toHaveBeenCalledTimes(1);
+    });
+
+    test("a revert after a race: the move is undone, the error shown", async () => {
+      const { session } = await loaded(EXPIRES - 1);
+      const raced = vi.fn(async () => {
+        throw new GameExpiredError("0x9");
+      });
+      expect(await session.place({ orientation: 0, x: C + 1, y: C }, raced)).toBe(false);
+      expect(session.state).toMatchObject({ pending: false, writeError: GAME_EXPIRED_TEXT, hand: { tileId: 2, plan: 7 } });
+      expect(session.state.tiles.map((t) => t.id)).toEqual([1]);
+    });
   });
 });

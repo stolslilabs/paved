@@ -324,6 +324,10 @@
       {
         "name": "day_id",
         "type": "core::integer::u64"
+      },
+      {
+        "name": "expires_at",
+        "type": "core::integer::u64"
       }
     ]
   },
@@ -439,6 +443,22 @@
         "outputs": [
           {
             "type": "paved::views::BuilderView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "initial_seed",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::felt252"
           }
         ],
         "state_mutability": "view"
