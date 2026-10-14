@@ -6,14 +6,15 @@ licensed under Apache 2.0; the third-party software below keeps its own terms.
 Fonts, self-hosted from npm (docs/client/v2-architecture.md, section 2.3).
 All three are licensed under the SIL Open Font License 1.1, whose text follows
 each notice, unchanged. The copyright line is the first line of the LICENSE file
-of the npm package.
+of the npm package. Almendra carries a Reserved Font Name ('Almendra'): the
+files are used unmodified, as the OFL allows.
 
 ================================================================================
-Cinzel (@fontsource/cinzel 5.3.0)
-https://github.com/NDISCOVER/Cinzel
+Almendra (@fontsource/almendra 5.3.0)
+https://fontsource.org/fonts/almendra
 ================================================================================
 
-Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)
+Copyright (c) 2011-2012, Ana Sanfelippo (anasanfe@gmail.com), with Reserved Font Name 'Almendra' Almendra-Italic.ttf: Copyright (c) 2011-2012, Ana Sanfelippo (anasanfe@gmail.com), with Reserved Font Name 'Almendra' Almendra-Bold.ttf: Copyright (c) 2011-2012, Ana Sanfelippo (anasanfe@gmail.com), with Reserved Font Name 'Almendra' Almendra-BoldItalic.ttf: Copyright (c) 2011-2012, Ana Sanfelippo (anasanfe@gmail.com), with Reserved Font Name 'Almendra'
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
@@ -109,11 +110,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
 ================================================================================
-Nunito Sans (@fontsource-variable/nunito-sans 5.3.0)
-https://github.com/Fonthausen/NunitoSans
+Rubik (@fontsource-variable/rubik 5.3.0)
+https://fontsource.org/fonts/rubik
 ================================================================================
 
-Copyright 2016 The Nunito Sans Project Authors (https://github.com/Fonthausen/NunitoSans) NunitoSans-Italic[YTLC,opsz,wdth,wght].ttf: Copyright 2016 The Nunito Sans Project Authors (https://github.com/Fonthausen/NunitoSans)
+Copyright 2015 The Rubik Project Authors (https://github.com/googlefonts/rubik) Rubik-Italic[wght].ttf: Copyright 2015 The Rubik Project Authors (https://github.com/googlefonts/rubik)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
@@ -209,11 +210,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
 ================================================================================
-IBM Plex Mono (@fontsource/ibm-plex-mono 5.3.0)
-https://github.com/IBM/plex
+Space Mono (@fontsource/space-mono 5.3.0)
+https://fontsource.org/fonts/space-mono
 ================================================================================
 
-Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-ThinItalic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-ExtraLight.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-ExtraLightItalic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-Light.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-LightItalic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-Regular.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-Italic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-Medium.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-MediumItalic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-SemiBold.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-SemiBoldItalic.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-Bold.ttf: Copyright 2017 IBM Corp. All rights reserved. IBMPlexMono-BoldItalic.ttf: Copyright 2017 IBM Corp. All rights reserved.
+Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-Italic.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-Bold.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) SpaceMono-BoldItalic.ttf: Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
