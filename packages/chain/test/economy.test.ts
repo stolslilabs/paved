@@ -180,6 +180,28 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
     expect(resolveEconomyDeployment({ base, file, env: { vault: "0x99" } }).addresses.Vault).toBe("0x99");
     expect(resolveEconomyDeployment({ base: resolveDeployment({ network: "devnet" }), env: ECON }).configured).toBe(false);
   });
+
+  test("the entry token is explicit: on devnet and Sepolia USDC is contracts.Faucet, a stray contracts.USDC is never read", () => {
+    const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
+    for (const network of ["devnet", "sepolia"]) {
+      const b = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      expect(resolveEconomyDeployment({ base: b, file: { contracts } }).addresses.USDC, network).toBe("0x23");
+      // Without a Faucet there is no fallback to contracts.USDC: the economy is not configured.
+      const { Faucet: _, ...noFaucet } = contracts;
+      const none = resolveEconomyDeployment({ base: b, file: { contracts: noFaucet } });
+      expect(none.addresses.USDC, network).toBe("");
+      expect(none.configured, network).toBe(false);
+      expect(none.missing, network).toContain("USDC address");
+    }
+  });
+
+  test("on mainnet contracts.USDC is used and no faucet resolves, even from a file that holds a Faucet", () => {
+    const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
+    const b = resolveDeployment({ network: "mainnet", file: { chain_id: "0x534e5f4d41494e", contracts }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+    expect(b.faucet).toBe("");
+    expect(resolveEconomyDeployment({ base: b, file: { contracts } }).addresses.USDC).toBe("0x77");
+    expect(resolveEconomyDeployment({ base: b, file: { contracts: { ...contracts, USDC: undefined } } }).addresses.USDC).toBe("");
+  });
 });
 
 describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out), in one multicall", () => {

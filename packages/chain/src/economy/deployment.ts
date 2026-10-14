@@ -57,8 +57,8 @@ function isAddress(value: string | undefined): value is string {
 }
 
 /**
- * The economy's addresses from the deployments file and the env, the env first. USDC is `contracts.USDC`, else the
- * devnet's `contracts.Faucet`. Nothing is assumed: a missing address leaves the economy not configured.
+ * The economy's addresses from the deployments file and the env, the env first. USDC is `contracts.Faucet` on the faucet
+ * networks (devnet, Sepolia) and `contracts.USDC` elsewhere (mainnet): never one as a fallback of the other. Nothing is assumed: a missing address leaves the economy not configured.
  */
 export function resolveEconomyDeployment(input: { base: Deployment; file?: EconomyDeploymentFile | null; env?: EconomyEnv }): EconomyDeployment {
   const contracts = input.file?.contracts ?? {};
@@ -68,7 +68,10 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
     Economy: pick(env.economy, contracts.Economy?.address),
     PavedToken: pick(env.pavedToken, contracts.PavedToken?.address),
     Vault: pick(env.vault, contracts.Vault?.address),
-    USDC: pick(env.usdc, contracts.USDC?.address, contracts.Faucet?.address),
+    // The entry token is explicit, not a fallback: on the faucet networks (devnet, Sepolia) Challenge charges the Faucet, so the
+    // economy's USDC is `contracts.Faucet` and a stray `contracts.USDC` is never read; `contracts.USDC` is read only elsewhere
+    // (mainnet), where the real USDC is given. An operator's `VITE_USDC_ADDRESS` (env) still comes first.
+    USDC: pick(env.usdc, FAUCET_NETWORKS.includes(input.base.network) ? contracts.Faucet?.address : contracts.USDC?.address),
   };
   const missing = [
     ...(input.base.configured ? [] : input.base.missing),

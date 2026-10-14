@@ -141,7 +141,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const dayEnd = day.data === null || day.data === undefined ? null : (day.data + 1) * 86400;
 
-  // The Challenge entry is paid in USDC since E3 (`contracts.USDC`, the devnet's Faucet), not in the old Token.
+  // The Challenge entry is paid in USDC since E3 (`contracts.Faucet` on devnet and Sepolia), not in the old Token.
   const fee = entryFee(price, economy.deployment.addresses.USDC, deployment.tokenDecimals);
   const feeLabel =
     fee.kind === "amount"
