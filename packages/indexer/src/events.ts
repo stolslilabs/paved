@@ -204,6 +204,8 @@ export const IGNORED = [
   "GameSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
+  // The owner's one-time wiring of Collection's minters (`Collection.set_minters`, G7a): data `[challenge, tutorial]`, no keys. No screen shows the minters.
+  "MintersSet",
   // The prize of a day (D-20 removed it): `Challenge.sponsor`, `Challenge.claim` of a rank, and a sponsor's reclaim (P-37, declared
   // by the Lobby class, emitted from Challenge's address). Past events only: the ABIs no longer declare them, and a replay of
   // a history that holds them skips them (public-interface.md, "Past events").
