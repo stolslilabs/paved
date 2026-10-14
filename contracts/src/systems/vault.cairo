@@ -22,9 +22,10 @@
 
 // Constants
 
-/// The exit fee's default (1 %) and ceiling (5 %), in basis points.
-pub const DEFAULT_EXIT_FEE_BPS: u16 = 100;
-pub const MAX_EXIT_FEE_BPS: u16 = 500;
+/// The exit fee's default (5 %) and the owner's ceiling (10 %), in basis points (owner, 2026-10-14,
+/// P-56).
+pub const DEFAULT_EXIT_FEE_BPS: u16 = 500;
+pub const MAX_EXIT_FEE_BPS: u16 = 1_000;
 pub const BPS: u256 = 10_000;
 /// The dead shares of the deployment: 1,000 PAVED deposited for the Vault itself.
 pub const DEAD_ASSETS: u256 = 1_000_000_000_000_000_000_000;

@@ -4,7 +4,8 @@
 //! `record`.
 //!
 //! The end-to-end fixture compares `R` and the payout of nine games over two days with
-//! `scripts/montecarlo/sim.py`'s formulas: `python3 -I -B scripts/montecarlo/fixture.py` imports
+//! `scripts/montecarlo/sim.py`'s formulas: `python3 -I -B scripts/montecarlo/fixture.py
+//! --margin-paved` (the purchase's one swap since P-56, its PAVED split by input) imports
 //! its `payout_factor` and `Ema`, runs the purchase and day lines of `simulate` on the same inputs,
 //! adds the price guard, and prints `expected()` (players keep their rewards, and the pool keeps
 //! its fee in its reserves as `MockRouter` does; see the "As built" notes of
@@ -12,8 +13,13 @@
 
 use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc4626::{
+    ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait, IERC4626Dispatcher, IERC4626DispatcherTrait,
+};
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
-use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, split, supply_factor};
+use paved::economy::curve::{
+    RATE_SCALE, guarded, next_rate, reference, split, supply_factor, vault_split,
+};
 use paved::economy::ekubo::{
     Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
     PoolKey, RouteNode, TokenAmount, i129,
@@ -29,6 +35,7 @@ use paved::systems::economy::{
 };
 use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
+use paved::systems::vault::DEAD_ASSETS;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
@@ -92,9 +99,16 @@ fn setup_with(rate: u256) -> Setup {
     let paved_address = deploy_token(RECIPIENT());
     let usdc_address = deploy("Faucet", array![]);
     let router = deploy("MockRouter", array![paved_address.into(), usdc_address.into()]);
-    let vault = deploy("Vault", array![OWNER().into(), paved_address.into(), usdc_address.into()]);
+    let vault = deploy("Vault", array![OWNER().into(), paved_address.into(), 0]);
     let paved = IERC20Dispatcher { contract_address: paved_address };
     let usdc = IERC20Dispatcher { contract_address: usdc_address };
+    // [Setup] The Vault's dead shares
+    start_cheat_caller_address(paved_address, RECIPIENT());
+    paved.approve(vault, DEAD_ASSETS);
+    stop_cheat_caller_address(paved_address);
+    start_cheat_caller_address(vault, RECIPIENT());
+    IERC4626Dispatcher { contract_address: vault }.deposit(DEAD_ASSETS, vault);
+    stop_cheat_caller_address(vault);
     // [Setup] The pool
     IFaucetDispatcher { contract_address: usdc_address }.mint(RECIPIENT(), 10_000 * USDC);
     start_cheat_caller_address(paved_address, RECIPIENT());
@@ -210,7 +224,12 @@ fn usdc_reserve(s: Setup) -> u256 {
     }
 }
 
-// Purchase: the split, the burn, nothing left behind
+/// The PAVED the purchases sent to the Vault: its balance beyond the dead shares' 1,000.
+fn vault_paved(s: Setup) -> u256 {
+    s.paved.balance_of(s.vault) - DEAD_ASSETS
+}
+
+// Purchase: the split, one swap, the burn and the Vault's PAVED, nothing left behind
 
 #[test]
 fn test_purchase_splits_the_price_exactly_with_a_referrer() {
@@ -220,24 +239,27 @@ fn test_purchase_splits_the_price_exactly_with_a_referrer() {
     let price = 3 * BASE_PRICE;
     let (referral, quote, margin) = split(price, 7_000, true);
     assert_eq!((referral, quote, margin), (300_000, 4_200_000, 1_500_000));
+    let out = router_quote(s, 5_700_000);
     buy(s, 1, PLAYER(), 3, REFERRER());
-    // The referrer and the Vault are paid at once, the quote went into the pool
+    // The referrer is paid at once; the quote and the margin went into the pool in one swap
     assert_eq!(s.usdc.balance_of(REFERRER()), referral);
-    assert_eq!(s.usdc.balance_of(s.vault), margin);
-    assert_eq!(usdc_reserve(s) - reserve, quote);
+    assert_eq!(usdc_reserve(s) - reserve, quote + margin);
     assert_eq!(referral + quote + margin, price);
-    // What it bought is burned
-    let bought = supply - s.paved.total_supply();
-    assert!(bought > 0);
+    // The PAVED it bought: the margin's part to the Vault, rounded down, the rest burned
+    assert_eq!(s.usdc.balance_of(s.vault), 0);
+    assert_eq!(vault_paved(s), out * margin / (quote + margin));
+    assert_eq!(supply - s.paved.total_supply(), out - vault_paved(s));
     assert_nothing_left(s);
 }
 
 #[test]
-fn test_purchase_without_a_referrer_sends_30_percent_to_the_vault() {
+fn test_purchase_without_a_referrer_swaps_the_whole_price() {
     let s = setup();
+    let out = router_quote(s, 20_000_000);
     buy(s, 1, PLAYER(), 10, Zero::zero());
-    assert_eq!(s.usdc.balance_of(s.vault), 6 * USDC);
-    assert_eq!(usdc_reserve(s), 10_014 * USDC);
+    assert_eq!(usdc_reserve(s), 10_020 * USDC);
+    assert_eq!(s.usdc.balance_of(s.vault), 0);
+    assert_eq!(vault_paved(s), out * 3 / 10);
     assert_nothing_left(s);
 }
 
@@ -246,47 +268,73 @@ fn test_purchase_referring_oneself_pays_no_referral() {
     let s = setup();
     buy(s, 1, PLAYER(), 1, PLAYER());
     assert_eq!(s.usdc.balance_of(PLAYER()), 0);
-    assert_eq!(s.usdc.balance_of(s.vault), 600_000);
+    assert_eq!(usdc_reserve(s), 10_002 * USDC);
     assert_nothing_left(s);
 }
 
+/// Each purchase's margin reaches the Vault as PAVED with no share minted: the Vault's assets grow
+/// by exactly that PAVED, its supply does not move, and its rate rises.
 #[test]
-fn test_each_purchase_pays_the_vault_at_once() {
+fn test_each_purchase_raises_the_vaults_rate() {
     let s = setup();
+    let vault = ERC4626ABIDispatcher { contract_address: s.vault };
+    let shares = vault.total_supply();
+    let mut assets = vault.total_assets();
+    let mut rate = vault.convert_to_assets(ONE_PAVED);
+    assert_eq!(rate, ONE_PAVED);
     buy(s, 1, PLAYER(), 1, Zero::zero());
-    assert_eq!(s.usdc.balance_of(s.vault), 600_000);
+    let first = vault_paved(s);
     buy(s, 2, PLAYER(), 2, REFERRER());
-    assert_eq!(s.usdc.balance_of(s.vault), 600_000 + 1_000_000);
+    let total = vault_paved(s);
+    assert!(first > 0 && total > first);
+    assert_eq!(vault.total_assets(), assets + total);
+    assert_eq!(vault.total_supply(), shares);
+    // The rate: the assets over the shares, the virtual one of each included
+    assert_eq!(vault.convert_to_assets(ONE_PAVED), ONE_PAVED * (assets + total + 1) / (shares + 1));
+    assert!(vault.convert_to_assets(ONE_PAVED) > rate);
+    assets = vault.total_assets();
+    rate = vault.convert_to_assets(ONE_PAVED);
+    buy(s, 3, PLAYER(), 10, Zero::zero());
+    assert!(vault.total_assets() > assets);
+    assert!(vault.convert_to_assets(ONE_PAVED) > rate);
     assert_nothing_left(s);
 }
 
 #[test]
-fn test_donations_to_economy_go_to_the_vault_and_the_burn() {
+fn test_donations_to_economy_join_the_margin_and_the_burn() {
     let s = setup();
-    // USDC and PAVED sent to Economy by anyone leave with the next purchase
+    // USDC and PAVED sent to Economy by anyone leave with the next purchase: the USDC joins the
+    // margin's swap, the PAVED is burned
     IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, 5 * USDC);
     start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
     s.paved.transfer(s.economy.contract_address, 7 * ONE_PAVED);
     stop_cheat_caller_address(s.paved.contract_address);
+    let out = router_quote(s, 7_000_000);
     let supply = s.paved.total_supply();
     buy(s, 1, PLAYER(), 1, Zero::zero());
-    assert_eq!(s.usdc.balance_of(s.vault), 5 * USDC + 600_000);
-    assert!(supply - s.paved.total_supply() > 7 * ONE_PAVED);
+    assert_eq!(usdc_reserve(s), 10_007 * USDC);
+    // The margin is 0.6 USDC of the price and the 5 USDC donated
+    assert_eq!(vault_paved(s), out * 5_600_000 / 7_000_000);
+    assert_eq!(supply - s.paved.total_supply(), out - vault_paved(s) + 7 * ONE_PAVED);
     assert_nothing_left(s);
 }
 
 #[test]
-fn test_purchase_freezes_r_from_the_supply_after_the_burn() {
+fn test_purchase_freezes_r_from_the_burns_paved_and_the_supply_after_the_burn() {
     let s = setup();
     let supply = s.paved.total_supply();
+    let out = router_quote(s, 7_600_000);
     let mut spy = spy_events();
     let r = buy(s, 1, PLAYER(), 4, REFERRER());
     let after = s.paved.total_supply();
-    let bought = supply - after;
-    let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
     let quote = 5_600_000;
-    assert_eq!(r, reference(guarded(bought, quote, POOL_RATE), 4, factor));
+    let (burn_part, to_vault) = vault_split(out, quote, 2_000_000);
+    assert_eq!(supply - after, burn_part);
+    assert_eq!(vault_paved(s), to_vault);
+    let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
+    assert_eq!(r, reference(guarded(burn_part, quote, POOL_RATE), 4, factor));
+    assert_eq!(s.economy.rate(), next_rate(POOL_RATE, burn_part, quote));
     // The terms
     let terms = s.economy.terms(1);
     assert_eq!(terms.player, PLAYER());
@@ -303,13 +351,27 @@ fn test_purchase_freezes_r_from_the_supply_after_the_burn() {
         referrer: REFERRER(),
         referral: 400_000,
         burned_quote: quote,
-        burned: bought,
+        burned: burn_part,
         margin: 2_000_000,
         supply: after,
         factor,
         reference: r,
+        vault_paved: to_vault,
     };
     spy.assert_emitted(@array![(s.economy.contract_address, Event::Purchased(event))]);
+}
+
+/// The split by input: the two parts add up to what the swap bought, the Vault's rounded down.
+#[test]
+fn test_vault_split_adds_up() {
+    assert_eq!(vault_split(1_000, 7, 3), (700, 300));
+    assert_eq!(vault_split(1_001, 7, 3), (701, 300));
+    assert_eq!(vault_split(999, 7, 3), (700, 299));
+    assert_eq!(vault_split(1_000, 7, 0), (1_000, 0));
+    assert_eq!(vault_split(1_000, 0, 0), (1_000, 0));
+    let (burn, vault) = vault_split(123_456_789_000_000_000_000, 5_600_000, 2_000_000);
+    assert_eq!(burn + vault, 123_456_789_000_000_000_000);
+    assert_eq!(vault, 123_456_789_000_000_000_000 * 2_000_000 / 7_600_000);
 }
 
 #[test]
@@ -415,14 +477,47 @@ fn test_purchase_below_min_out_reverts() {
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), 200 * ONE_PAVED);
 }
 
+/// `min_out` bounds the whole swap, the burn quote and the margin (P-56): the swap's own output
+/// passes, one base unit more reverts.
 #[test]
 fn test_purchase_at_min_out_passes() {
     let s = setup();
-    let out = router_quote(s, 1_400_000);
+    let out = router_quote(s, 2_000_000);
     IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), out.into());
+}
+
+#[test]
+#[should_panic(expected: 'Economy: swap below min_out')]
+fn test_purchase_above_the_whole_swap_reverts() {
+    let s = setup();
+    let out = router_quote(s, 2_000_000);
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
+        .mint(s.economy.contract_address, BASE_PRICE);
+    start_cheat_caller_address(s.economy.contract_address, DAILY());
+    s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), out + 1);
+}
+
+/// The router's next `swap` answers these legs (a router that fills part of the input).
+fn mock_swap(s: Setup, usdc_leg: i129, paved_leg: i129) {
+    let delta = if s.paved.contract_address < s.usdc.contract_address {
+        Delta { amount0: paved_leg, amount1: usdc_leg }
+    } else {
+        Delta { amount0: usdc_leg, amount1: paved_leg }
+    };
+    mock_call(s.router, selector!("swap"), delta, 1);
+}
+
+/// A swap that takes less than the whole price reverts the purchase: the Vault has no use for the
+/// unswapped USDC (P-56).
+#[test]
+#[should_panic(expected: 'Economy: partial fill')]
+fn test_purchase_refuses_a_partial_fill() {
+    let s = setup();
+    mock_swap(s, i129 { mag: 1_999_999, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: true });
+    buy(s, 1, PLAYER(), 1, Zero::zero());
 }
 
 #[test]
@@ -769,8 +864,11 @@ fn test_configure_applies_to_the_next_purchases_only() {
     };
     spy.assert_emitted(@array![(s.economy.contract_address, Event::EconomyConfigured(event))]);
     assert_eq!(s.economy.config(), config);
+    // At 90 % burned, the second purchase's margin is 10 % of its swap
+    let before = vault_paved(s);
+    let out = router_quote(s, 2_000_000);
     buy(s, 2, PLAYER(), 1, Zero::zero());
-    assert_eq!(s.usdc.balance_of(s.vault), 600_000 + 200_000);
+    assert_eq!(vault_paved(s) - before, out / 10);
     // Game 1 keeps its curve, game 2 has the new one
     let first = s.economy.terms(1);
     assert_eq!((first.sigma_bps, first.slope_bps, first.cap, first.reference), (0, 12_220, 5, r));
@@ -922,17 +1020,18 @@ fn test_set_router_moves_quotes_and_purchases_to_the_new_router() {
     let quoted = s.economy.quote_swap(14_000_000);
     assert!(quoted < before);
     assert_eq!(quoted, router_quote_at(s, other, 14_000_000));
-    // The purchase swaps through the new router only
+    // The purchase swaps the burn quote and the margin through the new router only
+    let quoted = s.economy.quote_swap(20_000_000);
     let old_reserves = IMockRouterDispatcher { contract_address: s.router }.reserves();
     let (new0, new1) = IMockRouterDispatcher { contract_address: other }.reserves();
     let supply = s.paved.total_supply();
     buy(s, 1, PLAYER(), 10, Zero::zero());
-    assert_eq!(supply - s.paved.total_supply(), quoted);
+    assert_eq!(supply - s.paved.total_supply() + vault_paved(s), quoted);
     assert_eq!(IMockRouterDispatcher { contract_address: s.router }.reserves(), old_reserves);
     let (paved_in, usdc_in) = if s.paved.contract_address < s.usdc.contract_address {
-        (new0 - quoted, new1 + 14 * USDC)
+        (new0 - quoted, new1 + 20 * USDC)
     } else {
-        (new1 - quoted, new0 + 14 * USDC)
+        (new1 - quoted, new0 + 20 * USDC)
     };
     let (after0, after1) = IMockRouterDispatcher { contract_address: other }.reserves();
     let (paved_after, usdc_after) = if s.paved.contract_address < s.usdc.contract_address {
@@ -953,7 +1052,7 @@ fn test_quote_shows_the_split_and_the_curve() {
     let quote = s.economy.quote(5);
     assert_eq!(quote.price, 10 * USDC);
     assert_eq!((quote.burn_quote, quote.referral, quote.margin), (7 * USDC, 500_000, 3 * USDC));
-    assert_eq!(quote.min_out_hint, 7 * USDC * POOL_RATE * 99 / (100 * RATE_SCALE));
+    assert_eq!(quote.min_out_hint, 9_500_000 * POOL_RATE * 99 / (100 * RATE_SCALE));
     // The pool's 800,000 PAVED count in the supply: 1,000,000, the target
     assert_eq!(quote.factor, 10_000);
     assert_eq!((quote.mean, quote.threshold, quote.slope, quote.cap), (MEAN0, MEAN0, 12_220, 5));
@@ -973,16 +1072,19 @@ fn test_paved_on_the_router_before_a_purchase_does_not_count_in_r() {
     let s = setup();
     send_paved(s, s.router, 50 * ONE_PAVED);
     let quote: u256 = 14 * USDC;
-    let swap_out = router_quote(s, 14_000_000);
+    let swap_out = router_quote(s, 20_000_000);
+    let (burn_part, to_vault) = vault_split(swap_out, quote, 6 * USDC);
     let supply = s.paved.total_supply();
     let mut spy = spy_events();
     let r = buy(s, 1, PLAYER(), 10, Zero::zero());
     let after = s.paved.total_supply();
-    // The 50 PAVED are burned with the purchase, but R and the rate follow the swap alone
-    assert_eq!(supply - after, swap_out + 50 * ONE_PAVED);
+    // The 50 PAVED are burned with the purchase, but R, the rate and the Vault's part follow the
+    // swap alone
+    assert_eq!(supply - after, burn_part + 50 * ONE_PAVED);
+    assert_eq!(vault_paved(s), to_vault);
     let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
-    assert_eq!(r, reference(guarded(swap_out, quote, POOL_RATE), 10, factor));
-    assert_eq!(s.economy.rate(), next_rate(POOL_RATE, swap_out, quote));
+    assert_eq!(r, reference(guarded(burn_part, quote, POOL_RATE), 10, factor));
+    assert_eq!(s.economy.rate(), next_rate(POOL_RATE, burn_part, quote));
     // The event reports what was burned, the 50 PAVED included
     let event = Purchased {
         game_id: 1,
@@ -993,11 +1095,12 @@ fn test_paved_on_the_router_before_a_purchase_does_not_count_in_r() {
         referrer: Zero::zero(),
         referral: 0,
         burned_quote: quote,
-        burned: swap_out + 50 * ONE_PAVED,
+        burned: burn_part + 50 * ONE_PAVED,
         margin: 6 * USDC,
         supply: after,
         factor,
         reference: r,
+        vault_paved: to_vault,
     };
     spy.assert_emitted(@array![(s.economy.contract_address, Event::Purchased(event))]);
     assert_nothing_left(s);
@@ -1022,6 +1125,7 @@ fn test_one_purchase_moves_the_rate_down_by_at_most_the_clamp() {
     let supply = s.paved.total_supply();
     buy(s, 1, PLAYER(), 1, Zero::zero());
     let observed = (supply - s.paved.total_supply()) * RATE_SCALE / 1_400_000;
+    assert!(vault_paved(s) > 0);
     assert!(observed < POOL_RATE * 10 / 11);
     assert_eq!(s.economy.rate(), (POOL_RATE * 31 + POOL_RATE * 10 / 11) / 32);
 }
@@ -1043,8 +1147,9 @@ fn test_paved_on_the_router_does_not_let_a_swap_below_min_out_pass() {
 fn test_rate_moves_at_most_once_per_block() {
     let s = setup();
     let quote: u256 = 1_400_000;
-    // Two purchases in the same block: the first moves the rate, the second does not
-    let out = s.economy.quote_swap(quote);
+    // Two purchases in the same block: the first moves the rate, the second does not. The rate
+    // reads the burn's part of the swap of the whole price
+    let (out, _) = vault_split(s.economy.quote_swap(2_000_000), quote, 600_000);
     buy(s, 1, PLAYER(), 1, Zero::zero());
     let once = next_rate(POOL_RATE, out, quote);
     assert_eq!(s.economy.rate(), once);
@@ -1052,7 +1157,7 @@ fn test_rate_moves_at_most_once_per_block() {
     assert_eq!(s.economy.rate(), once);
     // The next block moves it again
     at(DAY0, 3601);
-    let out = s.economy.quote_swap(quote);
+    let (out, _) = vault_split(s.economy.quote_swap(2_000_000), quote, 600_000);
     buy(s, 3, PLAYER(), 1, Zero::zero());
     assert_eq!(s.economy.rate(), next_rate(once, out, quote));
 }
@@ -1063,7 +1168,8 @@ fn test_quote_min_out_hint_is_not_above_the_swap_output_at_launch() {
     let mut stake: u8 = 1;
     while stake <= 10 {
         let quote = s.economy.quote(stake);
-        let out = router_quote(s, quote.burn_quote.try_into().unwrap());
+        let swap = quote.burn_quote + quote.margin - quote.referral;
+        let out = router_quote(s, swap.try_into().unwrap());
         assert!(quote.min_out_hint <= out);
         stake += 1;
     }
@@ -1081,10 +1187,11 @@ fn test_quote_swap_is_the_router_quote() {
 #[test]
 fn test_quote_swap_is_the_paved_bought() {
     let s = setup();
-    let out = s.economy.quote_swap(14_000_000);
+    // The swap of the whole price: its burn's part burned, its margin's part in the Vault
+    let out = s.economy.quote_swap(20_000_000);
     let supply = s.paved.total_supply();
     buy(s, 1, PLAYER(), 10, Zero::zero());
-    assert_eq!(supply - s.paved.total_supply(), out);
+    assert_eq!(supply - s.paved.total_supply() + vault_paved(s), out);
 }
 
 #[test]
@@ -1155,7 +1262,7 @@ fn test_quote_swap_of_a_full_fill_is_unchanged_through_the_mock() {
 #[test]
 fn test_purchase_at_99_percent_of_quote_swap_passes() {
     let s = setup();
-    let min_out = s.economy.quote_swap(14_000_000) * 99 / 100;
+    let min_out = s.economy.quote_swap(20_000_000) * 99 / 100;
     IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, 10 * BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
@@ -1175,18 +1282,19 @@ fn games() -> Array<(u32, u64, u8, bool, u32)> {
     ]
 }
 
-/// From the script (sim.py's formulas): (PAVED bought, R, payout), base units.
+/// From the script (`fixture.py --margin-paved`, sim.py's formulas): (PAVED bought for the burn,
+/// R, payout), base units.
 fn expected() -> Array<(u256, u256, u256)> {
     array![
-        (106385850681859293184, 107461140317395435520, 134186324544322027520),
-        (318985618797046267904, 328694945363810254848, 0),
-        (1061428156729374932992, 1169306916487651786752, 4380327537683868418048),
-        (529621023063031218176, 557223409921734868992, 0),
-        (211644360707862626304, 216358236464565485568, 0),
-        (422946200207570436096, 439044360395485216768, 648862198807568187392),
-        (739057146347848859648, 789901945041470357504, 1751090182915559260160),
-        (105462621834060398592, 106408708799799754752, 0),
-        (632185385858679701504, 669857309621146091520, 0),
+        (106379787840310345728, 107455015544567005184, 134178676563367329792),
+        (318902897022788501504, 328609676530136317952, 0),
+        (1060391014664822063104, 1168163050677178073088, 4376042514788354359296),
+        (528662245775446638592, 556213506597038784512, 0),
+        (211184798405037162496, 215887890445736280064, 0),
+        (421882027416415698944, 437939983316764983296, 647230043599002140672),
+        (736779441718533423104, 787466285302996271104, 1745690702785477345280),
+        (105095243286348578816, 106037826425674858496, 0),
+        (629732858941959962624, 667255690634294329344, 0),
     ]
 }
 

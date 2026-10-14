@@ -102,8 +102,10 @@ pub struct Quote {
     pub referral: u256,
     /// The margin without a referrer.
     pub margin: u256,
-    /// An estimate only: 99 % of the burn quote at the guard's swap rate. Never send it as
-    /// `min_out`: the client quotes the pool and sends 99 % of that.
+    /// An estimate only: 99 % of the swap of a referred purchase (the burn quote and the margin
+    /// less the referral, P-56) at the guard's swap rate; a purchase with no referrer swaps more.
+    /// Never send it as `min_out`: the client quotes the pool for the whole swap and sends 99 % of
+    /// that.
     pub min_out_hint: u256,
     /// The supply factor at the current supply (bps).
     pub factor: u32,
@@ -825,7 +827,7 @@ pub mod Economy {
                 burn_quote,
                 referral,
                 margin: price - burn_quote,
-                min_out_hint: burn_quote * rate * 99 / (100 * curve::RATE_SCALE),
+                min_out_hint: (price - referral) * rate * 99 / (100 * curve::RATE_SCALE),
                 factor: curve::supply_factor(supply, config.target.into()),
                 mean,
                 threshold: curve::threshold(mean, config.sigma_bps),

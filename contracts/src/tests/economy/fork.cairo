@@ -8,34 +8,35 @@
 //!
 //! Two pools, both on mainnet's Ekubo core, router and positions:
 //! - USDC/STRK at 0.05 % (tick spacing 1,000, no extension), a deep pool that exists on mainnet.
-//!   `Economy` is deployed on the fork with STRK in PAVED's place; STRK cannot be burned by
-//!   `Economy`, so its `burn` is mocked and the PAVED bought stays on `Economy`.
+//!   `Economy` is deployed on the fork with STRK in PAVED's place, for its quotes and for a
+//!   purchase that reverts before any burn.
 //! - PAVED/USDC at Paved's own key (5 %, tick spacing 0x56a4c, no extension), created on the fork
-//!   with a real `PavedToken` and a thin position, so that a purchase drains it: the partial fill
-//!   that `economy.md` describes, at `Economy`'s extreme price limit, with the real burn.
+//!   with a real `PavedToken` and a thin position, so that a purchase would drain it: the partial
+//!   fill that `economy.md` describes, at `Economy`'s extreme price limit.
 //!
-//! `Economy.quote_swap` refuses a partial fill ('Economy: partial fill', E-9's audit F1): the
-//! partial-fill tests take the router's own quote and send the purchase with an explicit min_out.
+//! `Economy.quote_swap` refuses a partial fill ('Economy: partial fill', E-9's audit F1), and since
+//! P-56 so does `Economy.purchase` (one swap of the burn quote and the margin, filled whole): the
+//! partial-fill tests take the router's own quote and send the purchase with an explicit min_out,
+//! which reverts.
 //!
 //! USDC is Circle's native USDC (a FiatToken): the tests mint it as Circle's own flow does, the
 //! on-chain master minter naming a controller, which configures a minter.
 
 use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, supply_factor};
+use paved::economy::curve::RATE_SCALE;
 use paved::economy::ekubo::{
     Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
     IRouterSafeDispatcher, IRouterSafeDispatcherTrait, PoolKey, RouteNode, TokenAmount, i129,
 };
 use paved::mocks::router::{FEE, TICK_SPACING};
-use paved::systems::economy::Economy::{Event, Purchased};
 use paved::systems::economy::{
     BASE_PRICE, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
     IEconomySafeDispatcherTrait, decided,
 };
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, get_block_timestamp};
 use super::token::{RECIPIENT, deploy_token};
@@ -242,17 +243,6 @@ fn swap(route: RouteNode, amount: u128, token_out: ContractAddress) -> Delta {
     delta
 }
 
-/// What `Daily` does: the price onto `Economy`, then `purchase` at stake 10.
-fn buy(economy: IEconomyDispatcher, min_out: u256) -> u128 {
-    let price = 10 * BASE_PRICE;
-    give_usdc(economy.contract_address, price);
-    start_cheat_caller_address(economy.contract_address, DAILY());
-    let day = get_block_timestamp() / DAY;
-    let r = economy.purchase(1, PLAYER(), day, 10, price, Zero::zero(), min_out);
-    stop_cheat_caller_address(economy.contract_address);
-    r
-}
-
 /// `Economy.quote_swap(usdc_in)` reverts with 'Economy: partial fill'.
 #[feature("safe_dispatcher")]
 fn assert_partial_fill_refused(economy: IEconomyDispatcher, usdc_in: u256) {
@@ -378,75 +368,42 @@ fn test_fork_quote_needs_no_funds_and_answers_where_the_swap_reverts() {
 #[test]
 #[ignore]
 #[fork("MAINNET")]
-fn test_fork_purchase_fills_part_of_the_input_at_a_near_limit() {
+fn test_fork_purchase_at_a_near_limit_reverts_on_the_partial_fill() {
     let economy = deploy_economy(STRK(), USDC_STRK(), MIN_SQRT_RATIO, STRK_RATE);
-    // A limit 1e-6 below the current sqrt ratio: stake 10's 14 USDC would move it about 3e-6
+    // A limit 1e-6 below the current sqrt ratio: stake 10's 20 USDC (the burn quote and the
+    // margin, one swap since P-56) would move it about 4e-6
     let start = price(USDC_STRK());
     let limit = start - start / 1_000_000;
     set_pool(economy, USDC_STRK(), limit);
-    let quote: u256 = 14 * USDC_UNIT;
+    let amount: u256 = 20 * USDC_UNIT;
     let delta = IRouterDispatcher { contract_address: ROUTER() }
-        .quote_swap(node(economy), usdc_in(14_000_000));
+        .quote_swap(node(economy), usdc_in(20_000_000));
     let (usdc_leg, strk_leg) = legs(USDC_STRK(), delta);
     let filled: u256 = usdc_leg.mag.into();
-    assert!(filled > 0 && filled < quote);
+    assert!(filled > 0 && filled < amount);
     let out: u256 = strk_leg.mag.into();
     // `Economy.quote_swap` refuses this state: the client sends nothing (E-9's audit, F1)
-    assert_partial_fill_refused(economy, quote);
-    // A purchase sent anyway, with an explicit min_out (the router's partial quote less 1 %), is
-    // filled in part; STRK's burn is mocked
-    mock_call(STRK(), selector!("burn"), (), 1);
-    let supply = IERC20Dispatcher { contract_address: STRK() }.total_supply();
-    let mut spy = spy_events();
-    let r = buy(economy, out * 99 / 100);
-    // The swap stopped at the limit; the rest of the quote went back to the Vault as margin
-    assert_eq!(price(USDC_STRK()), limit);
-    let price_paid = 10 * BASE_PRICE;
-    let margin = price_paid - filled;
-    assert_eq!(usdc().balance_of(VAULT()), margin);
-    assert_eq!(usdc().balance_of(economy.contract_address), 0);
-    let strk = IERC20Dispatcher { contract_address: STRK() };
-    assert_eq!(strk.balance_of(economy.contract_address), out);
-    // R follows the STRK bought against the whole quote, so the partial fill lowers it, and the
-    // guard's observation, clamped to 10 % below the rate
-    let factor = supply_factor(supply, decided().target.into());
-    assert_eq!(r, reference(guarded(out, quote, STRK_RATE), 10, factor));
-    assert_eq!(economy.rate(), next_rate(STRK_RATE, out, quote));
+    assert_partial_fill_refused(economy, amount);
+    // A purchase sent anyway, with an explicit min_out (the router's partial quote less 1 %),
+    // reverts: the Vault has no use for the unswapped USDC (P-56)
+    assert_purchase_refused(economy, out * 99 / 100);
+    assert_eq!(price(USDC_STRK()), start);
+    println!("E-9 fork: near limit {}, a fill of {} of {} USDC refused", limit, filled, amount);
+}
+
+/// A stake-10 purchase with `min_out` reverts with 'Economy: partial fill'.
+#[feature("safe_dispatcher")]
+fn assert_purchase_refused(economy: IEconomyDispatcher, min_out: u256) {
+    let price = 10 * BASE_PRICE;
+    give_usdc(economy.contract_address, price);
+    start_cheat_caller_address(economy.contract_address, DAILY());
     let day = get_block_timestamp() / DAY;
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    economy.contract_address,
-                    Event::Purchased(
-                        Purchased {
-                            game_id: 1,
-                            player_id: PLAYER().into(),
-                            day,
-                            stake: 10,
-                            price: price_paid,
-                            referrer: Zero::zero(),
-                            referral: 0,
-                            burned_quote: quote,
-                            burned: out,
-                            margin,
-                            supply,
-                            factor,
-                            reference: r,
-                        },
-                    ),
-                ),
-            ],
-        );
-    println!(
-        "E-9 fork: near limit {}, filled {} of {} USDC, STRK out {}, margin {}, R {}",
-        limit,
-        filled,
-        quote,
-        out,
-        margin,
-        r,
-    );
+    let safe = IEconomySafeDispatcher { contract_address: economy.contract_address };
+    match safe.purchase(1, PLAYER(), day, 10, price, Zero::zero(), min_out) {
+        Result::Ok(_) => panic!("a partial fill was bought"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: partial fill'),
+    }
+    stop_cheat_caller_address(economy.contract_address);
 }
 
 // PAVED/USDC at Paved's key: a thin pool drained by one purchase
@@ -501,7 +458,7 @@ fn thin_pool() -> (IERC20Dispatcher, PoolKey) {
 #[test]
 #[ignore]
 #[fork("MAINNET")]
-fn test_fork_purchase_drains_a_thin_pool_to_economys_limit() {
+fn test_fork_purchase_that_would_drain_a_thin_pool_reverts() {
     let (paved, pool_key) = thin_pool();
     // Economy's extreme limit for USDC in
     let limit = if pool_key.token0 == USDC() {
@@ -510,39 +467,25 @@ fn test_fork_purchase_drains_a_thin_pool_to_economys_limit() {
         MAX_SQRT_RATIO
     };
     let economy = deploy_economy(paved.contract_address, pool_key, limit, PAVED_RATE);
-    let quote: u256 = 14 * USDC_UNIT;
+    let amount: u256 = 20 * USDC_UNIT;
     let delta = IRouterDispatcher { contract_address: ROUTER() }
-        .quote_swap(node(economy), usdc_in(14_000_000));
+        .quote_swap(node(economy), usdc_in(20_000_000));
     let (usdc_leg, paved_leg) = legs(pool_key, delta);
     let filled: u256 = usdc_leg.mag.into();
-    assert!(filled > 0 && filled < quote);
+    assert!(filled > 0 && filled < amount);
     let out: u256 = paved_leg.mag.into();
-    // `Economy.quote_swap` refuses this state (F1); a purchase sent anyway, with an explicit
-    // min_out (the router's partial quote less 1 %), is filled in part, with the real burn
-    assert_partial_fill_refused(economy, quote);
+    // `Economy.quote_swap` refuses this state (F1); a purchase sent anyway reverts (P-56)
+    assert_partial_fill_refused(economy, amount);
     let supply = paved.total_supply();
-    let r = buy(economy, out * 99 / 100);
-    // The pool is drained: the price went to the limit; the rest of the quote is margin
-    assert_eq!(price(pool_key), limit);
-    let margin = 10 * BASE_PRICE - filled;
-    assert_eq!(usdc().balance_of(VAULT()), margin);
-    assert_eq!(supply - paved.total_supply(), out);
-    // Nothing left on Economy, nor on the router (beyond what it held before)
-    assert_eq!(usdc().balance_of(economy.contract_address), 0);
-    assert_eq!(paved.balance_of(economy.contract_address), 0);
-    assert_eq!(paved.balance_of(ROUTER()), 0);
-    let after = paved.total_supply();
-    let factor = supply_factor(after, decided().target.into());
-    assert_eq!(r, reference(guarded(out, quote, PAVED_RATE), 10, factor));
-    assert_eq!(economy.rate(), next_rate(PAVED_RATE, out, quote));
+    let start = price(pool_key);
+    assert_purchase_refused(economy, out * 99 / 100);
+    assert_eq!(price(pool_key), start);
+    assert_eq!(paved.total_supply(), supply);
     println!(
-        "E-9 fork: thin pool {:?}, limit {}, filled {} of {} USDC, PAVED out {}, margin {}, R {}",
+        "E-9 fork: thin pool {:?}, limit {}, a fill of {} of {} USDC refused",
         pool_key,
         limit,
         filled,
-        quote,
-        out,
-        margin,
-        r,
+        amount,
     );
 }
