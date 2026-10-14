@@ -80,7 +80,9 @@ position next to the board, each orientation) it asks the node with `starknet_si
 whether it is legal and how many points it scores, plays the one that scores most at once, and otherwise keeps the board
 compact (a wonder goes near the centre). Characters left the game with D-18, so a structure scores when it closes and
 there is nothing else to choose. It is deterministic and looks one move ahead. It must score above the day's threshold
-(`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. On the D-18 contracts (CORE
+(`R x h(score / mean)` pays more than 0), and the test fails, naming the day and the scores, if it does not; bob and
+carol stop after 3 and 2 placements and surrender, which cannot reach the threshold on any deck (their scores are checked
+against a floor under every threshold of the day, so the reward 0 is not a lucky day's). On the D-18 contracts (CORE
 9768cb91, Mac, 2026-10-13, `/usr/bin/time -l`) the whole run took 110 s and alice's game 55 s with 2,440 simulations
 (12 min 41 s, 657 s and 13,724 simulations with the earlier player that placed characters, on the VPS on 2026-10-10); on
 day 20741 she scored 4,869 against a threshold of 3,381.547 (bob 3,269, carol 1,999). The Daily deck depends on the day,
@@ -97,6 +99,8 @@ node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.
   --db /tmp/paved-e2e.db --port 8787 --poll 300                 # from a shell where INDEXER_RPC_URL=http://127.0.0.1:5050; PID to note
 NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 ```
+
+To run on another chain day, start the node with `--start-time <unix seconds>` (the Daily deck follows the day); the test passes on any.
 
 Two options matter where the defaults do not fit. `DEVNET_BIN=<path>` names the `starknet-devnet` binary the shell
 starts when `starknet-devnet` on the PATH is an asdf shim that does not run from there (e.g.
