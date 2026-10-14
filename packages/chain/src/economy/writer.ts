@@ -27,7 +27,8 @@ export class PurchaseOutcomeUnknownError extends WriteError {
 }
 
 const SPAWN_PAUSED = "Challenge: spawn paused";
-const SPAWN_PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
+/** What the player reads while new Challenge games are paused (the card, the dialog and the typed error). */
+export const SPAWN_PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
 
 /**
  * New Challenge games are paused (G4: the guardian or the owner called `pause_spawn`). Raised before any call is built when
