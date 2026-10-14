@@ -2347,9 +2347,12 @@ import sys
 v = sys.argv[1:]
 sys.exit(0 if len(v) == 10 and [int(x, 16) for x in v[:5]] == [int(x) for x in v[5:]] else 1)
 PY
+# The initial mean is a launch-state check: after the smoke's game a closed day may have moved it (a rerun).
 read -r -a EMA_VIEW <<<"$(call "$ECONOMY" ema)"
-[[ "$(hex_int "${EMA_VIEW[2]}")" == "$MEAN0" ]] || die "Economy.ema() mean is $(hex_int "${EMA_VIEW[2]}"), not MEAN0 $MEAN0"
-echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7000 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED, mean $MEAN0"
+if [[ -z "$(fr_get smoke.spawn_tx)" ]]; then
+  [[ "$(hex_int "${EMA_VIEW[2]}")" == "$MEAN0" ]] || die "Economy.ema() mean is $(hex_int "${EMA_VIEW[2]}"), not MEAN0 $MEAN0"
+fi
+echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7000 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED, mean $(hex_int "${EMA_VIEW[2]}") (MEAN0 $MEAN0)"
 
 echo "== definitions"
 # The quests.md v1 set on Setup, as its owner (D-24), before Setup's address reaches the deployment file's `contracts`
