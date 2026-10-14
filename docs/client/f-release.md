@@ -133,7 +133,69 @@ report.
 | 9 | Player page and quests | `/player/<address>` and `/quests` load from the indexer with no "unavailable" |
 
 `scripts/e2e-sepolia/part-b.mjs` drives steps 4 to 8 headless with a virtual authenticator, for the owner to run; it targets Sepolia and
-spends test funds, so it is not run by CI or by a thread. It clicks the Challenge card by `data-testid="mode-card-challenge"`.
+spends test funds, so it is not run by CI or by a thread. It clicks the Challenge card by `data-testid="mode-card-challenge"`. It also
+writes `latency.json` and `latency.md` for steps 5 to 7 ("Latency", below); run it with `--extra-mint --purchases 2 --moves 5` for the release figures.
+
+## Latency: what a player feels (S1, D-28)
+
+D-28 (PM, 2026-10-14): no VRF, the mainnet questions are deferred, Sepolia stays, and an L3 is possible if performance is not enough.
+The release smoke therefore produces the figures of two waits, a move and a purchase, each from the click to the confirmed state, and
+the faucet mint measured the same way as a cheap control. The same run of `part-b.mjs` writes them; nobody reads a stopwatch. The code is `scripts/e2e-sepolia/latency.mjs`.
+
+### What "confirmed" means in the client
+
+Read from `packages/chain/src/writer.ts` (`sendNow`) and `session.ts` (`write`), not assumed:
+
+1. `account.execute(calls)` returns the transaction hash once the transaction is signed and accepted by the node (**t1**).
+2. `provider.waitForTransaction(hash, { retryInterval: 250 })` asks `starknet_getTransactionStatus` every 250 ms (`RECEIPT_POLL_MS`).
+   starknet.js 8.9 has no `successStates` option set here, so its default holds: it waits for a `finality_status` of
+   **`ACCEPTED_ON_L2`** (or `ACCEPTED_ON_L1`), then fetches the receipt with `starknet_getTransactionReceipt`. `REJECTED` throws. It does **not**
+   stop at `RECEIVED` or `PRE_CONFIRMED`: the client waits for a closed L2 block, not for the pre-confirmed one. A receipt with
+   `execution_status: REVERTED` is an error, and the tile drawn at once is taken back.
+3. The receipt's events move the board and the score (`Session.apply`, no read), then one read of `game` reconciles the next tile and the
+   exact score (`Session.reconcile`), then `pending` is cleared. The Game page shows the label `Working...` (the Surrender button's text)
+   for the whole of `pending`.
+
+What the player sees for a move is therefore: the tile appears **at the click** (drawn pending, so the click itself feels instant), and
+the move is **confirmed** when `Working...` goes away: after L2 acceptance, the receipt and the reconcile read. That state is **t2** of a move.
+The 250 ms poll adds up to 250 ms to every wait for a receipt; it is the client's own and is part of the figure.
+
+### The marks
+
+All times are the host's `Date.now()` in ms, taken by the driver and by a probe inside the page that looks at the page every 20 ms (so
+the page's marks have a resolution of 20 ms). The hashes, statuses and receipts come from the JSON-RPC answers the page receives (the driver reads
+the hash, the status and that a receipt arrived, and keeps nothing else of an answer).
+
+| Flow | t0 | t1 | t2 | t3 | Reported |
+|---|---|---|---|---|---|
+| **Move** | the C key press that the Game page accepts (the same as a click on Confirm: the hotkey calls the same handler) | the transaction hash is known, after signing | `Working...` is gone: board and score updated from the receipt, the state the UI treats as done | none | `t1-t0`, `t2-t1`, `t2-t0` |
+| **Purchase** | the click on "Confirm purchase" | the hash | the receipt reached the page (the first answered `starknet_getTransactionReceipt` for the hash) | the address is `/game?...&id=<n>` | `t1-t0`, `t2-t1`, `t3-t2`, `t3-t0` |
+| **Faucet mint** (control) | the click on "Mint Test Tokens" | the hash | the receipt reached the page | `Minting...` is gone, the button is back | `t1-t0`, `t2-t1`, `t3-t2`, `t3-t0` |
+
+Extras, in the same files: for a move, `uiFeedback` (t0 to `Working...` shown), `accepted` (first time the node answered `ACCEPTED_ON_L2` for the
+hash, since t0) and `receipt` (the receipt in the page, since t0); for a purchase, `board` (t0 to the `0 / 38` counter shown, the game
+loaded). `latency.json` also lists, for each transaction, the first time each finality status was answered (`RECEIVED`, `PRE_CONFIRMED`,
+`ACCEPTED_ON_L2`, since t0): the gap between the first `PRE_CONFIRMED` and `ACCEPTED_ON_L2` is what waiting for the pre-confirmed block
+would save, if the answer to "is it enough?" is no. A status the page's poll never saw is absent, not zero.
+
+A sample is **prompted** when the Controller's frame was shown at any point between t0 and its end: the wait then includes a person's approval,
+which the session is meant to avoid. It stays in the table and the JSON, and out of median and max.
+
+### Samples and report
+
+- **5 moves, 2 purchases, 1 faucet mint**, in one run: `bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> --extra-mint --purchases 2 --moves 5`.
+  The first purchase's game is bought and left unplayed (the second is the one that is played); both cost the lowest stake of test funds.
+  The faucet's second press is not sampled: it may hit the address cap (smoke step 5).
+- **Median and max** per column, over the samples that were not prompted (two purchases: the median is their mean, so read the max too).
+- **Time of day**: `latency.md` carries the run's start in UTC and the time of each sample. Sepolia's load varies with the hour: a run at a quiet hour
+  and one at a busy hour are not the same figure. The release run is one run at the hour it happens, said in the report; a second run at another
+  hour is welcome and is a separate folder.
+- **Output**, in the run's `--out` folder: `latency.json` (the raw samples with every mark and the statuses, and the summary) and `latency.md`
+  (the tables). Both are written as samples arrive, so a run that stops half-way keeps what it measured. The evidence check of `part-b.mjs` covers them.
+- **Not run by CI or by a thread**: `part-b.mjs` spends test funds on Sepolia. The code is exercised without Sepolia by `bun test scripts/e2e-sepolia/latency.test.mjs`
+  (synthetic traffic) and by `scripts/e2e-sepolia/latency-devnet.mjs`, the same code driven against a devnet and the client's dev server (see its header:
+  fresh `starknet-devnet --seed 42`, `scripts/deploy.sh devnet`, the client with `VITE_PLAYER_*`). A devnet seals a block per transaction at once, so its figures prove
+  the instrumentation and are not release figures.
 
 ## What "done" means
 
