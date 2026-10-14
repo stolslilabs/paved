@@ -10,8 +10,9 @@
 //!
 //! G7a (C3): a walk from the tile a move builds can be seeded with the move's neighbourhood
 //! (`WalkerTrait::seeded`). The move has already read its four side tiles and their refs, which
-//! storage still holds as read (the move writes nothing to them before `flush`): a node on a side
-//! tile is taken from there instead of reading its position and its slot again.
+//! storage still holds as read (the move writes nothing to them before `flush`): a position that
+//! is not in the cache and holds one of them takes it from there, instead of reading its position
+//! and its slot again.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::Tile;
@@ -33,12 +34,14 @@ pub struct Walker {
     slots: Felt252Dict<felt252>,
     /// The nodes to visit, with their tile's refs.
     nodes: Array<(Tile, u128, u8)>,
-    /// The position of the built tile, whose side tiles `sides` holds.
-    x: u32,
-    y: u32,
-    /// The side tiles of the built tile and their refs, by direction, as the move read them; its
-    /// `taken` bits say which are there (0 for a walk that is not seeded).
+    /// The neighbourhood the walk is seeded with, and the position keys of its north, east, south
+    /// and west tiles (0 where there is none, and for a walk that is not seeded: no position has
+    /// the key 0).
     sides: Neighborhood,
+    north: felt252,
+    east: felt252,
+    south: felt252,
+    west: felt252,
 }
 
 #[generate_trait]
@@ -56,8 +59,8 @@ pub impl WalkerImpl of WalkerTrait {
         Self::seeded(tile, refs, area, ref structures, @none)
     }
 
-    /// `new`, for a walk from the tile the move built (`tile`), with the neighbourhood the move
-    /// read around it: the side tiles it holds are not read again.
+    /// `new`, seeded with `around`: a neighbourhood the move read (`NeighborhoodTrait::read`),
+    /// whose tiles storage still holds. Its side tiles are not read again.
     fn seeded(
         tile: Tile, refs: u128, area: u8, ref structures: Structures, around: @Neighborhood,
     ) -> Walker {
@@ -72,14 +75,17 @@ pub impl WalkerImpl of WalkerTrait {
         }
         let mut visited: Felt252Dict<bool> = Default::default();
         visited.insert(node_key(tile.id, area), true);
+        let taken = *around.taken;
         Walker {
             game_id: structures.game_id,
             visited,
             slots,
             nodes: array![(tile, refs, area)],
-            x: tile.x,
-            y: tile.y,
             sides: *around,
+            north: side_key(around, taken & 0x4 != 0, tables::NORTH),
+            east: side_key(around, taken & 0x10 != 0, tables::EAST),
+            south: side_key(around, taken & 0x40 != 0, tables::SOUTH),
+            west: side_key(around, taken & 0x100 != 0, tables::WEST),
         }
     }
 
@@ -105,19 +111,32 @@ pub impl WalkerImpl of WalkerTrait {
                 continue;
             }
             let (x, y) = toward(tile.x, tile.y, direction);
-            let side = self.side_at(x, y);
-            let (next, next_refs) = if side != 0 {
-                (self.sides.tile(side), *self.sides.refs.at(side.into()))
+            let key = position_key(x, y);
+            let slot = self.slots.get(key);
+            let (next, next_refs) = if slot != 0 {
+                StoreImpl::tile_of_slot(self.game_id, slot)
             } else {
-                let key = position_key(x, y);
-                let mut slot = self.slots.get(key);
-                if slot == 0 {
-                    slot = StoreImpl::tile_slot_at(self.game_id, x, y);
+                // [Info] A side tile of the seed is not read again (nor cached: it is in `sides`)
+                let side = if key == self.north {
+                    tables::NORTH
+                } else if key == self.east {
+                    tables::EAST
+                } else if key == self.south {
+                    tables::SOUTH
+                } else if key == self.west {
+                    tables::WEST
+                } else {
+                    0
+                };
+                if side != 0 {
+                    (self.sides.tile(side), *self.sides.refs.at(side.into()))
+                } else {
+                    let slot = StoreImpl::tile_slot_at(self.game_id, x, y);
                     // [Check] A closed structure has every position it needs taken
                     assert(slot != 0, errors::OPEN_STRUCTURE);
                     self.slots.insert(key, slot);
+                    StoreImpl::tile_of_slot(self.game_id, slot)
                 }
-                StoreImpl::tile_of_slot(self.game_id, slot)
             };
             let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
             let key = node_key(next.id, landing);
@@ -129,52 +148,14 @@ pub impl WalkerImpl of WalkerTrait {
     }
 }
 
-#[generate_trait]
-impl SidesImpl of SidesTrait {
-    /// The direction (2, 4, 6 or 8) of `(x, y)` from the built tile when it is a side position
-    /// whose tile the walk holds, 0 otherwise.
-    #[inline(always)]
-    fn side_at(self: @Walker, x: u32, y: u32) -> u8 {
-        let taken = *self.sides.taken;
-        if taken == 0 {
-            return 0;
-        }
-        let (cx, cy) = (*self.x, *self.y);
-        let direction = if x == cx {
-            if y == cy + 1 {
-                tables::NORTH
-            } else if y + 1 == cy {
-                tables::SOUTH
-            } else {
-                0
-            }
-        } else if y == cy {
-            if x == cx + 1 {
-                tables::EAST
-            } else if x + 1 == cx {
-                tables::WEST
-            } else {
-                0
-            }
-        } else {
-            0
-        };
-        if direction != 0 && taken & side_bit(direction) != 0 {
-            direction
-        } else {
-            0
-        }
-    }
-}
-
-/// The bit of a side direction in `Neighborhood::taken`.
+/// The position key of the tile of `around` in `direction` when `taken`, 0 otherwise.
 #[inline(always)]
-fn side_bit(direction: u8) -> u16 {
-    match direction {
-        2 => 0x4,
-        4 => 0x10,
-        6 => 0x40,
-        _ => 0x100,
+fn side_key(around: @Neighborhood, taken: bool, direction: u8) -> felt252 {
+    if taken {
+        let side = around.tile(direction);
+        position_key(side.x, side.y)
+    } else {
+        0
     }
 }
 

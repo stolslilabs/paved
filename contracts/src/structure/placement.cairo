@@ -8,7 +8,9 @@
 
 use paved::models::tile::{Tile, TileImpl, ZeroableTile};
 use paved::store::{Store, StoreImpl};
-use paved::structure::record::{add_ref, close_one, founded, open_of, ref_of, sid, with_ref};
+use paved::structure::record::{
+    add_ref, close_one, founded, open_of, parent_of, ref_of, sid, with_ref,
+};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, tables};
 
@@ -211,9 +213,14 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
 /// final roots of the tile's areas and the roots of the wonders around; those are the only roots
 /// `Game::assess` can score (a closed structure takes no later tile), and it scores only those of
 /// `open == 0`. So when this is false the assessment changes nothing, and the move skips it.
+///
+/// Every record the move writes goes through a `set` below. A root that ends closed got its last
+/// record from one of them with `open == 0`, so each `set` that can leave `open == 0` keeps its
+/// root as a candidate, and the candidates are read once more at the end: a later `set` may have
+/// grown one, or made it a child.
 pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood) -> (u128, bool) {
-    // [Info] Whether a root the move reached is closed
-    let mut closes = false;
+    // [Info] The roots a `set` of this move left with no open half-edge
+    let mut closed: Array<u32> = array![];
 
     // [Effect] The wonders around: their half-edge towards the tile closes (it has no spot)
     if *around.wonders != 0 {
@@ -222,11 +229,10 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
             if *around.wonders & bit(direction) != 0 {
                 let wonder = oriented::wonder_area(around.tile(direction).plan);
                 let (root, record) = structures.find(around.reference(direction, wonder));
-                let closed = close_one(record);
-                structures.set(root, closed);
-                // [Info] A root an area joins later is checked again below, as that area's
-                if open_of(closed) == 0 {
-                    closes = true;
+                let record = close_one(record);
+                structures.set(root, record);
+                if open_of(record) == 0 {
+                    closed.append(root);
                 }
             }
             direction += 1;
@@ -268,7 +274,11 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
             }
             // [Effect] The half-edge of the neighbour that answers this move closes
             let (root, record) = structures.find(around.reference(direction, landing));
-            structures.set(root, close_one(record));
+            let record = close_one(record);
+            structures.set(root, record);
+            if open_of(record) == 0 {
+                closed.append(root);
+            }
             if !contains(roots.span(), root) {
                 roots.append(root);
             }
@@ -284,6 +294,11 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
             }
             structures.merge(roots.span(), open)
         };
+        // [Info] A root that takes `open` new half-edges keeps them open: it is a candidate only
+        // without them
+        if open == 0 {
+            closed.append(reference);
+        }
         refs = add_ref(refs, area, reference);
     }
 
@@ -304,14 +319,13 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
         }
     }
 
-    // [Compute] Whether the final root of an area is closed: read once every area is placed, since
-    // a later area may grow or join the structure of an earlier one
-    let mut areas = oriented::record_areas(tile.plan);
-    while areas != 0 && !closes {
-        let area: u8 = (areas & 0xf).try_into().unwrap();
-        areas = areas / 0x10;
-        if open_of(structures.record(ref_of(refs, area))) == 0 {
+    // [Compute] Whether a candidate is still a closed root
+    let mut closes = false;
+    for candidate in closed {
+        let record = structures.record(candidate);
+        if parent_of(record) == 0 && open_of(record) == 0 {
             closes = true;
+            break;
         }
     }
     (refs, closes)
