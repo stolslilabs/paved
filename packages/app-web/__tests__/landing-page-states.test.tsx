@@ -129,8 +129,8 @@ describe("Training card, unreadable save", () => {
       await screen.findByText("Training: Free, no wallet, no rewards: Resume");
       const first = reads.mock.calls.filter(([key]) => key === "paved:training:v1").length;
       expect(first).toBeGreaterThan(0);
-      // opening the Daily dialog re-renders the page (and so does every read that lands)
-      fireEvent.click(screen.getByText(/mode daily/));
+      // opening the Challenge dialog re-renders the page (and so does every read that lands)
+      fireEvent.click(screen.getByText(/mode challenge/));
       fireEvent.click(screen.getByText("Cancel"));
       expect(reads.mock.calls.filter(([key]) => key === "paved:training:v1").length).toBe(first);
     } finally {
@@ -143,36 +143,36 @@ describe("Training card, unreadable save", () => {
 describe("Mode cards with no wallet", () => {
   it("Training and the Tutorial sit among the mode cards with no wallet, no account and an unconfigured chain", async () => {
     land({ deployment: notConfigured, account: null });
-    expect(await screen.findByTestId("card-daily")).toBeTruthy();
+    expect(await screen.findByTestId("card-challenge")).toBeTruthy();
     expect(screen.getByTestId("card-training")).toBeTruthy();
     expect(screen.getByTestId("card-tutorial")).toBeTruthy();
     expect(screen.queryByTestId("training-card")).toBeNull(); // no longer a section above the screen
   });
 
-  it("the Daily start keeps its gate on the action: with no account the confirm says Not connected", async () => {
+  it("the Challenge start keeps its gate on the action: with no account the confirm says Not connected", async () => {
     land({ deployment: notConfigured, account: null });
-    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await screen.findByText(/mode challenge/));
     expect((screen.getByText("Not connected") as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
-describe("Daily card, top 3", () => {
+describe("Challenge card, top 3", () => {
   let fixture: FixtureIndexer;
   let indexer: IndexerClient;
   beforeEach(() => {
     fixture = new FixtureIndexer();
     indexer = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
   });
-  const daily = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
+  const challenge = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
     const views = new FakeGameViews();
     views.today = FIXTURE_TOURNAMENT;
     return land({ views, indexer, ...opts });
   };
-  const top = () => within(screen.getByTestId("card-daily"));
+  const top = () => within(screen.getByTestId("card-challenge"));
 
   it("shows the first three rows with rank, short address and score, each linking to the player, and the leaderboard link", async () => {
-    daily();
-    const list = await screen.findByTestId("daily-top");
+    challenge();
+    const list = await screen.findByTestId("challenge-top");
     expect(fixture.requests).toContain(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
@@ -190,8 +190,8 @@ describe("Daily card, top 3", () => {
 
   it("N1: a row shows the indexer's name when it has one, still linking to the address", async () => {
     fixture.names = { [FIXTURE_ADA]: "ada" };
-    daily();
-    const list = await screen.findByTestId("daily-top");
+    challenge();
+    const list = await screen.findByTestId("challenge-top");
     const rows = within(list).getAllByRole("listitem");
     expect(rows[0].textContent).toBe("1. ada - 187");
     expect(within(rows[0]).getByRole("link", { name: "ada" }).getAttribute("href")).toBe(`/player/${FIXTURE_ADA}`);
@@ -200,15 +200,15 @@ describe("Daily card, top 3", () => {
 
   it("fewer than three rows: shows those rows only", async () => {
     fixture.entries.set(FIXTURE_TOURNAMENT, fixture.entries.get(FIXTURE_TOURNAMENT)!.slice(0, 2));
-    daily();
-    const list = await screen.findByTestId("daily-top");
+    challenge();
+    const list = await screen.findByTestId("challenge-top");
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
   });
 
   it("no games today: one short line, and the leaderboard link stays", async () => {
     fixture.entries.set(FIXTURE_TOURNAMENT, []);
-    daily();
-    const list = await screen.findByTestId("daily-top");
+    challenge();
+    const list = await screen.findByTestId("challenge-top");
     expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
     expect(within(list).getByText("No games finished today yet.")).toBeTruthy();
     expect(within(list).getByRole("link", { name: "See the leaderboard" })).toBeTruthy();
@@ -216,19 +216,19 @@ describe("Daily card, top 3", () => {
 
   it("the indexer failing: no top 3 and no error, the card's other content stays", async () => {
     fixture.state.down = true;
-    daily();
+    challenge();
     await waitFor(() => expect(fixture.requests.length).toBeGreaterThan(0));
-    await screen.findByText(/mode daily/);
-    expect(screen.queryByTestId("daily-top")).toBeNull();
+    await screen.findByText(/mode challenge/);
+    expect(screen.queryByTestId("challenge-top")).toBeNull();
     expect(screen.queryByText(/leaderboard/i)).toBeNull();
     expect(screen.queryByText(/Cannot read from/)).toBeNull();
-    expect(top().getByText(/mode daily/)).toBeTruthy();
+    expect(top().getByText(/mode challenge/)).toBeTruthy();
   });
 
   it("no indexer configured: no top 3, no request and no error", async () => {
-    daily({ indexer: null });
-    await screen.findByText(/mode daily/);
-    expect(screen.queryByTestId("daily-top")).toBeNull();
+    challenge({ indexer: null });
+    await screen.findByText(/mode challenge/);
+    expect(screen.queryByTestId("challenge-top")).toBeNull();
     expect(fixture.requests).toEqual([]);
     expect(screen.queryByText(/Cannot read from/)).toBeNull();
   });
@@ -251,26 +251,26 @@ describe("Landing states", () => {
     expect(screen.queryByLabelText("Sponsor amount")).toBeNull();
   });
 
-  it("read-only (no account): the Daily confirm says Not connected and sends nothing", async () => {
+  it("read-only (no account): the Challenge confirm says Not connected and sends nothing", async () => {
     land({ account: null });
-    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await screen.findByText(/mode challenge/));
     const confirm = screen.getByText("Not connected") as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
   });
 
-  it("without the economy a new Daily game cannot be started from the dialog: nothing navigates", async () => {
+  it("without the economy a new Challenge game cannot be started from the dialog: nothing navigates", async () => {
     land({ wrap: noEconomy(configured) });
-    await waitFor(() => expect(screen.getByText(/mode daily: 1 USDC/)).toBeTruthy());
-    fireEvent.click(screen.getByText(/mode daily/));
+    await waitFor(() => expect(screen.getByText(/mode challenge: 1 USDC/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/mode challenge/));
     const confirm = (await screen.findByText("Buy it in USDC: not deployed here")) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
     fireEvent.click(confirm);
-    expect(screen.getByTestId("where").textContent).not.toContain("mode=daily");
+    expect(screen.getByTestId("where").textContent).not.toContain("mode=challenge");
   });
 
-  it("with the economy of devnet.json (E3) the Daily is bought in USDC by stake", async () => {
+  it("with the economy of devnet.json (E3) the Challenge is bought in USDC by stake", async () => {
     land({});
-    await waitFor(() => expect(screen.getByText("mode daily: USDC, by stake")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("mode challenge: USDC, by stake")).toBeTruthy());
     expect(screen.getByText("mode tutorial: Free")).toBeTruthy();
     expect(screen.queryByText(/not deployed here/)).toBeNull();
   });
@@ -279,20 +279,20 @@ describe("Landing states", () => {
     // The fixture's entry token is 0x4. With USDC elsewhere and the old Token at 0x4, the entry is an unknown token.
     const deployment = { ...(configured as object), addresses: { ...configured.addresses, Token: "0x4" } } as unknown as Deployment;
     land({ deployment, wrap: (routes) => <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x99" } }) }}>{routes}</EconomyProvider> });
-    await waitFor(() => expect(screen.getByText(/mode daily: Unknown token/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/mode challenge: Unknown token/)).toBeTruthy());
     cleanup();
     land({ deployment, wrap: noEconomy(deployment) });
-    await waitFor(() => expect(screen.getByText(/mode daily: 1 USDC/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/mode challenge: 1 USDC/)).toBeTruthy());
     cleanup();
     land({ deployment, wrap: unknownUsdc(deployment) });
-    await waitFor(() => expect(screen.getByText(/mode daily: Unknown token/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/mode challenge: Unknown token/)).toBeTruthy());
   });
 
   it("missing token decimals: the entry price is unavailable and cannot be confirmed", async () => {
     const deployment = { ...(configured as object), tokenDecimals: null } as unknown as Deployment;
     land({ deployment, wrap: noEconomy(deployment) });
-    await waitFor(() => expect(screen.getByText(/mode daily: Unavailable/)).toBeTruthy());
-    fireEvent.click(screen.getByText(/mode daily/));
+    await waitFor(() => expect(screen.getByText(/mode challenge: Unavailable/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/mode challenge/));
     const confirm = (await screen.findByText("Entry price unavailable")) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
     expect(screen.getByText("balance —")).toBeTruthy();

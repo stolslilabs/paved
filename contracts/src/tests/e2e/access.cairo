@@ -5,13 +5,13 @@ use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, Ow
 use paved::constants;
 use paved::mocks::account::{IMockAccountDispatcher, IMockAccountDispatcherTrait};
 use paved::models::tile::CENTER;
+use paved::systems::challenge::{IChallengeSetupDispatcher, IChallengeSetupDispatcherTrait};
 use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
-use paved::systems::daily::{IDailySetupDispatcher, IDailySetupDispatcherTrait};
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup, Wiring};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, SOMEONE,
+    ANYONE, IChallengeDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, SOMEONE,
     TestStoreTrait,
 };
 use paved::types::mode::Mode;
@@ -24,7 +24,7 @@ use starknet::ContractAddress;
 
 fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
     array![
-        IOwnableDispatcher { contract_address: *systems.daily.contract_address },
+        IOwnableDispatcher { contract_address: *systems.challenge.contract_address },
         IOwnableDispatcher { contract_address: *systems.setup.contract_address },
         IOwnableDispatcher { contract_address: *systems.economy.contract_address },
         IOwnableDispatcher { contract_address: *systems.collection.contract_address },
@@ -113,7 +113,7 @@ fn test_access_old_owner_cannot_transfer_after_accept() {
 #[should_panic(expected: 'Ownable: caller not pending')]
 fn test_access_accept_ownership_reverts_for_wrong_caller() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.daily.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.challenge.contract_address };
     propose(ownable, OWNER(), ANYONE());
     accept(ownable, NOONE());
 }
@@ -122,7 +122,7 @@ fn test_access_accept_ownership_reverts_for_wrong_caller() {
 #[should_panic(expected: 'Ownable: caller not pending')]
 fn test_access_accept_ownership_reverts_for_the_owner_itself() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.daily.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.challenge.contract_address };
     propose(ownable, OWNER(), ANYONE());
     accept(ownable, OWNER());
 }
@@ -184,17 +184,17 @@ fn test_access_transfer_ownership_reverts_to_zero() {
 fn test_access_daily_spawn_by_an_unregistered_address() {
     let (store, systems, _) = setup::spawn_game(Mode::None);
     let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
-    let daily = systems.daily.contract_address;
+    let challenge = systems.challenge.contract_address;
     let usdc = systems.economy.addresses().usdc;
-    setup::fund(usdc, daily, stranger);
-    start_cheat_caller_address(daily, stranger);
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    setup::fund(usdc, challenge, stranger);
+    start_cheat_caller_address(challenge, stranger);
+    let game_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     assert(store.game(game_id).player_id == stranger.into(), 'Access: stranger game');
     let erc721 = IERC721SoulboundDispatcher {
         contract_address: systems.collection.contract_address,
     };
     assert(erc721.owner_of(game_id.into()) == stranger, 'Access: stranger token');
-    systems.daily.surrender(game_id);
+    systems.challenge.surrender(game_id);
     assert(store.game(game_id).over, 'Access: stranger over');
 }
 
@@ -212,17 +212,17 @@ fn test_access_a_registration_changes_nothing() {
     let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
     assert(registry.player(PLAYER().into()) == 'PLAYER', 'Mock: registered');
     assert(registry.player(stranger.into()) == 0, 'Mock: stranger registered');
-    let daily = systems.daily.contract_address;
+    let challenge = systems.challenge.contract_address;
     let token = context.token;
-    setup::fund(token.contract_address, daily, stranger);
+    setup::fund(token.contract_address, challenge, stranger);
     // [Registered] pays the unregistered referrer
-    start_cheat_caller_address(daily, PLAYER());
-    systems.daily.spawn(1, stranger, 0);
+    start_cheat_caller_address(challenge, PLAYER());
+    systems.challenge.spawn(1, stranger, 0);
     assert(token.balance_of(stranger) - setup::FUNDS == 100_000, 'Mock: stranger not paid');
     // [Unregistered] pays the registered referrer
     let before = token.balance_of(PLAYER());
-    start_cheat_caller_address(daily, stranger);
-    systems.daily.spawn(1, PLAYER(), 0);
+    start_cheat_caller_address(challenge, stranger);
+    systems.challenge.spawn(1, PLAYER(), 0);
     assert(token.balance_of(PLAYER()) - before == 100_000, 'Mock: player not paid');
 }
 
@@ -235,25 +235,25 @@ fn deploy_mock_account() -> ContractAddress {
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
 fn test_access_daily_build_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    start_cheat_caller_address(systems.daily.contract_address, NOONE());
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
+    start_cheat_caller_address(systems.challenge.contract_address, NOONE());
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 }
 
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
 fn test_access_daily_discard_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    start_cheat_caller_address(systems.daily.contract_address, NOONE());
-    systems.daily.discard(context.game_id);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
+    start_cheat_caller_address(systems.challenge.contract_address, NOONE());
+    systems.challenge.discard(context.game_id);
 }
 
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
 fn test_access_daily_surrender_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    start_cheat_caller_address(systems.daily.contract_address, NOONE());
-    systems.daily.surrender(context.game_id);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
+    start_cheat_caller_address(systems.challenge.contract_address, NOONE());
+    systems.challenge.surrender(context.game_id);
 }
 
 
@@ -272,7 +272,7 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     assert(
-        constructor_panic("Daily", array![owner, 0, SETUP]) == 'Daily: token is zero',
+        constructor_panic("Challenge", array![owner, 0, SETUP]) == 'Challenge: token is zero',
         'Access: token',
     );
 }
@@ -283,8 +283,8 @@ fn test_access_daily_constructor_reverts_on_zero_setup() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = ANYONE().into();
     assert(
-        constructor_panic("Daily", array![owner, token, 0]) == 'Daily: setup is zero',
-        'Access: daily setup',
+        constructor_panic("Challenge", array![owner, token, 0]) == 'Challenge: setup is zero',
+        'Access: challenge setup',
     );
 }
 
@@ -293,21 +293,21 @@ fn test_access_daily_constructor_reverts_on_zero_setup() {
 #[test]
 fn test_access_daily_owner_sets_the_setup() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let admin = IDailySetupDispatcher { contract_address: daily };
+    let challenge = systems.challenge.contract_address;
+    let admin = IChallengeSetupDispatcher { contract_address: challenge };
     assert(admin.setup() == systems.setup.contract_address, 'Access: setup at deploy');
     let mut spy = spy_events();
-    start_cheat_caller_address(daily, OWNER());
+    start_cheat_caller_address(challenge, OWNER());
     admin.set_setup(SOMEONE());
-    stop_cheat_caller_address(daily);
+    stop_cheat_caller_address(challenge);
     assert(admin.setup() == SOMEONE(), 'Access: setup set');
     spy
         .assert_emitted(
             @array![
                 (
-                    daily,
-                    paved::systems::daily::Daily::Event::SetupSet(
-                        paved::systems::daily::SetupSet { setup: SOMEONE() },
+                    challenge,
+                    paved::systems::challenge::Challenge::Event::SetupSet(
+                        paved::systems::challenge::SetupSet { setup: SOMEONE() },
                     ),
                 ),
             ],
@@ -318,18 +318,19 @@ fn test_access_daily_owner_sets_the_setup() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_access_daily_set_setup_reverts_for_a_player() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    start_cheat_caller_address(daily, PLAYER());
-    IDailySetupDispatcher { contract_address: daily }.set_setup(SOMEONE());
+    let challenge = systems.challenge.contract_address;
+    start_cheat_caller_address(challenge, PLAYER());
+    IChallengeSetupDispatcher { contract_address: challenge }.set_setup(SOMEONE());
 }
 
 #[test]
-#[should_panic(expected: 'Daily: setup is zero')]
+#[should_panic(expected: 'Challenge: setup is zero')]
 fn test_access_daily_set_setup_reverts_on_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    start_cheat_caller_address(daily, OWNER());
-    IDailySetupDispatcher { contract_address: daily }.set_setup(core::num::traits::Zero::zero());
+    let challenge = systems.challenge.contract_address;
+    start_cheat_caller_address(challenge, OWNER());
+    IChallengeSetupDispatcher { contract_address: challenge }
+        .set_setup(core::num::traits::Zero::zero());
 }
 
 
@@ -342,8 +343,8 @@ fn test_access_constructors_revert_on_zero_owner() {
         'Access: setup owner',
     );
     assert(
-        constructor_panic("Daily", array![0, token, SETUP]) == 'Ownable: new owner is zero',
-        'Access: daily owner',
+        constructor_panic("Challenge", array![0, token, SETUP]) == 'Ownable: new owner is zero',
+        'Access: challenge owner',
     );
 }
 
@@ -354,13 +355,13 @@ fn test_access_constructors_revert_on_zero_owner() {
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
 fn test_access_daily_player_zero_cannot_end_its_game() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let mut game = store.game(context.game_id);
     game.player_id = 0;
     store.set_game(game);
     let zero: ContractAddress = 0.try_into().unwrap();
-    start_cheat_caller_address(systems.daily.contract_address, zero);
-    systems.daily.surrender(context.game_id);
+    start_cheat_caller_address(systems.challenge.contract_address, zero);
+    systems.challenge.surrender(context.game_id);
 }
 
 // Setup's wiring (D-25 E): the owner sets each address once, never zero; `wiring` reads both

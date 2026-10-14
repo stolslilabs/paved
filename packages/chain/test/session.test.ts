@@ -5,7 +5,7 @@ import type { DecodedEvent } from "../src/codec";
 
 const C = 0x7fffffff;
 const PLAYER = "0xabc";
-const key: GameKey = { mode: "daily", gameId: 4 };
+const key: GameKey = { mode: "challenge", gameId: 4 };
 
 function fakeGame(): FakeGame {
   return {
@@ -33,7 +33,7 @@ describe("GameSession", () => {
     await session.load();
     expect(session.state).toMatchObject({ status: "ready", readonly: false, hand: { tileId: 2, plan: 7 }, lastScored: [] });
     expect(session.state.tiles.map((t) => t.id)).toEqual([1]);
-    expect(views.calls).toEqual(["game daily:4", "tiles daily:4"]);
+    expect(views.calls).toEqual(["game challenge:4", "tiles challenge:4"]);
   });
 
   test("another player's game is read only, with no builder read", async () => {
@@ -42,7 +42,7 @@ describe("GameSession", () => {
     const session = new GameSession(views, key, "0xdef");
     await session.load();
     expect(session.state).toMatchObject({ status: "ready", readonly: true, hand: null });
-    expect(views.calls).toEqual(["game daily:4", "tiles daily:4"]);
+    expect(views.calls).toEqual(["game challenge:4", "tiles challenge:4"]);
   });
 
   test("a missing game is a typed error", async () => {
@@ -83,7 +83,7 @@ describe("GameSession", () => {
     expect(session.state).toMatchObject({ pending: false, hand: { tileId: 3, plan: 9 } });
     expect(session.state.game?.score).toBe(4);
     expect(session.state.tiles.map((t) => [t.id, t.pending ?? false])).toEqual([[1, false], [2, false]]);
-    expect(views.calls).toEqual(["game daily:4"]);
+    expect(views.calls).toEqual(["game challenge:4"]);
   });
 
   test("a failed write takes the pending tile back and gives the hand back", async () => {

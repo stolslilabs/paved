@@ -21,7 +21,7 @@ use paved::structure::state::StructuresTrait;
 use paved::structure::{oriented, tables};
 use paved::tests::golden::harness::day;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -197,15 +197,15 @@ fn walk_cost(game_id: u32, tile_id: u32, before: u16, step: u32) -> u128 {
 fn test_walk_cost_full_deck() {
     snforge_std::start_cheat_block_timestamp_global(day(10));
     let (store, systems, _) = setup::spawn_game(Mode::None);
-    snforge_std::start_cheat_caller_address(systems.daily.contract_address, PLAYER());
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
+    let game_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     let mut step: u32 = 0;
     for (_, orientation, x, y) in moves() {
         let game = store.game(game_id);
         let tile_id = store.builder(game, PLAYER().into()).tile_id;
         let before = interact_with_state(store.contract, || closed_wonders(game_id, x, y));
         let start = get_available_gas();
-        systems.daily.build(game_id, orientation, x, y);
+        systems.challenge.build(game_id, orientation, x, y);
         let build = start - get_available_gas();
         let at = step;
         let walk = interact_with_state(store.contract, || walk_cost(game_id, tile_id, before, at));

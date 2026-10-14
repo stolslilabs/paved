@@ -14,13 +14,13 @@ pub mod HostableComponent {
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
-    use paved::seed::{DailySeed, SeedSource};
+    use paved::seed::{SeedSource, TokenSeed};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::storage::Map;
     #[cfg(test)]
     use starknet::storage::{StorageAsPointer, StoragePathEntry};
-    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
 
     // Storage
 
@@ -37,7 +37,8 @@ pub mod HostableComponent {
 
     /// Test only: the address of a `sponsorships` entry, resolved through the field's name, for the
     /// pin of the dead fields
-    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`).
+    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`; its name is kept
+    /// from before D-23 on purpose: the docs cite it).
     #[cfg(test)]
     #[generate_trait]
     pub impl DeadFieldsImpl<
@@ -59,7 +60,7 @@ pub mod HostableComponent {
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn spawn(self: @ComponentState<TContractState>, mode: Mode) -> (u32, u256) {
-            self.spawn_with(mode, @DailySeed {})
+            self.spawn_with(mode, @TokenSeed { contract: get_contract_address() })
         }
 
         fn spawn_with<S, +SeedSource<S>>(

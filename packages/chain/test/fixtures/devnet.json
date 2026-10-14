@@ -215,9 +215,9 @@
   ],
   "receipts": {
     "create": "0x53f96ce2d84bfc8f6896474dd7303507969918d633bb00308a698a1f2c39c24",
-    "spawnDaily": "0x51ea7ae4f46c6b362bb97dc208173ad16b54a25e04cfad42d600852b9c998a",
-    "discardDaily": "0x2c208e3cedcb8decefd357ed037db7c796f44164d95ca54536f868b091269c0",
-    "surrenderDaily": "0x2dc82548160f56d2f3a4b66c2ba6f04e727817f2e6635f0ff6cab35d2fc7d1b"
+    "spawnChallenge": "0x51ea7ae4f46c6b362bb97dc208173ad16b54a25e04cfad42d600852b9c998a",
+    "discardChallenge": "0x2c208e3cedcb8decefd357ed037db7c796f44164d95ca54536f868b091269c0",
+    "surrenderChallenge": "0x2dc82548160f56d2f3a4b66c2ba6f04e727817f2e6635f0ff6cab35d2fc7d1b"
   },
   "errors": {
     "gameNotFound": "RPC: starknet_call with params {\n  \"request\": {\n    \"contract_address\": \"0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9\",\n    \"entry_point_selector\": \"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\n    \"calldata\": [\n      \"0x63\"\n    ]\n  },\n  \"block_id\": \"latest\"\n}\n\n      40: Contract error: {\"revert_error\":{\"contract_address\":\"0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9\",\"class_hash\":\"0x66456dc1b4802681afedb774e990713d18ed13466069a3e2e1dde5d8742653e\",\"selector\":\"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\"error\":\"[\\\"0x47616d653a20646f6573206e6f74206578697374\\\"]\"}}",
@@ -396,7 +396,7 @@
   },
   "addresses": {
     "Account": "0x33dd11ca7497d3f95ef2dd8ef7670a9a86283f5bd79a5beae695d2d2034f83",
-    "Daily": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
+    "Challenge": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
     "Token": "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8"
   },
   "player": "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691",

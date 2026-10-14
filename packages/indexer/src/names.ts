@@ -109,13 +109,17 @@ export function cartridgeLookup(options: { url?: string; fetch?: typeof fetch } 
 }
 
 /**
- * Whether the lookup runs: on by default, off on a devnet deployment (its addresses are test accounts, not for a public
- * service), `--no-names` always off, `--names` forces it on (a by-hand check).
+ * Whether the lookup runs: on only for a deployment of a known public network (`PUBLIC_NETWORKS`), off for any other one
+ * (devnet's addresses are test accounts, not for a public service) and when the file names no network: it fails closed.
+ * `--no-names` is always off, `--names` forces it on (a by-hand check).
  */
 export function namesEnabled(options: { network: string; noNames?: boolean; names?: boolean }): boolean {
   if (options.noNames) return false;
-  return options.names === true || options.network !== "devnet";
+  return options.names === true || PUBLIC_NETWORKS.includes(options.network);
 }
+
+/** The networks whose addresses may be sent to the lookup without `--names`. */
+export const PUBLIC_NETWORKS: readonly string[] = ["sepolia", "mainnet"];
 
 export type ResolverOptions = {
   store: Store;

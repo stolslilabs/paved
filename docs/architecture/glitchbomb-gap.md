@@ -742,8 +742,8 @@ run: the fresh path supersedes them.
   - `PavedClient.player` and the Landing creation flow go (`packages/chain/src/paved-client.ts:31-36`,
     `packages/app-web/src/pages/Landing.tsx:142-145`).
 - **The referrer check** becomes a non-zero address (`packages/app-web/src/components/EconomyPurchase.tsx:81`).
-- **The deployment file's names change:** `MockUSDC` becomes `Faucet`, `Account` and `Tutorial` go, and `Setup` (and
-  `Treasury`) arrive. The readers to change are `packages/chain/src/deployment.ts:45` and
+- **The deployment file's names change:** `MockUSDC` becomes `Faucet`, `Daily` becomes `Challenge` (D-23: the key
+  `contracts.Challenge`, the ABI `Challenge.json`), `Account` and `Tutorial` go, and `Setup` (and `Treasury`) arrive. The readers to change are `packages/chain/src/deployment.ts:45` and
   `packages/chain/src/economy/deployment.ts:61-79`.
 - **Session policies.** `Faucet.mint` replaces `MockUSDC.mint`, and `Setup.claim_tutorial` is added
   (`packages/chain/src/auth/controller.ts:41-54`).

@@ -33,18 +33,18 @@ const dataUri = (json: string) => `data:application/json;base64,${Buffer.from(js
 const CONTRACT_URI = "data:application/json;base64,eyJuYW1lIjoiUGF2ZWQgR2FtZXMgIzciLCJkZXNjcmlwdGlvbiI6IkEgZ2FtZSBvZiBQYXZlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU2NvcmUiLCJ2YWx1ZSI6MH0seyJ0cmFpdF90eXBlIjoiT3ZlciIsInZhbHVlIjpmYWxzZX0seyJ0cmFpdF90eXBlIjoiRGF5IiwidmFsdWUiOjIwMDAwfV19";
 
 describe("nftOf", () => {
-  test("a Daily token id is the game id", () => {
-    expect(nftOf("daily", 1)).toBe(1n);
-    expect(nftOf("daily", 912)).toBe(912n);
-    expect(nftOf("daily", 0xffffffff)).toBe(0xffffffffn);
+  test("a Challenge token id is the game id", () => {
+    expect(nftOf("challenge", 1)).toBe(1n);
+    expect(nftOf("challenge", 912)).toBe(912n);
+    expect(nftOf("challenge", 0xffffffff)).toBe(0xffffffffn);
   });
 
   test("an id that is not a u32 game id is refused, not rounded", () => {
-    expect(() => nftOf("daily", -1)).toThrow(RangeError);
-    expect(() => nftOf("daily", 1.5)).toThrow(RangeError);
-    expect(() => nftOf("daily", 2 ** 32)).toThrow(RangeError);
-    expect(() => nftOf("daily", Number.MAX_SAFE_INTEGER + 2)).toThrow(RangeError);
-    expect(() => nftOf("daily", NaN)).toThrow(RangeError);
+    expect(() => nftOf("challenge", -1)).toThrow(RangeError);
+    expect(() => nftOf("challenge", 1.5)).toThrow(RangeError);
+    expect(() => nftOf("challenge", 2 ** 32)).toThrow(RangeError);
+    expect(() => nftOf("challenge", Number.MAX_SAFE_INTEGER + 2)).toThrow(RangeError);
+    expect(() => nftOf("challenge", NaN)).toThrow(RangeError);
   });
 
   test("tokenIdOf reads an indexer token id only if it is a safe non-negative integer", () => {
@@ -62,7 +62,7 @@ describe("nftOf", () => {
 });
 
 describe("the Collection's address", () => {
-  const FILE = { rpc_url: "http://x", contracts: { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } } };
+  const FILE = { rpc_url: "http://x", contracts: { Challenge: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } } };
 
   test("from the deployments file when it has one; none without, and the deployment stays configured", () => {
     const without = resolveDeployment({ network: "devnet", file: FILE });
@@ -122,15 +122,15 @@ describe("the indexer's token_id and contracts.collection", () => {
     fixture.state.collection = null;
     const { data } = await client.head();
     expect(data.contracts.collection).toBeUndefined();
-    expect(data.contracts.daily).toBe("0x2");
+    expect(data.contracts.challenge).toBe("0x2");
   });
 
   test("a null in any other contracts key stays a bad answer", async () => {
     const fixture = new FixtureIndexer();
     const client = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
-    for (const key of ["daily", "account", "economy"]) {
+    for (const key of ["challenge", "account", "economy"]) {
       fixture.state.rawBody = {
-        text: JSON.stringify({ version: 1, status: "ok", head: { number: 1, hash: "0x1", timestamp: 1 }, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2", collection: null, [key]: null } }),
+        text: JSON.stringify({ version: 1, status: "ok", head: { number: 1, hash: "0x1", timestamp: 1 }, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { challenge: "0x2", collection: null, [key]: null } }),
         httpStatus: 200,
       };
       const error = await client.head().then(() => null, (e: IndexerError) => e);

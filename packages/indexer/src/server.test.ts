@@ -14,9 +14,9 @@ const PA = padded(A);
 async function served() {
   const node = new FakeNode();
   node.mine([], []);
-  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY + 1 })]);
-  node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
-  node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
+  node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, B, { day: DAY })], [ev.spawned("challenge", 3, A, { day: DAY + 1 })]);
+  node.mine([ev.over("challenge", 1, A, 50, { day: DAY, end: 77 })]);
+  node.mine([ev.over("challenge", 2, B, 40, { day: DAY, end: 78 })]);
   const indexer = indexerOf(node);
   await settle(indexer);
   return { node, indexer };
@@ -47,21 +47,21 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { daily: "0x1111", setup: "0x2222", economy: "0x4444", collection: "0x5555" },
+      contracts: { challenge: "0x1111", setup: "0x2222", economy: "0x4444", collection: "0x5555" },
       checks: { definitions_excluded: 0 },
     });
     // Account left with D-25 (E).
-    expect(Object.keys(answer.body.contracts as object).sort()).toEqual(["collection", "daily", "economy", "setup"]);
+    expect(Object.keys(answer.body.contracts as object).sort()).toEqual(["challenge", "collection", "economy", "setup"]);
   });
 
   test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {
     const node = new FakeNode();
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
     const indexer = indexerWithoutCollection(node);
     await settle(indexer);
     expect(get(indexer, "/v1/head").body).toMatchObject({ contracts: { economy: "0x4444", collection: null } });
-    expect((get(indexer, "/v1/games/daily/1").body.game as { token_id: number | null }).token_id).toBeNull();
+    expect((get(indexer, "/v1/games/challenge/1").body.game as { token_id: number | null }).token_id).toBeNull();
   });
 
   test("the leaderboard, with the example's fields and paging", async () => {
@@ -100,17 +100,17 @@ describe("routes", () => {
     expect(get(indexer, "/v1/tournaments?limit=5").body).toMatchObject({ tournaments: [{ id: DAY + 1 }, { id: DAY }], next: null });
     expect(get(indexer, `/v1/players/${PA}`).body).toMatchObject({
       player: { player_id: PA, created: node.blocks[2]!.timestamp },
-      stats: { daily_games: 2, daily_finished: 1, best_score: 50 },
+      stats: { challenge_games: 2, challenge_finished: 1, best_score: 50 },
     });
     // The player is the address, created at its first GameSpawned (block 2), with no name on chain (D-25 (E)); `name` is the off-chain cache's (N1), null here.
     expect(Object.keys(get(indexer, `/v1/players/${PA}`).body.player as object).sort()).toEqual(["created", "name", "player_id"]);
     expect(get(indexer, `/v1/players/${padded(0xeeen)}`)).toMatchObject({ code: 200, body: { player: null, stats: null } });
-    const games = get(indexer, `/v1/players/${PA}/games?contract=daily`).body.games as { game_id: number }[];
+    const games = get(indexer, `/v1/players/${PA}/games?contract=challenge`).body.games as { game_id: number }[];
     expect(games.map((g) => g.game_id)).toEqual([3, 1]);
     expect(get(indexer, `/v1/players/${PA}/tournaments/100`).body).toMatchObject({ entry: { rank: 1 } });
     expect(get(indexer, `/v1/players/${PA}/tournaments/99`).body).toMatchObject({ entry: null });
-    expect(get(indexer, "/v1/games/daily/3").body).toMatchObject({ game: { contract: "daily", game_id: 3, over: false } });
-    expect(get(indexer, "/v1/games/daily/99")).toMatchObject({ code: 404, body: { status: "error" } });
+    expect(get(indexer, "/v1/games/challenge/3").body).toMatchObject({ game: { contract: "challenge", game_id: 3, over: false } });
+    expect(get(indexer, "/v1/games/challenge/99")).toMatchObject({ code: 404, body: { status: "error" } });
   });
 
   test("a day with no game answers zeros, and the id bound holds", async () => {
@@ -142,10 +142,10 @@ describe("Economy's fields (appended in E3)", () => {
   async function paid() {
     const node = new FakeNode();
     node.mine([], []);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
-    node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
-    node.mine([ev.over("daily", 2, A, 300, { day: DAY }), ev.recorded(2, 300)]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
+    node.mine([ev.spawned("challenge", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("challenge", 2, A, 300, { day: DAY }), ev.recorded(2, 300)]);
     node.mine([ev.dayClosed(DAY), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: REWARD })]);
     const indexer = indexerOf(node);
     await settle(indexer);
@@ -162,7 +162,7 @@ describe("Economy's fields (appended in E3)", () => {
 
   test("a game, its player and its day carry the terms, the rewards and the unsettled games", async () => {
     const indexer = await paid();
-    expect(get(indexer, "/v1/games/daily/1").body).toMatchObject({
+    expect(get(indexer, "/v1/games/challenge/1").body).toMatchObject({
       game: {
         game_id: 1,
         score: 5000,
@@ -196,13 +196,13 @@ describe("Economy's fields (appended in E3)", () => {
 
   test("P-19: every number is a safe integer, every amount a decimal string", async () => {
     const indexer = await paid();
-    for (const target of ["/v1/games/daily/1", `/v1/players/${PA}`, `/v1/players/${PA}/games`, `/v1/tournaments/${DAY}`]) {
+    for (const target of ["/v1/games/challenge/1", `/v1/players/${PA}`, `/v1/players/${PA}/games`, `/v1/tournaments/${DAY}`]) {
       const answer = get(indexer, target);
       expect(answer.code, target).toBe(200);
       const body = JSON.parse(JSON.stringify(answer.body));
       for (const value of numbers(body)) expect(Number.isSafeInteger(value), `${target}: ${value}`).toBe(true);
     }
-    const game = get(indexer, "/v1/games/daily/1").body.game as { economy: Record<string, unknown> };
+    const game = get(indexer, "/v1/games/challenge/1").body.game as { economy: Record<string, unknown> };
     for (const key of ["price", "referral", "burned", "reference", "reward"]) {
       expect(game.economy[key], key).toMatch(/^(0|[1-9]\d*)$/);
     }
@@ -213,14 +213,14 @@ describe("the game token (appended in E5b)", () => {
   test("token_id is the game id, null before the mint; a past Tutorial token is skipped (D-21)", async () => {
     const node = new FakeNode();
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
     node.mine([ev.minted(A, 2 ** 32 + 1)]);
-    node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
     const indexer = indexerOf(node);
     await settle(indexer);
     const token = (target: string) => (get(indexer, target).body.game as { token_id: number | null }).token_id;
-    expect(token("/v1/games/daily/1")).toBe(1);
-    expect(token("/v1/games/daily/2")).toBeNull();
+    expect(token("/v1/games/challenge/1")).toBe(1);
+    expect(token("/v1/games/challenge/2")).toBeNull();
     expect(indexer.status).toBe("ok");
   });
 });
@@ -244,17 +244,17 @@ describe("strict parameters", () => {
     [`/v1/players/${PA.slice(0, -1)}g`],
     [`/v1/players/0x${"f".repeat(64)}`],
     [`/v1/players/${PA}/games?contract=weekly`],
-    [`/v1/players/${PA}/games?before=1:daily`],
-    [`/v1/players/${PA}/games?before=1:daily:0`],
-    [`/v1/players/${PA}/games?contract=daily&contract=daily`],
+    [`/v1/players/${PA}/games?before=1:challenge`],
+    [`/v1/players/${PA}/games?before=1:challenge:0`],
+    [`/v1/players/${PA}/games?contract=challenge&contract=challenge`],
     // The on-chain Tutorial's games are dropped (D-21).
     [`/v1/players/${PA}/games?contract=tutorial`],
     [`/v1/players/${PA}/games?before=1:tutorial:1`],
     ["/v1/games/tutorial/1"],
     [`/v1/players/${PA}/tournaments/x`],
     ["/v1/games/weekly/1"],
-    ["/v1/games/daily/0"],
-    ["/v1/games/daily/4294967296"],
+    ["/v1/games/challenge/0"],
+    ["/v1/games/challenge/4294967296"],
     ["/v1/head?x=1"],
   ])("%s is 400", async (target) => {
     const { indexer } = await served();
@@ -278,7 +278,7 @@ describe("states", () => {
   test("loading: every route answers 503 with the state", async () => {
     const node = new FakeNode();
     const indexer = indexerOf(node);
-    for (const target of ["/v1/head", "/v1/tournaments", "/v1/games/daily/1"]) {
+    for (const target of ["/v1/head", "/v1/tournaments", "/v1/games/challenge/1"]) {
       expect(get(indexer, target)).toMatchObject({ code: 503, body: { version: 1, status: "loading", head: null } });
     }
     expect(get(indexer, "/v1/nope").code).toBe(404);
@@ -287,7 +287,7 @@ describe("states", () => {
 
   test("halted: 503 with the reason", async () => {
     const node = new FakeNode();
-    node.mine([ev.over("daily", 1, A, 5)]);
+    node.mine([ev.over("challenge", 1, A, 5)]);
     const indexer = indexerOf(node);
     await settle(indexer);
     const answer = get(indexer, "/v1/tournaments/1");
@@ -300,7 +300,7 @@ describe("states", () => {
     get(indexer, "/v1/tournaments/100");
     get(indexer, "/v1/tournaments/100");
     expect(cacheOf(indexer).hits).toBe(1);
-    node.reorg(1, [[[ev.over("daily", 2, B, 99, { day: DAY })]]]);
+    node.reorg(1, [[[ev.over("challenge", 2, B, 99, { day: DAY })]]]);
     await settle(indexer);
     expect(get(indexer, "/v1/tournaments/100").body).toMatchObject({ tournament: { best_score: 99 } });
   });
@@ -334,13 +334,13 @@ describe("the HTTP server", () => {
 
 describe("D-20: the prize leaves", () => {
   const S = 0x5501n;
-  // The same games, with and without the past prize events of Daily (public-interface.md, "Past events") in between.
+  // The same games, with and without the past prize events of Challenge (public-interface.md, "Past events") in between.
   const history = (node: FakeNode, prize: boolean) => {
     node.mine([], []);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, B, { day: DAY })]);
     node.mine(prize ? [ev.sponsored(DAY, S)] : []);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })], ...(prize ? [[ev.claimed(DAY - 1, A, 1)]] : []));
-    node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY, end: 77 })], ...(prize ? [[ev.claimed(DAY - 1, A, 1)]] : []));
+    node.mine([ev.over("challenge", 2, B, 40, { day: DAY, end: 78 })]);
     node.mine(prize ? [ev.reclaimed(DAY - 2, S), ev.claimed(DAY - 1, B, 2)] : []);
   };
 

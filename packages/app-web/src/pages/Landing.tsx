@@ -20,7 +20,7 @@ interface ModeInfo {
   title: string;
   tiles: number;
   duration: string;
-  /** Daily's entry is read from `Daily.entry_price`. */
+  /** Challenge's entry is read from `Challenge.entry_price`. */
   paid: boolean;
 }
 
@@ -33,7 +33,7 @@ export const PANEL_MAX_HEIGHT_CSS =
   ".landing-right-panel{max-height:calc(100vh - 16px - 64px);max-height:calc(100dvh - 16px - 64px)}";
 
 /** The one mode the contracts have since D-21 (Weekly, configurable games and the on-chain Tutorial are gone). */
-const MODES: ModeInfo[] = [{ mode: "daily", title: "Daily Challenge", tiles: 38, duration: "24 hours", paid: true }];
+const MODES: ModeInfo[] = [{ mode: "challenge", title: "Challenge", tiles: 38, duration: "24 hours", paid: true }];
 
 /** Finished games listed on the landing page, newest first. */
 const COMPLETED_SHOWN = 10;
@@ -49,20 +49,20 @@ async function listGames(client: PavedClient, address: string): Promise<ListedGa
   return Promise.all(shown.map(async (g) => ({ ...g, view: await client.views.game({ mode: g.mode, gameId: g.gameId }) })));
 }
 
-/** Rows of today's leaderboard shown on the Daily card. */
+/** Rows of today's leaderboard shown on the Challenge card. */
 export const TOP_SHOWN = 3;
 
 /**
- * The top 3 of today on the Daily card, from the indexer. Nothing while it loads, when the indexer is not configured or
+ * The top 3 of today on the Challenge card, from the indexer. Nothing while it loads, when the indexer is not configured or
  * fails (the card's other content stays, no error), and one line when nobody has finished a game today.
  */
-export function DailyTop({ day }: { day: number | null | undefined }) {
+export function ChallengeTop({ day }: { day: number | null | undefined }) {
   const board = useIndexerRead(day === null || day === undefined ? null : (c) => c.leaderboard(day, { limit: TOP_SHOWN }), [day], { onVisible: true });
   const entries: LeaderboardEntry[] = board.data?.data.entries.slice(0, TOP_SHOWN) ?? [];
   const label = usePlayerLabel();
   if (!board.data) return null;
   return (
-    <div data-testid="daily-top" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+    <div data-testid="challenge-top" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
       {entries.length === 0 ? (
         <span role="status">No games finished today yet.</span>
       ) : (
@@ -99,9 +99,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   // Reads happen on connect, after this client's writes (refresh), and when the page becomes visible.
   const balance = useRead((c) => (address ? c.balance(address) : Promise.resolve(0n)), [address]);
   const games = useRead((c) => (address ? listGames(c, address) : Promise.resolve([])), [address], { onVisible: true });
-  // What a Daily spawn pulls (O-23): the same source the contract's `spawn` uses.
+  // What a Challenge spawn pulls (O-23): the same source the contract's `spawn` uses.
   const price = useRead((c) => c.views.entryPrice(), [], { onVisible: true });
-  // The current day (`Daily.current_day`), for the time left in it.
+  // The current day (`Challenge.current_day`), for the time left in it.
   const day = useRead((c) => c.views.currentDay(), [], { onVisible: true });
 
   // D-25 (E): the player is whoever is connected (the wallet address), with no registration; the name is the Controller's
@@ -141,7 +141,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const dayEnd = day.data === null || day.data === undefined ? null : (day.data + 1) * 86400;
 
-  // The Daily entry is paid in USDC since E3 (`contracts.USDC`, the devnet's MockUSDC), not in the old Token.
+  // The Challenge entry is paid in USDC since E3 (`contracts.USDC`, the devnet's MockUSDC), not in the old Token.
   const fee = entryFee(price, economy.deployment.addresses.USDC, deployment.tokenDecimals);
   const feeLabel =
     fee.kind === "amount"
@@ -177,11 +177,11 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     description: `${m.tiles} tiles`,
     tileCount: m.tiles,
     duration: m.duration,
-    // With the economy deployed the Daily is bought in USDC by stake (P8); the price shows in the stake picker.
+    // With the economy deployed the Challenge is bought in USDC by stake (P8); the price shows in the stake picker.
     entryFee: !m.paid ? "Free" : economy.client ? "USDC, by stake" : feeLabel,
-    timeRemaining: m.mode === "daily" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
+    timeRemaining: m.mode === "challenge" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
-    extra: m.mode === "daily" ? <DailyTop day={day.data} /> : undefined,
+    extra: m.mode === "challenge" ? <ChallengeTop day={day.data} /> : undefined,
     onPress: () => setSelected(m.mode),
   }));
   // The Tutorial is a page of its own on the engine (U1), off chain since D-21: no dialog, no start, no wallet.
@@ -195,7 +195,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     hasActiveGame: false,
     onPress: () => navigate("/tutorial"),
   };
-  // The Daily, then the off-chain modes: Training and the Tutorial are free for anyone, the Daily's start keeps its gate.
+  // The Challenge, then the off-chain modes: Training and the Tutorial are free for anyone, the Challenge's start keeps its gate.
   const gameModes: GameModeCardProps[] = [...modeCards, training, tutorial];
 
   const toItem = (readonly: boolean) => (g: ListedGame): GameListItemProps => ({
@@ -211,20 +211,20 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const handleConfirm = () => {
     if (!selected) return;
     const resume = active.find((g) => g.mode === selected);
-    // The only place that consents to start a game (and to pay the Daily entry): the consent is the
+    // The only place that consents to start a game (and to pay the Challenge entry): the consent is the
     // history state, with the amount the player sees here, which the spawn refuses to differ from.
     const route = buildGameRoute({ mode: selected });
     if (resume) navigate(buildGameRoute({ gameId: resume.gameId, mode: resume.mode }));
-    else if (selected === "daily") {
-      return; // a new Daily game is bought with the stake picker, never from this dialog
+    else if (selected === "challenge") {
+      return; // a new Challenge game is bought with the stake picker, never from this dialog
     } else navigate(route, { state: startIntent(selected, null) });
     setSelected(null);
   };
 
   const selectedCard = selected ? gameModes.find((m) => m.mode === selected) : null;
-  // A Daily start needs a known entry fee; resuming a game does not.
-  // A new Daily game is bought with the stake picker (E3: `Daily.spawn` takes USDC and a swap floor); this dialog only resumes one.
-  const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
+  // A Challenge start needs a known entry fee; resuming a game does not.
+  // A new Challenge game is bought with the stake picker (E3: `Challenge.spawn` takes USDC and a swap floor); this dialog only resumes one.
+  const confirmAllowed = selected !== "challenge" || active.some((g) => g.mode === "challenge");
 
   return (
     <>
@@ -305,7 +305,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                   ))}
                 </div>
               )}
-              {selected === "daily" && economy.client && !selectedCard.hasActiveGame && (
+              {selected === "challenge" && economy.client && !selectedCard.hasActiveGame && (
                 <EconomyPurchase
                   client={economy.client}
                   address={address}
@@ -313,13 +313,13 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                   referrer={referrer}
                   onConfirm={(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) => {
                     // The consent to pay is this click's history state, never the link's URL.
-                    navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) });
+                    navigate(buildGameRoute({ mode: "challenge" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) });
                     setSelected(null);
                   }}
                 />
               )}
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                {!(selected === "daily" && economy.client && !selectedCard.hasActiveGame) && (
+                {!(selected === "challenge" && economy.client && !selectedCard.hasActiveGame) && (
                 <button
                   onClick={handleConfirm}
                   disabled={status !== "ready" || !confirmAllowed}

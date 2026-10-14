@@ -36,7 +36,7 @@ export class SchemaMismatch extends Error {}
 
 /** What a database was built for; a database is never reused for another configuration. */
 export type Config = {
-  daily: string;
+  challenge: string;
   setup: string;
   economy: string;
   /** Undefined for a deployment before E5b: no mint is read and no game has a token id. */
@@ -50,18 +50,18 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "10";
+export const SCHEMA_VERSION = "11";
 
 /**
- * The sha256 of the four addresses (canonical, in a fixed order: Daily, Setup, Economy, then Collection when there is
- * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)).
+ * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
+ * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since schema 11 (D-23b).
  */
 export function deploymentHash(
-  config: Pick<Config, "daily" | "setup" | "economy" | "collection">,
+  config: Pick<Config, "challenge" | "setup" | "economy" | "collection">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.daily, config.setup, config.economy, config.collection]
+      [config.challenge, config.setup, config.economy, config.collection]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -109,7 +109,7 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS games_player ON games (player_id, start_time DESC, contract DESC, game_id DESC);
   CREATE INDEX IF NOT EXISTS games_board ON games (day_id, score DESC, over_block, over_tx, over_idx)
     WHERE over = 1 AND day_id > 0;
-  CREATE INDEX IF NOT EXISTS games_spawn ON games (spawn_day, player_id) WHERE contract = 'daily';
+  CREATE INDEX IF NOT EXISTS games_spawn ON games (spawn_day, player_id) WHERE contract = 'challenge';
   CREATE INDEX IF NOT EXISTS games_spawned ON games (spawned_block);
   CREATE INDEX IF NOT EXISTS games_over ON games (over_block) WHERE over = 1;
   -- Definitions (QuestDefined, AchievementDefined) and their retirement (a position in chain order: block, tx, idx).
@@ -149,8 +149,8 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS day_closes_time ON day_closes (prev_time, time);
   CREATE INDEX IF NOT EXISTS podium_player ON podium (player_id);
-  -- Economy: one row per paid Daily game (Purchased), recorded (Recorded) then settled (Settled), each at a block. The
-  -- amounts are decimal text (u256, u128); the game id is Daily's own.
+  -- Economy: one row per paid Challenge game (Purchased), recorded (Recorded) then settled (Settled), each at a block. The
+  -- amounts are decimal text (u256, u128); the game id is Challenge's own.
   CREATE TABLE IF NOT EXISTS purchases (
     game_id INTEGER PRIMARY KEY, player_id TEXT NOT NULL, day INTEGER NOT NULL, stake INTEGER NOT NULL,
     price TEXT NOT NULL, referrer TEXT NOT NULL, referral TEXT NOT NULL, burned_quote TEXT NOT NULL, burned TEXT NOT NULL,
@@ -187,7 +187,7 @@ function schemaOf(db: DatabaseSync): string | undefined {
 
 function normalize(config: Config): Config {
   return {
-    daily: canonical(config.daily),
+    challenge: canonical(config.challenge),
     setup: canonical(config.setup),
     economy: canonical(config.economy),
     collection: config.collection === undefined ? undefined : canonical(config.collection),
@@ -203,7 +203,7 @@ function metaOf(config: Config): Record<string, string> {
     deployment: deploymentHash(config),
     from_block: String(config.from),
     addresses: JSON.stringify({
-      daily: config.daily,
+      challenge: config.challenge,
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,
@@ -383,7 +383,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { daily: string; setup: string; economy: string; collection: string | null }
+    | { challenge: string; setup: string; economy: string; collection: string | null }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -781,8 +781,8 @@ function gameContract(
   source: Source,
   name: string,
   where: string,
-): "daily" {
-  if (source !== "daily") {
+): "challenge" {
+  if (source !== "challenge") {
     throw new Halt(`${name} from ${source} ${where}`);
   }
   return source;

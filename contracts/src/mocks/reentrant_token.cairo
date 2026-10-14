@@ -1,19 +1,19 @@
-// TEST ONLY: never deploy this contract. It moves no balance and calls back into `Daily`.
+// TEST ONLY: never deploy this contract. It moves no balance and calls back into `Challenge`.
 
-//! A token whose `transferFrom` and `transfer` call back into `Daily` once, during its spawn, to
-//! see whether the state written before the transfer holds (S1 audit, P-26:
+//! A token whose `transferFrom` and `transfer` call back into `Challenge` once, during its spawn,
+//! to see whether the state written before the transfer holds (S1 audit, P-26:
 //! checks, effects, interactions). It reports whether the re-entry reverted.
 
 use starknet::ContractAddress;
 
-/// What the re-entry calls: `Daily.spawn(1, 0, 0)`. The only action since D-20 (the prize's
+/// What the re-entry calls: `Challenge.spawn(1, 0, 0)`. The only action since D-20 (the prize's
 /// `claim` and `sponsor` re-entries, actions 2 to 4, left with them).
 pub const SPAWN: u8 = 1;
 
 #[starknet::interface]
 pub trait IReentrantToken<TContractState> {
-    /// Arms one re-entry into `daily`, made on the next transfer, whatever it is.
-    fn arm(ref self: TContractState, daily: ContractAddress, action: u8);
+    /// Arms one re-entry into `challenge`, made on the next transfer, whatever it is.
+    fn arm(ref self: TContractState, challenge: ContractAddress, action: u8);
     /// How many re-entries ran and how many of them reverted.
     fn outcome(self: @TContractState) -> (u32, u32);
     /// The first panic datum of the reverted re-entry (0 if none reverted).
@@ -29,14 +29,14 @@ pub trait IReentrantToken<TContractState> {
 #[starknet::contract]
 pub mod ReentrantToken {
     use core::num::traits::Zero;
-    use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
+    use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
     use starknet::ContractAddress;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use super::{IReentrantToken, SPAWN};
 
     #[storage]
     struct Storage {
-        daily: ContractAddress,
+        challenge: ContractAddress,
         action: u8,
         attempts: u32,
         reverted: u32,
@@ -54,9 +54,9 @@ pub mod ReentrantToken {
                 return;
             }
             self.attempts.write(1);
-            let daily = IDailySafeDispatcher { contract_address: self.daily.read() };
+            let challenge = IChallengeSafeDispatcher { contract_address: self.challenge.read() };
             assert(action == SPAWN, 'Reentrant: unknown action');
-            if let Result::Err(data) = daily.spawn(1, Zero::zero(), 0) {
+            if let Result::Err(data) = challenge.spawn(1, Zero::zero(), 0) {
                 self.reverted.write(self.reverted.read() + 1);
                 self.error.write(*data.at(0));
             }
@@ -65,8 +65,8 @@ pub mod ReentrantToken {
 
     #[abi(embed_v0)]
     impl ReentrantTokenImpl of IReentrantToken<ContractState> {
-        fn arm(ref self: ContractState, daily: ContractAddress, action: u8) {
-            self.daily.write(daily);
+        fn arm(ref self: ContractState, challenge: ContractAddress, action: u8) {
+            self.challenge.write(challenge);
             self.action.write(action);
             self.attempts.write(0);
             self.reverted.write(0);

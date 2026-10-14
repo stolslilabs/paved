@@ -10,11 +10,13 @@ use paved::constants;
 use paved::models::game::GameImpl;
 use paved::models::tile::CENTER;
 use paved::quests::{achievement_entries, quest_entries, tally};
+use paved::systems::challenge::{
+    IChallengeDispatcher, IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait,
+};
 use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
-use paved::systems::daily::{IDailyDispatcher, IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::systems::setup::Wiring;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+    ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
 };
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -301,7 +303,7 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 /// `Setup` (which serves the wiring), with PLAYER calling `Daily`.
 #[derive(Copy, Drop)]
 pub struct Spied {
-    pub daily: IDailyDispatcher,
+    pub challenge: IChallengeDispatcher,
     pub token: ISpyTokenDispatcher,
     pub economy: ISpyEconomyDispatcher,
     pub setup: ISpySetupDispatcher,
@@ -309,36 +311,36 @@ pub struct Spied {
 }
 
 pub fn spied_daily() -> Spied {
-    let (daily, token, economy, setup) = daily_paid_in("SpyToken");
+    let (challenge, token, economy, setup) = daily_paid_in("SpyToken");
     // [Info] The spy token reads the first game's view at each transfer
     ISpyTokenDispatcher { contract_address: token }.watch(1);
     Spied {
-        daily,
+        challenge,
         token: ISpyTokenDispatcher { contract_address: token },
         economy,
         setup,
-        store: TestStoreTrait::new(daily.contract_address),
+        store: TestStoreTrait::new(challenge.contract_address),
     }
 }
 
 /// The same `Daily`, paid in the token contract called `token_name` (no constructor arguments).
 pub fn daily_paid_in(
     token_name: ByteArray,
-) -> (IDailyDispatcher, ContractAddress, ISpyEconomyDispatcher, ISpySetupDispatcher) {
+) -> (IChallengeDispatcher, ContractAddress, ISpyEconomyDispatcher, ISpySetupDispatcher) {
     let owner: felt252 = OWNER().into();
     let token = deploy(token_name, array![]);
     let economy = deploy("SpyEconomy", array![]);
     let setup = deploy("SpySetup", array![]);
-    let daily = deploy("Daily", array![owner, token.into(), setup.into()]);
+    let challenge = deploy("Challenge", array![owner, token.into(), setup.into()]);
     ISpyEconomyDispatcher { contract_address: economy }.watch_setup(setup);
     let collection = deploy("Collection", array![owner]);
     ISpySetupDispatcher { contract_address: setup }.wire(economy, collection);
     start_cheat_caller_address(collection, OWNER());
-    ICollectionDispatcher { contract_address: collection }.set_minters(daily, Zero::zero());
+    ICollectionDispatcher { contract_address: collection }.set_minters(challenge, Zero::zero());
     stop_cheat_caller_address(collection);
-    start_cheat_caller_address(daily, PLAYER());
+    start_cheat_caller_address(challenge, PLAYER());
     (
-        IDailyDispatcher { contract_address: daily },
+        IChallengeDispatcher { contract_address: challenge },
         token,
         ISpyEconomyDispatcher { contract_address: economy },
         ISpySetupDispatcher { contract_address: setup },
@@ -354,19 +356,19 @@ pub fn daily_paid_in(
 fn test_cold_paths_spawn_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let spied = spied_daily();
-    let (daily, spy, economy) = (spied.daily, spied.token, spied.economy);
-    let price: u256 = constants::DAILY_PRICE.into();
+    let (challenge, spy, economy) = (spied.challenge, spied.token, spied.economy);
+    let price: u256 = constants::CHALLENGE_PRICE.into();
     spy.watch(1);
 
-    let game_id = daily.spawn(3, Zero::zero(), 7);
+    let game_id = challenge.spawn(3, Zero::zero(), 7);
     let seen = spy.seen();
     assert(game_id == 1, 'Spawn: game id');
-    assert(seen.caller == daily.contract_address, 'Spawn: payer');
+    assert(seen.caller == challenge.contract_address, 'Spawn: payer');
     assert(seen.recipient == economy.contract_address, 'Spawn: recipient');
     assert(seen.spawned, 'Spawn: game before pay');
     let purchase = economy.purchased();
     assert(purchase.count == 1, 'Spawn: one purchase');
-    assert(purchase.caller == daily.contract_address, 'Spawn: purchase caller');
+    assert(purchase.caller == challenge.contract_address, 'Spawn: purchase caller');
     assert(purchase.game_id == game_id, 'Spawn: purchase game id');
     assert(purchase.player == PLAYER(), 'Spawn: purchase player');
     assert(purchase.day == 0, 'Spawn: purchase day');
@@ -389,10 +391,10 @@ fn test_cold_paths_spawn_writes_state_before_the_transfer() {
 #[available_gas(l2_gas: 120000000)]
 fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
     let spied = spied_daily();
-    spied.daily.spawn(1, ANYONE(), 0);
+    spied.challenge.spawn(1, ANYONE(), 0);
     assert(spied.economy.purchased().referrer == ANYONE(), 'Spawn: referrer');
     let unknown: ContractAddress = 'NEVER SEEN'.try_into().unwrap();
-    spied.daily.spawn(1, unknown, 0);
+    spied.challenge.spawn(1, unknown, 0);
     assert(spied.economy.purchased().referrer == unknown, 'Spawn: unknown referrer');
 }
 
@@ -401,7 +403,7 @@ fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
 #[available_gas(l2_gas: 70668000)]
 fn test_cold_paths_spawn_ignores_the_payer_as_referrer() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, PLAYER(), 0);
+    let game_id = spied.challenge.spawn(1, PLAYER(), 0);
     let purchase = spied.economy.purchased();
     assert(purchase.game_id == game_id, 'Self: no purchase');
     assert(purchase.referrer.is_zero(), 'Self: referrer kept');
@@ -413,7 +415,7 @@ fn test_cold_paths_spawn_ignores_the_payer_as_referrer() {
 #[available_gas(l2_gas: 70668000)]
 fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     let purchase = spied.economy.purchased();
     assert(purchase.game_id == game_id, 'Zero: no purchase');
     assert(purchase.referrer.is_zero(), 'Zero: referrer');
@@ -426,14 +428,14 @@ fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
 #[available_gas(l2_gas: 120000000)]
 fn test_cold_paths_spawn_ignores_a_protocol_address_as_referrer() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, spied.economy.contract_address, 0);
+    let game_id = spied.challenge.spawn(1, spied.economy.contract_address, 0);
     let purchase = spied.economy.purchased();
     assert(purchase.game_id == game_id, 'Protocol: no purchase');
     assert(purchase.referrer.is_zero(), 'Protocol: economy kept');
-    let game_id = spied.daily.spawn(1, spied.daily.contract_address, 0);
+    let game_id = spied.challenge.spawn(1, spied.challenge.contract_address, 0);
     let purchase = spied.economy.purchased();
     assert(purchase.game_id == game_id, 'Protocol: no second purchase');
-    assert(purchase.referrer.is_zero(), 'Protocol: daily kept');
+    assert(purchase.referrer.is_zero(), 'Protocol: challenge kept');
 }
 
 // The game over: one report to `Setup`, then `Economy.record`
@@ -467,7 +469,7 @@ fn assert_reported_once(spied: @Spied, game_id: u32) {
     let player: felt252 = PLAYER().into();
     let (count, caller, player_id, entries) = (*spied.setup).reported();
     assert(count == 1, 'Over: one report');
-    assert(caller == *spied.daily.contract_address, 'Over: reporter');
+    assert(caller == *spied.challenge.contract_address, 'Over: reporter');
     assert(player_id == player, 'Over: player');
     let t = tally(game, player);
     let expected = entries_hash(quest_entries(t).span(), achievement_entries(t).span());
@@ -484,10 +486,10 @@ fn assert_reported_once(spied: @Spied, game_id: u32) {
 #[available_gas(l2_gas: 140000000)]
 fn test_cold_paths_game_over_by_build_reports_once() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     almost_over(@spied, game_id);
     hold(@spied, game_id, Plan::RFFFRFFFR);
-    spied.daily.build(game_id, Orientation::North, CENTER + 1, CENTER);
+    spied.challenge.build(game_id, Orientation::North, CENTER + 1, CENTER);
     assert_reported_once(@spied, game_id);
 }
 
@@ -495,9 +497,9 @@ fn test_cold_paths_game_over_by_build_reports_once() {
 #[available_gas(l2_gas: 140000000)]
 fn test_cold_paths_game_over_by_discard_reports_once() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     almost_over(@spied, game_id);
-    spied.daily.discard(game_id);
+    spied.challenge.discard(game_id);
     assert_reported_once(@spied, game_id);
 }
 
@@ -505,9 +507,9 @@ fn test_cold_paths_game_over_by_discard_reports_once() {
 #[available_gas(l2_gas: 140000000)]
 fn test_cold_paths_game_over_by_surrender_reports_once() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     almost_over(@spied, game_id);
-    spied.daily.surrender(game_id);
+    spied.challenge.surrender(game_id);
     assert_reported_once(@spied, game_id);
 }
 
@@ -516,10 +518,10 @@ fn test_cold_paths_game_over_by_surrender_reports_once() {
 #[available_gas(l2_gas: 140000000)]
 fn test_cold_paths_moves_that_do_not_end_the_game_report_nothing() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     hold(@spied, game_id, Plan::RFFFRFFFR);
-    spied.daily.build(game_id, Orientation::North, CENTER + 1, CENTER);
-    spied.daily.discard(game_id);
+    spied.challenge.build(game_id, Orientation::North, CENTER + 1, CENTER);
+    spied.challenge.discard(game_id);
     assert(!spied.store.game(game_id).over, 'Moves: over');
     let (reports, _, _, _) = spied.setup.reported();
     assert(reports == 0, 'Moves: reported');
@@ -536,11 +538,11 @@ fn test_cold_paths_moves_that_do_not_end_the_game_report_nothing() {
 #[available_gas(l2_gas: 160000000)]
 fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     almost_over(@spied, game_id);
     hold(@spied, game_id, Plan::RFFFRFFFR);
-    let address = spied.daily.contract_address;
-    let safe = IDailySafeDispatcher { contract_address: address };
+    let address = spied.challenge.contract_address;
+    let safe = IChallengeSafeDispatcher { contract_address: address };
     start_cheat_caller_address(address, ANYONE());
     let refused = array![
         safe.build(game_id, Orientation::North, CENTER + 1, CENTER), safe.discard(game_id),
@@ -559,7 +561,7 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
     assert(!spied.store.game(game_id).over, 'Other: over');
     // [Player] the game's player ends it, and the report is theirs
     start_cheat_caller_address(address, PLAYER());
-    spied.daily.surrender(game_id);
+    spied.challenge.surrender(game_id);
     assert_reported_once(@spied, game_id);
 }
 
@@ -571,14 +573,14 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
 #[feature("safe_dispatcher")]
 fn test_cold_paths_game_over_needs_only_the_economy() {
     let spied = spied_daily();
-    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
     almost_over(@spied, game_id);
     spied.setup.wire(spied.economy.contract_address, Zero::zero());
-    let error = IDailySafeDispatcher { contract_address: spied.daily.contract_address }
+    let error = IChallengeSafeDispatcher { contract_address: spied.challenge.contract_address }
         .spawn(1, Zero::zero(), 0)
         .unwrap_err();
-    assert(*error.at(0) == 'Daily: collection not set', 'Collection: spawn');
-    spied.daily.surrender(game_id);
+    assert(*error.at(0) == 'Challenge: collection not set', 'Collection: spawn');
+    spied.challenge.surrender(game_id);
     assert(spied.store.game(game_id).over, 'Collection: not over');
     let (records, recorded_game, _) = spied.economy.recorded();
     assert(records == 1 && recorded_game == game_id, 'Collection: not recorded');
@@ -587,21 +589,21 @@ fn test_cold_paths_game_over_needs_only_the_economy() {
 
 /// A `Daily` with no `Setup` (its `setup` slot zero, as after an in-place upgrade before
 /// `set_setup`): since D-25 E the wiring is `Setup`'s, so nothing can be paid, minted or recorded.
-/// A spawn reverts (`'Daily: setup is zero'`) and leaves no game; a game over by build, by discard
-/// and by surrender reverts too, and the game stays live, unrecorded and unreported, until the
-/// owner sets the `Setup`; then the same move ends it.
+/// A spawn reverts (`'Challenge: setup is zero'`) and leaves no game; a game over by build, by
+/// discard and by surrender reverts too, and the game stays live, unrecorded and unreported, until
+/// the owner sets the `Setup`; then the same move ends it.
 #[test]
 #[available_gas(l2_gas: 300000000)]
 #[feature("safe_dispatcher")]
 fn test_cold_paths_without_a_setup_spawn_and_game_over_revert() {
     let spied = spied_daily();
-    let address = spied.daily.contract_address;
-    let safe = IDailySafeDispatcher { contract_address: address };
+    let address = spied.challenge.contract_address;
+    let safe = IChallengeSafeDispatcher { contract_address: address };
     // [Setup] Three games, almost over, spawned while the `Setup` is there
     let mut games: Array<u32> = array![];
     let mut way: u8 = 0;
     while way < 3 {
-        let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+        let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
         almost_over(@spied, game_id);
         games.append(game_id);
         way += 1;
@@ -611,15 +613,15 @@ fn test_cold_paths_without_a_setup_spawn_and_game_over_revert() {
     snforge_std::store(address, selector!("setup"), array![0].span());
     // [Spawn] reverts, no game left
     let error = safe.spawn(1, Zero::zero(), 0).unwrap_err();
-    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: spawn');
+    assert(*error.at(0) == 'Challenge: setup is zero', 'No setup: spawn');
     assert(spied.store.game(4).player_id == 0, 'No setup: a game was left');
     // [Game over] each way reverts, the game stays live
     let error = safe.build(*games.at(0), Orientation::North, CENTER + 1, CENTER).unwrap_err();
-    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: build');
+    assert(*error.at(0) == 'Challenge: setup is zero', 'No setup: build');
     let error = safe.discard(*games.at(1)).unwrap_err();
-    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: discard');
+    assert(*error.at(0) == 'Challenge: setup is zero', 'No setup: discard');
     let error = safe.surrender(*games.at(2)).unwrap_err();
-    assert(*error.at(0) == 'Daily: setup is zero', 'No setup: surrender');
+    assert(*error.at(0) == 'Challenge: setup is zero', 'No setup: surrender');
     for game_id in games.span() {
         assert(!spied.store.game(*game_id).over, 'No setup: over');
     }
@@ -629,13 +631,13 @@ fn test_cold_paths_without_a_setup_spawn_and_game_over_revert() {
     assert(reports == 0, 'No setup: reported');
     // [Set] the owner sets the `Setup` back: the same moves end the games
     start_cheat_caller_address(address, OWNER());
-    paved::systems::daily::IDailySetupDispatcherTrait::set_setup(
-        paved::systems::daily::IDailySetupDispatcher { contract_address: address }, setup,
+    paved::systems::challenge::IChallengeSetupDispatcherTrait::set_setup(
+        paved::systems::challenge::IChallengeSetupDispatcher { contract_address: address }, setup,
     );
     start_cheat_caller_address(address, PLAYER());
-    spied.daily.build(*games.at(0), Orientation::North, CENTER + 1, CENTER);
-    spied.daily.discard(*games.at(1));
-    spied.daily.surrender(*games.at(2));
+    spied.challenge.build(*games.at(0), Orientation::North, CENTER + 1, CENTER);
+    spied.challenge.discard(*games.at(1));
+    spied.challenge.surrender(*games.at(2));
     for game_id in games.span() {
         assert(spied.store.game(*game_id).over, 'No setup: not over after');
     }

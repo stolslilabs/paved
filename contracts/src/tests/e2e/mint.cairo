@@ -6,16 +6,16 @@
 
 use core::byte_array::ByteArrayTrait;
 use core::num::traits::Zero;
+use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::collection::{
     Collection, ICollectionSafeDispatcher, ICollectionSafeDispatcherTrait,
     IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
     IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
     IERC721SoulboundSafeDispatcherTrait, TUTORIAL_OFFSET, metadata,
 };
-use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
 use snforge_std::{
@@ -43,7 +43,7 @@ fn expected_uri(contract: ContractAddress, token_id: u256, game_id: u32) -> Byte
 
 #[test]
 fn test_mint_a_daily_spawn_mints_the_game_to_the_player() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     let erc721 = erc721(@systems);
     assert(context.game_id == 1, 'Mint: first game id');
     assert(erc721.owner_of(context.game_id.into()) == PLAYER(), 'Mint: owner');
@@ -54,14 +54,14 @@ fn test_mint_a_daily_spawn_mints_the_game_to_the_player() {
 /// and the next id is free.
 #[test]
 fn test_mint_a_spawn_mints_exactly_the_new_game_id() {
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     let erc721 = erc721(@systems);
     let safe = IERC721SoulboundSafeDispatcher {
         contract_address: systems.collection.contract_address,
     };
     let mut spy = spy_events();
-    let second = systems.daily.spawn(1, Zero::zero(), 0);
-    let third = systems.daily.spawn(1, Zero::zero(), 0);
+    let second = systems.challenge.spawn(1, Zero::zero(), 0);
+    let third = systems.challenge.spawn(1, Zero::zero(), 0);
     assert(second == 2 && third == 3, 'Mint: game ids');
     spy
         .assert_emitted(
@@ -93,7 +93,7 @@ fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let future: u256 = 5;
     // [Check] The entry points of the game contracts
-    let safe = ICollectionSafeDispatcher { contract_address: systems.daily.contract_address };
+    let safe = ICollectionSafeDispatcher { contract_address: systems.challenge.contract_address };
     let reason = *safe.mint(PLAYER(), future).unwrap_err().at(0);
     assert(reason == 'ENTRYPOINT_NOT_FOUND', 'Mint: a game contract mints');
     // [Check] The collection, for a player, the owner, and a minter outside its own range
@@ -105,19 +105,21 @@ fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
         let reason = *collection.mint(PLAYER(), future).unwrap_err().at(0);
         assert(reason == 'Collection: not minter', 'Mint: a caller mints');
     }
-    start_cheat_caller_address(systems.collection.contract_address, systems.daily.contract_address);
+    start_cheat_caller_address(
+        systems.collection.contract_address, systems.challenge.contract_address,
+    );
     let reason = *collection.mint(PLAYER(), tutorial_token(5)).unwrap_err().at(0);
-    assert(reason == 'Collection: not minter', 'Mint: daily mints tutorial');
+    assert(reason == 'Collection: not minter', 'Mint: challenge mints tutorial');
     start_cheat_caller_address(systems.collection.contract_address, Zero::zero());
     let reason = *collection.mint(PLAYER(), tutorial_token(5)).unwrap_err().at(0);
     assert(reason == 'Collection: not minter', 'Mint: zero mints tutorial');
     stop_cheat_caller_address(systems.collection.contract_address);
     // [Check] Nothing was minted, and the next spawn still gets its own id
     let erc721 = erc721(@systems);
-    start_cheat_caller_address(systems.daily.contract_address, PLAYER());
+    start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
     let mut id = 0;
     while id < 5 {
-        id = systems.daily.spawn(1, Zero::zero(), 0);
+        id = systems.challenge.spawn(1, Zero::zero(), 0);
     }
     assert(erc721.owner_of(5) == PLAYER(), 'Mint: fifth token');
 }
@@ -130,7 +132,7 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     let owner: felt252 = OWNER().into();
     let (economy, usdc) = setup::deploy_economy();
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one("Daily", array![owner, usdc.into(), setup_address.into()]);
+    let challenge = deploy_one("Challenge", array![owner, usdc.into(), setup_address.into()]);
     start_cheat_caller_address(setup_address, OWNER());
     ISetupDispatcher { contract_address: setup_address }.set_economy(economy);
     stop_cheat_caller_address(setup_address);
@@ -140,22 +142,22 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     );
     start_cheat_caller_address(usdc, PLAYER());
     paved::mocks::token::IERC20DispatcherTrait::approve(
-        paved::mocks::token::IERC20Dispatcher { contract_address: usdc }, daily, 100_000_000,
+        paved::mocks::token::IERC20Dispatcher { contract_address: usdc }, challenge, 100_000_000,
     );
     stop_cheat_caller_address(usdc);
     start_cheat_caller_address(economy, OWNER());
     paved::systems::economy::IEconomyDispatcherTrait::set_game(
-        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, daily,
+        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, challenge,
     );
     stop_cheat_caller_address(economy);
 
-    start_cheat_caller_address(daily, PLAYER());
-    let reason = *IDailySafeDispatcher { contract_address: daily }
+    start_cheat_caller_address(challenge, PLAYER());
+    let reason = *IChallengeSafeDispatcher { contract_address: challenge }
         .spawn(1, Zero::zero(), 0)
         .unwrap_err()
         .at(0);
-    assert(reason == 'Daily: collection not set', 'Mint: daily reason');
-    assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
+    assert(reason == 'Challenge: collection not set', 'Mint: challenge reason');
+    assert(TestStoreTrait::new(challenge).game(1).player_id == 0, 'Mint: a challenge game left');
 }
 
 fn deploy_one(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
@@ -168,11 +170,11 @@ fn deploy_one(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 #[test]
 fn test_mint_token_uri_of_running_and_finished_games() {
     start_cheat_block_timestamp_global(5 * 86400 + 3600);
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     let uri = IERC721MetadataSoulboundDispatcher {
         contract_address: systems.collection.contract_address,
     };
-    let daily_address = systems.daily.contract_address;
+    let daily_address = systems.challenge.contract_address;
 
     // [Literal] section 9's exact text for Daily game 1 on day 5, running with score 0, pinned
     // apart from the contract's own builder: the JSON, then its base64 in the URI
@@ -185,15 +187,15 @@ fn test_mint_token_uri_of_running_and_finished_games() {
 
     // [Running]
     let daily_uri = uri.token_uri(1);
-    assert(daily_uri == expected_uri(daily_address, 1, 1), 'Mint: daily running uri');
+    assert(daily_uri == expected_uri(daily_address, 1, 1), 'Mint: challenge running uri');
     let running = IGameViewDispatcher { contract_address: daily_address }.game(1);
-    assert(!running.over, 'Mint: daily is running');
+    assert(!running.over, 'Mint: challenge is running');
 
     // [Finished]
-    systems.daily.surrender(1);
+    systems.challenge.surrender(1);
     let finished_daily = uri.token_uri(1);
-    assert(finished_daily == expected_uri(daily_address, 1, 1), 'Mint: daily finished uri');
-    assert(finished_daily != daily_uri, 'Mint: daily uri unchanged');
+    assert(finished_daily == expected_uri(daily_address, 1, 1), 'Mint: challenge finished uri');
+    assert(finished_daily != daily_uri, 'Mint: challenge uri unchanged');
 }
 
 /// The collection is set in `Setup` but `set_minters` was never called: no one may mint, so the
@@ -205,7 +207,7 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     let (economy, usdc) = setup::deploy_economy();
     let collection = deploy_one("Collection", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
-    let daily = deploy_one("Daily", array![owner, usdc.into(), setup_address.into()]);
+    let challenge = deploy_one("Challenge", array![owner, usdc.into(), setup_address.into()]);
     start_cheat_caller_address(setup_address, OWNER());
     ISetupDispatcher { contract_address: setup_address }.set_economy(economy);
     ISetupDispatcher { contract_address: setup_address }.set_collection(collection);
@@ -215,20 +217,20 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     );
     start_cheat_caller_address(usdc, PLAYER());
     paved::mocks::token::IERC20DispatcherTrait::approve(
-        paved::mocks::token::IERC20Dispatcher { contract_address: usdc }, daily, 100_000_000,
+        paved::mocks::token::IERC20Dispatcher { contract_address: usdc }, challenge, 100_000_000,
     );
     stop_cheat_caller_address(usdc);
     start_cheat_caller_address(economy, OWNER());
     paved::systems::economy::IEconomyDispatcherTrait::set_game(
-        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, daily,
+        paved::systems::economy::IEconomyDispatcher { contract_address: economy }, challenge,
     );
     stop_cheat_caller_address(economy);
 
-    start_cheat_caller_address(daily, PLAYER());
-    let reason = *IDailySafeDispatcher { contract_address: daily }
+    start_cheat_caller_address(challenge, PLAYER());
+    let reason = *IChallengeSafeDispatcher { contract_address: challenge }
         .spawn(1, Zero::zero(), 0)
         .unwrap_err()
         .at(0);
-    assert(reason == 'Collection: not minter', 'Mint: daily reason');
-    assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
+    assert(reason == 'Collection: not minter', 'Mint: challenge reason');
+    assert(TestStoreTrait::new(challenge).game(1).player_id == 0, 'Mint: a challenge game left');
 }

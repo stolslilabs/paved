@@ -14,7 +14,7 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     end_time: 1700086400,
     score: 1500,
     seed: 12345,
-    mode: 1, // Daily
+    mode: 1, // Challenge
     tournament_id: 42,
     entry_multiplier_fp: 1000000,
     entry_supply_snapshot: 1000000000000000000n,
@@ -71,7 +71,7 @@ describe("Game", () => {
 
     it("mode is set from index", () => {
       const game = new Game(makeGameData({ mode: 1 }));
-      expect(game.mode.value).toBe(ModeType.Daily);
+      expect(game.mode.value).toBe(ModeType.Challenge);
     });
 
     it("mode Weekly from index 2", () => {
@@ -93,9 +93,9 @@ describe("Game", () => {
   });
 
   describe("tilesLeft()", () => {
-    it("returns mode.count() - tile_count for Daily", () => {
+    it("returns mode.count() - tile_count for Challenge", () => {
       const game = new Game(makeGameData({ mode: 1, tile_count: 10 }));
-      // Daily count is 38
+      // Challenge count is 38
       expect(game.tilesLeft()).toBe(38 - 10);
     });
 

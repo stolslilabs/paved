@@ -300,14 +300,14 @@ try {
     await shot("b08-after-mint");
   }
 
-  // ---- 5. Buy one Daily game, lowest stake
-  stage("buy-daily");
-  await page.getByText("Daily Challenge", { exact: false }).first().click({ timeout: 20000 });
+  // ---- 5. Buy one Challenge game, lowest stake
+  stage("buy-challenge");
+  await page.getByText("Challenge", { exact: false }).first().click({ timeout: 20000 });
   await sleep(2500);
   await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
   await sleep(2500);
-  await shot("b09-daily-dialog");
-  writeFileSync(join(out, "b09-daily-dialog.txt"), scrub(await bodyText()));
+  await shot("b09-challenge-dialog");
+  writeFileSync(join(out, "b09-challenge-dialog.txt"), scrub(await bodyText()));
   await page.getByRole("button", { name: /^buy for/i }).click({ timeout: 15000 });
   await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
   await walkKeychain("b10-buy", { maxScreens: 4 });
@@ -374,7 +374,7 @@ try {
   const until = Date.now() + 30 * 60 * 1000;
   while (Date.now() < until) {
     const head = await get("head").catch(() => null);
-    const g = await get(`games/daily/${gameId}`).catch(() => null);
+    const g = await get(`games/challenge/${gameId}`).catch(() => null);
     note(`behind ${head?.behind}; game ${g?.game ? "indexed" : g?.status ?? "?"}`);
     if (g?.game) {
       game = g.game;
@@ -386,7 +386,7 @@ try {
   const keep = (name, v) => writeFileSync(join(out, `b-indexer-${name}.json`), JSON.stringify(v, null, 2));
   keep("head", await get("head"));
   if (game) {
-    keep("game", await get(`games/daily/${gameId}`));
+    keep("game", await get(`games/challenge/${gameId}`));
     const pid = game.player_id;
     keep("player", await get(`players/${pid}`));
     keep("player-games", await get(`players/${pid}/games`));

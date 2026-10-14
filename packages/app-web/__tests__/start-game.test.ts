@@ -3,7 +3,7 @@ import type { PlayerGame } from "@paved/chain";
 import { readStartIntent, startGame, startIntent, type StartDeps } from "../src/utils/start-game";
 
 const game = (over: boolean, gameId = 1): PlayerGame => ({
-  mode: "daily",
+  mode: "challenge",
   gameId,
   startTime: 1,
   dayId: 0,
@@ -26,22 +26,22 @@ function deps(overrides: Partial<StartDeps> = {}) {
 
 describe("startIntent / readStartIntent (the consent is the history state)", () => {
   it("the landing page's confirm builds a state the game page reads", () => {
-    expect(readStartIntent(startIntent("daily", 10n ** 18n), "daily")).toEqual({ confirmedAmount: 10n ** 18n });
-    expect(readStartIntent(startIntent("daily", 0n), "daily")).toEqual({ confirmedAmount: 0n });
-    // No confirmed amount is no Daily consent: no free on-chain start is left (D-21).
-    expect(readStartIntent(startIntent("daily", null), "daily")).toBeNull();
+    expect(readStartIntent(startIntent("challenge", 10n ** 18n), "challenge")).toEqual({ confirmedAmount: 10n ** 18n });
+    expect(readStartIntent(startIntent("challenge", 0n), "challenge")).toEqual({ confirmedAmount: 0n });
+    // No confirmed amount is no Challenge consent: no free on-chain start is left (D-21).
+    expect(readStartIntent(startIntent("challenge", null), "challenge")).toBeNull();
   });
 
   it("no state (a link, a reload after the clear, Back) is no consent", () => {
     for (const state of [null, undefined, {}, "start", { start: false }, { start: 1 }]) {
-      expect(readStartIntent(state, "daily")).toBeNull();
+      expect(readStartIntent(state, "challenge")).toBeNull();
     }
   });
 
-  it("a Daily consent needs the confirmed amount, as a plain integer", () => {
-    expect(readStartIntent({ start: true }, "daily")).toBeNull();
+  it("a Challenge consent needs the confirmed amount, as a plain integer", () => {
+    expect(readStartIntent({ start: true }, "challenge")).toBeNull();
     for (const bad of ["-1", "1.5", "0x10", "01", "", 5, 5n, null]) {
-      expect(readStartIntent({ start: true, confirmedAmount: bad }, "daily")).toBeNull();
+      expect(readStartIntent({ start: true, confirmedAmount: bad }, "challenge")).toBeNull();
     }
   });
 });
@@ -49,7 +49,7 @@ describe("startIntent / readStartIntent (the consent is the history state)", () 
 describe("startGame", () => {
   it("a URL carrying spawn=1&price=X and no state spawns nothing", async () => {
     // The page reads the URL for the game to show, and the state for the consent: a crafted link has none.
-    const intent = readStartIntent(null, "daily");
+    const intent = readStartIntent(null, "challenge");
     const { d } = deps();
     expect(await startGame(intent, d)).toBe("none");
     expect(d.spawn).not.toHaveBeenCalled();
@@ -58,7 +58,7 @@ describe("startGame", () => {
 
   it("the normal confirm path spawns once, with the confirmed amount, and opens the game", async () => {
     const { d, calls } = deps();
-    const intent = readStartIntent(startIntent("daily", 10n ** 18n), "daily");
+    const intent = readStartIntent(startIntent("challenge", 10n ** 18n), "challenge");
     expect(await startGame(intent, d)).toBe("spawned");
     expect(d.spawn).toHaveBeenCalledTimes(1);
     expect(d.spawn).toHaveBeenCalledWith(10n ** 18n);
@@ -72,28 +72,28 @@ describe("startGame", () => {
       spawn: vi.fn(async () => { order.push("spawn"); return { gameId: 7 }; }),
       clearIntent: vi.fn(() => order.push("clear")),
     });
-    await startGame(readStartIntent(startIntent("daily", 1n), "daily"), d);
+    await startGame(readStartIntent(startIntent("challenge", 1n), "challenge"), d);
     expect(order).toEqual(["clear", "list", "spawn"]);
   });
 
   it("a reload after a refused spawn spawns nothing: the state was cleared, so no consent is left", async () => {
-    let state: unknown = startIntent("daily", 10n ** 18n);
+    let state: unknown = startIntent("challenge", 10n ** 18n);
     const spawn = vi.fn(async () => { throw new Error("The entry price changed: confirm again"); });
     const clearIntent = vi.fn(() => { state = null; }); // navigate(..., { replace: true, state: null })
     const first = deps({ spawn, clearIntent });
-    await expect(startGame(readStartIntent(state, "daily"), first.d)).rejects.toThrow(/entry price changed/);
+    await expect(startGame(readStartIntent(state, "challenge"), first.d)).rejects.toThrow(/entry price changed/);
     expect(spawn).toHaveBeenCalledTimes(1);
     expect(state).toBeNull();
 
     // Reload (or Back): the page reads the history state again.
     const reload = deps({ spawn });
-    expect(await startGame(readStartIntent(state, "daily"), reload.d)).toBe("none");
+    expect(await startGame(readStartIntent(state, "challenge"), reload.d)).toBe("none");
     expect(spawn).toHaveBeenCalledTimes(1);
   });
 
   it("resumes the active game instead of spawning, still clearing the consent", async () => {
     const { d, calls } = deps({ listGames: vi.fn(async () => [game(true, 2), game(false, 5)]) });
-    expect(await startGame(readStartIntent(startIntent("daily", 1n), "daily"), d)).toBe("resumed");
+    expect(await startGame(readStartIntent(startIntent("challenge", 1n), "challenge"), d)).toBe("resumed");
     expect(d.spawn).not.toHaveBeenCalled();
     expect(calls).toEqual(["clear", "open 5"]);
   });

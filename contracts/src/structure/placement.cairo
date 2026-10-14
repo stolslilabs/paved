@@ -351,7 +351,7 @@ mod tests {
     /// A tile written alone is placed, and written again as it is.
     #[test]
     fn test_placement_a_tile_written_alone_is_placed_and_kept() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Tile: placement is fixed')]
     fn test_placement_a_placed_tile_keeps_its_plan() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Tile: placement is fixed')]
     fn test_placement_a_placed_tile_keeps_its_orientation() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,
@@ -413,7 +413,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Tile: placement is fixed')]
     fn test_placement_a_placed_tile_keeps_its_x() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Tile: placement is fixed')]
     fn test_placement_a_placed_tile_keeps_its_y() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,

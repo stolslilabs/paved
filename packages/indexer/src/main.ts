@@ -27,7 +27,7 @@ import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
 const USAGE =
-  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on, off for a devnet deployment)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on for sepolia and mainnet, off otherwise)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -105,7 +105,7 @@ const depth: Depth =
     ? "l1"
     : integer(values.depth, "depth", undefined, 1);
 const config = {
-  daily: deployment.daily,
+  challenge: deployment.challenge,
   setup: deployment.setup,
   economy: deployment.economy,
   collection: deployment.collection,
@@ -210,7 +210,7 @@ const server = serve(indexer, {
     chainId: config.chainId,
     fromBlock: config.from,
     contracts: {
-      daily: config.daily,
+      challenge: config.challenge,
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,

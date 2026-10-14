@@ -130,7 +130,7 @@ export class PavedWriter {
     return this.send("Setup", [this.call("Setup", "claim_tutorial", [])]);
   }
 
-  /** Places the tile in hand. A Daily game is bought, not spawned here: `EconomyWriter.purchase` sends `Daily.spawn`. */
+  /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */
   build(key: GameKey, move: BuildMove): Promise<WriteResult> {
     const contract = gameContract(key.mode);
     return this.send(contract, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]);

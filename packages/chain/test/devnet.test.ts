@@ -1,6 +1,6 @@
 /**
  * Integration test against a local starknet-devnet that `scripts/deploy.sh devnet` has deployed to (see
- * `devnet/devnet.ts`), through the client layer on the paid Daily path: the faucet, `EconomyWriter.purchase`, then play.
+ * `devnet/devnet.ts`), through the client layer on the paid Challenge path: the faucet, `EconomyWriter.purchase`, then play.
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. It uses the first two
  * predeployed accounts after account 0 (the deployer, whose smoke game is another game) that are still fresh: no game in
  * `playerGames`, no tutorial claim and no USDC (D-25 (E): there is no registration to check, a player is the wallet
@@ -91,8 +91,8 @@ describe.skipIf(!enabled)("devnet integration", () => {
     expect(await client.views.tutorialClaimed(bystander)).toBe(false);
   }, 60_000);
 
-  // Was "spawns, discards and surrenders ... paying the entry price": a Daily game is bought (P8), not spawned.
-  test("buys a Daily game with stake 1, then discards and surrenders it", async () => {
+  // Was "spawns, discards and surrenders ... paying the entry price": a Challenge game is bought (P8), not spawned.
+  test("buys a Challenge game with stake 1, then discards and surrenders it", async () => {
     expect(await client.views.currentDay()).toBeGreaterThan(0);
     const quote = await economy.views.quote(1);
     const price = (await client.views.entryPrice()).amount;
@@ -100,20 +100,20 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const before = await economy.views.usdcBalance(player);
     const planned = await econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
     const bought = await econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
-    record.receipts.spawnDaily = bought.transactionHash;
+    record.receipts.spawnChallenge = bought.transactionHash;
     gameId = bought.gameId;
     expect(bought.events.map((e) => e.name)).toContain("GameSpawned");
     expect(before - (await economy.views.usdcBalance(player))).toBe(quote.price);
     expect(await economy.views.terms(gameId)).toMatchObject({ stake: 1, recorded: false, settled: false, expired: false });
-    const key: GameKey = { mode: "daily", gameId };
+    const key: GameKey = { mode: "challenge", gameId };
 
     const held = (await client.views.game(key)).tileId;
     const discarded = await writer.discard(key);
-    record.receipts.discardDaily = discarded.transactionHash;
+    record.receipts.discardChallenge = discarded.transactionHash;
     expect(placementOutcome(discarded.events, gameId).discarded?.tileId).toBe(held);
 
     const surrendered = await writer.surrender(key);
-    record.receipts.surrenderDaily = surrendered.transactionHash;
+    record.receipts.surrenderChallenge = surrendered.transactionHash;
     expect(placementOutcome(surrendered.events, gameId).over).not.toBeNull();
     expect((await client.views.game(key)).over).toBe(true);
     // The game is recorded in the Economy when it ends (the settlement reads it).
@@ -122,17 +122,17 @@ describe.skipIf(!enabled)("devnet integration", () => {
 
   test("lists the player's games from GameSpawned and GameOver keyed by player", async () => {
     const games = await client.events.playerGames(player);
-    expect(games.map((g) => [g.mode, g.gameId, g.over])).toEqual([["daily", gameId, true]]);
+    expect(games.map((g) => [g.mode, g.gameId, g.over])).toEqual([["challenge", gameId, true]]);
     expect(await client.events.playerGames(bystander)).toEqual([]);
   });
 
   test("maps the views' reverts to typed errors", async () => {
-    const missing = await client.views.game({ mode: "daily", gameId: 99999 }).catch((e) => e);
+    const missing = await client.views.game({ mode: "challenge", gameId: 99999 }).catch((e) => e);
     expect(missing).toBeInstanceOf(ViewError);
     expect(missing.kind).toBe("game-not-found");
     record.errors.gameNotFound = String(missing.cause?.message ?? missing.message);
 
-    const notMine = await other.views.builder({ mode: "daily", gameId }, bystander).catch((e) => e);
+    const notMine = await other.views.builder({ mode: "challenge", gameId }, bystander).catch((e) => e);
     expect(notMine.kind).toBe("not-player");
     record.errors.notPlayer = String(notMine.cause?.message ?? notMine.message);
   });

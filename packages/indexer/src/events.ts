@@ -15,18 +15,18 @@ import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 
 /**
- * The four contracts whose events are read: `daily` plays, `setup` holds the quests and the achievements (D-24: the
+ * The four contracts whose events are read: `challenge` plays, `setup` holds the quests and the achievements (D-24: the
  * definitions, Challenge's reports at game over, and the player's tutorial claim, D-21) and the wiring (D-25 (E):
- * `EconomySet`, `CollectionSet`), `economy` holds the terms, the scores and the settlements of the paid Daily games
+ * `EconomySet`, `CollectionSet`), `economy` holds the terms, the scores and the settlements of the paid Challenge games
  * (docs/architecture/economy.md, "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain
  * Tutorial left with D-21 and Account with D-25 (E): their addresses are no longer read. A player is a wallet address.
  */
-export type Source = "daily" | "setup" | "economy" | "collection";
+export type Source = "challenge" | "setup" | "economy" | "collection";
 
-export const SOURCES: readonly Source[] = ["daily", "setup", "economy", "collection"];
+export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection"];
 
 /**
- * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Daily game's is its game id (`Collection`). The
+ * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Challenge game's is its game id (`Collection`). The
  * Tutorial's games are dropped (D-21): a mint of a token id from here on is skipped, so that a replay of an older
  * history never halts.
  */
@@ -40,8 +40,8 @@ export class DecodeError extends Error {}
  * The `mode` of each game contract (`public-interface.md`). 2 was Weekly and 3 the on-chain Tutorial (D-21): never given
  * again.
  */
-export const MODE: Record<"daily", number> = {
-  daily: 1,
+export const MODE: Record<"challenge", number> = {
+  challenge: 1,
 };
 
 export type Decoded =
@@ -115,7 +115,7 @@ export type Decoded =
       /** Below 2^33, so exact as a JSON number. */
       tokenId: number;
       /** The game contract the token id belongs to, and the game id in it. */
-      contract: "daily";
+      contract: "challenge";
       gameId: number;
     }
   | {
@@ -161,14 +161,14 @@ export type EventName = Decoded["name"];
 
 /** Which contract emits each indexed event. */
 export const EMITTERS: Record<EventName, readonly Source[]> = {
-  GameSpawned: ["daily"],
-  GameOver: ["daily"],
+  GameSpawned: ["challenge"],
+  GameOver: ["challenge"],
   // Setup's wiring (D-25 (E)): the store compares it with the deployment file (store.ts). Account emitted it before; its
   // address is no longer read, so its past wiring events are never seen.
   EconomySet: ["setup"],
   CollectionSet: ["setup"],
   // Quests and achievements come from Setup only (D-24): its definitions, Challenge's reports and the tutorial claim.
-  // From Daily they are past events, skipped (`PAST_FROM`).
+  // From Challenge they are past events, skipped (`PAST_FROM`).
   QuestDefined: ["setup"],
   QuestProgressed: ["setup"],
   QuestRetired: ["setup"],
@@ -202,31 +202,31 @@ export const IGNORED = [
   "GameSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
-  // The prize of a day (D-20 removed it): `Daily.sponsor`, `Daily.claim` of a rank, and a sponsor's reclaim (P-37, declared
-  // by the Lobby class, emitted from Daily's address). Past events only: the ABIs no longer declare them, and a replay of
+  // The prize of a day (D-20 removed it): `Challenge.sponsor`, `Challenge.claim` of a rank, and a sponsor's reclaim (P-37, declared
+  // by the Lobby class, emitted from Challenge's address). Past events only: the ABIs no longer declare them, and a replay of
   // a history that holds them skips them (public-interface.md, "Past events").
   "Sponsored",
   "Claimed",
   "Reclaimed",
-  // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class). Past events only: D-24 removed
+  // The owner's change of the Lobby class of Challenge or Tutorial (P-42, set_lobby_class). Past events only: D-24 removed
   // the Lobby class and its setter.
   "LobbyClassSet",
-  // The owner's wiring of Daily to Setup (D-24, `Daily.set_setup`): where Daily reports; the indexer reads Setup's address
+  // The owner's wiring of Challenge to Setup (D-24, `Challenge.set_setup`): where Challenge reports; the indexer reads Setup's address
   // from the deployment file.
   "SetupSet",
   // Account's player registry (D-25 (E) removed Account: a player is the wallet address, names are off-chain). Past events
-  // only. Account's address is no longer read; Daily's ABI declared it too (the shared game events), so a history that
+  // only. Account's address is no longer read; the game contract's ABI declared it too until D-23b (the shared game events), so a history that
   // holds one from a source still read skips it by name and never halts.
   "PlayerCreated",
 ] as const;
 
 /**
- * Indexed events that a source emitted before D-21 and D-24 and no longer does: Daily's own quests and achievements
+ * Indexed events that a source emitted before D-21 and D-24 and no longer does: Challenge's own quests and achievements
  * (before Setup). A replay of such a history skips them (Sepolia's past progress is not carried over, P-51 ruling 5).
  * The Tutorial's address is not read at all.
  */
 const PAST_FROM: Partial<Record<Source, readonly EventName[]>> = {
-  daily: [
+  challenge: [
     "QuestDefined",
     "QuestProgressed",
     "QuestRetired",
@@ -531,7 +531,7 @@ export function decode(
         name,
         to: felt(keys[2]),
         tokenId: Number(tokenId),
-        contract: "daily",
+        contract: "challenge",
         gameId: Number(tokenId),
       };
     }

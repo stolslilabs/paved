@@ -13,8 +13,8 @@ export const MAX_INDEXER_PAGE = 100;
 /** Largest tournament id the API serves: its end time stays a safe JSON integer (indexer doc, P-19). */
 export const MAX_TOURNAMENT_ID = Math.floor(Number.MAX_SAFE_INTEGER / 86400) - 1; // 104249991373 (P-19)
 
-/** The contract that emitted a game's events: `daily` only since D-21 (the on-chain Tutorial left; its games are dropped). */
-export type IndexerContract = "daily";
+/** The contract that emitted a game's events: `challenge` only since D-21 (the on-chain Tutorial left; its games are dropped). */
+export type IndexerContract = "challenge";
 
 /** Non-ok statuses of the envelope: the indexer answers 503 with one of them. */
 export type IndexerStatus = "loading" | "rewinding" | "halted";
@@ -156,9 +156,9 @@ export interface IndexedPlayer {
 }
 
 export interface PlayerStats {
-  dailyGames: number;
-  dailyFinished: number;
-  /** 0 when no Daily game finished; `dailyFinished` says whether 0 is a real score. */
+  challengeGames: number;
+  challengeFinished: number;
+  /** 0 when no Challenge game finished; `challengeFinished` says whether 0 is a real score. */
   bestScore: number;
   /** E3 (appended to v1); undefined from an indexer that predates it. */
   paidGames?: number;
@@ -450,7 +450,7 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
 function parseGame(v: unknown, what: string): IndexedGame {
   const o = obj(v, what);
   const contract = str(o, "contract", what);
-  if (contract !== "daily") bad(`${what}.contract is ${contract}`);
+  if (contract !== "challenge") bad(`${what}.contract is ${contract}`);
   const over = bool(o, "over", what);
   // "As built": a running game answers null for these three, read as 0; `over` says which.
   const game: IndexedGame = {
@@ -637,8 +637,8 @@ export class IndexerClient {
       return {
         player: player && { playerId: str(player, "player_id", "player"), name: nameOf(player, "player"), created: orNull(player, "created", num, "player") },
         stats: stats && {
-          dailyGames: num(stats, "daily_games", "stats"),
-          dailyFinished: num(stats, "daily_finished", "stats"),
+          challengeGames: num(stats, "challenge_games", "stats"),
+          challengeFinished: num(stats, "challenge_finished", "stats"),
           bestScore: num(stats, "best_score", "stats"),
           ...(present(stats, "paid_games") ? { paidGames: num(stats, "paid_games", "stats") } : {}),
           ...(present(stats, "settled_games") ? { settledGames: num(stats, "settled_games", "stats") } : {}),

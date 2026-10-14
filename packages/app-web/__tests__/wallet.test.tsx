@@ -13,7 +13,7 @@ import { resolveAppNetwork } from "../src/utils/network";
 
 const SEPOLIA = "0x534e5f5345504f4c4941";
 const ENTRY = 25n;
-const CONTRACTS = { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
+const CONTRACTS = { Challenge: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = {
   "x/devnet.json": { default: { rpc_url: "http://devnet/rpc", contracts: CONTRACTS } },
   "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: SEPOLIA, contracts: CONTRACTS } },
@@ -81,7 +81,7 @@ function Probe() {
       <output data-testid="address">{address ?? "none"}</output>
       <output data-testid="username">{useWallet()?.username ?? "none"}</output>
       <output data-testid="labels">{address ? `${label(address)} ${label(OTHER)}` : "none"}</output>
-      <button type="button" disabled={!writer} onClick={() => (lastWrite = writer!.discard({ mode: "daily", gameId: 7 }))}>
+      <button type="button" disabled={!writer} onClick={() => (lastWrite = writer!.discard({ mode: "challenge", gameId: 7 }))}>
         discard
       </button>
     </div>
@@ -136,9 +136,9 @@ describe("signing (P-14)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "discard" }));
     await expect(lastWrite).resolves.toMatchObject({ transactionHash: "0xabc" });
-    const daily = network.deployment.addresses.Daily;
+    const challenge = network.deployment.addresses.Challenge;
     expect(fake.execute).toHaveBeenCalledTimes(1);
-    expect(fake.execute.mock.calls[0][0]).toEqual([{ contractAddress: daily, entrypoint: "discard", calldata: ["0x7"] }]);
+    expect(fake.execute.mock.calls[0][0]).toEqual([{ contractAddress: challenge, entrypoint: "discard", calldata: ["0x7"] }]);
   });
 
   // D-25 (E): the name is the Controller's username, off chain, for the connected player only.
@@ -199,7 +199,7 @@ describe("signing (P-14)", () => {
     expect(status()).toBe("read-only");
   });
 
-  it("the session holds the client's policies on the deployment's chain, approve on the entry token (Token before E3) pinned to Daily, up to 10 stakes", async () => {
+  it("the session holds the client's policies on the deployment's chain, approve on the entry token (Token before E3) pinned to Challenge, up to 10 stakes", async () => {
     const { fake, network } = setup(SEPOLIA_ENV);
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));

@@ -21,10 +21,10 @@ use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
 use paved::structure::{placement, tables};
 use paved::tests::golden::harness::{
-    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked_lite,
+    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked_lite, spawn_on_the_day_seed,
 };
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -164,9 +164,9 @@ fn test_golden_daily_full_deck_structures_agree() {
 #[available_gas(l2_gas: 12000000000)]
 fn test_full_deck_generate() {
     snforge_std::start_cheat_block_timestamp_global(day(10));
-    let (store, systems, _) = setup::spawn_game(Mode::None);
-    snforge_std::start_cheat_caller_address(systems.daily.contract_address, PLAYER());
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    let (store, systems, context) = setup::spawn_game(Mode::None);
+    snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
+    let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
     let table = edge_table();
     let mut board: Felt252Dict<u8> = Default::default();
     let mut seen: Felt252Dict<bool> = Default::default();
@@ -215,13 +215,13 @@ fn test_full_deck_generate() {
             }
         }
         if best == 0 {
-            systems.daily.discard(game_id);
+            systems.challenge.discard(game_id);
             let after = store.game(game_id);
             println!("MOVE {} discard {} score {}", step, plan, after.score);
             step += 1;
             continue;
         }
-        systems.daily.build(game_id, best_o.into(), best_x, best_y);
+        systems.challenge.build(game_id, best_o.into(), best_x, best_y);
         let after = store.game(game_id);
         println!(
             "MOVE {} build {} o {} x {} y {} score {}",

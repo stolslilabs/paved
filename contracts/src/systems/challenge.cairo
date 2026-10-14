@@ -3,10 +3,10 @@
 use paved::types::orientation::Orientation;
 
 #[starknet::interface]
-pub trait IDaily<TContractState> {
-    /// A paid game: approve `Daily` on USDC for `stake x entry_price().amount` first (stake 1 to
-    /// 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
-    /// address other than the caller, `Economy` and `Daily`, or zero (no referral); `min_out`:
+pub trait IChallenge<TContractState> {
+    /// A paid game: approve `Challenge` on USDC for `stake x entry_price().amount` first (stake 1
+    /// to 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
+    /// address other than the caller, `Economy` and `Challenge`, or zero (no referral); `min_out`:
     /// the least PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
@@ -16,11 +16,12 @@ pub trait IDaily<TContractState> {
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
 }
 
-/// The `Setup` that `Daily` reports its game overs to (D-24) and reads its wiring from (D-25 E):
+/// The `Setup` that `Challenge` reports its game overs to (D-24) and reads its wiring from (D-25
+/// E):
 /// the owner sets it (needed on a contract upgraded in place, whose constructor does not run
 /// again).
 #[starknet::interface]
-pub trait IDailySetup<TContractState> {
+pub trait IChallengeSetup<TContractState> {
     /// Sets the `Setup` reported to from now on: the owner only, never zero. Emits `SetupSet`.
     /// Since D-25 E it re-points the whole wiring too: every later spawn pays into and mints from,
     /// and every later game over records into, the new `Setup`'s economy and collection. Re-point
@@ -30,14 +31,14 @@ pub trait IDailySetup<TContractState> {
     fn setup(self: @TContractState) -> starknet::ContractAddress;
 }
 
-/// Emitted by `Daily` when its owner sets the `Setup`.
+/// Emitted by `Challenge` when its owner sets the `Setup`.
 #[derive(Drop, Debug, PartialEq, starknet::Event)]
 pub struct SetupSet {
     pub setup: starknet::ContractAddress,
 }
 
 #[starknet::contract]
-pub mod Daily {
+pub mod Challenge {
     // Component imports
 
     use core::num::traits::Zero;
@@ -52,6 +53,7 @@ pub mod Daily {
 
     use paved::events::Event as PavedEvent;
     use paved::quests::{achievement_entries, decode, quest_entries};
+    use paved::seed::{SeedSource, TokenSeed};
     use paved::store::StoreImpl;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
@@ -59,7 +61,7 @@ pub mod Daily {
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::views::{
-        BuilderView, GameView, IDailyView, IGameView, PriceView, TileView, ViewsImpl,
+        BuilderView, GameView, IChallengeView, IGameView, PriceView, TileView, ViewsImpl,
     };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
@@ -72,15 +74,15 @@ pub mod Daily {
 
     // Local imports
 
-    use super::{IDaily, IDailySetup, SetupSet};
+    use super::{IChallenge, IChallengeSetup, SetupSet};
 
     // Errors
 
     pub mod errors {
-        pub const ZERO_TOKEN_ADDRESS: felt252 = 'Daily: token is zero';
-        pub const ZERO_SETUP_ADDRESS: felt252 = 'Daily: setup is zero';
-        pub const NO_ECONOMY: felt252 = 'Daily: economy not set';
-        pub const NO_COLLECTION: felt252 = 'Daily: collection not set';
+        pub const ZERO_TOKEN_ADDRESS: felt252 = 'Challenge: token is zero';
+        pub const ZERO_SETUP_ADDRESS: felt252 = 'Challenge: setup is zero';
+        pub const NO_ECONOMY: felt252 = 'Challenge: economy not set';
+        pub const NO_COLLECTION: felt252 = 'Challenge: collection not set';
         pub const PAY_FAILED: felt252 = 'ERC20: pay failed';
     }
 
@@ -169,20 +171,15 @@ pub mod Daily {
     // Implementations
 
     #[abi(embed_v0)]
-    impl DailyImpl of IDaily<ContractState> {
+    impl ChallengeImpl of IChallenge<ContractState> {
         fn spawn(
             ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
-            // [Interaction] The wiring, in one call to `Setup`
-            let wiring = wiring(self.setup_dispatcher(), true);
-            // [Effect] Spawn a game
-            let (game_id, unit) = self.hostable.spawn(Mode::Daily);
-            // [Interaction] The game is purchased
-            self.purchase(wiring.economy, game_id, unit, stake, referrer, min_out);
-            // [Interaction] The game is minted to its player, under its own id and no other
-            self.mint(wiring.collection, game_id);
-            // [Return] Game ID
-            game_id
+            // [Effect] The seed of the game's token in this contract (D-23)
+            self
+                .spawn_from(
+                    @TokenSeed { contract: get_contract_address() }, stake, referrer, min_out,
+                )
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
@@ -205,7 +202,7 @@ pub mod Daily {
     }
 
     #[abi(embed_v0)]
-    impl DailySetupImpl of IDailySetup<ContractState> {
+    impl ChallengeSetupImpl of IChallengeSetup<ContractState> {
         fn set_setup(ref self: ContractState, setup: ContractAddress) {
             // [Check] The owner, a real address
             self.ownable.assert_only_owner();
@@ -245,7 +242,7 @@ pub mod Daily {
     }
 
     #[abi(embed_v0)]
-    impl DailyViewImpl of IDailyView<ContractState> {
+    impl ChallengeViewImpl of IChallengeView<ContractState> {
         fn current_day(self: @ContractState) -> u64 {
             ViewsImpl::current_day(get_block_timestamp())
         }
@@ -257,7 +254,8 @@ pub mod Daily {
 
     /// Test only: the addresses of the fields dead since D-24, resolved through their names in
     /// this contract's storage, for the pin of the dead fields
-    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`): `lobby_class`,
+    /// (`tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name`, a name kept from
+    /// before D-23 on purpose: the docs cite it): `lobby_class`,
     /// then every member of the quests and of the achievements, at the keys given.
     #[cfg(test)]
     #[generate_trait]
@@ -290,8 +288,8 @@ pub mod Daily {
     }
 
     /// The wiring of `setup`, in one call, checked for what each path uses: a spawn needs both
-    /// addresses, a game over only the economy (`'Daily: economy not set'`, `'Daily: collection not
-    /// set'` while `Setup`'s owner has not set them).
+    /// addresses, a game over only the economy (`'Challenge: economy not set'`, `'Challenge:
+    /// collection not set'` while `Setup`'s owner has not set them).
     fn wiring(setup: ISetupDispatcher, collection: bool) -> Wiring {
         let wiring = setup.wiring();
         assert(wiring.economy.is_non_zero(), errors::NO_ECONOMY);
@@ -302,10 +300,32 @@ pub mod Daily {
     }
 
     #[generate_trait]
-    impl InternalImpl of InternalTrait {
+    pub impl InternalImpl of InternalTrait {
+        /// A paid game whose initial seed comes from `source`: `spawn` gives `TokenSeed`; the
+        /// golden games give the seed of the day they were recorded with
+        /// (`tests::golden::harness`), through the same path.
+        fn spawn_from<S, +SeedSource<S>, +Drop<S>>(
+            ref self: ContractState,
+            source: @S,
+            stake: u8,
+            referrer: ContractAddress,
+            min_out: u256,
+        ) -> u32 {
+            // [Interaction] The wiring, in one call to `Setup`
+            let wiring = wiring(self.setup_dispatcher(), true);
+            // [Effect] Spawn a game
+            let (game_id, unit) = self.hostable.spawn_with(Mode::Challenge, source);
+            // [Interaction] The game is purchased
+            self.purchase(wiring.economy, game_id, unit, stake, referrer, min_out);
+            // [Interaction] The game is minted to its player, under its own id and no other
+            self.mint(wiring.collection, game_id);
+            // [Return] Game ID
+            game_id
+        }
+
         /// The `Setup` of the wiring and the reports; the wiring is read from it in one call
         /// (`wiring`, P-53 ruling 2). With no `Setup` (a zero slot: an in-place upgrade before
-        /// `set_setup`) nothing can be paid, minted or recorded, so the call reverts (`'Daily:
+        /// `set_setup`) nothing can be paid, minted or recorded, so the call reverts (`'Challenge:
         /// setup is zero'`): a spawn spawns nothing, and a move that ends a game reverts and
         /// leaves the game live until the owner sets the `Setup`.
         fn setup_dispatcher(self: @ContractState) -> ISetupDispatcher {
@@ -315,7 +335,7 @@ pub mod Daily {
         }
 
         /// A game is a token (economy.md section 9): its id, minted to the caller, who is the
-        /// player. `Collection` accepts it from `Daily` only, a plain mint with no receiver
+        /// player. `Collection` accepts it from `Challenge` only, a plain mint with no receiver
         /// callback. The id is never an input: it is the id the spawn just drew, so no entry
         /// point lets a caller mint another one.
         fn mint(ref self: ContractState, collection: ContractAddress, game_id: u32) {
@@ -323,14 +343,14 @@ pub mod Daily {
                 .mint(get_caller_address(), game_id.into());
         }
 
-        /// The purchase of a Daily game (economy.md section 1, P-31): `stake x unit` USDC go
+        /// The purchase of a Challenge game (economy.md section 1, P-31): `stake x unit` USDC go
         /// from the player straight to `Economy`, then `Economy.purchase` splits them, in the same
         /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A
         /// referrer counts only if it is a non-zero address other than the payer (D-25: no
-        /// registration) and other than the two protocol addresses `Daily` knows, `Economy` and
-        /// `Daily` itself; any of those is ignored (no referral). Paid to `Economy`, the referral
-        /// would be swept back into the margin and `Purchased` would count it twice; paid to
-        /// `Daily`, it would be stranded (nothing here transfers USDC out).
+        /// registration) and other than the two protocol addresses `Challenge` knows, `Economy` and
+        /// `Challenge` itself; any of those is ignored (no referral). Paid to `Economy`, the
+        /// referral would be swept back into the margin and `Purchased` would count it twice; paid
+        /// to `Challenge`, it would be stranded (nothing here transfers USDC out).
         fn purchase(
             ref self: ContractState,
             economy: ContractAddress,

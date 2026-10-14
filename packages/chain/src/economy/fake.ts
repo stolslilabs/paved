@@ -5,7 +5,7 @@ import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, referralOf } from "./amou
 import type { PoolQuoter } from "./pool";
 import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
 
-/** USDC's base units of 2 USDC: the `Mode::Daily` unit price of economy.md. */
+/** USDC's base units of 2 USDC: the `Mode::Challenge` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
 
 /** The fake `Economy.router()`: tests put it in the deployment file as `MockRouter` (`FAKE_ROUTER_FILE`). */

@@ -141,7 +141,7 @@ export async function players(url: string, count: number): Promise<Player[]> {
 }
 
 export interface Contracts {
-  Daily: string;
+  Challenge: string;
   /** Setup (D-24): the quests, the achievements and the tutorial claim. */
   Setup: string;
   Token: string;
@@ -151,20 +151,20 @@ const num = (value: string) => BigInt(value);
 
 export class Game {
   private readonly player: Player;
-  private readonly daily: string;
+  private readonly challenge: string;
   readonly id: number;
   private readonly placed: [number, number][] = [[CENTER, CENTER]];
 
-  constructor(player: Player, daily: string, id: number) {
+  constructor(player: Player, challenge: string, id: number) {
     this.player = player;
-    this.daily = daily;
+    this.challenge = challenge;
     this.id = id;
   }
 
   /** Discards the held tile; false when the contract refuses (the tile can be placed). */
   async discard(): Promise<boolean> {
     try {
-      await this.player.send({ contractAddress: this.daily, entrypoint: "discard", calldata: [this.id] });
+      await this.player.send({ contractAddress: this.challenge, entrypoint: "discard", calldata: [this.id] });
       return true;
     } catch {
       return false;
@@ -184,7 +184,7 @@ export class Game {
       for (const orientation of [1, 2, 3, 4]) {
         try {
           await this.player.send({
-            contractAddress: this.daily,
+            contractAddress: this.challenge,
             entrypoint: "build",
             calldata: [this.id, orientation, x, y],
           });

@@ -10,19 +10,19 @@ import { placementOutcome } from "../src/placement";
 import { toViewError, type GameKey } from "../src/views";
 import { WriteError, type Call, type WriteAccount } from "../src/writer";
 
-/** The Daily entry of the recorded deployment (1 token of the test ERC20). */
-const DAILY_PRICE = 10n ** 18n;
+/** The Challenge entry of the recorded deployment (1 token of the test ERC20). */
+const CHALLENGE_PRICE = 10n ** 18n;
 import type { Recording } from "./recorder";
 import { replay } from "./replay";
 
 const record = recordJson as unknown as Recording;
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Daily" | "Token", string> },
+  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Challenge" | "Token", string> },
 });
 const player = record.player!;
 const gameId = record.gameId ?? 1;
-const daily: GameKey = { mode: "daily", gameId };
+const challenge: GameKey = { mode: "challenge", gameId };
 
 function client() {
   const provider = replay(record);
@@ -45,9 +45,9 @@ function account(hashes: string[]): WriteAccount & { sent: Call[][] } {
 }
 
 describe("views on recorded answers", () => {
-  // The recording's views of a game were of the on-chain Tutorial, which left (D-21); a Daily game's view is read below.
-  test("game of a Daily game", async () => {
-    const game = await client().client.views.game(daily);
+  // The recording's views of a game were of the on-chain Tutorial, which left (D-21); a Challenge game's view is read below.
+  test("game of a Challenge game", async () => {
+    const game = await client().client.views.game(challenge);
     expect(game).toMatchObject({ id: gameId, mode: 1 });
     expect(BigInt(game.playerId)).toBe(BigInt(player));
     expect(game.dayId).toBeGreaterThan(20000);
@@ -62,7 +62,7 @@ describe("views on recorded answers", () => {
   test("balance", async () => {
     const { client: c } = client();
     // The entry price as recorded (the faucet's USDC, 6 decimals, in a fixture recorded on a deploy.sh node).
-    const price = (await c.views.entryPrice().catch(() => null))?.amount ?? DAILY_PRICE;
+    const price = (await c.views.entryPrice().catch(() => null))?.amount ?? CHALLENGE_PRICE;
     expect(await c.balance(player)).toBeGreaterThan(price);
   });
 
@@ -78,11 +78,11 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ mode: "daily", gameId, over: true }),
+        expect.objectContaining({ mode: "challenge", gameId, over: true }),
       ]),
     );
     expect(games).toHaveLength(1);
-    // Two reads: GameSpawned and GameOver on Daily, the one game contract (the on-chain Tutorial left, D-21).
+    // Two reads: GameSpawned and GameOver on Challenge, the one game contract (the on-chain Tutorial left, D-21).
     expect(provider.asked.filter((a) => a === "getEvents")).toHaveLength(2);
   });
 
@@ -95,19 +95,19 @@ describe("event reader on recorded events", () => {
 
 describe("writer on recorded receipts", () => {
   // The receipts were recorded from a pre-E3 devnet and cannot be re-recorded here (no devnet runs on this machine). The
-  // paid Daily spawn is built from the committed ABI in `economy.test.ts` ("purchase": approve + spawn(stake, referrer,
+  // paid Challenge spawn is built from the committed ABI in `economy.test.ts` ("purchase": approve + spawn(stake, referrer,
   // min_out) in one multicall); the recorded Tutorial receipts left with the Tutorial (D-21).
-  test("discard and surrender of a Daily game", async () => {
+  test("discard and surrender of a Challenge game", async () => {
     const { client: c } = client();
-    const writer = c.writer(account([record.receipts.discardDaily, record.receipts.surrenderDaily]));
-    expect(placementOutcome((await writer.discard(daily)).events, gameId).discarded).not.toBeNull();
-    expect(placementOutcome((await writer.surrender(daily)).events, gameId).over).not.toBeNull();
+    const writer = c.writer(account([record.receipts.discardChallenge, record.receipts.surrenderChallenge]));
+    expect(placementOutcome((await writer.discard(challenge)).events, gameId).discarded).not.toBeNull();
+    expect(placementOutcome((await writer.surrender(challenge)).events, gameId).over).not.toBeNull();
   });
 
-  test("a Daily build sends the game id and the move", async () => {
+  test("a Challenge build sends the game id and the move", async () => {
     const { client: c } = client();
-    const acc = account([record.receipts.discardDaily]);
-    await c.writer(acc).build(daily, { orientation: 1, x: 2, y: 3 });
+    const acc = account([record.receipts.discardChallenge]);
+    await c.writer(acc).build(challenge, { orientation: 1, x: 2, y: 3 });
     expect(acc.sent[0][0].calldata).toEqual([`0x${gameId.toString(16)}`, "0x1", "0x2", "0x3"]);
   });
 
@@ -119,7 +119,7 @@ describe("writer on recorded receipts", () => {
       },
     };
     const writer = new PavedClient(deployment, provider).writer(account(["0x1"]));
-    const error = await writer.discard(daily).catch((e) => e);
+    const error = await writer.discard(challenge).catch((e) => e);
     expect(error).toBeInstanceOf(WriteError);
     expect(error).toMatchObject({ message: "Builder: does not exist", transactionHash: "0x1" });
   });

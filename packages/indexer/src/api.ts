@@ -7,7 +7,7 @@
 
 export const API_VERSION = 1;
 
-/** Seconds of a tournament, a UTC day (`DAILY_DURATION` of the contracts). */
+/** Seconds of a tournament, a UTC day (`CHALLENGE_DURATION` of the contracts). */
 export const TOURNAMENT_DURATION = 86400;
 
 /** The most unsettled games an answer lists (`unsettled`); the whole count is `unsettled_count`. API v1 has no cursor for them. */
@@ -29,8 +29,8 @@ export interface ApiHead {
 
 export type IndexerState = "loading" | "ok" | "rewinding" | "halted";
 
-/** The contract of a game: Daily only since D-21 (the on-chain Tutorial's games are dropped). */
-export type GameContract = "daily";
+/** The contract of a game: Challenge only since D-21 (the on-chain Tutorial's games are dropped). */
+export type GameContract = "challenge";
 
 /** Every 200 answer carries these, then the rows of its route. */
 export interface Envelope {
@@ -63,7 +63,8 @@ export interface HeadAnswer extends Envelope {
   chain_id: string;
   from_block: number;
   contracts: {
-    daily: string;
+    /** The game contract, `daily` before schema 11 (D-23b). */
+    challenge: string;
     /**
      * Setup (D-24): the quests, the achievements and the tutorial claim; the wiring since D-25 (E). Replaces `tutorial` in
      * schema 8. `account` left in schema 9 (D-25 (E)).
@@ -102,7 +103,7 @@ export interface TournamentDetail extends TournamentSummary {
 
 /** A day of Economy (the tournament id is the UTC day): its paid games and, once its first settlement closed it, its mean. */
 export interface DayEconomy {
-  /** Daily games bought this day (`Purchased`). */
+  /** Challenge games bought this day (`Purchased`). */
   games_purchased: number;
   /** Of them, the games whose score Economy has (`Recorded`), settled or not. */
   games_recorded: number;
@@ -168,11 +169,11 @@ export interface PlayerInfo {
 }
 
 export interface PlayerStats {
-  daily_games: number;
-  daily_finished: number;
-  /** Best score of a finished Daily game, 0 when none finished; `daily_finished` says whether 0 is a real score. */
+  challenge_games: number;
+  challenge_finished: number;
+  /** Best score of a finished Challenge game, 0 when none finished; `challenge_finished` says whether 0 is a real score. */
   best_score: number;
-  /** Daily games the player bought (`Purchased`). Appended in E3. */
+  /** Challenge games the player bought (`Purchased`). Appended in E3. */
   paid_games: number;
   /** Of them, the games settled. */
   settled_games: number;
@@ -214,7 +215,7 @@ export interface GameRow {
   counted_day_id: number | null;
   /** 0 when the game did not count; null while running. */
   end_time: number | null;
-  /** The terms and the settlement of a Daily game bought through Economy; null for a game not bought. Appended in E3. */
+  /** The terms and the settlement of a Challenge game bought through Economy; null for a game not bought. Appended in E3. */
   economy: GameEconomy | null;
   /**
    * The id of the game's token in `Collection` (the game id), from its mint, a

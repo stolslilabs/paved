@@ -22,7 +22,7 @@ export class PavedClient {
     this.events = new EventReader(provider, deployment, codecs);
   }
 
-  /** Balance of the entry token (USDC since E3), in its base unit: the token `Daily.entry_price` names. */
+  /** Balance of the entry token (USDC since E3), in its base unit: the token `Challenge.entry_price` names. */
   async balance(address: string): Promise<bigint> {
     const { token } = await this.views.entryPrice();
     return (await this.read("Token", "balance_of", [address], token)) as bigint;

@@ -5,7 +5,8 @@ Brief: `docs/briefs/d23s-selective-buyer.md`. Script: `scripts/montecarlo/select
 every interval, is `scripts/montecarlo/selective.md`.
 
 Under D-23, a Challenge game's seed is `Poseidon(salt, token id)`, where the token id is the Collection's global
-counter at spawn. The next token id is known before the purchase. This note measures what a buyer gains by
+counter at spawn. The next token id is known before the purchase. (As built, with the PM's addition of
+2026-10-14, the seed also mixes in the Challenge contract's address, public too: the measure below holds.) This note measures what a buyer gains by
 checking the next deck with a bot, and buying only when the deck is good. It gives the figure; whether a VRF
 becomes a mainnet gate is the owner's decision.
 
@@ -65,6 +66,8 @@ the bot's skill alone earns.
 - **The 50 greedy games of `scores.csv`** (days 11 to 60), plus **360 new greedy games**
   (`scripts/montecarlo/decks.csv`, days 61 to 420). Both use the same sampler, strategy 0 and seed 0, with
   `sampler.cairo` unchanged. A new deck only needs a new day.
+  Since D-23 the sampler's names are renamed (`Challenge`), with no logic change (its header says how to keep the
+  day decks).
 - **410 distinct decks.** The sampler's seed is `Poseidon(0, 1000 + day)`: the Daily seed of the salt 0 and
   the tournament id `day(index) / 86400`. Every day has its own tournament id, so every day is a distinct
   Poseidon seed. With D-23's salt 0, that is exactly the seed of token id `1000 + day`. So the 410 decks are the

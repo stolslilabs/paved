@@ -20,7 +20,7 @@ const BIG: felt252 = 0x800000000000011000000000000000000000000000000000000000000
 fn test_store_round_trips_at_maximum_values() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
-        systems.daily.contract_address,
+        systems.challenge.contract_address,
         || {
             let store = StoreImpl::new();
             let game = Game {
@@ -90,7 +90,7 @@ fn test_store_round_trips_at_maximum_values() {
 fn test_store_missing_entries_read_as_zero_with_keys() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
-        systems.daily.contract_address,
+        systems.challenge.contract_address,
         || {
             let store = StoreImpl::new();
             let game = store.game(42);
