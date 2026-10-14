@@ -23,7 +23,7 @@ import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
 import { REFERRAL_LINK } from "../src/mocks/referral";
 import { ACHIEVEMENTS, LEADERBOARD, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
-import { VAULT_HELD } from "../src/mocks/vault";
+import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -44,6 +44,14 @@ describe("SC2 helpers", () => {
     expect(parseUnits("", 18)).toBeNull();
     expect(parseUnits("1.2.3", 18)).toBeNull();
     expect(parseUnits("0.0000001", 6)).toBeNull();
+  });
+
+  it("takes the exit fee with V1b's rounding: inside a redeem, on top of a withdraw (vault.cairo:233, :240, :299)", () => {
+    // max_withdraw = value - ceil(value x 500 / 10,500), the value 1,355.68... $TILE.
+    expect(VAULT_HELD.maxWithdraw).toBe(VAULT_HELD.value - (VAULT_HELD.value * 500n + 10_499n) / 10_500n);
+    expect(VAULT_HELD.maxWithdraw).toBe(1_291_127_314_285_714_285_713n);
+    // withdraw 500: the shares of 500 + ceil(500 x 500 / 10,000) = 525 $TILE, rounded up.
+    expect(PREVIEW_WITHDRAW_500).toBe(484_228_002_213_613_724_406n);
   });
 
   it("reads the Vault's rate as OpenZeppelin's conversion, and bps as a percentage", () => {
@@ -169,7 +177,7 @@ describe("Vault", () => {
     const position = screen.getByRole("region", { name: "Your position" });
     expect(position).toHaveTextContent("1,250.40vPAVED");
     expect(position).toHaveTextContent("1,355.68$TILE");
-    expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,287.89");
+    expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,291.12");
     expect(within(position).getByText("Rate").closest("div")?.parentElement).toHaveTextContent("1 : 1.0841");
     expect(within(position).getByText("Exit fee").closest("div")?.parentElement).toHaveTextContent("5%");
     expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Vault" })).toHaveAttribute("aria-current", "page");
@@ -186,7 +194,7 @@ describe("Vault", () => {
     const onWithdraw = vi.fn();
     const onWithdrawAll = vi.fn();
     render(wrap(<VaultScene {...VAULT.position} onWithdraw={onWithdraw} onWithdrawAll={onWithdrawAll} />));
-    expect(screen.getByText(/Uses about/)).toBeInTheDocument();
+    expect(screen.getByText(/Uses about/)).toHaveTextContent("484.22vPAVED");
     await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
     await userEvent.click(screen.getByRole("button", { name: /Withdraw all/ }));
     expect(onWithdraw).toHaveBeenCalledOnce();
@@ -216,7 +224,7 @@ describe("Vault", () => {
 
   it("refuses a withdraw over max_withdraw before any send", () => {
     render(wrap(<VaultScene {...VAULT.overMax} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("at most 1,287.89 $TILE now, the exit fee taken. Nothing was sent.");
+    expect(screen.getByRole("alert")).toHaveTextContent("at most 1,291.12 $TILE now, the exit fee taken. Nothing was sent.");
     expect(screen.getByRole("textbox", { name: "Amount to withdraw" })).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("button", { name: "Withdraw" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Withdraw all/ })).toBeEnabled();
@@ -394,7 +402,7 @@ describe("Referral", () => {
     // 5% of 6 + 2 + 20 + 4 + 10 USDC.
     const earned = screen.getByRole("region", { name: "Earned" });
     expect(earned).toHaveTextContent("2.10USDC");
-    expect(earned).toHaveTextContent("9 purchases");
+    expect(earned).toHaveTextContent("5 purchases");
     expect(within(earned).getAllByRole("listitem")).toHaveLength(5);
     expect(within(earned).getByText("2 h ago")).toBeInTheDocument();
   });

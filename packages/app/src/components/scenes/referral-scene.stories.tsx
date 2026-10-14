@@ -8,7 +8,7 @@ const meta = { title: "Scenes/Referral", component: ReferralScene, args: { onCop
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Nine purchases through the link. */
+/** Five purchases through the link. */
 export const Earned: Story = { args: REFERRAL.earned };
 
 /** The link just copied. */

@@ -20,7 +20,7 @@ export const Depositing: Story = { args: VAULT.depositing };
 /** The withdraw on its way. */
 export const Withdrawing: Story = { args: VAULT.withdrawing };
 
-/** 1,300 $TILE asked, over `max_withdraw` (1,287.89): refused before any send. */
+/** 1,300 $TILE asked, over `max_withdraw` (1,291.12): refused before any send. */
 export const OverMaxWithdraw: Story = { args: VAULT.overMax };
 
 /** No vPAVED and no $TILE in the wallet. */

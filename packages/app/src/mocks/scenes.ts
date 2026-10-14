@@ -230,7 +230,8 @@ export const ACHIEVEMENTS = {
 
 // Referral
 
-const earned: ReferralEarnings = { total: REFERRED_PURCHASES.reduce((sum, p) => sum + BigInt(p.referral), 0n), count: 9, recent: REFERRED_PURCHASES };
+// Every purchase through the link is listed: the count and the total are those of the list.
+const earned: ReferralEarnings = { total: REFERRED_PURCHASES.reduce((sum, p) => sum + BigInt(p.referral), 0n), count: REFERRED_PURCHASES.length, recent: REFERRED_PURCHASES };
 
 export const REFERRAL = {
   earned: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: earned, now: MOCK_NOW },

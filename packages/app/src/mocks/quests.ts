@@ -75,7 +75,7 @@ const achievements = (list: PlayerAchievement[]): PlayerAchievements => ({
   achievements: list,
 });
 
-/** The player's nine: four earned, three in progress, two locked (nothing counted yet). */
+/** The player's nine: four earned, two in progress (Settler III 21 of 50, Forester 7 of 10), three locked (nothing counted yet). */
 export const ACHIEVEMENTS_MIXED = achievements([
   achievement(1, 10, [task(TUTORIAL_FINISHED, 1, 1)], MOCK_NOW - 29 * DAY),
   achievement(2, 10, [task(GAME_FINISHED, 1, 21)], MOCK_NOW - 28 * DAY),
