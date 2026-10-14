@@ -1,23 +1,23 @@
 //! Upgrades (D-17, P-42, P-56, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Economy`,
 //! `Collection` and `Vault` (vPAVED) replace their class through OpenZeppelin's
-//! `UpgradeableComponent`, gated by the two-step owner; `PavedToken` has no `upgrade` at all. Since D-24
-//! `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo` pins
-//! the dead `lobby_class` slot).
+//! `UpgradeableComponent`, gated by the two-step owner; `PavedToken` has no `upgrade` at all. Since
+//! D-24 `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo`
+//! pins the dead `lobby_class` slot).
 
 use core::num::traits::Zero;
+use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::upgrades::{
     IUpgradeableDispatcher, IUpgradeableDispatcherTrait, IUpgradeableSafeDispatcher,
     IUpgradeableSafeDispatcherTrait,
 };
-use openzeppelin_upgrades::UpgradeableComponent;
-use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
+use openzeppelin_upgrades::UpgradeableComponent;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::vault::DEAD_ASSETS;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
-use paved::systems::vault::DEAD_ASSETS;
 use paved::types::mode::Mode;
 use snforge_std::{
     DeclareResultTrait, EventSpyAssertionsTrait, declare, load, map_entry_address, spy_events,
@@ -213,7 +213,9 @@ fn test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes() {
     let owner: felt252 = OWNER().into();
     let key = map_entry_address(selector!("ERC20_balances"), array![owner].span());
     assert(probed.probe(key) == balance.low.into(), 'Vault: balance kept');
-    assert(probed.probe(selector!("ERC20_total_supply")) == supply.low.into(), 'Vault: supply kept');
+    assert(
+        probed.probe(selector!("ERC20_total_supply")) == supply.low.into(), 'Vault: supply kept',
+    );
     assert(probed.probe(selector!("exit_fee")) == 500, 'Vault: fee kept');
     assert(probed.probe(selector!("owner")) == owner, 'Vault: owner kept');
     let delegate = map_entry_address(selector!("Votes_delegatee"), array![owner].span());
@@ -265,8 +267,8 @@ fn test_upgrade_layout_pins_the_vault_by_name() {
             .into(),
         'Pin: vault dead shares',
     );
-    // [ERC4626] the asset, [Votes] the delegation (its checkpoints are a `Vec`, whose length lives at a
-    // derived address, not at the name), the fee
+    // [ERC4626] the asset, [Votes] the delegation (its checkpoints are a `Vec`, whose length lives
+    // at a derived address, not at the name), the fee
     assert(raw(vault, selector!("ERC4626_asset")) == addresses.paved.into(), 'Pin: vault asset');
     assert(
         raw_entry(vault, selector!("Votes_delegatee"), array![owner]) == owner,

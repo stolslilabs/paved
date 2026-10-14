@@ -3,8 +3,8 @@ pub mod setup {
     // Core imports
 
     use core::num::traits::Zero;
-    use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
     use openzeppelin_interfaces::erc4626::{IERC4626Dispatcher, IERC4626DispatcherTrait};
+    use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
     use paved::mocks::token::IERC20Dispatcher;
 
     // Starknet imports

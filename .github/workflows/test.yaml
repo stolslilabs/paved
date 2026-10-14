@@ -224,6 +224,9 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build
         run: bun run build
+      # A broken story fails the pull request (docs/client/v2-architecture.md, section 4.4).
+      - name: Build Storybook
+        run: bun run --filter @paved/app build-storybook
       - name: Test
         run: bun run test
 
