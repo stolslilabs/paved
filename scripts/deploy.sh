@@ -3,7 +3,8 @@
 # client, then runs a smoke check.
 #
 # Usage: scripts/deploy.sh devnet [--unmerged]
-#        scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]
+#        scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>]
+#        scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]
 #        scripts/deploy.sh sepolia --repoint [--check-only]
 #        scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]
 #        scripts/deploy.sh sepolia --d18 [--check-only]
@@ -11,7 +12,7 @@
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): the Faucet (D-25 B, a bounded USDC
-# faucet, S-1; the deployments file still keys it MockUSDC) and MockRouter, with the same pool. `deploy` refuses the Faucet and MockRouter by name on mainnet, and the old
+# faucet, S-1; keyed contracts.Faucet since F) and MockRouter, with the same pool. `deploy` refuses the Faucet and MockRouter by name on mainnet, and the old
 # mock Token off devnet.
 #
 # --unmerged (devnet): deploys the working tree of a pull request (the source check below is skipped) and writes
@@ -40,11 +41,38 @@
 # SN_SEPOLIA, the deployer account is deployed on the node, then the signer checks the chain id again itself.
 # Phase 2 runs it from merged main (docs/programme/OPERATIONS.md).
 #
+# sepolia, the fresh path (F, P-53; docs/programme/OPERATIONS.md, "Fresh Sepolia deployment"): one whole new system,
+# resumable. Before anything is built or sent: the variables, the chain id SN_SEPOLIA (SN_MAIN is refused there and by
+# the signer), the deployer deployed, and the deployment file it will write: a file holding a live deployment (one with
+# no `fresh` record, as contracts/deployments/sepolia.json of the old Sepolia deployment) is refused unless the operator
+# names a new output path with --out <file>; a file with a `fresh` record for this network and chain is resumed. After
+# the build: a resumed record's classes are the ones built. Then the funding check (the declares still to send, as
+# below). In order, each step skipped when what it would send has landed (read from the chain):
+#   1. declare the 8 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault, then the pool (one multicall) and the
+#   owner's stake (one multicall), Economy (its router, pool key and the P-46 configuration in its constructor),
+#   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection; 3. wire, one multicall of what is
+#   missing: Setup.set_reporter(Challenge), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
+#   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
+#   quests.md v1 set on Setup, one multicall of the definitions Setup does not hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS);
+#   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
+#   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
+#   owner() on Economy, Challenge, Setup and Collection, Setup.wiring(), every definition held, a paid spawn at stake 1,
+#   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
+#   claim_tutorial once; the rehearsal settles the game at (D + 2) x 86400 too.
+# The record is the file's `fresh` key: the salt and the first run's commit, written before the first send; each class
+# hash; each transaction hash as the signer sends it (deploys, pool, stake, minter, wiring, definitions, each smoke
+# transaction), never an address. A recorded transaction is awaited first (its receipt, up to REPOINT_WAIT_S): landed, it
+# is not sent again (a deploy's address is read from its receipt); reverted, it may be; no receipt stops the run, the
+# hash named; a hash the signer finds `not landed` is cleared. So a rerun after a stop sends only what is left, and a
+# rerun after completion (`fresh.complete`) sends nothing and needs no funding margin. --check-only: every check above,
+# the funding check, and what the record holds; nothing is sent, the file is not written, and it ends "every check
+# passed; nothing was sent".
+#
 # --rehearse (sepolia): the same Sepolia path, signer included, on a fresh local starknet-devnet (started as above),
 # with the node's first predeployed account instead of the funded one (its public dev key, in the signer's
 # environment only, with SIGNER_NETWORK=devnet), the working tree's sources, and the file written to a temporary
-# path. The funded account's variables are unset first, so a shell that holds them never hands them to the rehearsal.
-# Its smoke also settles the paid game, as devnet's does.
+# path (--out <file>: that file, so a stopped rehearsal can be resumed). The funded account's variables are unset first,
+# so a shell that holds them never hands them to the rehearsal. Its smoke also settles the paid game, as devnet's does.
 #
 # --estimate-only (sepolia, and its rehearsal; S-1c): every check above, the signer's install and the build, then a fee
 # estimate of each declare in deploy order (`signer estimate declare`, which runs on a fetch that refuses every
@@ -128,8 +156,8 @@
 #   ERC721 of the games), then as the owner Setup.set_collection(Collection) and Collection.set_minters(Challenge, 0)
 #   (no Tutorial minter since D-21; Setup.wiring() and Collection.challenge() checked by read back). Since D-25 E no
 #   Account is deployed: a player is the wallet address, Setup holds the wiring, and contracts.Account is not written
-#   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements are defined on Setup
-#   by its owner after the deploy (no script defines them). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
+#   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements of quests.md v1 are defined on Setup
+#   by its owner after the wiring and before the file is written (F). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
 # Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Challenge, Setup and Collection is
 #   the deployer, who alone may `upgrade` them (and set Challenge's Setup, Setup's reporters and Setup's wiring); the smoke reads
@@ -186,7 +214,7 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] | scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
@@ -197,6 +225,9 @@ REPOINT=0
 REPOINT_CHECK_ONLY=0
 REPOINT_FILE=""
 D18=0
+# The fresh path (F): --check-only and --out <file>.
+FRESH_CHECK_ONLY=0
+FRESH_OUT=""
 # The key of the deployment file under which --repoint (`repoint`) or --d18 (`d18`) records what it sent.
 RECORD_KEY=repoint
 if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
@@ -255,8 +286,22 @@ elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
   CHECK_SEND=1
 elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" && -z "${3:-}" ]]; then
   UNMERGED=1
-elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" && -z "${3:-}" ]]; then
-  REHEARSE=1
+elif [[ "$NETWORK" == "sepolia" && -n "${2:-}" ]]; then
+  # sepolia [--rehearse] [--check-only] [--out <file>] (F): the fresh path (see "sepolia, the fresh path" above).
+  shift
+  [[ "$1" == "--rehearse" ]] && { REHEARSE=1; shift; }
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --check-only) FRESH_CHECK_ONLY=1; shift ;;
+      --out)
+        [[ -n "${2:-}" && "$2" != -* && -d "$(dirname "$2")" && ! -d "$2" ]] ||
+          { echo "deploy.sh: --out expects a file path in an existing directory" >&2; exit 2; }
+        FRESH_OUT="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+        shift 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'sepolia$( ((REHEARSE)) && echo ' --rehearse')'" >&2; echo "$USAGE" >&2; exit 2 ;;
+    esac
+  done
+  set -- sepolia
 elif [[ -n "${2:-}" || -n "${3:-}" ]]; then
   echo "deploy.sh: unknown option '${3:-$2}' for '${NETWORK}${3:+ $2}'" >&2
   echo "$USAGE" >&2
@@ -356,6 +401,7 @@ if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
 else
   OUT="$ROOT/contracts/deployments/$NETWORK.json"
 fi
+[[ -z "$FRESH_OUT" ]] || OUT="$FRESH_OUT"
 ACCOUNTS=(--accounts-file "$WORK_DIR/accounts.json")
 SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
@@ -363,6 +409,13 @@ SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
 # --repoint and --d18: the deployment they read and update; sepolia's committed file unless the rehearsal names its own.
 [[ ( "$REPOINT" == 1 || "$D18" == 1 ) && -z "$REPOINT_FILE" ]] && REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
+# The fresh path through the signer (sepolia and its rehearsal) keeps its record in the file it writes, under `fresh`.
+FRESH_RECORD=0
+if [[ "$NETWORK" == sepolia && "$REPOINT" == 0 && "$D18" == 0 && "$ESTIMATE_ONLY" == 0 && "$CHECK_SEND" == 0 ]]; then
+  FRESH_RECORD=1
+  REPOINT_FILE="$OUT"
+  RECORD_KEY=fresh
+fi
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -1649,6 +1702,233 @@ d18_smoke() {
   echo "== d18: smoke ok"
 }
 
+# The fresh path (F): devnet, sepolia and its rehearsal share it. Through the signer (sepolia and its rehearsal) it keeps
+# a record under the deployment file's `fresh` key (FRESH_RECORD): the salt, the commit, each class hash and each
+# transaction hash as the signer sends it. fr_get, fr_set and fr_settled are rp_get, rp_set and repoint_settled on that
+# record; devnet keeps none (a fresh node every run), so they read nothing, write nothing and find nothing settled.
+fr_get() { if ((FRESH_RECORD)); then rp_get "$1"; fi; }
+fr_set() { if ((FRESH_RECORD)); then rp_set "$@"; fi; }
+fr_settled() { ((FRESH_RECORD)) || return 1; repoint_settled "$1"; }
+
+# The quests.md v1 set (P-22, "The list"), as Setup-owner calls. Quests: `id task total`, each daily (start 0, end 0,
+# duration = interval = 86,400), no prerequisite. Achievements: `id task total points`, no window (start = end = 0).
+# Tasks (constants.cairo): 1 GAME_FINISHED, 2 STRUCTURE_SCORED, 3 POINTS, 4 FOREST_SCORED, 5 WONDER_SCORED,
+# 6 BIG_STRUCTURE, 7 HIGH_SCORE, 8 PODIUM (reported by the indexer), 10 TUTORIAL_FINISHED (claim_tutorial). Task 9 (WIN)
+# has no definition: Champion is not in the list. Every target is a first guess "to be calibrated" (quests.md, Q-4).
+FRESH_QUESTS=("1 1 1" "2 2 6" "3 4 1" "4 3 3000")
+FRESH_ACHIEVEMENTS=("1 10 1 10" "2 1 1 10" "3 1 10 20" "4 1 50 40" "5 6 1 20" "6 4 10 20" "7 5 1 30" "8 7 1 30" "9 8 1 50")
+# Slot A of each definition in Setup's storage (quiver 0.2.0: `Quest_definitions` and `Achievement_definitions`, maps
+# of u32 to HeadSlot, flat in Setup): pedersen(sn_keccak(name), id) mod 2^251 - 256, as starknet.js's
+# hash.starknetKeccak and hash.computePedersenHash compute it; non-zero once defined. No view of Setup reads a
+# definition, so the tool reads the storage, as tests::e2e::quests does.
+FRESH_QUEST_SLOTS=(
+  0x33c1fcb56930cd6e9dd8478a6522250393a86ef360281e1171a3cf668e03282
+  0x14f2ac8d624f3f4cfa315541e6dfc1a43598189563e8a70ad92709f431075c9
+  0x818fbcf87531854f5035d878d7b2217f6eaa1881f46994a791ea8e8ed9b4bf
+  0x936bc3bf3390e4e6c62b1c245b42a629837936fea3ce24488ffe1d0803c9e9
+)
+FRESH_ACHIEVEMENT_SLOTS=(
+  0x7a9f291f9177d1c0c517a1cd46595136ef9491d7b5463671e67e5d48a030ee7
+  0x74243985a962d46eba5b34bb84cb2364765f9f48ea15a82696df560f5a8e58f
+  0x5edf71d348110e690b76f4df3463d591af8f7c51438e5ec575489144f58b72f
+  0x264be5a4738a4e1983a16c2bd36905ea6ac7a8858185e4b69f6f80dfd1bb448
+  0x69ffb5fa3e9cde90b588a258994babf6e5d4ecfda1ecb3841e9977a84d4e712
+  0xe7f915ca121faa312d3b9ebb055374f39c524834b820402476efd5dd302b51
+  0x7f4750cd7bab860c78de4d88d29436c411f41edf4b334c336c24e8717e09a1c
+  0x431e059e7f6588b694e35a298d670837729574558c17261c1cc2693869d9d0
+  0x40c16e33ae02f26f51eb1f6832e7d22d3074f70f7dfc5a528d52be3d4589fee
+)
+
+# fresh_storage <address> <key>: the felt stored there; fails unless the node answers one.
+fresh_storage() {
+  local answer
+  # Named params: starknet-devnet 0.10.0 (spec 0.10.2) wants four positional ones here, the spec three.
+  answer="$(rpc starknet_getStorageAt "{\"contract_address\":\"$1\",\"key\":\"$2\",\"block_id\":\"latest\"}")" || return 1
+  python3 -I -c '
+import json, re, sys
+d = json.load(sys.stdin)
+r = d.get("result") if isinstance(d, dict) and "error" not in d else None
+sys.exit(1) if not isinstance(r, str) or not re.fullmatch("0x[0-9a-fA-F]+", r) else print(r)' <<<"$answer" 2>/dev/null
+}
+
+# fresh_definition_calls: the definitions Setup does not hold yet (slot A zero), one call spec per line, quests then
+# achievements; nothing when it holds them all. Fails when a read fails (through `v`, so a lost read never reads as
+# "defined").
+fresh_definition_calls() {
+  local i id task total points slot
+  for i in "${!FRESH_QUESTS[@]}"; do
+    read -r id task total <<<"${FRESH_QUESTS[i]}"
+    slot="$(fresh_storage "$SETUP" "${FRESH_QUEST_SLOTS[i]}")" || return 1
+    [[ "$(hex_int "$slot")" != 0 ]] || echo "$SETUP define_quest $id 0 0 86400 86400 1 $task $total 0"
+  done
+  for i in "${!FRESH_ACHIEVEMENTS[@]}"; do
+    read -r id task total points <<<"${FRESH_ACHIEVEMENTS[i]}"
+    slot="$(fresh_storage "$SETUP" "${FRESH_ACHIEVEMENT_SLOTS[i]}")" || return 1
+    [[ "$(hex_int "$slot")" != 0 ]] || echo "$SETUP define_achievement $id 0 0 1 $task $total $points"
+  done
+}
+
+# fresh_wiring_calls: the wiring calls still missing, one spec per line: Setup's reporter (Challenge), Economy's game,
+# Setup's economy and collection, Collection's minter. Fails when a read fails.
+fresh_wiring_calls() {
+  local raw w
+  raw="$(call "$SETUP" is_reporter "$CHALLENGE")" || return 1
+  [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $CHALLENGE 1"
+  raw="$(call "$ECONOMY" addresses)" || return 1
+  read -r -a w <<<"$raw"
+  felt_eq "${w[4]:-}" "$CHALLENGE" || echo "$ECONOMY set_game $CHALLENGE"
+  raw="$(call "$SETUP" wiring)" || return 1
+  read -r -a w <<<"$raw"
+  felt_eq "${w[0]:-}" "$ECONOMY" || echo "$SETUP set_economy $ECONOMY"
+  felt_eq "${w[1]:-}" "$COLLECTION" || echo "$SETUP set_collection $COLLECTION"
+  raw="$(call "$COLLECTION" challenge)" || return 1
+  felt_eq "$raw" "$CHALLENGE" || echo "$COLLECTION set_minters $CHALLENGE 0"
+}
+
+# fresh_deployed_address <tx> <class>: the contract of that class a deploy transaction created, from its receipt (the
+# first event datum that is a contract of the class); nothing when it did not succeed or names none.
+fresh_deployed_address() {
+  local receipt candidate
+  receipt="$(rpc starknet_getTransactionReceipt "[\"$1\"]")" || return 0
+  [[ "$(pyj 'd.get("result",{}).get("execution_status","")' <<<"$receipt" 2>/dev/null)" == SUCCEEDED ]] || return 0
+  while read -r candidate; do
+    if [[ -n "$candidate" ]] && felt_eq "$(class_at "$candidate")" "$2"; then
+      echo "$candidate"
+      return 0
+    fi
+  done < <(pyj '"\n".join(e["data"][0] for e in d["result"]["events"] if e.get("data"))' <<<"$receipt")
+}
+
+# fresh_deploy <Name> <class hash> [constructor calldata...]: the contract's address. A deploy a stopped run recorded is
+# awaited and its address read from its receipt, not sent again; otherwise `deploy`, its hash recorded as it is sent.
+# Only the hash is recorded, never the address: so no address reaches the deployment file before step 5 writes
+# `contracts`, after the definitions.
+fresh_deploy() {
+  local name="$1" class="$2" tx addr
+  if fr_settled "$name.deploy_tx" >&2; then
+    tx="$(fr_get "$name.deploy_tx")"
+    addr="$(fresh_deployed_address "$tx" "$class")"
+    [[ -n "$addr" ]] || die "the recorded $name deploy $tx succeeded but created no contract of class $class: check it"
+    echo "   $name $(felt64 "$addr") deployed already, tx $tx; not sent again" >&2
+    echo "$addr"
+    return
+  fi
+  RECORD_SENDING="$name.deploy_tx"
+  addr="$(deploy "$@")"
+  RECORD_SENDING=""
+  fr_set "$name.deploy_tx=$(tail -1 "$WORK_DIR/deploy-txs")"
+  echo "$addr"
+}
+
+# fresh_spawned_game: the game id of Challenge's GameSpawned in a receipt read on stdin; fails when the transaction did
+# not succeed or spawned nothing.
+fresh_spawned_game() {
+  python3 -I -c '
+import sys, json
+d = json.load(sys.stdin)["result"]
+assert d["execution_status"] == "SUCCEEDED"
+challenge = int(sys.argv[1], 16)
+ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == challenge and len(e["keys"]) == 3]
+print(ids[0])' "$CHALLENGE" 2>/dev/null
+}
+
+# fresh_first_build <game id>: sends the first of the 16 placements next to the starter, (CENTER +- 1, CENTER) and
+# (CENTER, CENTER +- 1) in each orientation, that the node accepts: through the signer the first whose fee estimate
+# passes (`signer estimate invoke`, read-only), its hash recorded as smoke.build_tx as it is sent; on devnet the first
+# whose sncast invoke passes (sncast estimates first, so a refused placement sends nothing). Prints `<tx> <placement>`;
+# fails when none is accepted.
+fresh_first_build() {
+  local c=2147483647 o x y out line l spec tx
+  for spec in "$c $((c + 1))" "$((c + 1)) $c" "$c $((c - 1))" "$((c - 1)) $c"; do
+    read -r x y <<<"$spec"
+    for o in 1 2 3 4; do
+      if ((USE_SIGNER)); then
+        out="$(run_signer estimate invoke --contract "$CHALLENGE" --function build --calldata "$1" "$o" "$x" "$y")" || true
+        line=""
+        while IFS= read -r l; do [[ "$l" == "{"* ]] && line="$l"; done <<<"$out"
+        [[ -n "$line" && "$(pyj 'd.get("ok") is True' <<<"$line" 2>/dev/null)" == True ]] || continue
+        RECORD_SENDING=smoke.build_tx
+        tx="$(invoke "$CHALLENGE" build "$1" "$o" "$x" "$y")" || return 1
+        RECORD_SENDING=""
+      else
+        tx="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev invoke --url "$RPC_URL" --contract-address "$CHALLENGE" \
+          --function build --calldata "$1" "$o" "$x" "$y" 2>/dev/null | pyj 'd["transaction_hash"]' 2>/dev/null)" || continue
+      fi
+      echo "$tx orientation $o, x $x, y $y"
+      return 0
+    done
+  done
+  return 1
+}
+
+# fresh_file_check (sepolia and its rehearsal): the deployment file the run writes, before anything is built or sent. No
+# file: a run starts one. A file with this path's record (`fresh`) for this network and chain: the run resumes it (a
+# complete one sends nothing). Anything else, a live deployment included (contracts/deployments/sepolia.json of the old
+# Sepolia deployment), is refused: name a new output path with --out.
+FRESH_COMPLETE=0
+fresh_file_check() {
+  local fields net chain record complete
+  if [[ ! -e "$OUT" ]]; then
+    echo "== fresh: no deployment file at ${OUT#"$ROOT/"}: a run starts one"
+    return 0
+  fi
+  fields="$(python3 -I - "$OUT" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+if not isinstance(d, dict):
+    sys.exit(1)
+f = d.get("fresh")
+record = isinstance(f, dict)
+print(d.get("network") or "-", d.get("chain_id") or "-", "yes" if record else "no",
+      "yes" if record and f.get("complete") == "yes" else "no")
+PY
+)" || die "${OUT#"$ROOT/"} is not a deployment file: it is not overwritten; name a new output path with --out <file>; nothing was sent"
+  read -r net chain record complete <<<"$fields"
+  [[ "$record" == yes ]] ||
+    die "${OUT#"$ROOT/"} holds a live deployment (no fresh record): it is not overwritten; name a new output path with --out <file>; nothing was sent"
+  [[ "$net" == "$NETWORK" ]] || die "${OUT#"$ROOT/"} records a '$net' deployment, not $NETWORK; nothing was sent"
+  felt_eq "$chain" "$CHAIN_ID" || die "${OUT#"$ROOT/"} records chain $chain, the node is $CHAIN_ID; nothing was sent"
+  [[ "$complete" == yes ]] && FRESH_COMPLETE=1
+  echo "== fresh: resuming ${OUT#"$ROOT/"} ($( ((FRESH_COMPLETE)) && echo "complete: a run sends nothing" || echo "a run sends only what has not landed"))"
+}
+
+# fresh_classes_check: a resumed record's classes are the ones built now (a rerun from other sources would deploy a
+# second system); read before anything is estimated or sent.
+fresh_classes_check() {
+  local name recorded built
+  [[ -e "$OUT" ]] || return 0
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection; do
+    recorded="$(fr_get "classes.$name")"
+    [[ -n "$recorded" ]] || continue
+    built="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
+    felt_eq "$recorded" "$built" ||
+      die "the record's $name class is $recorded, the build's $built: resume from the sources of the first run; nothing was sent"
+  done
+}
+
+# fresh_check_only: what a run would send, from the record and the chain; nothing is sent and the file is not written.
+fresh_check_only() {
+  local name key tx
+  echo "== fresh: check only (nothing is sent, the file is not written)"
+  if [[ ! -e "$OUT" ]]; then
+    echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
+    echo "   Challenge and Collection, seed the pool, stake, wire, define quests 1 to 4 and achievements 1 to 9 on Setup,"
+    echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
+  else
+    for key in Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
+        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx definitions_tx \
+        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx; do
+      tx="$(fr_get "$key")"
+      if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
+    done
+    if ((FRESH_COMPLETE)); then echo "   complete: a run would send nothing"; fi
+  fi
+  echo "== fresh: check only: every check passed; nothing was sent"
+}
+
 SPEC_VERSION="$(rpc starknet_specVersion '[]')" || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
 # The spec version, not the URL, tells runs on different endpoints apart (printed on every estimate line too).
 SPEC_VERSION="$(pyj 'd["result"] if isinstance(d.get("result"), str) and len(d["result"]) < 40 else "unknown"' <<<"$SPEC_VERSION" 2>/dev/null || echo unknown)"
@@ -1691,6 +1971,8 @@ fi
 if ((USE_SIGNER)); then DEPLOYER_ARG="@account"; else DEPLOYER_ARG="$DEPLOYER"; fi
 DEPLOYER_INT="$(printf '%s' "$DEPLOYER" | python3 -I -c 'import sys;print(int(sys.stdin.read(),16))')"
 echo "   chain id $CHAIN_ID, deployer $DEPLOYER_LABEL"
+# The fresh path: the deployment file it writes, before anything is built or sent (a live one is refused).
+if ((FRESH_RECORD)); then fresh_file_check; fi
 
 # deployed_at: the main commit whose contract sources are deployed. The build compiles the working
 # tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
@@ -1729,6 +2011,7 @@ RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 # --repoint: what is deployed and what already landed, read before anything is estimated or sent.
 ((REPOINT)) && repoint_state
 ((D18)) && d18_state
+if ((FRESH_RECORD)); then fresh_classes_check; fi
 
 # Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
 # so the address stays out of argv and output), printed as an amount only. Before its first declare, a real run
@@ -1866,6 +2149,8 @@ PY
     echo "   --repoint: nothing is left to send, so the need does not apply"
   elif [[ "$funded" != 0 && "$D18" == 1 && "$D18_COMPLETE" == 1 ]]; then
     echo "   --d18: nothing is left to send, so the need does not apply"
+  elif [[ "$funded" != 0 && "$FRESH_COMPLETE" == 1 ]]; then
+    echo "   fresh: the record is complete, nothing is left to send, so the need does not apply"
   else
     [[ "$funded" == 0 ]] || die "the deployer's STRK balance is below the need above: fund it before deploying; nothing was sent"
   fi
@@ -1879,7 +2164,32 @@ if ((D18)); then
   exit 0
 fi
 
+if ((FRESH_CHECK_ONLY)); then
+  fresh_check_only
+  exit 0
+fi
+# The record, before the first send (sepolia and its rehearsal): the file holds `network`, `chain_id` and `fresh` alone
+# until step 5 (no `contracts` key: nothing a client reads), and the salt is kept for every rerun.
+if ((FRESH_RECORD)); then
+  if [[ ! -e "$OUT" ]]; then
+    mkdir -p "$(dirname "$OUT")"
+    python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" <<'PY'
+import json, sys
+path, network, chain_id = sys.argv[1:]
+with open(path, "w") as f:
+    json.dump({"network": network, "chain_id": chain_id, "fresh": {}}, f, indent=2)
+    f.write("\n")
+PY
+  fi
+  [[ -n "$(fr_get salt)" ]] || rp_set "salt=$SALT" "at=$DEPLOYED_AT"
+  SALT="$(fr_get salt)"
+  echo "== fresh: record ${OUT#"$ROOT/"} (salt and each transaction kept there as it is sent)"
+fi
+
 echo "== declare"
+# A declare a stopped run sent: its receipt first (the declares go one at a time, so only the last can be in flight).
+fr_settled declare_tx || true
+RECORD_SENDING=declare_tx
 TOKEN_CLASS=""
 TOKEN=""
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN_CLASS="$(declare_class Token)"; fi
@@ -1891,6 +2201,11 @@ ROUTER_CLASS="$(declare_class MockRouter)"
 VAULT_CLASS="$(declare_class Vault)"
 ECONOMY_CLASS="$(declare_class Economy)"
 COLLECTION_CLASS="$(declare_class Collection)"
+RECORD_SENDING=""
+fr_set "classes.Challenge=$(felt64 "$CHALLENGE_CLASS")" "classes.Setup=$(felt64 "$SETUP_CLASS")" \
+  "classes.Faucet=$(felt64 "$USDC_CLASS")" "classes.PavedToken=$(felt64 "$PAVED_CLASS")" \
+  "classes.MockRouter=$(felt64 "$ROUTER_CLASS")" "classes.Vault=$(felt64 "$VAULT_CLASS")" \
+  "classes.Economy=$(felt64 "$ECONOMY_CLASS")" "classes.Collection=$(felt64 "$COLLECTION_CLASS")"
 
 USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
@@ -1904,35 +2219,51 @@ TEST_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
 STAKE_PAVED="$(python3 -I -c "print((200000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
 # Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 12,220 bps, cap 5, target 1,000,000
 # PAVED; P-46), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
-# section 5).
+# section 5). The wiring step reads each back.
 CONFIG=(7000 0 12220 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
 MEAN0=3980000
 LAUNCH_RATE=76000000000000000000000000000000
 
 echo "== deploy"
-USDC="$(deploy Faucet "$USDC_CLASS")"
+USDC="$(fresh_deploy Faucet "$USDC_CLASS")"
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN="$(deploy Token "$TOKEN_CLASS")"; fi
-PAVED="$(deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
-ROUTER="$(deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
-VAULT="$(deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
+PAVED="$(fresh_deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
+ROUTER="$(fresh_deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
+VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
 
 echo "== pool and stake"
 # The launch pool, in the router's token order, from the initial supply and the Faucet's premint to the deployer (its
-# constructor, outside the faucet's caps: S-1's audit).
-read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
-python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
-  "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
-  die "the deployer does not hold the Faucet's 10,000 USDC premint"
-# The approvals and the pool: one multicall through the signer, one invoke each on devnet.
-if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
-  LIQUIDITY="$(u256 "$POOL_PAVED") $(u256 "$POOL_USDC")"
+# constructor, outside the faucet's caps: S-1's audit). A pool a stopped run sent: its receipt first; a seeded pool is
+# not seeded again.
+fr_settled pool_tx || true
+read -r -a RESERVES <<<"$(call "$ROUTER" reserves)"
+if [[ "$(hex_int "${RESERVES[0]}")" != 0 && "$(hex_int "${RESERVES[2]}")" != 0 ]]; then
+  echo "   pool seeded already$( [[ -n "$(fr_get pool_tx)" ]] && echo ", tx $(fr_get pool_tx)")"
 else
-  LIQUIDITY="$(u256 "$POOL_USDC") $(u256 "$POOL_PAVED")"
+  read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
+  python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
+    "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
+    die "the deployer does not hold the Faucet's 10,000 USDC premint"
+  # The approvals and the pool: one multicall through the signer, one invoke each on devnet.
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
+    LIQUIDITY="$(u256 "$POOL_PAVED") $(u256 "$POOL_USDC")"
+  else
+    LIQUIDITY="$(u256 "$POOL_USDC") $(u256 "$POOL_PAVED")"
+  fi
+  RECORD_SENDING=pool_tx
+  invoke_all "$PAVED approve $ROUTER $(u256 "$POOL_PAVED")" "$USDC approve $ROUTER $(u256 "$POOL_USDC")" \
+    "$ROUTER add_liquidity $LIQUIDITY"
+  RECORD_SENDING=""
 fi
-invoke_all "$PAVED approve $ROUTER $(u256 "$POOL_PAVED")" "$USDC approve $ROUTER $(u256 "$POOL_USDC")" \
-  "$ROUTER add_liquidity $LIQUIDITY"
 # The owner's stake, before Economy can buy anything (E1's audit): the Vault never has zero stakers.
-invoke_all "$PAVED approve $VAULT $(u256 "$STAKE_PAVED")" "$VAULT stake $(u256 "$STAKE_PAVED")"
+fr_settled stake_tx || true
+if [[ "$(u256_of $(call "$VAULT" staked "$DEPLOYER_ARG"))" == "$STAKE_PAVED" ]]; then
+  echo "   stake made already$( [[ -n "$(fr_get stake_tx)" ]] && echo ", tx $(fr_get stake_tx)")"
+else
+  RECORD_SENDING=stake_tx
+  invoke_all "$PAVED approve $VAULT $(u256 "$STAKE_PAVED")" "$VAULT stake $(u256 "$STAKE_PAVED")"
+  RECORD_SENDING=""
+fi
 # P-38: the test PAVED, from what the owner keeps outside the stake. Devnet only: off devnet the list is empty, and a
 # non-empty one is refused here as well.
 [[ "$NETWORK" == "devnet" || "${#TEST_ACCOUNTS[@]}" == 0 ]] || die "refusing to transfer test PAVED on $NETWORK (devnet only)"
@@ -1945,9 +2276,14 @@ fi
 read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 [[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
 
-ECONOMY="$(deploy Economy "$ECONOMY_CLASS" "$DEPLOYER_ARG" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
+ECONOMY="$(fresh_deploy Economy "$ECONOMY_CLASS" "$DEPLOYER_ARG" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
   "${POOL_KEY[@]}" 0 0 "${CONFIG[@]}" "$MEAN0" $(u256 "$LAUNCH_RATE"))"
-invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
+fr_settled minter_tx || true
+if [[ "$(hex_int "$(call "$PAVED" minter)")" != "$(hex_int "$ECONOMY")" ]]; then
+  RECORD_SENDING=minter_tx
+  invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
+  RECORD_SENDING=""
+fi
 [[ "$(hex_int "$(call "$PAVED" minter)")" == "$(hex_int "$ECONOMY")" ]] || die "PavedToken.minter() is not Economy"
 [[ "$(hex_int "$(call "$PAVED" admin)")" == 0 ]] || die "PavedToken.admin() is not zero after set_minter"
 echo "   PavedToken: minter Economy, admin 0"
@@ -1970,39 +2306,89 @@ echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
 # The quests and achievements (D-24): Challenge reports each game over to Setup, which accepts reporters only.
-SETUP="$(deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
-CHALLENGE="$(deploy Challenge "$CHALLENGE_CLASS" "$DEPLOYER_ARG" "$USDC" "$SETUP")"
-invoke "$SETUP" set_reporter "$CHALLENGE" 1 >/dev/null
-[[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
-[[ "$(hex_int "$(call "$SETUP" is_reporter "$CHALLENGE")")" == 1 ]] || die "Setup.is_reporter(Challenge) is not true"
-echo "   Setup: Challenge reports to it, its one reporter"
-invoke "$ECONOMY" set_game "$CHALLENGE" >/dev/null
-# The wiring (D-25 E): Setup holds it, Challenge reads it in one call at spawn and at game over.
-invoke "$SETUP" set_economy "$ECONOMY" >/dev/null
-# The game NFT: without it every spawn reverts ('Challenge: collection not set'), so it is wired before the smoke. No
-# Tutorial minter since D-21: the Tutorial range has none.
-COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
-invoke "$SETUP" set_collection "$COLLECTION" >/dev/null
-invoke "$COLLECTION" set_minters "$CHALLENGE" 0 >/dev/null
-read -r WIRED_ECONOMY WIRED_COLLECTION <<<"$(call "$SETUP" wiring)"
-[[ "$(hex_int "$WIRED_ECONOMY")" == "$(hex_int "$ECONOMY")" ]] || die "Setup.wiring() economy is not Economy"
-[[ "$(hex_int "$WIRED_COLLECTION")" == "$(hex_int "$COLLECTION")" ]] || die "Setup.wiring() collection is not Collection"
-[[ "$(hex_int "$(call "$COLLECTION" challenge)")" == "$(hex_int "$CHALLENGE")" ]] || die "Collection.challenge() is not Challenge"
-echo "   Setup: wiring Economy and Collection; Collection: minter Challenge"
+SETUP="$(fresh_deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
+CHALLENGE="$(fresh_deploy Challenge "$CHALLENGE_CLASS" "$DEPLOYER_ARG" "$USDC" "$SETUP")"
+# The game NFT: without it every spawn reverts ('Challenge: collection not set'), so it is wired before the smoke.
+COLLECTION="$(fresh_deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
 
-DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
+echo "== wire"
+# Setup's reporter (Challenge), Economy's game (after the stake), Setup's wiring (D-25 E: Economy and Collection, read by
+# Challenge in one call at spawn and at game over), Collection's minter (Challenge; no Tutorial minter since D-21). One
+# multicall through the signer of what is still missing, one invoke each on devnet.
+fr_settled wiring_tx || true
+WIRING_CALLS=()
+v WIRING_RAW fresh_wiring_calls
+while IFS= read -r spec; do [[ -n "$spec" ]] && WIRING_CALLS+=("$spec"); done <<<"$WIRING_RAW"
+if [[ "${#WIRING_CALLS[@]}" == 0 ]]; then
+  echo "   wired already$( [[ -n "$(fr_get wiring_tx)" ]] && echo ", tx $(fr_get wiring_tx)")"
+else
+  RECORD_SENDING=wiring_tx
+  invoke_all "${WIRING_CALLS[@]}"
+  RECORD_SENDING=""
+fi
+v WIRING_RAW fresh_wiring_calls
+[[ -z "$WIRING_RAW" ]] || die "after the wiring, still missing: $(cut -d' ' -f2 <<<"$WIRING_RAW" | tr '\n' ' ')"
+[[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
+echo "   Setup: Challenge reports to it, its one reporter; Challenge.setup() is Setup"
+echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
+# Economy's router and pool (its constructor's): the MockRouter, its key and the limit 0; the P-46 configuration and
+# the initial mean, read back.
+[[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$ROUTER")" ]] || die "Economy.router() is not MockRouter"
+read -r -a ECONOMY_POOL <<<"$(call "$ECONOMY" pool)"
+python3 -I - "${ECONOMY_POOL[@]}" "${POOL_KEY[@]}" <<'PY' || die "Economy.pool() is not the MockRouter's key and the limit 0"
+import sys
+v = [int(x, 16) for x in sys.argv[1:]]
+sys.exit(0 if len(v) == 12 and v[:5] == v[7:] and v[5:7] == [0, 0] else 1)
+PY
+read -r -a ECONOMY_CONFIG <<<"$(call "$ECONOMY" config)"
+python3 -I - "${ECONOMY_CONFIG[@]}" "${CONFIG[@]}" <<'PY' || die "Economy.config() is not the P-46 configuration"
+import sys
+v = sys.argv[1:]
+sys.exit(0 if len(v) == 10 and [int(x, 16) for x in v[:5]] == [int(x) for x in v[5:]] else 1)
+PY
+read -r -a EMA_VIEW <<<"$(call "$ECONOMY" ema)"
+[[ "$(hex_int "${EMA_VIEW[2]}")" == "$MEAN0" ]] || die "Economy.ema() mean is $(hex_int "${EMA_VIEW[2]}"), not MEAN0 $MEAN0"
+echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7000 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED, mean $MEAN0"
+
+echo "== definitions"
+# The quests.md v1 set on Setup, as its owner (D-24), before Setup's address reaches the deployment file's `contracts`
+# (claim_tutorial is one-shot: #346's audit). Each definition is read from Setup's storage first: a defined one is
+# not sent again (a definition cannot be sent twice: quiver refuses an id already defined).
+fr_settled definitions_tx || true
+DEFINE_CALLS=()
+v DEFINE_RAW fresh_definition_calls
+while IFS= read -r spec; do [[ -n "$spec" ]] && DEFINE_CALLS+=("$spec"); done <<<"$DEFINE_RAW"
+if [[ "${#DEFINE_CALLS[@]}" == 0 ]]; then
+  echo "   defined already: quests 1 to 4, achievements 1 to 9$( [[ -n "$(fr_get definitions_tx)" ]] && echo ", tx $(fr_get definitions_tx)")"
+else
+  echo "   ${#DEFINE_CALLS[@]} definition(s) to send"
+  RECORD_SENDING=definitions_tx
+  invoke_all "${DEFINE_CALLS[@]}"
+  RECORD_SENDING=""
+fi
+v DEFINE_RAW fresh_definition_calls
+[[ -z "$DEFINE_RAW" ]] || die "after the definitions, Setup still lacks: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
+echo "   Setup holds quests 1 to 4 and achievements 1 to 9 (slot A of each, read from its storage)"
+
+FIRST_DEPLOY_TX="$(fr_get Faucet.deploy_tx)"
+[[ -n "$FIRST_DEPLOY_TX" ]] || FIRST_DEPLOY_TX="$(head -1 "$WORK_DIR/deploy-txs")"
+DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$FIRST_DEPLOY_TX\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
 [[ "$DECIMALS" == 6 ]] || die "the Faucet has $DECIMALS decimals, expected 6"
 SYMBOL="USDC"
 echo "   token Faucet, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
+# The deployment file (F, the PM's rulings): the Faucet keyed `contracts.Faucet`, the game `contracts.Challenge`. Through
+# the signer the record (`fresh`) is kept and the file replaced through a rename; devnet writes it whole. `deployed_at`
+# is the commit of the first run (the record's `at`).
+[[ -z "$(fr_get at)" ]] || DEPLOYED_AT="$(fr_get at)"
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
-  "$DECIMALS" "$SYMBOL" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
+  "$DECIMALS" "$SYMBOL" "Faucet=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Challenge=$CHALLENGE=$CHALLENGE_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
   "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
-import json, sys
+import json, os, sys, tempfile
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
 items = [r for r in rest if r.count("=") == 2]
 test_paved = next(r for r in rest if r.startswith("test_paved=")).split("=")[1]
@@ -2017,23 +2403,31 @@ names = ["Challenge", "Setup", "Collection", "Token", "Economy", "PavedToken", "
 # The old mock Token is devnet only; devnet and Sepolia both run the Faucet and MockRouter (P-39).
 if network != "devnet":
     names.remove("Token")
-names += ["MockUSDC", "MockRouter"]
+names += ["Faucet", "MockRouter"]
 doc = {
     "network": network,
     "chain_id": chain_id,
     "rpc_url": rpc_url,
     "deployed_at": commit,
     "deployed_block": int(block),
-    # The ERC20 Challenge charges: USDC (the Faucet, keyed MockUSDC, on devnet and Sepolia).
-    "token": {**c["MockUSDC"], "decimals": int(decimals), "symbol": symbol},
+    # The ERC20 Challenge charges: USDC (the Faucet, on devnet and Sepolia).
+    "token": {**c["Faucet"], "decimals": int(decimals), "symbol": symbol},
     "contracts": {k: c[k] for k in names},
 }
 if network == "devnet":
     # P-38: the PAVED each predeployed account (other than the deployer) received, in base units (18 decimals).
     doc["test_paved"] = {a: test_paved for a in test_accounts}
-with open(out, "w") as f:
+# The fresh path's record, kept after the keys a client reads.
+if os.path.exists(out):
+    previous = json.load(open(out))
+    if "fresh" in previous:
+        doc["fresh"] = previous["fresh"]
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(out))
+os.chmod(tmp, 0o644)
+with os.fdopen(fd, "w") as f:
     json.dump(doc, f, indent=2)
     f.write("\n")
+os.replace(tmp, out)
 PY
 echo "== wrote ${OUT#"$ROOT/"}"
 
@@ -2070,48 +2464,118 @@ print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, 
 }
 
 echo "== smoke"
-# P-42: the upgrade owner of every upgradable contract is the deployer.
+# Each transaction of the smoke is sent once: through the signer it is recorded (`fresh.smoke`), and a rerun reads what
+# landed (the game, its tiles, Economy's terms, Setup's flag) and cites it instead of sending again.
+# P-42: the upgrade owner of every ownable contract is the deployer. PavedToken and Vault have no owner.
 for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collection=$COLLECTION"; do
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
 echo "   owner() of Economy, Challenge, Setup and Collection: the deployer"
+read -r WIRED_ECONOMY WIRED_COLLECTION <<<"$(call "$SETUP" wiring)"
+[[ "$(hex_int "$WIRED_ECONOMY")" == "$(hex_int "$ECONOMY")" && "$(hex_int "$WIRED_COLLECTION")" == "$(hex_int "$COLLECTION")" ]] ||
+  die "Setup.wiring() is not (Economy, Collection)"
+echo "   Setup.wiring(): Economy and Collection"
+v DEFINE_RAW fresh_definition_calls
+[[ -z "$DEFINE_RAW" ]] || die "Setup lacks a definition: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
+echo "   Setup holds every definition: quests 1 to 4, achievements 1 to 9"
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$CHALLENGE" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not the Faucet"
 [[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"
 echo "   entry_price: 2 USDC per stake unit"
+# The router (E-9, F0): Economy.router() is the file's MockRouter (the key the client reads), the router of the E-9 class
+# (quote_swap), its pool the launch seed (800,000 PAVED and 10,000 USDC, D-16, P-39, less what paid games have swapped
+# since), Economy's quote_swap(1.4 USDC) through it, and the guard rate (7.6e31 at launch; a purchase moves it).
+FILE_ROUTER="$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["contracts"]["MockRouter"]["address"])' "$OUT")"
+[[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$FILE_ROUTER")" ]] || die "Economy.router() is not the file's MockRouter $FILE_ROUTER"
+read -r -a RESERVES <<<"$(call "$ROUTER" reserves)"
+read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap 1400000 0)"
+gt "$(hex_int "$SWAP_LOW")" 0 || die "Economy.quote_swap(1400000) is 0"
+read -r RATE_LOW RATE_HIGH <<<"$(call "$ECONOMY" rate)"
+python3 -I - "$PAVED" "$USDC" "${RESERVES[@]}" "$SWAP_LOW" "$RATE_LOW" "$RATE_HIGH" <<'PY2'
+import sys
+paved, usdc, r0l, r0h, r1l, r1h, swap, rl, rh = sys.argv[1:]
+r0, r1 = int(r0l, 16) + (int(r0h, 16) << 128), int(r1l, 16) + (int(r1h, 16) << 128)
+p, u = (r0, r1) if int(paved, 16) < int(usdc, 16) else (r1, r0)
+rate = int(rl, 16) + (int(rh, 16) << 128)
+print(f"   Economy.router() is the file's MockRouter; its pool: {p / 10**18:,.6f} PAVED and {u / 10**6:,.6f} USDC")
+print(f"   Economy.quote_swap(1.4 USDC) = {int(swap, 16)} PAVED base units; Economy.rate() = {rate} ({rate / 10**18 / 10**12:,.4f} PAVED per USDC)")
+PY2
 
 # A paid Challenge game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %. The 2 USDC come
 # from the faucet, unless the deployer already holds them: on Sepolia anyone may have filled its faucet cap, and
-# that USDC is then on the deployer.
-read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
-if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)<2000000 else 1)' "$HELD_LOW" "$HELD_HIGH"; then
-  invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
+# that USDC is then on the deployer. A spawn a stopped run sent is read from its receipt.
+if [[ -z "$(fr_get smoke.game_id)" ]] && fr_settled smoke.spawn_tx; then
+  PAID_ID="$(rpc starknet_getTransactionReceipt "[\"$(fr_get smoke.spawn_tx)\"]" | fresh_spawned_game)" ||
+    die "the recorded smoke spawn $(fr_get smoke.spawn_tx) succeeded but spawned no Challenge game: check it"
+  rp_set "smoke.game_id=$PAID_ID"
 fi
-invoke "$USDC" approve "$CHALLENGE" 2000000 0 >/dev/null
-read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
-read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
-MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
-EMA_BEFORE="$(call "$ECONOMY" ema)"
-USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
-CHALLENGE_TX="$(invoke "$CHALLENGE" spawn 1 0 $(u256 "$MIN_OUT"))"
-PAID_ID="$(rpc starknet_getTransactionReceipt "[\"$CHALLENGE_TX\"]" | python3 -I -c '
-import sys, json
-d = json.load(sys.stdin)["result"]
-challenge = int(sys.argv[1], 16)
-ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == challenge and len(e["keys"]) == 3]
-print(ids[0])' "$CHALLENGE")" || die "no GameSpawned event in the Challenge spawn receipt"
+if [[ -n "$(fr_get smoke.game_id)" ]]; then
+  PAID_ID="$(fr_get smoke.game_id)"
+  EMA_BEFORE="$(fr_get smoke.ema_before)"
+  echo "   paid challenge spawn done already: game $PAID_ID, tx $(fr_get smoke.spawn_tx); not sent again"
+else
+  read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)<2000000 else 1)' "$HELD_LOW" "$HELD_HIGH"; then
+    invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
+  fi
+  invoke "$USDC" approve "$CHALLENGE" 2000000 0 >/dev/null
+  read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
+  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
+  MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
+  EMA_BEFORE="$(call "$ECONOMY" ema)"
+  fr_set "smoke.ema_before=$EMA_BEFORE"
+  USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  RECORD_SENDING=smoke.spawn_tx
+  CHALLENGE_TX="$(invoke "$CHALLENGE" spawn 1 0 $(u256 "$MIN_OUT"))"
+  RECORD_SENDING=""
+  PAID_ID="$(rpc starknet_getTransactionReceipt "[\"$CHALLENGE_TX\"]" | fresh_spawned_game)" ||
+    die "no GameSpawned event in the Challenge spawn receipt"
+  fr_set "smoke.spawn_tx=$CHALLENGE_TX" "smoke.game_id=$PAID_ID"
+  USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
+  [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
+  [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
+  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds nothing"
+fi
 DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$CHALLENGE" game "$PAID_ID" | cut -d' ' -f14)")"
-USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
-[[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
-[[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
-[[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
 [[ "$T_PLAYER" == "$DEPLOYER_INT" ]] || die "Economy.terms($PAID_ID) is not the player's"
-echo "   challenge game $PAID_ID bought at stake 1 on day $DAY (min_out $MIN_OUT), Economy holds nothing"
-SURRENDER_TX="$(invoke "$CHALLENGE" surrender "$PAID_ID")"
+echo "   challenge game $PAID_ID on day $DAY, the player's"
+
+# One D-18 build(game_id, orientation, x, y) next to the starter, once: a game with a second tile placed (or over) has
+# had it.
+fr_settled smoke.build_tx || true
+read -r -a GAME <<<"$(call "$CHALLENGE" game "$PAID_ID")"
+if [[ "$(hex_int "${GAME[5]}")" == 0 && "$(hex_int "${GAME[7]}")" == 1 ]]; then
+  BUILD_TX="$(fresh_first_build "$PAID_ID")" || die "no placement next to the starter is accepted for game $PAID_ID"
+  read -r BUILD_TX BUILD_AT <<<"$BUILD_TX"
+  fr_set "smoke.build_tx=$BUILD_TX"
+  read -r -a GAME <<<"$(call "$CHALLENGE" game "$PAID_ID")"
+  [[ "$(hex_int "${GAME[7]}")" == 2 ]] || die "game $PAID_ID has $(hex_int "${GAME[7]}") tiles placed after the build, expected 2"
+  echo "   build(game $PAID_ID, $BUILD_AT), tx $BUILD_TX"
+else
+  echo "   build done already$( [[ -n "$(fr_get smoke.build_tx)" ]] && echo ", tx $(fr_get smoke.build_tx)"); not sent again"
+fi
+read -r -a BUILDER <<<"$(call "$CHALLENGE" builder "$PAID_ID" "$DEPLOYER_ARG")"
+[[ "${#BUILDER[@]}" == 4 && "$(hex_int "${BUILDER[0]}")" == "$PAID_ID" && "$(hex_int "${BUILDER[1]}")" == "$DEPLOYER_INT" ]] ||
+  die "Challenge.builder($PAID_ID) is not the four D-18 fields of the game and the player"
+echo "   game $PAID_ID: score $(hex_int "${GAME[4]}"), placed_count $(hex_int "${GAME[7]}"); builder(): the player, tile $(hex_int "${BUILDER[2]}"), plan $(hex_int "${BUILDER[3]}")"
+
+# The game over, reported to Setup: its QuestProgressed and AchievementProgressed (task 1, the game finished).
+fr_settled smoke.surrender_tx || true
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
-[[ "$T_RECORDED" == 1 ]] || die "the surrender of game $PAID_ID was not recorded by Economy"
-# The game over reported to Setup: its QuestProgressed and AchievementProgressed (task 1, the game finished).
+if [[ "$T_RECORDED" == 1 ]]; then
+  SURRENDER_TX="$(fr_get smoke.surrender_tx)"
+  [[ -n "$SURRENDER_TX" ]] || die "game $PAID_ID is recorded by Economy but no surrender is recorded: check it"
+  echo "   game $PAID_ID surrendered already, tx $SURRENDER_TX; not sent again"
+else
+  RECORD_SENDING=smoke.surrender_tx
+  SURRENDER_TX="$(invoke "$CHALLENGE" surrender "$PAID_ID")"
+  RECORD_SENDING=""
+  fr_set "smoke.surrender_tx=$SURRENDER_TX"
+  read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
+  [[ "$T_RECORDED" == 1 ]] || die "the surrender of game $PAID_ID was not recorded by Economy"
+fi
 REPORTED="$(rpc starknet_getTransactionReceipt "[\"$SURRENDER_TX\"]" | python3 -I -c '
 import sys, json
 d = json.load(sys.stdin)["result"]
@@ -2119,21 +2583,40 @@ setup = int(sys.argv[1], 16)
 print(sum(1 for e in d["events"] if int(e["from_address"], 16) == setup))' "$SETUP")" ||
   die "no receipt for the surrender of game $PAID_ID"
 [[ "$REPORTED" -ge 2 ]] || die "the surrender of game $PAID_ID emitted $REPORTED events from Setup, expected 2 or more"
-echo "   challenge game $PAID_ID surrendered (score 0), recorded, reported to Setup ($REPORTED events)"
+echo "   challenge game $PAID_ID surrendered, recorded by Economy, reported to Setup ($REPORTED events), tx $SURRENDER_TX"
 check_token "$PAID_ID" true
 
-# The tutorial is off chain (D-21): its achievement is claimed on Setup, once per player (a second claim does nothing).
-invoke "$SETUP" claim_tutorial >/dev/null
-[[ "$(hex_int "$(call "$SETUP" tutorial_claimed "$DEPLOYER_ARG")")" == 1 ]] || die "Setup.tutorial_claimed(player) is not true"
-invoke "$SETUP" claim_tutorial >/dev/null
-echo "   tutorial claimed on Setup, twice: one flag"
+# The tutorial is off chain (D-21): its achievement is claimed on Setup, once per player. A claimed flag is not claimed
+# again; devnet claims a second time, which does nothing (one flag).
+fr_settled smoke.claim_tx || true
+if [[ "$(hex_int "$(call "$SETUP" tutorial_claimed "$DEPLOYER_ARG")")" == 1 ]]; then
+  echo "   tutorial claimed already$( [[ -n "$(fr_get smoke.claim_tx)" ]] && echo ", tx $(fr_get smoke.claim_tx)"); not sent again"
+else
+  RECORD_SENDING=smoke.claim_tx
+  CLAIM_TX="$(invoke "$SETUP" claim_tutorial)"
+  RECORD_SENDING=""
+  fr_set "smoke.claim_tx=$CLAIM_TX"
+  [[ "$(hex_int "$(call "$SETUP" tutorial_claimed "$DEPLOYER_ARG")")" == 1 ]] || die "Setup.tutorial_claimed(player) is not true"
+  if [[ "$NETWORK" == "devnet" ]]; then
+    invoke "$SETUP" claim_tutorial >/dev/null
+    echo "   tutorial claimed on Setup, twice: one flag"
+  else
+    echo "   tutorial claimed on Setup once, tx $CLAIM_TX"
+  fi
+fi
 
 # Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README). Only a local
 # node can move its time: on Sepolia the smoke leaves its paid game to the keeper, settleable from (D + 2) x 86400.
 SETTLE_AT=$(((DAY + 2) * 86400))
 if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
-  rpc devnet_setTime "{\"time\":$SETTLE_AT,\"generate_block\":true}" >/dev/null || die "devnet_setTime failed"
-  invoke "$ECONOMY" settle 1 "$PAID_ID" >/dev/null
+  fr_settled smoke.settle_tx || true
+  if [[ "$T_SETTLED" != 1 ]]; then
+    rpc devnet_setTime "{\"time\":$SETTLE_AT,\"generate_block\":true}" >/dev/null || die "devnet_setTime failed"
+    RECORD_SENDING=smoke.settle_tx
+    SETTLE_TX="$(invoke "$ECONOMY" settle 1 "$PAID_ID")"
+    RECORD_SENDING=""
+    fr_set "smoke.settle_tx=$SETTLE_TX"
+  fi
   read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
   [[ "$T_SETTLED" == 1 ]] || die "game $PAID_ID was not settled at $SETTLE_AT"
   echo "   challenge game $PAID_ID settled at (D + 2) x 86400 = $SETTLE_AT: reward $T_REWARD"
@@ -2141,19 +2624,33 @@ else
   echo "   challenge game $PAID_ID left for the keeper: settleable from (D + 2) x 86400 = $SETTLE_AT"
 fi
 
-# No trace in the day's figures (P-24): a score under 100 enters no mean, so the day closes on its prior and the
-# EMA does not move (no prize and no on-chain ranking since D-20). On Sepolia the day is still open (its time
-# cannot move): the day's weight is 0 while open, and its close is the keeper's.
+# The day's figures (P-24): a score under 100 enters no mean, so the day closes on its prior and the EMA does not move;
+# the smoke's build usually scores 100 or more, and the game then enters the day's mean like any other (no prize and
+# no on-chain ranking since D-20). On Sepolia the day is still open (its time cannot move): its close is the keeper's.
 read -r -a DAYVIEW <<<"$(call "$ECONOMY" day "$DAY")"
-[[ "$(call "$ECONOMY" ema)" == "$EMA_BEFORE" ]] || die "the EMA moved"
-if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
-  [[ "$(hex_int "${DAYVIEW[2]}")" == 0 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY has a weight or is not closed"
-  echo "   day $DAY: closed with weight 0, EMA unchanged"
+read -r -a T <<<"$(call "$ECONOMY" terms "$PAID_ID")"
+SCORE="$(hex_int "${T[8]}")"
+EMA_AFTER="$(call "$ECONOMY" ema)"
+if (( SCORE < 100 )); then
+  [[ "$EMA_AFTER" == "$EMA_BEFORE" ]] || die "the EMA moved"
+  if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
+    [[ "$(hex_int "${DAYVIEW[2]}")" == 0 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY has a weight or is not closed"
+    echo "   day $DAY: score $SCORE, closed with weight 0, EMA unchanged"
+  else
+    [[ "$(hex_int "${DAYVIEW[2]}")" == 0 ]] || die "day $DAY has a weight"
+    echo "   day $DAY: score $SCORE, weight 0 while open, EMA unchanged"
+  fi
+elif [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
+  [[ "$(hex_int "${DAYVIEW[2]}")" -ge 1 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY is not closed with the game's weight"
+  echo "   day $DAY: score $SCORE (100 or more: in the day's mean), closed with weight $(hex_int "${DAYVIEW[2]}"); EMA $(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $EMA_BEFORE) -> $(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $EMA_AFTER)"
 else
-  [[ "$(hex_int "${DAYVIEW[2]}")" == 0 ]] || die "day $DAY has a weight"
-  echo "   day $DAY: weight 0 while open, EMA unchanged"
+  echo "   day $DAY: score $SCORE (100 or more: it enters the day's mean when the keeper closes the day)"
 fi
+fr_set complete=yes
 echo "== smoke ok"
+if ((FRESH_RECORD)); then
+  echo "== fresh: complete; a rerun sends nothing (record ${OUT#"$ROOT/"})"
+fi
 if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
   echo "== unmerged deployment file ($OUT):"
   cat "$OUT"
