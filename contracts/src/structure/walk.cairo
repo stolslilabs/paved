@@ -7,10 +7,16 @@
 //! at is taken. Each tile is read once (its slot is kept by position) and each node is visited
 //! once. The tile the move builds is not in storage yet (`Structures::flush` writes it): the walk
 //! takes it from the cache of the move.
+//!
+//! G7a (C3): a walk from the tile a move builds can be seeded with the move's neighbourhood
+//! (`WalkerTrait::seeded`). The move has already read its four side tiles and their refs, which
+//! storage still holds as read (the move writes nothing to them before `flush`): a node on a side
+//! tile is taken from there instead of reading its position and its slot again.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::Tile;
 use paved::store::StoreImpl;
+use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
 use paved::structure::state::Structures;
 use paved::structure::{oriented, tables};
 
@@ -27,6 +33,12 @@ pub struct Walker {
     slots: Felt252Dict<felt252>,
     /// The nodes to visit, with their tile's refs.
     nodes: Array<(Tile, u128, u8)>,
+    /// The position of the built tile, whose side tiles `sides` holds.
+    x: u32,
+    y: u32,
+    /// The side tiles of the built tile and their refs, by direction, as the move read them; its
+    /// `taken` bits say which are there (0 for a walk that is not seeded).
+    sides: Neighborhood,
 }
 
 #[generate_trait]
@@ -34,6 +46,21 @@ pub impl WalkerImpl of WalkerTrait {
     /// A walk from `area` of `tile` (of refs `refs`), in the game of `structures`, whose built tile
     /// it reads from there.
     fn new(tile: Tile, refs: u128, area: u8, ref structures: Structures) -> Walker {
+        let none = Neighborhood {
+            tiles: array![].span(),
+            refs: array![].span(),
+            rows: array![].span(),
+            wonders: 0,
+            taken: 0,
+        };
+        Self::seeded(tile, refs, area, ref structures, @none)
+    }
+
+    /// `new`, for a walk from the tile the move built (`tile`), with the neighbourhood the move
+    /// read around it: the side tiles it holds are not read again.
+    fn seeded(
+        tile: Tile, refs: u128, area: u8, ref structures: Structures, around: @Neighborhood,
+    ) -> Walker {
         let mut slots: Felt252Dict<felt252> = Default::default();
         if structures.built.id != 0 {
             let built = structures.built;
@@ -45,7 +72,15 @@ pub impl WalkerImpl of WalkerTrait {
         }
         let mut visited: Felt252Dict<bool> = Default::default();
         visited.insert(node_key(tile.id, area), true);
-        Walker { game_id: structures.game_id, visited, slots, nodes: array![(tile, refs, area)] }
+        Walker {
+            game_id: structures.game_id,
+            visited,
+            slots,
+            nodes: array![(tile, refs, area)],
+            x: tile.x,
+            y: tile.y,
+            sides: *around,
+        }
     }
 
     /// The next node of the walk, its tile's refs and its area; `None` once every node is visited.
@@ -70,15 +105,20 @@ pub impl WalkerImpl of WalkerTrait {
                 continue;
             }
             let (x, y) = toward(tile.x, tile.y, direction);
-            let key = position_key(x, y);
-            let mut slot = self.slots.get(key);
-            if slot == 0 {
-                slot = StoreImpl::tile_slot_at(self.game_id, x, y);
-                // [Check] A closed structure has every position it needs taken
-                assert(slot != 0, errors::OPEN_STRUCTURE);
-                self.slots.insert(key, slot);
-            }
-            let (next, next_refs) = StoreImpl::tile_of_slot(self.game_id, slot);
+            let side = self.side_at(x, y);
+            let (next, next_refs) = if side != 0 {
+                (self.sides.tile(side), *self.sides.refs.at(side.into()))
+            } else {
+                let key = position_key(x, y);
+                let mut slot = self.slots.get(key);
+                if slot == 0 {
+                    slot = StoreImpl::tile_slot_at(self.game_id, x, y);
+                    // [Check] A closed structure has every position it needs taken
+                    assert(slot != 0, errors::OPEN_STRUCTURE);
+                    self.slots.insert(key, slot);
+                }
+                StoreImpl::tile_of_slot(self.game_id, slot)
+            };
             let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
             let key = node_key(next.id, landing);
             if !self.visited.get(key) {
@@ -86,6 +126,55 @@ pub impl WalkerImpl of WalkerTrait {
                 self.nodes.append((next, next_refs, landing));
             }
         }
+    }
+}
+
+#[generate_trait]
+impl SidesImpl of SidesTrait {
+    /// The direction (2, 4, 6 or 8) of `(x, y)` from the built tile when it is a side position
+    /// whose tile the walk holds, 0 otherwise.
+    #[inline(always)]
+    fn side_at(self: @Walker, x: u32, y: u32) -> u8 {
+        let taken = *self.sides.taken;
+        if taken == 0 {
+            return 0;
+        }
+        let (cx, cy) = (*self.x, *self.y);
+        let direction = if x == cx {
+            if y == cy + 1 {
+                tables::NORTH
+            } else if y + 1 == cy {
+                tables::SOUTH
+            } else {
+                0
+            }
+        } else if y == cy {
+            if x == cx + 1 {
+                tables::EAST
+            } else if x + 1 == cx {
+                tables::WEST
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+        if direction != 0 && taken & side_bit(direction) != 0 {
+            direction
+        } else {
+            0
+        }
+    }
+}
+
+/// The bit of a side direction in `Neighborhood::taken`.
+#[inline(always)]
+fn side_bit(direction: u8) -> u16 {
+    match direction {
+        2 => 0x4,
+        4 => 0x10,
+        6 => 0x40,
+        _ => 0x100,
     }
 }
 

@@ -952,6 +952,149 @@ fn area_row_19(orientation: u8, area: u8) -> u128 {
     }
 }
 
+/// Returns the edge word of a plan placed with `orientation` (G7a, C5): the category (`Category`
+/// code: 1 forest, 2 road, 3 city) of the middle spot of each edge, 2 bits each from the low bits,
+/// north, east, south, west (0 for no plan or no orientation). The fit check compares two words
+/// instead of reading two area rows per side.
+pub fn edges(plan: u8, orientation: u8) -> u8 {
+    match plan {
+        1 => match orientation { // CCCCCCCCC
+            1 => 0xff,
+            2 => 0xff,
+            3 => 0xff,
+            4 => 0xff,
+            _ => 0,
+        },
+        2 => match orientation { // CCCCCFFFC
+            1 => 0xdf,
+            2 => 0x7f,
+            3 => 0xfd,
+            4 => 0xf7,
+            _ => 0,
+        },
+        3 => match orientation { // CCCCCFRFC
+            1 => 0xef,
+            2 => 0xbf,
+            3 => 0xfe,
+            4 => 0xfb,
+            _ => 0,
+        },
+        4 => match orientation { // CFFFCFFFC
+            1 => 0xdd,
+            2 => 0x77,
+            3 => 0xdd,
+            4 => 0x77,
+            _ => 0,
+        },
+        5 => match orientation { // FFCFFFCFF
+            1 => 0x77,
+            2 => 0xdd,
+            3 => 0x77,
+            4 => 0xdd,
+            _ => 0,
+        },
+        6 => match orientation { // FFCFFFFFC
+            1 => 0xd7,
+            2 => 0x5f,
+            3 => 0x7d,
+            4 => 0xf5,
+            _ => 0,
+        },
+        7 => match orientation { // FFFFCCCFF
+            1 => 0x7d,
+            2 => 0xf5,
+            3 => 0xd7,
+            4 => 0x5f,
+            _ => 0,
+        },
+        8 => match orientation { // FFFFFFCFF
+            1 => 0x75,
+            2 => 0xd5,
+            3 => 0x57,
+            4 => 0x5d,
+            _ => 0,
+        },
+        9 => match orientation { // RFFFRFCFR
+            1 => 0xb9,
+            2 => 0xe6,
+            3 => 0x9b,
+            4 => 0x6e,
+            _ => 0,
+        },
+        10 => match orientation { // RFFFRFFFR
+            1 => 0x99,
+            2 => 0x66,
+            3 => 0x99,
+            4 => 0x66,
+            _ => 0,
+        },
+        11 => match orientation { // RFRFCCCFR
+            1 => 0xbe,
+            2 => 0xfa,
+            3 => 0xeb,
+            4 => 0xaf,
+            _ => 0,
+        },
+        12 => match orientation { // RFRFFFCFR
+            1 => 0xb6,
+            2 => 0xda,
+            3 => 0x6b,
+            4 => 0xad,
+            _ => 0,
+        },
+        13 => match orientation { // RFRFFFFFR
+            1 => 0x96,
+            2 => 0x5a,
+            3 => 0x69,
+            4 => 0xa5,
+            _ => 0,
+        },
+        14 => match orientation { // RFRFRFCFF
+            1 => 0x7a,
+            2 => 0xe9,
+            3 => 0xa7,
+            4 => 0x9e,
+            _ => 0,
+        },
+        15 => match orientation { // SFRFRFCFR
+            1 => 0xba,
+            2 => 0xea,
+            3 => 0xab,
+            4 => 0xae,
+            _ => 0,
+        },
+        16 => match orientation { // SFRFRFFFR
+            1 => 0x9a,
+            2 => 0x6a,
+            3 => 0xa9,
+            4 => 0xa6,
+            _ => 0,
+        },
+        17 => match orientation { // SFRFRFRFR
+            1 => 0xaa,
+            2 => 0xaa,
+            3 => 0xaa,
+            4 => 0xaa,
+            _ => 0,
+        },
+        18 => match orientation { // WFFFFFFFF
+            1 => 0x55,
+            2 => 0x55,
+            3 => 0x55,
+            4 => 0x55,
+            _ => 0,
+        },
+        19 => match orientation { // WFFFFFFFR
+            1 => 0x95,
+            2 => 0x56,
+            3 => 0x59,
+            4 => 0x65,
+            _ => 0,
+        },
+        _ => 0,
+    }
+}
+
 /// Returns the wonder's area of a plan (0 for none): the same in every orientation.
 #[inline]
 pub fn wonder_area(plan: u8) -> u8 {

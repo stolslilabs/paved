@@ -398,7 +398,7 @@ pub impl GameImpl of GameTrait {
                     score_wonder(ref self, ref store, winner);
                 },
                 Category::Forest => assess_forest(
-                    ref self, tile, refs, area, record, solo, ref structures, ref store,
+                    ref self, tile, refs, area, record, solo, around, ref structures, ref store,
                 ),
                 _ => {
                     let winner = if solo {
