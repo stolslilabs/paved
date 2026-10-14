@@ -302,7 +302,7 @@ try {
 
   // ---- 5. Buy one Challenge game, lowest stake
   stage("buy-challenge");
-  await page.getByText("Challenge", { exact: false }).first().click({ timeout: 20000 });
+  await page.getByTestId("mode-card-challenge").click({ timeout: 20000 });
   await sleep(2500);
   await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
   await sleep(2500);
@@ -360,7 +360,7 @@ try {
   if (arg("surrender", false) === true) {
     stage("surrender");
     await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
-    await page.getByRole("button", { name: /^(yes|confirm|surrender)/i }).last().click({ timeout: 15000 });
+    await page.getByRole("button", { name: /^confirm surrender$/i }).click({ timeout: 15000 });
     await walkKeychain("b14-surrender", { maxScreens: 2 });
     await sleep(8000);
     await shot("b14-surrendered");
