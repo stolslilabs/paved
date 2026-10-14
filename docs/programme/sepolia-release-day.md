@@ -129,7 +129,7 @@ Expected, in order (each stage prints its transactions; the names below are the 
 | `== pool and stake` | the pool (800,000 PAVED and the Faucet's 10,000 USDC), **the Vault's 1,000 dead shares, then the owner's 199,000 PAVED stake**, then Economy (split defaults), `PavedToken.set_minter(Economy)` | `PavedToken: minter Economy, admin 0`; `PavedToken: total supply 1,000,000 PAVED, deployer holds 0`; `Vault: dead shares 1,000 vPAVED, owner's stake 199000 vPAVED` |
 | (Setup, Challenge, Collection) | deployed after the stake | |
 | `== wire` | one multicall: `Setup.set_reporter(Challenge)`, `Economy.set_game(Challenge)`, `Setup.set_economy`, `Setup.set_collection`, `Collection.set_minters(Challenge, 0)`; then **`Challenge.set_guardian(@account)`** | `Setup: Challenge reports to it...`; `Economy: router MockRouter, ... config burn 7368 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED referral 500, mean 3980000`; `Challenge.set_guardian(the deployer): the deployer is the guardian` |
-| `== definitions` | quests 1 to 4 and achievements 1 to 9 on Setup (13 definitions, one multicall) | `Setup holds quests 1 to 4 and achievements 1 to 9` |
+| `== definitions` | quests 1 to 16 and achievements 1 to 16 on Setup (32 definitions, one multicall): v1 (quests 1 to 4, achievements 1 to 9) and **v2a** (quests 5 to 16, achievements 10 to 16; see below) | `32 definition(s) to send`; `Setup holds quests 1 to 16 and achievements 1 to 16, v1 and v2a, each as specified` |
 | `== wrote contracts/deployments/sepolia-next.json` | `contracts` and `token`, only now (claim_tutorial is one-shot) | |
 | `== smoke` | reads, then a paid spawn at stake 1, one build, the surrender, `claim_tutorial`; the keeper settles the game at (D + 2) x 86400 | `smoke ok` |
 | end | | `== fresh: complete; a rerun sends nothing` and the file's content |
@@ -141,7 +141,22 @@ deployer, read back on Economy, Challenge, Setup, Collection and Vault in the sm
 Collection and Vault: the deployer`); Challenge's Setup is wired and Setup's reporter is Challenge; the guardian is set after the wiring and
 before the definitions, and the smoke reads it.
 
-**The smoke reads, and fails otherwise:** `Challenge.guardian(): the deployer; spawn_paused(): false`.
+**The smoke reads, and fails otherwise:** `Challenge.guardian(): the deployer; spawn_paused(): false`; and, for the definitions,
+`Setup holds every definition, each as specified: quests 1 to 16, achievements 1 to 16 (v1 and v2a)`.
+
+**The v2a definitions to expect** (`quests.md`, "As built: v2a, definitions only"; no reward on any, no contract change). The run reads each one back from Setup's storage
+and dies on one that is there but not as below:
+
+| Ids | What | Schedule (seconds) | Tasks |
+|---|---|---|---|
+| quests 5, 6, 7 | rotating daily, roads and cities | 86,400 in 259,200, start 0 / 86,400 / 172,800 | `STRUCTURE_SCORED` 4 / 8 / 12 |
+| quests 8, 9, 10 | rotating daily, forests | the same | `FOREST_SCORED` 2 / 3 / 4 |
+| quests 11, 12, 13 | rotating daily, points | the same | `POINTS` 2,000 / 5,000 / 8,000 |
+| quests 14, 15, 16 | weekly (Monday 00:00 UTC to Sunday) | 604,800 in 604,800, start 345,600 | `FOREST_SCORED` 5; `STRUCTURE_SCORED` 30; `POINTS` 20,000 |
+| achievements 10 to 16 | higher tiers, no window | | `FOREST_SCORED` 50 (40 points); `WONDER_SCORED` 10 (50); `BIG_STRUCTURE` 10 (40); `HIGH_SCORE` 10 (50) and 25 (80); `GAME_FINISHED` 250 (60) and 1,000 (80) |
+
+The live rotating quest of a UTC day is the one whose start offset is `day number mod 3` (a day number is `floor(time / 86400)`).
+Task ids 11 to 18 are reserved and none is defined. The client shows `Quest #<id>` for an id it has no text for (CLIENT's part).
 
 **The events to expect in the run's blocks** (read from the rehearsed devnet: 105 events in all, counted by selector):
 
