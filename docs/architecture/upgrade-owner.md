@@ -4,9 +4,11 @@ A decision note for the mainnet gate "upgrade owner" (`economy.md`, "Gates befor
 `upgrades.md`, "Trust"). Brief: `docs/briefs/g2-upgrade-owner.md`. D-17 made the contracts upgradable in place, P-42
 gated `upgrade` by the repository's two-step `OwnableComponent`, and D-16 made the deployer that owner on Sepolia. P-42
 names the mainnet options: the owner's account, then a multisig or a timelock. This note lists what that owner can do
-today, weighs the options against it, and recommends one. Facts are checked against `main` at f94c34fd; `file:line`
-are in that tree. `challenge.cairo` is cited by function name instead (since G4, which moved its lines), so those
-anchors hold across later changes.
+today, weighs the options against it, and recommends one. Facts are checked against `main` at 0298cc7c (the contracts and `scripts/deploy.sh` there are those of a28f1e8d, the
+sha of the published-interface audit; `docs/briefs/interface-docs-sync.md`); `file:line` are in that tree.
+`challenge.cairo`, `economy.cairo`, `curve.cairo`, `vault.cairo` and `scripts/deploy.sh` are cited by function name
+instead (their lines moved since f94c34fd, where this note was pinned, from G4 to G7), so those anchors hold across
+later changes.
 
 ## 1. What the owner can do today
 
@@ -15,12 +17,12 @@ anchors hold across later changes.
 | Contract | Owner | Upgradable | Source |
 |---|---|---|---|
 | `Challenge` | constructor `owner` | yes | `contracts/src/systems/challenge.cairo`: the `OwnableComponent` embed, the `constructor`, `UpgradeableImpl::upgrade` |
-| `Economy` | constructor `owner` | yes | `contracts/src/systems/economy.cairo:415-420`, `:573`, `:906-912` |
+| `Economy` | constructor `owner` | yes | `contracts/src/systems/economy.cairo`: the `OwnableComponent` embed, the `constructor`, `UpgradeableImpl::upgrade` |
 | `Setup` | constructor `owner` | yes | `contracts/src/systems/setup.cairo:121-126`, `:226-228`, `:350-357` |
 | `Collection` | constructor `owner` | yes | `contracts/src/systems/collection.cairo:239-244`, `:292-295`, `:363-370` |
 | `PavedToken` | none: an `admin` sets the minter once and is then cleared | no | `contracts/src/systems/token.cairo:4-6`, `:117-126` |
 | `Vault` (vPAVED, since P-56) | constructor `owner` | yes | `contracts/src/systems/vault.cairo`: the `OwnableComponent` embed, the `constructor`, `UpgradeableImpl::upgrade`, `set_exit_fee` |
-| `Faucet` | none; never on mainnet (the constructor refuses `SN_MAIN`) | no | `contracts/src/systems/faucet.cairo:1-3`, `:101-104`; `scripts/deploy.sh:316-317` |
+| `Faucet` | none; never on mainnet (the constructor refuses `SN_MAIN`) | no | `contracts/src/systems/faucet.cairo:1-3`, `:101-104`; `scripts/deploy.sh`, its refusal of `mainnet` (`case "$NETWORK"`) |
 
 `MockAccount` (`contracts/src/mocks/account.cairo`) is a test mock, never deployed. `PavedToken` has no owner, but its
 only minter is `Economy` for good (`token.cairo:128-134`): whoever controls `Economy`'s code controls the PAVED mint.
@@ -33,10 +35,17 @@ All five owned contracts share one mechanism (`contracts/src/components/ownable.
   `accept_ownership()` by that address completes it (`ownable.cairo:78-85`). Nothing checks what kind of address the
   new owner is: an account, a multisig or a timelock contract all work, as long as it can send the
   `accept_ownership` call itself.
+- **A pending transfer cannot be cancelled with `transfer_ownership(0)`**: it reverts `'Ownable: new owner is zero'`
+  (`ownable.cairo:72`). The only way back is to overwrite the pending owner (`ownable.cairo:66-76`): the owner calls
+  `transfer_ownership(owner)` with its own address, which replaces the pending owner and emits
+  `OwnershipTransferStarted { previous_owner: owner, new_owner: owner }`, and then, to clear the slot, `accept_ownership`
+  from the owner (`ownable.cairo:78-85`: it zeroes `pending_owner` and emits `OwnershipTransferred { previous_owner:
+  owner, new_owner: owner }`). Once overwritten, the address first proposed can no longer accept, whether or not the
+  second call is made.
 - There is no `renounce_ownership`: the owner can never be zero (`ownable.cairo:72`, `:101`).
 - `scripts/deploy.sh` never hands the ownership over: the deployer is the owner of all five (the `Vault` since
   P-56), and the smoke checks it
-  (`scripts/deploy.sh:2497-2501`).
+  (`scripts/deploy.sh`, the `owner()` loop of the `== smoke` section).
 
 ### Owner-only entry points, contract by contract
 
@@ -47,19 +56,19 @@ All five owned contracts share one mechanism (`contracts/src/components/ownable.
 
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
-| `upgrade(class_hash)` (`challenge.cairo` `UpgradeableImpl::upgrade`) | the whole code, storage kept | no (only class hash 0 is refused) | Any game rule, any score. `Economy.record` trusts the score `Challenge` reports (`economy.cairo:692-710`), so a new class can record the best score for games it buys and be paid up to `cap x R` each at settlement (mis-recorded scores, PAVED minted). It can spend whatever USDC allowance players left to `Challenge` (it is the spender of `transferFrom`, `challenge.cairo` `purchase`); the client approves exactly the price in the same multicall (`packages/chain/src/economy/writer.ts:291`), so that residue is small. It can block every game. |
-| `set_setup(setup)` (`challenge.cairo` `set_setup`) | the `Setup`, hence the whole wiring (`challenge.cairo` `wiring`, called by `spawn_from`) | non-zero only | As strong as `upgrade` for new money: a fake `Setup` whose `wiring()` names any "economy" receives the full price of every later spawn (`challenge.cairo` `purchase`). Games in flight cannot end, since the new economy refuses a game it never sold (`economy.cairo:695`): it blocks games. **Ruling (P-58 (3), 2026-10-14): `set_setup` stays an owner power, with no contract guard.** It is used only between games, or after the 24 h expiry plus the settlement window. If the new `Setup` points at another `Economy`, games in flight can no longer end (the ending move calls `record` on the new one, which reverts `'Economy: unknown game'`, or `'Quest: not reporter'` if the new `Setup` has not allowlisted `Challenge`), and `settle` on the old `Economy` reverts `'Economy: not recorded'`. |
+| `upgrade(class_hash)` (`challenge.cairo` `UpgradeableImpl::upgrade`) | the whole code, storage kept | no (only class hash 0 is refused) | Any game rule, any score. `Economy.record` trusts the score `Challenge` reports (`Economy.record`), so a new class can record the best score for games it buys and be paid up to `cap x R` each at settlement (mis-recorded scores, PAVED minted). It can spend whatever USDC allowance players left to `Challenge` (it is the spender of `transferFrom`, `challenge.cairo` `purchase`); the client approves exactly the price in the same multicall (`packages/chain/src/economy/writer.ts:291`), so that residue is small. It can block every game. |
+| `set_setup(setup)` (`challenge.cairo` `set_setup`) | the `Setup`, hence the whole wiring (`challenge.cairo` `wiring`, called by `spawn_from`) | non-zero only | As strong as `upgrade` for new money: a fake `Setup` whose `wiring()` names any "economy" receives the full price of every later spawn (`challenge.cairo` `purchase`). Games in flight cannot end, since the new economy refuses a game it never sold (`Economy.record`, `'Economy: unknown game'`): it blocks games. **Ruling (P-58 (3), 2026-10-14): `set_setup` stays an owner power, with no contract guard.** It is used only between games, or after the 24 h expiry plus the settlement window. If the new `Setup` points at another `Economy`, games in flight can no longer end (the ending move calls `record` on the new one, which reverts `'Economy: unknown game'`, or `'Quest: not reporter'` if the new `Setup` has not allowlisted `Challenge`), and `settle` on the old `Economy` reverts `'Economy: not recorded'`. |
 | `transfer_ownership` | the owner | two-step | Hands every power here to another address. |
 
-**`Economy`** (the PAVED minter, the purchase split and the settlement; holds nothing between transactions)
+**`Economy`** (the PAVED minter, the purchase split and the settlement; holds no PAVED between transactions: the USDC that the router returns from `clear`, and any USDC sent to `Economy`, waits on it until the next purchase swaps it into its margin, `economy.cairo` module comment and `purchase`)
 
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
-| `upgrade(class_hash)` (`economy.cairo:906-912`) | the whole code, storage kept | no | Mint PAVED without limit (`token.cairo:128-134`) and sell it into the PAVED/USDC pool: the pool's USDC goes, every holder and staker is diluted. Take the price of every later purchase. Refuse settlements, so recorded games are never paid. It cannot touch the `Vault`'s stakes or USDC (`vault.cairo:9-10`). |
-| `configure(config)` (`economy.cairo:772-775`) | the curve and the split: `burn_bps`, `sigma_bps`, `slope_bps`, `cap`, `target`, `referral_bps` (P-56; the Vault's part is `10,000 - burn_bps`) | **yes**: burn 50 % to 90 %, referral 0 to 10 % and at most the Vault's part, sigma -30 % to +50 %, slope 1,000 to 50,000 bps, cap 1 to 20, target 100,000 to 10,000,000 PAVED (`economy.cairo:44-53`, `:76-93`); evented | Only later purchases: each game freezes its terms at purchase (`economy.cairo:658-666`). The worst inside the bounds: sigma +50 % puts the threshold at 1.5 x the mean, so most games lose their stake. A player sees the threshold, slope and cap in `quote` before buying (`economy.cairo:802-827`). |
-| `set_router(router)` (`economy.cairo:792-800`) | the router every swap and quote goes through | non-zero only; evented | As strong as `upgrade` for new money: `Economy` sends the burn share to the router before the swap (`economy.cairo:997`), and the player's `min_out` is checked against the router's own reported delta (`economy.cairo:1013`), so a hostile router keeps 50 % to 90 % of every purchase and burns nothing. The reward `R` stays capped by the price guard at 110 % of `quote x rate` (`curve.cairo:17`, `:55-57`), so it cannot inflate payouts beyond that. |
-| `set_pool(pool_key, sqrt_ratio_limit)` (`economy.cairo:777-780`, `:961-968`) | fee, tick spacing, extension, price limit | tokens only: the key must be PAVED/USDC (`economy.cairo:963`); fee, extension and limit are free, and the side of the limit is not checked (`economy.md`, the router and limit gate) | With the real router a swap still pays at least the player's `min_out` (`economy.cairo:1013`), and the client's sanity floor (E-9b) rejects a poor quote. A wrong limit side reverts every purchase: it blocks new games, not those in flight. |
-| `set_game(game)` (`economy.cairo:782-790`) | the game allowed to `purchase` and `record` | once, non-zero | Spent by `deploy.sh` (`scripts/deploy.sh:1783`). |
+| `upgrade(class_hash)` (`economy.cairo` `UpgradeableImpl::upgrade`) | the whole code, storage kept | no | Mint PAVED without limit (`token.cairo:128-134`) and sell it into the PAVED/USDC pool: the pool's USDC goes, every holder and staker is diluted. Take the price of every later purchase. Refuse settlements, so recorded games are never paid. It cannot touch the `Vault`'s stakes or USDC (`vault.cairo`, module comment: the Vault holds the stakers' PAVED itself). |
+| `configure(config)` (`economy.cairo` `configure`) | the curve and the split: `burn_bps`, `sigma_bps`, `slope_bps`, `cap`, `target`, `referral_bps` (P-56; the Vault's part is `10,000 - burn_bps`) | **yes**: burn 50 % to 90 %, referral 0 to 10 % and at most the Vault's part, sigma -30 % to +50 %, slope 1,000 to 50,000 bps, cap 1 to 20, target 100,000 to 10,000,000 PAVED (`economy.cairo`, the `MIN_*` and `MAX_*` constants and `validate`); evented | Only later purchases: each game freezes its terms at purchase (`economy.cairo` `purchase`, its `Terms`). The worst inside the bounds: sigma +50 % puts the threshold at 1.5 x the mean, so most games lose their stake. A player sees the threshold, slope and cap in `quote` before buying (`economy.cairo` `quote`). |
+| `set_router(router)` (`economy.cairo` `set_router`) | the router every swap and quote goes through | non-zero only; evented | As strong as `upgrade` for new money: `Economy` sends the burn share to the router before the swap (`economy.cairo` `swap`, its `transfer` to the router), and the player's `min_out` is checked against the router's own reported delta (`economy.cairo` `swap`, `'Economy: swap below min_out'`), so a hostile router keeps 50 % to 90 % of every purchase and burns nothing. The reward `R` stays capped by the price guard at 110 % of `quote x rate` (`curve.cairo` `guarded`), so it cannot inflate payouts beyond that. |
+| `set_pool(pool_key, sqrt_ratio_limit)` (`economy.cairo` `set_pool`, `write_pool`) | fee, tick spacing, extension, price limit | tokens only: the key must be PAVED/USDC (`economy.cairo` `write_pool`, `'Economy: wrong pool'`); fee, extension and limit are free, and the side of the limit is not checked (`economy.md`, the router and limit gate) | With the real router a swap still pays at least the player's `min_out` (`economy.cairo` `swap`), and the client's sanity floor (E-9b) rejects a poor quote. A wrong limit side reverts every purchase: it blocks new games, not those in flight. |
+| `set_game(game)` (`economy.cairo` `set_game`) | the game allowed to `purchase` and `record` | once, non-zero | Spent by `deploy.sh` (`scripts/deploy.sh`, `fresh_wiring_calls`). |
 | `transfer_ownership` | the owner | two-step | As above. |
 
 **`Setup`** (quests, achievements and, since D-25 E, the wiring `Challenge` reads at every spawn and game over)
@@ -67,7 +76,7 @@ All five owned contracts share one mechanism (`contracts/src/components/ownable.
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
 | `upgrade(class_hash)` (`setup.cairo:353-356`) | the whole code, storage kept | no | **On the money path**: `Challenge` reads `wiring()` at every spawn (`challenge.cairo` `spawn_from`, its `wiring` call), so a new class can name any economy and take the price of every later spawn, or block every game over (`challenge.cairo` `finish`, its `wiring(setup, false)` call). Any quest or achievement progress. |
-| `set_economy`, `set_collection` (`setup.cairo:325-343`) | the wiring | once, non-zero | Spent by `deploy.sh` (`scripts/deploy.sh:1786-1787`). |
+| `set_economy`, `set_collection` (`setup.cairo:325-343`) | the wiring | once, non-zero | Spent by `deploy.sh` (`scripts/deploy.sh`, `fresh_wiring_calls`). |
 | `set_reporter(reporter, allowed)` (`setup.cairo:284-290`) | who may report progress | no | Allow any address: fake quest and achievement progress for any player (mis-recorded progress; no token or value in v1, `quests.md:149-151`). Revoke `Challenge`: its `report` reverts (`setup.cairo:300`), so every move that ends a game reverts (`challenge.cairo` `finish`, its `report` call): it blocks games. |
 | `define_quest`, `define_achievement` (`setup.cairo:234-277`) | new definitions | a definition is created once and never edited; task totals positive and distinct (`setup.cairo:35-37`, `:374-387`) | Add quests or achievements players did not expect; display only in v1. |
 | `retire_quest`, `retire_achievement` (`setup.cairo:257-260`, `:279-282`) | retires a definition | a retired id is never defined again | Remove a quest or achievement; display only. |
@@ -81,7 +90,7 @@ not embedded, so they add no entry point.
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
 | `upgrade(class_hash)` (`collection.cairo:366-369`) | the whole code, storage kept | no | Rewrite who owns which game token and its metadata. Make `mint` revert, and every spawn reverts with it (`challenge.cairo` `spawn_from`, its `mint` call): it blocks new games. |
-| `set_minters(challenge, tutorial)` (`collection.cairo:328-340`) | who mints | once, non-zero `challenge`, two distinct addresses | Spent by `deploy.sh` (`scripts/deploy.sh:1789`). |
+| `set_minters(challenge, tutorial)` (`collection.cairo:328-340`) | who mints | once, non-zero `challenge`, two distinct addresses | Spent by `deploy.sh` (`scripts/deploy.sh`, `fresh_wiring_calls`). |
 | `transfer_ownership` | the owner | two-step | As above. |
 
 **`Vault`** (vPAVED, P-56: the stakers' PAVED, an ERC4626 share with votes; `docs/architecture/vault-share.md`)
@@ -142,7 +151,7 @@ this note and is not verified here.
 - **`deploy.sh`**: the deployment and the wiring stay as today (the deployer owns everything while it wires); a last
   step sends `transfer_ownership(multisig)` on the four contracts, then the multisig sends the four
   `accept_ownership` in one multicall, and the smoke reads `owner()` == the multisig instead of the deployer
-  (`scripts/deploy.sh:2497-2501`). Later upgrade paths (as `--repoint` and `--d18` were) produce the owner's calls for
+  (`scripts/deploy.sh`, the `owner()` loop of the `== smoke` section). Later upgrade paths (as `--repoint` and `--d18` were) produce the owner's calls for
   the multisig to sign instead of sending them from the deployer.
 - **D-17 path**: unchanged in substance (rehearse on devnet from the deployed state, declare, storage diff, then the
   multisig sends `upgrade` with any setter in one multicall).
@@ -158,7 +167,7 @@ delay; the schedule is public (an event), so players see an upgrade coming.
   `set_router` and `Setup.upgrade` are as strong as an upgrade (section 1), so a timelock that let them through
   immediately would protect nothing.
 - **How long**: **48 hours** recommended. A game bought on day `d` can be settled from the end of day `d + 1`
-  (`economy.cairo:729`), at most 48 hours after its purchase. With a 48-hour delay, a player who stops buying when an
+  (`Economy.settle`, `'Economy: day cannot close yet'`), at most 48 hours after its purchase. With a 48-hour delay, a player who stops buying when an
   upgrade is scheduled can have every game of theirs settled (by anyone) before it executes; stakers can redeem at
   once (no lock; the exit fee since P-56) and holders can sell.
 - **Operations**: whoever proposes and executes on the timelock (the owner's account, or a multisig: option (d)) does
@@ -180,7 +189,7 @@ delay; the schedule is public (an event), so players see an upgrade coming.
   call, emergencies included. Same `deploy.sh` and Ownable remarks as (b) and (c).
 - **A timelock on `upgrade` only, the setters immediate**: **cannot be done with the contracts as they are**: one
   owner per contract gates every owner entry point (`ownable.cairo:96-98`; `challenge.cairo` `set_setup`, `UpgradeableImpl::upgrade`;
-  `economy.cairo:773`, `:778`, `:784`, `:794`, `:909`; `setup.cairo:242-337`, `:354`; `collection.cairo:331`,
+  `economy.cairo` `configure`, `set_pool`, `set_game`, `set_router`, `UpgradeableImpl::upgrade`; `setup.cairo:242-337`, `:354`; `collection.cairo:331`,
   `:367`). It would need a second role in the code. And it would be hollow: `Challenge.set_setup` and
   `Economy.set_router` reach the money as an upgrade does. A useful split would be the reverse: a separate role for
   the harmless calls only (`define_*`, `retire_*`, `configure` within its bounds), everything else timelocked; that
@@ -230,7 +239,10 @@ only pause in the contracts (the `Vault` still has none, as intended, P-56):
   `set_guardian`, then `unpause_spawn`** (the last only if spawn is paused). `set_guardian` and `unpause_spawn` are
   owner-only, and a pending owner is not the owner until `accept_ownership` runs, so neither can come before it.
 - **Deployment and upgrade.** A fresh `scripts/deploy.sh` run deploys with no guardian (zero) and spawn not paused; the
-  owner then calls `set_guardian`. An in-place upgrade of `Challenge` (D-17, Sepolia) reads the two new slots as zero
+  owner then calls `set_guardian`. **That call is manual after a fresh deployment**: `--guardian deployer` exists only
+  with `sepolia --upgrade-challenge` (`scripts/deploy.sh` refuses it elsewhere: "--guardian is for sepolia
+  --upgrade-challenge only"), and the smoke of the fresh path reads neither `guardian()` nor `spawn_paused()`. No
+  script step sets or checks the guardian there; the step belongs to the release-day checklist. An in-place upgrade of `Challenge` (D-17, Sepolia) reads the two new slots as zero
   and false: no guardian, spawn not paused, games in flight unaffected (`tests::e2e::upgrade_g4`).
 
 With a timelock, the guardian is what keeps emergencies answerable within minutes while the fix waits its 48 hours: a
@@ -251,7 +263,7 @@ Two stop-gaps exist without the guardian, both owner calls, so both delayed by a
   Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo` `wiring`, called by `spawn_from`) and so
   does every move that ends a game (`challenge.cairo` `finish`, its `wiring(setup, false)` call); other moves go on. `set_setup` back to the real `Setup` restores
   everything (its once-only wiring is untouched). Its cost: a game whose end is held past its day records as
-  expired and gets no reward (`economy.cairo:701`). The guardian's pause has no such cost.
+  expired and gets no reward (`Economy.record`, its `expired` test). The guardian's pause has no such cost.
 - **Upgrade to a class that refuses `spawn`**: the same effect, with a class to build, rehearse and declare.
 
 A pause is worth it on one thing only, new money in: never on the moves, the settlement, or the `Vault` (its exits,
@@ -303,7 +315,7 @@ For the PM to put to the owner, one per option (the bracketed parts are the owne
 - **A timelock on `upgrade` only, with the setters immediate, cannot work with the contracts as they are**: one owner
   per contract gates every owner entry point (`contracts/src/components/ownable.cairo:96-98`, called by each setter
   and each `upgrade`, section 2 (d)). It would also leave `Challenge.set_setup` (`challenge.cairo` `set_setup`) and
-  `Economy.set_router` (`economy.cairo:792-800`) immediate, and both reach the price of every later purchase.
+  `Economy.set_router` (`economy.cairo` `set_router`) immediate, and both reach the price of every later purchase.
 - **`Setup` is on the money path** since D-25 E: `Challenge` reads its wiring at every spawn (`challenge.cairo` `spawn_from`, its `wiring` call),
   so `Setup`'s owner is as critical as `Economy`'s. `upgrades.md`, "Trust", still lists the owner's reach as
   `Challenge`, `Economy`, `Account` and `Collection` (and `set_lobby_class`, gone since D-24); it predates D-24 and
@@ -315,4 +327,4 @@ For the PM to put to the owner, one per option (the bracketed parts are the owne
 - The choice of the multisig and timelock contracts (which implementation, audited or not) is open; none is a
   dependency of the contracts today (`contracts/Scarb.lock`).
 - Handing the ownership over is the owner's act on mainnet (`economy.md`, "Gates before a real-money game on
-  mainnet"); `deploy.sh` has no handover step today (it refuses mainnet, `scripts/deploy.sh:316-317`).
+  mainnet"); `deploy.sh` has no handover step today (it refuses mainnet, `scripts/deploy.sh`, `case "$NETWORK"`).
