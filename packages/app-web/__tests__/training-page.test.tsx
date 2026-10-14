@@ -34,7 +34,7 @@ vi.mock("@paved/renderer/react", () => ({
   GameCanvas: ({ availableSlots = [], onTileHover, onTileClick }: { availableSlots?: Array<{ x: number; y: number }>; onTileHover?: (x: number, y: number) => void; onTileClick?: (x: number, y: number) => void }) => (
     <>
       {availableSlots.slice(0, 1).map((s) => (
-        <button key={`${s.x},${s.y}`} type="button" onClick={() => (onTileHover?.(s.x, s.y), onTileClick?.(s.x, s.y))}>
+        <button key={`${s.x},${s.y}`} type="button" data-slot={`${s.x},${s.y}`} onClick={() => (onTileHover?.(s.x, s.y), onTileClick?.(s.x, s.y))}>
           Slot
         </button>
       ))}
@@ -135,6 +135,17 @@ describe("Training game page, with every chain provider throwing", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Game complete" })).toBeNull());
     expect(JSON.parse(localStorage.getItem(TRAINING_KEY)!).seed).not.toBe(first);
     expect(JSON.parse(localStorage.getItem(TRAINING_KEY)!).moves).toEqual([]);
+  });
+
+  it("places a confirmed tile on the slot the page shows, relative to the starter (D1)", async () => {
+    open();
+    await screen.findByText("Discard tile");
+    // Rotate until the tile in hand has a slot, as `step` does.
+    for (let turn = 0; turn < 4 && !screen.queryByText("Slot"); turn++) fireEvent.click(screen.getByText("Rotate tile"));
+    const [gx, gy] = screen.getByText("Slot").getAttribute("data-slot")!.split(",").map(Number);
+    await step();
+    // Grid y runs south, the engine's y north (`|| 0`: no -0).
+    expect(JSON.parse(localStorage.getItem(TRAINING_KEY)!).moves[0]).toMatchObject({ k: "b", x: gx, y: -gy || 0 });
   });
 
   it("resumes the game in progress after a reload", async () => {
