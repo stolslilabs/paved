@@ -20,6 +20,7 @@ use paved::types::mode::Mode;
 use snforge_std::{DeclareResultTrait, declare, get_class_hash, load, start_cheat_caller_address};
 
 #[test]
+#[available_gas(l2_gas: 154252551)]
 fn test_upgrade_g4_starts_unpaused_and_keeps_the_game_in_flight() {
     let (store, systems, _) = setup::spawn_game(Mode::None);
     let contract = systems.challenge.contract_address;

@@ -76,6 +76,7 @@ fn count_from(ref spy: snforge_std::EventSpy, address: ContractAddress) -> u32 {
 /// A fresh `Challenge` has no guardian and is not paused; the owner sets the guardian (an event),
 /// and zero clears it (an event too).
 #[test]
+#[available_gas(l2_gas: 55785591)]
 fn test_guardian_owner_sets_and_clears_it() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let guardian = guardian_of(@systems);
@@ -119,6 +120,7 @@ fn test_guardian_set_guardian_reverts_for_the_guardian() {
 /// The guardian pauses (an event, `by` the guardian); a second pause does nothing: no revert, no
 /// event, still paused.
 #[test]
+#[available_gas(l2_gas: 58444359)]
 fn test_guardian_pauses_once() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let guardian = with_guardian(@systems);
@@ -139,6 +141,7 @@ fn test_guardian_pauses_once() {
 
 /// The owner can do what the guardian can: it pauses, with or without a guardian.
 #[test]
+#[available_gas(l2_gas: 55426008)]
 fn test_guardian_owner_pauses_without_a_guardian() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let guardian = guardian_of(@systems);
@@ -183,6 +186,7 @@ fn test_guardian_pause_reverts_for_a_cleared_guardian() {
 
 /// The owner unpauses (an event); a second unpause does nothing: no revert, no event.
 #[test]
+#[available_gas(l2_gas: 58068795)]
 fn test_guardian_owner_unpauses_once() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let guardian = with_guardian(@systems);
@@ -220,6 +224,7 @@ fn test_guardian_unpause_reverts_for_a_player() {
 
 /// After a transfer the new owner unpauses and pauses; the old owner can do neither.
 #[test]
+#[available_gas(l2_gas: 61863947)]
 #[feature("safe_dispatcher")]
 fn test_guardian_new_owner_holds_the_pause() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -260,6 +265,7 @@ fn test_guardian_new_owner_holds_the_pause() {
 /// A paused spawn reverts before any token moves: no game, no terms in `Economy`, no USDC out of
 /// the player, no event from the token; after the owner's unpause, the same spawn works.
 #[test]
+#[available_gas(l2_gas: 98575272)]
 #[feature("safe_dispatcher")]
 fn test_guardian_paused_spawn_reverts_before_any_transfer() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -295,6 +301,7 @@ fn test_guardian_paused_spawn_reverts_before_any_transfer() {
 /// a discard, a surrender, and the game over on a build (reported to `Setup`, recorded by
 /// `Economy`). Two days later each recorded game settles, still paused.
 #[test]
+#[available_gas(l2_gas: 182094993)]
 fn test_guardian_paused_lets_games_end_and_settle() {
     // Game 1 is one tile from its end (day 10); games 2 and 3 are bought the same day
     let (store, systems, context) = almost_over_daily();

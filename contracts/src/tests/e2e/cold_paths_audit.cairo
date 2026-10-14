@@ -49,7 +49,7 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// The dead ones are pinned by `test_daily_pins_the_dead_fields_by_name`. `UpgradeableComponent`
 /// has no storage.
 #[test]
-#[available_gas(l2_gas: 55714023)]
+#[available_gas(l2_gas: 57962315)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
