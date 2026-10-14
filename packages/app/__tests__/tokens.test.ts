@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { contrast, hexToRgb, oklchToRgb, parseOklch, rgbToHex } from "../src/styles/color-math";
-import { STEPS, board, breakpoints, scales, semantic } from "../src/styles/tokens";
+import { STEPS, board, breakpoints, radiusBase, scales, semantic } from "../src/styles/tokens";
 
 const css = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
 
@@ -27,6 +27,15 @@ describe("the token reader of the Foundations stories", () => {
     expect(by.accent!.via).toBe("--color-gold-950");
     expect(by.background!.via).toBe("--color-ink-950");
     expect(by.board!.hex).toBe("#07111A");
+  });
+
+  it("keeps the Storybook UI theme on the board colour", () => {
+    const theme = readFileSync(resolve(import.meta.dirname, "../.storybook/theme.ts"), "utf8");
+    expect(theme).toContain(`BOARD = "${board(css).hex}"`);
+  });
+
+  it("reads --radius", () => {
+    expect(radiusBase()).toBe("0.75rem");
   });
 
   it("reads the four named breakpoints", () => {

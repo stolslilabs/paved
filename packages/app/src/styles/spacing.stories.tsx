@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { radiusBase } from "./tokens";
 
 const meta = { title: "Foundations/Spacing and radius", parameters: { layout: "padded" } } satisfies Meta;
 export default meta;
@@ -37,27 +38,45 @@ export const Spacing: Story = {
   ),
 };
 
+/** `--radius` as theme.css declares it, in px (0.75rem is 12px). */
+const BASE = parseFloat(radiusBase() ?? "0") * 16;
+
 const RADII = [
-  ["rounded-sm", "calc(--radius - 4px)", "8px", "rounded-sm"],
-  ["rounded-md", "calc(--radius - 2px)", "10px", "rounded-md"],
-  ["rounded-lg", "--radius", "12px", "rounded-lg"],
-  ["rounded-xl", "calc(--radius + 4px)", "16px", "rounded-xl"],
-  ["rounded-full", "9999px", "pill", "rounded-full"],
+  ["rounded-sm", "calc(--radius - 4px)", BASE - 4],
+  ["rounded-md", "calc(--radius - 2px)", BASE - 2],
+  ["rounded-lg", "--radius", BASE],
+  ["rounded-xl", "calc(--radius + 4px)", BASE + 4],
 ] as const;
 
 /** `--radius` is 0.75rem (12px) and the four steps derive from it, so one value restyles them all. */
 export const Radius: Story = {
   render: () => (
     <ul className="grid grid-cols-2 gap-4 p-4 text-foreground tablet:grid-cols-5">
-      {RADII.map(([cls, formula, px, shape]) => (
-        <li key={cls} className="flex flex-col gap-2 text-xs">
-          <div className={`${shape} h-20 border border-primary bg-card`} />
-          <code>{cls}</code>
-          <span className="text-muted-foreground">
-            {formula} · {px}
-          </span>
-        </li>
-      ))}
+      <li className="flex flex-col gap-2 text-xs">
+        <div className="h-20 rounded-sm border border-primary bg-card" />
+        <code>rounded-sm</code>
+        <span className="text-muted-foreground">{RADII[0][1]} · {RADII[0][2]}px</span>
+      </li>
+      <li className="flex flex-col gap-2 text-xs">
+        <div className="h-20 rounded-md border border-primary bg-card" />
+        <code>rounded-md</code>
+        <span className="text-muted-foreground">{RADII[1][1]} · {RADII[1][2]}px</span>
+      </li>
+      <li className="flex flex-col gap-2 text-xs">
+        <div className="h-20 rounded-lg border border-primary bg-card" />
+        <code>rounded-lg</code>
+        <span className="text-muted-foreground">{RADII[2][1]} · {RADII[2][2]}px</span>
+      </li>
+      <li className="flex flex-col gap-2 text-xs">
+        <div className="h-20 rounded-xl border border-primary bg-card" />
+        <code>rounded-xl</code>
+        <span className="text-muted-foreground">{RADII[3][1]} · {RADII[3][2]}px</span>
+      </li>
+      <li className="flex flex-col gap-2 text-xs">
+        <div className="h-20 rounded-full border border-primary bg-card" />
+        <code>rounded-full</code>
+        <span className="text-muted-foreground">9999px · pill</span>
+      </li>
     </ul>
   ),
 };

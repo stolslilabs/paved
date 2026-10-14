@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 
 const meta = { title: "Foundations/Motion", parameters: { layout: "padded" } } satisfies Meta;
@@ -27,7 +27,8 @@ function Pair({ title, note, children }: { title: string; note: string; children
           <MotionConfig key={mode} reducedMotion={mode}>
             <div className="flex min-h-40 flex-col gap-3 overflow-hidden rounded-md border border-border bg-card p-4" data-reduced={mode}>
               <span className="text-xs text-muted-foreground">{label}</span>
-              {children()}
+              {/* One group per half: the two tab indicators share a layoutId and must not see each other. */}
+              <LayoutGroup id={mode}>{children()}</LayoutGroup>
             </div>
           </MotionConfig>
         ))}

@@ -7,7 +7,7 @@ import interUrl from "@fontsource-variable/inter/files/inter-latin-wght-normal.w
 import rubikUrl from "@fontsource/rubik-mono-one/files/rubik-mono-one-latin-400-normal.woff2?url";
 import "../src/styles/fonts.css";
 import "../src/styles/theme.css";
-import { BOARD } from "./theme";
+import { board } from "../src/styles/tokens";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
@@ -61,7 +61,7 @@ const preview: Preview = {
   parameters: {
     layout: "fullscreen",
     // The board's colour is the only background (spec A).
-    backgrounds: { options: { board: { name: "Board", value: BOARD } } },
+    backgrounds: { options: { board: { name: "Board", value: board().hex } } },
     // The named breakpoints of theme.css (section 3.4), as the Storybook viewports.
     viewport: {
       options: {
