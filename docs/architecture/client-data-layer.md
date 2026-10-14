@@ -21,7 +21,6 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 | `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a Faucet: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
-| `VITE_FAUCET_ADDRESS` | the Faucet the faucet mints, devnet and Sepolia only (overrides `contracts.Faucet`; ignored on any other network) |
 
 The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
 tolerates a missing folder) and picks `<network>.json`.

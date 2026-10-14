@@ -21,8 +21,8 @@ Related: the indexer's commands are "Release at F" in `docs/client/indexer-hosti
 **The client reads F's keys.** CORE's F writes the test USDC as `contracts.Faucet` (devnet.json included) and the game as
 `contracts.Challenge`, one key per contract, with no `Token`, `MockUSDC`, `Daily` or `Account`. The client reads `contracts.Challenge`
 (D-23b, #354) and `contracts.Faucet` only (W1f, PR #357, on CORE's F branch; PM's ruling 2026-10-14), with no `MockUSDC` fallback:
-the faucet is `deployment.faucet`, the economy's USDC is `contracts.USDC` or `contracts.Faucet`, and `VITE_FAUCET_ADDRESS` replaces
-`VITE_MOCK_USDC_ADDRESS`. The old `Token` is gone from the client too (`ContractName`, `VITE_TOKEN_ADDRESS`): the entry token is the
+the faucet is `deployment.faucet` and the economy's USDC is the same value: `contracts.Faucet` on devnet and Sepolia (`contracts.USDC` and
+`VITE_USDC_ADDRESS` are ignored there), with no env override of the faucet (`VITE_MOCK_USDC_ADDRESS` is gone and `VITE_FAUCET_ADDRESS` does not exist). The old `Token` is gone from the client too (`ContractName`, `VITE_TOKEN_ADDRESS`): the entry token is the
 address `Challenge.entry_price` names (the Faucet, on devnet and Sepolia), and its balance is read there with the Faucet's ABI.
 **F's commit must contain that PR.** Check 2 below fails a file whose `Faucet` is absent, and the smoke (faucet) fails a build that
 does not read it.

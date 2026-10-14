@@ -96,7 +96,7 @@ such a link as "Referral link: this address cannot be your referrer, so no refer
 ## The devnet faucet and the entry token
 
 - `PavedWriter.mint()` sends `Faucet.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
-  6 decimals) at `deployment.faucet`, which is `contracts.Faucet` of the deployments file (or `VITE_FAUCET_ADDRESS`). It
+  6 decimals) at `deployment.faucet`, which is `contracts.Faucet` of the deployments file. It
   replaces the old `Token.mint()`. `faucet` resolves on `devnet` and `sepolia` only (`FAUCET_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies). The Landing offers the faucet button only with `supportsMint && !!deployment.faucet` (`createPlayer` and its `mintTestToken` left with D-25 (E): there is no account to create). A deployment without that address has no faucet: `mint` throws `No faucet` and sends nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.

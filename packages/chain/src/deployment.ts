@@ -16,8 +16,6 @@ export interface DeploymentEnv {
   rpcUrl?: string;
   deployedBlock?: string | number;
   addresses?: Partial<Record<ContractName, string>>;
-  /** The `Faucet` of devnet or Sepolia (the faucet's token). */
-  faucet?: string;
   /** The game NFT's Collection (E5b), optional. */
   collection?: string;
 }
@@ -102,9 +100,11 @@ export function resolveDeployment(input: {
   const envBlock = env.deployedBlock === undefined || env.deployedBlock === "" ? NaN : Number(env.deployedBlock);
   const deployedBlock = Number.isInteger(envBlock) && envBlock >= 0 ? envBlock : (file.deployed_block ?? 0);
 
-  // The faucet exists on the networks of `FAUCET_NETWORKS` only: no other one (mainnet) resolves a Faucet, whatever
+  // The faucet is `contracts.Faucet` of the file and nothing else (no env override): it is also the entry token and the economy's
+  // USDC (`resolveEconomyDeployment` reads this one value), so the mint and the payment cannot name different tokens.
+  // It exists on the networks of `FAUCET_NETWORKS` only: no other one (mainnet) resolves a Faucet, whatever
   // its file or env holds.
-  const faucet = FAUCET_NETWORKS.includes(input.network) ? env.faucet || file.contracts?.Faucet?.address : undefined;
+  const faucet = FAUCET_NETWORKS.includes(input.network) ? file.contracts?.Faucet?.address : undefined;
 
   return {
     network: input.network,

@@ -191,8 +191,8 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
     expect(contracts.MockUSDC).toBeDefined();
     expect(BigInt(real.token!.address!)).toBe(BigInt(contracts.MockUSDC.address));
     expect(d.faucet).toBe("");
-    // The env still names it (VITE_FAUCET_ADDRESS), which is how a build points at a faucet before F.
-    expect(resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC, faucet: contracts.MockUSDC.address } }).faucet).toBe(contracts.MockUSDC.address);
+    // No env override either: the faucet is the file's contracts.Faucet and nothing else.
+    expect(resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC, faucet: contracts.MockUSDC.address } as never }).faucet).toBe("");
   });
 
   test("the economy's addresses come from the same file; USDC is missing too, as the file keys MockUSDC not Faucet", () => {
@@ -227,7 +227,7 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
   });
 
   test("mainnet never resolves a Faucet, even from this very file", () => {
-    const d = resolveDeployment({ network: "mainnet", file: { ...real, contracts: { ...real.contracts, Faucet: { address: contracts.MockUSDC.address } } }, env: { rpcUrl: RPC, faucet: contracts.MockUSDC.address } });
+    const d = resolveDeployment({ network: "mainnet", file: { ...real, contracts: { ...real.contracts, Faucet: { address: contracts.MockUSDC.address } } }, env: { rpcUrl: RPC } });
     expect(d.faucet).toBe("");
   });
 });

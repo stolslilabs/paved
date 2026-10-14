@@ -69,10 +69,10 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
     PavedToken: pick(env.pavedToken, contracts.PavedToken?.address),
     Vault: pick(env.vault, contracts.Vault?.address),
     // The entry token is explicit, not a fallback: on the faucet networks (devnet, Sepolia) Challenge charges the Faucet, so the
-    // economy's USDC is `contracts.Faucet` only: neither a stray `contracts.USDC` nor `VITE_USDC_ADDRESS` is read there, so no
+    // economy's USDC is the base's `faucet` (`contracts.Faucet`, the one resolution the mint also uses): neither a stray `contracts.USDC` nor `VITE_USDC_ADDRESS` is read there, so no
     // override can point the client at another token. Elsewhere (mainnet), where the real USDC is given, the env comes first,
     // then `contracts.USDC`.
-    USDC: FAUCET_NETWORKS.includes(input.base.network) ? pick(contracts.Faucet?.address) : pick(env.usdc, contracts.USDC?.address),
+    USDC: FAUCET_NETWORKS.includes(input.base.network) ? pick(input.base.faucet) : pick(env.usdc, contracts.USDC?.address),
   };
   const missing = [
     ...(input.base.configured ? [] : input.base.missing),

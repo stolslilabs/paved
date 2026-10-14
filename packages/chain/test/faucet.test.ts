@@ -12,7 +12,8 @@ const PLAYER = "0x5";
 const CHALLENGE = "0x2";
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, faucet: FAUCET_ADDR },
+  file: { contracts: { Faucet: { address: FAUCET_ADDR } } },
+  env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3" } },
 });
 const codecs = createCodecs();
 const u256 = (value: bigint) => [`0x${(value & ((1n << 128n) - 1n)).toString(16)}`, `0x${(value >> 128n).toString(16)}`];
@@ -53,9 +54,9 @@ describe("the devnet faucet is Faucet.mint(self, N)", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("never on mainnet: a deployment with a Faucet in its file and env resolves none, and sends no mint", async () => {
+  test("never on mainnet: a deployment with a Faucet in its file resolves none, and sends no mint", async () => {
     const file = { contracts: { Faucet: { address: "0x9" } } };
-    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, faucet: FAUCET_ADDR };
+    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3" } };
     for (const network of ["mainnet", "", "goerli", "Sepolia"]) {
       const dep = resolveDeployment({ network, file, env });
       expect(dep.faucet, network).toBe("");
@@ -65,11 +66,10 @@ describe("the devnet faucet is Faucet.mint(self, N)", () => {
     }
   });
 
-  test("sepolia resolves the Faucet of its file or env, and mints 100 USDC, under both caps of the contract", async () => {
+  test("sepolia resolves the Faucet of its file, and mints 100 USDC, under both caps of the contract", async () => {
     const file = { contracts: { Faucet: { address: "0x9" } } };
-    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" } };
+    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3" } };
     expect(resolveDeployment({ network: "sepolia", file, env }).faucet).toBe("0x9");
-    expect(resolveDeployment({ network: "sepolia", file, env: { ...env, faucet: "0xa" } }).faucet).toBe("0xa");
     const dep = resolveDeployment({ network: "sepolia", file, env });
     const { writer, execute } = writerWith({ dep });
     await writer.mint();
@@ -117,11 +117,15 @@ describe("the devnet faucet is Faucet.mint(self, N)", () => {
     });
   });
 
-  test("the address comes from the deployments file's contracts.Faucet, the env first", () => {
+  test("the address comes from the deployments file's contracts.Faucet and nothing else: an env faucet changes nothing", () => {
     const file = { contracts: { Faucet: { address: "0x9" } } };
-    const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" } } };
+    const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3" } } };
     expect(resolveDeployment({ ...base, file }).faucet).toBe("0x9");
-    expect(resolveDeployment({ ...base, file, env: { ...base.env, faucet: "0xa" } }).faucet).toBe("0xa");
+    for (const network of ["devnet", "sepolia"]) {
+      const stray = { ...base.env, faucet: "0xa" } as typeof base.env; // an env faucet is not a setting any more
+      expect(resolveDeployment({ network, file, env: stray }).faucet, network).toBe("0x9");
+      expect(resolveDeployment({ network, env: stray }).faucet, network).toBe("");
+    }
     expect(resolveDeployment({ ...base, file: { contracts: { Faucet: { address: "0x0" } } } }).faucet).toBe("");
   });
 });

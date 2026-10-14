@@ -12,8 +12,6 @@ export interface NetworkEnv {
   VITE_SETUP_ADDRESS?: string;
   /** The game NFT's Collection (E5b), optional, and first of the sources (an operator override); then the deployments file's `contracts.Collection`, then the indexer's head. */
   VITE_COLLECTION_ADDRESS?: string;
-  /** The Faucet of devnet or Sepolia, the faucet's token (overrides `contracts.Faucet`; ignored on any other network). */
-  VITE_FAUCET_ADDRESS?: string;
   /** The account that plays: a devnet predeployed account, devnet only; without both, read-only. */
   VITE_PLAYER_ADDRESS?: string;
   VITE_PLAYER_PRIVATE_KEY?: string;
@@ -44,7 +42,6 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
     file: file && "default" in file ? (file.default ?? null) : (file as DeploymentFile | null),
     env: {
       rpcUrl: env.VITE_RPC_URL,
-      faucet: env.VITE_FAUCET_ADDRESS,
       collection: env.VITE_COLLECTION_ADDRESS,
       deployedBlock: env.VITE_DEPLOYED_BLOCK,
       addresses: {

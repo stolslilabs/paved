@@ -94,11 +94,24 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
   });
 });
 
+describe("the faucet is the file's contracts.Faucet and nothing else", () => {
+  it("VITE_FAUCET_ADDRESS (no longer a setting) changes nothing on devnet or Sepolia", () => {
+    const file = { rpc_url: "http://n/rpc", contracts: { ...DEVNET.contracts, Faucet: { address: "0x9" } } };
+    for (const network of ["devnet", "sepolia"]) {
+      const files = { [`x/${network}.json`]: { default: file } };
+      const plain = resolveAppNetwork({ VITE_NETWORK: network, VITE_RPC_URL: "http://n/rpc" }, files).deployment;
+      const stray = resolveAppNetwork({ VITE_NETWORK: network, VITE_RPC_URL: "http://n/rpc", VITE_FAUCET_ADDRESS: "0xa" }, files).deployment;
+      expect(plain.faucet, network).toBe("0x9");
+      expect(stray.faucet, network).toBe("0x9");
+    }
+  });
+});
+
 describe("mainnet never has the faucet", () => {
   const MAINNET = { rpc_url: "http://m/rpc", contracts: { ...DEVNET.contracts, Faucet: { address: "0x9" } } };
   const files = { "x/mainnet.json": { default: MAINNET } };
 
-  it("resolves no Faucet from its file or from VITE_FAUCET_ADDRESS, and does not offer the faucet", () => {
+  it("resolves no Faucet from its file, and does not offer the faucet", () => {
     for (const env of [{}, { VITE_FAUCET_ADDRESS: "0xa" }]) {
       const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "mainnet", ...env }, files);
       expect(deployment.configured).toBe(true);
@@ -109,7 +122,7 @@ describe("mainnet never has the faucet", () => {
   });
 
   it("even with VITE_SUPPORTS_TOKEN_MINT=true there is no Faucet, so the Landing (supportsMint && faucet) offers none", () => {
-    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "mainnet", VITE_SUPPORTS_TOKEN_MINT: "true", VITE_FAUCET_ADDRESS: "0xa" }, files);
+    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "mainnet", VITE_SUPPORTS_TOKEN_MINT: "true" }, files);
     expect(supportsMint).toBe(true);
     expect(deployment.faucet).toBe("");
   });

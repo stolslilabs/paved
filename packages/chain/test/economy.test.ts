@@ -46,7 +46,7 @@ const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const REFERRER = "0x77";
-const base = resolveDeployment({ network: "devnet", file: { chain_id: FAKE_CHAIN_ID }, env: { rpcUrl: "http://x", addresses: ADDR } });
+const base = resolveDeployment({ network: "devnet", file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } });
 const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FILE, env: ECON });
 const DAY = 20_000;
 
@@ -176,19 +176,23 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
 
   test("the file's E3 keys (Faucet on devnet) and the env, the env first", () => {
     const file = { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" } } };
-    expect(resolveEconomyDeployment({ base, file }).addresses).toEqual({ Economy: "0x20", PavedToken: "0x21", Vault: "0x22", USDC: "0x23" });
-    expect(resolveEconomyDeployment({ base, file, env: { vault: "0x99" } }).addresses.Vault).toBe("0x99");
+    const fromFile = resolveDeployment({ network: "devnet", file });
+    expect(resolveEconomyDeployment({ base: fromFile, file }).addresses).toEqual({ Economy: "0x20", PavedToken: "0x21", Vault: "0x22", USDC: "0x23" });
+    // One resolution: the economy's USDC is the very value the faucet mints on.
+    expect(resolveEconomyDeployment({ base: fromFile, file }).addresses.USDC).toBe(fromFile.faucet);
+    expect(resolveEconomyDeployment({ base: fromFile, file, env: { vault: "0x99" } }).addresses.Vault).toBe("0x99");
     expect(resolveEconomyDeployment({ base: resolveDeployment({ network: "devnet" }), env: ECON }).configured).toBe(false);
   });
 
   test("the entry token is explicit: on devnet and Sepolia USDC is contracts.Faucet, a stray contracts.USDC is never read", () => {
     const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
     for (const network of ["devnet", "sepolia"]) {
-      const b = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      const b = resolveDeployment({ network, file: { contracts: { Faucet: contracts.Faucet } }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
       expect(resolveEconomyDeployment({ base: b, file: { contracts } }).addresses.USDC, network).toBe("0x23");
       // Without a Faucet there is no fallback to contracts.USDC: the economy is not configured.
       const { Faucet: _, ...noFaucet } = contracts;
-      const none = resolveEconomyDeployment({ base: b, file: { contracts: noFaucet } });
+      const bare = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      const none = resolveEconomyDeployment({ base: bare, file: { contracts: noFaucet } });
       expect(none.addresses.USDC, network).toBe("");
       expect(none.configured, network).toBe(false);
       expect(none.missing, network).toContain("USDC address");
@@ -198,11 +202,12 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
   test("VITE_USDC_ADDRESS is ignored on devnet and Sepolia: the entry token is the Faucet only; on mainnet the env comes first", () => {
     const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
     for (const network of ["devnet", "sepolia"]) {
-      const b = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      const b = resolveDeployment({ network, file: { contracts: { Faucet: contracts.Faucet } }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
       expect(resolveEconomyDeployment({ base: b, file: { contracts }, env: { usdc: "0x99" } }).addresses.USDC, network).toBe("0x23");
       // Not even a missing Faucet lets the env in.
       const { Faucet: _, ...noFaucet } = contracts;
-      expect(resolveEconomyDeployment({ base: b, file: { contracts: noFaucet }, env: { usdc: "0x99" } }).addresses.USDC, network).toBe("");
+      const bare = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      expect(resolveEconomyDeployment({ base: bare, file: { contracts: noFaucet }, env: { usdc: "0x99" } }).addresses.USDC, network).toBe("");
     }
     const main = resolveDeployment({ network: "mainnet", file: { chain_id: "0x534e5f4d41494e", contracts }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
     expect(resolveEconomyDeployment({ base: main, file: { contracts }, env: { usdc: "0x99" } }).addresses.USDC).toBe("0x99");

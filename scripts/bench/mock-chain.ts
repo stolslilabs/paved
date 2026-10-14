@@ -24,7 +24,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { selector } from "../../packages/chain/src/codec";
-import { BENCH_ADDRESSES } from "../../packages/app-web/src/bench/addresses";
+import { BENCH_ADDRESSES, BENCH_FAUCET } from "../../packages/app-web/src/bench/addresses";
 
 interface TileRow {
   game_id: number;
@@ -38,7 +38,7 @@ interface TileRow {
 /** The chain of the page (BENCH_ADDRESSES, one source): the contracts and the playing account. */
 export const BENCH = {
   Challenge: BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS),
-  Faucet: BigInt(BENCH_ADDRESSES.VITE_FAUCET_ADDRESS),
+  Faucet: BigInt(BENCH_FAUCET),
   player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
 };
 const hex = (n: number | bigint) => "0x" + BigInt(n).toString(16);

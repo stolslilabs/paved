@@ -4,7 +4,7 @@ import type { DecodedEvent } from "@paved/chain";
 import { selector } from "../../chain/src/codec";
 import { BENCH, createMockChain } from "../../../scripts/bench/mock-chain";
 import type { MockOptions } from "../../../scripts/bench/mock-chain";
-import { BENCH_ADDRESSES } from "../src/bench/addresses";
+import { BENCH_ADDRESSES, BENCH_FAUCET } from "../src/bench/addresses";
 
 // The mock of the in-play bench answers the page with felts laid out by hand. These tests read
 // every answer back with the codecs of the real ABIs (contracts/abis/), the page's own decoders,
@@ -56,7 +56,7 @@ describe("addresses", () => {
     // D-25 (E): no Account: the bench reads no player registration.
     expect(BENCH).not.toHaveProperty("Account");
     expect(BENCH.Challenge).toBe(BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS));
-    expect(BENCH.Faucet).toBe(BigInt(BENCH_ADDRESSES.VITE_FAUCET_ADDRESS));
+    expect(BENCH.Faucet).toBe(BigInt(BENCH_FAUCET));
     expect(BENCH.player).toBe(BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS));
   });
 });
