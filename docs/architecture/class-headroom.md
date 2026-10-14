@@ -587,3 +587,8 @@ the registration check, the `Account` dispatcher and its two views, `Store.initi
 `account_address` constructor argument, and gains the `Setup.wiring()` call. `Setup`
 gains the two setters, their events and the view. The other classes are unchanged to the felt (`Collection` 14,485,
 `Economy` 26,567).
+
+**Fix loop 1 (review and audits of #350):** `Daily` 59,702 CASM felts (Sierra 27,116), **13,245 under the P-44 cap
+(18.2 %)**, -874 against main. Against the first E head (59,642) it adds 60: the referrer check against `Economy` and
+`Daily` itself, and the game over checking only the economy. `Setup` is unchanged (14,499). The test-only mock
+`MockAccount` is 466 CASM felts and is never declared by `deploy.sh`.

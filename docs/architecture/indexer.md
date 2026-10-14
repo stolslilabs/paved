@@ -29,7 +29,7 @@ selector first, then the fields marked `key`. Types are those of the ABIs in `co
 |---|---|---|---|---|
 | `GameSpawned` | `Daily`, `Tutorial` | `game_id u32`, `player_id felt252` | `mode u8`, `tournament_id u64` (0 for Tutorial), `start_time u64`, `price felt252` | A player's games list, games played per day, active games |
 | `GameOver` | `Daily`, `Tutorial` | `game_id u32`, `player_id felt252`, `tournament_id u64` | `mode u8`, `score u32`, `start_time u64`, `end_time u64` | Final score, the leaderboard |
-| `PlayerCreated` | `Account` | `player_id felt252` | `name felt252` (short string), `master felt252` | Display name of a player |
+| `PlayerCreated` | `Account` (until D-25 E; nothing deployed emits it since) | `player_id felt252` | `name felt252` (short string), `master felt252` | Display name of a player, before D-25 E (below, "Identity since D-25 E") |
 | `QuestDefined` | `Daily` | `quest_id u32` | `schedule` (`start u64`, `end u64`, `duration u32`, `interval u32`), `tasks` (a span of `task_id u32`, `total u32`), `conditions` (a span of `u32`) | The definitions of the daily quests (P7) |
 | `QuestProgressed` | `Daily` | `player_id felt252`, `task_id u32` | `count u32` | A player's progress on a task, per game over (P7) |
 | `QuestRetired` | `Daily` | `quest_id u32` | none | The quest stops counting (P7) |
@@ -251,7 +251,8 @@ checked before anything is read: a missing, unknown, repeated or malformed param
 (at most 2^53 - 1, P-19): a tournament id is at most `MAX_TOURNAMENT_ID` = `floor((2^53 - 1) / 86400) - 1` =
 `104249991373`, so that its `end_time`, `(id + 1) * 86400`, stays at most 2^53 - 1 (`9007199254713600` at the bound); `player_id` is a `0x` hex string, 66 characters, zero-padded;
 `name` is the short string decoded as UTF-8 (`null` when it does not decode, or when the player has no
-`PlayerCreated`). `limit` is 1 to 100 (default 20). A v1 field is never removed or retyped; fields may be
+`PlayerCreated`; since D-25 E no player has one on a new deployment, and names come from the Controller off chain:
+"Identity since D-25 E"). `limit` is 1 to 100 (default 20). A v1 field is never removed or retyped; fields may be
 appended, as for the views (`public-interface.md`).
 
 Envelope of every answer:
@@ -656,3 +657,20 @@ The package follows this design. What differs, or was decided while building (Pa
 - **Clock**: `performance.now()` (monotonic: a wall-clock step back cannot lock addresses out; elapsed time is clamped at 0);
   injectable (`RateLimitOptions.now`), for the tests.
 - **TTL condition**: forgetting an idle address is lossless only while `burst / rate` is at most the TTL (2 s at the defaults).
+
+## Identity since D-25 E (the player is the wallet address)
+
+Step E of D-25 (`public-interface.md`, "Breaking change D-25 (E)"): `Account` left the systems, so a player has no
+on-chain registration, name or master.
+
+- **The player id is the wallet address**: `player_id` is the caller's address as a felt, as it always was in every
+  event and view. A player is known from their first `GameSpawned`.
+- **Names come from the Controller** (the Cartridge username), off chain. `PlayerCreated` is emitted by nothing deployed:
+  it is a past event, known by name and skipped. The API's `name` fields, and the `name` and `master` of the `players`
+  table above, describe the old `Account` identity; on a new deployment they have nothing on chain to fill them.
+  Whether the client resolves names through the Controller or the indexer does is CLIENT's and META's (it would read an
+  external service).
+- **The account contract is gone from the deployment file**: a fresh `contracts/deployments/<network>.json` has no
+  `contracts.Account`, so `GET /v1/head`'s `contracts.account` and the registry cross-check of `EconomySet` and
+  `CollectionSet` follow the wiring to `Setup`, which emits those two events since E.
+- The indexer's own changes (decoders, schema, deployment hash) are CLIENT's (W1d, #349).

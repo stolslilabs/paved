@@ -599,10 +599,11 @@ This is flagged under "For the PM": "Account to the mocks" has a consumer only o
 - **Behaviour.** Spawn by an address that never registered works
   (`tests::e2e::access::test_access_daily_spawn_by_an_unregistered_address`). The referrer is "a non-zero address other
   than the payer"; zero and the payer are ignored as before (`economy.md`, section 1).
-- **`Account` and `manageable`** are deleted. **No mock `Account`**: no test needs one after the layout pin moved to
-  Setup and the frozen D-18 class's unused `Store.player` went; Sepolia is redeployed fresh (P-53), so the chained path
-  that would have needed it is not taken. `Account.json` stays in `contracts/abis/`, frozen at aff59e06 and no longer
-  written by `abis.sh`, only while `packages/chain` imports it (CLIENT removes the import, then the file).
+- **`Account` and `manageable`** are deleted from the systems. **A minimal `MockAccount`** (`mocks/account.cairo`:
+  a registration and the player view) serves one test, which shows a registration changes nothing for `Daily`
+  (`upgrades.md`, "The mock `Account`"); `deploy.sh` never deploys it. The layout pin moved to Setup, and the frozen
+  D-18 class's unused `Store.player` went. `Account.json` leaves `contracts/abis/` (CLIENT's W1d drops
+  `packages/chain`'s import).
 - **Events.** `PlayerCreated` is a past event (`public-interface.md`, "Breaking change D-25 (E)"); `EconomySet` and
   `CollectionSet` are emitted by Setup.
 - **Deploy.** `deploy.sh`'s fresh path deploys no `Account`, sets the economy and the collection on Setup (owner calls,

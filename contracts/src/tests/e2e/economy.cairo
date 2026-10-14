@@ -127,6 +127,26 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
     assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Economy: zero referral');
 }
 
+/// The protocol addresses `Daily` knows, `Economy` and `Daily` itself, are ignored as referrers,
+/// like the payer (economy audit N2 of #350): nothing is paid to them, the payer pays the whole
+/// price, and the Vault gets the whole margin (30 % of 2 USDC). Paid to `Economy`, the 5 % would be
+/// swept back into the margin and counted twice by `Purchased`; paid to `Daily`, it would be stuck.
+#[test]
+#[available_gas(l2_gas: 300000000)]
+fn test_economy_protocol_address_referrer_is_no_referral() {
+    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let token = context.token;
+    let vault = systems.economy.addresses().vault;
+    for referrer in array![systems.economy.contract_address, systems.daily.contract_address] {
+        let before = token.balance_of(PLAYER());
+        let vault_before = token.balance_of(vault);
+        systems.daily.spawn(1, referrer, 0);
+        assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Protocol: price');
+        assert(token.balance_of(vault) - vault_before == 600_000, 'Protocol: margin');
+        assert(token.balance_of(referrer) == 0, 'Protocol: referrer paid');
+    }
+}
+
 /// The score of a Daily game reaches `Economy`, for its own id, whichever way it ends.
 fn assert_recorded(store: setup::TestStore, systems: @setup::Systems, game_id: u32) {
     let game = store.game(game_id);

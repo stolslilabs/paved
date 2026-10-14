@@ -3,6 +3,7 @@
 
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, OwnableComponent};
 use paved::constants;
+use paved::mocks::account::{IMockAccountDispatcher, IMockAccountDispatcherTrait};
 use paved::models::tile::CENTER;
 use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
 use paved::systems::daily::{IDailySetupDispatcher, IDailySetupDispatcherTrait};
@@ -197,6 +198,39 @@ fn test_access_daily_spawn_by_an_unregistered_address() {
     assert(store.game(game_id).over, 'Access: stranger over');
 }
 
+
+/// A registration in the old registry (now a mock, P-53 ruling 5) changes nothing for `Daily`
+/// (D-25 E): PLAYER is registered and STRANGER is not; each spawns, and each, named as the other's
+/// referrer, is paid the same 5 % of 2 USDC.
+#[test]
+fn test_access_a_registration_changes_nothing() {
+    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let registry = IMockAccountDispatcher { contract_address: deploy_mock_account() };
+    start_cheat_caller_address(registry.contract_address, PLAYER());
+    registry.register('PLAYER');
+    stop_cheat_caller_address(registry.contract_address);
+    let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
+    assert(registry.player(PLAYER().into()) == 'PLAYER', 'Mock: registered');
+    assert(registry.player(stranger.into()) == 0, 'Mock: stranger registered');
+    let daily = systems.daily.contract_address;
+    let token = context.token;
+    setup::fund(token.contract_address, daily, stranger);
+    // [Registered] pays the unregistered referrer
+    start_cheat_caller_address(daily, PLAYER());
+    systems.daily.spawn(1, stranger, 0);
+    assert(token.balance_of(stranger) - setup::FUNDS == 100_000, 'Mock: stranger not paid');
+    // [Unregistered] pays the registered referrer
+    let before = token.balance_of(PLAYER());
+    start_cheat_caller_address(daily, stranger);
+    systems.daily.spawn(1, PLAYER(), 0);
+    assert(token.balance_of(PLAYER()) - before == 100_000, 'Mock: player not paid');
+}
+
+fn deploy_mock_account() -> ContractAddress {
+    let class = declare("MockAccount").unwrap().contract_class();
+    let (address, _) = class.deploy(@array![]).unwrap();
+    address
+}
 
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
