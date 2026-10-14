@@ -35,8 +35,8 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
   minDistance: 5,
   maxDistance: 300,
   capZoomOut: false,
-  // Where a tile is about 72 px wide (the outlines' threshold) in a 900 px high window, the bench's.
-  zoomOutCapDistance: 200,
+  // Where a tile is about 96 px wide (the outlines' threshold) in a 900 px high window, the bench's.
+  zoomOutCapDistance: 150,
 };
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {

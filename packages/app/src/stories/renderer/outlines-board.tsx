@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { GameCanvas } from "@paved/renderer/react";
-import { TILE_SIZE, type GameScene } from "@paved/renderer";
+import { DEFAULT_RENDERER_SETTINGS, TILE_SIZE, type GameScene, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { RENDERER_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -16,7 +16,47 @@ export interface OutlinesBoardProps {
   distance?: number;
   /** Draw every frame even when nothing moves, as the frame-time measures need. */
   redraw?: boolean;
+  /** Show the current zoom and the outlines' stroke on the board. */
+  readout?: boolean;
+  /** The renderer's settings (`RendererSettings`), flat: the outlines' fade and width, the camera's zoom limits. */
+  fadeThresholdTilePx?: number;
+  fadeRangeTilePx?: number;
+  maxWidthPx?: number;
+  maxWidthTilePx?: number;
+  minDistance?: number;
+  maxDistance?: number;
+  capZoomOut?: boolean;
+  zoomOutCapDistance?: number;
 }
+
+const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
+
+/** The story's defaults: the renderer's. */
+export const SETTINGS_DEFAULTS = {
+  fadeThresholdTilePx: OUTLINES.fadeThresholdTilePx,
+  fadeRangeTilePx: OUTLINES.fadeRangeTilePx,
+  maxWidthPx: OUTLINES.maxWidthPx,
+  maxWidthTilePx: OUTLINES.maxWidthTilePx,
+  minDistance: CAMERA.minDistance,
+  maxDistance: CAMERA.maxDistance,
+  capZoomOut: CAMERA.capZoomOut,
+  zoomOutCapDistance: CAMERA.zoomOutCapDistance,
+};
+
+interface Zoom {
+  distance: number;
+  tilePx: number;
+  width: number;
+  opacity: number;
+}
+
+const round = (z: Zoom): Zoom => ({
+  distance: Math.round(z.distance),
+  tilePx: Math.round(z.tilePx),
+  width: Math.round(z.width * 100) / 100,
+  opacity: Math.round(z.opacity * 100) / 100,
+});
+const same = (a: Zoom | null, b: Zoom) => !!a && a.distance === b.distance && a.tilePx === b.tilePx && a.width === b.width && a.opacity === b.opacity;
 
 function boundsOf(tiles: { worldX: number; worldZ: number }[]): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -39,7 +79,7 @@ function place(scene: GameScene, pose: Pose): void {
  * views where outlines used to fail: straight down, panning, the game's opening distance, fully zoomed out and in.
  * Stop the tour to hold one view, set its distance, or drag the board. `data-ready` is set once the board is drawn.
  */
-export function OutlinesBoard({ tour, view, distance, redraw = false }: OutlinesBoardProps) {
+export function OutlinesBoard({ tour, view, distance, redraw = false, readout = true, ...rest }: OutlinesBoardProps) {
   const tiles = useMemo(() => toRenderTiles(BOARD_72.tiles, 1), []);
   const bounds = useMemo(() => boundsOf(tiles), [tiles]);
   const [scene, setScene] = useState<GameScene | null>(null);
@@ -47,6 +87,30 @@ export function OutlinesBoard({ tour, view, distance, redraw = false }: Outlines
   const reduced = useReducedMotionConfig();
   const touring = tour && !reduced;
   const startedAt = useRef<number | null>(null);
+  const [zoom, setZoom] = useState<Zoom | null>(null);
+  const o = { ...SETTINGS_DEFAULTS, ...rest };
+  const settings = useMemo<RendererSettingsInput>(
+    () => ({
+      outlines: { fadeThresholdTilePx: o.fadeThresholdTilePx, fadeRangeTilePx: o.fadeRangeTilePx, maxWidthPx: o.maxWidthPx, maxWidthTilePx: o.maxWidthTilePx },
+      camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
+    }),
+    [o.fadeThresholdTilePx, o.fadeRangeTilePx, o.maxWidthPx, o.maxWidthTilePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance],
+  );
+
+  // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
+  useEffect(() => {
+    if (!scene || !readout) return;
+    let id = 0;
+    let last: Zoom | null = null;
+    const step = () => {
+      const z = scene.getZoom();
+      const next = round({ distance: z.distance, tilePx: z.tilePx, width: z.outline.width, opacity: z.outline.opacity });
+      if (!same(last, next)) setZoom((last = next));
+      id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [scene, readout]);
 
   const onReady = useCallback((s: GameScene) => setScene(s), []);
 
@@ -79,7 +143,12 @@ export function OutlinesBoard({ tour, view, distance, redraw = false }: Outlines
 
   return (
     <div className="relative h-dvh w-full bg-board" data-ready={ready || undefined}>
-      <GameCanvas tiles={tiles} basePath={RENDERER_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas tiles={tiles} basePath={RENDERER_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      {readout && zoom && (
+        <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
+          distance {zoom.distance} · tile {zoom.tilePx} px · outline {zoom.opacity > 0 ? `${zoom.width} px at ${Math.round(zoom.opacity * 100)}%` : "off"}
+        </output>
+      )}
     </div>
   );
 }

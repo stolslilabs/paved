@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { OutlinesBoard } from "./outlines-board";
+import { OutlinesBoard, SETTINGS_DEFAULTS } from "./outlines-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
@@ -19,8 +19,21 @@ const meta = {
       description: `Camera distance while the tour is off: ${MIN_DISTANCE} fully zoomed in, ${MAX_DISTANCE} fully zoomed out`,
     },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
+    readout: { control: "boolean", description: "Show the zoom (camera distance, tile size on screen) and the outlines' stroke" },
+    fadeThresholdTilePx: {
+      control: { type: "range", min: 0, max: 300, step: 1 },
+      description: "Outlines off at or below this tile size on screen (CSS px): read it off the readout",
+      table: { category: "Outlines" },
+    },
+    fadeRangeTilePx: { control: { type: "range", min: 0, max: 200, step: 1 }, description: "Fade-in range above the threshold (tile px)", table: { category: "Outlines" } },
+    maxWidthPx: { control: { type: "range", min: 1, max: 6, step: 0.25 }, description: "Maximum outline width (CSS px)", table: { category: "Outlines" } },
+    maxWidthTilePx: { control: { type: "range", min: 100, max: 2000, step: 10 }, description: "Tile size (px) at which the width reaches its maximum", table: { category: "Outlines" } },
+    minDistance: { control: { type: "range", min: 1, max: 60, step: 1 }, description: "Closest camera distance (fully zoomed in)", table: { category: "Camera" } },
+    maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
+    capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
+    zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
   },
-  args: { tour: true, view: "default", redraw: false },
+  args: { tour: true, view: "default", redraw: false, readout: true, ...SETTINGS_DEFAULTS },
 } satisfies Meta<typeof OutlinesBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
