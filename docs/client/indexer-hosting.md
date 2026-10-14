@@ -42,7 +42,8 @@ the environment, not as `--rpc`: an argument shows in `ps`. The indexer never lo
 | `--depth` | `l1` (the default) | The history of block headers kept below the tip goes down to the last block accepted on L1, which is final, so a replaced block can always be followed back to its fork point. A fixed number (`--depth 1000`) is the fallback if the provider refuses the `l1_accepted` block tag; check it first (section 2). |
 | `--poll` | `3000` (ms; default 1000) | The idle wait between steps. Each step asks the node for its tip and one header. At 1 s that is about 3 calls per second all day (see the estimate below); a leaderboard that is 3 s late is not noticed, and the free tier of a provider is. Lower it only to watch a test. |
 | `--recheck`, `--recheck-every` | `5`, `60000` | Rereads the last blocks below the tip for a replaced block. The code says this guards a devnet case (a replacement keeping the old hash); on a real network a replacement changes the hash and the tip check sees it. Keep a small window anyway (5 headers a minute); `--recheck 0` turns it off. |
-| `--batch` | default `100` | Blocks applied per step during catch-up. Leave it. |
+| `--batch` | default `100` | Blocks applied per step near the tip (block by block). Leave it. |
+| `--range` | default `10000` | With `--depth l1`: the blocks at or below the last L1-accepted block are final and are caught up by ranges of up to this many blocks (I1, `packages/indexer/README.md`, "Catching up"). `0` goes back to block by block everywhere. Leave it. |
 | `--allow-origin` | the client's origin, once | Without it a browser blocks every answer. Exact string match (`https://a.b` is not `https://a.b/` nor `http://a.b`). Repeatable (one per origin, e.g. a staging page). |
 | `--host`, `--port` | `127.0.0.1`, `8787` | Keep the loopback: the proxy is the public face (section 3). |
 
@@ -50,13 +51,24 @@ Stop it with `SIGTERM` (it closes the database cleanly). A decode failure or a d
 process stays up and every route answers `503 halted`; it does not exit, so a process manager does not restart it. Watch
 `/v1/head` (section 6).
 
-RPC load, an **estimate from reading the code** (`indexer.ts`, `chain.ts`, not measured on a real node): per step, `blockHashAndNumber`
-and one header check (2 calls); per new block, a header, one `getEvents` per contract (4, or 5 with `Collection`), and one
-check of the previous block (about 8 calls per block); plus the recheck. At `--poll 3000` and `--recheck 5` every minute that is
-under one call per second when idle, and about 8 more per block when blocks carry no events either. **Catch-up** from
-`deployed_block` costs the same per block, one after the other: its speed is the RPC round-trip time divided into 8 calls per
-block (on the local devnet, 149 blocks took about 2 s, round trip under 1 ms; at 80 ms per call expect about one block a
-second). Keep `deployed_block` as late as the contracts allow, and ask the provider about its request limits.
+RPC load near the tip, an **estimate from reading the code** (`indexer.ts`, `chain.ts`, not measured on a real node): per step,
+`blockHashAndNumber` and one header check (2 calls); per new block, a header, one `getEvents` per contract (4, or 5 with
+`Collection`), and one check of the previous block (about 8 calls per block); plus the recheck. At `--poll 3000` and `--recheck 5`
+every minute that is under one call per second when idle, and about 8 more per block when blocks carry no events either.
+
+**Catch-up** (I1): with `--depth l1`, the blocks at or below the last L1-accepted block are read by range, `getEvents` over the
+range per contract and a header only for the blocks that carry an event, the day boundaries and the range's edge; the blocks
+above it, near the tip, block by block as above. Measured on Sepolia on 2026-10-14 (VPS, the public Cartridge RPC, 2,000 blocks
+from F's `deployed_block` 16559258, read-only, a scratch database; both databases identical table by table):
+
+| Mode | Rate | RPC calls per 1,000 blocks | Wall time | Peak RSS |
+|---|---|---|---|---|
+| Block by block (main at b33bdb5) | 89.2 blocks/min | 6,131 | 22 min 26 s | 127 MB |
+| By range (I1, `--range 10000`) | 29,460 blocks/min | 11 | 4.1 s | 131 MB |
+
+A catch-up's time is now set by the blocks above the L1-accepted block (on Sepolia it lagged the tip by 801 to 915 blocks that
+day), which still go block by block at about 90 a minute. Ask the provider about its request limits all the same: the public
+node caps a `getEvents` page at 1024 events, which the indexer uses, and bounds each answer's scan itself (continuation tokens).
 
 ## 2. What it needs from the host
 
@@ -634,8 +646,9 @@ What changes for the indexer, and why a plain restart is not enough:
 
 Flags were checked on main at 382a2411 against the usage that `node packages/indexer/src/main.ts` prints (there is no `--help`
 flag; with no command it prints the usage and exits 2): `run|rebuild --deployment --db [--port] [--host] [--poll] [--depth]
-[--batch] [--recheck] [--recheck-every] [--allow-origin]... [--rate] [--burst] [--rpc] [--no-names|--names] [--names-url]`. The
-unit's `ExecStart` is unchanged; the `rebuild` below is that line with `rebuild` for `run`.
+[--batch] [--range] [--recheck] [--recheck-every] [--allow-origin]... [--rate] [--burst] [--rpc] [--no-names|--names] [--names-url]`. The
+unit's `ExecStart` is unchanged; the `rebuild` below is that line with `rebuild` for `run`. `--range` (I1, after 382a2411) needs
+no flag: its default applies under `--depth l1`, and makes the rebuild's catch-up below the L1-accepted block take seconds.
 
 ```bash
 # --- Release at F: <F-commit> is the full 40-character commit that contains F's contracts/deployments/sepolia.json ---

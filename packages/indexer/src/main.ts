@@ -20,14 +20,14 @@ import {
   defaultRpcUrl,
   readDeployment,
 } from "./deployment.ts";
-import { Indexer, type Depth } from "./indexer.ts";
+import { Indexer, RANGE_SPAN, type Depth } from "./indexer.ts";
 import { DEFAULT_NAMES_URL, NameResolver, cartridgeLookup, namesEnabled } from "./names.ts";
 import { DEFAULT_BURST, DEFAULT_RATE } from "./ratelimit.ts";
 import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
 const USAGE =
-  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on for sepolia and mainnet, off otherwise)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--range <blocks> (default ${RANGE_SPAN}, 0: block by block)] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on for sepolia and mainnet, off otherwise)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -68,6 +68,7 @@ function parsed() {
         poll: { type: "string" },
         depth: { type: "string" },
         batch: { type: "string" },
+        range: { type: "string" },
         recheck: { type: "string" },
         "recheck-every": { type: "string" },
         "allow-origin": { type: "string", multiple: true },
@@ -113,6 +114,7 @@ const config = {
   chainId: deployment.chainId,
 };
 const batch = integer(values.batch, "batch", 100, 1);
+const range = integer(values.range, "range", RANGE_SPAN);
 const poll = integer(values.poll, "poll", 1000, 1);
 const recheck = {
   depth: integer(values.recheck, "recheck", 10),
@@ -160,6 +162,7 @@ try {
     config,
     depth,
     batch,
+    range,
     recheck,
     log,
   });
@@ -228,7 +231,7 @@ server.listen(
         : String(address);
     const tip = store.tip();
     log(
-      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}; names ${names ? `from ${new URL(namesUrl).origin}` : "off"}`,
+      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; ${depth === "l1" && range > 0 ? `catch-up by ranges of up to ${range} blocks below the L1-accepted block` : "block by block"}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}; names ${names ? `from ${new URL(namesUrl).origin}` : "off"}`,
     );
   },
 );

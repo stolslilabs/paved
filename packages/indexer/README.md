@@ -41,6 +41,7 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--poll <ms>` | Idle wait between steps, default 1000 |
 | `--batch <n>` | Blocks applied per step, default 100 |
 | `--depth <n>\|l1` | Block headers kept below the tip, default `l1` (down to the last block accepted on L1) |
+| `--range <blocks>` | With `--depth l1`: the widest range read in one step while catching up below the last L1-accepted block, default 10000; `0` reads block by block everywhere (see "Catching up") |
 | `--recheck <blocks>`, `--recheck-every <ms>` | The last blocks read again for a replaced block, default 10 every 10 s |
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
 | `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the right-most `X-Forwarded-For` entry, the one the proxy wrote (read from loopback peers only: the proxy must dial `127.0.0.1` or `::1`, not another `127.x` address) |
@@ -48,6 +49,29 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--names-url <url>` | The lookup endpoint, default `https://api.cartridge.gg/lookup` |
 
 Stop it with `SIGTERM`. The chain id of the node must be the file's.
+
+## Catching up
+
+Near the tip, and for a numeric `--depth`, the indexer reads block by block: each block's header, the events of each
+contract by the block's hash, and a check of its parent, so a replaced block is seen and rewound. With `--depth l1` (the
+default), the blocks at or below the last L1-accepted block are final: no block there can be replaced, so they are read by
+range instead (`src/indexer.ts`, `catchUp`):
+
+- `starknet_getEvents` once per contract over the whole range, by block number, pages of 1024 events (the public Sepolia
+  node's maximum) followed through their continuation tokens, merged in chain order (block, transaction index, event index:
+  the order block by block gives);
+- the header of each block that carries an event (its hash must be the event's), of the range's last block (stored: it
+  links the next step to the chain), and, for each UTC day that ends inside the range, of the first block at or past its
+  end and of the block before it, found by a binary search on block times; those two make the same `day_closes` row and
+  podium as block by block;
+- the blocks in between are not read: block by block they change no row but `blocks`, whose headers below the L1 block
+  are pruned in both modes.
+
+The result is the same database, table by table: `src/catchup.test.ts` checks it on the fake node, and the devnet scenario
+replays its whole chain both ways and compares the dumps. A range the node refuses is halved at the next step (and doubles
+back after a read that succeeds); a page size it refuses (code 31) is halved for good. Block times must not go backwards
+(the binary search needs it): a header that contradicts it stops the step (retried). Above the L1 block, block by block takes
+over from the stored tip, whose parent link it checks as usual.
 
 ## Display names (N1)
 
