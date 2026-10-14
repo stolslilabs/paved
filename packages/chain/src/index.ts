@@ -1,7 +1,7 @@
 // The client's data layer on the native contracts: typed clients on starknet.js, views, events,
 // writes and the game session. See docs/architecture/client-data-layer.md.
 
-export { ABIS, FAUCET_USDC_AMOUNT, createCodecs } from "./abis";
+export { ABIS, FAUCET_ABI, FAUCET_USDC_AMOUNT, createCodecs } from "./abis";
 export type { ContractName, Codecs } from "./abis";
 export { AbiCodec, sameAddress } from "./codec";
 export type { Abi, DecodedEvent, RawEvent } from "./codec";

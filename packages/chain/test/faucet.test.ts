@@ -42,7 +42,7 @@ describe("the devnet faucet is Faucet.mint(self, N)", () => {
     expect(call.calldata).toEqual(new AbiCodec(FAUCET_ABI).encodeCall("mint", [PLAYER, FAUCET_USDC_AMOUNT]));
     expect(BigInt(call.calldata[0])).toBe(BigInt(PLAYER));
     expect(call.calldata.slice(1).map(BigInt)).toEqual(u256(FAUCET_USDC_AMOUNT).map(BigInt));
-    expect(BigInt(call.contractAddress)).not.toBe(BigInt(deployment.addresses.Token));
+    expect(BigInt(call.contractAddress)).not.toBe(BigInt(deployment.addresses.Challenge));
   });
 
   test("a deployment with no Faucet offers no faucet: nothing is sent", async () => {

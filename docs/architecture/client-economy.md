@@ -101,7 +101,7 @@ such a link as "Referral link: this address cannot be your referrer, so no refer
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
 - `Landing` compares `Challenge.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
-  `addresses.Token`: a different entry token, or no USDC address known, is "Unknown token".
+  the old `Token` (gone from the deployment): a different entry token, or no USDC address known, is "Unknown token".
 
 ## The prize, its claims and the reclaim (D-20)
 
@@ -393,7 +393,7 @@ the history state to the game page, which sends it, as from the Landing.
   The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that records them, `test/devnet.test.ts`,
   deploys the old four contracts): the paid spawn is not re-recorded.
   These figures were measured before D-18 with prior 3,353 and slope 18,130; new deploys use slope 12,220 and a mean of 3,980 (P-46), and the client's fakes follow.
-- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` uses
-  its codec, the same ERC20); the entry token is read from `Challenge.entry_price`.
+- The old `Token` is gone from the deployment and the client (W1f). `PavedClient.balance` reads `balance_of` at the address
+  `Challenge.entry_price` names (the Faucet), with the Faucet's ABI (the ERC20 interface).
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
 - If a batch settle is ever added, it skips expired games.

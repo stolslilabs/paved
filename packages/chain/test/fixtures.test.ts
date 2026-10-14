@@ -18,7 +18,7 @@ import { replay } from "./replay";
 const record = recordJson as unknown as Recording;
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Challenge" | "Token", string> },
+  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Challenge", string> },
 });
 const player = record.player!;
 const gameId = record.gameId ?? 1;

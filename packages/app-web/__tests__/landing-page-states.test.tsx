@@ -49,7 +49,7 @@ afterEach(cleanup);
 const land = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => renderPage({ page: <LandingPage />, path: "/", ...opts });
 /**
  * An economy that is not deployed (the build's own reads the real devnet.json, which has the economy since E3), but whose USDC
- * address is known: the entry token is compared with it, not with the old Token (`addresses.Token`, "0x4" here too).
+ * address is known: the entry token is compared with it, not with the old Token (gone from the deployment).
  */
 const noEconomy = (deployment: Deployment) => (routes: React.ReactElement) => (
   <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x4" } }) }}>{routes}</EconomyProvider>

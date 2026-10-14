@@ -1,6 +1,5 @@
 import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
-import tokenAbi from "../../../contracts/abis/Token.json";
 import faucetAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
@@ -12,12 +11,11 @@ import { AbiCodec, type Abi } from "./codec";
  * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
  * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration.
  */
-export type ContractName = "Challenge" | "Setup" | "Token";
+export type ContractName = "Challenge" | "Setup";
 
 export const ABIS: Record<ContractName, Abi> = {
   Challenge: challengeAbi as Abi,
   Setup: setupAbi as Abi,
-  Token: tokenAbi as Abi,
 };
 
 export type Codecs = Record<ContractName, AbiCodec>;
@@ -26,7 +24,6 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
   return {
     Challenge: new AbiCodec(abis.Challenge),
     Setup: new AbiCodec(abis.Setup),
-    Token: new AbiCodec(abis.Token),
   };
 }
 

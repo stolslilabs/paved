@@ -37,7 +37,7 @@ describe("resolveAppNetwork", () => {
 
   it("env alone can configure the app", () => {
     const { deployment } = resolveAppNetwork(
-      { VITE_RPC_URL: "http://x", VITE_CHALLENGE_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
+      { VITE_RPC_URL: "http://x", VITE_CHALLENGE_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3" },
       {},
     );
     expect(deployment.configured).toBe(true);

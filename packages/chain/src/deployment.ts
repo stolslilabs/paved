@@ -37,7 +37,7 @@ export interface Deployment {
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
   /**
-   * True when the RPC URL and the two required addresses (Challenge, Token) are known: the only case where writes are offered.
+   * True when the RPC URL and the required address (Challenge) are known: the only case where writes are offered.
    * `Account` is not one since D-25 (E): it left the deployment, and a file that still names it is read without it.
    */
   configured: boolean;
@@ -45,7 +45,7 @@ export interface Deployment {
   missing: string[];
 }
 
-const NAMES: ContractName[] = ["Challenge", "Token"];
+const NAMES: ContractName[] = ["Challenge"];
 
 /**
  * The networks that resolve a `Faucet` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,
@@ -82,9 +82,9 @@ export function resolveDeployment(input: {
   const missing: string[] = [];
 
   for (const name of NAMES) {
-    // `Token` is the entry token: `contracts.Token` where the old mock was deployed (devnet), else the file's top-level
-    // `token` (Sepolia has no old Token: its entry token is the Faucet, which `token` names).
-    const value = env.addresses?.[name] || file.contracts?.[name]?.address || (name === "Token" ? file.token?.address : undefined);
+    // The old `Token` is gone: the entry token is the one `Challenge.entry_price` names (the Faucet, the test USDC, on devnet
+    // and Sepolia), read at run time (`PavedClient.balance`), not a deployment address.
+    const value = env.addresses?.[name] || file.contracts?.[name]?.address;
     addresses[name] = isAddress(value) ? value : "";
     if (!addresses[name]) missing.push(`${name} address`);
   }

@@ -18,14 +18,14 @@ Related: the indexer's commands are "Release at F" in `docs/client/indexer-hosti
 | The Sepolia RPC URL | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (no key) | the checks, the build (`VITE_RPC_URL`), the indexer |
 | The indexer's public URL | `https://api.paved.bal7hazar.com` | the build (`VITE_INDEXER_URL`) |
 
-**The client must read F's keys before F's commit is built.** CORE's F writes the test USDC as `contracts.Faucet` (devnet.json
-included), and the game as `contracts.Challenge`. Main already reads `contracts.Challenge` (D-23b, #354). The faucet key is **not**
-read yet: `packages/chain` still reads `contracts.MockUSDC` (`deployment.ts`, `economy/deployment.ts`). PM's ruling (2026-10-14): the
-client reads `contracts.Faucet` only, with no `MockUSDC` fallback, in **a separate CLIENT PR on CORE's F branch** (as W1a to W1e were),
-so that `main` never reads a key its own `devnet.json` lacks. F0 does not touch `packages/chain`. Until that PR is merged, a client
-built from F's file has no faucet (`deployment.mockUsdc` is empty) and resolves the Economy's USDC as missing, so the economy is not
-configured. **F's commit must contain that PR.** Check 2 below fails a file whose `Faucet` is absent, and the smoke (faucet) fails a
-build that does not read it.
+**The client reads F's keys.** CORE's F writes the test USDC as `contracts.Faucet` (devnet.json included) and the game as
+`contracts.Challenge`, one key per contract, with no `Token`, `MockUSDC`, `Daily` or `Account`. The client reads `contracts.Challenge`
+(D-23b, #354) and `contracts.Faucet` only (W1f, PR #357, on CORE's F branch; PM's ruling 2026-10-14), with no `MockUSDC` fallback:
+the faucet is `deployment.faucet`, the economy's USDC is `contracts.USDC` or `contracts.Faucet`, and `VITE_FAUCET_ADDRESS` replaces
+`VITE_MOCK_USDC_ADDRESS`. The old `Token` is gone from the client too (`ContractName`, `VITE_TOKEN_ADDRESS`): the entry token is the
+address `Challenge.entry_price` names (the Faucet, on devnet and Sepolia), and its balance is read there with the Faucet's ABI.
+**F's commit must contain that PR.** Check 2 below fails a file whose `Faucet` is absent, and the smoke (faucet) fails a build that
+does not read it.
 
 ## Checks against the file
 
@@ -148,11 +148,9 @@ All of:
 
 ## Open points
 
-- **Faucet key:** settled by the PM (above): `contracts.Faucet`, read alone, in a separate CLIENT PR on CORE's F branch. What the PR
-  must change in `packages/chain` (not done by F0): `deployment.ts` (`contracts.MockUSDC` to `contracts.Faucet`, the `DeploymentFile`
-  type), `economy/deployment.ts` (the `USDC` pick), their tests, and `app-web`'s fixtures that key `MockUSDC`; `VITE_MOCK_USDC_ADDRESS`
-  and the `MockUSDC` strings in `writer.ts` (the old reasons stay recognised) are its call. Until it merges, main reads
-  `MockUSDC` and its devnet.json still keys it.
+- **Faucet key:** settled by the PM and done in W1f (PR #357): `contracts.Faucet`, read alone, no `Token`. What stays: the cap-revert
+  prefix `MockUSDC:` in `writer.ts` (recognised beside `Faucet:`, for the old Sepolia contract until F replaces it); it can go in a
+  later cleanup once F is live. `sepolia.json` on `main` keys `MockUSDC` until F part B writes it.
 - **`MockRouter`:** check 5 needs it. If F's file has none on Sepolia, the client cannot buy; that is a CORE question, not a skip.
 - **Mac or VPS:** the smoke is a browser run by a person; a headless Mac run follows the project's browser rules (`--headless=new`,
   never a visible window while the owner uses the machine).

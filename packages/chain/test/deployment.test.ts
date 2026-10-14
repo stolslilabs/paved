@@ -18,7 +18,6 @@ const FILE: DeploymentFile = {
   contracts: {
     Challenge: { address: "0x2", class_hash: "0xb" },
     Setup: { address: "0x3", class_hash: "0xc" },
-    Token: { address: "0x4", class_hash: "0xd" },
   },
 };
 
@@ -29,7 +28,7 @@ describe("resolveDeployment", () => {
       rpcUrl: "http://file:5050/rpc",
       deployedBlock: 12,
       tokenDecimals: 18,
-      addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" },
+      addresses: { Challenge: "0x2", Setup: "0x3" },
       configured: true,
       missing: [],
     });
@@ -43,24 +42,24 @@ describe("resolveDeployment", () => {
     });
     expect(d.rpcUrl).toBe("http://env/rpc");
     expect(d.deployedBlock).toBe(40);
-    expect(d.addresses).toEqual({ Challenge: "0x22", Setup: "0x3", Token: "0x4" });
+    expect(d.addresses).toEqual({ Challenge: "0x22", Setup: "0x3" });
   });
 
   test("no file and no env: not configured, with what is missing", () => {
     const d = resolveDeployment({ network: "devnet", file: null });
     expect(d.configured).toBe(false);
-    expect(d.missing).toEqual(["Challenge address", "Token address", "RPC URL"]);
+    expect(d.missing).toEqual(["Challenge address", "RPC URL"]);
     expect(d.deployedBlock).toBe(0);
   });
 
-  test("one missing or zero address is enough to be not configured", () => {
+  test("a missing or zero Challenge address is enough to be not configured", () => {
     const d = resolveDeployment({
       network: "devnet",
-      file: { ...FILE, contracts: { ...FILE.contracts, Token: { address: "0x0" } } },
+      file: { ...FILE, contracts: { ...FILE.contracts, Challenge: { address: "0x0" } } },
     });
     expect(d.configured).toBe(false);
-    expect(d.missing).toEqual(["Token address"]);
-    expect(d.addresses.Token).toBe("");
+    expect(d.missing).toEqual(["Challenge address"]);
+    expect(d.addresses.Challenge).toBe("");
   });
 
   test("Setup (D-24) is optional: a file without it stays configured, with an empty Setup address; the env sets it", () => {
@@ -72,7 +71,7 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ network: "devnet", file: { ...FILE, contracts: before }, env: { addresses: { Setup: "0x33" } } }).addresses.Setup).toBe("0x33");
     // An old file's Tutorial (D-21) and Account (D-25 (E)) keys are not read.
     const old = { ...FILE, contracts: { ...before, Tutorial: { address: "0x9" }, Account: { address: "0x1" } } } as DeploymentFile;
-    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Challenge", "Setup", "Token"]);
+    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Challenge", "Setup"]);
   });
 
   test("Account is not required since D-25 (E): a file without it is configured, one with it is read without it", () => {
@@ -114,9 +113,10 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(d.deployedBlock).toBe(real.deployed_block);
     expect(real.token!.decimals).toBe(6); // the entry token is USDC since E3 (Faucet on devnet)
     expect(d.tokenDecimals).toBe(real.token!.decimals);
-    for (const name of ["Challenge", "Token"] as const) {
-      expect(d.addresses[name]).toBe(real.contracts![name]!.address);
-    }
+    expect(d.addresses.Challenge).toBe(real.contracts!.Challenge!.address);
+    // The old Token is gone from CORE's file (one key per contract): the client has no Token address to read.
+    expect(Object.keys(real.contracts!)).not.toContain("Token");
+    expect(d.faucet).toBe(real.contracts!.Faucet!.address);
     // Setup when the file has one (step D's deploy.sh writes it; a file from before has none).
     expect(d.addresses.Setup).toBe(real.contracts!.Setup?.address ?? "");
     // The top-level token is the entry token, USDC: Faucet on devnet (not contracts.Token, the old mock).
@@ -133,7 +133,6 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(d.rpcUrl).toBe("http://other:5050");
     expect(d.deployedBlock).toBe(99);
     expect(d.addresses.Challenge).toBe("0xdead");
-    expect(d.addresses.Token).toBe(real.contracts!.Token?.address ?? real.token!.address);
   });
 
   test("a `classes` key (P-26: classes.Lobby, a declared class with no address) changes nothing", () => {
@@ -144,7 +143,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     const d = resolveDeployment({ network: "devnet", file: withClasses });
     expect(d.configured).toBe(true);
     expect(d.tokenDecimals).toBe(real.token!.decimals);
-    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup", "Token"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
   });
 
   test("the symbol is never read for display: the label is the client's USDC constant (E3)", () => {
@@ -181,9 +180,8 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
     expect(d.addresses.Challenge).toBe("");
     // Sepolia's file is from before step D: its Tutorial is not read, and Setup is empty until the fresh deployment (P-53).
     expect(d.addresses.Setup).toBe(contracts.Setup?.address ?? "");
-    // The file has no contracts.Token (the old mock was never deployed there): Token is the entry token, the top-level `token`.
-    expect(contracts.Token).toBeUndefined();
-    expect(d.addresses.Token).toBe(real.token!.address);
+    // The old Token is gone: the entry token is read from Challenge.entry_price at run time, not from the file.
+    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
     expect(d.collection).toBe(contracts.Collection.address);
   });
 
@@ -234,22 +232,12 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
   });
 });
 
-describe("the Token address", () => {
-  const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } };
-  const token = { address: "0x7", decimals: 6 };
-
-  test("contracts.Token wins over the top-level token, and the env over both", () => {
-    const file = { token, contracts: { Token: { address: "0x4" } } };
-    expect(resolveDeployment({ ...base, file }).addresses.Token).toBe("0x4");
-    expect(resolveDeployment({ ...base, file, env: { ...base.env, addresses: { ...base.env.addresses, Token: "0x5" } } }).addresses.Token).toBe("0x5");
-  });
-
-  test("without contracts.Token the entry token is the top-level token; without either, not connected", () => {
-    const d = resolveDeployment({ ...base, file: { token } });
-    expect(d.addresses.Token).toBe("0x7");
+describe("the entry token", () => {
+  test("the old Token key is not read: a file or env naming it changes nothing", () => {
+    const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } };
+    const withToken = { token: { address: "0x7", decimals: 6 }, contracts: { Token: { address: "0x4" } } } as unknown as DeploymentFile;
+    const d = resolveDeployment({ ...base, file: withToken });
     expect(d.configured).toBe(true);
-    const none = resolveDeployment({ ...base, file: { token: { decimals: 6 } } });
-    expect(none.configured).toBe(false);
-    expect(none.missing).toEqual(["Token address"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
   });
 });

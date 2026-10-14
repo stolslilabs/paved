@@ -10,7 +10,6 @@ export interface NetworkEnv {
   VITE_CHALLENGE_ADDRESS?: string;
   /** Setup (D-24): the quests and the tutorial claim. Optional: without it only the claim is unavailable. */
   VITE_SETUP_ADDRESS?: string;
-  VITE_TOKEN_ADDRESS?: string;
   /** The game NFT's Collection (E5b), optional, and first of the sources (an operator override); then the deployments file's `contracts.Collection`, then the indexer's head. */
   VITE_COLLECTION_ADDRESS?: string;
   /** The Faucet of devnet or Sepolia, the faucet's token (overrides `contracts.Faucet`; ignored on any other network). */
@@ -51,7 +50,6 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
       addresses: {
         Challenge: env.VITE_CHALLENGE_ADDRESS,
         Setup: env.VITE_SETUP_ADDRESS,
-        Token: env.VITE_TOKEN_ADDRESS,
       },
     },
   });

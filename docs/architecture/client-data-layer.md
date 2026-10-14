@@ -8,7 +8,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 
 | What | From | Override |
 |---|---|---|
-| ABIs of `Challenge`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
+| ABIs of `Challenge` and `Setup` (the entry token reads with `Faucet.json`; the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
 | The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
@@ -18,7 +18,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 |---|---|
 | `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
-| `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
+| `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a Faucet: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
 | `VITE_FAUCET_ADDRESS` | the Faucet the faucet mints, devnet and Sepolia only (overrides `contracts.Faucet`; ignored on any other network) |
@@ -54,8 +54,8 @@ A build with `VITE_NETWORK=sepolia`, `VITE_RPC_URL=https://api.cartridge.gg/x/st
 `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` plays on CORE's deployment (`contracts/deployments/sepolia.json`, S-1). What
 differs from devnet:
 
-- **Addresses**: all from the file. It has no `contracts.Token` (the old mock was never deployed there), so `Token`, the entry
-  token, is the file's top-level `token`, which is the Faucet. Where `contracts.Token` exists (devnet) it still wins.
+- **Addresses**: all from the file. The old `Token` is gone (CORE's file has one key per contract): the only required address is `Challenge`.
+  The entry token is the address `Challenge.entry_price` names (the Faucet, on devnet and Sepolia), read at run time.
   `Economy`, `PavedToken`, `Vault` and `Faucet` give the economy, whose USDC is the Faucet.
 - **RPC**: the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`. `resolveDeployment` takes an `rpc_url` only when it is
   an `http(s)` URL without a `$`, so the placeholder is never called; without `VITE_RPC_URL` the build says "Not connected to

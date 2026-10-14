@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCodecs, placementOutcome, receiptEvents } from "@paved/chain";
+import { AbiCodec, FAUCET_ABI, createCodecs, placementOutcome, receiptEvents } from "@paved/chain";
 import type { DecodedEvent } from "@paved/chain";
 import { selector } from "../../chain/src/codec";
 import { BENCH, createMockChain } from "../../../scripts/bench/mock-chain";
@@ -11,7 +11,7 @@ import { BENCH_ADDRESSES } from "../src/bench/addresses";
 // so a change of the ABIs that the mock does not follow fails here and not in a bench run.
 
 const fixtures = new URL("../../game-core/bench/fixtures", import.meta.url).pathname;
-const codecs = createCodecs();
+const codecs = { ...createCodecs(), Faucet: new AbiCodec(FAUCET_ABI) };
 const hex = (n: number | bigint | string) => "0x" + BigInt(n).toString(16);
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -25,7 +25,7 @@ function setup(options?: MockOptions) {
   let id = 0;
   const rpc = (method: string, params: unknown) => mock.rpc({ id: ++id, method, params }) as any;
   /** `starknet_call` of a view, decoded with the ABI of its contract. */
-  const view = (contract: "Challenge" | "Token", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
+  const view = (contract: "Challenge" | "Faucet", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
     const out = rpc("starknet_call", {
       request: { contract_address: hex(to), entry_point_selector: selector(name), calldata: codecs[contract].encodeCall(name, args) },
       block_id: "latest",
@@ -56,7 +56,7 @@ describe("addresses", () => {
     // D-25 (E): no Account: the bench reads no player registration.
     expect(BENCH).not.toHaveProperty("Account");
     expect(BENCH.Challenge).toBe(BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS));
-    expect(BENCH.Token).toBe(BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS));
+    expect(BENCH.Faucet).toBe(BigInt(BENCH_ADDRESSES.VITE_FAUCET_ADDRESS));
     expect(BENCH.player).toBe(BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS));
   });
 });
@@ -93,9 +93,9 @@ describe("views, decoded with the real ABIs", () => {
     expect(Object.keys(b)).toEqual(["gameId", "playerId", "tileId", "plan"]);
     expect(Number(challenge("current_day"))).toBe(Math.floor(Date.parse("2026-10-06T08:00:00Z") / 1000 / 86400));
     const price = challenge("entry_price");
-    expect(BigInt(price.token)).toBe(BENCH.Token);
+    expect(BigInt(price.token)).toBe(BENCH.Faucet);
     expect(BigInt(price.amount)).toBeGreaterThan(0n);
-    expect(BigInt(view("Token", BENCH.Token, "balance_of", [BENCH.player]))).toBeGreaterThan(0n);
+    expect(BigInt(view("Faucet", BENCH.Faucet, "balance_of", [BENCH.player]))).toBeGreaterThan(0n);
   });
 
   it("no view leaves felts over or short: each decodes whole", () => {
@@ -153,7 +153,7 @@ describe("what the bench does not expect", () => {
 
   it("reverts the whole multicall when one call is not a build, even next to a good build", () => {
     const { mock, invoke, build } = setup();
-    const { receipt } = invoke([build(), [BENCH.Token, "approve", [BENCH.Challenge, 1, 0]]]);
+    const { receipt } = invoke([build(), [BENCH.Faucet, "approve", [BENCH.Challenge, 1, 0]]]);
     expect(receipt.execution_status).toBe("REVERTED");
     expect(mock.placed).toBe(0);
     expect(mock.violations.map((v) => v.kind)).toEqual(["non-build-call"]);
@@ -163,7 +163,7 @@ describe("what the bench does not expect", () => {
     const { mock, view, gameId } = setup();
     view("Challenge", BENCH.Challenge, "game", [gameId + 1]); // answered, but recorded
     view("Challenge", BENCH.Challenge, "builder", [gameId, 0x7777]);
-    view("Token", BENCH.Token, "balance_of", [0x7777]);
+    view("Faucet", BENCH.Faucet, "balance_of", [0x7777]);
     expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player"]);
   });
 
