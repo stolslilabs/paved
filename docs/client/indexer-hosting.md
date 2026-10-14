@@ -642,28 +642,30 @@ unit's `ExecStart` is unchanged; the `rebuild` below is that line with `rebuild`
 NEW=<F-commit>                                                   # (root)
 STAMP=$(date +%Y%m%d-%H%M)                                       # (root)
 
-# 1. Stop the service, and the watch so that nothing restarts it during the rebuild                       (root)
+# 1. Put the release in place WITHOUT touching the running service: the same steps as "Upgrade"           (root)
+git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-indexer/releases/$NEW
+git -C /opt/paved-indexer/releases/$NEW checkout --detach $NEW
+(cd /opt/paved-indexer/releases/$NEW && bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer && chmod -R go-w .)
+
+# 2. F's file and the chain, checked from the new release directory, before anything is stopped          (root)
+F=/opt/paved-indexer/releases/$NEW/contracts/deployments/sepolia.json
+jq '{network, chain_id, deployed_block, keys: (.contracts | keys)}' "$F"
+#   network "sepolia", chain_id "0x534e5f5345504f4c4941", deployed_block an integer, keys include Challenge, Setup, Economy,
+#   Collection, Faucet (and no Daily). Stop here if any of it differs: nothing has been changed yet.
+RPC=$(systemctl show paved-indexer -p Environment --value | tr ' ' '\n' | sed -n 's/^INDEXER_RPC_URL=//p')   # the unit's own value, never printed
+test -n "$RPC" || echo "INDEXER_RPC_URL is not in the unit's Environment: take it from the unit's EnvironmentFile instead"
+# The read-only checks of docs/client/f-release.md against the chain (they send nothing):
+CHECK_RPC_URL="$RPC" /usr/bin/node /opt/paved-indexer/releases/$NEW/scripts/client/check-deployment.mjs --file "$F"   # ends: every check passed; nothing was sent
+#   Stop here if it fails: the service still runs the old release; remove /opt/paved-indexer/releases/$NEW and report.
+
+# 3. Stop the service, and the watch so that nothing restarts it during the rebuild                       (root)
 systemctl stop paved-indexer-watch.timer
 systemctl stop paved-indexer
 systemctl is-active paved-indexer || true                        # inactive
 
-# 2. Put the release in place: the same steps as "Upgrade", the commit is F's                            (root)
-git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-indexer/releases/$NEW
-git -C /opt/paved-indexer/releases/$NEW checkout --detach $NEW
-
-# 3. Dependencies, as in "Upgrade", then switch `current`                                                (root)
-(cd /opt/paved-indexer/releases/$NEW && bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer && chmod -R go-w .)
+# 4. Switch `current` to the release (the unit's --deployment is inside it)                               (root)
 ln -sfnT releases/$NEW /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
-
-# 4. F's file is the one the unit reads: look at it before anything else                                  (root)
-F=/opt/paved-indexer/current/contracts/deployments/sepolia.json
-jq '{network, chain_id, deployed_block, keys: (.contracts | keys)}' "$F"
-#   network "sepolia", chain_id "0x534e5f5345504f4c4941", deployed_block an integer, keys include Challenge, Setup, Economy,
-#   Collection, Faucet (and no Daily). Stop here if any of it differs.
-RPC=$(systemctl show paved-indexer -p Environment --value | tr ' ' '\n' | sed -n 's/^INDEXER_RPC_URL=//p')   # the unit's own value, never printed
-test -n "$RPC" || echo "INDEXER_RPC_URL is not in the unit's Environment: take it from the unit's EnvironmentFile instead"
-# The read-only checks of docs/client/f-release.md against the chain (they send nothing):
-CHECK_RPC_URL="$RPC" /usr/bin/node /opt/paved-indexer/current/scripts/client/check-deployment.mjs --file "$F"   # ends: every check passed; nothing was sent
+test "$(jq -r .deployed_block /opt/paved-indexer/current/contracts/deployments/sepolia.json)" = "$(jq -r .deployed_block "$F")"
 
 # 5. Move the old database aside (schema 6, refused anyway); `rebuild` would drop it, this keeps it       (root)
 for s in "" -wal -shm; do

@@ -4,17 +4,29 @@
 //
 //   CHECK_RPC_URL=<url> node scripts/client/check-deployment.mjs --file contracts/deployments/sepolia.json [--rpc <url>]
 //
-// The RPC URL is read from CHECK_RPC_URL (an argument shows in `ps`); `--rpc` is for a local node. Node 24, no dependency.
+// The RPC URL is read from CHECK_RPC_URL (an argument shows in `ps`); `--rpc` is for a local node and wins when both are set.
+// Node 24; starknet.js is used for the selectors when it is installed (see below).
 // Exit 0 when every check passes, 1 when one fails, 2 on a usage error. A line starts with PASS, FAIL or SKIP.
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 
-// starknet_keccak of the entry point's name, as `hash.getSelectorFromName` of starknet.js computes it.
-const SELECTORS = {
+// The entry point selectors are starknet_keccak of the name, derived at run time with starknet.js (`hash.getSelectorFromName`) when
+// it resolves from packages/chain (a full `bun install`). A host that installed only the indexer has no starknet: the pinned
+// values below are then used, the same ones (checked against a real devnet deployment in F0, #356), and the first line says which.
+const PINNED = {
   wiring: "0x181ce878c45381d5be10e5505af16363d8e99e447e64fe9ae455468e4163bab",
   router: "0x36d4e9bb70c9d2aa50e18560b4cdd1b23b30d62b60873d5f23b103e5d7d0185",
   addresses: "0x210e5b5e314de2f302893e9e54a8d74cdb13aabc4483e34a1abb30c0ae64e1b",
 };
+let derive = null;
+try {
+  derive = createRequire(new URL("../../packages/chain/package.json", import.meta.url))("starknet").hash.getSelectorFromName;
+} catch {
+  // not installed here: PINNED
+}
+const SELECTORS = Object.fromEntries(Object.keys(PINNED).map((name) => [name, derive ? derive(name) : PINNED[name]]));
+console.log(`selectors: ${derive ? "derived with starknet.js" : "pinned (starknet.js is not installed here)"}`);
 const CHAIN_IDS = { sepolia: "0x534e5f5345504f4c4941", mainnet: "0x534e5f4d41494e" };
 // The keys the client reads (packages/chain/src/{deployment.ts,economy/deployment.ts}); MockRouter only where the file has one.
 const REQUIRED = ["Challenge", "Setup", "Economy", "PavedToken", "Vault", "Collection", "Faucet"];
@@ -24,7 +36,7 @@ if (!values.file) {
   console.error("usage: CHECK_RPC_URL=<url> check-deployment.mjs --file <deployment.json> [--rpc <url>]");
   process.exit(2);
 }
-const rpcUrl = process.env.CHECK_RPC_URL ?? values.rpc;
+const rpcUrl = values.rpc ?? process.env.CHECK_RPC_URL;
 if (!rpcUrl || !/^https?:\/\/\S+$/.test(rpcUrl)) {
   console.error("no RPC URL: set CHECK_RPC_URL (or --rpc for a local node)");
   process.exit(2);

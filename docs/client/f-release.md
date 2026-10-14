@@ -40,8 +40,11 @@ CHECK_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10 \
 ```
 
 Expected: one `PASS` line per check below and the last line `every check passed; nothing was sent`, exit 0. A `FAIL` line names the
-key and the two values that differ, exit 1. (`SKIP MockRouter` is printed when the file has none.) The RPC URL is read from the
-environment, not from an argument, because an argument shows in `ps`; `--rpc <url>` exists for a local node.
+key and the two values that differ, exit 1. A file **without a `MockRouter`** prints `SKIP MockRouter`, then `FAIL Economy.router() ...,
+but the file has no MockRouter to compare with`, and exits 1: on Sepolia that is a failure, not a skip. The RPC URL is read from the
+environment, not from an argument, because an argument shows in `ps`; `--rpc <url>` exists for a local node and **wins** over
+`CHECK_RPC_URL` when both are set. The first output line says whether the selectors were derived with starknet.js (a full
+`bun install`) or are the pinned values (a host with only the indexer installed); they are the same values.
 
 | # | Check | Command (by hand) | Expected |
 |---|---|---|---|
