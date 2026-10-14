@@ -3,19 +3,37 @@
 # Usage: scripts/node/run-sample.sh [devnet|katana]   (default: devnet)
 # Localhost only. The node is started here and stopped by PID on exit.
 # Env overrides: DEVNET_BIN, KATANA_BIN, SCARB_BIN_DIR, SNCAST_BIN_DIR, PORT, WORK_DIR.
+# scarb is the plain `scarb` of the PATH, with no prepend (the owner's Cairo rule, 2026-10-14: one Cairo run at a time on
+# the VPS, always through the shim ~/.local/bin/scarb, which holds the machine-wide lock). SCARB_BIN_DIR goes first on
+# the PATH only when set (=$HOME/.local/bin passes). A guard refuses (exit 2) before any build when that shim exists and
+# scarb resolves elsewhere; with no shim (the Mac, CI) it only warns. PAVED_SCARB_SHIM is a test hook for the shim path
+# the guard expects, not a way round the rule. sncast is run by its absolute path, $SNCAST_BIN_DIR/sncast (default the
+# asdf starknet-foundry 0.64.0 bin), so its directory never goes on the PATH and cannot shadow the shims.
 set -euo pipefail
 
 NODE="${1:-devnet}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASDF="${ASDF_DATA_DIR:-$HOME/.asdf}/installs"
-SCARB_BIN_DIR="${SCARB_BIN_DIR:-$ASDF/scarb/2.20.1/bin}"
 SNCAST_BIN_DIR="${SNCAST_BIN_DIR:-$ASDF/starknet-foundry/0.64.0/bin}"
 DEVNET_BIN="${DEVNET_BIN:-$ASDF/starknet-devnet/0.10.0/bin/starknet-devnet}"
 KATANA_BIN="${KATANA_BIN:-$ASDF/katana/1.7.1/bin/katana}"
 PORT="${PORT:-5051}"
 WORK_DIR="$(mktemp -d)"
 URL="http://127.0.0.1:$PORT"
-PATH="$SNCAST_BIN_DIR:$SCARB_BIN_DIR:$PATH"
+[[ -z "${SCARB_BIN_DIR:-}" ]] || PATH="$SCARB_BIN_DIR:$PATH"
+PAVED_SCARB_SHIM="${PAVED_SCARB_SHIM:-$HOME/.local/bin/scarb}"
+SCARB_FOUND="$(command -v scarb || true)"
+if [[ -x "$PAVED_SCARB_SHIM" ]]; then
+  if [[ "$SCARB_FOUND" != "$PAVED_SCARB_SHIM" ]]; then
+    echo "run-sample.sh: scarb resolves to ${SCARB_FOUND:-(not found)}, not the shim $PAVED_SCARB_SHIM: the owner's rule is one Cairo run at a time through the shims (set SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" >&2
+    exit 2
+  fi
+else
+  echo "run-sample.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
+fi
+SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
+[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || echo sncast)"
+sncast() { "$SNCAST_BIN" "$@"; }
 PID=""
 
 cleanup() {

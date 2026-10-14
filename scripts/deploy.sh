@@ -208,6 +208,15 @@
 # sepolia variables is written to a file.
 #
 # Env overrides: RPC_URL (devnet and --rehearse: localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
+# Toolchain (the owner's Cairo rule, 2026-10-14: at most one Cairo run at a time on the VPS, always through the shims):
+# `scarb` comes from the PATH, with no prepend; on the VPS that is the shim ~/.local/bin/scarb, which holds the
+# machine-wide lock. SCARB_BIN_DIR is put first on the PATH only when the caller sets it (SCARB_BIN_DIR=$HOME/.local/bin
+# passes). Before anything is built or sent, a guard refuses (exit 2) when the shim exists and scarb resolves elsewhere
+# (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns. PAVED_SCARB_SHIM is the shim
+# path the guard expects (default ~/.local/bin/scarb): a hook for scripts/test-deploy-url.sh and its stubs, not a way
+# round the rule. sncast is not a Cairo build: it is run by its absolute path, $SNCAST_BIN_DIR/sncast (default: the asdf
+# starknet-foundry 0.64.0 bin; plain `sncast` from the PATH when that file is absent), so its directory never goes on the
+# PATH and cannot put an asdf scarb or snforge ahead of the shim (sncast itself calls `scarb` from the PATH).
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
 # sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git; sepolia and --rehearse also Node 24 and npm.
@@ -431,12 +440,25 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASDF="${ASDF_DATA_DIR:-$HOME/.asdf}/installs"
-SCARB_BIN_DIR="${SCARB_BIN_DIR:-$ASDF/scarb/2.20.1/bin}"
 SNCAST_BIN_DIR="${SNCAST_BIN_DIR:-$ASDF/starknet-foundry/0.64.0/bin}"
-# The signer's node: resolved on the caller's PATH, before the toolchain directories go first on it; `send` runs
-# this absolute path.
+# The signer's node: resolved on the caller's PATH; `send` runs this absolute path.
 NODE_BIN="$(command -v node || true)"
-PATH="$SNCAST_BIN_DIR:$SCARB_BIN_DIR:$PATH"
+# scarb from the PATH (the shim); only an explicit SCARB_BIN_DIR goes first.
+[[ -z "${SCARB_BIN_DIR:-}" ]] || PATH="$SCARB_BIN_DIR:$PATH"
+PAVED_SCARB_SHIM="${PAVED_SCARB_SHIM:-$HOME/.local/bin/scarb}"
+SCARB_FOUND="$(command -v scarb || true)"
+if [[ -x "$PAVED_SCARB_SHIM" ]]; then
+  if [[ "$SCARB_FOUND" != "$PAVED_SCARB_SHIM" ]]; then
+    echo "deploy.sh: scarb resolves to ${SCARB_FOUND:-(not found)}, not the shim $PAVED_SCARB_SHIM: the owner's rule is one Cairo run at a time through the shims (set SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" >&2
+    exit 2
+  fi
+else
+  echo "deploy.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
+fi
+# sncast by its absolute path (see the header); a function, so `sc sncast ...` and a bare `sncast` both use it.
+SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
+[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || echo sncast)"
+sncast() { "$SNCAST_BIN" "$@"; }
 # devnet: salt 1 and no `--unique`, so the addresses are stable across runs. sepolia (and its rehearsal): a fresh
 # random salt and `--unique`, so the addresses depend on the deployer and no rerun collides with an earlier one.
 if [[ "$NETWORK" == "devnet" ]]; then
