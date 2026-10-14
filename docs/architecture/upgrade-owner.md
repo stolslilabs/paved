@@ -207,20 +207,32 @@ only pause in the contracts (`vault.cairo:9` still has none, as intended):
   money, and it never touches the `Vault`.
 - **Views.** `guardian()` and `spawn_paused()`.
 - **Ownership.** The two-step `OwnableComponent` is unchanged: after a transfer the new owner unpauses, sets the
-  guardian and pauses, the old owner can do none of it; the guardian set before the transfer is kept.
+  guardian and pauses, the old owner can do none of it; a pending owner can do none of it before it accepts. **The
+  guardian survives the transfer**: the guardian set before it is kept (`test_guardian_new_owner_holds_the_pause`).
+  So a transfer made because the owner was compromised must be followed, in the new owner's first multicall (the one
+  that sends `accept_ownership`, or under a timelock the first scheduled batch), by `set_guardian` to a trusted
+  address or to zero: a guardian the attacker set before the transfer can otherwise still pause spawn after it.
 - **Deployment and upgrade.** A fresh `scripts/deploy.sh` run deploys with no guardian (zero) and spawn not paused; the
   owner then calls `set_guardian`. An in-place upgrade of `Challenge` (D-17, Sepolia) reads the two new slots as zero
   and false: no guardian, spawn not paused, games in flight unaffected (`tests::e2e::upgrade_g4`).
 
 With a timelock, the guardian is what keeps emergencies answerable within minutes while the fix waits its 48 hours: a
 guardian key outside the timelock pauses at once, and the unpause (an owner call) waits the delay like any other. A
-stolen guardian key can only stop new games until the owner unpauses and replaces it; it never reaches money.
+stolen guardian key never reaches money; it can only stop new games, until the owner recovers as follows.
+
+**Recovery after a stolen guardian key.** The owner replaces or clears the guardian (`set_guardian(new)` or
+`set_guardian(0)`) and unpauses (`unpause_spawn`) in **one owner multicall, `set_guardian` first**. No state then
+exists where the old guardian can act on an unpaused spawn. Never unpause first, alone or in an earlier transaction:
+the thief, still the guardian, pauses again right after (or front-runs the unpause), and the owner has spent a call
+for nothing. Under a timelock both calls go in **one scheduled batch**: two separate schedules leave a window, between
+their executions, where the old guardian is still set on an unpaused spawn, or still set after the unpause if the
+order slips.
 
 Two stop-gaps exist without the guardian, both owner calls, so both delayed by a timelock:
 
 - **Stop new games and game overs, restorably**: `Challenge.set_setup` to a fresh `Setup` whose wiring is not set.
-  Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo:293-300`, `:315`) and so does every move
-  that ends a game (`challenge.cairo:394-395`); other moves go on. `set_setup` back to the real `Setup` restores
+  Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo:386-393`, `:410`, as of G4) and so does
+  every move that ends a game (`challenge.cairo:489-490`); other moves go on. `set_setup` back to the real `Setup` restores
   everything (its once-only wiring is untouched). Its cost: a game whose end is held past its day records as
   expired and gets no reward (`economy.cairo:701`). The guardian's pause has no such cost.
 - **Upgrade to a class that refuses `spawn`**: the same effect, with a class to build, rehearse and declare.

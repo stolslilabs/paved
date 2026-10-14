@@ -276,7 +276,9 @@ pub mod Challenge {
         }
 
         fn pause_spawn(ref self: ContractState) {
-            // [Check] The guardian (never zero) or the owner
+            // [Check] The guardian (never zero) or the owner. The owner arm needs no zero check:
+            // the owner is never zero (`OwnableComponent::set_owner`, and there is no renounce);
+            // if a renounce is ever added, keep a non-zero check on this side too.
             let caller = get_caller_address();
             let guardian = self.guardian.read();
             assert(
