@@ -8,6 +8,7 @@
 use core::num::traits::Zero;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants;
+use paved::mocks::token::IERC20Dispatcher;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::{CENTER, Tile};
 use paved::seed::{SeedSource, TokenSeed};
@@ -18,7 +19,8 @@ use paved::systems::economy::{
 use paved::tests::legacy_g1::{IChallengeBeforeG1Dispatcher, IChallengeBeforeG1DispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IChallengeDispatcherTrait, OWNER, PLAYER, Systems, TestStore, TestStoreTrait,
+    IChallengeDispatcherTrait, IERC20DispatcherTrait, OWNER, PLAYER, Systems, TestStore,
+    TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -202,14 +204,22 @@ fn test_expiry_a_game_that_never_ends_does_not_block_its_day() {
     let ended = context.game_id;
     let never = systems.challenge.spawn(1, Zero::zero(), 0);
     build_city(store, @systems, ended);
+    // A score above the day's threshold (the prior mean, 3,980 points), so that the game earns
+    let mut game = store.game(ended);
+    game.score = 10_000;
+    store.set_game(game);
     systems.challenge.surrender(ended);
     let terms = systems.economy.terms(ended);
-    assert(terms.recorded && !terms.expired, 'Expiry: not recorded');
+    assert(terms.recorded && !terms.expired && terms.score == 10_000, 'Expiry: not recorded');
     let day = START / 86400;
     start_cheat_block_timestamp_global((day + 2) * 86400);
+    let paved = IERC20Dispatcher { contract_address: systems.economy.addresses().paved };
+    let before = paved.balance_of(PLAYER());
     let minted = systems.economy.settle(array![ended].span());
     let terms = systems.economy.terms(ended);
-    assert(terms.settled && minted == terms.reward.into(), 'Expiry: not settled');
+    assert(terms.settled && terms.reward > 0, 'Expiry: not paid');
+    assert(minted == terms.reward.into(), 'Expiry: minted');
+    assert(paved.balance_of(PLAYER()) - before == terms.reward.into(), 'Expiry: balance');
     let closed = systems.economy.day(day);
     assert(closed.closed && closed.weight > 0, 'Expiry: day not closed');
     // [Never ended] unrecorded, and refused by `settle`
