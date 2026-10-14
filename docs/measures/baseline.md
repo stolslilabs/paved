@@ -1187,3 +1187,44 @@ before and after the upgrade by construction; no upgrade test is added.
 
 **Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G5"):
 `Challenge` 62,323 -> 62,045 CASM felts (-278), 10,902 under the P-44 cap (72,947).
+
+## After S1 (a game expires 24 h after its start; `initial_seed`)
+
+S1 adds one check to `build` and `discard`: `get_block_timestamp() < start_time + 86400`, else `'Game: expired'`
+(`docs/architecture/client-spec-core.md`, section 1). `start_time` is already in `GameConfig`, which every move reads,
+so the check adds no storage read: one `get_execution_info` syscall and one comparison. `surrender` and the spawn get
+no check. `initial_seed` is a view (computed, no storage). Same tests and method: `contracts/tests/gas.cairo`, scarb
+2.20.1 / snforge 0.64.0, VPS, 2026-10-14, `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`; the whole run of the
+S1 branch: 698 passed, 0 failed, 9 ignored, peak RSS 3,803,580 kB, 35 min 32 s. Before is "After G5" above: `git diff
+c52467ca 22967eeb -- contracts/src contracts/tests contracts/Scarb.toml` is empty, so main has G5's contracts.
+
+| | Scenario | G5 | S1 | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,535,162 | 17,522,337 | -12,825 (-0.1 %) | 18,411,921 | 95.2 % |
+| n | Challenge spawn, stake 10, referred | 18,261,612 | 18,248,787 | -12,825 (-0.1 %) | 19,174,693 | 95.2 % |
+| c | Close a large city | 5,335,448 | 5,367,338 | +31,890 (+0.6 %) | 5,602,221 | 95.8 % |
+| e | Close a forest of 4 | 8,637,924 | 8,669,814 | +31,890 (+0.4 %) | 9,069,821 | 95.6 % |
+| f | Worst forest scan | 18,125,890 | 18,157,780 | +31,890 (+0.2 %) | 18,923,195 | **96.0 %** |
+| a0 | Open simple move | 5,128,117 | 5,160,007 | +31,890 (+0.6 %) | 5,384,523 | 95.8 % |
+| a | Simple move, closes a 2-tile city | 4,926,449 | 4,958,339 | +31,890 (+0.6 %) | 5,172,772 | 95.9 % |
+| d | Worst case of P0 | 5,286,777 | 5,318,667 | +31,890 (+0.6 %) | 5,551,116 | 95.8 % |
+| g | Closing move in its day (surrender) | 3,169,868 | 3,169,868 | 0 | 3,672,907 | 86.3 % |
+| i | Closing move after its day (surrender) | 2,712,328 | 2,712,328 | 0 | 2,847,987 | 95.2 % |
+| k | Closing move, full report (surrender) | 3,604,048 | 3,604,048 | 0 | 4,018,231 | 89.7 % |
+| l | Game over on a build | 7,127,745 | 7,159,635 | +31,890 (+0.4 %) | 7,774,092 | 92.1 % |
+| s | Game over on a discard | 3,359,163 | 3,391,053 | +31,890 (+0.9 %) | 3,528,109 | **96.1 %** |
+
+**The expiry check costs 31,890 L2 gas per `build` and `discard`**, the same on all eight move scenarios. The three
+surrenders are identical to the unit. Every scenario stays under its ceiling, and no ceiling changes. **s** is now the
+tightest at 96.1 %, with **f** at 96.0 %. The spawns fall by 12,825, and they do not run the check: a game's seed
+depends on `Challenge`'s address, which moves with its class hash (G4's note), so m and n draw another deck. That
+difference comes from the deck, not from S1's code.
+
+**Goldens unchanged.** The 19 golden tests pass with their expected moves and scores, and no golden plays after 24 h.
+`git diff 22967eeb -- contracts/src/tests/golden docs/measures/golden-games.md packages` is empty.
+
+**Test budgets.** Every `#[available_gas]` of the suite holds (the whole run above). The 9 tests of
+`src/tests/e2e/expiry.cairo` have no budget.
+
+**Storage and ABI.** No storage variable is added. `scripts/abis.sh` changes `contracts/abis/Challenge.json` only:
+`GameView.expires_at` (appended) and the `initial_seed` view.
