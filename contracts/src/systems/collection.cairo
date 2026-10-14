@@ -276,10 +276,19 @@ pub mod Collection {
         pub token_id: u256,
     }
 
+    /// The minters were set (`set_minters`, once): the Challenge minter and the Tutorial one (zero
+    /// on a network with no Tutorial). No key, in the style of `Setup`'s `EconomySet`.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct MintersSet {
+        pub challenge: ContractAddress,
+        pub tutorial: ContractAddress,
+    }
+
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         Transfer: Transfer,
+        MintersSet: MintersSet,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -337,6 +346,7 @@ pub mod Collection {
             assert(challenge != tutorial, errors::SAME_MINTER);
             self.daily.write(challenge);
             self.tutorial.write(tutorial);
+            self.emit(MintersSet { challenge, tutorial });
         }
 
         fn mint(ref self: ContractState, to: ContractAddress, token_id: u256) {

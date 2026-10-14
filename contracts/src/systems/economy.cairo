@@ -25,6 +25,7 @@
 
 // Internal imports
 
+use paved::constants;
 use paved::economy::ekubo::PoolKey;
 use paved::economy::mean::Ema;
 
@@ -34,8 +35,9 @@ use starknet::ContractAddress;
 
 // Constants
 
-/// The price of one stake unit: 2 USDC (6 decimals).
-pub const BASE_PRICE: u256 = 2_000_000;
+/// The price of one stake unit: 2 USDC (6 decimals). Not a second definition: it is
+/// `constants::CHALLENGE_PRICE`, the constant `Challenge.spawn` pulls (through `Mode::price`).
+pub const BASE_PRICE: u256 = u256 { low: constants::CHALLENGE_PRICE, high: 0 };
 pub const MAX_STAKE: u8 = 10;
 pub const DAY: u64 = 86400;
 /// One PAVED in base units (18 decimals).

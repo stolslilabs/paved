@@ -29,7 +29,7 @@ pub impl ModeImpl of ModeTrait {
     #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
-            Mode::Challenge => constants::CHALLENGE_PRICE,
+            Mode::Challenge => constants::CHALLENGE_PRICE.into(),
             _ => 0,
         }
     }
