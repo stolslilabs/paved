@@ -237,6 +237,7 @@ choosing it:
 
 - v2a: the (A) definitions (the rotation, weekly quests, higher tiers) as `Setup` owner calls, with the client's texts
   (CLIENT) and a test of offset and weekly windows in the indexer (META). No class change, no reward.
+- Ruled by the PM on 2026-10-14: **four dailies a day**, Daily Run plus the three rotating ones; v1's quests 2 to 4 are not defined by the fresh deployment and their ids stay unused (`quests.md`, "Four dailies a day").
 - Reserving task ids 11 to 18 in `constants.cairo` with the next contract PR.
 - The (D) tally changes as one Challenge upgrade, measured against the +1.5M guard, if the PM wants those rows.
 

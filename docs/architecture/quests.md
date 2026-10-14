@@ -81,7 +81,12 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 Tutorial games count for task 10 only: the tutorial is free, so it must not feed dailies, which are tied to the paid
 Daily.
 
-### Daily quests (4)
+### Daily quests (4 in v1, 1 defined)
+
+**Four dailies a day, not seven (the PM's ruling of 2026-10-14, `docs/briefs/quests-four-per-day.md`).** With v2a's three rotating dailies
+beside these four, a day showed seven, against Nums' three and Glitchbomb's five. The fresh deployment defines **Daily Run (id 1)
+only** of the table below; quests 2 to 4 are **not defined** and their ids stay unused (see "Four dailies a day" under v2a). The
+table stays as the accepted v1 list (P-22) and the record of the three tasks and targets the rotation now carries.
 
 Schedule of each: `start` a multiple of 86,400 (so a day rolls over at 00:00 UTC, exactly where Paved's tournament id
 `timestamp / 86400` rolls over), `end = 0`, `duration = interval = 86,400`, no prerequisite. The count is per UTC day,
@@ -512,7 +517,7 @@ Three families (roads and cities scored, forests scored, points), three targets 
 **3-day interval** (`duration` 86,400, `interval` 259,200, no `end`), and its `start` is an offset of 0, 1 or 2 whole days:
 Setup checks only `start % 86400 == 0`. The quest live on a UTC day is the one whose offset is the **day number mod 3**
 (`floor(time / 86400) mod 3`; 2026-10-14 is day 20,740, so offset 1: quests 6, 9 and 12), so each day shows one quest of
-each family and the targets rotate: three live a day, beside v1's four. Counts are per UTC day over the games that end
+each family and the targets rotate: three live a day, beside Daily Run, four a day in all (see "Four dailies a day" below). Counts are per UTC day over the games that end
 that day, as v1's.
 
 | Id | Title (CLIENT's) | Task, target | Start offset | Live when day mod 3 is |
@@ -526,6 +531,43 @@ that day, as v1's.
 | 11 | Warm-Up Score | `POINTS` 2,000 | 0 | 0 |
 | 12 | Strong Day | `POINTS` 5,000 | 86,400 | 1 |
 | 13 | Grand Day | `POINTS` 8,000 | 172,800 | 2 |
+
+### Four dailies a day
+
+The PM's ruling of 2026-10-14 (from CLIENT's finding on #424): **Daily Run (quest 1) always live, plus the three rotating
+ones**, so four dailies a day. v1's quests 2 to 4 (Master Builder, Into the Woods, Point Chaser) are not defined.
+
+**The rotation is unchanged: no fold needed.** Their tasks are already the three families of ids 5 to 13, so folding them in
+adds no task. What the rotation loses is only the exact v1 targets (6 structures, 1 forest, 3,000 points); the nearest
+rotating rows are 4 / 8 structures, 2 forests, 2,000 / 5,000 points. Each family still shows one quest a day, the live count
+is 1 + 3 = 4, and every day's set is different from the day before's (3-day cycle). The alternative (a 4-day interval with
+12 quests) was not taken: it would add three quests of the same three tasks and keep the weekly cycle off the day count.
+Reversal: lengthening the rotation is a new set of definitions (a definition cannot be edited), so it needs new ids.
+
+| Day number mod 3 | Daily Run | Roads and cities | Forests | Points |
+|---|---|---|---|---|
+| 0 | quest 1 | quest 5 (4) | quest 8 (2) | quest 11 (2,000) |
+| 1 | quest 1 | quest 6 (8) | quest 9 (3) | quest 12 (5,000) |
+| 2 | quest 1 | quest 7 (12) | quest 10 (4) | quest 13 (8,000) |
+
+**Ids 2 to 4 stay unused, not reused.** A client text for 2 to 4 (Master Builder, Into the Woods, Point Chaser) then cannot
+label a different quest, and a past indexer row or toast for those ids (none on a fresh deployment, but possible on the
+earlier one) keeps its meaning. Ids are never reused anyway (Q-10). The slot tables in `deploy.sh` follow `FRESH_QUESTS`, so they
+hold 13 entries, not 16.
+
+**Every quest and achievement the fresh deployment defines** (29 definitions; the window is `duration` in `interval`, from `start`):
+
+| Id | Kind | Task, target | Window |
+|---|---|---|---|
+| quest 1 | daily | `GAME_FINISHED` 1 | 86,400 in 86,400, start 0 (each UTC day) |
+| quests 2, 3, 4 | **not defined** | | |
+| quests 5, 6, 7 | rotating daily | `STRUCTURE_SCORED` 4 / 8 / 12 | 86,400 in 259,200, start 0 / 86,400 / 172,800 |
+| quests 8, 9, 10 | rotating daily | `FOREST_SCORED` 2 / 3 / 4 | the same |
+| quests 11, 12, 13 | rotating daily | `POINTS` 2,000 / 5,000 / 8,000 | the same |
+| quest 14 | weekly | `FOREST_SCORED` 5 | 604,800 in 604,800, start 345,600 (Monday 00:00 UTC) |
+| quest 15 | weekly | `STRUCTURE_SCORED` 30 | the same |
+| quest 16 | weekly | `POINTS` 20,000 | the same |
+| achievements 1 to 16 | no window (start = end = 0) | see the achievements table and "Higher tiers" | none |
 
 ### Weekly quests (3, ids 14 to 16)
 
@@ -558,8 +600,8 @@ Titles and descriptions are not on chain (`quests-v2.md`, class (A)): the ones a
 
 ### How the fresh deployment defines them
 
-`scripts/deploy.sh`, `FRESH_QUESTS` and `FRESH_ACHIEVEMENTS` (quests 1 to 16, achievements 1 to 16), one multicall of the
-definitions Setup does not hold, recorded as `definitions_tx`.
+`scripts/deploy.sh`, `FRESH_QUESTS` and `FRESH_ACHIEVEMENTS` (13 quests: ids 1 and 5 to 16; achievements 1 to 16), one
+multicall of the definitions Setup does not hold, recorded as `definitions_tx`.
 
 - Each definition's storage slots (quiver 0.2.0: `Quest_definitions`, `Quest_tasks`, `Achievement_definitions`) are read
   before the multicall: a defined one is not sent again, so a rerun sends only what is missing and a complete record

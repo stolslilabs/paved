@@ -686,6 +686,8 @@ src = open(sys.argv[4]).read()
 def slots(name):
     return re.findall(r"0x[0-9a-f]+", re.search(name + r"=\((.*?)\n\)", src, re.S).group(1))
 quest_a, quest_b, achievement_a = slots("FRESH_QUEST_SLOTS"), slots("FRESH_QUEST_TASK_SLOTS"), slots("FRESH_ACHIEVEMENT_SLOTS")
+# The slot tables follow FRESH_QUESTS, whose ids are 1 and 5 to 16 (2 to 4 are never defined): a quest id is a position there.
+quest_ids = [int(m) for m in re.findall(r"\x22(\d+) \d+ \d+ \d+ \d+ \d+\x22", re.search(r"FRESH_QUESTS=\((.*?)\n\)", src, re.S).group(1))]
 with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage:
     for c in calls:
         log.write(c["function"] + " " + " ".join(c["calldata"]) + "\n")
@@ -693,8 +695,8 @@ with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage:
         if c["function"] == "define_quest":
             qid, start, end, duration, interval, n, task, total, conditions = d
             assert (end, n, conditions) == (0, 1, 0), d
-            storage.write("%s 0x%x\n" % (quest_a[qid - 1], start | end << 64 | duration << 128 | interval << 160 | n << 192 | 1 << 197))
-            storage.write("%s 0x%x\n" % (quest_b[qid - 1], task | total << 32))
+            storage.write("%s 0x%x\n" % (quest_a[quest_ids.index(qid)], start | end << 64 | duration << 128 | interval << 160 | n << 192 | 1 << 197))
+            storage.write("%s 0x%x\n" % (quest_b[quest_ids.index(qid)], task | total << 32))
         elif c["function"] == "define_achievement":
             aid, start, end, n, task, total, points = d
             assert (start, end, n) == (0, 0, 1), d
@@ -1519,7 +1521,7 @@ SH
   new="$est/fresh-new.json"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   if [[ $rc -ne 0 || "$out" != *"== fresh: check only: every check passed; nothing was sent"* || "$out" == *"== declare"* ||
-      "$out" != *"no record: a run would declare 8 classes"* || "$out" != *"define quests 1 to 16 and achievements 1 to 16 on Setup (v1 and v2a)"* ]] || [[ -e "$new" ]] ||
+      "$out" != *"no record: a run would declare 8 classes"* || "$out" != *"define quests 1 and 5 to 16 and achievements 1 to 16 on Setup (v1 and v2a)"* ]] || [[ -e "$new" ]] ||
       grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia --check-only --out <new file>: expected exit 0, 'every check passed; nothing was sent', no file, no add*, got $rc:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
@@ -1575,9 +1577,9 @@ PY2
   else
     echo "FAIL: sepolia --check-only does not list guardian_tx between wiring_tx and definitions_tx:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
-  # The definitions (v1 and v2a) are listed with the record's keys: quests 1 to 16, achievements 1 to 16.
-  if grep -q '^   definitions (definitions_tx): quests 1 to 16 and achievements 1 to 16 on Setup, v1 and v2a; a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
-    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 to 16 and achievements 1 to 16, v1 and v2a"
+  # The definitions (v1 and v2a) are listed with the record's keys: quests 1 and 5 to 16, achievements 1 to 16.
+  if grep -q '^   definitions (definitions_tx): quests 1 and 5 to 16 and achievements 1 to 16 on Setup, v1 and v2a; a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
+    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a"
   else
     echo "FAIL: sepolia --check-only over a record does not list the v1 and v2a definitions:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
@@ -1726,7 +1728,7 @@ for bad in "guardian_other:Challenge.guardian() is not the deployer" "none:Chall
   fi
 done
 
-# The fresh path's definitions step and smoke (quests.md v1 and v2a: quests 1 to 16, achievements 1 to 16), run against the
+# The fresh path's definitions step and smoke (quests.md v1 and v2a: quests 1 and 5 to 16, achievements 1 to 16), run against the
 # fake node through the test hook --check-fresh-definitions <step|smoke> <Setup address> (the same code as a fresh run:
 # fresh_definitions_step and fresh_definitions_smoke). The fake node keeps what the signer's multicall defines as Setup's
 # storage (the slots of deploy.sh's arrays, the values written again from quiver's packings in the shim).
@@ -1748,27 +1750,30 @@ src = open(deploy).read()
 def slots(name):
     return re.findall(r"0x[0-9a-f]+", re.search(name + r"=\((.*?)\n\)", src, re.S).group(1))
 quest_a, quest_b, achievement_a = slots("FRESH_QUEST_SLOTS"), slots("FRESH_QUEST_TASK_SLOTS"), slots("FRESH_ACHIEVEMENT_SLOTS")
+quest_ids = [int(m) for m in re.findall(r"\x22(\d+) \d+ \d+ \d+ \d+ \d+\x22", re.search(r"FRESH_QUESTS=\((.*?)\n\)", src, re.S).group(1))]
+assert quest_ids == [1] + list(range(5, 17)), quest_ids   # quests 2 to 4 are never defined (four dailies a day)
+qa, qb = (lambda q: quest_a[quest_ids.index(q)]), (lambda q: quest_b[quest_ids.index(q)])
 lines = [l.split() for l in open(path).read().splitlines()]
-v1 = set(quest_a[:4] + quest_b[:4] + achievement_a[:9])
+v1 = set(quest_a[:1] + quest_b[:1] + achievement_a[:9])
 if op == "v1only":
     lines = [l for l in lines if l[0] in v1]
 elif op == "wrong-total":      # quest 6 (the second rotating structure quest): its total 8 stored as 9
-    lines = [[l[0], hex(int(l[1], 16) + (1 << 32))] if l[0] == quest_b[5] else l for l in lines]
+    lines = [[l[0], hex(int(l[1], 16) + (1 << 32))] if l[0] == qb(6) else l for l in lines]
 elif op == "wrong-start":      # quest 7: offset two days stored as one
-    lines = [[l[0], hex(int(l[1], 16) - 86400)] if l[0] == quest_a[6] else l for l in lines]
+    lines = [[l[0], hex(int(l[1], 16) - 86400)] if l[0] == qa(7) else l for l in lines]
 elif op == "wrong-points":     # achievement 14 (High Roller III): 80 points stored as 79
     lines = [[l[0], hex(int(l[1], 16) - (1 << 196))] if l[0] == achievement_a[13] else l for l in lines]
 elif op == "retired":          # quest 14 and achievement 16 retired: the owner's call after the launch
-    lines = [[l[0], hex(int(l[1], 16) | (1 << 198))] if l[0] == quest_a[13] else
+    lines = [[l[0], hex(int(l[1], 16) | (1 << 198))] if l[0] == qa(14) else
              [l[0], hex(int(l[1], 16) | (1 << 131))] if l[0] == achievement_a[15] else l for l in lines]
 elif op == "drop-weekly":      # the weekly quests missing
-    lines = [l for l in lines if l[0] not in quest_a[13:] + quest_b[13:]]
+    lines = [l for l in lines if l[0] not in [qa(q) for q in (14, 15, 16)] + [qb(q) for q in (14, 15, 16)]]
 open(path, "w").write("".join(" ".join(l) + "\n" for l in lines))
 PY
 }
 # An empty `storage` file: the fake node answers 0x0 for every slot (without it, every slot answers a Lobby class hash).
 dd_case() { fg_case "$@"; : >"$rp/bin/storage"; }
-dd_sent_v1() { grep -q -e '^define_quest [1-4] ' -e '^define_achievement [1-9] ' "$rp/bin/calls.log"; }
+dd_sent_v1() { grep -q -e '^define_quest 1 ' -e '^define_achievement [1-9] ' "$rp/bin/calls.log"; }
 # The hook is refused on real sepolia (no --rehearse) before anything is read or sent.
 : >"$rp/curl.log"; dd_case
 out="$(rp_run --check-fresh-definitions step 0x5e7 --out "$rp/fresh.json")"; rc=$?
@@ -1778,13 +1783,13 @@ if [[ $rc -ne 2 || "$out" != *"--check-fresh-definitions is a test hook of the r
 else
   echo "ok: sepolia --check-fresh-definitions step without --rehearse is refused before anything is read or sent"
 fi
-# Setup holds nothing: one multicall of the 32 definitions (16 quests, 16 achievements), the hash recorded, every one read back.
+# Setup holds nothing: one multicall of the 29 definitions (13 quests, 16 achievements), the hash recorded, every one read back.
 dd_case
 out="$(dd_run step)"; rc=$?
-if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$(dd_calls define_quest)" != 16 || "$(dd_calls define_achievement)" != 16 ||
-    "$out" != *"32 definition(s) to send"* ||
-    "$out" != *"Setup holds quests 1 to 16 and achievements 1 to 16, v1 and v2a, each as specified"* || "$(dd_tx)" != 0x5eed0001 ]] || ! fg_clean "$out"; then
-  dd_fail "an empty Setup: expected exit 0, one multicall of 16 define_quest and 16 define_achievement, its hash recorded, each read back, got $rc" "$out"
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$(dd_calls define_quest)" != 13 || "$(dd_calls define_achievement)" != 16 ||
+    "$out" != *"29 definition(s) to send"* ||
+    "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, each as specified"* || "$(dd_tx)" != 0x5eed0001 ]] || ! fg_clean "$out"; then
+  dd_fail "an empty Setup: expected exit 0, one multicall of 13 define_quest and 16 define_achievement, its hash recorded, each read back, got $rc" "$out"
 else
   echo "ok: the fresh path's definitions step on an empty Setup sends one multicall of 16 quests and 16 achievements, records definitions_tx and reads each back as specified"
 fi
@@ -1810,30 +1815,27 @@ define_achievement 14 0 0 1 7 25 80
 define_achievement 15 0 0 1 1 250 60
 define_achievement 16 0 0 1 1 1000 80'
 want_v1='define_quest 1 0 0 86400 86400 1 1 1 0
-define_quest 2 0 0 86400 86400 1 2 6 0
-define_quest 3 0 0 86400 86400 1 4 1 0
-define_quest 4 0 0 86400 86400 1 3 3000 0
 define_achievement 1 0 0 1 10 1 10
 define_achievement 9 0 0 1 8 1 50'
 if [[ "$(grep -F -x -c -f <(printf '%s\n' "$want_calls") "$rp/bin/calls.log")" != 19 ||
-    "$(grep -F -x -c -f <(printf '%s\n' "$want_v1") "$rp/bin/calls.log")" != 6 ]]; then
-  dd_fail "the calls of the multicall: expected the 19 v2a calls and the v1 ones as specified" "$(cat "$rp/bin/calls.log")"
+    "$(grep -F -x -c -f <(printf '%s\n' "$want_v1") "$rp/bin/calls.log")" != 3 || "$(grep -c '^define_quest [234] ' "$rp/bin/calls.log")" != 0 ]]; then
+  dd_fail "the calls of the multicall: expected the 19 v2a calls and the v1 ones as specified (Daily Run, no quest 2, 3 or 4)" "$(cat "$rp/bin/calls.log")"
 else
-  echo "ok: the multicall holds the 19 v2a definitions as specified (rotating dailies, weekly quests, higher tiers) beside the v1 ones, none with a reward or a prerequisite"
+  echo "ok: the multicall holds the 19 v2a definitions as specified (rotating dailies, weekly quests, higher tiers) beside Daily Run (quest 1) and the v1 achievements, none of quests 2 to 4, none with a reward or a prerequisite"
 fi
 # Setup holds them all: the rerun sends nothing, cites the record's hash.
 out="$(dd_run step)"; rc=$?
-if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"defined already: quests 1 to 16, achievements 1 to 16, tx 0x5eed0001"* ]]; then
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"defined already: quests 1 and 5 to 16, achievements 1 to 16, tx 0x5eed0001"* ]]; then
   dd_fail "a rerun on a complete Setup: expected exit 0, nothing sent, the recorded hash cited, got $rc" "$out"
 else
-  echo "ok: the fresh path's definitions step sends nothing when Setup holds the 32 definitions, and cites the recorded hash"
+  echo "ok: the fresh path's definitions step sends nothing when Setup holds the 29 definitions, and cites the recorded hash"
 fi
 # Setup holds v1 only (a record of the earlier set): the step sends the 19 v2a ones and no v1 one.
 dd_edit v1only
 out="$(dd_run step)"; rc=$?
 if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"19 definition(s) to send"* || "$(dd_calls define_quest)" != 12 ||
     "$(dd_calls define_achievement)" != 7 || "$(dd_sent_v1 && echo sent)" == sent ||
-    "$out" != *"Setup holds quests 1 to 16 and achievements 1 to 16"* ]]; then
+    "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16"* ]]; then
   dd_fail "Setup holding v1 only: expected exit 0, one multicall of the 12 quests and 7 achievements of v2a, got $rc" "$out"
 else
   echo "ok: the fresh path's definitions step on a Setup holding v1 sends the 12 quests and 7 achievements of v2a, and no v1 one"
@@ -1855,10 +1857,10 @@ done
 # The smoke: every definition as specified passes, also with a quest and an achievement retired since (live state).
 dd_case; dd_run step >/dev/null
 out="$(dd_run smoke)"; rc=$?
-if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"Setup holds every definition, each as specified: quests 1 to 16, achievements 1 to 16 (v1 and v2a)"* ]]; then
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"Setup holds every definition, each as specified: quests 1 and 5 to 16, achievements 1 to 16 (v1 and v2a)"* ]]; then
   dd_fail "the smoke on a complete Setup: expected exit 0 and nothing sent, got $rc" "$out"
 else
-  echo "ok: the fresh smoke reads quests 1 to 16 and achievements 1 to 16 back as specified"
+  echo "ok: the fresh smoke reads quests 1 and 5 to 16 and achievements 1 to 16 back as specified"
 fi
 dd_edit retired
 out="$(dd_run smoke)"; rc=$?
