@@ -12,6 +12,9 @@ export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
 export const ChevronRightIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base} {...p}><path d="m6 3.5 4.5 4.5L6 12.5" /></svg>
 );
+export const ChevronLeftIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base} {...p}><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
+);
 export const DotIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base} fill="currentColor" stroke="none" {...p}><circle cx="8" cy="8" r="3" /></svg>
 );

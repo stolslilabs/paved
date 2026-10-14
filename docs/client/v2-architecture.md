@@ -412,22 +412,33 @@ Lineto face) from `public/assets/fonts/`.
 **Read, Paved today:** `packages/ui/src/theme.ts` uses Rubik Mono One for headings and body;
 `app/public/assets/fonts/RubikMonoOne-Regular.ttf` is the only font file in the repository.
 
-**Proposed.** The mockups pair a blocky display face (the logo, the titles) with a plain, compact UI sans
-for everything else.
+**Chosen by the owner (2026-10-14, through the PM), replacing the proposal of Rubik Mono One and Inter** (F1b,
+t-0228). Packages and versions are pinned in `packages/app/package.json`; each font is self-hosted from npm,
+Latin subset only, `font-display: swap`.
 
-| Token | Family | Use | Loading | Licence |
-|---|---|---|---|---|
-| `font-display` | Rubik Mono One (one weight) | logo, page titles, big scores | `@fontsource/rubik-mono-one` (npm), self-hosted woff2, `font-display: swap`, preloaded on the welcome and home routes | SIL OFL 1.1 |
-| `font-sans` | Inter Variable (100–900) | all UI text; tabular numbers (`font-variant-numeric: tabular-nums`) for scores | `@fontsource-variable/inter` (npm), self-hosted woff2, Latin subset | SIL OFL 1.1 |
-| `font-mono` | JetBrains Mono Variable | addresses, token ids, debug | `@fontsource-variable/jetbrains-mono`, loaded only where used | SIL OFL 1.1 |
+| Token | Family | Use | Package (version) | Files loaded | Licence |
+|---|---|---|---|---|---|
+| `font-display` | Cinzel, Bold (700) | logo, page titles | `@fontsource/cinzel` 5.3.0 | `cinzel-latin-700-normal.woff2` (15,184 B) | SIL OFL 1.1 |
+| `font-sans` | Nunito Sans Variable (200 to 1000) | all UI and body text | `@fontsource-variable/nunito-sans` 5.3.0 | `nunito-sans-latin-wght-normal.woff2` (31,076 B) | SIL OFL 1.1 |
+| `font-numeric` (= `font-mono`), the `numeric` utility | IBM Plex Mono, 400 and 600 | scores, counters, prices, addresses, token ids; always with `font-variant-numeric: tabular-nums` | `@fontsource/ibm-plex-mono` 5.3.0 | `ibm-plex-mono-latin-400-normal.woff2` (14,708 B), `-600-` (15,620 B) | SIL OFL 1.1 (copyright IBM Corp.) |
+
+- Cinzel is loaded as the static Bold file, not the variable package: the display face is used at one weight.
+- Fallbacks are system fonts of the same kind: a serif for Cinzel, `system-ui` for Nunito Sans, `ui-monospace`
+  for IBM Plex Mono.
+- The `numeric` utility (`theme.css`) sets `font-family: var(--font-numeric)` and `tabular-nums` together; use it
+  for every number that changes in place.
+- Preloads: Cinzel and Nunito Sans only (the first screen), by `preloadFonts()` in `src/styles/fonts.ts`, at the
+  hashed `?url` imports; `index.html` calls it and so does `.storybook/preview.tsx`. The preload starts when the
+  entry chunk runs, not at HTML parse (Vite bundles the inline module into the entry). IBM Plex Mono is fetched
+  when a number first shows.
 
 Why self-hosted from npm: no request to Google at load (privacy, offline after the first visit, no
 third-party outage), versions pinned by the lockfile, and the OFL text ships inside each package (the
 references ship none). The licences are listed in `dist/THIRD_PARTY_NOTICES.txt` with the controller's
-(D-15).
+(D-15); the copyright lines are those of each package's `LICENSE`.
 
-**Decided for the owner:** Rubik Mono One + Inter. Reversed if the owner prefers glitchbomb's Rubik One
-or another display face; only `--font-display` changes.
+**Decided by the owner:** Cinzel Bold, Nunito Sans, IBM Plex Mono with tabular figures. Reversed by changing
+`--font-display`, `--font-sans` and `--font-numeric` and the three packages.
 
 ---
 
@@ -477,6 +488,8 @@ transitions for plain hovers. Why:
 - both references use it (framer-motion 11), so their patterns translate directly;
 - React Spring is smaller in full but has no layout or shared-element animation, which the tabs and the
   tile hand need.
+
+F3b moved the feature set to `domMax` for the Tabs highlight's shared `layoutId` and the list's `layout`: see section 3.5.
 
 **Decided for the owner;** reversed if the measured bundle of the foundations PR exceeds its budget
 (proposed: 200 kB gzip for the initial route's JS, without three.js, which loads with the board route).
@@ -534,6 +547,72 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 Also: `100dvh` with a `100vh` fallback for full-height screens (as t-0126 did), `env(safe-area-inset-*)`
 for notches and the home indicator, touch targets at least 44 px.
 
+### 3.5 Animated components: chosen sources
+
+F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,
+coss.com, cult-ui.com, motion.dev, embla-carousel.com. Each registry was read at a named commit (`git clone --depth
+1`, 2026-10-14); the chosen source was copied in by hand, restyled to the semantic tokens, with its source and commit
+in the file header, and its licence in `packages/app/public/THIRD_PARTY_NOTICES.txt`. No registry CLI was run and
+nothing is fetched at run time.
+
+| Primitive or pattern | Library | Component | Version or commit | Licence | Why | In the repository |
+|---|---|---|---|---|---|---|
+| Button (press feedback) | motion.dev | the tap gesture, `whileTap` (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a press button beyond a `whileTap`: Magic UI's and cult-ui's buttons are decorative effects (shimmer, ripple, glow, CSS keyframes); animate-ui's Button is not taken in F3b (see below). F3's button already is Motion's gesture. | `ui/button.tsx` |
+| Tabs (animated indicator) | motion-primitives | AnimatedBackground | `ibelick/motion-primitives` 120f64f | MIT | A shared `layoutId` highlight in the active trigger replaces F3's measured indicator (no `ResizeObserver`, no font wait); it stays on Radix Tabs (keyboard, roles). cult-ui's Direction Aware Tabs has its own buttons (no tab roles, no arrow keys). Its `AnimatePresence` fade (for its hover mode) is not taken: a tab list always has an active tab. | `ui/tabs.tsx` (same API) |
+| Dialog (enter and exit) | motion-primitives | Dialog: its variants (opacity, scale 0.9 to 1) and transition (ease out, 0.2 s) | 120f64f | MIT | Motion replaces F3's CSS keyframes, the same vocabulary as the Sheet. Its native `<dialog>` is not taken: Radix keeps the focus trap, the focus return and the labelling. | `ui/dialog.tsx` (same API) |
+| Sheet (enter and exit) | motion.dev | `AnimatePresence` on a force-mounted Radix dialog (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a Radix sheet on Motion (motion-primitives and Magic UI have none; cult-ui's Family Drawer needs `vaul`, a second drawer runtime). The Dialog now has the same structure. | `ui/sheet.tsx` |
+| Toast | Sonner | Toaster (shadcn/ui's wrapper, kept from F3) | `sonner` 2.0.8 | MIT | Already in the repository; CSS transitions, no JS animation runtime. coss ui's toast is on Base UI (a second primitive library beside Radix); cult-ui's Halo Toast is a visual, not a queue. Reduced motion now follows `MotionConfig` (`toaster-reduced-motion`) as well as the media query. | `ui/sonner.tsx` |
+| Animated counter (score, PAVED amounts) | Magic UI | Number Ticker | `magicuidesign/magicui` 85f97fd | MIT | Motion hooks only (`useSpring`, `useInView`), no `m` component, writes the text without a React render per frame. motion-primitives' Animated Number uses `motion.create` (breaks `LazyMotion strict`); its Sliding Number needs `react-use-measure`. | `elements/number-ticker.tsx` |
+| List enter and exit (leaderboard rows, closings list) | Magic UI | Animated List (its `AnimatedListItem`) | 85f97fd | MIT | `AnimatePresence` + `layout`: rows grow in, shrink out, and the others slide. motion-primitives' Animated Group has no exit. The original's one-row-per-second reveal (a notification demo) is dropped. | `ui/animated-list.tsx` |
+| Carousel (Play's mode cards, the themes) | embla-carousel.com, through shadcn/ui | Carousel | `embla-carousel-react` 8.6.0; `shadcn-ui/ui` 0023018 | MIT | The owner's choice; shadcn/ui's wrapper gives the region and slide roles and the arrow keys. animate-ui's Motion Carousel is not taken in F3b (see below). | `ui/carousel.tsx` |
+
+**Not taken, and why:**
+
+- **animate-ui** (`imskyleen/animate-ui` efeb96f): its licence is "MIT + Commons Clause", not MIT: the components may be
+  used in a product "so long as you do not sell or redistribute the components themselves in their original form". The
+  repository is public under Apache 2.0, so copying them in redistributes their source. The owner allowed
+  animate-ui (2026-10-14), under four conditions:
+  1. every file copied from it keeps its own notice, MIT + Commons Clause, in its header, and is never relicensed as
+     Apache-2.0;
+  2. it is listed in `THIRD_PARTY_NOTICES.txt`, naming the clause;
+  3. the repository's licence notes say these files are under their own licence;
+  4. it is used only where clearly better, and a plain-MIT equivalent of equal quality is preferred.
+
+  F3b copies nothing from it; F3c may swap in its Tabs, Dialog, Sheet or Carousel where clearly better.
+- **coss ui** (`cosscom/ui` 107dc0a; `apps/ui` MIT, the rest of the repository AGPL-3.0): built on Base UI. Taking its
+  components would put a second primitive library beside Radix (F3).
+- **cult-ui** (`nolly-studio/cult-ui` 7f031dc, MIT): read; its components are marketing effects or need other
+  libraries (`react-use-measure`, `vaul`); none beats the choices above for these primitives.
+
+**One animation runtime: Motion.** Every component above animates with Motion, except two that are not a second
+Motion: Sonner animates its toasts with CSS transitions (no JS runtime), and Embla, the owner's carousel engine,
+animates the track's scroll with its own drag and snap physics, which Motion does not provide. Both follow reduced
+motion: Sonner through `theme.css`, Embla's buttons and arrow keys jump instead of scrolling. The settle after a drag
+is driven by the user's own gesture and keeps its motion: in Embla 8.6 the `duration` option sets only the API
+scrolls (which already jump), and the release settle uses a fixed internal speed (25, or 43 with `dragFree`) that no
+option reaches.
+
+**The feature set is now `domMax`** (section 3.2 said `domAnimation`): the tab highlight's shared `layoutId` and the
+list's `layout` need Motion's layout features. It still loads after the first paint (`components/motion-features.ts`, its
+own chunk); the entry chunk does not load Motion's features.
+
+**Reduced motion:** the app's `MotionConfig reducedMotion="user"` is the one switch. Motion drops transforms and makes
+layout animations instant; the Number Ticker and the Carousel read it with `useReducedMotionConfig`; the Toaster too.
+Each component has a story with reduced motion off and on (`parameters.reducedMotion`, read by `.storybook/preview.tsx`).
+
+**Measured (VPS, 2026-10-14, `bun run build` in `packages/app`, Vite's gzip figures):**
+
+| Chunk | Before (main, ab19bca) | After (F3b) |
+|---|---|---|
+| Entry `index-*.js` | 378.47 kB, 120.11 kB gzip | 378.79 kB, 120.24 kB gzip |
+| `motion-features-*.js` (after paint) | 37.93 kB, 14.58 kB gzip (`domAnimation`) | 85.93 kB, 28.50 kB gzip (`domMax`) |
+| CSS | 39.18 kB, 7.96 kB gzip | 39.76 kB, 8.08 kB gzip |
+
+The entry stays within the 200 kB gzip budget, and so do entry and features together (148.74 kB gzip). No page imports
+the new components yet (Phase 2), so they are not in these chunks: Embla will add 20,105 B minified, 8,148 B gzip
+(`bun build --minify` of `embla-carousel-react` 8.6.0 without React, `gzip -9`) to the route that uses the carousel.
+Storybook (`build-storybook`): 9,381,569 B in 82 assets before, 9,435,474 B in 87 after.
+
 ---
 
 ## 4. Storybook
@@ -580,8 +659,9 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
   `iframe.html`, assets).
 - **Publish:** the client's existing `deploy/indexer/publish.sh` already takes its root from `WWW_ROOT`,
   so the Storybook needs no new script:
-  `WWW_ROOT=/var/www/paved-storybook publish.sh packages/app/storybook-static sb-<short-sha>`, run as
-  the deploy user. It copies to `/var/www/paved-storybook/releases/sb-<sha>`, swaps `current`
+  `WWW_ROOT=/var/www/paved-storybook publish.sh packages/app/storybook-static <release-name>`, run as
+  the `claude` user; the release name (`YYYYMMDD-HHMM-<short sha>`) and the whole sequence are in
+  `docs/client/storybook-hosting.md`. It copies to `/var/www/paved-storybook/releases/<release-name>`, swaps `current`
   atomically and keeps five releases; `switch.sh` rolls back the same way.
 - **Root step, prepared by the PM (P-57 B7):** done once by the owner's root block (web root, Caddy site, first
   release). The Caddy site is in the repository, `deploy/storybook/paved-storybook.caddy`; the release command

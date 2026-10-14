@@ -1286,3 +1286,44 @@ and main was not rebuilt for it, so this table has no before column.
 
 These V1b figures are measured against G5's base (main c52467ca), before S1 changed it: on top of them, S1 adds
 31,890 L2 gas per `build` and `discard` (a0 to f, l, s) and moves m and n by its deck change; not re-measured.
+
+## After the position check (`Challenge.build` refuses an invalid position)
+
+`Challenge.build` now starts with `x != 0 && y != 0 && x != u32::MAX && y != u32::MAX`, else
+`'Challenge: invalid position'` (`docs/architecture/public-interface.md`, "The errors of `Challenge.build`"). Four
+comparisons on the arguments: no storage read, no syscall. Same tests and method: `contracts/tests/gas.cairo`, scarb
+2.20.1 / snforge 0.64.0, VPS, 2026-10-14, `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`. Before is main
+420d9529 (the same tests, the check removed), measured in the same session, because S1's table above predates V1b
+and #389.
+
+| | Scenario | Before | After | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,639,427 | 17,634,197 | -5,230 (-0.0 %) | 18,411,921 | 95.8 % |
+| n | Challenge spawn, stake 10, referred | 18,365,877 | 18,360,647 | -5,230 (-0.0 %) | 19,174,693 | 95.8 % |
+| c | Close a large city | 5,367,338 | 5,376,938 | +9,600 (+0.2 %) | 5,602,221 | 96.0 % |
+| e | Close a forest of 4 | 8,669,814 | 8,679,414 | +9,600 (+0.1 %) | 9,069,821 | 95.7 % |
+| f | Worst forest scan | 18,157,780 | 18,167,380 | +9,600 (+0.1 %) | 18,923,195 | 96.0 % |
+| a0 | Open simple move | 5,160,007 | 5,169,607 | +9,600 (+0.2 %) | 5,384,523 | 96.0 % |
+| a | Simple move, closes a 2-tile city | 4,958,339 | 4,967,939 | +9,600 (+0.2 %) | 5,172,772 | 96.0 % |
+| d | Worst case of P0 | 5,318,667 | 5,328,267 | +9,600 (+0.2 %) | 5,551,116 | 96.0 % |
+| g | Closing move in its day (surrender) | 3,174,468 | 3,174,468 | 0 | 3,672,907 | 86.4 % |
+| i | Closing move after its day (surrender) | 2,716,928 | 2,716,928 | 0 | 2,847,987 | 95.4 % |
+| k | Closing move, full report (surrender) | 3,608,648 | 3,608,648 | 0 | 4,018,231 | 89.8 % |
+| l | Game over on a build | 7,164,235 | 7,173,835 | +9,600 (+0.1 %) | 7,774,092 | 92.3 % |
+| s | Game over on a discard | 3,395,653 | 3,395,653 | 0 | 3,528,109 | 96.2 % |
+
+**The check costs 9,600 L2 gas per `build`**, the same on the six move scenarios and on **l**; `discard` and
+`surrender` do not run it (g, i, k, s unchanged). Every scenario stays under its ceiling, and no ceiling changes. **s**
+(96.2 %, unchanged by this change) is the tightest. The spawns fall by 5,230 and do not run the check: a game's seed
+depends on `Challenge`'s address, which moves with its class hash (G4's note), so m and n draw another deck.
+
+**Goldens unchanged.** The 19 golden tests pass (`snforge test golden`: 19 passed, 0 failed, 1 ignored), and
+`git diff main -- contracts/src/tests/golden docs/measures/golden-games.md packages` is empty.
+
+**Tests.** `contracts/src/tests/e2e/position.cairo`, 5 tests: (0, 0), (0, CENTER), (CENTER, 0) and the other zero
+positions; `u32::MAX` on either axis; a refused build changes nothing; the nearest valid positions, (1, 1) and
+(`MAX - 1`, `MAX - 1`), pass the check and stop at `'Tile: no neighbors'`; a tile on x = 1 and one on x = `MAX - 2`
+take a neighbour at x = 2 and x = `MAX - 1`.
+
+**Storage and ABI.** No storage variable is added; `scripts/abis.sh` shows no diff in `contracts/abis/`.
+

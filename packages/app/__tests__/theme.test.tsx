@@ -100,12 +100,14 @@ describe("theme.css", () => {
     }
   });
 
-  it("keeps raw colours and palette steps out of the ui primitives (not their stories)", () => {
-    const dir = resolve(import.meta.dirname, "../src/components/ui");
-    for (const f of readdirSync(dir).filter((n) => n.endsWith(".tsx") && !n.endsWith(".stories.tsx"))) {
-      expect(readFileSync(resolve(dir, f), "utf8"), f).not.toMatch(
-        /#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|\b(?:bg|text|border|ring|fill|stroke)-(?:white|black|\[#)|\b(?:ink|gold|ember|meadow|river|amber)-\d/,
-      );
+  it("keeps raw colours and palette steps out of the ui primitives and the elements (not their stories)", () => {
+    for (const tier of ["ui", "elements"]) {
+      const dir = resolve(import.meta.dirname, "../src/components", tier);
+      for (const f of readdirSync(dir).filter((n) => n.endsWith(".tsx") && !n.endsWith(".stories.tsx"))) {
+        expect(readFileSync(resolve(dir, f), "utf8"), `${tier}/${f}`).not.toMatch(
+          /#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|\b(?:bg|text|border|ring|fill|stroke)-(?:white|black|\[#)|\b(?:ink|gold|ember|meadow|river|amber)-\d/,
+        );
+      }
     }
   });
 

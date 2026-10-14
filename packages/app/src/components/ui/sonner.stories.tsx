@@ -33,3 +33,16 @@ export const Shown: Story = {
     toast.success("Tile placed!", { description: "+ 8 points", duration: Infinity });
   },
 };
+
+const Fire = () => (
+  <>
+    <Toaster position="top-center" />
+    <Button onClick={() => toast.success("Tile placed!", { description: "+ 8 points" })}>Place a tile</Button>
+  </>
+);
+
+/** Reduced motion off: Sonner's toasts slide in and stack on its CSS transitions. */
+export const MotionOff: Story = { name: "Toast, reduced motion off", parameters: { reducedMotion: "never" }, render: () => <Fire /> };
+
+/** Reduced motion on: the Toaster takes `toaster-reduced-motion` and `theme.css` cuts the transitions. */
+export const MotionOn: Story = { name: "Toast, reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Fire /> };

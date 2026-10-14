@@ -48,6 +48,125 @@ refuse 2 "unsupported network ''"
 refuse 2 "unknown option '--rehearse' for 'devnet'" devnet --rehearse
 refuse 2 "unknown option '--unmerged' for 'sepolia'" sepolia --unmerged
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia
+# The toolchain (the owner's Cairo rule): scarb and snforge come from the PATH, with no prepend, and a guard refuses
+# before anything is built or sent when the shim exists and the tool resolves elsewhere. PAVED_SCARB_SHIM and
+# PAVED_SNFORGE_SHIM point the guard at the stubs here (test hooks, not a way round the rule).
+tc="$(mktemp -d)"
+# Fake toolchains, each answering with its name. shim/: the shims (PATH); other/: a scarb and snforge elsewhere on the
+# PATH; home/.asdf/installs/...: the asdf directories the scripts used to prepend (HOME and ASDF_DATA_DIR point there,
+# so a script that prepends them is caught on a runner that has no asdf); scarb-only/: a scarb that is the shim, with no
+# snforge beside it; cov/ and cov-bad/: a cairo-coverage directory, the second holding a scarb as well.
+tc_stub() { # <label> <dir> <name>...: each executable answers "<label>-<name>"
+  local label="$1" dir="$2" n; shift 2; mkdir -p "$dir"
+  for n in "$@"; do printf '#!/bin/sh\necho "%s-%s"\n' "$label" "$n" >"$dir/$n"; chmod +x "$dir/$n"; done
+}
+tc_stub shim "$tc/shim" scarb snforge
+tc_stub other "$tc/other" scarb snforge
+tc_stub shim "$tc/scarb-only" scarb
+tc_stub asdf "$tc/home/.asdf/installs/scarb/2.20.1/bin" scarb
+tc_stub asdf "$tc/home/.asdf/installs/starknet-foundry/0.64.0/bin" snforge sncast
+tc_stub cov "$tc/cov" cairo-coverage
+tc_stub cov "$tc/cov-bad" cairo-coverage scarb
+printf '#!/bin/sh\nexit 1\n' >"$tc/node"; chmod +x "$tc/node"
+tc_out() { # <command...>: stdout and stderr of the run, then its exit code on the last line
+  local out rc
+  out="$(env -u SCARB_BIN_DIR -u SNFORGE_BIN_DIR -u SNCAST_BIN_DIR -u CAIRO_COVERAGE_BIN_DIR -u STARKNET_ACCOUNT_ADDRESS \
+    -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL HOME="$tc/home" ASDF_DATA_DIR="$tc/home/.asdf" \
+    RPC_URL=http://127.0.0.1:1 DEVNET_BIN="$tc/node" "$@" 2>&1)"; rc=$?
+  printf '%s\nrc=%s' "$out" "$rc"
+}
+tc_expect() { # <label> <output> <exit> <must contain> [must not contain]
+  local rc="${2##*rc=}"
+  if [[ "$rc" != "$3" || "$2" != *"$4"* || ( -n "${5:-}" && "$2" == *"$5"* ) ]]; then
+    echo "FAIL: $1: expected exit $3, '$4'${5:+ and no '$5'}, got: $2"; fail=1
+  else
+    echo "ok: $1"
+  fi
+}
+# deploy.sh devnet against a port nobody listens on: past the guard it stops at "no node answers", before any build.
+d() { tc_out env "$@" "$here/deploy.sh" devnet; }
+m() { tc_out env "$@" "$here/measure.sh" check-setup; }  # versions, then a diff of two files: builds nothing
+r() { tc_out env "$@" "$here/node/run-sample.sh" devnet; }  # versions, then DEVNET_BIN (a stub that exits) ends the run
+G="the owner's rule is one Cairo run at a time through the shims (set"
+# default, with the asdf directories present: scarb and snforge are the shims of the PATH, nothing is prepended
+SH=(PATH="$tc/shim:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")
+tc_expect "deploy.sh, default: no resolution to a prepended asdf directory, sncast from the asdf default" \
+  "$(d "${SH[@]}")" 1 "no node answers" "resolves to"
+xt="$(tc_out env "${SH[@]}" RPC_URL=http://127.0.0.1:1 bash -x "$here/deploy.sh" devnet)"
+if grep -E '(^|[^A-Z_])PATH=.*installs/(scarb|starknet-foundry)' <<<"$xt" >/dev/null; then
+  echo "FAIL: deploy.sh puts an asdf toolchain directory on the PATH by default"; fail=1
+else
+  echo "ok: deploy.sh puts no asdf toolchain directory on the PATH by default"
+fi
+tc_expect "measure.sh, default: scarb and snforge are the shims of the PATH, not the asdf ones" \
+  "$(m "${SH[@]}")" 0 "shim-snforge" "asdf"
+tc_expect "run-sample.sh, default: scarb is the shim of the PATH, not the asdf one" \
+  "$(r "${SH[@]}")" 1 "shim-scarb" "asdf-scarb"
+# the shim exists, the tool resolves elsewhere: refused before the node is asked, before anything is built
+tc_expect "deploy.sh refuses when the shim exists and scarb resolves elsewhere" \
+  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb: $G SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" "no node answers"
+tc_expect "deploy.sh refuses an override that is not the shim" \
+  "$(d "${SH[@]}" SCARB_BIN_DIR="$tc/other")" 2 "scarb resolves to $tc/other/scarb"
+tc_expect "deploy.sh refuses the asdf directory as an override" \
+  "$(d "${SH[@]}" SCARB_BIN_DIR="$tc/home/.asdf/installs/scarb/2.20.1/bin")" 2 "scarb resolves to $tc/home/.asdf/installs/scarb/2.20.1/bin/scarb"
+tc_expect "measure.sh refuses when scarb resolves away from the shim" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb: $G SCARB_BIN_DIR=" "shim-snforge"
+tc_expect "measure.sh refuses when snforge resolves away from the shim" \
+  "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/scarb-only" PAVED_SCARB_SHIM="$tc/scarb-only/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "snforge resolves to $tc/other/snforge, not the shim $tc/shim/snforge: $G SNFORGE_BIN_DIR=" "setup.cairo"
+tc_expect "run-sample.sh refuses when the shim exists and scarb resolves elsewhere" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim" "== versions"
+# no shim (the Mac, CI): a warning naming the tool found, then it goes on
+tc_expect "deploy.sh warns and goes on when there is no shim" \
+  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb")" 1 "warning: no shim at $tc/none/scarb, using scarb $tc/other/scarb" "resolves to"
+tc_expect "measure.sh warns and goes on when there is no shim" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge")" 0 "warning: no shim at $tc/none/snforge, using snforge $tc/other/snforge" "resolves to"
+tc_expect "run-sample.sh warns and goes on when there is no shim" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb")" 1 "warning: no shim at $tc/none/scarb, using scarb $tc/other/scarb" "resolves to"
+# an explicit override that is the shim passes
+tc_expect "deploy.sh accepts SCARB_BIN_DIR when it is the shim" \
+  "$(d PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "no node answers" "resolves to"
+tc_expect "measure.sh accepts SCARB_BIN_DIR and SNFORGE_BIN_DIR when they are the shims" \
+  "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" SNFORGE_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 0 "shim-snforge" "resolves to"
+tc_expect "run-sample.sh accepts SCARB_BIN_DIR when it is the shim" \
+  "$(r PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "shim-scarb" "resolves to"
+# sncast found nowhere: a clear error at its first call, not a function that calls itself
+NOSN=(PATH="$tc/shim:/usr/bin:/bin" PAVED_SCARB_SHIM="$tc/shim/scarb" SNCAST_BIN_DIR="$tc/none")
+tc_expect "run-sample.sh stops at its first sncast call when sncast is found nowhere" \
+  "$(r "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "start devnet"
+# deploy.sh resolves sncast at its first call too (the node checks and refusals never call it): the wrapper block of
+# deploy.sh, run on its own: not found -> a clear error, status 2; found in SNCAST_BIN_DIR or on the PATH -> that sncast
+# runs, and the wrapper never calls itself.
+sn_block="$(sed -n '/^# sncast-wrapper begin/,/^# sncast-wrapper end/p' "$here/deploy.sh")"
+sn_run() { # <PATH> <SNCAST_BIN_DIR>
+  tc_out env -i PATH="$1" SNCAST_BIN_DIR="$2" SNCAST_BIN=sncast bash -c "$sn_block"$'\nsncast --version'
+}
+tc_stub sncast-dir "$tc/sn" sncast
+# sncast is called only through `sc` on the sepolia paths, and `sc` discards the stderr of what it runs: it must resolve
+# sncast bare first, so the cause is printed.
+sc_block="$(sed -n '/^sc() {/,/^}/p' "$here/deploy.sh")"
+tc_expect "deploy.sh's sc prints why sncast is not found" \
+  "$(tc_out env -i PATH=/usr/bin:/bin SNCAST_BIN_DIR="$tc/none" bash -c "$sn_block"$'\n'"$sc_block"$'\nsc sncast --version')" 2 "deploy.sh: sncast not found: neither $tc/none/sncast nor on the PATH"
+tc_stub sncast-path "$tc/snpath" sncast
+tc_expect "deploy.sh's sncast wrapper: not found anywhere is an error, not a loop" \
+  "$(sn_run /usr/bin:/bin "$tc/none")" 2 "deploy.sh: sncast not found: neither $tc/none/sncast nor on the PATH"
+tc_expect "deploy.sh's sncast wrapper: runs SNCAST_BIN_DIR's sncast first" \
+  "$(sn_run "$tc/snpath:/usr/bin:/bin" "$tc/sn")" 0 "sncast-dir-sncast"
+tc_expect "deploy.sh's sncast wrapper: falls back to the PATH's sncast" \
+  "$(sn_run "$tc/snpath:/usr/bin:/bin" "$tc/none")" 0 "sncast-path-sncast"
+# measure.sh: the cairo-coverage directory goes first (the asdf shim of it wants a version set) and cannot shadow the
+# shims; if it ever holds a scarb, the guard refuses
+xt="$(tc_out env "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov" bash -x "$here/measure.sh" check-setup)"
+if grep -F "PATH=$tc/cov:" <<<"$xt" >/dev/null; then
+  echo "ok: measure.sh puts the cairo-coverage directory first on the PATH"
+else
+  echo "FAIL: measure.sh does not put the cairo-coverage directory first on the PATH"; fail=1
+fi
+tc_expect "measure.sh passes with a cairo-coverage directory first" \
+  "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov")" 0 "shim-snforge" "resolves to"
+tc_expect "measure.sh refuses a cairo-coverage directory that holds a scarb" \
+  "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov-bad")" 2 "scarb resolves to $tc/cov-bad/scarb" "setup.cairo"
+rm -rf "$tc"
+
 # --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.
 repoint_file="$(mktemp)"
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --repoint
@@ -508,7 +627,7 @@ print(n if isinstance(n,str) else "")' "$rp_json" "$1"; }
 rp_run() { # <deploy.sh options after sepolia...>
   : >"$rp/bin/signer.log"; : >"$rp/bin/sent.log"
   env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$rp/bin:$PATH" SHIM_LOG="$rp/curl.log" \
-    SCARB_BIN_DIR="$rp/bin" SNCAST_BIN_DIR="$rp/bin" "$ADDR" "$KEY" "$URL" "$rp/root/scripts/deploy.sh" sepolia "$@" 2>&1
+    PAVED_SCARB_SHIM="$rp/bin/scarb" SCARB_BIN_DIR="$rp/bin" SNCAST_BIN_DIR="$rp/bin" "$ADDR" "$KEY" "$URL" "$rp/root/scripts/deploy.sh" sepolia "$@" 2>&1
 }
 rp_fail() { # <label> <output>
   echo "FAIL: sepolia --repoint, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"
@@ -1099,7 +1218,7 @@ SH
   log="$shims/estimate.log"
   : >"$log"
   out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
-    FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
+    FAKE_NODE=estimate PAVED_SCARB_SHIM="$est/bin/scarb" SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
     "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia --estimate-only 2>&1)"
   rc=$?
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
@@ -1135,7 +1254,7 @@ SH
     rm -f "$root/contracts/deployments/sepolia.json"
     : >"$est/node.log"
     env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
-      FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
+      FAKE_NODE=estimate PAVED_SCARB_SHIM="$est/bin/scarb" SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
       "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia 2>&1
   }
   hexname() { printf '0x%s\n' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"; }
@@ -1232,7 +1351,7 @@ SH
     printf '%s' "$1" >"$est/strk"; shift
     : >"$est/node.log"
     env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
-      FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
+      FAKE_NODE=estimate PAVED_SCARB_SHIM="$est/bin/scarb" SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
       "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia "$@" 2>&1
   }
   live="$root/contracts/deployments/sepolia.json"

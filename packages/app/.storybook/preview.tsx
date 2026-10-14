@@ -3,21 +3,15 @@ import { QueryClient, QueryClientProvider, type QueryKey } from "@tanstack/react
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { useState } from "react";
 import { MemoryRouter } from "react-router";
-import interUrl from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
-import rubikUrl from "@fontsource/rubik-mono-one/files/rubik-mono-one-latin-400-normal.woff2?url";
 import "../src/styles/fonts.css";
+import { preloadFonts } from "../src/styles/fonts";
 import "../src/styles/theme.css";
 import { board } from "../src/styles/tokens";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
 
-// The font preloads (section 2.3), the same hashed URLs fonts.css loads from.
-for (const href of [interUrl, rubikUrl]) {
-  const link = document.createElement("link");
-  Object.assign(link, { rel: "preload", as: "font", type: "font/woff2", crossOrigin: "anonymous", href });
-  document.head.append(link);
-}
+preloadFonts();
 
 /** Query data a story seeds: `parameters.queryFixtures = [[queryKey, data], ...]`. */
 type QueryFixtures = ReadonlyArray<readonly [QueryKey, unknown]>;
@@ -27,11 +21,13 @@ declare module "storybook/internal/csf" {
     queryFixtures?: QueryFixtures;
     /** The route a story starts at (a MemoryRouter entry). */
     route?: string;
+    /** `MotionConfig reducedMotion` for the story: "never" (off), "always" (on), or the OS setting ("user", the default). */
+    reducedMotion?: "user" | "never" | "always";
   }
 }
 
 /** A fresh client per story, seeded and never refetching: a story shows its fixtures, not a network. */
-function Providers({ fixtures, route, children }: { fixtures: QueryFixtures; route: string; children: React.ReactNode }) {
+function Providers({ fixtures, route, reducedMotion, children }: { fixtures: QueryFixtures; route: string; reducedMotion: "user" | "never" | "always"; children: React.ReactNode }) {
   const [client] = useState(() => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnWindowFocus: false } } });
     for (const [key, data] of fixtures) qc.setQueryData(key, data);
@@ -42,7 +38,7 @@ function Providers({ fixtures, route, children }: { fixtures: QueryFixtures; rou
       <MemoryRouter initialEntries={[route]}>
         {/* Sync `domMax` (layout animation included): stories use `m` and `motion` alike. */}
         <LazyMotion features={domMax}>
-          <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>
         </LazyMotion>
       </MemoryRouter>
     </QueryClientProvider>
@@ -50,7 +46,7 @@ function Providers({ fixtures, route, children }: { fixtures: QueryFixtures; rou
 }
 
 const withProviders: Decorator = (Story, { parameters }) => (
-  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"}>
+  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"}>
     <Story />
   </Providers>
 );
