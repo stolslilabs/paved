@@ -93,11 +93,16 @@ check_groups() {
       [[ "$name" == *"$filter"* ]] && { hit=1; break; }
     done
     [[ "$hit" == 1 ]] || { echo "check-groups: integration test $name (tests/) is in no COVERAGE_GROUPS group"; missing=1; }
-  done < <(awk '/#\[test\]/ { t = 1; next } t && /^[[:space:]]*(pub )?fn / { sub(/^[[:space:]]*(pub )?fn /, ""); sub(/\(.*/, ""); print; t = 0 }' tests/*.cairo | LC_ALL=C sort)
+  done < <(find tests -name '*.cairo' -print0 | xargs -0 awk '/#\[test\]/ { t = 1; next } t && /^[[:space:]]*(pub )?fn / { sub(/^[[:space:]]*(pub )?fn /, ""); sub(/\(.*/, ""); print; t = 0 }' | LC_ALL=C sort)
+  # `test_gas_` is a name filter: a src test named like it would run in two groups (warned, not failed)
+  grep -rnE 'fn test_gas_' src | sed 's/^/check-groups: warning: a src test is also matched by the test_gas_ group: /' || true
   [[ "$missing" == 0 ]] || return 1
   echo "check-groups: every test module is in a COVERAGE_GROUPS group (${#COVERAGE_GROUPS[@]} groups)"
 }
 
+# Limits of check-groups: it matches by module path and test name only. A module whose tests are all #[ignore] is still
+# required to be in a group (coverage_split skips a group that runs nothing); a test matched by two groups is not detected,
+# except the test_gas_ name filter (warned).
 # check-groups reads the source tree only: it runs before the shim guard, which needs a toolchain.
 if [ "${1:-}" = check-groups ]; then check_groups; exit $?; fi
 
@@ -116,7 +121,10 @@ shim_guard() { # <tool> <shim path> <override variable name>
   local found note
   found="$(command -v "$1" || true)"
   note="no shim at $2"
-  if [ -x "$2" ] && [ "$(head -c 2 "$2" 2>/dev/null | tr -d '\0')" != '#!' ]; then
+  if [ -x "$2" ] && [ ! -r "$2" ]; then
+    echo "measure.sh: the shim $2 is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
+    exit 2
+  elif [ -x "$2" ] && [ "$(head -c 2 "$2" 2>/dev/null | tr -d '\0')" != '#!' ]; then
     note="no shim at $2 (a native binary, not a script)"
   elif [ -x "$2" ]; then
     if [ "$found" != "$2" ]; then
@@ -246,6 +254,11 @@ coverage_split() {
       echo "group $name: snforge exited with status $status (log: $log)"; exit 1
     fi
     grep -qE '^Tests:.* 0 failed' "$log" || { echo "group $name: its Tests: line does not say 0 failed (log: $log)"; exit 1; }
+    # A group whose tests are all #[ignore] (tests-walk-cost) runs nothing and writes no lcov: skipped, not failed.
+    # `rm -rf coverage` above leaves no lcov of a previous group to be copied by mistake.
+    if grep -qE '^Tests:.* 0 passed' "$log" && grep -qE '^Tests:.* [1-9][0-9]* ignored' "$log"; then
+      echo "group $name: no runnable test (all ignored), skipped"; continue
+    fi
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")

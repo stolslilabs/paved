@@ -453,6 +453,10 @@ SCARB_FOUND="$(command -v scarb || true)"
 # A shim is an executable script (a `#!` first line): the real ones forward to ~/.asdf/shims. A native binary at that path
 # (the Mac holds a stray scarb there) is no shim: it warns, it does not refuse.
 SHIM_NOTE="no shim at $PAVED_SCARB_SHIM"
+if [[ -x "$PAVED_SCARB_SHIM" && ! -r "$PAVED_SCARB_SHIM" ]]; then
+  echo "deploy.sh: the shim $PAVED_SCARB_SHIM is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
+  exit 2
+fi
 if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | tr -d '\0')" != '#!' ]]; then
   SHIM_NOTE="no shim at $PAVED_SCARB_SHIM (a native binary, not a script)"
   PAVED_SCARB_SHIM_USED=0

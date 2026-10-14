@@ -187,6 +187,37 @@ tc_expect "deploy.sh refuses a script shim when scarb resolves elsewhere" \
   "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/fwd/scarb: $G SCARB_BIN_DIR=" "no node answers"
 tc_expect "run-sample.sh refuses a script shim when scarb resolves elsewhere" \
   "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/fwd/scarb" "== versions"
+# An executable but unreadable shim path cannot be told from a stray binary: refused (skipped as root, who reads anything)
+printf '#!/bin/sh\n' >"$tc/fwd/unreadable"; chmod 111 "$tc/fwd/unreadable"
+if [[ -r "$tc/fwd/unreadable" ]]; then
+  echo "skip: unreadable shim cases (this user reads a mode-111 file)"
+else
+  tc_expect "measure.sh refuses an executable but unreadable shim" \
+    "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable" PAVED_SNFORGE_SHIM="$tc/none/snforge")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "setup.cairo"
+  tc_expect "deploy.sh refuses an executable but unreadable shim" \
+    "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "no node answers"
+  tc_expect "run-sample.sh refuses an executable but unreadable shim" \
+    "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "== versions"
+fi
+# coverage-split with a stubbed snforge, in a scratch root (measure.sh works in <root>/contracts): a group whose tests are
+# all ignored (tests-walk-cost) is skipped, not failed, and the lcov of the group before it is not taken for its own
+mkdir -p "$tc/sp/scripts" "$tc/sp/contracts" "$tc/spbin"
+cp "$here/measure.sh" "$tc/sp/scripts/measure.sh"
+tc_stub other "$tc/spbin" scarb
+cat >"$tc/spbin/snforge" <<'SH'
+#!/bin/bash
+[[ "$1" == --version ]] && { echo snforge-stub; exit 0; }
+case "$*" in
+  *walk_cost*) echo "Tests: 0 passed, 0 failed, 0 skipped, 1 ignored, 0 filtered out" ;;
+  *) mkdir -p coverage; printf 'SF:/x/src/a.cairo\nDA:1,1\nend_of_record\n' >coverage/coverage.lcov
+     echo "Tests: 1 passed, 0 failed, 0 skipped, 0 ignored, 0 filtered out" ;;
+esac
+SH
+chmod +x "$tc/spbin/snforge"
+tc_expect "coverage-split skips a group with no runnable test and merges the others" \
+  "$(tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 0 "group tests-walk-cost: no runnable test (all ignored), skipped" "no coverage.lcov for group"
+tc_expect "coverage-split still fails a group that passes nothing and ignores nothing" \
+  "$(sed -i 's/1 ignored/0 ignored/' "$tc/spbin/snforge"; tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 1 "no coverage.lcov for group tests-walk-cost"
 # check-groups: no toolchain, no shim, no build; fails when a test module is in no COVERAGE_GROUPS group
 tc_expect "measure.sh check-groups: every test module is in a group (no toolchain on the PATH)" \
   "$(tc_out env PATH=/usr/bin:/bin "$here/measure.sh" check-groups)" 0 "every test module is in a COVERAGE_GROUPS group" "is in no"
