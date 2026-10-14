@@ -12,5 +12,6 @@ pub mod setup_system;
 pub mod store;
 pub mod upgrade_d18;
 pub mod upgrade_d19;
+pub mod upgrade_g1;
 pub mod upgrades;
 pub mod views;

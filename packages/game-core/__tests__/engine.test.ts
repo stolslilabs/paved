@@ -67,7 +67,7 @@ describe("engine draw", () => {
   });
 
   it("withdraws the Simple deck's extra cards as deck.cairo's test_tiles", () => {
-    expect(withdrawExtra(0n, 0n, 72, 38)).toBe(0x51cc75898dfe86a218n);
+    expect(withdrawExtra(0n, 0n, 72, 38)).toBe(0xc88526b74cd8588fe4n);
   });
 
   it("equals origami's deck on every state of whole games (the P-17 shortcut)", () => {
@@ -92,15 +92,15 @@ describe("engine draw", () => {
 
   it("draws the goldens' first tiles from their seeds", () => {
     // daily_deck (day 3) and daily_full_deck (day 10): real draws, golden/daily.cairo and full_deck.cairo
-    expect(EngineGame.start({ deck: "simple", seed: goldenSeed(3) }).hand?.plan).toBe(PlanType.CCCCCFFFC);
-    expect(EngineGame.start({ deck: "simple", seed: goldenSeed(10) }).hand?.plan).toBe(PlanType.WFFFFFFFF);
+    expect(EngineGame.start({ deck: "simple", seed: goldenSeed(3) }).hand?.plan).toBe(PlanType.CCCCCCCCC);
+    expect(EngineGame.start({ deck: "simple", seed: goldenSeed(10) }).hand?.plan).toBe(PlanType.RFRFCCCFR);
   });
 
   it("is deterministic and leaves a cloned game alone", () => {
     const one = EngineGame.start({ deck: "simple", seed: goldenSeed(3) });
     const copy = one.clone();
     one.discard();
-    expect(copy.hand?.plan).toBe(PlanType.CCCCCFFFC);
+    expect(copy.hand?.plan).toBe(PlanType.CCCCCCCCC);
     copy.discard();
     expect(copy.hand).toEqual(one.hand);
     expect(copy.seed).toBe(one.seed);

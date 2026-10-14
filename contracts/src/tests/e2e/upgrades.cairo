@@ -78,7 +78,7 @@ fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, fel
 // Upgrade
 
 #[test]
-#[available_gas(l2_gas: 75279000)]
+#[available_gas(l2_gas: 63343344)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_for_non_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -99,7 +99,7 @@ fn test_upgrade_reverts_for_non_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 67316000)]
+#[available_gas(l2_gas: 56960321)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_on_zero_class_hash() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -116,7 +116,7 @@ fn test_upgrade_reverts_on_zero_class_hash() {
 /// The owner replaces the class: OpenZeppelin's `Upgraded` is emitted, and the value stored before
 /// is read back through the new class.
 #[test]
-#[available_gas(l2_gas: 69696000)]
+#[available_gas(l2_gas: 58882419)]
 fn test_upgrade_by_owner_emits_and_keeps_the_state() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let probe = class_of("UpgradeProbe");
@@ -138,7 +138,7 @@ fn test_upgrade_by_owner_emits_and_keeps_the_state() {
 
 /// After a two-step transfer, the new owner upgrades and the old one no longer can.
 #[test]
-#[available_gas(l2_gas: 77421000)]
+#[available_gas(l2_gas: 65069334)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_follows_the_ownership_transfer() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -166,7 +166,7 @@ fn test_upgrade_follows_the_ownership_transfer() {
 
 /// `PavedToken` and `Vault` have no `upgrade` entry point: a call to its selector finds none.
 #[test]
-#[available_gas(l2_gas: 64993000)]
+#[available_gas(l2_gas: 55452794)]
 #[feature("safe_dispatcher")]
 fn test_paved_token_and_vault_have_no_upgrade() {
     let (_, systems, _) = setup::spawn_game(Mode::None);

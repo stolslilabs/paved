@@ -58,7 +58,7 @@ fn test_economy_entry_price_is_the_stake_unit() {
 }
 
 #[test]
-#[available_gas(l2_gas: 177989000)]
+#[available_gas(l2_gas: 109556258)]
 fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     assert_paid_spawn(store, @systems, @context, 1);
@@ -68,7 +68,7 @@ fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
 /// A USDC donation already on `Economy` does not pay for the game: the full price still comes
 /// from the player, and the donation leaves with the purchase (to the Vault, as margin).
 #[test]
-#[available_gas(l2_gas: 121439000)]
+#[available_gas(l2_gas: 84110385)]
 fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     IFaucetDispatcher { contract_address: context.token.contract_address }
@@ -79,7 +79,7 @@ fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
 /// A spawn that cannot be paid, or at a stake out of 1 to 10, reverts as a whole: no game, no
 /// terms, no debit.
 #[test]
-#[available_gas(l2_gas: 193192246)]
+#[available_gas(l2_gas: 90259582)]
 #[feature("safe_dispatcher")]
 fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -108,7 +108,7 @@ fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
 /// it then gets 5 % of the price, whether it ever played or not; the payer itself gets nothing,
 /// and a zero referrer is no referral.
 #[test]
-#[available_gas(l2_gas: 300000000)]
+#[available_gas(l2_gas: 155101283)]
 fn test_economy_referrer_is_any_address_but_the_payer() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
@@ -134,7 +134,7 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
 /// price, and the Vault gets the whole margin (30 % of 2 USDC). Paid to `Economy`, the 5 % would be
 /// swept back into the margin and counted twice by `Purchased`; paid to `Daily`, it would be stuck.
 #[test]
-#[available_gas(l2_gas: 300000000)]
+#[available_gas(l2_gas: 106657639)]
 fn test_economy_protocol_address_referrer_is_no_referral() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
@@ -160,7 +160,7 @@ fn assert_recorded(store: setup::TestStore, systems: @setup::Systems, game_id: u
 }
 
 #[test]
-#[available_gas(l2_gas: 135748000)]
+#[available_gas(l2_gas: 96315796)]
 fn test_economy_records_a_game_over_on_build() {
     let (store, systems, context) = almost_over_daily();
     let game = store.game(context.game_id);
@@ -173,7 +173,7 @@ fn test_economy_records_a_game_over_on_build() {
 }
 
 #[test]
-#[available_gas(l2_gas: 128562000)]
+#[available_gas(l2_gas: 88903100)]
 fn test_economy_records_a_game_over_on_discard() {
     let (store, systems, context) = almost_over_daily();
     systems.challenge.discard(context.game_id);
@@ -181,7 +181,7 @@ fn test_economy_records_a_game_over_on_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 122288000)]
+#[available_gas(l2_gas: 85081589)]
 fn test_economy_records_a_game_over_on_surrender() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     systems.challenge.surrender(context.game_id);
@@ -220,7 +220,7 @@ fn test_economy_spawn_reverts_before_set_economy() {
 /// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
 /// mean, its day closes empty, and its settlement pays 0.
 #[test]
-#[available_gas(l2_gas: 127228000)]
+#[available_gas(l2_gas: 88803828)]
 fn test_economy_records_an_expired_game_over() {
     snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
     let (store, systems, _) = setup::spawn_game(Mode::None);

@@ -352,7 +352,7 @@ pub fn daily_paid_in(
 /// `spawn` pays by `transferFrom` from `Daily` to `Economy`, after the game is stored, then
 /// `Economy.purchase` runs on the stored game, with the values `Lobby` passed before D-24.
 #[test]
-#[available_gas(l2_gas: 70668000)]
+#[available_gas(l2_gas: 31295192)]
 fn test_cold_paths_spawn_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let spied = spied_daily();
@@ -388,7 +388,7 @@ fn test_cold_paths_spawn_writes_state_before_the_transfer() {
 /// Any non-zero address other than the payer is passed on to `Economy.purchase`, registered or
 /// not: here ANYONE, and an address no test ever funded or used.
 #[test]
-#[available_gas(l2_gas: 120000000)]
+#[available_gas(l2_gas: 47094387)]
 fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
     let spied = spied_daily();
     spied.challenge.spawn(1, ANYONE(), 0);
@@ -400,7 +400,7 @@ fn test_cold_paths_spawn_passes_a_referrer_other_than_the_payer() {
 
 /// The payer as its own referrer is ignored: the purchase goes on with no referrer.
 #[test]
-#[available_gas(l2_gas: 70668000)]
+#[available_gas(l2_gas: 29786310)]
 fn test_cold_paths_spawn_ignores_the_payer_as_referrer() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, PLAYER(), 0);
@@ -412,7 +412,7 @@ fn test_cold_paths_spawn_ignores_the_payer_as_referrer() {
 /// A zero referrer is no referral (`test_cold_paths_spawn_writes_state_before_the_transfer`
 /// passes zero too): the purchase gets zero.
 #[test]
-#[available_gas(l2_gas: 70668000)]
+#[available_gas(l2_gas: 29784126)]
 fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -425,7 +425,7 @@ fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
 /// like the payer (economy audit N2 of #350): paid to `Economy`, the 5 % would be swept back into
 /// the margin and counted twice by `Purchased`; paid to `Daily`, it would be stranded.
 #[test]
-#[available_gas(l2_gas: 120000000)]
+#[available_gas(l2_gas: 46660412)]
 fn test_cold_paths_spawn_ignores_a_protocol_address_as_referrer() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, spied.economy.contract_address, 0);
@@ -483,7 +483,7 @@ fn assert_reported_once(spied: @Spied, game_id: u32) {
 }
 
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 47010751)]
 fn test_cold_paths_game_over_by_build_reports_once() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -494,7 +494,7 @@ fn test_cold_paths_game_over_by_build_reports_once() {
 }
 
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 39596480)]
 fn test_cold_paths_game_over_by_discard_reports_once() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -504,7 +504,7 @@ fn test_cold_paths_game_over_by_discard_reports_once() {
 }
 
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 39354712)]
 fn test_cold_paths_game_over_by_surrender_reports_once() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -515,7 +515,7 @@ fn test_cold_paths_game_over_by_surrender_reports_once() {
 
 /// A build and a discard that do not end the game make no call to `Setup` and record nothing.
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 41847255)]
 fn test_cold_paths_moves_that_do_not_end_the_game_report_nothing() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -535,7 +535,7 @@ fn test_cold_paths_moves_that_do_not_end_the_game_report_nothing() {
 /// (`'Builder: does not exist'`) before any report or record. The player then ends it.
 #[test]
 #[feature("safe_dispatcher")]
-#[available_gas(l2_gas: 160000000)]
+#[available_gas(l2_gas: 55191176)]
 fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
     let spied = spied_daily();
     let game_id = spied.challenge.spawn(1, Zero::zero(), 0);
@@ -569,7 +569,7 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
 /// game in flight still ends and is recorded when its `Setup`'s collection reads zero (reachable
 /// only through a re-point, `set_setup`); a spawn needs both and reverts.
 #[test]
-#[available_gas(l2_gas: 200000000)]
+#[available_gas(l2_gas: 46502724)]
 #[feature("safe_dispatcher")]
 fn test_cold_paths_game_over_needs_only_the_economy() {
     let spied = spied_daily();
@@ -593,7 +593,7 @@ fn test_cold_paths_game_over_needs_only_the_economy() {
 /// discard and by surrender reverts too, and the game stays live, unrecorded and unreported, until
 /// the owner sets the `Setup`; then the same move ends it.
 #[test]
-#[available_gas(l2_gas: 300000000)]
+#[available_gas(l2_gas: 110115711)]
 #[feature("safe_dispatcher")]
 fn test_cold_paths_without_a_setup_spawn_and_game_over_revert() {
     let spied = spied_daily();

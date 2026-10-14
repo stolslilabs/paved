@@ -70,27 +70,60 @@ export function drawFromBitmap(
   return { card: slotCard(cards, number, key, withdrawn + 1), remaining: remaining - 1 };
 }
 
+/** The domain of the deck's hashes (`DECK_DOMAIN`, 'DECK'), apart from the reseeds of the draws. */
+const DECK_DOMAIN = 0x4445434bn;
+
+/** The draws one 128-bit lane gives (`LANE_DRAWS`). */
+const LANE_DRAWS = 10;
+
 /**
  * The deck bitmap once `Deck::tiles` withdrew, at random from `seed`, the cards a deck of `count`
- * cards out of `total` leaves out: index by index, a free index is withdrawn when
- * `Poseidon(seed, index).low % 10000 <= to_remove * 10000 / (total - index)`.
+ * cards out of `total` leaves out (G1: selection sampling, Knuth TAOCP 2, 3.4.2, algorithm S).
+ *
+ * Over the free indexes, in order, a free index is withdrawn when a draw uniform on `[0, free)`
+ * falls below `need`, where `free` counts the free indexes from this one on and `need` the cards
+ * still to withdraw. The draws are the digits of a lane in the mixed radix of the successive
+ * `free`: a lane is one half of `Poseidon(seed, 'DECK' + batch)` (`low`, then `high`) and gives
+ * 10 draws, so one hash serves 20 free indexes. Once `need == free`, every free index left goes,
+ * with no draw.
  */
 export function withdrawExtra(tiles: bigint, seed: bigint, total: number, count: number): bigint {
-  const MULTIPLIER = 10_000n;
-  let toRemove = BigInt(total - count);
-  let index = 0;
-  while (toRemove > 0n) {
-    if ((tiles & bit(index)) !== 0n) {
-      index += 1;
-      continue;
+  const full = bit(total) - 1n;
+  let free = BigInt(total - popcount(tiles & full));
+  let need = BigInt(total - count);
+  if (need > free) throw new Error("Deck: too small");
+  let batch = 0n;
+  let spare: bigint | undefined;
+  const nextLane = (): bigint => {
+    if (spare !== undefined) {
+      const lane = spare;
+      spare = undefined;
+      return lane;
     }
-    const random = (poseidon(seed, index) % TWO_POW_128) % MULTIPLIER;
-    const probability = (toRemove * MULTIPLIER) / BigInt(total - index);
-    if (random <= probability) {
-      toRemove -= 1n;
+    const hash = poseidon(seed, DECK_DOMAIN + batch);
+    batch += 1n;
+    spare = hash / TWO_POW_128;
+    return hash % TWO_POW_128;
+  };
+  let lane = nextLane();
+  let left = LANE_DRAWS;
+  for (let index = 0; index < total; index++) {
+    if (need === 0n) break;
+    // Every free index left goes: the indexes from here on
+    if (need === free) return tiles | (full - (bit(index) - 1n));
+    if ((tiles & bit(index)) !== 0n) continue;
+    if (left === 0) {
+      lane = nextLane();
+      left = LANE_DRAWS;
+    }
+    const draw = lane % free;
+    lane /= free;
+    left -= 1;
+    if (draw < need) {
       tiles |= bit(index);
+      need -= 1n;
     }
-    index += 1;
+    free -= 1n;
   }
   return tiles;
 }

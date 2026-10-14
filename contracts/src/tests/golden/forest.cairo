@@ -28,10 +28,10 @@ use paved::types::plan::Plan;
 /// once), 1 x 300 x 10972 / 10000 = 329. 438 + 329 = 767. (P4: the Woodsman alone, 329.)
 fn woodsman_ring_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::FFCFFFCFF, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
-        forced(Plan::SFRFRFFFR, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
-        forced(Plan::CFFFCFFFC, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
-        forced(Plan::SFRFRFRFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 767),
+        forced(Plan::RFRFCCCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
+        forced(Plan::WFFFFFFFF, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::RFRFFFFFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 767),
     ]
 }
 
@@ -42,11 +42,11 @@ fn woodsman_ring_moves() -> Array<GoldenMove> {
 /// 2 x 300 x 10475 / 10000 = 628 (628.5 rounded down). (P4: the Herdsman alone, 628.)
 fn herdsman_caps_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::RFRFRFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
         forced(Plan::FFCFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2, 643),
         forced(Plan::FFFFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2, 643),
-        forced(Plan::RFRFFFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 643),
-        forced(Plan::RFRFCCCFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1914),
+        forced(Plan::FFFFCCCFF, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 643),
+        forced(Plan::FFFFCCCFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1914),
     ]
 }
 
@@ -57,15 +57,15 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
 /// Herdsman and the Woodsman alone, 643.)
 fn both_roles_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::SFRFRFCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::RFRFFFCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
         forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
-        forced(Plan::RFRFRFCFF, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
-        forced(Plan::RFRFCCCFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
-        forced(Plan::RFRFFFFFR, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2, 0),
-        forced(Plan::CCCCCFFFC, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
-        forced(Plan::RFFFRFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
-        forced(Plan::WFFFFFFFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1693),
-        forced(Plan::RFFFRFFFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 2460),
+        forced(Plan::RFRFFFCFR, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::WFFFFFFFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::RFFFRFCFR, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2, 0),
+        forced(Plan::RFRFFFFFR, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::SFRFRFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
+        forced(Plan::SFRFRFCFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1693),
+        forced(Plan::FFCFFFFFC, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 2460),
     ]
 }
 
@@ -87,15 +87,15 @@ fn both_roles_moves() -> Array<GoldenMove> {
 fn herdsman_open_city_moves() -> Array<GoldenMove> {
     array![
         forced(Plan::FFFFFFCFF, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
-        forced(Plan::RFRFRFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 0),
-        forced(Plan::RFRFRFCFF, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::RFRFFFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 0),
+        forced(Plan::RFFFRFFFR, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
         forced(Plan::RFRFFFFFR, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2, 0),
         forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 181814000)]
+#[available_gas(l2_gas: 131687064)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -110,7 +110,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 194393000)]
+#[available_gas(l2_gas: 140040998)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -125,7 +125,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 244454000)]
+#[available_gas(l2_gas: 192269683)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -142,7 +142,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 193853000)]
+#[available_gas(l2_gas: 143085179)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -160,7 +160,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 440028000)]
+#[available_gas(l2_gas: 394024317)]
 fn test_golden_daily_forest_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_ring',
@@ -174,7 +174,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 433100000)]
+#[available_gas(l2_gas: 381998697)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',
@@ -188,7 +188,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 758797000)]
+#[available_gas(l2_gas: 714656316)]
 fn test_golden_daily_forest_both_roles_structures_agree() {
     play_daily_checked(
         'forest_both',
@@ -202,7 +202,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 458009000)]
+#[available_gas(l2_gas: 400499018)]
 fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
     play_daily_checked(
         'forest_open',
@@ -221,7 +221,7 @@ fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
 /// game. (Board A of the audit, the ring with a Lord on the road, is the ring itself since
 /// D-18: it left with its Lord.)
 #[test]
-#[available_gas(l2_gas: 445519000)]
+#[available_gas(l2_gas: 398360228)]
 fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
     play_daily_checked(
         'forest_last',

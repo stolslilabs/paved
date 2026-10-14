@@ -32,7 +32,10 @@ game.score; game.over; game.tileCount; game.built; game.discarded; game.counts;
 - `clone()` copies a game (undo, look-ahead). `force(plan)` and `write(tile)` replace the plan in hand and
   write a placed tile without a move, as the Cairo tests do with `Store::set_tile`: for tests and scripted
   boards only.
-- `drawFromBitmap(seed, number, bitmap)` and `withdrawExtra(...)` export the draw alone.
+- `drawFromBitmap(seed, number, bitmap)` and `withdrawExtra(...)` export the draw alone. `withdrawExtra` is G1's
+  walk (CORE #363): selection sampling over the free indexes, its draws the mixed-radix digits of the 128-bit lanes
+  of `Poseidon(seed, 'DECK' + batch)` (10 per lane), a stop once `need == free`. It replaced the per-index
+  `% 10000` test, which hashed once per index; every deck changed, and the parity fixture with it.
 
 Types: plans, orientations and categories are game-core's `PlanType`, `OrientationType` and `CategoryType`
 (their codes are the contracts'). `Scored.player` is a `bigint` (a felt). Internally the engine works on the

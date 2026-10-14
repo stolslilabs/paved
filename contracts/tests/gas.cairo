@@ -47,9 +47,14 @@ use crate::setup::setup::{
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 pub const CEILING_OPEN: u128 = 5709834;
 pub const CEILING_SIMPLE: u128 = 5315180;
-pub const CEILING_CLOSE_LARGE: u128 = 5393424;
+// c, e: G1 raised them to measured + 5 % (CORE's decision, reversed if the PM rules it a
+// regression):
+// the build is unchanged, the draw that follows it reads the deck G1 built on the same seed, and
+// costs more there (c +1,404,092, e +374,654, each the draw alone; `docs/measures/baseline.md`,
+// "After G1").
+pub const CEILING_CLOSE_LARGE: u128 = 6936177;
 pub const CEILING_WORST_CASE: u128 = 5662074;
-pub const CEILING_FOREST: u128 = 8962300;
+pub const CEILING_FOREST: u128 = 9549771;
 pub const CEILING_FOREST_WORST: u128 = 18923195;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
@@ -68,9 +73,9 @@ pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
-// `Economy.purchase` (swap, burn, Vault).
-pub const CEILING_SPAWN_DAILY: u128 = 52743229;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
+// `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
+pub const CEILING_SPAWN_DAILY: u128 = 18896971;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19659744;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).

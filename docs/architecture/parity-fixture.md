@@ -83,6 +83,20 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   id) from `play_daily`'s `day(n)`) stays valid. Only its `seedSource` text, which names `Mode::seed` (removed by
   D-23), is stale: CLIENT's to reword. The differential boards force every plan, so their seed is not read. A
   Challenge game played on chain now has the seed Poseidon(0, the Challenge contract's address, game id); a client replaying one takes `GameView.seed`.
+- **As built (G1, 2026-10-14): the deck changes, the fixture is regenerated.** G1 builds the deck of a seed
+  differently (`DeckTrait::tiles`, `contracts/src/types/deck.cairo`; `golden-games.md`, "Regenerated in G1"), so every
+  `drawn` plan of every golden changes, and `daily_full_deck` changes as a whole (new moves, final 5,316 instead of
+  5,121). The forced games keep their boards and scores; `daily_deck` keeps its 0. The differential boards force every
+  plan and do not change. CORE's file (`contracts/fixtures/parity.json`) is still planned, not built: the fixture CLIENT
+  replays is its own transcription of the Cairo goldens (`packages/game-core/scripts/transcribe-goldens.ts` ->
+  `packages/game-core/__tests__/fixtures/parity.json`), which CORE does not write. G1's thread regenerated it with that
+  script from the G1 Cairo files and replayed it on CLIENT's engine with a port of the new walk: every drawn plan,
+  score and counter agrees (`golden-games.md`). **For CLIENT:** port the walk into `withdrawExtra`
+  (`packages/game-core/src/engine/draw.ts`): selection sampling over the free indexes in order, a free index removed
+  when a draw uniform on `[0, free)` falls below `need`; the draws are the digits, in the mixed radix of the successive
+  `free`, of 128-bit lanes of Poseidon(seed, 0x4445434b + batch) (`'DECK' + batch`, batch from 0; the low lane, then
+  the high lane, 10 draws each); once `need == free` every free index left goes. Then run `bun run generate:parity`.
+  The frozen `tutorial_full` (from 38f1c95) is untouched.
 
 ## How a Cairo test keeps it current
 

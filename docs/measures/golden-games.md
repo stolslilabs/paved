@@ -6,7 +6,8 @@ toolchain bump, gas work), so they prove that the rules did not change.
 
 **D-18 changed the rules once** (characters leave the game, P-45): the expected values were derived again in
 D-18b, from the oracle's walks, and the sections below that give the figures of P0 to P5 are history. The current
-figures and how they were derived: "Regenerated in D-18b" at the end.
+figures and how they were derived: "Regenerated in D-18b" and, since **G1 changed the deck** (2026-10-14, the PM's
+ruling), "Regenerated in G1" at the end.
 
 Code: `contracts/src/tests/golden.cairo` and `contracts/src/tests/golden/` (`harness`, `daily`,
 `tutorial`). Moves are data (`GoldenMove`, `TutorialStep`) replayed by `play_daily` and
@@ -379,3 +380,65 @@ above stand to the unit (`daily_city5` 1,122, `daily_road6` 689, `daily_mixed` 8
 `snforge test paved::tests::golden::` passes (19 passed, 1 ignored: `test_full_deck_generate`, the opt-in generator, as before). The
 real-deck goldens pin the `else` branch of `Game::draw_plan`, which stays as it was (only the scripted branch went).
 
+
+## Regenerated in G1 (the spawn's deck walk, 2026-10-14)
+
+**A rule change, ruled by the PM on 2026-10-14** (the first of the owner's gas iterations; P0 requires the ruling). G1
+builds the deck of a game differently (`DeckTrait::tiles`, `contracts/src/types/deck.cairo`): the same law, each
+subset of 34 of the 71 free tiles equally likely, drawn from the seed by another method (selection sampling with the
+draws taken from slices of one Poseidon per 20 free indexes, instead of one Poseidon per index). So every seed gives
+another deck, every drawn plan of every golden changes, and a game whose moves follow the real deck changes as a whole.
+The scoring rules do not change.
+
+**What changed.**
+
+| Case | Before G1 | G1 | What moved |
+|---|---:|---:|---|
+| `daily_city5`, `daily_road6`, `daily_mixed`, `forest_ring`, `forest_caps`, `forest_both`, `forest_open`, `forest_last` | 1,122, 689, 857, 767, 1,914, 2,460, 0, 767 | the same | Forced plans: the boards and every score are unchanged; only the `drawn` plan of each move (what the deck gives before the harness replaces it) changes. |
+| `daily_deck` (discards) | 0 | 0 | The 7 drawn plans: `CCCCCCCCC`, `FFFFFFCFF`, `RFRFFFFFR`, `RFRFFFFFR`, `RFRFRFCFF`, `RFRFRFCFF`, `SFRFRFFFR`. |
+| `daily_full_deck` | 5,121 | **5,316** | Real draws and placements: the bot (`test_full_deck_generate`) chose the 37 moves again on the new deck; 37 builds, 0 discards, tile count 38, game over. |
+
+**Independence.** The new expected values do not come from running the new code alone; they were derived as in
+D-18b. The full-deck moves come from the bot, which only picks a legal position; the drawn plans and the score after
+each move come from a record run of the checked twins (`RECORD` in `harness.cairo`, the `*_structures_agree` tests,
+`--max-n-steps 1000000000`): it prints the plan in hand before each move and the score the oracle's walks give
+(`oracle::score`, `check::move_points`), and those numbers are the literals of the cases. The checked replays then
+assert, after every build, that the structure state agrees with the walks and that the move scored exactly the
+oracle's points, and at the end that every finished structure of the board scored once. Two more checks, outside the
+repository (scratch, not committed):
+
+- **A second engine.** CLIENT's off-chain engine (`packages/game-core/src/engine`, its own walks and draw), with only
+  its deck walk (`withdrawExtra`) replaced by a port of G1's, replays the fixture that CLIENT's
+  `transcribe-goldens.ts` makes from the new Cairo files: the 10 golden games and the differential boards give every
+  drawn plan, every score and every final counter of the Cairo cases, 0 mismatches. With its walk unchanged (the walk
+  before G1) the same replay gives 59 mismatches of the drawn plan: the check sees the deck.
+- **The walk itself.** An independent JavaScript implementation of G1's walk from its specification gives the bitmap
+  of `test_tiles` (seed 0: `0xc88526b74cd8588fe4`), the value the Cairo walk gives.
+
+**Hand check, `daily_full_deck`, structure by structure** (bonus(n) = 1.0235^n over 10000: bonus(2) = 10475,
+bonus(3) = 10721, bonus(4) = 10972; a city counts 200 a node, a road 100, a wonder 900). The structures that close, in
+move order (move index from 0, the closing tile and its position relative to the centre):
+
+| Move | Closing tile | Structure | Points |
+|---:|---|---|---:|
+| 5 | `FFCFFFCFF` (0, -2) | city of 3: 3 x 200 x 10721 / 10000 = 643.26 | 643 |
+| 6 | `RFFFRFCFR` (1, 0) | city of 4: 4 x 200 x 10972 / 10000 = 877.76 | 877 |
+| 9 | `SFRFRFCFR` (-1, 1) | road of 2: 2 x 100 x 10475 / 10000 = 209.5 | 209 |
+| 19 | `FFFFFFCFF` (-2, -2) | city of 2: 2 x 200 x 10475 / 10000 = 419 | 419 |
+| 22 | `RFRFRFCFF` (-2, 0) | wonder | 900 |
+| 26 | `RFRFRFCFF` (-2, 1) | city of 2 | 419 |
+| 28 | `SFRFRFCFR` (-2, 2) | road of 3: 3 x 100 x 10721 / 10000 = 321.63 | 321 |
+| 30 | `WFFFFFFFR` (3, 3) | road of 2 | 209 |
+| 36 | `FFFFFFCFF` (2, -3) | city of 2, and a wonder | 419 + 900 |
+
+643 + 877 + 209 + 419 + 900 + 419 + 321 + 209 + 419 + 900 = **5,316**, the case's final score, after each move the
+running sums of the case (643, 1,520, 1,729, 2,148, 3,048, 3,467, 3,788, 3,997, 5,316). The sizes are those both walkers
+(the oracle's and CLIENT's engine) give; the arithmetic is checked by hand above.
+
+**Gas.** Every game spawns, and the spawn costs about 32M less (`baseline.md`, "After G1"); each case's
+`#[available_gas]` is reset to the measured figure + 5 % (the table in `baseline.md`, "After G1"). A move's draw reads
+the new deck, so its cost moves with it; the figures are whole games.
+
+**Unchanged.** CLIENT's frozen `tutorial_full` (2,794, from 38f1c95, `parity-fixture.md`): its deck lives in the client
+and G1 does not touch it. The "Rule" above holds: a golden value changes only with a rule change named in the title of
+its pull request (G1's: `perf: G1, spawn's deck walk cut (gas), goldens re-derived`).

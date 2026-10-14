@@ -53,7 +53,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0 and a (and b, whose move is a's since D-18 took its Lord): one move each.
 #[test]
-#[available_gas(l2_gas: 321647000)]
+#[available_gas(l2_gas: 225037402)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
@@ -63,7 +63,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed and scored.
 #[test]
-#[available_gas(l2_gas: 306303000)]
+#[available_gas(l2_gas: 262543877)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -77,7 +77,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed and scored.
 #[test]
-#[available_gas(l2_gas: 582165000)]
+#[available_gas(l2_gas: 538209575)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -98,7 +98,7 @@ fn test_differential_gas_scenario_d() {
 /// Gas scenario e: four road curves close a loop of road and the forest of 4 tiles inside it. The
 /// score the oracle's walks give the board is `SCORE_E` of `contracts/tests/gas.cairo`.
 #[test]
-#[available_gas(l2_gas: 360171000)]
+#[available_gas(l2_gas: 316138572)]
 fn test_differential_gas_scenario_e() {
     let board = BoardTrait::new();
     board.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
@@ -114,7 +114,7 @@ fn test_differential_gas_scenario_e() {
 /// the forest of 16 nodes. The score the oracle's walks give the board is `SCORE_F` of
 /// `contracts/tests/gas.cairo`.
 #[test]
-#[available_gas(l2_gas: 1353892000)]
+#[available_gas(l2_gas: 1351464736)]
 fn test_differential_gas_scenario_f() {
     let board = BoardTrait::new();
     let straight = Plan::RFFFRFFFR;
@@ -147,7 +147,7 @@ fn test_differential_gas_scenario_f() {
 /// search over legal boards (a model of the placement in Python, not kept) and then confirmed
 /// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
 #[test]
-#[available_gas(l2_gas: 733532000)]
+#[available_gas(l2_gas: 705360563)]
 fn test_differential_two_areas_of_one_tile_join_one_structure() {
     let board = BoardTrait::new();
     board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
@@ -185,7 +185,7 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 363925000)]
+#[available_gas(l2_gas: 326828198)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
     board.build(Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER);
