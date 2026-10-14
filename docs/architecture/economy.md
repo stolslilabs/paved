@@ -569,15 +569,33 @@ USDC sent to the Vault is stranded, since the Vault has no USDC path.
    by a plain transfer. The rest, and any stray PAVED, is burned.
 4. R and the guard read the burn's part against the burn quote.
 
-`Purchased` gains `vault_paved`. D-10 holds: all of the Vault's part goes to the stakers, as PAVED.
+`Purchased` gains `vault_paved`. D-10 holds: all of the Vault's part goes to the Vault's holders, as PAVED.
+
+**The dead shares take their cut.** Of every margin and every exit fee, the 1,000 dead shares take
+`1,000 / total_supply`. That cut is locked forever: nothing can redeem them. At deploy.sh's launch amounts (1,000 dead
+shares and 199,000 of the owner's stake) it is 0.5 %, and it grows as real stakers leave. With no real stake, every
+margin and fee accrues to the dead shares until someone deposits. That PAVED stays in the token's `total_supply`, so
+the supply factor counts it as circulating.
+
+**Stray USDC on the router** waits in `Economy`. `clear(usdc)` returns it to `Economy` after the swap, and the next
+purchase adds it to its margin. So `Economy` holds nothing of its own after a purchase, except the router's strays
+(security audit note 1 of #382).
 
 **The split** (owner-set through `configure`, bounded and evented by `EconomyConfigured`):
 
 | Parameter | Default | Bounds | Role |
 |---|---:|---|---|
-| `burn_bps` | 7,368 | 5,000 to 9,000 | The burn quote, the same with or without a referrer |
+| `burn_bps` | 7,368 | 5,000 to 9,000 | The burn quote (USDC), the same with or without a referrer |
 | Vault's part | 2,632 | `10,000 - burn_bps`, derived (`split_bps`) | The burn and the Vault add up to the price by construction |
 | `referral_bps` | 500 | 0 to 1,000, and at most the Vault's part | Paid out of the Vault's part, never out of the burn |
+
+**The burned PAVED with and without a referrer.**
+- The burn's USDC is exactly `burn_bps` of the price in both cases, and the split by input keeps the burn's part of
+  the PAVED proportional to it.
+- At a fixed rate, the burned PAVED is therefore identical (`test_burned_paved_does_not_depend_on_the_referrer`,
+  with a fixed-rate router double).
+- In a real pool the swap is smaller with a referral (95 % of the price), so its price impact is smaller. The burned
+  PAVED then differs only by that impact.
 
 The derived Vault part is the cleaner equivalent of a stored `vault_bps`: a stored pair could disagree, a derived one
 cannot, and `split_bps()` exposes it.
@@ -611,22 +629,28 @@ counted after the fee.
 
 At the former 7,000 bps (#372's figures), the shares were 66.5 % burned, 28.5 % to the Vault and 5 % to the LP.
 
-**The figures** (`python3 -I -B scripts/montecarlo/sim.py --margin-paved`, seed 8, 365 days; two runs identical; the
-default output unchanged):
+**The figures** (`python3 -I -B scripts/montecarlo/sim.py --margin-paved`, seed 8, 365 days; two runs identical, sha256
+prefix `9c078f4b6e2b577d`; the default output byte-identical to `output.md`).
 
-- At 70 % (the addendum's A4 table, reproduced to the digit), option B at 200 games a day gives a house edge of 37.4 %,
-  and the Vault ends with 653,168 PAVED.
-- At the owner's split (burn quote 73.68 %):
+Since fix loop 1 of #382, the option models the contract: one swap of the burn quote and the margin, its PAVED split
+by input, and R read from the burn's part. #372's A4 and the first figures of P-56 swapped the margin after the burn
+instead, which gave the burn the better first price. The two models give the same total PAVED out; only its split
+between the burn and the Vault differs, by one swap's extra price impact per purchase. Old (two swaps) and new (one
+swap, the contract):
 
-| Run | house edge | return p50 | supply end | Vault PAVED end | its share of the supply |
+| Run | house edge, two swaps | house edge, one swap | Vault PAVED end, two swaps | Vault PAVED end, one swap | its share of the supply |
 |---|---:|---:|---:|---:|---:|
-| B, 200 games a day | 34.0 % | 0.92 | 984k | 630,982 | 64 % |
-| A, 200 games a day | 35.0 % | 0.89 | 986k | 634,148 | 64 % |
-| B, 20 games a day | 35.6 % | 0.91 | 963k | 372,492 | 39 % |
+| B, 200 games a day, burn 70 % (A4) | 37.4 % | 37.4 % | 653,168 | 653,212 | 66 % |
+| B, 200 games a day, the owner's split (73.68 %) | 34.0 % | 34.0 % | 630,982 | 631,034 | 64 % |
+| A, 200 games a day, the owner's split | 35.0 % | 35.1 % | 634,148 | 634,206 | 64 % |
+| B, 20 games a day, the owner's split | 35.6 % | 35.6 % | 372,492 | 372,597 | 39 % |
 
-sim.py swaps the Vault's part after the burn's swap, as #372 did. The contract makes one swap and splits it by input,
-so the burn gets the average price instead of the better first one: R is a little lower on chain than in sim.py, by
-one swap's extra impact (`fixture.py --margin-paved` models the contract's way; the fixture test checks it).
+At the owner's split, run B gives a return p50 of 0.92, a supply end of 984k and a price end/start of 202.96 (one
+swap) against 202.91.
+
+The one-swap model moves 52 to 105 PAVED a year from the burn to the Vault, and the house edge by 0.1 point at most:
+the gap is real and small. `fixture.py --margin-paved` and `test_fixture_matches_sim` check the contract's way on the
+fixture's games.
 
 **DECIDED (P-31; replaced by P-56, above): a simple staking vault, not Nums' ERC4626.**
 

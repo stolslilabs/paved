@@ -7,9 +7,11 @@ Deterministic: fixed seeds, the standard library only, no input but the score sa
     python3 -I scripts/montecarlo/sim.py --margin-paved [scripts/montecarlo/scores.csv]
 
 `--margin-paved` prints only the table of `docs/architecture/vault-share.md` (addendum, A4): each run
-with the margin paid to the Vault in USDC, as here by default, and with the margin swapped to PAVED
-through the same pool after the burn's swap and kept by the Vault, never sold (P-56). The default
-output does not change.
+with the margin paid to the Vault in USDC, as here by default, and with the margin in PAVED as
+`Economy.purchase` makes it since P-56: one swap of the burn quote and the margin, its PAVED split by
+input, the margin's part kept by the Vault (never sold), the burn's part burned and read by R. (#372's
+A4 swapped the margin after the burn instead; fix loop 1 of #382 made the option model the contract.)
+The default output does not change.
 
 The score sample (`scores.csv`: day, strategy, seed, score) holds whole Daily games played by bots on
 the contracts (`sampler.cairo`, run one game per snforge run). Strategies: 0 greedy (the bot of the
@@ -206,25 +208,33 @@ def simulate(days, params, seed):
             # Purchase: referral and margin in USDC, the burn share swapped and burned
             ref = price * REFERRAL if rng.random() < params["referred"] else 0.0
             quote = price * params.get("burn", BURN)
-            fee = quote * POOL_FEE
-            out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
-            pool_usdc += quote - fee
-            lp_usdc += fee
-            pool_paved -= out
-            supply -= out
-            burned += out
-            vault += price - quote - ref
-            referral += ref
             if params.get("margin") == "paved":
-                # P-56: the margin swapped to PAVED through the same pool, after the burn's swap,
-                # for the Vault, which never sells it
+                # P-56, as `Economy.purchase` does: ONE swap of the burn quote and the margin, its
+                # PAVED split by input (`curve::vault_split`), the margin's part to the Vault, which
+                # never sells it, the burn's part burned; R reads the burn's part
                 margin = price - quote - ref
-                fee_m = margin * POOL_FEE
-                out_m = pool_paved * (margin - fee_m) / (pool_usdc + margin - fee_m)
-                pool_usdc += margin - fee_m
-                lp_usdc += fee_m
-                pool_paved -= out_m
-                vault_paved += out_m
+                swapped = quote + margin
+                fee = swapped * POOL_FEE
+                bought = pool_paved * (swapped - fee) / (pool_usdc + swapped - fee)
+                pool_usdc += swapped - fee
+                lp_usdc += fee
+                pool_paved -= bought
+                out = bought * quote / swapped
+                vault_paved += bought - out
+                supply -= out
+                burned += out
+                vault += margin
+                referral += ref
+            else:
+                fee = quote * POOL_FEE
+                out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
+                pool_usdc += quote - fee
+                lp_usdc += fee
+                pool_paved -= out
+                supply -= out
+                burned += out
+                vault += price - quote - ref
+                referral += ref
             # The supply factor is read at spawn, after the burn
             factor = min(max((2 * target - supply) / target, 0.0), 2.0)
             reference = out * (1 + stake / 100) * factor

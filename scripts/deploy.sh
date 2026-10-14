@@ -91,7 +91,8 @@
 # of zero), --validate (no SKIP_VALIDATE), --block-id pre_confirmed (instead of latest; `pending` left the spec in 0.9).
 #
 # --repoint (sepolia, and its rehearsal; R-1, E-9): repoints the deployed Economy at a new MockRouter, which E-9's
-# Economy.quote_swap needs (the old one has no `quote_swap`). It deploys nothing else and keeps every address but the
+# Economy.quote_swap needs (the old one has no `quote_swap`). It applies only to a pre-V1b deployment (the 1:1 Vault, whose
+# `staked` and `unstake` its seed uses): a vPAVED Vault (P-56) is refused before anything is estimated or sent. It deploys nothing else and keeps every address but the
 # MockRouter's. It runs the same checks, signer and build as above (from main-equivalent sources on Sepolia), then reads
 # contracts/deployments/sepolia.json (the rehearsal: the file `--deployment` names) and checks, before anything is
 # estimated or sent: the file is a sepolia one for the node's chain; Economy.owner() is the deployer; Economy's class is
@@ -932,6 +933,15 @@ PY
   v owner call "$ECONOMY" owner
   [[ "$(hex_int "$owner")" == "$DEPLOYER_INT" ]] || die "the deployer $DEPLOYER_LABEL is not Economy.owner()"
   echo "   Economy.owner() is the deployer"
+  # The seed reads the 1:1 Vault's `staked` and sends its `unstake`: a vPAVED Vault (P-56, V1b) has neither, so a repoint
+  # of its deployment is refused here, before anything is estimated or sent (fix loop 1 of #382; under D-27 Sepolia gets a
+  # fresh deployment instead; reversed if the PM wants --repoint ported to vPAVED). Any other failure stops as `v` does.
+  local staked_err
+  if ! staked_err="$(call "$VAULT" staked "$DEPLOYER_ARG" 2>&1 >/dev/null)"; then
+    [[ "$staked_err" != *ENTRYPOINT_NOT_FOUND* ]] || die "--repoint applies only to a pre-V1b deployment (the 1:1 Vault): the Vault $VAULT has no staked() (vPAVED)"
+    printf '%s\n' "$staked_err" >&2
+    die "call failed: stopping before anything else is sent"
+  fi
   # Economy's class: the deployed one or the E-9 one, nothing else.
   RP_ECONOMY_CLASS="$(class_at "$ECONOMY")"
   if felt_eq "$RP_ECONOMY_CLASS" "$NEW_ECONOMY_CLASS"; then RP_UPGRADED=1
@@ -3017,13 +3027,16 @@ else
   fr_set "smoke.spawn_tx=$CHALLENGE_TX" "smoke.game_id=$PAID_ID"
   USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
   [[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
-  [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
+  # USDC the router held before the purchase comes back to Economy (`clear`) and waits for the next margin (P-56): anyone
+  # can send some to the router, so it is printed, not refused (security audit note 1 of #382)
+  STRAY_USDC="$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")"
+  [[ "$STRAY_USDC" == 0 ]] || echo "   Economy holds $STRAY_USDC USDC base units the router gave back: the next purchase's margin"
   [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
   VAULT_AFTER="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
   gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "the purchase sent no PAVED to the Vault"
   [[ "$(hex_int "$(call "$VAULT" total_supply | cut -d' ' -f1)")" == "$SHARES_BEFORE" ]] || die "the purchase minted vPAVED"
   [[ "$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")" == 0 ]] || die "the Vault holds USDC after the purchase"
-  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds nothing;"
+  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds no PAVED;"
   echo "   the Vault's PAVED grew by $((VAULT_AFTER - VAULT_BEFORE)) base units, its shares unchanged"
 fi
 DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$CHALLENGE" game "$PAID_ID" | cut -d' ' -f14)")"

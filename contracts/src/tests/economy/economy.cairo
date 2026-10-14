@@ -73,6 +73,93 @@ const MEAN0: u64 = 3_980_000;
 /// units per base unit x 1e18: what the deploy passes.
 const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
 
+/// A router at a fixed rate (`out = in x rate`, no price impact), for the burned PAVED with and
+/// without a referrer. Its `swap` hands the input USDC to `reserve` (the pool keeps it) and pulls
+/// the PAVED out of `reserve` (approved first), so that `clear`, which sends the router's whole
+/// balance as Ekubo's does, returns exactly what the swap produced, and any USDC stray.
+#[starknet::interface]
+pub trait IFixedRateRouter<TContractState> {
+    fn swap(ref self: TContractState, node: RouteNode, token_amount: TokenAmount) -> Delta;
+    fn quote_swap(self: @TContractState, node: RouteNode, token_amount: TokenAmount) -> Delta;
+    fn clear(self: @TContractState, token: ContractAddress) -> u256;
+    fn clear_minimum(self: @TContractState, token: ContractAddress, minimum: u256) -> u256;
+}
+
+#[starknet::contract]
+pub mod FixedRateRouter {
+    use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use paved::economy::ekubo::{Delta, RouteNode, TokenAmount, i129};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ContractAddress, get_caller_address, get_contract_address};
+
+    #[storage]
+    struct Storage {
+        paved: ContractAddress,
+        usdc: ContractAddress,
+        reserve: ContractAddress,
+        rate: u128,
+    }
+
+    #[constructor]
+    fn constructor(
+        ref self: ContractState,
+        paved: ContractAddress,
+        usdc: ContractAddress,
+        reserve: ContractAddress,
+        rate: u128,
+    ) {
+        self.paved.write(paved);
+        self.usdc.write(usdc);
+        self.reserve.write(reserve);
+        self.rate.write(rate);
+    }
+
+    #[generate_trait]
+    impl InternalImpl of InternalTrait {
+        fn delta(self: @ContractState, usdc_in: u128) -> Delta {
+            let usdc_leg = i129 { mag: usdc_in, sign: false };
+            let paved_leg = i129 { mag: usdc_in * self.rate.read(), sign: true };
+            if self.paved.read() < self.usdc.read() {
+                Delta { amount0: paved_leg, amount1: usdc_leg }
+            } else {
+                Delta { amount0: usdc_leg, amount1: paved_leg }
+            }
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl FixedRateRouterImpl of super::IFixedRateRouter<ContractState> {
+        fn swap(ref self: ContractState, node: RouteNode, token_amount: TokenAmount) -> Delta {
+            let usdc_in = token_amount.amount.mag;
+            let reserve = self.reserve.read();
+            IERC20Dispatcher { contract_address: self.usdc.read() }
+                .transfer(reserve, usdc_in.into());
+            IERC20Dispatcher { contract_address: self.paved.read() }
+                .transfer_from(
+                    reserve, get_contract_address(), (usdc_in * self.rate.read()).into(),
+                );
+            self.delta(usdc_in)
+        }
+
+        fn quote_swap(self: @ContractState, node: RouteNode, token_amount: TokenAmount) -> Delta {
+            self.delta(token_amount.amount.mag)
+        }
+
+        fn clear(self: @ContractState, token: ContractAddress) -> u256 {
+            let erc20 = IERC20Dispatcher { contract_address: token };
+            let amount = erc20.balance_of(get_contract_address());
+            erc20.transfer(get_caller_address(), amount);
+            amount
+        }
+
+        fn clear_minimum(self: @ContractState, token: ContractAddress, minimum: u256) -> u256 {
+            let amount = self.clear(token);
+            assert(amount >= minimum, 'Fixed: below minimum');
+            amount
+        }
+    }
+}
+
 #[derive(Copy, Drop)]
 struct Setup {
     economy: IEconomyDispatcher,
@@ -917,6 +1004,69 @@ fn test_decided_split_is_the_owners() {
     assert_eq!((quote.price, quote.burn_quote, quote.referral), (20 * USDC, 14_736_000, USDC));
     assert_eq!(quote.margin, 5_264_000);
     assert_nothing_left(s);
+}
+
+/// The burned PAVED is the same with and without a referrer, given the same pool: at a fixed rate
+/// (no price impact) it is exactly equal, and R follows it (read at each purchase's own supply).
+/// The burn's USDC is `burn_bps` of the price in both; the referral comes out of the Vault's part.
+/// (In a real pool the referred swap is smaller, 95 % of the price, so its impact differs, and the
+/// burned PAVED with it, by that impact only.)
+#[test]
+fn test_burned_paved_does_not_depend_on_the_referrer() {
+    let s = setup();
+    configure(s, decided());
+    // 76 PAVED per USDC, from the initial supply's holder
+    let rate: u128 = 76_000_000_000_000;
+    let fixed = deploy(
+        "FixedRateRouter",
+        array![
+            s.paved.contract_address.into(), s.usdc.contract_address.into(), RECIPIENT().into(),
+            rate.into(),
+        ],
+    );
+    start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
+    s.paved.approve(fixed, 100_000 * ONE_PAVED);
+    stop_cheat_caller_address(s.paved.contract_address);
+    start_cheat_caller_address(s.economy.contract_address, OWNER());
+    s.economy.set_router(fixed);
+    stop_cheat_caller_address(s.economy.contract_address);
+    let mut stake: u8 = 1;
+    while stake <= 10 {
+        let price = stake.into() * BASE_PRICE;
+        let quote = price * 7_368 / 10_000;
+        // Without a referrer
+        let supply = s.paved.total_supply();
+        let vault = vault_paved(s);
+        let r_none = buy(s, stake.into() * 2, PLAYER(), stake, Zero::zero());
+        let after = s.paved.total_supply();
+        let burned_none = supply - after;
+        let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
+        assert_eq!(r_none, reference(guarded(burned_none, quote, POOL_RATE), stake, factor));
+        let vault_none = vault_paved(s) - vault;
+        // With one
+        let supply = s.paved.total_supply();
+        let vault = vault_paved(s);
+        let r_referred = buy(s, stake.into() * 2 + 1, PLAYER(), stake, REFERRER());
+        let after = s.paved.total_supply();
+        let burned_referred = supply - after;
+        let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
+        assert_eq!(
+            r_referred, reference(guarded(burned_referred, quote, POOL_RATE), stake, factor),
+        );
+        let vault_referred = vault_paved(s) - vault;
+        // The burn: exactly the burn quote at the rate, in both
+        assert_eq!(burned_none, quote * rate.into());
+        assert_eq!(burned_referred, burned_none);
+        // The Vault pays the referral: its part is the rest of the swap
+        assert_eq!(vault_none, (price - quote) * rate.into());
+        assert_eq!(vault_referred, (price - quote - price / 20) * rate.into());
+        // Nothing left on Economy, nor on the router
+        assert_eq!(s.usdc.balance_of(s.economy.contract_address), 0);
+        assert_eq!(s.paved.balance_of(s.economy.contract_address), 0);
+        assert_eq!(s.usdc.balance_of(fixed), 0);
+        assert_eq!(s.paved.balance_of(fixed), 0);
+        stake += 1;
+    }
 }
 
 /// The burn quote of a purchase is the same with or without a referrer: only the Vault's part pays

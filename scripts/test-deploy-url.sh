@@ -417,7 +417,8 @@ case "$cmd:$fn" in
     elif [[ "$contract" == 0x90 && -e "$dir/unseeded" ]]; then r='["0x0","0x0","0x0","0x0"]'; fi ;;
   call:balance_of) r="$big"; [[ "$contract" == 0x4718f5a* && -e "$dir/poor" ]] && r='["0x0","0x0"]'
     [[ "$contract" == 0x20 && -e "$dir/usdc_low" ]] && r='["0x0","0x0"]' ;;
-  call:staked) r='["0x2a5a058fc295ed000000","0x0"]' ;;
+  call:staked) [[ -e "$dir/vpaved" ]] && { echo "signer: call failed: Contract error: ENTRYPOINT_NOT_FOUND" >&2; exit 1; }
+    r='["0x2a5a058fc295ed000000","0x0"]' ;;
   call:minted) r='["0x0","0x0"]' ;;
   call:terms) r="[\"$STARKNET_ACCOUNT_ADDRESS\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\"]" ;;
   call:quote_swap)
@@ -486,7 +487,7 @@ rp_json="$rp/root/contracts/deployments/sepolia.json"
 # The deployment (written after the commit: the source check reads contracts/src, Scarb.toml and Scarb.lock only), with
 # an optional `repoint` record, as JSON. Each case starts from clean signer and node files.
 rp_case() { # [repoint record]
-  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby,router,not_owner,config,invoke_ok,guardian_set,guardian_other,paused,fresh_game,built,usdc_low}
+  rm -f "$rp/bin/"{vpaved,leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby,router,not_owner,config,invoke_ok,guardian_set,guardian_other,paused,fresh_game,built,usdc_low}
   rm -rf "$rp/bin/events"
   rp_classes
   python3 -I - "$rp_json" "${1:-}" <<'PY'
@@ -530,6 +531,21 @@ elif [[ "$names" != "$want" ]]; then
 else
   echo "ok: sepolia --repoint reaches repoint_state; a failing send there leaks no value; the signer's argv holds none; its environment is: $names"
 fi
+
+# vpaved: a deployment whose Vault is vPAVED (P-56, no `staked`): refused before anything is estimated or sent (fix loop
+# 1 of #382), with --check-only and without.
+for mode in --check-only ""; do
+  rp_case
+  touch "$rp/bin/vpaved"
+  # shellcheck disable=SC2086
+  out="$(rp_run --repoint $mode)"; rc=$?
+  if [[ $rc -eq 0 || "$out" != *"--repoint applies only to a pre-V1b deployment (the 1:1 Vault)"* ||
+      "$out" == *"every check passed"* || "$out" == *"estimate"*"MockRouter"* || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+    rp_fail "${mode:-full run} on a vPAVED Vault: expected a refusal naming the pre-V1b Vault, nothing sent, got $rc" "$out"
+  else
+    echo "ok: sepolia --repoint ${mode:-(full run)} refuses a vPAVED deployment before anything is estimated or sent (exit $rc)"
+  fi
+done
 
 # quote_fails: a recorded, seeded new MockRouter that does not answer quote_swap.
 for mode in --check-only ""; do

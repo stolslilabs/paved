@@ -424,6 +424,58 @@ fn test_vault_fee_by_a_stranger_reverts() {
     IVaultDispatcher { contract_address: s.vault.contract_address }.set_exit_fee(0);
 }
 
+// Exits by a third party (security audit note 5 of #382)
+
+/// An approved spender redeems or withdraws for the owner: the PAVED goes to the receiver, and the
+/// allowance falls by exactly the shares burned, the fee's included.
+#[test]
+fn test_vault_exits_by_an_approved_spender_spend_the_shares_and_the_fee() {
+    let s = setup_with(500);
+    deposit(s, ALICE(), 2_100 * PAVED);
+    start_cheat_caller_address(s.vault.contract_address, ALICE());
+    s.vault.approve(BOB(), 1_000 * PAVED);
+    stop_cheat_caller_address(s.vault.contract_address);
+    // Redeem 210 shares worth 210 PAVED at a rate of 1: 200 out, 10 of fee
+    start_cheat_caller_address(s.vault.contract_address, BOB());
+    let assets = s.vault.redeem(210 * PAVED, CAROL(), ALICE());
+    stop_cheat_caller_address(s.vault.contract_address);
+    assert_eq!(assets, 200 * PAVED);
+    assert_eq!(s.paved.balance_of(CAROL()), 100_200 * PAVED);
+    assert_eq!(s.vault.balance_of(ALICE()), 1_890 * PAVED);
+    assert_eq!(s.vault.allowance(ALICE(), BOB()), 790 * PAVED);
+    // Withdraw 100 PAVED: the shares of 100 plus the 5 PAVED fee burn, and leave the allowance
+    let shares = s.vault.preview_withdraw(100 * PAVED);
+    assert!(shares > 100 * PAVED, "the fee's shares");
+    start_cheat_caller_address(s.vault.contract_address, BOB());
+    assert_eq!(s.vault.withdraw(100 * PAVED, BOB(), ALICE()), shares);
+    stop_cheat_caller_address(s.vault.contract_address);
+    assert_eq!(s.paved.balance_of(BOB()), 100_100 * PAVED);
+    assert_eq!(s.vault.allowance(ALICE(), BOB()), 790 * PAVED - shares);
+    assert_eq!(s.vault.balance_of(ALICE()), 1_890 * PAVED - shares);
+}
+
+#[test]
+#[should_panic(expected: 'ERC20: insufficient allowance')]
+fn test_vault_redeem_by_an_unapproved_spender_reverts() {
+    let s = setup_with(500);
+    deposit(s, ALICE(), 1_000 * PAVED);
+    start_cheat_caller_address(s.vault.contract_address, BOB());
+    s.vault.redeem(100 * PAVED, BOB(), ALICE());
+}
+
+/// An allowance that covers the assets but not the fee's shares is not enough.
+#[test]
+#[should_panic(expected: 'ERC20: insufficient allowance')]
+fn test_vault_withdraw_beyond_the_allowance_with_the_fee_reverts() {
+    let s = setup_with(500);
+    deposit(s, ALICE(), 1_000 * PAVED);
+    start_cheat_caller_address(s.vault.contract_address, ALICE());
+    s.vault.approve(BOB(), 100 * PAVED);
+    stop_cheat_caller_address(s.vault.contract_address);
+    start_cheat_caller_address(s.vault.contract_address, BOB());
+    s.vault.withdraw(100 * PAVED, BOB(), ALICE());
+}
+
 // The inflation defence
 
 /// The classic attack, with the dead shares in place: Alice deposits one base unit, then donates
