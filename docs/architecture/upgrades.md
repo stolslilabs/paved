@@ -93,7 +93,7 @@ map). So, for every upgradable contract and for `Lobby`:
   new class of either side keeps the other's names; a new `Lobby` class set by `set_lobby_class` is held to the
   same rule as an upgrade.
 - **Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_its_storage_variables_by_name` (`owner`,
-  `pending_owner`, `token_address` and `setup` of `Challenge`; it replaced the pin of the variables `Lobby` shared with
+  `pending_owner`, `token_address`, `setup`, `guardian` and `spawn_paused` of `Challenge`; it replaced the pin of the variables `Lobby` shared with
   `Daily`, `test_lobby_and_daily_pin_every_shared_storage_variable_by_name`, at D-24) and `tests::e2e::upgrades::test_upgrade_layout_pins_setup_and_economy_by_name` (the
   ownable and the wiring of `Setup`, `economy` and `collection`, which were `Account`'s pins until D-25 E; the
   addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
@@ -172,6 +172,25 @@ economy note N1 of #350).
 - a new `Setup`, wired and allowlisting `Challenge`, then `Challenge.set_setup` to it (under the rule above). This loses the old
   `Setup`'s reporters and tutorial claims; the quests and achievements are event mode, so their state is the indexer's
   and stays readable from the old `Setup`'s events.
+
+## New live slots since G4 (P-42)
+
+The pause guardian on `Challenge.spawn` (G4, `upgrade-owner.md`, section 3) appends two variables to `Challenge`, after
+`setup`; nothing is renamed, retyped or reused:
+
+| Slot | Type | Written by | After an in-place upgrade |
+|---|---|---|---|
+| `guardian` (`selector!("guardian")`) | `ContractAddress` | the owner's `set_guardian` only (zero: no guardian) | 0: no guardian |
+| `spawn_paused` (`selector!("spawn_paused")`) | `bool` | `pause_spawn` (the guardian or the owner) and the owner's `unpause_spawn` | 0: spawn not paused |
+
+**Pins.** `test_daily_pins_its_storage_variables_by_name` reads both at the raw address of their names: 0 on a fresh
+deployment, the guardian and 1 after `set_guardian` and `pause_spawn`, 0 again after `unpause_spawn`.
+`tests::e2e::upgrade_g4::test_upgrade_g4_starts_unpaused_and_keeps_the_game_in_flight` gives `Challenge` a class
+without the two slots (the frozen spawn of `legacy_g1`), spawns a game, reads both raw slots as 0, upgrades back to the
+G4 class, and then reads no guardian and no pause; a new game spawns and the game in flight ends and is recorded.
+
+**On Sepolia (D-17)** the upgrade of `Challenge` to the G4 class is the owner's `upgrade` alone: no setter is needed,
+spawn stays open, games in flight are unaffected. The owner sets a guardian afterwards (`set_guardian`), if any.
 
 ## Dead slots since D-25 E (P-42)
 
@@ -268,9 +287,12 @@ History: until D-24, `set_lobby_class` on `Daily` and `Tutorial` was as strong a
 library call on the game contract's storage). It left with the `Lobby` path (above); `contracts/src` has no
 `set_lobby_class`. `Account` was an upgradable contract until D-25 E deleted it (above).
 
-No contract has a pause. The mainnet gate on who owns the upgrades (an owner account, a multisig, a timelock) is weighed
-in `upgrade-owner.md`: a multisig at launch, a timelock in front of it once a pause guardian exists. Two gates in
-`docs/programme/PLAN.md` follow: a pause guardian on `Challenge.spawn`, and bounds on `set_router` and `set_pool`.
+One pause exists since G4: a guardian set by `Challenge`'s owner (`set_guardian`) may pause `Challenge.spawn`, and only
+the owner unpauses (`upgrade-owner.md`, section 3). Nothing else pauses: the moves, the game-over report, the record and
+the settlement go on, and the `Vault` has no pause. The mainnet gate on who owns the upgrades (an owner account, a
+multisig, a timelock) is weighed in `upgrade-owner.md`: a multisig at launch, a timelock in front of it once a pause
+guardian exists. The other gate of `docs/programme/PLAN.md` that follows, bounds on `set_router` and `set_pool`, is
+open.
 
 ## Tests
 

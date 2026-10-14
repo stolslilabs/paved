@@ -160,6 +160,33 @@ diverge.
 | 1 | `token` | `ContractAddress` | The ERC20 that `spawn` pulls the entry price from (the player approves the `Challenge` contract on it) |
 | 2 | `amount` | `u256` | The price of one stake unit, in the base unit of the token: 2,000,000 (2 USDC, 6 decimals). `spawn(stake, ..)` pulls `stake x amount` |
 
+## The spawn pause of `Challenge` (`IChallengeGuardian`, G4)
+
+The emergency stop of new purchases (`upgrade-owner.md`, section 3). A guardian, set by the owner, may pause `spawn`;
+only the owner unpauses. Nothing else pauses: `build`, `discard`, `surrender`, the game-over report to `Setup`,
+`Economy.record` and `Economy.settle` work while paused, so every game already bought can end and be paid.
+
+| Entry point or view | Who | What |
+|---|---|---|
+| `set_guardian(guardian: ContractAddress)` | owner | sets the guardian; zero means no guardian. Emits `GuardianSet { guardian }` (every call). Others revert `'Ownable: caller is not owner'` |
+| `pause_spawn()` | the guardian (non-zero) or the owner | pauses `spawn`. Emits `SpawnPaused { by }` (the caller) when it pauses; while already paused it does nothing (no revert, no event). Others revert `'Challenge: not guardian'` |
+| `unpause_spawn()` | owner | unpauses `spawn`. Emits `SpawnUnpaused` when it unpauses; while not paused it does nothing. Others, the guardian included, revert `'Ownable: caller is not owner'` |
+| `guardian() -> ContractAddress` | anyone | the guardian, zero if none |
+| `spawn_paused() -> bool` | anyone | whether `spawn` is paused |
+
+While paused, `spawn` reverts with `'Challenge: spawn paused'` before any call or transfer: no game, no purchase, no
+token. A client reads `spawn_paused()` to disable its "play" button and say why, and follows `SpawnPaused` and
+`SpawnUnpaused` to refresh. The three events have no keyed field:
+
+| Event | `keys` | `data` |
+|---|---|---|
+| `GuardianSet` | `[selector("GuardianSet")]` | `[guardian]` |
+| `SpawnPaused` | `[selector("SpawnPaused")]` | `[by]` |
+| `SpawnUnpaused` | `[selector("SpawnUnpaused")]` | `[]` |
+
+A fresh deployment has no guardian and is not paused; so is a `Challenge` upgraded in place to this class (both
+storage slots read zero).
+
 ## Events for lists
 
 The views read one game; lists come from events. The player id is a key of the two events a list
@@ -264,6 +291,18 @@ working.
     `LobbyClassSet { class_hash }`. The constructors are unchanged.
   - A client that reads the views and sends the player calls keeps working. An indexer that refuses unknown
     selectors must know `LobbyClassSet` before the owner first calls `set_lobby_class`.
+
+- **G4, the pause guardian on `Challenge.spawn`** (above, "The spawn pause of `Challenge`"; `upgrade-owner.md`,
+  section 3).
+  - `Challenge` gains three entry points, `set_guardian(guardian)` (owner), `pause_spawn()` (the guardian or the
+    owner) and `unpause_spawn()` (owner), two views, `guardian()` and `spawn_paused()`, and three events,
+    `GuardianSet { guardian }`, `SpawnPaused { by }` and `SpawnUnpaused`, under the new interface
+    `paved::systems::challenge::IChallengeGuardian` (impl `ChallengeGuardianImpl`). `contracts/abis/Challenge.json`
+    is regenerated.
+  - `spawn` keeps its signature; while paused it reverts `'Challenge: spawn paused'` and leaves no game. Nothing else
+    changes: a client that never reads the new views keeps working, and sees that revert only once the guardian
+    pauses. An indexer that refuses unknown selectors must know the three events before the owner first calls
+    `set_guardian`.
 
 ## Breaking change D-18
 
