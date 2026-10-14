@@ -45,48 +45,69 @@ describe("resolveAppNetwork", () => {
   });
 });
 
-// The committed sepolia.json keeps the `Daily` key until the fresh deployment F (PM's ruling, P-53): main's client never goes
-// to Sepolia before F, so it is read as it is and resolves as not configured, with only the Challenge address missing.
-const SEPOLIA = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as { contracts: Record<string, { address: string }> };
+// The committed sepolia.json is the fresh deployment F (part B): every value below is read from it, none is copied here.
+const SEPOLIA = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as {
+  chain_id: string;
+  deployed_block: number;
+  contracts: Record<string, { address: string }>;
+};
 const SEPOLIA_FILES = { "../../../contracts/deployments/sepolia.json": { default: SEPOLIA }, ...FILES };
 const SEPOLIA_RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
 
 describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
   const env = { VITE_NETWORK: "sepolia", VITE_RPC_URL: SEPOLIA_RPC, VITE_INDEXER_URL: "https://api.paved.bal7hazar.com" };
 
-  it("reads every other address from sepolia.json and is not configured while it keys Daily and MockUSDC: Challenge and USDC are missing", () => {
-    expect(SEPOLIA.contracts.Challenge).toBeUndefined();
+  it("reads sepolia.json and is configured: the file's Challenge, Setup and Faucet, the economy on the Faucet, the router MockRouter", () => {
     const { deployment, indexer } = resolveAppNetwork(env, SEPOLIA_FILES);
-    expect(deployment).toMatchObject({ network: "sepolia", configured: false, missing: ["Challenge address"], rpcUrl: SEPOLIA_RPC, deployedBlock: 16421420 });
-    expect(deployment.addresses.Challenge).toBe("");
-    // Sepolia's file is from before step D: no Setup until the fresh deployment (P-53).
-    expect(deployment.addresses.Setup).toBe(SEPOLIA.contracts.Setup?.address ?? "");
+    expect(deployment).toMatchObject({ network: "sepolia", configured: true, missing: [], rpcUrl: SEPOLIA_RPC, deployedBlock: SEPOLIA.deployed_block, chainId: SEPOLIA.chain_id });
+    expect(deployment.addresses.Challenge).toBe(SEPOLIA.contracts.Challenge.address);
+    expect(deployment.addresses.Setup).toBe(SEPOLIA.contracts.Setup.address);
+    expect(deployment.faucet).toBe(SEPOLIA.contracts.Faucet.address);
     expect(indexer).not.toBeNull();
     const economy = resolveEconomyNetwork(deployment, {}, SEPOLIA_FILES);
-    expect(economy.configured).toBe(false);
-    // The file keys the old MockUSDC, which the client no longer reads (`contracts.Faucet` only): no USDC until F writes it.
-    expect(SEPOLIA.contracts.Faucet).toBeUndefined();
-    expect(economy.missing).toEqual(["Challenge address", "USDC address"]);
-    expect(economy.addresses.Economy).toBe(SEPOLIA.contracts.Economy.address);
-    expect(economy.addresses.USDC).toBe("");
+    expect(economy.configured).toBe(true);
+    expect(economy.missing).toEqual([]);
+    expect(economy.addresses).toEqual({
+      Economy: SEPOLIA.contracts.Economy.address,
+      PavedToken: SEPOLIA.contracts.PavedToken.address,
+      Vault: SEPOLIA.contracts.Vault.address,
+      USDC: SEPOLIA.contracts.Faucet.address,
+    });
+    expect(economy.expectedRouter).toBe(SEPOLIA.contracts.MockRouter.address);
   });
 
   it("without VITE_RPC_URL it is not connected and says it plainly: the file's placeholder is not a URL", () => {
     const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, SEPOLIA_FILES);
     expect(deployment.configured).toBe(false);
     expect(deployment.rpcUrl).toBe("");
-    expect(deployment.missing).toEqual(["Challenge address", "RPC URL"]);
+    expect(deployment.missing).toEqual(["RPC URL"]);
     expect(signerOf(deployment)).toBe("none");
     expect(supportsMint).toBe(true);
   });
 
-  it("the faucet is a property of the network (on), but the file keys MockUSDC so no faucet address resolves until F; starknet.js's own tip; no signer while it is not configured", () => {
+  it("the faucet is on and is the file's Faucet; starknet.js's own tip; the controller signs on the configured deployment", () => {
     const { deployment, supportsMint, tip } = resolveAppNetwork(env, SEPOLIA_FILES);
-    expect(deployment.faucet).toBe("");
+    expect(deployment.faucet).toBe(SEPOLIA.contracts.Faucet.address);
     expect(supportsMint).toBe(true);
     expect(tip).toBeUndefined();
-    // The controller signs on a configured Sepolia deployment: the fixture rows below ("elsewhere returns the controller's account").
+    expect(signerOf(deployment)).toBe("controller");
+  });
+
+  // A file from before F (keys Daily and MockUSDC, no Challenge, Setup or Faucet), as a fixture: the not-configured path.
+  it("a file from before F is not configured: Challenge and USDC are missing, no faucet, no signer (fixture)", () => {
+    const old = {
+      rpc_url: "$STARKNET_RPC_URL",
+      deployed_block: 16421420,
+      contracts: { Daily: { address: "0x1" }, MockUSDC: { address: "0x5" }, Economy: { address: "0x7" }, PavedToken: { address: "0x8" }, Vault: { address: "0x9" } },
+    };
+    const { deployment } = resolveAppNetwork(env, { "x/sepolia.json": { default: old } });
+    expect(deployment).toMatchObject({ configured: false, missing: ["Challenge address"], deployedBlock: 16421420 });
+    expect(deployment.addresses).toEqual({ Challenge: "", Setup: "" });
+    expect(deployment.faucet).toBe("");
     expect(signerOf(deployment)).toBe("none");
+    const economy = resolveEconomyNetwork(deployment, {}, { "x/sepolia.json": { default: old } });
+    expect(economy.missing).toEqual(["Challenge address", "USDC address"]);
+    expect(economy.addresses.USDC).toBe("");
   });
 
   it("the faucet can be turned off by VITE_SUPPORTS_TOKEN_MINT=false", () => {
