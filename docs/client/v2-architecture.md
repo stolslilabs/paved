@@ -412,22 +412,33 @@ Lineto face) from `public/assets/fonts/`.
 **Read, Paved today:** `packages/ui/src/theme.ts` uses Rubik Mono One for headings and body;
 `app/public/assets/fonts/RubikMonoOne-Regular.ttf` is the only font file in the repository.
 
-**Proposed.** The mockups pair a blocky display face (the logo, the titles) with a plain, compact UI sans
-for everything else.
+**Chosen by the owner (2026-10-14, through the PM), replacing the proposal of Rubik Mono One and Inter** (F1b,
+t-0228). Packages and versions are pinned in `packages/app/package.json`; each font is self-hosted from npm,
+Latin subset only, `font-display: swap`.
 
-| Token | Family | Use | Loading | Licence |
-|---|---|---|---|---|
-| `font-display` | Rubik Mono One (one weight) | logo, page titles, big scores | `@fontsource/rubik-mono-one` (npm), self-hosted woff2, `font-display: swap`, preloaded on the welcome and home routes | SIL OFL 1.1 |
-| `font-sans` | Inter Variable (100–900) | all UI text; tabular numbers (`font-variant-numeric: tabular-nums`) for scores | `@fontsource-variable/inter` (npm), self-hosted woff2, Latin subset | SIL OFL 1.1 |
-| `font-mono` | JetBrains Mono Variable | addresses, token ids, debug | `@fontsource-variable/jetbrains-mono`, loaded only where used | SIL OFL 1.1 |
+| Token | Family | Use | Package (version) | Files loaded | Licence |
+|---|---|---|---|---|---|
+| `font-display` | Cinzel, Bold (700) | logo, page titles | `@fontsource/cinzel` 5.3.0 | `cinzel-latin-700-normal.woff2` (15,184 B) | SIL OFL 1.1 |
+| `font-sans` | Nunito Sans Variable (200 to 1000) | all UI and body text | `@fontsource-variable/nunito-sans` 5.3.0 | `nunito-sans-latin-wght-normal.woff2` (31,076 B) | SIL OFL 1.1 |
+| `font-numeric` (= `font-mono`), the `numeric` utility | IBM Plex Mono, 400 and 600 | scores, counters, prices, addresses, token ids; always with `font-variant-numeric: tabular-nums` | `@fontsource/ibm-plex-mono` 5.3.0 | `ibm-plex-mono-latin-400-normal.woff2` (14,708 B), `-600-` (15,620 B) | SIL OFL 1.1 (copyright IBM Corp.) |
+
+- Cinzel is loaded as the static Bold file, not the variable package: the display face is used at one weight.
+- Fallbacks are system fonts of the same kind: a serif for Cinzel, `system-ui` for Nunito Sans, `ui-monospace`
+  for IBM Plex Mono.
+- The `numeric` utility (`theme.css`) sets `font-family: var(--font-numeric)` and `tabular-nums` together; use it
+  for every number that changes in place.
+- Preloads: Cinzel and Nunito Sans only (the first screen), by `preloadFonts()` in `src/styles/fonts.ts`, at the
+  hashed `?url` imports; `index.html` calls it and so does `.storybook/preview.tsx`. The preload starts when the
+  entry chunk runs, not at HTML parse (Vite bundles the inline module into the entry). IBM Plex Mono is fetched
+  when a number first shows.
 
 Why self-hosted from npm: no request to Google at load (privacy, offline after the first visit, no
 third-party outage), versions pinned by the lockfile, and the OFL text ships inside each package (the
 references ship none). The licences are listed in `dist/THIRD_PARTY_NOTICES.txt` with the controller's
-(D-15).
+(D-15); the copyright lines are those of each package's `LICENSE`.
 
-**Decided for the owner:** Rubik Mono One + Inter. Reversed if the owner prefers glitchbomb's Rubik One
-or another display face; only `--font-display` changes.
+**Decided by the owner:** Cinzel Bold, Nunito Sans, IBM Plex Mono with tabular figures. Reversed by changing
+`--font-display`, `--font-sans` and `--font-numeric` and the three packages.
 
 ---
 

@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <title>Paved</title>
+    <!-- The fonts of the first screen are preloaded at their hashed URLs (section 2.3): Vite does not rewrite a font href here. -->
+    <script type="module">
+      import { preloadFonts } from "/src/styles/fonts.ts";
+      preloadFonts();
+    </script>
   </head>
   <body>
     <div id="root"></div>

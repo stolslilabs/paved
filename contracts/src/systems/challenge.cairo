@@ -123,6 +123,7 @@ pub mod Challenge {
         pub const PAY_FAILED: felt252 = 'ERC20: pay failed';
         pub const SPAWN_PAUSED: felt252 = 'Challenge: spawn paused';
         pub const NOT_GUARDIAN: felt252 = 'Challenge: not guardian';
+        pub const INVALID_POSITION: felt252 = 'Challenge: invalid position';
     }
 
     // Components
@@ -243,6 +244,15 @@ pub mod Challenge {
         }
 
         fn build(ref self: ContractState, game_id: u32, orientation: Orientation, x: u32, y: u32) {
+            // [Check] The position has its 8 neighbours in `u32` (0 and `u32::MAX` never have),
+            // before any read or write
+            assert(
+                x != 0
+                    && y != 0
+                    && x != core::num::traits::Bounded::<u32>::MAX
+                    && y != core::num::traits::Bounded::<u32>::MAX,
+                errors::INVALID_POSITION,
+            );
             // [Effect] Build a tile
             let over = self.playable.build(game_id, orientation, x, y);
             self.finish(game_id, over);

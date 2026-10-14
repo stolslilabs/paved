@@ -9,6 +9,7 @@ pub mod expiry;
 pub mod forest;
 pub mod guardian;
 pub mod mint;
+pub mod position;
 pub mod quests;
 pub mod setup_system;
 pub mod store;
