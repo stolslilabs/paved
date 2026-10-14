@@ -1,3 +1,7 @@
+/*
+ * Source: shadcn/ui's Button (F3), with Motion's tap gesture (`whileTap`, https://motion.dev, `motion` 14.0.0, MIT) as
+ * the press: kept as F3b's button (docs/client/v2-architecture.md, "Animated components: chosen sources").
+ */
 import type { ComponentProps } from "react";
 import { Slot } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";
