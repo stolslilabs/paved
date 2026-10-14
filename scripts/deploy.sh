@@ -91,7 +91,8 @@
 # of zero), --validate (no SKIP_VALIDATE), --block-id pre_confirmed (instead of latest; `pending` left the spec in 0.9).
 #
 # --repoint (sepolia, and its rehearsal; R-1, E-9): repoints the deployed Economy at a new MockRouter, which E-9's
-# Economy.quote_swap needs (the old one has no `quote_swap`). It deploys nothing else and keeps every address but the
+# Economy.quote_swap needs (the old one has no `quote_swap`). It applies only to a pre-V1b deployment (the 1:1 Vault, whose
+# `staked` and `unstake` its seed uses): a vPAVED Vault (P-56) is refused before anything is estimated or sent. It deploys nothing else and keeps every address but the
 # MockRouter's. It runs the same checks, signer and build as above (from main-equivalent sources on Sepolia), then reads
 # contracts/deployments/sepolia.json (the rehearsal: the file `--deployment` names) and checks, before anything is
 # estimated or sent: the file is a sepolia one for the node's chain; Economy.owner() is the deployer; Economy's class is
@@ -932,6 +933,15 @@ PY
   v owner call "$ECONOMY" owner
   [[ "$(hex_int "$owner")" == "$DEPLOYER_INT" ]] || die "the deployer $DEPLOYER_LABEL is not Economy.owner()"
   echo "   Economy.owner() is the deployer"
+  # The seed reads the 1:1 Vault's `staked` and sends its `unstake`: a vPAVED Vault (P-56, V1b) has neither, so a repoint
+  # of its deployment is refused here, before anything is estimated or sent (fix loop 1 of #382; under D-27 Sepolia gets a
+  # fresh deployment instead; reversed if the PM wants --repoint ported to vPAVED). Any other failure stops as `v` does.
+  local staked_err
+  if ! staked_err="$(call "$VAULT" staked "$DEPLOYER_ARG" 2>&1 >/dev/null)"; then
+    [[ "$staked_err" != *ENTRYPOINT_NOT_FOUND* ]] || die "--repoint applies only to a pre-V1b deployment (the 1:1 Vault): the Vault $VAULT has no staked() (vPAVED)"
+    printf '%s\n' "$staked_err" >&2
+    die "call failed: stopping before anything else is sent"
+  fi
   # Economy's class: the deployed one or the E-9 one, nothing else.
   RP_ECONOMY_CLASS="$(class_at "$ECONOMY")"
   if felt_eq "$RP_ECONOMY_CLASS" "$NEW_ECONOMY_CLASS"; then RP_UPGRADED=1
