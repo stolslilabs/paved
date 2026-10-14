@@ -276,8 +276,8 @@ component change. Reversed when the owner validates a light theme.
   --font-display: "Rubik Mono One", "Inter Variable", ui-sans-serif, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
-  /* Breakpoints (section 3.4): mobile first, the base is the small mobile. */
-  --breakpoint-*: initial;
+  /* Breakpoints (section 3.4): mobile first, the base is the small mobile. Tailwind's defaults (sm, md, lg, xl, 2xl)
+     stay: shadcn's components use them. The named ones sit beside. */
   --breakpoint-mobile: 22.5rem;   /* 360px */
   --breakpoint-tablet: 40rem;     /* 640px */
   --breakpoint-desktop: 64rem;    /* 1024px */
@@ -357,6 +357,13 @@ component change. Reversed when the owner validates a light theme.
   body { @apply bg-background text-foreground font-sans antialiased; }
 }
 ```
+
+**Corrections after P0's review (#373), applied in F1.** The token file above changed in two places.
+(1) It no longer clears Tailwind's default breakpoints (`--breakpoint-*: initial`): shadcn's components use
+`sm:`, `md:` and `lg:`, so the defaults stay and the four named breakpoints sit beside them. (2) The
+`dark:` variant matches only under `[data-theme="dark"]`, so `index.html` sets `<html data-theme="dark">`
+(and Storybook's preview will, F2); without it shadcn's `dark:` classes would not apply in the dark-only
+app. `packages/app/src/styles/theme.css` is this file.
 
 Transparent tints (glitchbomb's 80 % … 4 % steps) need no tokens: Tailwind v4 writes them as
 `bg-gold-300/20` or `border-ink-50/8` from the opaque scale.
@@ -870,6 +877,8 @@ the same code, the icon names unchanged.
 - **A build** reseeds before the next draw: `seed = Poseidon(seed, x, y)` (`reseed`, `:183-188`). So the
   tile after a build **depends on where the player placed**: it is known the moment the placement is
   chosen, not before.
+  **A discard also reseeds** (`playable.cairo:96`), so the tile after a discard is likewise known only once
+  the discard is made.
 - **The views.** `game(id)` returns the **current** seed (it changes at every draw and build), the tile in
   hand and the counters; `tiles(id, from, count)` returns every drawn tile in draw order with its status
   (placed with its position and orientation, discarded, or held: `views.cairo:146-170`). No view returns
