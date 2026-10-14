@@ -94,7 +94,6 @@ const boardBase = {
   tiles: BOARD_38.tiles,
   score: GAME_PLAYING.score,
   remaining: GAME_PLAYING.remainingCount,
-  discarded: GAME_PLAYING.discardedCount,
   expiresAt: GAME_PLAYING.expiresAt,
   now: MOCK_NOW,
   lastScored: [],
@@ -141,13 +140,15 @@ export const OVER = {
   },
   expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, reward: { state: "expired", stake: 3, threshold } },
   training: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, previousBest: 1_420, reward: { state: "free" } },
-  noClosing: { mode: "training", game: { ...GAME_OVER, score: 0, placedCount: 3, discardedCount: 0 }, closings: [], reward: { state: "free" } },
+  noClosing: { mode: "training", game: { ...GAME_OVER, score: 0, placedCount: 3 }, closings: [], reward: { state: "free" } },
 } satisfies Record<string, Data<OverSceneProps>>;
 
 // Purchase
 
 const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW, timeZone: MOCK_TIME_ZONE };
-const at = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
+/** The stake, its quote and its boost: a story that moves the slider calls it again. */
+export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
+const at = purchaseAt;
 
 export const PURCHASE = {
   stake1: { ...purchaseBase, ...at(1) },

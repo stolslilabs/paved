@@ -11,7 +11,6 @@ export interface GameHudProps {
   /** Points the last move added. */
   delta?: number | null;
   remaining: number;
-  discarded: number;
   /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and the Tutorial. */
   expiresAt?: number | null;
   now: number;
@@ -19,8 +18,8 @@ export interface GameHudProps {
   className?: string;
 }
 
-/** The board's header over the scene: Back and the mode, the tiles left with the discards, the time left, the score. */
-export function GameHud({ title, score, delta, remaining, discarded, expiresAt, now, onBack, className }: GameHudProps) {
+/** The board's header over the scene: Back and the mode, the tiles left, the time left, the score. */
+export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -37,12 +36,9 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
         <h1 className="truncate font-display text-sm font-semibold">{title}</h1>
         {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
       </div>
-      <TilesLeft remaining={remaining} discarded={discarded} />
-      <div className="flex items-center gap-2 border-l border-border pl-3">
-        <span className="hidden text-primary tablet:inline">
-          <Icon name="star" size="md" />
-        </span>
-        <Score value={score} delta={delta} size="hud" tone="default" label="Score" />
+      <TilesLeft remaining={remaining} />
+      <div className="border-l border-border pl-3">
+        <Score value={score} delta={delta} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>
     </header>
   );

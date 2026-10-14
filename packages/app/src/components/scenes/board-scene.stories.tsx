@@ -8,7 +8,7 @@ import { BoardScene } from "./board-scene";
 
 /**
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
- * the score, the tiles left with discards, the time before `expires_at`, the closing points. One story per state; the Viewport control
+ * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
  * reframes it.
  */
 const meta = {

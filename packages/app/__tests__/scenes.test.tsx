@@ -159,12 +159,12 @@ describe("Play", () => {
 });
 
 describe("Board", () => {
-  it("draws the recorded board, the score, the tiles left with discards and the time left", () => {
+  it("draws the recorded board, the score, the tiles left and the time left", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
     expect(screen.getByRole("img", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();
     expect(screen.getByTestId("score-value")).toHaveTextContent(pts(BOARD.placing.score));
     expect(screen.getByTestId("tiles-left")).toHaveTextContent("12");
-    expect(screen.getByText("2 discarded")).toBeInTheDocument();
+    expect(screen.queryByText(/discarded/)).not.toBeInTheDocument();
     expect(screen.getByRole("timer", { name: "Expires in 19:00:00" })).toBeInTheDocument();
   });
 
@@ -288,7 +288,12 @@ describe("Purchase", () => {
   it("prices the stake, its boost and split, the 24 h validity and the threshold", async () => {
     const onStakeChange = vi.fn();
     render(wrap(<PurchaseScene {...PURCHASE.stake3Referred} onStakeChange={onStakeChange} />));
-    expect(screen.getByRole("radio", { name: "Stake 3" })).toHaveAttribute("data-state", "on");
+    const slider = screen.getByRole("slider", { name: "Stake" });
+    expect(slider).toHaveAttribute("aria-valuenow", "3");
+    expect(slider).toHaveAttribute("aria-valuemin", "1");
+    expect(slider).toHaveAttribute("aria-valuemax", "10");
+    expect(screen.getByTestId("stake-value")).toHaveTextContent("3");
+    expect(screen.getByTestId("stake-price")).toHaveTextContent("6.00");
     expect(screen.getByText("+3%")).toBeInTheDocument();
     expect(screen.getByText(/To 0x0456…beef/)).toBeInTheDocument();
     // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part, and the parts shown add up
@@ -301,8 +306,14 @@ describe("Purchase", () => {
     expect(screen.getByText("Thu 15 Oct, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
     expect(screen.getByText(pts(1150))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
-    await userEvent.click(screen.getByRole("radio", { name: "Stake 7" }));
-    expect(onStakeChange).toHaveBeenCalledWith(7);
+    // Keyboard: the value is the scene's (a prop), so each key moves one step from 3.
+    slider.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(onStakeChange).toHaveBeenLastCalledWith(4);
+    await userEvent.keyboard("{End}");
+    expect(onStakeChange).toHaveBeenLastCalledWith(10);
+    await userEvent.keyboard("{Home}");
+    expect(onStakeChange).toHaveBeenLastCalledWith(1);
   });
 
   it("boosts the burn by 10% at the highest stake", () => {

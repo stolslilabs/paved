@@ -66,7 +66,7 @@ export function VaultScene(props: VaultSceneProps) {
           <section aria-label="Your position" data-slot="card" className="rounded-xl border border-gold-900 bg-gold-950/40 px-4 pt-4 pb-2">
             {none ? (
               <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Icon name="vault" size="xl" className="text-primary" />
+                <Icon name="piggy-bank" size="xl" className="text-primary" />
                 <p className="text-sm font-semibold">No vPAVED yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">
                   Deposit $TILE to hold vPAVED. Its rate rises with every purchase; there is nothing to claim, you withdraw at the rate.
