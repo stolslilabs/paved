@@ -26,6 +26,21 @@ export class PurchaseOutcomeUnknownError extends WriteError {
   }
 }
 
+const SPAWN_PAUSED = "Challenge: spawn paused";
+const SPAWN_PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
+
+/**
+ * New Challenge games are paused (G4: the guardian or the owner called `pause_spawn`). Raised before any call is built when
+ * `spawn_paused()` reads true, and when a `'Challenge: spawn paused'` revert comes back after a race. Nothing moved: the
+ * revert is before any token transfer. Games already bought keep playing; the network fee of a reverted send is still paid.
+ */
+export class SpawnPausedError extends WriteError {
+  constructor(transactionHash?: string) {
+    super(SPAWN_PAUSED_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "SpawnPausedError";
+  }
+}
+
 const BELOW_MIN_OUT = "Economy: swap below min_out";
 const TOO_EARLY = "Economy: day cannot close yet";
 
@@ -54,6 +69,7 @@ export class SettleTooEarlyError extends WriteError {
 function economyRevert(error: unknown): unknown {
   // A revert of the receipt, or the node refusing at fee estimation before anything is sent.
   if (!(error instanceof WriteError)) return error;
+  if (revertNames(error.message, SPAWN_PAUSED)) return new SpawnPausedError(error.transactionHash);
   if (revertNames(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
   if (revertNames(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
   return error;
@@ -189,7 +205,7 @@ export class EconomyWriter {
       codecs: EconomyCodecs;
       views: EconomyViews;
       /** The game views of the same deployment: `Challenge.entry_price`. */
-      gameViews: Pick<GameViews, "entryPrice">;
+      gameViews: Pick<GameViews, "entryPrice" | "spawnPaused">;
       /** The pool's quote for the burn swap; null until CORE confirms `quote_swap` (every purchase is refused then). */
       poolQuoter: PoolQuoter | null;
       /**
@@ -236,6 +252,9 @@ export class EconomyWriter {
     // The RPC's chain must be the deployment's before anything is read for a purchase (fails closed).
     if (!this.options.checkChain) throw new WriteError("Purchases are off: the network cannot be confirmed. Nothing was sent.");
     await this.options.checkChain();
+    // Spawn paused (G4) before any quote or call is built. A failed read keeps today's behaviour: the contract's own revert
+    // (`economyRevert`) is the guard then.
+    if (await this.spawnPaused()) throw new SpawnPausedError();
     let entry: PriceView;
     let quote: QuoteView;
     let rate: bigint;
@@ -376,6 +395,14 @@ export class EconomyWriter {
   private checkAmount(amount: bigint, confirmed: bigint): void {
     if (amount <= 0n) throw new WriteError("An amount must be above 0");
     if (amount !== confirmed) throw new VaultAmountChangedError(confirmed, amount);
+  }
+
+  private async spawnPaused(): Promise<boolean> {
+    try {
+      return await this.options.gameViews.spawnPaused();
+    } catch {
+      return false;
+    }
   }
 
   private async read<T>(read: () => Promise<T>, what: string): Promise<T> {

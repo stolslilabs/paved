@@ -124,6 +124,10 @@ export interface GameViews {
   currentDay(): Promise<number>;
   /** The Challenge entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
+  /** `Challenge.spawn_paused()` (G4): the guardian or the owner paused new games; games already bought play on. */
+  spawnPaused(): Promise<boolean>;
+  /** `Challenge.guardian()` (G4): the address that may pause spawn, "0x0" for none. */
+  guardian(): Promise<string>;
   /** `Setup.tutorial_claimed(player_id)`: the player's tutorial claim is made (D-21). A `not-configured` ViewError without Setup. */
   tutorialClaimed(playerId: string): Promise<boolean>;
 }
@@ -167,6 +171,14 @@ export class RpcGameViews implements GameViews {
     return (await this.call("Challenge", "entry_price", [])) as PriceView;
   }
 
+  async spawnPaused(): Promise<boolean> {
+    return (await this.call("Challenge", "spawn_paused", [])) as boolean;
+  }
+
+  async guardian(): Promise<string> {
+    return (await this.call("Challenge", "guardian", [])) as string;
+  }
+
   async tutorialClaimed(playerId: string): Promise<boolean> {
     return (await this.call("Setup", "tutorial_claimed", [playerId])) as boolean;
   }
@@ -204,6 +216,9 @@ export class FakeGameViews implements GameViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
+  /** `spawn_paused()`; set to an Error to make the read fail. */
+  paused: boolean | Error = false;
+  guardianAddress = "0x0";
   /** The players whose tutorial claim is made (`tutorial_claimed`), as BigInt. */
   readonly tutorialClaims = new Set<bigint>();
   calls: string[] = [];
@@ -236,6 +251,17 @@ export class FakeGameViews implements GameViews {
   async entryPrice(): Promise<PriceView> {
     this.calls.push("entry_price");
     return { ...this.price };
+  }
+
+  async spawnPaused(): Promise<boolean> {
+    this.calls.push("spawn_paused");
+    if (this.paused instanceof Error) throw this.paused;
+    return this.paused;
+  }
+
+  async guardian(): Promise<string> {
+    this.calls.push("guardian");
+    return this.guardianAddress;
   }
 
   async tutorialClaimed(playerId: string): Promise<boolean> {
