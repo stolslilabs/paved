@@ -117,3 +117,32 @@ fn test_position_edge_adjacent_builds() {
     systems.challenge.build(id, Orientation::North, MAX - 1, CENTER);
     assert(store.game(id).built == 2, 'Position: east edge');
 }
+
+/// An accepted `build` at x = 1, then at y = 1: the neighbour lies on the board, and the build
+/// passes the check and lands.
+#[test]
+fn test_position_build_at_one_is_accepted() {
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let id = context.game_id;
+    // [x = 1] a tile at (2, CENTER), the build at (1, CENTER)
+    write_road(store, id, OTHER, Orientation::North, 2, CENTER);
+    force_plan(store, id, Plan::RFFFRFFFR);
+    systems.challenge.build(id, Orientation::North, 1, CENTER);
+    assert(store.game(id).built == 1, 'Position: x = 1');
+    // [y = 1] a tile at (CENTER, 2), the build at (CENTER, 1)
+    write_road(store, id, OTHER + 1, Orientation::North, CENTER, 2);
+    force_plan(store, id, Plan::RFFFRFFFR);
+    systems.challenge.build(id, Orientation::North, CENTER, 1);
+    assert(store.game(id).built == 2, 'Position: y = 1');
+}
+
+/// The position check comes before the game is read: `build(999, .., 0, 0)` on a game that does
+/// not exist reverts with the position error, not `'Game: does not exist'`.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_position_invalid_takes_precedence_over_a_missing_game() {
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    assert(reason_at(@systems, 999, 0, 0) == INVALID, 'Position: invalid first');
+    // The same game at a valid position fails on the game
+    assert(reason_at(@systems, 999, CENTER, CENTER) == 'Game: does not exist', 'Position: game');
+}

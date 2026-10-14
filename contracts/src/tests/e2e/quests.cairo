@@ -9,18 +9,22 @@ use paved::events::game_over;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::CENTER;
 use paved::systems::challenge::Challenge;
-use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup};
+use paved::systems::setup::{
+    ISetupDispatcher, ISetupDispatcherTrait, ISetupSafeDispatcher, ISetupSafeDispatcherTrait, Setup,
+};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use quiver_achievement::component::AchievementComponent;
-use quiver_achievement::events::index::{AchievementDefined, AchievementProgressed};
+use quiver_achievement::events::index::{
+    AchievementDefined, AchievementProgressed, AchievementRetired,
+};
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::component::QuestComponent;
-use quiver_quest::events::index::{QuestDefined, QuestProgressed};
+use quiver_quest::events::index::{QuestDefined, QuestProgressed, QuestRetired};
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
@@ -192,14 +196,50 @@ fn test_quests_retire_achievement_not_owner() {
 
 #[test]
 #[available_gas(l2_gas: 80262840)]
+#[feature("safe_dispatcher")]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let setup_address = systems.setup.contract_address;
     let admin = ISetupDispatcher { contract_address: setup_address };
     define_accepted_list(setup_address);
+    let mut spy = spy_events();
     start_cheat_caller_address(setup_address, OWNER());
     admin.retire_quest(1);
     admin.retire_achievement(9);
+
+    // [Assert] The indexer reads the retirements from events
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup_address,
+                    quest_event(QuestComponent::Event::QuestRetired(QuestRetired { quest_id: 1 })),
+                ),
+                (
+                    setup_address,
+                    achievement_event(
+                        AchievementComponent::Event::AchievementRetired(
+                            AchievementRetired { achievement_id: 9 },
+                        ),
+                    ),
+                ),
+            ],
+        );
+
+    // [Assert] A retired id is retired once and cannot be defined again
+    let safe = ISetupSafeDispatcher { contract_address: setup_address };
+    assert(*safe.retire_quest(1).unwrap_err().at(0) == 'Quest: retired', 'Quests: retired twice');
+    assert(
+        *safe.retire_achievement(9).unwrap_err().at(0) == 'Achievement: retired',
+        'Achievements: retired twice',
+    );
+    let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
+    let reason = *safe.define_quest(1, schedule, tasks.span(), array![].span()).unwrap_err().at(0);
+    assert(reason == 'Quest: already defined', 'Quests: redefined');
+    let window = AchievementWindow { start: 0, end: 0 };
+    let tasks = array![AchievementTask { task_id: constants::TASK_PODIUM, total: 1 }];
+    let reason = *safe.define_achievement(9, window, tasks.span(), 50).unwrap_err().at(0);
+    assert(reason == 'Achievement: already defined', 'Achievements: redefined');
 }
 
 /// A recurring quest rolls over at 00:00 UTC only when its start is a multiple of a day (Q-6), the
