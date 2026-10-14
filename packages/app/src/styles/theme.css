@@ -1,0 +1,198 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* 1. Base scales: the standard 50-950 declension. */
+@theme {
+  /* gold: primary, the mockups' buttons; measured anchor 300 = #F0BF5B */
+  --color-gold-50: oklch(0.975 0.021 83.0); /* #FEF6E7 */
+  --color-gold-100: oklch(0.945 0.043 83.0); /* #FBEBCD */
+  --color-gold-200: oklch(0.895 0.078 83.0); /* #F6D8A1 */
+  --color-gold-300: oklch(0.829 0.130 83.0); /* #F0BF5B */
+  --color-gold-400: oklch(0.760 0.155 83.0); /* #E0A605 */
+  --color-gold-500: oklch(0.680 0.139 83.0); /* #C28F04 */
+  --color-gold-600: oklch(0.585 0.119 83.0); /* #9E7403 */
+  --color-gold-700: oklch(0.495 0.101 83.0); /* #7D5B02 */
+  --color-gold-800: oklch(0.405 0.083 83.0); /* #5F4401 */
+  --color-gold-900: oklch(0.320 0.065 83.0); /* #432F00 */
+  --color-gold-950: oklch(0.235 0.048 83.0); /* #291C00 */
+
+  /* ink: neutral, page, panels and borders; measured anchors 800 = #23303A, 900 = #172129, 950 = #0A141C */
+  --color-ink-50: oklch(0.975 0.006 241.7); /* #F3F7FB */
+  --color-ink-100: oklch(0.940 0.006 241.7); /* #E8ECEF */
+  --color-ink-200: oklch(0.880 0.012 241.7); /* #D1D9DF */
+  --color-ink-300: oklch(0.800 0.022 241.7); /* #B2C0CB */
+  --color-ink-400: oklch(0.700 0.022 241.7); /* #93A0AB */
+  --color-ink-500: oklch(0.600 0.026 241.7); /* #73838F */
+  --color-ink-600: oklch(0.500 0.026 241.7); /* #576571 */
+  --color-ink-700: oklch(0.410 0.026 241.7); /* #3E4C57 */
+  --color-ink-800: oklch(0.302 0.025 241.7); /* #23303A */
+  --color-ink-900: oklch(0.242 0.021 242.8); /* #172129 */
+  --color-ink-950: oklch(0.186 0.022 243.5); /* #0A141C */
+
+  /* meadow: success, meadows; chosen anchor 500 = #4CAF50 */
+  --color-meadow-50: oklch(0.975 0.019 144.2); /* #EFFBEF */
+  --color-meadow-100: oklch(0.945 0.041 144.2); /* #DDF5DC */
+  --color-meadow-200: oklch(0.895 0.073 144.2); /* #C0EABE */
+  --color-meadow-300: oklch(0.830 0.122 144.2); /* #95DC94 */
+  --color-meadow-400: oklch(0.760 0.154 144.2); /* #6ECA6F */
+  --color-meadow-500: oklch(0.673 0.162 144.2); /* #4CAF50 */
+  --color-meadow-600: oklch(0.585 0.154 144.2); /* #349239 */
+  --color-meadow-700: oklch(0.495 0.138 144.2); /* #217527 */
+  --color-meadow-800: oklch(0.405 0.117 144.2); /* #135819 */
+  --color-meadow-900: oklch(0.320 0.094 144.2); /* #093E0E */
+  --color-meadow-950: oklch(0.235 0.073 144.2); /* #012604 */
+
+  /* river: info, water; chosen anchor 500 = #3B8FD9 */
+  --color-river-50: oklch(0.975 0.012 248.5); /* #F1F8FE */
+  --color-river-100: oklch(0.945 0.027 248.5); /* #DFEFFF */
+  --color-river-200: oklch(0.895 0.053 248.5); /* #C2E0FF */
+  --color-river-300: oklch(0.830 0.088 248.5); /* #9ACDFF */
+  --color-river-400: oklch(0.760 0.129 248.5); /* #6BB7FF */
+  --color-river-500: oklch(0.633 0.138 248.5); /* #3B8FD9 */
+  --color-river-600: oklch(0.585 0.131 248.5); /* #3180C5 */
+  --color-river-700: oklch(0.495 0.117 248.5); /* #1F65A1 */
+  --color-river-800: oklch(0.405 0.099 248.5); /* #114C7C */
+  --color-river-900: oklch(0.320 0.080 248.5); /* #083559 */
+  --color-river-950: oklch(0.235 0.062 248.5); /* #011F3A */
+
+  /* ember: danger, give up; chosen anchor 600 = #D9493B */
+  --color-ember-50: oklch(0.975 0.012 29.1); /* #FFF4F2 */
+  --color-ember-100: oklch(0.945 0.027 29.1); /* #FFE7E3 */
+  --color-ember-200: oklch(0.895 0.054 29.1); /* #FFD0C8 */
+  --color-ember-300: oklch(0.830 0.094 29.1); /* #FFB0A4 */
+  --color-ember-400: oklch(0.760 0.143 29.1); /* #FF8B7B */
+  --color-ember-500: oklch(0.680 0.192 29.1); /* #F85E4D */
+  --color-ember-600: oklch(0.604 0.183 29.1); /* #D9493B */
+  --color-ember-700: oklch(0.495 0.163 29.1); /* #AB2E24 */
+  --color-ember-800: oklch(0.405 0.138 29.1); /* #841E16 */
+  --color-ember-900: oklch(0.320 0.111 29.1); /* #5F110C */
+  --color-ember-950: oklch(0.235 0.086 29.1); /* #3E0503 */
+
+  /* amber: warning; chosen anchor 500 = #E8892E */
+  --color-amber-50: oklch(0.975 0.014 59.2); /* #FFF5EE */
+  --color-amber-100: oklch(0.945 0.034 59.2); /* #FFE8D7 */
+  --color-amber-200: oklch(0.895 0.067 59.2); /* #FFD2B0 */
+  --color-amber-300: oklch(0.830 0.114 59.2); /* #FFB57A */
+  --color-amber-400: oklch(0.760 0.145 59.2); /* #F49848 */
+  --color-amber-500: oklch(0.717 0.152 59.2); /* #E8892E */
+  --color-amber-600: oklch(0.585 0.138 59.2); /* #B66403 */
+  --color-amber-700: oklch(0.495 0.116 59.2); /* #914E02 */
+  --color-amber-800: oklch(0.405 0.096 59.2); /* #6E3A00 */
+  --color-amber-900: oklch(0.320 0.075 59.2); /* #4E2800 */
+  --color-amber-950: oklch(0.235 0.055 59.2); /* #311600 */
+
+  /* The board: the 3D scene's clear colour and the Storybook background; measured #07111A. */
+  --color-board: oklch(0.173 0.024 246.1); /* #07111A */
+
+  /* Fonts (section 2.3). */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Rubik Mono One", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* Breakpoints (section 3.4): mobile first, the base is the small mobile. Tailwind's defaults (sm, md, lg, xl, 2xl)
+     stay: shadcn's components use them. The named ones sit beside. */
+  --breakpoint-mobile: 22.5rem;   /* 360px */
+  --breakpoint-tablet: 40rem;     /* 640px */
+  --breakpoint-desktop: 64rem;    /* 1024px */
+  --breakpoint-wide: 90rem;       /* 1440px */
+
+  --radius: 0.75rem;
+}
+
+/* 2. Theme aliases: what the Theme page and a future event re-point (glitchbomb's mechanics). */
+:root {
+  --accent-scale-300: var(--color-gold-300);
+  --accent-scale-400: var(--color-gold-400);
+  --accent-scale-950: var(--color-gold-950);
+}
+
+/* 3. Semantic tokens (shadcn names), dark values. Dark only: no light block yet. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: var(--color-ink-950);
+  --foreground: var(--color-ink-50);
+  --card: var(--color-ink-900);
+  --card-foreground: var(--color-ink-50);
+  --popover: var(--color-ink-900);
+  --popover-foreground: var(--color-ink-50);
+  --primary: var(--accent-scale-300);
+  --primary-foreground: var(--color-ink-950);
+  --secondary: var(--color-ink-800);
+  --secondary-foreground: var(--color-ink-50);
+  --muted: var(--color-ink-800);
+  --muted-foreground: var(--color-ink-400);
+  --accent: var(--accent-scale-950);
+  --accent-foreground: var(--accent-scale-300);
+  --destructive: var(--color-ember-700);
+  --destructive-foreground: var(--color-ink-50);
+  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card: 9.34:1 (AA) */
+  --success: var(--color-meadow-400);
+  --info: var(--color-river-400);
+  --warning: var(--color-amber-400);
+  --border: var(--color-ink-800);
+  --input: var(--color-ink-600); /* 3.11:1 on --background (WCAG 1.4.11); ink-700 gave 2.11:1 */
+  --input-surface: var(--color-ink-500); /* --input on --card / --popover: 4.16:1 (ink-600 gives 2.73 there) */
+  --ring: var(--accent-scale-400);
+  --board: var(--color-board);
+}
+
+/* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-surface: var(--input-surface);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+
+  /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
+     `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
+     second class. `data-input-surface` marks any other card or popover surface. */
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-input-surface] {
+    --input: var(--input-surface);
+  }
+}
+
+/* 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

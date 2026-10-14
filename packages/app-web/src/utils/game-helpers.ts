@@ -4,6 +4,11 @@ import type { SessionState } from "@paved/chain";
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
 export const CENTER = 2147483647;
 
+/** A renderer grid slot (x east, y south of the starter) as the contracts' absolute x and y. */
+export function toChainSlot(gridX: number, gridY: number): { x: number; y: number } {
+  return { x: gridX + CENTER, y: CENTER - gridY };
+}
+
 /** The session's board as the renderer draws it (world x east, world z south). */
 export function toRenderBoard(state: Pick<SessionState, "tiles"> & { key: Pick<SessionState["key"], "gameId"> }, playerId: string): TileRenderData[] {
   return state.tiles.map((t) => ({
