@@ -8,7 +8,12 @@ Katana (1.7.1 and 1.8.0-rc.9) refuses Sierra 1.9.3, which Scarb 2.20.1 produces.
 ## Reproduce the winner's run
 
 Prerequisites (versions as measured): Scarb 2.20.1, sncast 0.64.0, starknet-devnet 0.10.0, `curl`, `python3`.
-On this machine they live under `~/.asdf/installs/`; the script uses these paths by default.
+`scarb` is the plain one on the `PATH`, with no prepend: on the VPS the shim `~/.local/bin/scarb`, which holds the
+machine-wide lock (the owner's Cairo rule: one Cairo run at a time, always through the shims). `sncast` and
+`starknet-devnet` live under `~/.asdf/installs/`; the script uses these paths by default and runs `sncast` by its
+absolute path, so its directory never goes on the `PATH`. Before any build a guard refuses (exit 2) when the shim
+exists and `scarb` resolves elsewhere (an override pointing at an asdf directory included); with no shim (the Mac, CI)
+it only warns.
 
 ```bash
 scripts/node/run-sample.sh devnet
@@ -18,7 +23,9 @@ The script starts devnet on `127.0.0.1:5051` (seed 42), builds, declares, deploy
 `set_value(42)`, calls `get_value`, prints the receipt, and stops the node by PID on exit.
 Dev-account keys come from the node at run time and are never written to a file.
 
-Overrides: `DEVNET_BIN`, `KATANA_BIN`, `SCARB_BIN_DIR`, `SNCAST_BIN_DIR`, `PORT`.
+Overrides: `DEVNET_BIN`, `KATANA_BIN`, `SCARB_BIN_DIR` (put first on the `PATH` only when set; `$HOME/.local/bin`
+passes the guard), `SNCAST_BIN_DIR`, `PORT`. `PAVED_SCARB_SHIM` (default `~/.local/bin/scarb`) is a test hook for the
+shim path the guard expects, not a way round the rule.
 
 ## Reproduce the Katana refusal
 
