@@ -102,7 +102,7 @@ export const ev = {
     ),
   /**
    * A past `PlayerCreated` (Account's registry, before D-25 (E)): key the player, data the name and the master. Only a
-   * source still read can carry one (Challenge's ABI declared it); it is known by name and skipped.
+   * source still read can carry one (the game contract's ABI declared it until D-23b); it is known by name and skipped.
    */
   pastCreated: (source: Source, player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
     raw(source, "PlayerCreated", [player], [name, master]),

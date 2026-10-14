@@ -161,7 +161,7 @@ describe("an old history (before D-25 (E))", () => {
   test("a PlayerCreated is skipped by name from a source still read, and never seen from Account's address", async () => {
     const node = new FakeNode();
     node.mine(
-      // Challenge's ABI declared PlayerCreated: from Challenge's address it is known and skipped, never a halt.
+      // The game contract's ABI declared PlayerCreated until D-23b: from Challenge's address it is known and skipped, never a halt.
       [ev.pastCreated("challenge", ADA, 0x416461)],
       // Account's address is not a source: nothing asks the node for its events (the fake node holds them unread).
       [{ ...ev.pastCreated("challenge", BO, 0x426f), source: "account" } as unknown as FakeEvent],
@@ -470,19 +470,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("D-25 (E): schema 9 (Account out, players from their first event), and a database of schema 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("9");
-    for (const old of ["8", "7"]) {
+  test("D-23b: schema 10 (Daily renamed Challenge in the stored contract and the deployment), and a database of schema 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("10");
+    for (const old of ["9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 9: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 9.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 10: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 10.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("9");
+      expect(rebuilt.meta("schema")).toBe("10");
       rebuilt.close();
     }
   });

@@ -1,6 +1,6 @@
 // The game of the contracts, off chain: start, build, discard, surrender, game over and the
 // running score, as `contracts/src/models/game.cairo` and the `build`/`discard` of
-// `components/playable.cairo` (Challenge) and `components/tutoriable.cairo` (Tutorial) play them,
+// `components/playable.cairo` (Daily) and `components/tutoriable.cairo` (Tutorial) play them,
 // with the scoring of `structure/assessment.cairo` and `structure/forest.cairo` (D-18) and the
 // tile owners of D-19 (`docs/architecture/structure-state.md`, "D-19").
 //
@@ -394,7 +394,7 @@ export class EngineGame {
     });
     this.held = null;
 
-    // [Effect] Assess game over, then draw a new tile if relevant (Challenge reseeds from the position)
+    // [Effect] Assess game over, then draw a new tile if relevant (Daily reseeds from the position)
     this.assessOver();
     if (!this._over) {
       if (this.deck !== "tutorial") this.reseed(CENTER + tile.x, CENTER + tile.y);

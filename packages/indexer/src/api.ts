@@ -63,6 +63,7 @@ export interface HeadAnswer extends Envelope {
   chain_id: string;
   from_block: number;
   contracts: {
+    /** The game contract, `daily` before schema 10 (D-23b). */
     challenge: string;
     /**
      * Setup (D-24): the quests, the achievements and the tutorial claim; the wiring since D-25 (E). Replaces `tutorial` in

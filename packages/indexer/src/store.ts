@@ -50,11 +50,11 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "9";
+export const SCHEMA_VERSION = "10";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
- * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)).
+ * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since schema 10 (D-23b).
  */
 export function deploymentHash(
   config: Pick<Config, "challenge" | "setup" | "economy" | "collection">,

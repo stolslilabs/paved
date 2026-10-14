@@ -215,7 +215,7 @@ export const IGNORED = [
   // from the deployment file.
   "SetupSet",
   // Account's player registry (D-25 (E) removed Account: a player is the wallet address, names are off-chain). Past events
-  // only. Account's address is no longer read; Challenge's ABI declared it too (the shared game events), so a history that
+  // only. Account's address is no longer read; the game contract's ABI declared it too until D-23b (the shared game events), so a history that
   // holds one from a source still read skips it by name and never halts.
   "PlayerCreated",
 ] as const;

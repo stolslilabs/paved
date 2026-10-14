@@ -541,7 +541,7 @@ describe("the podium credit is ordered at the day's close", () => {
 
   test("a replay of a history from before D-21, D-24 and D-25 (E) never halts, and keeps only what Setup says", async () => {
     const { indexer, queries, head } = await open((node) => {
-      // A past PlayerCreated from a source still read (Challenge's ABI declared it): known by name and skipped.
+      // A past PlayerCreated from a source still read (the game contract's ABI declared it until D-23b): known by name and skipped.
       node.mine([ev.pastCreated("challenge", A, 0x41)]);
       // Challenge's own quests and a Tutorial-era claim credited by Challenge, the owner's Lobby class, a past prize, the mint of a
       // Tutorial game's token: all past, all skipped.

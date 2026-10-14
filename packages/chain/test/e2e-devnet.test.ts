@@ -4,10 +4,11 @@
  * a paid purchase with a referrer, play, the settlement, the Vault and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
- * The Challenge deck, and so every score, depends on the UTC day of the chain; the test proves the same economics on any day.
+ * Each Challenge game's deck, and so every score, comes from its token id since D-23b (Poseidon(0, game id), no longer the
+ * UTC day): the test proves the same economics whatever the decks of the game ids the node hands out, on any day.
  * alice plays her Challenge game with the search player of `challenge-player.ts` and must score above the day's threshold, so
  * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); the test
- * fails, naming the day and the scores, on a day when she does not. bob and carol cannot reach the threshold whatever
+ * fails, naming the day, the game ids and the scores, on a deck where she does not. bob and carol cannot reach the threshold whatever
  * the deck: they stop after a handful of placements (`NAIVE_MAX_MOVES`) and surrender, and their scores are checked
  * against a floor under any threshold of the day (the prior alone, diluted by every stake), so their reward is 0.
  * carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
@@ -382,10 +383,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       evidence.push(`${p.name} ${done.moves} moves score ${done.score} recorded ${short(done.hash)}`);
     }
     // The threshold the settlement will use, from the formula: alice must beat it, bob and carol stay under it.
-    // The deck depends on the chain's day, so a failure names the day and the scores.
+    // The deck depends on the game id (D-23b), so a failure names the day, the game ids and the scores.
     const games = players.map((p) => ({ score: scores.get(p.name)!, stake: stakes.get(p.name)! }));
     cliff = threshold(dayMean(prior, games), (await economy.views.terms(challengeGames.get(players[0].name)!)).sigmaBps);
-    const where = `day ${dayId}, prior ${prior / 1000}, threshold ${Number(cliff) / 1000}, scores ${[...scores].map(([n, s]) => `${n} ${s}`).join(", ")}`;
+    const where = `day ${dayId}, games ${[...challengeGames].map(([n, id]) => `${n} ${id}`).join(", ")}, prior ${prior / 1000}, threshold ${Number(cliff) / 1000}, scores ${[...scores].map(([n, s]) => `${n} ${s}`).join(", ")}`;
     expect(BigInt(scores.get("alice")!) * 1000n, `alice's search player must beat the threshold (${where})`).toBeGreaterThanOrEqual(cliff);
     // bob and carol cannot reach it by construction: the day's mean is at least the prior diluted by every stake (a
     // game enters it at 0 or more), so no threshold of the day is under this floor; their scores stay under the floor.

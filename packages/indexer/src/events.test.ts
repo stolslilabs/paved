@@ -80,7 +80,7 @@ describe("the ABIs", () => {
     expect("PlayerCreated" in EMITTERS).toBe(false);
     expect((IGNORED as readonly string[]).includes("PlayerCreated")).toBe(true);
     expect(SELECTORS.PlayerCreated).toBe(canonical(hash.getSelectorFromName("PlayerCreated")));
-    // From any source still read (Challenge's ABI declared it), whatever its shape: skipped, never a halt.
+    // From any source still read (the game contract's ABI declared it until D-23b), whatever its shape: skipped, never a halt.
     for (const source of ["challenge", "setup", "economy", "collection"] as const) {
       const e = ev.pastCreated(source, 0x1234, 0x416461);
       expect(decode(source, e.keys, e.data), source).toBeNull();
