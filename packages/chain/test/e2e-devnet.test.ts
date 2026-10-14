@@ -716,9 +716,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(tiles.map((t) => t.status)).toEqual([TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.held]);
     for (const tile of tiles) {
       if (tile.status === TILE_STATUS.held) break;
+      if (tile.id === 1) continue; // the start tile, on the board before the first draw
       expect(engine.hand?.id, `tile ${tile.id} is the engine's draw`).toBe(tile.id);
       if (tile.status === TILE_STATUS.discarded) engine.discard();
-      else if (tile.id > 1) engine.build({ orientation: ORIENTATIONS[tile.orientation], x: tile.x - CENTER, y: tile.y - CENTER });
+      else engine.build({ orientation: ORIENTATIONS[tile.orientation], x: tile.x - CENTER, y: tile.y - CENTER });
     }
     const now = await client.views.game(key);
     expect(engine.seed).toBe(BigInt(now.seed));
