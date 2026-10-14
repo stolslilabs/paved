@@ -326,16 +326,19 @@ describe("Quests", () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
     const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Point Chaser"]);
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Into the Woods", "Point Chaser", "Public Works", "Deep Woods", "Strong Day"]);
     expect(daily.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
     expect(daily.getByRole("article", { name: "Master Builder" })).toHaveAttribute("data-state", "progress");
+    // v2a: day 20,740 is offset 1 of the 3-day rotation, so one quest of each family is live: Public Works, Deep Woods, Strong Day.
+    expect(daily.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
+    expect(daily.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
     expect(daily.getByRole("progressbar", { name: "points: 2,710 of 3,000" })).toBeInTheDocument();
     // 00:00 UTC is 9 hours after the mocks' 15:00.
     expect(daily.getByRole("timer", { name: "Daily ends in 9:00:00" })).toBeInTheDocument();
     const weekly = within(screen.getByRole("region", { name: "Weekly" }));
     expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
-    // The week is the definitions': it ends on Friday 00:00 UTC, 33 hours on.
-    expect(weekly.getByRole("timer", { name: "Weekly ends in 33:00:00" })).toBeInTheDocument();
+    // The week is the definitions': Monday to Sunday UTC, so it ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
+    expect(weekly.getByRole("timer", { name: "Weekly ends in 105:00:00" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Quests" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("tab", { name: "Achievements" }));
     expect(onTab).toHaveBeenCalledWith("achievements");
@@ -344,8 +347,8 @@ describe("Quests", () => {
   it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
     const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Forest Warden", "Point Chaser II"]);
-    expect(screen.getAllByText("Complete")).toHaveLength(3);
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Into the Woods", "Point Chaser", "Small Works", "Woodland Walk", "Warm-Up Score"]);
+    expect(screen.getAllByText("Complete")).toHaveLength(7);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
@@ -361,7 +364,7 @@ describe("Quests", () => {
 
   it("shows a day not played at zero, and a day with no quest", () => {
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.idle} />));
-    expect(screen.getAllByText("To do")).toHaveLength(6);
+    expect(screen.getAllByText("To do")).toHaveLength(10); // seven dailies and the three weeklies
     unmount();
     render(wrap(<QuestsScene {...QUESTS.none} />));
     expect(screen.getByText("No quest this day")).toBeInTheDocument();
@@ -388,7 +391,7 @@ describe("Quests", () => {
     const success = vi.spyOn(toast, "success");
     const scene = (quests: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} quests={quests} /></>);
     const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
-    // Daily Run was already complete at the first read: no toast for it.
+    // Daily Run and Into the Woods were already complete at the first read: no toast for them.
     await Promise.resolve();
     expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
     rerender(scene(QUESTS_TODAY_COMPLETED));
@@ -447,18 +450,21 @@ describe("Achievements", () => {
   it("shows earned, in progress and locked, earned first, and the points", () => {
     render(wrap(<AchievementsScene {...ACHIEVEMENTS.mixed} />));
     const cards = screen.getAllByRole("article");
-    expect(cards.map((c) => c.getAttribute("data-state"))).toEqual(["complete", "complete", "complete", "complete", "progress", "progress", "none", "none", "none"]);
+    expect(cards.map((c) => c.getAttribute("data-state"))).toEqual(["complete", "complete", "complete", "complete", ...Array(6).fill("progress"), ...Array(6).fill("none")]);
     expect(screen.getAllByText("Earned")).toHaveLength(4);
-    expect(screen.getAllByText("Locked")).toHaveLength(3);
-    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("4 of 9 earned");
-    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("60 / 230 pts");
+    expect(screen.getAllByText("Locked")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("4 of 16 earned");
+    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("60 / 630 pts");
+    // v2a's higher tiers are named, not shown as "Achievement #<id>".
+    expect(screen.getByRole("article", { name: "Settler V" })).toBeInTheDocument();
+    expect(screen.queryByText(/Achievement #/)).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Achievements" })).toHaveAttribute("aria-selected", "true");
     expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Quests" })).toHaveAttribute("aria-current", "page");
   });
 
   it.each([
-    ["newPlayer", "0 of 9 earned"],
-    ["all", "9 of 9 earned"],
+    ["newPlayer", "0 of 16 earned"],
+    ["all", "16 of 16 earned"],
   ] as const)("tells the %s state", (state, text) => {
     render(wrap(<AchievementsScene {...ACHIEVEMENTS[state]} />));
     expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent(text);

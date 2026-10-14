@@ -8,7 +8,7 @@ const meta = { title: "Scenes/Achievements", component: AchievementsScene, args:
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Four earned, three in progress, two locked. */
+/** Four earned, six in progress, six locked (the sixteen: the accepted list and v2a's higher tiers). */
 export const Mixed: Story = { args: ACHIEVEMENTS.mixed };
 
 /** Nothing counted yet: all locked. */

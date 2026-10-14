@@ -15,10 +15,10 @@ const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChan
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Today: Daily Run done, two dailies under way, and the week's three. Daily counts down to 00:00 UTC, Weekly to Friday. */
+/** Today (Wednesday): v1's four dailies and the three of the rotation (offset 1), Daily Run and Into the Woods done, and the week's three. Daily counts down to 00:00 UTC, Weekly to Monday 00:00 UTC. */
 export const Today: Story = { args: QUESTS.today };
 
-/** Yesterday, closed: the other rotation pair, all three dailies done; the weeklies are where they stood that day. No countdown on a closed day. */
+/** Yesterday, closed: the rotation's offset 0 (Small Works, Woodland Walk, Warm-Up Score), all seven dailies done; the weeklies are where they stood that day. No countdown on a closed day. */
 export const AllComplete: Story = { args: QUESTS.allDone };
 
 /** A past day the player did not play. */
