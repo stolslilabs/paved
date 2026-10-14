@@ -1,0 +1,24 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Score } from "./score";
+
+const meta = { title: "Elements/Score", component: Score, parameters: { layout: "padded" }, args: { value: 1240, label: "Score" } } satisfies Meta<typeof Score>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {};
+export const Gold: Story = { args: { tone: "gold", size: "lg" } };
+/** The points the last move added, beside the score. */
+export const WithDelta: Story = { args: { value: 1380, delta: 140 } };
+export const Final: Story = { args: { value: 4820, size: "xl", tone: "gold", label: "Your score" } };
+export const Zero: Story = { args: { value: 0 } };
+
+/** The four sizes, tabular figures: the digits line up from one row to the next. */
+export const Sizes: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      {(["sm", "md", "lg", "xl"] as const).map((size) => (
+        <Score key={size} size={size} value={size === "sm" ? 111 : 1888} label={size} />
+      ))}
+    </div>
+  ),
+};
