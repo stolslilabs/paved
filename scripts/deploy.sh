@@ -2711,7 +2711,7 @@ if [[ "$NETWORK" == "devnet" ]]; then
   for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
     invoke "$PAVED" transfer "$acct" $(u256 "$TEST_PAVED") >/dev/null
   done
-  echo "   test PAVED: 1,000 to each of ${#TEST_ACCOUNTS[@]} predeployed accounts, stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
+  echo "   test PAVED: 1,000 to each of ${#TEST_ACCOUNTS[@]} predeployed accounts, stake $((199000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 fi
 read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 [[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
