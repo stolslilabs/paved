@@ -37,7 +37,7 @@ export interface Deployment {
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
   /**
-   * True when the RPC URL and the two required addresses (Daily, Token) are known: the only case where writes are offered.
+   * True when the RPC URL and the two required addresses (Challenge, Token) are known: the only case where writes are offered.
    * `Account` is not one since D-25 (E): it left the deployment, and a file that still names it is read without it.
    */
   configured: boolean;
@@ -45,7 +45,7 @@ export interface Deployment {
   missing: string[];
 }
 
-const NAMES: ContractName[] = ["Daily", "Token"];
+const NAMES: ContractName[] = ["Challenge", "Token"];
 
 /**
  * The networks that resolve a `MockUSDC` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,

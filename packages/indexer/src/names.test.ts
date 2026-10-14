@@ -100,9 +100,14 @@ describe("cartridgeLookup", () => {
 });
 
 describe("namesEnabled", () => {
-  test("on by default, off on a devnet deployment, --no-names always off, --names forces it on", () => {
+  test("on for sepolia and mainnet only, off on devnet or a file with no network (fails closed), --no-names always off, --names forces it on", () => {
     expect(namesEnabled({ network: "sepolia" })).toBe(true);
+    expect(namesEnabled({ network: "mainnet" })).toBe(true);
     expect(namesEnabled({ network: "devnet" })).toBe(false);
+    // A deployment file with no `network` reads as "": not a known public network, so no lookup.
+    expect(namesEnabled({ network: "" })).toBe(false);
+    expect(namesEnabled({ network: "katana" })).toBe(false);
+    expect(namesEnabled({ network: "", names: true })).toBe(true);
     expect(namesEnabled({ network: "sepolia", noNames: true })).toBe(false);
     expect(namesEnabled({ network: "devnet", names: true })).toBe(true);
     expect(namesEnabled({ network: "devnet", names: true, noNames: true })).toBe(false);
@@ -300,9 +305,9 @@ describe("the routes", () => {
   async function served() {
     const node = new FakeNode();
     node.mine([], []);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
-    node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, B, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY, end: 77 })]);
+    node.mine([ev.over("challenge", 2, B, 40, { day: DAY, end: 78 })]);
     const indexer = indexerOf(node);
     await settle(indexer);
     return indexer;

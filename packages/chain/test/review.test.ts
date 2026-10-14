@@ -13,7 +13,7 @@ import { WriteError, type WriteAccount } from "../src/writer";
 const codecs = createCodecs();
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 const off = resolveDeployment({ network: "devnet" });
 
@@ -27,13 +27,13 @@ function tilesFelts(from: number, n: number, extra = 0): string[] {
 describe("decodeResult refuses a layout the ABI does not describe", () => {
   test("felts left over after a struct", () => {
     const game = Array(16).fill("0x1");
-    expect(() => codecs.Daily.decodeResult("game", [...game, "0x2"])).toThrow(AbiMismatchError);
-    expect(() => codecs.Daily.decodeResult("game", game)).not.toThrow();
+    expect(() => codecs.Challenge.decodeResult("game", [...game, "0x2"])).toThrow(AbiMismatchError);
+    expect(() => codecs.Challenge.decodeResult("game", game)).not.toThrow();
   });
 
   test("an upgraded contract with one more felt per tile fails as abi-mismatch, not misaligned", async () => {
     const provider = { callContract: async () => tilesFelts(0, 3, 1) };
-    const error = await new RpcGameViews(provider, deployment, codecs).tiles({ mode: "daily", gameId: 1 }).catch((e) => e);
+    const error = await new RpcGameViews(provider, deployment, codecs).tiles({ mode: "challenge", gameId: 1 }).catch((e) => e);
     expect(error).toBeInstanceOf(ViewError);
     expect(error.kind).toBe("abi-mismatch");
   });
@@ -41,22 +41,22 @@ describe("decodeResult refuses a layout the ABI does not describe", () => {
 
 describe("encodeCall checks integer ranges", () => {
   test("u32 and u8 out of range, negative, felt over the prime", () => {
-    expect(() => codecs.Daily.encodeCall("discard", [2 ** 32])).toThrow(RangeError);
-    expect(() => codecs.Daily.encodeCall("discard", [-1])).toThrow(RangeError);
-    expect(() => codecs.Daily.encodeCall("spawn", [256, "0x0", 1n])).toThrow(RangeError);
-    expect(() => codecs.Daily.encodeCall("builder", [1, 1n << 252n])).toThrow(RangeError);
-    expect(codecs.Daily.encodeCall("discard", [2 ** 32 - 1])).toEqual(["0xffffffff"]);
+    expect(() => codecs.Challenge.encodeCall("discard", [2 ** 32])).toThrow(RangeError);
+    expect(() => codecs.Challenge.encodeCall("discard", [-1])).toThrow(RangeError);
+    expect(() => codecs.Challenge.encodeCall("spawn", [256, "0x0", 1n])).toThrow(RangeError);
+    expect(() => codecs.Challenge.encodeCall("builder", [1, 1n << 252n])).toThrow(RangeError);
+    expect(codecs.Challenge.encodeCall("discard", [2 ** 32 - 1])).toEqual(["0xffffffff"]);
     // A felt is in [0, P): P - 1 is the largest.
     const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
-    expect(codecs.Daily.encodeCall("builder", [1, P - 1n])[1]).toBe("0x" + (P - 1n).toString(16));
-    expect(() => codecs.Daily.encodeCall("builder", [1, P])).toThrow(RangeError);
+    expect(codecs.Challenge.encodeCall("builder", [1, P - 1n])[1]).toBe("0x" + (P - 1n).toString(16));
+    expect(() => codecs.Challenge.encodeCall("builder", [1, P])).toThrow(RangeError);
   });
 });
 
 describe("enum codes added later do not break decoding", () => {
   test("an enum code the ABI does not list is kept as its number, not thrown", () => {
     const grown = new AbiCodec([
-      ...ABIS.Daily,
+      ...ABIS.Challenge,
       { type: "function", name: "which_orientation", inputs: [], outputs: [{ type: "paved::types::orientation::Orientation" }] },
     ]);
     expect(grown.decodeResult("which_orientation", ["0x3"])).toBe(3);
@@ -74,7 +74,7 @@ describe("tiles pages by 64", () => {
         return tilesFelts(from, Math.min(64, 67 - from));
       },
     };
-    const tiles = await new RpcGameViews(provider, deployment, codecs).tiles({ mode: "daily", gameId: 5 });
+    const tiles = await new RpcGameViews(provider, deployment, codecs).tiles({ mode: "challenge", gameId: 5 });
     expect(tiles.map((t) => t.id)).toEqual(Array.from({ length: 67 }, (_, i) => i + 1));
     expect(asked).toEqual([
       ["0x5", "0x0", "0x40"],
@@ -91,7 +91,7 @@ function client(waitForTransaction: () => Promise<unknown> = async () => ({ exec
 describe("writer", () => {
   test("a rejected execute (fee estimation, contract assert) is a WriteError", async () => {
     const account: WriteAccount = { address: "0x5", execute: async () => { throw new Error("Tile: not compatible"); } };
-    const error = await client().writer(account).discard({ mode: "daily", gameId: 1 }).catch((e) => e);
+    const error = await client().writer(account).discard({ mode: "challenge", gameId: 1 }).catch((e) => e);
     expect(error).toBeInstanceOf(WriteError);
     expect(error.message).toBe("Tile: not compatible");
   });
@@ -101,15 +101,15 @@ describe("writer", () => {
     const receipt = new Promise((r) => (release = () => r({ execution_status: "SUCCEEDED", events: [] })));
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
     const writer = client(() => receipt).writer({ address: "0x5", execute });
-    const first = writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1 });
-    await expect(writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1 })).rejects.toThrow(
+    const first = writer.build({ mode: "challenge", gameId: 1 }, { orientation: 1, x: 1, y: 1 });
+    await expect(writer.build({ mode: "challenge", gameId: 1 }, { orientation: 1, x: 1, y: 1 })).rejects.toThrow(
       "Another write is pending",
     );
     release();
     await first;
     expect(execute).toHaveBeenCalledTimes(1);
     // Free again once the receipt is in.
-    await expect(writer.discard({ mode: "daily", gameId: 1 })).resolves.toBeTruthy();
+    await expect(writer.discard({ mode: "challenge", gameId: 1 })).resolves.toBeTruthy();
   });
 });
 
@@ -141,13 +141,13 @@ describe("the tutorial claim (D-21): one call to Setup.claim_tutorial()", () => 
 
   test("a deployment without Setup sends nothing", async () => {
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
-    const before = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Daily: "0x2", Token: "0x4" } } });
+    const before = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2", Token: "0x4" } } });
     const writer = new PavedClient(before, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
     await expect(writer.claimTutorial()).rejects.toThrow(/No Setup contract/);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("the plain writer has no spawn: a Daily game is bought with the economy writer (E3)", () => {
+  test("the plain writer has no spawn: a Challenge game is bought with the economy writer (E3)", () => {
     const writer = new PavedClient(deployment, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute: async () => ({ transaction_hash: "0x1" }) });
     expect("spawn" in writer).toBe(false);
   });
@@ -161,9 +161,9 @@ describe("own receipts in the lists", () => {
       fields: { gameId: 7, playerId: "0xabc", mode: 1, dayId: 20000, startTime: 100, price: "0x0" },
       fromAddress: "0x2",
     };
-    reader.remember("Daily", [spawned]);
+    reader.remember("Challenge", [spawned]);
     expect(await reader.playerGames("0xabc")).toEqual([
-      expect.objectContaining({ mode: "daily", gameId: 7, over: false, dayId: 20000 }),
+      expect.objectContaining({ mode: "challenge", gameId: 7, over: false, dayId: 20000 }),
     ]);
     expect(await reader.playerGames("0xdef")).toEqual([]);
   });
@@ -172,7 +172,7 @@ describe("own receipts in the lists", () => {
     const selector = hash.getSelectorFromName("GameSpawned");
     const raw = { keys: [selector, "0x7", "0xabc"], data: ["0x1", "0x4e20", "0x64", "0x0"], from_address: "0x2" };
     const reader = new EventReader({ getEvents: async (f) => ({ events: f.address === "0x2" && f.keys[0][0] === selector ? [raw] : [] }) }, deployment, codecs);
-    reader.remember("Daily", [codecs.Daily.decodeEvent(raw)!]);
+    reader.remember("Challenge", [codecs.Challenge.decodeEvent(raw)!]);
     expect(await reader.playerGames("0xabc")).toHaveLength(1);
   });
 });

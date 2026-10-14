@@ -38,7 +38,7 @@ describe("Player page", () => {
       const answer = await fixture.fetch(input);
       if (!/\/v1\/players\/0x[0-9a-f]{64}$/.test(new URL(String(input)).pathname)) return answer;
       const body = await answer.json();
-      body.stats = { ...body.stats, daily_games: 1, daily_finished: 0, best_score: 0 };
+      body.stats = { ...body.stats, challenge_games: 1, challenge_finished: 0, best_score: 0 };
       return new Response(JSON.stringify(body), { status: answer.status, headers: answer.headers });
     };
     player(FIXTURE_ADA, { indexer: new IndexerClient({ url: "http://indexer.test", fetch: running as typeof fetch }) });
@@ -63,13 +63,13 @@ describe("Player page", () => {
     expect(screen.getByText("Best score", { selector: "dt" }).nextElementSibling!.textContent).toBe("187");
     // The on-chain Tutorial left (D-21): no Tutorial count, no Tutorial row (the old games are dropped).
     expect(screen.queryByText("Tutorial games")).toBeNull();
-    // games: two Daily ones, each with its day
+    // games: two Challenge ones, each with its day
     const games = (await screen.findAllByRole("table"))[1];
     const rows = within(games).getAllByRole("row");
     expect(rows).toHaveLength(3);
-    expect(within(rows[1]).getByText("Daily")).toBeTruthy();
+    expect(within(rows[1]).getByText("Challenge")).toBeTruthy();
     expect(within(rows[1]).getByText("#912")).toBeTruthy();
-    expect(within(rows[2]).getByText("Daily")).toBeTruthy();
+    expect(within(rows[2]).getByText("Challenge")).toBeTruthy();
     expect(within(rows[2]).getByText("#55")).toBeTruthy();
     expect(within(games).queryByText("Tutorial")).toBeNull();
   });
@@ -109,7 +109,7 @@ describe("Player page", () => {
   it("games page with before and next", async () => {
     // many games: one more than a page
     fixture.games = Array.from({ length: 12 }, (_, i) => ({
-      contract: "daily", game_id: 100 - i, mode: 1, start_time: 1791869000 - i, day_id: 0, over: true, score: i, counted_day_id: 0, end_time: 0,
+      contract: "challenge", game_id: 100 - i, mode: 1, start_time: 1791869000 - i, day_id: 0, over: true, score: i, counted_day_id: 0, end_time: 0,
     }));
     player(FIXTURE_ADA);
     await screen.findByText("#100");

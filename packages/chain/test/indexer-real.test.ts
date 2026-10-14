@@ -28,10 +28,10 @@ afterEach(() => {
 async function start(): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
   const node = new FakeNode();
   node.mine([], []); // D-25 (E): no registration; a player is known from their first event
-  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
-  node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
-  node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
-  node.mine([ev.spawned("daily", 3, A, { day: DAY })]); // still running: null score, day and end time
+  node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, B, { day: DAY })]);
+  node.mine([ev.over("challenge", 1, A, 50, { day: DAY, end: 77 })]);
+  node.mine([ev.over("challenge", 2, B, 40, { day: DAY, end: 78 })]);
+  node.mine([ev.spawned("challenge", 3, A, { day: DAY })]); // still running: null score, day and end time
   return serveNode(node);
 }
 
@@ -39,13 +39,13 @@ const T0 = DAY * 86400;
 
 /**
  * A node with the accepted P7 definitions (some of them: quests 1, 2 and 4, achievements 2, 3 and 9) from the day `DAY` on, and
- * three Daily games of Ada's that day (1,200 and 1,500 points, then one that runs). Bo is known and has no progress.
+ * three Challenge games of Ada's that day (1,200 and 1,500 points, then one that runs). Bo is known and has no progress.
  */
 async function startQuests() {
   const node = new FakeNode();
   node.time = T0 + 100;
   // D-25 (E): no registration; a player is known from their first event. Bo is known from a game of the day before.
-  node.mine([], [ev.spawned("daily", 9, B, { day: DAY - 1 })]);
+  node.mine([], [ev.spawned("challenge", 9, B, { day: DAY - 1 })]);
   node.mine(
     [ev.questDefined(1, { start: T0, tasks: [[1, 1]] })],
     [ev.questDefined(2, { start: T0, tasks: [[2, 6]] })],
@@ -54,9 +54,9 @@ async function startQuests() {
     [ev.achievementDefined(3, { tasks: [[1, 10]], points: 20 })],
     [ev.achievementDefined(9, { tasks: [[8, 1]], points: 50 })],
   );
-  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, A, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY })]);
-  node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed(A, 1, 1)]);
-  node.mine([ev.over("daily", 2, A, 1500, { day: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed(A, 1, 1)]);
+  node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, A, { day: DAY })], [ev.spawned("challenge", 3, A, { day: DAY })]);
+  node.mine([ev.over("challenge", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed(A, 1, 1)]);
+  node.mine([ev.over("challenge", 2, A, 1500, { day: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed(A, 1, 1)]);
   node.mine([ev.questRetired(2)]);
   return { node, ...(await serveNode(node)) };
 }
@@ -80,7 +80,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1 });
-    expect(data.contracts).toMatchObject({ daily: "0x1111", setup: "0x2222", economy: "0x4444" });
+    expect(data.contracts).toMatchObject({ challenge: "0x1111", setup: "0x2222", economy: "0x4444" });
     expect(data.contracts).not.toHaveProperty("account");
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
@@ -90,8 +90,8 @@ describe("IndexerClient against the real indexer", () => {
   test("E3's appended economy fields are read: game, player stats and the day's economy", async () => {
     const node = new FakeNode();
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
     const { client } = await serveNode(node);
 
     const { data: games } = await client.playerGames(ADA);
@@ -120,7 +120,7 @@ describe("IndexerClient against the real indexer", () => {
   test("an indexer without the E3 fields is still read; a malformed economy is a bad response", async () => {
     const answer = (body: unknown) => new IndexerClient({ url: "http://x", fetch: (async () => Response.json(body)) as unknown as typeof fetch });
     const envelope = { version: 1, status: "ok", behind: 0, head: { number: 1, hash: "0x1", timestamp: 1 } };
-    const row = { contract: "daily", game_id: 1, mode: 1, start_time: 1, day_id: 1, over: false, score: null, counted_day_id: null, end_time: null };
+    const row = { contract: "challenge", game_id: 1, mode: 1, start_time: 1, day_id: 1, over: false, score: null, counted_day_id: null, end_time: null };
     const old = await kindOf(answer({ ...envelope, games: [row], next: null }).playerGames(ADA));
     expect(old).not.toBe("bad-response");
     expect(await kindOf(answer({ ...envelope, games: [{ ...row, economy: { day: 1 } }], next: null }).playerGames(ADA))).toBe("bad-response");
@@ -156,23 +156,23 @@ describe("IndexerClient against the real indexer", () => {
     const known = await client.player(ADA);
     // D-25 (E): known from the first GameSpawned; N1: name null, the indexer has no resolver here.
     expect(known.data.player).toEqual({ playerId: ADA, name: null, created: expect.any(Number) });
-    expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, paidGames: 0, settledGames: 0, rewards: "0" });
+    expect(known.data.stats).toEqual({ challengeGames: 2, challengeFinished: 1, bestScore: 50, paidGames: 0, settledGames: 0, rewards: "0" });
     expect(await client.player(0xeen)).toMatchObject({ data: { player: null, stats: null } });
   });
 
   test("/v1/players/{id}/games: a running game reads as in progress, paging and the contract filter", async () => {
     const { client } = await start();
     const all = await client.playerGames(ADA);
-    expect(all.data.games.map((g) => `${g.contract}:${g.gameId}`).sort()).toEqual(["daily:1", "daily:3"]);
-    const running = all.data.games.find((g) => g.contract === "daily" && g.gameId === 3)!;
+    expect(all.data.games.map((g) => `${g.contract}:${g.gameId}`).sort()).toEqual(["challenge:1", "challenge:3"]);
+    const running = all.data.games.find((g) => g.contract === "challenge" && g.gameId === 3)!;
     expect(running).toMatchObject({ over: false, score: 0, countedDayId: 0, endTime: 0, dayId: DAY });
-    expect(all.data.games.find((g) => g.gameId === 1 && g.contract === "daily")).toMatchObject({ over: true, score: 50, countedDayId: DAY, endTime: 77 });
+    expect(all.data.games.find((g) => g.gameId === 1 && g.contract === "challenge")).toMatchObject({ over: true, score: 50, countedDayId: DAY, endTime: 77 });
     const page = await client.playerGames(ADA, { limit: 1 });
     expect(page.data.games).toHaveLength(1);
-    expect(page.data.next).toMatch(/^\d+:daily:\d+$/);
+    expect(page.data.next).toMatch(/^\d+:challenge:\d+$/);
     const rest = await client.playerGames(ADA, { before: page.data.next! });
     expect(rest.data.games).toHaveLength(1);
-    expect((await client.playerGames(ADA, { contract: "daily" })).data.games).toHaveLength(2);
+    expect((await client.playerGames(ADA, { contract: "challenge" })).data.games).toHaveLength(2);
     expect((await client.playerGames(BO)).data.games.map((g) => g.gameId)).toEqual([2]);
   });
 
@@ -184,9 +184,9 @@ describe("IndexerClient against the real indexer", () => {
 
   test("/v1/games/{contract}/{id}: one game, not-found for another", async () => {
     const { client } = await start();
-    expect((await client.game("daily", 3)).data).toMatchObject({ contract: "daily", gameId: 3, over: false });
-    expect((await client.game("daily", 2)).data).toMatchObject({ over: true, score: 40 });
-    expect(await kindOf(client.game("daily", 99))).toBe("not-found");
+    expect((await client.game("challenge", 3)).data).toMatchObject({ contract: "challenge", gameId: 3, over: false });
+    expect((await client.game("challenge", 2)).data).toMatchObject({ over: true, score: 40 });
+    expect(await kindOf(client.game("challenge", 99))).toBe("not-found");
   });
 
   test("a request the indexer refuses is rejected, a wrong route is not-found", async () => {

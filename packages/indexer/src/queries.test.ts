@@ -32,18 +32,18 @@ describe("the leaderboard", () => {
   const scenario = (node: FakeNode) => {
     players(node);
     node.mine(
-      [ev.spawned("daily", 1, A, { day: DAY })],
-      [ev.spawned("daily", 2, A, { day: DAY })],
-      [ev.spawned("daily", 3, A, { day: DAY })],
-      [ev.spawned("daily", 4, B, { day: DAY })],
-      [ev.spawned("daily", 5, C, { day: DAY })],
-      [ev.spawned("daily", 6, D, { day: DAY })],
+      [ev.spawned("challenge", 1, A, { day: DAY })],
+      [ev.spawned("challenge", 2, A, { day: DAY })],
+      [ev.spawned("challenge", 3, A, { day: DAY })],
+      [ev.spawned("challenge", 4, B, { day: DAY })],
+      [ev.spawned("challenge", 5, C, { day: DAY })],
+      [ev.spawned("challenge", 6, D, { day: DAY })],
     );
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 11 })]);
-    node.mine([ev.over("daily", 4, B, 70, { day: DAY, end: 12 })]);
-    node.mine([ev.over("daily", 5, C, 70, { day: DAY, end: 13 })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY, end: 11 })]);
+    node.mine([ev.over("challenge", 4, B, 70, { day: DAY, end: 12 })]);
+    node.mine([ev.over("challenge", 5, C, 70, { day: DAY, end: 13 })]);
     // Two games of A in one block: the earlier transaction first.
-    node.mine([ev.over("daily", 2, A, 70, { day: DAY, end: 14 })], [ev.over("daily", 3, A, 20, { day: DAY, end: 14 })]);
+    node.mine([ev.over("challenge", 2, A, 70, { day: DAY, end: 14 })], [ev.over("challenge", 3, A, 20, { day: DAY, end: 14 })]);
   };
 
   test("one row per player, best game, ties by the chain order of the GameOver", async () => {
@@ -78,9 +78,9 @@ describe("the leaderboard", () => {
   test("the best game of equal scores is the earliest by chain order, not the lowest id", async () => {
     const { queries, head } = await open((node) => {
       players(node);
-      node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, A, { day: DAY })]);
-      node.mine([ev.over("daily", 2, A, 40, { day: DAY })]);
-      node.mine([ev.over("daily", 1, A, 40, { day: DAY })]);
+      node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, A, { day: DAY })]);
+      node.mine([ev.over("challenge", 2, A, 40, { day: DAY })]);
+      node.mine([ev.over("challenge", 1, A, 40, { day: DAY })]);
     });
     expect(queries.leaderboard(head, DAY, 20, 0).entries[0]).toMatchObject({ best_game_id: 2, games_finished: 2 });
   });
@@ -88,8 +88,8 @@ describe("the leaderboard", () => {
   test("a game that ended after its day ranks in no tournament, and shows in its player's list", async () => {
     const { queries, head } = await open((node) => {
       players(node);
-      node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
-      node.mine([ev.over("daily", 1, A, 99, { day: 0, end: 0 })]);
+      node.mine([ev.spawned("challenge", 1, A, { day: DAY })]);
+      node.mine([ev.over("challenge", 1, A, 99, { day: 0, end: 0 })]);
     });
     expect(queries.leaderboard(head, DAY, 20, 0)).toEqual({ total: 0, entries: [] });
     expect(queries.tournament(head, DAY)).toMatchObject({ games_spawned: 1, games_finished: 0, players: 0, best_score: 0 });
@@ -125,9 +125,9 @@ describe("the leaderboard", () => {
       [id(A), 50],
     ]);
     expect(queries.tournament(1, DAY)).toMatchObject({ games_spawned: 0 });
-    expect(queries.game(2, "daily", 1)).toMatchObject({ over: false, score: null, counted_day_id: null, end_time: null });
-    expect(queries.game(3, "daily", 1)).toMatchObject({ over: true, score: 50 });
-    expect(queries.game(1, "daily", 1)).toBeNull();
+    expect(queries.game(2, "challenge", 1)).toMatchObject({ over: false, score: null, counted_day_id: null, end_time: null });
+    expect(queries.game(3, "challenge", 1)).toMatchObject({ over: true, score: 50 });
+    expect(queries.game(1, "challenge", 1)).toBeNull();
   });
 });
 
@@ -136,12 +136,12 @@ describe("tournaments", () => {
     const { queries, head } = await open((node) => {
       players(node);
       node.mine(
-        [ev.spawned("daily", 1, A, { day: 98 })],
-        [ev.spawned("daily", 2, B, { day: 99 })],
-        [ev.spawned("daily", 3, A, { day: 100 })],
-        [ev.spawned("daily", 4, B, { day: 100 })],
+        [ev.spawned("challenge", 1, A, { day: 98 })],
+        [ev.spawned("challenge", 2, B, { day: 99 })],
+        [ev.spawned("challenge", 3, A, { day: 100 })],
+        [ev.spawned("challenge", 4, B, { day: 100 })],
       );
-      node.mine([ev.over("daily", 3, A, 5, { day: 100 })]);
+      node.mine([ev.over("challenge", 3, A, 5, { day: 100 })]);
     });
     const page = queries.tournaments(head, 2, undefined);
     expect(page.tournaments.map((t) => [t.id, t.games_spawned, t.players, t.best_score])).toEqual([
@@ -161,9 +161,9 @@ describe("tournaments", () => {
 describe("players and games", () => {
   const build = (node: FakeNode) => {
     players(node);
-    node.mine([ev.spawned("daily", 1, A, { start: 1000 })], [ev.spawned("daily", 6, A, { start: 1000 })], [ev.spawned("daily", 2, A, { start: 2000 })]);
-    node.mine([ev.over("daily", 1, A, 30)]);
-    node.mine([ev.spawned("daily", 7, A, { start: 3000 }), ev.spawned("daily", 3, B, { start: 3000 })]);
+    node.mine([ev.spawned("challenge", 1, A, { start: 1000 })], [ev.spawned("challenge", 6, A, { start: 1000 })], [ev.spawned("challenge", 2, A, { start: 2000 })]);
+    node.mine([ev.over("challenge", 1, A, 30)]);
+    node.mine([ev.spawned("challenge", 7, A, { start: 3000 }), ev.spawned("challenge", 3, B, { start: 3000 })]);
   };
 
   test("a player's stats, and null for a player the indexer does not know", async () => {
@@ -171,8 +171,8 @@ describe("players and games", () => {
     expect(queries.player(head, id(A))).toEqual({
       player: { player_id: id(A), created: expect.any(Number) },
       stats: {
-        daily_games: 4,
-        daily_finished: 1,
+        challenge_games: 4,
+        challenge_finished: 1,
         best_score: 30,
         paid_games: 0,
         settled_games: 0,
@@ -182,8 +182,8 @@ describe("players and games", () => {
       unsettled_count: 0,
     });
     expect(queries.player(head, id(B))!.stats).toEqual({
-      daily_games: 1,
-      daily_finished: 0,
+      challenge_games: 1,
+      challenge_finished: 0,
       // No finished game is 0 (the client reads a count): a player known from a spawn that still runs.
       best_score: 0,
       paid_games: 0,
@@ -197,10 +197,10 @@ describe("players and games", () => {
     const { queries, head } = await open(build);
     const all = queries.games(head, id(A), undefined, 20, undefined);
     expect(all.games.map((g) => [g.contract, g.game_id])).toEqual([
-      ["daily", 7],
-      ["daily", 2],
-      ["daily", 6],
-      ["daily", 1],
+      ["challenge", 7],
+      ["challenge", 2],
+      ["challenge", 6],
+      ["challenge", 1],
     ]);
     expect(all.next).toBeNull();
     expect(all.games[3]).toMatchObject({ over: true, score: 30, counted_day_id: 100, mode: 1, player_id: id(A) });
@@ -208,19 +208,19 @@ describe("players and games", () => {
 
     const first = queries.games(head, id(A), undefined, 3, undefined);
     expect(first.games.map((g) => g.game_id)).toEqual([7, 2, 6]);
-    expect(first.next).toBe("1000:daily:6");
-    const second = queries.games(head, id(A), undefined, 3, { startTime: 1000, contract: "daily", gameId: 6 });
-    expect(second.games.map((g) => [g.contract, g.game_id])).toEqual([["daily", 1]]);
+    expect(first.next).toBe("1000:challenge:6");
+    const second = queries.games(head, id(A), undefined, 3, { startTime: 1000, contract: "challenge", gameId: 6 });
+    expect(second.games.map((g) => [g.contract, g.game_id])).toEqual([["challenge", 1]]);
     expect(second.next).toBeNull();
 
-    expect(queries.games(head, id(A), "daily", 20, undefined).games.map((g) => g.game_id)).toEqual([7, 2, 6, 1]);
+    expect(queries.games(head, id(A), "challenge", 20, undefined).games.map((g) => g.game_id)).toEqual([7, 2, 6, 1]);
     expect(queries.games(head, id(C), undefined, 20, undefined)).toEqual({ games: [], next: null });
   });
 
   test("a game by contract and id", async () => {
     const { queries, head } = await open(build);
-    expect(queries.game(head, "daily", 7)).toMatchObject({ contract: "daily", game_id: 7, mode: 1, day_id: 100 });
-    expect(queries.game(head, "daily", 99)).toBeNull();
+    expect(queries.game(head, "challenge", 7)).toMatchObject({ contract: "challenge", game_id: 7, mode: 1, day_id: 100 });
+    expect(queries.game(head, "challenge", 99)).toBeNull();
   });
 });
 
@@ -231,21 +231,21 @@ describe("Economy", () => {
   const build = (node: FakeNode) => {
     players(node);
     node.mine(
-      [ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })],
-      [ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
-      [ev.spawned("daily", 3, B, { day: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
-      [ev.spawned("daily", 5, A, { day: DAY })], // not bought
+      [ev.spawned("challenge", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })],
+      [ev.spawned("challenge", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
+      [ev.spawned("challenge", 3, B, { day: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
+      [ev.spawned("challenge", 5, A, { day: DAY })], // not bought
     );
-    node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
-    node.mine([ev.over("daily", 2, A, 4000, { day: 0 }), ev.recorded(2, 4000, true)]);
-    node.mine([ev.spawned("daily", 4, A, { day: DAY + 1 }), ev.purchased(4, A, { day: DAY + 1 })]);
-    node.mine([ev.over("daily", 4, A, 100, { day: DAY + 1 }), ev.recorded(4, 100)]);
+    node.mine([ev.over("challenge", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("challenge", 2, A, 4000, { day: 0 }), ev.recorded(2, 4000, true)]);
+    node.mine([ev.spawned("challenge", 4, A, { day: DAY + 1 }), ev.purchased(4, A, { day: DAY + 1 })]);
+    node.mine([ev.over("challenge", 4, A, 100, { day: DAY + 1 }), ev.recorded(4, 100)]);
     node.mine([ev.dayClosed(DAY, { mean: 4_215_689, weight: 4, prior: 3_353_000, emaAfter: 3_400_000 }), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: BIG })]);
   };
 
   test("a game's terms and settlement, null for a game not bought", async () => {
     const { queries, head } = await open(build);
-    expect(queries.game(head, "daily", 1)!.economy).toEqual({
+    expect(queries.game(head, "challenge", 1)!.economy).toEqual({
       day: DAY,
       stake: 1,
       price: "2000000",
@@ -261,7 +261,7 @@ describe("Economy", () => {
       threshold: 4_215_689,
       reward: String(BIG),
     });
-    expect(queries.game(head, "daily", 2)!.economy).toMatchObject({
+    expect(queries.game(head, "challenge", 2)!.economy).toMatchObject({
       stake: 3,
       price: "6000000",
       referrer: id(B),
@@ -272,17 +272,17 @@ describe("Economy", () => {
       threshold: null,
       reward: null,
     });
-    expect(queries.game(head, "daily", 3)!.economy).toMatchObject({ reference: String(BIG), recorded: false, expired: false, settled: false });
-    expect(queries.game(head, "daily", 5)!.economy).toBeNull();
-    const games = queries.games(head, id(A), "daily", 20, undefined).games;
+    expect(queries.game(head, "challenge", 3)!.economy).toMatchObject({ reference: String(BIG), recorded: false, expired: false, settled: false });
+    expect(queries.game(head, "challenge", 5)!.economy).toBeNull();
+    const games = queries.games(head, id(A), "challenge", 20, undefined).games;
     expect(games.map((g) => [g.game_id, g.economy?.stake ?? null])).toEqual([[5, null], [4, 1], [2, 3], [1, 1]]);
   });
 
   test("read at the served block: a settlement, a record or a purchase above it has not happened", async () => {
     const { queries, head } = await open(build);
-    expect(queries.game(head - 1, "daily", 1)!.economy).toMatchObject({ settled: false, reward: null, recorded: true });
-    expect(queries.game(head - 2, "daily", 4)!.economy).toMatchObject({ recorded: false });
-    expect(queries.game(head - 3, "daily", 4)).toBeNull();
+    expect(queries.game(head - 1, "challenge", 1)!.economy).toMatchObject({ settled: false, reward: null, recorded: true });
+    expect(queries.game(head - 2, "challenge", 4)!.economy).toMatchObject({ recorded: false });
+    expect(queries.game(head - 3, "challenge", 4)).toBeNull();
     expect(queries.dayEconomy(head - 1, DAY)).toMatchObject({ closed: false, mean: null, games_settled: 0, unsettled: [1, 2] });
   });
 
@@ -343,7 +343,7 @@ describe("the unsettled list is bounded (UNSETTLED_PAGE)", () => {
     for (let first = 1; first <= count; first += 50) {
       const ids = Array.from({ length: Math.min(50, count - first + 1) }, (_, i) => first + i);
       node.mine(
-        ...ids.map((game) => [ev.spawned("daily", game, A, { day: DAY }), ev.purchased(game, A, { day: DAY })]),
+        ...ids.map((game) => [ev.spawned("challenge", game, A, { day: DAY }), ev.purchased(game, A, { day: DAY })]),
       );
       node.mine(...ids.map((game) => [ev.recorded(game, 100)]));
     }

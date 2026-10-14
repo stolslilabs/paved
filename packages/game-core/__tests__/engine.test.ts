@@ -17,7 +17,7 @@ const felt = (text: string): bigint => BigInt(`0x${Buffer.from(text).toString("h
 const SEED = felt("SEED");
 const { North, East, South, West } = OrientationType;
 
-/** The seed of a Daily golden at `day(index)`: Poseidon(0, 1000 + index). */
+/** The seed of a Challenge golden at `day(index)`: Poseidon(0, 1000 + index). */
 const goldenSeed = (index: number): bigint => poseidon(0, 1000 + index);
 
 /** origami's deck as `random_deck.cairo` has it (`from_bitmap` then `draw`): the reference. */
@@ -44,7 +44,7 @@ function referenceDraw(seed: bigint, number: number, bitmap: bigint): { card: nu
   return { card, remaining };
 }
 
-/** A Daily game on the forced plans of a board, built by the game's player unless an owner is given. */
+/** A Challenge game on the forced plans of a board, built by the game's player unless an owner is given. */
 function board(moves: [PlanType, OrientationType, number, number, bigint?][]): {
   game: EngineGame;
   results: ReturnType<EngineGame["build"]>[];
@@ -75,7 +75,7 @@ describe("engine draw", () => {
       [SEED, 10],
       [0n, 10],
       [0xdeadbeefn, 16],
-      [felt("DAILY"), 72],
+      [felt("CHALLENGE"), 72],
       [goldenSeed(10), 72],
     ] as const) {
       let current = seed;

@@ -10,7 +10,7 @@ interface ModesState {
 
 export const useModesStore = create<ModesState>((set) => ({
   playerEntity: null,
-  mode: ModeType.Daily,
+  mode: ModeType.Challenge,
   setPlayerEntity: (playerEntity) => set({ playerEntity }),
   setMode: (mode) => set({ mode }),
 }));

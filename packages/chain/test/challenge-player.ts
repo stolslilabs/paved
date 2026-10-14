@@ -1,5 +1,5 @@
 /**
- * A Daily player for the end-to-end check on devnet (`e2e-devnet.test.ts`): it chooses each placement by asking the
+ * A Challenge player for the end-to-end check on devnet (`e2e-devnet.test.ts`): it chooses each placement by asking the
  * node what it would do. Every candidate (an empty position next to the board and an orientation) is run with
  * `starknet_simulateTransactions` (validation and fee skipped, nothing is sent): a reverted simulation is an illegal
  * placement, and the `Scored` events of a legal one are the points it makes at once. The scoring rules are the
@@ -26,7 +26,7 @@ const DIRECTIONS: Array<[number, number]> = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 export interface PlayerContext {
   rpcUrl: string;
   client: PavedClient;
-  daily: string;
+  challenge: string;
   codec: AbiCodec;
   address: string;
   writer: PavedWriter;
@@ -73,14 +73,14 @@ async function rpc(url: string, method: string, params: unknown): Promise<any> {
 
 const toHex = (v: bigint | number) => `0x${BigInt(v).toString(16)}`;
 
-export class DailyPlayer {
+export class ChallengePlayer {
   simulations = 0;
   private nonce = 0n;
   constructor(private readonly ctx: PlayerContext) {}
 
   private buildCall(key: GameKey, m: BuildMove): Call {
     return {
-      contractAddress: this.ctx.daily,
+      contractAddress: this.ctx.challenge,
       entrypoint: "build",
       calldata: this.ctx.codec.encodeCall("build", [key.gameId, m.orientation, m.x, m.y]),
     };
@@ -125,7 +125,7 @@ export class DailyPlayer {
     const last = traces[0].transaction_trace.execute_invocation;
     const walk = (call: any) => {
       for (const e of call.events ?? []) {
-        if (BigInt(call.contract_address) !== BigInt(this.ctx.daily)) continue;
+        if (BigInt(call.contract_address) !== BigInt(this.ctx.challenge)) continue;
         const decoded = this.ctx.codec.decodeEvent({ keys: e.keys, data: e.data, from_address: call.contract_address } as any);
         if (decoded?.name !== "Scored") continue;
         points += Number(decoded.fields.points);

@@ -5,7 +5,7 @@ import { validateGameConfigInput } from "../src/types/game-config";
 describe("validateGameConfigInput", () => {
   test("rejects private game without access root", () => {
     const errors = validateGameConfigInput({
-      mode: ModeType.Daily,
+      mode: ModeType.Challenge,
       deckId: 2,
       entryPrice: 1_000_000_000_000_000_000n,
       durationSeconds: 86_400,
@@ -21,7 +21,7 @@ describe("validateGameConfigInput", () => {
 
   test("accepts valid minimal config", () => {
     const errors = validateGameConfigInput({
-      mode: ModeType.Daily,
+      mode: ModeType.Challenge,
       deckId: 2,
       entryPrice: 1_000_000_000_000_000_000n,
       durationSeconds: 86_400,

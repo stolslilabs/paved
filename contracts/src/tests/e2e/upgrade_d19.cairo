@@ -17,11 +17,13 @@ use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDisp
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
-use paved::systems::daily::{Daily, IDailyDispatcher};
+use paved::systems::challenge::{Challenge, IChallengeDispatcher};
 use paved::tests::legacy_d18::{IDailyBeforeD19Dispatcher, IDailyBeforeD19DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -71,7 +73,7 @@ fn old(store: TestStore, game_id: u32, plan: Plan, orientation: Orientation, x: 
 /// A build of the D-19 class, checked against the oracle (owners included).
 fn new(
     store: TestStore,
-    daily: IDailyDispatcher,
+    challenge: IChallengeDispatcher,
     game_id: u32,
     plan: Plan,
     orientation: Orientation,
@@ -81,14 +83,14 @@ fn new(
     force(store, game_id, plan);
     let game = store.game(game_id);
     let tile_id = store.builder(game, PLAYER().into()).tile_id;
-    daily.build(game_id, orientation, x, y);
+    challenge.build(game_id, orientation, x, y);
     check::assert_tile_agrees(store, game_id, tile_id);
     check::assert_move_scored(store, game_id, tile_id, game.score);
 }
 
 /// The moves of the game, `before` those played before the upgrade or the others. Each build
-/// goes to the D-18 class (`old`) or to the D-19 class (`new`, when `daily` is given).
-fn play(store: TestStore, g: u32, daily: Option<IDailyDispatcher>, before: bool) {
+/// goes to the D-18 class (`old`) or to the D-19 class (`new`, when `challenge` is given).
+fn play(store: TestStore, g: u32, challenge: Option<IChallengeDispatcher>, before: bool) {
     let moves: Array<(Plan, Orientation, u32, u32)> = if before {
         array![
             // Closes the starter's city: 2 x 200 x 10475 / 10000 = 419
@@ -117,22 +119,22 @@ fn play(store: TestStore, g: u32, daily: Option<IDailyDispatcher>, before: bool)
         ]
     };
     for (plan, orientation, x, y) in moves {
-        match daily {
-            Option::Some(daily) => new(store, daily, g, plan, orientation, x, y),
+        match challenge {
+            Option::Some(challenge) => new(store, challenge, g, plan, orientation, x, y),
             Option::None => old(store, g, plan, orientation, x, y),
         }
     }
 }
 
 /// A Daily game, its D-18 class installed and enough tiles not to end.
-fn start() -> (TestStore, IDailyDispatcher, u32, ClassHash) {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+fn start() -> (TestStore, IChallengeDispatcher, u32, ClassHash) {
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let mut game = store.game(g);
     game.tile_limit = 40;
     store.set_game(game);
-    let class_d19 = install_before_d19(systems.daily.contract_address);
-    (store, systems.daily, g, class_d19)
+    let class_d19 = install_before_d19(systems.challenge.contract_address);
+    (store, systems.challenge, g, class_d19)
 }
 
 /// Every placed tile of the game reads seat 0 (`Tile.owner`, from its slot).
@@ -164,8 +166,8 @@ fn scored_events(
     found
 }
 
-fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Event {
-    Daily::Event::PavedEvent(
+fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Challenge::Event {
+    Challenge::Event::PavedEvent(
         PavedEvent::Scored(
             Scored { game_id, player_id: PLAYER().into(), category: category.into(), size, points },
         ),
@@ -180,7 +182,7 @@ fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Ev
 #[test]
 #[available_gas(l2_gas: 4000000000)]
 fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
-    let (store, daily, g, class_d19) = start();
+    let (store, challenge, g, class_d19) = start();
     let (twin, _, tg, _) = start();
 
     // [Before the upgrade] the D-18 class, in both games
@@ -196,9 +198,9 @@ fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
 
     // [After the upgrade] the D-19 class finishes the game; the twin plays on with the D-18 class
     let mut spy = spy_events();
-    play(store, g, Option::Some(daily), false);
+    play(store, g, Option::Some(challenge), false);
     play(twin, tg, Option::None, false);
-    let mut both: Array<(ContractAddress, Daily::Event)> = array![];
+    let mut both: Array<(ContractAddress, Challenge::Event)> = array![];
     for (contract, game_id) in array![(store.contract, g), (twin.contract, tg)] {
         both.append((contract, scored(game_id, Category::Road, 4, 438)));
         both.append((contract, scored(game_id, Category::Forest, 4, 329)));

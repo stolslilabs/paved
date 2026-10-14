@@ -78,8 +78,8 @@ pub mod components {
 }
 
 pub mod systems {
+    pub mod challenge;
     pub mod collection;
-    pub mod daily;
     pub mod economy;
     pub mod faucet;
     pub mod setup;

@@ -8,10 +8,10 @@ use paved::constants;
 use paved::events::game_over;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::CENTER;
-use paved::systems::daily::Daily;
+use paved::systems::challenge::Challenge;
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup};
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -237,19 +237,19 @@ fn test_quests_define_twice() {
 #[test]
 #[available_gas(l2_gas: 142058000)]
 fn test_quests_game_over_every_count_zero() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let daily = systems.daily.contract_address;
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let challenge = systems.challenge.contract_address;
     let setup_address = systems.setup.contract_address;
     define_accepted_list(setup_address);
     let mut spy = spy_events();
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
 
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
     assert(game.score == 0 && game.counts == 0, 'Quests: counters');
     let p = context.player_id;
-    assert_order(kinds(@spy.get_events().events, daily, setup_address), 1, 1);
-    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
+    assert_order(kinds(@spy.get_events().events, challenge, setup_address), 1, 1);
+    spy.assert_emitted(@array![(challenge, Challenge::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
@@ -267,8 +267,8 @@ fn test_quests_game_over_every_count_zero() {
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose day id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let daily = systems.daily.contract_address;
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let challenge = systems.challenge.contract_address;
     let setup_address = systems.setup.contract_address;
     define_accepted_list(setup_address);
     let mut game = store.game(context.game_id);
@@ -284,7 +284,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
     store.set_game(game);
 
     let mut spy = spy_events();
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
 
     // [Assert] Game over, in its day
     let game = store.game(context.game_id);
@@ -292,11 +292,11 @@ fn test_quests_game_over_every_counter_at_maximum() {
     assert(game.day_id != 0, 'Quests: day set');
     // [Assert] Order: `GameOver` from `Daily` before the first quiver event from `Setup`, the
     // quests before the achievements
-    assert_order(kinds(@spy.get_events().events, daily, setup_address), 4, 5);
+    assert_order(kinds(@spy.get_events().events, challenge, setup_address), 4, 5);
     // [Assert] The report: tasks 1 to 4 to the quests, 1 and 4 to 7 to the achievements, after
     // `GameOver`; no task 9 (D-20)
     let p = context.player_id;
-    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
+    spy.assert_emitted(@array![(challenge, Challenge::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
@@ -321,14 +321,14 @@ fn test_quests_game_over_every_counter_at_maximum() {
 #[test]
 #[available_gas(l2_gas: 124794000)]
 fn test_quests_game_over_after_its_day_reports_without_win() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let setup_address = systems.setup.contract_address;
     let mut game = store.game(context.game_id);
     game.score = 5000;
     store.set_game(game);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::CHALLENGE_DURATION + 1);
     let mut spy = spy_events();
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
     assert(store.game(context.game_id).day_id == 0, 'Quests: day set');
     let p = context.player_id;
     spy
@@ -351,19 +351,19 @@ fn test_quests_game_over_after_its_day_reports_without_win() {
 #[available_gas(l2_gas: 134612090)]
 fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
     start_cheat_block_timestamp_global(10 * 86400);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let daily = systems.daily.contract_address;
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let challenge = systems.challenge.contract_address;
     let setup_address = systems.setup.contract_address;
     let mut game = store.game(context.game_id);
     game.score = 5000;
     store.set_game(game);
     let mut spy = spy_events();
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
     let game = store.game(context.game_id);
     assert(game.is_over() && game.day_id == 10, 'Quests: over in its day');
     let p = context.player_id;
-    assert_order(kinds(@spy.get_events().events, daily, setup_address), 2, 2);
-    spy.assert_emitted(@array![(daily, Daily::Event::PavedEvent(game_over(game, p)))]);
+    assert_order(kinds(@spy.get_events().events, challenge, setup_address), 2, 2);
+    spy.assert_emitted(@array![(challenge, Challenge::Event::PavedEvent(game_over(game, p)))]);
     spy
         .assert_emitted(
             @array![
@@ -384,13 +384,13 @@ fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
 #[test]
 #[available_gas(l2_gas: 129214000)]
 fn test_quests_counters_follow_the_scoring() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     let game = store.game(context.game_id);
     assert(game.score > 0, 'Quests: scored');
     assert(game.structures() == 1, 'Quests: structures');
@@ -398,10 +398,10 @@ fn test_quests_counters_follow_the_scoring() {
 }
 
 /// The kinds of the events of a game over, in the order they must come: `GameOver` (from
-/// `daily`), the quest events, then the achievement events (from `setup_address`).
+/// `challenge`), the quest events, then the achievement events (from `setup_address`).
 pub fn kinds(
     events: @Array<(ContractAddress, snforge_std::Event)>,
-    daily: ContractAddress,
+    challenge: ContractAddress,
     setup_address: ContractAddress,
 ) -> Array<u8> {
     let mut kinds: Array<u8> = array![];
@@ -409,7 +409,7 @@ pub fn kinds(
     while i < events.len() {
         let (address, event) = events.at(i);
         let selector = *event.keys.at(0);
-        if *address == daily && selector == selector!("GameOver") {
+        if *address == challenge && selector == selector!("GameOver") {
             kinds.append(0);
         } else if *address == setup_address && selector == selector!("QuestProgressed") {
             kinds.append(1);
@@ -447,7 +447,7 @@ pub fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
 /// D-20.
 pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context) {
     start_cheat_block_timestamp_global(10 * 86400);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let mut game = store.game(context.game_id);
     game.score = 4500;
     game.counts = GameImpl::counts_of(2, 1, 0, 0);
@@ -464,7 +464,7 @@ fn assert_daily_report(
 ) {
     let setup_address = *systems.setup.contract_address;
     assert_order(
-        kinds(@spy.get_events().events, *systems.daily.contract_address, setup_address), 4, 3,
+        kinds(@spy.get_events().events, *systems.challenge.contract_address, setup_address), 4, 3,
     );
     spy
         .assert_emitted(
@@ -495,7 +495,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::RFFFRFFFR.into();
     store.set_tile(tile);
-    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
     assert_daily_report(@systems, spy, context.player_id, game.score);
@@ -507,7 +507,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
 fn test_quests_daily_game_over_on_the_last_discard() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
     assert_daily_report(@systems, spy, context.player_id, game.score);

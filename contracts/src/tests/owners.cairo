@@ -32,7 +32,7 @@ use paved::structure::placement::{self, NeighborhoodTrait};
 use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::StructuresTrait;
 use paved::structure::tables;
-use paved::systems::daily::Daily;
+use paved::systems::challenge::Challenge;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{TestStore, TestStoreTrait};
 use paved::types::category::Category;
@@ -213,7 +213,7 @@ fn wonder_winner_of(
 /// City ring, Alice 4 tiles, Bob 2: Alice wins.
 #[test]
 fn test_owners_clear_majority() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     city_ring(store, g, true);
     own(store, g, array![100, 101, 102, 103].span(), ALICE);
@@ -225,7 +225,7 @@ fn test_owners_clear_majority() {
 /// City ring, Alice 3 tiles, Bob 3: nobody wins.
 #[test]
 fn test_owners_tie_of_two() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     city_ring(store, g, true);
     own(store, g, array![100, 101, 102].span(), ALICE);
@@ -236,7 +236,7 @@ fn test_owners_tie_of_two() {
 /// City ring, Alice 2 tiles, Bob 2, Carol 2: nobody wins.
 #[test]
 fn test_owners_tie_of_three() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     city_ring(store, g, true);
     own(store, g, array![100, 105].span(), ALICE);
@@ -249,7 +249,7 @@ fn test_owners_tie_of_three() {
 /// who wins; seat 0 is the game's player id.
 #[test]
 fn test_owners_zero_owner_is_the_game_player() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let player = context.player_id;
     city_ring(store, g, true);
@@ -273,7 +273,7 @@ fn test_owners_other_seat_has_no_player_yet() {
 /// Bob three tiles. By nodes Alice would win, 4 to 3; by tiles it is a tie, 3 to 3: nobody wins.
 #[test]
 fn test_owners_ruling_1_city_counts_tiles_not_nodes() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     city_ring(store, g, true);
     own(store, g, array![105, 100, 101].span(), ALICE);
@@ -286,7 +286,7 @@ fn test_owners_ruling_1_city_counts_tiles_not_nodes() {
 /// By nodes Alice would win, 3 to 2; by tiles it is a tie, 2 to 2: nobody wins.
 #[test]
 fn test_owners_ruling_1_road_counts_tiles_not_nodes() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     road_loop(store, g, true);
     own(store, g, array![103, 100].span(), ALICE);
@@ -305,7 +305,7 @@ fn test_owners_ruling_1_road_counts_tiles_not_nodes() {
 /// counts its own: Alice wins, 2 tiles of 2.
 #[test]
 fn test_owners_ruling_2_forest_counts_its_own_tiles() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     corridors(store, g, true);
     own(store, g, array![100, 104].span(), ALICE);
@@ -319,7 +319,7 @@ fn test_owners_ruling_2_forest_counts_its_own_tiles() {
 /// Wonders: 4 neighbours are Alice's, 4 Bob's; the wonder tile is Alice's and decides, 5 to 4.
 #[test]
 fn test_owners_ruling_3_the_wonder_tile_decides() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let (middle, _) = wonders(store, g, true);
     own(store, g, array![100, 101, 102, 103, 104].span(), ALICE);
@@ -334,7 +334,7 @@ fn test_owners_ruling_3_the_wonder_tile_decides() {
 /// written): nobody wins.
 #[test]
 fn test_owners_ruling_3_three_way_tie() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let (middle, _) = wonders(store, g, true);
     own(store, g, array![100, 101, 102].span(), ALICE);
@@ -368,8 +368,8 @@ fn close(store: TestStore, game_id: u32, closing: Tile, seat: u8) {
 
 fn scored(
     game_id: u32, player_id: felt252, category: Category, size: u32, points: u32,
-) -> Daily::Event {
-    Daily::Event::PavedEvent(
+) -> Challenge::Event {
+    Challenge::Event::PavedEvent(
         PavedEvent::Scored(Scored { game_id, player_id, category: category.into(), size, points }),
     )
 }
@@ -379,7 +379,7 @@ fn scored(
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_scoring_goes_to_the_winner() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let caps = city_ring(store, g, false);
     own(store, g, array![100, 101].span(), ALICE);
@@ -401,7 +401,7 @@ fn test_owners_scoring_goes_to_the_winner() {
 #[available_gas(l2_gas: 500000000)]
 #[should_panic(expected: 'Owners: seat without player')]
 fn test_owners_winning_seat_without_player_reverts() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let caps = city_ring(store, g, false);
     own(store, g, array![100, 101, 102, 103].span(), ALICE);
@@ -413,7 +413,7 @@ fn test_owners_winning_seat_without_player_reverts() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_tie_scores_nothing_and_counts_the_city() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let caps = city_ring(store, g, false);
     own(store, g, array![100, 101, 102].span(), ALICE);
@@ -434,7 +434,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_city() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_tie_scores_nothing_and_counts_the_forest() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let second = corridors(store, g, false);
     own(store, g, array![100].span(), ALICE);
@@ -460,7 +460,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_forest() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_tie_scores_nothing_and_counts_the_wonder() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let (_, last) = wonders(store, g, false);
     own(store, g, array![100, 101, 102].span(), ALICE);
@@ -480,7 +480,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_wonder() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_single_player_skips_the_count() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let p = context.player_id;
     let caps = city_ring(store, g, false);
@@ -513,7 +513,7 @@ fn test_owners_single_player_skips_the_count() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_owners_wonder_closing_on_its_own_placement() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let w = Plan::WFFFFFFFF;
     let n = Orientation::North;
@@ -544,7 +544,7 @@ fn test_owners_wonder_closing_on_its_own_placement() {
 #[available_gas(l2_gas: 500000000)]
 #[should_panic(expected: 'Owners: seat without player')]
 fn test_owners_wonder_closing_on_its_own_placement_counts_its_seats() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let w = Plan::WFFFFFFFF;
     let n = Orientation::North;
@@ -568,7 +568,7 @@ fn test_owners_wonder_closing_on_its_own_placement_counts_its_seats() {
 /// node.
 #[test]
 fn test_owners_seat_zero_slot_is_the_d18_packing() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
+    let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let built = city_ring(store, g, true);
     let (refs, word) = interact_with_state(

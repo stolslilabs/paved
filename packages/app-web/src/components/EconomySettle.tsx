@@ -4,7 +4,7 @@ import type { EconomyClient, EconomyWriter, PlayerGame, TermsView } from "@paved
 import { CLIFF_TEXT, paved, points, settleState, utcDate } from "../utils/economy-view";
 import { button, confirmButton, panel, warning } from "./EconomyStyles";
 
-/** Bought games read for settlement: the newest Daily games of the player. */
+/** Bought games read for settlement: the newest Challenge games of the player. */
 const SETTLE_GAMES_READ = 30;
 
 interface Bought {
@@ -13,7 +13,7 @@ interface Bought {
 }
 
 async function listBought(client: EconomyClient, address: string): Promise<Bought[]> {
-  const games = (await client.base.events.playerGames(address, ["daily"])).slice(0, SETTLE_GAMES_READ);
+  const games = (await client.base.events.playerGames(address, ["challenge"])).slice(0, SETTLE_GAMES_READ);
   const terms = await Promise.all(games.map((g) => client.views.terms(g.gameId)));
   return games.map((game, i) => ({ game, terms: terms[i] })).filter((b) => b.terms.stake > 0);
 }

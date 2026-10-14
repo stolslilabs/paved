@@ -2,19 +2,19 @@ import { describe, it, expect } from "vitest";
 import { Mode, ModeType } from "../src/types/mode";
 
 describe("Mode", () => {
-  describe("Daily", () => {
-    const daily = new Mode(ModeType.Daily);
+  describe("Challenge", () => {
+    const challenge = new Mode(ModeType.Challenge);
 
     it("duration is 86400", () => {
-      expect(daily.duration()).toBe(86400);
+      expect(challenge.duration()).toBe(86400);
     });
 
     it("count is 38", () => {
-      expect(daily.count()).toBe(38);
+      expect(challenge.count()).toBe(38);
     });
 
     it("price is 1e18", () => {
-      expect(daily.price()).toBe(BigInt("1000000000000000000"));
+      expect(challenge.price()).toBe(BigInt("1000000000000000000"));
     });
   });
 
@@ -78,8 +78,8 @@ describe("Mode", () => {
       expect(Mode.from(0).value).toBe(ModeType.None);
     });
 
-    it("from(1) is Daily", () => {
-      expect(Mode.from(1).value).toBe(ModeType.Daily);
+    it("from(1) is Challenge", () => {
+      expect(Mode.from(1).value).toBe(ModeType.Challenge);
     });
 
     it("from(2) is Weekly", () => {

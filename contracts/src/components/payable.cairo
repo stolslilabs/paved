@@ -4,7 +4,7 @@ use starknet::ContractAddress;
 
 // Interfaces
 
-/// What `Daily`'s purchase calls on the entry token. Since D-20 nothing here transfers out of
+/// What `Challenge`'s purchase calls on the entry token. Since D-20 nothing here transfers out of
 /// the game contract: the prize's `refund` (and `pay`) left with it.
 
 #[starknet::interface]

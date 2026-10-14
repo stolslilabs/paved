@@ -58,20 +58,20 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// Every upgradable contract, with one storage variable its constructor or the setup wrote: its
 /// name (the slot) and its value.
 fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, felt252)> {
-    let daily: felt252 = (*systems.daily.contract_address).into();
+    let challenge: felt252 = (*systems.challenge.contract_address).into();
     array![
         (
-            *systems.daily.contract_address,
+            *systems.challenge.contract_address,
             selector!("setup"),
             (*systems.setup.contract_address).into(),
         ),
         (
             *systems.setup.contract_address,
-            map_entry_address(selector!("Quest_reporters"), array![daily].span()),
+            map_entry_address(selector!("Quest_reporters"), array![challenge].span()),
             1,
         ),
-        (*systems.economy.contract_address, selector!("game"), daily),
-        (*systems.collection.contract_address, selector!("daily"), daily),
+        (*systems.economy.contract_address, selector!("game"), challenge),
+        (*systems.collection.contract_address, selector!("daily"), challenge),
     ]
 }
 
@@ -197,7 +197,7 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 /// after a paid spawn. A rename or a retype fails here; whoever adds one adds it here.
 #[test]
 fn test_upgrade_layout_pins_setup_and_economy_by_name() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     let wiring = systems.setup.contract_address;
     let economy = systems.economy.contract_address;
     let addresses = systems.economy.addresses();

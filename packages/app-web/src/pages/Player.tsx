@@ -73,9 +73,9 @@ export function PlayerPage() {
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 16px", margin: 0, fontSize: 14 }}>
             <dt style={{ color: "#999" }}>Best score</dt>
             {/* No finished game: the indexer's 0 is not a score (a player whose only game runs, D-25 (E)). */}
-            <dd style={{ margin: 0 }}>{stats.dailyFinished === 0 ? "–" : stats.bestScore}</dd>
-            <dt style={{ color: "#999" }}>Daily games</dt>
-            <dd style={{ margin: 0 }}>{`${stats.dailyGames} (${stats.dailyFinished} finished)`}</dd>
+            <dd style={{ margin: 0 }}>{stats.challengeFinished === 0 ? "–" : stats.bestScore}</dd>
+            <dt style={{ color: "#999" }}>Challenge games</dt>
+            <dd style={{ margin: 0 }}>{`${stats.challengeGames} (${stats.challengeFinished} finished)`}</dd>
           </dl>
         )
       )}
@@ -153,8 +153,8 @@ function GamesTable({ games, collection }: { games: IndexedGame[]; collection: C
       <tbody>
         {games.map((g) => (
           <tr key={`${g.contract}:${g.gameId}`}>
-            {/* Daily is the one on-chain mode since D-21: the old Tutorial games are dropped (PM's ruling). */}
-            <td style={cell}>Daily</td>
+            {/* Challenge is the one on-chain mode since D-21: the old Tutorial games are dropped (PM's ruling). */}
+            <td style={cell}>Challenge</td>
             <td style={cell}>{`#${g.gameId}`}</td>
             <td style={cell}>{dayLabel(g.startTime)}</td>
             <td style={cell}>{g.over ? g.score : "In progress"}</td>

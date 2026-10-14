@@ -24,7 +24,7 @@ import {
 } from "../src/economy";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
-const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const DAY = 20_000;
@@ -52,7 +52,7 @@ function setup(pool: PoolQuoter) {
   const economy = new FakeEconomy();
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"] };
+  const spawned = { from_address: ADDR.Challenge, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
     getChainId: async () => FAKE_CHAIN_ID,

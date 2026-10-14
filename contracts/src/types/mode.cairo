@@ -1,15 +1,9 @@
-use core::hash::HashStateTrait;
-// Core imports
-
-use core::poseidon::{HashState, PoseidonTrait};
-
 // Internal imports
 
 use paved::constants;
 
 // External imports
 
-use paved::day::day_id;
 use paved::helpers::bitmap::Bitmap;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
@@ -18,16 +12,16 @@ use paved::types::plan::PlanImpl;
 // Constants
 
 pub const NONE: felt252 = 0;
-pub const DAILY: felt252 = 'DAILY';
+pub const CHALLENGE: felt252 = 'CHALLENGE';
 
-// The u8 codes of the modes are persisted in `Game.mode`: 2 was Weekly and 3 was Tutorial (gone
-// with D-21). Both stay reserved, never given to another mode (P-42, P-49 ruling 4): they read as
-// `None`.
+// The u8 codes of the modes are persisted in `Game.mode`: 1 is Challenge (named Daily before D-23,
+// same code), 2 was Weekly and 3 was Tutorial (gone with D-21). Both stay reserved, never given to
+// another mode (P-42, P-49 ruling 4): they read as `None`.
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 pub enum Mode {
     None,
-    Daily,
+    Challenge,
 }
 
 #[generate_trait]
@@ -35,7 +29,7 @@ pub impl ModeImpl of ModeTrait {
     #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
-            Mode::Daily => constants::DAILY_PRICE,
+            Mode::Challenge => constants::CHALLENGE_PRICE,
             _ => 0,
         }
     }
@@ -43,41 +37,27 @@ pub impl ModeImpl of ModeTrait {
     #[inline]
     fn duration(self: Mode) -> u64 {
         match self {
-            Mode::Daily => constants::DAILY_DURATION,
-            _ => 0,
-        }
-    }
-
-    #[inline]
-    fn seed(self: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
-        match self {
-            Mode::Daily => {
-                let day = day_id(time, self.duration());
-                let state: HashState = PoseidonTrait::new();
-                let state = state.update(salt);
-                let state = state.update(day.into());
-                state.finalize()
-            },
+            Mode::Challenge => constants::CHALLENGE_DURATION,
             _ => 0,
         }
     }
 
     /// Whether a game of the mode has one player (D-19): every tile is seat 0, the game's player,
-    /// so its structures score for that player with no count of their tiles' seats. Daily does.
+    /// so its structures score for that player with no count of their tiles' seats. Challenge does.
     /// Every mode is named, with no fallthrough: a multiplayer mode adds its own arm, false, which
     /// turns the majority count on. `None` is no game (`Game::new` refuses it): false.
     #[inline]
     fn solo(self: Mode) -> bool {
         match self {
             Mode::None => false,
-            Mode::Daily => true,
+            Mode::Challenge => true,
         }
     }
 
     #[inline]
     fn deck(self: Mode) -> Deck {
         match self {
-            Mode::Daily => Deck::Simple,
+            Mode::Challenge => Deck::Simple,
             _ => Deck::None,
         }
     }
@@ -94,7 +74,7 @@ pub impl IntoModeFelt252 of Into<Mode, felt252> {
     #[inline]
     fn into(self: Mode) -> felt252 {
         match self {
-            Mode::Daily => DAILY,
+            Mode::Challenge => CHALLENGE,
             _ => NONE,
         }
     }
@@ -104,7 +84,7 @@ pub impl IntoModeU8 of Into<Mode, u8> {
     #[inline]
     fn into(self: Mode) -> u8 {
         match self {
-            Mode::Daily => 1,
+            Mode::Challenge => 1,
             _ => 0,
         }
     }
@@ -115,7 +95,7 @@ pub impl IntoU8Mode of Into<u8, Mode> {
     fn into(self: u8) -> Mode {
         match self {
             0 => Mode::None,
-            1 => Mode::Daily,
+            1 => Mode::Challenge,
             _ => Mode::None,
         }
     }
@@ -127,7 +107,7 @@ pub mod tests {
 
     // Local imports
 
-    use super::{DAILY, Mode, NONE};
+    use super::{CHALLENGE, Mode, NONE};
 
     // Constants
 
@@ -137,25 +117,25 @@ pub mod tests {
     #[test]
     fn test_mode_into_felt() {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
-        assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
+        assert(CHALLENGE == Mode::Challenge.into(), 'Mode: wrong Challenge');
     }
 
     #[test]
     fn test_felt_into_mode() {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
-        assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
+        assert(CHALLENGE == Mode::Challenge.into(), 'Mode: wrong Challenge');
     }
 
     #[test]
     fn test_mode_into_u8() {
         assert(0_u8 == Mode::None.into(), 'Mode: wrong None');
-        assert(1_u8 == Mode::Daily.into(), 'Mode: wrong Daily');
+        assert(1_u8 == Mode::Challenge.into(), 'Mode: wrong Challenge');
     }
 
     #[test]
     fn test_u8_into_mode() {
         assert(Mode::None == 0_u8.into(), 'Mode: wrong None');
-        assert(Mode::Daily == 1_u8.into(), 'Mode: wrong Daily');
+        assert(Mode::Challenge == 1_u8.into(), 'Mode: wrong Challenge');
     }
 
     #[test]

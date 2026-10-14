@@ -6,10 +6,10 @@ use paved::day::day_id;
 use paved::events::{Built, Discarded, Event as PavedEvent, GameOver, GameSpawned, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::{CENTER, Tile};
-use paved::systems::daily::Daily;
+use paved::systems::challenge::Challenge;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
+    IChallengeDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
 };
 use paved::types::category::{Category, CategoryImpl};
 use paved::types::mode::{Mode, ModeTrait};
@@ -21,8 +21,8 @@ use snforge_std::{
 };
 use starknet::ContractAddress;
 
-fn daily(event: PavedEvent) -> Daily::Event {
-    Daily::Event::PavedEvent(event)
+fn challenge(event: PavedEvent) -> Challenge::Event {
+    Challenge::Event::PavedEvent(event)
 }
 
 #[test]
@@ -31,28 +31,28 @@ fn test_events_daily_spawn_emits_game_spawned() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    let game_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     let game = store.game(game_id);
-    let event = daily(
+    let event = challenge(
         PavedEvent::GameSpawned(
             GameSpawned {
                 game_id,
                 player_id: context.player_id,
-                mode: Mode::Daily.into(),
-                day_id: day_id(100, constants::DAILY_DURATION),
+                mode: Mode::Challenge.into(),
+                day_id: day_id(100, constants::CHALLENGE_DURATION),
                 start_time: 100,
-                price: constants::DAILY_PRICE,
+                price: constants::CHALLENGE_PRICE,
             },
         ),
     );
     assert(game.start_time == 100, 'Events: start time');
-    spy.assert_emitted(@array![(systems.daily.contract_address, event)]);
+    spy.assert_emitted(@array![(systems.challenge.contract_address, event)]);
 }
 
 #[test]
 #[available_gas(l2_gas: 129655000)]
 fn test_events_daily_build_emits_built_and_scored() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
@@ -61,11 +61,11 @@ fn test_events_daily_build_emits_built_and_scored() {
 
     let mut spy = spy_events();
     // Closes a 2-tile city (new tile's S cap on the starter's N cap): it scores, with no character.
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.score > 0, 'Events: city scored');
-    let built = daily(
+    let built = challenge(
         PavedEvent::Built(
             Built {
                 game_id: context.game_id,
@@ -78,7 +78,7 @@ fn test_events_daily_build_emits_built_and_scored() {
             },
         ),
     );
-    let scored = daily(
+    let scored = challenge(
         PavedEvent::Scored(
             Scored {
                 game_id: context.game_id,
@@ -92,7 +92,8 @@ fn test_events_daily_build_emits_built_and_scored() {
     spy
         .assert_emitted(
             @array![
-                (systems.daily.contract_address, built), (systems.daily.contract_address, scored),
+                (systems.challenge.contract_address, built),
+                (systems.challenge.contract_address, scored),
             ],
         );
 }
@@ -100,17 +101,17 @@ fn test_events_daily_build_emits_built_and_scored() {
 #[test]
 #[available_gas(l2_gas: 123110000)]
 fn test_events_daily_discard_emits_discarded() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let tile = store.tile(game, builder.tile_id);
 
     let mut spy = spy_events();
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
 
     // The score cannot go below zero: the penalty is what was actually taken.
     let after = store.game(context.game_id);
-    let event = daily(
+    let event = challenge(
         PavedEvent::Discarded(
             Discarded {
                 game_id: context.game_id,
@@ -121,7 +122,7 @@ fn test_events_daily_discard_emits_discarded() {
             },
         ),
     );
-    spy.assert_emitted(@array![(systems.daily.contract_address, event)]);
+    spy.assert_emitted(@array![(systems.challenge.contract_address, event)]);
 }
 
 #[test]
@@ -130,34 +131,34 @@ fn test_events_daily_surrender_emits_game_over() {
     // A day after the epoch, so that the day id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
     start_cheat_block_timestamp_global(time);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
     let mut spy = spy_events();
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
 
     let game = store.game(context.game_id);
     assert(game.day_id != 0, 'Events: day set');
-    let event = daily(
+    let event = challenge(
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
                 day_id: game.day_id,
                 player_id: context.player_id,
-                mode: Mode::Daily.into(),
+                mode: Mode::Challenge.into(),
                 score: game.score,
                 start_time: time,
                 end_time: time,
             },
         ),
     );
-    spy.assert_emitted(@array![(systems.daily.contract_address, event)]);
+    spy.assert_emitted(@array![(systems.challenge.contract_address, event)]);
 }
 
 #[test]
 #[available_gas(l2_gas: 146756000)]
 fn test_events_daily_last_build_emits_game_over() {
     start_cheat_block_timestamp_global(100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
@@ -169,11 +170,11 @@ fn test_events_daily_last_build_emits_game_over() {
     store.set_game(game);
 
     let mut spy = spy_events();
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.over, 'Events: game over');
-    let built = daily(
+    let built = challenge(
         PavedEvent::Built(
             Built {
                 game_id: context.game_id,
@@ -186,13 +187,13 @@ fn test_events_daily_last_build_emits_game_over() {
             },
         ),
     );
-    let over = daily(
+    let over = challenge(
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
                 day_id: game.day_id,
                 player_id: context.player_id,
-                mode: Mode::Daily.into(),
+                mode: Mode::Challenge.into(),
                 score: game.score,
                 start_time: game.start_time,
                 end_time: game.end_time,
@@ -202,7 +203,8 @@ fn test_events_daily_last_build_emits_game_over() {
     spy
         .assert_emitted(
             @array![
-                (systems.daily.contract_address, built), (systems.daily.contract_address, over),
+                (systems.challenge.contract_address, built),
+                (systems.challenge.contract_address, over),
             ],
         );
 }
@@ -213,37 +215,37 @@ fn test_events_daily_last_discard_emits_game_over() {
     // A day after the epoch, so that the day id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
     start_cheat_block_timestamp_global(time);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let mut game = store.game(context.game_id);
     game.tile_limit = game.tile_count.try_into().unwrap();
     store.set_game(game);
 
     let mut spy = spy_events();
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
 
     let game = store.game(context.game_id);
     assert(game.over, 'Events: game over');
     assert(game.day_id != 0, 'Events: day set');
-    let over = daily(
+    let over = challenge(
         PavedEvent::GameOver(
             GameOver {
                 game_id: context.game_id,
                 day_id: game.day_id,
                 player_id: context.player_id,
-                mode: Mode::Daily.into(),
+                mode: Mode::Challenge.into(),
                 score: game.score,
                 start_time: time,
                 end_time: time,
             },
         ),
     );
-    spy.assert_emitted(@array![(systems.daily.contract_address, over)]);
+    spy.assert_emitted(@array![(systems.challenge.contract_address, over)]);
 }
 
 #[test]
 #[available_gas(l2_gas: 174474000)]
 fn test_events_daily_wonder_emits_scored() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
 
@@ -251,7 +253,7 @@ fn test_events_daily_wonder_emits_scored() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::WFFFFFFFR.into();
     store.set_tile(tile);
-    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
 
     // Seven more neighbors of the wonder: six are written directly (field tiles), the starter is
     // already there, and the last one is built through the contract.
@@ -285,11 +287,11 @@ fn test_events_daily_wonder_emits_scored() {
     let score_before = game.score;
 
     let mut spy = spy_events();
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.score > score_before, 'Events: wonder scored');
-    let scored = daily(
+    let scored = challenge(
         PavedEvent::Scored(
             Scored {
                 game_id: context.game_id,
@@ -300,5 +302,5 @@ fn test_events_daily_wonder_emits_scored() {
             },
         ),
     );
-    spy.assert_emitted(@array![(systems.daily.contract_address, scored)]);
+    spy.assert_emitted(@array![(systems.challenge.contract_address, scored)]);
 }

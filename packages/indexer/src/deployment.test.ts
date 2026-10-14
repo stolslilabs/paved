@@ -14,7 +14,7 @@ const FILE = {
   contracts: {
     // A past contract (D-25 (E)): a file written before step E still names Account; not read.
     Account: { address: "0x0003" },
-    Daily: { address: "0x1" },
+    Challenge: { address: "0x1" },
     Setup: { address: "0x2" },
     // A past contract (D-21): not read.
     Tutorial: { address: "0x7" },
@@ -49,12 +49,12 @@ describe("the deployment file", () => {
       network: "devnet",
       chainId: "0x534e5f5345504f4c4941",
       deployedBlock: file.deployed_block,
-      daily: of("Daily"),
+      challenge: of("Challenge"),
       setup: of("Setup"),
       economy: of("Economy"),
       collection: of("Collection"),
     });
-    expect(new Set([deployment.daily, deployment.setup, deployment.economy, deployment.collection]).size).toBe(4);
+    expect(new Set([deployment.challenge, deployment.setup, deployment.economy, deployment.collection]).size).toBe(4);
     expect(deployment).not.toHaveProperty("account");
     expect(defaultRpcUrl(deployment)).toBe("http://127.0.0.1:5050");
   });
@@ -65,7 +65,7 @@ describe("the deployment file", () => {
       chainId: "0x534e5f5345504f4c4941",
       rpcUrl: "http://127.0.0.1:5050",
       deployedBlock: 6,
-      daily: "0x1",
+      challenge: "0x1",
       setup: "0x2",
       economy: "0x4",
       collection: "0x6",
@@ -77,7 +77,7 @@ describe("the deployment file", () => {
     expect(() => parseDeployment(null)).toThrow(DeploymentError);
     expect(() => parseDeployment({ ...ok, deployed_block: "5" })).toThrow(/deployed_block/);
     expect(() => parseDeployment({ ...ok, chain_id: 5 })).toThrow(/chain_id/);
-    expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Daily: {} } })).toThrow(/Daily/);
+    expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Challenge: {} } })).toThrow(/Challenge/);
     // Not read since D-25 (E): a file without Account, or with a bad one, is a deployment like any other.
     const { Account: _account, ...noAccount } = ok.contracts;
     expect(parseDeployment({ ...ok, contracts: noAccount })).toEqual(parseDeployment(ok));

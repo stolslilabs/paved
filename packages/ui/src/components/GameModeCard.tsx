@@ -20,7 +20,7 @@ export interface GameModeCardProps {
   free?: boolean;
   /** The button's label; "Resume" or "Play" by default. */
   actionLabel?: string;
-  /** Content under the stats (the Daily's top 3, with links). Pressing inside it does not press the card. */
+  /** Content under the stats (the Challenge's top 3, with links). Pressing inside it does not press the card. */
   extra?: ReactNode;
   onPress: () => void;
 }

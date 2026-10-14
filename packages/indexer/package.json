@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Paved's indexer: follows a Starknet node, keeps the games and players of Daily, the quests and wiring of Setup and the paid games of Economy in SQLite, serves the daily leaderboard over a read-only HTTP API (docs/architecture/indexer.md).",
+  "description": "Paved's indexer: follows a Starknet node, keeps the games and players of Challenge, the quests and wiring of Setup and the paid games of Economy in SQLite, serves the daily leaderboard over a read-only HTTP API (docs/architecture/indexer.md).",
   "engines": {
     "node": "24.x"
   },

@@ -15,13 +15,13 @@ describe("endpoints", () => {
   test("/v1/head", async () => {
     const { data, head } = await client.head();
     expect(head).toEqual(FIXTURE_HEAD);
-    expect(data).toEqual({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 12, contracts: { account: "0x1", daily: "0x2", setup: "0x3" } });
-    expect(data.contracts.daily).toBe("0x2");
+    expect(data).toEqual({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 12, contracts: { account: "0x1", challenge: "0x2", setup: "0x3" } });
+    expect(data.contracts.challenge).toBe("0x2");
     expect(fixture.requests).toEqual(["/v1/head"]);
   });
 
   test("/v1/head accepts the as-built extra fields and any unknown key, and a missing checks", async () => {
-    const ok = { version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2" } };
+    const ok = { version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { challenge: "0x2" } };
     const raw = (extra: object) => {
       fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...extra }), httpStatus: 200 };
       return client.head();
@@ -39,10 +39,10 @@ describe("endpoints", () => {
     expect(data.games[0]).toMatchObject({ gameId: fixture.games[0].game_id });
     expect(data.games.map((g) => g.tokenId)).toEqual([7, null]);
     fixture.state.rawBody = {
-      text: JSON.stringify({ version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2", collection: "0x5" } }),
+      text: JSON.stringify({ version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { challenge: "0x2", collection: "0x5" } }),
       httpStatus: 200,
     };
-    expect((await client.head()).data.contracts).toMatchObject({ daily: "0x2", collection: "0x5" });
+    expect((await client.head()).data.contracts).toMatchObject({ challenge: "0x2", collection: "0x5" });
   });
 
   test("null score, end time or counted day is accepted only on a running game", async () => {
@@ -52,17 +52,17 @@ describe("endpoints", () => {
       expect((await client.playerGames(FIXTURE_ADA)).data.games[0].over).toBe(false);
       fixture.games = [{ ...finished, [key]: null }];
       expect(await kindOf(client.playerGames(FIXTURE_ADA))).toBe("bad-response");
-      expect(await kindOf(client.game("daily", finished.game_id as number))).toBe("bad-response");
+      expect(await kindOf(client.game("challenge", finished.game_id as number))).toBe("bad-response");
       fixture.games = [{ ...RUNNING_GAME, [key]: 5 }];
-      expect((await client.game("daily", 913)).data).toMatchObject({ over: false });
+      expect((await client.game("challenge", 913)).data).toMatchObject({ over: false });
     }
   });
 
   test("a running game: the null score, tournament and end time read as 0, not as a bad answer", async () => {
     fixture.games = [RUNNING_GAME, ...fixture.games];
     const { data } = await client.playerGames(FIXTURE_ADA);
-    expect(data.games[0]).toEqual({ contract: "daily", gameId: 913, mode: 1, startTime: 1791875000, dayId: 20733, over: false, score: 0, countedDayId: 0, endTime: 0 });
-    expect((await client.game("daily", 913)).data.over).toBe(false);
+    expect(data.games[0]).toEqual({ contract: "challenge", gameId: 913, mode: 1, startTime: 1791875000, dayId: 20733, over: false, score: 0, countedDayId: 0, endTime: 0 });
+    expect((await client.game("challenge", 913)).data.over).toBe(false);
   });
 
   test("/v1/tournaments pages newest first with before and next", async () => {
@@ -109,7 +109,7 @@ describe("endpoints", () => {
     fixture.names = { [FIXTURE_ADA]: "ada" };
     const ada = await client.player(FIXTURE_ADA);
     expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, name: "ada", created: 1791000000 });
-    expect(ada.data.stats).toMatchObject({ bestScore: 187, dailyGames: 2 });
+    expect(ada.data.stats).toMatchObject({ bestScore: 187, challengeGames: 2 });
     // The on-chain Tutorial left (D-21): no tutorial count is read.
     expect(ada.data.stats).not.toHaveProperty("tutorialGames");
     const nobody = await client.player(0x123n);
@@ -121,14 +121,14 @@ describe("endpoints", () => {
     const all = await client.playerGames(FIXTURE_ADA, { limit: 1 });
     expect(all.data.games).toHaveLength(1);
     expect(all.data.games[0]).toEqual({
-      contract: "daily", gameId: 912, mode: 1, startTime: 1791869000, dayId: 20733, over: true, score: 187, countedDayId: 20733, endTime: 1791871203, tokenId: 912,
+      contract: "challenge", gameId: 912, mode: 1, startTime: 1791869000, dayId: 20733, over: true, score: 187, countedDayId: 20733, endTime: 1791871203, tokenId: 912,
     });
-    expect(all.data.next).toBe("1791869000:daily:912");
+    expect(all.data.next).toBe("1791869000:challenge:912");
     const rest = await client.playerGames(FIXTURE_ADA, { limit: 1, before: all.data.next! });
-    expect(rest.data.games.map((g) => [g.contract, g.gameId])).toEqual([["daily", 55]]);
+    expect(rest.data.games.map((g) => [g.contract, g.gameId])).toEqual([["challenge", 55]]);
     expect(rest.data.next).toBeNull();
-    const daily = await client.playerGames(FIXTURE_ADA, { contract: "daily" });
-    expect(daily.data.games).toHaveLength(2);
+    const challenge = await client.playerGames(FIXTURE_ADA, { contract: "challenge" });
+    expect(challenge.data.games).toHaveLength(2);
     expect((await client.playerGames(FIXTURE_BO)).data.games).toEqual([]);
   });
 
@@ -140,8 +140,8 @@ describe("endpoints", () => {
   });
 
   test("/v1/games/{contract}/{id}: one game, or not-found", async () => {
-    expect((await client.game("daily", 55)).data).toMatchObject({ contract: "daily", gameId: 55, score: 64, countedDayId: 20731 });
-    expect(await kindOf(client.game("daily", 31337))).toBe("not-found");
+    expect((await client.game("challenge", 55)).data).toMatchObject({ contract: "challenge", gameId: 55, score: 64, countedDayId: 20731 });
+    expect(await kindOf(client.game("challenge", 31337))).toBe("not-found");
   });
 });
 
@@ -301,7 +301,7 @@ describe("errors", () => {
     expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID + 1))).toBe("rejected");
     expect(await kindOf(client.leaderboard(BigInt(MAX_TOURNAMENT_ID) + 1n))).toBe("rejected");
     expect(await kindOf(client.tournaments({ before: MAX_TOURNAMENT_ID + 1 }))).toBe("rejected");
-    expect(await kindOf(client.game("daily", -2))).toBe("rejected");
+    expect(await kindOf(client.game("challenge", -2))).toBe("rejected");
     expect(fixture.requests).toEqual([]);
   });
 });

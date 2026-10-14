@@ -30,7 +30,7 @@ const QUESTS = "Setup";
  * The contracts whose ABIs are committed: every event of each is known. The past ones (Tutorial and Lobby with D-21 and
  * D-24, Account with D-25 (E)) have no ABI in the tree any more; their events stay known by name.
  */
-const CONTRACTS = ["Daily", "Setup", "Economy", "Collection"];
+const CONTRACTS = ["Challenge", "Setup", "Economy", "Collection"];
 
 /** The event structs of a contract's ABI that `paved::events` declares (the ones the indexer may meet). */
 const pavedEvents = (name: string) =>
@@ -42,7 +42,7 @@ const shortOf = (item: AbiItem) => item.name.split("::").at(-1)!;
 
 describe("the ABIs", () => {
   test("every event of every contract is indexed or ignored, with the selector of its name", () => {
-    // Lobby ran inside Daily and Tutorial by library call: its events came from their addresses. A past contract's events
+    // Lobby ran inside Challenge and Tutorial by library call: its events came from their addresses. A past contract's events
     // stay known, so that a replay of an old history never halts.
     for (const contract of CONTRACTS) {
       const items = abi(contract).filter((item) => item.type === "event" && item.kind === "struct");
@@ -61,7 +61,7 @@ describe("the ABIs", () => {
       GameSpawned: { keys: ["game_id", "player_id"], data: ["mode", "day_id", "start_time", "price"] },
       GameOver: { keys: ["game_id", "player_id", "day_id"], data: ["mode", "score", "start_time", "end_time"] },
     };
-    for (const contract of ["Daily"]) {
+    for (const contract of ["Challenge"]) {
       for (const item of pavedEvents(contract)) {
         const shape = shapes[shortOf(item) as keyof typeof shapes];
         if (!shape) continue;
@@ -71,16 +71,18 @@ describe("the ABIs", () => {
     }
   });
 
-  test("Daily declares the game events; PlayerCreated is a past event, known by name and skipped (D-25 (E))", () => {
+  test("Challenge declares the game events; PlayerCreated is a past event, known by name and skipped (D-25 (E))", () => {
     const names = (contract: string) => pavedEvents(contract).map(shortOf);
-    expect(names("Daily")).toEqual(expect.arrayContaining(["GameSpawned", "GameOver"]));
-    expect(EMITTERS.GameSpawned).toEqual(["daily"]);
-    expect(EMITTERS.GameOver).toEqual(["daily"]);
+    expect(names("Challenge")).toEqual(expect.arrayContaining(["GameSpawned", "GameOver"]));
+    // D-23b removed it from the event enum: no committed ABI declares it any more.
+    for (const contract of CONTRACTS) expect(names(contract), contract).not.toContain("PlayerCreated");
+    expect(EMITTERS.GameSpawned).toEqual(["challenge"]);
+    expect(EMITTERS.GameOver).toEqual(["challenge"]);
     expect("PlayerCreated" in EMITTERS).toBe(false);
     expect((IGNORED as readonly string[]).includes("PlayerCreated")).toBe(true);
     expect(SELECTORS.PlayerCreated).toBe(canonical(hash.getSelectorFromName("PlayerCreated")));
-    // From any source still read (Daily's ABI declared it), whatever its shape: skipped, never a halt.
-    for (const source of ["daily", "setup", "economy", "collection"] as const) {
+    // From any source still read (the game contract's ABI declared it until D-23b), whatever its shape: skipped, never a halt.
+    for (const source of ["challenge", "setup", "economy", "collection"] as const) {
       const e = ev.pastCreated(source, 0x1234, 0x416461);
       expect(decode(source, e.keys, e.data), source).toBeNull();
       expect(decode(source, [SELECTORS.PlayerCreated], []), source).toBeNull();
@@ -185,16 +187,16 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
     expect(decode("setup", claim.keys, claim.data)).toEqual({ name: "AchievementProgressed", playerId: 0x1234n, taskId: 10, count: 1 });
   });
 
-  test("from Daily's address the six are past events: skipped, never a halt (P-51 ruling 5)", () => {
+  test("from Challenge's address the six are past events: skipped, never a halt (P-51 ruling 5)", () => {
     for (const e of [
-      ev.questDefined(1, { source: "daily" }),
-      ev.questProgressed(0x1234, 3, 1, "daily"),
-      ev.questRetired(1, "daily"),
-      ev.achievementDefined(1, { source: "daily" }),
-      ev.achievementProgressed(0x1234, 10, 1, "daily"),
-      ev.achievementRetired(1, "daily"),
+      ev.questDefined(1, { source: "challenge" }),
+      ev.questProgressed(0x1234, 3, 1, "challenge"),
+      ev.questRetired(1, "challenge"),
+      ev.achievementDefined(1, { source: "challenge" }),
+      ev.achievementProgressed(0x1234, 10, 1, "challenge"),
+      ev.achievementRetired(1, "challenge"),
     ]) {
-      expect(decode("daily", e.keys, e.data)).toBeNull();
+      expect(decode("challenge", e.keys, e.data)).toBeNull();
     }
   });
 
@@ -247,8 +249,8 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
 
 describe("decode", () => {
   test("GameSpawned", () => {
-    const e = ev.spawned("daily", 7, 0x1234, { day: 20733, start: 1791869000, price: 9 });
-    expect(decode("daily", e.keys, e.data)).toEqual({
+    const e = ev.spawned("challenge", 7, 0x1234, { day: 20733, start: 1791869000, price: 9 });
+    expect(decode("challenge", e.keys, e.data)).toEqual({
       name: "GameSpawned",
       gameId: 7,
       playerId: 0x1234n,
@@ -260,8 +262,8 @@ describe("decode", () => {
   });
 
   test("GameOver", () => {
-    const e = ev.over("daily", 55, 0x1234, 64);
-    expect(decode("daily", e.keys, e.data)).toEqual({
+    const e = ev.over("challenge", 55, 0x1234, 64);
+    expect(decode("challenge", e.keys, e.data)).toEqual({
       name: "GameOver",
       gameId: 55,
       playerId: 0x1234n,
@@ -271,45 +273,45 @@ describe("decode", () => {
       startTime: 1000000n,
       endTime: 1000500n,
     });
-    // Only Daily plays: a game event from Setup is a contract change the indexer was not told about.
+    // Only Challenge plays: a game event from Setup is a contract change the indexer was not told about.
     expect(() => decode("setup", e.keys, e.data)).toThrow(DecodeError);
   });
 
   test("an event that is known and not indexed is skipped", () => {
-    const e = ev.built("daily", 1);
-    expect(decode("daily", e.keys, e.data)).toBeNull();
+    const e = ev.built("challenge", 1);
+    expect(decode("challenge", e.keys, e.data)).toBeNull();
   });
 
   test("an unknown selector, a missing key, a wrong count, a wide value, or the wrong contract is a DecodeError", () => {
-    expect(() => decode("daily", ["0x1234"], [])).toThrow(DecodeError);
-    expect(() => decode("daily", [], [])).toThrow(DecodeError);
-    const e = ev.spawned("daily", 7, 1);
-    expect(() => decode("daily", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
-    expect(() => decode("daily", e.keys, e.data.slice(1))).toThrow(DecodeError);
+    expect(() => decode("challenge", ["0x1234"], [])).toThrow(DecodeError);
+    expect(() => decode("challenge", [], [])).toThrow(DecodeError);
+    const e = ev.spawned("challenge", 7, 1);
+    expect(() => decode("challenge", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
+    expect(() => decode("challenge", e.keys, e.data.slice(1))).toThrow(DecodeError);
     expect(() => decode("economy", e.keys, e.data)).toThrow(DecodeError); // Economy does not emit GameSpawned
-    const wide = ev.spawned("daily", 2 ** 32, 1);
-    expect(() => decode("daily", wide.keys, wide.data)).toThrow(DecodeError);
-    const widerMode = ev.spawned("daily", 1, 1, { mode: 256 });
-    expect(() => decode("daily", widerMode.keys, widerMode.data)).toThrow(DecodeError);
+    const wide = ev.spawned("challenge", 2 ** 32, 1);
+    expect(() => decode("challenge", wide.keys, wide.data)).toThrow(DecodeError);
+    const widerMode = ev.spawned("challenge", 1, 1, { mode: 256 });
+    expect(() => decode("challenge", widerMode.keys, widerMode.data)).toThrow(DecodeError);
     const nofelt = { keys: [e.keys[0]!, "nope", e.keys[2]!], data: e.data };
-    expect(() => decode("daily", nofelt.keys, nofelt.data)).toThrow(DecodeError);
-    const tooBig = ev.spawned("daily", 1, 1, { start: 2 ** 60 });
-    expect(() => decode("daily", tooBig.keys, tooBig.data)).toThrow(DecodeError); // above 2^53
+    expect(() => decode("challenge", nofelt.keys, nofelt.data)).toThrow(DecodeError);
+    const tooBig = ev.spawned("challenge", 1, 1, { start: 2 ** 60 });
+    expect(() => decode("challenge", tooBig.keys, tooBig.data)).toThrow(DecodeError); // above 2^53
   });
 });
 
 describe("the day id bound", () => {
   test("a day id above MAX_TOURNAMENT_ID (the API's bound) is a DecodeError, the bound itself decodes", () => {
     const id = BigInt(MAX_TOURNAMENT_ID);
-    const spawned = ev.spawned("daily", 1, 1, { day: id });
-    expect(decode("daily", spawned.keys, spawned.data)).toMatchObject({ dayId: id });
-    const over = ev.over("daily", 1, 1, 10, { day: id });
-    expect(decode("daily", over.keys, over.data)).toMatchObject({ dayId: id });
+    const spawned = ev.spawned("challenge", 1, 1, { day: id });
+    expect(decode("challenge", spawned.keys, spawned.data)).toMatchObject({ dayId: id });
+    const over = ev.over("challenge", 1, 1, 10, { day: id });
+    expect(decode("challenge", over.keys, over.data)).toMatchObject({ dayId: id });
     // Below 2^53, so the old check let these through
-    const spawnedAbove = ev.spawned("daily", 1, 1, { day: id + 1n });
-    expect(() => decode("daily", spawnedAbove.keys, spawnedAbove.data)).toThrow(DecodeError);
-    const overAbove = ev.over("daily", 1, 1, 10, { day: id + 1n });
-    expect(() => decode("daily", overAbove.keys, overAbove.data)).toThrow(DecodeError);
+    const spawnedAbove = ev.spawned("challenge", 1, 1, { day: id + 1n });
+    expect(() => decode("challenge", spawnedAbove.keys, spawnedAbove.data)).toThrow(DecodeError);
+    const overAbove = ev.over("challenge", 1, 1, 10, { day: id + 1n });
+    expect(() => decode("challenge", overAbove.keys, overAbove.data)).toThrow(DecodeError);
   });
 });
 
@@ -434,9 +436,9 @@ describe("Economy's events", () => {
         expect(declared, `${contract}.${name}`).not.toContain(name);
       }
     }
-    // Their layouts before D-20 (public-interface.md, "Past events"), each from Daily's address.
+    // Their layouts before D-20 (public-interface.md, "Past events"), each from Challenge's address.
     for (const event of [ev.sponsored(20733, 0xabc), ev.claimed(20733, 0x1234, 1), ev.reclaimed(20733, 0xabc)]) {
-      expect(decode("daily", event.keys, event.data)).toBeNull();
+      expect(decode("challenge", event.keys, event.data)).toBeNull();
     }
   });
 
@@ -452,12 +454,12 @@ describe("Economy's events", () => {
     expect(() => decode("setup", [SELECTORS.EconomySet], [])).toThrow(DecodeError);
     expect(() => decode("setup", [SELECTORS.EconomySet, "0x1"], ["0x4444"])).toThrow(DecodeError);
     expect(() => decode("economy", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
-    expect(() => decode("daily", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
+    expect(() => decode("challenge", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
   });
 
   test("a wrong emitter, shape, half, bool or day is a DecodeError", () => {
     const e = ev.purchased(1, 1);
-    expect(() => decode("daily", e.keys, e.data)).toThrow(DecodeError); // Daily does not emit Purchased
+    expect(() => decode("challenge", e.keys, e.data)).toThrow(DecodeError); // Challenge does not emit Purchased
     expect(() => decode("economy", e.keys, e.data.slice(1))).toThrow(DecodeError);
     expect(() => decode("economy", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
     const half = [...e.data];
@@ -487,22 +489,22 @@ describe("Collection's mint", () => {
     ]);
   });
 
-  test("a Daily token is the game id; a past Tutorial token (2^32 + the game id) is skipped (D-21)", () => {
-    const daily = ev.minted(0x41, 7);
-    expect(decode("collection", daily.keys, daily.data)).toEqual({
+  test("a Challenge token is the game id; a past Tutorial token (2^32 + the game id) is skipped (D-21)", () => {
+    const challenge = ev.minted(0x41, 7);
+    expect(decode("collection", challenge.keys, challenge.data)).toEqual({
       name: "Transfer",
       to: 0x41n,
       tokenId: 7,
-      contract: "daily",
+      contract: "challenge",
       gameId: 7,
     });
     const tutorial = ev.minted(0x41, 2 ** 32 + 7);
     expect(decode("collection", tutorial.keys, tutorial.data)).toBeNull();
     const last = ev.minted(0x41, 2 ** 33 - 1);
     expect(decode("collection", last.keys, last.data)).toBeNull();
-    // The largest Daily id stays a safe integer.
+    // The largest Challenge id stays a safe integer.
     const top = ev.minted(0x41, 2 ** 32 - 1);
-    expect(decode("collection", top.keys, top.data)).toMatchObject({ contract: "daily", gameId: 2 ** 32 - 1 });
+    expect(decode("collection", top.keys, top.data)).toMatchObject({ contract: "challenge", gameId: 2 ** 32 - 1 });
   });
 
   test("Setup's CollectionSet carries the address in its data", () => {
@@ -513,7 +515,7 @@ describe("Collection's mint", () => {
 
   test("a wrong emitter, a transfer that is not a mint, a token of no game, a wide id or a shape is a DecodeError", () => {
     const good = ev.minted(0x41, 7);
-    expect(() => decode("daily", good.keys, good.data)).toThrow(DecodeError);
+    expect(() => decode("challenge", good.keys, good.data)).toThrow(DecodeError);
     const keys = (...rest: string[]) => [SELECTORS.Transfer, ...rest];
     expect(() => decode("collection", keys("0x9", "0x41", "0x7", "0x0"), [])).toThrow(/only mints/);
     expect(() => decode("collection", keys("0x0", "0x41", "0x0", "0x0"), [])).toThrow(/game id 0/);
