@@ -53,6 +53,7 @@ describe("Icon", () => {
     expect(box.tagName).toBe("SPAN");
     expect(box).toHaveAttribute("aria-hidden", "true");
     expect(box.className).toContain("text-[2rem]");
+    expect((box as HTMLElement).style.width).toBe("1em");
   });
 
   it("keeps the width of its box with fixedWidth: 1.25em before and after the scripts", () => {

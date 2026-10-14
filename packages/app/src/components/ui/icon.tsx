@@ -37,8 +37,8 @@ function toElement(node: FaNode | string, key: number, extra: Record<string, unk
  * An icon from the Font Awesome Pro files (section 8), as an inline SVG that `currentColor` paints.
  * The scripts load after the first render, so until they are ready (or if they fail) it is an empty box 1em high.
  * Its width is exact only with `fixedWidth` (1.25em, as the drawn icon); otherwise the drawn icon takes its width
- * from its viewBox (0.5em to about 1.25em for most solid icons, 1.125em for "house"), so text beside it can shift
- * by up to a quarter of an em when the scripts arrive. Use `fixedWidth` where that must not happen.
+ * from its viewBox (0.25em, "ellipsis-vertical", to 1.25em, "user-group"; "house" is 1.125em), so text beside it can
+ * move by up to 0.75em (narrow icons) or 0.25em (wide ones) when the scripts arrive. Use `fixedWidth` where that must not happen.
  */
 export function Icon({ name, variant = "solid", size = "md", label, fixedWidth, className }: IconProps) {
   useEffect(() => loadFontAwesome(), []);
