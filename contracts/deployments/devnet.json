@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "unmerged-bd91d1e471220d51fcc3536b3677da6d6a5469e9",
+  "deployed_at": "bc486b1fc884ee191dcae272206ff923d4ab900f",
   "deployed_block": 9,
   "token": {
     "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
@@ -12,20 +12,20 @@
   },
   "contracts": {
     "Challenge": {
-      "address": "0x07e0789fc1f8d5cb5a59b8ea56e510543f744b4c020059131bd9722a8900e2ca",
-      "class_hash": "0x06c54fc5a4f82533c60e2677a3fbd50bc43af8f689d1a76ca7c119893ff768c6"
+      "address": "0x01ae875b60468d768f15d7e3bcf4947207d5ad8afd07809e2dec48719e4949dd",
+      "class_hash": "0x023d486452365ed9d9a578e8f2806ee6978d919f58939a8087e483a55dccac5d"
     },
     "Setup": {
       "address": "0x02e95dbdf1004c7b65ddab92dd662c81fe9e9b2d1026ce270c8f94fe9421764d",
       "class_hash": "0x022f048c88e73aa44d6c8c47ffd5f71c7d7885ae6da4142fa8587b0efe3468d5"
     },
     "Collection": {
-      "address": "0x014e154c9d39292d220fdfac06caca6f31c2cade0903fd329c575631784ac633",
-      "class_hash": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
+      "address": "0x04994a3087a59fd7750cb5b5bfd923dc6dbf84d6aa7f46da02efdcbbede06876",
+      "class_hash": "0x0768926965057ef0e808b4557bb6bee869aa29bfd7d330212c2e71b187ad6485"
     },
     "Economy": {
-      "address": "0x0670687e4dc26d50dce11e74397a45de3aa0286c944623df1f76139917aa215c",
-      "class_hash": "0x06cd8457f62a2feec5fc6ec3bea6bdf8dcc5adc522e4c62ad4c2a7e91e5969d5"
+      "address": "0x025678842af0beff055964821fc2c5136ed9fb5f91a673e715beabd97f785909",
+      "class_hash": "0x03d32472e05ee5ff64654ced07ea8097ec855fc7dc9f758ed2984d645d1fb850"
     },
     "PavedToken": {
       "address": "0x014549e0f72c7bc2926fbef56846202832e396e75801867aade8f8e591f643df",
