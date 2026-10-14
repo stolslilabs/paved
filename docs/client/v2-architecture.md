@@ -886,9 +886,9 @@ solid file holds the whole solid set. Another style, or a thin icon, needs anoth
 - `Icon` (`src/components/ui/icon.tsx`) asks `FontAwesome.icon({ prefix, iconName })` for the icon's abstract
   tree and renders it as React elements: an `<svg>` that React owns, painted by `currentColor`, with no `innerHTML`.
   Until the scripts are ready it is an empty box 1em high: 1.25em wide with `fixedWidth`, exactly the drawn
-  icon, and 1em wide otherwise, where the drawn icon takes its width from its viewBox (0.25em for
-  "ellipsis-vertical" to 1.25em for "user-group"; the house is 1.125em), so text beside it can move by up to
-  0.75em (narrow icons) or 0.25em (wide ones). `fixedWidth` is the no-shift form. Props: `name`,
+  icon, and 1em wide otherwise, where the drawn icon takes its width from its viewBox (0.125em for
+  "pipe" to 1.25em for "user-group"; the house is 1.125em), so text beside it can move by up to
+  0.875em (narrow icons) or 0.25em (wide ones). `fixedWidth` is the no-shift form. Props: `name`,
   `variant` (`solid` | `thin`), `size` (`xs` 12 px, `sm` 16, `md` 20, `lg` 24, `xl` 32), `label` (the accessible name,
   `role="img"`; without it `aria-hidden`), `fixedWidth`. Font Awesome still injects its small stylesheet
   (`.svg-inline--fa`, 1em high), which is what sizes the SVG.
