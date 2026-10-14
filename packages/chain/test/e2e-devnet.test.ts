@@ -591,7 +591,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(held.shares).toBe(expectedShares);
     expect(await paved(carol.address)).toBe(0n);
     const fee = BigInt(held.exitFeeBps);
-    expect(fee, "the default exit fee (deploy.sh)").toBe(100n);
+    expect(fee, "the default exit fee (deploy.sh: DEFAULT_EXIT_FEE_BPS, 5 %, owner 2026-10-14)").toBe(500n);
 
     // The slippage bound holds. Client side: a floor above the fresh quote sends nothing. On chain: a spawn whose min_out is
     // one above what the swap pays reverts ('Economy: swap below min_out'), and bob's USDC does not move.
