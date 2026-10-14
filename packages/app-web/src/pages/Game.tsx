@@ -8,7 +8,7 @@ import type { GameKey, PlaceMove } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
 import { ClosedStructures } from "../components/ClosedStructures";
 import { GameNft, useCollection } from "../components/GameNft";
-import { CENTER, toRenderBoard } from "../utils/game-helpers";
+import { toChainSlot, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute, isDailyParam, isTrainingParam, isTutorialParam, renamedModeSearch } from "../utils/mode-routing";
@@ -33,8 +33,7 @@ function canPlaceTile(
   tileOrientation: number,
   placedTiles: TileRenderData[],
 ): boolean {
-  const absX = gridX + CENTER;
-  const absY = CENTER - gridY;
+  const { x: absX, y: absY } = toChainSlot(gridX, gridY);
 
   // Build position lookup (contract coordinates)
   const byPos = new Map<string, TileRenderData>();
@@ -336,8 +335,6 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
   const orientation = useGameStore((s) => s.orientation);
   const setOrientation = useGameStore((s) => s.setOrientation);
   const strategyMode = useGameStore((s) => s.strategyMode);
-  const x = useGameStore((s) => s.x);
-  const y = useGameStore((s) => s.y);
   const selectedTile = useGameStore((s) => s.selectedTile);
   const [hoverGrid, setHoverGrid] = useState<{ x: number; y: number } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>("play");
@@ -361,10 +358,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
   }, []);
 
   const handleTileClick = useCallback((gridX: number, gridY: number) => {
-    const store = useGameStore.getState();
-    store.setX(gridX + CENTER);
-    store.setY(CENTER - gridY);
-    store.setSelectedTile({ col: gridX, row: gridY });
+    useGameStore.getState().setSelectedTile({ col: gridX, row: gridY });
   }, []);
 
   const handleTileHover = useCallback((gridX: number, gridY: number) => {
@@ -440,13 +434,14 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
 
   // The tile is drawn at once (pending); the receipt's events confirm it; one read reconciles.
   const handleConfirm = useCallback(async () => {
-    if (!session || !senders || readonly) return;
-    const move: PlaceMove = { orientation, x, y };
+    if (!session || !senders || readonly || !hoverState?.valid) return;
+    // The slot the ghost shows (the clicked one, else the hovered one): what the confirm guards checked.
+    const move: PlaceMove = { orientation, ...toChainSlot(hoverState.x, hoverState.y) };
     useGameStore.getState().setSelectedTile(null);
     // Keep hoverGrid so the ghost stays visible with the next tile
     const placed = await session.place(move, () => senders.build(move));
     if (placed) setOrientation(1); // reset rotation for the new tile
-  }, [session, senders, readonly, orientation, x, y, setOrientation]);
+  }, [session, senders, readonly, orientation, hoverState, setOrientation]);
 
   const handleDiscard = useCallback(async () => {
     if (!session || !senders || readonly) return;
