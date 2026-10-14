@@ -60,7 +60,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
       )}
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-center gap-1.5">
-          {/* `GameCanvas` keeps its WebGL context after unmount: the deferred renderer task (dispose) fixes it. */}
+          {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}
           {renderTile && tile ? (
             <span data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
               {renderTile(tile)}
