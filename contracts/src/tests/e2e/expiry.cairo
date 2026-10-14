@@ -8,15 +8,19 @@
 use core::num::traits::Zero;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants;
+use paved::mocks::token::IERC20Dispatcher;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::{CENTER, Tile};
 use paved::seed::{SeedSource, TokenSeed};
 use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
-use paved::systems::economy::{DAY, IEconomyDispatcherTrait};
+use paved::systems::economy::{
+    DAY, IEconomyDispatcherTrait, IEconomySafeDispatcher, IEconomySafeDispatcherTrait,
+};
 use paved::tests::legacy_g1::{IChallengeBeforeG1Dispatcher, IChallengeBeforeG1DispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IChallengeDispatcherTrait, OWNER, PLAYER, Systems, TestStore, TestStoreTrait,
+    IChallengeDispatcherTrait, IERC20DispatcherTrait, OWNER, PLAYER, Systems, TestStore,
+    TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -117,6 +121,113 @@ fn test_expiry_a_move_long_after_reverts() {
     start_cheat_block_timestamp_global(START + 30 * 86400);
     let reason = *safe(@systems).discard(context.game_id).unwrap_err().at(0);
     assert(reason == 'Game: expired', 'Expiry: discard');
+}
+
+/// Long after its expiry, a build refuses too (`discard` is tried above): the game and its tile in
+/// hand stay as they were.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_a_build_long_after_reverts() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    start_cheat_block_timestamp_global(START + 30 * 86400);
+    force_plan(store, game_id, Plan::FFCFFFCFF);
+    let before = store.game(game_id);
+    let reason = *safe(@systems)
+        .build(game_id, Orientation::North, CENTER, CENTER + 1)
+        .unwrap_err()
+        .at(0);
+    assert(reason == 'Game: expired', 'Expiry: build long after');
+    let after = store.game(game_id);
+    assert(after.built == before.built && after.score == before.score, 'Expiry: moved');
+    assert(after.tile_count == before.tile_count && !after.over, 'Expiry: tiles changed');
+}
+
+/// A surrender 30 days after the expiry, once its day has closed: it passes, the game is recorded
+/// expired with the score it froze at its expiry, and the closed day and the EMA do not move.
+#[test]
+fn test_expiry_a_surrender_long_after_is_recorded_expired() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    build_city(store, @systems, game_id);
+    let score = store.game(game_id).score;
+    assert(score > 0, 'Expiry: no score');
+    // [Day closed] a second game of the day ends in time and settles, which closes the day
+    let other = systems.challenge.spawn(1, Zero::zero(), 0);
+    systems.challenge.surrender(other);
+    let day = START / 86400;
+    let long_after = START + 30 * 86400;
+    start_cheat_block_timestamp_global(long_after);
+    systems.economy.settle(array![other].span());
+    let closed = systems.economy.day(day);
+    assert(closed.closed, 'Expiry: day not closed');
+    let ema = systems.economy.ema();
+
+    // [Surrender] long after the expiry
+    systems.challenge.surrender(game_id);
+    let game = store.game(game_id);
+    assert(game.over && game.score == score, 'Expiry: score not frozen');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.recorded && terms.expired, 'Expiry: not recorded expired');
+    assert(terms.score == score && !terms.settled, 'Expiry: recorded score');
+    assert(systems.economy.day(day) == closed, 'Expiry: closed day moved');
+    assert(systems.economy.ema() == ema, 'Expiry: ema moved');
+}
+
+/// An expired game with no move at all surrenders at score 0, is recorded expired, and settles for
+/// 0.
+#[test]
+fn test_expiry_an_expired_game_with_no_move_surrenders_at_zero() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    start_cheat_block_timestamp_global(START + 86400);
+    systems.challenge.surrender(game_id);
+    let game = store.game(game_id);
+    assert(game.over && game.score == 0 && game.built == 0, 'Expiry: not zero');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.recorded && terms.expired && terms.score == 0, 'Expiry: not recorded expired');
+    let day = START / 86400;
+    start_cheat_block_timestamp_global((day + 2) * 86400);
+    assert(systems.economy.settle(array![game_id].span()) == 0, 'Expiry: paid');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.settled && terms.reward == 0, 'Expiry: not settled');
+    let closed = systems.economy.day(day);
+    assert(closed.closed && closed.weight == 0 && closed.sum == 0, 'Expiry: day not empty');
+}
+
+/// A game that never ends does not block its day: at `(d + 2) x DAY` the other game settles and
+/// closes the day, while the game never ended stays unrecorded and cannot be settled.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_a_game_that_never_ends_does_not_block_its_day() {
+    let (store, systems, context) = spawn_at_start();
+    let ended = context.game_id;
+    let never = systems.challenge.spawn(1, Zero::zero(), 0);
+    build_city(store, @systems, ended);
+    // A score above the day's threshold (the prior mean, 3,980 points), so that the game earns
+    let mut game = store.game(ended);
+    game.score = 10_000;
+    store.set_game(game);
+    systems.challenge.surrender(ended);
+    let terms = systems.economy.terms(ended);
+    assert(terms.recorded && !terms.expired && terms.score == 10_000, 'Expiry: not recorded');
+    let day = START / 86400;
+    start_cheat_block_timestamp_global((day + 2) * 86400);
+    let paved = IERC20Dispatcher { contract_address: systems.economy.addresses().paved };
+    let before = paved.balance_of(PLAYER());
+    let minted = systems.economy.settle(array![ended].span());
+    let terms = systems.economy.terms(ended);
+    assert(terms.settled && terms.reward > 0, 'Expiry: not paid');
+    assert(minted == terms.reward.into(), 'Expiry: minted');
+    assert(paved.balance_of(PLAYER()) - before == terms.reward.into(), 'Expiry: balance');
+    let closed = systems.economy.day(day);
+    assert(closed.closed && closed.weight > 0, 'Expiry: day not closed');
+    // [Never ended] unrecorded, and refused by `settle`
+    assert(!store.game(never).over, 'Expiry: never ended');
+    assert(!systems.economy.terms(never).recorded, 'Expiry: recorded');
+    let economy = IEconomySafeDispatcher { contract_address: systems.economy.contract_address };
+    let reason = *economy.settle(array![never].span()).unwrap_err().at(0);
+    assert(reason == 'Economy: not recorded', 'Expiry: settled unrecorded');
 }
 
 /// An expired game ends by `surrender` (the PM's ruling, 2026-10-14), its score frozen at its
