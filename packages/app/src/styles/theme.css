@@ -87,9 +87,9 @@
   --color-board: oklch(0.173 0.024 246.1); /* #07111A */
 
   /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
-  --font-sans: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Cinzel", ui-serif, Georgia, "Times New Roman", serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Almendra", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-numeric: var(--font-mono);
 
   /* Breakpoints (section 3.4): mobile first, the base is the small mobile. Tailwind's defaults (sm, md, lg, xl, 2xl)
@@ -189,7 +189,7 @@
   }
 }
 
-/* Numbers (section 2.3): scores, counters and prices use IBM Plex Mono with tabular figures, so digits keep one width. */
+/* Numbers (section 2.3): scores, counters and prices use Space Mono with tabular figures, so digits keep one width. */
 @utility numeric {
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
