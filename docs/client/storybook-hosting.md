@@ -28,17 +28,26 @@ needed. Every later Storybook release is this sequence, run from a clean checkou
 commit to publish (a SHA on `main`) and `<checkout>` with that worktree.
 
 ```bash
+set -e
 cd /home/claude/projects/paved
 git fetch origin
 git worktree add --detach <checkout> <commit>
 cd <checkout>
 bun install --frozen-lockfile
+bun run build --filter '@paved/app^...'
 (cd packages/app && NODE_OPTIONS=--max-old-space-size=3072 bun run build-storybook)
 test -f packages/app/storybook-static/index.html
+test -f packages/app/storybook-static/iframe.html
 WWW_ROOT=/var/www/paved-storybook /usr/local/lib/paved/publish.sh packages/app/storybook-static \
   "$(date +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"
 readlink /var/www/paved-storybook/current
 ```
+
+The sequence stops at the first failing command (`set -e`; chain the lines with `&&` if you paste them one by one), so
+the publish runs only if `build-storybook` exits 0 and `iframe.html` exists. The workspace build before it is needed
+since SC1: the stories import `@paved/renderer/react`, which a fresh checkout has not built, and a publish on 2026-10-14
+shipped a failed build without it. If the live release is wrong, roll back at once with
+`WWW_ROOT=/var/www/paved-storybook /usr/local/lib/paved/switch.sh <release>` (see "Rollback" below).
 
 Notes:
 

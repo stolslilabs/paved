@@ -525,3 +525,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+================================================================================
+Draco decoder (draco_decoder.js, draco_decoder.wasm, draco_wasm_wrapper.js; the
+glTF build shipped in three 0.186.1, examples/jsm/libs/draco/gltf/)
+https://github.com/google/draco
+================================================================================
+
+Served by packages/app-web at /draco/, where the renderer loads it to decode
+Draco-compressed tile models. Licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0 (the project's LICENSE file:
+https://github.com/google/draco/blob/master/LICENSE). The files are unchanged
+and carry no notice of their own.
