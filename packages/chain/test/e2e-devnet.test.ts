@@ -15,7 +15,7 @@
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
  *   scripts/deploy.sh devnet                                   # writes contracts/deployments/devnet.json
- *   node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.json --db <file> --port 8787
+ *   node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.json --db <file> --port 8787 --no-names
  * The node must be fresh (the test moves its clock several days forward), and the three players are the
  * predeployed accounts 1 to 3 (account 0 is the deployer, whose smoke game stays in the chain).
  *

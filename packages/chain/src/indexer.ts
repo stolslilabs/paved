@@ -132,6 +132,8 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   gamesFinished: number;
   finishedAt: number;
+  /** The Cartridge username the indexer has cached (N1), or null: not looked up yet, none, or an indexer that predates it. Display only. */
+  name: string | null;
 }
 
 export interface Leaderboard {
@@ -148,6 +150,8 @@ export interface Leaderboard {
 /** A player the indexer has seen: the wallet address, from its first event (D-25 (E): no name on chain). */
 export interface IndexedPlayer {
   playerId: string;
+  /** As `LeaderboardEntry.name`. */
+  name: string | null;
   created: number | null;
 }
 
@@ -357,6 +361,12 @@ const orNull = <T>(o: Obj, key: string, read: (o: Obj, key: string, what: string
 /** A count that is null only while the game runs: a finished game answers every one of them. */
 const numUnlessRunning = (o: Obj, key: string, what: string, over: boolean): number =>
   o[key] === null ? (over ? bad(`${what}.${key} is null on a finished game`) : 0) : num(o, key, what);
+/** `name` (N1, appended to v1): a string, null, or missing (an indexer that predates it); anything else is a bad answer. */
+const nameOf = (o: Obj, what: string): string | null => {
+  const v = o.name;
+  if (v === undefined || v === null) return null;
+  return typeof v === "string" ? v : bad(`${what}.name is not a string`);
+};
 const list = (o: Obj, key: string, what: string): unknown[] => {
   const v = o[key];
   return Array.isArray(v) ? v : bad(`${what}.${key} is not a list`);
@@ -433,6 +443,7 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
     gamesPlayed: num(o, "games_played", what),
     gamesFinished: num(o, "games_finished", what),
     finishedAt: num(o, "finished_at", what),
+    name: nameOf(o, what),
   };
 }
 
@@ -624,7 +635,7 @@ export class IndexerClient {
       // An unknown player has no stats; the route may leave the key out then, never for a known one.
       const stats = b.stats === null || (b.stats === undefined && player === null) ? null : obj(b.stats, "stats");
       return {
-        player: player && { playerId: str(player, "player_id", "player"), created: orNull(player, "created", num, "player") },
+        player: player && { playerId: str(player, "player_id", "player"), name: nameOf(player, "player"), created: orNull(player, "created", num, "player") },
         stats: stats && {
           dailyGames: num(stats, "daily_games", "stats"),
           dailyFinished: num(stats, "daily_finished", "stats"),

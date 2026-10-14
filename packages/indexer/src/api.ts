@@ -141,6 +141,11 @@ export interface LeaderboardEntry {
   games_finished: number;
   /** `end_time` of the best game. */
   finished_at: number;
+  /**
+   * The player's Cartridge username, from the indexer's cache only (names.ts): null until looked up, when there is none,
+   * or when the lookup is off. Display only. Appended in schema 10 (N1).
+   */
+  name: string | null;
 }
 
 export interface LeaderboardAnswer extends Envelope {
@@ -153,9 +158,11 @@ export interface LeaderboardAnswer extends Envelope {
   next_offset: number | null;
 }
 
-/** A player is a wallet address (D-25 (E)): no name on chain, the client resolves it off-chain. `name` left in schema 9. */
+/** A player is a wallet address (D-25 (E)): no name on chain; `name` is the off-chain Cartridge username (schema 10, N1). */
 export interface PlayerInfo {
   player_id: string;
+  /** As `LeaderboardEntry.name`. */
+  name: string | null;
   /** Time of the block of the player's first event: GameSpawned, Purchased or a quest or achievement progress (seconds). */
   created: number;
 }
