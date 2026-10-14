@@ -460,19 +460,20 @@ else
 fi
 # sncast by its absolute path (see the header); a function, so `sc sncast ...` and a bare `sncast` both use it.
 # sncast-wrapper begin (scripts/test-deploy-url.sh runs this block)
-# Resolved at the first call, so a run that never calls sncast needs none; `type -P` looks at files only, so the wrapper
-# never finds itself.
-sncast() {
-  if [[ -z "${SNCAST_BIN:-}" ]]; then
-    SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
-    [[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(type -P sncast || true)"
+# Resolved at the first use, so a run that never calls sncast needs none. `type -P` looks at files only, so the wrapper
+# never finds itself; the cache is a private name, reset here, so an exported SNCAST_BIN changes nothing.
+_paved_sncast_bin=""
+sncast_resolve() { # prints the cause and returns 2 when there is no sncast
+  if [[ -z "$_paved_sncast_bin" ]]; then
+    _paved_sncast_bin="$SNCAST_BIN_DIR/sncast"
+    [[ -x "$_paved_sncast_bin" ]] || _paved_sncast_bin="$(type -P sncast || true)"
   fi
-  if [[ -z "$SNCAST_BIN" ]]; then
+  if [[ -z "$_paved_sncast_bin" ]]; then
     echo "deploy.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
     return 2
   fi
-  "$SNCAST_BIN" "$@"
 }
+sncast() { sncast_resolve || return; "$_paved_sncast_bin" "$@"; }
 # sncast-wrapper end
 # devnet: salt 1 and no `--unique`, so the addresses are stable across runs. sepolia (and its rehearsal): a fresh
 # random salt and `--unique`, so the addresses depend on the deployer and no rerun collides with an earlier one.
@@ -555,6 +556,7 @@ pyj() { python3 -I -c 'import sys,json;d=json.load(sys.stdin);print('"$1"')'; }
 # stdout, dies with the error message if sncast reports one. Build noise on stderr is dropped.
 sc() {
   local raw
+  [[ "$1" != sncast ]] || sncast_resolve || return   # bare: the stderr of the run below is discarded
   raw="$("$@" --json 2>/dev/null)" || true
   python3 -I - "$raw" <<'PY'
 import json, sys

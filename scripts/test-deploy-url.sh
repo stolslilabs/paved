@@ -92,8 +92,8 @@ G="the owner's rule is one Cairo run at a time through the shims (set"
 SH=(PATH="$tc/shim:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")
 tc_expect "deploy.sh, default: no resolution to a prepended asdf directory, sncast from the asdf default" \
   "$(d "${SH[@]}")" 1 "no node answers" "resolves to"
-if tc_out env "${SH[@]}" HOME="$tc/home" ASDF_DATA_DIR="$tc/home/.asdf" RPC_URL=http://127.0.0.1:1 bash -x "$here/deploy.sh" devnet |
-   grep -qE '(^|[^A-Z_])PATH=.*installs/(scarb|starknet-foundry)'; then
+xt="$(tc_out env "${SH[@]}" RPC_URL=http://127.0.0.1:1 bash -x "$here/deploy.sh" devnet)"
+if grep -E '(^|[^A-Z_])PATH=.*installs/(scarb|starknet-foundry)' <<<"$xt" >/dev/null; then
   echo "FAIL: deploy.sh puts an asdf toolchain directory on the PATH by default"; fail=1
 else
   echo "ok: deploy.sh puts no asdf toolchain directory on the PATH by default"
@@ -138,9 +138,14 @@ tc_expect "run-sample.sh stops at its first sncast call when sncast is found now
 # runs, and the wrapper never calls itself.
 sn_block="$(sed -n '/^# sncast-wrapper begin/,/^# sncast-wrapper end/p' "$here/deploy.sh")"
 sn_run() { # <PATH> <SNCAST_BIN_DIR>
-  tc_out env -i PATH="$1" SNCAST_BIN_DIR="$2" bash -c "$sn_block"$'\nsncast --version'
+  tc_out env -i PATH="$1" SNCAST_BIN_DIR="$2" SNCAST_BIN=sncast bash -c "$sn_block"$'\nsncast --version'
 }
 tc_stub sncast-dir "$tc/sn" sncast
+# sncast is called only through `sc` on the sepolia paths, and `sc` discards the stderr of what it runs: it must resolve
+# sncast bare first, so the cause is printed.
+sc_block="$(sed -n '/^sc() {/,/^}/p' "$here/deploy.sh")"
+tc_expect "deploy.sh's sc prints why sncast is not found" \
+  "$(tc_out env -i PATH=/usr/bin:/bin SNCAST_BIN_DIR="$tc/none" bash -c "$sn_block"$'\n'"$sc_block"$'\nsc sncast --version')" 2 "deploy.sh: sncast not found: neither $tc/none/sncast nor on the PATH"
 tc_stub sncast-path "$tc/snpath" sncast
 tc_expect "deploy.sh's sncast wrapper: not found anywhere is an error, not a loop" \
   "$(sn_run /usr/bin:/bin "$tc/none")" 2 "deploy.sh: sncast not found: neither $tc/none/sncast nor on the PATH"
@@ -150,7 +155,8 @@ tc_expect "deploy.sh's sncast wrapper: falls back to the PATH's sncast" \
   "$(sn_run "$tc/snpath:/usr/bin:/bin" "$tc/none")" 0 "sncast-path-sncast"
 # measure.sh: the cairo-coverage directory goes first (the asdf shim of it wants a version set) and cannot shadow the
 # shims; if it ever holds a scarb, the guard refuses
-if tc_out env "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov" bash -x "$here/measure.sh" check-setup | grep -qF "PATH=$tc/cov:"; then
+xt="$(tc_out env "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov" bash -x "$here/measure.sh" check-setup)"
+if grep -F "PATH=$tc/cov:" <<<"$xt" >/dev/null; then
   echo "ok: measure.sh puts the cairo-coverage directory first on the PATH"
 else
   echo "FAIL: measure.sh does not put the cairo-coverage directory first on the PATH"; fail=1

@@ -32,19 +32,20 @@ else
   echo "run-sample.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
 fi
 # sncast-wrapper begin (scripts/test-deploy-url.sh runs this block)
-# Resolved at the first call, so a run that never calls sncast needs none; `type -P` looks at files only, so the wrapper
-# never finds itself.
-sncast() {
-  if [[ -z "${SNCAST_BIN:-}" ]]; then
-    SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
-    [[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(type -P sncast || true)"
+# Resolved at the first use, so a run that never calls sncast needs none. `type -P` looks at files only, so the wrapper
+# never finds itself; the cache is a private name, reset here, so an exported SNCAST_BIN changes nothing.
+_paved_sncast_bin=""
+sncast_resolve() { # prints the cause and returns 2 when there is no sncast
+  if [[ -z "$_paved_sncast_bin" ]]; then
+    _paved_sncast_bin="$SNCAST_BIN_DIR/sncast"
+    [[ -x "$_paved_sncast_bin" ]] || _paved_sncast_bin="$(type -P sncast || true)"
   fi
-  if [[ -z "$SNCAST_BIN" ]]; then
+  if [[ -z "$_paved_sncast_bin" ]]; then
     echo "run-sample.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
     return 2
   fi
-  "$SNCAST_BIN" "$@"
 }
+sncast() { sncast_resolve || return; "$_paved_sncast_bin" "$@"; }
 # sncast-wrapper end
 PID=""
 
