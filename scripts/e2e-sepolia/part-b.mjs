@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { checkEvidence, isFailureText, operationName, redact, scrub } from "./scrub.mjs";
-import { PROBE_SOURCE, boardPoints, createTracker, findAndPlace, faucetSample, moveSample, probeEvents, promptedBetween, purchaseSample, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
+import { PROBE_SOURCE, boardPoints, createTracker, findAndPlace, faucetSample, moveSample, probeEvents, promptedBetween, purchaseSample, enrichSamples, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -25,6 +25,7 @@ const arg = (name, fallback) => {
 const out = arg("out", "/tmp/paved-e2e-out");
 const url = arg("url", "https://paved.bal7hazar.com");
 const api = arg("api", "https://api.paved.bal7hazar.com");
+const rpcUrl = String(arg("rpc", "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10")); // the node read after the run for fee and gas (S2)
 const confirmed = arg("confirmed", false) === true;
 const username = String(arg("username", ""));
 const wantMoves = Number(arg("moves", 3));
@@ -47,7 +48,7 @@ const tracker = createTracker();
 const startedAt = new Date().toISOString();
 const stage = (s) => (log.stage = s);
 const note = (s) => (log.notes.push(`${log.stage}: ${scrub(s)}`), console.error(`[${log.stage}] ${scrub(s)}`));
-const latencyMeta = () => ({ url, api, network: "sepolia", startedAt, localHour: new Date().getHours(), notes: log.notes.filter((n) => /^(extra-mint|buy-challenge|moves)/.test(n)).slice(-12) });
+const latencyMeta = () => ({ url, api, network: "sepolia", startedAt, localHour: new Date().getHours(), notes: [...log.notes.filter((n) => /^(extra-mint|buy-challenge|moves)/.test(n)).slice(-12), ...log.notes.filter((n) => n.startsWith("chain: "))] });
 const save = () => {
   writeFileSync(join(out, "part-b-run.json"), JSON.stringify(log, null, 2));
   if (samples.length) {
@@ -67,7 +68,13 @@ let closed = false;
 const closeAll = async () => {
   if (closed) return;
   closed = true;
+  // S2: what each transaction cost, read from the node now that the run is over (reads only; a failed read leaves null and a note).
+  // The files are written first and again after the reads, so a slow node or a Ctrl-C costs the fee and gas, never the files.
   save();
+  if (samples.length) {
+    log.notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `chain: ${scrub(n)}`));
+    save();
+  }
   if (cdp && authenticatorId) await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId }).catch(() => {});
   await context.close().catch(() => {});
   await browser.close().catch(() => {});
