@@ -108,8 +108,8 @@ pub fn scan(
     scan_with(ref walker, ref structures, ref tally)
 }
 
-/// `scan` seeded with the neighbourhood `around` of `tile`, which must be the one the move read
-/// around the tile it builds (G7a, C3).
+/// `scan`, its walk seeded with the side tiles of `around` (G7a, C3): a neighbourhood read in this
+/// move, whose tiles storage still holds (`WalkerTrait::seeded`).
 pub fn scan_seeded(
     tile: Tile,
     refs: u128,
