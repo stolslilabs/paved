@@ -1142,7 +1142,7 @@ pub mod tests {
     /// with them (`check`).
     #[test]
     fn test_oracle_walks_agree_with_the_structure_state() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let (store, _, context) = setup::spawn_game(Mode::Challenge);
         let game_id = context.game_id;
         interact_with_state(
             store.contract,

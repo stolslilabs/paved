@@ -8,7 +8,7 @@
 //! `PlayerCreated`:
 //! `Account` left the systems and a player is the caller's address, with no registration. The
 //! variant stays declared (it never was emitted by a game contract) until the indexer, whose tests
-//! read it from `Daily`'s ABI, drops it (META); `public-interface.md` documents it as a past event.
+//! read it from `Challenge`'s ABI, drops it (META); `public-interface.md` documents it as a past event.
 
 use paved::models::game::Game;
 

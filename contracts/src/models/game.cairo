@@ -507,7 +507,7 @@ pub mod tests {
     pub const GAME_ID: u32 = 1;
     pub const NAME: felt252 = 'NAME';
     pub const PLAYER: felt252 = 'PLAYER';
-    pub const MODE: Mode = Mode::Daily;
+    pub const MODE: Mode = Mode::Challenge;
 
     #[test]
     fn test_game_new() {

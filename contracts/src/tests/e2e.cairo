@@ -1,8 +1,8 @@
 pub mod access;
+pub mod challenge;
+pub mod challenge_advanced;
 pub mod cold_paths;
 pub mod cold_paths_audit;
-pub mod daily;
-pub mod daily_advanced;
 pub mod economy;
 pub mod events;
 pub mod forest;

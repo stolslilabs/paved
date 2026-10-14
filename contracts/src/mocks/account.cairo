@@ -1,7 +1,7 @@
 //! A mock of the `Account` registry that left the systems at D-25 E (P-53 ruling 5: the Account
 //! belongs in the mocks): a registration and the player view, nothing else. No deployed contract
 //! reads it and `scripts/deploy.sh` never deploys it. Its one user,
-//! `tests::e2e::access::test_access_a_registration_changes_nothing`, shows that `Daily` plays and
+//! `tests::e2e::access::test_access_a_registration_changes_nothing`, shows that `Challenge` plays and
 //! pays a referrer the same whether the address registered or not.
 
 #[starknet::interface]

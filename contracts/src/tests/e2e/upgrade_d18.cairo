@@ -28,7 +28,7 @@ use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDisp
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::systems::daily::{Daily, IDailyDispatcher};
+use paved::systems::challenge::{Challenge, IChallengeDispatcher};
 use paved::tests::legacy::record::{chars_of, ref_of};
 use paved::tests::legacy::role::Role;
 use paved::tests::legacy::state::StructuresTrait as LegacyStructures;
@@ -36,7 +36,7 @@ use paved::tests::legacy::store::StoreImpl as LegacyStore;
 use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -98,7 +98,7 @@ fn old(
 /// A build of the D-18 class, checked against the oracle.
 fn new(
     store: TestStore,
-    daily: IDailyDispatcher,
+    challenge: IChallengeDispatcher,
     game_id: u32,
     plan: Plan,
     orientation: Orientation,
@@ -108,7 +108,7 @@ fn new(
     force(store, game_id, plan);
     let game = store.game(game_id);
     let tile_id = store.builder(game, PLAYER().into()).tile_id;
-    daily.build(game_id, orientation, x, y);
+    challenge.build(game_id, orientation, x, y);
     check::assert_tile_agrees(store, game_id, tile_id);
     check::assert_move_scored(store, game_id, tile_id, game.score);
 }
@@ -154,8 +154,8 @@ fn standing(store: TestStore, game_id: u32, role: Role) -> (u32, u8) {
     )
 }
 
-fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Event {
-    Daily::Event::PavedEvent(
+fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Challenge::Event {
+    Challenge::Event::PavedEvent(
         PavedEvent::Scored(
             Scored { game_id, player_id: PLAYER().into(), category: category.into(), size, points },
         ),
@@ -189,10 +189,10 @@ fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Ev
 #[test]
 #[available_gas(l2_gas: 3000000000)]
 fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
-    let daily = systems.daily;
-    let contract = daily.contract_address;
+    let challenge = systems.challenge;
+    let contract = challenge.contract_address;
     // The game ends on the last move below (spawn draws 2 tiles, 7 old and 8 new builds follow)
     let mut game = store.game(g);
     game.tile_limit = 16;
@@ -281,19 +281,19 @@ fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
     // [After the upgrade] the D-18 class finishes the game
     let mut spy = spy_events();
     // The last curve: the loop of road and the forest of the Woodsman
-    new(store, daily, g, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    new(store, challenge, g, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     // The first move under the new class writes the dead roles bits as 0
     assert_eq!(roles_placed(store, g), 0);
     // The stop: the road of the Adventurer
-    new(store, daily, g, Plan::SFRFRFFFR, Orientation::North, CENTER + 2, CENTER);
+    new(store, challenge, g, Plan::SFRFRFFFR, Orientation::North, CENTER + 2, CENTER);
     // The cap: the city of the Lady, a structure whose root still holds her bit (no spot blocked)
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 3);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 3);
     // The fields around the wonder of the Pilgrim (city caps that stay open)
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::South, CENTER - 1, CENTER + 1);
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::South, CENTER - 2, CENTER + 1);
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::East, CENTER - 2, CENTER);
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::East, CENTER - 2, CENTER - 1);
-    new(store, daily, g, Plan::FFFFFFCFF, Orientation::North, CENTER - 1, CENTER - 1);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::South, CENTER - 1, CENTER + 1);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::South, CENTER - 2, CENTER + 1);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::East, CENTER - 2, CENTER);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::East, CENTER - 2, CENTER - 1);
+    new(store, challenge, g, Plan::FFFFFFCFF, Orientation::North, CENTER - 1, CENTER - 1);
     spy
         .assert_emitted(
             @array![
@@ -324,9 +324,9 @@ fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
 /// (no scan before D-18), for `docs/measures/baseline.md`. The run with the Woodsman calibrates the
 /// frozen class against the figure of e measured on main (9,357,939).
 fn gas_e_before_d18(woodsman: bool) -> u128 {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
-    install_before_d18(systems.daily.contract_address);
+    install_before_d18(systems.challenge.contract_address);
     let (role, spot) = if woodsman {
         (Role::Woodsman, Spot::SouthEast)
     } else {
