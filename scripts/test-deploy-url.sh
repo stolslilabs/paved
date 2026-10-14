@@ -52,16 +52,27 @@ refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepoli
 # before anything is built or sent when the shim exists and the tool resolves elsewhere. PAVED_SCARB_SHIM and
 # PAVED_SNFORGE_SHIM point the guard at the stubs here (test hooks, not a way round the rule).
 tc="$(mktemp -d)"
-mkdir -p "$tc/shim" "$tc/other"
-for t in scarb snforge; do
-  printf '#!/bin/sh\nexit 0\n' >"$tc/shim/$t"; cp "$tc/shim/$t" "$tc/other/$t"
-done
-mkdir -p "$tc/scarb-only"; cp "$tc/shim/scarb" "$tc/scarb-only/scarb"
-chmod +x "$tc/shim/"* "$tc/other/"*
-tc_out() { # <script> <args...>: stderr of the run, then its exit code on the last line
+# Fake toolchains, each answering with its name. shim/: the shims (PATH); other/: a scarb and snforge elsewhere on the
+# PATH; home/.asdf/installs/...: the asdf directories the scripts used to prepend (HOME and ASDF_DATA_DIR point there,
+# so a script that prepends them is caught on a runner that has no asdf); scarb-only/: a scarb that is the shim, with no
+# snforge beside it; cov/ and cov-bad/: a cairo-coverage directory, the second holding a scarb as well.
+tc_stub() { # <label> <dir> <name>...: each executable answers "<label>-<name>"
+  local label="$1" dir="$2" n; shift 2; mkdir -p "$dir"
+  for n in "$@"; do printf '#!/bin/sh\necho "%s-%s"\n' "$label" "$n" >"$dir/$n"; chmod +x "$dir/$n"; done
+}
+tc_stub shim "$tc/shim" scarb snforge
+tc_stub other "$tc/other" scarb snforge
+tc_stub shim "$tc/scarb-only" scarb
+tc_stub asdf "$tc/home/.asdf/installs/scarb/2.20.1/bin" scarb
+tc_stub asdf "$tc/home/.asdf/installs/starknet-foundry/0.64.0/bin" snforge sncast
+tc_stub cov "$tc/cov" cairo-coverage
+tc_stub cov "$tc/cov-bad" cairo-coverage scarb
+printf '#!/bin/sh\nexit 1\n' >"$tc/node"; chmod +x "$tc/node"
+tc_out() { # <command...>: stdout and stderr of the run, then its exit code on the last line
   local out rc
-  out="$(env -u SCARB_BIN_DIR -u SNFORGE_BIN_DIR -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL \
-    RPC_URL=http://127.0.0.1:1 "$@" 2>&1)"; rc=$?
+  out="$(env -u SCARB_BIN_DIR -u SNFORGE_BIN_DIR -u SNCAST_BIN_DIR -u CAIRO_COVERAGE_BIN_DIR -u STARKNET_ACCOUNT_ADDRESS \
+    -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL HOME="$tc/home" ASDF_DATA_DIR="$tc/home/.asdf" \
+    RPC_URL=http://127.0.0.1:1 DEVNET_BIN="$tc/node" "$@" 2>&1)"; rc=$?
   printf '%s\nrc=%s' "$out" "$rc"
 }
 tc_expect() { # <label> <output> <exit> <must contain> [must not contain]
@@ -74,37 +85,67 @@ tc_expect() { # <label> <output> <exit> <must contain> [must not contain]
 }
 # deploy.sh devnet against a port nobody listens on: past the guard it stops at "no node answers", before any build.
 d() { tc_out env "$@" "$here/deploy.sh" devnet; }
-# default: no override, scarb from the PATH (the shim), nothing prepended
-tc_expect "deploy.sh, default: scarb from the PATH is the shim" \
-  "$(d PATH="$tc/shim:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "no node answers" "resolves to"
-# the shim exists, scarb resolves elsewhere: refused before the node is asked
+m() { tc_out env "$@" "$here/measure.sh" check-setup; }  # versions, then a diff of two files: builds nothing
+r() { tc_out env "$@" "$here/node/run-sample.sh" devnet; }  # versions, then DEVNET_BIN (a stub that exits) ends the run
+G="the owner's rule is one Cairo run at a time through the shims (set"
+# default, with the asdf directories present: scarb and snforge are the shims of the PATH, nothing is prepended
+SH=(PATH="$tc/shim:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")
+tc_expect "deploy.sh, default: no resolution to a prepended asdf directory, sncast from the asdf default" \
+  "$(d "${SH[@]}")" 1 "no node answers" "resolves to"
+if tc_out env "${SH[@]}" HOME="$tc/home" ASDF_DATA_DIR="$tc/home/.asdf" RPC_URL=http://127.0.0.1:1 bash -x "$here/deploy.sh" devnet |
+   grep -qE '(^|[^A-Z_])PATH=.*installs/(scarb|starknet-foundry)'; then
+  echo "FAIL: deploy.sh puts an asdf toolchain directory on the PATH by default"; fail=1
+else
+  echo "ok: deploy.sh puts no asdf toolchain directory on the PATH by default"
+fi
+tc_expect "measure.sh, default: scarb and snforge are the shims of the PATH, not the asdf ones" \
+  "$(m "${SH[@]}")" 0 "shim-snforge" "asdf"
+tc_expect "run-sample.sh, default: scarb is the shim of the PATH, not the asdf one" \
+  "$(r "${SH[@]}")" 1 "shim-scarb" "asdf-scarb"
+# the shim exists, the tool resolves elsewhere: refused before the node is asked, before anything is built
 tc_expect "deploy.sh refuses when the shim exists and scarb resolves elsewhere" \
-  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb: the owner's rule is one Cairo run at a time through the shims (set SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" "no node answers"
+  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb: $G SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" "no node answers"
 tc_expect "deploy.sh refuses an override that is not the shim" \
-  "$(d PATH="$tc/shim:$PATH" SCARB_BIN_DIR="$tc/other" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb"
-# no shim (the Mac, CI): a warning naming the scarb found, then it goes on
+  "$(d "${SH[@]}" SCARB_BIN_DIR="$tc/other")" 2 "scarb resolves to $tc/other/scarb"
+tc_expect "deploy.sh refuses the asdf directory as an override" \
+  "$(d "${SH[@]}" SCARB_BIN_DIR="$tc/home/.asdf/installs/scarb/2.20.1/bin")" 2 "scarb resolves to $tc/home/.asdf/installs/scarb/2.20.1/bin/scarb"
+tc_expect "measure.sh refuses when scarb resolves away from the shim" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb: $G SCARB_BIN_DIR=" "shim-snforge"
+tc_expect "measure.sh refuses when snforge resolves away from the shim" \
+  "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/scarb-only" PAVED_SCARB_SHIM="$tc/scarb-only/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "snforge resolves to $tc/other/snforge, not the shim $tc/shim/snforge: $G SNFORGE_BIN_DIR=" "setup.cairo"
+tc_expect "run-sample.sh refuses when the shim exists and scarb resolves elsewhere" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim" "== versions"
+# no shim (the Mac, CI): a warning naming the tool found, then it goes on
 tc_expect "deploy.sh warns and goes on when there is no shim" \
   "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb")" 1 "warning: no shim at $tc/none/scarb, using scarb $tc/other/scarb" "resolves to"
+tc_expect "measure.sh warns and goes on when there is no shim" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge")" 0 "warning: no shim at $tc/none/snforge, using snforge $tc/other/snforge" "resolves to"
+tc_expect "run-sample.sh warns and goes on when there is no shim" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb")" 1 "warning: no shim at $tc/none/scarb, using scarb $tc/other/scarb" "resolves to"
 # an explicit override that is the shim passes
 tc_expect "deploy.sh accepts SCARB_BIN_DIR when it is the shim" \
-  "$(d SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "no node answers" "resolves to"
-# measure.sh: the guard runs before any mode; mode `all` is refused on Linux ("unmeasured"), so nothing is built there.
-m() { tc_out env "$@" "$here/measure.sh" all; }
-tc_expect "measure.sh refuses when scarb resolves away from the shim" \
-  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/shim/scarb" "unmeasured"
-tc_expect "measure.sh refuses when snforge resolves away from the shim" \
-  "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/scarb-only" PAVED_SCARB_SHIM="$tc/scarb-only/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "snforge resolves to $tc/other/snforge, not the shim $tc/shim/snforge" "unmeasured"
-if [[ "$(uname -s)" != Darwin ]]; then
-  tc_expect "measure.sh, default: scarb and snforge from the PATH are the shims" \
-    "$(m PATH="$tc/shim:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "unmeasured" "resolves to"
-  tc_expect "measure.sh accepts SCARB_BIN_DIR and SNFORGE_BIN_DIR when they are the shims" \
-    "$(m SCARB_BIN_DIR="$tc/shim" SNFORGE_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 2 "unmeasured" "resolves to"
-  tc_expect "measure.sh warns and goes on when there is no shim" \
-    "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge")" 2 "warning: no shim at $tc/none/snforge, using snforge $tc/other/snforge" "resolves to"
+  "$(d PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "no node answers" "resolves to"
+tc_expect "measure.sh accepts SCARB_BIN_DIR and SNFORGE_BIN_DIR when they are the shims" \
+  "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" SNFORGE_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 0 "shim-snforge" "resolves to"
+tc_expect "run-sample.sh accepts SCARB_BIN_DIR when it is the shim" \
+  "$(r PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "shim-scarb" "resolves to"
+# sncast found nowhere: a clear error, not a function that calls itself
+NOSN=(PATH="$tc/shim:/usr/bin:/bin" PAVED_SCARB_SHIM="$tc/shim/scarb" SNCAST_BIN_DIR="$tc/none")
+tc_expect "deploy.sh stops when sncast is found nowhere" \
+  "$(d "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "no node answers"
+tc_expect "run-sample.sh stops when sncast is found nowhere" \
+  "$(r "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "== versions"
+# measure.sh: the cairo-coverage directory goes first (the asdf shim of it wants a version set) and cannot shadow the
+# shims; if it ever holds a scarb, the guard refuses
+if tc_out env "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov" bash -x "$here/measure.sh" check-setup | grep -qF "PATH=$tc/cov:"; then
+  echo "ok: measure.sh puts the cairo-coverage directory first on the PATH"
+else
+  echo "FAIL: measure.sh does not put the cairo-coverage directory first on the PATH"; fail=1
 fi
-# run-sample.sh: the same guard, before the node is started or anything is built
-tc_expect "run-sample.sh refuses when the shim exists and scarb resolves elsewhere" \
-  "$(tc_out env PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/shim/scarb" "$here/node/run-sample.sh" devnet)" 2 "scarb resolves to $tc/other/scarb, not the shim"
+tc_expect "measure.sh passes with a cairo-coverage directory first" \
+  "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov")" 0 "shim-snforge" "resolves to"
+tc_expect "measure.sh refuses a cairo-coverage directory that holds a scarb" \
+  "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov-bad")" 2 "scarb resolves to $tc/cov-bad/scarb" "setup.cairo"
 rm -rf "$tc"
 
 # --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.

@@ -32,7 +32,11 @@ else
   echo "run-sample.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
 fi
 SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
-[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || echo sncast)"
+[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || true)"
+if [[ -z "$SNCAST_BIN" ]]; then
+  echo "run-sample.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
+  exit 2
+fi
 sncast() { "$SNCAST_BIN" "$@"; }
 PID=""
 
