@@ -11,7 +11,7 @@ root steps. What it left on the VPS, for reference:
 
 | What | Where |
 |---|---|
-| Web root, owned by `paved-deploy` | `/var/www/paved-storybook/` (`releases/`, and `current` -> the live release) |
+| Web root, owned by `claude` since the owner's block 10 (by `paved-deploy` before) | `/var/www/paved-storybook/` (`releases/`, and `current` -> the live release) |
 | Caddy site, imported by the main Caddyfile | `/etc/caddy/paved-storybook.caddy`, the same text as `deploy/storybook/paved-storybook.caddy` |
 | Publish and rollback scripts | `/usr/local/lib/paved/publish.sh` and `switch.sh`, the copies of `deploy/indexer/publish.sh` and `switch.sh` (they take their root from `WWW_ROOT`) |
 | Checkout of the repository | `~paved-deploy/paved` |
@@ -19,14 +19,19 @@ root steps. What it left on the VPS, for reference:
 A change to the Caddy site is a change to `deploy/storybook/paved-storybook.caddy` and a root step of the owner; it is
 not part of a release.
 
-## A release (as `paved-deploy`, no root)
+## A release (as `claude`, no root)
 
-Every later Storybook release is this sequence. Replace `<commit>` with the commit to publish (a SHA on `main`).
+Since the owner's block 10, `/var/www/paved-storybook` is owned by `claude`: the `claude` user (an agent of the
+client track) publishes Storybook updates itself, with the same publish command; no root step and no other user is
+needed. Every later Storybook release is this sequence, run from a clean checkout of the commit to publish (for
+`claude`, a detached worktree of `/home/claude/projects/paved`, never a working branch). Replace `<commit>` with the
+commit to publish (a SHA on `main`) and `<checkout>` with that worktree.
 
 ```bash
-cd ~/paved
-git fetch --all --prune
-git checkout --detach <commit>
+cd /home/claude/projects/paved
+git fetch origin
+git worktree add --detach <checkout> <commit>
+cd <checkout>
 bun install --frozen-lockfile
 (cd packages/app && NODE_OPTIONS=--max-old-space-size=3072 bun run build-storybook)
 test -f packages/app/storybook-static/index.html
