@@ -56,7 +56,7 @@ async function createScene() {
     }),
     dispose: vi.fn(),
   };
-  (scene as any).tiles = { updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn() };
+  (scene as any).tiles = { updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn(), setOutlineStroke: vi.fn() };
   await scene.init({ surface: adapter });
   return { scene, renderer, shadowDrawn, moveCamera: () => onCameraChange() };
 }

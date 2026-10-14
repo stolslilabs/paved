@@ -1,4 +1,5 @@
 import type { TileData } from "@paved/game-core";
+import type { RendererSettingsInput } from "./settings";
 
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
@@ -19,6 +20,8 @@ export interface RendererConfig {
   pixelRatio?: [number, number];
   shadows?: boolean;
   effectsCapabilities?: EffectsCapabilities;
+  /** Outlines and camera zoom limits (`settings.ts`); unnamed fields take the defaults. */
+  settings?: RendererSettingsInput;
 }
 
 export interface SurfaceSize {
@@ -53,6 +56,8 @@ export interface EffectsCapabilities {
   supportsVignette?: boolean;
   supportsSSAO?: boolean;
   lowPowerDevice?: boolean;
+  /** Whether the device can multisample a render target (WebGL2); false keeps `multisampling` off. Default true. */
+  supportsMultisampling?: boolean;
 }
 
 export interface TileRenderData extends TileData {

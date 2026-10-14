@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { GameScene } from "../core/GameScene";
 import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
+import type { RendererSettingsInput } from "../core/settings";
 import type {
   TileRenderData,
   HoverState,
@@ -17,6 +18,8 @@ export interface GameCanvasProps {
   basePath?: string;
   style?: React.CSSProperties;
   className?: string;
+  /** Outlines and camera zoom limits (`RendererSettings`); unnamed fields take the defaults. */
+  settings?: RendererSettingsInput;
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
@@ -32,6 +35,7 @@ export function GameCanvas({
   strategyMode = false,
   compassRotation = 0,
   cameraMode = "play",
+  settings,
   basePath = "",
   style,
   className,
@@ -55,6 +59,9 @@ export function GameCanvas({
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
+  // Read at init; later changes go through setSettings.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -73,7 +80,7 @@ export function GameCanvas({
     sceneRef.current = gameScene;
     let cancelled = false;
 
-    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(
+    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath, settings: settingsRef.current }).then(
       () => {
         // Unmounted while init was pending: never start the scene.
         if (cancelled) return;
@@ -121,6 +128,10 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.setCameraMode(cameraMode);
   }, [cameraMode]);
+
+  useEffect(() => {
+    sceneRef.current?.setSettings(settings ?? {});
+  }, [settings]);
 
   return (
     <div
