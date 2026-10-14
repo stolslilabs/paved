@@ -46,13 +46,13 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
       <StatRow
         icon="user-group"
         label="Referral"
-        hint={referrer ? `To ${shortAddress(referrer)}, from the Vault's part` : "No referrer: the Vault keeps it"}
+        hint={referrer ? `To ${shortAddress(referrer)}` : "No referrer: the Vault keeps it"}
         value={<Amount value={referral} token="usdc" />}
       />
-      <div className="flex justify-between pt-1 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap justify-between gap-x-3 pt-1 text-[11px] text-muted-foreground">
         <span>Split</span>
-        <span className="font-mono tabular-nums">
-          burn {pct(split.burn)} · Vault {pct(split.vault)}, referral {pct(split.referral)} of it
+        <span className="min-w-0 text-right font-mono tabular-nums">
+          burn {pct(split.burn)} · Vault {pct(split.vault)} · referral {pct(split.referral)} from the Vault
         </span>
       </div>
     </div>
