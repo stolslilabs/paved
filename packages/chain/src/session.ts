@@ -1,4 +1,4 @@
-import type { WriteResult } from "./writer";
+import { GameExpiredError, type WriteResult } from "./writer";
 import { placementOutcome } from "./placement";
 import {
   TILE_STATUS,
@@ -74,6 +74,8 @@ export class GameSession {
     private readonly views: GameViews,
     readonly key: GameKey,
     private readonly playerId: string | null,
+    /** The time in seconds that `expiresAt` is compared with: the block time where it is known, else the clock. */
+    private readonly now: () => number = () => Math.floor(Date.now() / 1000),
   ) {
     this.current = {
       key,
@@ -123,6 +125,7 @@ export class GameSession {
   async place(move: PlaceMove, send: () => Promise<WriteResult>): Promise<boolean> {
     const hand = this.current.hand;
     if (!hand || this.current.readonly || this.current.pending) return false;
+    if (this.refuseExpired()) return false;
     const tile: BoardTile = { id: hand.tileId, plan: hand.plan, orientation: move.orientation, x: move.x, y: move.y, pending: true };
     this.set({
       pending: true,
@@ -137,12 +140,24 @@ export class GameSession {
     });
   }
 
-  discard(send: () => Promise<WriteResult>): Promise<boolean> {
+  async discard(send: () => Promise<WriteResult>): Promise<boolean> {
+    if (!this.current.readonly && !this.current.pending && this.refuseExpired()) return false;
     return this.simpleWrite(send);
   }
 
   surrender(send: () => Promise<WriteResult>): Promise<boolean> {
     return this.simpleWrite(send);
+  }
+
+  /**
+   * An expired game (S1) takes no build and no discard: nothing is sent and the player reads the same error the
+   * chain's revert gives. Never called for `surrender`, which closes an expired game.
+   */
+  private refuseExpired(): boolean {
+    const game = this.current.game;
+    if (!game || game.over || game.expiresAt === 0 || this.now() < game.expiresAt) return false;
+    this.set({ writeError: new GameExpiredError().message });
+    return true;
   }
 
   private async simpleWrite(send: () => Promise<WriteResult>): Promise<boolean> {
