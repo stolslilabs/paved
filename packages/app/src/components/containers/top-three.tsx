@@ -6,25 +6,12 @@ import { formatPoints } from "../elements/score";
 
 const MEDAL = ["text-gold-300", "text-ink-200", "text-amber-400"] as const;
 
-export interface TopThreeRowProps {
-  entry: LeaderboardEntry;
-  /** The viewer's own row: outlined in gold. */
-  self?: boolean;
-  className?: string;
-}
-
-/** One ranked player: the rank (a crown for the podium), the name or short address, the best score of the day. */
-export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
+/** The cells of one ranked player: the rank (a crown for the podium), the name or short address, the best score of the day. */
+export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; self?: boolean; games?: boolean }) {
   const podium = entry.rank <= 3;
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2",
-        self ? "bg-accent ring-1 ring-gold-700" : "bg-secondary/60",
-        className,
-      )}
-    >
-      <span className={cn("numeric grid w-6 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
+    <>
+      <span className={cn("numeric grid w-6 shrink-0 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
         {podium ? (
           <>
             <Icon name="crown" size="sm" />
@@ -34,11 +21,35 @@ export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
           entry.rank
         )}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm">
+      <span className="min-w-0 flex-1 truncate text-left text-sm">
         <PlayerName name={entry.name} address={entry.playerId} />
         {self && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
       </span>
-      <span className="numeric text-sm font-semibold">{formatPoints(entry.bestScore)}</span>
+      {games && (
+        <span className="numeric hidden w-16 shrink-0 text-right text-xs text-muted-foreground mobile:inline">
+          {entry.gamesPlayed} {entry.gamesPlayed === 1 ? "game" : "games"}
+        </span>
+      )}
+      <span className="numeric w-14 shrink-0 text-right text-sm font-semibold">{formatPoints(entry.bestScore)}</span>
+    </>
+  );
+}
+
+/** A ranked row's look: the viewer's own outlined in gold. */
+export const rankRowClass = (self?: boolean) => cn("flex items-center gap-3 rounded-lg px-3 py-2", self ? "bg-accent ring-1 ring-gold-700" : "bg-secondary/60");
+
+export interface TopThreeRowProps {
+  entry: LeaderboardEntry;
+  /** The viewer's own row: outlined in gold. */
+  self?: boolean;
+  className?: string;
+}
+
+/** One ranked player of the podium list. */
+export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
+  return (
+    <li className={cn(rankRowClass(self), className)}>
+      <RankCells entry={entry} self={self} />
     </li>
   );
 }

@@ -1,5 +1,5 @@
 import type { IndexedPlayer, Leaderboard, LeaderboardEntry, PlayerStats } from "@paved/chain";
-import { HOUR, MOCK_NOW } from "./clock";
+import { DAY, HOUR, MOCK_NOW } from "./clock";
 
 /** The viewer of every mock: a controller account. */
 export const PLAYER_ID = "0x05f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f";
@@ -15,8 +15,8 @@ export const PLAYER_STATS: PlayerStats = {
   rewards: "142350000000000000000",
 };
 
-/** Today's tournament (the day id the contracts count from). */
-export const TODAY = 20_375;
+/** Today's tournament: the UTC day of the mocks' clock (`timestamp / 86400`, the day id the contracts count from). */
+export const TODAY = Math.floor(MOCK_NOW / DAY);
 
 const entry = (rank: number, playerId: string, name: string | null, bestScore: number, gamesPlayed: number): LeaderboardEntry => ({
   rank,
