@@ -102,7 +102,10 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 
 To run on another chain day, start the node with `--start-time <unix seconds>`. Since D-23b a Challenge game's deck comes from its
 token id in its contract (Poseidon(0, Challenge's address, game id)), not from the day: on a fresh seed-42 node the address and the ids are known, so the decks and
-alice's margin over the threshold are the same on any day.
+alice's margin over the threshold are the same on any day. On CORE's D-23b head (306989f, VPS, 2026-10-14) two fresh nodes at
+`--start-time 1788000000` (day 20696) and `1792000000` (day 20742) gave the same Challenge address (`0x047caa6c...c084c8da`),
+the same token ids (alice 2, bob 3, carol 4, bob's second game 5) and the same scores: alice 7,332, bob 419, carol 0,
+threshold 4,007.942, alice above by 3,324.058; 16 of 16 passed, about 2 min 10 s, peak 251,044 kB (`/usr/bin/time -v`).
 
 Two options matter where the defaults do not fit. `DEVNET_BIN=<path>` names the `starknet-devnet` binary the shell
 starts when `starknet-devnet` on the PATH is an asdf shim that does not run from there (e.g.
