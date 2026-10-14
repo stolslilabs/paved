@@ -52,6 +52,8 @@ export {
   RECEIPT_POLL_MS,
   PavedWriter,
   FaucetCapError,
+  GameExpiredError,
+  GAME_EXPIRED_TEXT,
   WriteError,
 } from "./writer";
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";

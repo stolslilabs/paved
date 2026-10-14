@@ -43,6 +43,8 @@ export interface GameView {
   startTime: number;
   endTime: number;
   dayId: number;
+  /** Start + 24 h (S1, `GAME_VALIDITY`): from this second on, `build` and `discard` revert; `surrender` still closes the game. */
+  expiresAt: number;
 }
 
 /** `TileView.status` codes. */
@@ -74,7 +76,7 @@ export interface PriceView {
 export const VIEW_FIELDS = {
   "paved::views::GameView": [
     "id", "playerId", "mode", "seed", "score", "over", "tileCount", "placedCount", "discardedCount",
-    "tileId", "plan", "remainingCount", "deckSize", "startTime", "endTime", "dayId",
+    "tileId", "plan", "remainingCount", "deckSize", "startTime", "endTime", "dayId", "expiresAt",
   ] satisfies (keyof GameView)[],
   "paved::views::TileView": ["id", "status", "plan", "orientation", "x", "y"] satisfies (keyof TileView)[],
   "paved::views::BuilderView": ["gameId", "playerId", "tileId", "plan"] satisfies (keyof BuilderView)[],
@@ -121,6 +123,8 @@ export interface GameViews {
   /** Every tile of the game, in id order (pages of `MAX_PAGE` until a short page). */
   tiles(key: GameKey): Promise<TileView[]>;
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
+  /** `Challenge.initial_seed(game_id)` (S1): the seed the game started with, before any draw; `game().seed` is the current one. */
+  initialSeed(key: GameKey): Promise<string>;
   currentDay(): Promise<number>;
   /** The Challenge entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
@@ -161,6 +165,10 @@ export class RpcGameViews implements GameViews {
 
   async builder(key: GameKey, playerId: string): Promise<BuilderView> {
     return (await this.call(gameContract(key.mode), "builder", [key.gameId, playerId])) as BuilderView;
+  }
+
+  async initialSeed(key: GameKey): Promise<string> {
+    return (await this.call("Challenge", "initial_seed", [key.gameId])) as string;
   }
 
   async currentDay(): Promise<number> {
@@ -205,6 +213,8 @@ export interface FakeGame {
   game: GameView;
   tiles: TileView[];
   builder: BuilderView;
+  /** `initial_seed`; defaults to the game's seed. */
+  initialSeed?: string;
 }
 
 function gameKeyId(key: GameKey): string {
@@ -241,6 +251,12 @@ export class FakeGameViews implements GameViews {
     this.calls.push(`builder ${gameKeyId(key)}`);
     const { gameId, playerId: player, tileId, plan } = this.ownGame(key, playerId).builder;
     return { gameId, playerId: player, tileId, plan };
+  }
+
+  async initialSeed(key: GameKey): Promise<string> {
+    this.calls.push(`initial_seed ${gameKeyId(key)}`);
+    const game = this.get(key);
+    return game.initialSeed ?? game.game.seed;
   }
 
   async currentDay(): Promise<number> {

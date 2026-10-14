@@ -61,7 +61,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the day id is day_id in GameSpawned, GameOver and GameView", () => {
-    expect(codecs.Challenge.structFields("paved::views::GameView").at(-1)).toBe("dayId");
+    expect(codecs.Challenge.structFields("paved::views::GameView").slice(-2)).toEqual(["dayId", "expiresAt"]);
     for (const codec of [codecs.Challenge]) {
       const events = (codec.abi as Array<{ type: string; name: string; members?: Array<{ name: string }> }>).filter(
         (item) => item.type === "event" && /::(GameSpawned|GameOver)$/.test(item.name),
@@ -117,9 +117,14 @@ describe("AbiCodec", () => {
   });
 
   test("decodes bools and the day id of a game view", () => {
-    const felts = ["0x5", "0xabc", "0x1", "0x9", "0x3", "0x1", "0x2", "0x1", "0x1", "0x0", "0x0", "0x0", "0x26", "0x100", "0x200", "0x4e20"];
+    const felts = ["0x5", "0xabc", "0x1", "0x9", "0x3", "0x1", "0x2", "0x1", "0x1", "0x0", "0x0", "0x0", "0x26", "0x100", "0x200", "0x4e20", "0x15280"];
     const g = codecs.Challenge.decodeResult("game", felts) as Record<string, unknown>;
-    expect(g).toMatchObject({ id: 5, playerId: "0xabc", over: true, score: 3, endTime: 0x200, dayId: 0x4e20 });
+    expect(g).toMatchObject({ id: 5, playerId: "0xabc", over: true, score: 3, endTime: 0x200, dayId: 0x4e20, expiresAt: 0x15280 });
+  });
+
+  test("initial_seed takes a game id and returns a felt", () => {
+    expect(codecs.Challenge.encodeCall("initial_seed", [7])).toEqual(["0x7"]);
+    expect(codecs.Challenge.decodeResult("initial_seed", ["0xabc123"])).toBe("0xabc123");
   });
 
   test("fails loudly on a short result", () => {

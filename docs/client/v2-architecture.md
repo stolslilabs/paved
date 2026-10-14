@@ -451,7 +451,7 @@ three 0.186, on bun 1.4.2 and turbo (`docs/client/STATUS.md`, P-8). The referenc
   Sheet (drawer for mobile), Switch, Slider, Toggle Group (the mockups' Low/Medium/High and
   Easy/Medium/Hard), Tooltip, Progress, Badge, Skeleton, Separator, Avatar, Sonner (toasts, the mockups'
   "Tile placed! + 8 points"), Scroll Area, Dropdown Menu.
-- **Icons:** Font Awesome only (spec A), through the Free SVG packages (section 8).
+- **Icons:** Font Awesome only (spec A), through the Pro scripts and the `Icon` component (section 8).
 
 ### 3.2 Animation
 
@@ -857,26 +857,74 @@ glitchbomb ships the same three files, byte-identical (`cmp` on `solid.min.js`),
 nums uses only the solid style; its contracts name Pro-only icons (`fa-cards`, `fa-slot-machine`,
 `fa-land-mine-on`…).
 
-**Settled: these files are Font Awesome Pro 6.6.0 under Font Awesome's Commercial License.** Their use in
-Paved is a licence question for the owner (P-57 B6): whether the owner holds a Font Awesome Pro licence
-that covers this project. Nothing is copied in this PR.
+**Settled: the owner holds the licence (owner, 2026-10-14, F4).** The owner handled the Font Awesome Pro
+licence himself and pushed the files to `main` at `21788fb` ("feat: add fa sources"), as
+`app/public/fontawesome/js/{fontawesome,solid,thin}.min.js`, the same bytes as nums'. Client v2 uses Font
+Awesome **Pro 6.6.0 from these files**, under the owner's Commercial License. The Free packages that P0 proposed
+(`@fortawesome/*` 7.3.1) are not the plan any more: none is added, and no registry token is needed.
 
-**The Free fallback (proposed until the owner answers, and kept if the answer is no):** Font Awesome Free,
-through the SVG packages, tree-shaken so only the icons used ship:
+**The files in `packages/app`** (F4). Moved with `git mv`, not copied: nothing read `app/public/fontawesome`
+(`app/` imports `@fortawesome/*` from npm and never the scripts), so the deprecated folder no longer holds
+them. They are unmodified, and `sha256sum` equals that of `21788fb`:
 
-| Package | Version (npm, 2026-10-14) | Licence |
+| File | Bytes | SHA-256 |
 |---|---|---|
-| `@fortawesome/fontawesome-svg-core` | 7.3.1 | MIT |
-| `@fortawesome/free-solid-svg-icons` | 7.3.1 | icons CC BY 4.0, code MIT |
-| `@fortawesome/free-regular-svg-icons` | 7.3.1 | icons CC BY 4.0, code MIT |
-| `@fortawesome/react-fontawesome` | 3.5.0 | MIT |
+| `packages/app/public/fontawesome/js/fontawesome.min.js` | 47,100 | `19e1110c6569c44a0b910f16cb39022e82c1fd70e4769d32e145d1e2e5baace9` |
+| `packages/app/public/fontawesome/js/solid.min.js` | 2,070,771 | `40b81666f7f3bd1bc8d255fb00a2ce5a9470e33a7a492930a0c73ccde0b15a9f` |
+| `packages/app/public/fontawesome/js/thin.min.js` | 4,505 | `100c32756a08b9c00be6627ee3dc4f837e068d453a6501ead8f311940a9354dc` |
 
-CC BY 4.0 asks for attribution: one line in `THIRD_PARTY_NOTICES.txt`. Why packages rather than the
-`*.min.js` scripts: the solid script alone is 2 MB of every icon, parsed at load, and it rewrites the DOM
-(`<i>` to `<svg>`) outside React; imported icons are a few hundred bytes each and render as React
-components. If the owner confirms a Pro licence, the Pro packages (`@fortawesome/pro-*`, from Font
-Awesome's private registry with a token, a secret for the owner to provide) replace the Free ones with
-the same code, the icon names unchanged.
+`public/fontawesome/README.md` names the source; `public/THIRD_PARTY_NOTICES.txt` names the licence. **A finding:
+`thin.min.js` registers one icon, `spider-web`** (4.5 KB); the thin style is not a thin version of the set. The
+solid file holds the whole solid set. Another style, or a thin icon, needs another file from the owner.
+
+**How they load (F4).** Not as nums does, with `<script defer>` in `index.html`, and not through `<i>` tags.
+
+- `src/lib/font-awesome.ts` sets `window.FontAwesomeConfig = { autoReplaceSvg: false, observeMutations: false }`,
+  then injects the three scripts in order (`async = false`, `fetchPriority = "low"`) once the first frame is
+  painted (`requestAnimationFrame`, then `requestIdleCallback`). The scripts then only fill Font Awesome's library:
+  they rewrite nothing and watch nothing.
+- `Icon` (`src/components/ui/icon.tsx`) asks `FontAwesome.icon({ prefix, iconName })` for the icon's abstract
+  tree and renders it as React elements: an `<svg>` that React owns, painted by `currentColor`, with no `innerHTML`.
+  Until the scripts are ready it is an empty box 1em high: 1.25em wide with `fixedWidth`, exactly the drawn
+  icon, and 1em wide otherwise, where the drawn icon takes its width from its viewBox (0.125em for
+  "pipe" to 1.25em for "user-group"; the house is 1.125em), so text beside it can move by up to
+  0.875em (narrow icons) or 0.25em (wide ones). `fixedWidth` is the no-shift form. Props: `name`,
+  `variant` (`solid` | `thin`), `size` (`xs` 12 px, `sm` 16, `md` 20, `lg` 24, `xl` 32), `label` (the accessible name,
+  `role="img"`; without it `aria-hidden`), `fixedWidth`. Font Awesome still injects its small stylesheet
+  (`.svg-inline--fa`, 1em high), which is what sizes the SVG.
+- Why not `<script defer>` in the head: a deferred classic script runs before a module script that follows it, so
+  the 2 MB `solid.min.js` sits in front of the app's first render. Why not a bundled import: the files are
+  scripts, not modules, and the Free packages are not the plan any more. Why not per-icon packages: Pro packages
+  need the registry token the owner did not give.
+- A test (`__tests__/icon.test.tsx`) runs the real three files in jsdom through the loader: solid and thin icons
+  render as SVG, a labelled icon has `role="img"`, a decorative one `aria-hidden`, and an `<i class="fa-solid ...">`
+  outside React, present before or added after, stays an `<i>` (without the config the same files turn it into an
+  `<svg>`, checked).
+
+**What it costs** (F4; Mac, arm64; Chrome for Testing 147 with `--headless=new`; production build served
+statically from localhost; 15 runs per cell, median and (p95) in ms; the shell, no icon drawn yet). `none`: the
+three requests aborted; `defer`: nums' way, three `<script defer>` before the module; `lazy`: the chosen way.
+Method: Playwright, one fresh context per run; the paint and navigation entries of the page, a mutation
+observer for the first render, a CDP network and CPU throttle for the second block.
+
+| Network, CPU | Variant | First contentful paint | First React render | Scripts fetched at |
+|---|---|---|---|---|
+| localhost, 1x | none | 64 (72) | 35.1 (39.8) | n/a |
+| | defer | 104 (108) | 72.9 (77.5) | 17.8 |
+| | lazy | 60 (64) | 31.2 (33.1) | 47.6 |
+| 9 Mbit/s, 40 ms, CPU 4x | none | 648 (692) | 561 (590) | n/a |
+| | defer | 2,552 (2,576) | 2,474 (2,493) | 2,207 |
+| | lazy | 624 (644) | 547 (559) | 2,540 |
+
+- Download: 47,100 + 2,070,771 + 4,505 = 2,122,376 bytes, uncompressed (the preview server sends no gzip; a
+  host that compresses sends far less).
+- Parse and run of the three files, alone: 28.1 ms (p95 40.1) at 1x, 123.5 ms (p95 173.7) at CPU 4x. In the page
+  the longest task is 0 ms at 1x and 88 ms (p95 120) at 4x for `lazy`; the long tasks together are 167 ms at 4x.
+- Reading: loaded in the head (`defer`), the scripts add 40 ms to the first paint on a fast link and **1.9 s** on
+  9 Mbit/s with a slow CPU. Loaded after the first frame (`lazy`), the first paint does not move (60 against 64
+  ms; 624 against 648 ms, within the noise of a run), and the icons appear when the scripts are ready, about 2.5 s
+  in on that slow link. P1's tabs will show their icon boxes empty until then; **if that flash is not wanted**,
+  the next step is a smaller file than `solid.min.js` (only the icons the app uses), not the head.
 
 ---
 
@@ -1024,7 +1072,7 @@ thread, review rounds included.
 | F1 | `packages/app` scaffold: Vite 8, React 19, Tailwind v4, `theme.css` (section 2), fonts, React Router with the route map as empty pages, TanStack Query, zustand, Motion; CI build | 1.5 d |
 | F2 | Storybook in `packages/app`: the Foundations stories (colours with contrast, typography, motion, breakpoints), the dark board background; CI `build-storybook` (workflow listed) | 1 d |
 | F3 | shadcn primitives (section 3.1) restyled to the tokens, each with its stories | 2 d |
-| F4 | Icons: Font Awesome Free (or Pro, after the owner's answer), an `Icon` component, the Icons story | 0.5 d |
+| F4 | Icons: Font Awesome Pro from the owner's files (section 8), an `Icon` component, the Icons story | 0.5 d |
 | F5 | Storybook hosting: the publish command (no script change), the Caddy block for the PM's root step | 0.5 d |
 | F6 | Tiles in Storybook: the 19 base tiles through the renderer; the extended set brought over from `origin/dev` | 1.5 d |
 | F7 | The skills chosen by the PM (section 10) | 1 d |
@@ -1054,16 +1102,19 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome` | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired; the tiles left counting discards | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards; a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
-| P5 | `PredictedSession` and the Challenge board (section 9); depends on CORE's `initial_seed` view or uses salt 0 meanwhile | 3 d |
+| P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |
-| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, every closing of the game, reward, settle) on their data | 2 d |
+| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game | 2 d |
 | P8 | The leaderboard and player scenes on the indexer | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
 | P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
+
+Every session (Training, Tutorial, Challenge) keeps its engine state between moves and replays the moves only on
+resume (the PM, 2026-10-14).
 
 Until a scene is routed it adds nothing to the app's JavaScript, but Tailwind v4 scans every source file of the
 package, so its classes are in the app's CSS from the scene's PR on (SC1: 39,185 to 55,625 bytes, 7,898 to 10,452
@@ -1075,7 +1126,7 @@ gzipped); Q3's bundle budget counts it.
 |---|---|---|
 | Q1 | Motion pass on every interaction; reduced motion checked | 1.5 d |
 | Q2 | Accessibility: Storybook a11y tests in CI, keyboard paths, focus | 1.5 d |
-| Q3 | Performance: bundle budget, route prefetch, the bench on the new app against P-7b (the Mac's headless rule) | 2 d |
+| Q3 | Performance: bundle budget, route prefetch, the bench on the new app against P-7b (the Mac's headless rule). Added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; the first paint with the icons (F4's Font Awesome) | 2 d |
 | Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did) | 2 d |
 
 Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
@@ -1096,14 +1147,14 @@ Each is reversed by the owner's word; the section says what else would reverse i
 7. Breakpoints 360 / 640 / 1024 / 1440 px on a 320 px base (3.4).
 8. Five bottom tabs: Home, Ranks, Quests, Vault, Settings; Theme under Settings (6.1).
 9. A new `packages/app` beside app-web, app-web removed at the cut-over (7).
-10. Font Awesome Free until the owner's answer on Pro (8).
+10. Font Awesome Pro 6.6.0 from the owner's files, loaded after the first frame and drawn by React (8).
 11. Prediction with at most two unconfirmed moves; the chain wins on a mismatch (9).
 
 ## For the owner (reserved: a licence)
 
-- **Font Awesome Pro.** The files in nums are Font Awesome Pro 6.6.0 under the Commercial License (8).
-  Using them needs a Pro licence that covers Paved. Question: "Do you hold a Font Awesome Pro licence for
-  Paved? If yes, the token for Font Awesome's npm registry is needed; if no, v2 uses Font Awesome Free."
+- **Font Awesome Pro: answered (owner, 2026-10-14).** The owner holds the licence and pushed the files at
+  `21788fb`; v2 uses Pro 6.6.0 from them (8). No registry token is needed. Still the owner's: one more file if a
+  thin icon beyond `spider-web` is wanted, since `thin.min.js` holds only that one (8).
 
 ## For CORE (through the PM, P-57 B9)
 

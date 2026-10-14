@@ -105,8 +105,8 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     const hand = inHand();
     const count = onBoard().length;
     // id, player_id, mode, seed, score, over, tile_count, placed_count, discarded_count, tile_id,
-    // plan, remaining_count, deck_size, start_time, end_time, day_id
-    return [gameId, BENCH.player, 1, 0x5eed, 3 * count, isOver() ? 1 : 0, count + (hand ? 1 : 0), count, 0, hand?.id ?? 0, hand?.plan ?? 0, DECK - count - 1, DECK, t0, isOver() ? t0 + placed : 0, 0];
+    // plan, remaining_count, deck_size, start_time, end_time, day_id, expires_at
+    return [gameId, BENCH.player, 1, 0x5eed, 3 * count, isOver() ? 1 : 0, count + (hand ? 1 : 0), count, 0, hand?.id ?? 0, hand?.plan ?? 0, DECK - count - 1, DECK, t0, isOver() ? t0 + placed : 0, 0, t0 + 86400];
   };
 
   const tilesView = (from: number, count: number) => {

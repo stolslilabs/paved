@@ -53,8 +53,8 @@ long as it reads the ABI of the deployed class.
 
 ## Missing data
 
-- **A game that does not exist** (id 0, or above the last id given): `game`, `tiles`, `builder` and
-  `characters` revert with `Game: does not exist`. A zeroed view would be indistinguishable from a
+- **A game that does not exist** (id 0, or above the last id given): `game`, `tiles`, `builder`,
+  `initial_seed` and `characters` revert with `Game: does not exist`. A zeroed view would be indistinguishable from a
   real game in some fields (score 0, not over), so the views refuse it.
 - **A player who is not the player of the game**: `builder` and `characters` revert with
   `View: not the game player`. Games are single-player; the player is the one who spawned it.
@@ -85,6 +85,7 @@ long as it reads the ABI of the deployed class.
 | 14 | `start_time` | `u64` | Time of the spawn |
 | 15 | `end_time` | `u64` | Time of the end of the game when it ended in the day it started; `0` otherwise (game not over, ended after its day closed). Always `0` for a Tutorial game, even when it is over: no day, so no end time |
 | 16 | `day_id` | `u64` | The day the game counted for (`timestamp / 86400`), set when the game ends in the day it started; `0` otherwise. `0` while a Daily game runs, set at game over, and still `0` for a Daily game over after its day closed. Always `0` for a Tutorial game: it belongs to no day. Named `tournament_id` before D-20 (same position, type and values) |
+| 17 | `expires_at` | `u64` | `start_time + 86400` (S1): from this second on, `build` and `discard` revert `'Game: expired'`; `surrender` stays open. The same second as `Economy`'s expiry (`terms.time + 86400`). Fixed for the life of the game, over or not. Appended by S1 |
 
 `tile_count = placed_count + discarded_count + (1 if a tile is held, else 0)`. A game abandoned by
 `surrender` keeps the tile that was in hand: it is in `tile_count` but neither placed nor
@@ -110,6 +111,22 @@ tiles with ids `from + 1` to `from + n`, where `n = min(count, MAX_PAGE, tile_co
 | 4 | `orientation` | `u8` | Orientation; `0` unless placed |
 | 5 | `x` | `u32` | Position; `0` unless placed |
 | 6 | `y` | `u32` | Position; `0` unless placed |
+
+The draw order is a promise (S1, for the client's next-tile prediction): `tiles` lists every drawn
+tile, ids `1..=tile_count` in the order they were drawn, with its status. A discarded tile reads
+`x = y = 0` here, but its reseed hashed the position it was drawn with, `(CENTER, CENTER)`
+(`docs/architecture/client-spec-core.md`, section 3).
+
+### `initial_seed(game_id: u32) -> felt252`
+
+The seed the game started with, before the deck's withdrawal and the first draw (S1): its token's
+seed, `Poseidon(0, Challenge, game_id)` (`TokenSeed`, D-23), right for every game. With `tiles`, what a
+client replays to compute the next draw locally (`client-spec-core.md`, section 3), for every game spawned
+by a class from G1 (78ab2ab0) on: the only games a network gets under D-27 (one fresh Sepolia deployment, no
+upgrade of the pre-G1 class live there). A game spawned by a pre-G1 class built its deck with the old walk
+(`tests::legacy_g1::tiles_before_g1`): if a class were ever upgraded over such games, the client's open-time
+check against `game()` fails for them, and it falls back to no prediction. Reverts `Game: does not exist`
+for no game.
 
 ### `builder(game_id: u32, player_id: felt252) -> BuilderView`
 

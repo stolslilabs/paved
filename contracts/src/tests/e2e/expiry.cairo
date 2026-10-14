@@ -1,0 +1,267 @@
+//! S1 (the PM's ruling on the client specification, `docs/architecture/client-spec-core.md`): a
+//! Challenge game takes moves for 24 h from its start. From `start_time + 24 h` on, `build` and
+//! `discard` revert with `'Game: expired'`; `surrender` stays open, so an expired game still ends,
+//! is recorded by `Economy` as expired (no reward, no mean, as before S1) and is settled.
+//! `GameView.expires_at` gives the deadline, `initial_seed` the seed the client replays the draws
+//! from.
+
+use core::num::traits::Zero;
+use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
+use paved::constants;
+use paved::models::game::{GameImpl, GameTrait};
+use paved::models::tile::{CENTER, Tile};
+use paved::seed::{SeedSource, TokenSeed};
+use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
+use paved::systems::economy::{DAY, IEconomyDispatcherTrait};
+use paved::tests::legacy_g1::{IChallengeBeforeG1Dispatcher, IChallengeBeforeG1DispatcherTrait};
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, OWNER, PLAYER, Systems, TestStore, TestStoreTrait,
+};
+use paved::types::mode::Mode;
+use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
+use paved::views::{
+    IGameViewDispatcher, IGameViewDispatcherTrait, IGameViewSafeDispatcher,
+    IGameViewSafeDispatcherTrait, TILE_HELD, TILE_PLACED,
+};
+use snforge_std::{
+    DeclareResultTrait, declare, get_class_hash, start_cheat_block_timestamp_global,
+    start_cheat_caller_address,
+};
+
+/// The spawn time of every game below: an hour into day 10.
+const START: u64 = 10 * 86400 + 3600;
+
+/// A Challenge game of `PLAYER` spawned at `START`.
+fn spawn_at_start() -> (TestStore, Systems, setup::Context) {
+    start_cheat_block_timestamp_global(START);
+    setup::spawn_game(Mode::Challenge)
+}
+
+fn views(systems: @Systems) -> IGameViewDispatcher {
+    IGameViewDispatcher { contract_address: *systems.challenge.contract_address }
+}
+
+fn safe(systems: @Systems) -> IChallengeSafeDispatcher {
+    IChallengeSafeDispatcher { contract_address: *systems.challenge.contract_address }
+}
+
+/// Sets the plan of the tile in hand, so the next build is known.
+fn force_plan(store: TestStore, game_id: u32, plan: Plan) {
+    let game = store.game(game_id);
+    let builder = store.builder(game, PLAYER().into());
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = plan.into();
+    store.set_tile(tile);
+}
+
+/// Builds tile 2 north of the starter tile: it closes the starter's city (a score above 0).
+fn build_city(store: TestStore, systems: @Systems, game_id: u32) {
+    force_plan(store, game_id, Plan::FFCFFFCFF);
+    (*systems.challenge).build(game_id, Orientation::North, CENTER, CENTER + 1);
+}
+
+#[test]
+fn test_expiry_validity_is_the_economy_day() {
+    assert(constants::GAME_VALIDITY == DAY, 'Expiry: not the economy day');
+}
+
+#[test]
+fn test_expiry_game_view_gives_start_plus_24h() {
+    let (store, systems, context) = spawn_at_start();
+    let view = views(@systems).game(context.game_id);
+    assert(view.start_time == START, 'Expiry: start');
+    assert(view.expires_at == START + 86400, 'Expiry: expires_at');
+    // Unchanged by a move, and after the game is over
+    build_city(store, @systems, context.game_id);
+    systems.challenge.surrender(context.game_id);
+    assert(views(@systems).game(context.game_id).expires_at == START + 86400, 'Expiry: over');
+}
+
+/// The boundary: the last second before `expires_at` takes a build and a discard; from
+/// `expires_at` on, both revert and leave the game as it was.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_boundary_second() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    // [Before] the last second: a build, then a discard
+    start_cheat_block_timestamp_global(START + 86400 - 1);
+    build_city(store, @systems, game_id);
+    systems.challenge.discard(game_id);
+    let before = store.game(game_id);
+    assert(before.built == 1 && before.discarded == 1, 'Expiry: moves before');
+    // [At] expires_at: both revert
+    start_cheat_block_timestamp_global(START + 86400);
+    force_plan(store, game_id, Plan::FFCFFFCFF);
+    let reason = *safe(@systems)
+        .build(game_id, Orientation::North, CENTER, CENTER - 1)
+        .unwrap_err()
+        .at(0);
+    assert(reason == 'Game: expired', 'Expiry: build at expiry');
+    let reason = *safe(@systems).discard(game_id).unwrap_err().at(0);
+    assert(reason == 'Game: expired', 'Expiry: discard at expiry');
+    // Nothing moved
+    let after = store.game(game_id);
+    assert(after.built == before.built && after.discarded == before.discarded, 'Expiry: moved');
+    assert(after.seed == before.seed && after.score == before.score, 'Expiry: state changed');
+    assert(after.tile_count == before.tile_count && !after.over, 'Expiry: tiles changed');
+}
+
+/// Long after its expiry, a game still refuses a move.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_a_move_long_after_reverts() {
+    let (_, systems, context) = spawn_at_start();
+    start_cheat_block_timestamp_global(START + 30 * 86400);
+    let reason = *safe(@systems).discard(context.game_id).unwrap_err().at(0);
+    assert(reason == 'Game: expired', 'Expiry: discard');
+}
+
+/// An expired game ends by `surrender` (the PM's ruling, 2026-10-14), its score frozen at its
+/// expiry, since no move lands after it: `Economy` records it
+/// as expired (no mean), and settles it for 0, as it did before S1 for a game over after 24 h.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_an_expired_game_records_and_settles() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    build_city(store, @systems, game_id);
+    let score = store.game(game_id).score;
+    assert(score > 0, 'Expiry: no score');
+    start_cheat_block_timestamp_global(START + 86400);
+    assert(safe(@systems).discard(game_id).is_err(), 'Expiry: a move');
+    systems.challenge.surrender(game_id);
+    let game = store.game(game_id);
+    assert(game.over && game.score == score, 'Expiry: not over');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.recorded && terms.expired, 'Expiry: not recorded expired');
+    assert(terms.score == score, 'Expiry: recorded score');
+    let day = START / 86400;
+    start_cheat_block_timestamp_global((day + 2) * 86400);
+    let minted = systems.economy.settle(array![game_id].span());
+    assert(minted == 0, 'Expiry: an expired game paid');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.settled && terms.reward == 0, 'Expiry: not settled');
+    let closed = systems.economy.day(day);
+    assert(closed.weight == 0 && closed.sum == 0, 'Expiry: in the mean');
+}
+
+/// A game that ends on the last second before its expiry is recorded unexpired: the game's
+/// deadline and `Economy`'s are the same second.
+#[test]
+fn test_expiry_a_game_over_on_the_last_second_is_not_expired() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    let mut game = store.game(game_id);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    store.set_game(game);
+    start_cheat_block_timestamp_global(START + 86400 - 1);
+    systems.challenge.discard(game_id);
+    assert(store.game(game_id).over, 'Expiry: not over');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.recorded && !terms.expired, 'Expiry: recorded expired');
+}
+
+/// `initial_seed` is the token's seed, and it is enough to replay the draws: from it and the
+/// tiles of `tiles()` in draw order, the client's replay (here `GameImpl`) finds the chain's
+/// current seed, deck bitmap and tile in hand, after a build and two discards.
+#[test]
+fn test_expiry_initial_seed_replays_the_draws() {
+    let (store, systems, context) = spawn_at_start();
+    let game_id = context.game_id;
+    let contract = systems.challenge.contract_address;
+    let seed = views(@systems).initial_seed(game_id);
+    let token = TokenSeed { contract }.seed(Mode::Challenge, 0, game_id, 0);
+    assert(seed == token, 'Expiry: not the token seed');
+
+    build_city(store, @systems, game_id);
+    systems.challenge.discard(game_id);
+    systems.challenge.discard(game_id);
+
+    // [Replay] the spawn: the starter tile, the deck's withdrawal, the first draw
+    let mut game = GameImpl::new(game_id, START, Mode::Challenge, PLAYER().into());
+    game.start(START, seed);
+    let (_, mut plan) = game.draw_plan();
+    // [Replay] each move, in draw order: a reseed on the position, then a draw. A discarded tile
+    // reseeds on the position it was drawn with, the centre (`TileImpl::new`), though `tiles()`
+    // reports it at (0, 0)
+    let tiles = views(@systems).tiles(game_id, 1, 64);
+    for tile in tiles.span() {
+        if *tile.status == TILE_HELD {
+            break;
+        }
+        let (x, y) = if *tile.status == TILE_PLACED {
+            (*tile.x, *tile.y)
+        } else {
+            (CENTER, CENTER)
+        };
+        game
+            .reseed(
+                Tile { game_id, id: *tile.id, plan: *tile.plan, orientation: 0, x, y, owner: 0 },
+            );
+        let (_, next) = game.draw_plan();
+        plan = next;
+    }
+    let view = views(@systems).game(game_id);
+    assert(game.seed == view.seed, 'Expiry: replayed seed');
+    assert(game.tiles == store.game(game_id).tiles, 'Expiry: replayed deck');
+    assert(game.tile_count == view.tile_id, 'Expiry: replayed tile id');
+    let plan: u8 = plan.into();
+    assert(plan == view.plan, 'Expiry: replayed plan');
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_initial_seed_of_no_game_reverts() {
+    let (_, systems, _) = spawn_at_start();
+    let safe_views = IGameViewSafeDispatcher {
+        contract_address: systems.challenge.contract_address,
+    };
+    let reason = *safe_views.initial_seed(2).unwrap_err().at(0);
+    assert(reason == 'Game: does not exist', 'Expiry: no game');
+}
+
+/// A game spawned before the upgrade that brings the expiry (here by the frozen spawn of f94c34f,
+/// `legacy_g1::ChallengeBeforeG1`, as `upgrade_g4.cairo` does) gets the same 24 h, from the start
+/// time it stored: no slot is added, the deadline is computed from `GameConfig.start_time`. Its
+/// initial seed is the token seed that class used.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_expiry_a_game_spawned_before_the_upgrade_gets_24h_from_its_start() {
+    start_cheat_block_timestamp_global(START);
+    let (store, systems, _) = setup::spawn_game(Mode::None);
+    let contract = systems.challenge.contract_address;
+
+    // [Before the upgrade] a class without the expiry spawns the game in flight
+    let class_s1 = get_class_hash(contract);
+    let frozen = *declare("ChallengeBeforeG1").unwrap().contract_class().class_hash;
+    start_cheat_caller_address(contract, OWNER());
+    IUpgradeableDispatcher { contract_address: contract }.upgrade(frozen);
+    start_cheat_caller_address(contract, PLAYER());
+    let in_flight = IChallengeBeforeG1Dispatcher { contract_address: contract }
+        .spawn(1, Zero::zero(), 0);
+
+    // [Upgrade] to the S1 class, an hour before the game's deadline
+    start_cheat_block_timestamp_global(START + 86400 - 3600);
+    start_cheat_caller_address(contract, OWNER());
+    IChallengeBeforeG1Dispatcher { contract_address: contract }.upgrade(class_s1);
+    start_cheat_caller_address(contract, PLAYER());
+
+    // [After the upgrade] the deadline is its start + 24 h, and the seed its token's
+    let view = views(@systems).game(in_flight);
+    assert(view.expires_at == START + 86400, 'Expiry: in flight deadline');
+    let token = TokenSeed { contract }.seed(Mode::Challenge, 0, in_flight, 0);
+    assert(views(@systems).initial_seed(in_flight) == token, 'Expiry: in flight seed');
+    // It plays until its last second, then refuses a move, and still ends and is recorded
+    start_cheat_block_timestamp_global(START + 86400 - 1);
+    systems.challenge.discard(in_flight);
+    start_cheat_block_timestamp_global(START + 86400);
+    let reason = *safe(@systems).discard(in_flight).unwrap_err().at(0);
+    assert(reason == 'Game: expired', 'Expiry: in flight move');
+    systems.challenge.surrender(in_flight);
+    assert(store.game(in_flight).over, 'Expiry: in flight not over');
+    let terms = systems.economy.terms(in_flight);
+    assert(terms.recorded && terms.expired, 'Expiry: in flight not recorded');
+}

@@ -334,6 +334,10 @@ pub mod Challenge {
         fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
             ViewsImpl::builder(StoreImpl::new(), game_id, player_id)
         }
+
+        fn initial_seed(self: @ContractState, game_id: u32) -> felt252 {
+            ViewsImpl::initial_seed(StoreImpl::new(), get_contract_address(), game_id)
+        }
     }
 
     #[abi(embed_v0)]
