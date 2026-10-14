@@ -89,6 +89,18 @@ describe("the ABIs", () => {
     }
   });
 
+  test("Challenge's pause events (G4) are known by name and skipped, from any source, whatever their shape", () => {
+    for (const name of ["GuardianSet", "SpawnPaused", "SpawnUnpaused"] as const) {
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
+      expect(name in EMITTERS, name).toBe(false);
+      expect(SELECTORS[name]).toBe(canonical(hash.getSelectorFromName(name)));
+      for (const source of ["challenge", "setup", "economy", "collection"] as const) {
+        expect(decode(source, [SELECTORS[name]], []), `${name} ${source}`).toBeNull();
+        expect(decode(source, [SELECTORS[name]], ["0x1"]), `${name} ${source}`).toBeNull();
+      }
+    }
+  });
+
   test("Setup emits the wiring, EconomySet and CollectionSet, with the address in the data (D-25 (E))", () => {
     expect(EMITTERS.EconomySet).toEqual(["setup"]);
     expect(EMITTERS.CollectionSet).toEqual(["setup"]);

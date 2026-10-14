@@ -12,7 +12,7 @@ import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent, readPurchaseIntent, spawnForIntent } from "../src/utils/economy-start";
 import { CLIFF_TEXT, paved, referralLink, referrerFromSearch, settleState } from "../src/utils/economy-view";
 import { resolveEconomyNetwork } from "../src/utils/economy-network";
-import { PLAYER, renderPage } from "./helpers/page-fixtures";
+import { PLAYER, fakeGame, renderPage } from "./helpers/page-fixtures";
 
 vi.mock("@paved/ui", () => ({
   LandingScreen: ({ gameModes }: any) => (
@@ -20,6 +20,7 @@ vi.mock("@paved/ui", () => ({
       {gameModes.map((m: any) => (
         <button key={m.mode} type="button" onClick={m.onPress}>
           {`mode ${m.mode}: ${m.entryFee}`}
+          {m.notice && <span data-testid={`notice-${m.mode}`}>{m.notice}</span>}
         </button>
       ))}
     </div>
@@ -51,10 +52,12 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; rpcChain?: () => string } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; rpcChain?: () => string; paused?: boolean | Error } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
+  if (opts.paused !== undefined) views.paused = opts.paused;
+  for (const g of (opts.games ?? []) as Array<{ gameId: number }>) views.setGame({ mode: "challenge", gameId: g.gameId }, fakeGame());
   const writer = fakeBaseWriter();
   const renderOpts = {
     page: <LandingPage />,
@@ -588,6 +591,51 @@ describe("after the day: settle with the cliff stated", () => {
     fireEvent.click(screen.getByText("Confirm settle"));
     await waitFor(() => expect(writer.sent).toHaveLength(1));
     expect(writer.sent[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x1", "0x1"] }]);
+  });
+});
+
+describe("new games paused (G4)", () => {
+  const PAUSED = "New Challenge games are paused for now. Games already started can still be played.";
+  const game = (gameId: number, over: boolean) => ({ mode: "challenge", gameId, startTime: DAY * 86400, dayId: DAY, over, score: over ? 4000 : null, countedDayId: over ? DAY : null });
+
+  it("paused: the card and the dialog say so, the buy button is disabled, nothing is sent", async () => {
+    const { writer } = land({ paused: true });
+    expect((await screen.findByTestId("notice-challenge")).textContent).toBe(PAUSED);
+    fireEvent.click(await screen.findByText(/^mode challenge:/));
+    await waitFor(() => expect(screen.getAllByText(PAUSED).length).toBeGreaterThan(1));
+    const buy = screen.getByText("New games paused", { selector: "button" }) as HTMLButtonElement;
+    expect(buy.disabled).toBe(true);
+    fireEvent.click(buy);
+    expect(screen.queryByRole("dialog", { name: "Confirm purchase" })).toBeNull();
+    expect(where()).toMatch(/^\/\|/);
+    expect(writer.sendCalls).not.toHaveBeenCalled();
+  });
+
+  it("not paused: no notice, the purchase is offered as before", async () => {
+    land({ paused: false });
+    fireEvent.click(await screen.findByText(/^mode challenge:/));
+    expect((await enabled("Buy for 2 USDC")).disabled).toBe(false);
+    expect(screen.queryByTestId("notice-challenge")).toBeNull();
+    expect(screen.queryByText(PAUSED)).toBeNull();
+  });
+
+  it("the read fails: today's behaviour, no notice and the purchase is offered", async () => {
+    land({ paused: new Error("rpc down") });
+    fireEvent.click(await screen.findByText(/^mode challenge:/));
+    expect((await enabled("Buy for 2 USDC")).disabled).toBe(false);
+    expect(screen.queryByTestId("notice-challenge")).toBeNull();
+    expect(screen.queryByText(PAUSED)).toBeNull();
+  });
+
+  it("a game already started while paused: the dialog resumes it, and nothing is bought", async () => {
+    const { writer } = land({ paused: true, games: [game(1, false)] });
+    fireEvent.click(await screen.findByText(/^mode challenge:/));
+    const resume = (await screen.findByText("Resume Game")) as HTMLButtonElement;
+    expect(resume.disabled).toBe(false);
+    expect(screen.queryByLabelText("Purchase")).toBeNull();
+    fireEvent.click(resume);
+    await waitFor(() => expect(where()).toContain("&id=1|null"));
+    expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 });
 

@@ -218,6 +218,12 @@ export const IGNORED = [
   // only. Account's address is no longer read; the game contract's ABI declared it too until D-23b (the shared game events), so a history that
   // holds one from a source still read skips it by name and never halts.
   "PlayerCreated",
+  // Challenge's spawn pause (G4, a mainnet gate): the owner sets a guardian, the guardian or the owner pauses new games, the owner
+  // unpauses. The leaderboard needs none of them: a game already bought is recorded and settled while spawn is paused, and a
+  // paused spawn emits no `GameSpawned`. Known by name so that the strict decoder never halts on a Challenge that emits them.
+  "GuardianSet",
+  "SpawnPaused",
+  "SpawnUnpaused",
 ] as const;
 
 /**

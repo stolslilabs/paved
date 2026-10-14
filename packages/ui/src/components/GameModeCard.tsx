@@ -22,6 +22,8 @@ export interface GameModeCardProps {
   actionLabel?: string;
   /** Content under the stats (the Challenge's top 3, with links). Pressing inside it does not press the card. */
   extra?: ReactNode;
+  /** A plain notice under the stats (the Challenge's paused spawn, G4); the card still opens, a started game still resumes. */
+  notice?: string;
   onPress: () => void;
 }
 
@@ -78,6 +80,7 @@ export function GameModeCardView({
   free,
   actionLabel,
   extra,
+  notice,
   onPress,
 }: GameModeCardProps) {
   const fee = free ? "Free" : entryFee;
@@ -115,6 +118,11 @@ export function GameModeCardView({
             </Text>
           ))}
         </Stack>
+      ) : null}
+      {notice ? (
+        <Text role="status" color="$muted" fontSize="$1" data-testid={`mode-card-notice-${mode}`}>
+          {notice}
+        </Text>
       ) : null}
       {extra ? <div onClick={(e) => e.stopPropagation()}>{extra}</div> : null}
       <Button onPress={onPress}>

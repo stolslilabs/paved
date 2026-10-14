@@ -27,6 +27,7 @@ import {
   PoolCannotFillError,
   EconomyPoolQuoter,
   SettleTooEarlyError,
+  SpawnPausedError,
   SwapBelowMinOutError,
   expiresAt,
   minOutFor,
@@ -674,5 +675,68 @@ describe("referrer bound: 2^251 - 256", () => {
       await expect(s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: `0x${value.toString(16)}` })).rejects.toThrow(/Not a referrer address/);
       expect(s.execute).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe("G4: new games paused (Challenge.spawn_paused)", () => {
+  const request = { stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null };
+  const PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
+
+  test("paused: a typed error with a plain message, nothing read for the quote, nothing sent", async () => {
+    const s = setup();
+    s.gameViews.paused = true;
+    const error = await s.econWriter.purchase(request).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SpawnPausedError);
+    expect(error).toBeInstanceOf(WriteError);
+    expect((error as Error).message).toBe(PAUSED_TEXT);
+    expect(s.execute).not.toHaveBeenCalled();
+    expect(s.gameViews.calls).not.toContain("entry_price");
+    expect(s.pool?.calls).toEqual([]);
+  });
+
+  test("planPurchase refuses the same way and builds no call", async () => {
+    const s = setup();
+    s.gameViews.paused = true;
+    await expect(s.econWriter.planPurchase(request)).rejects.toBeInstanceOf(SpawnPausedError);
+  });
+
+  test("not paused: unchanged, the approve and the spawn are sent", async () => {
+    const s = setup();
+    const bought = await s.econWriter.purchase(request);
+    expect(bought.gameId).toBe(9);
+    expect(s.gameViews.calls).toContain("spawn_paused");
+    expect(s.sent()[0].map((c) => c.entrypoint)).toEqual(["approve", "spawn"]);
+  });
+
+  test("the read fails: today's behaviour, the purchase goes on (the contract is the guard)", async () => {
+    const s = setup();
+    s.gameViews.paused = new Error("rpc down");
+    await s.econWriter.purchase(request);
+    expect(s.sent()).toHaveLength(1);
+  });
+
+  test("a revert 'Challenge: spawn paused' after a race maps to the same error, with the hash", async () => {
+    for (const reason of ["Challenge: spawn paused", `Failure reason: ${shortString.encodeShortString("Challenge: spawn paused")} ('Challenge: spawn paused')`, shortString.encodeShortString("Challenge: spawn paused")]) {
+      const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: reason }) });
+      const error = await s.econWriter.purchase(request).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(SpawnPausedError);
+      expect((error as Error).message).toBe(PAUSED_TEXT);
+      expect(error).toMatchObject({ transactionHash: "0x1", reverted: true });
+    }
+  });
+
+  test("the node refusing at fee estimation with that reason maps the same way (nothing sent)", async () => {
+    const s = setup({ execute: async () => { throw new Error("Account validation failed: Challenge: spawn paused"); } });
+    const error = await s.econWriter.purchase(request).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SpawnPausedError);
+    expect(error).toMatchObject({ transactionHash: undefined, reverted: false });
+  });
+
+  test("settle is not blocked by the pause", async () => {
+    const s = setup();
+    s.gameViews.paused = true;
+    s.economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
+    await s.econWriter.settle([7]);
+    expect(s.sent()[0].map((c) => c.entrypoint)).toEqual(["settle"]);
   });
 });

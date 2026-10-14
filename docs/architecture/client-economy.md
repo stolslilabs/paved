@@ -284,6 +284,14 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
 | `claimDividends({ confirmedAmount })` | `Vault.claim()` | the pending USDC is 0 or not the confirmed one (it grows with every purchase: the player confirms again) |
 
+**New games paused (G4).** `purchase` and `planPurchase` read `Challenge.spawn_paused()` first, before the chain check, the
+quote or any call is built: when it is true they throw `SpawnPausedError` ("New Challenge games are paused for now. Games
+already started can still be played.", `SPAWN_PAUSED_TEXT`) and send nothing. The same error comes back for a
+`'Challenge: spawn paused'` revert (text, short-string or hex form, from the receipt or from the node at fee estimation) when
+the state changed between the read and the call; the revert is before any token moves, so no USDC is spent, though a
+reverted send still pays its network fee. A failed `spawn_paused` read does not block the purchase (the contract is the
+guard). `settle` and the Vault writes are not affected: the pause stops `spawn` only.
+
 `planPurchase` runs the same reads and checks and returns the calls without sending them (tests).
 
 Stake and unstake check the amount handed over against the confirmed one (`VaultAmountChangedError`), then against the
@@ -316,6 +324,14 @@ is missing, the Challenge keeps today's confirm, and nothing of the economy is r
 | Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
 | Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them); dividends that changed between the confirm and the send (`VaultAmountChangedError`) reopen the confirm with the new amount and say so, sending nothing |
 | After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Challenge games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
+
+**While spawn is paused (G4)**, the Challenge card on the landing page carries the notice "New Challenge games are paused for
+now. Games already started can still be played.", and the purchase dialog shows it as an alert with a disabled "New games
+paused" button instead of "Buy for P USDC": no confirm opens and nothing is sent. A Challenge game already started is
+resumed as always (the dialog shows "Resume Game" and no purchase). The state is read with the other views
+(`spawnPaused` on the landing page, `useAsyncRead` in the purchase) and refreshed with them (on open, when the page becomes
+visible, after a write); a failed read shows nothing and keeps today's behaviour. Training and the Tutorial are off chain
+and untouched.
 
 The cliff is said as it is wherever a game is bought or settled: **"Below the shifted mean the stake is lost."** No
 reward is shown before the contract computed it (`terms.reward` after settlement).
