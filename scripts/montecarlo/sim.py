@@ -205,7 +205,7 @@ def simulate(days, params, seed):
             price = stake * BASE_PRICE
             # Purchase: referral and margin in USDC, the burn share swapped and burned
             ref = price * REFERRAL if rng.random() < params["referred"] else 0.0
-            quote = price * BURN
+            quote = price * params.get("burn", BURN)
             fee = quote * POOL_FEE
             out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
             pool_usdc += quote - fee
@@ -478,8 +478,17 @@ def margin_table(days, population, mean, min_score):
         ("B, pool depth x0.1", {"settle": "day", "depth": 0.1}),
         ("B, players keep half", {"settle": "day", "sell": 0.5}),
     )
-    for label, changes in runs:
+    # The owner's split (P-56, 2026-10-14): 7,368 bps of the price swapped for the burn, so that 70 %
+    # of the price is burned after the pool's 5 %; the margin in PAVED only
+    split = (
+        ("B, base, burn 73.68 %", {"settle": "day", "burn": 0.7368}),
+        ("A, base, burn 73.68 %", {"settle": "spawn", "burn": 0.7368}),
+        ("B, 20 games a day, burn 73.68 %", {"settle": "day", "games": 20, "burn": 0.7368}),
+    )
+    for label, changes in runs + split:
         for margin in ("usdc", "paved"):
+            if "burn" in changes and margin == "usdc":
+                continue
             params = dict(base)
             params.update(changes)
             params["margin"] = margin
