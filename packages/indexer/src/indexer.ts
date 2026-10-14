@@ -44,6 +44,7 @@ import {
   BadAnswer,
   Chain,
   DEFAULT_CONCURRENCY,
+  NOT_A_PAGE_SIZE,
   RpcError,
   sameBlock,
   type Header,
@@ -390,8 +391,9 @@ export class Indexer {
    * row but `blocks`, and `prune` forgets the headers below the final floor in both cases. Block times are taken as
    * non-decreasing (the binary search needs it; a header that contradicts it is a BadAnswer). A node that refuses the
    * range (any RPC error but a page size, which Chain halves) gets half of it at the next step; the span doubles back
-   * after a read that succeeds. A refusal that persists at a span of one block halves the page size instead (for good,
-   * down to one event). A Halt here is permanent: the blocks are final.
+   * after a read that succeeds. A refusal that persists at a span of one block halves the page size instead (down to one
+   * event; never for a code of NOT_A_PAGE_SIZE), and the page size doubles back after a read that succeeds, up to the
+   * largest size the node did not refuse as too big (Chain.rangeChunkCeiling). A Halt here is permanent: the blocks are final.
    */
   private async catchUp(stored: Header | null, next: number, final: number): Promise<boolean> {
     const end = Math.min(final, next + this.span - 1);
@@ -402,8 +404,9 @@ export class Indexer {
       if (!(error instanceof RpcError)) throw error;
       if (end === next) {
         // A refusal that persists at one block: the page, not the range, is what the node refuses (a node that says so
-        // with neither code 31 nor its text). Halved down to one event; then the error is thrown, as before.
-        if (this.chain.rangeChunkSize <= 1) throw error;
+        // with neither code 31 nor its text). Halved down to one event, then the error is thrown, as before; never for a
+        // code that names another cause (an outage), and doubled back after each ranged read that succeeds.
+        if (this.chain.rangeChunkSize <= 1 || NOT_A_PAGE_SIZE.includes(error.code)) throw error;
         this.chain.rangeChunkSize = Math.max(1, Math.floor(this.chain.rangeChunkSize / 2));
         this.log(`the node refused block ${next} (${error.message}); pages of ${this.chain.rangeChunkSize} events`);
         return true;
@@ -413,6 +416,7 @@ export class Indexer {
       return true;
     }
     this.span = Math.min(this.range, this.span * 2);
+    this.chain.rangeChunkSize = Math.min(this.chain.rangeChunkCeiling, this.chain.rangeChunkSize * 2);
     const headers = new Map<number, Header>();
     const header = async (number: number): Promise<Header> => {
       let found = headers.get(number);

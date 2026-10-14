@@ -83,16 +83,19 @@ unchanged, and the calls per block are the same. No block above the node's tip i
 the devnet scenario check that 1 and 8 leave the same tables.
 
 The node's rate limits (`src/throttle.ts`): every read goes through one throttle, at most `--concurrency` in flight. An HTTP
-429 or a JSON-RPC -32011 is waited out (the answer's `Retry-After`, at most 30 s; otherwise 0.5 s doubled at each attempt,
-at most 30 s; every read waits, so it never loops hot) and the read is sent again, up to 8 times before the step fails (and
+429 or a JSON-RPC -32011 is waited out (0.5 s doubled at each attempt, or the answer's `Retry-After` when it asks longer,
+at most 30 s either way; every read waits, so it never loops hot) and the read is sent again, up to 8 times before the step fails (and
 is retried after `--poll`). Each refusal halves the reads in flight (down to 1); they rise back by one after as many
 successes in a row. A rate limit is never a wrong answer or a skipped block: the read is only ever retried.
 
 Escape hatches: `--range 0` reads block by block everywhere, for a chain whose block times are not non-decreasing (the binary
 search needs them to be) or a node that refuses ranges altogether. `--concurrency 1` reads the tail one block after the
-other, as before I2. A page size the node refuses is known by code 31, or by the error's text ("page size" or "chunk size"
+other, as before I2 (a rate limit is waited out there too). A page size the node refuses is known by code 31, or by the error's text ("page size" or "chunk size"
 with "too big", "too large", "exceeds" or "maximum"; read for that and never logged), or, failing both, by a refusal that
-persists at a range of one block: the page is then halved (for good, down to one event) instead of the step stalling.
+persists at a range of one block: the page is then halved (down to one event) instead of the step stalling. A code that
+names another cause (24, -32603, -32005, or a transport error) is never read so: the step fails and is retried. A page cut
+that way doubles back after each range read that succeeds, up to the largest size not refused as too big; a cut by code
+31 or by the text is kept for good.
 
 ## Display names (N1)
 

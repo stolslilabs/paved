@@ -60,12 +60,10 @@ describe("the command line", () => {
     expect(result.stderr).toMatch(message);
   });
 
-  test("the usage names the rate limit and its defaults (P-43)", () => {
-    expect(run("serve").stderr).toMatch(/--rate <requests per second per address> \(default 10, 0: no limit\)\] \[--burst <n> \(default 20\)\]/);
-  });
-
-  test("the usage names --concurrency and its default (I2)", () => {
-    expect(run("serve").stderr).toMatch(/\[--concurrency <n> \(default 8, 1: one block after the other\)\]/);
+  test("the usage names the rate limit and its defaults (P-43), and --concurrency and its default (I2)", () => {
+    const usage = run("serve").stderr;
+    expect(usage).toMatch(/--rate <requests per second per address> \(default 10, 0: no limit\)\] \[--burst <n> \(default 20\)\]/);
+    expect(usage).toMatch(/\[--concurrency <n> \(default 8, 1: one block after the other\)\]/);
   });
 
   test("the usage names the default port, 8787 (P-20)", () => {

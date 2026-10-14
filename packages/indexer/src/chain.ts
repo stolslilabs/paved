@@ -171,6 +171,12 @@ export const RANGE_CHUNK_SIZE = 1024;
 /** `starknet_getEvents`: "Requested page size is too big". */
 export const PAGE_SIZE_TOO_BIG = 31;
 
+/**
+ * JSON-RPC errors that name another cause than a page size: no block (24), an internal error (-32603), a limit of the
+ * range or the node (-32005). The indexer never cuts the page size for them.
+ */
+export const NOT_A_PAGE_SIZE: readonly number[] = [BLOCK_NOT_FOUND, -32603, -32005];
+
 /** An event of a range read: a RawEvent with its block, by number and hash. */
 export type RangedEvent = RawEvent & { block: number; blockHash: string };
 
@@ -350,8 +356,14 @@ export class Chain {
     );
   }
 
-  /** The page size of `rangeEvents`: halved, for good, each time the node refuses it as too big (or the indexer halves it). */
+  /**
+   * The page size of `rangeEvents`. A refusal known as a page size (code 31 or its text) halves it and its ceiling, for
+   * good; the indexer may cut it below the ceiling (a refusal of one block it cannot name) and doubles it back after each
+   * ranged read that succeeds, up to the ceiling.
+   */
   rangeChunkSize = RANGE_CHUNK_SIZE;
+  /** The largest page size not refused as too big. */
+  rangeChunkCeiling = RANGE_CHUNK_SIZE;
 
   /**
    * The events of the four contracts in blocks `from` to `to` (by number), one filter per contract followed through its
@@ -368,6 +380,7 @@ export class Chain {
       } catch (error) {
         if (!(error instanceof RpcError) || !error.pageSizeTooBig || this.rangeChunkSize <= 1) throw error;
         this.rangeChunkSize = Math.max(1, Math.floor(this.rangeChunkSize / 2));
+        this.rangeChunkCeiling = Math.min(this.rangeChunkCeiling, this.rangeChunkSize);
       }
     }
   }

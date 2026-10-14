@@ -1,6 +1,6 @@
 // The catch-up by range (indexer.ts, `catchUp`): in the final zone it must leave every table as block-by-block does.
 import { describe, expect, test } from "vitest";
-import { Chain } from "./chain.ts";
+import { BLOCK_NOT_FOUND, Chain, RpcError } from "./chain.ts";
 import { Indexer } from "./indexer.ts";
 import { Store } from "./store.ts";
 import { CHALLENGE, COLLECTION, ECONOMY, FakeNode, SETUP, ev } from "./testing/fake-node.ts";
@@ -133,6 +133,7 @@ describe("the catch-up by range", () => {
     const blockwise = await chain.events((await chain.header(2))!);
     expect(ranged.map(position)).toEqual(blockwise.map(position));
     expect(ranged.filter((e) => e.source === "challenge")).toHaveLength(5);
+    expect(chain.calls.starknet_getEvents).toBeGreaterThanOrEqual(3 + 2 + 1 + 1); // Challenge's 6 in 3 pages, Economy's 3 in 2: cut inside block 2
     const reference = indexerOf(node, 0);
     const paged = indexerOf(node, 10_000);
     paged.chain.rangeChunkSize = 2;
@@ -144,7 +145,7 @@ describe("the catch-up by range", () => {
   test("R1: a page refusal is known by its text too, or by a refusal that persists at one block", async () => {
     for (const refusal of [
       { code: -32602, message: "Invalid params: requested page size is too big, the maximum is 100" },
-      { code: -32603, message: "Internal error" }, // neither the code nor the text: the span of 1 says it
+      { code: -32000, message: "Server error" }, // neither the code nor the text: the span of 1 says it
     ]) {
       const node = history();
       node.l1Accepted = node.tip;
@@ -164,9 +165,49 @@ describe("the catch-up by range", () => {
       await settle(ranged);
       expect(ranged.status, refusal.message).toBe("ok");
       expect(ranged.store.dump(), refusal.message).toEqual(reference.store.dump());
-      expect(ranged.chain.rangeChunkSize).toBe(64);
+      // Known by its text: the ceiling, for good. Known by the span of 1: cut, then doubled back after each read (the
+      // node refuses the doubled page again, so the size moves between 64 and 128 until the chain is read).
+      if (refusal.code === -32602) expect(ranged.chain.rangeChunkSize).toBe(64);
+      else expect(ranged.chain.rangeChunkSize).toBeLessThanOrEqual(128);
       if (refusal.code === -32602) expect(logs.some((line) => line.includes("blocks at a time"))).toBe(false);
       else expect(logs.some((line) => line.includes("pages of 512 events"))).toBe(true);
+    }
+  });
+
+  test("R1 review: an outage at one block never cuts the page for a code that names it; an unnamed one is cut, then the page size returns", async () => {
+    for (const code of [-32603, BLOCK_NOT_FOUND, -32005, -32000]) {
+      const node = history();
+      node.l1Accepted = node.tip;
+      let failing = true;
+      node.tamper = (method, _params, result) => {
+        if (failing && method === "starknet_getEvents") throw new RpcError(method, { code, message: "unavailable" });
+        return result;
+      };
+      const reference = indexerOf(node, 0);
+      const ranged = indexerOf(node, 8);
+      let failed = 0;
+      for (let i = 0; i < 12; i++) {
+        try {
+          await ranged.step();
+        } catch {
+          failed++;
+        }
+      }
+      // 8, 4, 2, then one block: -32000 is cut at each step there; the codes that name a cause fail the step instead.
+      if (code === -32000) {
+        expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024 / 2 ** 9);
+        expect(failed).toBe(0);
+      } else {
+        expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024);
+        expect(failed).toBe(9);
+      }
+      failing = false;
+      node.tamper = null;
+      await settle(reference);
+      await settle(ranged);
+      expect(ranged.reason).toBe("");
+      expect(ranged.store.dump(), `code ${code}`).toEqual(reference.store.dump());
+      expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024);
     }
   });
 

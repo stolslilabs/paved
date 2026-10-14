@@ -234,6 +234,15 @@ describe("the node's rate limits", () => {
       }),
     ).toBe("read");
     expect(clock.sleeps).toEqual([MAX_WAIT_MS]);
+    // A Retry-After of 0 (or a date past) still waits the backoff: never retried at once.
+    const zero = new Throttle({ max: 1, sleep, now, attempts: 3 });
+    clock.sleeps.length = 0;
+    await expect(
+      zero.run(async () => {
+        throw new RateLimited("starknet_getEvents", "HTTP 429", 0);
+      }),
+    ).rejects.toBeInstanceOf(RateLimited);
+    expect(clock.sleeps).toEqual([500, 1_000]);
   });
 
   test("another error is not retried", async () => {

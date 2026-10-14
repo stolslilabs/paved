@@ -3,8 +3,9 @@
 // These are reads only: a retry never changes an answer, and a rate limit never becomes a wrong answer or a skipped block;
 // after `attempts` refusals in a row the error is thrown, the step fails and is retried after the poll wait.
 //
-// The wait: the answer's Retry-After when it gives one, at most MAX_WAIT_MS; otherwise BASE_WAIT_MS doubled at each
-// attempt, at most MAX_WAIT_MS. Every caller waits it, not only the refused one, so a burst of refusals never loops hot.
+// The wait: BASE_WAIT_MS doubled at each attempt, or the answer's Retry-After when it asks longer; at most MAX_WAIT_MS
+// either way (a Retry-After of 0, or a date past, still waits the backoff). Every caller waits it, not only the refused
+// one, so a burst of refusals never loops hot.
 // The limit: halved (at least 1) at each refusal, and raised back by one after `limit` successes in a row, up to `max`.
 
 /** A call the node refused as rate limited; `retryAfterMs` is its Retry-After, when it gave one. */
@@ -21,7 +22,7 @@ export const RATE_LIMITED = -32011;
 
 /** The longest wait, whatever Retry-After asks. */
 export const MAX_WAIT_MS = 30_000;
-/** The first wait when Retry-After is absent. */
+/** The first wait, and the least, whatever Retry-After asks. */
 export const BASE_WAIT_MS = 500;
 /** Refusals in a row before a call fails. */
 export const ATTEMPTS = 8;
@@ -118,7 +119,7 @@ export class Throttle {
     this.refusals++;
     this.successes = 0;
     const lowered = Math.max(1, Math.floor(this.limit / 2));
-    const wait = Math.min(MAX_WAIT_MS, error.retryAfterMs ?? BASE_WAIT_MS * 2 ** (attempt - 1));
+    const wait = Math.min(MAX_WAIT_MS, Math.max(error.retryAfterMs ?? 0, BASE_WAIT_MS * 2 ** (attempt - 1)));
     this.resumeAt = Math.max(this.resumeAt, this.now() + wait);
     if (lowered < this.limit) this.log(`rate limited: ${lowered} reads in flight at most (was ${this.limit})`);
     this.limit = lowered;
