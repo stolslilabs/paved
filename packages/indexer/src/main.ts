@@ -21,12 +21,13 @@ import {
   readDeployment,
 } from "./deployment.ts";
 import { Indexer, type Depth } from "./indexer.ts";
+import { DEFAULT_NAMES_URL, NameResolver, cartridgeLookup } from "./names.ts";
 import { DEFAULT_BURST, DEFAULT_RATE } from "./ratelimit.ts";
 import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
 const USAGE =
-  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>]`;
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -73,6 +74,8 @@ function parsed() {
         rate: { type: "string" },
         burst: { type: "string" },
         rpc: { type: "string" },
+        "no-names": { type: "boolean" },
+        "names-url": { type: "string" },
       },
     });
   } catch (error) {
@@ -164,6 +167,16 @@ try {
   process.exit(2);
 }
 
+// Display names (N1): looked up in the background, cached in the database, off with --no-names. Never in the follow loop.
+const namesUrl = values["names-url"] ?? DEFAULT_NAMES_URL;
+if (!values["no-names"] && (!URL.canParse(namesUrl) || !/^https?:$/.test(new URL(namesUrl).protocol))) {
+  fail("--names-url must be an http(s) URL");
+}
+const names = values["no-names"]
+  ? undefined
+  : new NameResolver({ store, lookup: cartridgeLookup({ url: namesUrl }), log });
+names?.start();
+
 const abort = new AbortController();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => abort.abort());
@@ -190,6 +203,7 @@ for (;;) {
 const server = serve(indexer, {
   allowedOrigins: values["allow-origin"] ?? [],
   rateLimit: { rate, burst },
+  names,
   info: {
     chainId: config.chainId,
     fromBlock: config.from,
@@ -212,7 +226,7 @@ server.listen(
         : String(address);
     const tip = store.tip();
     log(
-      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}`,
+      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}; names ${names ? `from ${new URL(namesUrl).origin}` : "off"}`,
     );
   },
 );
@@ -223,6 +237,7 @@ if (!abort.signal.aborted) {
     abort.signal.addEventListener("abort", () => resolve()),
   );
 }
+names?.stop();
 server.close();
 server.closeAllConnections();
 store.close();
