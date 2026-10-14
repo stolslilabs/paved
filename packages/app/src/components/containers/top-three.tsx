@@ -24,7 +24,7 @@ export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
         className,
       )}
     >
-      <span className={cn("grid w-6 place-items-center font-mono text-sm font-semibold tabular-nums", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
+      <span className={cn("numeric grid w-6 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
         {podium ? (
           <>
             <Icon name="crown" size="sm" />
@@ -38,7 +38,7 @@ export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
         <PlayerName name={entry.name} address={entry.playerId} />
         {self && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
       </span>
-      <span className="font-mono text-sm font-semibold tabular-nums">{formatPoints(entry.bestScore)}</span>
+      <span className="numeric text-sm font-semibold">{formatPoints(entry.bestScore)}</span>
     </li>
   );
 }

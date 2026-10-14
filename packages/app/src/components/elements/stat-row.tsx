@@ -29,7 +29,7 @@ export function StatRow({ label, value, icon, hint, tone = "default", className 
         <span className="truncate text-sm text-foreground">{label}</span>
         {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}
       </span>
-      <span className={cn("font-mono text-sm font-semibold tabular-nums", TONE[tone])}>{value}</span>
+      <span className={cn("numeric text-sm font-semibold", TONE[tone])}>{value}</span>
     </div>
   );
 }

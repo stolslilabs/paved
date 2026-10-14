@@ -6,9 +6,9 @@ import { Icon } from "../ui/icon";
 const noticeVariants = cva("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", {
   variants: {
     tone: {
-      info: "border-river-800 bg-river-950/80 text-river-100",
-      warning: "border-amber-800 bg-amber-950/80 text-amber-100",
-      danger: "border-ember-800 bg-ember-950/80 text-ember-100",
+      info: "border-info/40 bg-info/10 text-foreground [&>svg]:text-info",
+      warning: "border-warning/40 bg-warning/10 text-foreground [&>svg]:text-warning",
+      danger: "border-destructive bg-destructive/20 text-foreground [&>svg]:text-destructive-text",
     },
   },
   defaultVariants: { tone: "info" },

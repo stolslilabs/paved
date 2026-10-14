@@ -10,13 +10,13 @@ const SPOT_CELLS: readonly (readonly [number, number])[] = [
   [1, 1], [0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0],
 ];
 
-/** One colour per area letter, from the theme's scales (city, forest, road, stop, wonder). */
+/** One colour per area letter, from the semantic tokens (city, forest, road, stop, wonder). */
 const AREA_FILL: Record<string, string> = {
-  C: "var(--color-ink-300)",
-  F: "var(--color-meadow-600)",
-  R: "var(--color-gold-200)",
-  S: "var(--color-ember-500)",
-  W: "var(--color-river-400)",
+  C: "var(--muted-foreground)",
+  F: "var(--success)",
+  R: "var(--primary)",
+  S: "var(--destructive)",
+  W: "var(--info)",
 };
 
 /** The nine letters of a chain plan id (`PlanType`'s index, as `TileView.plan` and `GameView.plan` give it). */
@@ -25,12 +25,12 @@ export function planCode(plan: number): string {
   return type && type !== PlanType.None ? type : "";
 }
 
-export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden rounded-md border-2 bg-ink-800 transition-colors", {
+export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden rounded-md border-2 bg-secondary transition-colors", {
   variants: {
     size: { sm: "size-8", md: "size-14", lg: "size-24" },
     state: {
       default: "border-border",
-      selected: "border-primary shadow-[0_0_0_3px_var(--color-gold-950)]",
+      selected: "border-primary shadow-[0_0_0_3px_var(--accent)]",
       pending: "border-info animate-pulse motion-reduce:animate-none",
       refused: "border-destructive-text",
     },
@@ -81,7 +81,7 @@ export function TileChip({ plan, orientation = 1, artBase, view = "art", size, s
             const [row, col] = SPOT_CELLS[i];
             return <rect key={i} x={col} y={row} width={1} height={1} fill={AREA_FILL[area] ?? "transparent"} />;
           })}
-          <path d="M1 0v3M2 0v3M0 1h3M0 2h3" stroke="var(--color-ink-950)" strokeWidth={0.04} opacity={0.35} />
+          <path d="M1 0v3M2 0v3M0 1h3M0 2h3" stroke="var(--background)" strokeWidth={0.04} opacity={0.35} />
         </svg>
       )}
     </span>

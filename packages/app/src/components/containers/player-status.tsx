@@ -65,10 +65,10 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
       </div>
       <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
         <Figure label="Today's rank">
-          <span className="font-mono font-semibold tabular-nums">{today ? `#${today.rank}` : "–"}</span>
+          <span className="numeric font-semibold">{today ? `#${today.rank}` : "–"}</span>
         </Figure>
         <Figure label="Today's best">
-          <span className="font-mono font-semibold tabular-nums">{today ? formatPoints(today.bestScore) : "–"}</span>
+          <span className="numeric font-semibold">{today ? formatPoints(today.bestScore) : "–"}</span>
         </Figure>
         <Figure label="USDC">
           <Amount value={data.usdc} token="usdc" />

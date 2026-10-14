@@ -3,7 +3,7 @@ import * as m from "motion/react-m";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
-const scoreVariants = cva("font-mono font-semibold tabular-nums leading-none", {
+const scoreVariants = cva("numeric font-semibold leading-none", {
   variants: {
     size: { sm: "text-base", hud: "text-xl tablet:text-2xl", md: "text-2xl", lg: "text-4xl", xl: "text-5xl tablet:text-6xl" },
     tone: { default: "text-foreground", gold: "text-primary", muted: "text-muted-foreground" },
@@ -37,7 +37,7 @@ export function Score({ value, label, delta, size, tone, className }: ScoreProps
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          className="font-mono text-xs font-semibold text-success tabular-nums"
+          className="numeric text-xs font-semibold text-success"
         >
           +{formatPoints(delta)}
         </m.span>

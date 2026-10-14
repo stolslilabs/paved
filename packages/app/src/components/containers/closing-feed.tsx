@@ -24,7 +24,7 @@ export function ClosingLine({ closing, move, className }: ClosingLineProps) {
           {closing.size} tiles{move != null && <> · tile {move}</>}
         </span>
       </span>
-      <span className={cn("font-mono text-sm font-semibold tabular-nums", closing.points > 0 ? "text-success" : "text-muted-foreground")}>
+      <span className={cn("numeric text-sm font-semibold", closing.points > 0 ? "text-success" : "text-muted-foreground")}>
         +{formatPoints(closing.points)}
       </span>
     </div>

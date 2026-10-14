@@ -4,10 +4,10 @@ import { Icon, type IconSize } from "../ui/icon";
 
 /** What a closing's category reads as, by the contracts' index (`CategoryType`, as `ScoredStructure.category` gives it). */
 const CATEGORIES: Partial<Record<CategoryType, { label: string; plural: string; icon: string; color: string }>> = {
-  [CategoryType.Forest]: { label: "Forest", plural: "Forests", icon: "tree", color: "text-meadow-400" },
-  [CategoryType.Road]: { label: "Road", plural: "Roads", icon: "road", color: "text-gold-200" },
-  [CategoryType.City]: { label: "City", plural: "Cities", icon: "city", color: "text-ink-200" },
-  [CategoryType.Wonder]: { label: "Wonder", plural: "Wonders", icon: "landmark-dome", color: "text-river-300" },
+  [CategoryType.Forest]: { label: "Forest", plural: "Forests", icon: "tree", color: "text-success" },
+  [CategoryType.Road]: { label: "Road", plural: "Roads", icon: "road", color: "text-primary" },
+  [CategoryType.City]: { label: "City", plural: "Cities", icon: "city", color: "text-foreground" },
+  [CategoryType.Wonder]: { label: "Wonder", plural: "Wonders", icon: "landmark-dome", color: "text-info" },
 };
 
 const UNKNOWN = { label: "Structure", plural: "Structures", icon: "star" as string, color: "text-muted-foreground" };

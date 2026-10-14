@@ -56,7 +56,7 @@ export function WelcomeScene({ mosaic, tileArt, connecting, error, onConnect, on
 
         <div data-slot="card" className="flex flex-col gap-4 rounded-2xl border border-border bg-card/90 p-5 shadow-xl backdrop-blur desktop:w-96">
           <div className="flex flex-col gap-1">
-            <h1 className="text-lg font-semibold">Welcome to Paved</h1>
+            <h1 className="font-display text-xl font-semibold">Welcome to Paved</h1>
             <p className="text-sm text-muted-foreground">Connect to enter the daily Challenge, or try a game first: Training needs no wallet.</p>
           </div>
           {error && (

@@ -23,7 +23,7 @@ export function TopBar({ title, onBack, end, className }: TopBarProps) {
           </Button>
         )}
       </span>
-      <h1 className="truncate text-center text-base font-semibold">{title}</h1>
+      <h1 className="truncate text-center font-display text-lg font-semibold">{title}</h1>
       <span className="flex min-w-12 justify-end">{end}</span>
     </header>
   );

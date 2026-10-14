@@ -48,7 +48,7 @@ export function Countdown({ expiresAt, now, label = "Expires in", className }: C
       ) : (
         <>
           <span className="hidden tablet:inline">{label}</span>
-          <time dateTime={`PT${Math.max(0, left)}S`} className="font-mono font-semibold tabular-nums">{formatRemaining(left)}</time>
+          <time dateTime={`PT${Math.max(0, left)}S`} className="numeric font-semibold">{formatRemaining(left)}</time>
         </>
       )}
     </span>

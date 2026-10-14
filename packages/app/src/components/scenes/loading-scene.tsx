@@ -33,7 +33,7 @@ export function LoadingScene({ progress, message = "Loading", tip }: LoadingScen
         )}
         <p className="flex w-full justify-between text-xs text-muted-foreground">
           <span>{message}…</span>
-          {progress != null && <span className="font-mono tabular-nums">{Math.round(progress)}%</span>}
+          {progress != null && <span className="numeric">{Math.round(progress)}%</span>}
         </p>
       </div>
       {tip && <p className="max-w-xs text-center text-sm text-muted-foreground">{tip}</p>}

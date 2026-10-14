@@ -92,7 +92,7 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
         <div className="flex flex-col gap-4">
           <section data-slot="card" aria-label="Closings" className="flex flex-col rounded-xl border border-border bg-card">
             <header className="flex items-center justify-between px-4 pt-3 pb-2">
-              <h2 className="text-sm font-semibold">Every closing</h2>
+              <h2 className="font-display text-sm font-semibold">Every closing</h2>
               <span className="text-xs text-muted-foreground">{closings.length}</span>
             </header>
             <Separator />

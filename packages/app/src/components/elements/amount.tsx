@@ -29,7 +29,7 @@ export function Amount({ value, token, className }: AmountProps) {
   const t = TOKENS[token];
   return (
     <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap", className)}>
-      <span className="font-mono font-semibold tabular-nums">{formatUnits(value, t.decimals, t.fraction)}</span>
+      <span className="numeric font-semibold">{formatUnits(value, t.decimals, t.fraction)}</span>
       <span className="text-[0.85em] text-muted-foreground">{t.symbol}</span>
     </span>
   );

@@ -27,7 +27,7 @@ export function StakePicker({ value, max = 10, disabled, onChange, className }: 
           key={k}
           value={String(k)}
           aria-label={`Stake ${k}`}
-          className="h-11 rounded-md font-mono text-base tabular-nums data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-primary"
+          className="numeric h-11 rounded-md text-base data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-primary"
         >
           {k}
         </ToggleGroupItem>

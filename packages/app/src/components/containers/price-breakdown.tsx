@@ -42,7 +42,7 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
         </span>
         <span className="flex flex-col items-end">
           <span className="text-xs text-muted-foreground">Burn boost</span>
-          <span className="font-mono text-lg font-semibold text-success tabular-nums">+{pct(boostBps - 10_000)}</span>
+          <span className="numeric text-lg font-semibold text-success">+{pct(boostBps - 10_000)}</span>
         </span>
       </div>
       <Separator />
@@ -56,7 +56,7 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
       />
       <div className="flex flex-wrap justify-between gap-x-3 pt-1 text-[11px] text-muted-foreground">
         <span>Split</span>
-        <span className="min-w-0 text-right font-mono tabular-nums">
+        <span className="numeric min-w-0 text-right">
           burn {pct(split.burn)} · Vault {pct(split.vault)} · referral {pct(split.referral)} from the Vault
         </span>
       </div>

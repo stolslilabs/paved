@@ -60,13 +60,9 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
       )}
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-center gap-1.5">
-          {/*
-            The renderer's tile is mounted only while there is a tile, under a stable key, so a re-render or a state change
-            does not remount it: each mount opens a WebGL context that `GameCanvas` does not release on unmount yet (the
-            renderer's fix, `forceContextLoss` in `dispose`, is a separate renderer task).
-          */}
+          {/* `GameCanvas` keeps its WebGL context after unmount: the deferred renderer task (dispose) fixes it. */}
           {renderTile && tile ? (
-            <span key="hand-tile" data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
+            <span data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
               {renderTile(tile)}
             </span>
           ) : (
@@ -83,7 +79,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
             ) : (
               <>
                 <Icon name="check" size="sm" /> Place tile
-                {slotChosen && preview != null && <span className="font-mono tabular-nums">+{preview}</span>}
+                {slotChosen && preview != null && <span className="numeric">+{preview}</span>}
               </>
             )}
           </Button>

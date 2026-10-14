@@ -13,7 +13,7 @@ export function Wordmark({ size = "lg", tagline, className }: WordmarkProps) {
     <div className={cn("flex flex-col items-center gap-2 text-center", className)}>
       <span
         className={cn(
-          "font-display leading-none tracking-wider text-primary [text-shadow:0_3px_0_var(--color-gold-800),0_10px_30px_var(--color-gold-950)]",
+          "font-display leading-none tracking-wider text-primary [text-shadow:0_3px_0_var(--accent),0_10px_30px_var(--accent)]",
           size === "lg" ? "text-5xl tablet:text-7xl" : "text-3xl",
         )}
       >

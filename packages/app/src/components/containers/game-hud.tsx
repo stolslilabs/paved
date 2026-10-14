@@ -34,7 +34,7 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
         </Button>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h1 className="truncate text-sm font-semibold">{title}</h1>
+        <h1 className="truncate font-display text-sm font-semibold">{title}</h1>
         {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
       </div>
       <TilesLeft remaining={remaining} discarded={discarded} />

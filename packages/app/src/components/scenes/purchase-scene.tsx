@@ -53,7 +53,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
         <div className="flex flex-col gap-4">
           <section data-slot="card" aria-labelledby="stake-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
             <div className="flex items-baseline justify-between">
-              <h2 id="stake-title" className="text-sm font-semibold">Stake</h2>
+              <h2 id="stake-title" className="font-display text-sm font-semibold">Stake</h2>
               <span className="text-xs text-muted-foreground">{formatUnits(quote.price / BigInt(stake), TOKENS.usdc.decimals, 0)} USDC per stake</span>
             </div>
             <StakePicker value={stake} max={props.maxStake} disabled={buying} onChange={props.onStakeChange} />
@@ -71,11 +71,11 @@ export function PurchaseScene(props: PurchaseSceneProps) {
               <Icon name="trophy" className="text-primary" size="md" />
               <div className="flex flex-1 flex-col">
                 <span className="text-xs text-muted-foreground">Score to beat</span>
-                <span className="font-mono text-2xl font-semibold text-primary tabular-nums">{formatPoints(quote.threshold / 1000)}</span>
+                <span className="numeric text-2xl font-semibold text-primary">{formatPoints(quote.threshold / 1000)}</span>
               </div>
               <div className="flex flex-col items-end">
                 <span className="text-xs text-muted-foreground">Mean now</span>
-                <span className="font-mono text-sm tabular-nums">{formatPoints(quote.mean / 1000)}</span>
+                <span className="numeric text-sm">{formatPoints(quote.mean / 1000)}</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, $TILE is minted when the day closes.</p>

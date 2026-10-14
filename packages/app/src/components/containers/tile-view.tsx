@@ -24,7 +24,10 @@ export function hasWebGL(): boolean {
   if (webgl === undefined) {
     try {
       const canvas = document.createElement("canvas");
-      webgl = !!(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+      webgl = !!gl;
+      // Release the probe's context at once: browsers cap the live WebGL contexts.
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
     } catch {
       webgl = false;
     }
@@ -52,7 +55,7 @@ export function TileView({ plan, orientation, basePath, className }: TileViewPro
     scene.camera.updateProjectionMatrix();
     scene.focusBoard();
   };
-  if (!hasWebGL()) return <TileChip plan={plan} orientation={orientation} artBase={basePath ?? ""} size="lg" className={cn("size-full border-0", className)} />;
+  if (!hasWebGL()) return <TileChip plan={plan} orientation={orientation} artBase={basePath} size="lg" className={cn("size-full border-0", className)} />;
   return (
     <span role="img" aria-label={`Tile ${planCode(plan).toLowerCase()}, ${["north", "east", "south", "west"][(orientation - 1 + 4) % 4]}`} className={cn("pointer-events-none block size-full bg-board", className)}>
       <GameCanvas tiles={tiles} basePath={basePath} onReady={frame} />

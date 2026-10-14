@@ -49,7 +49,7 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
-            <span className="text-base font-semibold">{title}</span>
+            <span className="font-display text-base font-semibold">{title}</span>
             {badge && <Badge variant={disabled ? "secondary" : featured ? "default" : "outline"}>{badge}</Badge>}
           </span>
           <span className="text-sm text-muted-foreground">{description}</span>

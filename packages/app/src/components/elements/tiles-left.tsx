@@ -18,7 +18,7 @@ export function TilesLeft({ remaining, discarded, className }: TilesLeftProps) {
       </span>
       <span className="flex flex-col leading-tight">
         <span className="text-xs text-muted-foreground">Tiles left</span>
-        <span className="font-mono text-base font-semibold tabular-nums" data-testid="tiles-left">{remaining}</span>
+        <span className="numeric text-base font-semibold" data-testid="tiles-left">{remaining}</span>
         {discarded > 0 && <span className="text-[11px] whitespace-nowrap text-muted-foreground">{discarded} discarded</span>}
       </span>
     </span>

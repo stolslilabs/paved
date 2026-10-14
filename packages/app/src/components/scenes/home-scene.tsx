@@ -60,8 +60,8 @@ export function HomeScene(props: HomeSceneProps) {
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-sm font-semibold">Challenge #{activeGame.id} in progress</span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span className="font-mono tabular-nums">{formatPoints(activeGame.score)} pts</span>
-                    <span className="font-mono tabular-nums">{activeGame.remainingCount} tiles left</span>
+                    <span className="numeric">{formatPoints(activeGame.score)} pts</span>
+                    <span className="numeric">{activeGame.remainingCount} tiles left</span>
                     <Countdown expiresAt={activeGame.expiresAt} now={now} />
                   </span>
                 </div>

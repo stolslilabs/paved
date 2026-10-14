@@ -47,7 +47,7 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, settl
       {state === "rewarded" && <Amount value={reward} token="paved" className="text-3xl text-primary" />}
       {threshold != null && state !== "free" && (
         <p className="text-sm text-muted-foreground">
-          Threshold <span className="font-mono text-foreground tabular-nums">{formatPoints(threshold)}</span>
+          Threshold <span className="numeric text-foreground">{formatPoints(threshold)}</span>
           {" · "}
           {above ? (
             <span className="text-success">beaten by {formatPoints(score - threshold)}</span>
