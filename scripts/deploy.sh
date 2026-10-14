@@ -457,7 +457,7 @@ if [[ -x "$PAVED_SCARB_SHIM" && ! -r "$PAVED_SCARB_SHIM" ]]; then
   echo "deploy.sh: the shim $PAVED_SCARB_SHIM is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
   exit 2
 fi
-if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | tr -d '\0')" != '#!' ]]; then
+if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | LC_ALL=C tr -d '\0')" != '#!' ]]; then
   SHIM_NOTE="no shim at $PAVED_SCARB_SHIM (a native binary, not a script)"
   PAVED_SCARB_SHIM_USED=0
 elif [[ -x "$PAVED_SCARB_SHIM" ]]; then
@@ -2525,6 +2525,9 @@ if ((USE_SIGNER)); then
   else
     echo "== funding: estimating each declare still to send, in deploy order (read-only, nothing is sent)"
   fi
+  # The class-hash call below discards stderr (and runs in a subshell), so without sncast every class would read
+  # "declared unknown" and the run would end without the cause: resolve sncast once here, bare, so it is printed.
+  sncast_resolve || exit
   failed=0
   for name in "${FUNDING_CLASSES[@]}"; do
     sierra="$ESTIMATE_DIR/paved_$name.contract_class.json"
