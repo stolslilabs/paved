@@ -499,8 +499,26 @@ export class GameScene {
     this.stop();
     this.tiles.dispose();
     this.effects.dispose();
-    this.controls.dispose();
+    this.controls?.dispose();
     this.assets.dispose();
-    this.renderer.dispose();
+    this.directionalLight?.shadow.dispose();
+    this.scene.clear();
+    this.latestTiles = [];
+    this.onTileClickCallback = null;
+    this.onTileHoverCallback = null;
+    this.onHoverLeaveCallback = null;
+    this.boundInputHandler = null;
+    this.pointerDownPos = null;
+    this.ambientLight = null;
+    this.hemisphereLight = null;
+    this.directionalLight = null;
+    this.directionalTargetObject = null;
+
+    if (this.renderer) {
+      this.renderer.dispose();
+      // dispose() frees three's GPU objects but not the context: Chrome keeps about 16
+      // per page and drops the oldest, so release it explicitly.
+      this.renderer.forceContextLoss();
+    }
   }
 }

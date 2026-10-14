@@ -18,6 +18,8 @@ export interface GameCanvasProps {
   style?: React.CSSProperties;
   className?: string;
   onReady?: (scene: GameScene) => void;
+  /** Called when the scene cannot start, for example without a WebGL context. */
+  onError?: (error: unknown) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
@@ -34,6 +36,7 @@ export function GameCanvas({
   style,
   className,
   onReady,
+  onError,
   onTileClick,
   onTileHover,
   onHoverLeave,
@@ -41,10 +44,14 @@ export function GameCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<GameScene | null>(null);
 
+  const onReadyRef = useRef(onReady);
+  const onErrorRef = useRef(onError);
   const onTileClickRef = useRef(onTileClick);
   const onTileHoverRef = useRef(onTileHover);
   const onHoverLeaveRef = useRef(onHoverLeave);
 
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
@@ -55,18 +62,35 @@ export function GameCanvas({
 
     const gameScene = new GameScene();
     sceneRef.current = gameScene;
+    let cancelled = false;
+    let settled = false;
 
-    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(() => {
-      gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
-      gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
-      gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
-      gameScene.start();
-      onReady?.(gameScene);
-    });
+    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(
+      () => {
+        settled = true;
+        // Unmounted while init was pending: free the scene, never start it.
+        if (cancelled) {
+          gameScene.dispose();
+          return;
+        }
+        gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+        gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
+        gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        gameScene.start();
+        onReadyRef.current?.(gameScene);
+      },
+      (error: unknown) => {
+        settled = true;
+        gameScene.dispose();
+        if (!cancelled) onErrorRef.current?.(error);
+      },
+    );
 
     return () => {
-      gameScene.dispose();
+      cancelled = true;
       sceneRef.current = null;
+      // While init is pending the scene is still being built: init's settlement disposes it.
+      if (settled) gameScene.dispose();
     };
   }, [basePath]);
 
