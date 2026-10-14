@@ -2,7 +2,8 @@
 // Shared by part-b.mjs (Sepolia, Controller) and latency-devnet.mjs (devnet, burner signer, the dry run of the same code).
 // The definitions are in docs/client/f-release.md, "Latency". All times are `Date.now()` in ms (the page and the driver share the
 // host's clock). Nothing is read from a page but the visible texts the client shows, the address bar and the JSON-RPC traffic's
-// transaction hashes, statuses and receipts' arrival (the receipt body is not kept).
+// transaction hashes, statuses and receipts' arrival (the receipt body is not kept). What a transaction cost (block, fee, gas) is read
+// from the node after the run (`enrichSamples`), never from the page's traffic.
 
 /** Seen from inside the page, every PROBE_MS: the texts the client shows and the address, recorded when they change. */
 export const PROBE_MS = 20;
@@ -207,6 +208,7 @@ export function moveSample(n, t0, tx, events) {
     receipt: d(t0, tx?.receiptAt ?? null),
     statuses: tx ? Object.fromEntries(Object.entries(tx.statuses).map(([s, t]) => [s, t - t0])) : {},
     hash: tx?.hash ?? null,
+    tx: tx?.hash ?? null,
     prompted: false,
   };
 }
@@ -233,6 +235,7 @@ export function purchaseSample(n, t0, tx, events) {
     board: d(t0, board?.t ?? null),
     statuses: tx ? Object.fromEntries(Object.entries(tx.statuses).map(([s, t]) => [s, t - t0])) : {},
     hash: tx?.hash ?? null,
+    tx: tx?.hash ?? null,
     gameId: game ? Number(game.v.split("=")[1]) : null,
     prompted: false,
   };
@@ -260,8 +263,105 @@ export function faucetSample(n, t0, tx, events) {
     uiFeedback: d(t0, on?.t ?? null),
     statuses: tx ? Object.fromEntries(Object.entries(tx.statuses).map(([s, t]) => [s, t - t0])) : {},
     hash: tx?.hash ?? null,
+    tx: tx?.hash ?? null,
     prompted: false,
   };
+}
+
+// ---- What a transaction cost, read from the node after the run (S2). Reads only: no transaction is sent.
+
+/** A felt (hex or decimal text, or a number) as a decimal string, or null when it is not one. */
+const dec = (v) => {
+  try {
+    return v == null ? null : BigInt(v).toString();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The cost fields of a receipt (JSON-RPC 0.8 and later): `block` (null for a receipt not in a block yet), `fee` = `{ amount, unit }`
+ * (`amount` a decimal string of the felt, `unit` `FRI` or `WEI`), `resources` = the receipt's `execution_resources` as given
+ * (`l1_gas`, `l1_data_gas`, `l2_gas`, and whatever else the node adds). Anything absent is null.
+ */
+export function receiptFields(receipt) {
+  const fee = receipt?.actual_fee;
+  const amount = dec(fee?.amount);
+  return {
+    block: Number.isSafeInteger(receipt?.block_number) ? receipt.block_number : null,
+    fee: amount === null ? null : { amount, unit: fee.unit ?? null },
+    resources: receipt?.execution_resources ?? null,
+  };
+}
+
+/** One JSON-RPC call; the result, or a thrown Error with the node's message. `fetchFn` is injectable for the tests. */
+export async function rpc(rpcUrl, method, params, fetchFn = fetch) {
+  const res = await fetchFn(rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+  const body = await res.json();
+  if (body.error) throw new Error(`${method}: ${body.error.code} ${body.error.message}`);
+  if (body.result === undefined) throw new Error(`${method}: no result`);
+  return body.result;
+}
+
+const NO_CHAIN = { block: null, blockTimestamp: null, fee: null, resources: null };
+
+/**
+ * Adds `block`, `blockTimestamp`, `fee` and `resources` to every sample that has a transaction hash, from
+ * `starknet_getTransactionReceipt` and `starknet_getBlockWithTxHashes` (one read per block). A read that fails leaves null for what it
+ * could not give and one note in the returned list (the run never fails on it). A sample already enriched, or with no hash, is left as is.
+ * Returns the notes.
+ */
+export async function enrichSamples(samples, rpcUrl, fetchFn = fetch) {
+  const notes = [];
+  const stamps = new Map();
+  const timestamp = async (block) => {
+    if (!stamps.has(block)) {
+      stamps.set(
+        block,
+        rpc(rpcUrl, "starknet_getBlockWithTxHashes", { block_id: { block_number: block } }, fetchFn).then(
+          (b) => (Number.isFinite(b?.timestamp) ? b.timestamp : null),
+          (e) => (notes.push(`chain read: block ${block} timestamp: ${e.message}`), null),
+        ),
+      );
+    }
+    return stamps.get(block);
+  };
+  for (const s of samples) {
+    if (!s.hash || "blockTimestamp" in s) continue;
+    Object.assign(s, NO_CHAIN);
+    try {
+      Object.assign(s, receiptFields(await rpc(rpcUrl, "starknet_getTransactionReceipt", { transaction_hash: s.hash }, fetchFn)));
+    } catch (e) {
+      notes.push(`chain read: ${s.kind} ${s.n} receipt ${s.hash}: ${e.message}`);
+    }
+    if (s.block !== null) s.blockTimestamp = await timestamp(s.block);
+    else if (!notes.some((n) => n.includes(s.hash))) notes.push(`chain read: ${s.kind} ${s.n} receipt ${s.hash}: not in a block`);
+  }
+  return notes;
+}
+
+const E18 = 10n ** 18n;
+/** A fee `{ amount, unit }` in STRK (FRI) or ETH (WEI) with 6 decimals, rounded half up, or "n/a". */
+export function formatFee(fee) {
+  if (!fee || dec(fee.amount) === null) return "n/a";
+  const v = (BigInt(fee.amount) * 1_000_000n + E18 / 2n) / E18;
+  const unit = fee.unit === "FRI" ? "STRK" : fee.unit === "WEI" ? "ETH" : fee.unit;
+  return `${v / 1_000_000n}.${String(v % 1_000_000n).padStart(6, "0")} ${unit}`;
+}
+
+const l2GasOf = (s) => {
+  const g = s.resources?.l2_gas;
+  return typeof g === "number" || typeof g === "string" ? Number(g) : null;
+};
+const gas = (g) => (g == null ? "n/a" : String(g));
+
+/** Median of fees of one unit as a fee, or null; an even count gives the floor of the mean of the two middle ones. */
+function medianFee(fees) {
+  const unit = fees[0]?.unit;
+  const v = fees.filter((f) => f.unit === unit).map((f) => BigInt(f.amount)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (!v.length) return null;
+  const m = v.length >> 1;
+  return { amount: (v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2n).toString(), unit };
 }
 
 // ---- Report
@@ -297,6 +397,9 @@ export function summarize(samples) {
       used: used.length,
       median: Object.fromEntries(COLUMNS[kind].map((c) => [c, median(used.map((s) => s[c]))])),
       max: Object.fromEntries(COLUMNS[kind].map((c) => [c, max(used.map((s) => s[c]))])),
+      // what the transactions cost, over the same samples (null when none was read)
+      fee: medianFee(used.map((s) => s.fee).filter((f) => f && dec(f.amount) !== null)),
+      l2Gas: median(used.map(l2GasOf)),
     };
   }
   return out;
@@ -312,6 +415,7 @@ export function renderMarkdown(samples, meta) {
     "",
     `- Client: ${meta.url}; run started ${meta.startedAt} (UTC), local hour of the driver's host ${meta.localHour}; network ${meta.network}.`,
     `- Times are ms between the marks defined in docs/client/f-release.md ("Latency"); resolution of the page's marks is ${PROBE_MS} ms. n/a: the mark was not seen.`,
+    "- block, fee, L2 gas: read from the node after the run (receipt: `block_number`, `actual_fee` shown in STRK from FRI with 6 decimals, `execution_resources.l2_gas`); `latency.json` also has the block's `timestamp` and every resource of the receipt (`l1_gas`, `l1_data_gas`, `l2_gas`). n/a: the read failed (see Notes).",
     "- A sample the Controller held with a prompt (a keychain screen opened during it) is shown but left out of median and max.",
     "",
   ];
@@ -320,11 +424,12 @@ export function renderMarkdown(samples, meta) {
     const rows = samples.filter((s) => s.kind === kind);
     if (!rows.length) continue;
     const cols = COLUMNS[kind];
-    lines.push(`## ${names[kind]}`, "", `| # | at (UTC) | ${cols.join(" | ")} | prompt |`, `|---|---|${cols.map(() => "---").join("|")}|---|`);
-    for (const s of rows) lines.push(`| ${s.n} | ${s.at.slice(11, 19)} | ${cols.map((c) => sec(s[c])).join(" | ")} | ${s.prompted ? "yes" : "no"} |`);
+    lines.push(`## ${names[kind]}`, "", `| # | at (UTC) | ${cols.join(" | ")} | block | fee | L2 gas | prompt |`, `|---|---|${cols.map(() => "---").join("|")}|---|---|---|---|`);
+    for (const s of rows) lines.push(`| ${s.n} | ${s.at.slice(11, 19)} | ${cols.map((c) => sec(s[c])).join(" | ")} | ${s.block ?? "n/a"} | ${formatFee(s.fee)} | ${gas(l2GasOf(s))} | ${s.prompted ? "yes" : "no"} |`);
     const k = sum[kind];
-    lines.push(`| **median** (${k.used} of ${k.samples}) | | ${cols.map((c) => sec(k.median[c])).join(" | ")} | |`);
-    lines.push(`| **max** | | ${cols.map((c) => sec(k.max[c])).join(" | ")} | |`, "");
+    lines.push(`| **median** (${k.used} of ${k.samples}) | | ${cols.map((c) => sec(k.median[c])).join(" | ")} | | ${formatFee(k.fee)} | ${gas(k.l2Gas)} | |`);
+    lines.push(`| **max** | | ${cols.map((c) => sec(k.max[c])).join(" | ")} | | | | |`, "");
+    lines.push(`Median fee ${formatFee(k.fee)}, median L2 gas ${gas(k.l2Gas)} (${k.used} of ${k.samples} samples).`, "");
   }
   if (meta.notes?.length) lines.push("## Notes", "", ...meta.notes.map((n) => `- ${n}`), "");
   return lines.join("\n");

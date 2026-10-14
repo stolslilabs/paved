@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { checkEvidence, isFailureText, operationName, redact, scrub } from "./scrub.mjs";
-import { PROBE_SOURCE, boardPoints, createTracker, findAndPlace, faucetSample, moveSample, probeEvents, promptedBetween, purchaseSample, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
+import { PROBE_SOURCE, boardPoints, createTracker, findAndPlace, faucetSample, moveSample, probeEvents, promptedBetween, purchaseSample, enrichSamples, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -25,6 +25,7 @@ const arg = (name, fallback) => {
 const out = arg("out", "/tmp/paved-e2e-out");
 const url = arg("url", "https://paved.bal7hazar.com");
 const api = arg("api", "https://api.paved.bal7hazar.com");
+const rpcUrl = String(arg("rpc", "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10")); // the node read after the run for fee and gas (S2)
 const confirmed = arg("confirmed", false) === true;
 const username = String(arg("username", ""));
 const wantMoves = Number(arg("moves", 3));
@@ -67,6 +68,8 @@ let closed = false;
 const closeAll = async () => {
   if (closed) return;
   closed = true;
+  // S2: what each transaction cost, read from the node now that the run is over (reads only; a failed read leaves null and a note).
+  if (samples.length) log.notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `moves: ${scrub(n)}`));
   save();
   if (cdp && authenticatorId) await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId }).catch(() => {});
   await context.close().catch(() => {});
