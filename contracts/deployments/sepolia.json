@@ -2,53 +2,99 @@
   "network": "sepolia",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "$STARKNET_RPC_URL",
-  "deployed_at": "009bb3c0810c8005d0b2d052e68174c4b00b1406",
-  "deployed_block": 16421420,
+  "deployed_at": "5dbc692b2d50d3099cc95b50802f0e586dc2d6fb",
+  "deployed_block": 16559258,
   "token": {
-    "address": "0x02a683a8af83d4a08bea5f6231e3034f9930220d1f6cadf301e57a1475b8def8",
-    "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03",
+    "address": "0x020fe1db4cb57230e0e9823add70958759ae264ffd9ecf0761068b25dad54e05",
+    "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16",
     "decimals": 6,
     "symbol": "USDC"
   },
   "contracts": {
-    "Account": {
-      "address": "0x02687f967832ff3b2da711c4a93efd561118223749ee095a677c19fb25b30007",
-      "class_hash": "0x06ebe06aea650249adc3091c05125c9ad0ca3f2ee791c5f52c3d0d2088ec6a94"
+    "Challenge": {
+      "address": "0x0619ce35ba96eb0a64af2a01a61a6aa5e18f0650246206c6dd39b4c882eed923",
+      "class_hash": "0x02a67fe4db49cc171783bf0234d49db103488ceb244746a6495116c598c01076"
     },
-    "Daily": {
-      "address": "0x06a92fc80dc5378aa64124c7d29d2953d73d68b2fb95cd6bfe3677c601f45ac8",
-      "class_hash": "0x02ba6398cc96b94232aa59473f627fcbd6302249537eefe9db97cd380a69f9f9"
-    },
-    "Tutorial": {
-      "address": "0x06f4ab4320cc625e6ef65a953075acca46e95879488e33df50a8893c81960b9a",
-      "class_hash": "0x00189ebf3c31270e867595aee5d624f389a26b068ae5fc5b23d21a2aa82c29aa"
+    "Setup": {
+      "address": "0x0719907c8b6aeaa9554ba0ea9653bab7b5b2225ad7963867cff4553556e4fdc7",
+      "class_hash": "0x022f048c88e73aa44d6c8c47ffd5f71c7d7885ae6da4142fa8587b0efe3468d5"
     },
     "Collection": {
-      "address": "0x005f481cd5eddf2da45dafb43036c6401b3ab07d87b072932779a56d959b73e8",
-      "class_hash": "0x06e2ce9c7e01741e65d9fef5d62e681fede934cc03bb69da727aa9aa77607087"
+      "address": "0x047da29971341945052278a8b27ec6e52a3673d31900622615e45bd9676f3e72",
+      "class_hash": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
     },
     "Economy": {
-      "address": "0x005aab18aeea5f617ce1c94737c30bc79cdb87e58f59b980ae041e3b3036a18b",
-      "class_hash": "0x00193f3e086e17c964b275721f9a5e12f8e84991fbcda87becb0e56627c95d90"
+      "address": "0x07d176b80a1ad08785a525a944f8fb639b0da187722bb88755da6d8e4b8dda11",
+      "class_hash": "0x03a43be4d5689cf2175d4cb91a85f1dcf9a4d4a2cfe19ddece5e23a5406c20b5"
     },
     "PavedToken": {
-      "address": "0x024d7c989496fcd2db3a0e50c3cb702b553fd295a0949fe6aea4887e762c4f6d",
-      "class_hash": "0x012cdbc4de283aef70bd1e056b4310da595ae072d332b9274566d7609eabfdcb"
+      "address": "0x05219e9f78a471a2cb7ac8ad2ec760d8c29421a4d23250b9345c4e869bd50f77",
+      "class_hash": "0x05f4ea19c194ca861556964572dbf022dada95ae964ae79dcee10123e58b5a1a"
     },
     "Vault": {
-      "address": "0x02d34ee3e758cc53d70a9903409c31286fd8dd7f07d91682149653f12ca6e610",
-      "class_hash": "0x0520ae02d3b73b4f4fcb0637a82c04927688bd32fcb479562111982a4f256b02"
+      "address": "0x07fee7815413f9fb5707acfd2eadfb5c43baca50a00a9bb0261774ea2159254c",
+      "class_hash": "0x07f391b69bc1af0d468fe153117fa5bcf03a915ae4e99ab22ea7a4bc98a1541d"
     },
-    "MockUSDC": {
-      "address": "0x02a683a8af83d4a08bea5f6231e3034f9930220d1f6cadf301e57a1475b8def8",
-      "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03"
+    "Faucet": {
+      "address": "0x020fe1db4cb57230e0e9823add70958759ae264ffd9ecf0761068b25dad54e05",
+      "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16"
     },
     "MockRouter": {
-      "address": "0x02aa4d0174da1673405722b3134c8b42d0b6b3c78cfd302f94b0cf170a5758f0",
-      "class_hash": "0x01ac7204d74dfb7e7dddfa564261c32f89d4dddf5ef0d66f478c8e8741a5ac07"
+      "address": "0x02a3adedc25b3f22c950c50e3cd9e3bca7955a001a583d79cbe0b90e3c3a5581",
+      "class_hash": "0x07c2bb76a82808e2e0f7c82bde477847f34b51bf7ff5c42b54b071af4d8297aa"
     }
   },
-  "classes": {
-    "Lobby": "0x05bd429dc632b4c0612147bceafded0fdf5eba2ef820fb2689f1682117f09972"
+  "fresh": {
+    "salt": "0x2332f7b29b7ad255f41aff53107e7b",
+    "at": "5dbc692b2d50d3099cc95b50802f0e586dc2d6fb",
+    "declare_tx": "0xcbbbe6c59377f060d2dbd7e62537a0ddf14d60888e721c0798579e65523dc1",
+    "classes": {
+      "Challenge": "0x02a67fe4db49cc171783bf0234d49db103488ceb244746a6495116c598c01076",
+      "Setup": "0x022f048c88e73aa44d6c8c47ffd5f71c7d7885ae6da4142fa8587b0efe3468d5",
+      "Faucet": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16",
+      "PavedToken": "0x05f4ea19c194ca861556964572dbf022dada95ae964ae79dcee10123e58b5a1a",
+      "MockRouter": "0x07c2bb76a82808e2e0f7c82bde477847f34b51bf7ff5c42b54b071af4d8297aa",
+      "Vault": "0x07f391b69bc1af0d468fe153117fa5bcf03a915ae4e99ab22ea7a4bc98a1541d",
+      "Economy": "0x03a43be4d5689cf2175d4cb91a85f1dcf9a4d4a2cfe19ddece5e23a5406c20b5",
+      "Collection": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
+    },
+    "Faucet": {
+      "deploy_tx": "0x344d3845dfc40331c41c1aec0b1ebdd8cfb2117303ce19341626bcd172b7586"
+    },
+    "PavedToken": {
+      "deploy_tx": "0x8f8674ed3d31083bd84372d305983a2e682de3de64a078ab0ca583ba237502"
+    },
+    "MockRouter": {
+      "deploy_tx": "0x4e0ee451c5c669bb02d7b48c96a2b90805f75d4e3414e60c0fc4e808b9cb5e2"
+    },
+    "Vault": {
+      "deploy_tx": "0x2571009769d591d1fbf8fd21c3a7a765cc3a8e1ef528a687a16e0c5606b81a4"
+    },
+    "pool_tx": "0x17d7f1099f339754fbf759caa49114011dcf20c9aefc9b99ef8940caeb0faef",
+    "stake_tx": "0x44e787f44d1ad841a8a1eb37649c486c7d775f0b0f091e81792e8aa5b5e25e2",
+    "Economy": {
+      "deploy_tx": "0x32cb2dac8f87c764391046828bb00b434d8f8112fc415cfdff779ebaea370a7"
+    },
+    "minter_tx": "0x3550adac1b9fc7204dc9fcb20f4a9e61a427acd1aef586be4160ee9cb34b922",
+    "Setup": {
+      "deploy_tx": "0x7a58c19fea31f3d6a52be1e34c1dddaa85d208cec98d5e8e3626aa922cdfda1"
+    },
+    "Challenge": {
+      "deploy_tx": "0x1cafff3fe8d1ad2e2d32ea4b836022b422a9a6f6e15ac22a5cb7ec60edcd447"
+    },
+    "Collection": {
+      "deploy_tx": "0x7226189ccf8d7333ac2cf17c460c72b23d9593fa72015e4cfe257b121f22a0b"
+    },
+    "wiring_tx": "0x43a24fcad705a6553d041a80c6b59110f42b71bd3bf3a65cb420b571acadbf6",
+    "definitions_tx": "0xcf25093690bbaa3ef1f54d491069b175d32be8654508725f04e50f3c62eb29",
+    "smoke": {
+      "ema_before": "0x17b8ff80 0x64 0x3cbae0",
+      "spawn_tx": "0x6d1cc30449cc3634ce8d51a629ed9067210e597a136897652b4f07cb8efd56",
+      "game_id": "1",
+      "build_tx": "0x12b370bf66ec37116d1c618b87184656331ab5fb3c38362d600a6c44e04b894",
+      "surrender_tx": "0x11df4d835fda9de22f6ebc3b015992a10a73a4e610ad38ab9fb7440fb050da7",
+      "claim_tx": "0x3f5871e02faf3bbf49a29df65aa92247cdb47ed76b28a9baf06cc1eb652271"
+    },
+    "complete": "yes"
   }
 }
