@@ -681,7 +681,7 @@ The sidebar follows the tiers:
 | **Tiles / Base** | the 19 base tiles of `packages/app-web/public/models/` (the models the game plays), each rendered by the real renderer in a small canvas, rotatable through the four orientations, with its plan code and its 2D PNG beside it |
 | **Tiles / Extended** | the 144 variant models of `origin/dev` (`<plan>_LF_<n>` and `<plan>_HF_<n>`: low and high forest density, 1 to 9 variants per plan, PR #162, 2024; to be brought over from that branch, never merged) and the 18 2D tiles of `app/public/assets/tiles/` that the 19-model set lacks; grouped by plan. Folder: `packages/app-web/public/models/extended/` (the 2D tiles in its `tiles/`). The variants are Draco-compressed: the renderer's `AssetLoader` decodes them lazily, with the decoder self-hosted at `<basePath>/draco/` (`packages/app-web/public/draco/`). `origin/dev` has 38 2D tiles, 20 of them in the 19-model set (`00.png` included), so 18 lack a model. |
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
-| **Scenes** | each page of section 6 on fixtures, one story per state, framed at the width of a `viewport` radio in Controls (small mobile 360, mobile 640, tablet 1024, desktop 1440; default mobile) |
+| **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
 **The background (spec A):** the board's colour, `--board` = `#07111A`, set as Storybook's only
 background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
@@ -1199,7 +1199,7 @@ containers and elements, on typed mock data, before any wiring to chain or index
 on the published Storybook. The tiers are those of section 4.1: `elements/` (game atoms), `containers/`
 (composites), `scenes/` (one per page). Scenes take their data as props; the mocks in `packages/app/src/mocks/`
 have the shapes `@paved/chain` and `@paved/game-core` return (types imported, nothing called), one fixture per
-scene state; each state has one story, told at the four widths by the `viewport` radio in Controls, and a render test.
+scene state; each state has one story, told at the four widths by Storybook's viewport toolbar (none picked is the full width), and a render test.
 
 Then the wiring PRs put the scenes on the routes, the sessions and the data: a wiring PR replaces a scene's fixture
 with the hook that reads the same shape, and changes the scene only where the real data asks for it.
