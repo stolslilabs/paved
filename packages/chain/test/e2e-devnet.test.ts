@@ -25,7 +25,7 @@
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Account, RpcProvider } from "starknet";
+import { Account, RpcProvider, hash } from "starknet";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FAUCET_USDC_AMOUNT } from "../src/abis";
 import { sameAddress, type DecodedEvent } from "../src/codec";
@@ -53,6 +53,17 @@ const DAY = 86400;
 const REPO = resolve(__dirname, "../../..");
 /** Placements the naive players make before they surrender: too few to score near any day's threshold. */
 const NAIVE_MAX_MOVES: Record<string, number> = { bob: 3, carol: 2 };
+/**
+ * The token ids the scenario buys on a fresh seed-42 node after `deploy.sh devnet` (D-23b): a Challenge game's token id
+ * is its game id, drawn from Challenge's counter, and the deploy's smoke game takes the first. So the decks are known.
+ */
+const EXPECTED_GAME_IDS: Record<string, number> = { alice: 2, bob: 3, carol: 4 };
+/** bob's second game, bought on the day D+2 and never played (the expired game). */
+const EXPECTED_BOB_SECOND_GAME = 5;
+/** The salt of every game (`Game::new` sets 0). */
+const SALT = 0n;
+/** A Challenge game's seed since D-23b: Poseidon(salt, token id), the token id being the game id (`TokenSeed`). */
+const tokenSeed = (gameId: number): bigint => BigInt(hash.computePoseidonHashOnElements([SALT, BigInt(gameId)]));
 
 interface Player {
   name: string;
@@ -309,6 +320,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
       const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
+      // The token id is pinned (a fresh node), and so is the seed of its deck, which the game view returns.
+      expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
+      const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
+      expect(seed, `${p.name}'s seed is Poseidon(${SALT}, ${bought.gameId})`).toBe(tokenSeed(bought.gameId));
       challengeGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
@@ -338,7 +353,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const terms = await economy.views.terms(bought.gameId);
       expect(terms).toMatchObject({ stake: k, recorded: false, settled: false, expired: false });
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
-      evidence.push(`${p.name} k=${k} game ${bought.gameId} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
+      evidence.push(`${p.name} k=${k} game ${bought.gameId} seed 0x${seed.toString(16)} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
     }
     pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
@@ -397,7 +412,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     for (const name of ["bob", "carol"]) {
       expect(BigInt(scores.get(name)!) * 1000n, `${name} cannot reach the threshold floor ${Number(floor) / 1000} (${where})`).toBeLessThan(floor);
     }
-    pass("Challenge: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points (floor ${Number(floor) / 1000}): alice above, bob and carol below`);
+    const aliceMargin = BigInt(scores.get("alice")!) * 1000n - cliff;
+    pass("Challenge: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points (floor ${Number(floor) / 1000}): alice above by ${Number(aliceMargin) / 1000}, bob and carol below (day ${dayId})`);
   }, 1_800_000);
 
   test("the indexer matches the contract views while the day is open", async () => {
@@ -546,6 +562,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const quote = await economy.views.quote(1);
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
     bobSecondGame = purchase.gameId;
+    expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
+    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(tokenSeed(bobSecondGame));
     const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
     const earned = await economy.views.vault(carol.address);
     // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.
