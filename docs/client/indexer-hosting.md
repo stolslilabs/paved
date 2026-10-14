@@ -43,7 +43,8 @@ the environment, not as `--rpc`: an argument shows in `ps`. The indexer never lo
 | `--poll` | `3000` (ms; default 1000) | The idle wait between steps. Each step asks the node for its tip and one header. At 1 s that is about 3 calls per second all day (see the estimate below); a leaderboard that is 3 s late is not noticed, and the free tier of a provider is. Lower it only to watch a test. |
 | `--recheck`, `--recheck-every` | `5`, `60000` | Rereads the last blocks below the tip for a replaced block. The code says this guards a devnet case (a replacement keeping the old hash); on a real network a replacement changes the hash and the tip check sees it. Keep a small window anyway (5 headers a minute); `--recheck 0` turns it off. |
 | `--batch` | default `100` | Blocks applied per step near the tip (block by block). Leave it. |
-| `--range` | default `10000` | With `--depth l1`: the blocks at or below the last L1-accepted block are final and are caught up by ranges of up to this many blocks (I1, `packages/indexer/README.md`, "Catching up"). `0` goes back to block by block everywhere. Leave it. |
+| `--range` | default `10000` | With `--depth l1`: the blocks at or below the last L1-accepted block are final and are caught up by ranges of up to this many blocks (I1, `packages/indexer/README.md`, "Catching up"). Leave it. **Escape hatch:** `--range 0` goes back to block by block everywhere, for a chain whose block times are not non-decreasing or a node that refuses ranges. |
+| `--concurrency` | default `8` | Above the L1-accepted block: blocks read at once, applied in order with the same checks (I2), and the most reads in flight. A rate limit (HTTP 429, JSON-RPC -32011) is waited out (`Retry-After`, at most 30 s) and lowers it for a while. Leave it. **Escape hatch:** `--concurrency 1` reads the tail one block after the other, as before I2; a rate limit is waited out and the read retried there too (before I2 it failed the step). |
 | `--allow-origin` | the client's origin, once | Without it a browser blocks every answer. Exact string match (`https://a.b` is not `https://a.b/` nor `http://a.b`). Repeatable (one per origin, e.g. a staging page). |
 | `--host`, `--port` | `127.0.0.1`, `8787` | Keep the loopback: the proxy is the public face (section 3). |
 
@@ -66,9 +67,26 @@ from F's `deployed_block` 16559258, read-only, a scratch database; both database
 | Block by block (main at b33bdb5) | 89.2 blocks/min | 6,131 | 22 min 26 s | 127 MB |
 | By range (I1, `--range 10000`) | 29,460 blocks/min | 11 | 4.1 s | 131 MB |
 
-A catch-up's time is now set by the blocks above the L1-accepted block (on Sepolia it lagged the tip by 801 to 915 blocks that
-day), which still go block by block at about 90 a minute. Ask the provider about its request limits all the same: the public
-node caps a `getEvents` page at 1024 events, which the indexer uses, and bounds each answer's scan itself (continuation tokens).
+A catch-up's time is then set by the blocks above the L1-accepted block (on Sepolia it lagged the tip by 774 to 1,035 blocks on
+2026-10-14). Since I2 they are read 8 at a time (`--concurrency 8`) and applied in order. Measured on Sepolia on 2026-10-14 (VPS,
+the public Cartridge RPC `.../sepolia/rpc/v0_10`, read-only, scratch databases, Node 24.21.0, heap capped at 384 MB, the runs
+one after the other; the first two over the same 300 blocks above the L1 block 16569175):
+
+| Tail above the L1 block | Rate | RPC calls per 1,000 blocks | Rate-limit answers | Peak RSS (largest process) |
+|---|---|---|---|---|
+| `--concurrency 1`, 300 blocks | 81.0 blocks/min | 6,103 | 0 | 131,728 kB (128.6 MiB) |
+| `--concurrency 8`, the same 300 blocks | 481.7 blocks/min (5.9x) | 6,103 | 0 | 176,320 kB (172.2 MiB) |
+| `--concurrency 8`, the whole tail to `behind 0` (989 blocks) | 445.1 blocks/min | 6,160 | 0 | 236,240 kB (230.7 MiB) |
+
+A full `rebuild` from `deployed_block` 16559258, the real process with the defaults (`--range 10000 --concurrency 8`): the
+range catch-up reached the L1 block 16569175 in 2.1 s, and `/v1/head` said `behind 0` at block 16570291 after **140.4 s**
+(1,116 blocks of tail, 484 blocks/min); peak RSS **237,404 kB (231.8 MiB)** (`/usr/bin/time -v`), under the 384 MB heap cap and the
+512 MB `MemoryMax` of section 2. At the tip it keeps up as before (Sepolia makes about 35 blocks a minute). The rates depend on
+the node's latency more than on the VPS: at concurrency 1 a block's 6 calls, one after the other, took 0.74 s on average.
+
+Ask the provider about its request limits all the same: the public node caps a `getEvents` page at 1024 events, which the
+indexer uses, and bounds each answer's scan itself (continuation tokens). No rate limit was answered in the runs above; one
+would be waited out (I2, `packages/indexer/README.md`, "Catching up").
 
 ## 2. What it needs from the host
 

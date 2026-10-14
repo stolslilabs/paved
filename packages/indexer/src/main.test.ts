@@ -52,14 +52,18 @@ describe("the command line", () => {
     [["run", "--deployment", deployment, "--db", join(dir, "a.db"), "--rpc", "http://127.0.0.1:1", "--burst", "0"], /--burst must be a whole number of at least 1/],
     [["run", "--deployment", deployment, "--db", join(dir, "a.db"), "--rpc", "http://127.0.0.1:1", "--burst", "x"], /--burst must be/],
     [["run", "--deployment", deployment, "--db", join(dir, "a.db"), "--rpc", "http://127.0.0.1:1", "--rate", "0", "--burst", "0"], /--burst must be/],
+    [["run", "--deployment", deployment, "--db", join(dir, "a.db"), "--rpc", "http://127.0.0.1:1", "--concurrency", "0"], /--concurrency must be a whole number of at least 1/],
+    [["run", "--deployment", deployment, "--db", join(dir, "a.db"), "--rpc", "http://127.0.0.1:1", "--concurrency", "2.5"], /--concurrency must be/],
   ])("%j exits 2 with a reason", (args, message) => {
     const result = run(...args);
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(message);
   });
 
-  test("the usage names the rate limit and its defaults (P-43)", () => {
-    expect(run("serve").stderr).toMatch(/--rate <requests per second per address> \(default 10, 0: no limit\)\] \[--burst <n> \(default 20\)\]/);
+  test("the usage names the rate limit and its defaults (P-43), and --concurrency and its default (I2)", () => {
+    const usage = run("serve").stderr;
+    expect(usage).toMatch(/--rate <requests per second per address> \(default 10, 0: no limit\)\] \[--burst <n> \(default 20\)\]/);
+    expect(usage).toMatch(/\[--concurrency <n> \(default 8, 1: one block after the other\)\]/);
   });
 
   test("the usage names the default port, 8787 (P-20)", () => {
