@@ -1,7 +1,7 @@
 /*
  * Source: shadcn/ui's Carousel (apps/v4/registry/new-york-v4/ui/carousel.tsx, https://github.com/shadcn-ui/ui at commit
  * 0023018feb6e18c2f4aa0af2062f1c3107d90bfa, MIT, (c) 2023 shadcn), on Embla Carousel (`embla-carousel-react` 8.6.0,
- * https://www.embla-carousel.com, MIT, (c) 2019 David Jerleke). Adapted: reduced motion (from `MotionConfig`) makes
+ * https://www.embla-carousel.com, MIT, (c) David Jerleke). Adapted: reduced motion (from `MotionConfig`) makes
  * the buttons and the arrow keys jump instead of scroll, the `reInit` listener is removed on cleanup too, the region
  * takes an accessible name, F3's Button and icons, the semantic tokens.
  *

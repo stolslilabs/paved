@@ -45,3 +45,23 @@ export const SecondSelected: Story = {
 };
 
 export const DisabledTab: Story = { render: () => <Demo disabled /> };
+
+/** Reduced motion off: the highlight (motion-primitives AnimatedBackground, a shared `layoutId`) springs to the new tab. */
+export const MotionOff: Story = {
+  name: "Highlight, reduced motion off",
+  parameters: { reducedMotion: "never" },
+  render: () => <Demo />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("tab", { name: "Season" }));
+  },
+};
+
+/** Reduced motion on: Motion makes the layout animation instant, the highlight jumps. */
+export const MotionOn: Story = {
+  name: "Highlight, reduced motion on",
+  parameters: { reducedMotion: "always" },
+  render: () => <Demo />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("tab", { name: "Season" }));
+  },
+};

@@ -31,3 +31,9 @@ export const Right: Story = { render: () => <Demo side="right" defaultOpen /> };
 export const Left: Story = { render: () => <Demo side="left" defaultOpen /> };
 export const Top: Story = { render: () => <Demo side="top" defaultOpen /> };
 export const Closed: Story = { render: () => <Demo side="bottom" /> };
+
+/** Reduced motion off: the panel slides in from its edge on a spring, and out on close. */
+export const MotionOff: Story = { name: "Slide, reduced motion off", parameters: { reducedMotion: "never" }, render: () => <Demo side="bottom" /> };
+
+/** Reduced motion on: no slide, the overlay's fade only. */
+export const MotionOn: Story = { name: "Slide, reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Demo side="bottom" /> };

@@ -42,3 +42,9 @@ export const OpenedByKeyboard: Story = {
     void canvasElement;
   },
 };
+
+/** Reduced motion off: the panel fades in and scales from 0.9 (motion-primitives Dialog), and back out on close. */
+export const MotionOff: Story = { name: "Enter and exit, reduced motion off", parameters: { reducedMotion: "never" }, render: () => <Surrender /> };
+
+/** Reduced motion on: the fade stays, the scale is dropped. */
+export const MotionOn: Story = { name: "Enter and exit, reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Surrender /> };
