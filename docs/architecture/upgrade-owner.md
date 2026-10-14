@@ -5,7 +5,8 @@ A decision note for the mainnet gate "upgrade owner" (`economy.md`, "Gates befor
 gated `upgrade` by the repository's two-step `OwnableComponent`, and D-16 made the deployer that owner on Sepolia. P-42
 names the mainnet options: the owner's account, then a multisig or a timelock. This note lists what that owner can do
 today, weighs the options against it, and recommends one. Facts are checked against `main` at f94c34fd; `file:line`
-are in that tree.
+are in that tree. `challenge.cairo` is cited by function name instead (since G4, which moved its lines), so those
+anchors hold across later changes.
 
 ## 1. What the owner can do today
 
@@ -13,7 +14,7 @@ are in that tree.
 
 | Contract | Owner | Upgradable | Source |
 |---|---|---|---|
-| `Challenge` | constructor `owner` | yes | `contracts/src/systems/challenge.cairo:93-98`, `:166`, `:221-227` |
+| `Challenge` | constructor `owner` | yes | `contracts/src/systems/challenge.cairo`: the `OwnableComponent` embed, the `constructor`, `UpgradeableImpl::upgrade` |
 | `Economy` | constructor `owner` | yes | `contracts/src/systems/economy.cairo:415-420`, `:573`, `:906-912` |
 | `Setup` | constructor `owner` | yes | `contracts/src/systems/setup.cairo:121-126`, `:226-228`, `:350-357` |
 | `Collection` | constructor `owner` | yes | `contracts/src/systems/collection.cairo:239-244`, `:292-295`, `:363-370` |
@@ -41,12 +42,12 @@ All four owned contracts share one mechanism (`contracts/src/components/ownable.
 "Bounded" means the code limits what the call can do; "not bounded" means it does not.
 
 **`Challenge`** (the game; holds no balance: a purchase pulls the price from the player straight to `Economy`,
-`challenge.cairo:375-376`)
+`challenge.cairo` `purchase`, its `transferFrom`)
 
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
-| `upgrade(class_hash)` (`challenge.cairo:223-226`) | the whole code, storage kept | no (only class hash 0 is refused) | Any game rule, any score. `Economy.record` trusts the score `Challenge` reports (`economy.cairo:692-710`), so a new class can record the best score for games it buys and be paid up to `cap x R` each at settlement (mis-recorded scores, PAVED minted). It can spend whatever USDC allowance players left to `Challenge` (it is the spender of `transferFrom`, `challenge.cairo:376`); the client approves exactly the price in the same multicall (`packages/chain/src/economy/writer.ts:291`), so that residue is small. It can block every game. |
-| `set_setup(setup)` (`challenge.cairo:206-213`) | the `Setup`, hence the whole wiring (`challenge.cairo:290-300`, `:315`) | non-zero only | As strong as `upgrade` for new money: a fake `Setup` whose `wiring()` names any "economy" receives the full price of every later spawn (`challenge.cairo:376`). Games in flight cannot end, since the new economy refuses a game it never sold (`economy.cairo:695`): it blocks games. |
+| `upgrade(class_hash)` (`challenge.cairo` `UpgradeableImpl::upgrade`) | the whole code, storage kept | no (only class hash 0 is refused) | Any game rule, any score. `Economy.record` trusts the score `Challenge` reports (`economy.cairo:692-710`), so a new class can record the best score for games it buys and be paid up to `cap x R` each at settlement (mis-recorded scores, PAVED minted). It can spend whatever USDC allowance players left to `Challenge` (it is the spender of `transferFrom`, `challenge.cairo` `purchase`); the client approves exactly the price in the same multicall (`packages/chain/src/economy/writer.ts:291`), so that residue is small. It can block every game. |
+| `set_setup(setup)` (`challenge.cairo` `set_setup`) | the `Setup`, hence the whole wiring (`challenge.cairo` `wiring`, called by `spawn_from`) | non-zero only | As strong as `upgrade` for new money: a fake `Setup` whose `wiring()` names any "economy" receives the full price of every later spawn (`challenge.cairo` `purchase`). Games in flight cannot end, since the new economy refuses a game it never sold (`economy.cairo:695`): it blocks games. |
 | `transfer_ownership` | the owner | two-step | Hands every power here to another address. |
 
 **`Economy`** (the PAVED minter, the purchase split and the settlement; holds nothing between transactions)
@@ -64,9 +65,9 @@ All four owned contracts share one mechanism (`contracts/src/components/ownable.
 
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
-| `upgrade(class_hash)` (`setup.cairo:353-356`) | the whole code, storage kept | no | **On the money path**: `Challenge` reads `wiring()` at every spawn (`challenge.cairo:315`), so a new class can name any economy and take the price of every later spawn, or block every game over (`challenge.cairo:394-395`). Any quest or achievement progress. |
+| `upgrade(class_hash)` (`setup.cairo:353-356`) | the whole code, storage kept | no | **On the money path**: `Challenge` reads `wiring()` at every spawn (`challenge.cairo` `spawn_from`, its `wiring` call), so a new class can name any economy and take the price of every later spawn, or block every game over (`challenge.cairo` `finish`, its `wiring(setup, false)` call). Any quest or achievement progress. |
 | `set_economy`, `set_collection` (`setup.cairo:325-343`) | the wiring | once, non-zero | Spent by `deploy.sh` (`scripts/deploy.sh:1786-1787`). |
-| `set_reporter(reporter, allowed)` (`setup.cairo:284-290`) | who may report progress | no | Allow any address: fake quest and achievement progress for any player (mis-recorded progress; no token or value in v1, `quests.md:149-151`). Revoke `Challenge`: its `report` reverts (`setup.cairo:300`), so every move that ends a game reverts (`challenge.cairo:396-399`): it blocks games. |
+| `set_reporter(reporter, allowed)` (`setup.cairo:284-290`) | who may report progress | no | Allow any address: fake quest and achievement progress for any player (mis-recorded progress; no token or value in v1, `quests.md:149-151`). Revoke `Challenge`: its `report` reverts (`setup.cairo:300`), so every move that ends a game reverts (`challenge.cairo` `finish`, its `report` call): it blocks games. |
 | `define_quest`, `define_achievement` (`setup.cairo:234-277`) | new definitions | a definition is created once and never edited; task totals positive and distinct (`setup.cairo:35-37`, `:374-387`) | Add quests or achievements players did not expect; display only in v1. |
 | `retire_quest`, `retire_achievement` (`setup.cairo:257-260`, `:279-282`) | retires a definition | a retired id is never defined again | Remove a quest or achievement; display only. |
 | `transfer_ownership` | the owner | two-step | As above. |
@@ -78,7 +79,7 @@ not embedded, so they add no entry point.
 
 | Entry point | What it changes | Bounded by the code? | What a malicious or compromised owner can do |
 |---|---|---|---|
-| `upgrade(class_hash)` (`collection.cairo:366-369`) | the whole code, storage kept | no | Rewrite who owns which game token and its metadata. Make `mint` revert, and every spawn reverts with it (`challenge.cairo:321`): it blocks new games. |
+| `upgrade(class_hash)` (`collection.cairo:366-369`) | the whole code, storage kept | no | Rewrite who owns which game token and its metadata. Make `mint` revert, and every spawn reverts with it (`challenge.cairo` `spawn_from`, its `mint` call): it blocks new games. |
 | `set_minters(challenge, tutorial)` (`collection.cairo:328-340`) | who mints | once, non-zero `challenge`, two distinct addresses | Spent by `deploy.sh` (`scripts/deploy.sh:1789`). |
 | `transfer_ownership` | the owner | two-step | As above. |
 
@@ -164,7 +165,7 @@ delay; the schedule is public (an event), so players see an upgrade coming.
   and one stolen key cannot even propose. The cost is the sum: M signatures twice, 48 hours apart, for every owner
   call, emergencies included. Same `deploy.sh` and Ownable remarks as (b) and (c).
 - **A timelock on `upgrade` only, the setters immediate**: **cannot be done with the contracts as they are**: one
-  owner per contract gates every owner entry point (`ownable.cairo:96-98`; `challenge.cairo:208`, `:224`;
+  owner per contract gates every owner entry point (`ownable.cairo:96-98`; `challenge.cairo` `set_setup`, `UpgradeableImpl::upgrade`;
   `economy.cairo:773`, `:778`, `:784`, `:794`, `:909`; `setup.cairo:242-337`, `:354`; `collection.cairo:331`,
   `:367`). It would need a second role in the code. And it would be hollow: `Challenge.set_setup` and
   `Economy.set_router` reach the money as an upgrade does. A useful split would be the reverse: a separate role for
@@ -209,9 +210,11 @@ only pause in the contracts (`vault.cairo:9` still has none, as intended):
 - **Ownership.** The two-step `OwnableComponent` is unchanged: after a transfer the new owner unpauses, sets the
   guardian and pauses, the old owner can do none of it; a pending owner can do none of it before it accepts. **The
   guardian survives the transfer**: the guardian set before it is kept (`test_guardian_new_owner_holds_the_pause`).
-  So a transfer made because the owner was compromised must be followed, in the new owner's first multicall (the one
-  that sends `accept_ownership`, or under a timelock the first scheduled batch), by `set_guardian` to a trusted
-  address or to zero: a guardian the attacker set before the transfer can otherwise still pause spawn after it.
+  So a transfer made because the owner was compromised must be followed by `set_guardian` to a trusted address or to
+  zero: a guardian the attacker set before the transfer can otherwise still pause spawn after it. The new owner's
+  first multicall (under a timelock, its first scheduled batch) is, in this order: **`accept_ownership`, then
+  `set_guardian`, then `unpause_spawn`** (the last only if spawn is paused). `set_guardian` and `unpause_spawn` are
+  owner-only, and a pending owner is not the owner until `accept_ownership` runs, so neither can come before it.
 - **Deployment and upgrade.** A fresh `scripts/deploy.sh` run deploys with no guardian (zero) and spawn not paused; the
   owner then calls `set_guardian`. An in-place upgrade of `Challenge` (D-17, Sepolia) reads the two new slots as zero
   and false: no guardian, spawn not paused, games in flight unaffected (`tests::e2e::upgrade_g4`).
@@ -231,8 +234,8 @@ order slips.
 Two stop-gaps exist without the guardian, both owner calls, so both delayed by a timelock:
 
 - **Stop new games and game overs, restorably**: `Challenge.set_setup` to a fresh `Setup` whose wiring is not set.
-  Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo:386-393`, `:410`, as of G4) and so does
-  every move that ends a game (`challenge.cairo:489-490`); other moves go on. `set_setup` back to the real `Setup` restores
+  Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo` `wiring`, called by `spawn_from`) and so
+  does every move that ends a game (`challenge.cairo` `finish`, its `wiring(setup, false)` call); other moves go on. `set_setup` back to the real `Setup` restores
   everything (its once-only wiring is untouched). Its cost: a game whose end is held past its day records as
   expired and gets no reward (`economy.cairo:701`). The guardian's pause has no such cost.
 - **Upgrade to a class that refuses `spawn`**: the same effect, with a class to build, rehearse and declare.
@@ -284,9 +287,9 @@ For the PM to put to the owner, one per option (the bracketed parts are the owne
 
 - **A timelock on `upgrade` only, with the setters immediate, cannot work with the contracts as they are**: one owner
   per contract gates every owner entry point (`contracts/src/components/ownable.cairo:96-98`, called by each setter
-  and each `upgrade`, section 2 (d)). It would also leave `Challenge.set_setup` (`challenge.cairo:206-213`) and
+  and each `upgrade`, section 2 (d)). It would also leave `Challenge.set_setup` (`challenge.cairo` `set_setup`) and
   `Economy.set_router` (`economy.cairo:792-800`) immediate, and both reach the price of every later purchase.
-- **`Setup` is on the money path** since D-25 E: `Challenge` reads its wiring at every spawn (`challenge.cairo:315`),
+- **`Setup` is on the money path** since D-25 E: `Challenge` reads its wiring at every spawn (`challenge.cairo` `spawn_from`, its `wiring` call),
   so `Setup`'s owner is as critical as `Economy`'s. `upgrades.md`, "Trust", still lists the owner's reach as
   `Challenge`, `Economy`, `Account` and `Collection` (and `set_lobby_class`, gone since D-24); it predates D-24 and
   D-25 E. Not edited here (allowlist).
