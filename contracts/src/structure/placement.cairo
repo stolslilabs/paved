@@ -8,9 +8,7 @@
 
 use paved::models::tile::{Tile, TileImpl, ZeroableTile};
 use paved::store::{Store, StoreImpl};
-use paved::structure::record::{
-    add_ref, close_one, founded, open_of, parent_of, ref_of, sid, with_ref,
-};
+use paved::structure::record::{add_ref, close_one, founded, ref_of, sid, with_ref};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, tables};
 
@@ -231,7 +229,7 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
                 let (root, record) = structures.find(around.reference(direction, wonder));
                 let record = close_one(record);
                 structures.set(root, record);
-                if open_of(record) == 0 {
+                if record & OPEN_BITS == 0 {
                     closed.append(root);
                 }
             }
@@ -276,7 +274,7 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
             let (root, record) = structures.find(around.reference(direction, landing));
             let record = close_one(record);
             structures.set(root, record);
-            if open_of(record) == 0 {
+            if record & OPEN_BITS == 0 {
                 closed.append(root);
             }
             if !contains(roots.span(), root) {
@@ -323,13 +321,18 @@ pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood)
     let mut closes = false;
     for candidate in closed {
         let record = structures.record(candidate);
-        if parent_of(record) == 0 && open_of(record) == 0 {
+        if record & (OPEN_BITS | PARENT_BITS) == 0 {
             closes = true;
             break;
         }
     }
     (refs, closes)
 }
+
+/// The `open` and `parent` fields of a packed record (`record.cairo`): a mask reads whether they
+/// are 0 without a shift.
+const OPEN_BITS: u64 = 0xffc00000;
+const PARENT_BITS: u64 = 0xfff;
 
 /// The bit `index` of a 16-bit set (of directions, of areas; 0..=15).
 #[inline(always)]
