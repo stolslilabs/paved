@@ -85,6 +85,7 @@ export class GameScene {
   /** The shadow casters changed since the shadow map was last drawn. */
   private shadowsDirty = true;
   private isWebGPU = false;
+  private disposed = false;
   private latestTiles: TileRenderData[] = [];
   private renderProfile: RenderProfile = "play";
   private ambientLight: THREE.AmbientLight | null = null;
@@ -121,6 +122,8 @@ export class GameScene {
       shadows = true,
       effectsCapabilities = {},
     } = config;
+
+    this.disposed = false;
 
     // If init is called again on the same instance, detach old listeners first.
     if (this.surface) {
@@ -184,6 +187,8 @@ export class GameScene {
 
     // Preload assets
     await this.assets.preloadAll();
+    // Disposed while the models were loading: bind nothing on a dead scene.
+    if (this.disposed) return;
 
     // Handle resize
     this.unbindResize = surface.onResize(() => {
@@ -484,8 +489,17 @@ export class GameScene {
     return this.renderer.domElement.toDataURL("image/png");
   }
 
-  /** Cleanup all resources */
-  dispose(): void {
+  /**
+   * Cleanup all resources. Safe to call more than once.
+   *
+   * By default the WebGL context is released too, so the scene must own its surface: a
+   * context belongs to its canvas, and a later scene on the same canvas would share the lost one.
+   * Pass `releaseContext: false` when the surface's owner frees the context itself.
+   */
+  dispose({ releaseContext = true }: { releaseContext?: boolean } = {}): void {
+    if (this.disposed) return;
+    this.disposed = true;
+
     if (this.surface) {
       this.surface.unbindInput();
       this.surface = null;
@@ -499,8 +513,26 @@ export class GameScene {
     this.stop();
     this.tiles.dispose();
     this.effects.dispose();
-    this.controls.dispose();
+    this.controls?.dispose();
     this.assets.dispose();
-    this.renderer.dispose();
+    this.directionalLight?.shadow.dispose();
+    this.scene.clear();
+    this.latestTiles = [];
+    this.onTileClickCallback = null;
+    this.onTileHoverCallback = null;
+    this.onHoverLeaveCallback = null;
+    this.boundInputHandler = null;
+    this.pointerDownPos = null;
+    this.ambientLight = null;
+    this.hemisphereLight = null;
+    this.directionalLight = null;
+    this.directionalTargetObject = null;
+
+    if (this.renderer) {
+      this.renderer.dispose();
+      // dispose() frees three's GPU objects but not the context: Chrome keeps about 16
+      // per page and drops the oldest, so release it explicitly.
+      if (releaseContext) this.renderer.forceContextLoss();
+    }
   }
 }
