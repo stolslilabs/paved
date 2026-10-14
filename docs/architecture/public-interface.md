@@ -14,7 +14,7 @@ state, packing) and these views will not.
 **Where the current state is.** The sections from "Breaking change D-18" on are a changelog, read as a stack: an earlier
 row keeps the names and strings a later section renamed. The state as it stands is in three sections at the end: "The
 events of `Challenge`, current", "What the constructors emit at deployment", "Current surface: `Economy`, `PavedToken`,
-`Faucet`", and the two short notes after them (the price constants, `Collection.set_minters`).
+`Faucet`", and the two short notes after them (the price constant, `Collection.set_minters`).
 
 **D-18 broke this interface once** (characters leave the game, built in D-18b): see "Breaking change D-18" at
 the end. Where the sections before it mention characters (`role`, `spot`, `characters`, the counters of
@@ -175,9 +175,8 @@ D-20 (same value; a new selector, since a selector is the name's hash).
 
 What `spawn` pulls from the player: the ERC20 and the amount. It is read from the same source as
 `spawn` (the token the contract was deployed with, and the price of the mode), so the two cannot
-diverge. That holds between `entry_price` and `spawn`; `Economy` checks the price against a second constant, `BASE_PRICE`,
-so `spawn` and `Economy` agree only while the two constants are equal ("Two constants set the price of a stake unit",
-at the end).
+diverge. `Economy` checks the price against `BASE_PRICE`, which is built from the same constant, so `spawn` and `Economy`
+cannot disagree either ("One constant sets the price of a stake unit", at the end).
 
 | # | Field | Type | Meaning |
 |---|---|---|---|
@@ -995,24 +994,36 @@ counted in `minted` (`faucet.cairo:100-111`).
 The only events are OpenZeppelin's `Transfer` and `Approval`; the faucet has none of its own
 (`faucet.cairo:91-96`). The client matches the two cap strings (`packages/chain/src/writer.ts:55-56`; it calls `Faucet.mint` at `:188-193`).
 
-## Two constants set the price of a stake unit
+## One constant sets the price of a stake unit
 
-The price of one stake unit comes from two constants, not one:
+The price of one stake unit has one definition: `CHALLENGE_PRICE`, 2,000,000 (`constants.cairo:13`, a `u128`). Two readers
+use it:
 
-- `CHALLENGE_PRICE`, 2,000,000 (`constants.cairo:13`), read through `Mode::price` (`types/mode.cairo:30-35`). It is what
-  `Challenge.spawn` pulls from the player (`stake x unit`, `challenge.cairo` `purchase`), what `entry_price()` returns
-  (`views.cairo:212-214`) and what `GameSpawned.price` carries.
-- `BASE_PRICE`, 2,000,000 (`economy.cairo:38`), which `Economy.purchase` checks: it reverts `'Economy: wrong price'`
-  unless `price == stake x BASE_PRICE` (`economy.cairo:647`).
+- `Mode::price` (`types/mode.cairo:30-35`) returns it as a `felt252`. It is what `Challenge.spawn` pulls from the player
+  (`stake x unit`, `challenge.cairo` `purchase`), what `entry_price()` returns (`views.cairo:212-214`) and what
+  `GameSpawned.price` carries.
+- `economy::BASE_PRICE` (`economy.cairo:40`, a `u256`) is built from it, `u256 { low: constants::CHALLENGE_PRICE, high: 0 }`,
+  and is what `Economy.purchase` checks: it reverts `'Economy: wrong price'` unless `price == stake x BASE_PRICE`.
 
-"The two cannot diverge" (`entry_price`, above) holds for `entry_price()` and `spawn`, which read one source. It holds
-between `Challenge` and `Economy` only while the two constants are equal. If one changed alone, every `spawn` would
-revert `'Economy: wrong price'`. One test pins the equality: `test_economy_entry_price_is_the_stake_unit`
-(`tests/e2e/economy.cairo:54-58`).
+`BASE_PRICE` is not a second literal, so `Challenge` and `Economy` cannot disagree: the single definition is enforced by the
+compiler (there is no other definition of the price in the Cairo code; `scripts/deploy.sh`'s smoke still writes the literal `2000000` when it mints and approves for a stake-1 spawn, outside the contracts), and `test_economy_entry_price_is_the_stake_unit`
+(`tests/e2e/economy.cairo:54-58`) pins that the two readers give the same amount. The value, the rules and the storage did not
+change (it was two equal literals before; the old note is #414's audit). `CHALLENGE_PRICE` changed type, `felt252` to `u128`;
+no ABI shows it.
 
-## `Collection.set_minters` emits no event
+## `Collection.set_minters` emits `MintersSet`
 
-`set_minters(challenge, tutorial)` writes the two minter slots and emits nothing (`collection.cairo:328-340`), unlike
-`Setup.set_economy` and `Setup.set_collection`, which emit `EconomySet` and `CollectionSet`. An indexer cannot see when
-the minters were set; it reads `Collection.challenge()`. `Collection`'s only events are `Transfer { #[key] from, #[key]
-to, #[key] token_id }` (at mint only), the two ownership events and `Upgraded` (`Collection.json`).
+`set_minters(challenge, tutorial)` writes the two minter slots and emits `MintersSet { challenge, tutorial }` on every
+successful call (`collection.cairo`; the call is one-shot, so once per deployment), in the style of `Setup.set_economy` and
+`Setup.set_collection` (`EconomySet`, `CollectionSet`). A refused call (not the owner, a second call, a zero `challenge`, equal
+minters) reverts and emits nothing.
+
+| | |
+|---|---|
+| Event | `paved::systems::collection::Collection::MintersSet` |
+| Selector (`keys[0]`) | `0x02632a922cf815e41989d3cf4de3982c06135cb9800aae1009c741731db43102` (`sn_keccak("MintersSet")`) |
+| Keys | the selector only (no `#[key]` field) |
+| Data | `[challenge, tutorial]`, two `ContractAddress`; `tutorial` is zero on a network with no Tutorial (D-21) |
+
+`Collection`'s events are now `Transfer { #[key] from, #[key] to, #[key] token_id }` (at mint only), `MintersSet`, the two
+ownership events and `Upgraded` (`Collection.json`). A consumer that halts on an unknown selector must know `MintersSet`.

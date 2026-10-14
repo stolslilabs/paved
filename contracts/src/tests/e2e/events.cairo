@@ -41,7 +41,7 @@ fn test_events_daily_spawn_emits_game_spawned() {
                 mode: Mode::Challenge.into(),
                 day_id: day_id(100, constants::CHALLENGE_DURATION),
                 start_time: 100,
-                price: constants::CHALLENGE_PRICE,
+                price: constants::CHALLENGE_PRICE.into(),
             },
         ),
     );

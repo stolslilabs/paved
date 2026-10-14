@@ -52,7 +52,7 @@ in Tutorial. Such a game is stored and listed under its player, but ranks in no 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
 `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
 `QuestClaimed`: quests are in event mode; the two `...ReporterSet`), and the configuration events of the economy
-(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
+(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`), and `MintersSet` of `Collection` (the owner's `set_minters`; no screen shows the minters). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
 rebuild (below), never a migration.
 

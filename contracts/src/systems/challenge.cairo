@@ -6,8 +6,10 @@ use paved::types::orientation::Orientation;
 pub trait IChallenge<TContractState> {
     /// A paid game: approve `Challenge` on USDC for `stake x entry_price().amount` first (stake 1
     /// to 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
-    /// address other than the caller, `Economy` and `Challenge`, or zero (no referral); `min_out`:
-    /// the least PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
+    /// address, or zero (no referral). P-58 ignores a referrer, with no revert, when it is zero,
+    /// the payer, the Vault, the router, `Economy` or the game (`Challenge`) itself. `min_out`: the
+    /// least PAVED the whole swap must buy, the burn's quote plus the Vault's part
+    /// (`docs/architecture/economy.md`, section 5), not the burn alone.
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;

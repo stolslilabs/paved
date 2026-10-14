@@ -104,18 +104,62 @@ export async function shownSlots(page: Page): Promise<Array<{ x: number; y: numb
   return page.evaluate(() => (window as any).__PAVED_E2E__.view.slots);
 }
 
+/** Clearance kept around a panel, so that its edge and shadow are not clicked either. */
+const PANEL_MARGIN = 8;
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The boxes of the overlay panels the page draws over the board (status, camera buttons, action bar, notice, dialogs), read
+ * from the page: the children of the click-through grid layer that take pointer events, and the alert. Nothing is fixed.
+ */
+export async function panelRects(page: Page): Promise<Rect[]> {
+  return page.evaluate(() => {
+    const boxes: DOMRect[] = [];
+    for (const layer of document.querySelectorAll("div")) {
+      const style = getComputedStyle(layer);
+      if (style.pointerEvents !== "none" || style.display !== "grid") continue;
+      for (const child of Array.from(layer.children)) if (getComputedStyle(child).pointerEvents !== "none") boxes.push(child.getBoundingClientRect());
+    }
+    for (const el of document.querySelectorAll('[role="alert"], [role="dialog"]')) boxes.push(el.getBoundingClientRect());
+    return boxes.filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: r.x, y: r.y, width: r.width, height: r.height }));
+  });
+}
+
+const insideRect = (p: { x: number; y: number }, r: Rect, margin = PANEL_MARGIN): boolean =>
+  p.x >= r.x - margin && p.x <= r.x + r.width + margin && p.y >= r.y - margin && p.y <= r.y + r.height + margin;
+
+/** True when the topmost element at (x, y) is the board's canvas: what a real click on the board reaches. */
+export async function hitsBoard(page: Page, x: number, y: number): Promise<boolean> {
+  return page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName === "CANVAS", [x, y]);
+}
+
 /** Page coordinates of a cell; recentres the camera, then zooms out, when the cell is off screen or under a panel. */
 export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: number; y: number }> {
   const { width, height } = VIEWPORT;
+  let covered: string | null = null;
   for (let attempt = 0; attempt < 14; attempt++) {
+    covered = null;
     const p = await page.evaluate(([cx, cz]) => (window as any).__PAVED_E2E__.target(cx, cz), [x, z]);
-    const underPanel = p && ((p.x < 260 && p.y < 210) || (p.x > width - 360 && p.y < 90) || p.y > height - 160);
-    if (p && !underPanel && p.x > 20 && p.x < width - 20 && p.y > 20) {
+    const panels = p ? await panelRects(page) : [];
+    const underPanel = p && panels.some((r) => insideRect(p, r));
+    if (p && !underPanel && p.x > 20 && p.x < width - 20 && p.y > 20 && p.y < height - 20) {
       // The camera glides after a move or a zoom: click only once the cell stops moving.
       await page.waitForTimeout(120);
       const again = await page.evaluate(([cx, cz]) => (window as any).__PAVED_E2E__.target(cx, cz), [x, z]);
-      if (again && Math.abs(again.x - p.x) < 0.5 && Math.abs(again.y - p.y) < 0.5) return again;
-      continue;
+      // Whatever the panel boxes say, the click must land on the canvas.
+      if (!again || Math.abs(again.x - p.x) >= 0.5 || Math.abs(again.y - p.y) >= 0.5) continue;
+      if (await hitsBoard(page, again.x, again.y)) return again;
+      // Something other than the canvas sits there: recentre or zoom below, as for a cell under a panel.
+      covered = await page.evaluate(([px, py]) => {
+        const el = document.elementFromPoint(px, py);
+        return el ? `${el.tagName.toLowerCase()}${el.getAttribute("role") ? ` role=${el.getAttribute("role")}` : ""}` : "nothing";
+      }, [again.x, again.y]);
     }
     if (attempt === 0 || attempt === 1) await page.keyboard.press("f");
     else {
@@ -124,7 +168,7 @@ export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: 
     }
     await page.waitForTimeout(350);
   }
-  throw new Error(`cell ${x},${z} stays off screen`);
+  throw new Error(covered ? `cell ${x},${z} covered by ${covered}` : `cell ${x},${z} stays off screen`);
 }
 
 export interface MoveReport {
