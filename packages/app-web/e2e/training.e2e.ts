@@ -210,6 +210,7 @@ describe("Training, played by a bot in a headless browser", () => {
     const { context, page, errors } = await freshPage();
     if (FIRST_SEED) await page.addInitScript(([key, seed]) => localStorage.setItem(key, JSON.stringify({ v: 1, seed, moves: [] })), [TRAINING_KEY, FIRST_SEED] as [string, string]);
     await openTraining(page, base);
+    console.log(`[e2e] panels at ${VIEWPORT.width}x${VIEWPORT.height}: ${JSON.stringify(await panelRects(page))}`);
     const seeds = new Set<string>();
     let closed = 0;
     let zero = 0;
