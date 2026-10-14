@@ -134,6 +134,8 @@ pub impl DeckImpl of DeckTrait {
 
 /// The selection sampling of `DeckTrait::tiles`: removes `need` of the `free` free indexes of
 /// `tiles` (the clear bits under `full`).
+/// Panics with `'Deck: too small'` when `need > free`, which cannot happen from the spawn (free 71,
+/// need 34).
 pub fn sample(mut tiles: u128, full: u128, mut free: u128, mut need: u128, seed: felt252) -> u128 {
     assert(need <= free, errors::DECK_TOO_SMALL);
     let mut mask: u128 = 1;

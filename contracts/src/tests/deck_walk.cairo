@@ -8,6 +8,9 @@
 //!   `test_deck_walk_marginals_many`, by hand): each run removes exactly 34 of the 71 free indexes
 //!   and keeps the starter's bit, and the removal counts of the 71 indexes pass a chi-square test
 //!   against `p = 34/71` at 0.1 %.
+//! - `test_deck_walk_subsets_across_lanes` (fix loop 1 of #363): every subset counted on a walk
+//!   that crosses the high lane and a new batch: 2 of 23 free indexes, 253 subsets, 1,300 seeds;
+//!   chi-square under 327.14, its 0.1 % critical value for 252 degrees of freedom.
 //! - `test_deck_walk_cost`: the L2 gas of the walk alone, before G1 (`legacy_g1::tiles_before_g1`)
 //!   and after, on the three seeds of `docs/measures/baseline.md` ("After D-23"), then on 10 seeds
 //!   (before) and 100 seeds (after).
@@ -22,6 +25,7 @@ use paved::types::deck::{Deck, DeckImpl, sample};
 use paved::types::plan::Plan;
 
 const RUNS: u32 = 2000;
+const RUNS_ACROSS_LANES: u32 = 1300;
 
 /// The Daily deck's bitmap after the starter tile, as `Game::start` sets it.
 fn starter() -> u128 {
@@ -64,6 +68,75 @@ fn test_deck_walk_subsets_uniform() {
     println!("DECK subsets chi2 x1000 {}", chi);
     assert_eq!(cells, 10);
     assert(chi < 27880, 'Deck: subsets not uniform');
+}
+
+/// Fix loop 1 of #363: the subsets of a walk that crosses the lanes. 23 free indexes (bits 0 to
+/// 22), 2 to remove: 253 subsets. The walk draws at every free index up to the second removed one
+/// (the last index, when it is the second, goes with no draw: `need == free`), so a subset whose
+/// higher index is 10 or more took a draw from the high lane of batch 0 (draw 11), and one whose
+/// higher index is 20 or more took draws from batch 1 (draw 21, and 22 for a higher index of 21
+/// or 22); about 82 % and 25 % of the runs. Each of the 253 subsets is counted: Pearson's
+/// chi-square (252 degrees of freedom) stays under 327.14, its 0.1 % critical value
+/// (Wilson-Hilferty).
+#[test]
+fn test_deck_walk_subsets_across_lanes() {
+    let free: u8 = 23;
+    let full: u128 = 0x7fffff;
+    let runs: u32 = RUNS_ACROSS_LANES;
+    let mut counts: Felt252Dict<u32> = Default::default();
+    let mut high_lane: u32 = 0;
+    let mut new_batch: u32 = 0;
+    let mut run: u32 = 0;
+    while run < runs {
+        let seed = PoseidonTrait::new().update('G1 lanes').update(run.into()).finalize();
+        let tiles = sample(0, full, free.into(), 2, seed);
+        assert_eq!(popcount(tiles), 2);
+        counts.insert(tiles.into(), counts.get(tiles.into()) + 1);
+        // [Info] The higher removed index: the draws went up to it
+        if tiles >= 0x400 {
+            high_lane += 1;
+        }
+        if tiles >= 0x100000 {
+            new_batch += 1;
+        }
+        run += 1;
+    }
+    // [Check] Pearson's chi-square over the 253 subsets, times 1000: sum((c - e)^2) / e with
+    // e = runs / 253, so sum((253 c - runs)^2) / (253 runs)
+    let mut sum: u128 = 0;
+    let mut cells: u32 = 0;
+    let mut i: u8 = 0;
+    let mut low: u128 = 1;
+    while i < free {
+        let mut high: u128 = low * 2;
+        let mut j: u8 = i + 1;
+        while j < free {
+            let count: u128 = counts.get((low + high).into()).into();
+            let scaled = count * 253;
+            let gap = if scaled > runs.into() {
+                scaled - runs.into()
+            } else {
+                runs.into() - scaled
+            };
+            sum += gap * gap;
+            cells += 1;
+            high *= 2;
+            j += 1;
+        }
+        low *= 2;
+        i += 1;
+    }
+    let chi = sum * 1000 / (253 * runs.into());
+    println!(
+        "DECK lanes runs {} high lane {} new batch {} chi2 x1000 {}",
+        runs,
+        high_lane,
+        new_batch,
+        chi,
+    );
+    assert_eq!(cells, 253);
+    assert(high_lane > 0 && new_batch > 0, 'Deck: lanes not crossed');
+    assert(chi < 327140, 'Deck: subsets not uniform');
 }
 
 /// Walks the Daily deck on `runs` seeds (`Poseidon('G1 marginals', run)`, starter out) and
