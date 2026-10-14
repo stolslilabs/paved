@@ -1327,3 +1327,39 @@ take a neighbour at x = 2 and x = `MAX - 1`.
 
 **Storage and ABI.** No storage variable is added; `scripts/abis.sh` shows no diff in `contracts/abis/`.
 
+
+## After the Economy hardening (P-58)
+
+`Economy.swap` refuses a PAVED leg that is not paid out (`'Economy: wrong delta'`), and `Economy.purchase` ignores a
+referrer that is the Vault, the router, `Economy` or the game (`docs/architecture/economy.md`, "The referral rule since
+P-58"). Same tests: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, **the Mac** (aarch64), 2026-10-14,
+`RAYON_NUM_THREADS=1`, `--max-threads 2`. Before is main 56c4e237 (an export of `contracts/` by `git archive`, with the
+repository's `.tool-versions`), after is this branch; both measured in the same session. Peak RSS 7,183,433,728 bytes
+(before) and 6,108,397,568 bytes (after), by `/usr/bin/time -l`. Committed figures should be re-measured on Linux (CI or
+the VPS) if they are ever used as a pin; the ceilings did not move.
+
+| | Scenario | Before | After | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,634,197 | 17,644,657 | +10,460 (+0.06 %) | 18,411,921 | 95.8 % |
+| n | Challenge spawn, stake 10, referred | 18,360,647 | 18,497,677 | +137,030 (+0.75 %) | 19,174,693 | 96.5 % |
+
+The other fifteen scenarios (a0, a, c, d, e, f, g, i, k, l, s, t, u, v, w) are unchanged to the unit: they do not
+call `Economy.purchase`. Every scenario stays under its ceiling, and no ceiling changes (`contracts/tests/gas.cairo` is
+untouched; n at 96.5 % is the tightest of the two and below the 5 % margin the ceilings were set at).
+
+- **n (+137,030):** a referred purchase now does three more storage reads of `Economy` (the Vault, the router, the game)
+  because its referrer is non-zero and not the payer; the comparison with `Economy`'s own address is free. The assert in
+  `swap` compares a value already in memory.
+- **m (+10,460):** no referrer, so the new reads are skipped (the `&&` stops at `is_non_zero`). Not isolated; the likely
+  cause is not the rule: `Economy`'s class hash moved, so its address moved, and the spawn's deck depends on the addresses
+  of the wiring (G4's note for `Challenge`).
+
+**Commands and peaks (the Mac, `/usr/bin/time -l`, no cap):**
+
+| Run | Result | Peak RSS |
+|---|---|---:|
+| `snforge test paved::tests::economy::hardening --max-threads 2` | 7 passed | not timed on the passing run (4,968,349,696 B on its first, failed build) |
+| `snforge test test_gas_ --max-threads 2` (after) | 17 passed | 6,108,397,568 B |
+| `snforge test test_gas_ --max-threads 2` (before, the export of main) | 17 passed | 7,183,433,728 B |
+| `snforge test --max-threads 2` (the whole suite) | **743 passed, 0 failed, 9 ignored** | 5,786,648,576 B |
+| `scripts/abis.sh` | exit 0, `git status contracts/abis` empty: **no ABI change** | not measured |

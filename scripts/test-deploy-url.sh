@@ -165,6 +165,67 @@ tc_expect "measure.sh passes with a cairo-coverage directory first" \
   "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov")" 0 "shim-snforge" "resolves to"
 tc_expect "measure.sh refuses a cairo-coverage directory that holds a scarb" \
   "$(m "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov-bad")" 2 "scarb resolves to $tc/cov-bad/scarb" "setup.cairo"
+# A shim is a script: a native binary at the shim path (the Mac holds a stray scarb there) is no shim, so the guard warns
+# and goes on; a script there (the VPS forwarders, `#!/usr/bin/env bash` then `exec ~/.asdf/shims/scarb`) is the shim.
+mkdir -p "$tc/bin" "$tc/fwd"
+cp /bin/true "$tc/bin/scarb"; cp /bin/true "$tc/bin/snforge"
+printf '#!/usr/bin/env bash\nexec "$HOME/.asdf/shims/scarb" "$@"\n' >"$tc/fwd/scarb"
+printf '#!/usr/bin/env bash\nexec "$HOME/.asdf/shims/snforge" "$@"\n' >"$tc/fwd/snforge"
+chmod +x "$tc/fwd/scarb" "$tc/fwd/snforge"
+BIN="a native binary, not a script"
+tc_expect "measure.sh warns, does not refuse, when a native binary sits at the shim path" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/bin/scarb" PAVED_SNFORGE_SHIM="$tc/bin/snforge")" 0 "warning: no shim at $tc/bin/snforge ($BIN), using snforge $tc/other/snforge" "resolves to"
+tc_expect "measure.sh names the stray scarb binary too" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/bin/scarb" PAVED_SNFORGE_SHIM="$tc/bin/snforge")" 0 "warning: no shim at $tc/bin/scarb ($BIN), using scarb $tc/other/scarb"
+tc_expect "deploy.sh warns, does not refuse, when a native binary sits at the shim path" \
+  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/bin/scarb")" 1 "warning: no shim at $tc/bin/scarb ($BIN), using scarb $tc/other/scarb" "resolves to"
+tc_expect "run-sample.sh warns, does not refuse, when a native binary sits at the shim path" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/bin/scarb")" 1 "warning: no shim at $tc/bin/scarb ($BIN), using scarb $tc/other/scarb" "resolves to"
+tc_expect "measure.sh refuses a script shim when scarb resolves elsewhere" \
+  "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/scarb" PAVED_SNFORGE_SHIM="$tc/fwd/snforge")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/fwd/scarb: $G SCARB_BIN_DIR=" "setup.cairo"
+tc_expect "deploy.sh refuses a script shim when scarb resolves elsewhere" \
+  "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/fwd/scarb: $G SCARB_BIN_DIR=" "no node answers"
+tc_expect "run-sample.sh refuses a script shim when scarb resolves elsewhere" \
+  "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/scarb")" 2 "scarb resolves to $tc/other/scarb, not the shim $tc/fwd/scarb" "== versions"
+# An executable but unreadable shim path cannot be told from a stray binary: refused (skipped as root, who reads anything)
+printf '#!/bin/sh\n' >"$tc/fwd/unreadable"; chmod 111 "$tc/fwd/unreadable"
+if [[ -r "$tc/fwd/unreadable" ]]; then
+  echo "skip: unreadable shim cases (this user reads a mode-111 file)"
+else
+  tc_expect "measure.sh refuses an executable but unreadable shim" \
+    "$(m PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable" PAVED_SNFORGE_SHIM="$tc/none/snforge")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "setup.cairo"
+  tc_expect "deploy.sh refuses an executable but unreadable shim" \
+    "$(d PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "no node answers"
+  tc_expect "run-sample.sh refuses an executable but unreadable shim" \
+    "$(r PATH="$tc/other:$PATH" PAVED_SCARB_SHIM="$tc/fwd/unreadable")" 2 "the shim $tc/fwd/unreadable is executable but unreadable" "== versions"
+fi
+# coverage-split with a stubbed snforge, in a scratch root (measure.sh works in <root>/contracts): a group whose tests are
+# all ignored (tests-walk-cost) is skipped, not failed, and the lcov of the group before it is not taken for its own
+mkdir -p "$tc/sp/scripts" "$tc/sp/contracts" "$tc/spbin"
+cp "$here/measure.sh" "$tc/sp/scripts/measure.sh"
+tc_stub other "$tc/spbin" scarb
+cat >"$tc/spbin/snforge" <<'SH'
+#!/bin/bash
+[[ "$1" == --version ]] && { echo snforge-stub; exit 0; }
+case "$*" in
+  *walk_cost*) echo "Tests: 0 passed, 0 failed, 0 skipped, 1 ignored, 0 filtered out" ;;
+  *) mkdir -p coverage; printf 'SF:/x/src/a.cairo\nDA:1,1\nend_of_record\n' >coverage/coverage.lcov
+     echo "Tests: 1 passed, 0 failed, 0 skipped, 0 ignored, 0 filtered out" ;;
+esac
+SH
+chmod +x "$tc/spbin/snforge"
+tc_expect "coverage-split skips a group with no runnable test and merges the others" \
+  "$(tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 0 "group tests-walk-cost: no runnable test (all ignored), skipped" "no coverage.lcov for group"
+tc_expect "coverage-split still fails a group that passes nothing and ignores nothing" \
+  "$(sed -i 's/1 ignored/0 ignored/' "$tc/spbin/snforge"; tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 1 "no coverage.lcov for group tests-walk-cost"
+# check-groups: no toolchain, no shim, no build; fails when a test module is in no COVERAGE_GROUPS group
+tc_expect "measure.sh check-groups: every test module is in a group (no toolchain on the PATH)" \
+  "$(tc_out env PATH=/usr/bin:/bin "$here/measure.sh" check-groups)" 0 "every test module is in a COVERAGE_GROUPS group" "is in no"
+mkdir -p "$tc/neg/scripts"
+grep -v '^  "quests|paved::quests::|"$' "$here/measure.sh" >"$tc/neg/scripts/measure.sh"
+ln -s "$here/../contracts" "$tc/neg/contracts"
+tc_expect "measure.sh check-groups fails when a group is missing (quests)" \
+  "$(tc_out env PATH=/usr/bin:/bin bash "$tc/neg/scripts/measure.sh" check-groups)" 1 "module paved::quests (src/quests.cairo) is in no COVERAGE_GROUPS group"
 rm -rf "$tc"
 
 # --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.

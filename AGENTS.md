@@ -72,13 +72,15 @@ Memory figures and the VPS/Mac rule:
   figures (7.99 GB before the debug info left the dev profile; about 5.6 GB, then 4.96 GB for `scarb build`)
   are superseded for sizing by the table.
 - Coverage runs use `snforge test -P coverage` (`scripts/measure.sh coverage*`), which keeps the
-  code-location flag and its cost. The `types` group of `coverage-split` peaked at 9,123,164 kB RSS from
-  `time -v` (KiB: 9.34 GB, 8.70 GiB; VPS, 2026-10-10). That RSS alone is above the Mac threshold, so its VmPeak
-  is unmeasured on Linux and not to be measured on the VPS. Rule: `coverage-split` runs only on the Mac (P-33,
-  `/usr/bin/time -l`, no cap) or in CI; `scripts/measure.sh` refuses it on Linux unless
-  `ALLOW_COVERAGE_SPLIT_ON_LINUX=1` is set (then its cap is 16 GiB, the maximum). `coverage` (the whole run) and
-  `all` (which includes it) have no measured peak, expected above 8 GB RSS: unmeasured, so `measure.sh` refuses
-  them on Linux under the same override; run them on the Mac or in CI. `gas` keeps its measured cap.
+  code-location flag and its cost. Measured on the Mac (`/usr/bin/time -l`, 2026-10-14, `docs/measures/coverage.md`,
+  "Peaks"): the groups of `coverage-split` peak at 8.4 to 14.6 GB RSS (largest: `e2e` 14.64 GB, `tests-draw-mask`
+  13.99 GB); the unsplit `coverage` with default threads reached 18.5 GB and was stopped, so it now passes
+  `--max-threads 2` like the groups (not yet re-measured). Rule: coverage runs (`coverage-split`, `coverage`, `all`)
+  go on the Mac (P-33, no cap) under a 16 GB stop: stop the run above it and report. Or in CI. `scripts/measure.sh`
+  refuses them on Linux unless `ALLOW_COVERAGE_SPLIT_ON_LINUX=1` is set (then its cap is 16 GiB, the maximum).
+  `measure.sh check-groups` builds nothing and fails when a test module is in no group. `gas` keeps its measured cap.
+  `PAVED_SCARB_SHIM` and `PAVED_SNFORGE_SHIM` are test hooks only (for `scripts/test-deploy-url.sh`): a thread
+  never points them at real binaries to get past the shim guard.
 - A Cairo run whose measured peak RSS is under about 8 GB may run on the VPS under the cap above, with every
   VmPeak measured first. A capped run with no progress for 15 minutes is stopped and moved (Mac or CI), never
   left waiting: it must not hold the heavy lock.

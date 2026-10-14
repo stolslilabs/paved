@@ -1,13 +1,22 @@
 //! Access control of the native contracts (phase P2): the owner set at deployment, and players who
 //! only act on their own game. Rules: `docs/architecture/native-storage.md`.
 
-use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, OwnableComponent};
+use paved::components::ownable::{
+    IOwnableDispatcher, IOwnableDispatcherTrait, IOwnableSafeDispatcher,
+    IOwnableSafeDispatcherTrait, OwnableComponent,
+};
 use paved::constants;
 use paved::mocks::account::{IMockAccountDispatcher, IMockAccountDispatcherTrait};
 use paved::models::tile::CENTER;
-use paved::systems::challenge::{IChallengeSetupDispatcher, IChallengeSetupDispatcherTrait};
+use paved::systems::challenge::{
+    IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait, IChallengeSetupDispatcher,
+    IChallengeSetupDispatcherTrait,
+};
 use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
-use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::economy::{
+    DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
+    IEconomySafeDispatcherTrait,
+};
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup, Wiring};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
@@ -28,6 +37,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
         IOwnableDispatcher { contract_address: *systems.setup.contract_address },
         IOwnableDispatcher { contract_address: *systems.economy.contract_address },
         IOwnableDispatcher { contract_address: *systems.collection.contract_address },
+        IOwnableDispatcher { contract_address: systems.economy.addresses().vault },
     ]
 }
 
@@ -501,4 +511,101 @@ fn test_access_setup_wiring_of_the_deployment() {
             },
         'Setup: deployment wiring',
     );
+}
+
+/// The constructor's `OwnershipTransferred { previous_owner: 0, new_owner }` (the indexer reads it
+/// as the first owner), for every ownable: the spy is set before the deployments.
+#[test]
+fn test_access_constructor_emits_ownership_transferred() {
+    let mut spy = spy_events();
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownables = ownables(@systems);
+    assert(ownables.len() == 5, 'Access: five ownables');
+    for ownable in ownables {
+        let event = OwnableComponent::Event::OwnershipTransferred(
+            OwnableComponent::OwnershipTransferred { previous_owner: zero(), new_owner: OWNER() },
+        );
+        spy.assert_emitted(@array![(ownable.contract_address, event)]);
+        assert(ownable.owner() == OWNER(), 'Access: constructor owner');
+    }
+}
+
+/// `accept_ownership` by the zero caller with no proposal passes the pending check (0 == 0): only
+/// `set_owner`'s zero check stops it, with `'Ownable: new owner is zero'`. Nothing changes.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_access_accept_ownership_by_zero_without_proposal_reverts() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    for ownable in ownables(@systems) {
+        let safe = IOwnableSafeDispatcher { contract_address: ownable.contract_address };
+        start_cheat_caller_address(ownable.contract_address, zero());
+        let reason = *safe.accept_ownership().unwrap_err().at(0);
+        stop_cheat_caller_address(ownable.contract_address);
+        assert(reason == 'Ownable: new owner is zero', 'Access: zero accept');
+        assert(ownable.owner() == OWNER(), 'Access: owner kept');
+        assert(ownable.pending_owner() == zero(), 'Access: no pending');
+    }
+}
+
+/// The pending owner holds no power until it accepts: its `transfer_ownership` reverts, and the
+/// proposal stands.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_access_pending_owner_cannot_transfer() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    for ownable in ownables(@systems) {
+        propose(ownable, OWNER(), ANYONE());
+        let safe = IOwnableSafeDispatcher { contract_address: ownable.contract_address };
+        start_cheat_caller_address(ownable.contract_address, ANYONE());
+        let reason = *safe.transfer_ownership(NOONE()).unwrap_err().at(0);
+        stop_cheat_caller_address(ownable.contract_address);
+        assert(reason == 'Ownable: caller is not owner', 'Access: pending transfers');
+        assert(ownable.owner() == OWNER(), 'Access: owner kept');
+        assert(ownable.pending_owner() == ANYONE(), 'Access: proposal kept');
+    }
+}
+
+/// Documented behaviour (the PM's ruling, 2026-10-14): `set_setup` is an owner power with no
+/// guard. A game bought on Economy A, then `set_setup` to a `Setup` wired to Economy B: the
+/// game's ending move reverts, since B never sold it. Without Challenge on S2's reporters the move
+/// reverts earlier, at the report (`'Quest: not reporter'`); with it, at `B.record`
+/// (`'Economy: unknown game'`). The game stays in flight, and A cannot settle it.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_set_setup_with_a_game_in_flight_blocks_its_ending() {
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let game_id = context.game_id;
+    let challenge = systems.challenge.contract_address;
+    // [Setup] S2, wired to a second economy B that recognises Challenge as its game
+    let (economy_b, _) = setup::deploy_economy();
+    start_cheat_caller_address(economy_b, OWNER());
+    IEconomyDispatcher { contract_address: economy_b }.set_game(challenge);
+    stop_cheat_caller_address(economy_b);
+    let s2 = fresh_setup();
+    start_cheat_caller_address(s2.contract_address, OWNER());
+    s2.set_economy(economy_b);
+    s2.set_collection(systems.collection.contract_address);
+    stop_cheat_caller_address(s2.contract_address);
+    // [Owner] re-points Challenge to S2 with the game in flight
+    start_cheat_caller_address(challenge, OWNER());
+    IChallengeSetupDispatcher { contract_address: challenge }.set_setup(s2.contract_address);
+    start_cheat_caller_address(challenge, PLAYER());
+    let safe = IChallengeSafeDispatcher { contract_address: challenge };
+    // [S2 has not allowlisted Challenge] the report refuses
+    let reason = *safe.surrender(game_id).unwrap_err().at(0);
+    assert(reason == 'Quest: not reporter', 'Access: not reporter');
+    // [Allowlisted] the report passes and B refuses the game it never sold
+    start_cheat_caller_address(s2.contract_address, OWNER());
+    s2.set_reporter(challenge, true);
+    stop_cheat_caller_address(s2.contract_address);
+    let reason = *safe.surrender(game_id).unwrap_err().at(0);
+    assert(reason == 'Economy: unknown game', 'Access: unknown game');
+    // [Effect] the game is still in flight, and A never recorded it
+    assert(!store.game(game_id).over, 'Access: game ended');
+    let terms = systems.economy.terms(game_id);
+    assert(!terms.recorded, 'Access: recorded');
+    start_cheat_block_timestamp_global(2 * DAY);
+    let settle = IEconomySafeDispatcher { contract_address: systems.economy.contract_address }
+        .settle(array![game_id].span());
+    assert(*settle.unwrap_err().at(0) == 'Economy: not recorded', 'Access: settled');
 }

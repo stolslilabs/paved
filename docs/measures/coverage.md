@@ -451,3 +451,6 @@ test that asserts the behaviour as documented.
 `coverage-split` under-reports by 2.8 points, and by 9.2 points on `systems/`: 90.66 % against 99.86 %.
 `coverage` would also need `--max-threads 2` to stay under 16 GB. This is a separate task, since the script
 is outside this brief's allowlist.
+
+Fixed (hp/paved-core/t-0319): `COVERAGE_GROUPS` has the eight groups that hold tests (`tests-legacy` has none), `measure.sh check-groups` fails when a test module is in no group,
+and `coverage` passes `--max-threads 2` (not re-measured).

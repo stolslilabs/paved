@@ -4,11 +4,13 @@
 //! favours the Vault.
 
 use core::hash::HashStateTrait;
-use core::num::traits::Zero;
+use core::num::traits::{Bounded, Zero};
 use core::poseidon::PoseidonTrait;
 use openzeppelin_governance::votes::VotesComponent;
 use openzeppelin_governance::votes::delegation::DELEGATION_TYPE_HASH;
-use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc20::{
+    IERC20Dispatcher, IERC20DispatcherTrait, IERC20MixinDispatcher, IERC20MixinDispatcherTrait,
+};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::nonces::{INoncesDispatcher, INoncesDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
@@ -232,10 +234,13 @@ fn test_vault_constructor_refuses_a_fee_above_the_ceiling() {
 }
 
 #[test]
-#[should_panic]
 fn test_vault_constructor_refuses_a_zero_owner() {
     let paved = deploy_token(RECIPIENT());
-    deploy("Vault", array![0, paved.into(), 0]);
+    let class = declare("Vault").unwrap().contract_class();
+    match class.deploy(@array![0, paved.into(), 0]) {
+        Result::Ok(_) => panic!("a zero owner was accepted"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Vault: zero address'),
+    }
 }
 
 #[test]
@@ -797,4 +802,154 @@ fn test_vault_delegate_by_sig_for_another_delegatee_reverts() {
     // Signed for Bob, relayed for Carol
     let signature = sign(delegation_hash(s.vault.contract_address, account, BOB(), 0, expiry));
     votes(s).delegate_by_sig(account, CAROL(), 0, expiry, signature.span());
+}
+
+// Coverage T1 (docs/measures/coverage.md): the limits, the zero-share refusal on `mint`, the fee
+// maths to the unit, and the camelCase entry points
+
+/// `ceil(a / b)`.
+fn ceil_div(a: u256, b: u256) -> u256 {
+    (a + b - 1) / b
+}
+
+/// The Vault takes any deposit and any mint: its limits are the type's, for any account.
+#[test]
+fn test_vault_max_deposit_and_max_mint_are_unbounded() {
+    let s = setup_with(500);
+    let max = Bounded::<u256>::MAX;
+    assert_eq!(s.vault.max_deposit(ALICE()), max);
+    assert_eq!(s.vault.max_mint(ALICE()), max);
+    assert_eq!(s.vault.max_deposit(BOB()), max);
+    assert_eq!(s.vault.max_mint(BOB()), max);
+    assert_eq!(s.vault.max_deposit(s.vault.contract_address), max);
+    assert_eq!(s.vault.max_mint(Zero::zero()), max);
+}
+
+/// A mint of no share reverts, as a deposit of none does.
+#[test]
+#[should_panic(expected: 'Vault: zero shares')]
+fn test_vault_mint_of_zero_shares_reverts() {
+    let s = setup();
+    mint(s, ALICE(), 0);
+}
+
+/// At 100 bps and an odd rate, `preview_withdraw(a)` is the shares of `a` plus its fee rounded up,
+/// converted up: `ceil((a + ceil(a x 100 / 10_000)) x (S + 1) / (A + 1))`, and `withdraw` burns it.
+#[test]
+fn test_vault_preview_withdraw_is_exact_with_the_fee() {
+    let s = setup_with(100);
+    deposit(s, ALICE(), 1_000 * PAVED);
+    donate(s, 3 * PAVED + 1);
+    let supply = s.vault.total_supply();
+    let assets = s.vault.total_assets();
+    assert_eq!((supply, assets), (2_000 * PAVED, 2_003 * PAVED + 1));
+    // An amount whose fee needs rounding: 100 PAVED + 7 base units
+    let amount = 100 * PAVED + 7;
+    let fee = ceil_div(amount * 100, 10_000);
+    assert_eq!(fee, PAVED + 1);
+    let expected = ceil_div((amount + fee) * (supply + 1), assets + 1);
+    assert_eq!(s.vault.preview_withdraw(amount), expected);
+    // Strictly between the shares of the amount and of the amount plus a whole percent
+    assert!(expected > s.vault.convert_to_shares(amount));
+    let shares_before = s.vault.balance_of(ALICE());
+    let paved_before = s.paved.balance_of(ALICE());
+    assert_eq!(withdraw(s, ALICE(), amount), expected);
+    assert_eq!(s.vault.balance_of(ALICE()), shares_before - expected);
+    assert_eq!(s.paved.balance_of(ALICE()), paved_before + amount);
+    // The fee stays in the Vault: it left `amount` only
+    assert_eq!(s.vault.total_assets(), assets - amount);
+}
+
+/// At the ceiling, 1,000 bps, and a rate of 1: a redeem worth 110 PAVED pays exactly 100 (the fee,
+/// 10, is `110 x 1000 / 11000`), and a withdraw of 100 burns the shares of 110 (the fee, 10, is
+/// `100 x 1000 / 10000`). Two Vaults at the same rate, one for each exit.
+#[test]
+fn test_vault_exits_at_the_fee_ceiling() {
+    let s = setup_with(MAX_EXIT_FEE_BPS);
+    let t = setup_with(MAX_EXIT_FEE_BPS);
+    deposit(s, ALICE(), 1_100 * PAVED);
+    deposit(t, ALICE(), 1_100 * PAVED);
+    assert_eq!(rate(s), PAVED);
+    assert_eq!(rate(t), PAVED);
+    // The redeem
+    assert_eq!(s.vault.preview_redeem(110 * PAVED), 100 * PAVED);
+    let paved = s.paved.balance_of(ALICE());
+    assert_eq!(redeem(s, ALICE(), 110 * PAVED), 100 * PAVED);
+    assert_eq!(s.paved.balance_of(ALICE()), paved + 100 * PAVED);
+    assert_eq!(s.vault.balance_of(ALICE()), 990 * PAVED);
+    // The fee, 10 PAVED, stays: 2,100 - 100 PAVED over 2,100 - 110 shares
+    assert_eq!(s.vault.total_assets(), 2_000 * PAVED);
+    assert_eq!(s.vault.total_supply(), 1_990 * PAVED);
+    // The withdraw
+    assert_eq!(t.vault.preview_withdraw(100 * PAVED), 110 * PAVED);
+    let paved = t.paved.balance_of(ALICE());
+    assert_eq!(withdraw(t, ALICE(), 100 * PAVED), 110 * PAVED);
+    assert_eq!(t.paved.balance_of(ALICE()), paved + 100 * PAVED);
+    assert_eq!(t.vault.balance_of(ALICE()), 990 * PAVED);
+    assert_eq!(t.vault.total_assets(), 2_000 * PAVED);
+    assert_eq!(t.vault.total_supply(), 1_990 * PAVED);
+}
+
+/// The fee rounds up, so on dust it takes everything: at 500 bps and a rate of 1, one share is
+/// worth 1 base unit, whose fee is 1 (`ceil(1 x 500 / 10500)`): the redeem pays 0 and burns the
+/// share.
+#[test]
+fn test_vault_redeem_of_dust_pays_nothing() {
+    let s = setup_with(500);
+    deposit(s, ALICE(), 1_000 * PAVED);
+    assert_eq!(rate(s), PAVED);
+    assert_eq!(s.vault.convert_to_assets(1), 1);
+    assert_eq!(s.vault.preview_redeem(1), 0);
+    let shares = s.vault.balance_of(ALICE());
+    let supply = s.vault.total_supply();
+    let assets = s.vault.total_assets();
+    let paved = s.paved.balance_of(ALICE());
+    assert_eq!(redeem(s, ALICE(), 1), 0);
+    assert_eq!(s.vault.balance_of(ALICE()), shares - 1);
+    assert_eq!(s.vault.total_supply(), supply - 1);
+    assert_eq!(s.paved.balance_of(ALICE()), paved);
+    // The base unit stays in the Vault, for those who stay
+    assert_eq!(s.vault.total_assets(), assets);
+}
+
+/// A withdraw or a redeem of 0 pays 0 and burns 0, and does not revert (today's behaviour).
+#[test]
+fn test_vault_zero_exits_change_nothing() {
+    let s = setup_with(500);
+    deposit(s, ALICE(), 1_000 * PAVED);
+    let shares = s.vault.balance_of(ALICE());
+    let paved = s.paved.balance_of(ALICE());
+    let supply = s.vault.total_supply();
+    let assets = s.vault.total_assets();
+    assert_eq!(withdraw(s, ALICE(), 0), 0);
+    assert_eq!(redeem(s, ALICE(), 0), 0);
+    assert_eq!(s.vault.balance_of(ALICE()), shares);
+    assert_eq!(s.paved.balance_of(ALICE()), paved);
+    assert_eq!(s.vault.total_supply(), supply);
+    assert_eq!(s.vault.total_assets(), assets);
+}
+
+/// The camelCase entry points of the share (`totalSupply`, `balanceOf`, `transferFrom`) answer as
+/// the snake_case ones do, and `transferFrom` moves the shares and spends the allowance.
+#[test]
+fn test_vault_camel_entry_points() {
+    let s = setup();
+    deposit(s, ALICE(), 1_000 * PAVED);
+    let camel = IERC20MixinDispatcher { contract_address: s.vault.contract_address };
+    assert_eq!(camel.totalSupply(), s.vault.total_supply());
+    assert_eq!(camel.totalSupply(), 2_000 * PAVED);
+    assert_eq!(camel.balanceOf(ALICE()), s.vault.balance_of(ALICE()));
+    assert_eq!(camel.balanceOf(ALICE()), 1_000 * PAVED);
+    assert_eq!(camel.balanceOf(s.vault.contract_address), DEAD_ASSETS);
+    start_cheat_caller_address(s.vault.contract_address, ALICE());
+    s.vault.approve(BOB(), 300 * PAVED);
+    stop_cheat_caller_address(s.vault.contract_address);
+    start_cheat_caller_address(s.vault.contract_address, BOB());
+    assert!(camel.transferFrom(ALICE(), CAROL(), 100 * PAVED));
+    stop_cheat_caller_address(s.vault.contract_address);
+    assert_eq!(s.vault.balance_of(ALICE()), 900 * PAVED);
+    assert_eq!(s.vault.balance_of(CAROL()), 100 * PAVED);
+    assert_eq!(s.vault.allowance(ALICE(), BOB()), 200 * PAVED);
+    assert_eq!(camel.balanceOf(CAROL()), 100 * PAVED);
+    assert_eq!(camel.totalSupply(), 2_000 * PAVED);
 }
