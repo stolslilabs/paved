@@ -2,11 +2,12 @@
 //! 6, P-31).
 //!
 //! - `purchase` (the game only): the price `P` is already on `Economy` (`Challenge` pulls it
-//!   from the player). 5 % goes to the referrer, if any; `BURN_BPS` (70 %) is swapped to PAVED
-//!   through the Ekubo router (transfer, `swap`, `clear_minimum`, `clear`, in one call) and burned;
-//!   the rest, with any USDC the router gave back, goes to the Vault, at once. The game's terms are
-//!   frozen:
-//!   the reference reward `R` (the PAVED bought, price-guarded, times the stake boost and the
+//!   from the player). 5 % goes to the referrer, if any; the rest, the burn quote (`burn_bps`,
+//!   70 %) and the margin, is swapped to PAVED in one swap through the Ekubo router (transfer,
+//!   `swap`, `clear_minimum`, `clear`, in one call), which must fill whole. The PAVED is split by
+//!   input: the margin's part goes to the Vault (vPAVED) by a plain transfer, with no share
+//!   minted, which raises its rate (P-56); the burn's part is burned. The game's terms are frozen:
+//!   the reference reward `R` (the burn's PAVED, price-guarded, times the stake boost and the
 //!   supply factor read after the burn) and the curve in force. `Economy` holds nothing after the
 //!   call.
 //! - `record` (the game only): the game's score; a game that ended within its day with a score of
@@ -486,6 +487,8 @@ pub mod Economy {
         pub supply: u256,
         pub factor: u32,
         pub reference: u128,
+        /// The PAVED the margin bought, sent to the Vault (P-56).
+        pub vault_paved: u256,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -623,32 +626,36 @@ pub mod Economy {
                 assert(usdc.transfer(referrer, referral), errors::TRANSFER_FAILED);
             }
 
-            // [Interaction] Swap the burn quote, burn the whole PAVED balance (what it bought, and
-            // anything sent to the router or to Economy before)
-            let bought = self.swap(usdc, quote, min_out);
+            // [Interaction] One swap of the burn quote and the margin (the whole USDC balance: any
+            // USDC sent to Economy before joins the margin), filled whole
+            let amount = usdc.balance_of(this);
+            let margin = amount - quote;
+            let bought = self.swap(usdc, amount, min_out);
+            let (bought_burn, vault_paved) = curve::vault_split(bought, quote, margin);
+
+            // [Interaction] The margin's PAVED to the Vault, without shares (its rate rises); then
+            // burn the whole PAVED balance (the burn's part, and anything sent to the router or to
+            // Economy before)
             let paved = IERC20Dispatcher { contract_address: self.paved.read() };
+            if vault_paved != 0 {
+                assert(paved.transfer(self.vault.read(), vault_paved), errors::TRANSFER_FAILED);
+            }
             let burned = paved.balance_of(this);
             IPavedTokenDispatcher { contract_address: paved.contract_address }.burn(burned);
 
-            // [Interaction] The margin, and any USDC the router gave back, to the Vault
-            let margin = usdc.balance_of(this);
-            if margin != 0 {
-                assert(usdc.transfer(self.vault.read(), margin), errors::TRANSFER_FAILED);
-            }
-
-            // [Compute] R: the guarded PAVED the swap paid out, the stake boost, the supply after
-            // the burn
+            // [Compute] R: the guarded PAVED the burn quote bought, the stake boost, the supply
+            // after the burn
             let supply = paved.total_supply();
             let factor = curve::supply_factor(supply, config.target.into());
             let guard = self.guard.read();
             let rate: u256 = guard.rate.into();
-            let counted = curve::guarded(bought, quote, rate);
+            let counted = curve::guarded(bought_burn, quote, rate);
             let reference = curve::reference(counted, stake, factor);
 
             // [Effect] The rate, at most once per block, and the terms
             let now = get_block_timestamp();
             if now != guard.updated {
-                let next = curve::next_rate(rate, bought, quote);
+                let next = curve::next_rate(rate, bought_burn, quote);
                 self
                     .guard
                     .write(
@@ -684,6 +691,7 @@ pub mod Economy {
                         supply,
                         factor,
                         reference,
+                        vault_paved,
                     },
                 );
             reference
@@ -987,28 +995,32 @@ pub mod Economy {
             }
         }
 
-        /// Ekubo's pattern in one call: the quote to the router, `swap`, the PAVED back (at least
-        /// `min_out`), the unswapped USDC back. Returns the PAVED the swap paid out, from its
-        /// delta: the router's balance may hold more, sent there by anyone.
+        /// Ekubo's pattern in one call: the USDC to the router, `swap`, the PAVED back (at least
+        /// `min_out`), the router's stray USDC back. The swap must fill whole (P-56: the Vault has
+        /// no use for USDC). Returns the PAVED the swap paid out, from its delta: the router's
+        /// balance may hold more, sent there by anyone.
         fn swap(
-            ref self: ContractState, usdc: IERC20Dispatcher, quote: u256, min_out: u256,
+            ref self: ContractState, usdc: IERC20Dispatcher, usdc_in: u256, min_out: u256,
         ) -> u256 {
             let router = self.router.read();
-            assert(usdc.transfer(router, quote), errors::TRANSFER_FAILED);
+            assert(usdc.transfer(router, usdc_in), errors::TRANSFER_FAILED);
             let node = RouteNode {
                 pool_key: self.pool_key(),
                 sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
                 skip_ahead: 0,
             };
-            let amount = i129 { mag: quote.try_into().unwrap(), sign: false };
+            let mag: u128 = usdc_in.try_into().expect(errors::AMOUNT_TOO_LARGE);
+            let amount = i129 { mag, sign: false };
             let delta = IRouterDispatcher { contract_address: router }
                 .swap(node, TokenAmount { token: usdc.contract_address, amount });
             let paved = self.paved.read();
-            let out = if paved < usdc.contract_address {
-                delta.amount0
+            let (used, out) = if paved < usdc.contract_address {
+                (delta.amount1, delta.amount0)
             } else {
-                delta.amount1
+                (delta.amount0, delta.amount1)
             };
+            // [Check] The whole input filled: an unswapped rest would stay as USDC
+            assert(!used.sign && used.mag >= mag, errors::PARTIAL_FILL);
             // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
             assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };

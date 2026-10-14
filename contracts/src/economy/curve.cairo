@@ -37,6 +37,18 @@ pub fn split(price: u256, burn_bps: u16, referred: bool) -> (u256, u256, u256) {
     (referral, quote, price - quote - referral)
 }
 
+/// The PAVED one swap of `quote + margin` bought, split by input (P-56): `(burn, vault)`, the
+/// margin's part `bought x margin / (quote + margin)` rounded down to the Vault, the rest burned.
+/// The two add up to `bought` exactly. An empty input splits nothing.
+pub fn vault_split(bought: u256, quote: u256, margin: u256) -> (u256, u256) {
+    let total = quote + margin;
+    if total == 0 {
+        return (bought, 0);
+    }
+    let vault = bought * margin / total;
+    (bought - vault, vault)
+}
+
 /// Nums' supply factor (#181's `compute_multiplier_fp`, in basis points): 2x at a supply of 0, 1x
 /// at the target, 0 at twice the target and above, linear in between. Reverts on a target of 0.
 pub fn supply_factor(supply: u256, target: u256) -> u32 {
