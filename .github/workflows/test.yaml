@@ -246,7 +246,8 @@ jobs:
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     name: Training e2e (headless)
-    timeout-minutes: 30
+    # Measured 3 min 32 s (a cold browser download, modules cache hit): about twice, 8 min.
+    timeout-minutes: 8
     permissions:
       contents: read
     env:
