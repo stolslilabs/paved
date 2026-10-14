@@ -1117,7 +1117,7 @@ Every session (Training, Tutorial, Challenge) keeps its engine state between mov
 resume (the PM, 2026-10-14).
 
 Until a scene is routed it adds nothing to the app's JavaScript, but Tailwind v4 scans every source file of the
-package, so its classes are in the app's CSS from the scene's PR on (SC1: 39,185 to 55,625 bytes, 7,898 to 10,452
+package, so its classes are in the app's CSS from the scene's PR on (SC1: 39,777 to 56,158 bytes, 8,055 to 10,622
 gzipped); Q3's bundle budget counts it.
 
 ### Phase 3: polish
