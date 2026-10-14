@@ -3,7 +3,7 @@
 //   bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> [--moves 3] [--purchases 1] [--extra-mint] [--surrender]
 // With `--confirmed` it also writes `latency.json` and `latency.md` to the output folder: the player's waits for the faucet mint
 // (`--extra-mint`), the purchases and the moves (S1, D-28; the marks are defined in docs/client/f-release.md, "Latency"; the code is latency.mjs).
-// The release run is `--moves 5 --purchases 2 --extra-mint`: buy, mint aside, play the moves, surrender, buy again.
+// The release run is `--moves 5 --purchases 2 --extra-mint`: mint, buy, play, surrender, buy again.
 // Headless shell only, no persistent context. Without `--confirmed` the driver never adds the authenticator and never types or clicks inside
 // the keychain: it presses Connect, reads the keychain's screen and lists its form controls (names and types, no values).
 // With `--confirmed` it creates ONE account and keeps it for the whole run; the credential lives only in this browser context.
@@ -344,7 +344,13 @@ try {
   const buy = async (p) => {
     await page.getByTestId("mode-card-challenge").click({ timeout: 20000 });
     await sleep(2500);
-    await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
+    const stake = page.getByRole("radio", { name: "1", exact: true });
+    // A later purchase needs the picker, which an active game hides: if it is not there, note it and let the run go on to step 7.
+    if (p > 1 && !(await stake.waitFor({ timeout: 15000 }).then(() => true, () => false))) {
+      note(`purchase ${p}: the stake picker is not offered (the previous game is still active?), no further purchase`);
+      return null;
+    }
+    await stake.click({ timeout: 15000 });
     await sleep(2500);
     if (p === 1) {
       await shot("b09-challenge-dialog");
@@ -392,12 +398,17 @@ try {
   }
   log.moves = moves;
 
+  writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText())); // the played game, before any surrender
   const surrender = async (label) => {
     stage("surrender");
     await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
     await page.getByRole("button", { name: /^confirm surrender$/i }).click({ timeout: 15000 });
     await walkKeychain(`${label}-surrender`, { maxScreens: 2 });
-    await sleep(8000);
+    // Confirmed, not slept: the Surrender button is back to its label and disabled once the game is over (Game.tsx canSurrender).
+    await page
+      .waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Surrender" && b.disabled), null, { timeout: 180000 })
+      .catch((e) => note(`surrender not confirmed: ${String(e).split("\n")[0]}`));
+    await sleep(1500);
     await shot(`${label}-surrendered`);
   };
   // ---- 6b. More purchases (`--purchases N`): the game played above is surrendered first, then back to the landing without a reload
@@ -407,16 +418,15 @@ try {
     for (let p = 2; p <= wantPurchases; p++) {
       stage("buy-challenge");
       await page.evaluate(() => history.back());
-      if (!(await page.getByTestId("mode-card-challenge").isVisible({ timeout: 20000 }).catch(() => false))) {
+      if (!(await page.getByTestId("mode-card-challenge").waitFor({ timeout: 20000 }).then(() => true, () => false))) {
         note(`purchase ${p}: the landing did not come back, no further purchase`);
         break;
       }
       await sleep(3000);
-      await buy(p);
+      if ((await buy(p)) === null) break;
       if (p < wantPurchases) await surrender(`b14-${p}`);
     }
   } else if (arg("surrender", false) === true) await surrender("b14");
-  writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText()));
 
   // ---- 7. Indexer: poll /v1/head until it has the game, bounded at 30 minutes
   stage("indexer");
