@@ -36,6 +36,9 @@ const VignetteShader = {
   `,
 };
 
+/** Samples of the multisampled scene target. */
+const MSAA_SAMPLES = 4;
+
 export interface EffectsConfig {
   bloom?: {
     threshold?: number;
@@ -105,7 +108,18 @@ export class Effects {
     const renderer = this.renderer;
     const scene = this.scene;
     const camera = this.camera;
-    this.composer = new EffectComposer(renderer);
+    // The scene is drawn into the composer's target, not the canvas: the canvas's `antialias` does not reach it, so
+    // the target is multisampled itself (the outlines' and the tiles' edges would alias and crawl while panning).
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.HalfFloatType,
+      samples: this.capabilities.supportsMultisampling === false ? 0 : MSAA_SAMPLES,
+    });
+    target.texture.name = "EffectComposer.rt1";
+    this.composer = new EffectComposer(renderer, target);
+    // A given target makes the composer take its size as CSS pixels: give it the CSS size, with the pixel ratio.
+    const css = renderer.getSize(new THREE.Vector2());
+    this.composer.setSize(css.x, css.y);
 
     // Render pass
     const renderPass = new RenderPass(scene, camera);

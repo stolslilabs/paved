@@ -19,6 +19,13 @@ import {
   getLightingProfile,
   getRenderProfileForCameraMode,
 } from "./render-profiles";
+import { outlineStroke, tilePixels, type OutlineStroke } from "./outlines";
+import {
+  cameraDistanceLimits,
+  resolveRendererSettings,
+  type RendererSettings,
+  type RendererSettingsInput,
+} from "./settings";
 
 const CLICK_THRESHOLD = 5;
 
@@ -92,6 +99,7 @@ export class GameScene {
   private hemisphereLight: THREE.HemisphereLight | null = null;
   private directionalLight: THREE.DirectionalLight | null = null;
   private directionalTargetObject: THREE.Object3D | null = null;
+  private settings: RendererSettings = resolveRendererSettings();
 
   private pointerDownPos: { x: number; y: number } | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
@@ -121,7 +129,9 @@ export class GameScene {
       pixelRatio = [0.5, 1],
       shadows = true,
       effectsCapabilities = {},
+      settings,
     } = config;
+    if (settings) this.settings = resolveRendererSettings(settings);
 
     this.disposed = false;
 
@@ -172,6 +182,7 @@ export class GameScene {
     const cameraControllerFactory = this.dependencies.createCameraController ?? createDefaultCameraController;
     this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
+    this.applyCameraLimits();
 
     // Re-render when camera moves (orbit, pan, zoom)
     this.controls.controls.addEventListener("change", () => {
@@ -392,6 +403,38 @@ export class GameScene {
     this.requestRender();
   }
 
+  /**
+   * Replace the renderer's settings (`settings.ts`): fields `input` does not name take the defaults. The outlines
+   * follow from the next frame, the camera's zoom limits at once.
+   */
+  setSettings(input: RendererSettingsInput): void {
+    this.settings = resolveRendererSettings(input);
+    this.applyCameraLimits();
+    this.requestRender();
+  }
+
+  getSettings(): RendererSettings {
+    return this.settings;
+  }
+
+  /**
+   * The zoom as the outlines see it: the camera's distance to its target, the on-screen size of a tile there in CSS px,
+   * and the outlines' stroke at that size.
+   */
+  getZoom(): { distance: number; tilePx: number; outline: OutlineStroke } {
+    const distance = this.camera && this.controls ? this.camera.position.distanceTo(this.controls.controls.target) : 0;
+    const height = this.surface?.getSize().height ?? 0;
+    const tilePx = this.camera ? tilePixels(this.camera, distance, height) : 0;
+    return { distance, tilePx, outline: outlineStroke(tilePx, this.settings.outlines) };
+  }
+
+  private applyCameraLimits(): void {
+    if (!this.controls) return;
+    const { min, max } = cameraDistanceLimits(this.settings.camera);
+    this.controls.controls.minDistance = min;
+    this.controls.controls.maxDistance = max;
+  }
+
   focusBoard(): void {
     if (!this.controls) return;
     this.controls.focusBounds(this.computeBoardBounds());
@@ -432,6 +475,7 @@ export class GameScene {
   }
 
   private renderFrame(): void {
+    this.tiles.setOutlineStroke(this.getZoom().outline);
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowsDirty = false;

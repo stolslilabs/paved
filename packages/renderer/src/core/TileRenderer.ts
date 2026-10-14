@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { getPlanKey, Plan, PlanType, Orientation, OrientationType } from "@paved/game-core";
 import type { AssetLoader } from "./AssetLoader";
 import { buildEdgesGeometry } from "./edges";
+import { applyOutlineStroke, createOutline, createOutlineMaterial, isOutline, type OutlineStroke } from "./outlines";
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 
@@ -10,9 +11,7 @@ const TILE_MIN_ROUGHNESS = 0.35;
 const TILE_MAX_ROUGHNESS = 0.95;
 const TILE_MIN_METALNESS = 0.02;
 const TILE_MAX_METALNESS = 0.45;
-const EDGE_COLOR = 0x000000;
 const STRATEGY_THICKNESS = 0.1;
-const EDGE_RENDER_ORDER = 1;
 
 // Validity overlay colors & opacities
 const VALID_IDLE_COLOR = 0x00ff00; // green
@@ -41,7 +40,7 @@ export class TileRenderer {
   private tileTypes: Map<string, THREE.Group> = new Map();
   private pendingMaterials: Map<THREE.Material, THREE.Material> = new Map();
   private pendingFallbackMaterial: THREE.Material | null = null;
-  private edgeMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
+  private edgeMaterial = createOutlineMaterial();
   private strategyGeometry: THREE.BoxGeometry | null = null;
   private strategySideMaterial: THREE.Material | null = null;
   private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
@@ -88,7 +87,7 @@ export class TileRenderer {
         // Apply pending loading style
         if (pending) {
           mesh.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
+            if (child instanceof THREE.Mesh && !isOutline(child)) {
               child.material = this.pendingMaterial(child.material);
             }
           });
@@ -144,35 +143,31 @@ export class TileRenderer {
     if (model) return model;
 
     model = this.assets.getModel(key);
+    const meshes: THREE.Mesh[] = [];
     model.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        // Preserve emissive, set roughness
-        if (child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.roughness = THREE.MathUtils.clamp(
-            child.material.roughness,
-            TILE_MIN_ROUGHNESS,
-            TILE_MAX_ROUGHNESS,
-          );
-          child.material.metalness = THREE.MathUtils.clamp(
-            child.material.metalness,
-            TILE_MIN_METALNESS,
-            TILE_MAX_METALNESS,
-          );
-          child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
-        }
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        // Add edge outlines (toon-style), built once per type
-        const edges = buildEdgesGeometry(child.geometry);
-        const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
-        wireframe.position.z += 0.001;
-        // After the tile faces: lines and faces meet at equal depth, and the line must win.
-        // (Per-tile line materials used to be drawn right after their tile's material.)
-        wireframe.renderOrder = EDGE_RENDER_ORDER;
-        child.add(wireframe);
-      }
+      if (child instanceof THREE.Mesh) meshes.push(child);
     });
+    for (const child of meshes) {
+      // Preserve emissive, set roughness
+      if (child.material instanceof THREE.MeshStandardMaterial) {
+        child.material.roughness = THREE.MathUtils.clamp(
+          child.material.roughness,
+          TILE_MIN_ROUGHNESS,
+          TILE_MAX_ROUGHNESS,
+        );
+        child.material.metalness = THREE.MathUtils.clamp(
+          child.material.metalness,
+          TILE_MIN_METALNESS,
+          TILE_MAX_METALNESS,
+        );
+        child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
+      }
+      child.castShadow = true;
+      child.receiveShadow = true;
+
+      // Outlines (toon-style), built once per type; their width follows the zoom (outlines.ts)
+      child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
+    }
     this.tileTypes.set(key, model);
     return model;
   }
@@ -398,6 +393,11 @@ export class TileRenderer {
     }
   }
 
+  /** Width and opacity of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
+  setOutlineStroke(stroke: OutlineStroke): void {
+    applyOutlineStroke(this.edgeMaterial, stroke);
+  }
+
   setStrategyMode(on: boolean): void {
     if (this.strategyMode === on) return;
     this.strategyMode = on;
@@ -433,8 +433,8 @@ export class TileRenderer {
 
     for (const model of this.tileTypes.values()) {
       model.traverse((child) => {
-        if (child instanceof THREE.Mesh) disposeMaterials(child.material);
-        else if (child instanceof THREE.LineSegments) child.geometry.dispose();
+        if (isOutline(child)) (child as THREE.Mesh).geometry.dispose();
+        else if (child instanceof THREE.Mesh) disposeMaterials(child.material);
       });
     }
     this.tileTypes.clear();
