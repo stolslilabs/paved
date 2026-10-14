@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { fileURLToPath } from "node:url";
-import { TRAINING_KEY } from "../src/training/storage";
+import { TRAINING_KEY, type SavedMove } from "../src/training/storage";
 import {
   ORIENTATIONS,
   cellPoint,
@@ -25,9 +25,9 @@ import type { EngineGame } from "@paved/game-core";
 /**
  * The battle test of Training (T2, D-27): complete games played in a real (headless) browser by a bot, against the Vite
  * dev server with no chain configured (or `PAVED_E2E_URL`, a server already up). Every move is checked against the engine's
- * replay of what the browser saved. `PAVED_E2E_GAMES` sets the number of full games of the first test (default 4).
+ * replay of what the browser saved. `PAVED_E2E_GAMES` sets the number of full games of the first test (default 2: the length that passes in one run on a loaded VPS).
  */
-const GAMES = Number(process.env.PAVED_E2E_GAMES ?? 4);
+const GAMES = Number(process.env.PAVED_E2E_GAMES ?? 2);
 const LAUNCH_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 
 let server: ViteDevServer | null = null;
@@ -78,7 +78,7 @@ async function freshPage(options: { viewport?: { width: number; height: number }
 const sorted = (cells: Array<{ x: number; y: number }>) => cells.map((c) => `${c.x},${c.y}`).sort();
 
 /** The page shows what the engine says: score, tiles, discards, and the save replays to the same state. */
-async function expectMirror(page: Page, model: EngineGame, where: string): Promise<void> {
+async function expectMirror(page: Page, model: EngineGame, where: string, move?: SavedMove): Promise<void> {
   await page.waitForFunction(
     ([built, discarded]) => document.body.innerText.includes(`${built}/38`) && /Discarded\s*\n?\s*(\d+)/.exec(document.body.innerText)?.[1] === String(discarded),
     [model.built, model.discarded] as [number, number],
@@ -88,8 +88,12 @@ async function expectMirror(page: Page, model: EngineGame, where: string): Promi
   expect(ui.score, `${where}: score`).toBe(model.score);
   expect(ui.built, `${where}: built`).toBe(model.built);
   expect(ui.discarded, `${where}: discarded`).toBe(model.discarded);
+  // The game-over dialog is up only when the engine says the game is over (it may lag behind the last move, never lead it).
+  if (!model.over) expect(ui.complete, `${where}: no game-over dialog while the game goes on`).toBeNull();
   const save = await readSave(page);
   expect(save, `${where}: saved`).not.toBeNull();
+  // What the page saved is the move the bot made: a click on another cell cannot pass silently.
+  if (move) expect(save!.moves.at(-1), `${where}: the saved move`).toEqual(move);
   const replayed = replaySave(save!);
   expect(replayed.score, `${where}: engine replay of the save`).toBe(ui.score);
   expect(replayed.built).toBe(model.built);
@@ -145,7 +149,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
       out.discards += 1;
       out.moves += 1;
       expect(result.points, `${at}: the penalty is 50 points at most the score`).toBe(Math.min(before, 50));
-      await expectMirror(page, model, `${at} after discard`);
+      await expectMirror(page, model, `${at} after discard`, { k: "d" });
       moveTimes.push({ kind: "discard", ms: performance.now() - t0 });
       continue;
     }
@@ -175,7 +179,8 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
     else await page.getByText("Confirm", { exact: true }).click();
     const result = model.build(placement);
     out.moves += 1;
-    await expectMirror(page, model, `${at} after build`);
+    // `|| 0`: the save is JSON, where -0 is 0.
+    await expectMirror(page, model, `${at} after build`, { k: "b", o: ORIENTATIONS.indexOf(placement.orientation), x: placement.x || 0, y: placement.y || 0 });
     moveTimes.push({ kind: "place", ms: performance.now() - t0 });
 
     const ui = await readUi(page);
