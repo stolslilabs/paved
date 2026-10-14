@@ -30,7 +30,6 @@ export function Background({ name = "placeholder", base = import.meta.env.BASE_U
           sizes={sizes}
           alt=""
           decoding="async"
-          fetchPriority="low"
           className="size-full object-cover"
         />
       </picture>
