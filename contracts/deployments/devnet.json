@@ -2,8 +2,8 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "0a4c741eff1d8dd34ab1a9214e1aee5a6141c2ed",
-  "deployed_block": 10,
+  "deployed_at": "6aaf6a0813052a180b6baaa31612360656e465c1",
+  "deployed_block": 9,
   "token": {
     "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
     "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16",
@@ -22,10 +22,6 @@
     "Collection": {
       "address": "0x014e154c9d39292d220fdfac06caca6f31c2cade0903fd329c575631784ac633",
       "class_hash": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
-    },
-    "Token": {
-      "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
-      "class_hash": "0x041f8b68c2be80df578aff51c57cf28ba7dc1eac2ce2d60104da3755cc3530c9"
     },
     "Economy": {
       "address": "0x03240fa22f5e4ce386a7a3d098df2e2b269d4f6a85c9c8d1338a284d8dba82f0",
