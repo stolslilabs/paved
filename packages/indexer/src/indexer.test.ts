@@ -179,6 +179,22 @@ describe("an old history (before D-25 (E))", () => {
   });
 });
 
+describe("Challenge's spawn pause (G4)", () => {
+  test("GuardianSet, SpawnPaused and SpawnUnpaused from Challenge replay without a halt, and index nothing", async () => {
+    const node = new FakeNode();
+    node.mine([ev.spawned("challenge", 1, ADA)]);
+    // The pause lands between two games: the guardian is set, spawn paused, a game already bought ends while paused, then unpaused.
+    node.mine([ev.guardianSet(BO), ev.spawnPaused(BO)]);
+    node.mine([ev.over("challenge", 1, ADA, 7)]);
+    node.mine([ev.spawnUnpaused(), ev.spawned("challenge", 2, BO)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(indexer.served?.number).toBe(node.tip);
+    expect(indexer.store.dump().events.map((e) => e.name)).toEqual(["GameSpawned", "GameOver", "GameSpawned"]);
+  });
+});
+
 /** A paid game of Ada: bought with its spawn, ended and recorded, its day closed and the game settled. */
 function paid(node = new FakeNode()) {
   node.mine([]);

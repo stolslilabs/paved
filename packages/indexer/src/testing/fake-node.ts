@@ -106,6 +106,10 @@ export const ev = {
    */
   pastCreated: (source: Source, player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
     raw(source, "PlayerCreated", [player], [name, master]),
+  /** Challenge's pause events (G4): `GuardianSet { guardian }`, `SpawnPaused { by }`, `SpawnUnpaused`. Known by name and skipped. */
+  guardianSet: (guardian: bigint | number) => raw("challenge", "GuardianSet", [], [guardian]),
+  spawnPaused: (by: bigint | number) => raw("challenge", "SpawnPaused", [], [by]),
+  spawnUnpaused: () => raw("challenge", "SpawnUnpaused", [], []),
   /** Setup's `EconomySet` and `CollectionSet` (D-25 (E)): the address is the only member, in the data. */
   economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("setup", "EconomySet", [], [economy]),
   collectionSet: (collection: bigint | number = BigInt(COLLECTION)) =>
