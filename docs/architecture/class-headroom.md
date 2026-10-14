@@ -624,3 +624,18 @@ Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-14, under `pr
 gains the guardian's three entry points and two views, their three events, two storage variables, and one check at the
 start of the spawn. The other classes are unchanged to the felt (`Economy` 26,567, `Collection` 14,485, `Setup` 14,499,
 `PavedToken` 8,055).
+
+## After G5 (the draw's table of bits)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-14, under `prlimit --as=12884901888`, peak RSS
+3,573,504 kB): before is "After G4" above (main deb2845b has the same contracts as G4's b33bdb5d), after on the G5
+branch.
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 28,082 | 62,323 | 28,076 | 62,045 | -278 | 75.7 % |
+
+**`Challenge` is 10,902 CASM felts under the P-44 cap (72,947; 14.9 % of the cap)**, against 10,624 after G4. The
+constant table of the 128 bits takes the place of the 128-bit power's code, and the popcount loses four shifts and
+adds: the class is smaller. The other classes are unchanged to the felt (`Economy` 26,567, `Collection` 14,485,
+`Setup` 14,499, `PavedToken` 8,055). No ABI changes: `scripts/abis.sh` rewrites `contracts/abis/` identically.
