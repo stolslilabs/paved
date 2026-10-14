@@ -42,6 +42,7 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--batch <n>` | Blocks applied per step, default 100 |
 | `--depth <n>\|l1` | Block headers kept below the tip, default `l1` (down to the last block accepted on L1) |
 | `--range <blocks>` | With `--depth l1`: the widest range read in one step while catching up below the last L1-accepted block, default 10000; `0` reads block by block everywhere (see "Catching up") |
+| `--concurrency <n>` | Above the L1-accepted block (and everywhere with a numeric `--depth` or `--range 0`): blocks read at once, applied in order, default 8, at least 1; `1` reads one block after the other (see "Catching up"). Also the most reads in flight; a rate limit lowers it for a while |
 | `--recheck <blocks>`, `--recheck-every <ms>` | The last blocks read again for a replaced block, default 10 every 10 s |
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
 | `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the right-most `X-Forwarded-For` entry, the one the proxy wrote (read from loopback peers only: the proxy must dial `127.0.0.1` or `::1`, not another `127.x` address) |
@@ -72,6 +73,26 @@ replays its whole chain both ways and compares the dumps. A range the node refus
 back after a read that succeeds); a page size it refuses (code 31) is halved for good. Block times must not go backwards
 (the binary search needs it): a header that contradicts it stops the step (retried). Above the L1 block, block by block takes
 over from the stored tip, whose parent link it checks as usual.
+
+Above the L1 block (I2), block by block reads `--concurrency` blocks at once (default 8): the headers and the events of the
+next 8 blocks in parallel, then each block's parent read again (after every read of the window ended, so after its child's),
+then the blocks applied one by one in ascending order, each with the same parent-link and parent checks as one block after
+the other. The first block that fails a check ends the step, the blocks after it in the window are dropped, and the next step
+rewinds as usual. Every header is still read and stored, so the `blocks` table, the recheck window and the fork point are
+unchanged, and the calls per block are the same. No block above the node's tip is asked for. `src/concurrent.test.ts` and
+the devnet scenario check that 1 and 8 leave the same tables.
+
+The node's rate limits (`src/throttle.ts`): every read goes through one throttle, at most `--concurrency` in flight. An HTTP
+429 or a JSON-RPC -32011 is waited out (the answer's `Retry-After`, at most 30 s; otherwise 0.5 s doubled at each attempt,
+at most 30 s; every read waits, so it never loops hot) and the read is sent again, up to 8 times before the step fails (and
+is retried after `--poll`). Each refusal halves the reads in flight (down to 1); they rise back by one after as many
+successes in a row. A rate limit is never a wrong answer or a skipped block: the read is only ever retried.
+
+Escape hatches: `--range 0` reads block by block everywhere, for a chain whose block times are not non-decreasing (the binary
+search needs them to be) or a node that refuses ranges altogether. `--concurrency 1` reads the tail one block after the
+other, as before I2. A page size the node refuses is known by code 31, or by the error's text ("page size" or "chunk size"
+with "too big", "too large", "exceeds" or "maximum"; read for that and never logged), or, failing both, by a refusal that
+persists at a range of one block: the page is then halved (for good, down to one event) instead of the step stalling.
 
 ## Display names (N1)
 
