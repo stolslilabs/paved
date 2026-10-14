@@ -36,7 +36,7 @@
 // do), is not seen: the tip and the window above it look unchanged. On a real network a replaced
 // block changes its hash, so its children's parent hashes change up to the tip, and the tip check
 // sees it. Nothing here covers that devnet case beyond the window.
-import { Chain, sameBlock, type Header } from "./chain.ts";
+import { BadAnswer, Chain, RpcError, sameBlock, type Header, type RangedEvent, type RawEvent } from "./chain.ts";
 import { DecodeError, decode } from "./events.ts";
 import { Halt, Store, type Applied, type Config } from "./store.ts";
 
@@ -52,6 +52,11 @@ export type Options = {
   depth: Depth;
   /** Blocks applied in one step before the tip is checked again (at least 1). */
   batch?: number;
+  /**
+   * The widest range read in one step while catching up in the final zone (`depth` l1, blocks at or below the last
+   * L1-accepted one); 0 reads block by block everywhere. Default RANGE_SPAN.
+   */
+  range?: number;
   /**
    * The ancestors checked again: the last `depth` blocks below the tip, at most once every
    * `everyMs` (default 10 blocks every 10 s: `depth` header reads each time).
@@ -69,6 +74,12 @@ export type Listener = {
   rewound?: (to: number) => void;
   status?: (status: Status, reason: string) => void;
 };
+
+/** The default widest range of a catch-up step (blocks). */
+export const RANGE_SPAN = 10_000;
+
+const DAY_SECONDS = 86400;
+const dayOf = (header: Header) => Math.floor(header.timestamp / DAY_SECONDS);
 
 /** The rewinds kept in memory for /stats: the count, and the last ones. */
 export const REWINDS_KEPT = 20;
@@ -91,6 +102,9 @@ export class Indexer {
   private readonly config: Config;
   private readonly depth: Depth;
   private readonly batch: number;
+  /** The widest range to read (0: never by range); `span` is the current one, halved on a refusal, doubled back after a read. */
+  private readonly range: number;
+  private span: number;
   private readonly recheck: { depth: number; everyMs: number };
   private lastRecheck = -Infinity;
   private readonly log: (message: string) => void;
@@ -105,6 +119,8 @@ export class Indexer {
     this.config = options.config;
     this.depth = options.depth;
     this.batch = Math.max(1, options.batch ?? 100);
+    this.range = this.depth === "l1" ? Math.max(0, options.range ?? RANGE_SPAN) : 0;
+    this.span = this.range;
     this.recheck = options.recheck ?? { depth: 10, everyMs: 10_000 };
     this.log = options.log ?? (() => {});
     this.afterServed = options.afterServed;
@@ -239,6 +255,12 @@ export class Indexer {
     }
     let next = stored ? stored.number + 1 : this.config.from;
     if (next > chainTip.number) return false;
+    if (this.range > 0) {
+      const final = await this.chain.l1Accepted();
+      if (final !== null && next <= Math.min(final, chainTip.number)) {
+        return this.catchUp(stored ?? null, next, Math.min(final, chainTip.number));
+      }
+    }
     const last = Math.min(chainTip.number, next + this.batch - 1);
     for (; next <= last; next++) {
       const block = await this.chain.header(next);
@@ -253,17 +275,7 @@ export class Indexer {
           this.store.setChecked(below.number);
       }
       try {
-        const events = raws.flatMap((raw): Applied[] => {
-          try {
-            const event = decode(raw.source, raw.keys, raw.data);
-            return event ? [{ raw, event }] : []; // null: known, not indexed
-          } catch (error) {
-            if (!(error instanceof DecodeError)) throw error;
-            throw new Halt(
-              `undecodable event of ${raw.source} in block ${block.number} (transaction ${raw.transactionIndex}, event ${raw.eventIndex}): ${error.message}`,
-            );
-          }
-        });
+        const events = this.decoded(block, raws);
         this.store.apply(block, events);
         this.blocksApplied++;
         this.eventsApplied += events.length;
@@ -283,19 +295,121 @@ export class Indexer {
   }
 
   /**
+   * One step of the catch-up by range, in the final zone: `next` to at most `final` (the last L1-accepted block, at or
+   * below the node's tip) are final, so no block there can be replaced and the per-block checks are not needed. The
+   * events of the range are read by contract over the whole range (Chain.rangeEvents), and only these blocks are read
+   * and applied, in order, each with its events, as `step` applies them:
+   * - every block that holds an event of the contracts (its header must have the event's hash);
+   * - the first block of the database (no stored tip yet): the next blocks' day closes are counted from it;
+   * - for every UTC day that ends inside the range, the first block at or past its end and the block before it, found
+   *   by a binary search on headers by time: `Store.apply` records the close (and takes the podium) at a block whose
+   *   day is past its stored predecessor's, with that predecessor's time, exactly as when every block is applied;
+   * - the range's last block (the edge), the stored tip afterwards, which links the next step to the chain.
+   * The blocks in between are never stored: block-by-block applies them with no event and no close, so they change no
+   * row but `blocks`, and `prune` forgets the headers below the final floor in both cases. Block times are taken as
+   * non-decreasing (the binary search needs it; a header that contradicts it is a BadAnswer). A node that refuses the
+   * range (any RPC error but a page size, which Chain halves) gets half of it at the next step; the span doubles back
+   * after a read that succeeds. A Halt here is permanent: the blocks are final.
+   */
+  private async catchUp(stored: Header | null, next: number, final: number): Promise<boolean> {
+    const end = Math.min(final, next + this.span - 1);
+    let raws: RangedEvent[];
+    try {
+      raws = await this.chain.rangeEvents(next, end);
+    } catch (error) {
+      if (!(error instanceof RpcError) || end === next) throw error;
+      this.span = Math.max(1, Math.floor((end - next + 1) / 2));
+      this.log(`the node refused blocks ${next} to ${end} (${error.message}); reading ${this.span} blocks at a time`);
+      return true;
+    }
+    this.span = Math.min(this.range, this.span * 2);
+    const headers = new Map<number, Header>();
+    const header = async (number: number): Promise<Header> => {
+      let found = headers.get(number);
+      if (!found) {
+        const read = await this.chain.header(number);
+        if (!read) throw new BadAnswer(`the final block ${number} is not the node's`);
+        headers.set(number, (found = read));
+      }
+      return found;
+    };
+    const wanted = new Set<number>([end]);
+    for (const raw of raws) wanted.add(raw.block);
+    const first = stored ?? (await header(next));
+    if (!stored) wanted.add(next);
+    const edge = await header(end);
+    // The day boundaries in (first, edge]: each is the first block whose day is past its predecessor's.
+    for (let low = first; dayOf(low) < dayOf(edge); ) {
+      let high = edge;
+      while (high.number - low.number > 1) {
+        const middle = await header(Math.floor((low.number + high.number) / 2));
+        if (middle.timestamp < low.timestamp || middle.timestamp > high.timestamp) {
+          throw new BadAnswer(`block ${middle.number}'s time is out of order with blocks ${low.number} and ${high.number}`);
+        }
+        if (dayOf(middle) > dayOf(low)) high = middle;
+        else low = middle;
+      }
+      wanted.add(low.number).add(high.number);
+      low = high;
+    }
+    const byBlock = new Map<number, RangedEvent[]>();
+    for (const raw of raws) {
+      const list = byBlock.get(raw.block);
+      if (list) list.push(raw);
+      else byBlock.set(raw.block, [raw]);
+    }
+    let previous = stored;
+    for (const number of [...wanted].sort((a, b) => a - b)) {
+      if (stored && number <= stored.number) continue; // the stored tip, as a boundary's predecessor
+      const block = await header(number);
+      if (previous && block.timestamp < previous.timestamp) {
+        throw new BadAnswer(`block ${number}'s time is before block ${previous.number}'s`);
+      }
+      const raws = byBlock.get(number) ?? [];
+      if (raws.some((raw) => raw.blockHash !== block.hash)) {
+        throw new BadAnswer(`an event of block ${number} names another hash than the block's`);
+      }
+      const events = this.decoded(block, raws);
+      this.store.apply(block, events);
+      this.eventsApplied += events.length;
+      previous = block;
+    }
+    this.blocksApplied += end - next + 1;
+    // Final blocks need no check: the edge is the stored tip, checked, and the headers below it are forgotten.
+    this.store.setChecked(end);
+    await this.prune(final);
+    return true;
+  }
+
+  /** The events of the contracts that are indexed, decoded; a Halt for one that cannot be. */
+  private decoded(block: Header, raws: readonly RawEvent[]): Applied[] {
+    return raws.flatMap((raw): Applied[] => {
+      try {
+        const event = decode(raw.source, raw.keys, raw.data);
+        return event ? [{ raw, event }] : []; // null: known, not indexed
+      } catch (error) {
+        if (!(error instanceof DecodeError)) throw error;
+        throw new Halt(
+          `undecodable event of ${raw.source} in block ${block.number} (transaction ${raw.transactionIndex}, event ${raw.eventIndex}): ${error.message}`,
+        );
+      }
+    });
+  }
+
+  /**
    * Forgets the history below the floor. A number of blocks counts down from the indexer's own
    * checked tip, never from the node's: during a catch-up the node is far ahead, and a floor taken
    * from its tip would forget blocks within the configured depth of what the indexer holds (fix
    * loop 2). `l1`: blocks accepted on L1 are final, so the floor is the last of them, never above
-   * the checked tip.
+   * the checked tip. `final`: the last L1-accepted block, when the step has just read it.
    */
-  private async prune() {
+  private async prune(final?: number) {
     const stored = this.store.tip();
     const lowest = this.store.lowest();
     if (!stored || !lowest) return;
     const checked = this.store.checked();
     let floor: number | null;
-    if (this.depth === "l1") floor = await this.chain.l1Accepted();
+    if (this.depth === "l1") floor = final ?? (await this.chain.l1Accepted());
     else floor = checked - this.depth;
     if (floor === null) return; // nothing final yet: everything is kept
     // Never above the checked blocks: a block is checked before its history may be forgotten.
