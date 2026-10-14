@@ -24,7 +24,7 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
   return (
     <header
       className={cn(
-        "flex items-center gap-3 rounded-xl border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur tablet:px-3",
+        "flex items-center gap-2 rounded-xl tablet:gap-3 border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur tablet:px-3",
         className,
       )}
     >
@@ -39,8 +39,8 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
       </div>
       <TilesLeft remaining={remaining} discarded={discarded} />
       <div className="flex items-center gap-2 border-l border-border pl-3">
-        <Glyph name="star" className="size-5 fill-primary text-primary" />
-        <Score value={score} delta={delta} size="md" tone="default" label="Score" />
+        <Glyph name="star" className="hidden size-5 fill-primary text-primary tablet:block" />
+        <Score value={score} delta={delta} size="hud" tone="default" label="Score" />
       </div>
     </header>
   );

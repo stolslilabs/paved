@@ -16,7 +16,7 @@ export interface PlaySceneProps {
 
 /** The mode choice (`/play`): Challenge, Training, Tutorial, and Multiplayer disabled ("coming soon", owner D-4). */
 export function PlayScene({ connected, spawnPaused, onBack, onChallenge, onTraining, onTutorial, onConnect }: PlaySceneProps) {
-  const challengeReason = spawnPaused ? "Purchases are paused for now." : !connected ? "Connect a wallet to enter." : undefined;
+  // A guest's tap on the Challenge connects first; a pause disables it.
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Choose a mode" onBack={onBack} />
@@ -27,16 +27,12 @@ export function PlayScene({ connected, spawnPaused, onBack, onChallenge, onTrain
           title="Challenge"
           description="The daily ranked game: stake 1 to 10, beat the threshold, earn $TILE."
           badge="Paid"
-          disabled={!!challengeReason}
-          reason={challengeReason}
-          onSelect={onChallenge}
+          disabled={spawnPaused}
+          reason="Purchases are paused for now."
+          onSelect={connected ? onChallenge : onConnect}
           className="tablet:col-span-2"
         >
-          {!connected && !spawnPaused && (
-            <button type="button" onClick={onConnect} className="cursor-pointer text-sm font-semibold text-primary underline-offset-4 hover:underline">
-              Connect
-            </button>
-          )}
+          {!connected && !spawnPaused && <p className="text-xs text-primary">Connect a wallet to enter: tap to connect.</p>}
         </ModeCard>
         <ModeCard icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
         <ModeCard icon="book" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />

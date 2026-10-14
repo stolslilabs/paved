@@ -55,7 +55,9 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
               />
             )}
             <Glyph name={tab.glyph} className="relative size-5" />
-            <span className="relative sr-only mobile:not-sr-only">{tab.label}</span>
+            <span className="relative">
+              <span className="sr-only mobile:not-sr-only">{tab.label}</span>
+            </span>
           </button>
         );
       })}

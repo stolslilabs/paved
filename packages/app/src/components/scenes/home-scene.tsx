@@ -56,7 +56,7 @@ export function HomeScene(props: HomeSceneProps) {
           <span className="text-xs text-muted-foreground">Day {leaderboard.tournamentId}</span>
         </header>
 
-        <div className="grid gap-4 desktop:grid-cols-[1fr_22rem] desktop:items-start">
+        <div className="grid gap-4 wide:grid-cols-[1fr_24rem] wide:items-start">
           <div className="flex flex-col gap-4">
             <PlayerStatus data={player} onConnect={props.onConnect} connecting={props.connecting} />
 

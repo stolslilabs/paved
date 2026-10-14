@@ -9,20 +9,16 @@ export interface TilesLeftProps {
   className?: string;
 }
 
-/** The tiles left, counting discards (the PM's P3 addition): "7 left", and how many of the spent ones were discarded. */
+/** The tiles left, counting discards (the PM's P3 addition): "12 left", and how many of the spent ones were discarded. */
 export function TilesLeft({ remaining, discarded, className }: TilesLeftProps) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <Glyph name="tiles" className="size-5 text-muted-foreground" />
+      <Glyph name="tiles" className="hidden size-5 text-muted-foreground tablet:block" />
       <span className="flex flex-col leading-tight">
         <span className="text-xs text-muted-foreground">Tiles left</span>
         <span className="font-mono text-base font-semibold tabular-nums" data-testid="tiles-left">{remaining}</span>
+        {discarded > 0 && <span className="text-[11px] whitespace-nowrap text-muted-foreground">{discarded} discarded</span>}
       </span>
-      {discarded > 0 && (
-        <span className="self-end rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
-          {discarded} discarded
-        </span>
-      )}
     </span>
   );
 }
