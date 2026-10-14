@@ -94,3 +94,14 @@ describe("GameModeCard", () => {
     expect((none.props.children as any[]).some((c) => c && c.type === "div")).toBe(false);
   });
 });
+
+describe("GameModeCardView test id", () => {
+  it("names each card by its mode, so a script can click the Challenge card without matching other text", async () => {
+    const { GameModeCardView } = await import("../src/components/GameModeCard");
+    const props = { title: "Challenge", description: "", tileCount: 38, duration: "24 hours", entryFee: "Free", onPress: () => {} };
+    for (const mode of ["challenge", "training", "tutorial"]) {
+      const element = (GameModeCardView as any)({ ...props, mode }) as { props: Record<string, unknown> };
+      expect(element.props["data-testid"]).toBe(`mode-card-${mode}`);
+    }
+  });
+});
