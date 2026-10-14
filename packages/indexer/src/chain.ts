@@ -11,16 +11,26 @@
 // method and error code (a provider's text, or undici's, may hold the URL and its key).
 import { createHash } from "node:crypto";
 import { canonical, SOURCES, type Source } from "./events.ts";
+import { RATE_LIMITED, RateLimited, Throttle, retryAfterMs } from "./throttle.ts";
 
 /** A JSON-RPC transport: the method's result, or an RpcError. */
 export type Rpc = (method: string, params: unknown) => Promise<unknown>;
 
-/** A JSON-RPC error answer: the method and the code, never the provider's text. */
+/**
+ * A JSON-RPC error answer: the method and the code, never the provider's text. `pageSizeTooBig`: the node refused a
+ * `getEvents` page as too big, by its code (31) or by its text (a node that answers another code); the text is read for
+ * that and dropped.
+ */
 export class RpcError extends Error {
   readonly code: number;
+  readonly pageSizeTooBig: boolean;
   constructor(method: string, error: { code: number; message?: string }) {
     super(`${method}: JSON-RPC error ${error.code}`);
     this.code = error.code;
+    const text = typeof error.message === "string" ? error.message : "";
+    this.pageSizeTooBig =
+      error.code === PAGE_SIZE_TOO_BIG ||
+      (/\b(page|chunk)[ _]size\b/i.test(text) && /too (big|large)|exceed|maximum|at most/i.test(text));
   }
 }
 
@@ -47,7 +57,7 @@ export function redact(url: string): string {
   return `rpc ${createHash("sha256").update(url).digest("hex").slice(0, 8)}`;
 }
 
-/** JSON-RPC over HTTP POST. */
+/** JSON-RPC over HTTP POST. A rate limit (HTTP 429, or JSON-RPC -32011 whatever the status) is a RateLimited, with its Retry-After. */
 export function httpRpc(url: string): Rpc {
   let id = 0;
   return async (method, params) => {
@@ -65,13 +75,18 @@ export function httpRpc(url: string): Rpc {
       // The cause is dropped on purpose: undici's error and its cause may hold the URL and its key.
       throw new Error(`${method}: transport error ${code}`);
     }
-    if (!response.ok) throw new Error(`${method}: HTTP ${response.status}`);
-    let body: { result?: unknown; error?: { code: number } };
+    const retryAfter = () => retryAfterMs(response.headers.get("retry-after"));
+    if (response.status === 429) throw new RateLimited(method, "HTTP 429", retryAfter());
+    let body: { result?: unknown; error?: { code: number } } | undefined;
     try {
       body = (await response.json()) as typeof body;
     } catch {
+      if (!response.ok) throw new Error(`${method}: HTTP ${response.status}`);
       throw new Error(`${method}: an answer that is not JSON`);
     }
+    if (body?.error?.code === RATE_LIMITED) throw new RateLimited(method, `JSON-RPC ${RATE_LIMITED}`, retryAfter());
+    if (!response.ok) throw new Error(`${method}: HTTP ${response.status}`);
+    if (!body) throw new Error(`${method}: an answer that is not JSON`);
     if (body.error) throw new RpcError(method, body.error);
     return body.result;
   };
@@ -156,16 +171,29 @@ export const RANGE_CHUNK_SIZE = 1024;
 /** `starknet_getEvents`: "Requested page size is too big". */
 export const PAGE_SIZE_TOO_BIG = 31;
 
+/**
+ * JSON-RPC errors that name another cause than a page size: no block (24), an internal error (-32603), a limit of the
+ * range or the node (-32005). The indexer never cuts the page size for them.
+ */
+export const NOT_A_PAGE_SIZE: readonly number[] = [BLOCK_NOT_FOUND, -32603, -32005];
+
 /** An event of a range read: a RawEvent with its block, by number and hash. */
 export type RangedEvent = RawEvent & { block: number; blockHash: string };
 
+/** The reads in flight at most, by default (`--concurrency`). */
+export const DEFAULT_CONCURRENCY = 8;
+
 export class Chain {
+  /** The calls sent, by method: a retry after a rate limit counts again. */
   readonly calls: Record<string, number> = {};
+  /** Every read goes through it: the reads in flight, and the rate limits (throttle.ts). */
+  readonly throttle: Throttle;
   private readonly rpc: Rpc;
   private readonly addresses: Resolved;
 
-  constructor(rpc: Rpc, addresses: Addresses) {
+  constructor(rpc: Rpc, addresses: Addresses, throttle?: Throttle) {
     this.rpc = rpc;
+    this.throttle = throttle ?? new Throttle({ max: DEFAULT_CONCURRENCY });
     this.addresses = {
       challenge: canonical(addresses.challenge),
       setup: canonical(addresses.setup),
@@ -175,8 +203,10 @@ export class Chain {
   }
 
   private call(method: string, params: unknown): Promise<unknown> {
-    this.calls[method] = (this.calls[method] ?? 0) + 1;
-    return this.rpc(method, params);
+    return this.throttle.run(() => {
+      this.calls[method] = (this.calls[method] ?? 0) + 1;
+      return this.rpc(method, params);
+    });
   }
 
   /** The chain id the node reports, as a canonical felt. */
@@ -326,15 +356,21 @@ export class Chain {
     );
   }
 
-  /** The page size of `rangeEvents`: halved, for good, each time the node refuses it as too big. */
+  /**
+   * The page size of `rangeEvents`. A refusal known as a page size (code 31 or its text) halves it and its ceiling, for
+   * good; the indexer may cut it below the ceiling (a refusal of one block it cannot name) and doubles it back after each
+   * ranged read that succeeds, up to the ceiling.
+   */
   rangeChunkSize = RANGE_CHUNK_SIZE;
+  /** The largest page size not refused as too big. */
+  rangeChunkCeiling = RANGE_CHUNK_SIZE;
 
   /**
    * The events of the four contracts in blocks `from` to `to` (by number), one filter per contract followed through its
    * continuation tokens (a node may answer an empty page with a token: it bounds its own scan), merged in chain order:
    * block, then transaction index, then event index, the order `events` gives within a block. For final blocks only: a
-   * number names one block there. A page size the node refuses (code 31) is halved and the read starts again; any other
-   * refusal is thrown (the caller halves the range). An event outside the range, of another contract, without its block
+   * number names one block there. A page size the node refuses (code 31, or a text that says so: RpcError.pageSizeTooBig)
+   * is halved and the read starts again; any other refusal is thrown (the caller halves the range, then the page). An event outside the range, of another contract, without its block
    * hash or without its position, is a BadAnswer.
    */
   async rangeEvents(from: number, to: number): Promise<RangedEvent[]> {
@@ -342,8 +378,9 @@ export class Chain {
       try {
         return await this.readRange(from, to);
       } catch (error) {
-        if (!(error instanceof RpcError) || error.code !== PAGE_SIZE_TOO_BIG || this.rangeChunkSize <= 1) throw error;
+        if (!(error instanceof RpcError) || !error.pageSizeTooBig || this.rangeChunkSize <= 1) throw error;
         this.rangeChunkSize = Math.max(1, Math.floor(this.rangeChunkSize / 2));
+        this.rangeChunkCeiling = Math.min(this.rangeChunkCeiling, this.rangeChunkSize);
       }
     }
   }

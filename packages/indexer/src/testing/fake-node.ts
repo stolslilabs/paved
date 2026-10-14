@@ -267,6 +267,8 @@ export class FakeNode {
   interval = 1;
   /** The largest page `starknet_getEvents` serves (code 31 above it). */
   maxChunk = 1024;
+  /** The refusal of a page above `maxChunk`: a test gives another code, or text, than the public node's. */
+  pageRefusal: { code: number; message?: string } = { code: 31, message: "Requested page size is too big" };
   /** The widest block range `starknet_getEvents` serves, null for any (a "too many" refusal above it). */
   maxSpan: number | null = null;
   private salt = 0;
@@ -383,7 +385,7 @@ export class FakeNode {
           continuation_token?: string;
         };
         if (filter.chunk_size > this.maxChunk)
-          throw new RpcError(method, { code: 31, message: "Requested page size is too big" });
+          throw new RpcError(method, this.pageRefusal);
         // By hash, as devnet: the highest block with that hash (a replacement shares it). By number: the blocks in range.
         const find = (id: { block_hash: string } | { block_number: number }) => {
           const block =
