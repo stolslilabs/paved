@@ -27,7 +27,7 @@ function sceneWithPendingModels() {
     dispose: vi.fn(),
   };
   const renderer = {
-    setPixelRatio: vi.fn(), setSize: vi.fn(), dispose: vi.fn(), shadowMap: { enabled: false, type: 0 },
+    forceContextLoss: vi.fn(), setPixelRatio: vi.fn(), setSize: vi.fn(), dispose: vi.fn(), shadowMap: { enabled: false, type: 0 },
     domElement: { width: 320, height: 200 }, outputColorSpace: "", toneMapping: 0, toneMappingExposure: 1,
   };
   const scene = new GameScene({
