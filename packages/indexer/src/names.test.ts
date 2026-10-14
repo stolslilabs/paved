@@ -53,6 +53,14 @@ describe("parseLookup", () => {
     const found = parseLookup({ results: [{ address: "0x2", username: "bob" }, { address: id(1), name: "alice" }] }, asked);
     expect([...found]).toEqual([[id(2), "bob"], [id(1), "alice"]]);
   });
+  test("the observed hit: {username, addresses: [unpadded]}, a miss omitted, in a batch of two", () => {
+    const mine = padded("0x25145e3df97549d347388c6b7c5b3c604972399e67fe14a16b320a62c2eb43f");
+    const miss = padded("0x1557182e4359a1f0c6301278e8f5b35a776ab58d39892581e357578fb287836");
+    const body = { results: [{ username: "bal", addresses: ["0x25145e3df97549d347388c6b7c5b3c604972399e67fe14a16b320a62c2eb43f"] }] };
+    expect([...parseLookup(body, [mine, miss])]).toEqual([[mine, "bal"]]);
+    // One username may list several addresses; only those asked are taken.
+    expect([...parseLookup({ results: [{ username: "x", addresses: ["0x1", "0x9"] }] }, asked)]).toEqual([[id(1), "x"]]);
+  });
   test("an address that was not asked is ignored", () => {
     expect(parseLookup({ results: [{ address: id(9), name: "mallory" }] }, asked).size).toBe(0);
   });

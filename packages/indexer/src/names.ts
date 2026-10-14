@@ -63,14 +63,22 @@ export function parseLookup(body: unknown, requested: readonly string[]): Map<st
   if (results.length === 0) return found;
   const asked = new Set(requested);
   const objects = results.map((item) => (item !== null && typeof item === "object" ? (item as Record<string, unknown>) : null));
-  const addressed = objects.some((item) => item && (item.address !== undefined || item.addr !== undefined));
+  // The observed shape (2026-10-14): {"username": "bal", "addresses": ["0x2514..."]}, addresses unpadded, misses omitted.
+  const addressesOf = (item: Record<string, unknown>): unknown[] =>
+    Array.isArray(item.addresses) ? item.addresses : [item.address ?? item.addr];
+  const addressed = objects.some(
+    (item) => item && (item.addresses !== undefined || item.address !== undefined || item.addr !== undefined),
+  );
   if (addressed) {
     for (const item of objects) {
       if (!item) continue;
-      const address = addressOf(item.address ?? item.addr);
       const name = nameOf(item.name ?? item.username);
-      // An address that was not asked is ignored, never trusted.
-      if (address && name && asked.has(address)) found.set(address, name);
+      if (!name) continue;
+      for (const raw of addressesOf(item)) {
+        const address = addressOf(raw);
+        // An address that was not asked is ignored, never trusted.
+        if (address && asked.has(address)) found.set(address, name);
+      }
     }
     return found;
   }
