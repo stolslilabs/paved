@@ -557,14 +557,14 @@ nothing is fetched at run time.
 
 | Primitive or pattern | Library | Component | Version or commit | Licence | Why | In the repository |
 |---|---|---|---|---|---|---|
-| Button (press feedback) | motion.dev | the tap gesture, `whileTap` (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a press button beyond a `whileTap`: Magic UI's and cult-ui's buttons are decorative effects (shimmer, ripple, glow, CSS keyframes); animate-ui's Button is not taken in F3b (see below). F3's button already is Motion's gesture. | `ui/button.tsx` |
+| Button (press feedback) | motion.dev | the tap gesture, `whileTap` (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a press button beyond a `whileTap`: Magic UI's and cult-ui's buttons are decorative effects (shimmer, ripple, glow, CSS keyframes); animate-ui's Button was not a candidate of F3c. F3's button already is Motion's gesture. | `ui/button.tsx` |
 | Tabs (animated indicator) | motion-primitives | AnimatedBackground | `ibelick/motion-primitives` 120f64f | MIT | A shared `layoutId` highlight in the active trigger replaces F3's measured indicator (no `ResizeObserver`, no font wait); it stays on Radix Tabs (keyboard, roles). cult-ui's Direction Aware Tabs has its own buttons (no tab roles, no arrow keys). Its `AnimatePresence` fade (for its hover mode) is not taken: a tab list always has an active tab. | `ui/tabs.tsx` (same API) |
 | Dialog (enter and exit) | motion-primitives | Dialog: its variants (opacity, scale 0.9 to 1) and transition (ease out, 0.2 s) | 120f64f | MIT | Motion replaces F3's CSS keyframes, the same vocabulary as the Sheet. Its native `<dialog>` is not taken: Radix keeps the focus trap, the focus return and the labelling. | `ui/dialog.tsx` (same API) |
 | Sheet (enter and exit) | motion.dev | `AnimatePresence` on a force-mounted Radix dialog (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a Radix sheet on Motion (motion-primitives and Magic UI have none; cult-ui's Family Drawer needs `vaul`, a second drawer runtime). The Dialog now has the same structure. | `ui/sheet.tsx` |
 | Toast | Sonner | Toaster (shadcn/ui's wrapper, kept from F3) | `sonner` 2.0.8 | MIT | Already in the repository; CSS transitions, no JS animation runtime. coss ui's toast is on Base UI (a second primitive library beside Radix); cult-ui's Halo Toast is a visual, not a queue. Reduced motion now follows `MotionConfig` (`toaster-reduced-motion`) as well as the media query. | `ui/sonner.tsx` |
 | Animated counter (score, PAVED amounts) | Magic UI | Number Ticker | `magicuidesign/magicui` 85f97fd | MIT | Motion hooks only (`useSpring`, `useInView`), no `m` component, writes the text without a React render per frame. motion-primitives' Animated Number uses `motion.create` (breaks `LazyMotion strict`); its Sliding Number needs `react-use-measure`. | `elements/number-ticker.tsx` |
 | List enter and exit (leaderboard rows, closings list) | Magic UI | Animated List (its `AnimatedListItem`) | 85f97fd | MIT | `AnimatePresence` + `layout`: rows grow in, shrink out, and the others slide. motion-primitives' Animated Group has no exit. The original's one-row-per-second reveal (a notification demo) is dropped. | `ui/animated-list.tsx` |
-| Carousel (Play's mode cards, the themes) | embla-carousel.com, through shadcn/ui | Carousel | `embla-carousel-react` 8.6.0; `shadcn-ui/ui` 0023018 | MIT | The owner's choice; shadcn/ui's wrapper gives the region and slide roles and the arrow keys. animate-ui's Motion Carousel is not taken in F3b (see below). | `ui/carousel.tsx` |
+| Carousel (Play's mode cards, the themes) | embla-carousel.com, through shadcn/ui | Carousel | `embla-carousel-react` 8.6.0; `shadcn-ui/ui` 0023018 | MIT | The owner's choice; shadcn/ui's wrapper gives the region and slide roles and the arrow keys. animate-ui's Motion Carousel is not taken (F3c, below). | `ui/carousel.tsx` |
 
 **Not taken, and why:**
 
@@ -578,19 +578,40 @@ nothing is fetched at run time.
   3. the repository's licence notes say these files are under their own licence;
   4. it is used only where clearly better, and a plain-MIT equivalent of equal quality is preferred.
 
-  F3b copies nothing from it; F3c may swap in its Tabs, Dialog, Sheet or Carousel where clearly better.
+  F3b copies nothing from it. F3c compared its Tabs, Dialog, Sheet and Carousel with F3b's and takes none (below), so
+  conditions 1 to 3 have no file to apply to: nothing of animate-ui is in the repository, `THIRD_PARTY_NOTICES.txt`
+  does not list it, and no licence note is added. They apply as written to the first file a later task copies in
+  (`readme.md` has no licence section, so its note would be a `LICENSE-NOTES.md` beside `LICENSE`).
 - **coss ui** (`cosscom/ui` 107dc0a; `apps/ui` MIT, the rest of the repository AGPL-3.0): built on Base UI. Taking its
   components would put a second primitive library beside Radix (F3).
 - **cult-ui** (`nolly-studio/cult-ui` 7f031dc, MIT): read; its components are marketing effects or need other
   libraries (`react-use-measure`, `vaul`); none beats the choices above for these primitives.
+
+**F3c: animate-ui against F3b (2026-10-14).** `imskyleen/animate-ui` read at
+`efeb96ffd7a3b7a4868667e4ac3c346620fb3044` (F3b's commit, still the head of `main` that day), its Radix
+`components/radix/{tabs,dialog,sheet}` with their `primitives/radix/*` and `primitives/effects/highlight`, and
+`components/community/motion-carousel`. Licence: MIT + Commons Clause. The rule is condition 4: take one only where it
+is clearly better, with a reason that can be shown. Size is `bun build --minify` of the component file (React, Radix,
+Motion, Embla and `cn`'s packages external), then `gzip -9`, on the Mac; F3b's file measured the same way.
+
+| Candidate | Motion | Accessibility | Reduced motion | Size (min, gzip) | API fit | Outcome |
+|---|---|---|---|---|---|---|
+| Tabs (`Highlight` + `TabsContents`) | The same shared `layoutId` highlight as F3b's (spring 200/25 against 500/36), plus a fade and blur on a panel and an auto-height container | Radix Tabs underneath, but `HighlightItem` wraps each trigger in a `div` that carries `aria-selected` with no role, and copies it onto the highlight `div` too (`highlight/index.tsx` 484-490, 585, 614); ARIA 1.2 does not allow `aria-selected` on a generic element | The panel's blur is a `filter`, which Motion's reduced motion does not drop (below) | 11,982 B, 4,019 B, against 897 B for F3b's | `TabsContents` must wrap the panels: a new part for every caller. The panel's enter plays only on first mount: Radix's `TabsContent` keeps its element mounted and toggles `hidden` (`@radix-ui/react-tabs` 1.2.1, `dist/index.mjs` 168-185), so its `AnimatePresence` never sees a change of tab | **Keep F3b's.** Same highlight, 4.5 times the size, an ARIA defect, and a panel animation that does not run on a tab change |
+| Dialog | A 3D flip: `perspective(500px) rotateX(-20deg) scale(0.8)` and `blur(4px)` to flat, spring 150/25 | Radix Dialog, as F3b's | **Worse**: the flip is one `transform` string, and Motion 14.0.0 reduces only its positional keys (`x`, `y`, `scale`, `rotateX`… and `width`, `top`…; `motion-dom` `visual-element-target.mjs` 83-84, `keys-position.mjs`), so under reduced motion the flip and the blur still play; F3b's `scale` is dropped and only the fade stays | 4,795 B, 1,667 B, against 1,254 B | Same parts; a `from` prop added | **Keep F3b's.** Its reduced motion is correct and the flip's would not be |
+| Sheet | The same structure as F3b's (`AnimatePresence` on a force-mounted Radix portal, slide on `x` or `y`), plus an opacity fade on the panel and a `blur` on the overlay; spring 150/22 against 420/40 (slower; both near critical, 0.90 and 0.98 of it) | Radix Dialog, as F3b's | The slide is dropped as in F3b's; the overlay's blur still plays (a `filter`) | 4,528 B, 1,581 B, against 1,247 B | Same parts | **Keep F3b's.** Equal in structure and behaviour: condition 4 prefers the MIT one |
+| Carousel (Motion Carousel) | Embla with the active slide scaled 0.9 to 1 and dots that grow into a labelled pill | No `region` or slide roles, no arrow keys, dots without `aria-current` | `scrollTo`, `scrollPrev` and `scrollNext` always animate (no `jump`); F3b's jump under reduced motion | 5,599 B, 2,150 B (its own Button included), against 2,078 B | A demo: it takes `slides: number[]` and renders the numbers; none of `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext` or `setApi` | **Keep F3b's.** It would need rewriting into F3b's API, and loses the roles, keys and reduced motion |
+
+The entry chunk and `motion-features` do not move with any of the four: no page imports these components yet (Phase
+2), and none needs a Motion feature beyond `domMax`. The look was judged from each source's parameters (springs,
+transforms, filters) and the behaviours above, not from a Storybook capture: none was copied in, so none has a story.
 
 **One animation runtime: Motion.** Every component above animates with Motion, except two that are not a second
 Motion: Sonner animates its toasts with CSS transitions (no JS runtime), and Embla, the owner's carousel engine,
 animates the track's scroll with its own drag and snap physics, which Motion does not provide. Both follow reduced
 motion: Sonner through `theme.css`, Embla's buttons and arrow keys jump instead of scrolling. The settle after a drag
 is driven by the user's own gesture and keeps its motion: in Embla 8.6 the `duration` option sets only the API
-scrolls (which already jump), and the release settle uses a fixed internal speed (25, or 43 with `dragFree`) that no
-option reaches.
+scrolls (which already jump), and the release settle uses a base speed (25, or 43 with `dragFree`) that the release
+force lowers by up to 10 (Embla 8.6.0 `DragHandler.ts`), which no option reaches.
 
 **The feature set is now `domMax`** (section 3.2 said `domAnimation`): the tab highlight's shared `layoutId` and the
 list's `layout` need Motion's layout features. It still loads after the first paint (`components/motion-features.ts`, its
@@ -602,13 +623,17 @@ Each component has a story with reduced motion off and on (`parameters.reducedMo
 
 **Measured (VPS, 2026-10-14, `bun run build` in `packages/app`, Vite's gzip figures):**
 
-| Chunk | Before (main, ab19bca) | After (F3b) |
+| Chunk | Before (main, ab19bca) | After (F3b, measured before F1b's merge) |
 |---|---|---|
 | Entry `index-*.js` | 378.47 kB, 120.11 kB gzip | 378.79 kB, 120.24 kB gzip |
 | `motion-features-*.js` (after paint) | 37.93 kB, 14.58 kB gzip (`domAnimation`) | 85.93 kB, 28.50 kB gzip (`domMax`) |
 | CSS | 39.18 kB, 7.96 kB gzip | 39.76 kB, 8.08 kB gzip |
 
-The entry stays within the 200 kB gzip budget, and so do entry and features together (148.74 kB gzip). No page imports
+**On main after F1b and F3b (Mac, 2026-10-14, `bun run build` in `packages/app` at 56c4e237, bun 1.4.2), F3c's before
+and after:** entry 379.86 kB, **120.68 kB gzip**; `motion-features` 85.93 kB, 28.50 kB gzip; CSS 41.37 kB, 8.36 kB
+gzip. F3c takes nothing, so its after is the same build.
+
+The entry stays within the 200 kB gzip budget, and so do entry and features together (149.18 kB gzip on main). No page imports
 the new components yet (Phase 2), so they are not in these chunks: Embla will add 20,105 B minified, 8,148 B gzip
 (`bun build --minify` of `embla-carousel-react` 8.6.0 without React, `gzip -9`) to the route that uses the carousel.
 Storybook (`build-storybook`): 9,381,569 B in 82 assets before, 9,435,474 B in 87 after.
