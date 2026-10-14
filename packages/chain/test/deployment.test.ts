@@ -158,8 +158,10 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
   });
 });
 
-describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
-  const real = asChallenge(committedFile("sepolia"));
+// The committed sepolia.json keeps the `Daily` key until the fresh deployment F (PM's ruling, P-53): main's client never goes
+// to Sepolia before F, so it is read as it is and resolves as not configured, with only the Challenge address missing.
+describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keyed Daily until F", () => {
+  const real = committedFile("sepolia");
   const RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
   const contracts = real.contracts as Record<string, { address: string }>;
 
@@ -167,15 +169,17 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
     expect(real.rpc_url).toBe("$STARKNET_RPC_URL");
   });
 
-  test("with VITE_RPC_URL: every address comes from the file, and the deployment is connected", () => {
+  test("with VITE_RPC_URL: every other address comes from the file, and it is not configured: Challenge is missing", () => {
+    expect(contracts.Challenge).toBeUndefined();
+    expect(contracts.Daily).toBeDefined();
     const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
-    expect(d.configured).toBe(true);
-    expect(d.missing).toEqual([]);
+    expect(d.configured).toBe(false);
+    expect(d.missing).toEqual(["Challenge address"]);
     expect(d.rpcUrl).toBe(RPC);
     expect(d.chainId).toBe("0x534e5f5345504f4c4941");
     expect(d.deployedBlock).toBe(real.deployed_block);
     expect(d.tokenDecimals).toBe(6);
-    expect(d.addresses.Challenge).toBe(contracts.Challenge.address);
+    expect(d.addresses.Challenge).toBe("");
     // Sepolia's file is from before step D: its Tutorial is not read, and Setup is empty until the fresh deployment (P-53).
     expect(d.addresses.Setup).toBe(contracts.Setup?.address ?? "");
     // The file has no contracts.Token (the old mock was never deployed there): Token is the entry token, the top-level `token`.
@@ -190,11 +194,11 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
     expect(d.mockUsdc).toBe(contracts.MockUSDC.address);
   });
 
-  test("the economy is configured from the same file, on the MockUSDC", () => {
+  test("the economy's addresses come from the same file, on the MockUSDC; it is not configured while the base is not", () => {
     const base = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
     const economy = resolveEconomyDeployment({ base, file: real });
-    expect(economy.configured).toBe(true);
-    expect(economy.missing).toEqual([]);
+    expect(economy.configured).toBe(false);
+    expect(economy.missing).toEqual(["Challenge address"]);
     expect(economy.addresses).toEqual({
       Economy: contracts.Economy.address,
       PavedToken: contracts.PavedToken.address,
@@ -208,7 +212,7 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
       const d = resolveDeployment({ network: "sepolia", file: real, env });
       expect(d.rpcUrl).toBe("");
       expect(d.configured).toBe(false);
-      expect(d.missing).toEqual(["RPC URL"]);
+      expect(d.missing).toEqual(["Challenge address", "RPC URL"]);
     }
   });
 

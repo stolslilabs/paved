@@ -14,9 +14,8 @@ export function namesDaily(file: DeploymentFile): boolean {
 }
 
 /**
- * The committed file under D-23b's key: `deploy.sh` writes `contracts.Challenge` since D-23b, but the committed devnet.json
- * and sepolia.json are rewritten only by the next deployment (the fresh Sepolia one, P-53). Until then the tests read the
- * old file under the new key; the client itself reads `contracts.Challenge` only (`namesDaily` files are not configured).
+ * The committed devnet.json under D-23b's key, until CORE regenerates it with `contracts.Challenge` (D-23b). Then the
+ * tests read it as it is and this goes. sepolia.json is never rewritten: it keeps `Daily` until F and is read as it is.
  */
 export function asChallenge(file: DeploymentFile): DeploymentFile {
   if (!namesDaily(file)) return file;
