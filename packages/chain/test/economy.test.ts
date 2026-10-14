@@ -496,8 +496,8 @@ describe("Vault (vPAVED, P-56): deposit, withdraw, withdraw all; no claim", () =
     const s = setup({ receiptEvents: [] });
     s.economy.setShares(PLAYER, 2n * P);
     const { maxWithdraw } = await s.economy.vault(PLAYER);
-    // 1 % exit fee at a rate of 1: 2 PAVED of value pays 2 / 1.01, the fee rounded up.
-    expect(maxWithdraw).toBe(2n * P - (2n * P * 100n + 10_099n) / 10_100n);
+    // The 5 % exit fee (the deployment's default) at a rate of 1: 2 PAVED of value pays 2 / 1.05, the fee rounded up.
+    expect(maxWithdraw).toBe(2n * P - (2n * P * 500n + 10_499n) / 10_500n);
     await s.econWriter.withdraw(maxWithdraw, { confirmedAmount: maxWithdraw });
     await s.econWriter.withdrawAll({ confirmedShares: 2n * P });
     const hex = (v: bigint) => `0x${v.toString(16)}`;

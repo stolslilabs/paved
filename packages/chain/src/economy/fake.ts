@@ -49,7 +49,8 @@ export class FakeEconomy implements EconomyViews {
   /** The Vault (P-56): its PAVED, its vPAVED (1,000 dead shares at deployment, as `deploy.sh`) and the exit fee. */
   vaultAssets = 1_000n * 10n ** 18n;
   vaultSupply = 1_000n * 10n ** 18n;
-  exitFeeBps = 100;
+  /** The deployment's default (`DEFAULT_EXIT_FEE_BPS`, 5 %, P-56). */
+  exitFeeBps = 500;
   readonly usdc = new Map<string, bigint>();
   readonly paved = new Map<string, bigint>();
   fail: string | null = null;

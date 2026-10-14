@@ -18,7 +18,6 @@ import {
   minOutFor,
   priceOf,
   quoteBelowFloor,
-  referralOf,
   routerProblem,
   refusedReferrer,
   sameAddress,
@@ -209,8 +208,8 @@ export function EconomyPurchase({
             {minPaved !== null && minPaved > 0n && (
               <span>{`At least ${paved(minPaved)} bought: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`}</span>
             )}
-            {usedReferrer && (
-              <span>{`Referrer ${shortAddress(usedReferrer)} gets ${usdc(referralOf(price))} out of the stakers' margin: you pay the same ${usdc(price)}.`}</span>
+            {usedReferrer && quote.data && (
+              <span>{`Referrer ${shortAddress(usedReferrer)} gets ${usdc(quote.data.referral)} out of the stakers' margin: you pay the same ${usdc(price)}.`}</span>
             )}
             <span style={warning}>{CLIFF_TEXT} The reward, if any, is computed by the contract after the day.</span>
             {lowQuote && implied !== null && (

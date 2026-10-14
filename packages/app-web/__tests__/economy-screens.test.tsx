@@ -494,7 +494,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
 });
 
 describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no claim", () => {
-  /** A holder of 1 vPAVED at a rate of 1.5 PAVED per vPAVED (purchases' margins raised it), with a 1 % exit fee. */
+  /** A holder of 1 vPAVED at a rate of 1.5 PAVED per vPAVED (purchases' margins raised it), with the deployment's 5 % exit fee. */
   function holder() {
     const economy = new FakeEconomy();
     economy.vaultAssets = 1_500n * P;
@@ -512,7 +512,7 @@ describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no c
     expect(screen.getByText(`Withdrawable now: ${paved(maxWithdraw)}, after the exit fee`)).toBeTruthy();
     // (1,501.5 PAVED + 1) / (1,001 vPAVED + 1) is just under 1.5: cut, not rounded.
     expect(screen.getByText("Rate: 1.4999 PAVED per vPAVED")).toBeTruthy();
-    expect(screen.getByText("1 % exit fee, left to the other stakers")).toBeTruthy();
+    expect(screen.getByText("5 % exit fee, left to the other stakers")).toBeTruthy();
     expect(screen.getByText("Wallet: 5 PAVED")).toBeTruthy();
     expect(maxWithdraw < value).toBe(true);
     expect(screen.queryByText(/Dividends|Claim|USDC pending/)).toBeNull();
@@ -546,7 +546,7 @@ describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no c
     fireEvent.change(await screen.findByLabelText("Vault amount"), { target: { value: "1" } });
     fireEvent.click(await enabled("Withdraw"));
     const dialog = await screen.findByRole("dialog", { name: "Confirm" });
-    expect(dialog.textContent).toContain(`Withdraw 1 PAVED? It uses about ${vpaved(await economy.previewWithdraw(P))}, the 1 % exit fee, left to the other stakers included.`);
+    expect(dialog.textContent).toContain(`Withdraw 1 PAVED? It uses about ${vpaved(await economy.previewWithdraw(P))}, the 5 % exit fee, left to the other stakers included.`);
     fireEvent.click(screen.getByText("Confirm withdraw"));
     await waitFor(() => expect(writer.sent).toHaveLength(1));
     expect(writer.sent[0].map((c) => [c.entrypoint, c.calldata])).toEqual([["withdraw", ["0xde0b6b3a7640000", "0x0", PLAYER, PLAYER]]]);
@@ -570,7 +570,7 @@ describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no c
     const { writer } = land({ economy });
     const { maxWithdraw } = await economy.vault(PLAYER);
     fireEvent.click(await enabled("Withdraw all"));
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain(`Withdraw everything: 1 vPAVED for about ${paved(maxWithdraw)}, after the 1 % exit fee, left to the other stakers?`);
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain(`Withdraw everything: 1 vPAVED for about ${paved(maxWithdraw)}, after the 5 % exit fee, left to the other stakers?`);
     fireEvent.click(screen.getByText("Confirm withdraw"));
     await waitFor(() => expect(writer.sent).toHaveLength(1));
     expect(writer.sent[0].map((c) => [c.entrypoint, c.calldata])).toEqual([["redeem", ["0xde0b6b3a7640000", "0x0", PLAYER, PLAYER]]]);
