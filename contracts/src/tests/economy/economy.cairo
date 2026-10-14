@@ -38,8 +38,8 @@ use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use paved::systems::vault::DEAD_ASSETS;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, EventSpyTrait,
-    EventsFilterTrait, declare, mock_call, spy_events, store,
-    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
+    EventsFilterTrait, declare, mock_call, spy_events, start_cheat_block_timestamp_global,
+    start_cheat_caller_address, stop_cheat_caller_address, store,
 };
 use starknet::ContractAddress;
 use super::token::{ADMIN, RECIPIENT, deploy_token};
@@ -524,7 +524,9 @@ fn mock_swap(s: Setup, usdc_leg: i129, paved_leg: i129) {
 #[should_panic(expected: 'Economy: partial fill')]
 fn test_purchase_refuses_a_partial_fill() {
     let s = setup();
-    mock_swap(s, i129 { mag: 1_999_999, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: true });
+    mock_swap(
+        s, i129 { mag: 1_999_999, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: true },
+    );
     buy(s, 1, PLAYER(), 1, Zero::zero());
 }
 
@@ -930,10 +932,13 @@ fn test_burn_quote_does_not_depend_on_the_referrer() {
     for (_, event) in spy.get_events().emitted_by(s.economy.contract_address).events {
         if *event.keys.at(0) == selector!("Purchased") {
             // `burned_quote`: after day, stake, price (2), referrer, referral (2)
-            quotes.append(u256 {
-                low: (*event.data.at(7)).try_into().unwrap(),
-                high: (*event.data.at(8)).try_into().unwrap(),
-            });
+            quotes
+                .append(
+                    u256 {
+                        low: (*event.data.at(7)).try_into().unwrap(),
+                        high: (*event.data.at(8)).try_into().unwrap(),
+                    },
+                );
         }
     }
     assert_eq!(quotes.len(), 2);

@@ -18,9 +18,8 @@ use paved::systems::vault::Vault::{Event as VaultEvent, ExitFeeSet};
 use paved::systems::vault::{
     DEAD_ASSETS, DEFAULT_EXIT_FEE_BPS, IVaultDispatcher, IVaultDispatcherTrait, MAX_EXIT_FEE_BPS,
 };
-use snforge_std::signature::KeyPairTrait;
-use snforge_std::signature::SignerTrait;
 use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
+use snforge_std::signature::{KeyPairTrait, SignerTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
@@ -561,7 +560,9 @@ fn test_vault_random_walk_keeps_the_assets_and_rounds_for_the_vault() {
         }
     }
     assert_eq!(s.vault.total_supply(), DEAD_ASSETS);
-    let held = s.paved.balance_of(ALICE()) + s.paved.balance_of(BOB()) + s.paved.balance_of(CAROL());
+    let held = s.paved.balance_of(ALICE())
+        + s.paved.balance_of(BOB())
+        + s.paved.balance_of(CAROL());
     assert!(held <= 300_000 * PAVED + margins, "the holders took more than they gave");
     assert!(s.vault.total_assets() >= DEAD_ASSETS, "the dead shares are backed");
     // Every PAVED is accounted for: the holders', the Vault's, the margins'
@@ -646,7 +647,10 @@ fn delegation_hash(
     expiry: u64,
 ) -> felt252 {
     let domain = StarknetDomain {
-        name: 'vPAVED', version: '1', chain_id: starknet::get_tx_info().unbox().chain_id, revision: 1,
+        name: 'vPAVED',
+        version: '1',
+        chain_id: starknet::get_tx_info().unbox().chain_id,
+        revision: 1,
     };
     let delegation = PoseidonTrait::new()
         .update(DELEGATION_TYPE_HASH)

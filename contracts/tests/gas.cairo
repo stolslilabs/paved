@@ -27,11 +27,15 @@ use core::hash::HashStateTrait;
 use core::num::traits::Zero;
 use core::poseidon::PoseidonTrait;
 use core::testing::get_available_gas;
+use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
+use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use paved::constants::{self, CENTER};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
 use paved::systems::challenge::Challenge;
 use paved::systems::challenge::Challenge::InternalTrait;
+use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -39,10 +43,6 @@ use snforge_std::{
     CheatSpan, cheat_caller_address, interact_with_state, start_cheat_block_timestamp_global,
     start_cheat_caller_address, stop_cheat_caller_address, test_address,
 };
-use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
-use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
-use paved::systems::economy::IEconomyDispatcherTrait;
 use starknet::ContractAddress;
 use crate::setup::setup;
 use crate::setup::setup::{

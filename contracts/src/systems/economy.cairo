@@ -116,10 +116,7 @@ pub fn validate(config: Config) {
     assert(config.referral_bps <= MAX_REFERRAL_BPS, 'Economy: referral out of bounds');
     // The referral comes out of the Vault's part (with the bounds above it always fits: the
     // Vault's part is at least 1,000 bps; kept as the rule itself, should a bound move)
-    assert(
-        config.referral_bps <= 10_000 - config.burn_bps,
-        'Economy: referral above vault',
-    );
+    assert(config.referral_bps <= 10_000 - config.burn_bps, 'Economy: referral above vault');
 }
 
 /// What a purchase of `stake` would pay and get now (the price of the current EMA and rate).
