@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "6aaf6a0813052a180b6baaa31612360656e465c1",
+  "deployed_at": "unmerged-bd91d1e471220d51fcc3536b3677da6d6a5469e9",
   "deployed_block": 9,
   "token": {
     "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
@@ -12,8 +12,8 @@
   },
   "contracts": {
     "Challenge": {
-      "address": "0x047caa6cfd2cd46e212569733621943ad51ee62c024302f60d22b6fec084c8da",
-      "class_hash": "0x02a67fe4db49cc171783bf0234d49db103488ceb244746a6495116c598c01076"
+      "address": "0x07e0789fc1f8d5cb5a59b8ea56e510543f744b4c020059131bd9722a8900e2ca",
+      "class_hash": "0x06c54fc5a4f82533c60e2677a3fbd50bc43af8f689d1a76ca7c119893ff768c6"
     },
     "Setup": {
       "address": "0x02e95dbdf1004c7b65ddab92dd662c81fe9e9b2d1026ce270c8f94fe9421764d",
@@ -24,16 +24,16 @@
       "class_hash": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
     },
     "Economy": {
-      "address": "0x03240fa22f5e4ce386a7a3d098df2e2b269d4f6a85c9c8d1338a284d8dba82f0",
-      "class_hash": "0x03a43be4d5689cf2175d4cb91a85f1dcf9a4d4a2cfe19ddece5e23a5406c20b5"
+      "address": "0x0670687e4dc26d50dce11e74397a45de3aa0286c944623df1f76139917aa215c",
+      "class_hash": "0x06cd8457f62a2feec5fc6ec3bea6bdf8dcc5adc522e4c62ad4c2a7e91e5969d5"
     },
     "PavedToken": {
       "address": "0x014549e0f72c7bc2926fbef56846202832e396e75801867aade8f8e591f643df",
       "class_hash": "0x05f4ea19c194ca861556964572dbf022dada95ae964ae79dcee10123e58b5a1a"
     },
     "Vault": {
-      "address": "0x02b20a311a45581775c4e7e830e7402661b01606f98c62cb74b7cee63e36cd09",
-      "class_hash": "0x07f391b69bc1af0d468fe153117fa5bcf03a915ae4e99ab22ea7a4bc98a1541d"
+      "address": "0x07deba07cdb88349a47e23661f177c31b969502eb2679391db537170bbf4aac2",
+      "class_hash": "0x030ca88b2d7d0fd2d4d7c34b7b3ecbd7fa5e4f81c63fc0c2e3fb604de699a15b"
     },
     "Faucet": {
       "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",

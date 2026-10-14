@@ -32,7 +32,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
-#[available_gas(l2_gas: 54403760)]
+#[available_gas(l2_gas: 62292279)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -53,7 +53,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 61088511)]
+#[available_gas(l2_gas: 68982281)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -71,7 +71,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 63296735)]
+#[available_gas(l2_gas: 71195754)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -88,7 +88,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57069458)]
+#[available_gas(l2_gas: 64957977)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
@@ -159,7 +159,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 56647358)]
+#[available_gas(l2_gas: 64535877)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };

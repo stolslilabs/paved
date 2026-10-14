@@ -68,7 +68,7 @@ export function EconomyPage() {
           <EconomySettle client={client} writer={writer} address={address} write={write} busy={writing} now={economy.now} />
         </>
       )}
-      <EconomyReferral address={address} origin={window.location.origin} />
+      <EconomyReferral address={address} origin={window.location.origin} client={client} />
     </div>
   );
 }

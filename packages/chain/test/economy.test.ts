@@ -16,7 +16,10 @@ import {
   refusedReferrer,
   RpcEconomyViews,
   STAKES,
+  VaultAllowanceError,
   VaultAmountChangedError,
+  VaultOverMaxWithdrawError,
+  VaultZeroSharesError,
   boostBps,
   createEconomyClient,
   DEFAULT_SLIPPAGE_BPS,
@@ -112,7 +115,15 @@ describe("ABIs: all committed (Economy E2, paid spawn E3; USDC is the ERC20 of T
 
   test("PavedToken and Vault are CORE's real ABIs (E1)", () => {
     const codecs = createEconomyCodecs();
-    for (const f of ["stake", "unstake", "claim", "pending", "staked", "total_staked"]) expect(codecs.Vault.hasFunction(f)).toBe(true);
+    // vPAVED (P-56): the ERC4626 entry points and views the client calls, the exit fee; no claim.
+    for (const f of ["deposit", "withdraw", "redeem", "balance_of", "convert_to_assets", "max_withdraw", "preview_deposit", "preview_withdraw", "preview_redeem", "total_assets", "total_supply", "exit_fee"]) {
+      expect(codecs.Vault.hasFunction(f), f).toBe(true);
+    }
+    for (const f of ["stake", "unstake", "claim", "pending", "acc", "accounted"]) expect(codecs.Vault.hasFunction(f), f).toBe(false);
+    expect(codecs.Vault.encodeCall("deposit", [2n, PLAYER])).toEqual(["0x2", "0x0", PLAYER]);
+    expect(codecs.Vault.encodeCall("withdraw", [2n, PLAYER, PLAYER])).toEqual(["0x2", "0x0", PLAYER, PLAYER]);
+    expect(codecs.Vault.encodeCall("redeem", [2n, PLAYER, PLAYER])).toEqual(["0x2", "0x0", PLAYER, PLAYER]);
+    expect(codecs.Vault.decodeResult("exit_fee", ["0x64"])).toBe(100);
     for (const f of ["approve", "balance_of", "total_supply"]) expect(codecs.PavedToken.hasFunction(f)).toBe(true);
   });
 });
@@ -224,7 +235,7 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
 });
 
 describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out), in one multicall", () => {
-  test("approves exactly the price to Challenge; min_out is the pool quote less 1 %, never the hint", async () => {
+  test("approves exactly the price to Challenge; min_out is the pool quote of the one swap (burn quote + margin) less 1 %, never the hint", async () => {
     const { economy, econWriter, sent } = setup();
     const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, confirmedMinOut: 1n, referrer: null });
     expect(result.gameId).toBe(9);
@@ -232,21 +243,28 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Challenge, "spawn"]]);
     expect(calls[0].calldata).toEqual([ADDR.Challenge, "0x5b8d80", "0x0"]); // 6_000_000 as u256
     const quote = await economy.quote(3);
-    const poolOut = (quote.burnQuote * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
+    // P-56: without a referrer, the whole price is swapped once (the burn quote and the margin).
+    expect(quote.burnQuote + quote.margin).toBe(quote.price);
+    const poolOut = (quote.price * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
     const minOut = (poolOut * 9_900n) / 10_000n;
     expect(typeof minOut).toBe("bigint");
     expect(minOut).toBe(await economy.expectedMinOut(3));
-    // The hint leaves the fee out: it sits above what the swap returns, and is never sent.
-    expect(quote.minOutHint > poolOut).toBe(true);
+    // The hint (the burn quote alone, at the guard's rate) is never sent.
+    expect(minOut).not.toBe(quote.minOutHint);
     expect(calls[1].calldata).toEqual(["0x3", "0x0", `0x${minOut.toString(16)}`, "0x0"]);
   });
 
-  test("the referral changes no amount the player pays", async () => {
-    const without = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: null });
+  test("the referral changes no amount the player pays; it leaves the swap, so min_out is the quote of the price less it", async () => {
+    const s = setup();
+    const without = await s.econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: null });
     const withRef = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: REFERRER });
     expect(withRef.price).toBe(without.price);
     expect(withRef.calls[0]).toEqual(without.calls[0]); // the same approve
-    expect(withRef.minOut).toBe(without.minOut);
+    expect(without.swapIn).toBe(20_000_000n);
+    expect(withRef.swapIn).toBe(20_000_000n - referralOf(20_000_000n));
+    expect(withRef.swapIn).toBe(withRef.quote.burnQuote + withRef.quote.margin - withRef.quote.referral);
+    expect(withRef.minOut).toBe(await s.economy.expectedMinOut(10, new FakePoolQuoter(), true));
+    expect(withRef.minOut < without.minOut).toBe(true);
     expect(withRef.calls[1].calldata[1]).toBe(REFERRER);
     expect(without.calls[1].calldata[1]).toBe("0x0");
   });
@@ -388,7 +406,7 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     const first = econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null });
     await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
     await expect(writer.discard({ mode: "challenge", gameId: 1 })).rejects.toThrow(/Another write is pending/);
-    await expect(econWriter.claimDividends({ confirmedAmount: 1n })).rejects.toThrow(/Another write is pending/);
+    await expect(econWriter.withdrawAll({ confirmedShares: 1n })).rejects.toThrow(/Another write is pending/);
     release();
     await first;
     expect(execute).toHaveBeenCalledTimes(1);
@@ -409,6 +427,26 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     expect(sent()[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x1", "0x7"] }]);
     expect(result.events[0].name).toBe("Settled");
     expect(result.events[0].fields.reward).toBe(10n ** 18n);
+  });
+
+  test("a recorded expired game is settled, not refused: the contract settles it for 0 (P-34), and noReward says so", async () => {
+    const zero = { ...settled, data: [`0x${DAY.toString(16)}`, "0x0", "0xd19", "0x0"] }; // score 0, reward 0
+    const { economy, econWriter, sent } = setup({ receiptEvents: [zero] });
+    economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, score: 0, expired: true }));
+    economy.terms_.set(8, fakeTerms({ stake: 1, day: DAY, score: 4000 }));
+    const result = await econWriter.settle([7, 8]);
+    expect(sent()[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x2", "0x7", "0x8"] }]);
+    expect(result.noReward).toEqual([7]);
+    expect(result.events[0].fields.reward).toBe(0n);
+    // Alone, the same: one call, its reward said to be 0 before the receipt.
+    const one = setup({ receiptEvents: [zero] });
+    one.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true }));
+    expect((await one.econWriter.settle([7])).noReward).toEqual([7]);
+    expect(one.sent()).toHaveLength(1);
+    // A game that is not expired is not listed.
+    const live = setup({ receiptEvents: [] });
+    live.economy.terms_.set(8, fakeTerms({ stake: 1, day: DAY }));
+    expect((await live.econWriter.settle([8])).noReward).toEqual([]);
   });
 
   test("several ids: [n, id...], duplicates sent once", async () => {
@@ -441,12 +479,14 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
+  test("refused, sending nothing, as Economy.settle refuses: day running, not recorded (not over, or expired unplayed), not bought; and already settled (skipped on chain); a failed read", async () => {
     const cases: Array<[string, (s: ReturnType<typeof setup>) => void, RegExp, number?]> = [
       ["day D before D+1 ends", () => {}, /settles after/, settlesAfter(DAY) - 1],
       ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over yet/, DAY * 86_400 + 3_600],
-      ["expired and recorded", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true })), /expired: no reward/],
+      ["expired and recorded, its day not closable yet ('Economy: day cannot close yet')", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true })), /settles after/, settlesAfter(DAY) - 1],
+      // Never recorded: the contract refuses it ('Economy: not recorded'), expired or not.
       ["never recorded, past its 24 h", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /expired: no reward/, expiresAt(DAY * 86_400)],
+      ["never recorded, past its day", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /expired: no reward/],
       ["settled", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, settled: true })), /already settled/],
       ["not bought", (s) => s.economy.terms_.delete(7), /not bought/],
       ["read fails", (s) => (s.economy.fail = "down"), /Cannot read the game/],
@@ -461,41 +501,116 @@ describe("settle: the player's claim of PAVED, after the day", () => {
   });
 });
 
-describe("Vault: stake, unstake, dividends", () => {
+describe("Vault (vPAVED, P-56): deposit, withdraw, withdraw all; no claim", () => {
   const P = 10n ** 18n;
 
-  test("stake approves exactly the amount, then stakes", async () => {
+  test("deposit approves exactly the amount, then deposit(amount, self)", async () => {
     const { economy, econWriter, sent } = setup({ receiptEvents: [] });
     economy.setBalance("paved", PLAYER, 5n * P);
-    await econWriter.stake(2n * P, { confirmedAmount: 2n * P });
+    await econWriter.deposit(2n * P, { confirmedAmount: 2n * P });
     expect(sent()[0].map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([
       [ECON.pavedToken, "approve", [ECON.vault, "0x1bc16d674ec80000", "0x0"]],
-      [ECON.vault, "stake", ["0x1bc16d674ec80000", "0x0"]],
+      [ECON.vault, "deposit", ["0x1bc16d674ec80000", "0x0", PLAYER]],
     ]);
   });
 
-  test("a changed amount, too little, more than staked, or a failed read sends nothing", async () => {
+  test("withdraw(amount, self, self) up to max_withdraw; withdraw all redeems every vPAVED held", async () => {
     const s = setup({ receiptEvents: [] });
-    s.economy.setBalance("paved", PLAYER, P);
-    s.economy.setVault(PLAYER, { staked: P, pending: 3n });
-    await expect(s.econWriter.stake(2n * P, { confirmedAmount: P })).rejects.toBeInstanceOf(VaultAmountChangedError);
-    await expect(s.econWriter.stake(2n * P, { confirmedAmount: 2n * P })).rejects.toThrow(/Not enough PAVED/);
-    await expect(s.econWriter.stake(0n, { confirmedAmount: 0n })).rejects.toThrow(/above 0/);
-    await expect(s.econWriter.unstake(2n * P, { confirmedAmount: 2n * P })).rejects.toThrow(/More than is staked/);
-    await expect(s.econWriter.claimDividends({ confirmedAmount: 2n })).rejects.toBeInstanceOf(VaultAmountChangedError);
-    s.economy.fail = "down";
-    await expect(s.econWriter.unstake(P, { confirmedAmount: P })).rejects.toThrow(/Cannot read the Vault position/);
+    s.economy.setShares(PLAYER, 2n * P);
+    const { maxWithdraw } = await s.economy.vault(PLAYER);
+    // The 5 % exit fee (the deployment's default) at a rate of 1: 2 PAVED of value pays 2 / 1.05, the fee rounded up.
+    expect(maxWithdraw).toBe(2n * P - (2n * P * 500n + 10_499n) / 10_500n);
+    await s.econWriter.withdraw(maxWithdraw, { confirmedAmount: maxWithdraw });
+    await s.econWriter.withdrawAll({ confirmedShares: 2n * P });
+    const hex = (v: bigint) => `0x${v.toString(16)}`;
+    expect(s.sent().map((calls) => calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata]))).toEqual([
+      [[ECON.vault, "withdraw", [hex(maxWithdraw), "0x0", PLAYER, PLAYER]]],
+      [[ECON.vault, "redeem", [hex(2n * P), "0x0", PLAYER, PLAYER]]],
+    ]);
+  });
+
+  test("above max_withdraw is refused with a plain message, nothing sent", async () => {
+    const s = setup({ receiptEvents: [] });
+    s.economy.setShares(PLAYER, P);
+    const { maxWithdraw } = await s.economy.vault(PLAYER);
+    const error = await s.econWriter.withdraw(maxWithdraw + 1n, { confirmedAmount: maxWithdraw + 1n }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultOverMaxWithdrawError);
+    expect((error as VaultOverMaxWithdrawError).max).toBe(maxWithdraw);
+    expect((error as Error).message).toBe(`More than you can withdraw: at most ${formatUnits(maxWithdraw, 18, 4)} PAVED now, the exit fee taken. Nothing was sent.`);
+    // The value before the fee is above max_withdraw: the fee is counted.
+    expect((await s.economy.vault(PLAYER)).value > maxWithdraw).toBe(true);
     expect(s.execute).not.toHaveBeenCalled();
   });
 
-  test("unstake and claim the confirmed dividends", async () => {
+  test("a deposit that would mint no vPAVED is refused before sending", async () => {
     const s = setup({ receiptEvents: [] });
-    s.economy.setVault(PLAYER, { staked: P, pending: 3n });
-    await s.econWriter.unstake(P, { confirmedAmount: P });
-    await s.econWriter.claimDividends({ confirmedAmount: 3n });
-    expect(s.sent().map((calls) => calls.map((c) => c.entrypoint))).toEqual([["unstake"], ["claim"]]);
-    s.economy.setVault(PLAYER, { staked: P, pending: 0n });
-    await expect(s.econWriter.claimDividends({ confirmedAmount: 0n })).rejects.toThrow(/No dividends/);
+    s.economy.setBalance("paved", PLAYER, P);
+    // A rate of about 2 PAVED per vPAVED (the margin raised it): 1 base unit mints 0 shares.
+    s.economy.vaultAssets *= 2n;
+    expect(await s.economy.previewDeposit(1n)).toBe(0n);
+    const error = await s.econWriter.deposit(1n, { confirmedAmount: 1n }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultZeroSharesError);
+    expect((error as Error).message).toMatch(/too small to get any vPAVED/);
+    expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("a changed amount, too little, nothing to withdraw, or a failed read sends nothing", async () => {
+    const s = setup({ receiptEvents: [] });
+    s.economy.setBalance("paved", PLAYER, P);
+    await expect(s.econWriter.deposit(2n * P, { confirmedAmount: P })).rejects.toBeInstanceOf(VaultAmountChangedError);
+    await expect(s.econWriter.deposit(2n * P, { confirmedAmount: 2n * P })).rejects.toThrow(/Not enough PAVED/);
+    await expect(s.econWriter.deposit(0n, { confirmedAmount: 0n })).rejects.toThrow(/above 0/);
+    await expect(s.econWriter.withdrawAll({ confirmedShares: 0n })).rejects.toThrow(/No vPAVED to withdraw/);
+    s.economy.setShares(PLAYER, P);
+    await expect(s.econWriter.withdrawAll({ confirmedShares: 2n * P })).rejects.toBeInstanceOf(VaultAmountChangedError);
+    s.economy.fail = "down";
+    await expect(s.econWriter.withdraw(1n, { confirmedAmount: 1n })).rejects.toThrow(/Cannot read the Vault position/);
+    await expect(s.econWriter.deposit(1n, { confirmedAmount: 1n })).rejects.toThrow(/Cannot read the/);
+    expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("the Vault's reverts read plainly: zero shares, over max withdraw or redeem, a missing allowance", async () => {
+    const cases: Array<[string, new (...args: never[]) => Error, RegExp]> = [
+      ["Vault: zero shares", VaultZeroSharesError, /too small to get any vPAVED/],
+      ["ERC4626: exceeds max withdraw", VaultOverMaxWithdrawError, /More than you can withdraw now/],
+      ["ERC4626: exceeds max redeem", VaultOverMaxWithdrawError, /More than you can withdraw now/],
+      ["ERC20: insufficient allowance", VaultAllowanceError, /not allowed to take your PAVED/],
+    ];
+    for (const [reason, type, text] of cases) {
+      const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: `Failure reason: '${reason}'` }) });
+      s.economy.setBalance("paved", PLAYER, P);
+      s.economy.setShares(PLAYER, P);
+      const error = await (reason.startsWith("ERC4626") ? s.econWriter.withdraw(1n, { confirmedAmount: 1n }) : s.econWriter.deposit(P, { confirmedAmount: P })).catch((e: unknown) => e);
+      expect(error, reason).toBeInstanceOf(type);
+      expect((error as Error).message, reason).toMatch(text);
+      expect((error as WriteError).transactionHash, reason).toBe("0x1");
+    }
+  });
+});
+
+describe("Economy.split_bps() (P-56): the owner-set split, read from the chain", () => {
+  const viewsOf = (felts: string[]) =>
+    new RpcEconomyViews({ callContract: async (c: { entrypoint: string }) => (c.entrypoint === "split_bps" ? felts : []) }, economyDeployment, createEconomyCodecs());
+
+  test("is in the committed ABI as a (u16, u16, u16) and decodes as burn, vault, referral", async () => {
+    const fn = (economyAbi as Abi).flatMap((e) => (e.type === "interface" ? ((e as unknown as { items: Array<{ name: string; outputs: Array<{ type: string }> }> }).items) : [])).find((f) => f.name === "split_bps");
+    expect(fn?.outputs).toEqual([{ type: "(core::integer::u16, core::integer::u16, core::integer::u16)" }]);
+    expect(await viewsOf(["0x1cc8", "0xa48", "0x1f4"]).split()).toEqual({ burn: 7_368, vault: 2_632, referral: 500 });
+  });
+
+  test("a reply that is not a split of the price is a ViewError, never a misread figure", async () => {
+    for (const felts of [["0x1cc8", "0xa48"], ["0x1cc8", "0xa48", "0x1f4", "0x0"], ["0x1cc8", "0xa49", "0x1f4"], ["0x10000", "0x0", "0x0"], ["0x1cc8", "0xa48", "0xa49"]]) {
+      await expect(viewsOf(felts).split(), felts.join(",")).rejects.toBeInstanceOf(ViewError);
+    }
+  });
+
+  test("the fake's quote follows its split: burn and referral of the price", async () => {
+    const economy = new FakeEconomy();
+    economy.split_ = { burn: 7_368, vault: 2_632, referral: 700 };
+    const quote = await economy.quote(1);
+    expect(quote.burnQuote).toBe((2_000_000n * 7_368n) / 10_000n);
+    expect(quote.referral).toBe((2_000_000n * 700n) / 10_000n);
+    expect(await economy.split()).toEqual(economy.split_);
   });
 });
 
@@ -503,9 +618,15 @@ describe("RpcEconomyViews decode the stub layouts", () => {
   test("quote and vault, bigints for amounts", async () => {
     const felts: Record<string, string[]> = {
       quote: ["0x1e8480", "0x0", "0x155cc0", "0x0", "0x186a0", "0x0", "0x927c0", "0x0", "0x5", "0x0", "0x2710", "0x332858", "0xd19", "0x46d2", "0x5"],
-      staked: ["0x2", "0x0"],
-      pending: ["0x3", "0x0"],
-      total_staked: ["0x4", "0x0"],
+      balance_of: ["0x2", "0x0"],
+      convert_to_assets: ["0x3", "0x0"],
+      max_withdraw: ["0x1", "0x0"],
+      exit_fee: ["0x64"],
+      total_assets: ["0x5", "0x0"],
+      total_supply: ["0x4", "0x0"],
+      preview_deposit: ["0x6", "0x0"],
+      preview_withdraw: ["0x7", "0x0"],
+      preview_redeem: ["0x8", "0x0"],
     };
     const provider = { callContract: async (c: { entrypoint: string }) => felts[c.entrypoint] };
     const views = new RpcEconomyViews(provider, economyDeployment, createEconomyCodecs());
@@ -513,7 +634,8 @@ describe("RpcEconomyViews decode the stub layouts", () => {
     expect(quote.price).toBe(2_000_000n);
     expect(quote.minOutHint).toBe(5n);
     expect(quote.threshold).toBe(3353);
-    expect(await views.vault(PLAYER)).toEqual({ staked: 2n, pending: 3n, totalStaked: 4n });
+    expect(await views.vault(PLAYER)).toEqual({ shares: 2n, value: 3n, maxWithdraw: 1n, exitFeeBps: 100, totalAssets: 5n, totalSupply: 4n });
+    expect([await views.previewDeposit(1n), await views.previewWithdraw(1n), await views.previewRedeem(1n)]).toEqual([6n, 7n, 8n]);
   });
 
   test("terms: E2's layout (time and expired included), sigma_bps read as a signed i16", async () => {

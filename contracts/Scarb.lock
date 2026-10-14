@@ -12,6 +12,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "openzeppelin_governance"
+version = "4.0.1"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:ab53954b1fb6c79a3c7a9e19db6b01a26166453677019aa929ef2ec407ecfe20"
+dependencies = [
+ "openzeppelin_access",
+ "openzeppelin_interfaces",
+ "openzeppelin_introspection",
+ "openzeppelin_token",
+ "openzeppelin_utils",
+]
+
+[[package]]
 name = "openzeppelin_interfaces"
 version = "2.2.0"
 source = "registry+https://scarbs.xyz/"
@@ -57,9 +70,11 @@ dependencies = [
 name = "paved"
 version = "0.0.0"
 dependencies = [
+ "openzeppelin_governance",
  "openzeppelin_interfaces",
  "openzeppelin_token",
  "openzeppelin_upgrades",
+ "openzeppelin_utils",
  "quiver_achievement",
  "quiver_quest",
  "snforge_scarb_plugin",

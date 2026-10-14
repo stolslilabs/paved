@@ -377,7 +377,7 @@ fn scored(
 /// City ring, the skip off, Alice 2 tiles and seat 0 (the game's player) 4 with the closing tile:
 /// the city scores for the game's player, 7 x 200 x 11763 / 10000 = 1646, its seat counted.
 #[test]
-#[available_gas(l2_gas: 114650353)]
+#[available_gas(l2_gas: 122175126)]
 fn test_owners_scoring_goes_to_the_winner() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
@@ -411,7 +411,7 @@ fn test_owners_winning_seat_without_player_reverts() {
 /// City ring, the skip off, a tie (Alice 3, Bob 3 with the closing tile): no points, `Scored`
 /// with player 0 and points 0, and the structure still counts.
 #[test]
-#[available_gas(l2_gas: 115965399)]
+#[available_gas(l2_gas: 123490172)]
 fn test_owners_tie_scores_nothing_and_counts_the_city() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
@@ -432,7 +432,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_city() {
 /// nothing, emits `Scored` with player 0 and points 0, and still counts; the city scores for the
 /// game's player, 3 x 200 x 10721 / 10000 = 643.
 #[test]
-#[available_gas(l2_gas: 112309016)]
+#[available_gas(l2_gas: 119833788)]
 fn test_owners_tie_scores_nothing_and_counts_the_forest() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
@@ -458,7 +458,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_forest() {
 /// (Alice 3, Bob 3, Carol 3 with the closing tile): no points, `Scored` with player 0 and points
 /// 0, and the wonder still counts.
 #[test]
-#[available_gas(l2_gas: 141770624)]
+#[available_gas(l2_gas: 149295396)]
 fn test_owners_tie_scores_nothing_and_counts_the_wonder() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
@@ -478,7 +478,7 @@ fn test_owners_tie_scores_nothing_and_counts_the_wonder() {
 /// The skip on (a Daily game, `assess`): the same tie as above scores for the game's player, its
 /// seats never read.
 #[test]
-#[available_gas(l2_gas: 111940138)]
+#[available_gas(l2_gas: 119464911)]
 fn test_owners_single_player_skips_the_count() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
@@ -511,7 +511,7 @@ fn test_owners_single_player_skips_the_count() {
 /// (the game's player) holds the wonder tile and 4 neighbours, Alice 4: the wonder scores 900 for
 /// the game's player, its tile counted.
 #[test]
-#[available_gas(l2_gas: 141425689)]
+#[available_gas(l2_gas: 148950462)]
 fn test_owners_wonder_closing_on_its_own_placement() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
