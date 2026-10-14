@@ -8,22 +8,31 @@
 //!   game as it was, and the flag must be exact: true exactly when a root the move reached (an
 //!   area's final root or a wonder's around) has no open half-edge.
 //! - **C2**, the starter tile from constants: `test_g7a_starter_constants_equal_place_alone`.
-//! - **C3**, the seeded forest walk. Before every build, every forest the move closes is scanned
-//!   as before G7a (`legacy_g7a::scan_before_g7a`, every tile read) and as now
-//!   (`forest::scan_seeded`, the side tiles taken from the move's neighbourhood), without a tally
-//!   and with one: the open road, the road and city counts and the tiles counted must be equal.
-//!   Each scan is classed by how many side tiles of the move are nodes of the forest (0, 1, 2 or
-//!   more) and whether a side tile holds no node of it. At the end of each board, every closed
-//!   forest of the board is scanned both ways again, seeded with the neighbourhood of its own
-//!   start tile: forests far from the last move, and forests that reach their start tile from
-//!   several sides.
+//! - **C3**, the seeded forest walk. Before every build, the slot the seeded walk caches for each
+//!   side tile (`walk::slot_of`) must decode to the tile and refs the move read, and equal the
+//!   stored word. Every forest the move closes is scanned as before G7a
+//!   (`legacy_g7a::scan_before_g7a`, every tile read) and as now (`forest::scan_seeded`), without
+//!   a tally and with one: the open road, the road and city counts and the tiles counted must be
+//!   equal. Each scan is classed by how many side tiles of its start tile are nodes of the forest
+//!   (1, 2, 3 or more; 0 cannot happen, since a closed forest of more than one tile crosses a
+//!   side) and whether a side tile holds no node of it. Then every closed forest of the board,
+//!   wherever it lies, is scanned both ways again from its first tile, seeded with that tile's
+//!   neighbourhood: at the end of the bot games, after every move of the forced boards.
 //! - **C5**, the fit check on edge words: `placement::tests::
 //!   test_placement_edge_words_equal_the_edge_categories`.
 //!
-//! The boards: four games of the Daily deck played to their end by the greedy bot of
-//! `golden/full_deck.cairo` (the legal placement with the most neighbours) on other days than the
-//! golden's, two of them with the placement of the fewest neighbours instead (boards where more
-//! moves close nothing), and the forced boards of the gas scenarios e and f.
+//! The boards:
+//! - four games of the Daily deck, 24 moves each, played by the greedy bot of
+//!   `golden/full_deck.cairo` (the legal placement with the most neighbours) on other days than the
+//!   golden's, two of them with the placement of the fewest neighbours instead (boards where more
+//!   moves close nothing); one game per test, for the VM's step limit;
+//! - the forced boards of the gas scenarios e and f;
+//! - the forest boards of `golden/forest.cairo` and the crossings of `e2e/forest.cairo` (their
+//! plans
+//!   and positions copied; the golden files are not touched).
+//!
+//! The case of a forest that closes beside an open road (`scan` returns early) is not met on these
+//! boards.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::testing::get_available_gas;
@@ -36,6 +45,7 @@ use paved::structure::owners::{Tally, TallyTrait};
 use paved::structure::placement::{self, Neighborhood, NeighborhoodTrait};
 use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::{Structures, StructuresTrait};
+use paved::structure::walk::slot_of;
 use paved::structure::{oriented, tables};
 use paved::tests::golden::harness::{day, spawn_on_the_day_seed};
 use paved::tests::legacy_g7a::{assess_before_g7a, scan_before_g7a};
@@ -227,6 +237,20 @@ fn check_move(game_id: u32, orientation: u8, x: u32, y: u32) -> Stats {
                 stats.open_moves += 1;
             }
         }
+    }
+
+    // [Check] C3: the slot a seeded walk caches for each side tile decodes as the stored one, and
+    // is the stored word (no slot of these boards holds the dead bits of before D-18)
+    let mut direction: u8 = tables::NORTH;
+    while direction <= tables::WEST {
+        let side = around.tile(direction);
+        if side.is_non_zero() {
+            let side_refs = *around.refs.at(direction.into());
+            let slot = slot_of(side, side_refs);
+            assert_eq!(StoreImpl::tile_of_slot(game_id, slot), (side, side_refs), "G7a C3: slot");
+            assert_eq!(slot, StoreImpl::tile_slot_at(game_id, side.x, side.y), "G7a C3: word");
+        }
+        direction += 2;
     }
 
     // [Check] C3: every forest the move closes, scanned both ways
