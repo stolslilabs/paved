@@ -573,16 +573,17 @@ classes are unchanged to the felt.
 ## After D-25 E (Account leaves, Setup holds the wiring; step E)
 
 Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-13, under `prlimit --as=12884901888`): before on an
-export of main aff59e06 (step D merged), after on the step E branch (the contracts of 8f2fb530).
+export of main aff59e06 (step D merged), after on the step E branch (the contracts of the fix after review, which keep
+the `PlayerCreated` variant declared: 33 felts more than without it).
 
 | Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
 |---|---:|---:|---:|---:|---:|---:|
-| `Daily` (Challenge) | 27,430 | 60,576 | 27,058 | 59,609 | -967 | 72.8 % |
+| `Daily` (Challenge) | 27,430 | 60,576 | 27,078 | 59,642 | -934 | 72.8 % |
 | `Setup` | 6,856 | 13,449 | 7,290 | 14,499 | +1,050 | 17.7 % |
 | `Account` | 1,500 | 3,577 | | | deleted | |
 
-**`Daily` is 13,338 CASM felts under the P-44 cap (72,947; 18.3 % of the cap)**, against 12,371 after step D. It loses
+**`Daily` is 13,305 CASM felts under the P-44 cap (72,947; 18.2 % of the cap)**, against 12,371 after step D. It loses
 the registration check, the `Account` dispatcher and its two views, `Store.initialize` and `Store.player`, the
-`account_address` constructor argument and the `PlayerCreated` event, and gains the `Setup.wiring()` call. `Setup`
+`account_address` constructor argument, and gains the `Setup.wiring()` call. `Setup`
 gains the two setters, their events and the view. The other classes are unchanged to the felt (`Collection` 14,485,
 `Economy` 26,567).

@@ -505,6 +505,28 @@
   },
   {
     "type": "event",
+    "name": "paved::events::PlayerCreated",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "name",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "master",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::events::GameSpawned",
     "kind": "struct",
     "members": [
@@ -693,6 +715,11 @@
     "name": "paved::events::Event",
     "kind": "enum",
     "variants": [
+      {
+        "name": "PlayerCreated",
+        "type": "paved::events::PlayerCreated",
+        "kind": "nested"
+      },
       {
         "name": "GameSpawned",
         "type": "paved::events::GameSpawned",
