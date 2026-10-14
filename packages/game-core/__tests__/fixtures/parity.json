@@ -10,7 +10,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 16,
+          "drawn": 18,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -34,7 +34,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": 5,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
@@ -58,7 +58,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 8,
+          "drawn": 13,
           "plan": 10,
           "orientation": 1,
           "x": 2147483648,
@@ -66,7 +66,7 @@
           "score": 0
         },
         {
-          "drawn": 3,
+          "drawn": 18,
           "plan": 10,
           "orientation": 1,
           "x": 2147483649,
@@ -82,7 +82,7 @@
           "score": 0
         },
         {
-          "drawn": 5,
+          "drawn": 18,
           "plan": 16,
           "orientation": 1,
           "x": 2147483651,
@@ -114,7 +114,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 15,
+          "drawn": 10,
           "plan": 19,
           "orientation": 1,
           "x": 2147483648,
@@ -130,7 +130,7 @@
           "score": 419
         },
         {
-          "drawn": 2,
+          "drawn": 19,
           "plan": 10,
           "orientation": 1,
           "x": 2147483646,
@@ -138,7 +138,7 @@
           "score": 419
         },
         {
-          "drawn": 18,
+          "drawn": 5,
           "plan": 16,
           "orientation": 1,
           "x": 2147483645,
@@ -162,16 +162,16 @@
       "forced": false,
       "moves": [
         {
-          "drawn": 2,
-          "plan": 2,
+          "drawn": 1,
+          "plan": 1,
           "orientation": 0,
           "x": 0,
           "y": 0,
           "score": 0
         },
         {
-          "drawn": 17,
-          "plan": 17,
+          "drawn": 8,
+          "plan": 8,
           "orientation": 0,
           "x": 0,
           "y": 0,
@@ -186,32 +186,32 @@
           "score": 0
         },
         {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
           "drawn": 16,
           "plan": 16,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
           "orientation": 0,
           "x": 0,
           "y": 0,
@@ -234,7 +234,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 5,
+          "drawn": 11,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -242,7 +242,7 @@
           "score": 0
         },
         {
-          "drawn": 16,
+          "drawn": 7,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
@@ -250,7 +250,7 @@
           "score": 0
         },
         {
-          "drawn": 4,
+          "drawn": 18,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -258,7 +258,7 @@
           "score": 0
         },
         {
-          "drawn": 17,
+          "drawn": 13,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -294,7 +294,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 10,
+          "drawn": 14,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -325,7 +325,7 @@
           "score": 643
         },
         {
-          "drawn": 13,
+          "drawn": 7,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
@@ -333,7 +333,7 @@
           "score": 643
         },
         {
-          "drawn": 11,
+          "drawn": 7,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -369,7 +369,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 15,
+          "drawn": 12,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -385,7 +385,7 @@
           "score": 0
         },
         {
-          "drawn": 14,
+          "drawn": 12,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -393,7 +393,7 @@
           "score": 0
         },
         {
-          "drawn": 11,
+          "drawn": 18,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -401,7 +401,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": 9,
           "plan": 7,
           "orientation": 1,
           "x": 2147483647,
@@ -409,7 +409,7 @@
           "score": 0
         },
         {
-          "drawn": 2,
+          "drawn": 13,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
@@ -417,7 +417,7 @@
           "score": 0
         },
         {
-          "drawn": 10,
+          "drawn": 16,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
@@ -425,7 +425,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": 15,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -433,7 +433,7 @@
           "score": 1693
         },
         {
-          "drawn": 10,
+          "drawn": 6,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -477,7 +477,7 @@
           "score": 0
         },
         {
-          "drawn": 14,
+          "drawn": 13,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -485,7 +485,7 @@
           "score": 0
         },
         {
-          "drawn": 14,
+          "drawn": 10,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
@@ -532,7 +532,7 @@
       "forced": true,
       "moves": [
         {
-          "drawn": 5,
+          "drawn": 11,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -540,7 +540,7 @@
           "score": 0
         },
         {
-          "drawn": 16,
+          "drawn": 7,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
@@ -548,7 +548,7 @@
           "score": 0
         },
         {
-          "drawn": 4,
+          "drawn": 18,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -556,7 +556,7 @@
           "score": 0
         },
         {
-          "drawn": 17,
+          "drawn": 13,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -592,60 +592,20 @@
       "forced": false,
       "moves": [
         {
-          "drawn": 18,
-          "plan": 18,
+          "drawn": 11,
+          "plan": 11,
           "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 2,
-          "plan": 2,
-          "orientation": 2,
           "x": 2147483647,
           "y": 2147483648,
           "score": 0
         },
         {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 3,
-          "x": 2147483648,
-          "y": 2147483647,
-          "score": 0
-        },
-        {
-          "drawn": 5,
-          "plan": 5,
-          "orientation": 2,
-          "x": 2147483647,
-          "y": 2147483645,
-          "score": 0
-        },
-        {
-          "drawn": 16,
-          "plan": 16,
-          "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483645,
-          "score": 419
-        },
-        {
-          "drawn": 18,
-          "plan": 18,
+          "drawn": 7,
+          "plan": 7,
           "orientation": 1,
-          "x": 2147483646,
+          "x": 2147483647,
           "y": 2147483646,
-          "score": 419
+          "score": 0
         },
         {
           "drawn": 7,
@@ -653,243 +613,283 @@
           "orientation": 2,
           "x": 2147483648,
           "y": 2147483648,
-          "score": 419
-        },
-        {
-          "drawn": 16,
-          "plan": 16,
-          "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483647,
-          "score": 857
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 4,
-          "x": 2147483646,
-          "y": 2147483648,
-          "score": 857
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483647,
-          "score": 857
+          "score": 0
         },
         {
           "drawn": 8,
           "plan": 8,
-          "orientation": 4,
-          "x": 2147483646,
-          "y": 2147483645,
-          "score": 2176
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 1,
-          "x": 2147483649,
-          "y": 2147483646,
-          "score": 2176
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483649,
-          "score": 2176
-        },
-        {
-          "drawn": 19,
-          "plan": 19,
-          "orientation": 4,
-          "x": 2147483649,
-          "y": 2147483648,
-          "score": 2176
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483644,
-          "score": 2176
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 3,
-          "x": 2147483647,
-          "y": 2147483644,
-          "score": 2176
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 4,
-          "x": 2147483649,
-          "y": 2147483645,
-          "score": 2176
-        },
-        {
-          "drawn": 15,
-          "plan": 15,
-          "orientation": 1,
-          "x": 2147483645,
-          "y": 2147483647,
-          "score": 2385
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483649,
-          "score": 2385
-        },
-        {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 3,
-          "x": 2147483645,
-          "y": 2147483646,
-          "score": 2804
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
           "orientation": 2,
-          "x": 2147483645,
-          "y": 2147483645,
-          "score": 3704
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 3,
-          "x": 2147483645,
-          "y": 2147483648,
-          "score": 4800
-        },
-        {
-          "drawn": 2,
-          "plan": 2,
-          "orientation": 1,
           "x": 2147483648,
-          "y": 2147483649,
-          "score": 4800
+          "y": 2147483646,
+          "score": 0
         },
         {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 2,
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
           "x": 2147483646,
-          "y": 2147483644,
-          "score": 4800
+          "y": 2147483646,
+          "score": 0
         },
         {
           "drawn": 5,
           "plan": 5,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483649,
-          "score": 4800
-        },
-        {
-          "drawn": 2,
-          "plan": 2,
-          "orientation": 3,
-          "x": 2147483649,
-          "y": 2147483644,
-          "score": 4800
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483645,
+          "score": 643
         },
         {
           "drawn": 9,
           "plan": 9,
-          "orientation": 1,
-          "x": 2147483645,
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 1520
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 3,
+          "x": 2147483647,
           "y": 2147483649,
-          "score": 4800
+          "score": 1520
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 1520
+        },
+        {
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483648,
+          "score": 1729
         },
         {
           "drawn": 10,
           "plan": 10,
           "orientation": 1,
-          "x": 2147483650,
-          "y": 2147483647,
-          "score": 4800
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 1729
+        },
+        {
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483645,
+          "score": 1729
+        },
+        {
+          "drawn": 6,
+          "plan": 6,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483645,
+          "score": 1729
         },
         {
           "drawn": 7,
           "plan": 7,
-          "orientation": 4,
-          "x": 2147483650,
+          "orientation": 1,
+          "x": 2147483649,
           "y": 2147483648,
-          "score": 4800
+          "score": 1729
         },
         {
-          "drawn": 16,
-          "plan": 16,
-          "orientation": 3,
-          "x": 2147483650,
-          "y": 2147483646,
-          "score": 5121
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483649,
+          "score": 1729
         },
         {
           "drawn": 4,
           "plan": 4,
           "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483643,
-          "score": 5121
+          "x": 2147483649,
+          "y": 2147483646,
+          "score": 1729
         },
         {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 2,
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483646,
+          "score": 1729
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483645,
+          "score": 1729
+        },
+        {
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483649,
+          "score": 1729
+        },
+        {
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483645,
+          "score": 2148
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 1,
           "x": 2147483647,
-          "y": 2147483643,
-          "score": 5121
+          "y": 2147483644,
+          "score": 2148
+        },
+        {
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483644,
+          "score": 2148
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483647,
+          "score": 3048
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483650,
+          "score": 3048
         },
         {
           "drawn": 11,
           "plan": 11,
           "orientation": 2,
-          "x": 2147483650,
-          "y": 2147483645,
-          "score": 5121
+          "x": 2147483647,
+          "y": 2147483650,
+          "score": 3048
         },
         {
-          "drawn": 12,
-          "plan": 12,
-          "orientation": 3,
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
           "x": 2147483649,
-          "y": 2147483643,
-          "score": 5121
+          "y": 2147483650,
+          "score": 3048
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483648,
+          "score": 3467
+        },
+        {
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483649,
+          "score": 3467
+        },
+        {
+          "drawn": 15,
+          "plan": 15,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483649,
+          "score": 3788
+        },
+        {
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483648,
+          "score": 3788
         },
         {
           "drawn": 19,
           "plan": 19,
           "orientation": 4,
-          "x": 2147483647,
+          "x": 2147483650,
           "y": 2147483650,
-          "score": 5121
+          "score": 3997
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483646,
+          "score": 3997
+        },
+        {
+          "drawn": 9,
+          "plan": 9,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483645,
+          "score": 3997
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 1,
+          "x": 2147483646,
+          "y": 2147483644,
+          "score": 3997
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483650,
+          "y": 2147483647,
+          "score": 3997
         },
         {
           "drawn": 10,
           "plan": 10,
           "orientation": 1,
           "x": 2147483644,
-          "y": 2147483647,
-          "score": 5121
+          "y": 2147483646,
+          "score": 3997
+        },
+        {
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483644,
+          "score": 5316
         }
       ],
       "final": {
-        "score": 5121,
+        "score": 5316,
         "built": 37,
         "discarded": 0,
         "tile_count": 38,
