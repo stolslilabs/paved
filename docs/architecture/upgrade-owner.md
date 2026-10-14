@@ -192,22 +192,42 @@ in one multicall.
 - (b): as soon as M signers have signed.
 - (c) and (d): 48 hours after the schedule, plus the signatures. A timelock delays fixes exactly as it delays attacks.
 
-**There is no pause in any contract today** (`vault.cairo:9` says so for the `Vault`; none of the four owned
-contracts has one). Two stop-gaps exist with no code change, both owner calls, so both delayed by a timelock:
+**The pause guardian on `Challenge.spawn` (G4, `docs/briefs/g4-pause-guardian.md`; built after this note).** It is the
+only pause in the contracts (`vault.cairo:9` still has none, as intended):
+
+- **Who.** The guardian is an address the owner sets with `Challenge.set_guardian(address)` (owner only; zero means no
+  guardian; emits `GuardianSet`). The guardian or the owner calls `pause_spawn()` (emits `SpawnPaused { by }` once; a
+  pause while paused does nothing and does not revert); only the owner calls `unpause_spawn()` (emits `SpawnUnpaused`
+  once; idempotent too). The owner may pause as well: the owner can do everything the guardian can (CORE's decision,
+  reversed if the PM wants the guardian alone to pause).
+- **What stops.** `spawn` only: while paused it reverts with `'Challenge: spawn paused'`, its first check, before the
+  call to `Setup` and before any token moves. No new purchase, no new money in.
+- **What does not stop.** Every game already bought: `build`, `discard`, `surrender`, the game-over report to `Setup`,
+  `Economy.record` and `Economy.settle` all work while paused (`tests::e2e::guardian`). A pause cannot hold players'
+  money, and it never touches the `Vault`.
+- **Views.** `guardian()` and `spawn_paused()`.
+- **Ownership.** The two-step `OwnableComponent` is unchanged: after a transfer the new owner unpauses, sets the
+  guardian and pauses, the old owner can do none of it; the guardian set before the transfer is kept.
+- **Deployment and upgrade.** A fresh `scripts/deploy.sh` run deploys with no guardian (zero) and spawn not paused; the
+  owner then calls `set_guardian`. An in-place upgrade of `Challenge` (D-17, Sepolia) reads the two new slots as zero
+  and false: no guardian, spawn not paused, games in flight unaffected (`tests::e2e::upgrade_g4`).
+
+With a timelock, the guardian is what keeps emergencies answerable within minutes while the fix waits its 48 hours: a
+guardian key outside the timelock pauses at once, and the unpause (an owner call) waits the delay like any other. A
+stolen guardian key can only stop new games until the owner unpauses and replaces it; it never reaches money.
+
+Two stop-gaps exist without the guardian, both owner calls, so both delayed by a timelock:
 
 - **Stop new games and game overs, restorably**: `Challenge.set_setup` to a fresh `Setup` whose wiring is not set.
   Every spawn then reverts (`'Challenge: economy not set'`, `challenge.cairo:293-300`, `:315`) and so does every move
   that ends a game (`challenge.cairo:394-395`); other moves go on. `set_setup` back to the real `Setup` restores
   everything (its once-only wiring is untouched). Its cost: a game whose end is held past its day records as
-  expired and gets no reward (`economy.cairo:701`).
+  expired and gets no reward (`economy.cairo:701`). The guardian's pause has no such cost.
 - **Upgrade to a class that refuses `spawn`**: the same effect, with a class to build, rehearse and declare.
 
-**A pause or a guardian is worth it on one thing: new money in.** A guardian, a separate key that can only pause, on
-`Challenge.spawn` (no new purchase while a bug is open), immediate, unpaused by the owner. Never on the moves, the
-settlement, or the `Vault` (`unstake` and `claim` must stay out of any key's reach, as `vault.cairo:9-10` intends):
-a pause there would be a way to hold players' money. With a timelock, the guardian is what keeps emergencies
-answerable within minutes while the fix waits its 48 hours. It is a code change (a new role and storage, under the
-P-42 rules) and needs its own task and an access-control audit.
+A pause is worth it on one thing only, new money in: never on the moves, the settlement, or the `Vault` (`unstake` and
+`claim` must stay out of any key's reach, as `vault.cairo:9-10` intends), where a pause would be a way to hold players'
+money. The guardian follows that line. Its access control is for the audit that follows G4.
 
 ## 4. Recommendation
 

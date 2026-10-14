@@ -27,7 +27,7 @@ Planned client tasks, not started:
 |---|---|---|
 | Wire the Cartridge controller (signing outside devnet; today a private key is taken on devnet only, P-10) | Before the first non-local deployment: the MVP and the tests run on local nodes (D-5), and a mainnet trial happens only at the owner's go | planned |
 | Calibration against competent play | Before mainnet: `c` and `rho` give E[h] below 1 for the best known bot buying blind (PM, 2026-10-13). E4 does it with Sepolia playtest data | planned |
-| Pause guardian on `Challenge.spawn`: the emergency stop that every owner option lacks today. The guardian is an owner-set address that can pause spawn only; unpausing is the owner's. Needs an access-control audit ([upgrade-owner.md](../architecture/upgrade-owner.md), section 3) | Before mainnet (PM, 2026-10-14); built after G1; precondition of the timelock | planned |
+| Pause guardian on `Challenge.spawn`: the emergency stop that every owner option lacks today. The guardian is an owner-set address that can pause spawn only; unpausing is the owner's. Needs an access-control audit ([upgrade-owner.md](../architecture/upgrade-owner.md), section 3) | Before mainnet (PM, 2026-10-14); built after G1; precondition of the timelock | done (G4: `set_guardian`, `pause_spawn`, `unpause_spawn`; the owner may pause too; moves, record and settlement never pause; Sepolia by a D-17 upgrade of `Challenge`); the access-control audit follows |
 | Bound `set_router` and `set_pool`: by a router allowlist, or by the timelock if the owner chooses it (option (d) of [upgrade-owner.md](../architecture/upgrade-owner.md)) | Before mainnet (PM, 2026-10-14) | planned |
 
 ## Tracks

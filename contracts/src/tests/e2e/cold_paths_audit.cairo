@@ -15,7 +15,10 @@ use paved::mocks::reentrant_token::{
 use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
 use paved::systems::challenge::Challenge::DeadFieldsTrait;
-use paved::systems::challenge::{Challenge, IChallengeDispatcher};
+use paved::systems::challenge::{
+    Challenge, IChallengeDispatcher, IChallengeGuardianDispatcher,
+    IChallengeGuardianDispatcherTrait,
+};
 use paved::tests::e2e::cold_paths::{
     ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in,
 };
@@ -40,12 +43,13 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 }
 
 /// Pins, by name, the storage variables of `Daily` that its constructor and its owner write:
-/// `owner` and `pending_owner` (ownable), `token_address` (payable) and `setup` (D-24). A variable
+/// `owner` and `pending_owner` (ownable), `token_address` (payable), `setup` (D-24), and
+/// `guardian` and `spawn_paused` (G4). A variable
 /// renamed or moved fails here, because the name is the slot: an upgrade in place would lose it.
 /// The dead ones are pinned by `test_daily_pins_the_dead_fields_by_name`. `UpgradeableComponent`
 /// has no storage.
 #[test]
-#[available_gas(l2_gas: 55714023)]
+#[available_gas(l2_gas: 57962315)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
@@ -67,6 +71,18 @@ fn test_daily_pins_its_storage_variables_by_name() {
     stop_cheat_caller_address(challenge);
     assert(raw(challenge, selector!("owner")) == ANYONE().into(), 'Pin: owner after');
     assert(raw(challenge, selector!("pending_owner")) == 0, 'Pin: pending_owner after');
+    // G4 (appended): the guardian and the pause, zero and false until written
+    let guardian = IChallengeGuardianDispatcher { contract_address: challenge };
+    assert(raw(challenge, selector!("guardian")) == 0, 'Pin: guardian before');
+    assert(raw(challenge, selector!("spawn_paused")) == 0, 'Pin: spawn_paused before');
+    start_cheat_caller_address(challenge, ANYONE());
+    guardian.set_guardian(PLAYER());
+    guardian.pause_spawn();
+    assert(raw(challenge, selector!("guardian")) == PLAYER().into(), 'Pin: guardian');
+    assert(raw(challenge, selector!("spawn_paused")) == 1, 'Pin: spawn_paused');
+    guardian.unpause_spawn();
+    assert(raw(challenge, selector!("spawn_paused")) == 0, 'Pin: spawn_paused after');
+    stop_cheat_caller_address(challenge);
 }
 
 // Dead since D-20, D-24 and D-25 E (P-42): declared, never written or read, never reused

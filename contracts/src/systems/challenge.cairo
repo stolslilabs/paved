@@ -37,6 +37,40 @@ pub struct SetupSet {
     pub setup: starknet::ContractAddress,
 }
 
+/// The emergency stop of `Challenge` (G4, `docs/architecture/upgrade-owner.md`, section 3): a
+/// guardian, set by the owner, may pause `spawn` only, the entry point that takes money; unpausing
+/// is the owner's. A paused `Challenge` still lets every game already bought end and be recorded:
+/// `build`, `discard`, `surrender` and the game-over report are never paused.
+#[starknet::interface]
+pub trait IChallengeGuardian<TContractState> {
+    /// Sets the guardian: the owner only; zero means no guardian. Emits `GuardianSet`.
+    fn set_guardian(ref self: TContractState, guardian: starknet::ContractAddress);
+    /// Pauses `spawn`: the guardian or the owner. Emits `SpawnPaused` once; a pause while paused
+    /// does nothing.
+    fn pause_spawn(ref self: TContractState);
+    /// Unpauses `spawn`: the owner only. Emits `SpawnUnpaused` once; an unpause while unpaused
+    /// does nothing.
+    fn unpause_spawn(ref self: TContractState);
+    fn guardian(self: @TContractState) -> starknet::ContractAddress;
+    fn spawn_paused(self: @TContractState) -> bool;
+}
+
+/// Emitted by `Challenge` when its owner sets the guardian (zero: no guardian).
+#[derive(Drop, Debug, PartialEq, starknet::Event)]
+pub struct GuardianSet {
+    pub guardian: starknet::ContractAddress,
+}
+
+/// Emitted by `Challenge` when `spawn` is paused, `by` the guardian or the owner.
+#[derive(Drop, Debug, PartialEq, starknet::Event)]
+pub struct SpawnPaused {
+    pub by: starknet::ContractAddress,
+}
+
+/// Emitted by `Challenge` when its owner unpauses `spawn`.
+#[derive(Drop, Debug, PartialEq, starknet::Event)]
+pub struct SpawnUnpaused {}
+
 #[starknet::contract]
 pub mod Challenge {
     // Component imports
@@ -74,7 +108,10 @@ pub mod Challenge {
 
     // Local imports
 
-    use super::{IChallenge, IChallengeSetup, SetupSet};
+    use super::{
+        GuardianSet, IChallenge, IChallengeGuardian, IChallengeSetup, SetupSet, SpawnPaused,
+        SpawnUnpaused,
+    };
 
     // Errors
 
@@ -84,6 +121,8 @@ pub mod Challenge {
         pub const NO_ECONOMY: felt252 = 'Challenge: economy not set';
         pub const NO_COLLECTION: felt252 = 'Challenge: collection not set';
         pub const PAY_FAILED: felt252 = 'ERC20: pay failed';
+        pub const SPAWN_PAUSED: felt252 = 'Challenge: spawn paused';
+        pub const NOT_GUARDIAN: felt252 = 'Challenge: not guardian';
     }
 
     // Components
@@ -128,6 +167,12 @@ pub mod Challenge {
         upgradeable: UpgradeableComponent::Storage,
         /// The `Setup` a game over reports to; written by the constructor and `set_setup`.
         setup: ContractAddress,
+        /// The address that may pause `spawn` (G4, P-42: appended); zero, no guardian. Written by
+        /// `set_guardian` only: zero on a fresh deployment and after an in-place upgrade.
+        guardian: ContractAddress,
+        /// Whether `spawn` is paused (G4, P-42: appended); written by `pause_spawn` and
+        /// `unpause_spawn` only: false on a fresh deployment and after an in-place upgrade.
+        spawn_paused: bool,
     }
 
     // Events
@@ -148,6 +193,9 @@ pub mod Challenge {
         #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
         SetupSet: SetupSet,
+        GuardianSet: GuardianSet,
+        SpawnPaused: SpawnPaused,
+        SpawnUnpaused: SpawnUnpaused,
     }
 
     // Constructor
@@ -214,6 +262,51 @@ pub mod Challenge {
 
         fn setup(self: @ContractState) -> ContractAddress {
             self.setup.read()
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl ChallengeGuardianImpl of IChallengeGuardian<ContractState> {
+        fn set_guardian(ref self: ContractState, guardian: ContractAddress) {
+            // [Check] The owner
+            self.ownable.assert_only_owner();
+            // [Effect] The new guardian, or none
+            self.guardian.write(guardian);
+            self.emit(GuardianSet { guardian });
+        }
+
+        fn pause_spawn(ref self: ContractState) {
+            // [Check] The guardian (never zero) or the owner
+            let caller = get_caller_address();
+            let guardian = self.guardian.read();
+            assert(
+                (guardian.is_non_zero() && caller == guardian)
+                    || caller == self.ownable.owner.read(),
+                errors::NOT_GUARDIAN,
+            );
+            // [Effect] Pause, once
+            if !self.spawn_paused.read() {
+                self.spawn_paused.write(true);
+                self.emit(SpawnPaused { by: caller });
+            }
+        }
+
+        fn unpause_spawn(ref self: ContractState) {
+            // [Check] The owner
+            self.ownable.assert_only_owner();
+            // [Effect] Unpause, once
+            if self.spawn_paused.read() {
+                self.spawn_paused.write(false);
+                self.emit(SpawnUnpaused {});
+            }
+        }
+
+        fn guardian(self: @ContractState) -> ContractAddress {
+            self.guardian.read()
+        }
+
+        fn spawn_paused(self: @ContractState) -> bool {
+            self.spawn_paused.read()
         }
     }
 
@@ -311,6 +404,8 @@ pub mod Challenge {
             referrer: ContractAddress,
             min_out: u256,
         ) -> u32 {
+            // [Check] Spawn is not paused (G4), before any call or transfer
+            assert(!self.spawn_paused.read(), errors::SPAWN_PAUSED);
             // [Interaction] The wiring, in one call to `Setup`
             let wiring = wiring(self.setup_dispatcher(), true);
             // [Effect] Spawn a game

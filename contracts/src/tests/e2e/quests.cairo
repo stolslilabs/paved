@@ -459,7 +459,7 @@ pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context)
 /// The report a Daily game over makes, from the game as it ended: 4 quest entries and the
 /// achievement entries of a high score with a forest (3); no task 9, though the game is the first
 /// of its day (D-20: before, a fourth entry, task 9).
-fn assert_daily_report(
+pub fn assert_daily_report(
     systems: @setup::Systems, mut spy: snforge_std::EventSpy, p: felt252, score: u32,
 ) {
     let setup_address = *systems.setup.contract_address;
