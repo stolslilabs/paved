@@ -595,3 +595,18 @@ gains the two setters, their events and the view. The other classes are unchange
 (18.2 %)**, -874 against main. Against the first E head (59,642) it adds 60: the referrer check against `Economy` and
 `Daily` itself, and the game over checking only the economy. `Setup` is unchanged (14,499). The test-only mock
 `MockAccount` is 466 CASM felts and is never declared by `deploy.sh`.
+
+## After G1 (the spawn's deck walk)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-14, under `prlimit --as=12884901888`, peak RSS about
+3.56 GB): before on an export of main f94c34f, after on the G1 branch.
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 27,112 | 59,664 | 27,474 | 60,997 | +1,333 | 74.5 % |
+
+**`Challenge` is 11,950 CASM felts under the P-44 cap (72,947; 16.4 % of the cap)**, against 13,283 before. The walk
+of `DeckTrait::tiles` is longer code than the one it replaces (the selection sampling, the two lanes of a hash, the
+count of the free tiles, all inlined by the release profile), for about 32M L2 gas less a spawn. The other classes are
+unchanged to the felt (`Economy` 26,567, `Collection` 14,485, `Setup` 14,499, `PavedToken` 8,055). The frozen class of
+the test (`ChallengeBeforeG1`, `src/tests/legacy_g1.cairo`) is test-only and never declared by `deploy.sh`.

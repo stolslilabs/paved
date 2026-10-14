@@ -927,3 +927,106 @@ two-input Poseidon, as the day seed did (with a division more): not the cause. T
 walk, about 35M of the 51M spawn whatever the seed; cutting it means changing how the deck is built, which changes every
 deck and so the goldens: a P5 subject, not D-23b's. No ceiling changes; none is passed.
 
+## After G1 (the spawn's deck walk cut)
+
+Same tests and method (scarb 2.20.1, snforge 0.64.0, VPS, `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`). Before:
+an export of main f94c34f (`git archive`), run the same day; after: the G1 branch. Peak RSS 6,361,532 kB (before) and
+5,415,980 kB (after).
+
+**The design.** `DeckTrait::tiles` removes 34 of the 71 free tiles after the starter. Before, it walked the indexes
+with, per free index, one Poseidon and a probability over 10,000, and read and set each bit with
+`Bitmap::get_bit_at`/`set_bit_at`, a loop of 256-bit products each (`models/game.cairo`, `bit`: about 0.25M each). G1
+runs selection sampling (Knuth, algorithm S) over the free indexes in order with a running mask: a free index goes when
+a draw uniform on `[0, free)` falls below the number still to remove. The draws are the digits, in the mixed radix of
+the successive `free`, of the two 128-bit halves of Poseidon(seed, 'DECK' + batch), 10 per half, so one Poseidon serves
+20 free indexes; once the count to remove equals the free count, the rest go with no draw.
+
+| | Scenario | Before G1 (main f94c34f) | G1 | Change | Ceiling before | Ceiling G1 |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 49,873,311 | **17,997,115** | -31,876,196 (-63.9 %) | 52,743,229 | 18,896,971 |
+| n | Challenge spawn, stake 10, referred | 50,599,761 | **18,723,565** | -31,876,196 (-63.0 %) | 53,820,644 | 19,659,744 |
+| a0 | Open simple move | 5,499,623 | 5,558,903 | +59,280 | 5,709,834 | kept |
+| a | Simple move, closes a 2-tile city | 5,129,292 | 5,129,292 | 0 | 5,315,180 | kept |
+| c | Close a large city | 5,201,790 | 6,605,882 | +1,404,092 | 5,393,424 | **6,936,177** (raised) |
+| d | Worst case of P0 | 5,465,200 | 5,465,200 | 0 | 5,662,074 | kept |
+| e | Close a forest of 4 | 8,720,366 | 9,095,020 | +374,654 | 8,962,300 | **9,549,771** (raised) |
+| f | Worst forest scan | 18,554,596 | 18,583,486 | +28,890 | 18,923,195 | kept (98.2 %) |
+| g | Closing move in its day | 3,169,668 | 3,169,668 | 0 | 3,672,907 | kept |
+| i | Closing move after its day | 2,712,128 | 2,712,128 | 0 | 2,847,987 | kept |
+| k | Closing move, full report | 3,603,848 | 3,603,848 | 0 | 4,018,231 | kept |
+| l | Game over on a build | 7,127,545 | 7,127,545 | 0 | 7,774,092 | kept |
+| s | Game over on a discard | 3,358,963 | 3,358,963 | 0 | 3,528,109 | kept |
+
+**The walk alone** (`src/tests/deck_walk.cairo`, `test_deck_walk_cost`: `get_available_gas` around the walk, the
+starter out; the frozen walk of f94c34f is `tests/legacy_g1.cairo`, `tiles_before_g1`):
+
+| Seed | Before G1 | G1 |
+|---|---:|---:|
+| Poseidon(0, 0), the day seed of game 2 before D-23 | 34,649,744 | 3,182,741 |
+| Poseidon(0, 2) | 36,392,884 | 3,223,784 |
+| Poseidon(0, 1) | 36,110,160 | 3,182,741 |
+| Mean, Poseidon('G1', i) | 35,407,796 (10 seeds) | 3,193,914 (100 seeds; worst 3,229,014) |
+
+So the walk falls from about 35.4M to about 3.2M (-91 %), and the spawns by 31.9M. The rest of the walk is the
+per-index work of the test profile (`inlining-strategy = "avoid"`: each `&`, comparison and division is a call): a
+probe of 64 iterations of an empty loop cost 998,440, of `tiles & mask` with a doubling mask 1,667,932, of a 128-bit
+division 1,897,640, of a two-input Poseidon 1,274,432, so the Poseidon is no longer the cost. Spawn's other parts (the
+purchase, the mint, the first draw) are unchanged.
+
+**The rises are the draw, not the code.** The scenarios force their plans on the day seed, and the draw that follows
+each build reads the deck the spawn built: on the same seed, G1's deck is another. The draw alone (`Game::draw_plan` on
+the state before the scenario's last build, with that build's reseed; a probe, not committed) accounts for every
+change exactly:
+
+| Scenario | Draw before G1 | Draw G1 | Change |
+|---|---:|---:|---:|
+| a0 | 508,967 | 568,247 | +59,280 |
+| c | 520,597 | 1,924,689 | +1,404,092 |
+| e | 219,903 | 594,557 | +374,654 |
+
+(f's +28,890 was not probed; its build is unchanged too, so it is expected to be the same effect.) The draw costs more when more withdrawn cards sit below the slot it finds
+(`slot_card`, one 128-bit power per withdrawn card it steps over), which depends on the deck. As the method note above
+says, a ceiling bounds the scenario, not every deck: c and e are raised to measured + 5 % (CORE's decision, reversed if
+the PM rules the rise a regression; the alternative is to calibrate them on another fixed seed). The draw's own cost
+is the next lever (a running mask instead of a power per step, without changing which card is drawn): not G1's.
+
+**f**, the tightest scenario (98.05 % of its ceiling before), lands at 18,583,486, **98.21 %** of its ceiling, which
+is kept.
+
+**The other ceilings.** Every test that spawns falls by about 32M, so every `#[available_gas]` of the suite (153 tests:
+golden, differential, e2e and the others) is reset to the measured figure + 5 %, from the whole run of the G1 branch
+(657 passed, 9 ignored; peak RSS 3,721,040 kB). The new `e2e::upgrade_g1` test gets its own (414,405,555 + 5 %). The
+golden and differential figures:
+
+| Test | L2 gas G1 | Ceiling before | Ceiling G1 |
+|---|---:|---:|---:|
+| golden daily_city5_game_over | 123,580,760 | 184,949,000 | 129,759,798 |
+| golden daily_road6 | 133,274,608 | 189,879,000 | 139,938,339 |
+| golden daily_mixed_roles | 123,636,623 | 182,574,000 | 129,818,455 |
+| golden daily_real_deck_discards_to_game_over | 129,726,115 | 186,283,000 | 136,212,421 |
+| golden daily_forest_woodsman_ring | 125,416,251 | 181,814,000 | 131,687,064 |
+| golden daily_forest_herdsman_caps | 133,372,379 | 194,393,000 | 140,040,998 |
+| golden daily_forest_both_roles | 183,113,983 | 244,454,000 | 192,269,683 |
+| golden daily_forest_herdsman_open_city | 136,271,599 | 193,853,000 | 143,085,179 |
+| golden daily_full_deck (new moves) | 530,723,592 | 638,549,000 | 557,259,772 |
+| golden daily_city5_structures_agree | 335,006,806 | 406,213,000 | 351,757,147 |
+| golden daily_road6_structures_agree | 461,126,735 | 535,945,000 | 484,183,072 |
+| golden daily_mixed_roles_structures_agree | 350,664,956 | 419,739,000 | 368,198,204 |
+| golden daily_real_deck_discards_to_game_over_structures_agree | 151,432,054 | 210,034,000 | 159,003,657 |
+| golden daily_forest_woodsman_ring_structures_agree | 375,261,254 | 440,028,000 | 394,024,317 |
+| golden daily_forest_herdsman_caps_structures_agree | 363,808,282 | 433,100,000 | 381,998,697 |
+| golden daily_forest_both_roles_structures_agree | 680,625,062 | 758,797,000 | 714,656,316 |
+| golden daily_forest_herdsman_open_city_structures_agree | 381,427,636 | 458,009,000 | 400,499,018 |
+| golden daily_forest_woodsman_ring_last_tile_structures_agree | 379,390,693 | 445,519,000 | 398,360,228 |
+| golden daily_full_deck_structures_agree (new moves) | 1,288,135,482 | 1,445,703,000 | 1,352,542,257 |
+| differential gas_scenarios_a0_a_b | 214,321,335 | 321,647,000 | 225,037,402 |
+| differential gas_scenario_c | 250,041,787 | 306,303,000 | 262,543,877 |
+| differential gas_scenario_d | 512,580,547 | 582,165,000 | 538,209,575 |
+| differential gas_scenario_e | 301,084,354 | 360,171,000 | 316,138,572 |
+| differential gas_scenario_f | 1,287,109,272 | 1,353,892,000 | 1,351,464,736 |
+| differential two_areas_of_one_tile_join_one_structure | 671,771,964 | 733,532,000 | 705,360,563 |
+| differential wonder_ring | 311,264,950 | 363,925,000 | 326,828,198 |
+
+**Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G1"):
+`Challenge` 59,664 -> 60,997 CASM felts (+1,333), 11,950 under the P-44 cap (72,947). No ABI changes
+(`scripts/abis.sh` rewrites `contracts/abis/` identically).
