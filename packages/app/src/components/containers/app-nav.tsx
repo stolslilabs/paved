@@ -8,7 +8,7 @@ export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "house" },
   { id: "ranks", label: "Ranks", icon: "ranking-star" },
   { id: "quests", label: "Quests", icon: "scroll" },
-  { id: "vault", label: "Vault", icon: "vault" },
+  { id: "vault", label: "Vault", icon: "piggy-bank" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
 
@@ -21,6 +21,8 @@ export interface AppNavProps {
 /**
  * The tabbed pages' navigation (section 6.2), drawn for the scenes: a bottom bar below `desktop` (labels from
  * `mobile`), a left rail with labels from `desktop`. The indicator slides with Motion's `layoutId`. P1 routes it.
+ * The bar is sticky, the last child of its page's column: it stays at the bottom of the scrolling area, and the content
+ * above it never runs under it (no padding to keep in step with its height). The page lays it out with `flex-col desktop:flex-row`.
  */
 export function AppNav({ active, onNavigate, className }: AppNavProps) {
   return (
@@ -28,8 +30,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
       aria-label="Main"
       className={cn(
         "z-20 flex border-border bg-card/95 backdrop-blur",
-        "fixed inset-x-0 bottom-0 border-t pb-[env(safe-area-inset-bottom)]",
-        "desktop:static desktop:h-auto desktop:w-56 desktop:shrink-0 desktop:flex-col desktop:gap-1 desktop:border-t-0 desktop:border-r desktop:px-3 desktop:py-6",
+        "sticky inset-x-0 bottom-0 order-last border-t pb-[env(safe-area-inset-bottom)]",
+        "desktop:static desktop:order-none desktop:h-auto desktop:w-56 desktop:shrink-0 desktop:flex-col desktop:gap-1 desktop:border-t-0 desktop:border-r desktop:px-3 desktop:py-6",
         className,
       )}
     >

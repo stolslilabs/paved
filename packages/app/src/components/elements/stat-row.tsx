@@ -20,16 +20,15 @@ const TONE = {
   muted: "text-muted-foreground",
 } as const;
 
-/** A label and its figure on one line, the figure in the mono font: the mockups' metric lists. */
+/** A label and its figure on one line, the figure in the mono font: the mockups' metric lists. The icon is on that line too (`ValueRow`'s rule). */
 export function StatRow({ label, value, icon, hint, tone = "default", className }: StatRowProps) {
   return (
-    <div className={cn("flex items-center gap-3 py-2", className)}>
+    // The icon, the label and the value share the first row (one centre line); the hint hangs under the label alone.
+    <div className={cn("grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 py-2", !icon && "grid-cols-[minmax(0,1fr)_auto]", className)}>
       {icon && <Icon name={icon} className="text-muted-foreground" size="sm" />}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm text-foreground">{label}</span>
-        {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}
-      </span>
-      <span className={cn("numeric text-sm font-semibold", TONE[tone])}>{value}</span>
+      <span className="truncate text-sm leading-5 text-foreground">{label}</span>
+      <span className={cn("numeric text-sm leading-5 font-semibold", TONE[tone])}>{value}</span>
+      {hint && <span className={cn("truncate text-xs text-muted-foreground", icon ? "col-start-2" : "col-start-1")}>{hint}</span>}
     </div>
   );
 }

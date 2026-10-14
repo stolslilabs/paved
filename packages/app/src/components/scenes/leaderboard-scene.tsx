@@ -47,7 +47,7 @@ function Summary({ board, open, now }: { board: Leaderboard; open: boolean; now:
       <div className="flex flex-col items-start gap-1 desktop:col-span-2">
         <span className="text-[11px] text-muted-foreground">{open ? "Closes in" : "Day"}</span>
         {open ? (
-          <Countdown expiresAt={board.endTime} now={now} label="Closes in" className="text-sm text-foreground [&>span]:hidden" />
+          <Countdown expiresAt={board.endTime} now={now} label="Closes in" hideLabel className="text-sm text-foreground" />
         ) : (
           <Badge variant="secondary">
             <Icon name="lock" size="xs" />
