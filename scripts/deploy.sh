@@ -13,7 +13,7 @@
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): the Faucet (D-25 B, a bounded USDC
 # faucet, S-1; keyed contracts.Faucet since F) and MockRouter, with the same pool. `deploy` refuses the Faucet and MockRouter by name on mainnet, and the old
-# mock Token off devnet.
+# mock Token off devnet (no path deploys it since F: devnet.json has one key per contract).
 #
 # --unmerged (devnet): deploys the working tree of a pull request (the source check below is skipped) and writes
 # the deployment file to a temporary path, printed at the end, never to contracts/deployments/. The committed file
@@ -23,7 +23,7 @@
 #   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42
 # It must be fresh: a second run on the same node fails at the first deploy (same addresses).
 #
-# sepolia (S-1, D-16, P-39): the devnet path on Starknet Sepolia, less the mock Token and P-38's test PAVED. Deploys
+# sepolia (S-1, D-16, P-39): the devnet path on Starknet Sepolia, less P-38's test PAVED. Deploys
 # use `--unique` and a fresh random salt (a public network: addresses then depend on the deployer). The smoke cannot
 # move Sepolia's time, so it leaves its paid game for the keeper to settle at (D + 2) x 86400. It reads three
 # variables, by name only:
@@ -144,7 +144,7 @@
 # Since D-21 and D-24 a fresh run deploys no Tutorial and declares no Lobby: the cold paths are Challenge's own code, and
 # the quests, the achievements and the tutorial claim are Setup's (--repoint and --d18 keep theirs, run from 06c024d).
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
-#   Faucet, Token (devnet only: the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
+#   Faucet, PavedToken(deployer, deployer) (no old mock Token since F: the client's entry token is the Faucet, `token`),
 #   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 USDC its constructor preminted to the deployer
 #   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(paved, usdc) with the
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
@@ -2190,9 +2190,6 @@ echo "== declare"
 # A declare a stopped run sent: its receipt first (the declares go one at a time, so only the last can be in flight).
 fr_settled declare_tx || true
 RECORD_SENDING=declare_tx
-TOKEN_CLASS=""
-TOKEN=""
-if [[ "$NETWORK" == "devnet" ]]; then TOKEN_CLASS="$(declare_class Token)"; fi
 CHALLENGE_CLASS="$(declare_class Challenge)"
 SETUP_CLASS="$(declare_class Setup)"
 USDC_CLASS="$(declare_class Faucet)"
@@ -2226,7 +2223,6 @@ LAUNCH_RATE=76000000000000000000000000000000
 
 echo "== deploy"
 USDC="$(fresh_deploy Faucet "$USDC_CLASS")"
-if [[ "$NETWORK" == "devnet" ]]; then TOKEN="$(deploy Token "$TOKEN_CLASS")"; fi
 PAVED="$(fresh_deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(fresh_deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
@@ -2287,23 +2283,28 @@ fi
 [[ "$(hex_int "$(call "$PAVED" minter)")" == "$(hex_int "$ECONOMY")" ]] || die "PavedToken.minter() is not Economy"
 [[ "$(hex_int "$(call "$PAVED" admin)")" == 0 ]] || die "PavedToken.admin() is not zero after set_minter"
 echo "   PavedToken: minter Economy, admin 0"
-# The whole initial supply is in the pool and the Vault: 1,000,000 PAVED, none left with the deployer.
-read -r SUPPLY_LOW SUPPLY_HIGH <<<"$(call "$PAVED" total_supply)"
-[[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$SUPPLY_LOW" "$SUPPLY_HIGH")" == "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" ]] ||
-  die "PavedToken.total_supply() is not 1,000,000 PAVED"
-read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER_ARG")"
-[[ "$(hex_int "$HELD_LOW")" == 0 && "$(hex_int "$HELD_HIGH")" == 0 ]] || die "the deployer still holds PAVED after the pool and the stake"
-for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
-  read -r B_LOW B_HIGH <<<"$(call "$PAVED" balance_of "$acct")"
-  [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$B_LOW" "$B_HIGH")" == "$TEST_PAVED" ]] ||
-    die "test account $acct does not hold 1,000 PAVED"
-  echo "   test account $acct holds 1,000 PAVED"
-done
+# The whole initial supply is in the pool and the Vault: 1,000,000 PAVED, none left with the deployer. A launch-state
+# check: a rerun after the smoke's game (minted, swapped and burned since) skips it.
+if [[ -z "$(fr_get smoke.spawn_tx)" ]]; then
+  read -r SUPPLY_LOW SUPPLY_HIGH <<<"$(call "$PAVED" total_supply)"
+  [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$SUPPLY_LOW" "$SUPPLY_HIGH")" == "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" ]] ||
+    die "PavedToken.total_supply() is not 1,000,000 PAVED"
+  read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER_ARG")"
+  [[ "$(hex_int "$HELD_LOW")" == 0 && "$(hex_int "$HELD_HIGH")" == 0 ]] || die "the deployer still holds PAVED after the pool and the stake"
+  for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
+    read -r B_LOW B_HIGH <<<"$(call "$PAVED" balance_of "$acct")"
+    [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$B_LOW" "$B_HIGH")" == "$TEST_PAVED" ]] ||
+      die "test account $acct does not hold 1,000 PAVED"
+    echo "   test account $acct holds 1,000 PAVED"
+  done
+  echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
+else
+  echo "   launch supply checks skipped: the smoke's game has moved PAVED since (tx $(fr_get smoke.spawn_tx))"
+fi
 read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER_ARG")"
 [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
   die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} PAVED"
 echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
-echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
 # The quests and achievements (D-24): Challenge reports each game over to Setup, which accepts reporters only.
 SETUP="$(fresh_deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
@@ -2384,7 +2385,7 @@ echo "   token Faucet, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK
 [[ -z "$(fr_get at)" ]] || DEPLOYED_AT="$(fr_get at)"
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
-  "$DECIMALS" "$SYMBOL" "Faucet=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
+  "$DECIMALS" "$SYMBOL" "Faucet=$USDC=$USDC_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Challenge=$CHALLENGE=$CHALLENGE_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
   "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
@@ -2399,11 +2400,8 @@ for item in items:
     if address:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
-names = ["Challenge", "Setup", "Collection", "Token", "Economy", "PavedToken", "Vault"]
-# The old mock Token is devnet only; devnet and Sepolia both run the Faucet and MockRouter (P-39).
-if network != "devnet":
-    names.remove("Token")
-names += ["Faucet", "MockRouter"]
+# One key per contract (F): devnet and Sepolia both run the Faucet and MockRouter (P-39); no old mock Token since F.
+names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter"]
 doc = {
     "network": network,
     "chain_id": chain_id,
