@@ -8,7 +8,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 
 | What | From | Override |
 |---|---|---|
-| ABIs of `Daily`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
+| ABIs of `Challenge`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
 | The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
@@ -18,7 +18,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 |---|---|
 | `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
-| `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
+| `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a MockUSDC: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
 | `VITE_MOCK_USDC_ADDRESS` | the MockUSDC the faucet mints, devnet and Sepolia only (overrides `contracts.MockUSDC`; ignored on any other network) |
@@ -28,7 +28,7 @@ tolerates a missing folder) and picks `<network>.json`.
 
 `resolveDeployment` (`packages/chain/src/deployment.ts`) merges the file and the env, env first. A
 missing address, or a missing file with no env, gives a deployment with `configured: false`.
-`configured` is computed there once, from the two required addresses (Daily, Token) and the RPC URL. The app
+`configured` is computed there once, from the two required addresses (Challenge, Token) and the RPC URL. The app
 shows a "not connected" state and no write button while it is false. `Setup` (D-24, D-25: the quests, the achievements
 and the tutorial claim) is resolved from `contracts.Setup` (the key of step D's deploy script) but is not part of
 `configured`: a deployment from before step D (Sepolia until the fresh deployment, P-53) has none and stays connected,
@@ -40,7 +40,7 @@ class `Lobby` of P-26, which has no address; the class left with D-24), is ignor
 
 The token is labelled `PAVED` whatever its on-chain symbol (D-10, which replaces D-2's old label; reading the symbol waits for P8's token); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
-amount and offers no Daily confirm, rather than assume 18).
+amount and offers no Challenge confirm, rather than assume 18).
 
 ### Sepolia (D-16, P-39)
 
@@ -80,7 +80,7 @@ unknown variant of an enum with a payload variant could carry felts of unknown l
 throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
 Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `spawn`
-(Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`,
+(Challenge: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`,
 `mint` (test token). D-20 removed `claim` and `sponsor` (and the reclaim, a `claim` of rank 0) with the prize. After D-18 (characters leave the game) `build` takes a tile, an orientation and a position, with no role and no spot, and there is no role picker; the chain and UI changes land in D-18 PR 1 (chain) and PR 2 (UI, renderer, app-web). Art from `packages/app-web/public/assets` stays limited to real files of the package, kept to the ones the packages load (`__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
@@ -92,19 +92,19 @@ second is refused, so a double click on "confirm" never sends two transactions; 
 ignores a move while its own write is pending. The events of every receipt go to the event reader,
 which keeps the `GameSpawned` / `GameOver` of this client and merges them into the lists: a game
 just spawned is listed even when the node's `latest` block lags behind the receipt.
-A Daily spawn first reads `Daily.entry_price()` (O-23: the token and the amount `spawn` pulls, from
+A Challenge spawn first reads `Challenge.entry_price()` (O-23: the token and the amount `spawn` pulls, from
 the same source) and approves exactly that, in the same multicall as `spawn`; a free entry sends
-no approve. The landing page shows the same view as the Daily entry fee, with these rules, so that the
-client pays a Daily entry only for an amount the player saw and confirmed with a click:
+no approve. The landing page shows the same view as the Challenge entry fee, with these rules, so that the
+client pays a Challenge entry only for an amount the player saw and confirmed with a click:
 
-- The fee is read on connect, when the page becomes visible and after each write. The Daily confirm
+- The fee is read on connect, when the page becomes visible and after each write. The Challenge confirm
   is disabled while the read is loading or failed ("Entry price unavailable"); resuming a game
   needs no fee.
 - The amount is formatted with the decimals of the deployment's token only. If `entry_price().token`
   is another token, the card says "Unknown token" and the confirm is refused (and `spawn` refuses it
   too).
 - The consent to start a game is the **history state** of the landing page's confirm
-  (`navigate("/game?mode=daily", { state: { start: true, confirmedAmount } })`, `utils/start-game.ts`),
+  (`navigate("/game?mode=challenge", { state: { start: true, confirmedAmount } })`, `utils/start-game.ts`),
   which a link cannot set: the URL carries only `mode` and `id`, and `spawn` or `price` in a URL are
   ignored. The state holds the amount the player saw (a plain integer, base unit) and the game page
   passes it to `spawn`, which reads the price again; if it differs, nothing is sent and the page says
@@ -112,7 +112,7 @@ client pays a Daily entry only for an amount the player saw and confirmed with a
 - The state is cleared (`navigate(..., { replace: true, state: null })`) **before** anything is sent,
   at mount of the game page, whether or not the writer is ready: the intent then lives in a ref
   until the start uses it. A reload, Back, a refused spawn or a failed one cannot pay again: the
-  player confirms again. A Daily consent without a valid amount, or no state at all, starts nothing.
+  player confirms again. A Challenge consent without a valid amount, or no state at all, starts nothing.
 - A consent held for a writer that is not ready (no account yet) expires after 30 s: the intent is
   dropped and the page says "Not connected: confirm again on the landing page". A start that
   finishes after the page was left (the browser's Back during the flight) does not navigate; the
@@ -154,24 +154,24 @@ the Dojo burner manager (`@dojoengine/create-burner`).
   (`app-web/src/utils/player-label.ts`).
 - **Names are off chain.** The connected player's name is their Controller username
   (`ControllerConnector.username()`, held by `WalletProvider` as `username`), shown on the landing page and on their own
-  rows of the leaderboard, the player page and the Daily top 3 (`usePlayerLabel`). Every other player shows as a short
+  rows of the leaderboard, the player page and the Challenge top 3 (`usePlayerLabel`). Every other player shows as a short
   address (`shortId`): no other player's username is looked up, since that would be a new external service. Devnet's
   burner has no username: its short address shows. The indexer serves no `name` any more.
-- **Wiring.** The client reads no Economy or Collection address from a contract view (not from Daily, not from Account,
+- **Wiring.** The client reads no Economy or Collection address from a contract view (not from Challenge, not from Account,
   not from Setup's wiring view): it resolves them from the deployment file, as before (`economy/deployment.ts`,
   `deployment.ts`). Setup's wiring view is the contracts' source; the indexer checks Setup's `EconomySet` and
   `CollectionSet` against the same file.
-- **The referrer** is any non-zero address other than the payer, the Daily and the Economy: see `client-economy.md`.
+- **The referrer** is any non-zero address other than the payer, the Challenge and the Economy: see `client-economy.md`.
 
 ## Views
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
-short page), `builder`, `currentDay` (`Daily.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`,
+short page), `builder`, `currentDay` (`Challenge.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`,
 and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
 The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
-Every game read names its contract: the client's game key is `(mode, game_id)`, and since D-21 the one mode is Daily
+Every game read names its contract: the client's game key is `(mode, game_id)`, and since D-21 the one mode is Challenge
 (`mode` 1; 2 was Weekly and 3 the on-chain Tutorial, never given again).
 
 Reverts are mapped to typed errors (`ViewError`), from the message as text or as the hex of its
@@ -185,7 +185,7 @@ found" and "not your game: read only" for the first two.
 (continuation token), and decodes the events from the ABIs. Lists use the keys, so the node does the
 filtering:
 
-- "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Daily`.
+- "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Challenge`.
 - "My finished games": `GameOver` with the same filter. A spawned game with no `GameOver` is active.
 - The receipt of a write: its events from the contract written to.
 
@@ -196,13 +196,13 @@ filtering:
 | Landing: the player and their name | the connected address; the Controller username (`WalletProvider`), else a short address | on connect |
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
-| Landing: today's day (its end) | `Daily.current_day` (D-20: no prize and no on-chain top 3 any more) | on connect, when the page becomes visible |
-| Landing: Daily entry fee | `Daily.entry_price()` | on connect, when the page becomes visible, after a write |
-| Daily spawn: the approve | `Daily.entry_price()` | before each Daily spawn |
+| Landing: today's day (its end) | `Challenge.current_day` (D-20: no prize and no on-chain top 3 any more) | on connect, when the page becomes visible |
+| Landing: Challenge entry fee | `Challenge.entry_price()` | on connect, when the page becomes visible, after a write |
+| Challenge spawn: the approve | `Challenge.entry_price()` | before each Challenge spawn |
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
-| Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_day` | on open, when the page becomes visible, on paging |
+| Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Challenge.current_day` | on open, when the page becomes visible, on paging |
 | Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |
-| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id is the connected address (D-25 (E)); today's id from `Daily.current_day`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
+| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id is the connected address (D-25 (E)); today's id from `Challenge.current_day`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
 | Player screen: quests and achievements | indexer `playerQuests`, `playerAchievements` (not `definitions`), same day rules | on open, when the page becomes visible, on a day change |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -294,9 +294,9 @@ display only. Since D-20 the contracts keep no prize and no ranking: the daily l
 - Unit tests (`packages/chain/test/*.test.ts`) replay RPC answers recorded from devnet
   (`test/fixtures/devnet.json`) and check the TS view types against the ABIs.
 - `bun run test:devnet` in `packages/chain` (needs `scarb build` in `contracts/`, `starknet-devnet`
-  0.10 and `universal-sierra-compiler`): starts a devnet, declares and deploys Token, Account, Setup and Daily in
-  the test setup only (Daily an allowed reporter of Setup), claims the tutorial twice, plays a Daily game (spawn,
-  discard, surrender), lists the games from events and checks the error mapping. Its Daily spawn predates E3 (a Daily
+  0.10 and `universal-sierra-compiler`): starts a devnet, declares and deploys Token, Account, Setup and Challenge in
+  the test setup only (Challenge an allowed reporter of Setup), claims the tutorial twice, plays a Challenge game (spawn,
+  discard, surrender), lists the games from events and checks the error mapping. Its Challenge spawn predates E3 (a Challenge
   game is bought by the economy writer since), so that step waits for a port. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
 
@@ -388,16 +388,16 @@ runs in Cartridge's iframe. The connector is configured as follows:
     (10,000 USDC a call, 20,000 USDC an address in all, `contracts/src/mocks/usdc.cairo`); an address that has used its total
     gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
     this account...") and the call cap into its own words, never a raw revert;
-  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and `Setup.claim_tutorial` where
-    the deployment has a Setup (D-21; the Tutorial's policies left with it). Since E3 the Daily `spawn` is the paid
-    purchase's (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns nothing;
-  - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
+  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): Challenge `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and `Setup.claim_tutorial` where
+    the deployment has a Setup (D-21; the Tutorial's policies left with it). Since E3 the Challenge `spawn` is the paid
+    purchase's (`EconomyWriter.purchase`: `Challenge.spawn(stake, referrer, min_out)`); `PavedWriter` spawns nothing;
+  - `approve` only as the controller's approval policy, on the token that `Challenge.entry_price` names,
     read when the controller is first used. That token is the deployment's Token before E3 and USDC
-    after it, so no code change is needed. The spender is pinned to the Daily contract, and the cap is
+    after it, so no code change is needed. The spender is pinned to the Challenge contract, and the cap is
     `ENTRY_MAX_STAKE` (the economy's `MAX_STAKE`, 10) times the unit price, which is the most one
-    purchase approves: `USDC.approve(Daily, stake x unit)`.
+    purchase approves: `USDC.approve(Challenge, stake x unit)`.
 
-  An approve to Daily on the entry token up to 10 times the unit price is signed in the session: since
+  An approve to Challenge on the entry token up to 10 times the unit price is signed in the session: since
   D-20 only a purchase sends one. Above the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
   session holds no approve and every approve prompts.
 
@@ -422,7 +422,7 @@ runs in Cartridge's iframe. The connector is configured as follows:
 When the app opens, `probe` restores a session already approved in the browser without a prompt. A
 connect that the player abandons leaves the app read-only and says why.
 
-Within the session, the controller signs an approve of the entry token to the Daily contract, up to
+Within the session, the controller signs an approve of the entry token to the Challenge contract, up to
 10 times the unit price, without asking. What guards each payment is still the client's own confirm, which shows the amount,
 and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
 `usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
@@ -458,7 +458,7 @@ game page no longer re-sends the board on scene ready. A read that
 fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
 
 `/game?mode=..&id=..` shows a game. Only a consent in the history state, from the landing page's
-confirm, starts one (a Daily spawn pays the entry); a bare `/game` URL, a link with `spawn=1` and a
+confirm, starts one (a Challenge spawn pays the entry); a bare `/game` URL, a link with `spawn=1` and a
 reload after the consent was cleared spawn nothing ("No game selected"), and a malformed id shows
 "Game not found". `useRead` says when a read has answered
 (`loaded`), and the landing page shows the errors of its reads with a "Retry". There is no player read since D-25 (E):

@@ -68,14 +68,14 @@ own fake node (no chain, no browser) and reads every route.
 
 `packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
 `EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
-three wallets take the faucet's USDC, with no registration (D-25 (E): a player is the wallet address); one claims the tutorial on Setup (D-21); the payer as its own referrer is refused client-side; all three buy a Daily game (stakes 3, 2 and 1) and play it to
+three wallets take the faucet's USDC, with no registration (D-25 (E): a player is the wallet address); one claims the tutorial on Setup (D-21); the payer as its own referrer is refused client-side; all three buy a Challenge game (stakes 3, 2 and 1) and play it to
 game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the leaderboard, the players and the
 games read from the indexer are compared with the contract views and the events (scores, ranks, `day_id`); the games
 are settled, the Vault, a day nobody plays and an expired game follow (D-20 removed the prize: no claim, sponsor or
 reclaim step). It runs only with `PAVED_E2E=1` (CI does not). On the VPS
 (2026-10-10), before D-18, it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process); the D-18 figures are below.
 
-alice plays with the search player of `packages/chain/test/daily-player.ts`: for every candidate placement (each empty
+alice plays with the search player of `packages/chain/test/challenge-player.ts`: for every candidate placement (each empty
 position next to the board, each orientation) it asks the node with `starknet_simulateTransactions` (nothing is sent)
 whether it is legal and how many points it scores, plays the one that scores most at once, and otherwise keeps the board
 compact (a wonder goes near the centre). Characters left the game with D-18, so a structure scores when it closes and
@@ -85,8 +85,8 @@ carol stop after 3 and 2 placements and surrender, which cannot reach the thresh
 against a floor under every threshold of the day, so the reward 0 is not a lucky day's). On the D-18 contracts (CORE
 9768cb91, Mac, 2026-10-13, `/usr/bin/time -l`) the whole run took 110 s and alice's game 55 s with 2,440 simulations
 (12 min 41 s, 657 s and 13,724 simulations with the earlier player that placed characters, on the VPS on 2026-10-10); on
-day 20741 she scored 4,869 against a threshold of 3,381.547 (bob 3,269, carol 1,999). The Daily deck depends on the day,
-so the score does too. The peak was 241,418,240 bytes ("maximum resident set size", Mac). The Vault step stakes carol's
+day 20741 she scored 4,869 against a threshold of 3,381.547 (bob 3,269, carol 1,999). The deck then depended on the day,
+so the score did too (since D-23b it comes from the token id, below). The peak was 241,418,240 bytes ("maximum resident set size", Mac). The Vault step stakes carol's
 own 1,000 test PAVED (`deploy.sh`, P-38).
 
 It starts nothing: the node must be **fresh** (the test moves its clock one day forward) and `scripts/deploy.sh devnet`
@@ -100,7 +100,9 @@ node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.
 NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 ```
 
-To run on another chain day, start the node with `--start-time <unix seconds>` (the Daily deck follows the day); the test passes on any.
+To run on another chain day, start the node with `--start-time <unix seconds>`. Since D-23b a Challenge game's deck comes from its
+token id (Poseidon(0, game id)), not from the day: on a fresh seed-42 node the test buys known ids, so the decks and
+alice's margin over the threshold are the same on any day.
 
 Two options matter where the defaults do not fit. `DEVNET_BIN=<path>` names the `starknet-devnet` binary the shell
 starts when `starknet-devnet` on the PATH is an asdf shim that does not run from there (e.g.
@@ -113,11 +115,11 @@ a pull request (the source check is skipped) and writes the deployment file to a
 reads the same deployment file (`E2E_DEPLOYMENT`), starts nothing, and uses the first two predeployed accounts after the
 deployer that are still fresh: no game, no tutorial claim and no USDC (D-25 (E): no registration to check; so it re-runs
 on one node, and can run after the end-to-end test on it; it fails clearly when fewer than two are left): it mints the
-faucet USDC with no registration, claims the tutorial, buys a Daily game with
+faucet USDC with no registration, claims the tutorial, buys a Challenge game with
 `EconomyWriter.purchase`, discards and surrenders it, and reads the games and the typed errors back.
 
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),
 `E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
-Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
-(`deploy.sh`) is a paid Daily game of an earlier day, settled (its Tutorial game left with D-21): nothing of it counts in
+Challenge placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
+(`deploy.sh`) is a paid Challenge game of an earlier day, settled (its Tutorial game left with D-21): nothing of it counts in
 the players' day. Rerun on a fresh node, not on the same.
