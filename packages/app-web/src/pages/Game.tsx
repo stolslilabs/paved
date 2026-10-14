@@ -13,6 +13,7 @@ import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute, isDailyParam, isTrainingParam, isTutorialParam, renamedModeSearch } from "../utils/mode-routing";
 import type { MoveSenders, PageSession, PageState } from "../training/page-session";
+import { attachE2eProbe, publishE2eView } from "../training/e2e-probe";
 import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";
 import { useEconomy } from "../utils/economy-context";
@@ -353,6 +354,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
 
   const handleReady = useCallback((s: GameScene) => {
     setScene(s);
+    attachE2eProbe(s);
   }, []);
 
   const handleTileClick = useCallback((gridX: number, gridY: number) => {
@@ -404,6 +406,10 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
     }
     return slots;
   }, [hand, orientation, tiles]);
+
+  useEffect(() => {
+    publishE2eView({ orientation, slots: availableSlots });
+  }, [orientation, availableSlots]);
 
   const hoverState = useMemo(() => {
     if (!hand) return null;
@@ -462,6 +468,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
     hand,
     game,
     hoverState,
+    confirmingSurrender,
   });
   useEffect(() => {
     hotkeys.current = {
@@ -474,6 +481,7 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
       hand,
       game,
       hoverState,
+      confirmingSurrender,
     };
   });
 
@@ -491,6 +499,8 @@ function GameBoardView({ session, state, senders, forceReadonly, gameLabel, extr
         h.handleRecenter();
         return;
       }
+      // The surrender dialog is modal: a key typed under it must not play a move.
+      if (h.confirmingSurrender) return;
       switch (e.key.toLowerCase()) {
         case "r":
           h.handleRotate();
