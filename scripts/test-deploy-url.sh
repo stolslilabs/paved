@@ -2,8 +2,8 @@
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
 # (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
-# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1) and the --d18 path
-# (D-18c), and on the fresh path's --check-only and --out (F). Usage:
+# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1), the --d18 path
+# (D-18c) and the --upgrade-challenge path (G6), and on the fresh path's --check-only and --out (F). Usage:
 # scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,6 +83,24 @@ out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehear
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse --d18 refuses a remote node, its key unprinted"
 else echo "FAIL: deploy.sh sepolia --rehearse --d18 with a remote RPC_URL: $out"; fail=1; fi
+# --upgrade-challenge (G6): the same options as --d18, and --guardian with the keyword deployer only; an address given
+# there is refused without being printed.
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --upgrade-challenge
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --upgrade-challenge --check-only --guardian deployer
+refuse 2 "unknown option '--upgrade-challenge' for 'devnet'" devnet --upgrade-challenge
+refuse 2 "--deployment is for the rehearsal only: sepolia --upgrade-challenge reads" sepolia --upgrade-challenge --deployment "$repoint_file"
+refuse 2 "sepolia --rehearse --upgrade-challenge needs --deployment <file>" sepolia --rehearse --upgrade-challenge --guardian deployer
+refuse 2 "unknown option '--frobnicate' for 'sepolia --upgrade-challenge'" sepolia --upgrade-challenge --frobnicate
+refuse 2 "--guardian expects the keyword deployer" sepolia --upgrade-challenge --guardian
+refuse 2 "--guardian is for sepolia --upgrade-challenge only" sepolia --d18 --guardian deployer
+out="$(env -u STARKNET_ACCOUNT_ADDRESS "$here/deploy.sh" sepolia --upgrade-challenge --guardian 0xabcdef0123456789MARKER 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"--guardian expects the keyword deployer"* && "$out" != *MARKER* && "$out" != *abcdef0123456789* ]]; then
+  echo "ok: deploy.sh sepolia --upgrade-challenge --guardian <address> is refused, the address unprinted"
+else echo "FAIL: deploy.sh sepolia --upgrade-challenge --guardian <address>: $out"; fail=1; fi
+out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --upgrade-challenge --deployment "$repoint_file" 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
+  echo "ok: deploy.sh sepolia --rehearse --upgrade-challenge refuses a remote node, its key unprinted"
+else echo "FAIL: deploy.sh sepolia --rehearse --upgrade-challenge with a remote RPC_URL: $out"; fail=1; fi
 rm -f "$repoint_file"
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
@@ -231,6 +249,11 @@ at_node down "no node answers at \$STARKNET_RPC_URL" --d18
 at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --d18
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --d18
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --d18 --check-only
+# The --upgrade-challenge path (G6) too, --guardian deployer included.
+at_node down "no node answers at \$STARKNET_RPC_URL" --upgrade-challenge --guardian deployer
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --upgrade-challenge --guardian deployer
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --upgrade-challenge
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --upgrade-challenge --check-only --guardian deployer
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
 # gets no value in its argv, and starts with the allowlisted environment only (no NODE_TLS_REJECT_UNAUTHORIZED, no
@@ -313,7 +336,7 @@ case "$config" in
     while read -r h st; do
       [[ -n "$h" && "$config" == *"\\\"$h\\\""* ]] || continue
       if [[ "$config" == *starknet_getTransactionReceipt* ]]; then
-        body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"transaction_hash\":\"$h\",\"execution_status\":\"$st\",\"finality_status\":\"ACCEPTED_ON_L2\",\"events\":[]}}"
+        body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"transaction_hash\":\"$h\",\"execution_status\":\"$st\",\"finality_status\":\"ACCEPTED_ON_L2\",\"events\":$(cat "$dir/events/$h" 2>/dev/null || echo '[]')}}"
       else
         body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"finality_status\":\"ACCEPTED_ON_L2\",\"execution_status\":\"$st\"}}"
       fi
@@ -355,15 +378,45 @@ case "$cmd:$fn" in
   # config (--d18): Economy.config() as a JSON list, when not the one before P-46 (slope 18,130).
   call:config) r="$(cat "$dir/config" 2>/dev/null || echo '["0x1b58","0x0","0x46d2","0x5","0xd3c21bcecceda1000000"]')" ;;
   # --d18's smoke on a complete upgrade: game 7 over with 2 tiles placed, and its builder (game, player, tile, plan).
-  call:game) r='["0x7","0x1","0x1","0x0","0x0","0x1","0x3","0x2","0x0","0x0","0x0","0x0","0x26","0x0","0x0","0x0"]' ;;
-  call:builder) r="[\"0x7\",\"$STARKNET_ACCOUNT_ADDRESS\",\"0x3\",\"0xe\"]" ;;
+  # (--upgrade-challenge: the id asked, the deployer its player.)
+  # With `fresh_game`, the game is open with the starter alone until a build is sent (`built`: two tiles, still open).
+  call:game) over=0x1 placed=0x2
+    if [[ -e "$dir/fresh_game" ]]; then over=0x0; placed=0x1; [[ -e "$dir/built" ]] && placed=0x2; fi
+    r="[\"$(printf '0x%x' "${cd[0]:-7}")\",\"$STARKNET_ACCOUNT_ADDRESS\",\"0x1\",\"0x0\",\"0x0\",\"$over\",\"0x3\",\"$placed\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x26\",\"0x0\",\"0x0\",\"0x0\"]" ;;
+  # --upgrade-challenge's smoke: Economy.quote(1) (its USDC to swap, low and high, at 2 and 3), and the build estimate.
+  call:quote) r='["0x1","0x0","0x1312d0","0x0","0x0"]' ;;
+  estimate:build) echo '{"ok":true}'; exit 0 ;;
+  # --upgrade-challenge: guardian() is the deployer once set_guardian was sent (guardian_set), another address
+  # (guardian_other), or none; spawn_paused() is true with `paused`.
+  call:guardian) r='["0x0"]'; [[ -e "$dir/guardian_set" ]] && r="[\"$STARKNET_ACCOUNT_ADDRESS\"]"; [[ -e "$dir/guardian_other" ]] && r='["0x999"]' ;;
+  call:spawn_paused) r='["0x0"]'; [[ -e "$dir/paused" ]] && r='["0x1"]' ;;
+  # --upgrade-challenge (invoke_ok only): an invoke is accepted and logged with its calldata; upgrade moves the
+  # contract's class on the node, set_guardian sets the guardian.
+  invoke:*)
+    [[ -e "$dir/invoke_ok" ]] || { echo "$cmd $fn" >>"$dir/sent.log"; echo "signer: the test sends nothing" >&2; exit 1; }
+    n="$(($(cat "$dir/count" 2>/dev/null || echo 0) + 1))"; echo "$n" >"$dir/count"
+    hash="$(printf '0x1a0%04x' "$n")"
+    echo "signer: sending starknet_addInvokeTransaction, transaction $hash" >&2
+    echo "invoke $fn ${cd[*]} $hash" >>"$dir/sent.log"
+    echo "$hash SUCCEEDED" >>"$dir/receipts"
+    case "$fn" in
+      upgrade) printf '%s %s\n0x%064x %s\n' "$contract" "${cd[0]}" "$contract" "${cd[0]}" >>"$dir/classes" ;;
+      set_guardian) touch "$dir/guardian_set" ;;
+      # GameSpawned (keys: selector, game id, player) from Challenge: game 9.
+      spawn) mkdir -p "$dir/events"; printf '[{"from_address":"%s","keys":["0x5a","0x9","0x1"],"data":[]}]' "$contract" >"$dir/events/$hash" ;;
+      build) touch "$dir/built" ;;
+    esac
+    echo "{\"transaction_hash\":\"$hash\"}"
+    exit 0 ;;
+  call:builder) r="[\"$(printf '0x%x' "${cd[0]:-7}")\",\"$STARKNET_ACCOUNT_ADDRESS\",\"0x3\",\"0xe\"]" ;;
   call:pool) r='["0x10","0x20","0x1","0x1","0x0","0x0","0x0"]' ;;
   call:reserves)
     # PAVED (0x10) is token0: 800,000 PAVED and 10,000 USDC, the old pool's size.
     r='["0xa968163f0a57b400000","0x0","0x2540be400","0x0"]'
     if [[ "$contract" == 0x90 && -e "$dir/seeded" ]]; then r="$(cat "$dir/seeded")"
     elif [[ "$contract" == 0x90 && -e "$dir/unseeded" ]]; then r='["0x0","0x0","0x0","0x0"]'; fi ;;
-  call:balance_of) r="$big"; [[ "$contract" == 0x4718f5a* && -e "$dir/poor" ]] && r='["0x0","0x0"]' ;;
+  call:balance_of) r="$big"; [[ "$contract" == 0x4718f5a* && -e "$dir/poor" ]] && r='["0x0","0x0"]'
+    [[ "$contract" == 0x20 && -e "$dir/usdc_low" ]] && r='["0x0","0x0"]' ;;
   call:staked) r='["0x2a5a058fc295ed000000","0x0"]' ;;
   call:minted) r='["0x0","0x0"]' ;;
   call:terms) r="[\"$STARKNET_ACCOUNT_ADDRESS\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\"]" ;;
@@ -419,8 +472,8 @@ SH
 chmod +x "$rp/bin/"*
 cp "$here/deploy.sh" "$rp/root/scripts/"
 mkdir -p "$rp/root/scripts/signer"
-# MockRouter and Economy for --repoint; Account, Daily, Tutorial and Lobby for --d18.
-for name in MockRouter Economy Account Daily Tutorial Lobby; do
+# MockRouter and Economy for --repoint; Account, Daily, Tutorial and Lobby for --d18; Challenge for --upgrade-challenge.
+for name in MockRouter Economy Account Daily Tutorial Lobby Challenge; do
   cp "$here/signer/test/fixtures/tiny.contract_class.json" "$rp/root/contracts/target/release/paved_$name.contract_class.json"
   cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$rp/root/contracts/target/release/paved_$name.compiled_contract_class.json"
 done
@@ -433,7 +486,8 @@ rp_json="$rp/root/contracts/deployments/sepolia.json"
 # The deployment (written after the commit: the source check reads contracts/src, Scarb.toml and Scarb.lock only), with
 # an optional `repoint` record, as JSON. Each case starts from clean signer and node files.
 rp_case() { # [repoint record]
-  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby,router,not_owner,config}
+  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby,router,not_owner,config,invoke_ok,guardian_set,guardian_other,paused,fresh_game,built,usdc_low}
+  rm -rf "$rp/bin/events"
   rp_classes
   python3 -I - "$rp_json" "${1:-}" <<'PY'
 import json, sys
@@ -773,6 +827,203 @@ if [[ $rc -ne 0 || "$out" != *"complete: upgraded, Lobby and slope set, smoke re
   d18_fail "a complete upgrade with no STRK: expected exit 0, the funding need waived, smoke ok, nothing sent, got $rc" "$out"
 else
   echo "ok: sepolia --d18: a complete upgrade with 0 STRK passes the funding check (nothing left to send), smoke ok, nothing sent"
+fi
+
+# --upgrade-challenge past the node checks (G6), on the same fake node and signer. The deployment is F's shape: Challenge
+# (0xc0) of its old class 0xc1a, and Setup, Collection, Economy, PavedToken, Vault, Faucet and MockRouter of the classes
+# the build computes (their names in hex, as the sncast shim does), so only Challenge's differs; the new Challenge class
+# is declared on the node; F's smoke game is game 1. An optional `upgrade_g1g4` record, as JSON.
+uc_case() { # [upgrade_g1g4 record]
+  rp_case
+  python3 -I - "$rp_json" "${1:-}" <<'PY'
+import json, sys
+hexname = lambda n: "0x" + n.encode().hex()
+c = lambda a, h: {"address": a, "class_hash": h}
+d = {"network": "sepolia", "chain_id": "0x534e5f5345504f4c4941", "rpc_url": "$STARKNET_RPC_URL", "deployed_block": 1,
+     "token": c("0x20", hexname("Faucet")),
+     "contracts": {"Challenge": c("0xc0", "0xc1a"), "Setup": c("0x51", hexname("Setup")),
+                   "Collection": c("0x70", hexname("Collection")), "Economy": c("0xe0", hexname("Economy")),
+                   "PavedToken": c("0x10", hexname("PavedToken")), "Vault": c("0x30", hexname("Vault")),
+                   "Faucet": c("0x20", hexname("Faucet")), "MockRouter": c("0x80", hexname("MockRouter"))},
+     "fresh": {"smoke": {"game_id": "1"}, "complete": "yes"}}
+if sys.argv[2]:
+    d["upgrade_g1g4"] = json.loads(sys.argv[2])
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+  local a n
+  : >"$rp/bin/classes"
+  for a in "0xc0 0xc1a" "0x51 $(hexname Setup)" "0x70 $(hexname Collection)" "0xe0 $(hexname Economy)" \
+      "0x10 $(hexname PavedToken)" "0x30 $(hexname Vault)" "0x20 $(hexname Faucet)" "0x80 $(hexname MockRouter)"; do
+    set -- $a; printf '%s %s\n0x%064x %s\n' "$1" "$2" "$1" "$2"
+  done >>"$rp/bin/classes"
+  for n in Challenge Setup Collection Economy PavedToken Vault Faucet MockRouter; do hexname "$n"; done >"$rp/bin/declared"
+  touch "$rp/bin/invoke_ok"
+}
+uc_upgraded() { printf '0xc0 %s\n0x%064x %s\n' "$(hexname Challenge)" 0xc0 "$(hexname Challenge)" >>"$rp/bin/classes"; }
+uc_fail() { # <label> <output>
+  echo "FAIL: sepolia --upgrade-challenge, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"
+  echo "sent: $(cat "$rp/bin/sent.log")"; fail=1
+}
+uc_get_test() { python3 -I -c 'import json,sys;n=json.load(open(sys.argv[1])).get("upgrade_g1g4",{})
+for k in sys.argv[2].split("."): n=n.get(k,{}) if isinstance(n,dict) else {}
+print(n if isinstance(n,str) else "")' "$rp_json" "$1"; }
+UC_NEW="$(hexname Challenge)"
+
+# leak: the first send of uc_state fails, printing the three values.
+uc_case
+touch "$rp/bin/leak"
+out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+names="$(sed -n '/^node env:$/,/^node argv/p' "$rp/bin/signer.log" | sed '1d;/^node argv/d' | cut -d= -f1 | grep -v '^_$\|^PWD$\|^SHLVL$\|^OLDPWD$' | sort -u | tr '\n' ' ')"
+if [[ $rc -ne 1 || "$out" != *"== upgrade-challenge: state (read-only)"* ]] || leaks -q <<<"$out"; then
+  uc_fail "a failing send in uc_state: expected exit 1 in uc_state, no value, got $rc" "$out"
+elif grep '^node argv' "$rp/bin/signer.log" | leaks -q || leaks -q "$rp/curl.log" || ! grep -q '^curl: the URL came on stdin$' "$rp/curl.log"; then
+  echo "FAIL: sepolia --upgrade-challenge: a value reached the signer's argv or curl's argv or environment"; fail=1
+elif [[ "$names" != "$want" ]]; then
+  echo "FAIL: sepolia --upgrade-challenge: the signer's environment is not the allowlist: $names"; fail=1
+else
+  echo "ok: sepolia --upgrade-challenge reaches uc_state; a failing send there leaks no value; the signer's argv holds none; its environment is: $names"
+fi
+
+# --check-only past every check: every other class unchanged, the owner, F's game read back; it lists the upgrade and
+# set_guardian with the address as its variable's name, and ends "every check passed; nothing was sent".
+uc_case
+before="$(cat "$rp_json")"
+out="$(rp_run --upgrade-challenge --check-only --guardian deployer)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"== upgrade-challenge: check only: every check passed; nothing was sent" ||
+    "$out" != *"Setup Collection Economy PavedToken Vault Faucet MockRouter: unchanged (the build's class is the file's and the node's)"* ||
+    "$out" != *"Challenge.owner() is the deployer"* || "$out" != *"Challenge: class 0xc1a (not upgraded)"* ||
+    "$out" != *"game 1 (F's smoke game, spawned before the upgrade): readable, the deployer's"* ||
+    "$out" != *"Challenge.upgrade($UC_NEW): a run would send it"* ||
+    "$out" != *'Challenge.set_guardian($STARKNET_ACCOUNT_ADDRESS): a run would send it'* ||
+    -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] || leaks -q <<<"$out"; then
+  uc_fail "--check-only: expected exit 0, the upgrade and set_guardian listed, nothing sent, the file unchanged, got $rc" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge --check-only passes every check, lists the upgrade and set_guardian, sends nothing, writes nothing"
+fi
+
+# A full run with --guardian deployer from nothing recorded: the upgrade, then set_guardian with the deployer as
+# `@account` (in no argv), never printed; then the smoke's own sends: the faucet mint (the deployer holds no USDC), the
+# approve, the spawn with the client's min_out (Economy's quote_swap of quote(1), less 1 %: 5 -> 4), game 9 read from
+# the spawn's receipt, and the first build the node estimates. The record says `guardian: deployer` and holds no
+# address; the file gets the new class and keeps every other field.
+uc_sent() { sed 's/ 0x1a0[0-9a-f]*$//' "$rp/bin/sent.log" | tr '\n' ';'; }
+uc_case
+touch "$rp/bin/usdc_low" "$rp/bin/fresh_game"
+before="$(python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["contracts"]["Challenge"].pop("class_hash");print(json.dumps(d,sort_keys=True))' "$rp_json")"
+out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+after="$(python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["contracts"]["Challenge"].pop("class_hash");d.pop("upgrade_g1g4");print(json.dumps(d,sort_keys=True))' "$rp_json")"
+sent="$(uc_sent)"
+want="invoke upgrade $UC_NEW;invoke set_guardian @account;invoke mint @account 2000000 0;invoke approve 0xc0 2000000 0;invoke spawn 1 0 4 0;invoke build 9 1 2147483647 2147483648;"
+if [[ $rc -ne 0 || "$sent" != "$want" ||
+    "$out" != *'Challenge.set_guardian($STARKNET_ACCOUNT_ADDRESS): the deployer is the guardian'* ||
+    "$out" != *"Challenge.guardian(): the deployer"* || "$out" != *"Challenge.spawn_paused(): false"* ||
+    "$out" != *"paid game 9 at stake 1 (min_out 4)"* || "$out" != *"build(game 9, orientation 1, x 2147483647, y 2147483648)"* ||
+    "$out" != *"== upgrade-challenge: smoke ok"* || "$(uc_get_test guardian)" != deployer ||
+    "$(uc_get_test upgrade_tx)" != 0x1a00001 || "$(uc_get_test guardian_tx)" != 0x1a00002 ||
+    "$(uc_get_test smoke.spawn_tx)" != 0x1a00005 || "$(uc_get_test smoke.game_id)" != 9 ||
+    "$(uc_get_test smoke.build_tx)" != 0x1a00006 || "$(uc_get_test complete)" != yes ||
+    "$(uc_get_test previous.Challenge.class_hash)" != "0x$(printf '%064x' 0xc1a)" ||
+    "$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["contracts"]["Challenge"]["class_hash"])' "$rp_json")" != "$(python3 -I -c 'import sys;print("0x%064x" % int(sys.argv[1], 16))' "$UC_NEW")" ||
+    "$after" != "$before" ]] || leaks -q <<<"$out" || leaks -q "$rp_json" || grep '^node argv' "$rp/bin/signer.log" | leaks -q; then
+  uc_fail "a full run with --guardian deployer: expected exit 0, upgrade, set_guardian(@account), mint, approve, spawn, build, the record and the file, no address anywhere, got $rc (sent: $sent)" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge --guardian deployer: upgrade, set_guardian(@account), then the smoke's mint, approve, spawn (min_out 4, game 9 from its receipt) and build; the guardian compared, never printed; the record and the file written, every other field kept"
+fi
+# Its rerun: the record is complete, so nothing is sent and the smoke does not run.
+out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"complete: nothing is sent; the owner, the guardian, the pause and the other classes are live state since, not read"* ||
+    "$out" != *"== upgrade-challenge: the record is complete; nothing was sent"* || "$out" == *"== upgrade-challenge: smoke"* ||
+    -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  uc_fail "a rerun after completion: expected exit 0, complete, nothing sent, no smoke, got $rc" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge: a rerun after completion sends nothing and runs no smoke"
+fi
+
+# A complete record whose live state moved since (review of #367, finding 1): the guardian cleared, spawn paused, the
+# owner transferred, no STRK. The rerun reads none of them, sends nothing (no set_guardian) and exits 0; --check-only
+# too, ending "every check passed; nothing was sent".
+uc_complete_json="{\"previous\": {\"Challenge\": {\"class_hash\": \"0xc1a\"}}, \"Challenge\": {\"class_hash\": \"$UC_NEW\"}, \"declare_tx\": \"0x5eed00a0\", \"upgrade_tx\": \"0x5eed00a1\", \"guardian_tx\": \"0x5eed00a2\", \"guardian\": \"deployer\", \"smoke\": {\"game_id\": \"7\", \"spawn_tx\": \"0x5eed00ab\", \"build_tx\": \"0x5eed00ac\"}, \"complete\": \"yes\"}"
+uc_receipts() { printf '0x5eed00a0 SUCCEEDED\n0x5eed00a1 SUCCEEDED\n0x5eed00a2 SUCCEEDED\n0x5eed00ab SUCCEEDED\n0x5eed00ac SUCCEEDED\n' >"$rp/bin/receipts"; }
+for mode in "" --check-only; do
+  uc_case "$uc_complete_json"; uc_upgraded; uc_receipts
+  touch "$rp/bin/paused" "$rp/bin/not_owner" "$rp/bin/poor"
+  before="$(cat "$rp_json")"
+  # shellcheck disable=SC2086
+  out="$(rp_run --upgrade-challenge --guardian deployer $mode)"; rc=$?
+  if [[ $rc -ne 0 || "$out" != *"every recorded transaction SUCCEEDED"* || "$out" != *"complete: nothing is sent"* ||
+      "$out" == *"owner()"* || "$out" == *"guardian():"* || "$out" == *"spawn_paused"* ||
+      "$out" != *"--upgrade-challenge: nothing is left to send, so the need does not apply"* ||
+      ( -n "$mode" && "$out" != *"== upgrade-challenge: check only: every check passed; nothing was sent" ) ||
+      -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] || leaks -q <<<"$out"; then
+    uc_fail "${mode:-a run} on a complete record with the guardian cleared, spawn paused, the owner moved and no STRK: expected exit 0, nothing read of them, nothing sent, got $rc" "$out"
+  else
+    echo "ok: sepolia --upgrade-challenge ${mode:-(run)} on a complete record with the guardian cleared, spawn paused and the owner moved: exit 0, none of them read, nothing sent, the file unchanged"
+  fi
+done
+# A complete record whose Challenge is not on the recorded class: refused, nothing sent.
+uc_case "$uc_complete_json"; uc_receipts
+out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+if [[ $rc -ne 1 || "$out" != *"the record is complete, but Challenge's class on the node is 0xc1a, not the recorded $UC_NEW: check it; nothing was sent"* ||
+    -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  uc_fail "a complete record with Challenge on another class: expected exit 1, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge refuses a complete record whose Challenge is not on the recorded class, nothing sent"
+fi
+
+# A resume after the upgrade, with a smoke spawn recorded (its receipt holds game 9): set_guardian is sent, the spawn is
+# not sent again (its game read from the receipt), and the build follows.
+uc_case '{"previous": {"Challenge": {"class_hash": "0xc1a"}}, "upgrade_tx": "0x5eed00a1", "smoke": {"spawn_tx": "0x5eed00ab"}}'
+uc_upgraded; touch "$rp/bin/fresh_game"
+printf '0x5eed00a1 SUCCEEDED\n0x5eed00ab SUCCEEDED\n' >"$rp/bin/receipts"
+mkdir -p "$rp/bin/events"; printf '[{"from_address":"0xc0","keys":["0x5a","0x9","0x1"],"data":[]}]' >"$rp/bin/events/0x5eed00ab"
+out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+sent="$(uc_sent)"
+if [[ $rc -ne 0 || "$sent" != "invoke set_guardian @account;invoke build 9 1 2147483647 2147483648;" ||
+    "$out" != *"upgrade_tx 0x5eed00a1 (recorded): landed"* || "$out" != *"smoke.spawn_tx 0x5eed00ab (recorded): landed"* ||
+    "$out" != *"paid spawn done already: game 9, tx 0x5eed00ab; not sent again"* || "$out" != *"== upgrade-challenge: smoke ok"* ||
+    "$(uc_get_test smoke.game_id)" != 9 || "$(uc_get_test complete)" != yes ]] || leaks -q <<<"$out"; then
+  uc_fail "a resume after the upgrade with a recorded spawn: expected set_guardian then the build only, game 9 from the receipt, got $rc (sent: $sent)" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge resumes after the upgrade: set_guardian, the recorded spawn read from its receipt (game 9, not sent again), then the build"
+fi
+
+# Checks that refuse before anything is sent, each a full run with --guardian deployer, the file unchanged.
+uc_refuses() { # <label> <expected fragment>
+  local before out rc
+  before="$(cat "$rp_json")"
+  out="$(rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"$2"* || "$out" == *"== funding"* || -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] ||
+      leaks -q <<<"$out"; then
+    uc_fail "$1: expected '$2', nothing sent, the file unchanged, got $rc" "$out"
+  else
+    echo "ok: sepolia --upgrade-challenge refuses $1 (exit $rc), nothing sent, the file unchanged"
+  fi
+}
+uc_case; touch "$rp/bin/not_owner"
+uc_refuses "a deployer that is not owner()" "the deployer \$STARKNET_ACCOUNT_ADDRESS is not Challenge.owner()"
+uc_case; printf '0xc0 0x777\n' >>"$rp/bin/classes"
+uc_refuses "a Challenge class that is neither the file's nor the new one" "Challenge's class on the node is 0x777: neither the file's 0xc1a nor the new one"
+uc_case; printf '0x51 0x5e7\n' >>"$rp/bin/classes"
+uc_refuses "another contract whose class on the node is not the file's" "Setup's class on the node is 0x5e7, not the file's $(hexname Setup); nothing was sent"
+uc_case
+python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["contracts"]["Vault"]["class_hash"]="0x7a17";json.dump(d,open(sys.argv[1],"w"))' "$rp_json"
+uc_refuses "another contract whose built class is not the file's" "the build's Vault class $(hexname Vault) is not the file's 0x7a17: this tool upgrades Challenge alone; nothing was sent"
+uc_case
+python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["contracts"]["Challenge"]["class_hash"]=sys.argv[2];json.dump(d,open(sys.argv[1],"w"))' "$rp_json" "$UC_NEW"
+uc_refuses "a build whose Challenge class is the file's" "the built Challenge class is the file's ($UC_NEW): nothing to upgrade to"
+uc_case '{"previous": {"Challenge": {"class_hash": "0xc1a"}}}'; uc_upgraded; touch "$rp/bin/guardian_other"
+uc_refuses "a guardian that is another address" "Challenge.guardian() is another address: --guardian deployer would replace it; nothing was sent"
+uc_case '{"previous": {"Challenge": {"class_hash": "0xc1a"}}}'; uc_upgraded; touch "$rp/bin/paused"
+uc_refuses "a paused spawn" "Challenge's spawn is paused: the smoke's paid spawn would fail; the owner unpauses it (unpause_spawn) first; nothing was sent"
+
+# A recorded upgrade with no receipt is awaited, not sent again: the wait (REPOINT_WAIT_S=0) ends the run, the hash kept.
+uc_case '{"previous": {"Challenge": {"class_hash": "0xc1a"}}, "upgrade_tx": "0xdead3"}'
+out="$(REPOINT_WAIT_S=0 rp_run --upgrade-challenge --guardian deployer)"; rc=$?
+if [[ $rc -ne 1 || "$out" != *"upgrade_tx 0xdead3 (recorded) has no receipt after 0 s (node: UNKNOWN): check it before any rerun"* ||
+    "$(uc_get_test upgrade_tx)" != 0xdead3 || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  uc_fail "a recorded upgrade_tx with no receipt: expected exit 1, the hash kept, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --upgrade-challenge: a recorded upgrade_tx with no receipt stops the run (exit $rc), its hash kept, nothing sent"
 fi
 
 # sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a
