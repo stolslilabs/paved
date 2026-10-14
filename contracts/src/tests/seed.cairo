@@ -77,18 +77,33 @@ fn test_token_seed_two_games_of_one_day_differ() {
     assert_eq!(DaySeed {}.seed(Mode::Challenge, TIME + 60, 2, 0), day);
 }
 
+/// The game a spawn writes from the initial seed `seed`: started, then its first tile drawn into
+/// the player's hand (`HostableComponent::spawn_with`), which moves the stored seed on.
+fn spawned(game_id: u32, seed: felt252) -> Game {
+    let mut game = GameImpl::new(game_id, TIME, Mode::Challenge, PLAYER().into());
+    game.start(TIME, seed);
+    game.draw_plan();
+    game
+}
+
 /// `Challenge.spawn` seeds each game with `TokenSeed`: Poseidon(0, game id), the salt being 0
-/// (`Game::new`) and the token id the game id. Two spawns of one day draw two seeds.
+/// (`Game::new`) and the token id the game id. The stored seed is the one after the first draw, so
+/// the game is replayed off chain from Poseidon(0, id) and compared. Two spawns of one day differ.
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_token_seed_is_the_seed_of_a_challenge_spawn() {
     snforge_std::start_cheat_block_timestamp_global(TIME);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let first = store.game(context.game_id);
-    assert_eq!(first.seed, poseidon(0, context.game_id.into()));
+    let expected = spawned(context.game_id, poseidon(0, context.game_id.into()));
+    assert_eq!(first.seed, expected.seed);
+    assert_eq!(first.tiles, expected.tiles);
+    // [Assert] Not the day's seed
+    let day = spawned(context.game_id, DaySeed {}.seed(Mode::Challenge, TIME, 1, 0));
+    assert!(first.seed != day.seed);
     let second_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     let second = store.game(second_id);
-    assert_eq!(second.seed, poseidon(0, second_id.into()));
+    assert_eq!(second.seed, spawned(second_id, poseidon(0, second_id.into())).seed);
     assert!(first.seed != second.seed);
     assert_eq!(first.day_id, second.day_id);
     assert_eq!(first.player_id, PLAYER().into());
