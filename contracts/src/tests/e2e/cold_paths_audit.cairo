@@ -45,7 +45,7 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// The dead ones are pinned by `test_daily_pins_the_dead_fields_by_name`. `UpgradeableComponent`
 /// has no storage.
 #[test]
-#[available_gas(l2_gas: 400000000)]
+#[available_gas(l2_gas: 55714023)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
@@ -100,7 +100,7 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 /// The names `test_daily_pins_*` are kept from before D-23 (`Daily` became `Challenge`) on purpose:
 /// the docs and the comments of the code cite them.
 #[test]
-#[available_gas(l2_gas: 400000000)]
+#[available_gas(l2_gas: 128698602)]
 fn test_daily_pins_the_dead_fields_by_name() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -214,7 +214,7 @@ fn reentrant_with_economy() -> (
 /// re-entry is armed): the player holds two games, each with its own purchase, each paid once, and
 /// the first game is as it was written.
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 48136700)]
 fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
     let (challenge, token, economy) = reentrant_with_economy();
     token.arm(challenge.contract_address, SPAWN);
@@ -249,7 +249,7 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
 /// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that
 /// mode, for any caller.
 #[test]
-#[available_gas(l2_gas: 140000000)]
+#[available_gas(l2_gas: 81385987)]
 fn test_daily_spawn_mode_is_fixed_by_the_game_contract() {
     start_cheat_block_timestamp_global(100);
     let (_, systems, _) = setup::spawn_game(Mode::None);

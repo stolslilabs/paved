@@ -189,7 +189,7 @@ fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Challenge
 ///   the cap, 3 nodes, 3 x 200 x 10721 / 10000 = 643;
 /// - the fifth field closes the ring around the wonder that held the Pilgrim: 900.
 #[test]
-#[available_gas(l2_gas: 3000000000)]
+#[available_gas(l2_gas: 889143828)]
 fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;

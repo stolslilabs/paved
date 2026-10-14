@@ -10,7 +10,7 @@ use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 
 #[test]
-#[available_gas(l2_gas: 118214000)]
+#[available_gas(l2_gas: 80722938)]
 fn test_daily_e2e_spawn_starts_game() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
 
@@ -21,7 +21,7 @@ fn test_daily_e2e_spawn_starts_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 119726000)]
+#[available_gas(l2_gas: 81648618)]
 fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     // No game spawned by the setup: spawn here to observe the balances around it.
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -42,7 +42,7 @@ fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
 }
 
 #[test]
-#[available_gas(l2_gas: 127505000)]
+#[available_gas(l2_gas: 90459346)]
 fn test_daily_e2e_build_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
@@ -59,7 +59,7 @@ fn test_daily_e2e_build_increments_counter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 121707000)]
+#[available_gas(l2_gas: 84472274)]
 fn test_daily_e2e_surrender_ends_game() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 

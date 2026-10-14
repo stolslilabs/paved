@@ -32,7 +32,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
-#[available_gas(l2_gas: 64186000)]
+#[available_gas(l2_gas: 54403760)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -53,7 +53,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 72538000)]
+#[available_gas(l2_gas: 61088511)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -71,7 +71,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 75295000)]
+#[available_gas(l2_gas: 63296735)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -88,7 +88,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-#[available_gas(l2_gas: 66707000)]
+#[available_gas(l2_gas: 57069458)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
@@ -159,7 +159,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 66285000)]
+#[available_gas(l2_gas: 56647358)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
@@ -268,7 +268,7 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 }
 
 #[test]
-#[available_gas(l2_gas: 554348)]
+#[available_gas(l2_gas: 484775)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     assert(
@@ -278,7 +278,7 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
 }
 
 #[test]
-#[available_gas(l2_gas: 554978)]
+#[available_gas(l2_gas: 485405)]
 fn test_access_daily_constructor_reverts_on_zero_setup() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = ANYONE().into();
@@ -335,7 +335,7 @@ fn test_access_daily_set_setup_reverts_on_zero() {
 
 
 #[test]
-#[available_gas(l2_gas: 1415736)]
+#[available_gas(l2_gas: 877191)]
 fn test_access_constructors_revert_on_zero_owner() {
     let token: felt252 = ANYONE().into();
     assert(

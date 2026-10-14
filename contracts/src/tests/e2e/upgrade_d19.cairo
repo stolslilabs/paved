@@ -180,7 +180,7 @@ fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Challenge
 /// forest 329, the road of the stub 438, the city 643, the wonder 900), and every tile of the
 /// upgraded game reads seat 0.
 #[test]
-#[available_gas(l2_gas: 4000000000)]
+#[available_gas(l2_gas: 1126520260)]
 fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
     let (store, challenge, g, class_d19) = start();
     let (twin, _, tg, _) = start();

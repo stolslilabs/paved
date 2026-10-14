@@ -65,7 +65,7 @@ fn achievement_set(allowed: bool) -> Setup::Event {
 
 /// `set_reporter` writes both components and emits both events; the view follows it.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 3958101)]
 fn test_setup_owner_sets_and_revokes_a_reporter() {
     let system = deploy_setup();
     let address = system.contract_address;
@@ -88,7 +88,7 @@ fn test_setup_owner_sets_and_revokes_a_reporter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 1536560)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_setup_set_reporter_not_owner() {
     let system = deploy_setup();
@@ -98,7 +98,7 @@ fn test_setup_set_reporter_not_owner() {
 
 /// A revoked reporter cannot report.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 3305232)]
 #[should_panic(expected: 'Quest: not reporter')]
 fn test_setup_report_revoked_reporter() {
     let system = setup_with_reporter();
@@ -112,7 +112,7 @@ fn test_setup_report_revoked_reporter() {
 
 /// Any caller that is not a reporter, the owner included, is refused.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 3442961)]
 #[should_panic(expected: 'Quest: not reporter')]
 fn test_setup_report_not_reporter() {
     let system = setup_with_reporter();
@@ -126,7 +126,7 @@ fn test_setup_report_not_reporter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 3395795)]
 #[should_panic(expected: 'Quest: not reporter')]
 fn test_setup_report_owner_is_not_a_reporter() {
     let system = setup_with_reporter();
@@ -137,7 +137,7 @@ fn test_setup_report_owner_is_not_a_reporter() {
 /// A reporter reports for the player it names: one `QuestProgressed` per quest entry and one
 /// `AchievementProgressed` per achievement entry, nothing else.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 5660876)]
 fn test_setup_reporter_reports_every_entry() {
     let system = setup_with_reporter();
     let address = system.contract_address;
@@ -174,7 +174,7 @@ fn test_setup_reporter_reports_every_entry() {
 /// The first claim emits task 10 once for its caller and sets the flag; a second claim emits
 /// nothing, does not revert and changes nothing; another player's flag is untouched.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 4010524)]
 fn test_setup_claim_tutorial_once() {
     let system = deploy_setup();
     let address = system.contract_address;
@@ -205,7 +205,7 @@ fn test_setup_claim_tutorial_once() {
 
 /// The claim needs no registration and no reporter: any caller claims for itself only.
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 2820370)]
 fn test_setup_claim_tutorial_is_the_callers() {
     let system = deploy_setup();
     let address = system.contract_address;
@@ -227,7 +227,7 @@ fn test_setup_claim_tutorial_is_the_callers() {
 // Ownable and upgradeable
 
 #[test]
-#[available_gas(l2_gas: 40000000)]
+#[available_gas(l2_gas: 1472762)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_setup_upgrade_not_owner() {
     let system = deploy_setup();
@@ -238,7 +238,7 @@ fn test_setup_upgrade_not_owner() {
 
 /// An upgrade keeps the storage: the allowlist and the claims survive it.
 #[test]
-#[available_gas(l2_gas: 60000000)]
+#[available_gas(l2_gas: 5045110)]
 fn test_setup_upgrade_keeps_the_storage() {
     let system = setup_with_reporter();
     let address: ContractAddress = system.contract_address;

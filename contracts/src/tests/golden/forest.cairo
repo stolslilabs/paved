@@ -95,7 +95,7 @@ fn herdsman_open_city_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 181814000)]
+#[available_gas(l2_gas: 131687064)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -110,7 +110,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 194393000)]
+#[available_gas(l2_gas: 140040998)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -125,7 +125,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 244454000)]
+#[available_gas(l2_gas: 192269683)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -142,7 +142,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 193853000)]
+#[available_gas(l2_gas: 143085179)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -160,7 +160,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 440028000)]
+#[available_gas(l2_gas: 394024317)]
 fn test_golden_daily_forest_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_ring',
@@ -174,7 +174,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 433100000)]
+#[available_gas(l2_gas: 381998697)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',
@@ -188,7 +188,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 758797000)]
+#[available_gas(l2_gas: 714656316)]
 fn test_golden_daily_forest_both_roles_structures_agree() {
     play_daily_checked(
         'forest_both',
@@ -202,7 +202,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 458009000)]
+#[available_gas(l2_gas: 400499018)]
 fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
     play_daily_checked(
         'forest_open',
@@ -221,7 +221,7 @@ fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
 /// game. (Board A of the audit, the ring with a Lord on the road, is the ring itself since
 /// D-18: it left with its Lord.)
 #[test]
-#[available_gas(l2_gas: 445519000)]
+#[available_gas(l2_gas: 398360228)]
 fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
     play_daily_checked(
         'forest_last',
