@@ -6,12 +6,36 @@ import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
+import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
+import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
+import type { PlayerSceneProps } from "../components/scenes/player-scene";
+import type { QuestsSceneProps } from "../components/scenes/quests-scene";
+import type { ReferralEarnings, ReferralSceneProps } from "../components/scenes/referral-scene";
+import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
+import type { ThemeSceneProps } from "../components/scenes/theme-scene";
+import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import { RENDERER_ASSETS } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
 import { MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
-import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_STATS, VIEWER_TODAY } from "./players";
+import {
+  BOARD_CLOSED,
+  BOARD_EMPTY,
+  BOARD_OFF_TOP,
+  BOARD_TODAY,
+  FIRST_DAY,
+  OTHER_PROFILE,
+  PLAYER_GAMES,
+  SELF_PROFILE,
+  UNKNOWN_PROFILE,
+  VIEWER_OFF_TOP,
+} from "./leaderboard";
+import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY } from "./quests";
+import { REFERRAL_LINK, REFERRED_PURCHASES } from "./referral";
+import { THEME_TILES } from "./settings";
+import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -133,3 +157,86 @@ export const PURCHASE = {
   paused: { ...purchaseBase, ...at(1), spawnPaused: true },
   buying: { ...purchaseBase, ...at(3), buying: true },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
+
+// Leaderboard
+
+const ranks = { today: TODAY, firstDay: FIRST_DAY, viewerId: PLAYER_ID, now: MOCK_NOW };
+
+export const LEADERBOARD = {
+  today: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY },
+  closed: { ...ranks, day: TODAY - 1, leaderboard: BOARD_CLOSED },
+  empty: { ...ranks, day: BOARD_EMPTY.tournamentId, leaderboard: BOARD_EMPTY },
+  offTop: { ...ranks, day: TODAY, leaderboard: BOARD_OFF_TOP, viewer: VIEWER_OFF_TOP },
+  guest: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY, viewerId: null },
+  loading: { ...ranks, day: TODAY, leaderboard: null },
+  error: { ...ranks, day: TODAY, leaderboard: null, error: "The indexer did not answer (unreachable). The ranking will show once it is back." },
+} satisfies Record<string, Data<LeaderboardSceneProps>>;
+
+export const PLAYER_PAGE = {
+  other: { playerId: OTHER_PROFILE.player!.playerId, profile: OTHER_PROFILE, today: LEADERBOARD_TODAY.entries[0], games: PLAYER_GAMES.slice(1) },
+  self: { playerId: PLAYER_ID, profile: SELF_PROFILE, today: VIEWER_TODAY, games: PLAYER_GAMES, self: true },
+  unknown: { playerId: "0x07a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f", profile: UNKNOWN_PROFILE, games: [] },
+  loading: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null },
+} satisfies Record<string, Data<PlayerSceneProps>>;
+
+// Vault
+
+const vaultBase = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, mode: "deposit", amount: "", preview: null } satisfies Partial<Data<VaultSceneProps>>;
+
+export const VAULT = {
+  noPosition: { ...vaultBase, position: VAULT_NONE, amount: "100", preview: PREVIEW_DEPOSIT_100 },
+  position: { ...vaultBase, mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500 },
+  depositing: { ...vaultBase, amount: "100", preview: PREVIEW_DEPOSIT_100, busy: "deposit" },
+  withdrawing: { ...vaultBase, mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500, busy: "withdraw" },
+  overMax: { ...vaultBase, mode: "withdraw", amount: "1300" },
+  noPaved: { ...vaultBase, position: VAULT_NONE, balance: 0n },
+  notDeployed: { ...vaultBase, deployed: false, position: null, balance: 0n, split: null },
+} satisfies Record<string, Data<VaultSceneProps>>;
+
+// Settings and theme
+
+export const PREFERENCES: Preferences = { quality: "high", sound: true, music: false, tilePreview: true, placementHighlight: true };
+
+export const SETTINGS = {
+  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "default", version: "0.1.0" },
+  guest: { preferences: { ...PREFERENCES, quality: "medium", sound: false }, account: null, theme: "forest", version: "0.1.0" },
+} satisfies Record<string, Data<SettingsSceneProps>>;
+
+export const THEME = {
+  defaultSelected: { selected: "default", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+  forestSelected: { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+} satisfies Record<string, Data<ThemeSceneProps>>;
+
+// Quests and achievements
+
+const questsBase = { today: TODAY, firstDay: QUESTS_FROM, connected: true, now: MOCK_NOW };
+
+export const QUESTS = {
+  today: { ...questsBase, day: TODAY, quests: QUESTS_TODAY },
+  allDone: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE },
+  idle: { ...questsBase, day: QUESTS_IDLE.day, quests: QUESTS_IDLE },
+  none: { ...questsBase, firstDay: QUESTS_NONE.day, day: QUESTS_NONE.day, quests: QUESTS_NONE },
+  guest: { ...questsBase, day: TODAY, quests: null, connected: false },
+  loading: { ...questsBase, day: TODAY, quests: null },
+} satisfies Record<string, Data<QuestsSceneProps>>;
+
+export const ACHIEVEMENTS = {
+  mixed: { achievements: ACHIEVEMENTS_MIXED, connected: true },
+  newPlayer: { achievements: ACHIEVEMENTS_NEW, connected: true },
+  all: { achievements: ACHIEVEMENTS_ALL, connected: true },
+  guest: { achievements: null, connected: false },
+  loading: { achievements: null, connected: true },
+} satisfies Record<string, Data<AchievementsSceneProps>>;
+
+// Referral
+
+const earned: ReferralEarnings = { total: REFERRED_PURCHASES.reduce((sum, p) => sum + BigInt(p.referral), 0n), count: 9, recent: REFERRED_PURCHASES };
+
+export const REFERRAL = {
+  earned: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: earned, now: MOCK_NOW },
+  copied: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: earned, copied: true, now: MOCK_NOW },
+  none: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: { total: 0n, count: 0, recent: [] }, now: MOCK_NOW },
+  loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
+  guest: { link: null, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
+  notDeployed: { link: REFERRAL_LINK, split: null, earnings: null, now: MOCK_NOW },
+} satisfies Record<string, Data<ReferralSceneProps>>;
