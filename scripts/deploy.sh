@@ -215,9 +215,9 @@
 # `scarb` comes from the PATH, with no prepend; on the VPS that is the shim ~/.local/bin/scarb, which holds the
 # machine-wide lock. SCARB_BIN_DIR is put first on the PATH only when the caller sets it (SCARB_BIN_DIR=$HOME/.local/bin
 # passes). Before anything is built or sent, a guard refuses (exit 2) when the shim exists and scarb resolves elsewhere
-# (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns. PAVED_SCARB_SHIM is the shim
-# path the guard expects (default ~/.local/bin/scarb): a hook for scripts/test-deploy-url.sh and its stubs, not a way
-# round the rule. sncast is not a Cairo build: it is run by its absolute path, $SNCAST_BIN_DIR/sncast (default: the asdf
+# (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns. The shim is a script (`#!` first
+# line): a native binary at ~/.local/bin/scarb is no shim, and warns. PAVED_SCARB_SHIM is the shim path the guard expects
+# (default ~/.local/bin/scarb): a hook for scripts/test-deploy-url.sh and its stubs, not a way round the rule. PAVED_SCARB_SHIM is a TEST HOOK only (PM, 2026-10-14): a thread never points it at a real binary to get past the guard. sncast is not a Cairo build: it is run by its absolute path, $SNCAST_BIN_DIR/sncast (default: the asdf
 # starknet-foundry 0.64.0 bin; plain `sncast` from the PATH when that file is absent; "sncast not found" at its first call when neither exists), so its directory never goes on the
 # PATH and cannot put an asdf scarb or snforge ahead of the shim (sncast itself calls `scarb` from the PATH).
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
@@ -450,13 +450,24 @@ NODE_BIN="$(command -v node || true)"
 [[ -z "${SCARB_BIN_DIR:-}" ]] || PATH="$SCARB_BIN_DIR:$PATH"
 PAVED_SCARB_SHIM="${PAVED_SCARB_SHIM:-$HOME/.local/bin/scarb}"
 SCARB_FOUND="$(command -v scarb || true)"
-if [[ -x "$PAVED_SCARB_SHIM" ]]; then
+# A shim is an executable script (a `#!` first line): the real ones forward to ~/.asdf/shims. A native binary at that path
+# (the Mac holds a stray scarb there) is no shim: it warns, it does not refuse.
+SHIM_NOTE="no shim at $PAVED_SCARB_SHIM"
+if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | tr -d '\0')" != '#!' ]]; then
+  SHIM_NOTE="no shim at $PAVED_SCARB_SHIM (a native binary, not a script)"
+  PAVED_SCARB_SHIM_USED=0
+elif [[ -x "$PAVED_SCARB_SHIM" ]]; then
+  PAVED_SCARB_SHIM_USED=1
+else
+  PAVED_SCARB_SHIM_USED=0
+fi
+if [[ "$PAVED_SCARB_SHIM_USED" == 1 ]]; then
   if [[ "$SCARB_FOUND" != "$PAVED_SCARB_SHIM" ]]; then
     echo "deploy.sh: scarb resolves to ${SCARB_FOUND:-(not found)}, not the shim $PAVED_SCARB_SHIM: the owner's rule is one Cairo run at a time through the shims (set SCARB_BIN_DIR=\$HOME/.local/bin, or fix PATH)" >&2
     exit 2
   fi
 else
-  echo "deploy.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
+  echo "deploy.sh: warning: $SHIM_NOTE, using scarb ${SCARB_FOUND:-(not found)}" >&2
 fi
 # sncast by its absolute path (see the header); a function, so `sc sncast ...` and a bare `sncast` both use it.
 # sncast-wrapper begin (scripts/test-deploy-url.sh runs this block)
