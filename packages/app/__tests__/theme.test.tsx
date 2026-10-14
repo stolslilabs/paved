@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
+import { contrast } from "../src/styles/color-math";
 
 const read = (rel: string) => readFileSync(resolve(import.meta.dirname, rel), "utf8");
 const theme = read("../src/styles/theme.css");
@@ -80,6 +81,32 @@ describe("theme.css", () => {
 
   it("sets the dark theme on the page", () => {
     expect(read("../index.html")).toContain('<html lang="en" data-theme="dark">');
+  });
+
+  it("keeps --input at 3:1 or more on --background (WCAG 1.4.11), and --border below it (decorative)", async () => {
+    const css = await build(["border-input", "bg-background", "border-border"]);
+    const background = resolveVar(css, "var(--background)");
+    expect(contrast(resolveVar(css, "var(--input)"), background)).toBeGreaterThanOrEqual(3);
+    expect(contrast(resolveVar(css, "var(--border)"), background)).toBeLessThan(3);
+  });
+
+  it("keeps --input-surface at 3:1 or more on --card and --popover, and scopes --input to those surfaces", async () => {
+    const css = await build(["border-input", "bg-card", "bg-popover"]);
+    for (const surface of ["card", "popover"]) {
+      expect(contrast(resolveVar(css, "var(--input-surface)"), resolveVar(css, `var(--${surface})`)), surface).toBeGreaterThanOrEqual(3);
+    }
+    for (const slot of ["card", "dialog-content", "sheet-content", "dropdown-menu-content"]) {
+      expect(theme, slot).toMatch(new RegExp(`\\[data-slot="${slot}"\\][^{]*\\{[^}]*--input:\\s*var\\(--input-surface\\)`));
+    }
+  });
+
+  it("keeps raw colours and palette steps out of the ui primitives (not their stories)", () => {
+    const dir = resolve(import.meta.dirname, "../src/components/ui");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".tsx") && !n.endsWith(".stories.tsx"))) {
+      expect(readFileSync(resolve(dir, f), "utf8"), f).not.toMatch(
+        /#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|\b(?:bg|text|border|ring|fill|stroke)-(?:white|black|\[#)|\b(?:ink|gold|ember|meadow|river|amber)-\d/,
+      );
+    }
   });
 
   it("keeps raw colours in theme.css only", () => {

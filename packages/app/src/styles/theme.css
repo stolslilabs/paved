@@ -128,11 +128,13 @@
   --accent-foreground: var(--accent-scale-300);
   --destructive: var(--color-ember-700);
   --destructive-foreground: var(--color-ink-50);
+  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card: 9.34:1 (AA) */
   --success: var(--color-meadow-400);
   --info: var(--color-river-400);
   --warning: var(--color-amber-400);
   --border: var(--color-ink-800);
-  --input: var(--color-ink-700);
+  --input: var(--color-ink-600); /* 3.11:1 on --background (WCAG 1.4.11); ink-700 gave 2.11:1 */
+  --input-surface: var(--color-ink-500); /* --input on --card / --popover: 4.16:1 (ink-600 gives 2.73 there) */
   --ring: var(--accent-scale-400);
   --board: var(--color-board);
 }
@@ -155,11 +157,13 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-success: var(--success);
   --color-info: var(--info);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-surface: var(--input-surface);
   --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -170,4 +174,25 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground font-sans antialiased; }
+
+  /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
+     `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
+     second class. `data-input-surface` marks any other card or popover surface. */
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-input-surface] {
+    --input: var(--input-surface);
+  }
+}
+
+/* 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
