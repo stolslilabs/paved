@@ -379,6 +379,71 @@ smoke's spawn included.
   quiver events are Setup's, `GameOver` is Challenge's); the old database is dropped with the old test data.
 - META and the e2e on Sepolia read the same file.
 
+## Upgrade of Challenge on Sepolia (G6, D-17)
+
+F's deployment (#359) gets G1's deck walk (#363) and G4's pause guardian (#366) by upgrading Challenge in place (D-17,
+U-1): its owner, the deployer account on Sepolia, calls `Challenge.upgrade` with the new class. Only Challenge's class
+changes since f94c34f (a build at main against `sepolia.json`: the seven other classes are the same), so no other
+contract is touched and every address stays. Part A (brief `docs/briefs/g6-challenge-upgrade.md`) built the tool and
+rehearsed it on devnet; part B is the real run.
+
+**The order (the PM's).** 1. The indexer release that knows G4's events (`GuardianSet`, `SpawnPaused`,
+`SpawnUnpaused`) is live: the indexer halts on an unknown selector, and `set_guardian` emits one in the same run.
+2. The upgrade. 3. The guardian, in the same run: on Sepolia it is the D-16 deployer account itself (PM, 2026-10-14).
+Part B runs only on the PM's word that step 1 is done; the tool cannot check it.
+
+**Command.** From merged main on the VPS, the funded account in the environment by name only (as in "Sepolia" above),
+the contracts prebuilt under the cap of AGENTS.md:
+
+```
+scripts/deploy.sh sepolia --upgrade-challenge --check-only --guardian deployer   # every check, nothing sent
+scripts/deploy.sh sepolia --upgrade-challenge --guardian deployer                # the run; rerun to resume
+```
+
+It reads and updates `contracts/deployments/sepolia.json`. `--guardian deployer` takes the keyword only: the address is
+the deployer's, which the signer reads from `STARKNET_ACCOUNT_ADDRESS` by name (`@account` in its calldata), so it is in
+no argv, printed as `$STARKNET_ACCOUNT_ADDRESS`, compared on stdin, and the record says `guardian: deployer`. The
+rehearsal, on a fresh local devnet holding F's system (a fresh rehearsal run from a checkout of f94c34f):
+`scripts/deploy.sh sepolia --rehearse --upgrade-challenge --deployment <file> [--check-only] [--guardian deployer]`.
+
+**Checks, before anything is sent.** The three variables; the chain id is SN_SEPOLIA (SN_MAIN refused, by deploy.sh
+and again by the signer); the deployer is deployed; main-equivalent sources; then, after the build: the file is a
+sepolia one for the node's chain; the deployer is `Challenge.owner()`; Challenge's class on the node is the file's or
+the new one (a resume); Setup, Collection, Economy, PavedToken, Vault, Faucet and MockRouter are each of the file's
+class on the node, and the build's class is the same, so only Challenge is upgraded; on the new class, `guardian()` is
+none or the deployer (another address is refused, never printed) and `spawn_paused()` is false; F's smoke game
+(`fresh.smoke.game_id`) reads back; the smoke's 2 USDC are held or within the faucet's cap; the funding check (the
+declare if still to send, as in "Sepolia"). `--check-only` stops there, lists what a run would send and ends "every
+check passed; nothing was sent"; a failed check exits non-zero.
+
+**Steps.** Each is skipped when what it would send has landed, read from the chain:
+
+1. declare the new Challenge class (skipped when declared);
+2. `Challenge.upgrade(new class)`;
+3. with `--guardian deployer`, `Challenge.set_guardian(<the deployer>)`;
+4. write `contracts.Challenge.class_hash` in the deployment file, every other field kept;
+5. smoke: the class read back, `owner()`, `guardian()` equal to the deployer (compared in the tool, not printed),
+   `spawn_paused()` false, F's smoke game read back (a game spawned before the upgrade), a paid spawn at stake 1 and
+   one build next to the starter on the new class (that game is left open), then the deployer's STRK balance.
+
+**Resume.** The file's `upgrade_g1g4` key holds the previous class and the commit (written before the first send), the
+declared class, and each transaction's hash as the signer sends it (`declare_tx`, `upgrade_tx`, `guardian_tx`,
+`smoke.spawn_tx`, `smoke.game_id`, `smoke.build_tx`). A rerun awaits each recorded transaction first (its receipt, up to
+300 s): landed, it is not sent again; reverted, it may be; no receipt stops the run, the hash named; a hash the signer
+finds `not landed` is cleared. So a run stopped anywhere is rerun with the same command and sends only what is left;
+after completion a rerun sends nothing and needs no funding margin, and it does not assert the guardian and the pause,
+live state since (the guardian may pause, the owner unpause or change the guardian).
+
+**Games in flight.** A game spawned before the upgrade keeps its deck: the deck is built once at the spawn and stored
+in the game, and every later draw reads it (G1's upgrade test). The new storage of G4 reads zero on the old games'
+contract: no guardian and no pause until `set_guardian` (G4's upgrade test). The rehearsal checked both on chain (the
+pull request of part A: a game left open across the upgrade drew the same 34 tiles as its twin on a copy of the node
+that was not upgraded, then recorded and settled).
+
+**What changes.** `contracts.Challenge.class_hash` in `sepolia.json`, and the `upgrade_g1g4` record; no address, no
+`deployed_block`. The indexer needs G4's events before the run (above); the client reads `guardian()` and
+`spawn_paused()` (G4) from the same address.
+
 ## Checks that gate a merge
 
 - CI build
