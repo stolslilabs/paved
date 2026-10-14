@@ -30,7 +30,7 @@ export const buttonVariants = cva(
 
 export type ButtonProps = ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
-    /** Render the child element (a link, a router link) with the button's look. */
+    /** Render the child element (a link, a router link) with the button's look. Disabled or loading sets `aria-disabled` and `data-disabled` on it. */
     asChild?: boolean;
     /** Busy: shows a spinner, disables the button and sets `aria-busy`. */
     loading?: boolean;
@@ -41,7 +41,14 @@ export function Button({ className, variant, size, asChild = false, loading = fa
   const classes = cn(buttonVariants({ variant, size }), className);
   if (asChild) {
     return (
-      <Slot.Root data-slot="button" className={classes} {...props}>
+      <Slot.Root
+        data-slot="button"
+        className={classes}
+        aria-disabled={disabled || loading || undefined}
+        aria-busy={loading || undefined}
+        data-disabled={disabled || loading ? "" : undefined}
+        {...props}
+      >
         {children}
       </Slot.Root>
     );

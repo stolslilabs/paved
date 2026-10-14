@@ -40,7 +40,7 @@ export function ToggleGroupItem({ className, variant, size, ...props }: Componen
   return (
     <ToggleGroupPrimitive.Item
       data-slot="toggle-group-item"
-      className={cn(toggleVariants({ variant: ctx.variant ?? variant, size: ctx.size ?? size }), "rounded-none first:rounded-l-md last:rounded-r-md data-[variant=outline]:border-l-0", className)}
+      className={cn(toggleVariants({ variant: ctx.variant ?? variant, size: ctx.size ?? size }), "rounded-none first:rounded-l-md last:rounded-r-md data-[variant=outline]:border-l-0 data-[variant=outline]:first:border-l", className)}
       data-variant={ctx.variant ?? variant}
       {...props}
     />

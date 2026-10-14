@@ -179,13 +179,23 @@ ink step that reaches 3:1 (computed by the Colors story, `color-math.ts`):
 | Token | Before | After |
 |---|---|---|
 | `--input` on `--background` (ink-950) | ink-700, 2.11 | ink-600, 3.11 |
-| `--input` on `--card` / `--popover` (ink-900) | ink-700, 1.86 | ink-600, 2.73 (a field inside a card or a popover stays under 3:1; it would need ink-500, 4.16, and no primitive puts a field there yet) |
+| `--input` on `--card` / `--popover` (ink-900) | ink-700, 1.86 | `--input-surface` = ink-500, 4.16 (ink-600 would give 2.73) |
 | `--border` on `--background` | ink-800, 1.38 | unchanged, decorative |
 
 `--border` stays the decorative divider, and the surface edge of a Card, Dialog, Sheet, Dropdown Menu and
 Tooltip: none of them is a control, so 1.4.11 does not ask for more. Where a control's edge or extent is its
 only mark, the primitive uses `--input` (outline Button, Toggle Group, outline Badge, the Switch, Slider and
 Progress tracks, the Scroll Area thumb).
+
+**Fields on a card or a popover (PM ruling, 2026-10-14):** a new token, `--input-surface` (ink-500, 4.16:1 on
+`--card` and `--popover`). It is applied by scope, not by a second class: theme.css re-points `--input` to
+`--input-surface` inside `[data-slot="card"]`, the Dialog, Sheet and Dropdown Menu contents, and any element
+marked `data-input-surface`. Why: `--color-input` is `@theme inline`, so each `border-input` / `bg-input` resolves
+`var(--input)` where it is used and follows the re-pointing. Every control already uses `input`, so an outline
+Button, a Toggle Group or a Switch changes inside a surface with no change to the primitive, and a new control
+is right by default. The Foundations / Field contrast story shows the same controls on the page, a card and a
+popover, each with its computed ratio. `--destructive-text` (ember-300, 9.34:1 on `--popover`) is the text of a
+destructive menu item.
 
 **Decided for the owner:** gold is `primary` (the mockups' buttons, stars and highlights), meadow is
 `secondary` (the meadows of the default theme), river is `tertiary`. Reversed if the owner names other

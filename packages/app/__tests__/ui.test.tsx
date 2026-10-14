@@ -41,7 +41,19 @@ describe("Button", () => {
 
   it("gives a link the button's look with asChild", () => {
     render(wrap(<Button asChild><a href="#x">Go</a></Button>));
-    expect(screen.getByRole("link", { name: "Go" })).toHaveAttribute("data-slot", "button");
+    const link = screen.getByRole("link", { name: "Go" });
+    expect(link).toHaveAttribute("data-slot", "button");
+    expect(link).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("marks an asChild link aria-disabled and data-disabled when disabled or loading", () => {
+    render(wrap(<><Button asChild disabled><a href="#d">Off</a></Button><Button asChild loading><a href="#l">Busy</a></Button></>));
+    const off = screen.getByRole("link", { name: "Off" });
+    expect(off).toHaveAttribute("aria-disabled", "true");
+    expect(off).toHaveAttribute("data-disabled");
+    const busy = screen.getByRole("link", { name: "Busy" });
+    expect(busy).toHaveAttribute("aria-disabled", "true");
+    expect(busy).toHaveAttribute("aria-busy", "true");
   });
 });
 
@@ -80,6 +92,18 @@ describe("Tabs", () => {
     await user.click(screen.getByRole("tab", { name: "C" }));
     expect(screen.getByText("panel c")).toBeVisible();
     expect(document.querySelectorAll('[data-slot="tabs-indicator"]')).toHaveLength(1);
+  });
+
+  it("merges the consumer's ref with the list's own", () => {
+    const ref = { current: null as HTMLDivElement | null };
+    render(
+      <Tabs defaultValue="a">
+        <TabsList ref={ref}>
+          <TabsTrigger value="a">A</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    expect(ref.current).toBe(screen.getByRole("tablist"));
   });
 
   it("keeps a disabled tab out of reach", async () => {
