@@ -1,6 +1,9 @@
 // Part B of the Sepolia run (D-16): a throwaway Cartridge controller, headless on the VPS, virtual WebAuthn authenticator.
 //   bun scripts/e2e-sepolia/part-b.mjs --out <dir> [--chromium <path>]                      dry run: stops at the username screen
-//   bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> [--moves 3] [--extra-mint] [--surrender]
+//   bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> [--moves 3] [--purchases 1] [--extra-mint] [--surrender]
+// With `--confirmed` it also writes `latency.json` and `latency.md` to the output folder: the player's waits for the faucet mint
+// (`--extra-mint`), the purchases and the moves (S1, D-28; the marks are defined in docs/client/f-release.md, "Latency"; the code is latency.mjs).
+// The release run is `--moves 5 --purchases 2 --extra-mint`: mint, buy, play, surrender, buy again.
 // Headless shell only, no persistent context. Without `--confirmed` the driver never adds the authenticator and never types or clicks inside
 // the keychain: it presses Connect, reads the keychain's screen and lists its form controls (names and types, no values).
 // With `--confirmed` it creates ONE account and keeps it for the whole run; the credential lives only in this browser context.
@@ -11,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { checkEvidence, isFailureText, operationName, redact, scrub } from "./scrub.mjs";
+import { PROBE_SOURCE, boardPoints, createTracker, findAndPlace, faucetSample, moveSample, probeEvents, promptedBetween, purchaseSample, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -24,6 +28,7 @@ const api = arg("api", "https://api.paved.bal7hazar.com");
 const confirmed = arg("confirmed", false) === true;
 const username = String(arg("username", ""));
 const wantMoves = Number(arg("moves", 3));
+const wantPurchases = Math.max(1, Number(arg("purchases", 1)));
 const cmdFile = String(arg("cmd", join(out, "cmd.json")));
 const executablePath = arg(
   "chromium",
@@ -36,13 +41,26 @@ mkdirSync(out, { recursive: true });
 // The public hashes and addresses the run records are kept apart, in `txs`.
 
 const log = { stage: "start", console: [], requests: [], failures: [], frames: [], screens: [], txs: [], notes: [] };
+// Latency (S1): the samples, the node's answers about each transaction, and when the run started.
+const samples = [];
+const tracker = createTracker();
+const startedAt = new Date().toISOString();
 const stage = (s) => (log.stage = s);
 const note = (s) => (log.notes.push(`${log.stage}: ${scrub(s)}`), console.error(`[${log.stage}] ${scrub(s)}`));
-const save = () => writeFileSync(join(out, "part-b-run.json"), JSON.stringify(log, null, 2));
+const latencyMeta = () => ({ url, api, network: "sepolia", startedAt, localHour: new Date().getHours(), notes: log.notes.filter((n) => /^(extra-mint|buy-challenge|moves)/.test(n)).slice(-12) });
+const save = () => {
+  writeFileSync(join(out, "part-b-run.json"), JSON.stringify(log, null, 2));
+  if (samples.length) {
+    writeFileSync(join(out, "latency.json"), JSON.stringify(toJson(samples, latencyMeta()), null, 2));
+    writeFileSync(join(out, "latency.md"), renderMarkdown(samples, latencyMeta()));
+  }
+};
 
 const browser = await chromium.launch({ headless: true, executablePath });
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const page = await context.newPage();
+await page.addInitScript(PROBE_SOURCE); // the page's own marks, for latency.mjs
+trackPage(page, tracker, (host) => /(^|\.)cartridge\.gg$/.test(host));
 let cdp = null;
 let authenticatorId = null;
 let closed = false;
@@ -77,7 +95,7 @@ page.on("response", async (res) => {
   if (!/cartridge\.gg$/.test(new URL(res.url()).host) || res.request().method() !== "POST") return;
   const body = await res.text().catch(() => "");
   for (const m of body.matchAll(/"transaction_hash"\s*:\s*"(0x[0-9a-fA-F]{1,64})"/g)) {
-    if (!log.txs.some((t) => t.hash === m[1])) log.txs.push({ stage: log.stage, hash: m[1] });
+    if (!log.txs.some((t) => t.hash === m[1])) log.txs.push({ stage: log.stage, hash: m[1], at: Date.now() });
   }
 });
 
@@ -222,6 +240,16 @@ const tiles = async () => {
   return m ? Number(m[1]) : null;
 };
 
+// A latency sample from the marks seen since `t0`. It is "prompted" when a keychain screen opened meanwhile (the wait then includes a
+// person's approval, which the Controller's session is meant to avoid), and then it stays out of median and max.
+async function sampleOf(make, n, t0, screens0) {
+  const events = await probeEvents(page);
+  const s = make(n, t0, txSince(tracker, t0), events);
+  s.prompted = log.screens.length > screens0 || promptedBetween(events, t0, s.t3 ?? s.t2 ?? Date.now());
+  note(`latency ${s.kind} ${n}: ${JSON.stringify(Object.fromEntries(Object.entries(s).filter(([k, v]) => /^t\d-t\d$/.test(k) && v !== null)))}${s.prompted ? " (prompted)" : ""}`);
+  return s;
+}
+
 // The main flow runs in try/finally: whatever happens, the evidence is saved and checked and the context is closed.
 try {
   // ---- 0. load
@@ -291,30 +319,56 @@ try {
   writeFileSync(join(out, "b07-page-text.txt"), afterCreate);
   note(`balance line: ${(afterCreate.match(/[^\n]*USDC[^\n]*/g) || []).slice(0, 4).join(" | ")}`);
 
-  // ---- 4. Optional extra mint
+  // ---- 4. Optional extra mint (a failure of this optional step is noted and the run goes on to the purchase)
   if (arg("extra-mint", false) === true) {
     stage("extra-mint");
-    await page.getByRole("button", { name: /^mint/i }).first().click({ timeout: 15000 });
-    await walkKeychain("b08-mint");
-    await sleep(8000);
-    await shot("b08-after-mint");
+    try {
+      const screens0 = log.screens.length;
+      const t0 = Date.now(); // the click on "Mint Test Tokens" (latency mark t0)
+      // The Tamagui button is not a `button` role in the client: found by its text (as the devnet dry run proved).
+      await page.getByText(/^mint test tokens$/i).first().click({ timeout: 15000 });
+      await walkKeychain("b08-mint");
+      await page.waitForFunction(() => document.body.textContent.includes("Minting..."), null, { timeout: 15000 }).catch(() => note("Minting... not seen"));
+      await page.waitForFunction(() => !document.body.textContent.includes("Minting..."), null, { timeout: 180000 });
+      await sleep(1500);
+      samples.push(await sampleOf(faucetSample, 1, t0, screens0));
+      await shot("b08-after-mint");
+    } catch (e) {
+      note(`extra mint failed, going on: ${String(e).split("\n")[0]}`);
+    }
   }
 
-  // ---- 5. Buy one Challenge game, lowest stake
+  // ---- 5. Buy a Challenge game, lowest stake. While a Challenge game is active the landing offers "Resume", not the stake picker
+  // (Landing.tsx hasActiveGame), so a second purchase happens after the first game is surrendered (step 6b).
   stage("buy-challenge");
-  await page.getByTestId("mode-card-challenge").click({ timeout: 20000 });
-  await sleep(2500);
-  await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
-  await sleep(2500);
-  await shot("b09-challenge-dialog");
-  writeFileSync(join(out, "b09-challenge-dialog.txt"), scrub(await bodyText()));
-  await page.getByRole("button", { name: /^buy for/i }).click({ timeout: 15000 });
-  await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
-  await walkKeychain("b10-buy", { maxScreens: 4 });
-  await page.waitForURL(/\/game\?.*id=\d+/, { timeout: 240000 }).catch((e) => note(`no game url: ${e}`));
-  const gameId = new URL(page.url()).searchParams.get("id");
-  note(`game id ${gameId}`);
-  await sleep(6000);
+  const buy = async (p) => {
+    await page.getByTestId("mode-card-challenge").click({ timeout: 20000 });
+    await sleep(2500);
+    const stake = page.getByRole("radio", { name: "1", exact: true });
+    // A later purchase needs the picker, which an active game hides: if it is not there, note it and let the run go on to step 7.
+    if (p > 1 && !(await stake.waitFor({ timeout: 15000 }).then(() => true, () => false))) {
+      note(`purchase ${p}: the stake picker is not offered (the previous game is still active?), no further purchase`);
+      return null;
+    }
+    await stake.click({ timeout: 15000 });
+    await sleep(2500);
+    if (p === 1) {
+      await shot("b09-challenge-dialog");
+      writeFileSync(join(out, "b09-challenge-dialog.txt"), scrub(await bodyText()));
+    }
+    await page.getByRole("button", { name: /^buy for/i }).click({ timeout: 15000 });
+    const screens0 = log.screens.length;
+    const t0 = Date.now(); // the click on "Confirm purchase" (latency mark t0)
+    await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
+    await walkKeychain(`b10-buy${p > 1 ? `-${p}` : ""}`, { maxScreens: 4 });
+    await page.waitForURL(/\/game\?.*id=\d+/, { timeout: 240000 }).catch((e) => note(`no game url: ${e}`));
+    const id = new URL(page.url()).searchParams.get("id");
+    note(`game id ${id}`);
+    await sleep(6000);
+    samples.push(await sampleOf(purchaseSample, p, t0, screens0));
+    return id;
+  };
+  const gameId = await buy(1);
   await shot("b11-game");
 
   // ---- 6. Moves: hover the board and press C (the client's own hotkey), rotating with R, until the tile counter rises
@@ -322,26 +376,12 @@ try {
   const canvas = page.locator("canvas").first();
   const box = await canvas.boundingBox();
   const moves = [];
-  const points = [];
-  for (let r = 0; r <= 360; r += 45) for (let a = 0; a < 360; a += r === 0 ? 360 : r < 120 ? 60 : 30) points.push([box.x + box.width / 2 + r * Math.cos((a * Math.PI) / 180), box.y + box.height / 2 + r * Math.sin((a * Math.PI) / 180) * 0.7]);
+  const points = boardPoints(box);
   for (let k = 0; k < wantMoves; k++) {
     const before = await tiles();
-    let placed = false;
+    const screens0 = log.screens.length;
     const txBefore = log.txs.length;
-    scan: for (const [x, y] of points) {
-      await page.mouse.move(x, y);
-      await sleep(120);
-      for (let rot = 0; rot < 4; rot++) {
-        await page.keyboard.press("c");
-        await sleep(350);
-        if ((await bodyText()).includes("Working...")) {
-          placed = true;
-          break scan;
-        }
-        await page.keyboard.press("r");
-        await sleep(80);
-      }
-    }
+    const { placed, t0 } = await findAndPlace(page, points); // t0: the key press that was accepted (latency mark t0)
     if (!placed) {
       note(`move ${k + 1}: no valid slot found by the scan`);
       await shot(`b12-move-${k + 1}-noslot`);
@@ -350,6 +390,7 @@ try {
     await page.waitForFunction(() => !document.body.innerText.includes("Working..."), null, { timeout: 180000 }).catch((e) => note(`move ${k + 1} still working: ${e}`));
     await walkKeychain(`b12-move-${k + 1}-keychain`, { maxScreens: 2 });
     await sleep(4000);
+    samples.push(await sampleOf(moveSample, k + 1, t0, screens0));
     const after = await tiles();
     moves.push({ n: k + 1, tilesBefore: before, tilesAfter: after, txs: log.txs.slice(txBefore).map((t) => t.hash) });
     note(`move ${k + 1}: tiles ${before} -> ${after}; txs ${log.txs.slice(txBefore).map((t) => t.hash).join(",")}`);
@@ -357,15 +398,35 @@ try {
   }
   log.moves = moves;
 
-  if (arg("surrender", false) === true) {
+  writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText())); // the played game, before any surrender
+  const surrender = async (label) => {
     stage("surrender");
     await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
     await page.getByRole("button", { name: /^confirm surrender$/i }).click({ timeout: 15000 });
-    await walkKeychain("b14-surrender", { maxScreens: 2 });
-    await sleep(8000);
-    await shot("b14-surrendered");
-  }
-  writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText()));
+    await walkKeychain(`${label}-surrender`, { maxScreens: 2 });
+    // Confirmed, not slept: the Surrender button is back to its label and disabled once the game is over (Game.tsx canSurrender).
+    await page
+      .waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Surrender" && b.disabled), null, { timeout: 180000 })
+      .catch((e) => note(`surrender not confirmed: ${String(e).split("\n")[0]}`));
+    await sleep(1500);
+    await shot(`${label}-surrendered`);
+  };
+  // ---- 6b. More purchases (`--purchases N`): the game played above is surrendered first, then back to the landing without a reload
+  // (the Controller session stays; the purchase pushed /game onto the history) and the next game is bought. Those games are not played.
+  if (wantPurchases > 1) {
+    await surrender("b14");
+    for (let p = 2; p <= wantPurchases; p++) {
+      stage("buy-challenge");
+      await page.evaluate(() => history.back());
+      if (!(await page.getByTestId("mode-card-challenge").waitFor({ timeout: 20000 }).then(() => true, () => false))) {
+        note(`purchase ${p}: the landing did not come back, no further purchase`);
+        break;
+      }
+      await sleep(3000);
+      if ((await buy(p)) === null) break;
+      if (p < wantPurchases) await surrender(`b14-${p}`);
+    }
+  } else if (arg("surrender", false) === true) await surrender("b14");
 
   // ---- 7. Indexer: poll /v1/head until it has the game, bounded at 30 minutes
   stage("indexer");

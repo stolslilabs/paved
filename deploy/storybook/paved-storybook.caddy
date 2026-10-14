@@ -1,0 +1,11 @@
+storybook.paved.bal7hazar.com {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+		Cache-Control "no-cache"
+	}
+	root * /var/www/paved-storybook/current
+	file_server
+}
