@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { BadAnswer, CHUNK_SIZE, Chain, RpcError, parseRpcUrl, redact, sameBlock } from "./chain.ts";
+import { BadAnswer, CHUNK_SIZE, Chain, RpcError, httpRpc, parseRpcUrl, redact, sameBlock } from "./chain.ts";
+import { RateLimited, retryAfterMs } from "./throttle.ts";
 import { COLLECTION, ECONOMY, CHALLENGE, FakeNode, SETUP, ev } from "./testing/fake-node.ts";
 
 const chainOf = (node: FakeNode) => new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION });
@@ -96,5 +97,67 @@ describe("the reader", () => {
     const after = (await chain.header(1))!;
     expect(after.hash).toBe(before.hash);
     expect(sameBlock(before, after)).toBe(false);
+  });
+});
+
+describe("the transport's refusals", () => {
+  /** A one-route HTTP server answering each POST with the next of `answers`. */
+  async function serverOf(answers: { status: number; headers?: Record<string, string>; body: unknown }[]) {
+    const { createServer } = await import("node:http");
+    const server = createServer((request, response) => {
+      request.resume().on("end", () => {
+        const answer = answers.shift()!;
+        response.writeHead(answer.status, { "content-type": "application/json", ...answer.headers });
+        response.end(JSON.stringify(answer.body));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as { port: number };
+    return { url: `http://127.0.0.1:${address.port}/`, close: () => server.close() };
+  }
+
+  test("HTTP 429 and JSON-RPC -32011 are RateLimited, with their Retry-After; the provider's text is never kept", async () => {
+    const server = await serverOf([
+      { status: 429, headers: { "retry-after": "2" }, body: { error: { code: 429, message: "slow down, key abc" } } },
+      { status: 200, body: { jsonrpc: "2.0", id: 2, error: { code: -32011, message: "rate limit, key abc" } } },
+      { status: 503, headers: { "retry-after": "7" }, body: { jsonrpc: "2.0", id: 3, error: { code: -32011 } } },
+      { status: 200, body: { jsonrpc: "2.0", id: 4, error: { code: 31, message: "Requested page size is too big" } } },
+      { status: 500, body: { error: "boom" } },
+    ]);
+    try {
+      const rpc = httpRpc(server.url);
+      const first = await rpc("starknet_getEvents", {}).catch((error: unknown) => error);
+      expect(first).toBeInstanceOf(RateLimited);
+      expect((first as RateLimited).retryAfterMs).toBe(2_000);
+      expect((first as Error).message).toBe("starknet_getEvents: rate limited (HTTP 429)");
+      const second = await rpc("starknet_getEvents", {}).catch((error: unknown) => error);
+      expect(second).toBeInstanceOf(RateLimited);
+      expect((second as RateLimited).retryAfterMs).toBeUndefined();
+      expect((second as Error).message).not.toContain("abc");
+      expect(((await rpc("starknet_getEvents", {}).catch((error: unknown) => error)) as RateLimited).retryAfterMs).toBe(7_000);
+      const page = await rpc("starknet_getEvents", {}).catch((error: unknown) => error);
+      expect(page).toBeInstanceOf(RpcError);
+      expect((page as RpcError).pageSizeTooBig).toBe(true);
+      await expect(rpc("starknet_getEvents", {})).rejects.toThrow("starknet_getEvents: HTTP 500");
+    } finally {
+      server.close();
+    }
+  });
+
+  test("a page refusal is known by code 31, or by a text that says so, never kept", () => {
+    expect(new RpcError("m", { code: 31 }).pageSizeTooBig).toBe(true);
+    expect(new RpcError("m", { code: -32602, message: "Invalid params: chunk_size exceeds the maximum of 1024" }).pageSizeTooBig).toBe(true);
+    expect(new RpcError("m", { code: -32602, message: "Page size too large" }).pageSizeTooBig).toBe(true);
+    expect(new RpcError("m", { code: -32602, message: "Invalid block id" }).pageSizeTooBig).toBe(false);
+    expect(new RpcError("m", { code: -32005, message: "Too many blocks in range" }).pageSizeTooBig).toBe(false);
+    expect(new RpcError("m", { code: -32602, message: "Page size too large" }).message).toBe("m: JSON-RPC error -32602");
+  });
+
+  test("Retry-After: seconds or an HTTP date", () => {
+    expect(retryAfterMs("3")).toBe(3_000);
+    expect(retryAfterMs(" 0 ")).toBe(0);
+    expect(retryAfterMs(new Date(10_000).toUTCString(), 4_000)).toBe(6_000);
+    expect(retryAfterMs("soon")).toBeUndefined();
+    expect(retryAfterMs(null)).toBeUndefined();
   });
 });
