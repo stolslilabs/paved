@@ -90,6 +90,12 @@ enum, so it is in the ABI). Keys are the variant selector, then the fields marke
 are raised deep in the game logic (scoring) are emitted by `Store::emit`, which writes the same keys
 and data as the contract's `self.emit` would.
 
+> **History: this table is not the current event list.** It was written before D-18 (`Built` lost `role` and `spot`),
+> D-20 (`Sponsored` and `Claimed` left; `tournament_id` became `day_id`), D-23 (`Daily` is `Challenge`; `PlayerCreated`
+> left the shared events), D-24 (`LobbyClassSet` left) and D-25 E (`Account` left), and it has no row for `SetupSet`,
+> `GuardianSet`, `SpawnPaused` or `SpawnUnpaused`. The current events, with their keys and data in order, are in
+> `public-interface.md`, "The events of `Challenge`, current".
+
 | Event | Contract | Fields (`key` first) | When |
 |---|---|---|---|
 | `PlayerCreated` | Account | `key player_id`, `name`, `master` | `create` |

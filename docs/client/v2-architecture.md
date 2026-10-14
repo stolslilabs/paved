@@ -681,7 +681,7 @@ The sidebar follows the tiers:
 | **Tiles / Base** | the 19 base tiles of `packages/app-web/public/models/` (the models the game plays), each rendered by the real renderer in a small canvas, rotatable through the four orientations, with its plan code and its 2D PNG beside it |
 | **Tiles / Extended** | the 144 variant models of `origin/dev` (`<plan>_LF_<n>` and `<plan>_HF_<n>`: low and high forest density, 1 to 9 variants per plan, PR #162, 2024; to be brought over from that branch, never merged) and the 18 2D tiles of `app/public/assets/tiles/` that the 19-model set lacks; grouped by plan. Folder: `packages/app-web/public/models/extended/` (the 2D tiles in its `tiles/`). The variants are Draco-compressed: the renderer's `AssetLoader` decodes them lazily, with the decoder self-hosted at `<basePath>/draco/` (`packages/app-web/public/draco/`). `origin/dev` has 38 2D tiles, 20 of them in the 19-model set (`00.png` included), so 18 lack a model. |
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
-| **Scenes** | each page of section 6 on fixtures, one story per state, framed at the width of a `viewport` radio in Controls (small mobile 360, mobile 640, tablet 1024, desktop 1440; default mobile) |
+| **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
 **The background (spec A):** the board's colour, `--board` = `#07111A`, set as Storybook's only
 background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
@@ -1199,7 +1199,7 @@ containers and elements, on typed mock data, before any wiring to chain or index
 on the published Storybook. The tiers are those of section 4.1: `elements/` (game atoms), `containers/`
 (composites), `scenes/` (one per page). Scenes take their data as props; the mocks in `packages/app/src/mocks/`
 have the shapes `@paved/chain` and `@paved/game-core` return (types imported, nothing called), one fixture per
-scene state; each state has one story, told at the four widths by the `viewport` radio in Controls, and a render test.
+scene state; each state has one story, told at the four widths by Storybook's viewport toolbar (none picked is the full width), and a render test.
 
 Then the wiring PRs put the scenes on the routes, the sessions and the data: a wiring PR replaces a scene's fixture
 with the hook that reads the same shape, and changes the scene only where the real data asks for it.
@@ -1217,7 +1217,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome` | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards; a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |

@@ -1363,3 +1363,120 @@ untouched; n at 96.5 % is the tightest of the two and below the 5 % margin the c
 | `snforge test test_gas_ --max-threads 2` (before, the export of main) | 17 passed | 7,183,433,728 B |
 | `snforge test --max-threads 2` (the whole suite) | **743 passed, 0 failed, 9 ignored** | 5,786,648,576 B |
 | `scripts/abis.sh` | exit 0, `git status contracts/abis` empty: **no ABI change** | not measured |
+
+## After G7a (the first gas cuts: C1, C2, C3, C5; P-59)
+
+The four cuts of the G7 plan that P-59 ruled for the first PR (`docs/architecture/g7-gas-plan.md`, section 4):
+
+- **C1:** a move whose placement closes no root skips the assessment;
+- **C2:** the spawn writes the starter tile, its refs and its page from constants;
+- **C3:** the forest scan of a move starts with the move's side tiles in its cache;
+- **C5:** the fit check reads one edge word per tile.
+
+No rule, golden, parity fixture, storage layout or ABI changes.
+
+**Method.**
+- `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0 through the machine's shims, VPS, 2026-10-14,
+  `RAYON_NUM_THREADS=1`, 15 GiB cap, `--max-threads 2`.
+- Before is main 82193903: the figures of the G7 plan (section 1.1, measured on the VPS on f8ed19f5). `git diff
+  f8ed19f5 82193903 -- contracts/src contracts/tests contracts/Scarb.toml` is empty.
+- Each cut's gain is measured on the final code against the same code with that cut alone put back as on main:
+  - C1: main's `placement::place`, and the assessment always run;
+  - C3: `WalkerTrait::new` in the forest scan;
+  - C5: main's `assert_fits`.
+  The three gains add up to each scenario's change within 2,000 L2 gas.
+- C2's gain is measured on the starter's write alone, by the plan's method (section 1.3: a loop of one turn known only
+  at run time, less an empty turn of 10,100), in `test_g7a_starter_constants_equal_place_alone`.
+
+| | Scenario | Before | After | Change | Ceiling (before -> after) | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| a0 | Open simple move | 5,169,607 | 4,576,999 | -592,608 (-11.5 %) | 5,384,523 -> 4,805,849 | 95.2 % |
+| a | Simple move, closes a 2-tile city | 4,967,939 | 4,948,235 | -19,704 (-0.4 %) | 5,172,772 (kept) | 95.7 % |
+| c | Close a large city | 5,376,938 | 5,353,944 | -22,994 (-0.4 %) | 5,602,221 (kept) | 95.6 % |
+| d | Worst case of P0 | 5,328,267 | 5,189,404 | -138,863 (-2.6 %) | 5,551,116 -> 5,448,875 | 95.2 % |
+| e | Close a forest of 4 | 8,679,414 | 8,328,365 | -351,049 (-4.0 %) | 9,069,821 -> 8,744,784 | 95.2 % |
+| f | Worst forest scan | 18,167,380 | 17,823,204 | -344,176 (-1.9 %) | 18,923,195 -> 18,714,365 | 95.2 % |
+| l | Game over on a build | 7,173,835 | 6,581,227 | -592,608 (-8.3 %) | 7,774,092 -> 6,910,289 | 95.2 % |
+| m | Challenge spawn, stake 1 | 17,644,657 | 16,066,315 | -1,578,342 (-8.9 %) | 18,411,921 -> 16,869,631 | 95.2 % |
+| n | Challenge spawn, stake 10, referred | 18,497,677 | 16,919,335 | -1,578,342 (-8.5 %) | 19,174,693 -> 17,765,302 | 95.2 % |
+| g, i, k, s | the surrenders and the game over on a discard | | identical to the unit | 0 | kept | s 96.2 % (the tightest) |
+| t, u, v, w | the Vault | | identical to the unit | 0 | kept | |
+
+Every figure fell or stayed. Seven ceilings are reset to measured + 5 %, rounded up. a's and c's measured + 5 %
+(5,195,647 and 5,621,642) would be above their ceilings, which are kept: no ceiling rises.
+
+**Each cut, measured against the plan's estimate:**
+
+| Cut | Measured | Plan's estimate |
+|---|---|---|
+| C1, skip the assessment | a0 and l: **-530,025**. The moves that close: a +42,179, c +39,689, d +42,722, e +59,284, f +66,267 | a0 and l -0.56M; 0 on a move that closes |
+| C2, starter from constants | the starter's write: 2,491,890 -> 408,560, **-2,083,330** per spawn | -2.06M |
+| C3, seeded forest walk | e and f: **-231,458**; the other moves that close: +700; the moves that close nothing: 0 | e and f -0.36M |
+| C5, fit check on edge words | one side neighbour (a0, a, c, l): **-60,583**; two (d, f): -179,485, e: -179,375 | builds -0.15M |
+
+- **C1.** The flag is not free on a move that closes. Each `set` of the placement that leaves no open half-edge keeps
+  its root as a candidate, and the candidates are read once more at the end (`placement::place_move`). The plan
+  estimated "a few thousand"; measured, 39,689 to 66,267. A move that closes nothing gains 530,025, so the cut pays as
+  soon as about one move in thirteen closes nothing.
+- **C2.** m and n fell by 1,578,342, not by C2's 2,083,330. Their seed is the token's, which depends on `Challenge`'s
+  address, so on its class hash (G4's note): each build of the class draws another deck. Across the builds of this
+  branch, the same spawn code measured m from 15,549,521 to 16,066,315. The ceilings take the final build's figure;
+  a later class can move m by as much again, inside the 5 % margin (803,316).
+- **C3.** The scan no longer reads a side tile's position and slot, 179,535 per side tile by the plan's unit costs
+  (`g7-gas-plan.md`, 1.4). The last moves of e and f each have two side tiles, both in the forest. The plan's
+  359,070 for two less the measured 231,458 leaves about 64,000 of seeding per side tile (derived, not measured
+  alone): a slot built in felt arithmetic and a dictionary insert. A variant on an earlier build of this branch kept the
+  side tiles in the walker and compared positions on every cache miss. It gained 332,690 on e but only 131,926 on f,
+  and cost about 930 CASM felts more, so it was dropped for this one.
+- **C5.** The 76 edge words are a nested match (`oriented::edges`). A flat table of one `u32` per plan, cut by
+  orientation, saved 390 CASM felts but cost 46,415 L2 gas per build: it was dropped.
+
+**Where f lands:** 17,823,204, still the most expensive move (95.2 % of its new ceiling). Its forest scan's compute
+(11.4M in the plan's profile) is untouched by these cuts: C7, a function-level profile first.
+
+**Equality proofs** (`contracts/src/tests/differential_g7a.cairo`, against `legacy_g7a.cairo`, the assessment and the
+scan of 82193903):
+- **C1:** before every build of every board, the game after the assessment is equal as before G7a (always run) and
+  as now (run when the flag says so), with the single-player skip on and off. A move whose flag is false leaves the
+  game unchanged. The flag is exact: true exactly when an area's final root or a wonder's root around is closed.
+- **C3:** every forest the move closes, and at the end every closed forest of the board, is scanned both ways, with
+  and without a tally. Each side slot is checked against storage.
+- **The boards:**
+  - four Daily games of 24 moves by the greedy bot (two dense, two sparse);
+  - the forced boards of e and f;
+  - the forest boards of the goldens and the crossings of `e2e/forest.cairo`.
+- **Met on them:**
+  - 116 moves that close nothing, 26 that close;
+  - forests closed with 1 side tile in them (7), with 2 (13) and with 3 or more (1);
+  - 22 scans with a side tile outside the forest.
+
+  The early return on an open road beside a closed forest is not met.
+- **C2:** `test_g7a_starter_constants_equal_place_alone`.
+- **C5:** `test_placement_edge_words_equal_the_edge_categories`.
+
+**Goldens and parity unchanged.** `git diff origin/main -- contracts/src/tests/golden docs/measures/golden-games.md
+packages` is empty. The golden tests pass: 19 passed, 1 ignored.
+
+**Storage and ABI.** No storage variable is added or changes meaning: C2 writes the words `place_alone` wrote (its
+test compares them). `scripts/abis.sh` leaves `contracts/abis/` unchanged.
+
+**Sizes:** `class-headroom.md`, "After G7a".
+
+**Release profile.** Not measured: the VPS shim's 8 GB scope stops a release test build (`g7-gas-plan.md`, 1.5).
+C2 and C3 cut storage reads, which cost the same in release. C1 and C5 cut compute, which costs less there.
+
+**Commands and peaks (VPS):**
+
+| Run | Result | Peak RSS |
+|---|---|---:|
+| `snforge test test_gas_ --max-threads 2` (final) | 17 passed | 6,433,276 kB |
+| `snforge test test_gas_` on each variant (C1, C3, C5 put back) | 17 passed each | 6,446,640 kB at most |
+| `snforge test paved::structure:: --max-threads 2` | 61 passed | 6,419,296 kB |
+| `snforge test paved::tests::differential --max-threads 2` | 14 passed | 4,779,716 kB |
+| `snforge test paved::tests::golden --max-threads 2` | 19 passed, 1 ignored | 4,780,600 kB |
+| `snforge test paved::tests::e2e::forest --max-threads 2` | 18 passed | 4,624,772 kB |
+| `snforge test paved::tests::oracle --max-threads 2` | 1 passed | 4,686,500 kB |
+| `snforge test paved::tests::owners --max-threads 2` | 19 passed | 4,780,580 kB |
+| `snforge test --max-threads 2` (the whole suite, 6 min 32 s) | **782 passed, 0 failed, 38 ignored** | 6,433,052 kB |
+| `scripts/abis.sh` (under `prlimit --as=12884901888`) | no diff | 3,634,396 kB |
+| `scripts/class-sizes.sh` (under `prlimit --as=12884901888`; also on main and on each variant) | ok | 3,782,500 kB at most |

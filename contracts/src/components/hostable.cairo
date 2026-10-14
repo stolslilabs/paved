@@ -16,6 +16,7 @@ pub mod HostableComponent {
     use paved::models::tile::{Tile, TileImpl, TilePosition};
     use paved::seed::{SeedSource, TokenSeed};
     use paved::store::{Store, StoreImpl};
+    use paved::structure::placement;
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::storage::Map;
     #[cfg(test)]
@@ -81,8 +82,8 @@ pub mod HostableComponent {
             let seed = source.seed(mode, time, game.id, game.seed);
             let tile = game.start(time, seed);
 
-            // [Effect] Store tile
-            store.set_tile(tile);
+            // [Effect] Store the starter tile, its refs and its page, from constants (G7a, C2)
+            placement::place_starter(store, tile);
 
             // [Effect] The first tile is in the builder's hand (`GameState`, stored with the game)
             let mut builder = BuilderImpl::new(game.id, player_id);

@@ -7,12 +7,25 @@
 //! at is taken. Each tile is read once (its slot is kept by position) and each node is visited
 //! once. The tile the move builds is not in storage yet (`Structures::flush` writes it): the walk
 //! takes it from the cache of the move.
+//!
+//! G7a (C3): a walk from the tile a move builds can be seeded with the move's neighbourhood
+//! (`WalkerTrait::seeded`). The move has already read its four side tiles and their refs, which
+//! storage still holds as read (the move writes nothing to them before `flush`): their slots go in
+//! the cache by position, so a node on a side tile is not read again.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::Tile;
 use paved::store::StoreImpl;
+use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
 use paved::structure::state::Structures;
 use paved::structure::{oriented, tables};
+
+const TWO_POW_8: felt252 = 0x100;
+const TWO_POW_16: felt252 = 0x10000;
+const TWO_POW_48: felt252 = 0x1000000000000;
+const TWO_POW_88: felt252 = 0x10000000000000000000000;
+const TWO_POW_96: felt252 = 0x1000000000000000000000000;
+const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 
 pub mod errors {
     pub const OPEN_STRUCTURE: felt252 = 'Walk: open structure';
@@ -46,6 +59,35 @@ pub impl WalkerImpl of WalkerTrait {
         let mut visited: Felt252Dict<bool> = Default::default();
         visited.insert(node_key(tile.id, area), true);
         Walker { game_id: structures.game_id, visited, slots, nodes: array![(tile, refs, area)] }
+    }
+
+    /// `new`, with the slots of the side tiles of `around` in the cache: `around` is a
+    /// neighbourhood the move read (`NeighborhoodTrait::read`), whose tiles storage still holds.
+    fn seeded(
+        tile: Tile, refs: u128, area: u8, ref structures: Structures, around: @Neighborhood,
+    ) -> Walker {
+        let mut walker = Self::new(tile, refs, area, ref structures);
+        let taken = *around.taken;
+        if taken & 0x4 != 0 {
+            walker.seed(around, tables::NORTH);
+        }
+        if taken & 0x10 != 0 {
+            walker.seed(around, tables::EAST);
+        }
+        if taken & 0x40 != 0 {
+            walker.seed(around, tables::SOUTH);
+        }
+        if taken & 0x100 != 0 {
+            walker.seed(around, tables::WEST);
+        }
+        walker
+    }
+
+    /// Puts the slot of the tile of `around` in `direction` in the cache, at its position.
+    fn seed(ref self: Walker, around: @Neighborhood, direction: u8) {
+        let side = around.tile(direction);
+        let refs = *(*around.refs).at(direction.into());
+        self.slots.insert(position_key(side.x, side.y), slot_of(side, refs));
     }
 
     /// The next node of the walk, its tile's refs and its area; `None` once every node is visited.
@@ -87,6 +129,27 @@ pub impl WalkerImpl of WalkerTrait {
             }
         }
     }
+}
+
+/// The slot of a tile that was decoded from storage, as `StoreImpl::tile_slot_at` gives it (the
+/// tile's fields, its id above them, its refs in the high bits), for `StoreImpl::tile_of_slot`.
+/// Built with felt arithmetic: the fields come from a decoded slot, so each fits its bits.
+#[inline(always)]
+pub fn slot_of(tile: Tile, refs: u128) -> felt252 {
+    let plan: felt252 = tile.plan.into();
+    let orientation: felt252 = tile.orientation.into();
+    let x: felt252 = tile.x.into();
+    let y: felt252 = tile.y.into();
+    let id: felt252 = tile.id.into();
+    let owner: felt252 = tile.owner.into();
+    let refs: felt252 = refs.into();
+    plan
+        + orientation * TWO_POW_8
+        + x * TWO_POW_16
+        + y * TWO_POW_48
+        + id * TWO_POW_88
+        + owner * TWO_POW_96
+        + refs * TWO_POW_128
 }
 
 /// The key of a node (an area of a tile) in the sets of a walk.
