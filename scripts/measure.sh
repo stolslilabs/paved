@@ -34,6 +34,9 @@ cd "$root/contracts"
 # substring of the test path; one run each). They are meant to cover every test of the crate, `tests/gas.cairo`
 # included, and `check-groups` fails when a test module is in none. The exhaustive table tests (`paved::structure::tables`) peak above
 # 8 GiB when run together, so they run by partition (`--partition i/12`: two tests per run).
+# `tests-draw-mask` peaked at 15.89 GB as one group (0.11 GB under the 16 GB stop), so it runs by partition too (`--partition i/3`,
+# about five or six of its 16 tests per run; snforge assigns the tests, not this file). The peaks of the three parts are
+# not measured yet: the next coverage run on the Mac measures them.
 COVERAGE_GROUPS=(
   "types|paved::types::|"
   "elements|paved::elements::|"
@@ -64,7 +67,9 @@ COVERAGE_GROUPS=(
   "oracle|paved::tests::oracle|"
   "tests-collection|paved::tests::collection|"
   "tests-deck-walk|paved::tests::deck_walk|"
-  "tests-draw-mask|paved::tests::draw_mask|"
+  "tests-draw-mask-1|paved::tests::draw_mask|--partition 1/3"
+  "tests-draw-mask-2|paved::tests::draw_mask|--partition 2/3"
+  "tests-draw-mask-3|paved::tests::draw_mask|--partition 3/3"
   "tests-economy|paved::tests::economy::|"
   "tests-owners|paved::tests::owners|"
   "tests-seed|paved::tests::seed|"
@@ -76,7 +81,7 @@ COVERAGE_GROUPS=(
 # of at least one group. A module `paved::a::b` is matched when a filter is a substring of `paved::a::b::`, as a test
 # path `paved::a::b::<test>` would be. Reads the source tree only: no build, no toolchain.
 check_groups() {
-  local f mod name g rest filter missing=0 hit
+  local f mod name g rest filter missing=0 hit n want
   while IFS= read -r f; do
     mod="paved::$(echo "${f#src/}" | sed -e 's/\.cairo$//' -e 's#/#::#g')::"
     hit=0
@@ -94,6 +99,18 @@ check_groups() {
     done
     [[ "$hit" == 1 ]] || { echo "check-groups: integration test $name (tests/) is in no COVERAGE_GROUPS group"; missing=1; }
   done < <(find tests -name '*.cairo' -print0 | xargs -0 awk '/#\[test\]/ { t = 1; next } t && /^[[:space:]]*(pub )?fn / { sub(/^[[:space:]]*(pub )?fn /, ""); sub(/\(.*/, ""); print; t = 0 }' | LC_ALL=C sort)
+  # A filter split by `--partition i/N` runs all its tests only when the parts 1..N are all present: a dropped part loses
+  # tests the module check above does not see.
+  local parts
+  while IFS= read -r filter; do
+    parts="$(for g in "${COVERAGE_GROUPS[@]}"; do
+      rest="${g#*|}"
+      if [[ "${rest%%|*}" == "$filter" && "$rest" == *"--partition "* ]]; then echo "${rest##*--partition }"; fi
+    done | LC_ALL=C sort)"
+    n="${parts%%$'\n'*}"; n="${n#*/}"
+    want="$(for ((i = 1; i <= n; i++)); do echo "$i/$n"; done | LC_ALL=C sort)"
+    [[ "$parts" == "$want" ]] || { echo "check-groups: the partitions of $filter are not 1/$n to $n/$n, each once"; missing=1; }
+  done < <(for g in "${COVERAGE_GROUPS[@]}"; do rest="${g#*|}"; if [[ "$rest" == *"--partition "* ]]; then echo "${rest%%|*}"; fi; done | LC_ALL=C sort -u)
   # `test_gas_` is a name filter: a src test named like it would run in two groups (warned, not failed)
   grep -rnE 'fn test_gas_' src | sed 's/^/check-groups: warning: a src test is also matched by the test_gas_ group: /' || true
   [[ "$missing" == 0 ]] || return 1
@@ -124,7 +141,7 @@ shim_guard() { # <tool> <shim path> <override variable name>
   if [ -x "$2" ] && [ ! -r "$2" ]; then
     echo "measure.sh: the shim $2 is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
     exit 2
-  elif [ -x "$2" ] && [ "$(head -c 2 "$2" 2>/dev/null | tr -d '\0')" != '#!' ]; then
+  elif [ -x "$2" ] && [ "$(head -c 2 "$2" 2>/dev/null | LC_ALL=C tr -d '\0')" != '#!' ]; then
     note="no shim at $2 (a native binary, not a script)"
   elif [ -x "$2" ]; then
     if [ "$found" != "$2" ]; then
@@ -144,7 +161,9 @@ shim_guard snforge "${PAVED_SNFORGE_SHIM:-$HOME/.local/bin/snforge}" SNFORGE_BIN
 # 15 GiB for every snforge run here (a cold test build after `scarb clean` peaked at 9,326,232 kB, 14 GiB).
 # Coverage runs (`coverage-split` groups, `coverage`, `all`) peak at 8.4 to 14.6 GB RSS on the Mac (docs/measures/coverage.md,
 # "Peaks": largest group `e2e` 14.64 GB, `tests-draw-mask` 13.99 GB; the unsplit run with default threads reached 18.5 GB and was
-# stopped, hence its --max-threads 2 now), and their VmPeak is unmeasured on Linux. They run on the Mac (P-33, no cap, `time -l`,
+# stopped, hence its --max-threads 2 now). Re-measured on the Mac on 2026-10-14: the unsplit `coverage` with --max-threads 2 does NOT
+# fit 16 GB (stopped at 16.31 GB, about 105 s in), and `coverage-split` fits, its largest group `tests-draw-mask` peaking at 15.89 GB,
+# 0.11 GB under the stop (hence the partition above): `coverage-split` is the mode to use, and their VmPeak is unmeasured on Linux. They run on the Mac (P-33, no cap, `time -l`,
 # stopped above 16 GB) or in CI, and are refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum).
 # MEM_CAP_BYTES overrides.
 # A capped run with no progress for 15 minutes is stopped and moved, never left waiting.

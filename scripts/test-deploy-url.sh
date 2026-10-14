@@ -226,6 +226,9 @@ grep -v '^  "quests|paved::quests::|"$' "$here/measure.sh" >"$tc/neg/scripts/mea
 ln -s "$here/../contracts" "$tc/neg/contracts"
 tc_expect "measure.sh check-groups fails when a group is missing (quests)" \
   "$(tc_out env PATH=/usr/bin:/bin bash "$tc/neg/scripts/measure.sh" check-groups)" 1 "module paved::quests (src/quests.cairo) is in no COVERAGE_GROUPS group"
+grep -v '^  "tests-draw-mask-3|' "$here/measure.sh" >"$tc/neg/scripts/measure.sh"
+tc_expect "measure.sh check-groups fails when a partition is missing (tests-draw-mask 3/3)" \
+  "$(tc_out env PATH=/usr/bin:/bin bash "$tc/neg/scripts/measure.sh" check-groups)" 1 "the partitions of paved::tests::draw_mask are not 1/3 to 3/3"
 rm -rf "$tc"
 
 # --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.

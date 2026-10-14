@@ -457,7 +457,7 @@ if [[ -x "$PAVED_SCARB_SHIM" && ! -r "$PAVED_SCARB_SHIM" ]]; then
   echo "deploy.sh: the shim $PAVED_SCARB_SHIM is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
   exit 2
 fi
-if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | tr -d '\0')" != '#!' ]]; then
+if [[ -x "$PAVED_SCARB_SHIM" && "$(head -c 2 "$PAVED_SCARB_SHIM" 2>/dev/null | LC_ALL=C tr -d '\0')" != '#!' ]]; then
   SHIM_NOTE="no shim at $PAVED_SCARB_SHIM (a native binary, not a script)"
   PAVED_SCARB_SHIM_USED=0
 elif [[ -x "$PAVED_SCARB_SHIM" ]]; then
