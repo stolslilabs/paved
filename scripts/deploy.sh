@@ -1817,8 +1817,10 @@ PY
 
   # Every other contract: the build's class is the file's, and so is the node's. Only Challenge is upgraded.
   read -r -a pairs <<<"$others"
-  for i in "${!UC_OTHERS[@]}"; do
-    name="${UC_OTHERS[i]}" addr="${pairs[2 * i]:--}" file_class="${pairs[2 * i + 1]:--}"
+  i=0
+  for name in "${UC_OTHERS[@]}"; do
+    addr="${pairs[2 * i]:--}" file_class="${pairs[2 * i + 1]:--}"
+    i=$((i + 1))
     [[ "$addr" != - && "$file_class" != - ]] || die "$REPOINT_FILE lacks contracts.$name (its address and class hash)"
     built="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
     felt_eq "$built" "$file_class" ||
