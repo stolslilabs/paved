@@ -1029,22 +1029,45 @@ thread, review rounds included.
 | F6 | Tiles in Storybook: the 19 base tiles through the renderer; the extended set brought over from `origin/dev` | 1.5 d |
 | F7 | The skills chosen by the PM (section 10) | 1 d |
 
-### Phase 2: pages
+### Phase 2: pages, story-first
+
+The PM's decision (2026-10-14): **story-first**. Every page is built first as a scene in Storybook, with its
+containers and elements, on typed mock data, before any wiring to chain or indexer data; the owner reviews the scenes
+on the published Storybook. The tiers are those of section 4.1: `elements/` (game atoms), `containers/`
+(composites), `scenes/` (one per page). Scenes take their data as props; the mocks in `packages/app/src/mocks/`
+have the shapes `@paved/chain` and `@paved/game-core` return (types imported, nothing called), one fixture per
+scene state; each state has its story at the four viewports and a render test.
+
+Then the wiring PRs put the scenes on the routes, the sessions and the data: a wiring PR replaces a scene's fixture
+with the hook that reads the same shape, and changes the scene only where the real data asks for it.
+
+**Scenes on mock data**
 
 | PR | Content | Estimate |
 |---|---|---|
-| P1 | App shell: bottom navigation, desktop rail, top bars, loading, error boundaries; welcome | 1.5 d |
-| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain` | 1.5 d |
-| P3 | Board page on Training (`LocalSession`), with the hand panel and the placement preview | 2.5 d |
+| SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`split_bps`, mocked until the chain has it), the 24 h validity and the threshold | 3 d |
+| SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers | 2.5 d |
+
+**Wiring the scenes**
+
+| PR | Content | Estimate |
+|---|---|---|
+| P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome` | 1 d |
+| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired; the tiles left counting discards | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9); depends on CORE's `initial_seed` view or uses salt 0 meanwhile | 3 d |
-| P6 | Home and Play; Tutorial on the new board | 1.5 d |
-| P7 | Purchase (stake, price, boost, 24 h validity, threshold) and Over (metrics, reward, settle) | 2.5 d |
-| P8 | Leaderboard and player | 1 d |
-| P9 | Quests and achievements | 1 d |
-| P10 | Vault and referral (and the indexer's referral route) | 2 d |
-| P11 | Settings and Theme (themes beyond Default shown "coming soon" until their art) | 1 d |
+| P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |
+| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, every closing of the game, reward, settle) on their data | 2 d |
+| P8 | The leaderboard and player scenes on the indexer | 0.5 d |
+| P9 | The quests and achievements scenes on the indexer | 0.5 d |
+| P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
+| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
+
+Until a scene is routed it adds nothing to the app's JavaScript, but Tailwind v4 scans every source file of the
+package, so its classes are in the app's CSS from the scene's PR on (SC1: 39,185 to 55,625 bytes, 7,898 to 10,452
+gzipped); Q3's bundle budget counts it.
 
 ### Phase 3: polish
 
@@ -1055,8 +1078,8 @@ thread, review rounds included.
 | Q3 | Performance: bundle budget, route prefetch, the bench on the new app against P-7b (the Mac's headless rule) | 2 d |
 | Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did) | 2 d |
 
-Total, an **estimate**: about 12 days for the foundations, 23 for the pages, 7 for the polish, one thread
-at a time; phases 1's F3–F6 and phase 2's P2 can run in parallel threads.
+Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
+for the polish, one thread at a time; phases 1's F3–F6 and phase 2's SC2 and P2 can run in parallel threads.
 
 ---
 
