@@ -10,7 +10,7 @@ import { chromium } from "playwright-core";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { PROBE_SOURCE, boardPoints, createTracker, faucetSample, findAndPlace, moveSample, probeEvents, promptedBetween, purchaseSample, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
+import { PROBE_SOURCE, boardPoints, createTracker, faucetSample, findAndPlace, moveSample, probeEvents, promptedBetween, purchaseSample, enrichSamples, renderMarkdown, toJson, trackPage, txSince } from "./latency.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -18,6 +18,7 @@ const arg = (name, fallback) => {
 };
 const out = arg("out", "/tmp/paved-latency-devnet");
 const url = arg("url", "http://127.0.0.1:5173");
+const rpcUrl = arg("rpc", "http://127.0.0.1:5050"); // the devnet, read after the run for fee and gas (S2)
 const wantMoves = Number(arg("moves", 3));
 const executablePath = arg("chromium", join(homedir(), ".cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell"));
 mkdirSync(out, { recursive: true });
@@ -85,8 +86,13 @@ try {
   }
 } finally {
   const meta = { url, api: null, network: "devnet (dry run: instant blocks, not release figures)", startedAt, localHour: new Date().getHours(), notes };
-  writeFileSync(join(out, "latency.json"), JSON.stringify(toJson(samples, meta), null, 2));
-  writeFileSync(join(out, "latency.md"), renderMarkdown(samples, meta));
+  const write = () => {
+    writeFileSync(join(out, "latency.json"), JSON.stringify(toJson(samples, meta), null, 2));
+    writeFileSync(join(out, "latency.md"), renderMarkdown(samples, meta));
+  };
+  write(); // before the reads of fee and gas, so a slow node costs them and never the files
+  notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `chain: ${n}`));
+  write();
   writeFileSync(join(out, "probe.json"), JSON.stringify({ events: await probeEvents(page), presses, hashes: tracker.hashes }, null, 1));
   await page.screenshot({ path: join(out, "end.jpg"), type: "jpeg", quality: 60 }).catch(() => {});
   await browser.close();

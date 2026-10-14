@@ -178,6 +178,13 @@ loaded). `latency.json` also lists, for each transaction, the first time each fi
 `ACCEPTED_ON_L2`, since t0): the gap between the first `PRE_CONFIRMED` and `ACCEPTED_ON_L2` is what waiting for the pre-confirmed block
 would save, if the answer to "is it enough?" is no. A status the page's poll never saw is absent, not zero.
 
+**Fee and gas (S2).** After the run, before the files are written, `part-b.mjs` reads each sample's transaction from the node (`--rpc`, default the Sepolia RPC URL above), with reads only and no transaction:
+`starknet_getTransactionReceipt` for `block_number`, `actual_fee` and `execution_resources`, and `starknet_getBlockWithTxHashes` for the block's `timestamp` (one read per block).
+Each sample of `latency.json` then carries `tx` (the hash), `block`, `blockTimestamp` (seconds), `fee` as `{ amount, unit }` (`amount` a decimal string of the felt, `unit` `FRI` or `WEI`) and `resources`
+(the receipt's `execution_resources` as given: `l1_gas`, `l1_data_gas`, `l2_gas`); the summary of each kind adds the median `fee` and `l2Gas` over the samples that were not prompted.
+`latency.md` shows block, fee (STRK, 6 decimals, from FRI) and L2 gas beside the times, and a line per kind with the median fee and the median L2 gas. A read that fails leaves `null` (`n/a` in the table)
+and a note; it never fails the run. The faucet mint is read the same way. These are what a player pays on chain, to set against the test and release profiles (the L3 question).
+
 A sample is **prompted** when the Controller's frame was shown at any point between t0 and its end: the wait then includes a person's approval,
 which the session is meant to avoid. It stays in the table and the JSON, and out of median and max.
 
