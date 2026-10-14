@@ -37,7 +37,8 @@ use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use paved::systems::vault::DEAD_ASSETS;
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, EventSpyTrait,
+    EventsFilterTrait, declare, mock_call, spy_events, store,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
@@ -132,7 +133,7 @@ fn setup_with(rate: u256) -> Setup {
     ];
     pool_key.serialize(ref calldata);
     0_u256.serialize(ref calldata);
-    decided().serialize(ref calldata);
+    tested().serialize(ref calldata);
     MEAN0.serialize(ref calldata);
     rate.serialize(ref calldata);
     let economy = IEconomyDispatcher { contract_address: deploy("Economy", calldata) };
@@ -147,6 +148,13 @@ fn setup_with(rate: u256) -> Setup {
 
 fn setup() -> Setup {
     setup_with(POOL_RATE)
+}
+
+/// The configuration these tests were written at: 70 % of the price swapped for the burn (the
+/// decided one before P-56's split, which `test_decided_split_*` covers), so their figures and
+/// sim.py's fixture (its `BURN`) keep their round numbers.
+fn tested() -> Config {
+    Config { burn_bps: 7_000, ..decided() }
 }
 
 /// The PAVED that the router's own `quote_swap` answers for `usdc_in`, through `Economy`'s pool
@@ -237,7 +245,7 @@ fn test_purchase_splits_the_price_exactly_with_a_referrer() {
     let supply = s.paved.total_supply();
     let reserve = usdc_reserve(s);
     let price = 3 * BASE_PRICE;
-    let (referral, quote, margin) = split(price, 7_000, true);
+    let (referral, quote, margin) = split(price, 7_000, 500, true);
     assert_eq!((referral, quote, margin), (300_000, 4_200_000, 1_500_000));
     let out = router_quote(s, 5_700_000);
     buy(s, 1, PLAYER(), 3, REFERRER());
@@ -855,12 +863,22 @@ fn test_configure_applies_to_the_next_purchases_only() {
     let s = setup();
     let r = buy(s, 1, PLAYER(), 1, Zero::zero());
     let config = Config {
-        burn_bps: 9_000, sigma_bps: -3_000, slope_bps: 1_000, cap: 1, target: 100_000 * PAVED,
+        burn_bps: 9_000,
+        sigma_bps: -3_000,
+        slope_bps: 1_000,
+        cap: 1,
+        target: 100_000 * PAVED,
+        referral_bps: 1_000,
     };
     let mut spy = spy_events();
     configure(s, config);
     let event = EconomyConfigured {
-        burn_bps: 9_000, sigma_bps: -3_000, slope_bps: 1_000, cap: 1, target: 100_000 * PAVED,
+        burn_bps: 9_000,
+        sigma_bps: -3_000,
+        slope_bps: 1_000,
+        cap: 1,
+        target: 100_000 * PAVED,
+        referral_bps: 1_000,
     };
     spy.assert_emitted(@array![(s.economy.contract_address, Event::EconomyConfigured(event))]);
     assert_eq!(s.economy.config(), config);
@@ -876,6 +894,121 @@ fn test_configure_applies_to_the_next_purchases_only() {
     assert_eq!((second.sigma_bps, second.slope_bps, second.cap), (-3_000, 1_000, 1));
     // At a supply far above the new target, the factor is 0
     assert_eq!(second.reference, 0);
+}
+
+// The split (P-56): owner-set, the burn and the Vault adding up to the price
+
+#[test]
+fn test_decided_split_is_the_owners() {
+    let s = setup();
+    configure(s, decided());
+    assert_eq!(s.economy.split_bps(), (7_368, 2_632, 500));
+    // Without a referrer: 7,368 + 2,632 bps of the price swapped, burned and to the Vault by input
+    let out = router_quote(s, 20_000_000);
+    let supply = s.paved.total_supply();
+    buy(s, 1, PLAYER(), 10, Zero::zero());
+    assert_eq!(usdc_reserve(s), 10_020 * USDC);
+    assert_eq!(vault_paved(s), out * 5_264_000 / 20_000_000);
+    assert_eq!(supply - s.paved.total_supply(), out - vault_paved(s));
+    // With one: the same burn quote, the referral out of the Vault's part
+    let quote = s.economy.quote(10);
+    assert_eq!((quote.price, quote.burn_quote, quote.referral), (20 * USDC, 14_736_000, USDC));
+    assert_eq!(quote.margin, 5_264_000);
+    assert_nothing_left(s);
+}
+
+/// The burn quote of a purchase is the same with or without a referrer: only the Vault's part pays
+/// the referral.
+#[test]
+fn test_burn_quote_does_not_depend_on_the_referrer() {
+    let s = setup();
+    configure(s, decided());
+    let mut spy = spy_events();
+    buy(s, 1, PLAYER(), 4, Zero::zero());
+    buy(s, 2, PLAYER(), 4, REFERRER());
+    let mut quotes: Array<u256> = array![];
+    for (_, event) in spy.get_events().emitted_by(s.economy.contract_address).events {
+        if *event.keys.at(0) == selector!("Purchased") {
+            // `burned_quote`: after day, stake, price (2), referrer, referral (2)
+            quotes.append(u256 {
+                low: (*event.data.at(7)).try_into().unwrap(),
+                high: (*event.data.at(8)).try_into().unwrap(),
+            });
+        }
+    }
+    assert_eq!(quotes.len(), 2);
+    assert_eq!(*quotes.at(0), 8 * USDC * 7_368 / 10_000);
+    assert_eq!(*quotes.at(1), *quotes.at(0));
+    assert_eq!(s.usdc.balance_of(REFERRER()), 400_000);
+}
+
+#[test]
+fn test_configure_the_split_at_its_bounds_and_its_event() {
+    let s = setup();
+    let ends: Array<(u16, u16)> = array![(5_000, 0), (5_000, 1_000), (9_000, 0), (9_000, 1_000)];
+    for (burn_bps, referral_bps) in ends {
+        let config = Config { burn_bps, referral_bps, ..decided() };
+        let mut spy = spy_events();
+        configure(s, config);
+        let event = EconomyConfigured {
+            burn_bps,
+            sigma_bps: 0,
+            slope_bps: 12_220,
+            cap: 5,
+            target: 1_000_000 * PAVED,
+            referral_bps,
+        };
+        spy.assert_emitted(@array![(s.economy.contract_address, Event::EconomyConfigured(event))]);
+        assert_eq!(s.economy.split_bps(), (burn_bps, 10_000 - burn_bps, referral_bps));
+        // A purchase splits the price exactly: the referral, the swap, nothing left
+        let reserve = usdc_reserve(s);
+        let price = 7 * BASE_PRICE;
+        let game_id: u32 = burn_bps.into() + referral_bps.into();
+        buy(s, game_id, PLAYER(), 7, REFERRER());
+        let referral = price * referral_bps.into() / 10_000;
+        assert_eq!(usdc_reserve(s) - reserve, price - referral);
+        assert_nothing_left(s);
+    }
+    assert_eq!(s.usdc.balance_of(REFERRER()), 2 * 7 * BASE_PRICE * 1_000 / 10_000);
+}
+
+/// A configuration stored by the class before P-56 (no referral in its packed felt, the top bits
+/// 0) reads back after the upgrade with the referral at its default, 500 bps, the constant it had;
+/// the other fields unchanged. And the new packing round-trips a referral of 0.
+#[test]
+fn test_config_stored_before_the_referral_reads_it_at_its_default() {
+    let s = setup();
+    // The former packing: cap, slope, sigma (offset by 2^15), burn in the high part, the target low
+    let mut high: u256 = 5;
+    high = high * 0x100000000 + 12_220;
+    high = high * 0x10000 + 0x8000 - 3_000;
+    high = high * 0x10000 + 8_000;
+    let target: u256 = (2_000_000 * PAVED).into();
+    let packed: felt252 = (target + high * 0x100000000000000000000000000000000).try_into().unwrap();
+    store(s.economy.contract_address, selector!("config"), array![packed].span());
+    let config = s.economy.config();
+    assert_eq!(
+        config,
+        Config {
+            burn_bps: 8_000,
+            sigma_bps: -3_000,
+            slope_bps: 12_220,
+            cap: 5,
+            target: 2_000_000 * PAVED,
+            referral_bps: 500,
+        },
+    );
+    assert_eq!(s.economy.split_bps(), (8_000, 2_000, 500));
+    configure(s, Config { referral_bps: 0, ..config });
+    assert_eq!(s.economy.config().referral_bps, 0);
+    assert_eq!(s.economy.split_bps(), (8_000, 2_000, 0));
+}
+
+#[test]
+#[should_panic(expected: 'Economy: referral out of bounds')]
+fn test_configure_a_referral_above_its_bound_reverts() {
+    let s = setup();
+    configure(s, Config { referral_bps: 1_001, ..decided() });
 }
 
 #[test]

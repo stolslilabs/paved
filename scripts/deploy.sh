@@ -2634,10 +2634,11 @@ DEAD_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
 STAKE_PAVED="$(python3 -I -c "print((199000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
 VAULT_PAVED="$(python3 -I -c "print($DEAD_PAVED + $STAKE_PAVED)")"
 EXIT_FEE=500
-# Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 12,220 bps, cap 5, target 1,000,000
-# PAVED; P-46), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
+# Economy: the decided configuration (burn 7,368 bps, so 70 % of the price burned after the pool's 5 %, sigma 0,
+# slope 12,220 bps, cap 5, target 1,000,000 PAVED; P-46; the referral 500 bps of the price, out of the Vault's
+# 2,632, P-56), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
 # section 5). The wiring step reads each back.
-CONFIG=(7000 0 12220 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
+CONFIG=(7368 0 12220 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" 500)
 MEAN0=3980000
 LAUNCH_RATE=76000000000000000000000000000000
 
@@ -2797,14 +2798,14 @@ read -r -a ECONOMY_CONFIG <<<"$(call "$ECONOMY" config)"
 python3 -I - "${ECONOMY_CONFIG[@]}" "${CONFIG[@]}" <<'PY' || die "Economy.config() is not the P-46 configuration"
 import sys
 v = sys.argv[1:]
-sys.exit(0 if len(v) == 10 and [int(x, 16) for x in v[:5]] == [int(x) for x in v[5:]] else 1)
+sys.exit(0 if len(v) == 12 and [int(x, 16) for x in v[:6]] == [int(x) for x in v[6:]] else 1)
 PY
 # The initial mean is a launch-state check: after the smoke's game a closed day may have moved it (a rerun).
 read -r -a EMA_VIEW <<<"$(call "$ECONOMY" ema)"
 if [[ -z "$(fr_get smoke.spawn_tx)" ]]; then
   [[ "$(hex_int "${EMA_VIEW[2]}")" == "$MEAN0" ]] || die "Economy.ema() mean is $(hex_int "${EMA_VIEW[2]}"), not MEAN0 $MEAN0"
 fi
-echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7000 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED, mean $(hex_int "${EMA_VIEW[2]}") (MEAN0 $MEAN0)"
+echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7368 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED referral 500, mean $(hex_int "${EMA_VIEW[2]}") (MEAN0 $MEAN0)"
 fi
 
 echo "== definitions"

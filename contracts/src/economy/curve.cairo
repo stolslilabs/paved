@@ -7,8 +7,6 @@
 
 /// 100 % in basis points.
 pub const BPS: u32 = 10_000;
-/// The referrer's share of the price, out of the margin (D-10, P-31).
-pub const REFERRAL_BPS: u32 = 500;
 /// `F` is clamped to [0, 2x], in basis points.
 pub const MAX_FACTOR_BPS: u32 = 20_000;
 /// Scale of the swap rate (PAVED base units per USDC base unit).
@@ -24,12 +22,13 @@ pub mod errors {
     pub const OVERFLOW: felt252 = 'Curve: overflow';
 }
 
-/// Where a price goes: `(referral, burn_quote, margin)`, adding up to `price` exactly. The referral
-/// is 5 % when the purchase has a referrer, the burn quote `burn_bps` of the price, and the margin
-/// the rest.
-pub fn split(price: u256, burn_bps: u16, referred: bool) -> (u256, u256, u256) {
+/// Where a price goes: `(referral, burn_quote, margin)`, adding up to `price` exactly. The burn
+/// quote is `burn_bps` of the price whether or not there is a referrer; the referral is
+/// `referral_bps` of the price when the purchase has a referrer, out of the Vault's part; the
+/// margin, the Vault's, is the rest (P-56).
+pub fn split(price: u256, burn_bps: u16, referral_bps: u16, referred: bool) -> (u256, u256, u256) {
     let referral = if referred {
-        price * REFERRAL_BPS.into() / BPS.into()
+        price * referral_bps.into() / BPS.into()
     } else {
         0
     };

@@ -131,20 +131,28 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
 
 /// The protocol addresses `Daily` knows, `Economy` and `Daily` itself, are ignored as referrers,
 /// like the payer (economy audit N2 of #350): nothing is paid to them, the payer pays the whole
-/// price, and the Vault gets the whole margin (30 % of 2 USDC). Paid to `Economy`, the 5 % would be
-/// swept back into the margin and counted twice by `Purchased`; paid to `Daily`, it would be stuck.
+/// price, and the whole price is swapped (no referral taken out of the Vault's part, which reaches
+/// the Vault as PAVED, P-56). Paid to `Economy`, the 5 % would be swept back into the margin and
+/// counted twice by `Purchased`; paid to `Daily`, it would be stuck.
 #[test]
 #[available_gas(l2_gas: 106657639)]
 fn test_economy_protocol_address_referrer_is_no_referral() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
-    let vault = systems.economy.addresses().vault;
+    let addresses = systems.economy.addresses();
+    let paved = IERC20Dispatcher { contract_address: addresses.paved };
     for referrer in array![systems.economy.contract_address, systems.challenge.contract_address] {
         let before = token.balance_of(PLAYER());
-        let vault_before = token.balance_of(vault);
+        let vault_before = paved.balance_of(addresses.vault);
+        let swapped = systems.economy.quote_swap(BASE_PRICE);
+        let supply = paved.total_supply();
         systems.challenge.spawn(1, referrer, 0);
         assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Protocol: price');
-        assert(token.balance_of(vault) - vault_before == 600_000, 'Protocol: margin');
+        assert(token.balance_of(addresses.vault) == 0, 'Protocol: USDC to the Vault');
+        // The whole price was swapped: its PAVED is the burn's and the Vault's parts
+        let to_vault = paved.balance_of(addresses.vault) - vault_before;
+        assert(to_vault > 0, 'Protocol: margin');
+        assert(supply - paved.total_supply() + to_vault == swapped, 'Protocol: whole swap');
         assert(token.balance_of(referrer) == 0, 'Protocol: referrer paid');
     }
 }

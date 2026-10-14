@@ -16,21 +16,49 @@ fn test_split_adds_up_to_the_price() {
     let mut stake: u256 = 1;
     while stake <= 10 {
         let price = stake * 2 * USDC;
-        let (referral, quote, margin) = split(price, 7_000, false);
+        let (referral, quote, margin) = split(price, 7_000, 500, false);
         assert_eq!((referral, quote, margin), (0, price * 7 / 10, price * 3 / 10));
-        let (referral, quote, margin) = split(price, 7_000, true);
+        let (referral, quote, margin) = split(price, 7_000, 500, true);
         assert_eq!((referral, quote, margin), (price / 20, price * 7 / 10, price / 4));
         assert_eq!(referral + quote + margin, price);
         stake += 1;
     }
 }
 
+/// The burn quote is the same with or without a referrer, at every split: the referral comes out
+/// of the Vault's part only (P-56).
+#[test]
+fn test_split_burn_quote_never_depends_on_the_referrer() {
+    let splits: Array<(u16, u16)> = array![
+        (5_000, 0), (5_000, 1_000), (7_000, 500), (8_421, 500), (9_000, 0), (9_000, 1_000),
+    ];
+    for (burn_bps, referral_bps) in splits {
+        let mut stake: u256 = 1;
+        while stake <= 10 {
+            let price = stake * 2 * USDC;
+            let (none, quote, margin) = split(price, burn_bps, referral_bps, false);
+            let (referral, referred_quote, referred_margin) = split(
+                price, burn_bps, referral_bps, true,
+            );
+            assert_eq!(none, 0);
+            assert_eq!(referred_quote, quote);
+            assert_eq!(quote, price * burn_bps.into() / 10_000);
+            assert_eq!(referral, price * referral_bps.into() / 10_000);
+            // Both add up to the price exactly, the referral taken from the Vault's margin
+            assert_eq!(quote + margin, price);
+            assert_eq!(referral + referred_quote + referred_margin, price);
+            assert_eq!(referred_margin, margin - referral);
+            stake += 1;
+        }
+    }
+}
+
 #[test]
 fn test_split_rounds_into_the_margin() {
     // 7 base units: the burn and the referral round down, the margin takes the rest
-    let (referral, quote, margin) = split(7, 7_000, true);
+    let (referral, quote, margin) = split(7, 7_000, 500, true);
     assert_eq!((referral, quote, margin), (0, 4, 3));
-    let (referral, quote, margin) = split(39, 5_001, true);
+    let (referral, quote, margin) = split(39, 5_001, 500, true);
     assert_eq!((referral, quote, margin), (1, 19, 19));
 }
 
@@ -185,14 +213,29 @@ fn test_payout_of_a_huge_reference_does_not_overflow() {
 // The bounds of `configure`
 
 fn with(burn_bps: u16, sigma_bps: i16, slope_bps: u32, cap: u8, target: u128) -> Config {
-    Config { burn_bps, sigma_bps, slope_bps, cap, target }
+    Config { burn_bps, sigma_bps, slope_bps, cap, target, referral_bps: 500 }
+}
+
+fn with_referral(burn_bps: u16, referral_bps: u16) -> Config {
+    Config { burn_bps, referral_bps, ..decided() }
 }
 
 #[test]
 fn test_decided_config_and_both_ends_of_every_bound_are_valid() {
     validate(decided());
+    assert_eq!((decided().burn_bps, decided().referral_bps), (7_000, 500));
     validate(with(5_000, -3_000, 1_000, 1, 100_000 * PAVED));
     validate(with(9_000, 5_000, 50_000, 20, 10_000_000 * PAVED));
+    validate(with_referral(5_000, 0));
+    validate(with_referral(9_000, 1_000));
+    // The owner's split (P-56, economy.md): 80 % burned after the pool's 5 %
+    validate(with_referral(8_421, 500));
+}
+
+#[test]
+#[should_panic(expected: ('Economy: referral out of bounds',))]
+fn test_referral_above_its_bound_is_refused() {
+    validate(with_referral(7_000, 1_001));
 }
 
 #[test]
