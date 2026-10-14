@@ -35,6 +35,8 @@ export interface BoardSceneProps {
   lastScored: ScoredStructure[];
   /** Where the board's tile art is served: the hand shows the same art as the board. */
   tileArt?: string;
+  /** The hand's tile drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
+  renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** `localStorage` refused: a Training or Tutorial game is not saved on this device. */
   storageDisabled?: boolean;
   /**
@@ -85,6 +87,7 @@ export function BoardScene(props: BoardSceneProps) {
           preview={hand.preview}
           error={hand.error}
           tileArt={props.tileArt}
+          renderTile={props.renderHandTile}
           onRotate={props.onRotate}
           onConfirm={props.onConfirm}
           onDiscard={props.onDiscard}

@@ -39,6 +39,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
           <button
             key={tab.id}
             type="button"
+            aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
             onClick={() => onNavigate?.(tab.id)}
             className={cn(
@@ -55,9 +56,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
               />
             )}
             <Icon name={tab.icon} className="relative" size="md" />
-            <span className="relative">
-              <span className="sr-only mobile:not-sr-only">{tab.label}</span>
-            </span>
+            {/* Not `sr-only mobile:not-sr-only`: Font Awesome injects its own `.sr-only` after Tailwind's, which wins. */}
+            <span className="relative hidden mobile:inline">{tab.label}</span>
           </button>
         );
       })}

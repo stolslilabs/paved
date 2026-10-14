@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { RENDERER_ASSETS } from "../../mocks/assets";
 import { BOARD } from "../../mocks/scenes";
 import { BoardViewport } from "../containers/board-viewport";
+import { TileView } from "../containers/tile-view";
 import { BoardScene } from "./board-scene";
 import { at } from "./viewports";
 
@@ -15,7 +16,13 @@ const meta = {
   title: "Scenes/Board",
   component: BoardScene,
   args: { onBack: fn(), onRotate: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
-  render: (args) => <BoardScene {...args} canvas={<BoardViewport tiles={args.tiles} gameId={args.gameId} basePath={RENDERER_ASSETS} />} />,
+  render: (args) => (
+    <BoardScene
+      {...args}
+      canvas={<BoardViewport tiles={args.tiles} gameId={args.gameId} basePath={RENDERER_ASSETS} />}
+      renderHandTile={(t) => <TileView {...t} basePath={RENDERER_ASSETS} />}
+    />
+  ),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fn } from "storybook/test";
 import { RENDERER_ASSETS } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
+import { TileView } from "./tile-view";
 import { HandPanel } from "./hand-panel";
 
 const tile = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation };
@@ -27,6 +28,9 @@ export const Refused: Story = { args: { state: "refused", slotChosen: true, erro
 export const Expired: Story = { args: { state: "expired" } };
 /** No tile: the game is over. */
 export const Empty: Story = { args: { tile: null, state: "empty" } };
+
+/** The tile drawn by the renderer, as the board draws it (what the board scene shows). */
+export const Rendered: Story = { args: { renderTile: (t) => <TileView {...t} basePath={RENDERER_ASSETS} /> } };
 
 /** Without the art: the plan's nine areas (the debug and accessibility view). */
 export const AreasView: Story = { args: { tileArt: undefined } };

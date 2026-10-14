@@ -25,7 +25,7 @@ export function planCode(plan: number): string {
   return type && type !== PlanType.None ? type : "";
 }
 
-const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden rounded-md border-2 bg-ink-800 transition-colors", {
+export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden rounded-md border-2 bg-ink-800 transition-colors", {
   variants: {
     size: { sm: "size-8", md: "size-14", lg: "size-24" },
     state: {
