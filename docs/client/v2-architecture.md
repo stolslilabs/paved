@@ -558,17 +558,10 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
   `WWW_ROOT=/var/www/paved-storybook publish.sh packages/app/storybook-static sb-<short-sha>`, run as
   the deploy user. It copies to `/var/www/paved-storybook/releases/sb-<sha>`, swaps `current`
   atomically and keeps five releases; `switch.sh` rolls back the same way.
-- **Root step, prepared by the PM (P-57 B7):** create `/var/www/paved-storybook/releases` owned by
-  `paved-deploy`, and add a Caddy site:
-
-  ```caddy
-  storybook.paved.bal7hazar.com {
-      root * /var/www/paved-storybook/current
-      encode zstd gzip
-      file_server
-      header /assets/* Cache-Control "public, max-age=31536000, immutable"
-  }
-  ```
+- **Root step, prepared by the PM (P-57 B7):** done once by the owner's root block (web root, Caddy site, first
+  release). The Caddy site is in the repository, `deploy/storybook/paved-storybook.caddy`; the release command
+  sequence, its check and its rollback are in `docs/client/storybook-hosting.md` (F5). The site the block installs
+  has `Cache-Control "no-cache"` on everything, not the `/assets/*` immutable rule this section first proposed.
 
 - Storybook is public, like the client. It holds no secret: fixtures only, no RPC URL beyond the public
   ones, no controller.
