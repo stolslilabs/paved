@@ -35,6 +35,12 @@ and the tutorial claim) is resolved from `contracts.Setup` (the key of step D's 
 and only the tutorial claim is unavailable. An old file's `contracts.Tutorial` and `contracts.Account` (D-25 (E)) are not
 read.
 
+**D-23.** The contract `Daily` is named `Challenge` since D-23 (`public-interface.md`, "Breaking change D-23"): its ABI
+becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`; entry point and event
+names (selectors) and `mode` code 1 do not change. The live Sepolia file keeps `contracts.Daily` until the fresh
+deployment. `packages/chain` still imports `Daily.json` and reads `contracts.Daily` (and `VITE_DAILY_ADDRESS`) until
+CLIENT's own D-23 PR, so this document names the contract `Daily` where it describes the client.
+
 Only the keys above are read: any other key of the file, such as `classes` (the declared library
 class `Lobby` of P-26, which has no address; the class left with D-24), is ignored.
 
@@ -178,8 +184,8 @@ and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
 The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
-Every game read names its contract: the client's game key is `(mode, game_id)`, and since D-21 the one mode is Daily
-(`mode` 1; 2 was Weekly and 3 the on-chain Tutorial, never given again).
+Every game read names its contract: the client's game key is `(mode, game_id)`, and since D-21 the one mode is Challenge
+(`mode` 1, `Mode::Challenge`, named `Daily` before D-23 and still labelled so by the client; 2 was Weekly and 3 the on-chain Tutorial, never given again).
 
 Reverts are mapped to typed errors (`ViewError`), from the message as text or as the hex of its
 short string (devnet 0.10 gives only the hex): `Game: does not exist` gives `game-not-found`,

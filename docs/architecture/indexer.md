@@ -674,3 +674,18 @@ on-chain registration, name or master.
   `contracts.Account`, so `GET /v1/head`'s `contracts.account` and the registry cross-check of `EconomySet` and
   `CollectionSet` follow the wiring to `Setup`, which emits those two events since E.
 - The indexer's own changes (decoders, schema, deployment hash) are CLIENT's (W1d, #349).
+
+## Since D-23 (Daily becomes Challenge)
+
+D-23 (`public-interface.md`, "Breaking change D-23") renames the contract `Daily` to `Challenge`: its ABI becomes
+`contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge` (the live Sepolia file keeps
+`contracts.Daily` until the fresh deployment).
+
+- **Selectors and layouts are unchanged**: entry point and event names do not change, so every event above keeps its
+  selector, keys and data; `mode` 1 is the same code, now `Mode::Challenge`.
+- **The day is unchanged**: `day_id` and `current_day()` are still computed from the time, so the days, the leaderboard
+  and the quests are read as before. Only the seed changes: each game's is Poseidon(0, game id) (`TokenSeed`), no longer
+  the day's, so two games of one day no longer share a deck.
+- **`PlayerCreated`** left `paved::events::Event`, so it is no longer in `Challenge.json`; it stays a past event (above).
+- **Not yet in the package**: `packages/indexer` still reads `contracts.Daily` (`src/deployment.ts`) and `Daily.json`, and
+  its source and API `contract` value are `daily`; the rename is META's own D-23 PR.

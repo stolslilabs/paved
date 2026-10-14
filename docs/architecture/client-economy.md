@@ -9,6 +9,11 @@ contract side is `economy.md` (ruled by the PM: P-31); the data layer and its pa
 economy **not configured**, and the screens say so; nothing is read or sent. The committed `contracts/deployments/devnet.json`
 since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, MockUSDC, MockRouter}` (written by `scripts/deploy.sh`).
 
+Since D-23 the paid game's contract is named `Challenge` (`Daily` before; `public-interface.md`, "Breaking change D-23"):
+its ABI becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`, with the same
+entry points (`spawn`, `entry_price`). `packages/chain` still names it `Daily` (the `Daily` codec, `Daily.json`,
+`contracts.Daily`) until CLIENT's own D-23 PR, and so does this document where it describes the client.
+
 ## What E3 made real (P8, #275)
 
 Every ABI is now a committed one. There are no stubs, `stub-abi.ts` and `ECONOMY_ABI_IS_STUB` are gone, and the economy
@@ -80,7 +85,7 @@ its purchase); `settle` refuses it before sending.
 
 Referrers: a `?ref=` must be a non-zero hex address below `2^251 - 256` (`ADDRESS_BOUND`, itself below the felt prime);
 a value out of range counts as no referrer, as does a malformed one. The writer applies the same bound to what it sends.
-Since D-25 (E) a referrer is **any non-zero address other than the payer, the Daily and the Economy** (the contract's
+Since D-25 (E) a referrer is **any non-zero address other than the payer, the Challenge (the client's `Daily`) and the Economy** (the contract's
 rule, CORE's step E: it ignores those three), with no registration: there is no `Account` to ask, so no read holds the
 purchase back. Before E the referrer had to be a registered player other than the payer (the client read `Account.player`
 and dropped an unregistered one). The writer refuses the payer's own address and the deployment's `Daily` and `Economy`

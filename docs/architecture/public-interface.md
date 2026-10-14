@@ -1,6 +1,6 @@
 # Public read-only interface
 
-The views that `Daily` and `Tutorial` expose so that a client can show a game, its board, the
+The views that `Challenge` (named `Daily` before D-23) and `Tutorial` expose so that a client can show a game, its board, the
 characters of its player and the Daily tournaments without an indexer. Events give the lists ("my
 games", history); views give the current state of one game or one tournament.
 
@@ -38,11 +38,11 @@ long as it reads the ABI of the deployed class.
 
 | Thing | Type | Meaning |
 |---|---|---|
-| `game_id` | `u32` | Id of a game, counted per contract from 1 (`Daily` game 1 and `Tutorial` game 1 are two games) |
+| `game_id` | `u32` | Id of a game, counted per contract from 1 (`Challenge` game 1 and `Tutorial` game 1 are two games). A Challenge game's token id in `Collection`, and since D-23 the source of its seed |
 | `player_id` | `felt252` | Address of the player's account, as a felt |
 | tile id | `u32` | Order of draw within the game, from 1. Tile 1 is the starter tile, placed at spawn. Each drawn tile is placed or discarded before the next is drawn, so the order of the placed tiles by id is their order of placement |
 | `x`, `y` | `u32` | Board position; the starter tile is at (`CENTER`, `CENTER`), `CENTER = 0x7fffffff`; `y + 1` is north, `x + 1` is east. `0, 0` means "not on the board" |
-| `mode` | `u8` | `1` Daily; `3` Tutorial (legacy: the old Sepolia `Tutorial` only, `None` on a fresh network); `2` was Weekly. `2` and `3` are never given again |
+| `mode` | `u8` | `1` Challenge (named Daily before D-23, same code); `3` Tutorial (legacy: the old Sepolia `Tutorial` only, `None` on a fresh network); `2` was Weekly. `2` and `3` are never given again |
 | `plan` | `u8` | `Plan` code (`types/plan.cairo`); `0` means none |
 | `orientation` | `u8` | `0` none (not placed), `1` north, `2` east, `3` south, `4` west |
 | `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim, `6` Woodsman, `7` Herdsman (the last two since P4) Removed by D-18 |
@@ -63,7 +63,7 @@ long as it reads the ABI of the deployed class.
   (`(2^64 - 1) / 86400 - 1`, the last day whose end time fits in a `u64`) can never hold a
   tournament: it returns its id and zero everywhere else, `start_time` and `end_time` included.
 
-## Views of `Daily` and `Tutorial` (`IGameView`)
+## Views of `Challenge` and `Tutorial` (`IGameView`)
 
 ### `game(game_id: u32) -> GameView`
 
@@ -140,7 +140,7 @@ appended.
 | 5 | `y` | `u32` | Position of that tile; `0` unless placed |
 | 6 | `spot` | `u8` | Spot on that tile; `0` unless placed |
 
-## Views of `Daily` only (`IDailyView`)
+## Views of `Challenge` only (`IChallengeView`)
 
 `ITournamentView` before D-20; the `tournament(id)` view and its `TournamentView` left with the prize (D-20).
 
@@ -157,7 +157,7 @@ diverge.
 
 | # | Field | Type | Meaning |
 |---|---|---|---|
-| 1 | `token` | `ContractAddress` | The ERC20 that `spawn` pulls the entry price from (the player approves the `Daily` contract on it) |
+| 1 | `token` | `ContractAddress` | The ERC20 that `spawn` pulls the entry price from (the player approves the `Challenge` contract on it) |
 | 2 | `amount` | `u256` | The price of one stake unit, in the base unit of the token: 2,000,000 (2 USDC, 6 decimals). `spawn(stake, ..)` pulls `stake x amount` |
 
 ## Events for lists
@@ -532,10 +532,10 @@ alternative if the PM wants it closed.
 ## Breaking change D-23
 
 D-23 and P-50 (`docs/programme/DECISIONS.md`): `Daily` is renamed Challenge, and each game's seed comes from its token
-id. **Not built yet**; the inventory, the storage check and the seed are in `leaderboard.md`, "D-23: Daily becomes
-Challenge (planned)". A stated exception to the stability promise, as D-18 is. The names below are proposed; the
-selectors of the entry points and of the events do not change (a selector is the function's or the event's own name),
-only the contract, interface, impl, enum and file names do.
+id. **Built by D-23b**; the plan, the storage check and the seed are in `leaderboard.md`, "D-23: Daily becomes
+Challenge (planned)", and "As built (D-23b)" below gives the ABI diff. A stated exception to the stability promise, as
+D-18 is. The selectors of the entry points and of the events do not change (a selector is the function's or the
+event's own name), only the contract, interface, impl, enum and file names do.
 
 | Kind | Old | New |
 |---|---|---|
@@ -566,6 +566,41 @@ and two games of one day no longer draw the same deck. The day id stays in `Game
 (`abis.ts:13`, `:41`), the calls addressed to `"Daily"` (`views.ts:185-193`, `economy/writer.ts:281`, `:390`), the
 mode label (`views.ts:24`, `app-web/src/pages/Player.tsx:156`), and `Collection.daily()` if read. The key changes in
 the Sepolia upgrade of D-19 to D-24; proposed: both read `Challenge` with a fallback to `Daily` before it.
+
+### As built (D-23b)
+
+`contracts/abis/Daily.json` is replaced by `Challenge.json` (`scripts/abis.sh`). Against `Daily.json` of main
+(d62c6a37), the whole diff is:
+
+| Item | `Daily.json` | `Challenge.json` |
+|---|---|---|
+| impls | `DailyImpl`, `DailySetupImpl`, `DailyViewImpl` | `ChallengeImpl`, `ChallengeSetupImpl`, `ChallengeViewImpl` |
+| interfaces | `paved::systems::daily::IDaily`, `paved::systems::daily::IDailySetup`, `paved::views::IDailyView` | `paved::systems::challenge::IChallenge`, `paved::systems::challenge::IChallengeSetup`, `paved::views::IChallengeView` |
+| event enum | `paved::systems::daily::Daily::Event` | `paved::systems::challenge::Challenge::Event` |
+| event struct | `paved::systems::daily::SetupSet` | `paved::systems::challenge::SetupSet` (variant `SetupSet`: same selector and layout) |
+| `PlayerCreated` | the struct `paved::events::PlayerCreated` and its variant | **removed** (below) |
+
+Every function, its arguments and outputs, every other event and every struct is unchanged. `Collection.json`: the
+view `daily()` is `challenge()` (a new selector), and the first argument of `set_minters` is named `challenge` (same
+selector). No other ABI changes.
+
+- **`Mode`**: `Mode::Challenge`, code 1 (`types/mode.cairo`); the felt is `'CHALLENGE'`; codes 2 and 3 still read as
+  `None` (`paved::types::mode::tests::test_reserved_u8_into_mode`).
+- **Errors**: `'Challenge: token is zero'`, `'Challenge: setup is zero'`, `'Challenge: economy not set'`,
+  `'Challenge: collection not set'`.
+- **Storage**: no field is renamed and no address moves. `Collection`'s field stays `daily`, at `sn_keccak("daily")`,
+  and `challenge()` reads it (`tests::collection::test_collection_pins_the_challenge_minter_at_daily`,
+  `tests::e2e::upgrades::test_upgrade_layout_pins_setup_and_economy_by_name`).
+- **The seed**: `TokenSeed` (`seed.cairo`), Poseidon(salt, token id), the token id being the game id and the salt 0:
+  a Challenge game's initial seed is Poseidon(0, game id). `DailySeed` and `Mode::seed` are gone; the day id
+  (`day_id`, `current_day()`, the economy's day) is unchanged. `GameView.seed` is still the current seed (moved on by
+  the first draw at spawn).
+- **`PlayerCreated`**: removed from `paved::events::Event`, so from `Challenge.json`. No game contract ever emitted it
+  (`Account` did, until D-25 E). Removed once META's indexer (#349) stopped reading it from the ABI: the indexer knows
+  the name as a past event and skips it.
+- **Deployment key**: `scripts/deploy.sh` (devnet and the fresh path) writes `contracts.Challenge`, and
+  `contracts/deployments/devnet.json` is regenerated so. `sepolia.json` keeps `contracts.Daily` until the fresh
+  Sepolia deployment (F, P-53): the interim client and the pinned `--repoint` and `--d18` (06c024d) read it.
 
 ## Breaking change D-24
 

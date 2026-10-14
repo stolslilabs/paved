@@ -14,10 +14,11 @@ Sources read for this design: `contracts/src/models/tournament.cairo`, `models/i
 the tests under `contracts/src/tests/` and `contracts/tests/`, `docs/measures/baseline.md`,
 `docs/measures/golden-games.md`, `docs/architecture/indexer.md`, `docs/programme/DECISIONS.md`.
 
-**D-20 (built) and D-21 to D-24 (planned)**: tournaments, the prize and the on-chain ranking have left the code
+**D-20 (built) and D-21 to D-24 (planned at the time)**: tournaments, the prize and the on-chain ranking have left the code
 ("As built: D-20" below: `leaderboard.cairo` and the `Tournament` model are gone, and part 1 describes code that no
-longer exists on main); the tutorial leaves the contracts, `Daily` becomes Challenge, and `Lobby`'s cold paths and the
-quests are reorganised (the sections "D-21" to "D-24" before part 2).
+longer exists on main); the tutorial leaves the contracts, `Daily` becomes `Challenge`, and `Lobby`'s cold paths and the
+quests are reorganised (the sections "D-21" to "D-24" before part 2). D-21, D-23 and D-24 are built since; the D-23
+section keeps its plan, and the contract is `Challenge` (`systems/challenge.cairo`) in the code.
 
 The document has two parts: part 1, the interface and how the swap is made and tested; part 2, "What Paved needs
 from a leaderboard package", the request for the package, written to be forwarded as it is.
@@ -592,6 +593,16 @@ player, emits `AchievementProgressed { player_id, task_id: 10, count: 1 }`, whic
 (`quests.md`, achievement 1, `TUTORIAL_FINISHED` 1).
 
 ## D-23: Daily becomes Challenge (planned)
+
+**As built (D-23b).** Built as planned below, with these differences: Sepolia gets one fresh deployment (P-53), not
+an upgrade in place, so the "upgraded in place" lines are void and `sepolia.json` keeps `contracts.Daily` until then;
+the day id is `day_id` (D-20), not `tournament_id`; `IDailyQuests`, `lobby_class`'s setter and `DailySeed`'s tutorial
+branch were gone already (D-21, D-24); the constants are `CHALLENGE_PRICE` and `CHALLENGE_DURATION` (not `DAY`, which
+`paved::systems::economy` already names); `IDailySetup` and `IDailyView` are renamed too (`IChallengeSetup`,
+`IChallengeView`); `PlayerCreated` left the events (META's indexer no longer reads it from the ABI). The goldens spawn
+through `Challenge`'s own path (`spawn_from`) with a test source of the day seed (`tests::seed::DaySeed`), and so do the
+gas scenarios of `contracts/tests/gas.cairo`: every expected value and every gas figure of a move stays. The ABI diff
+and the rest: `public-interface.md`, "Breaking change D-23", "As built (D-23b)".
 
 D-23 and P-50 (`docs/programme/DECISIONS.md`, 2026-10-13): `Daily` is renamed `Challenge`, and the shared daily
 seed is dropped: each game's seed comes from its token id, so every Challenge game is different. The indexer still

@@ -468,6 +468,9 @@ Headroom for future move code comes from moving logic into the `Lobby` library (
 
 What reverses it: a planned `Daily` feature that needs those 340 felts; (c) is then reconsidered.
 
+Since D-23 the contract is named `Challenge` (named `Daily` before D-23); the P-44 cap applies to it. The
+figures of this note keep the name `Daily` they were measured under.
+
 ## After D-18 (characters leave the game, D-18b)
 
 D-18b removes the characters from the build path (placement, idle check, recovery, the `Characters` word, the
