@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "unmerged-efbc01ead12d6ab886acd25bb900fc6bdefbcf61",
+  "deployed_at": "0a4c741eff1d8dd34ab1a9214e1aee5a6141c2ed",
   "deployed_block": 10,
   "token": {
     "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
@@ -39,7 +39,7 @@
       "address": "0x02b20a311a45581775c4e7e830e7402661b01606f98c62cb74b7cee63e36cd09",
       "class_hash": "0x07f391b69bc1af0d468fe153117fa5bcf03a915ae4e99ab22ea7a4bc98a1541d"
     },
-    "MockUSDC": {
+    "Faucet": {
       "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
       "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16"
     },
