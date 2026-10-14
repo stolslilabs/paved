@@ -48,7 +48,14 @@ describe("Player page", () => {
     expect(screen.getByText("1 (0 finished)")).toBeTruthy();
   });
 
-  // D-25 (E): the heading is the short address; another player's name is not looked up, and the indexer has none.
+  it("N1: the heading is the indexer's name when it has one", async () => {
+    fixture.names = { [FIXTURE_ADA]: "ada" };
+    player(FIXTURE_ADA);
+    await screen.findByRole("heading", { name: "ada" });
+    expect(screen.getByText(FIXTURE_ADA)).toBeTruthy(); // the address stays under it
+  });
+
+  // D-25 (E): the heading is the short address while the indexer has no name.
   it("loading, then the short address, stats, tournaments and games", async () => {
     player(FIXTURE_ADA);
     expect(screen.getByText("Loading player…")).toBeTruthy();

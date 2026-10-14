@@ -111,12 +111,12 @@ export function LeaderboardPage() {
   );
 }
 
-function Row({ entry, mine, label }: { entry: LeaderboardEntry; mine: boolean; label: (id: string) => string }) {
+function Row({ entry, mine, label }: { entry: LeaderboardEntry; mine: boolean; label: (id: string, name?: string | null) => string }) {
   return (
     <tr style={{ background: mine ? "rgba(245,158,11,0.15)" : undefined }}>
       <td style={cell}>{entry.rank}</td>
       <td style={cell}>
-        <Link to={`/player/${entry.playerId}`} style={{ color: "#f5f5f5" }}>{label(entry.playerId)}</Link>
+        <Link to={`/player/${entry.playerId}`} style={{ color: "#f5f5f5" }}>{label(entry.playerId, entry.name)}</Link>
         {mine ? " (you)" : ""}
       </td>
       <td style={cell}>{entry.bestScore}</td>

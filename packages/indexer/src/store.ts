@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "9";
+export const SCHEMA_VERSION = "10";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Daily, Setup, Economy, then Collection when there is
@@ -89,6 +89,11 @@ const SCHEMA = `
     player_id TEXT PRIMARY KEY, created_block INTEGER NOT NULL, created_time INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS players_created ON players (created_block);
+  -- Display names looked up off-chain (names.ts), schema 10: a cache, not chain data. name NULL: looked up, no username.
+  -- checked_at is wall-clock milliseconds. Not rewound; a rebuild drops it with the rest.
+  CREATE TABLE IF NOT EXISTS names (
+    address TEXT PRIMARY KEY, name TEXT, checked_at INTEGER NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS games (
     contract TEXT NOT NULL,
     game_id INTEGER NOT NULL, player_id TEXT NOT NULL, mode INTEGER NOT NULL,
@@ -248,6 +253,29 @@ export class Store {
 
   close() {
     this.db.close();
+  }
+
+  // --- display names (names.ts) --------------------------------------------------------------------
+
+  /** The cached names of `addresses` (those never looked up are absent). */
+  names(addresses: readonly string[]): Map<string, { name: string | null; checked_at: number }> {
+    const out = new Map<string, { name: string | null; checked_at: number }>();
+    const get = this.statement("SELECT name, checked_at FROM names WHERE address = ?");
+    for (const address of addresses) {
+      const row = get.get(address) as { name: string | null; checked_at: number } | undefined;
+      if (row) out.set(address, { name: row.name, checked_at: Number(row.checked_at) });
+    }
+    return out;
+  }
+
+  /** Keeps lookups (a null name: none found) in one transaction. */
+  putNames(rows: readonly { address: string; name: string | null; checked_at: number }[]) {
+    const put = this.statement(
+      "INSERT INTO names (address, name, checked_at) VALUES (?, ?, ?) ON CONFLICT (address) DO UPDATE SET name = excluded.name, checked_at = excluded.checked_at",
+    );
+    this.transaction(() => {
+      for (const row of rows) put.run(row.address, row.name, row.checked_at);
+    });
   }
 
   /**

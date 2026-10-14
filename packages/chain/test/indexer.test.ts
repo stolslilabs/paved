@@ -84,14 +84,15 @@ describe("endpoints", () => {
   });
 
   test("/v1/tournaments/{id}/leaderboard: the doc's example, one row per player", async () => {
+    fixture.names = { [FIXTURE_ADA]: "ada" };
     const board = await client.leaderboard(FIXTURE_TOURNAMENT, { limit: 3 });
     expect(fixture.requests[0]).toBe(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     expect(board.data).toMatchObject({ tournamentId: FIXTURE_TOURNAMENT, total: 41, nextOffset: 3 });
     expect(board.data.entries[0]).toEqual({
-      rank: 1, playerId: FIXTURE_ADA, bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203,
+      rank: 1, playerId: FIXTURE_ADA, bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203, name: "ada",
     });
-    // D-25 (E): names are off chain (the Controller's username); no answer carries one.
-    for (const entry of board.data.entries) expect(entry).not.toHaveProperty("name");
+    // D-25 (E): no name on chain; N1: the indexer's cache of Cartridge usernames, null where unresolved.
+    expect(board.data.entries.map((e) => e.name)).toEqual(["ada", null, null]);
     expect(board.data.entries[2]).toMatchObject({ playerId: FIXTURE_BO });
     expect(board.data.entries[0]).not.toHaveProperty("prizeRanks");
   });
@@ -105,8 +106,9 @@ describe("endpoints", () => {
   });
 
   test("/v1/players/{id}: a known player, and an unknown one as null", async () => {
+    fixture.names = { [FIXTURE_ADA]: "ada" };
     const ada = await client.player(FIXTURE_ADA);
-    expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, created: 1791000000 });
+    expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, name: "ada", created: 1791000000 });
     expect(ada.data.stats).toMatchObject({ bestScore: 187, dailyGames: 2 });
     // The on-chain Tutorial left (D-21): no tutorial count is read.
     expect(ada.data.stats).not.toHaveProperty("tutorialGames");
@@ -209,6 +211,11 @@ describe("envelope", () => {
     expect(await kindOf(client.playerTournament(FIXTURE_ADA, 1))).toBe("bad-response"); // entry missing
     fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: { player_id: FIXTURE_ADA, name: "A" }, stats: null }), httpStatus: 200 };
     expect(await kindOf(client.player(FIXTURE_ADA))).toBe("bad-response"); // created missing
+    // `name` is a string or null, or missing from an indexer that predates N1 (null); a number is a bad answer.
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: { player_id: FIXTURE_ADA, name: 7, created: 1 }, stats: null }), httpStatus: 200 };
+    expect(await kindOf(client.player(FIXTURE_ADA))).toBe("bad-response");
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: { player_id: FIXTURE_ADA, created: 1 }, stats: null }), httpStatus: 200 };
+    expect((await client.player(FIXTURE_ADA)).data.player).toEqual({ playerId: FIXTURE_ADA, name: null, created: 1 });
     fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: null }), httpStatus: 200 };
     expect((await client.player(FIXTURE_ADA)).data).toEqual({ player: null, stats: null });
     fixture.state.rawBody = { text: JSON.stringify({ ...ok, tournaments: [] }), httpStatus: 200 };

@@ -13,8 +13,11 @@ export function useMe(): Me {
   return useMemo(() => ({ id: address ? indexerPlayerId(address) : null, username }), [address, username]);
 }
 
-/** `playerLabel` for the connected player: their username on their own rows, a short address on everyone else's. */
-export function usePlayerLabel(): (id: string) => string {
+/**
+ * `playerLabel` for the connected player: their username on their own rows; on everyone else's, the indexer's `name` when
+ * the caller has it, else a short address.
+ */
+export function usePlayerLabel(): (id: string, name?: string | null) => string {
   const me = useMe();
-  return useCallback((id: string) => playerLabel(id, me), [me]);
+  return useCallback((id: string, name?: string | null) => playerLabel(id, me, name), [me]);
 }

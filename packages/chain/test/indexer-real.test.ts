@@ -143,10 +143,10 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const first = await client.leaderboard(DAY, { limit: 1 });
     expect(first.data).toMatchObject({ tournamentId: DAY, total: 2, nextOffset: 1 });
-    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77 });
+    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77, name: null });
     const second = await client.leaderboard(DAY, { limit: 1, offset: first.data.nextOffset! });
     expect(second.data.entries[0]).toMatchObject({ rank: 2, playerId: BO, bestScore: 40 });
-    expect(second.data.entries[0]).not.toHaveProperty("name");
+    expect(second.data.entries[0]).toMatchObject({ name: null }); // no resolver in this indexer: null (N1)
     expect(second.data.nextOffset).toBeNull();
     expect((await client.leaderboard(7)).data).toMatchObject({ total: 0, entries: [], nextOffset: null });
   });
@@ -154,8 +154,8 @@ describe("IndexerClient against the real indexer", () => {
   test("/v1/players/{id}: a known player, an unknown one", async () => {
     const { client } = await start();
     const known = await client.player(ADA);
-    // D-25 (E): known from the first GameSpawned, with no name.
-    expect(known.data.player).toEqual({ playerId: ADA, created: expect.any(Number) });
+    // D-25 (E): known from the first GameSpawned; N1: name null, the indexer has no resolver here.
+    expect(known.data.player).toEqual({ playerId: ADA, name: null, created: expect.any(Number) });
     expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, paidGames: 0, settledGames: 0, rewards: "0" });
     expect(await client.player(0xeen)).toMatchObject({ data: { player: null, stats: null } });
   });

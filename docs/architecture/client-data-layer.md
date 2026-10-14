@@ -154,9 +154,16 @@ the Dojo burner manager (`@dojoengine/create-burner`).
   (`app-web/src/utils/player-label.ts`).
 - **Names are off chain.** The connected player's name is their Controller username
   (`ControllerConnector.username()`, held by `WalletProvider` as `username`), shown on the landing page and on their own
-  rows of the leaderboard, the player page and the Daily top 3 (`usePlayerLabel`). Every other player shows as a short
-  address (`shortId`): no other player's username is looked up, since that would be a new external service. Devnet's
-  burner has no username: its short address shows. The indexer serves no `name` any more.
+  rows of the leaderboard, the player page and the Daily top 3 (`usePlayerLabel`). It wins over any other source.
+- **Other players' names (N1).** The indexer looks Cartridge usernames up in the background (`POST
+  https://api.cartridge.gg/lookup`, `{"addresses": [...]}`: public, read-only, undocumented, the route Glitchbomb uses),
+  keeps them in a `names` table of its SQLite (schema 10) and adds `name: string | null` to `leaderboard.entries[]`,
+  `players/{id}` `player` and `players/{id}/tournaments/{day}` `entry`, from that cache only: null until resolved. The
+  client reads it as `name` (`LeaderboardEntry`, `IndexedPlayer`; a missing key from an older indexer reads null) and
+  `playerLabel(id, me, name)` shows the connected player's username, else the indexer's `name`, else the short address
+  (`shortId`). A name is display data: never stored by the client, never an identity, never in a link (those use the
+  address). The lookup failing, off (`--no-names`) or finding nothing leaves the short address. Devnet's burner has no
+  username: its short address shows. If Cartridge objects or the endpoint breaks for good, the decision is reversed.
 - **Wiring.** The client reads no Economy or Collection address from a contract view (not from Daily, not from Account,
   not from Setup's wiring view): it resolves them from the deployment file, as before (`economy/deployment.ts`,
   `deployment.ts`). Setup's wiring view is the contracts' source; the indexer checks Setup's `EconomySet` and
