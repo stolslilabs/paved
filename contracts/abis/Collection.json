@@ -604,6 +604,23 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::collection::Collection::MintersSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "challenge",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "tutorial",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
     "kind": "struct",
     "members": [
@@ -685,6 +702,11 @@
       {
         "name": "Transfer",
         "type": "paved::systems::collection::Collection::Transfer",
+        "kind": "nested"
+      },
+      {
+        "name": "MintersSet",
+        "type": "paved::systems::collection::Collection::MintersSet",
         "kind": "nested"
       },
       {

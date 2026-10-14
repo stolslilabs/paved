@@ -16,8 +16,8 @@ use paved::systems::collection::{
     TUTORIAL_OFFSET, metadata,
 };
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address, store,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, EventSpyTrait, declare, load,
+    spy_events, start_cheat_caller_address, stop_cheat_caller_address, store,
 };
 use starknet::ContractAddress;
 
@@ -283,6 +283,78 @@ fn test_collection_pins_the_challenge_minter_at_daily() {
     assert_eq!(collection.challenge(), other);
 }
 
+/// An access change is visible: `MintersSet` carries both minters, no key, once per call.
+#[test]
+fn test_collection_set_minters_emits_minters_set() {
+    let world = deploy();
+    let mut spy = spy_events();
+    set_minters(@world, OWNER());
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.collection,
+                    Collection::Event::MintersSet(
+                        Collection::MintersSet {
+                            challenge: world.challenge, tutorial: world.tutorial,
+                        },
+                    ),
+                ),
+            ],
+        );
+}
+
+/// A zero Tutorial minter (D-21) is in the event as zero: the indexer reads "no Tutorial".
+#[test]
+fn test_collection_set_minters_emits_zero_tutorial() {
+    let world = deploy();
+    let mut spy = spy_events();
+    start_cheat_caller_address(world.collection, OWNER());
+    ICollectionDispatcher { contract_address: world.collection }
+        .set_minters(world.challenge, Zero::zero());
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.collection,
+                    Collection::Event::MintersSet(
+                        Collection::MintersSet {
+                            challenge: world.challenge, tutorial: Zero::zero(),
+                        },
+                    ),
+                ),
+            ],
+        );
+}
+
+/// A refused call (not the owner, a second call, a zero or equal minter) emits nothing.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_collection_set_minters_refused_emits_nothing() {
+    let world = deploy();
+    let safe = ICollectionSafeDispatcher { contract_address: world.collection };
+    let mut spy = spy_events();
+    start_cheat_caller_address(world.collection, OTHER());
+    assert_eq!(
+        *safe.set_minters(world.challenge, world.tutorial).unwrap_err().at(0),
+        'Ownable: caller is not owner',
+    );
+    start_cheat_caller_address(world.collection, OWNER());
+    assert_eq!(
+        *safe.set_minters(world.challenge, world.challenge).unwrap_err().at(0),
+        'Collection: same minter',
+    );
+    assert_eq!(spy.get_events().events.len(), 0);
+    // once set, the second call refuses and adds no event
+    safe.set_minters(world.challenge, world.tutorial).unwrap();
+    assert_eq!(spy.get_events().events.len(), 1);
+    assert_eq!(
+        *safe.set_minters(world.challenge, world.tutorial).unwrap_err().at(0),
+        'Collection: minters set',
+    );
+    assert_eq!(spy.get_events().events.len(), 1);
+}
+
 #[test]
 #[should_panic(expected: 'Collection: minters set')]
 fn test_collection_set_minters_twice() {
@@ -301,7 +373,7 @@ fn test_collection_set_minters_refuses_one_address_for_both() {
 
 #[test]
 #[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_collection_set_minters_by_anyone() {
+fn test_collection_set_minters_refuses_a_non_owner() {
     let world = deploy();
     set_minters(@world, OTHER());
 }
