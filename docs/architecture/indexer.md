@@ -487,8 +487,9 @@ The package follows this design. What differs, or was decided while building (Pa
   stored in `events`; the known others (`Built`, `Discarded`, `Scored`, `Claimed`, the ownership events) are
   skipped, and any other selector halts the indexer. A `PlayerCreated` from a contract other than `Account`, a second
   one for a player, and a `GameOver` by another player than the one that spawned the game also halt.
-- **Reading blocks**: as Grim World, one header and the events of each of the three contracts per block, by block hash
-  (`chunk_size` 100), not by ranges of blocks; the node's chain id is checked against the file's at start.
+- **Reading blocks**: near the tip, as Grim World, one header and the events of each of the three contracts per block, by
+  block hash (`chunk_size` 100); at or below the last L1-accepted block (`--depth l1`), by ranges of blocks (I1, #368,
+  `packages/indexer/README.md` "Catching up"); the node's chain id is checked against the file's at start.
 - **Served block**: the tables hold the stored tip, which may be above the served block while a batch is being checked, so
   every query compares the block columns with the served block (a later spawn is absent, a later game over has not happened).
 - **API**: `GET /v1/head` also answers `state` and `checks.tournaments_checked`, and is `503` like the other routes when the
