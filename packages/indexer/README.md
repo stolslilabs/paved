@@ -45,7 +45,26 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
 | `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the right-most `X-Forwarded-For` entry, the one the proxy wrote (read from loopback peers only: the proxy must dial `127.0.0.1` or `::1`, not another `127.x` address) |
 
+| `--no-names` | Turns the display-name lookup off: every `name` is `null` |
+| `--names-url <url>` | The lookup endpoint, default `https://api.cartridge.gg/lookup` |
+
 Stop it with `SIGTERM`. The chain id of the node must be the file's.
+
+## Display names (N1)
+
+A player is a wallet address; a Cartridge Controller account also has a username. A background resolver (`src/names.ts`)
+asks `POST <names-url>` with `{"addresses": [...]}` for the addresses the routes have shown and not yet resolved, and keeps
+the answers in the `names` table (schema 10; a cache, dropped by `rebuild`). The routes that list players (the leaderboard's
+`entries[]`, `players/{id}`, `players/{id}/tournaments/{day}`) add `name: string | null` read **from that cache only**: null
+until resolved, and always null with `--no-names`. The resolver never runs in the follow, rewind or decode path, and a lookup
+that fails, hangs or finds nothing never slows or fails a route: the name stays null.
+
+The service publishes no limits, so the budget is conservative: a batch of at most 50 addresses, at most one request every
+5 s (12 a minute), one in flight, a 5 s timeout, and after a failure a wait of 30 s doubling to 15 min (no retry storm). A
+found name is kept 24 h (and shown, stale, while it is refreshed); "no username" 1 h, shorter so that an account created
+later is found. The answer is parsed tolerantly (`{results: [...]}` or a bare array; `name` or `username`; an address in
+`address` when the item has one, else the position) and an answer that cannot be attributed to an address is refused. Names
+are display only: never an identity, never used by anything else. Tests use a fake lookup and never call the service.
 
 ## API v1
 
