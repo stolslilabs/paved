@@ -413,31 +413,41 @@ Lineto face) from `public/assets/fonts/`.
 `app/public/assets/fonts/RubikMonoOne-Regular.ttf` is the only font file in the repository.
 
 **Chosen by the owner (2026-10-14, through the PM), replacing the proposal of Rubik Mono One and Inter** (F1b,
-t-0228). Packages and versions are pinned in `packages/app/package.json`; each font is self-hosted from npm,
-Latin subset only, `font-display: swap`.
+t-0228), **then changed the same day to Almendra Bold, Rubik and Space Mono** (t-0260, which reverses F1b). Packages
+and versions are pinned in `packages/app/package.json`; each font is self-hosted from npm, Latin subset only,
+`font-display: swap`.
 
 | Token | Family | Use | Package (version) | Files loaded | Licence |
 |---|---|---|---|---|---|
-| `font-display` | Cinzel, Bold (700) | logo, page titles | `@fontsource/cinzel` 5.3.0 | `cinzel-latin-700-normal.woff2` (15,184 B) | SIL OFL 1.1 |
-| `font-sans` | Nunito Sans Variable (200 to 1000) | all UI and body text | `@fontsource-variable/nunito-sans` 5.3.0 | `nunito-sans-latin-wght-normal.woff2` (31,076 B) | SIL OFL 1.1 |
-| `font-numeric` (= `font-mono`), the `numeric` utility | IBM Plex Mono, 400 and 600 | scores, counters, prices, addresses, token ids; always with `font-variant-numeric: tabular-nums` | `@fontsource/ibm-plex-mono` 5.3.0 | `ibm-plex-mono-latin-400-normal.woff2` (14,708 B), `-600-` (15,620 B) | SIL OFL 1.1 (copyright IBM Corp.) |
+| `font-display` | Almendra, Bold (700) | logo, page titles | `@fontsource/almendra` 5.3.0 | `almendra-latin-700-normal.woff2` (11,544 B) | SIL OFL 1.1, Reserved Font Name "Almendra" (copyright Ana Sanfelippo) |
+| `font-sans` | Rubik Variable (300 to 900) | all UI and body text | `@fontsource-variable/rubik` 5.3.0 | `rubik-latin-wght-normal.woff2` (35,348 B) | SIL OFL 1.1 (The Rubik Project Authors) |
+| `font-numeric` (= `font-mono`), the `numeric` utility | Space Mono, 400 and 700 | scores, counters, prices, addresses, token ids; always with `font-variant-numeric: tabular-nums` | `@fontsource/space-mono` 5.3.0 | `space-mono-latin-400-normal.woff2` (16,520 B), `-700-` (16,724 B) | SIL OFL 1.1 (The Space Mono Project Authors) |
 
-- Cinzel is loaded as the static Bold file, not the variable package: the display face is used at one weight.
-- Fallbacks are system fonts of the same kind: a serif for Cinzel, `system-ui` for Nunito Sans, `ui-monospace`
-  for IBM Plex Mono.
+- Almendra is loaded as the static Bold file: the display face is used at one weight.
+- Rubik is the variable package, not static files: the UI uses several weights (`font-light` to `font-black`,
+  mostly `font-semibold` and `font-medium`), and one variable file of 35,348 B costs less than three or four
+  static ones. Its axis starts at 300, so `font-extralight` (200) renders as 300.
+- Space Mono has no 600: `font-semibold` on a number renders the 700 file (the nearest heavier weight).
+- Fallbacks are system fonts of the same kind: a serif for Almendra, `system-ui` for Rubik, `ui-monospace` for
+  Space Mono.
 - The `numeric` utility (`theme.css`) sets `font-family: var(--font-numeric)` and `tabular-nums` together; use it
-  for every number that changes in place.
-- Preloads: Cinzel and Nunito Sans only (the first screen), by `preloadFonts()` in `src/styles/fonts.ts`, at the
+  for every number that changes in place. Space Mono is monospaced, so its digits are tabular already and
+  `tabular-nums` adds nothing today; it stays so the class keeps its promise if the face changes.
+- Preloads: Almendra and Rubik only (the first screen), by `preloadFonts()` in `src/styles/fonts.ts`, at the
   hashed `?url` imports; `index.html` calls it and so does `.storybook/preview.tsx`. The preload starts when the
-  entry chunk runs, not at HTML parse (Vite bundles the inline module into the entry). IBM Plex Mono is fetched
+  entry chunk runs, not at HTML parse (Vite bundles the inline module into the entry). Space Mono is fetched
   when a number first shows.
+- Measured bytes (built `dist`, 2026-10-14): first-screen fonts (the two preloaded files) 46,892 B, against 46,260 B
+  with F1b's Cinzel and Nunito Sans (+632 B); all four font files 80,136 B, against 76,588 B (+3,548 B); built CSS
+  57,457 B (10.92 kB gzip), entry JS 379,858 B.
 
 Why self-hosted from npm: no request to Google at load (privacy, offline after the first visit, no
 third-party outage), versions pinned by the lockfile, and the OFL text ships inside each package (the
 references ship none). The licences are listed in `dist/THIRD_PARTY_NOTICES.txt` with the controller's
-(D-15); the copyright lines are those of each package's `LICENSE`.
+(D-15); the copyright lines are those of each package's `LICENSE`. Almendra's Reserved Font Name only restricts
+modified versions; the files are used as published.
 
-**Decided by the owner:** Cinzel Bold, Nunito Sans, IBM Plex Mono with tabular figures. Reversed by changing
+**Decided by the owner:** Almendra Bold, Rubik, Space Mono with tabular figures. Reversed by changing
 `--font-display`, `--font-sans` and `--font-numeric` and the three packages.
 
 ---
@@ -1199,7 +1209,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | PR | Content | Estimate |
 |---|---|---|
 | SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`Economy.split_bps`, V1b: burn and Vault, the referral out of the Vault's part), the 24 h validity and the threshold | 3 d |
-| SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers | 2.5 d |
+| SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers. **Done** (2026-10-14) | 2.5 d |
 
 **Wiring the scenes**
 
