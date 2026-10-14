@@ -1006,7 +1006,7 @@ use it:
   and is what `Economy.purchase` checks: it reverts `'Economy: wrong price'` unless `price == stake x BASE_PRICE`.
 
 `BASE_PRICE` is not a second literal, so `Challenge` and `Economy` cannot disagree: the single definition is enforced by the
-compiler (there is no other `2_000_000` for the price), and `test_economy_entry_price_is_the_stake_unit`
+compiler (there is no other definition of the price in the Cairo code; `scripts/deploy.sh`'s smoke still writes the literal `2000000` when it mints and approves for a stake-1 spawn, outside the contracts), and `test_economy_entry_price_is_the_stake_unit`
 (`tests/e2e/economy.cairo:54-58`) pins that the two readers give the same amount. The value, the rules and the storage did not
 change (it was two equal literals before; the old note is #414's audit). `CHALLENGE_PRICE` changed type, `felt252` to `u128`;
 no ABI shows it.

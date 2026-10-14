@@ -373,7 +373,7 @@ fn test_collection_set_minters_refuses_one_address_for_both() {
 
 #[test]
 #[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_collection_set_minters_by_anyone() {
+fn test_collection_set_minters_refuses_a_non_owner() {
     let world = deploy();
     set_minters(@world, OTHER());
 }
