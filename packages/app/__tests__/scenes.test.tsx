@@ -273,6 +273,11 @@ describe("Purchase", () => {
     expect(screen.getByRole("radio", { name: "Stake 3" })).toHaveAttribute("data-state", "on");
     expect(screen.getByText("+3%")).toBeInTheDocument();
     expect(screen.getByText(/To 0x0456…beef/)).toBeInTheDocument();
+    // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part.
+    const price = screen.getByRole("region", { name: "Price" });
+    expect(within(price).getByText("Burned").closest("div")).toHaveTextContent("4.42");
+    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("1.27");
+    expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.30");
     expect(screen.getByText("expires in 24 h 0 min")).toBeInTheDocument();
     expect(screen.getByText("Thu 15 Oct, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
     expect(screen.getByText(pts(1150))).toBeInTheDocument();
@@ -284,7 +289,10 @@ describe("Purchase", () => {
   it("boosts the burn by 10% at the highest stake", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake10} />));
     expect(screen.getByText("+10%")).toBeInTheDocument();
-    expect(screen.getByText("No referrer")).toBeInTheDocument();
+    expect(screen.getByText(/No referrer: the Vault keeps it/)).toBeInTheDocument();
+    const price = screen.getByRole("region", { name: "Price" });
+    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("5.26");
+    expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.00");
   });
 
   it("refuses to pay with too little USDC, or while purchases are paused", () => {

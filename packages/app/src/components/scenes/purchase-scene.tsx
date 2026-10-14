@@ -1,4 +1,4 @@
-import type { QuoteView } from "@paved/chain";
+import type { QuoteView, SplitView } from "@paved/chain";
 import { Button } from "../ui/button";
 import { Amount, formatUnits, TOKENS } from "../elements/amount";
 import { GAME_VALIDITY_S } from "../elements/countdown";
@@ -6,7 +6,7 @@ import { Deadline } from "../elements/deadline";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
-import { PriceBreakdown, type PriceSplit } from "../containers/price-breakdown";
+import { PriceBreakdown } from "../containers/price-breakdown";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
@@ -17,7 +17,8 @@ export interface PurchaseSceneProps {
   quote: QuoteView;
   /** The burn's boost at this stake, bps. */
   boostBps: number;
-  split: PriceSplit;
+  /** `Economy.split_bps()` (V1b). */
+  split: SplitView;
   referrer: string | null;
   /** USDC base units (`balance_of`). */
   balance: bigint;
