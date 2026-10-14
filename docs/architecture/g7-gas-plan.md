@@ -32,7 +32,7 @@ of c and 25.3 % of f. Events are about 1 %.
 The cuts recommended for the first implementation PR (section 5) are three low-risk ones: skip the assessment
 when nothing closes, place the starter tile from constants, and give the forest walker the tiles the move has
 already read. None of them changes a rule, a golden, the parity fixture, the storage layout or an ABI. Estimated
-gains: a0 and l -0.56M (-10.8 %, -7.8 %), e and f -0.36M, spawn -2.06M (-11.7 %).
+gains: a0 and l -0.56M (-10.8 %, -7.8 %), e and f -0.30M, spawn -2.06M (-11.7 %).
 
 ## 1. Method
 
@@ -100,8 +100,16 @@ read, 9,420 per empty turn, so one read costs 76,780. A loop that the compiler s
 read at run time. Each piece's figure then includes one empty turn, 10,100 (`once_overhead`, printed by each test),
 which the tables below subtract.
 
-The pieces add up to 96.5 % to 99.6 % of the real `build` and to 89 % to 97 % of the game overs and the spawn (the
-"outside the replay" rows). The rest is the entry point's dispatch, `Challenge.build`'s position check (9,600, "After
+The pieces add up to:
+
+- 96.5 % to 99.6 % of a `build` that does not end the game (a0, a, c, d, e, f);
+- 94.3 % of l, a `build` that ends the game;
+- 94.6 % of a plain discard;
+- 89.1 % to 90.8 % of the game overs by `discard` and `surrender` (s, g, k);
+- 97.3 % of the spawn.
+
+See the "outside the replay" rows. l and the game overs are lower because their three calls to `Setup` and `Economy`
+are made from the test; their overhead from the contract is not in the pieces. The rest is the entry point's dispatch, `Challenge.build`'s position check (9,600, "After
 the position check" in `baseline.md`), `finish`'s calls made from the contract instead of the test, and the replay's
 own error.
 
@@ -126,7 +134,9 @@ own error.
 | `StructuresTrait::new` and one record read (its dictionaries squashed) | 211,044 |
 | One empty loop turn | 9,388 |
 
-A read and a write cost the same in both profiles: they are syscalls. The compute around them shrinks in release.
+A read's 76,840 and a write's 118,210 are not all syscall. Each also holds the hash of its key, the
+three-part key of `structure_slot` (`(game, tile, slot)`) or of a position. Only the bare syscall costs the same in
+both profiles; the hash and the code around it are compute and shrink in release. The split was not measured.
 
 ### 1.5 What was not measured
 
@@ -184,7 +194,8 @@ here.
 ### 2.2 By resource: storage, events, compute
 
 Syscalls of the last move: `real_*` less `prep_*`, `--detailed-resources`. The cost is the count times the unit
-cost of 1.4. "Compute and call" is the rest: the call itself, the dispatch, and every non-syscall step.
+cost of 1.4. `GetExecutionInfo` is priced at 18,140 (1.4, `get_block_timestamp`). "Compute and call" is the rest:
+the call itself, the dispatch, and every non-syscall step. The four cost rows add up to the real call.
 
 | | a0 | a | c | d | e | f |
 |---|---:|---:|---:|---:|---:|---:|
@@ -194,6 +205,7 @@ cost of 1.4. "Compute and call" is the rest: the call itself, the dispatch, and 
 | `GetExecutionInfo` | 2 | 2 | 2 | 2 | 2 | 2 |
 | Storage cost | 1,938,700 (37.5 %) | 2,056,910 (41.4 %) | 2,056,910 (38.3 %) | 2,210,590 (41.5 %) | 2,671,630 (30.8 %) | 4,592,630 (25.3 %) |
 | Events | 32,800 (0.6 %) | 65,600 (1.3 %) | 65,600 (1.2 %) | 65,600 (1.2 %) | 98,400 (1.1 %) | 131,200 (0.7 %) |
+| `GetExecutionInfo` (2 x 18,140) | 36,280 (0.7 %) | 36,280 (0.7 %) | 36,280 (0.7 %) | 36,280 (0.7 %) | 36,280 (0.4 %) | 36,280 (0.2 %) |
 | Compute and call | 3,161,827 (61.2 %) | 2,809,149 (56.5 %) | 3,218,148 (59.9 %) | 3,015,797 (56.6 %) | 5,873,104 (67.7 %) | 13,407,270 (73.8 %) |
 | L1 data gas (real less prep) | 192 | 96 (prep of a0) | 288 | 192 | 192 | 192 |
 
@@ -332,16 +344,17 @@ arithmetic.
 
 ## 4. The cuts, ordered by gain over risk
 
-The gains are **estimates**, in the test profile, each with how it was estimated. A cut of a storage syscall gains
-the same in release. A cut of compute gains less in release, by a ratio not measured here (1.5).
+The gains are **estimates**, in the test profile, each with how it was estimated. A cut that removes a storage
+access keeps the bare syscall's share of its gain in release and loses part of the key hash's. A cut of compute
+gains less in release. Neither ratio is measured here (1.5).
 
 | # | Cut | Estimated gain | Risk | Rule | Goldens | Parity fixture | Storage layout | ABI | Structure code (audit) |
 |---|---|---|---|---|---|---|---|---|---|
 | C1 | Skip the assessment when the move closes nothing | a0 and l -0.56M (-10.8 %, -7.8 %); 0 on a move that closes | low | no | no | no | no | no | yes, small |
 | C2 | Place the starter tile from constants at spawn | m, n -2.06M (-11.7 %) | low | no | no | no | no (same content) | no | yes, small (constants proved by a test) |
-| C3 | Give the forest walker the side tiles the move has read | e, f -0.36M (-4.1 %, -2.0 %) | low | no | no | no | no | no | yes, small |
+| C3 | Give the forest walker the side tiles the move has read | e, f -0.30M (-3.4 %, -1.6 %) | low | no | no | no | no | no | yes, small |
 | C4 | Hold the drawn tile's plan in `GameState` | every build -0.31M (a0 -5.9 %); discard -0.12M; spawn -0.18M | low to medium | no | no | no | yes | no (views compose) | no |
-| C5 | Fit check on one edge word per oriented plan | builds -0.15M (estimate) | low | no | no | no | no | no | yes, small |
+| C5 | Fit check on one edge word per oriented plan | a guess: at most -0.12M (one side neighbour) to -0.24M (two) | low | no | no | no | no | no | yes, small |
 | C6 | Positions packed by blocks of 5 x 5 | builds about -0.45M (-8.7 % of a0); f about -1.45M (-8.0 %) | medium to high | no | no | no | yes | no | yes, large |
 | C7 | A function-level profile of placement, assessment and scan, then their cuts | unknown: these are 2.4M of a0 and 13.9M of f | | | | | | | yes |
 | C8 | One call fewer at game over (the economy's address kept by `Challenge`) | every game over about -0.09M | low | no | no | no | yes (one slot) | no | no; changes P-53's wiring |
@@ -383,8 +396,16 @@ started before its upgrade (D-17's path).
   side tiles (the neighbourhood). A side tile that is a node of the forest is read again by the walk: its position and
   its slot.
 - **Gain.** On e and f, two side tiles are nodes of the forest (e: the first and the third curve; f: the starter and
-  the straight under the last tile). That is 2 x (76,840 + 102,695) = -359,070 on each (estimate from the unit
-  costs). Storage, so the same in release.
+  the straight under the last tile). An estimate from the unit costs (1.4), per side tile:
+  - saved: its position read (76,840) and its slot read (76,840), 153,680 in all;
+  - still paid: the decode. `Walker::expand` calls `tile_of_slot` on every expansion, cached or not: the decode is
+    102,695 (read and decoded) less 76,840 (the read), 25,855;
+  - added: one dictionary insert, to seed the slot (about 4,160, half of the measured insert and get, 8,319).
+
+  Per tile that is 153,680 - 4,160 = 149,520. For two tiles, 2 x 149,520 = **-299,040 on e and on f**. This holds if
+  the neighbourhood keeps the raw slot words it read. Packing them again (`StoreImpl::tile_slot`) would cost more.
+  The two reads saved are syscalls, but each read's 76,840 also holds its key's hash (1.4), so the release gain is
+  somewhat smaller.
 - **Risk.** Low. The slots are the same words. The scan already relies on its cache.
 
 ### C4. The drawn tile's plan in `GameState`
@@ -395,7 +416,8 @@ started before its upgrade (D-17's path).
   - A build would then neither read nor pre-write the slot.
   - A discard keeps writing the discarded tile's slot, so that the `tiles` view still lists it.
   - The views (`game`, `tiles`, `builder`) read the held tile's plan from `GameState`.
-- **Gain.** -305,355 per build (storage, the same in release); -116,205 per discard; -182,650 per spawn.
+- **Gain.** -305,355 per build; -116,205 per discard; -182,650 per spawn. Mostly syscalls, so most of it holds in
+  release (1.4).
 - **Risk.** Low to medium. Every test that forces a plan by writing the held tile's slot (`gas.cairo`, the e2e and
   golden harnesses) must write it into `GameState` instead. That churn is the main risk.
 - **Changes.** The storage layout (the slot of a held tile is no longer written), not the ABI (the views return the
@@ -405,8 +427,16 @@ started before its upgrade (D-17's path).
 
 - **What it changes.** `assert_fits` reads two edge categories per side neighbour from the oriented rows. One 8-bit
   word per (plan, orientation), 2 bits per edge, would make each side a shift and a mask.
-- **Gain.** The fit check costs 242,422 with one neighbour and 361,324 with two. An estimate of -0.15M; compute, so
-  less in release.
+- **Gain.** A guess, with an upper bound. The fit check costs 242,422 with one side neighbour (a0, a, c, l) and
+  361,324 with two (d, e, f). Each extra side therefore costs 361,324 - 242,422 = 118,902, for its two
+  `edge_category` lookups (the tile's and the neighbour's) and the comparison. The fixed part is 242,422 - 118,902 =
+  123,520 (the loop over four directions and the asserts).
+  - If the word made a side free, the gain would be at most 118,902 per side neighbour: -0.12M with one, -0.24M with
+    two.
+  - It does not make a side free: the word is still one lookup per tile, by (plan, orientation). The gain is what a
+    shift and a mask save over `edge_category`'s row lookup and extraction, which was not measured.
+
+  So the earlier "-0.15M" is withdrawn as unsupported. It is compute, so the gain is smaller in release.
 - **Risk.** Low. `test_placement_edge_categories_equal_the_layouts` already proves the categories against the
   layouts.
 
@@ -459,20 +489,20 @@ Mac. No contract change.
    |---|---:|---:|---:|
    | a0 | 5,169,607 | about 4,610,000 | -0.56M (-10.8 %) |
    | a, c, d | 4,967,939 to 5,376,938 | unchanged | 0 |
-   | e | 8,679,414 | about 8,320,000 | -0.36M (-4.1 %) |
-   | f | 18,167,380 | about 17,810,000 | -0.36M (-2.0 %) |
+   | e | 8,679,414 | about 8,380,000 | -0.30M (-3.4 %) |
+   | f | 18,167,380 | about 17,870,000 | -0.30M (-1.6 %) |
    | l | 7,173,835 | about 6,620,000 | -0.56M (-7.8 %) |
    | g, i, k, s | 2,716,928 to 3,608,648 | unchanged | 0 |
    | m, n | 17,644,657, 18,497,677 | about 15,580,000, 16,440,000 | -2.06M (-11.7 %, -11.1 %) |
 
-2. **The second PR: C4** (the held tile in `GameState`). Storage, so its gain holds in release. It changes the
+2. **The second PR: C4** (the held tile in `GameState`). Mostly syscalls, so most of its gain holds in release. It changes the
    layout: rule that it ships before the fresh Sepolia deployment (D-27), so that no migration is written.
 3. **C6** (positions by blocks), the largest storage cut, after C4, with an audit plan of its own. Rule whether it is
    wanted before the fresh Sepolia deployment.
 4. **C8** changes P-53's wiring (the economy address kept by `Challenge`): yours to rule.
 5. **C9 and the release measure**: rule whether the gas figures and targets refer to release, measured in CI or on
-   the Mac. That decides the order of the later cuts, since a storage cut gains the same in both profiles and a
-   compute cut gains less in release.
+   the Mac. That decides the order of the later cuts, since a storage cut keeps most of its gain in release (its bare
+   syscalls) and a compute cut keeps less.
 6. **None of the cuts above changes a rule.** The ones that would (a 128-bit seed, fewer quest entries, a lazy deck
    walk) are rejected in section 3.
 
