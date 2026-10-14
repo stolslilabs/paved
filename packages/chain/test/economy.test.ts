@@ -12,6 +12,9 @@ import {
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
+  RefusedReferrerError,
+  referrerOf,
+  refusedReferrer,
   RpcEconomyViews,
   STAKES,
   VaultAmountChangedError,
@@ -39,7 +42,7 @@ import {
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
 
-const ADDR = { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const REFERRER = "0x77";
@@ -205,8 +208,40 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(withRef.minOut).toBe(without.minOut);
     expect(withRef.calls[1].calldata[1]).toBe(REFERRER);
     expect(without.calls[1].calldata[1]).toBe("0x0");
-    // A self-referral is sent as none.
-    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: PLAYER })).referrer).toBe("0x0");
+  });
+
+  // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy, registered or not.
+  test("the referrer rule: none or zero is sent as 0x0; any other address is sent; the payer, Daily and Economy are refused, nothing sent", async () => {
+    for (const none of [null, "", "0x0", "0x000"]) {
+      expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: none })).referrer).toBe("0x0");
+    }
+    // An address nobody registered (there is no registration any more) is a referrer.
+    const unregistered = "0x0123456789abcdef";
+    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: unregistered })).referrer).toBe(
+      "0x123456789abcdef",
+    );
+    // The payer, the deployment's Daily (0x2) and its Economy (0x10), in any spelling (padded, upper case): refused with the
+    // same plain message, and nothing is executed. The Vault, the token and USDC are ordinary addresses here.
+    const refused: Array<[string, string]> = [
+      [PLAYER, "payer"], [`0x${"0".repeat(63)}5`, "payer"], ["0X5", "payer"],
+      [ADDR.Daily, "daily"], [`0x${"0".repeat(63)}2`, "daily"],
+      [ECON.economy, "economy"], ["0X10", "economy"],
+    ];
+    for (const [address, who] of refused) {
+      const { econWriter, execute } = setup();
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: address }).catch((e: unknown) => e);
+      expect(error, address).toBeInstanceOf(RefusedReferrerError);
+      expect(error).toBeInstanceOf(WriteError);
+      expect((error as RefusedReferrerError).who).toBe(who);
+      expect((error as Error).message).toBe("This address cannot be your referrer. Nothing was sent.");
+      expect(execute).not.toHaveBeenCalled();
+    }
+    const contracts = { daily: ADDR.Daily, economy: ECON.economy };
+    expect(referrerOf(REFERRER, PLAYER, contracts)).toBe(REFERRER);
+    expect(() => referrerOf(PLAYER, PLAYER, contracts)).toThrow(RefusedReferrerError);
+    expect(refusedReferrer(ECON.vault, PLAYER, contracts)).toBeNull();
+    // A deployment without an Economy address refuses no address in its name (an empty address names nothing).
+    expect(refusedReferrer(REFERRER, null, { daily: "", economy: "" })).toBeNull();
   });
 
   test("a changed price sends nothing", async () => {

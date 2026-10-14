@@ -9,8 +9,11 @@ import type { GameListItemProps } from "../components/GameListItem";
 
 export interface LandingScreenProps {
   connected?: boolean;
+  /**
+   * The connected player's name: their Controller username, or a short address (D-25 (E): a player is the wallet address,
+   * with no registration and no name on chain).
+   */
   playerName?: string;
-  onSpawn?: () => void;
   onPlay?: () => void;
   gameModes?: GameModeCardProps[];
   activeGames?: GameListItemProps[];
@@ -28,7 +31,6 @@ export interface LandingScreenProps {
 export function LandingScreen({
   connected = false,
   playerName,
-  onSpawn,
   onPlay,
   gameModes = [],
   activeGames = [],
@@ -39,7 +41,8 @@ export function LandingScreen({
   onQuests,
   onProfile,
 }: LandingScreenProps) {
-  const hasPlayer = connected && !!playerName;
+  // Any connected wallet is a player: there is no account to create first.
+  const hasPlayer = connected;
   const hasGames = activeGames.length > 0 || completedGames.length > 0;
 
   return (
@@ -69,11 +72,7 @@ export function LandingScreen({
               <Text fontSize="$3" color="$color">
                 {`Welcome, ${playerName}`}
               </Text>
-            ) : (
-              <Button onPress={onSpawn}>
-                <ButtonText>{"Create Account"}</ButtonText>
-              </Button>
-            )
+            ) : null
           ) : (
             <Text color="$muted">{"Connect your wallet to begin"}</Text>
           )}

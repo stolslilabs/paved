@@ -7,7 +7,7 @@ import { resolveAppNetwork, resolvePlayerAccount, signerOf } from "../src/utils/
 const DEVNET = {
   rpc_url: "http://127.0.0.1:5050/rpc",
   deployed_block: 3,
-  contracts: { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } },
+  contracts: { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } },
 };
 const FILES = { "../../../../contracts/deployments/devnet.json": { default: DEVNET } };
 
@@ -37,7 +37,7 @@ describe("resolveAppNetwork", () => {
 
   it("env alone can configure the app", () => {
     const { deployment } = resolveAppNetwork(
-      { VITE_RPC_URL: "http://x", VITE_ACCOUNT_ADDRESS: "0x1", VITE_DAILY_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
+      { VITE_RPC_URL: "http://x", VITE_DAILY_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
       {},
     );
     expect(deployment.configured).toBe(true);
@@ -56,7 +56,6 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
     const { deployment, indexer } = resolveAppNetwork(env, SEPOLIA_FILES);
     expect(deployment).toMatchObject({ network: "sepolia", configured: true, missing: [], rpcUrl: SEPOLIA_RPC, deployedBlock: 16421420 });
     expect(deployment.addresses).toMatchObject({
-      Account: SEPOLIA.contracts.Account.address,
       Daily: SEPOLIA.contracts.Daily.address,
     });
     // Sepolia's file is from before step D: no Setup until the fresh deployment (P-53), and the build stays connected.

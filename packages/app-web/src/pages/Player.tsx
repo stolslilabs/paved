@@ -7,7 +7,8 @@ import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
 import { GameNft, useCollection, type Collection } from "../components/GameNft";
 import { ProgressSections } from "../components/Progress";
 import { useDays } from "../utils/use-days";
-import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel, playerLabel } from "../utils/indexer-view";
+import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel } from "../utils/indexer-view";
+import { usePlayerLabel } from "../utils/player-label";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
 const cell = { padding: "6px 10px", textAlign: "left" } as const;
@@ -28,6 +29,7 @@ export function PlayerPage() {
   const games = useIndexerRead(id ? (c) => c.playerGames(id, { limit: GAMES_PAGE }) : null, [id], { onVisible: true });
   const [more, setMore] = useState<string[]>([]);
   const collection = useCollection(id !== null);
+  const label = usePlayerLabel();
 
   const back = <Link to="/leaderboard" style={{ color: "#f59e0b" }}>Leaderboard</Link>;
   if (!indexer) {
@@ -56,7 +58,7 @@ export function PlayerPage() {
   return (
     <div style={page}>
       {back}
-      <h1 style={{ margin: 0 }}>{playerLabel(player?.name ?? null, id)}</h1>
+      <h1 style={{ margin: 0 }}>{label(id)}</h1>
       <div style={{ color: "#999", fontSize: 12, wordBreak: "break-all" }}>{id}</div>
       <IndexerLag answer={profile.data} error={profile.cause} />
 
@@ -70,7 +72,8 @@ export function PlayerPage() {
         stats && (
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 16px", margin: 0, fontSize: 14 }}>
             <dt style={{ color: "#999" }}>Best score</dt>
-            <dd style={{ margin: 0 }}>{stats.bestScore}</dd>
+            {/* No finished game: the indexer's 0 is not a score (a player whose only game runs, D-25 (E)). */}
+            <dd style={{ margin: 0 }}>{stats.dailyFinished === 0 ? "–" : stats.bestScore}</dd>
             <dt style={{ color: "#999" }}>Daily games</dt>
             <dd style={{ margin: 0 }}>{`${stats.dailyGames} (${stats.dailyFinished} finished)`}</dd>
           </dl>

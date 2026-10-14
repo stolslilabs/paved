@@ -330,7 +330,7 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
-    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)], [ev.created(C, 0x43)], [ev.created(D, 0x44)]);
+    node.mine([], [], [], []);
     node.mine(...games.map(([player], index) => [ev.spawned("daily", index + 1, player, { day: DAY })]));
     for (const [index, [player, score]] of games.entries()) node.mine([ev.over("daily", index + 1, player, score, { day: DAY })]);
     if (close) {
@@ -402,7 +402,7 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
   test("a game that ended after its day counts for no day, and no podium", async () => {
     const node = new FakeNode();
     node.time = T0 + 10;
-    node.mine([ev.created(A, 0x41)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
     node.time = END + 5;
     node.mine([ev.over("daily", 1, A, 99, { day: 0, end: 0 })]);
@@ -415,7 +415,7 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
   test("a GameOver in the closing block is not credited: only games over before it count", async () => {
     const node = new FakeNode();
     node.time = T0 + 10;
-    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)]);
+    node.mine([], []);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 50, { day: DAY })]); // before the close: credited
     node.time = END + 5;
@@ -457,7 +457,7 @@ describe("the podium credit is ordered at the day's close", () => {
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
-    node.mine([ev.created(A, 0x41)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
 
@@ -491,7 +491,7 @@ describe("the podium credit is ordered at the day's close", () => {
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
-    node.mine([ev.created(A, 0x41)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
     node.mine([ev.achievementRetired(9)]); // still inside the day
@@ -539,9 +539,10 @@ describe("the podium credit is ordered at the day's close", () => {
     expect(indexer.store.dump().events).toEqual([]);
   });
 
-  test("a replay of a history from before D-21 and D-24 never halts, and keeps only what Setup says", async () => {
+  test("a replay of a history from before D-21, D-24 and D-25 (E) never halts, and keeps only what Setup says", async () => {
     const { indexer, queries, head } = await open((node) => {
-      node.mine([ev.created(A, 0x416461)]);
+      // A past PlayerCreated from a source still read (Daily's ABI declared it): known by name and skipped.
+      node.mine([ev.pastCreated("daily", A, 0x41)]);
       // Daily's own quests and a Tutorial-era claim credited by Daily, the owner's Lobby class, a past prize, the mint of a
       // Tutorial game's token: all past, all skipped.
       node.mine([ev.questDefined(7, { source: "daily" }), ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], source: "daily" })]);
@@ -556,6 +557,9 @@ describe("the podium credit is ordered at the day's close", () => {
     expect(indexer.status).toBe("ok");
     const dump = indexer.store.dump();
     expect(dump.games.map((g) => [g.contract, g.game_id, g.token_id])).toEqual([["daily", 1, 1]]);
+    expect(dump.events.map((e) => e.name)).not.toContain("PlayerCreated");
+    // A is a player from its first event read: the spawn (block 5), not the skipped ones before it.
+    expect(dump.players.map((p) => [p.player_id, p.created_block])).toEqual([[padded(A), 5]]);
     expect(queries.definitions(head).quests).toEqual([]);
     expect(queries.playerAchievements(head, padded(A))).toMatchObject({ points: 10, achievements: [{ achievement_id: 1, completed: true }] });
   });
@@ -597,7 +601,7 @@ describe("the day's closing block survives the pruning of its header", () => {
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
-    node.mine([ev.created(A, 0x41)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
     node.time = END + 1;

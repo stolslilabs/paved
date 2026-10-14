@@ -8,7 +8,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 
 | What | From | Override |
 |---|---|---|
-| ABIs of `Account`, `Daily`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
+| ABIs of `Daily`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
 | The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
@@ -18,7 +18,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 |---|---|
 | `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
-| `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below) |
+| `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a MockUSDC: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
 | `VITE_MOCK_USDC_ADDRESS` | the MockUSDC the faucet mints, devnet and Sepolia only (overrides `contracts.MockUSDC`; ignored on any other network) |
@@ -28,11 +28,12 @@ tolerates a missing folder) and picks `<network>.json`.
 
 `resolveDeployment` (`packages/chain/src/deployment.ts`) merges the file and the env, env first. A
 missing address, or a missing file with no env, gives a deployment with `configured: false`.
-`configured` is computed there once, from the three required addresses (Account, Daily, Token) and the RPC URL. The app
+`configured` is computed there once, from the two required addresses (Daily, Token) and the RPC URL. The app
 shows a "not connected" state and no write button while it is false. `Setup` (D-24, D-25: the quests, the achievements
 and the tutorial claim) is resolved from `contracts.Setup` (the key of step D's deploy script) but is not part of
 `configured`: a deployment from before step D (Sepolia until the fresh deployment, P-53) has none and stays connected,
-and only the tutorial claim is unavailable. An old file's `contracts.Tutorial` is not read.
+and only the tutorial claim is unavailable. An old file's `contracts.Tutorial` and `contracts.Account` (D-25 (E)) are not
+read.
 
 Only the keys above are read: any other key of the file, such as `classes` (the declared library
 class `Lobby` of P-26, which has no address; the class left with D-24), is ignored.
@@ -56,7 +57,7 @@ differs from devnet:
 - **Signer**: the Cartridge controller, as on mainnet (the env's burner key is devnet only). Writes pass no tip: starknet.js's own
   estimate (only devnet passes 0).
 - **Faucet**: `MockUSDC` is resolved on `devnet` and `sepolia` (`MOCK_USDC_NETWORKS`) and nowhere else; `mint` is a session
-  policy where it is (see "Signing"). The faucet button and `createPlayer`'s mint are offered on Sepolia
+  policy where it is (see "Signing"). The faucet button is offered on Sepolia
   (`supportsMint`), and never on mainnet.
 - **Pool quote**: `Economy.quote_swap` on the MockRouter (`EconomyPoolQuoter`), as on devnet: Ekubo serves no Sepolia. Mainnet keeps
   Ekubo's quoter; its route guard (a single hop through `Economy.pool()`) is a separate mainnet gate, not done here.
@@ -78,7 +79,7 @@ contract version, e.g. an orientation code added by a later contract version) de
 unknown variant of an enum with a payload variant could carry felts of unknown length: the codec
 throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
-Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
+Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`,
 `mint` (test token). D-20 removed `claim` and `sponsor` (and the reclaim, a `claim` of rank 0) with the prize. After D-18 (characters leave the game) `build` takes a tile, an orientation and a position, with no role and no spot, and there is no role picker; the chain and UI changes land in D-18 PR 1 (chain) and PR 2 (UI, renderer, app-web). Art from `packages/app-web/public/assets` stays limited to real files of the package, kept to the ones the packages load (`__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
@@ -139,8 +140,28 @@ the Dojo burner manager (`@dojoengine/create-burner`).
   write pending; it opens a confirm dialog with the score the game ends with, and only "Confirm
   surrender" calls `GameSession.surrender` (the writer serialises it; a pending write disables the
   button). A reverted surrender is the same `writeError` notice as any write.
-- **Player name**: a field on the landing page when "Create Account" is offered; 1 to 31 printable
-  ASCII characters (`playerNameError`), checked before anything is sent, and again by the writer.
+- **Player name**: gone with D-25 (E); see [Identity](#identity-d-25-e).
+
+## Identity (D-25 (E))
+
+`Account` left the deployment (CORE's step E, `docs/briefs/e-account-out.md`): nothing registers a player, and
+`PlayerCreated` is emitted by nothing deployed.
+
+- **The player is the wallet address.** Any connected wallet buys and plays with no step before: `createPlayer`,
+  `PavedClient.player` and the landing page's name flow are gone, and so is the `Account.create` session policy.
+- **One form of the id.** Where an id is compared or sent to the indexer it is `indexerPlayerId(address)`: `0x` and 64
+  lowercase hex digits, the form the indexer stores (66 characters). The connected player is `useMe()`
+  (`app-web/src/utils/player-label.ts`).
+- **Names are off chain.** The connected player's name is their Controller username
+  (`ControllerConnector.username()`, held by `WalletProvider` as `username`), shown on the landing page and on their own
+  rows of the leaderboard, the player page and the Daily top 3 (`usePlayerLabel`). Every other player shows as a short
+  address (`shortId`): no other player's username is looked up, since that would be a new external service. Devnet's
+  burner has no username: its short address shows. The indexer serves no `name` any more.
+- **Wiring.** The client reads no Economy or Collection address from a contract view (not from Daily, not from Account,
+  not from Setup's wiring view): it resolves them from the deployment file, as before (`economy/deployment.ts`,
+  `deployment.ts`). Setup's wiring view is the contracts' source; the indexer checks Setup's `EconomySet` and
+  `CollectionSet` against the same file.
+- **The referrer** is any non-zero address other than the payer, the Daily and the Economy: see `client-economy.md`.
 
 ## Views
 
@@ -172,7 +193,7 @@ filtering:
 
 | UI | Read | When |
 |---|---|---|
-| Landing: player registered, name | `Account.player(address)` | on connect, after `create` |
+| Landing: the player and their name | the connected address; the Controller username (`WalletProvider`), else a short address | on connect |
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
 | Landing: today's day (its end) | `Daily.current_day` (D-20: no prize and no on-chain top 3 any more) | on connect, when the page becomes visible |
@@ -181,7 +202,7 @@ filtering:
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
 | Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_day` | on open, when the page becomes visible, on paging |
 | Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |
-| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id from `Account.player(address)`; today's id from `Daily.current_day`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
+| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id is the connected address (D-25 (E)); today's id from `Daily.current_day`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
 | Player screen: quests and achievements | indexer `playerQuests`, `playerAchievements` (not `definitions`), same day rules | on open, when the page becomes visible, on a day change |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -361,14 +382,13 @@ runs in Cartridge's iframe. The connector is configured as follows:
   `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
   an approve's `spender` and `amount`, and the controller turns an approve without both into a
   policy on any spender and any amount. The policies hold:
-  - `MockUSDC.mint` (the test faucet: `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) **when, and only when,
+  - `MockUSDC.mint` (the test faucet: `PavedWriter.mint`) **when, and only when,
     the deployment resolves a MockUSDC** (`deployment.mockUsdc`): Sepolia. Mainnet resolves none, so it has no such policy,
     and neither has a deployment whose file lacks the mock. The faucet mints 100 USDC a call, under the contract's caps
     (10,000 USDC a call, 20,000 USDC an address in all, `contracts/src/mocks/usdc.cairo`); an address that has used its total
     gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
     this account...") and the call cap into its own words, never a raw revert;
-  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
-    Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and `Setup.claim_tutorial` where
+  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and `Setup.claim_tutorial` where
     the deployment has a Setup (D-21; the Tutorial's policies left with it). Since E3 the Daily `spawn` is the paid
     purchase's (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns nothing;
   - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
@@ -441,8 +461,8 @@ fails after a successful write is a `readError` ("Move applied; refresh failed")
 confirm, starts one (a Daily spawn pays the entry); a bare `/game` URL, a link with `spawn=1` and a
 reload after the consent was cleared spawn nothing ("No game selected"), and a malformed id shows
 "Game not found". `useRead` says when a read has answered
-(`loaded`): "Create Account" is offered only once the player read has answered "none", never while
-it is in flight or failed, and the landing page shows the errors of its reads with a "Retry".
+(`loaded`), and the landing page shows the errors of its reads with a "Retry". There is no player read since D-25 (E):
+the connected wallet is the player.
 
 ## Not connected
 

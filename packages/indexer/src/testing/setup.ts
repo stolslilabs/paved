@@ -1,17 +1,16 @@
 // Copied from Grim World, indexer/src/testing/setup.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: the five contracts and Paved's configuration. This copy is maintained by the Paved
+// Apache-2.0. Adapted for Paved: the four contracts and Paved's configuration. This copy is maintained by the Paved
 // repository.
 //
 // The indexer over the fake node, as the unit tests of the store, the queries and the server use it.
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { ACCOUNT, CHAIN_ID, COLLECTION, DAILY, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
+import { CHAIN_ID, COLLECTION, DAILY, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
 
 export const CONFIG = {
   daily: DAILY,
   setup: SETUP,
-  account: ACCOUNT,
   economy: ECONOMY,
   collection: COLLECTION,
   from: 1,
@@ -32,7 +31,6 @@ export function indexerOf(
     chain: new Chain(node.rpc, {
       daily: DAILY,
       setup: SETUP,
-      account: ACCOUNT,
       economy: ECONOMY,
       collection: COLLECTION,
     }),
@@ -46,7 +44,7 @@ export function indexerOf(
 export function indexerWithoutCollection(node: FakeNode): Indexer {
   const config = { ...CONFIG, collection: undefined };
   return new Indexer({
-    chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, account: ACCOUNT, economy: ECONOMY }),
+    chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, economy: ECONOMY }),
     store: new Store(":memory:"),
     config,
     depth: 1000,

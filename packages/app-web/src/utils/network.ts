@@ -7,7 +7,6 @@ export interface NetworkEnv {
   VITE_NETWORK?: string;
   VITE_RPC_URL?: string;
   VITE_DEPLOYED_BLOCK?: string;
-  VITE_ACCOUNT_ADDRESS?: string;
   VITE_DAILY_ADDRESS?: string;
   /** Setup (D-24): the quests and the tutorial claim. Optional: without it only the claim is unavailable. */
   VITE_SETUP_ADDRESS?: string;
@@ -50,7 +49,6 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
       collection: env.VITE_COLLECTION_ADDRESS,
       deployedBlock: env.VITE_DEPLOYED_BLOCK,
       addresses: {
-        Account: env.VITE_ACCOUNT_ADDRESS,
         Daily: env.VITE_DAILY_ADDRESS,
         Setup: env.VITE_SETUP_ADDRESS,
         Token: env.VITE_TOKEN_ADDRESS,

@@ -7,8 +7,8 @@ import { FAKE_CHAIN_ID } from "@paved/chain/testing";
 import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
-export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
-export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Account: "", Daily: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
+export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
+export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Daily: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
 export const account = { address: PLAYER, execute: async () => ({ transaction_hash: "0x0" }) };
 
 const C = 0x7fffffff;
@@ -38,7 +38,6 @@ export interface FakeWriter {
   discard?: ReturnType<typeof vi.fn>;
   surrender?: ReturnType<typeof vi.fn>;
   build?: ReturnType<typeof vi.fn>;
-  createPlayer?: ReturnType<typeof vi.fn>;
   mint?: ReturnType<typeof vi.fn>;
   claimTutorial?: ReturnType<typeof vi.fn>;
 }
@@ -54,9 +53,6 @@ export function renderPage(opts: {
   account?: typeof account | null;
   views?: FakeGameViews;
   writer?: FakeWriter;
-  player?: { id: string; name: string; master: string } | null;
-  /** Answers `player(address)` per address, instead of `player` for all of them (e.g. a referrer still loading). */
-  playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null>;
   games?: unknown[];
   /** The chain id the fake RPC answers; `FAKE_CHAIN_ID` by default. */
   rpcChainId?: string;
@@ -72,7 +68,6 @@ export function renderPage(opts: {
     events: {
       playerGames,
     },
-    player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),
     writer: () => opts.writer ?? {},
     // The RPC's chain: the fake deployments' (`FAKE_CHAIN_ID`), checked before any purchase.

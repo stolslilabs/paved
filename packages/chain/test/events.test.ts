@@ -6,7 +6,7 @@ import { EventReader, type EventProvider } from "../src/events";
 
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", deployedBlock: 7, addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", deployedBlock: 7, addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 const SPAWNED = hash.getSelectorFromName("GameSpawned");
 

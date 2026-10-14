@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { indexerPlayerId, useIndexerRead, usePaved, useRead } from "@paved/chain";
+import { useIndexerRead, usePaved, useRead } from "@paved/chain";
 import type { GameMode, LeaderboardEntry, GameView, PavedClient, PlayerGame } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
@@ -12,8 +12,8 @@ import { EconomyPurchase } from "../components/EconomyPurchase";
 import { useEconomy } from "../utils/economy-context";
 import { purchaseIntent } from "../utils/economy-start";
 import { referrerFromSearch } from "../utils/economy-view";
-import { playerLabel } from "../utils/indexer-view";
-import { canOfferCreate, entryFee, formatTimeRemaining, playerNameError, tokenLabel } from "../utils/landing-helpers";
+import { useMe, usePlayerLabel } from "../utils/player-label";
+import { entryFee, formatTimeRemaining, shortAddress, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -59,6 +59,7 @@ export const TOP_SHOWN = 3;
 export function DailyTop({ day }: { day: number | null | undefined }) {
   const board = useIndexerRead(day === null || day === undefined ? null : (c) => c.leaderboard(day, { limit: TOP_SHOWN }), [day], { onVisible: true });
   const entries: LeaderboardEntry[] = board.data?.data.entries.slice(0, TOP_SHOWN) ?? [];
+  const label = usePlayerLabel();
   if (!board.data) return null;
   return (
     <div data-testid="daily-top" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
@@ -70,7 +71,7 @@ export function DailyTop({ day }: { day: number | null | undefined }) {
             <li key={e.playerId}>
               {`${e.rank}. `}
               <Link to={`/player/${e.playerId}`} style={{ color: "#f5f5f5" }}>
-                {playerLabel(e.name, e.playerId)}
+                {label(e.playerId)}
               </Link>
               {` - ${e.bestScore}`}
             </li>
@@ -94,11 +95,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const [selected, setSelected] = useState<GameMode | null>(null);
   const [writing, setWriting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
 
   // Reads happen on connect, after this client's writes (refresh), and when the page becomes visible.
-  const player = useRead((c) => (address ? c.player(address) : Promise.resolve(null)), [address]);
   const balance = useRead((c) => (address ? c.balance(address) : Promise.resolve(0n)), [address]);
   const games = useRead((c) => (address ? listGames(c, address) : Promise.resolve([])), [address], { onVisible: true });
   // What a Daily spawn pulls (O-23): the same source the contract's `spawn` uses.
@@ -106,7 +104,10 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   // The current day (`Daily.current_day`), for the time left in it.
   const day = useRead((c) => c.views.currentDay(), [], { onVisible: true });
 
-  const playerId = player.data?.id ?? null;
+  // D-25 (E): the player is whoever is connected (the wallet address), with no registration; the name is the Controller's
+  // username where it is known, else a short address.
+  const me = useMe();
+  const playerName = me.id === null ? undefined : (me.username ?? shortAddress(me.id));
 
   // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
@@ -125,19 +126,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     }
   };
 
-  // "Create Account" only once a read has answered that this address has no player: with the RPC
-  // down or the read in flight, a registered player must not be offered a create that reverts.
-  const canCreate = canOfferCreate(status, player);
-  const handleCreate = () => {
-    if (!canCreate || !writer) return;
-    const invalid = playerNameError(name);
-    setNameError(invalid);
-    if (invalid) return;
-    return write(() => writer.createPlayer(name, { mintTestToken: supportsMint && !!deployment.mockUsdc }), [player.refresh, balance.refresh]);
-  };
   const readErrors = (
     [
-      ["player", player.error],
       ["balance", balance.error],
       ["games", games.error],
       ["day", day.error],
@@ -248,22 +238,6 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           error={writeError}
           onMint={handleMint}
         />
-        {canCreate && (
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-            <input
-              aria-label="Player name"
-              placeholder="Player name (1 to 31 characters)"
-              maxLength={31}
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setNameError(null);
-              }}
-              style={{ background: "#111", color: "#fff", border: "1px solid #555", borderRadius: 6, padding: "6px 8px" }}
-            />
-            {nameError && <span role="alert" style={{ color: "#fecaca", fontSize: 12 }}>{nameError}</span>}
-          </div>
-        )}
         <div style={{ marginTop: 8 }}>
           <EconomyPanel economy={economy} address={address} origin={window.location.origin} write={write} busy={writing} />
         </div>
@@ -274,7 +248,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           {readErrors.map(([what, error]) => `${what} (${error})`).join("; ")}
           <button
             type="button"
-            onClick={() => [player, balance, games, day, price].forEach((r) => r.refresh())}
+            onClick={() => [balance, games, day, price].forEach((r) => r.refresh())}
             style={{ marginLeft: 12, background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 6, cursor: "pointer" }}
           >
             Retry
@@ -282,10 +256,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         </div>
       )}
       <LandingScreen
-        // Until the player is known (read in flight or failed), neither the games nor "Create Account".
-        connected={status === "ready" && (player.data !== null || canCreate)}
-        playerName={player.data?.name}
-        onSpawn={handleCreate}
+        connected={status === "ready"}
+        playerName={status === "ready" ? playerName : undefined}
         gameModes={gameModes}
         activeGames={active.map(toItem(false))}
         completedGames={completed.map(toItem(true))}
@@ -293,7 +265,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         onModeSelect={(mode: string) => setSelected(mode as GameMode)}
         onLeaderboard={() => navigate("/leaderboard")}
         onQuests={() => navigate("/quests")}
-        onProfile={playerId ? () => navigate(`/player/${indexerPlayerId(playerId)}`) : undefined}
+        onProfile={me.id && status === "ready" ? () => navigate(`/player/${me.id}`) : undefined}
       />
       {selected && selectedCard && (
         <div

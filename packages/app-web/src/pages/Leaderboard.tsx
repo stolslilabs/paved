@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MAX_TOURNAMENT_ID, indexerPlayerId, useIndexer, useIndexerRead, usePaved, useRead } from "@paved/chain";
+import { MAX_TOURNAMENT_ID, useIndexer, useIndexerRead } from "@paved/chain";
 import type { LeaderboardEntry } from "@paved/chain";
 import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
-import { BOARD_PAGE, playerLabel } from "../utils/indexer-view";
+import { BOARD_PAGE } from "../utils/indexer-view";
+import { useMe, usePlayerLabel } from "../utils/player-label";
 import { useDays } from "../utils/use-days";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
@@ -21,11 +22,12 @@ export function LeaderboardPage() {
   const params = useParams();
   const navigate = useNavigate();
   const indexer = useIndexer();
-  const { address } = usePaved();
+  const label = usePlayerLabel();
+  // D-25 (E): the connected wallet is the player, with no registration to read first.
+  const myId = useMe().id;
 
   const requested = params.tournamentId === undefined ? undefined : routeId(params.tournamentId);
   const { days, current, waitingForToday, id, listed } = useDays(requested);
-  const me = useRead((c) => (address ? c.player(address) : Promise.resolve(null)), [address]);
 
   const [paging, setPaging] = useState({ id: -1, offset: 0 });
   const offset = paging.id === id ? paging.offset : 0;
@@ -34,8 +36,6 @@ export function LeaderboardPage() {
     [id, offset],
     { onVisible: true },
   );
-
-  const myId = me.data ? indexerPlayerId(me.data.id) : null;
 
   if (!indexer) {
     return (
@@ -86,7 +86,7 @@ export function LeaderboardPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <Row key={r.playerId} entry={r} mine={r.playerId === myId} />
+                <Row key={r.playerId} entry={r} mine={r.playerId === myId} label={label} />
               ))}
             </tbody>
           </table>
@@ -111,12 +111,12 @@ export function LeaderboardPage() {
   );
 }
 
-function Row({ entry, mine }: { entry: LeaderboardEntry; mine: boolean }) {
+function Row({ entry, mine, label }: { entry: LeaderboardEntry; mine: boolean; label: (id: string) => string }) {
   return (
     <tr style={{ background: mine ? "rgba(245,158,11,0.15)" : undefined }}>
       <td style={cell}>{entry.rank}</td>
       <td style={cell}>
-        <Link to={`/player/${entry.playerId}`} style={{ color: "#f5f5f5" }}>{playerLabel(entry.name, entry.playerId)}</Link>
+        <Link to={`/player/${entry.playerId}`} style={{ color: "#f5f5f5" }}>{label(entry.playerId)}</Link>
         {mine ? " (you)" : ""}
       </td>
       <td style={cell}>{entry.bestScore}</td>

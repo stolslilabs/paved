@@ -23,7 +23,7 @@ vi.mock("@paved/ui", () => ({
 
 afterEach(cleanup);
 
-const ADDR = { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), chainId: FAKE_CHAIN_ID };
 const SN_MAIN = "0x534e5f4d41494e";

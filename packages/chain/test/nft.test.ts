@@ -62,7 +62,7 @@ describe("nftOf", () => {
 });
 
 describe("the Collection's address", () => {
-  const FILE = { rpc_url: "http://x", contracts: { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } } };
+  const FILE = { rpc_url: "http://x", contracts: { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } } };
 
   test("from the deployments file when it has one; none without, and the deployment stays configured", () => {
     const without = resolveDeployment({ network: "devnet", file: FILE });

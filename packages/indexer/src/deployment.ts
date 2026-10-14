@@ -1,7 +1,9 @@
-// Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the five addresses the indexer
-// filters on (Daily, Setup, Account and Economy are required: Setup since D-24 holds the quests and achievements; every deployment has an Economy since E3, and a file
-// without one is refused, since its paid games would be half indexed; Collection, since E5b, is optional: without it the
-// mints are not read and no game has a token id), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
+// Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the four addresses the indexer
+// filters on (Daily, Setup and Economy are required: Setup since D-24 holds the quests and achievements, and since D-25 (E)
+// the wiring; every deployment has an Economy since E3, and a file without one is refused, since its paid games would be
+// half indexed; Collection, since E5b, is optional: without it the mints are not read and no game has a token id), the
+// block it starts from, the chain id, and the node's URL. Nothing else of the file is used: an `Account` key (a deployment
+// before D-25 (E)) is ignored.
 import { readFileSync } from "node:fs";
 import { canonical } from "./events.ts";
 
@@ -14,7 +16,6 @@ export type Deployment = {
   daily: string;
   /** Setup (D-24): the quests, the achievements and the tutorial claim. */
   setup: string;
-  account: string;
   economy: string;
   /** Optional: a deployment before E5b has none, and its games carry no token id. */
   collection: string | undefined;
@@ -53,7 +54,6 @@ export function parseDeployment(file: unknown): Deployment {
     deployedBlock: block,
     daily: address("Daily"),
     setup: address("Setup"),
-    account: address("Account"),
     economy: address("Economy"),
     collection: contracts.Collection === undefined ? undefined : address("Collection"),
   };

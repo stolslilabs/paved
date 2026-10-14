@@ -3,21 +3,25 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getChecksumAddress } from "starknet";
-import { PavedClient, controllerPolicies, createCodecs, createControllerConnector, usePaved } from "@paved/chain";
+import { PavedClient, controllerPolicies, createCodecs, createControllerConnector, indexerPlayerId, usePaved } from "@paved/chain";
 import type { ControllerConfig, GameViews, PavedRpc, WriteResult } from "@paved/chain";
 import { ConnectionBanner } from "../src/components/ConnectionBanner";
-import { ENTRY_MAX_STAKE, WalletProvider } from "../src/components/WalletProvider";
+import { ENTRY_MAX_STAKE, WalletProvider, useWallet } from "../src/components/WalletProvider";
+import { shortId } from "../src/utils/indexer-view";
+import { usePlayerLabel } from "../src/utils/player-label";
 import { resolveAppNetwork } from "../src/utils/network";
 
 const SEPOLIA = "0x534e5f5345504f4c4941";
 const ENTRY = 25n;
-const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
+const CONTRACTS = { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = {
   "x/devnet.json": { default: { rpc_url: "http://devnet/rpc", contracts: CONTRACTS } },
   "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: SEPOLIA, contracts: CONTRACTS } },
 };
 const BURNER_ENV = { VITE_PLAYER_ADDRESS: "0xb0", VITE_PLAYER_PRIVATE_KEY: "0xb1" };
 const SEPOLIA_ENV = { VITE_NETWORK: "sepolia", ...BURNER_ENV };
+/** Another player, as the indexer writes ids. */
+const OTHER = indexerPlayerId("0x5f3a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d59a1c");
 
 
 /** `@cartridge/controller` as the connector uses it: a session the player approves on `connect`. */
@@ -40,6 +44,9 @@ function fakeController(options: { approved?: boolean; rpcChainId?: string } = {
     async disconnect() {
       seen.disconnects += 1;
       session = undefined;
+    }
+    username() {
+      return session ? Promise.resolve("ada") : undefined;
     }
   }
   const module = { default: Controller };
@@ -67,10 +74,13 @@ let lastWrite: Promise<WriteResult> | null = null;
 
 function Probe() {
   const { status, address, writer } = usePaved();
+  const label = usePlayerLabel();
   return (
     <div>
       <output data-testid="status">{status}</output>
       <output data-testid="address">{address ?? "none"}</output>
+      <output data-testid="username">{useWallet()?.username ?? "none"}</output>
+      <output data-testid="labels">{address ? `${label(address)} ${label(OTHER)}` : "none"}</output>
       <button type="button" disabled={!writer} onClick={() => (lastWrite = writer!.discard({ mode: "daily", gameId: 7 }))}>
         discard
       </button>
@@ -129,6 +139,23 @@ describe("signing (P-14)", () => {
     const daily = network.deployment.addresses.Daily;
     expect(fake.execute).toHaveBeenCalledTimes(1);
     expect(fake.execute.mock.calls[0][0]).toEqual([{ contractAddress: daily, entrypoint: "discard", calldata: ["0x7"] }]);
+  });
+
+  // D-25 (E): the name is the Controller's username, off chain, for the connected player only.
+  it("connect reads the Controller username: the player's own label is it, another player's a short address", async () => {
+    setup(SEPOLIA_ENV);
+    expect(screen.getByTestId("username").textContent).toBe("none");
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(screen.getByTestId("username").textContent).toBe("ada"));
+    expect(screen.getByTestId("labels").textContent).toBe(`ada ${shortId(OTHER)}`);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(screen.getByTestId("username").textContent).toBe("none"));
+  });
+
+  it("devnet's burner has no username: its own label is a short address", () => {
+    setup(BURNER_ENV);
+    expect(screen.getByTestId("username").textContent).toBe("none");
+    expect(screen.getByTestId("labels").textContent).toBe(`0xb0 ${shortId(OTHER)}`);
   });
 
   it("the controller's writes are serialised by the writer", async () => {

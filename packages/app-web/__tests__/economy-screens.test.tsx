@@ -32,7 +32,7 @@ vi.mock("@paved/ui", () => ({
 
 afterEach(cleanup);
 
-const ADDR = { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const REFERRER = "0x77";
 const DAY = 20_000;
@@ -51,7 +51,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; rpcChain?: () => string; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; rpcChain?: () => string } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -63,7 +63,6 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     deployment: base,
     views,
     games: opts.games,
-    playerFor: opts.playerFor,
     rpcChainId: opts.rpcChainId,
     writer: writer as never,
     wrap: (routes) => (
@@ -143,29 +142,13 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
   });
 
-  it("a referrer that is not a registered player is shown as ignored and is not sent", async () => {
-    land({ search: `?ref=${REFERRER}`, playerFor: async (address) => (BigInt(address) === BigInt(REFERRER) ? null : { id: PLAYER, name: "Zed", master: PLAYER }) });
+  // D-25 (E): a referrer is any non-zero address other than the payer, with no registration to read.
+  it("a referrer nobody registered is offered at once and sent: no read holds the purchase back", async () => {
+    land({ search: `?ref=${REFERRER}` });
     fireEvent.click(await screen.findByText(/mode daily/));
-    await screen.findByText("Referrer 0x77 is not a registered player: ignored");
+    await screen.findByText("Referrer: 0x77");
     fireEvent.click(await enabled("Buy for 2 USDC"));
-    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).not.toContain("gets");
-    fireEvent.click(screen.getByText("Confirm purchase"));
-    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
-  });
-
-  it("a referrer still loading holds the purchase back; it is offered once the answer is in", async () => {
-    let answer!: (player: { id: string; name: string; master: string } | null) => void;
-    const pending = new Promise<{ id: string; name: string; master: string } | null>((resolve) => (answer = resolve));
-    land({ search: `?ref=${REFERRER}`, playerFor: (address) => (BigInt(address) === BigInt(REFERRER) ? pending : Promise.resolve({ id: PLAYER, name: "Zed", master: PLAYER })) });
-    fireEvent.click(await screen.findByText(/mode daily/));
-    await screen.findByText("Price: 2 USDC");
-    // The price is known, the referrer is not: nothing can be confirmed yet, so the referrer cannot be dropped silently.
-    expect((screen.getByText("Buy for 2 USDC", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
-    answer({ id: REFERRER, name: "Ref", master: REFERRER });
-    await waitFor(() => expect((screen.getByText("Buy for 2 USDC", { selector: "button" }) as HTMLButtonElement).disabled).toBe(false));
-    expect(screen.getByText("Referrer: 0x77")).toBeTruthy();
-    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).toContain("gets");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBe(REFERRER);
@@ -181,11 +164,17 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
   });
 
-  it("a referral link to one's own address is ignored", async () => {
-    land({ search: `?ref=${PLAYER}` });
+  // D-25 (E): the payer's own address, the Daily and the Economy are refused, with one plain message, and none is sent.
+  it.each([
+    ["one's own address", PLAYER],
+    ["the Daily contract", ADDR.Daily],
+    ["the Economy contract", ECON.economy],
+  ])("a referral link to %s is refused with a message, and no referrer is sent", async (_what, address) => {
+    land({ search: `?ref=${address}` });
     fireEvent.click(await screen.findByText(/mode daily/));
-    await screen.findByText("Referral link: your own address, ignored");
+    await screen.findByText("Referral link: this address cannot be your referrer, so no referrer is sent");
     fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).not.toContain("gets");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();

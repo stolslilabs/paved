@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer, RUNNING_GAME } from "../src/testing";
+import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_CY, FIXTURE_TOURNAMENT, FixtureIndexer, RUNNING_GAME } from "../src/testing";
 import { IndexerClient, IndexerError, MAX_RETRY_AFTER_SECONDS, MAX_TOURNAMENT_ID, createIndexerClient, indexerPlayerId } from "../src/indexer";
 
 let fixture: FixtureIndexer;
@@ -88,9 +88,10 @@ describe("endpoints", () => {
     expect(fixture.requests[0]).toBe(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     expect(board.data).toMatchObject({ tournamentId: FIXTURE_TOURNAMENT, total: 41, nextOffset: 3 });
     expect(board.data.entries[0]).toEqual({
-      rank: 1, playerId: FIXTURE_ADA, name: "Ada", bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203,
+      rank: 1, playerId: FIXTURE_ADA, bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203,
     });
-    expect(board.data.entries[1]).toMatchObject({ name: null });
+    // D-25 (E): names are off chain (the Controller's username); no answer carries one.
+    for (const entry of board.data.entries) expect(entry).not.toHaveProperty("name");
     expect(board.data.entries[2]).toMatchObject({ playerId: FIXTURE_BO });
     expect(board.data.entries[0]).not.toHaveProperty("prizeRanks");
   });
@@ -105,7 +106,7 @@ describe("endpoints", () => {
 
   test("/v1/players/{id}: a known player, and an unknown one as null", async () => {
     const ada = await client.player(FIXTURE_ADA);
-    expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, name: "Ada", created: 1791000000 });
+    expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, created: 1791000000 });
     expect(ada.data.stats).toMatchObject({ bestScore: 187, dailyGames: 2 });
     // The on-chain Tutorial left (D-21): no tutorial count is read.
     expect(ada.data.stats).not.toHaveProperty("tutorialGames");
@@ -133,7 +134,7 @@ describe("endpoints", () => {
     const row = await client.playerTournament(FIXTURE_ADA, FIXTURE_TOURNAMENT);
     expect(row.data).toMatchObject({ rank: 1, playerId: FIXTURE_ADA });
     expect((await client.playerTournament(FIXTURE_ADA, 7)).data).toBeNull();
-    expect((await client.playerTournament(FIXTURE_NAMELESS, FIXTURE_TOURNAMENT)).data?.name).toBeNull();
+    expect((await client.playerTournament(FIXTURE_CY, FIXTURE_TOURNAMENT)).data).toMatchObject({ rank: 2, playerId: FIXTURE_CY });
   });
 
   test("/v1/games/{contract}/{id}: one game, or not-found", async () => {

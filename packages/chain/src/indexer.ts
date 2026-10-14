@@ -127,7 +127,6 @@ export interface TournamentList {
 export interface LeaderboardEntry {
   rank: number;
   playerId: string;
-  name: string | null;
   bestScore: number;
   bestGameId: number;
   gamesPlayed: number;
@@ -146,15 +145,16 @@ export interface Leaderboard {
   nextOffset: number | null;
 }
 
+/** A player the indexer has seen: the wallet address, from its first event (D-25 (E): no name on chain). */
 export interface IndexedPlayer {
   playerId: string;
-  name: string | null;
   created: number | null;
 }
 
 export interface PlayerStats {
   dailyGames: number;
   dailyFinished: number;
+  /** 0 when no Daily game finished; `dailyFinished` says whether 0 is a real score. */
   bestScore: number;
   /** E3 (appended to v1); undefined from an indexer that predates it. */
   paidGames?: number;
@@ -428,7 +428,6 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
   return {
     rank: num(o, "rank", what),
     playerId: str(o, "player_id", what),
-    name: orNull(o, "name", str, what),
     bestScore: num(o, "best_score", what),
     bestGameId: num(o, "best_game_id", what),
     gamesPlayed: num(o, "games_played", what),
@@ -625,7 +624,7 @@ export class IndexerClient {
       // An unknown player has no stats; the route may leave the key out then, never for a known one.
       const stats = b.stats === null || (b.stats === undefined && player === null) ? null : obj(b.stats, "stats");
       return {
-        player: player && { playerId: str(player, "player_id", "player"), name: orNull(player, "name", str, "player"), created: orNull(player, "created", num, "player") },
+        player: player && { playerId: str(player, "player_id", "player"), created: orNull(player, "created", num, "player") },
         stats: stats && {
           dailyGames: num(stats, "daily_games", "stats"),
           dailyFinished: num(stats, "daily_finished", "stats"),

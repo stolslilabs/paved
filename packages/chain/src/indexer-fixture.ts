@@ -5,7 +5,7 @@
 
 /** Ada leads the doc's leaderboard example. */
 export const FIXTURE_ADA = "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef";
-export const FIXTURE_NAMELESS = "0x00000000000000000000000000000000000000000000000000000000000722ac";
+export const FIXTURE_CY = "0x00000000000000000000000000000000000000000000000000000000000722ac";
 export const FIXTURE_BO = "0x0000000000000000000000000000000000000000000000000000000000035810";
 export const FIXTURE_TOURNAMENT = 20733;
 export const FIXTURE_HEAD = { number: 9120, hash: "0x01b4e2", timestamp: 1791878004 };
@@ -41,14 +41,13 @@ const tournament = (id: number, over: Partial<Row> = {}): Row => ({
 });
 
 const ENTRIES: Row[] = [
-  { rank: 1, player_id: FIXTURE_ADA, name: "Ada", best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203 },
-  { rank: 2, player_id: FIXTURE_NAMELESS, name: null, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650 },
-  { rank: 3, player_id: FIXTURE_BO, name: "Bo", best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011 },
+  { rank: 1, player_id: FIXTURE_ADA, best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203 },
+  { rank: 2, player_id: FIXTURE_CY, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650 },
+  { rank: 3, player_id: FIXTURE_BO, best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011 },
   // The rest of the 41 players of the example's `total`.
   ...Array.from({ length: 38 }, (_, i): Row => ({
     rank: i + 4,
     player_id: `0x${(0x1000 + i).toString(16).padStart(64, "0")}`,
-    name: `Player ${i + 4}`,
     best_score: 170 - i,
     best_game_id: 800 - i,
     games_played: 1,
@@ -200,7 +199,7 @@ export class FixtureIndexer {
         if (!known) return ok({ player: null, stats: null });
         const mine = this.games.filter((g) => g.contract === "daily");
         return ok({
-          player: { player_id: b, name: known.name, created: 1791000000 },
+          player: { player_id: b, created: 1791000000 },
           stats: { daily_games: mine.length || (known.games_played as number), daily_finished: known.games_finished, best_score: known.best_score },
         });
       }

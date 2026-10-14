@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hash } from "starknet";
 import { describe, expect, test } from "vitest";
@@ -10,7 +10,6 @@ import {
   canonical,
   decode,
   padded,
-  shortString,
 } from "./events.ts";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 import { ev } from "./testing/fake-node.ts";
@@ -25,13 +24,13 @@ type AbiItem = {
 const abiPath = (name: string) => resolve(import.meta.dirname, `../../../contracts/abis/${name}.json`);
 const abi = (name: string): AbiItem[] => JSON.parse(readFileSync(abiPath(name), "utf8"));
 
+/** The contract whose ABI declares the quest and achievement events: `Setup` since CORE's step D (D-24). */
+const QUESTS = "Setup";
 /**
- * The contract whose ABI declares the quest and achievement events: `Setup` from CORE's step D (D-24), `Daily` before its
- * ABIs land on the branch (the events are quiver's, the same structs in either).
+ * The contracts whose ABIs are committed: every event of each is known. The past ones (Tutorial and Lobby with D-21 and
+ * D-24, Account with D-25 (E)) have no ABI in the tree any more; their events stay known by name.
  */
-const QUESTS = existsSync(abiPath("Setup")) ? "Setup" : "Daily";
-/** The contracts of today, then the past ones (D-21, D-24) while their ABIs are still in the tree: every event of each is known. */
-const CONTRACTS = ["Daily", "Setup", "Account", "Economy", "Collection", "Tutorial", "Lobby"].filter((name) => existsSync(abiPath(name)));
+const CONTRACTS = ["Daily", "Setup", "Economy", "Collection"];
 
 /** The event structs of a contract's ABI that `paved::events` declares (the ones the indexer may meet). */
 const pavedEvents = (name: string) =>
@@ -57,13 +56,12 @@ describe("the ABIs", () => {
     }
   });
 
-  test("the keys and data of the three events are the ABI's, in order", () => {
+  test("the keys and data of the game events are the ABI's, in order", () => {
     const shapes = {
       GameSpawned: { keys: ["game_id", "player_id"], data: ["mode", "day_id", "start_time", "price"] },
       GameOver: { keys: ["game_id", "player_id", "day_id"], data: ["mode", "score", "start_time", "end_time"] },
-      PlayerCreated: { keys: ["player_id"], data: ["name", "master"] },
     };
-    for (const contract of ["Daily", "Account"]) {
+    for (const contract of ["Daily"]) {
       for (const item of pavedEvents(contract)) {
         const shape = shapes[shortOf(item) as keyof typeof shapes];
         if (!shape) continue;
@@ -73,14 +71,42 @@ describe("the ABIs", () => {
     }
   });
 
-  test("Daily declares the game events, Account the player event", () => {
+  test("Daily declares the game events; PlayerCreated is a past event, known by name and skipped (D-25 (E))", () => {
     const names = (contract: string) => pavedEvents(contract).map(shortOf);
-    for (const contract of ["Daily", "Account"]) {
-      expect(names(contract)).toEqual(expect.arrayContaining(["GameSpawned", "GameOver", "PlayerCreated"]));
-    }
-    expect(EMITTERS.PlayerCreated).toEqual(["account"]);
+    expect(names("Daily")).toEqual(expect.arrayContaining(["GameSpawned", "GameOver"]));
     expect(EMITTERS.GameSpawned).toEqual(["daily"]);
     expect(EMITTERS.GameOver).toEqual(["daily"]);
+    expect("PlayerCreated" in EMITTERS).toBe(false);
+    expect((IGNORED as readonly string[]).includes("PlayerCreated")).toBe(true);
+    expect(SELECTORS.PlayerCreated).toBe(canonical(hash.getSelectorFromName("PlayerCreated")));
+    // From any source still read (Daily's ABI declared it), whatever its shape: skipped, never a halt.
+    for (const source of ["daily", "setup", "economy", "collection"] as const) {
+      const e = ev.pastCreated(source, 0x1234, 0x416461);
+      expect(decode(source, e.keys, e.data), source).toBeNull();
+      expect(decode(source, [SELECTORS.PlayerCreated], []), source).toBeNull();
+    }
+  });
+
+  test("Setup emits the wiring, EconomySet and CollectionSet, with the address in the data (D-25 (E))", () => {
+    expect(EMITTERS.EconomySet).toEqual(["setup"]);
+    expect(EMITTERS.CollectionSet).toEqual(["setup"]);
+    // Setup is the only contract that declares them (Account's ABI left with D-25 (E)).
+    const wiring = (contract: string) =>
+      abi(contract).filter(
+        (item) => item.type === "event" && item.kind === "struct" && ["EconomySet", "CollectionSet"].includes(shortOf(item)),
+      );
+    expect(CONTRACTS.filter((contract) => wiring(contract).length > 0)).toEqual(["Setup"]);
+    for (const contract of ["Setup"]) {
+      expect(
+        wiring(contract)
+          .map((item) => [shortOf(item), item.members!.map((m) => [m.name, m.kind, m.type.split("::").at(-1)])])
+          .sort(),
+        contract,
+      ).toEqual([
+        ["CollectionSet", [["collection", "data", "ContractAddress"]]],
+        ["EconomySet", [["economy", "data", "ContractAddress"]]],
+      ]);
+    }
   });
 });
 
@@ -190,10 +216,10 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
 
   test("a wrong emitter, shape, span length or width is a DecodeError", () => {
     const defined = ev.questDefined(1);
-    expect(() => decode("account", defined.keys, defined.data)).toThrow(DecodeError); // Account defines nothing
+    expect(() => decode("economy", defined.keys, defined.data)).toThrow(DecodeError); // Economy defines nothing
     const quest = ev.questProgressed(1, 1, 1);
     expect(() => decode("economy", quest.keys, quest.data)).toThrow(DecodeError);
-    expect(() => decode("account", quest.keys, quest.data)).toThrow(DecodeError);
+    expect(() => decode("collection", quest.keys, quest.data)).toThrow(DecodeError);
     expect(() => decode("setup", quest.keys, [...quest.data, "0x1"])).toThrow(DecodeError);
     expect(() => decode("setup", quest.keys.slice(0, 2), quest.data)).toThrow(DecodeError);
     expect(() => decode("setup", [quest.keys[0]!, quest.keys[1]!, "0x0"], quest.data)).toThrow(DecodeError); // task id 0
@@ -249,16 +275,6 @@ describe("decode", () => {
     expect(() => decode("setup", e.keys, e.data)).toThrow(DecodeError);
   });
 
-  test("PlayerCreated", () => {
-    const e = ev.created(0x1234, 0x416461, 0xdead);
-    expect(decode("account", e.keys, e.data)).toEqual({
-      name: "PlayerCreated",
-      playerId: 0x1234n,
-      displayName: 0x416461n,
-      master: 0xdeadn,
-    });
-  });
-
   test("an event that is known and not indexed is skipped", () => {
     const e = ev.built("daily", 1);
     expect(decode("daily", e.keys, e.data)).toBeNull();
@@ -270,7 +286,7 @@ describe("decode", () => {
     const e = ev.spawned("daily", 7, 1);
     expect(() => decode("daily", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
     expect(() => decode("daily", e.keys, e.data.slice(1))).toThrow(DecodeError);
-    expect(() => decode("account", e.keys, e.data)).toThrow(DecodeError); // Account does not emit GameSpawned
+    expect(() => decode("economy", e.keys, e.data)).toThrow(DecodeError); // Economy does not emit GameSpawned
     const wide = ev.spawned("daily", 2 ** 32, 1);
     expect(() => decode("daily", wide.keys, wide.data)).toThrow(DecodeError);
     const widerMode = ev.spawned("daily", 1, 1, { mode: 256 });
@@ -430,12 +446,13 @@ describe("Economy's events", () => {
     }
   });
 
-  test("Account's EconomySet carries the address in its data", () => {
+  test("Setup's EconomySet carries the address in its data", () => {
     expect(SELECTORS.EconomySet).toBe(canonical(hash.getSelectorFromName("EconomySet")));
-    expect(decode("account", [SELECTORS.EconomySet], ["0x4444"])).toEqual({ name: "EconomySet", economy: 0x4444n });
-    expect(() => decode("account", [SELECTORS.EconomySet], [])).toThrow(DecodeError);
-    expect(() => decode("account", [SELECTORS.EconomySet, "0x1"], ["0x4444"])).toThrow(DecodeError);
+    expect(decode("setup", [SELECTORS.EconomySet], ["0x4444"])).toEqual({ name: "EconomySet", economy: 0x4444n });
+    expect(() => decode("setup", [SELECTORS.EconomySet], [])).toThrow(DecodeError);
+    expect(() => decode("setup", [SELECTORS.EconomySet, "0x1"], ["0x4444"])).toThrow(DecodeError);
     expect(() => decode("economy", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
+    expect(() => decode("daily", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
   });
 
   test("a wrong emitter, shape, half, bool or day is a DecodeError", () => {
@@ -488,9 +505,9 @@ describe("Collection's mint", () => {
     expect(decode("collection", top.keys, top.data)).toMatchObject({ contract: "daily", gameId: 2 ** 32 - 1 });
   });
 
-  test("Account's CollectionSet carries the address in its data", () => {
-    expect(decode("account", [SELECTORS.CollectionSet], ["0x5555"])).toEqual({ name: "CollectionSet", collection: 0x5555n });
-    expect(() => decode("account", [SELECTORS.CollectionSet, "0x7"], [])).toThrow(DecodeError);
+  test("Setup's CollectionSet carries the address in its data", () => {
+    expect(decode("setup", [SELECTORS.CollectionSet], ["0x5555"])).toEqual({ name: "CollectionSet", collection: 0x5555n });
+    expect(() => decode("setup", [SELECTORS.CollectionSet, "0x7"], [])).toThrow(DecodeError);
     expect(() => decode("collection", [SELECTORS.CollectionSet], ["0x5555"])).toThrow(DecodeError);
   });
 
@@ -507,18 +524,10 @@ describe("Collection's mint", () => {
   });
 });
 
-describe("felts and names", () => {
+describe("felts", () => {
   test("canonical and padded", () => {
     expect(canonical("0x00ABc")).toBe("0xabc");
     expect(padded(0xabcn)).toBe(`0x${"0".repeat(61)}abc`);
     expect(padded(0n)).toHaveLength(66);
-  });
-
-  test("a short string decodes, or is null", () => {
-    expect(shortString(0x416461n)).toBe("Ada");
-    expect(shortString(0n)).toBeNull();
-    expect(shortString(0xffn)).toBeNull(); // not UTF-8
-    expect(shortString(0x0141n)).toBeNull(); // a control character
-    expect(shortString(BigInt(`0x${Buffer.from("héllo", "utf8").toString("hex")}`))).toBe("héllo");
   });
 });

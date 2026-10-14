@@ -23,7 +23,7 @@ import {
   type TournamentSummary,
   type UnsettledGame,
 } from "./api.ts";
-import { shortString, type TaskTarget } from "./events.ts";
+import type { TaskTarget } from "./events.ts";
 import {
   PODIUM_TASK,
   consistent,
@@ -38,9 +38,6 @@ import {
 import type { Store } from "./store.ts";
 
 type Row = Record<string, SQLInputValue>;
-
-const nameOf = (value: SQLInputValue | undefined): string | null =>
-  typeof value === "string" ? shortString(BigInt(value)) : null;
 
 /** A game row as the API serves it, read at `head`: a finish above `head` has not happened yet. */
 function gameRow(row: Row, head: number): GameRow {
@@ -112,12 +109,12 @@ const BOARD = `
   ranked AS (
     SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, over_block, over_tx, over_idx) AS rank FROM best
   )
-  SELECT ranked.rank AS rank, ranked.player_id AS player_id, players.name AS name,
+  SELECT ranked.rank AS rank, ranked.player_id AS player_id,
     ranked.score AS best_score, ranked.game_id AS best_game_id, ranked.end_time AS finished_at,
     (SELECT count(*) FROM counted c WHERE c.player_id = ranked.player_id) AS games_finished,
     (SELECT count(*) FROM games g WHERE g.contract = 'daily' AND g.spawn_day = :t
        AND g.player_id = ranked.player_id AND g.spawned_block <= :h) AS games_played
-  FROM ranked LEFT JOIN players ON players.player_id = ranked.player_id
+  FROM ranked
   WHERE (:p IS NULL OR ranked.player_id = :p)
   ORDER BY ranked.rank
   LIMIT :limit OFFSET :offset`;
@@ -205,7 +202,6 @@ export class Queries {
     ).map((row) => ({
       rank: Number(row.rank),
       player_id: String(row.player_id),
-      name: nameOf(row.name),
       best_score: Number(row.best_score),
       best_game_id: Number(row.best_game_id),
       games_played: Number(row.games_played),
@@ -240,7 +236,7 @@ export class Queries {
   ): { player: PlayerInfo; stats: PlayerStats; unsettled: UnsettledGame[]; unsettled_count: number } | null {
     const row = this.store
       .statement(
-        "SELECT player_id, name, created_time FROM players WHERE player_id = ? AND created_block <= ?",
+        "SELECT player_id, created_time FROM players WHERE player_id = ? AND created_block <= ?",
       )
       .get(playerId, head) as Row | undefined;
     if (!row) return null;
@@ -262,7 +258,6 @@ export class Queries {
     return {
       player: {
         player_id: String(row.player_id),
-        name: nameOf(row.name),
         created: Number(row.created_time),
       },
       stats: {
@@ -272,7 +267,9 @@ export class Queries {
         daily_finished: count(
           "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'daily' AND over = 1 AND over_block <= ?",
         ),
-        best_score: best === null || best === undefined ? null : Number(best),
+        // No finished game yet is 0, as a day with no game answers zeros. Since D-25 (E) a player exists from their first
+        // spawn, so a player whose only game still runs is common.
+        best_score: best === null || best === undefined ? 0 : Number(best),
         paid_games: count("SELECT count(*) AS n FROM purchases WHERE player_id = ? AND purchased_block <= ?"),
         settled_games: rewards.length,
         rewards: total(rewards.map((row) => row.reward!)),

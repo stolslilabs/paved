@@ -68,7 +68,7 @@ own fake node (no chain, no browser) and reads every route.
 
 `packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
 `EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
-three players are created; one claims the tutorial on Setup (D-21); all three buy a Daily game (stakes 3, 2 and 1) and play it to
+three wallets take the faucet's USDC, with no registration (D-25 (E): a player is the wallet address); one claims the tutorial on Setup (D-21); the payer as its own referrer is refused client-side; all three buy a Daily game (stakes 3, 2 and 1) and play it to
 game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the leaderboard, the players and the
 games read from the indexer are compared with the contract views and the events (scores, ranks, `day_id`); the games
 are settled, the Vault, a day nobody plays and an expired game follow (D-20 removed the prize: no claim, sponsor or
@@ -107,8 +107,9 @@ a pull request (the source check is skipped) and writes the deployment file to a
 
 `packages/chain/test/devnet.test.ts` (`bun run test:devnet`, `PAVED_DEVNET=1`) is the smaller check on the same stack: it
 reads the same deployment file (`E2E_DEPLOYMENT`), starts nothing, and uses the first two predeployed accounts after the
-deployer that are not registered yet (so it re-runs on one node, and can run after the end-to-end test on it; it fails
-clearly when fewer than two are left): it creates a player with the faucet, claims the tutorial, buys a Daily game with
+deployer that are still fresh: no game, no tutorial claim and no USDC (D-25 (E): no registration to check; so it re-runs
+on one node, and can run after the end-to-end test on it; it fails clearly when fewer than two are left): it mints the
+faucet USDC with no registration, claims the tutorial, buys a Daily game with
 `EconomyWriter.purchase`, discards and surrenders it, and reads the games and the typed errors back.
 
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),

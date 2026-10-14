@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, shortAddress, TOKEN_LABEL, playerNameError, tokenLabel } from "../src/utils/landing-helpers";
+import { canConfirmEntry, entryFee, formatTimeRemaining, formatTokenAmount, shortAddress, TOKEN_LABEL, tokenLabel } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
   it("labels the entry token USDC (E3)", () => {
@@ -21,21 +21,6 @@ describe("landing helpers", () => {
 
   it("shortens addresses", () => {
     expect(shortAddress("0xabc")).toBe("0xabc");
-  });
-});
-
-describe("canOfferCreate", () => {
-  const none = { data: null, error: null, loading: false, loaded: true };
-  it("only after a read answered no player, with an account", () => {
-    expect(canOfferCreate("ready", none)).toBe(true);
-    expect(canOfferCreate("read-only", none)).toBe(false);
-    expect(canOfferCreate("ready", { ...none, data: { id: "0x5", name: "Paved", master: "0x5" } })).toBe(false);
-  });
-
-  it("never while the read is in flight, not done yet, or failed (RPC down)", () => {
-    expect(canOfferCreate("ready", { ...none, loading: true })).toBe(false);
-    expect(canOfferCreate("ready", { ...none, loaded: false })).toBe(false);
-    expect(canOfferCreate("ready", { ...none, loaded: false, error: "fetch failed" })).toBe(false);
   });
 });
 
@@ -80,11 +65,5 @@ describe("amounts, names and missing decimals (t-0028)", () => {
     expect(entryFee({ data: { token: "0x4", amount: 0n }, error: null }, "0x04", null)).toEqual({ kind: "free" });
     expect(tokenLabel(5n, null)).toBe("—");
     expect(tokenLabel(10n ** 18n, 18)).toBe(`1 ${TOKEN_LABEL}`);
-  });
-
-  it("playerNameError: 1 to 31 printable ASCII", () => {
-    expect(playerNameError("Paved")).toBeNull();
-    expect(playerNameError("a".repeat(31))).toBeNull();
-    for (const bad of ["", "a".repeat(32), "   ", "né", "tab\t"]) expect(playerNameError(bad)).not.toBeNull();
   });
 });
