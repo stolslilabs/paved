@@ -133,3 +133,41 @@ Write the P-56 row with every point below, and say it corrects P-55/P-56's 1:1 r
   - "For CLIENT";
   - one line on the audits: security and economy, since it holds and pays tokens.
 - Report: the PR's number and head, everything in the body, and the peaks. Do not merge.
+
+## Addendum: the exit fee (owner, via the PM, 2026-10-14)
+
+Default 500 bps (5 % of the amount withdrawn, left in the Vault), owner bounds 0 to 1,000 bps, the same fee on withdraw
+and redeem with the correct maths (not Nums' `Fee::Shares` redeem nor its swapped formulas), `max_withdraw` and
+`max_redeem` exact. Record with P-56: "exit fee 500 bps by default, owner bounds 0 to 1,000 (owner, 2026-10-14)".
+deploy.sh sets 500; the tests cover 0 and 1,000 and refuse 1,001.
+
+## Addendum: the split
+
+Addendum to your V1b brief (PM, 2026-10-14): the price split as owner-set parameters. Add it to your committed brief as "Addendum: the split" and do it in this PR. Finish your current Cairo run first; the build rule (one run at a time, shims only) still holds.
+
+The owner accepted the 5 % Ekubo pool fee as the liquidity provider's part (P-56 point 4: no longer open, record it in the P-56 row). The exact figures are not confirmed yet: DO NOT CHANGE ANY DEFAULT (burn 7,000 bps, referral 500 bps, the Vault the rest).
+
+Today on main: `Config.burn_bps` is owner-set through `configure` (bounds 5,000 to 9,000); `curve::REFERRAL_BPS` = 500 is a constant; the Vault gets the remainder, so the referral already comes out of the Vault's part, not out of the burn.
+
+Build:
+1. The Vault share and the burn share are owner-set parameters in bps, set through the owner's bounded, evented configuration path. Enforce burn_bps + vault_bps = 10,000 (the price is split between the two; the Ekubo fee is taken inside the swap, not a share of the split). If you find a cleaner equivalent (vault_bps derived and exposed as a view), justify it in the PR.
+2. The referral becomes an owner-set `referral_bps` (default 500), paid out of the Vault share: refuse a configuration where referral_bps > vault_bps. The burn quote never depends on whether there is a referrer: add a test of that.
+3. Bounds: keep burn 5,000 to 9,000 unless the design needs otherwise (say so); referral 0 to 1,000.
+4. Storage: Config is packed; if its layout changes, update the P-42 pins and upgrades.md, and add an upgrade test that a stored Config reads back with the new fields at their defaults.
+5. Tests: the split adds up to the price exactly, with and without a referrer, at the bounds; owner-only; the events; the ABI via abis.sh (CLIENT follows on this branch).
+6. In the PR body and economy.md: the split at the defaults, and the split the owner described (burn 80 %, Vault 15 %, Ekubo 5 %; with a referral: Ekubo 5 %, referral 5 %, Vault 10 %), stating exactly what bps reproduce it given that the pool fee is 5 % of the amount swapped (burn quote plus the Vault's margin), so the PM can relay the exact figures to the owner.
+
+Allowlist: as your brief, plus contracts/src/economy/curve.cairo.
+
+### The owner's figures (owner, via the PM, 2026-10-14; replaces point 6 and lifts "keep the defaults")
+
+Shares of the price, the burn counted after the 5 % pool fee: without a referral 70 % burned, 25 % to the Vault, 5 % to
+the Ekubo LP; with a referral 70 % burned, 20 % to the Vault, 5 % to the referrer, 5 % to the LP.
+
+1. Set the defaults (burn_bps, the Vault's part, referral_bps 500) to the bps that give these figures as closely as the
+   swap allows (the PM's estimate: burn_bps about 7,368). Keep the bounds; deploy.sh's defaults and devnet.json follow.
+2. State the exact resulting shares, with and without a referral, with each residual in bps (PR body, economy.md).
+3. Re-run sim.py with the final split (the margin-as-PAVED option): the house edge and the Vault's PAVED after a year;
+   twice for determinism; the default output byte-identical.
+4. Record it in P-56 as an owner decision: the split, the 5 % pool fee accepted as the LP's part, D-10's burn unchanged
+   at 70 % of the price after the fee, and the sim figures. Update RISKS.md's Vault-share figure if it changes.
