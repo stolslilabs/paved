@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 
 export interface TopBarProps {
   title?: ReactNode;
@@ -19,7 +19,7 @@ export function TopBar({ title, onBack, end, className }: TopBarProps) {
       <span>
         {onBack && (
           <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
-            <Glyph name="back" />
+            <Icon name="chevron-left" />
           </Button>
         )}
       </span>

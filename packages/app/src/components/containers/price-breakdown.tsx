@@ -41,10 +41,10 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
         </span>
       </div>
       <Separator />
-      <StatRow icon="boost" label="Burned" hint="Buys $TILE and burns it, boosted" value={<Amount value={share(price, split.burn)} token="usdc" />} />
+      <StatRow icon="arrow-trend-up" label="Burned" hint="Buys $TILE and burns it, boosted" value={<Amount value={share(price, split.burn)} token="usdc" />} />
       <StatRow icon="vault" label="Vault" hint="Paid to the stakers" value={<Amount value={share(price, split.vault)} token="usdc" />} />
       <StatRow
-        icon="users"
+        icon="user-group"
         label="Referral"
         hint={referrer ? `To ${shortAddress(referrer)}` : "No referrer"}
         value={<Amount value={share(price, split.referral)} token="usdc" />}

@@ -1,6 +1,6 @@
 import type { LeaderboardEntry } from "@paved/chain";
 import { cn } from "../../lib/utils";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
@@ -27,7 +27,7 @@ export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
       <span className={cn("grid w-6 place-items-center font-mono text-sm font-semibold tabular-nums", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
         {podium ? (
           <>
-            <Glyph name="crown" className="size-4" />
+            <Icon name="crown" size="sm" />
             <span className="sr-only">Rank {entry.rank}</span>
           </>
         ) : (

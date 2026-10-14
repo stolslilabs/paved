@@ -1,6 +1,6 @@
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { TileChip } from "../elements/tile-chip";
 
 /**
@@ -19,6 +19,8 @@ export interface HandPanelProps {
   preview?: number | null;
   /** Why the move was refused. */
   error?: string | null;
+  /** Where the board's tile art is served (`TileChip`'s `artBase`): the hand shows the tile as the board draws it. */
+  tileArt?: string;
   onRotate?: () => void;
   onConfirm?: () => void;
   onDiscard?: () => void;
@@ -27,7 +29,7 @@ export interface HandPanelProps {
 }
 
 /** The hand: the tile to place, rotate, confirm, discard, and surrender (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, onRotate, onConfirm, onDiscard, onSurrender, className }: HandPanelProps) {
+export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, onRotate, onConfirm, onDiscard, onSurrender, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   return (
@@ -43,7 +45,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, onRotate, o
     >
       {state === "refused" && (
         <p role="alert" className="flex items-center gap-2 text-xs text-destructive-text">
-          <Glyph name="warning" className="size-4" />
+          <Icon name="triangle-exclamation" size="sm" />
           {error ?? "Move refused. Choose another slot."}
         </p>
       )}
@@ -57,11 +59,12 @@ export function HandPanel({ tile, state, slotChosen, preview, error, onRotate, o
           <TileChip
             plan={tile?.plan ?? 0}
             orientation={tile?.orientation}
+            artBase={tileArt}
             size="lg"
             state={busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default"}
           />
           <Button variant="ghost" size="sm" onClick={onRotate} disabled={locked || !tile} aria-label="Rotate tile">
-            <Glyph name="rotate" className="size-4" /> Rotate
+            <Icon name="rotate-right" size="sm" /> Rotate
           </Button>
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -70,13 +73,13 @@ export function HandPanel({ tile, state, slotChosen, preview, error, onRotate, o
               "Placing…"
             ) : (
               <>
-                <Glyph name="check" className="size-4" /> Place tile
+                <Icon name="check" size="sm" /> Place tile
                 {slotChosen && preview != null && <span className="font-mono tabular-nums">+{preview}</span>}
               </>
             )}
           </Button>
           <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile}>
-            <Glyph name="discard" className="size-4" /> Discard
+            <Icon name="trash" size="sm" /> Discard
           </Button>
           <Button
             variant={state === "expired" ? "destructive" : "ghost"}
@@ -85,7 +88,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, onRotate, o
             disabled={busy || state === "empty"}
             className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
           >
-            <Glyph name="surrender" className="size-4" /> Surrender
+            <Icon name="flag" size="sm" /> Surrender
           </Button>
         </div>
       </div>

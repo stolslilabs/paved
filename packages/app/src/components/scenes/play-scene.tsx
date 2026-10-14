@@ -35,9 +35,9 @@ export function PlayScene({ connected, spawnPaused, onBack, onChallenge, onTrain
           {!connected && !spawnPaused && <p className="text-xs text-primary">Connect a wallet to enter: tap to connect.</p>}
         </ModeCard>
         <ModeCard icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
-        <ModeCard icon="book" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />
+        <ModeCard icon="book-open" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />
         <ModeCard
-          icon="users"
+          icon="user-group"
           title="Multiplayer"
           description="Play with your friends in real time."
           badge="Coming soon"

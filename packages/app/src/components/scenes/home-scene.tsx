@@ -2,7 +2,7 @@ import type { GameView, Leaderboard } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { Wordmark } from "../elements/wordmark";
@@ -10,13 +10,6 @@ import { AppNav } from "../containers/app-nav";
 import { ModeCard } from "../containers/mode-card";
 import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
 import { TopThree } from "../containers/top-three";
-
-/** A Challenge game of the viewer still running (`GameSpawned` events, then `game(id)`), with its deadline. */
-export interface ActiveGame {
-  game: GameView;
-  /** `terms.time + 86400`. */
-  expiresAt: number;
-}
 
 /** The Training save on this device: enough to offer Resume. */
 export interface TrainingSave {
@@ -29,7 +22,8 @@ export interface HomeSceneProps {
   player: PlayerStatusData | null;
   /** Today's leaderboard (`/v1/tournaments/:day/leaderboard`); its first three rows are the podium. */
   leaderboard: Leaderboard;
-  activeGame: ActiveGame | null;
+  /** The viewer's Challenge game still running (`GameSpawned` events, then `game(id)`); its deadline is `expiresAt`. */
+  activeGame: GameView | null;
   training: TrainingSave | null;
   /** `Challenge.spawn_paused`: a purchase is refused, a started game still plays (W1i). */
   spawnPaused: boolean;
@@ -62,21 +56,21 @@ export function HomeScene(props: HomeSceneProps) {
 
             {activeGame && (
               <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-gold-800 bg-gold-950/50 p-4">
-                <Glyph name="play" className="size-5 text-primary" />
+                <Icon name="play" className="text-primary" size="md" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-sm font-semibold">Challenge #{activeGame.game.id} in progress</span>
+                  <span className="text-sm font-semibold">Challenge #{activeGame.id} in progress</span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span className="font-mono tabular-nums">{formatPoints(activeGame.game.score)} pts</span>
-                    <span className="font-mono tabular-nums">{activeGame.game.remainingCount} tiles left</span>
+                    <span className="font-mono tabular-nums">{formatPoints(activeGame.score)} pts</span>
+                    <span className="font-mono tabular-nums">{activeGame.remainingCount} tiles left</span>
                     <Countdown expiresAt={activeGame.expiresAt} now={now} />
                   </span>
                 </div>
-                <Button size="sm" onClick={() => props.onResume?.(activeGame.game.id)}>Resume</Button>
+                <Button size="sm" onClick={() => props.onResume?.(activeGame.id)}>Resume</Button>
               </div>
             )}
 
             <Button size="lg" className="h-14 text-lg" onClick={props.onPlay}>
-              Play <Glyph name="chevron" className="size-5" />
+              Play <Icon name="chevron-right" size="md" />
             </Button>
 
             {spawnPaused && (
@@ -93,7 +87,7 @@ export function HomeScene(props: HomeSceneProps) {
                 badge="Free"
                 onSelect={props.onTraining}
               />
-              <ModeCard icon="book" title="Tutorial" description="Learn the rules, one stage at a time." onSelect={props.onTutorial} />
+              <ModeCard icon="book-open" title="Tutorial" description="Learn the rules, one stage at a time." onSelect={props.onTutorial} />
             </div>
           </div>
 

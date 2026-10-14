@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { Button } from "../ui/button";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { TopBar } from "./top-bar";
 
 const meta = { title: "Containers/TopBar", component: TopBar, args: { title: "Choose a mode", onBack: fn() } } satisfies Meta<typeof TopBar>;
@@ -14,7 +14,7 @@ export const WithAction: Story = {
   args: {
     end: (
       <Button variant="ghost" size="icon" aria-label="Settings">
-        <Glyph name="settings" />
+        <Icon name="gear" />
       </Button>
     ),
   },

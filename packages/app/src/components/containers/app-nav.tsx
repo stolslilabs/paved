@@ -1,15 +1,15 @@
 import * as m from "motion/react-m";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
-import { Glyph, type GlyphName } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 
 /** The five destinations of section 6.1, Home · Ranks · Quests · Vault · Settings (the route map's `TABS`, with icons). */
-export const NAV_TABS: readonly { id: Tab; label: string; glyph: GlyphName }[] = [
-  { id: "home", label: "Home", glyph: "home" },
-  { id: "ranks", label: "Ranks", glyph: "ranks" },
-  { id: "quests", label: "Quests", glyph: "quests" },
-  { id: "vault", label: "Vault", glyph: "vault" },
-  { id: "settings", label: "Settings", glyph: "settings" },
+export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
+  { id: "home", label: "Home", icon: "house" },
+  { id: "ranks", label: "Ranks", icon: "ranking-star" },
+  { id: "quests", label: "Quests", icon: "scroll" },
+  { id: "vault", label: "Vault", icon: "vault" },
+  { id: "settings", label: "Settings", icon: "gear" },
 ];
 
 export interface AppNavProps {
@@ -54,7 +54,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
                 transition={{ type: "spring", stiffness: 500, damping: 40 }}
               />
             )}
-            <Glyph name={tab.glyph} className="relative size-5" />
+            <Icon name={tab.icon} className="relative" size="md" />
             <span className="relative">
               <span className="sr-only mobile:not-sr-only">{tab.label}</span>
             </span>

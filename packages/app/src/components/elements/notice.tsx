@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
-import { Glyph, type GlyphName } from "./glyph";
+import { Icon } from "../ui/icon";
 
 const noticeVariants = cva("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", {
   variants: {
@@ -14,7 +14,7 @@ const noticeVariants = cva("flex items-start gap-3 rounded-lg border px-3 py-2.5
   defaultVariants: { tone: "info" },
 });
 
-const ICON: Record<NonNullable<VariantProps<typeof noticeVariants>["tone"]>, GlyphName> = {
+const ICON: Record<NonNullable<VariantProps<typeof noticeVariants>["tone"]>, string> = {
   info: "info",
   warning: "warning",
   danger: "warning",
@@ -23,7 +23,7 @@ const ICON: Record<NonNullable<VariantProps<typeof noticeVariants>["tone"]>, Gly
 export interface NoticeProps extends VariantProps<typeof noticeVariants> {
   title?: string;
   children: ReactNode;
-  icon?: GlyphName;
+  icon?: string;
   action?: ReactNode;
   className?: string;
 }
@@ -32,7 +32,7 @@ export interface NoticeProps extends VariantProps<typeof noticeVariants> {
 export function Notice({ tone = "info", title, children, icon, action, className }: NoticeProps) {
   return (
     <div role={tone === "info" ? "status" : "alert"} className={cn(noticeVariants({ tone }), className)}>
-      <Glyph name={icon ?? ICON[tone ?? "info"]} className="mt-0.5 size-4" />
+      <Icon name={icon ?? ICON[tone ?? "info"]} className="mt-0.5" size="sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {title && <span className="font-semibold">{title}</span>}
         <span className="opacity-90">{children}</span>

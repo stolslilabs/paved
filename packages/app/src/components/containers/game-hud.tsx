@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { Score } from "../elements/score";
 import { TilesLeft } from "../elements/tiles-left";
 
@@ -12,7 +12,7 @@ export interface GameHudProps {
   delta?: number | null;
   remaining: number;
   discarded: number;
-  /** `expires_at` of a paid game (purchase time + 24 h); none for Training and the Tutorial. */
+  /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and the Tutorial. */
   expiresAt?: number | null;
   now: number;
   onBack?: () => void;
@@ -30,7 +30,7 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
     >
       {onBack && (
         <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
-          <Glyph name="back" />
+          <Icon name="chevron-left" />
         </Button>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -39,7 +39,9 @@ export function GameHud({ title, score, delta, remaining, discarded, expiresAt, 
       </div>
       <TilesLeft remaining={remaining} discarded={discarded} />
       <div className="flex items-center gap-2 border-l border-border pl-3">
-        <Glyph name="star" className="hidden size-5 fill-primary text-primary tablet:block" />
+        <span className="hidden text-primary tablet:inline">
+          <Icon name="star" size="md" />
+        </span>
         <Score value={score} delta={delta} size="hud" tone="default" label="Score" />
       </div>
     </header>

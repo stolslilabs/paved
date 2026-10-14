@@ -6,10 +6,11 @@ import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
+import { RENDERER_ASSETS } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
-import { MOCK_NOW } from "./clock";
+import { MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
-import { GAME_OVER, GAME_PLAYING, TERMS_EXPIRED, TERMS_PLAYING, THRESHOLD_MILLI, expiresAt } from "./games";
+import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_STATS, VIEWER_TODAY } from "./players";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
@@ -20,9 +21,9 @@ type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 const mosaic = BOARD_72.tiles.map(({ plan, orientation }) => ({ plan, orientation }));
 
 export const WELCOME = {
-  firstVisit: { mosaic },
-  connecting: { mosaic, connecting: true },
-  failed: { mosaic, error: "The controller window was closed before the account connected." },
+  firstVisit: { mosaic, tileArt: RENDERER_ASSETS },
+  connecting: { mosaic, tileArt: RENDERER_ASSETS, connecting: true },
+  failed: { mosaic, tileArt: RENDERER_ASSETS, error: "The controller window was closed before the account connected." },
 } satisfies Record<string, Data<WelcomeSceneProps>>;
 
 // Loading
@@ -36,7 +37,7 @@ export const LOADING = {
 
 export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS, today: VIEWER_TODAY, usdc: BALANCE_RICH, paved: PAVED_BALANCE };
 
-const activeGame = { game: GAME_PLAYING, expiresAt: expiresAt(TERMS_PLAYING) };
+const activeGame = GAME_PLAYING;
 
 export const HOME = {
   connected: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame, training: { score: 420, remaining: 31 }, spawnPaused: false, now: MOCK_NOW },
@@ -70,9 +71,10 @@ const boardBase = {
   score: GAME_PLAYING.score,
   remaining: GAME_PLAYING.remainingCount,
   discarded: GAME_PLAYING.discardedCount,
-  expiresAt: expiresAt(TERMS_PLAYING),
+  expiresAt: GAME_PLAYING.expiresAt,
   now: MOCK_NOW,
   lastScored: [],
+  tileArt: RENDERER_ASSETS,
 } satisfies Partial<Data<BoardSceneProps>>;
 
 export const BOARD = {
@@ -81,7 +83,7 @@ export const BOARD = {
   closing: { ...boardBase, delta: 370, hand: { tile: hand, state: "placing" }, lastScored: LAST_SCORED },
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },
-  expired: { ...boardBase, expiresAt: expiresAt(TERMS_EXPIRED), hand: { tile: hand, state: "expired" } },
+  expired: { ...boardBase, expiresAt: GAME_EXPIRED.expiresAt, hand: { tile: hand, state: "expired" } },
   storageDisabled: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing" }, storageDisabled: true },
   large: {
     ...boardBase,
@@ -120,7 +122,7 @@ export const OVER = {
 
 // Purchase
 
-const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW };
+const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW, timeZone: MOCK_TIME_ZONE };
 const at = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
 
 export const PURCHASE = {

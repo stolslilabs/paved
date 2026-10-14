@@ -2,7 +2,7 @@ import type { ScoredStructure } from "@paved/chain";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { CategoryGlyph, categoryInfo } from "../elements/category";
+import { CategoryIcon, categoryInfo } from "../elements/category";
 import { formatPoints } from "../elements/score";
 
 export interface ClosingLineProps {
@@ -17,7 +17,7 @@ export function ClosingLine({ closing, move, className }: ClosingLineProps) {
   const info = categoryInfo(closing.category);
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <CategoryGlyph category={closing.category} className="size-4" />
+      <CategoryIcon category={closing.category} size="sm" />
       <span className="flex min-w-0 flex-1 items-baseline gap-2 text-sm">
         <span>{info.label}</span>
         <span className="text-xs text-muted-foreground">

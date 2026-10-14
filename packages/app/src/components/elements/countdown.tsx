@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
-import { Glyph } from "./glyph";
+import { Icon } from "../ui/icon";
 
-/** A paid game is valid 24 h from its purchase (`TermsView.time + 86400`, P-34). */
+/** A Challenge game is valid 24 h from its start (S1 `GAME_VALIDITY`: `GameView.expiresAt` = start + 24 h). */
 export const GAME_VALIDITY_S = 86_400;
 /** Under this, the countdown turns to the warning colour. */
 export const COUNTDOWN_WARN_S = 3_600;
@@ -39,7 +39,7 @@ export function Countdown({ expiresAt, now, label = "Expires in", className }: C
         className,
       )}
     >
-      <Glyph name="clock" className="size-3.5" />
+      <Icon name="clock" size="sm" />
       {state === "expired" ? (
         <span className="font-semibold">Expired</span>
       ) : (

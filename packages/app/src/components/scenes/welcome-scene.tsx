@@ -1,5 +1,5 @@
 import { Button } from "../ui/button";
-import { Glyph, type GlyphName } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { TileChip } from "../elements/tile-chip";
 import { Wordmark } from "../elements/wordmark";
@@ -7,6 +7,8 @@ import { Wordmark } from "../elements/wordmark";
 export interface WelcomeSceneProps {
   /** Plans for the decorative mosaic behind the title (a recorded board's first tiles). */
   mosaic: { plan: number; orientation: number }[];
+  /** Where the board's tile art is served; without it the mosaic draws the plans' areas. */
+  tileArt?: string;
   /** The controller's window is open. */
   connecting?: boolean;
   /** The last connect failed. */
@@ -15,20 +17,20 @@ export interface WelcomeSceneProps {
   onTraining?: () => void;
 }
 
-const POINTS: { icon: GlyphName; title: string; text: string }[] = [
-  { icon: "tiles", title: "Lay tiles", text: "One tile at a time, on a board that grows." },
+const POINTS: { icon: string; title: string; text: string }[] = [
+  { icon: "table-cells-large", title: "Lay tiles", text: "One tile at a time, on a board that grows." },
   { icon: "city", title: "Close structures", text: "Cities, roads, forests: closing one scores it." },
   { icon: "trophy", title: "Beat the day", text: "A daily Challenge, ranked, with a reward above the threshold." },
 ];
 
 /** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */
-export function WelcomeScene({ mosaic, connecting, error, onConnect, onTraining }: WelcomeSceneProps) {
+export function WelcomeScene({ mosaic, tileArt, connecting, error, onConnect, onTraining }: WelcomeSceneProps) {
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-board text-foreground">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[55vh] [mask-image:linear-gradient(to_bottom,black,transparent)]">
         <div className="grid -rotate-12 scale-125 grid-cols-8 gap-1 opacity-30 tablet:grid-cols-12">
           {mosaic.concat(mosaic).slice(0, 48).map((t, i) => (
-            <TileChip key={i} plan={t.plan} orientation={t.orientation} className="aspect-square size-auto w-full rounded-sm border" />
+            <TileChip key={i} plan={t.plan} orientation={t.orientation} artBase={tileArt} className="aspect-square size-auto w-full rounded-sm border" />
           ))}
         </div>
       </div>
@@ -41,7 +43,7 @@ export function WelcomeScene({ mosaic, connecting, error, onConnect, onTraining 
             {POINTS.map((p) => (
               <li key={p.title} className="flex items-start gap-3">
                 <span className="grid size-9 place-items-center rounded-lg bg-secondary text-primary">
-                  <Glyph name={p.icon} className="size-5" />
+                  <Icon name={p.icon} size="md" />
                 </span>
                 <span className="flex flex-col">
                   <span className="font-semibold">{p.title}</span>
@@ -63,10 +65,10 @@ export function WelcomeScene({ mosaic, connecting, error, onConnect, onTraining 
             </Notice>
           )}
           <Button size="lg" onClick={onConnect} loading={connecting}>
-            <Glyph name="wallet" className="size-4" /> {connecting ? "Connecting…" : "Connect"}
+            <Icon name="wallet" size="sm" /> {connecting ? "Connecting…" : "Connect"}
           </Button>
           <Button size="lg" variant="outline" onClick={onTraining} disabled={connecting}>
-            <Glyph name="play" className="size-4" /> Play Training
+            <Icon name="play" size="sm" /> Play Training
           </Button>
           <p className="text-center text-xs text-muted-foreground">Training is free and saved on this device.</p>
         </div>

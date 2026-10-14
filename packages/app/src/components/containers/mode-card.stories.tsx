@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Featured: Story = { args: { featured: true, icon: "trophy", title: "Challenge", badge: "Paid", description: "The daily ranked game." } };
 /** Multiplayer: out of v1 (owner D-4). */
-export const ComingSoon: Story = { args: { icon: "users", title: "Multiplayer", description: "Play with your friends in real time.", badge: "Coming soon", disabled: true } };
+export const ComingSoon: Story = { args: { icon: "user-group", title: "Multiplayer", description: "Play with your friends in real time.", badge: "Coming soon", disabled: true } };
 export const DisabledWithReason: Story = {
   args: { featured: true, icon: "trophy", title: "Challenge", badge: "Paid", description: "The daily ranked game.", disabled: true, reason: "Purchases are paused for now." },
 };

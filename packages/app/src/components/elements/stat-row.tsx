@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { Glyph, type GlyphName } from "./glyph";
+import { Icon } from "../ui/icon";
 
 export interface StatRowProps {
   label: string;
   value: ReactNode;
-  icon?: GlyphName;
+  icon?: string;
   /** A second line under the label (a unit, a rule). */
   hint?: string;
   tone?: "default" | "gold" | "success" | "danger" | "muted";
@@ -24,7 +24,7 @@ const TONE = {
 export function StatRow({ label, value, icon, hint, tone = "default", className }: StatRowProps) {
   return (
     <div className={cn("flex items-center gap-3 py-2", className)}>
-      {icon && <Glyph name={icon} className="size-4 text-muted-foreground" />}
+      {icon && <Icon name={icon} className="text-muted-foreground" size="sm" />}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm text-foreground">{label}</span>
         {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}

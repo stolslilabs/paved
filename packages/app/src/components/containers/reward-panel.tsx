@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Amount } from "../elements/amount";
-import { Glyph } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 import { formatPoints } from "../elements/score";
 
 /**
@@ -24,13 +24,13 @@ export interface RewardPanelProps {
   className?: string;
 }
 
-const COPY: Record<RewardState, { title: string; tone: string; icon: "trophy" | "clock" | "warning" | "info" }> = {
+const COPY: Record<RewardState, { title: string; tone: string; icon: string }> = {
   rewarded: { title: "Reward", tone: "border-gold-800 bg-gold-950/60", icon: "trophy" },
   awaiting: { title: "Reward after the day closes", tone: "border-border bg-secondary/40", icon: "clock" },
   settle: { title: "Ready to settle", tone: "border-gold-800 bg-gold-950/60", icon: "trophy" },
-  below: { title: "No reward", tone: "border-ember-900 bg-ember-950/50", icon: "warning" },
-  expired: { title: "Expired", tone: "border-ember-900 bg-ember-950/50", icon: "warning" },
-  free: { title: "Training", tone: "border-border bg-secondary/40", icon: "info" },
+  below: { title: "No reward", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
+  expired: { title: "Expired", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
+  free: { title: "Training", tone: "border-border bg-secondary/40", icon: "circle-info" },
 };
 
 /** The reward or its absence, with the threshold the score was measured against. */
@@ -40,7 +40,7 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, settl
   return (
     <section aria-label="Reward" data-state={state} className={cn("flex flex-col gap-3 rounded-xl border p-4", copy.tone, className)}>
       <div className="flex items-center gap-2">
-        <Glyph name={copy.icon} className={cn("size-5", state === "below" || state === "expired" ? "text-destructive-text" : "text-primary")} />
+        <Icon name={copy.icon} className={state === "below" || state === "expired" ? "text-destructive-text" : "text-primary"} size="md" />
         <span className="font-semibold">{copy.title}</span>
         {stake ? <span className="ml-auto text-xs text-muted-foreground">Stake {stake}</span> : null}
       </div>

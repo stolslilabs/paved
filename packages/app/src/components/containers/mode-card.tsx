@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
-import { Glyph, type GlyphName } from "../elements/glyph";
+import { Icon } from "../ui/icon";
 
 export interface ModeCardProps {
   title: string;
   description: string;
-  icon: GlyphName;
+  icon: string;
   /** A short tag beside the title ("Paid", "Free", "Coming soon"). */
   badge?: string;
   /** Disabled: greyed, not clickable; `reason` says why under the description. */
@@ -45,7 +45,7 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
             featured ? "bg-primary text-primary-foreground" : "bg-secondary text-primary",
           )}
         >
-          <Glyph name={disabled ? "lock" : icon} className="size-6" />
+          <Icon name={disabled ? "lock" : icon} size="lg" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
@@ -55,7 +55,7 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
           <span className="text-sm text-muted-foreground">{description}</span>
           {disabled && reason && <span className="text-xs text-warning">{reason}</span>}
         </span>
-        {!disabled && <Glyph name="chevron" className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}
+        {!disabled && <Icon name="chevron-right" className="text-muted-foreground transition-transform group-hover:translate-x-0.5" size="md" />}
       </button>
       {children && <div className="relative">{children}</div>}
     </div>

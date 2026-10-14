@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { formatUnits } from "../src/components/elements/amount";
 import { formatRemaining } from "../src/components/elements/countdown";
+import { formatLocal, formatRelative, formatUtc } from "../src/components/elements/deadline";
 import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
 import { BoardScene } from "../src/components/scenes/board-scene";
@@ -16,7 +17,9 @@ import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
+import { RENDERER_ASSETS } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
+import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -40,6 +43,17 @@ describe("element helpers", () => {
   it("counts the time left down to 0:00:00", () => {
     expect(formatRemaining(19 * 3600 + 5)).toBe("19:00:05");
     expect(formatRemaining(-10)).toBe("0:00:00");
+  });
+
+  it("writes a deadline as time left, local time and UTC", () => {
+    expect(formatRelative(23 * 3600 + 12 * 60 + 59)).toBe("23 h 12 min");
+    expect(formatRelative(45 * 60)).toBe("45 min");
+    expect(formatRelative(-5)).toBe("0 min");
+    // 2026-10-15 15:00 UTC: 17:00 in Paris (summer time), 11:00 in New York.
+    const t = MOCK_NOW + DAY;
+    expect(formatLocal(t, "Europe/Paris")).toBe("Thu 15 Oct, 17:00");
+    expect(formatLocal(t, "America/New_York")).toBe("Thu 15 Oct, 11:00");
+    expect(formatUtc(t)).toBe("2026-10-15 15:00 UTC");
   });
 
   it("reads a chain plan id as its nine letters", () => {
@@ -149,6 +163,20 @@ describe("Board", () => {
     expect(screen.getByText("19:00:00")).toBeInTheDocument();
   });
 
+  it("shows the tile in hand with the board's art, turned to its orientation", () => {
+    render(wrap(<BoardScene {...BOARD.placing} />));
+    const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });
+    expect(chip).toHaveAttribute("data-view", "art");
+    const art = chip.querySelector("img");
+    expect(art).toHaveAttribute("src", `${RENDERER_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
+    expect(art?.style.transform).toBe(`rotate(${(BOARD_38.next.orientation - 1) * 90}deg)`);
+  });
+
+  it("falls back to the plan's nine areas without the art", () => {
+    render(wrap(<BoardScene {...BOARD.placing} tileArt={undefined} />));
+    expect(within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "areas");
+  });
+
   it("waits for a slot before Confirm, then shows the preview points", async () => {
     const { unmount } = render(wrap(<BoardScene {...BOARD.placing} />));
     expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
@@ -245,7 +273,8 @@ describe("Purchase", () => {
     expect(screen.getByRole("radio", { name: "Stake 3" })).toHaveAttribute("data-state", "on");
     expect(screen.getByText("+3%")).toBeInTheDocument();
     expect(screen.getByText(/To 0x0456…beef/)).toBeInTheDocument();
-    expect(screen.getByText(/15 Oct, 15:00 UTC/)).toBeInTheDocument();
+    expect(screen.getByText("expires in 24 h 0 min")).toBeInTheDocument();
+    expect(screen.getByText("Thu 15 Oct, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
     expect(screen.getByText(pts(1150))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
     await userEvent.click(screen.getByRole("radio", { name: "Stake 7" }));

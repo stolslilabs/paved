@@ -2,7 +2,8 @@ import type { QuoteView } from "@paved/chain";
 import { Button } from "../ui/button";
 import { Amount, formatUnits, TOKENS } from "../elements/amount";
 import { GAME_VALIDITY_S } from "../elements/countdown";
-import { Glyph } from "../elements/glyph";
+import { Deadline } from "../elements/deadline";
+import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { PriceBreakdown, type PriceSplit } from "../containers/price-breakdown";
@@ -24,14 +25,12 @@ export interface PurchaseSceneProps {
   /** The approve + spawn is on its way. */
   buying?: boolean;
   now: number;
+  /** The player's time zone for the deadline; their own when omitted (stories fix it). */
+  timeZone?: string;
   onStakeChange?: (stake: number) => void;
   onConfirm?: () => void;
   onBack?: () => void;
 }
-
-/** The deadline as a UTC date and time, so every viewer of a story reads the same line. */
-const utc = (seconds: number) =>
-  new Date(seconds * 1000).toLocaleString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
 
 /** The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold, confirm. */
 export function PurchaseScene(props: PurchaseSceneProps) {
@@ -68,7 +67,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
         <div className="flex flex-col gap-4">
           <section data-slot="card" aria-label="Terms" className="flex flex-col gap-3 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
             <div className="flex items-center gap-3">
-              <Glyph name="trophy" className="size-5 text-primary" />
+              <Icon name="trophy" className="text-primary" size="md" />
               <div className="flex flex-1 flex-col">
                 <span className="text-xs text-muted-foreground">Score to beat</span>
                 <span className="font-mono text-2xl font-semibold text-primary tabular-nums">{formatPoints(quote.threshold / 1000)}</span>
@@ -80,10 +79,12 @@ export function PurchaseScene(props: PurchaseSceneProps) {
             </div>
             <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, $TILE is minted when the day closes.</p>
             <div className="flex items-center gap-3 border-t border-gold-900 pt-3">
-              <Glyph name="clock" className="size-5 text-muted-foreground" />
+              <Icon name="clock" className="text-muted-foreground" size="md" />
               <div className="flex flex-col">
                 <span className="text-sm">Valid 24 h</span>
-                <span className="text-xs text-muted-foreground">Bought now, it must end before {utc(now + GAME_VALIDITY_S)}</span>
+                <span className="text-xs text-muted-foreground">
+                  Bought now, it <Deadline expiresAt={now + GAME_VALIDITY_S} now={now} timeZone={props.timeZone} />
+                </span>
               </div>
             </div>
           </section>

@@ -1,4 +1,4 @@
-import type { GameView, TermsView } from "@paved/chain";
+import type { GameView, GameViews, TermsView } from "@paved/chain";
 import { BOARD_38, CLOSINGS_38 } from "./board";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -27,7 +27,14 @@ export const GAME_PLAYING: GameView = {
   startTime: BOUGHT_AT,
   endTime: 0,
   dayId: TODAY,
+  expiresAt: BOUGHT_AT + DAY,
 };
+
+/** `Challenge.initial_seed(id)` (S1): the seed before any draw; `GameView.seed` is the current one. */
+export const INITIAL_SEED: Awaited<ReturnType<GameViews["initialSeed"]>> = "0x00c0ffee00000000000000000000000000000000000000000000000000000001";
+
+/** Started more than 24 h ago and not finished: past `expiresAt`, `build` and `discard` revert, `surrender` closes it. */
+export const GAME_EXPIRED: GameView = { ...GAME_PLAYING, startTime: MOCK_NOW - DAY - 20 * 60, expiresAt: MOCK_NOW - 20 * 60, dayId: TODAY - 1 };
 
 /** The same game once its deck ran out. */
 export const GAME_OVER: GameView = { ...GAME_PLAYING, over: true, remainingCount: 0, tileId: 0, plan: 0, endTime: MOCK_NOW - 10 * 60 };
@@ -60,6 +67,3 @@ export const TERMS_AWAITING: TermsView = { ...TERMS_PLAYING, score: SCORE, recor
 
 /** Over below the threshold: settled at 0, the stake lost. */
 export const TERMS_BELOW: TermsView = { ...TERMS_PLAYING, score: 940, recorded: true, settled: true, reward: 0n };
-
-/** `expires_at` of a paid game: its purchase time plus 24 h. */
-export const expiresAt = (terms: Pick<TermsView, "time">) => terms.time + DAY;

@@ -21,7 +21,7 @@ export interface BoardSceneProps {
   /** `GameView.remainingCount`, and `discardedCount`: discards count against the tiles left (P3). */
   remaining: number;
   discarded: number;
-  /** `expires_at`: a Challenge game's purchase time + 24 h. */
+  /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
   expiresAt?: number | null;
   now: number;
   hand: {
@@ -33,6 +33,8 @@ export interface BoardSceneProps {
   };
   /** What the last move closed (`SessionState.lastScored`), shown as it arrives. */
   lastScored: ScoredStructure[];
+  /** Where the board's tile art is served: the hand shows the same art as the board. */
+  tileArt?: string;
   /** `localStorage` refused: a Training or Tutorial game is not saved on this device. */
   storageDisabled?: boolean;
   /**
@@ -82,6 +84,7 @@ export function BoardScene(props: BoardSceneProps) {
           slotChosen={hand.slotChosen}
           preview={hand.preview}
           error={hand.error}
+          tileArt={props.tileArt}
           onRotate={props.onRotate}
           onConfirm={props.onConfirm}
           onDiscard={props.onDiscard}
