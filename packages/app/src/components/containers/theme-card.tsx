@@ -48,9 +48,14 @@ export interface ThemeCardProps {
   className?: string;
 }
 
-/** One theme: a preview of nine tiles, its name and line, selected with a gold ring and a check; locked when not out yet. */
+/**
+ * One theme: a preview of its tiles, its name and line, selected with a gold ring and a check; locked when not out yet. A
+ * tinted preview (every theme but Default) carries a "Preview" label on the card.
+ */
 export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className }: ThemeCardProps) {
   const soon = !theme.available;
+  // A tinted sketch, never the theme's art: labelled on its own card (PM, 2026-10-14), so nobody takes it for final art.
+  const tinted = TINT[theme.id] !== undefined;
   return (
     <button
       type="button"
@@ -78,6 +83,12 @@ export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className
               Coming soon
             </Badge>
           </span>
+        )}
+        {tinted && (
+          <Badge variant="outline" data-testid="preview-label" className="absolute top-1.5 left-1.5 z-10 border-gold-700 bg-background/80 text-gold-200 backdrop-blur-sm">
+            <Icon name="eye" size="xs" />
+            Preview
+          </Badge>
         )}
       </span>
       <span className="flex items-center gap-3 p-3">

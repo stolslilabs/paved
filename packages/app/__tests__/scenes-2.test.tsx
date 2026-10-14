@@ -294,6 +294,15 @@ describe("Theme", () => {
     expect(onSelect).toHaveBeenCalledWith("forest");
   });
 
+  it("labels each tinted preview, and not Default's own art", () => {
+    render(wrap(<ThemeScene {...THEME.defaultSelected} />));
+    expect(within(screen.getByRole("radio", { name: "Default" })).queryByText("Preview")).not.toBeInTheDocument();
+    for (const name of ["Forest", "Snow, coming soon", "Desert, coming soon", "Volcano, coming soon"]) {
+      expect(within(screen.getByRole("radio", { name })).getByText("Preview")).toBeInTheDocument();
+    }
+    expect(screen.getAllByTestId("preview-label")).toHaveLength(4);
+  });
+
   it("shows Forest in use", () => {
     render(wrap(<ThemeScene {...THEME.forestSelected} />));
     expect(screen.getByRole("radio", { name: "Forest" })).toHaveAttribute("aria-checked", "true");
