@@ -46,6 +46,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
     }
     if (free.length < 2) throw new Error("devnet: fewer than two predeployed accounts after account 0 are unregistered; start a fresh node");
     player = free[0].address;
+    console.info(`devnet test accounts: player ${free[0].address}, bystander ${free[1].address}`);
     bystander = free[1].address;
     writer = client.writer(free[0].account, { tip: 0n });
     // Built on the raw provider: the economy checks the chain id, which the recording wrapper does not forward.
