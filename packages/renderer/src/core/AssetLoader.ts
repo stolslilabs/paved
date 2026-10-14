@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { PlanType, getPlanKey } from "@paved/game-core";
 
 export class AssetLoader {
@@ -8,6 +9,8 @@ export class AssetLoader {
   private gltfLoader: GLTFLoader;
   private textureLoader: THREE.TextureLoader;
   private basePath: string;
+  /** Created only when a model needs Draco decoding: the plain models never touch it. */
+  private dracoLoader: DRACOLoader | null = null;
 
   constructor(basePath = "") {
     this.gltfLoader = new GLTFLoader();
@@ -20,10 +23,28 @@ export class AssetLoader {
     await Promise.all(
       planTypes.map(async (plan) => {
         const key = getPlanKey(plan);
-        const gltf = await this.gltfLoader.loadAsync(`${this.basePath}/models/${key}.glb`);
+        const gltf = await this.loadModel(`${this.basePath}/models/${key}.glb`);
         this.models.set(key, gltf.scene);
       })
     );
+  }
+
+  /**
+   * Loads a model. A Draco-compressed one (`KHR_draco_mesh_compression`) is refused by a loader with no decoder: then the
+   * decoder, self-hosted at `<basePath>/draco/`, is set up once and the model loaded again.
+   */
+  private async loadModel(url: string) {
+    try {
+      return await this.gltfLoader.loadAsync(url);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("DRACOLoader")) throw error;
+      // The models load in parallel: the first refusal sets the decoder up, the others find it there.
+      if (!this.dracoLoader) {
+        this.dracoLoader = new DRACOLoader().setDecoderPath(`${this.basePath}/draco/`);
+        this.gltfLoader.setDRACOLoader(this.dracoLoader);
+      }
+      return this.gltfLoader.loadAsync(url);
+    }
   }
 
   async preloadTextures(): Promise<void> {
@@ -83,5 +104,7 @@ export class AssetLoader {
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();
     this.textures.clear();
+    this.dracoLoader?.dispose();
+    this.dracoLoader = null;
   }
 }
