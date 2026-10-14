@@ -1,9 +1,9 @@
 import type { EconomyContractName } from "../abis";
-import { MOCK_USDC_NETWORKS, type Deployment, type DeploymentFile } from "../deployment";
+import { FAUCET_NETWORKS, type Deployment, type DeploymentFile } from "../deployment";
 
 /** The deployments file as E3 extends it (economy.md section 6): the economy's contracts under `contracts`. */
 export interface EconomyDeploymentFile extends DeploymentFile {
-  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "MockUSDC" | "USDC" | "MockRouter", { address?: string }>>;
+  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "Faucet" | "USDC" | "MockRouter", { address?: string }>>;
 }
 
 export interface EconomyEnv {
@@ -57,8 +57,8 @@ function isAddress(value: string | undefined): value is string {
 }
 
 /**
- * The economy's addresses from the deployments file and the env, the env first. USDC is `contracts.USDC`, else the
- * devnet's `contracts.MockUSDC`. Nothing is assumed: a missing address leaves the economy not configured.
+ * The economy's addresses from the deployments file and the env, the env first. USDC is `contracts.Faucet` on the faucet
+ * networks (devnet, Sepolia) and `contracts.USDC` elsewhere (mainnet): never one as a fallback of the other. Nothing is assumed: a missing address leaves the economy not configured.
  */
 export function resolveEconomyDeployment(input: { base: Deployment; file?: EconomyDeploymentFile | null; env?: EconomyEnv }): EconomyDeployment {
   const contracts = input.file?.contracts ?? {};
@@ -68,7 +68,11 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
     Economy: pick(env.economy, contracts.Economy?.address),
     PavedToken: pick(env.pavedToken, contracts.PavedToken?.address),
     Vault: pick(env.vault, contracts.Vault?.address),
-    USDC: pick(env.usdc, contracts.USDC?.address, contracts.MockUSDC?.address),
+    // The entry token is explicit, not a fallback: on the faucet networks (devnet, Sepolia) Challenge charges the Faucet, so the
+    // economy's USDC is the base's `faucet` (`contracts.Faucet`, the one resolution the mint also uses): neither a stray `contracts.USDC` nor `VITE_USDC_ADDRESS` is read there, so no
+    // override can point the client at another token. Elsewhere (mainnet), where the real USDC is given, the env comes first,
+    // then `contracts.USDC`.
+    USDC: FAUCET_NETWORKS.includes(input.base.network) ? pick(input.base.faucet) : pick(env.usdc, contracts.USDC?.address),
   };
   const missing = [
     ...(input.base.configured ? [] : input.base.missing),
@@ -86,7 +90,7 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
  */
 function expectedRouterOf(base: Deployment, mockRouter: string | undefined): string {
   if (isMainnet(base)) return MAINNET_ROUTER;
-  if (MOCK_USDC_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
+  if (FAUCET_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
   return "";
 }
 

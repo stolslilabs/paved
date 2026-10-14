@@ -7,7 +7,7 @@ contract side is `economy.md` (ruled by the PM: P-31); the data layer and its pa
 
 **Nothing is deployed beyond devnet** (economy.md). A deployment file without the economy's addresses leaves the client's
 economy **not configured**, and the screens say so; nothing is read or sent. The committed `contracts/deployments/devnet.json`
-since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, MockUSDC, MockRouter}` (written by `scripts/deploy.sh`).
+since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, Faucet, MockRouter}` (written by `scripts/deploy.sh`).
 
 Since D-23 the paid game's contract is named `Challenge` (`Daily` before; `public-interface.md`, "Breaking change D-23"):
 its ABI becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`, with the same
@@ -23,8 +23,8 @@ panel no longer prints that purchases are not possible.
 |---|---|
 | `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
 | `Challenge.spawn(stake, referrer, min_out)` | `contracts/abis/Challenge.json` (E3, `Daily.json` before D-23), encoded by the `Challenge` codec of `ECONOMY_ABIS` |
-| USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/MockUSDC.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
-| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`; or the env |
+| USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/Faucet.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and the USDC: `contracts.Faucet` on devnet and Sepolia (explicit: neither a stray `contracts.USDC` nor `VITE_USDC_ADDRESS` is read there), `VITE_USDC_ADDRESS` then `contracts.USDC` on the networks without a faucet (mainnet) of `contracts/deployments/<network>.json`; or the env |
 | Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |
 
 What a purchase sends (`EconomyWriter.purchase`), in one multicall:
@@ -95,13 +95,13 @@ such a link as "Referral link: this address cannot be your referrer, so no refer
 
 ## The devnet faucet and the entry token
 
-- `PavedWriter.mint()` sends `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
-  6 decimals) at `deployment.mockUsdc`, which is `contracts.MockUSDC` of the deployments file (or `VITE_MOCK_USDC_ADDRESS`). It
-  replaces the old `Token.mint()`. `mockUsdc` resolves on `devnet` and `sepolia` only (`MOCK_USDC_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies). The Landing offers the faucet button only with `supportsMint && !!deployment.mockUsdc` (`createPlayer` and its `mintTestToken` left with D-25 (E): there is no account to create). A deployment without that address has no faucet: `mint` throws `No faucet` and sends nothing, and
+- `PavedWriter.mint()` sends `Faucet.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
+  6 decimals) at `deployment.faucet`, which is `contracts.Faucet` of the deployments file. It
+  replaces the old `Token.mint()`. `faucet` resolves on `devnet` and `sepolia` only (`FAUCET_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies). The Landing offers the faucet button only with `supportsMint && !!deployment.faucet` (`createPlayer` and its `mintTestToken` left with D-25 (E): there is no account to create). A deployment without that address has no faucet: `mint` throws `No faucet` and sends nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
 - `Landing` compares `Challenge.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
-  `addresses.Token`: a different entry token, or no USDC address known, is "Unknown token".
+  the old `Token` (gone from the deployment): a different entry token, or no USDC address known, is "Unknown token".
 
 ## The prize, its claims and the reclaim (D-20)
 
@@ -117,7 +117,7 @@ as text and as the hex of the short string the node may return, in the receipt's
 `resolveEconomyDeployment({ base, file, env })` (`economy/deployment.ts`) takes the four contracts' `Deployment` and
 adds the economy's addresses, the env first. It is `configured` only when the base is configured and `Economy`,
 `PavedToken`, `Vault` and USDC are all known; otherwise `missing` lists what is not. `createEconomyClient` gives null
-then. `Deployment` gains only `mockUsdc` (the faucet's address, `""` where there is none): a deployment without the economy keeps working as before.
+then. `Deployment` gains only `faucet` (the faucet's address, `""` where there is none): a deployment without the economy keeps working as before.
 
 ## The pool quote (E-9)
 
@@ -393,7 +393,7 @@ the history state to the game page, which sends it, as from the Landing.
   The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that records them, `test/devnet.test.ts`,
   deploys the old four contracts): the paid spawn is not re-recorded.
   These figures were measured before D-18 with prior 3,353 and slope 18,130; new deploys use slope 12,220 and a mean of 3,980 (P-46), and the client's fakes follow.
-- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` uses
-  its codec, the same ERC20); the entry token is read from `Challenge.entry_price`.
+- The old `Token` is gone from the deployment and the client (W1f). `PavedClient.balance` reads `balance_of` at the address
+  `Challenge.entry_price` names (the Faucet), with the Faucet's ABI (the ERC20 interface).
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
 - If a batch settle is ever added, it skips expired games.

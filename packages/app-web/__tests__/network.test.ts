@@ -29,15 +29,15 @@ describe("resolveAppNetwork", () => {
     const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, FILES);
     expect(deployment.configured).toBe(false);
     expect(deployment.missing).toContain("Challenge address");
-    // The faucet is a property of the network; it still needs a MockUSDC (none without a file).
+    // The faucet is a property of the network; it still needs a Faucet (none without a file).
     expect(supportsMint).toBe(true);
-    expect(deployment.mockUsdc).toBe("");
+    expect(deployment.faucet).toBe("");
     expect(tip).toBeUndefined();
   });
 
   it("env alone can configure the app", () => {
     const { deployment } = resolveAppNetwork(
-      { VITE_RPC_URL: "http://x", VITE_CHALLENGE_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
+      { VITE_RPC_URL: "http://x", VITE_CHALLENGE_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3" },
       {},
     );
     expect(deployment.configured).toBe(true);
@@ -54,7 +54,7 @@ const SEPOLIA_RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
 describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
   const env = { VITE_NETWORK: "sepolia", VITE_RPC_URL: SEPOLIA_RPC, VITE_INDEXER_URL: "https://api.paved.bal7hazar.com" };
 
-  it("reads every other address from sepolia.json and is not configured while it keys Daily: Challenge is missing", () => {
+  it("reads every other address from sepolia.json and is not configured while it keys Daily and MockUSDC: Challenge and USDC are missing", () => {
     expect(SEPOLIA.contracts.Challenge).toBeUndefined();
     const { deployment, indexer } = resolveAppNetwork(env, SEPOLIA_FILES);
     expect(deployment).toMatchObject({ network: "sepolia", configured: false, missing: ["Challenge address"], rpcUrl: SEPOLIA_RPC, deployedBlock: 16421420 });
@@ -64,9 +64,11 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
     expect(indexer).not.toBeNull();
     const economy = resolveEconomyNetwork(deployment, {}, SEPOLIA_FILES);
     expect(economy.configured).toBe(false);
-    expect(economy.missing).toEqual(["Challenge address"]);
+    // The file keys the old MockUSDC, which the client no longer reads (`contracts.Faucet` only): no USDC until F writes it.
+    expect(SEPOLIA.contracts.Faucet).toBeUndefined();
+    expect(economy.missing).toEqual(["Challenge address", "USDC address"]);
     expect(economy.addresses.Economy).toBe(SEPOLIA.contracts.Economy.address);
-    expect(economy.addresses.USDC).toBe(SEPOLIA.contracts.MockUSDC.address);
+    expect(economy.addresses.USDC).toBe("");
   });
 
   it("without VITE_RPC_URL it is not connected and says it plainly: the file's placeholder is not a URL", () => {
@@ -78,9 +80,9 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
     expect(supportsMint).toBe(true);
   });
 
-  it("offers the faucet, with the MockUSDC of the file, and starknet.js's own tip; no signer while it is not configured", () => {
+  it("the faucet is a property of the network (on), but the file keys MockUSDC so no faucet address resolves until F; starknet.js's own tip; no signer while it is not configured", () => {
     const { deployment, supportsMint, tip } = resolveAppNetwork(env, SEPOLIA_FILES);
-    expect(deployment.mockUsdc).toBe(SEPOLIA.contracts.MockUSDC.address);
+    expect(deployment.faucet).toBe("");
     expect(supportsMint).toBe(true);
     expect(tip).toBeUndefined();
     // The controller signs on a configured Sepolia deployment: the fixture rows below ("elsewhere returns the controller's account").
@@ -92,24 +94,37 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
   });
 });
 
+describe("the faucet is the file's contracts.Faucet and nothing else", () => {
+  it("VITE_FAUCET_ADDRESS (no longer a setting) changes nothing on devnet or Sepolia", () => {
+    const file = { rpc_url: "http://n/rpc", contracts: { ...DEVNET.contracts, Faucet: { address: "0x9" } } };
+    for (const network of ["devnet", "sepolia"]) {
+      const files = { [`x/${network}.json`]: { default: file } };
+      const plain = resolveAppNetwork({ VITE_NETWORK: network, VITE_RPC_URL: "http://n/rpc" }, files).deployment;
+      const stray = resolveAppNetwork({ VITE_NETWORK: network, VITE_RPC_URL: "http://n/rpc", VITE_FAUCET_ADDRESS: "0xa" }, files).deployment;
+      expect(plain.faucet, network).toBe("0x9");
+      expect(stray.faucet, network).toBe("0x9");
+    }
+  });
+});
+
 describe("mainnet never has the faucet", () => {
-  const MAINNET = { rpc_url: "http://m/rpc", contracts: { ...DEVNET.contracts, MockUSDC: { address: "0x9" } } };
+  const MAINNET = { rpc_url: "http://m/rpc", contracts: { ...DEVNET.contracts, Faucet: { address: "0x9" } } };
   const files = { "x/mainnet.json": { default: MAINNET } };
 
-  it("resolves no MockUSDC from its file or from VITE_MOCK_USDC_ADDRESS, and does not offer the faucet", () => {
-    for (const env of [{}, { VITE_MOCK_USDC_ADDRESS: "0xa" }]) {
+  it("resolves no Faucet from its file, and does not offer the faucet", () => {
+    for (const env of [{}, { VITE_FAUCET_ADDRESS: "0xa" }]) {
       const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "mainnet", ...env }, files);
       expect(deployment.configured).toBe(true);
-      expect(deployment.mockUsdc).toBe("");
+      expect(deployment.faucet).toBe("");
       expect(supportsMint).toBe(false);
       expect(tip).toBeUndefined();
     }
   });
 
-  it("even with VITE_SUPPORTS_TOKEN_MINT=true there is no MockUSDC, so the Landing (supportsMint && mockUsdc) offers none", () => {
-    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "mainnet", VITE_SUPPORTS_TOKEN_MINT: "true", VITE_MOCK_USDC_ADDRESS: "0xa" }, files);
+  it("even with VITE_SUPPORTS_TOKEN_MINT=true there is no Faucet, so the Landing (supportsMint && faucet) offers none", () => {
+    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "mainnet", VITE_SUPPORTS_TOKEN_MINT: "true" }, files);
     expect(supportsMint).toBe(true);
-    expect(deployment.mockUsdc).toBe("");
+    expect(deployment.faucet).toBe("");
   });
 });
 

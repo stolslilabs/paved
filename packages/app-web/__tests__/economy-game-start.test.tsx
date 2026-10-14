@@ -25,7 +25,7 @@ afterEach(cleanup);
 
 const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
-const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), chainId: FAKE_CHAIN_ID };
+const base = { ...resolveDeployment({ network: "devnet", file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } }), chainId: FAKE_CHAIN_ID };
 const SN_MAIN = "0x534e5f4d41494e";
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 

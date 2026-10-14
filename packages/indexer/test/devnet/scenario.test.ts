@@ -39,7 +39,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let work: string;
   let committed: string;
   let deployment: {
-    contracts: Record<"Challenge" | "Setup" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
+    contracts: Record<"Challenge" | "Setup" | "Economy" | "Faucet" | "PavedToken", { address: string }>;
   };
   let file: string;
   let alice: Player;
@@ -91,8 +91,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
 
   const send = (p: Player, address: string, entrypoint: string, calldata: (string | number | bigint)[] = []) =>
     p.send({ contractAddress: address, entrypoint, calldata });
-  /** USDC from the devnet faucet (`MockUSDC.mint`): 100 USDC, enough for every stake the scenario buys. */
-  const fund = (p: Player) => send(p, deployment.contracts.MockUSDC.address, "mint", [p.address, 100_000_000n, 0]);
+  /** USDC from the devnet faucet (`Faucet.mint`): 100 USDC, enough for every stake the scenario buys. */
+  const fund = (p: Player) => send(p, deployment.contracts.Faucet.address, "mint", [p.address, 100_000_000n, 0]);
   /** No registry since D-25 (E): a player is the wallet address, seen by the indexer from its first event. */
   const register = (p: Player) => fund(p);
   const u256 = (low: bigint, high: bigint) => low + (high << 128n);
@@ -251,7 +251,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       [cy, Infinity, 1, 0n],
       [cy, 0, 1, 0n],
     ];
-    const cyBefore = await balance(cy, deployment.contracts.MockUSDC.address);
+    const cyBefore = await balance(cy, deployment.contracts.Faucet.address);
     for (const [p, moves, stake, referrer] of games) {
       const g = await spawn_(p, stake, referrer);
       await play(g, moves, p);
@@ -273,7 +273,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(referred.game.economy).toMatchObject({ stake: 10, price: "20000000", referrer: padded(cy.address), referral: "1000000" });
     // Independent of the API and of Economy's views: Cy's USDC, less its three spawns at 2 USDC (two played, the late
     // one), plus the referral.
-    expect(cyBefore - (await balance(cy, deployment.contracts.MockUSDC.address))).toBe(6_000_000n - 1_000_000n);
+    expect(cyBefore - (await balance(cy, deployment.contracts.Faucet.address))).toBe(6_000_000n - 1_000_000n);
     const board = await get<LeaderboardAnswer>(`/v1/tournaments/${day0}/leaderboard`);
     // One row per player, best game; ranks are 1..n in score order.
     expect(board.entries.map((e) => e.rank)).toEqual(board.entries.map((_, i) => i + 1));

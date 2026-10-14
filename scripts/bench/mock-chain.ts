@@ -24,7 +24,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { selector } from "../../packages/chain/src/codec";
-import { BENCH_ADDRESSES } from "../../packages/app-web/src/bench/addresses";
+import { BENCH_ADDRESSES, BENCH_FAUCET } from "../../packages/app-web/src/bench/addresses";
 
 interface TileRow {
   game_id: number;
@@ -38,7 +38,7 @@ interface TileRow {
 /** The chain of the page (BENCH_ADDRESSES, one source): the contracts and the playing account. */
 export const BENCH = {
   Challenge: BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS),
-  Token: BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS),
+  Faucet: BigInt(BENCH_FAUCET),
   player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
 };
 const hex = (n: number | bigint) => "0x" + BigInt(n).toString(16);
@@ -133,14 +133,14 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (challenge && entry === SEL.builder && args[1] !== BENCH.player) {
       violate("other-player", `${what}, the player is ${hex(BENCH.player)}`);
     }
-    if (to === BENCH.Token && entry === SEL.balance_of && args[0] !== BENCH.player) violate("other-player", `balance_of(${hex(args[0])})`);
+    if (to === BENCH.Faucet && entry === SEL.balance_of && args[0] !== BENCH.player) violate("other-player", `balance_of(${hex(args[0])})`);
 
     if (challenge && entry === SEL.game) return gameView();
     if (challenge && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
     if (challenge && entry === SEL.builder) return builderView();
     if (challenge && entry === SEL.current_day) return [Math.floor(t0 / 86400)];
-    if (challenge && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
-    if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];
+    if (challenge && entry === SEL.entry_price) return [BENCH.Faucet, 10n ** 18n, 0]; // token, u256 amount
+    if (to === BENCH.Faucet && entry === SEL.balance_of) return [10n ** 21n, 0];
     const message = `no view ${hex(entry)} on ${hex(to)}`;
     violate("unknown-view", message);
     throw new Error(`mock-chain: ${message}`);

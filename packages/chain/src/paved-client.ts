@@ -1,9 +1,13 @@
 import { RpcProvider } from "starknet";
-import { createCodecs, type Codecs } from "./abis";
+import { FAUCET_ABI, createCodecs, type Codecs } from "./abis";
+import { AbiCodec } from "./codec";
 import type { Deployment } from "./deployment";
 import { EventReader, type EventProvider } from "./events";
 import { RpcGameViews, ViewError, toViewError, type CallProvider, type GameViews } from "./views";
 import { PavedWriter, type ReceiptProvider, type WriteAccount } from "./writer";
+
+/** The ERC20 view of the entry token: the Faucet's ABI (`balance_of`, `allowance`, `approve`) is the USDC's interface. */
+const ERC20_CODEC = new AbiCodec(FAUCET_ABI);
 
 export type PavedRpc = CallProvider & EventProvider & ReceiptProvider;
 
@@ -25,7 +29,7 @@ export class PavedClient {
   /** Balance of the entry token (USDC since E3), in its base unit: the token `Challenge.entry_price` names. */
   async balance(address: string): Promise<bigint> {
     const { token } = await this.views.entryPrice();
-    return (await this.read("Token", "balance_of", [address], token)) as bigint;
+    return (await this.read("balance_of", [address], token)) as bigint;
   }
 
   writer(account: WriteAccount, options: { tip?: bigint } = {}): PavedWriter {
@@ -39,10 +43,11 @@ export class PavedClient {
     });
   }
 
-  private async read(contract: "Token", entrypoint: string, args: string[], at?: string): Promise<unknown> {
-    const contractAddress = at ?? this.deployment.addresses[contract];
-    if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
-    const codec = this.codecs[contract];
+  /** An ERC20 view on the entry token (the Faucet's ABI exposes `balance_of`): `at` is the address `Challenge.entry_price` names. */
+  private async read(entrypoint: string, args: string[], at: string): Promise<unknown> {
+    const contractAddress = at;
+    if (!contractAddress) throw new ViewError("not-configured", "entry token address is not configured");
+    const codec = ERC20_CODEC;
     try {
       const felts = await this.provider.callContract({ contractAddress, entrypoint, calldata: codec.encodeCall(entrypoint, args) });
       return codec.decodeResult(entrypoint, felts);

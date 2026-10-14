@@ -246,7 +246,7 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
   });
 
   test("a mock network whose file has no MockRouter: no router is known, every purchase refused", async () => {
-    const { econWriter, execute, deployment } = setup({ network: "sepolia", file: { chain_id: FAKE_CHAIN_ID } });
+    const { econWriter, execute, deployment } = setup({ network: "sepolia", file: { chain_id: FAKE_CHAIN_ID, contracts: { Faucet: { address: "0x13" } } } });
     expect(deployment.expectedRouter).toBe("");
     await expect(econWriter.purchase(buy())).rejects.toThrow(`${ROUTER_UNKNOWN} Nothing was sent.`);
     expect(execute).not.toHaveBeenCalled();

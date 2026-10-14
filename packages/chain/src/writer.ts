@@ -1,5 +1,5 @@
 import { shortString } from "starknet";
-import { FAUCET_USDC_AMOUNT, MOCK_USDC_ABI, type Codecs, type ContractName } from "./abis";
+import { FAUCET_USDC_AMOUNT, FAUCET_ABI, type Codecs, type ContractName } from "./abis";
 import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
@@ -147,7 +147,7 @@ export class PavedWriter {
   }
 
   /**
-   * The faucet: `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` at `deployment.mockUsdc` (devnet and Sepolia; the mock is never
+   * The faucet: `Faucet.mint(self, FAUCET_USDC_AMOUNT)` at `deployment.faucet` (devnet and Sepolia; the mock is never
    * resolved on mainnet). Without that address nothing is sent. On devnet the burner signs it; on Sepolia the controller
    * does, with `mint` in its session policies. A cap the contract enforces is a `FaucetCapError`.
    */
@@ -155,7 +155,7 @@ export class PavedWriter {
     return this.serialised(async () => {
       const call = this.faucetCall();
       try {
-        return await this.sendNow({ codec: new Codec(MOCK_USDC_ABI), address: call.contractAddress }, [call]);
+        return await this.sendNow({ codec: new Codec(FAUCET_ABI), address: call.contractAddress }, [call]);
       } catch (error) {
         throw faucetRevert(error);
       }
@@ -163,12 +163,12 @@ export class PavedWriter {
   }
 
   private faucetCall(): Call {
-    const { mockUsdc } = this.options.deployment;
-    if (!mockUsdc) throw new WriteError("No faucet: this deployment has no MockUSDC");
+    const { faucet } = this.options.deployment;
+    if (!faucet) throw new WriteError("No faucet: this deployment has no Faucet");
     return {
-      contractAddress: mockUsdc,
+      contractAddress: faucet,
       entrypoint: "mint",
-      calldata: new Codec(MOCK_USDC_ABI).encodeCall("mint", [this.address, FAUCET_USDC_AMOUNT]),
+      calldata: new Codec(FAUCET_ABI).encodeCall("mint", [this.address, FAUCET_USDC_AMOUNT]),
     };
   }
 
