@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LazyMotion, domAnimation } from "motion/react";
+import { LazyMotion, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Button } from "../src/components/ui/button";
@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "../src/components/ui/toggle-group"
 import { cn } from "../src/lib/utils";
 
 /** The app's providers in miniature: `m` components need a LazyMotion around them. */
-const wrap = (ui: ReactNode) => <LazyMotion features={domAnimation}>{ui}</LazyMotion>;
+const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 describe("cn", () => {
   it("joins class names and lets the last conflicting utility win", () => {
@@ -92,6 +92,7 @@ describe("Tabs", () => {
     await user.click(screen.getByRole("tab", { name: "C" }));
     expect(screen.getByText("panel c")).toBeVisible();
     expect(document.querySelectorAll('[data-slot="tabs-indicator"]')).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: "C" }).querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
   });
 
   it("merges the consumer's ref with the list's own", () => {
@@ -142,7 +143,7 @@ describe("Dialog", () => {
 
   it("opens from the keyboard, moves focus in, traps Tab and returns focus on Escape", async () => {
     const user = userEvent.setup();
-    render(<Demo />);
+    render(wrap(<Demo />));
     await user.tab();
     expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
     await user.keyboard("{Enter}");
@@ -161,7 +162,7 @@ describe("Dialog", () => {
 
   it("closes from its close button", async () => {
     const user = userEvent.setup();
-    render(<Demo />);
+    render(wrap(<Demo />));
     await user.click(screen.getByRole("button", { name: "Open" }));
     await user.click(await screen.findByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

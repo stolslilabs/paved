@@ -1,3 +1,8 @@
+/*
+ * Source: shadcn/ui's Sheet (F3) on the Radix dialog, sliding with Motion (`AnimatePresence`, https://motion.dev,
+ * `motion` 14.0.0, MIT): kept as F3b's sheet; the Dialog takes the same structure (docs/client/v2-architecture.md,
+ * "Animated components: chosen sources").
+ */
 import { createContext, useCallback, useContext, useState, type ComponentProps } from "react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import { AnimatePresence } from "motion/react";

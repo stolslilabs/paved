@@ -78,3 +78,9 @@ export const AsLink: Story = {
 export const ClassHelper: Story = {
   render: () => <a href="#vault" className={buttonVariants({ variant: "secondary" })}>A link styled by buttonVariants</a>,
 };
+
+/** The press with reduced motion off: `whileTap` scales to 0.96 on a spring. Press and hold. */
+export const PressMotionOff: Story = { name: "Press, reduced motion off", parameters: { reducedMotion: "never" } };
+
+/** The same press with reduced motion on: Motion drops the scale, the button does not move. */
+export const PressMotionOn: Story = { name: "Press, reduced motion on", parameters: { reducedMotion: "always" } };
