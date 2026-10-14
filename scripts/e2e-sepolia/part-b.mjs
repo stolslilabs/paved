@@ -3,7 +3,7 @@
 //   bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> [--moves 3] [--purchases 1] [--extra-mint] [--surrender]
 // With `--confirmed` it also writes `latency.json` and `latency.md` to the output folder: the player's waits for the faucet mint
 // (`--extra-mint`), the purchases and the moves (S1, D-28; the marks are defined in docs/client/f-release.md, "Latency"; the code is latency.mjs).
-// The release run is `--moves 5 --purchases 2 --extra-mint`.
+// The release run is `--moves 5 --purchases 2 --extra-mint`: buy, mint aside, play the moves, surrender, buy again.
 // Headless shell only, no persistent context. Without `--confirmed` the driver never adds the authenticator and never types or clicks inside
 // the keychain: it presses Connect, reads the keychain's screen and lists its form controls (names and types, no values).
 // With `--confirmed` it creates ONE account and keeps it for the whole run; the credential lives only in this browser context.
@@ -319,31 +319,29 @@ try {
   writeFileSync(join(out, "b07-page-text.txt"), afterCreate);
   note(`balance line: ${(afterCreate.match(/[^\n]*USDC[^\n]*/g) || []).slice(0, 4).join(" | ")}`);
 
-  // ---- 4. Optional extra mint
+  // ---- 4. Optional extra mint (a failure of this optional step is noted and the run goes on to the purchase)
   if (arg("extra-mint", false) === true) {
     stage("extra-mint");
-    const screens0 = log.screens.length;
-    const t0 = Date.now(); // the click on "Mint Test Tokens" (latency mark t0)
-    await page.getByRole("button", { name: /^mint/i }).first().click({ timeout: 15000 });
-    await walkKeychain("b08-mint");
-    await sleep(8000);
-    samples.push(await sampleOf(faucetSample, 1, t0, screens0));
-    await shot("b08-after-mint");
+    try {
+      const screens0 = log.screens.length;
+      const t0 = Date.now(); // the click on "Mint Test Tokens" (latency mark t0)
+      // The Tamagui button is not a `button` role in the client: found by its text (as the devnet dry run proved).
+      await page.getByText(/^mint test tokens$/i).first().click({ timeout: 15000 });
+      await walkKeychain("b08-mint");
+      await page.waitForFunction(() => document.body.textContent.includes("Minting..."), null, { timeout: 15000 }).catch(() => note("Minting... not seen"));
+      await page.waitForFunction(() => !document.body.textContent.includes("Minting..."), null, { timeout: 180000 });
+      await sleep(1500);
+      samples.push(await sampleOf(faucetSample, 1, t0, screens0));
+      await shot("b08-after-mint");
+    } catch (e) {
+      note(`extra mint failed, going on: ${String(e).split("\n")[0]}`);
+    }
   }
 
-  // ---- 5. Buy Challenge games, lowest stake (`--purchases`; the last one is the game that is played)
+  // ---- 5. Buy a Challenge game, lowest stake. While a Challenge game is active the landing offers "Resume", not the stake picker
+  // (Landing.tsx hasActiveGame), so a second purchase happens after the first game is surrendered (step 6b).
   stage("buy-challenge");
-  let gameId = null;
-  for (let p = 1; p <= wantPurchases; p++) {
-    if (p > 1) {
-      // Back to the landing without a reload (the Controller session stays): the purchase pushed /game onto the history.
-      await page.evaluate(() => history.back());
-      if (!(await page.getByTestId("mode-card-challenge").isVisible({ timeout: 20000 }).catch(() => false))) {
-        note(`purchase ${p}: the landing did not come back, no further purchase`);
-        break;
-      }
-      await sleep(3000);
-    }
+  const buy = async (p) => {
     await page.getByTestId("mode-card-challenge").click({ timeout: 20000 });
     await sleep(2500);
     await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
@@ -358,12 +356,14 @@ try {
     await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
     await walkKeychain(`b10-buy${p > 1 ? `-${p}` : ""}`, { maxScreens: 4 });
     await page.waitForURL(/\/game\?.*id=\d+/, { timeout: 240000 }).catch((e) => note(`no game url: ${e}`));
-    gameId = new URL(page.url()).searchParams.get("id");
-    note(`game id ${gameId}`);
+    const id = new URL(page.url()).searchParams.get("id");
+    note(`game id ${id}`);
     await sleep(6000);
     samples.push(await sampleOf(purchaseSample, p, t0, screens0));
-    if (p === wantPurchases) await shot("b11-game");
-  }
+    return id;
+  };
+  const gameId = await buy(1);
+  await shot("b11-game");
 
   // ---- 6. Moves: hover the board and press C (the client's own hotkey), rotating with R, until the tile counter rises
   stage("moves");
@@ -392,14 +392,30 @@ try {
   }
   log.moves = moves;
 
-  if (arg("surrender", false) === true) {
+  const surrender = async (label) => {
     stage("surrender");
     await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
     await page.getByRole("button", { name: /^confirm surrender$/i }).click({ timeout: 15000 });
-    await walkKeychain("b14-surrender", { maxScreens: 2 });
+    await walkKeychain(`${label}-surrender`, { maxScreens: 2 });
     await sleep(8000);
-    await shot("b14-surrendered");
-  }
+    await shot(`${label}-surrendered`);
+  };
+  // ---- 6b. More purchases (`--purchases N`): the game played above is surrendered first, then back to the landing without a reload
+  // (the Controller session stays; the purchase pushed /game onto the history) and the next game is bought. Those games are not played.
+  if (wantPurchases > 1) {
+    await surrender("b14");
+    for (let p = 2; p <= wantPurchases; p++) {
+      stage("buy-challenge");
+      await page.evaluate(() => history.back());
+      if (!(await page.getByTestId("mode-card-challenge").isVisible({ timeout: 20000 }).catch(() => false))) {
+        note(`purchase ${p}: the landing did not come back, no further purchase`);
+        break;
+      }
+      await sleep(3000);
+      await buy(p);
+      if (p < wantPurchases) await surrender(`b14-${p}`);
+    }
+  } else if (arg("surrender", false) === true) await surrender("b14");
   writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText()));
 
   // ---- 7. Indexer: poll /v1/head until it has the game, bounded at 30 minutes

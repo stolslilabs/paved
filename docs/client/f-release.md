@@ -149,7 +149,7 @@ Read from `packages/chain/src/writer.ts` (`sendNow`) and `session.ts` (`write`),
 1. `account.execute(calls)` returns the transaction hash once the transaction is signed and accepted by the node (**t1**).
 2. `provider.waitForTransaction(hash, { retryInterval: 250 })` asks `starknet_getTransactionStatus` every 250 ms (`RECEIPT_POLL_MS`).
    starknet.js 8.9 has no `successStates` option set here, so its default holds: it waits for a `finality_status` of
-   **`ACCEPTED_ON_L2`** (or `ACCEPTED_ON_L1`), then fetches the receipt with `starknet_getTransactionReceipt`. `REJECTED` throws. It does **not**
+   **`ACCEPTED_ON_L2`** (or `ACCEPTED_ON_L1`), then fetches the receipt with `starknet_getTransactionReceipt`. A rejected transaction is not an error state here (`errorStates` defaults to empty in 8.9): the wait ends in its timeout or a not-found error. It does **not**
    stop at `RECEIVED` or `PRE_CONFIRMED`: the client waits for a closed L2 block, not for the pre-confirmed one. A receipt with
    `execution_status: REVERTED` is an error, and the tile drawn at once is taken back.
 3. The receipt's events move the board and the score (`Session.apply`, no read), then one read of `game` reconciles the next tile and the
@@ -184,7 +184,10 @@ which the session is meant to avoid. It stays in the table and the JSON, and out
 ### Samples and report
 
 - **5 moves, 2 purchases, 1 faucet mint**, in one run: `bun scripts/e2e-sepolia/part-b.mjs --out <dir> --confirmed --username <name> --player <name> --extra-mint --purchases 2 --moves 5`.
-  The first purchase's game is bought and left unplayed (the second is the one that is played); both cost the lowest stake of test funds.
+  The order is: faucet mint, **purchase 1**, the 5 moves, **surrender** that game, back to the landing, **purchase 2**. A second purchase cannot happen while the
+  first game is active: the Landing then offers "Resume" and hides the stake picker (`Landing.tsx`, `hasActiveGame`; `start-game.ts` resumes the active game).
+  The second game is bought and left unplayed; both purchases cost the lowest stake of test funds. A run with `--purchases 1` (the default) measures one purchase;
+  a second run then gives the second sample.
   The faucet's second press is not sampled: it may hit the address cap (smoke step 5).
 - **Median and max** per column, over the samples that were not prompted (two purchases: the median is their mean, so read the max too).
 - **Time of day**: `latency.md` carries the run's start in UTC and the time of each sample. Sepolia's load varies with the hour: a run at a quiet hour
