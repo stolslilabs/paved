@@ -419,6 +419,23 @@ fn test_cold_paths_spawn_zero_referrer_is_no_referral() {
     assert(purchase.referrer.is_zero(), 'Zero: referrer');
 }
 
+/// The protocol addresses `Daily` knows, `Economy` and `Daily` itself, are ignored as referrers,
+/// like the payer (economy audit N2 of #350): paid to `Economy`, the 5 % would be swept back into
+/// the margin and counted twice by `Purchased`; paid to `Daily`, it would be stranded.
+#[test]
+#[available_gas(l2_gas: 120000000)]
+fn test_cold_paths_spawn_ignores_a_protocol_address_as_referrer() {
+    let spied = spied_daily();
+    let game_id = spied.daily.spawn(1, spied.economy.contract_address, 0);
+    let purchase = spied.economy.purchased();
+    assert(purchase.game_id == game_id, 'Protocol: no purchase');
+    assert(purchase.referrer.is_zero(), 'Protocol: economy kept');
+    let game_id = spied.daily.spawn(1, spied.daily.contract_address, 0);
+    let purchase = spied.economy.purchased();
+    assert(purchase.game_id == game_id, 'Protocol: no second purchase');
+    assert(purchase.referrer.is_zero(), 'Protocol: daily kept');
+}
+
 // The game over: one report to `Setup`, then `Economy.record`
 
 /// The game of `spied` with its tile limit cut to the tiles drawn, so that the next `build` or
@@ -543,6 +560,28 @@ fn test_cold_paths_a_move_by_another_player_reverts_before_any_report() {
     // [Player] the game's player ends it, and the report is theirs
     start_cheat_caller_address(address, PLAYER());
     spied.daily.surrender(game_id);
+    assert_reported_once(@spied, game_id);
+}
+
+/// A game over uses only the economy of the wiring (review note 1 and security note 2 of #350): a
+/// game in flight still ends and is recorded when its `Setup`'s collection reads zero (reachable
+/// only through a re-point, `set_setup`); a spawn needs both and reverts.
+#[test]
+#[available_gas(l2_gas: 200000000)]
+#[feature("safe_dispatcher")]
+fn test_cold_paths_game_over_needs_only_the_economy() {
+    let spied = spied_daily();
+    let game_id = spied.daily.spawn(1, Zero::zero(), 0);
+    almost_over(@spied, game_id);
+    spied.setup.wire(spied.economy.contract_address, Zero::zero());
+    let error = IDailySafeDispatcher { contract_address: spied.daily.contract_address }
+        .spawn(1, Zero::zero(), 0)
+        .unwrap_err();
+    assert(*error.at(0) == 'Daily: collection not set', 'Collection: spawn');
+    spied.daily.surrender(game_id);
+    assert(spied.store.game(game_id).over, 'Collection: not over');
+    let (records, recorded_game, _) = spied.economy.recorded();
+    assert(records == 1 && recorded_game == game_id, 'Collection: not recorded');
     assert_reported_once(@spied, game_id);
 }
 

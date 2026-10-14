@@ -67,7 +67,6 @@ pub mod models {
     pub mod builder;
     pub mod game;
     pub mod index;
-    pub mod player;
     pub mod tile;
 }
 
@@ -101,6 +100,7 @@ pub mod structure {
 }
 
 pub mod mocks {
+    pub mod account;
     pub mod reentrant_token;
     pub mod router;
     pub mod token;

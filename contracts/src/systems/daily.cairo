@@ -6,8 +6,8 @@ use paved::types::orientation::Orientation;
 pub trait IDaily<TContractState> {
     /// A paid game: approve `Daily` on USDC for `stake x entry_price().amount` first (stake 1 to
     /// 10). Any account may play: the player is the caller's address (D-25). `referrer`: an
-    /// address other than the caller, or zero (no referral); `min_out`: the least PAVED the burn's
-    /// swap must buy (`docs/architecture/economy.md`, section 5).
+    /// address other than the caller, `Economy` and `Daily`, or zero (no referral); `min_out`:
+    /// the least PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;
@@ -22,6 +22,10 @@ pub trait IDaily<TContractState> {
 #[starknet::interface]
 pub trait IDailySetup<TContractState> {
     /// Sets the `Setup` reported to from now on: the owner only, never zero. Emits `SetupSet`.
+    /// Since D-25 E it re-points the whole wiring too: every later spawn pays into and mints from,
+    /// and every later game over records into, the new `Setup`'s economy and collection. Re-point
+    /// only with no game in flight: a game bought under one economy would be recorded on another
+    /// (whose `record` refuses a game it never sold, so the game could not end).
     fn set_setup(ref self: TContractState, setup: starknet::ContractAddress);
     fn setup(self: @TContractState) -> starknet::ContractAddress;
 }
@@ -62,7 +66,9 @@ pub mod Daily {
     #[cfg(test)]
     use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::{
+        ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
+    };
 
     // Local imports
 
@@ -168,7 +174,7 @@ pub mod Daily {
             ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
             // [Interaction] The wiring, in one call to `Setup`
-            let wiring = wiring(self.setup_dispatcher());
+            let wiring = wiring(self.setup_dispatcher(), true);
             // [Effect] Spawn a game
             let (game_id, unit) = self.hostable.spawn(Mode::Daily);
             // [Interaction] The game is purchased
@@ -283,12 +289,15 @@ pub mod Daily {
             .into()
     }
 
-    /// The wiring of `setup`, in one call; neither address is zero once `Setup`'s owner has set
-    /// them (`'Daily: economy not set'`, `'Daily: collection not set'` before).
-    fn wiring(setup: ISetupDispatcher) -> Wiring {
+    /// The wiring of `setup`, in one call, checked for what each path uses: a spawn needs both
+    /// addresses, a game over only the economy (`'Daily: economy not set'`, `'Daily: collection not
+    /// set'` while `Setup`'s owner has not set them).
+    fn wiring(setup: ISetupDispatcher, collection: bool) -> Wiring {
         let wiring = setup.wiring();
         assert(wiring.economy.is_non_zero(), errors::NO_ECONOMY);
-        assert(wiring.collection.is_non_zero(), errors::NO_COLLECTION);
+        if collection {
+            assert(wiring.collection.is_non_zero(), errors::NO_COLLECTION);
+        }
         wiring
     }
 
@@ -318,7 +327,10 @@ pub mod Daily {
         /// from the player straight to `Economy`, then `Economy.purchase` splits them, in the same
         /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A
         /// referrer counts only if it is a non-zero address other than the payer (D-25: no
-        /// registration); the payer as referrer is ignored (no referral).
+        /// registration) and other than the two protocol addresses `Daily` knows, `Economy` and
+        /// `Daily` itself; any of those is ignored (no referral). Paid to `Economy`, the referral
+        /// would be swept back into the margin and `Purchased` would count it twice; paid to
+        /// `Daily`, it would be stranded (nothing here transfers USDC out).
         fn purchase(
             ref self: ContractState,
             economy: ContractAddress,
@@ -330,7 +342,10 @@ pub mod Daily {
         ) {
             let player = get_caller_address();
             let economy = IEconomyDispatcher { contract_address: economy };
-            let referred = referrer.is_non_zero() && referrer != player;
+            let referred = referrer.is_non_zero()
+                && referrer != player
+                && referrer != economy.contract_address
+                && referrer != get_contract_address();
             let referrer = if referred {
                 referrer
             } else {
@@ -357,7 +372,7 @@ pub mod Daily {
                 let player_id: felt252 = get_caller_address().into();
                 let tally = decode(over, player_id);
                 let setup = self.setup_dispatcher();
-                let economy = wiring(setup).economy;
+                let economy = wiring(setup, false).economy;
                 setup
                     .report(
                         player_id, quest_entries(tally).span(), achievement_entries(tally).span(),

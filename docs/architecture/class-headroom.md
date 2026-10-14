@@ -87,7 +87,7 @@ The first four figures are those of the brief, reproduced.
 |---|---|---|---|
 | `Daily` | Hostable (spawn, claim, sponsor), Ownable (embedded ABI: owner, pending_owner, transfer_ownership, accept_ownership, upgrade), Payable (pay, refund), Playable (build, discard, surrender); with P7 quiver `QuestComponent` and `AchievementComponent` (internal layer) | `IDaily` (spawn, claim, sponsor, discard, surrender, build), `IGameView` (4 views), `ITournamentView` (3 views), with P7 `IDailyQuests` (4 owner-only) | the whole engine: `structure::{placement, state, assessment, forest, oriented, tables, record}`, `models::{game, builder, tile, tournament}`, `helpers::random_deck`, `types::deck`, `store`, `views`, `leaderboard`, with P7 `quests` |
 | `Tutorial` | Hostable (spawn), Ownable, Tutoriable (build, discard, surrender); with P7 `AchievementComponent` | `ITutorial` (spawn, discard, surrender, build), `IGameView` | the same engine, its own copy |
-| `Account` | Ownable | register, player views | `models::player` |
+| `Account` (historical: deleted in D-25 E, with `models::player`) | Ownable | register, player views | `models::player` |
 | `Token` | ERC20 mock | ERC20 | `mocks` |
 
 ### Where the bytes go (CASM felts per module, release)
@@ -587,3 +587,8 @@ the registration check, the `Account` dispatcher and its two views, `Store.initi
 `account_address` constructor argument, and gains the `Setup.wiring()` call. `Setup`
 gains the two setters, their events and the view. The other classes are unchanged to the felt (`Collection` 14,485,
 `Economy` 26,567).
+
+**Fix loop 1 (review and audits of #350):** `Daily` 59,702 CASM felts (Sierra 27,116), **13,245 under the P-44 cap
+(18.2 %)**, -874 against main. Against the first E head (59,642) it adds 60: the referrer check against `Economy` and
+`Daily` itself, and the game over checking only the economy. `Setup` is unchanged (14,499). The test-only mock
+`MockAccount` is 466 CASM felts and is never declared by `deploy.sh`.

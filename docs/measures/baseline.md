@@ -856,3 +856,22 @@ this branch's base, main aff59e06 (step D merged), with the brief only (7019c683
 - **The building moves: -280 each.** Not analysed (`Daily`'s dispatch changed with its interface; an estimate would be
   a guess).
 - No ceiling changes. f, the tightest, is at 98.05 % of its ceiling, as before.
+
+**Fix loop 1 (review and audits of #350).** Same command, on the fix-loop branch (peak RSS 3,614,352 kB). Against the
+"After E" column above:
+
+| | Scenario | After E | Fix loop 1 | Change |
+|---|---|---:|---:|---:|
+| m | Daily spawn, stake 1 | 49,482,886 | 49,484,346 | +1,460 |
+| n | Daily spawn, stake 10, referred | 50,189,546 | 50,210,796 | +21,250 |
+| l | game over on the last `build` | 7,132,145 | 7,127,545 | -4,600 |
+| s | game over on the last `discard` | 3,363,563 | 3,358,963 | -4,600 |
+| g | closing move in its day | 3,174,268 | 3,169,668 | -4,600 |
+| i | game over after its day | 2,716,728 | 2,712,128 | -4,600 |
+| k | closing move, largest report | 3,608,448 | 3,603,848 | -4,600 |
+| a0, a, c, d, e, f | the building moves | | | 0 (f 18,554,596, 98.05 % of its ceiling) |
+
+- **n +21,250, m +1,460:** the referrer is now compared with `Economy` and with `Daily` itself (`get_contract_address`),
+  which runs only when the referrer is non-zero and not the payer; m (no referrer) pays the extra branch only.
+- **The game overs -4,600:** `finish` no longer asserts the collection, which it does not use.
+- Spawn against main aff59e06: m -503,830, n -803,490. No ceiling changes; none is passed.

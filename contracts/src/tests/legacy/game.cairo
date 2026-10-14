@@ -10,7 +10,6 @@ use core::poseidon::{HashState, PoseidonTrait};
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::random_deck::draw_from_bitmap;
-use paved::models::player::{Player, PlayerTrait};
 use paved::structure::{oriented, tables};
 use paved::tests::legacy::assessment::{assess_generic, assess_wonder};
 use paved::tests::legacy::builder::{Builder, BuilderTrait};

@@ -11,7 +11,7 @@ day one and the playtest data survives fixes.
 |---|---|---|---|
 | `Daily` | yes | constructor `owner` | the game; holds the sponsored prize pools |
 | `Tutorial` | yes | constructor `owner` | the tutorial game |
-| `Account` | removed (D-25 E) | | the player registry and the wiring until step E; deleted, no mock (below) |
+| `Account` | removed (D-25 E) | | the player registry and the wiring until step E; deleted, a minimal mock serves one test (below) |
 | `Setup` | yes | constructor `owner` | the quests and achievements (D-24) and, since D-25 E, the wiring `Daily` reads |
 | `Economy` | yes | constructor `owner` | the minter of PAVED and the purchase and settlement logic; holds nothing between transactions |
 | `Collection` | yes | constructor `owner` | the game NFTs |
@@ -157,6 +157,18 @@ its progress lost; since step E the wiring is `Setup`'s, so with a zero `setup` 
 (`'Daily: setup is zero'`) and the game stays live until `set_setup` runs. Before such an upgrade, `Setup` also needs
 `set_economy` and `set_collection` (the addresses the old `Account` held).
 
+**Re-pointing `Daily` to another `Setup` (`set_setup`) re-points the whole wiring** since D-25 E: every later spawn
+pays into and mints from, and every later game over records into, the new `Setup`'s economy and collection, not only
+the reports. Re-point only with no game in flight: a game bought under one economy would be recorded on another, whose
+`record` refuses a game it never sold (`'Economy: unknown game'`), so that game could not end (security note 1 and
+economy note N1 of #350).
+
+**`Setup`'s setters are once-only.** A wrong address is fixed in one of two ways:
+- an upgrade of `Setup` to a class that can write the slot (owner only; the slots are pinned by name);
+- a new `Setup`, wired and allowlisting `Daily`, then `Daily.set_setup` to it (under the rule above). This loses the old
+  `Setup`'s reporters and tutorial claims; the quests and achievements are event mode, so their state is the indexer's
+  and stays readable from the old `Setup`'s events.
+
 ## Dead slots since D-25 E (P-42)
 
 `Account` left the systems (P-53 ruling 5): a player is the wallet address. Two members of the `paved` storage node
@@ -175,11 +187,14 @@ wiring from `Setup`, never the `account` slot).
 **New live slots** in `Setup`: `economy: ContractAddress` and `collection: ContractAddress`, each written once by the
 owner (`set_economy`, `set_collection`), pinned by name in `test_upgrade_layout_pins_setup_and_economy_by_name`.
 
-**No mock `Account`.** P-53 ruling 5 keeps a mock for the tests that need one. None does after step E: the layout pin
-moved to `Setup`'s wiring; the frozen classes of the D-18 and D-19 upgrade tests (`DailyBeforeD18`, `DailyBeforeD19`)
-never spawn, so their copy of `Store.player` was dead code and went; and Sepolia gets a fresh deployment (P-53), so no
-`--rehearse` of an upgrade from the `Account` layout remains. `Account` is deleted; git history keeps it
-(`git show aff59e06:contracts/src/systems/account.cairo`). `deploy.sh --d18` still declares the `Account` of 06c024d
+**The mock `Account`.** P-53 ruling 5: the Account belongs in the mocks. `Account` is deleted from the systems (git
+history keeps it: `git show aff59e06:contracts/src/systems/account.cairo`), and `MockAccount`
+(`contracts/src/mocks/account.cairo`) keeps a registration and the player view, nothing else. Its one user,
+`tests::e2e::access::test_access_a_registration_changes_nothing`, shows that `Daily` plays and pays a referrer the same
+whether the address registered or not. `deploy.sh` never deploys it and `abis.sh` writes no ABI for it. No other test
+needs it: the layout pin moved to `Setup`'s wiring; the frozen classes of the D-18 and D-19 upgrade tests never spawn,
+so their copy of `Store.player` was dead code and went; and Sepolia gets a fresh deployment (P-53), so no `--rehearse`
+of an upgrade from the `Account` layout remains. `deploy.sh --d18` still declares the `Account` of 06c024d
 from the pinned commit (`scripts/check-artifact-names.sh` accepts that name in the pinned paths only).
 
 ## D-20 on Sepolia (superseded by P-53: fresh deployment)
