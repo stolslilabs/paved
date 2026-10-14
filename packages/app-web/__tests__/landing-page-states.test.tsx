@@ -48,11 +48,11 @@ afterEach(cleanup);
 
 const land = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => renderPage({ page: <LandingPage />, path: "/", ...opts });
 /**
- * An economy that is not deployed (the build's own reads the real devnet.json, which has the economy since E3), but whose USDC
+ * An economy that is not deployed (the build's own reads the real devnet.json, which has the economy since E3), but whose Faucet (the USDC)
  * address is known: the entry token is compared with it, not with the old Token (gone from the deployment).
  */
 const noEconomy = (deployment: Deployment) => (routes: React.ReactElement) => (
-  <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x4" } }) }}>{routes}</EconomyProvider>
+  <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, file: { contracts: { Faucet: { address: "0x4" } } } }) }}>{routes}</EconomyProvider>
 );
 /** Neither an economy nor a USDC address. */
 const unknownUsdc = (deployment: Deployment) => (routes: React.ReactElement) => (
@@ -278,7 +278,7 @@ describe("Landing states", () => {
   it("the entry token is compared with the USDC address, not the old Token's", async () => {
     // The fixture's entry token is 0x4. With USDC elsewhere and the old Token at 0x4, the entry is an unknown token.
     const deployment = { ...(configured as object), addresses: { ...configured.addresses, Token: "0x4" } } as unknown as Deployment;
-    land({ deployment, wrap: (routes) => <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x99" } }) }}>{routes}</EconomyProvider> });
+    land({ deployment, wrap: (routes) => <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, file: { contracts: { Faucet: { address: "0x99" } } } }) }}>{routes}</EconomyProvider> });
     await waitFor(() => expect(screen.getByText(/mode challenge: Unknown token/)).toBeTruthy());
     cleanup();
     land({ deployment, wrap: noEconomy(deployment) });

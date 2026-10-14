@@ -195,6 +195,19 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
     }
   });
 
+  test("VITE_USDC_ADDRESS is ignored on devnet and Sepolia: the entry token is the Faucet only; on mainnet the env comes first", () => {
+    const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
+    for (const network of ["devnet", "sepolia"]) {
+      const b = resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+      expect(resolveEconomyDeployment({ base: b, file: { contracts }, env: { usdc: "0x99" } }).addresses.USDC, network).toBe("0x23");
+      // Not even a missing Faucet lets the env in.
+      const { Faucet: _, ...noFaucet } = contracts;
+      expect(resolveEconomyDeployment({ base: b, file: { contracts: noFaucet }, env: { usdc: "0x99" } }).addresses.USDC, network).toBe("");
+    }
+    const main = resolveDeployment({ network: "mainnet", file: { chain_id: "0x534e5f4d41494e", contracts }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+    expect(resolveEconomyDeployment({ base: main, file: { contracts }, env: { usdc: "0x99" } }).addresses.USDC).toBe("0x99");
+  });
+
   test("on mainnet contracts.USDC is used and no faucet resolves, even from a file that holds a Faucet", () => {
     const contracts = { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" }, USDC: { address: "0x77" } };
     const b = resolveDeployment({ network: "mainnet", file: { chain_id: "0x534e5f4d41494e", contracts }, env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });

@@ -24,7 +24,7 @@ panel no longer prints that purchases are not possible.
 | `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
 | `Challenge.spawn(stake, referrer, min_out)` | `contracts/abis/Challenge.json` (E3, `Daily.json` before D-23), encoded by the `Challenge` codec of `ECONOMY_ABIS` |
 | USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/Faucet.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
-| Addresses | `contracts.{Economy, PavedToken, Vault}` and the USDC: `contracts.Faucet` on devnet and Sepolia (explicit, a stray `contracts.USDC` is never read), `contracts.USDC` on the networks without a faucet (mainnet) of `contracts/deployments/<network>.json`; or the env |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and the USDC: `contracts.Faucet` on devnet and Sepolia (explicit: neither a stray `contracts.USDC` nor `VITE_USDC_ADDRESS` is read there), `VITE_USDC_ADDRESS` then `contracts.USDC` on the networks without a faucet (mainnet) of `contracts/deployments/<network>.json`; or the env |
 | Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |
 
 What a purchase sends (`EconomyWriter.purchase`), in one multicall:

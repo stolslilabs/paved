@@ -693,10 +693,10 @@ describe("helpers", () => {
     expect(settleState({ ...terms, settled: true, reward: 5n }, bought, 0)).toEqual({ kind: "settled", reward: 5n });
   });
 
-  it("the economy's addresses come from the same network's file, the env first", () => {
+  it("the economy's addresses come from the same network's file; VITE_USDC_ADDRESS is ignored on devnet (the entry token is the Faucet)", () => {
     const files = { "/x/devnet.json": { default: { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" } } } } };
     expect(resolveEconomyNetwork(base, {}, files).configured).toBe(true);
-    expect(resolveEconomyNetwork(base, { VITE_USDC_ADDRESS: "0x99" }, files).addresses.USDC).toBe("0x99");
+    expect(resolveEconomyNetwork(base, { VITE_USDC_ADDRESS: "0x99" }, files).addresses.USDC).toBe("0x23");
     expect(resolveEconomyNetwork(base, {}, {}).configured).toBe(false);
   });
 });
