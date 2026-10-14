@@ -239,6 +239,13 @@ fn test_guardian_new_owner_holds_the_pause() {
     start_cheat_caller_address(challenge, ANYONE());
     let reason = *safe.unpause_spawn().unwrap_err().at(0);
     assert(reason == 'Ownable: caller is not owner', 'Guardian: pending unpaused');
+    // ... nor pauses (the access check runs before the "already paused" branch) nor sets the
+    // guardian
+    let reason = *safe.pause_spawn().unwrap_err().at(0);
+    assert(reason == 'Challenge: not guardian', 'Guardian: pending paused');
+    let reason = *safe.set_guardian(NOONE()).unwrap_err().at(0);
+    assert(reason == 'Ownable: caller is not owner', 'Guardian: pending set');
+    assert(guardian.guardian() == GUARDIAN(), 'Guardian: pending changed it');
     ownable.accept_ownership();
     // The old owner can no longer unpause, pause or set the guardian
     start_cheat_caller_address(challenge, OWNER());
