@@ -8,8 +8,9 @@
 //!   input: the margin's part goes to the Vault (vPAVED) by a plain transfer, with no share
 //!   minted, which raises its rate (P-56); the burn's part is burned. The game's terms are frozen:
 //!   the reference reward `R` (the burn's PAVED, price-guarded, times the stake boost and the
-//!   supply factor read after the burn) and the curve in force. `Economy` holds nothing after the
-//!   call.
+//!   supply factor read after the burn) and the curve in force. `Economy` holds nothing of its own
+//!   after the call; USDC that the router held before (returned by `clear`) waits on `Economy` and
+//!   joins the next purchase's margin.
 //! - `record` (the game only): the game's score; a game that ended within its day with a score of
 //!   at least 100 enters the day's accumulator.
 //! - `settle` (anyone, after the day): the day's mean is fixed on its first settlement (option B)
@@ -1047,7 +1048,8 @@ pub mod Economy {
         }
 
         /// Ekubo's pattern in one call: the USDC to the router, `swap`, the PAVED back (at least
-        /// `min_out`), the router's stray USDC back. The swap must fill whole (P-56: the Vault has
+        /// `min_out`), the router's stray USDC back (it stays on `Economy` until the next
+        /// purchase's margin). The swap must fill whole (P-56: the Vault has
         /// no use for USDC). Returns the PAVED the swap paid out, from its delta: the router's
         /// balance may hold more, sent there by anyone.
         fn swap(
