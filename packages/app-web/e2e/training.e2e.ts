@@ -217,6 +217,7 @@ describe("Training, played by a bot in a headless browser", () => {
     for (let g = 0; g < GAMES; g++) {
       const first = await readSave(page);
       expect(first?.moves, "a new game starts empty").toEqual([]);
+      if (g === 0 && FIRST_SEED) expect(first!.seed, "PAVED_E2E_SEED is the first game's seed").toBe(FIRST_SEED);
       expect(seeds.has(first!.seed), "a new game has a new seed").toBe(false);
       seeds.add(first!.seed);
       // Even games place and discard only when stuck, odd ones also discard at will and use the keyboard.

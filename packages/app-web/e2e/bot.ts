@@ -142,7 +142,9 @@ export async function hitsBoard(page: Page, x: number, y: number): Promise<boole
 /** Page coordinates of a cell; recentres the camera, then zooms out, when the cell is off screen or under a panel. */
 export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: number; y: number }> {
   const { width, height } = VIEWPORT;
+  let covered: string | null = null;
   for (let attempt = 0; attempt < 14; attempt++) {
+    covered = null;
     const p = await page.evaluate(([cx, cz]) => (window as any).__PAVED_E2E__.target(cx, cz), [x, z]);
     const panels = p ? await panelRects(page) : [];
     const underPanel = p && panels.some((r) => insideRect(p, r));
@@ -151,8 +153,13 @@ export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: 
       await page.waitForTimeout(120);
       const again = await page.evaluate(([cx, cz]) => (window as any).__PAVED_E2E__.target(cx, cz), [x, z]);
       // Whatever the panel boxes say, the click must land on the canvas.
-      if (again && Math.abs(again.x - p.x) < 0.5 && Math.abs(again.y - p.y) < 0.5 && (await hitsBoard(page, again.x, again.y))) return again;
-      continue;
+      if (!again || Math.abs(again.x - p.x) >= 0.5 || Math.abs(again.y - p.y) >= 0.5) continue;
+      if (await hitsBoard(page, again.x, again.y)) return again;
+      // Something other than the canvas sits there: recentre or zoom below, as for a cell under a panel.
+      covered = await page.evaluate(([px, py]) => {
+        const el = document.elementFromPoint(px, py);
+        return el ? `${el.tagName.toLowerCase()}${el.getAttribute("role") ? ` role=${el.getAttribute("role")}` : ""}` : "nothing";
+      }, [again.x, again.y]);
     }
     if (attempt === 0 || attempt === 1) await page.keyboard.press("f");
     else {
@@ -161,7 +168,7 @@ export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: 
     }
     await page.waitForTimeout(350);
   }
-  throw new Error(`cell ${x},${z} stays off screen`);
+  throw new Error(covered ? `cell ${x},${z} covered by ${covered}` : `cell ${x},${z} stays off screen`);
 }
 
 export interface MoveReport {
