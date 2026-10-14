@@ -11,6 +11,11 @@ This is a published interface. Its types (`contracts/src/views.cairo`) are plain
 the client, not the storage structs: the storage will change in phase P5 (persistent structure
 state, packing) and these views will not.
 
+**Where the current state is.** The sections from "Breaking change D-18" on are a changelog, read as a stack: an earlier
+row keeps the names and strings a later section renamed. The state as it stands is in three sections at the end: "The
+events of `Challenge`, current", "What the constructors emit at deployment", "Current surface: `Economy`, `PavedToken`,
+`Faucet`", and the two short notes after them (the price constants, `Collection.set_minters`).
+
 **D-18 broke this interface once** (characters leave the game, built in D-18b): see "Breaking change D-18" at
 the end. Where the sections before it mention characters (`role`, `spot`, `characters`, the counters of
 `builder`), they describe the interface before D-18.
@@ -170,7 +175,9 @@ D-20 (same value; a new selector, since a selector is the name's hash).
 
 What `spawn` pulls from the player: the ERC20 and the amount. It is read from the same source as
 `spawn` (the token the contract was deployed with, and the price of the mode), so the two cannot
-diverge.
+diverge. That holds between `entry_price` and `spawn`; `Economy` checks the price against a second constant, `BASE_PRICE`,
+so `spawn` and `Economy` agree only while the two constants are equal ("Two constants set the price of a stake unit",
+at the end).
 
 | # | Field | Type | Meaning |
 |---|---|---|---|
@@ -235,7 +242,8 @@ scores": `GameOver` with the same filter. "Games of a day": `GameOver` with keys
 `[[selector], [], [], [day_id]]` (`day_id` is `0` for a game that did not count, and
 for every Tutorial game). A Tutorial game belongs to no day: its `GameSpawned` and its
 `GameOver` carry `day_id = 0`. The field was `tournament_id` before D-20: same position, type and values.
-The other events are listed in `native-storage.md`.
+The other events of `Challenge` are listed in "The events of `Challenge`, current" at the end (the table of
+`native-storage.md` is history).
 
 ## How the views are read today
 
@@ -280,7 +288,15 @@ working.
   - `Daily.spawn()` becomes `Daily.spawn(stake: u8, referrer: ContractAddress, min_out: u256) -> u32`. The player
     approves `Daily` on USDC for `stake x entry_price().amount` (stake 1 to 10). `referrer` is a registered player
     other than the caller, or zero (any other is ignored). `min_out` is the least PAVED the burn's swap must buy:
-    the pool's quote (`Economy.quote_swap(Economy.quote(stake).burn_quote)` on devnet) less the slippage. A
+    the pool's quote (`Economy.quote_swap(Economy.quote(stake).burn_quote)` on devnet) less the slippage. (Both
+    rules changed afterwards. **Referrer, since D-25 E and P-58**: it counts only if it is a non-zero address other than the
+    payer, the Vault, the router, `Economy` and the game (`Challenge`); `Challenge` drops the payer, `Economy` and itself
+    (`challenge.cairo:476-480`), `Economy.purchase` drops the payer, the Vault, the router, `Economy` and the game
+    (`economy.cairo:668-673`), and a dropped referrer is ignored: no referral, the spawn goes on, `Purchased.referrer`
+    and `referral` read 0. **`min_out`, since P-56**: it bounds the whole swap, the burn quote and the Vault's part
+    together less any referral, not the burn's part alone; the swap itself must pay at least `min_out`
+    (`economy.cairo` `swap`, `'Economy: swap below min_out'`), and the client takes it from
+    `quote_swap(price - referral)`: see "`Economy`" under P-56 below.) A
     client that calls `spawn()` without arguments must change: this is the one breaking change, agreed in P-31.
   - `entry_price()` keeps its shape. `token` is USDC (`MockUSDC` on devnet, 6 decimals) and `amount` is the price of
     one stake unit (2,000,000), which is also `GameSpawned.price`.
@@ -291,7 +307,9 @@ working.
   - `Economy` (its own address in `contracts/deployments/<network>.json`) emits `Purchased` (keys `game_id`,
     `player_id`), `Recorded` (key `game_id`), `DayClosed` (key `day`) and `Settled` (keys `game_id`,
     `player_id`); its views are `quote`, `quote_swap`, `day`, `terms`, `config`, `ema`, `rate`, `pool`,
-    `addresses`, `owner`, and `settle(game_ids)` is open to anyone from `(D + 2) x 86400`.
+    `addresses`, `owner`, and `settle(game_ids)` is open to anyone from `(D + 2) x 86400`. (It now also has `router()`
+    and, since P-56, `split_bps()`; the full current surface is under "Current surface: `Economy`, `PavedToken`,
+    `Faucet`" at the end.)
     `contracts/abis/Economy.json` is its ABI. Every view and event of `Daily` and `Tutorial` keeps its fields.
   - P-37, P-37b: after a day nobody ranked in (nobody played, or every score 0), its sponsors take back what each put
     in. `Daily.claim(tournament_id, 0)` (rank 0) is a sponsor's reclaim, once, after the day is over; on a day with
@@ -690,10 +708,10 @@ ABI diff as built. Inventory and design: `leaderboard.md`, "As built: D-24, Lobb
 |---|---|---|
 | `IDailyQuests`: `define_quest(quest_id, schedule, tasks, conditions)`, `retire_quest(quest_id)`, `define_achievement(achievement_id, window, tasks, points)`, `retire_achievement(achievement_id)` (`systems/daily.cairo:28-46`) | on `Daily`, owner-only | **moved to `Setup`**, same signatures |
 | `ILobbyClass.set_lobby_class(class_hash)`, event `LobbyClassSet { class_hash }` (`daily.cairo:265-275`, `:153`) | on `Daily` and `Tutorial` | **removed** from Challenge |
-| Constructor of `Daily` | `(owner, account_address, token_address, lobby_class)` (`daily.cairo:159-165`) | `(owner, account_address, token_address, setup_address)` for a new deploy, `setup_address` non-zero (`'Daily: setup is zero'`). Sepolia gets one fresh deployment (P-53), where the constructor sets it. A future in-place upgrade (D-17; mainnet later) sends `upgrade` and `set_setup` in one owner multicall, after `Setup` is deployed and allowlists `Daily`; until `set_setup` runs, a game over still ends and is recorded, with no progress reported |
+| Constructor of `Daily` | `(owner, account_address, token_address, lobby_class)` (`daily.cairo:159-165`) | `(owner, account_address, token_address, setup_address)` for a new deploy, `setup_address` non-zero (`'Challenge: setup is zero'`). Sepolia gets one fresh deployment (P-53), where the constructor sets it. A future in-place upgrade (D-17; mainnet later) sends `upgrade` and `set_setup` in one owner multicall, after `Setup` is deployed and allowlists `Daily`; until `set_setup` runs, a game over still ends and is recorded, with no progress reported |
 | **New:** `IDailySetup.set_setup(setup: ContractAddress)`, `setup() -> ContractAddress`, event `SetupSet { setup }` | | the `Setup` a game over reports to: the owner sets it (never zero), anyone reads it |
 | The quiver events in Challenge's ABI (`QuestDefined`, `QuestProgressed`, `QuestRetired`, `QuestCompleted`, `QuestClaimed`, `QuestReporterSet`, the `Achievement*` ones) | declared and emitted by `Daily` | **leave Challenge's ABI**: `Daily` keeps their storage, dead, without declaring the components; emitted by `Setup` only |
-| Errors of the cold paths | `'Lobby: economy not set'`, `'Lobby: collection not set'` | `'Daily: economy not set'`, `'Daily: collection not set'`; `'ERC20: pay failed'` unchanged |
+| Errors of the cold paths | `'Lobby: economy not set'`, `'Lobby: collection not set'` | `'Challenge: economy not set'`, `'Challenge: collection not set'`; `'ERC20: pay failed'` unchanged |
 | `spawn`, `discard`, `surrender`, `build` | wrappers of a library call (`spawn`, `discard`, `surrender`), `build` in `Daily` | same signatures; the code runs in Challenge |
 | The `Lobby` class (`Lobby.json`): `ILobby` (`spawn`, `claim`, `sponsor`, `discard`, `surrender`, `tutorial_*`, `report`, the four definitions), event `Reclaimed` | declared, never deployed, run by library call | **ends**: no Lobby class or contract until the multiplayer mode is planned (the name is reserved for it, P-51 (2)) |
 
@@ -713,7 +731,10 @@ Events of `Setup`, with quiver 0.2.0's layouts (unchanged from those `Daily` emi
 quest_id, schedule, tasks, conditions }`, `QuestProgressed { #[key] player_id, #[key] task_id, count }`, `QuestRetired
 { #[key] quest_id }`, `AchievementDefined { #[key] achievement_id, window, tasks, points }`, `AchievementProgressed
 { #[key] player_id, #[key] task_id, count }`, `AchievementRetired { #[key] achievement_id }`, `QuestReporterSet
-{ #[key] reporter, allowed }`, `AchievementReporterSet { #[key] reporter, allowed }`; plus `Upgraded` and the ownership
+{ #[key] reporter, allowed }`, `AchievementReporterSet { #[key] reporter, allowed }`, and `QuestCompleted { #[key]
+player_id, #[key] quest_id, interval_id }` and `QuestClaimed` (the same layout), which `Setup.json` declares and Paved's
+quests (event mode) never emit: declared, not emitted (`indexer.md`, "Not indexed in v1" and its `IGNORED` list;
+`leaderboard.md:859`); plus `Upgraded` and the ownership
 events. The indexer follows them from `Setup`'s deployment block; the ones `Daily` and `Tutorial` emitted before stay
 history (not migrated, P-51 (5)).
 
@@ -739,8 +760,8 @@ promise. Sepolia gets one fresh deployment (P-53, step F), so no deployed contra
 |---|---|---|
 | Constructor | `(owner, account_address, token_address, setup_address)` | **`(owner, token_address, setup_address)`**: `account_address` and `'Daily: account is zero'` are gone |
 | `spawn(stake, referrer, min_out)` | the caller had to be registered in `Account` (`'Player: Does not exist'`); the referrer counted if registered and not the payer | same signature. **Any account may play.** The referrer counts if it is **a non-zero address other than the payer, `Economy`, `Challenge`, the Vault and the router** (any of those, or zero: no referral, the spawn goes on; the last two are checked by `Economy.purchase` since P-58, and the router is read at each purchase, so `set_router` moves it). The wiring is read from `Setup` in one call |
-| `spawn` with no wiring | `'Daily: economy not set'`, `'Daily: collection not set'` (read from `Account`) | the same two errors, read from `Setup.wiring()`. A zero `setup` slot (an in-place upgrade before `set_setup`) reverts `'Daily: setup is zero'` and leaves no game |
-| A game over (`build`, `discard`, `surrender` that ends the game) | reported to `Setup` if `setup` is set, then `Economy.record` (economy read from `Account`) | reported to `Setup`, then `Economy.record` with the economy read from `Setup.wiring()` (a game over checks only the economy; a spawn checks both). With a zero `setup` slot the move **reverts** (`'Daily: setup is zero'`): the economy is out of reach, so the game stays live until the owner sets the `Setup` (step D ended it unreported) |
+| `spawn` with no wiring | `'Daily: economy not set'`, `'Daily: collection not set'` (read from `Account`) | the same two errors, read from `Setup.wiring()`. A zero `setup` slot (an in-place upgrade before `set_setup`) reverts `'Challenge: setup is zero'` and leaves no game |
+| A game over (`build`, `discard`, `surrender` that ends the game) | reported to `Setup` if `setup` is set, then `Economy.record` (economy read from `Account`) | reported to `Setup`, then `Economy.record` with the economy read from `Setup.wiring()` (a game over checks only the economy; a spawn checks both). With a zero `setup` slot the move **reverts** (`'Challenge: setup is zero'`): the economy is out of reach, so the game stays live until the owner sets the `Setup` (step D ended it unreported) |
 | Event `PlayerCreated { #[key] player_id, name, master }` | in `Daily.json` (the shared `paved::events::Event`), emitted by `Account` only | **emitted by nothing deployed**: a past event (below). It stays declared in `Daily.json`, as it always was (never emitted by a game contract), because the indexer's tests read it from there; it leaves the ABI with META's indexer change |
 | `GameSpawned`, `Built`, `Discarded`, `Scored`, `GameOver`, `SetupSet` | | unchanged; `player_id` is the address felt, as before |
 
@@ -776,7 +797,7 @@ P-56 (`docs/architecture/vault-share.md`, addendum; `economy.md` section 4, "As 
 ### `Vault` (`Vault.json`): vPAVED
 
 The Vault is now an ERC4626 share over PAVED, "Vault PAVED" / `vPAVED`, 18 decimals. Its constructor is
-`(owner, paved, exit_fee_bps)`, and the deploy passes 500.
+`(owner, paved, exit_fee)` (`vault.cairo:182-184`; the ABI names the argument `exit_fee`, in basis points), and the deploy passes 500.
 
 | Entry point or view | Who | What |
 |---|---|---|
@@ -829,3 +850,169 @@ The earlier note above, that the Vault's `Claimed` stays, holds for history only
 
 The indexer decodes `Purchased` strictly (17 data felts) and `EconomyConfigured`: both move with this change (INDEXER
 follows on this branch).
+
+## The events of `Challenge`, current
+
+What `Challenge` emits today, from `contracts/abis/Challenge.json` and the code (main at 0298cc7c, whose contracts are those
+of a28f1e8d). The history sections above stack the changes in the order they were made; this is the list as it stands. Keys
+are listed in order after the selector (`sn_keccak` of the event's name); a field not named a key is data, in the order
+written. `native-storage.md`'s event table is history and is not this list.
+
+| Event | Keys | Data | Emitted by | Source |
+|---|---|---|---|---|
+| `GameSpawned` | `game_id`, `player_id` | `mode`, `day_id`, `start_time`, `price` (the unit price, a felt) | `spawn` | `events.cairo:22-32`; `components/hostable.cairo:101-113` |
+| `Built` | `game_id` | `player_id`, `tile_id`, `plan`, `orientation`, `x`, `y` | `build` | `events.cairo:34-44` |
+| `Discarded` | `game_id` | `player_id`, `tile_id`, `plan`, `points` | `discard` | `events.cairo:46-54` |
+| `Scored` | `game_id` | `player_id`, `category`, `size`, `points` | a move that closes a structure | `events.cairo:56-64` |
+| `GameOver` | `game_id`, `player_id`, `day_id` | `mode`, `score`, `start_time`, `end_time` | the move that ends a game (`build`, `discard`, `surrender`) | `events.cairo:66-78` |
+| `SetupSet` | none | `setup` | `set_setup` (not the constructor) | `systems/challenge.cairo:35-38` |
+| `GuardianSet` | none | `guardian` | `set_guardian`, every call | `challenge.cairo:59-62` |
+| `SpawnPaused` | none | `by` | `pause_spawn`, when it pauses | `challenge.cairo:64-68` |
+| `SpawnUnpaused` | none | none | `unpause_spawn`, when it unpauses | `challenge.cairo:70-72` |
+| `OwnershipTransferStarted` | none | `previous_owner`, `new_owner` | `transfer_ownership` | `components/ownable.cairo:42-46` |
+| `OwnershipTransferred` | none | `previous_owner`, `new_owner` | `accept_ownership`, and the constructor | `components/ownable.cairo:48-52` |
+| `Upgraded` | none | `class_hash` | `upgrade` | OpenZeppelin's `UpgradeableComponent` (`Challenge.json`) |
+
+The first five are the `paved::events::Event` enum (`events.cairo:14-20`), flattened into the ABI of `Challenge`. `Built` carries no `role` and no `spot`
+since D-18, and `GameSpawned` and `GameOver` carry `day_id`, not `tournament_id`, since D-20. `PlayerCreated`,
+`Sponsored`, `Claimed`, `Reclaimed` and `LobbyClassSet` are past events: no deployed `Challenge` emits them.
+
+## What the constructors emit at deployment
+
+A deployment writes events before any owner act. An indexer must not read them as owner acts.
+
+| Contract | Events of the constructor, in order | Source |
+|---|---|---|
+| `Challenge` | `OwnershipTransferred { previous_owner: 0, new_owner: owner }`. No `SetupSet`: the constructor writes the `setup` slot without an event | `systems/challenge.cairo:215-217`; `ownable.cairo:100-105` |
+| `Setup` | `OwnershipTransferred { previous_owner: 0, new_owner: owner }` | `systems/setup.cairo:226-228` |
+| `Collection` | `OwnershipTransferred { previous_owner: 0, new_owner: owner }` | `systems/collection.cairo:292-295` |
+| `Economy` | `OwnershipTransferred { previous_owner: 0, new_owner: owner }`, then `PoolSet { pool_key, sqrt_ratio_limit }`, then `EconomyConfigured { burn_bps, sigma_bps, slope_bps, cap, target, referral_bps }` | `systems/economy.cairo:618`, `:623-624` |
+| `Vault` | `OwnershipTransferred { previous_owner: 0, new_owner: owner }`, then `ExitFeeSet { previous: 0, fee }`, with `fee` 500 at launch (the deploy passes it as the third constructor argument) | `systems/vault.cairo:190-191`, `:281-287`; `scripts/deploy.sh`, `EXIT_FEE` |
+| `PavedToken` | `Transfer { from: 0, to: recipient, value: 1,000,000 PAVED }` (the initial supply). No ownership: it has no owner | `systems/token.cairo:108-109` |
+| `Faucet` | `Transfer { from: 0, to: <the deploying account>, value: 10,000 USDC }`, only when the transaction has an account (the premint) | `systems/faucet.cairo:107-110` |
+
+The U-1 bullet above ("`OwnershipTransferred`, emitted once by each constructor") is true of every owned contract, not
+only `Economy` and `Collection`. `ExitFeeSet` is the one owner-setter event that is also written at deployment, with
+`previous` 0: it is not a change of the fee.
+
+## Current surface: `Economy`, `PavedToken`, `Faucet`
+
+The P-56 sections above give `Economy` as a diff. This is the surface as it stands (`contracts/abis/Economy.json`,
+`PavedToken.json`, `Faucet.json`; `systems/economy.cairo`, `token.cairo`, `faucet.cairo`).
+
+### `Economy`
+
+Constructor `(owner, paved, usdc, vault, router, pool_key: PoolKey, sqrt_ratio_limit: u256, config: Config, mean: u64,
+rate: u256)` (`economy.cairo:598-628`). It reverts `'Economy: zero address'` for a zero `owner`, `paved`, `usdc`,
+`vault` or `router`, `'Economy: zero rate'` for a zero `rate`, `'Economy: rate overflow'` for a `rate` above `u128`, and
+the errors of `configure` and `set_pool` for a `config` or `pool_key` they refuse. `PoolKey` is `{ token0, token1, fee:
+u128, tick_spacing: u128, extension }` (`economy/ekubo.cairo:25-31`).
+
+Entry points, with their callers:
+
+| Entry point | Who | What | Reverts |
+|---|---|---|---|
+| `purchase(game_id: u32, player: ContractAddress, day: u64, stake: u8, price: u256, referrer: ContractAddress, min_out: u256) -> u128` | the game (`set_game`), that is `Challenge` | `Challenge` has already moved the price to `Economy`. Pays the referrer, swaps the rest in one whole fill, burns the burn's PAVED, sends the Vault's PAVED to the Vault, freezes the game's terms. Returns `R`. Emits `Purchased` | `'Economy: not the game'`, `'Economy: wrong stake'` (not 1 to 10), `'Economy: wrong price'` (not `stake x 2,000,000`), `'Economy: wrong day'` (not `block_timestamp / 86400`), `'Economy: zero address'` (zero `player`), `'Economy: already purchased'`, `'Economy: price not paid'`, and from the swap `'Economy: transfer failed'`, `'Economy: amount too large'`, `'Economy: partial fill'`, `'Economy: wrong delta'`, `'Economy: swap below min_out'`, `'Economy: rate overflow'` |
+| `record(game_id: u32, score: u32)` | the game | records a purchased game's score, once; before the game's expiry it enters the mean of its purchase day. Emits `Recorded` | `'Economy: not the game'`, `'Economy: unknown game'`, `'Economy: already recorded'` |
+| `settle(game_ids: Span<u32>) -> u256` | anyone | pays every recorded game of the list from `(day + 2) x 86400` (`day` the game's purchase day), minting PAVED to its player; a game already settled is skipped. Closes the day on its first settlement. Returns the PAVED minted. Emits `DayClosed` (the first time for a day) and `Settled` | `'Economy: unknown game'`, `'Economy: not recorded'`, `'Economy: day cannot close yet'` |
+| `configure(config: Config)` | owner | sets the curve and the split for later purchases, within the bounds of `upgrade-owner.md`, section 1. Emits `EconomyConfigured` | `'Economy: burn out of bounds'`, `'Economy: sigma out of bounds'`, `'Economy: slope out of bounds'`, `'Economy: cap out of bounds'`, `'Economy: target out of bounds'`, `'Economy: referral out of bounds'`, `'Economy: referral above vault'` |
+| `set_pool(pool_key: PoolKey, sqrt_ratio_limit: u256)` | owner | sets the PAVED/USDC pool and the swap's price bound. Emits `PoolSet` | `'Economy: wrong pool'` (tokens other than PAVED and USDC, in Ekubo's order) |
+| `set_game(game: ContractAddress)` | owner, once | sets the game allowed to `purchase` and `record`. Emits `GameSet` | `'Economy: game already set'`, `'Economy: zero address'` |
+| `set_router(router: ContractAddress)` | owner | repoints every swap and quote. Emits `RouterSet` | `'Economy: zero address'` |
+| `upgrade(new_class_hash)` | owner | OpenZeppelin's; emits `Upgraded` | |
+| `owner`, `pending_owner`, `transfer_ownership`, `accept_ownership` | as the other owned contracts | `OwnableComponent` | `'Ownable: caller is not owner'` (every owner entry point above, for any other caller), `'Ownable: caller not pending'`, `'Ownable: new owner is zero'` |
+
+The 20 constants of the `errors` module (`economy.cairo:277-298`) are all in the table. The seven errors of `configure`
+are string literals in `validate` (`economy.cairo:100-121`); a `time` that does not fit in 40 bits reverts `'Economy: time
+overflow'`, a literal in `TermsStorePacking::pack`.
+
+Views:
+
+| View | Returns | Notes |
+|---|---|---|
+| `quote(stake: u8) -> Quote` | `Quote { price: u256, burn_quote: u256, referral: u256, margin: u256, min_out_hint: u256, factor: u32, mean: u64, threshold: u64, slope: u32, cap: u8 }` | `'Economy: wrong stake'` outside 1 to 10; `referral` is what a referrer would get; `min_out_hint` is an estimate, never to be sent as `min_out` |
+| `quote_swap(usdc_in: u256) -> u256` | the PAVED the purchase's swap pays now, fee included | `'Economy: amount too large'`, `'Economy: partial fill'`, `'Economy: wrong delta'` |
+| `day(day: u64) -> DayView` | `DayView { prior: u64, sum: u128, weight: u32, mean: u64, closed: bool }` | `sum`, `weight` and `mean` read 0 until the day closes |
+| `terms(game_id: u32) -> TermsView` | `TermsView { player, time: u64, day: u64, stake: u8, reference: u128, sigma_bps: i16, slope_bps: u32, cap: u8, score: u32, recorded: bool, expired: bool, settled: bool, reward: u128 }` | zero for a game never purchased |
+| `config() -> Config` | `Config { burn_bps: u16, sigma_bps: i16, slope_bps: u32, cap: u8, target: u128, referral_bps: u16 }` | |
+| `split_bps() -> (u16, u16, u16)` | `(burn, vault, referral)` in force | the Vault's part is `10,000 - burn`; the referral comes out of it |
+| `ema() -> (Ema, u64)` | `Ema { sum: u128, weight: u32 }` and its mean | points x 1,000 |
+| `rate() -> u256` | the price guard's swap rate | PAVED base units per USDC base unit, x 1e18 |
+| `pool() -> (PoolKey, u256)` | the pool key and the swap's price bound | |
+| `router() -> ContractAddress` | the router in force | the client reads it before every send (`packages/chain/src/economy/views.ts:159`) |
+| `addresses() -> Addresses` | `Addresses { paved, usdc, vault, router, game }` | `game` is zero until `set_game` |
+
+Events (`economy.cairo:495-590`; keys after the selector, then data in order, `u256` as two felts, low then high):
+
+| Event | Keys | Data |
+|---|---|---|
+| `Purchased` | `game_id`, `player_id` | `day`, `stake`, `price`, `referrer`, `referral`, `burned_quote`, `burned`, `margin`, `supply`, `factor`, `reference`, `vault_paved` (19 felts) |
+| `Recorded` | `game_id` | `score`, `expired` |
+| `DayClosed` | `day` | `mean`, `weight`, `prior`, `ema_after` |
+| `Settled` | `game_id`, `player_id` | `day`, `score`, `threshold`, `reward` |
+| `EconomyConfigured` | none | `burn_bps`, `sigma_bps`, `slope_bps`, `cap`, `target`, `referral_bps` |
+| `PoolSet` | none | `pool_key` (`token0`, `token1`, `fee`, `tick_spacing`, `extension`), `sqrt_ratio_limit` |
+| `GameSet` | none | `game` |
+| `RouterSet` | none | `previous`, `router` |
+| `OwnershipTransferStarted`, `OwnershipTransferred` | none | `previous_owner`, `new_owner` |
+| `Upgraded` | none | `class_hash` |
+
+`EconomyConfigured` and `PoolSet` are also written by the constructor (above). `Economy` holds no PAVED between
+transactions; USDC that the router returns from `clear`, or that anyone sends to `Economy`, waits there and joins the
+margin of the next purchase (`economy.cairo:12-13`, `purchase`).
+
+### `PavedToken`
+
+An OpenZeppelin ERC20 ("Paved Token", `PAVED`, 18 decimals) with a one-time minter. Constructor `(recipient, admin)`:
+mints 1,000,000 PAVED to `recipient`; reverts `'PavedToken: zero recipient'` or, for a zero `admin`, `'PavedToken: not
+admin'` (`token.cairo:102-111`).
+
+| Entry point or view | Who | What | Reverts |
+|---|---|---|---|
+| `set_minter(minter: ContractAddress)` | the admin, once | sets the only minter and clears the admin. Emits `MinterSet` | `'PavedToken: not admin'` (any other caller, and every caller once the admin is cleared), `'PavedToken: zero minter'` |
+| `mint(recipient: ContractAddress, amount: u256)` | the minter (`Economy`) | mints | `'PavedToken: not minter'` (also while the minter is zero) |
+| `burn(amount: u256)` | anyone | burns `amount` of the caller's own balance | OpenZeppelin's balance error |
+| `minter() -> ContractAddress` | anyone | zero until set | |
+| `admin() -> ContractAddress` | anyone | zero once the minter is set | |
+| `name`, `symbol`, `decimals`, `total_supply`, `balance_of`, `allowance`, `transfer`, `transfer_from`, `approve`, and the camel-case `totalSupply`, `balanceOf`, `transferFrom` | anyone | OpenZeppelin's ERC20 mixin | |
+
+Events: `MinterSet { #[key] minter }`, and OpenZeppelin's `Transfer { #[key] from, #[key] to, value }` and `Approval {
+#[key] owner, #[key] spender, value }`. There is no owner, no upgrade and no other setter (`token.cairo:3-7`).
+
+### `Faucet`
+
+A stand-in for USDC on devnet and Sepolia, never on mainnet: an OpenZeppelin ERC20 ("USD Coin (mock)", `USDC`, 6
+decimals) with a bounded `mint`. The constructor takes no argument, reverts `'Faucet: not on mainnet'` on `SN_MAIN`,
+and premints 10,000 USDC (`PREMINT`) to the account that sends the deploy transaction, outside the caps below and not
+counted in `minted` (`faucet.cairo:100-111`).
+
+| Entry point or view | Who | What | Reverts |
+|---|---|---|---|
+| `mint(recipient: ContractAddress, amount: u256)` | anyone | mints `amount` to `recipient`, at most 10,000 USDC (`10_000_000_000`) per call and 20,000 USDC (`20_000_000_000`) per recipient over all calls | `'Faucet: over the call cap'`, `'Faucet: over the address cap'` |
+| `minted(account: ContractAddress) -> u256` | anyone | what `account` has received from `mint` so far (the premint excluded) | |
+| the ERC20 mixin | anyone | as `PavedToken`'s, with 6 decimals | |
+
+The only events are OpenZeppelin's `Transfer` and `Approval`; the faucet has none of its own
+(`faucet.cairo:91-96`). The client matches the two cap strings (`packages/chain/src/writer.ts:55-56`; it calls `Faucet.mint` at `:188-193`).
+
+## Two constants set the price of a stake unit
+
+The price of one stake unit comes from two constants, not one:
+
+- `CHALLENGE_PRICE`, 2,000,000 (`constants.cairo:13`), read through `Mode::price` (`types/mode.cairo:30-35`). It is what
+  `Challenge.spawn` pulls from the player (`stake x unit`, `challenge.cairo` `purchase`), what `entry_price()` returns
+  (`views.cairo:212-214`) and what `GameSpawned.price` carries.
+- `BASE_PRICE`, 2,000,000 (`economy.cairo:38`), which `Economy.purchase` checks: it reverts `'Economy: wrong price'`
+  unless `price == stake x BASE_PRICE` (`economy.cairo:647`).
+
+"The two cannot diverge" (`entry_price`, above) holds for `entry_price()` and `spawn`, which read one source. It holds
+between `Challenge` and `Economy` only while the two constants are equal. If one changed alone, every `spawn` would
+revert `'Economy: wrong price'`. One test pins the equality: `test_economy_entry_price_is_the_stake_unit`
+(`tests/e2e/economy.cairo:54-58`).
+
+## `Collection.set_minters` emits no event
+
+`set_minters(challenge, tutorial)` writes the two minter slots and emits nothing (`collection.cairo:328-340`), unlike
+`Setup.set_economy` and `Setup.set_collection`, which emit `EconomySet` and `CollectionSet`. An indexer cannot see when
+the minters were set; it reads `Collection.challenge()`. `Collection`'s only events are `Transfer { #[key] from, #[key]
+to, #[key] token_id }` (at mint only), the two ownership events and `Upgraded` (`Collection.json`).

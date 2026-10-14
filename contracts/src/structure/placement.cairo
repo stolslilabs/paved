@@ -102,32 +102,41 @@ pub fn edge_category(plan: u8, orientation: u8, direction: u8) -> u8 {
 
 /// Checks that the built tile (placed: orientation and position set) fits its side neighbours, as
 /// `Tile::can_place` did on the layouts: there is at least one, and each facing edge has the same
-/// category on both tiles.
+/// category on both tiles. G7a (C5): the categories are read from one edge word per tile
+/// (`oriented::edges`), whose equality with `edge_category` a test proves.
 pub fn assert_fits(tile: Tile, around: @Neighborhood) {
-    let mut found = false;
+    let taken = *around.taken;
+    // [Check] There is a side neighbour
+    assert(taken & SIDES != 0, errors::TILE_NO_NEIGHBORS);
+    // [Check] The tile is placed (the layout of an unplaced tile asserts it)
+    assert(tile.orientation != 0, errors::TILE_NOT_PLACED);
+    let edges = oriented::edges(tile.plan, tile.orientation);
+    // [Info] Each side compares this tile's edge with the opposite edge of its neighbour: the
+    // fields are north (bits 0..2), east (2..4), south (4..6) and west (6..8)
     let mut fits = true;
-    let mut direction: u8 = tables::NORTH;
-    while direction <= tables::WEST {
-        let neighbor = around.tile(direction);
-        if neighbor.is_non_zero() {
-            // [Check] The tile is placed (the layout of an unplaced tile asserts it)
-            assert(tile.orientation != 0, errors::TILE_NOT_PLACED);
-            let opposite = if direction <= tables::EAST {
-                direction + 4
-            } else {
-                direction - 4
-            };
-            if edge_category(
-                tile.plan, tile.orientation, direction,
-            ) != edge_category(neighbor.plan, neighbor.orientation, opposite) {
-                fits = false;
-            }
-            found = true;
-        }
-        direction += 2;
+    if taken & 0x4 != 0 {
+        fits = fits && edges & 0x3 == (side_edges(around, tables::NORTH) / 0x10) & 0x3;
     }
-    assert(found, errors::TILE_NO_NEIGHBORS);
+    if taken & 0x10 != 0 {
+        fits = fits && (edges / 0x4) & 0x3 == (side_edges(around, tables::EAST) / 0x40) & 0x3;
+    }
+    if taken & 0x40 != 0 {
+        fits = fits && (edges / 0x10) & 0x3 == side_edges(around, tables::SOUTH) & 0x3;
+    }
+    if taken & 0x100 != 0 {
+        fits = fits && (edges / 0x40) & 0x3 == (side_edges(around, tables::WEST) / 0x4) & 0x3;
+    }
     assert(fits, errors::TILE_CANNOT_PLACE);
+}
+
+/// The directions of the side neighbours in `Neighborhood::taken` (north, east, south, west).
+const SIDES: u16 = 0x154;
+
+/// The edge word of the side tile in `direction`.
+#[inline(always)]
+fn side_edges(around: @Neighborhood, direction: u8) -> u8 {
+    let neighbor = around.tile(direction);
+    oriented::edges(neighbor.plan, neighbor.orientation)
 }
 
 #[inline(always)]
@@ -172,12 +181,45 @@ pub fn place_alone(tile: Tile) -> u128 {
     refs
 }
 
+/// The refs of the starter tile (`RFFFRFCFR` facing South at `CENTER`, tile 1 of an empty board,
+/// `Game::start`): its four areas found the structures 16 to 19 (G7a, C2).
+pub const STARTER_REFS: u128 = 0x13012011010;
+/// The record page of the starter tile (one slot): the four records founded alone, of 2, 3, 2 and
+/// 1 open half-edges.
+pub const STARTER_PAGE: felt252 = 0x40100000000080100000000000000000c01000000000801000;
+
+/// Writes the starter tile of a new game with its refs and its page (G7a, C2). Every game starts
+/// with the same tile at the same place on an empty board, so `place_alone` (8 empty positions
+/// read, the placement, the flush) would write these same words: a test proves it.
+pub fn place_starter(store: Store, tile: Tile) {
+    store.set_structure_slot(tile.game_id, tile.id, 0, STARTER_PAGE);
+    store.set_placed_tile(tile, STARTER_REFS);
+}
+
 /// Places the nodes of `tile` (placed, orientation and position set) on the structure state and
 /// returns its refs. Step 1: the half-edges of the neighbours that point at the tile close, the
 /// wonders' here (one per direction, proved by the plan tables) and every other one as the move
 /// of the tile that answers it (the plan tables prove the counts equal area by area). Step 2: each
 /// area with moves founds a structure, or joins the structures it reaches into one.
 pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u128 {
+    let (refs, _) = place_move(ref structures, tile, around);
+    refs
+}
+
+/// `place`, which also returns whether the move closed a structure (G7a, C1): whether a root it
+/// reached has no open half-edge left once the tile is placed. The roots a move reaches are the
+/// final roots of the tile's areas and the roots of the wonders around; those are the only roots
+/// `Game::assess` can score (a closed structure takes no later tile), and it scores only those of
+/// `open == 0`. So when this is false the assessment changes nothing, and the move skips it.
+///
+/// Every record the move writes goes through a `set` below. A root that ends closed got its last
+/// record from one of them with `open == 0`, so each `set` that can leave `open == 0` keeps its
+/// root as a candidate, and the candidates are read once more at the end: a later `set` may have
+/// grown one, or made it a child.
+pub fn place_move(ref structures: Structures, tile: Tile, around: @Neighborhood) -> (u128, bool) {
+    // [Info] The roots a `set` of this move left with no open half-edge
+    let mut closed: Array<u32> = array![];
+
     // [Effect] The wonders around: their half-edge towards the tile closes (it has no spot)
     if *around.wonders != 0 {
         let mut direction: u8 = 1;
@@ -185,7 +227,11 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             if *around.wonders & bit(direction) != 0 {
                 let wonder = oriented::wonder_area(around.tile(direction).plan);
                 let (root, record) = structures.find(around.reference(direction, wonder));
-                structures.set(root, close_one(record));
+                let record = close_one(record);
+                structures.set(root, record);
+                if record & OPEN_BITS == 0 {
+                    closed.append(root);
+                }
             }
             direction += 1;
         }
@@ -226,7 +272,11 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             }
             // [Effect] The half-edge of the neighbour that answers this move closes
             let (root, record) = structures.find(around.reference(direction, landing));
-            structures.set(root, close_one(record));
+            let record = close_one(record);
+            structures.set(root, record);
+            if record & OPEN_BITS == 0 {
+                closed.append(root);
+            }
             if !contains(roots.span(), root) {
                 roots.append(root);
             }
@@ -242,6 +292,11 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             }
             structures.merge(roots.span(), open)
         };
+        // [Info] A root that takes `open` new half-edges keeps them open: it is a candidate only
+        // without them
+        if open == 0 {
+            closed.append(reference);
+        }
         refs = add_ref(refs, area, reference);
     }
 
@@ -261,8 +316,23 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             area += 1;
         }
     }
-    refs
+
+    // [Compute] Whether a candidate is still a closed root
+    let mut closes = false;
+    for candidate in closed {
+        let record = structures.record(candidate);
+        if record & (OPEN_BITS | PARENT_BITS) == 0 {
+            closes = true;
+            break;
+        }
+    }
+    (refs, closes)
 }
+
+/// The `open` and `parent` fields of a packed record (`record.cairo`): a mask reads whether they
+/// are 0 without a shift.
+const OPEN_BITS: u64 = 0xffc00000;
+const PARENT_BITS: u64 = 0xfff;
 
 /// The bit `index` of a 16-bit set (of directions, of areas; 0..=15).
 #[inline(always)]
@@ -314,7 +384,7 @@ mod tests {
     use paved::constants::CENTER;
     use paved::models::index::Tile;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::structure::tables;
+    use paved::structure::{oriented, tables};
     use paved::tests::setup::setup;
     use paved::types::category::Category;
     use paved::types::layout::LayoutImpl;
@@ -346,6 +416,36 @@ mod tests {
             }
             plan += 1;
         }
+    }
+
+    /// G7a (C5): the edge word of every placed plan holds, field by field, the category that
+    /// `edge_category` reads from the area rows (north, east, south, west, 2 bits each), so the
+    /// fit check on the words answers as the check on the rows did. Unplaced: 0.
+    #[test]
+    fn test_placement_edge_words_equal_the_edge_categories() {
+        let mut plan: u8 = 1;
+        while plan <= tables::PLAN_COUNT {
+            assert_eq!(oriented::edges(plan, 0), 0);
+            let mut orientation: u8 = 1;
+            while orientation <= 4 {
+                let mut word: u8 = 0;
+                let mut unit: u8 = 1;
+                let mut direction: u8 = tables::NORTH;
+                while direction <= tables::WEST {
+                    let category = edge_category(plan, orientation, direction);
+                    assert!(category >= 1 && category <= 3);
+                    word += category * unit;
+                    if direction < tables::WEST {
+                        unit *= 4;
+                    }
+                    direction += 2;
+                }
+                assert_eq!(oriented::edges(plan, orientation), word);
+                orientation += 1;
+            }
+            plan += 1;
+        }
+        assert_eq!(oriented::edges(0, 1), 0);
     }
 
     /// A tile written alone is placed, and written again as it is.

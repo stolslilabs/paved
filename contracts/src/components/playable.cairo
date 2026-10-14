@@ -228,9 +228,9 @@ pub mod PlayableComponent {
                     ),
                 );
 
-            // [Effect] Place the tile on the structure state
+            // [Effect] Place the tile on the structure state, and whether a structure closed
             let mut structures = StructuresTrait::new(game_id);
-            let refs = game.place_structures(tile, @around, ref structures);
+            let (refs, closes) = placement::place_move(ref structures, tile, @around);
 
             // [Effect] Update tile (written with its position by `flush`, after the assessment)
             structures.track(tile, refs);
@@ -250,8 +250,11 @@ pub mod PlayableComponent {
             game.set_builder(builder);
 
             // [Effect] Assessment, then what the move changed outside the game state: the record
-            // pages and the built tile
-            game.assess(tile, refs, @around, ref structures, ref store);
+            // pages and the built tile. A move that closes nothing scores nothing: no assessment
+            // (G7a, C1, `placement::place_move`)
+            if closes {
+                game.assess(tile, refs, @around, ref structures, ref store);
+            }
             structures.flush(store);
 
             // [Effect] The day of the game on game over

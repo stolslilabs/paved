@@ -7,7 +7,7 @@ const meta = {
   title: "Containers/GameHud",
   component: GameHud,
   parameters: { layout: "padded" },
-  args: { title: "Challenge #1042", score: 1270, remaining: 12, discarded: 2, expiresAt: MOCK_NOW + 19 * 3600, now: MOCK_NOW, onBack: fn() },
+  args: { title: "Challenge #1042", score: 1270, remaining: 12, expiresAt: MOCK_NOW + 19 * 3600, now: MOCK_NOW, onBack: fn() },
   decorators: [(Story) => <div className="max-w-2xl"><Story /></div>],
 } satisfies Meta<typeof GameHud>;
 export default meta;
@@ -18,4 +18,4 @@ export const AfterAClosing: Story = { args: { score: 1640, delta: 370 } };
 export const LastHour: Story = { args: { expiresAt: MOCK_NOW + 25 * 60 } };
 export const Expired: Story = { args: { expiresAt: MOCK_NOW - 60 } };
 /** Training: no deadline. */
-export const Training: Story = { args: { title: "Training", expiresAt: null, discarded: 0 } };
+export const Training: Story = { args: { title: "Training", expiresAt: null } };

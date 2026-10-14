@@ -18,9 +18,8 @@ export interface BoardSceneProps {
   score: number;
   /** Points the last move added. */
   delta?: number | null;
-  /** `GameView.remainingCount`, and `discardedCount`: discards count against the tiles left (P3). */
+  /** `GameView.remainingCount`: discards count against the tiles left (P3), and are not shown. */
   remaining: number;
-  discarded: number;
   /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
   expiresAt?: number | null;
   now: number;
@@ -65,7 +64,6 @@ export function BoardScene(props: BoardSceneProps) {
           score={props.score}
           delta={props.delta}
           remaining={props.remaining}
-          discarded={props.discarded}
           expiresAt={mode === "challenge" ? props.expiresAt : null}
           now={now}
           onBack={props.onBack}

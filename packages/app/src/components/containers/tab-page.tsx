@@ -26,9 +26,9 @@ export interface TabPageProps {
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   return (
-    <div className="flex min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
       <AppNav active={tab} onNavigate={onNavigate} className="desktop:min-h-dvh" />
-      <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-6 pb-24 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
+      <main className={cn("mx-auto flex w-full flex-1 max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1">
             {onBack && (
