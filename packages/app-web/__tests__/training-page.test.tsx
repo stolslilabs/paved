@@ -122,7 +122,8 @@ describe("Training game page, with every chain provider throwing", () => {
     expect(game.over).toBe(true);
     expect(shown).toBe(game.score);
     expect(screen.getByText("New game")).toBeTruthy();
-  });
+    // A whole game of a random seed through jsdom: the first run of a cold cache took more than vitest's 5 s.
+  }, 30_000);
 
   it("surrenders after a confirm, and a new game takes a new seed", async () => {
     open();
@@ -135,6 +136,21 @@ describe("Training game page, with every chain provider throwing", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Game complete" })).toBeNull());
     expect(JSON.parse(localStorage.getItem(TRAINING_KEY)!).seed).not.toBe(first);
     expect(JSON.parse(localStorage.getItem(TRAINING_KEY)!).moves).toEqual([]);
+  });
+
+  it("plays no move from a key typed under the surrender dialog, and plays it again once the dialog closes", async () => {
+    open();
+    await screen.findByText("Surrender");
+    const moves = () => JSON.parse(localStorage.getItem(TRAINING_KEY)!).moves;
+    fireEvent.click(screen.getByText("Surrender"));
+    await screen.findByRole("dialog", { name: "Surrender" });
+    fireEvent.keyDown(window, { key: "d" });
+    fireEvent.keyDown(window, { key: "c" });
+    expect(moves()).toEqual([]);
+    fireEvent.click(screen.getByText("Cancel"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Surrender" })).toBeNull());
+    fireEvent.keyDown(window, { key: "d" });
+    await waitFor(() => expect(moves()).toEqual([{ k: "d" }]));
   });
 
   it("resumes the game in progress after a reload", async () => {
