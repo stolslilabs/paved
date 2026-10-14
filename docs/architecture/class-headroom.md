@@ -610,3 +610,17 @@ of `DeckTrait::tiles` is longer code than the one it replaces (the selection sam
 count of the free tiles, all inlined by the release profile), for about 32M L2 gas less a spawn. The other classes are
 unchanged to the felt (`Economy` 26,567, `Collection` 14,485, `Setup` 14,499, `PavedToken` 8,055). The frozen class of
 the test (`ChallengeBeforeG1`, `src/tests/legacy_g1.cairo`) is test-only and never declared by `deploy.sh`.
+
+## After G4 (the pause guardian on `Challenge.spawn`)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-14, under `prlimit --as=12884901888`, peak RSS
+3,547,044 kB): before is "After G1" above (main 78ab2ab0, the same classes), after on the G4 branch.
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 27,474 | 60,997 | 28,082 | 62,323 | +1,326 | 76.1 % |
+
+**`Challenge` is 10,624 CASM felts under the P-44 cap (72,947; 14.6 % of the cap)**, against 11,950 after G1. It
+gains the guardian's three entry points and two views, their three events, two storage variables, and one check at the
+start of the spawn. The other classes are unchanged to the felt (`Economy` 26,567, `Collection` 14,485, `Setup` 14,499,
+`PavedToken` 8,055).
