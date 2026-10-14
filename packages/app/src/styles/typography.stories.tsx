@@ -11,25 +11,25 @@ export const Families: Story = {
   render: () => (
     <div className="flex flex-col gap-6 p-4 text-foreground">
       <section className="flex flex-col gap-1">
-        <code className="text-xs text-muted-foreground">font-display · Cinzel · Bold (700) · logo, titles</code>
+        <code className="text-xs text-muted-foreground">font-display · Almendra · Bold (700) · logo, titles</code>
         <p className="font-display text-3xl">PAVED</p>
         <p className="font-display text-base">{SAMPLE}</p>
       </section>
       <section className="flex flex-col gap-1">
-        <code className="text-xs text-muted-foreground">font-sans · Nunito Sans Variable · 200 to 1000 · UI and body text</code>
+        <code className="text-xs text-muted-foreground">font-sans · Rubik Variable · 300 to 900 · UI and body text</code>
         <p className="font-sans text-3xl">Paved 1234567890</p>
         <p className="font-sans text-base">{SAMPLE}</p>
       </section>
       <section className="flex flex-col gap-1">
         <code className="text-xs text-muted-foreground">
-          numeric · font-numeric (IBM Plex Mono) + tabular-nums · Regular (400) and SemiBold (600) · scores, counters,
+          numeric · font-numeric (Space Mono) + tabular-nums · Regular (400) and Bold (700) · scores, counters,
           prices
         </code>
         <p className="numeric text-3xl">1,240 · 0123456789</p>
         <p className="numeric text-base font-semibold">1,240 · 0123456789</p>
       </section>
       <section className="flex flex-col gap-1">
-        <code className="text-xs text-muted-foreground">font-mono · IBM Plex Mono · addresses, token ids</code>
+        <code className="text-xs text-muted-foreground">font-mono · Space Mono · addresses, token ids</code>
         <p className="font-mono text-base">0x04a1…c9f2 · token 1234</p>
       </section>
     </div>
@@ -37,7 +37,7 @@ export const Families: Story = {
 };
 
 const WEIGHTS = [
-  ["font-extralight", "200", "font-sans"],
+  ["font-extralight", "200 (Rubik starts at 300)", "font-sans"],
   ["font-light", "300", "font-sans"],
   ["font-normal", "400", "font-sans"],
   ["font-medium", "500", "font-sans"],
@@ -47,10 +47,11 @@ const WEIGHTS = [
   ["font-black", "900", "font-sans"],
   ["font-bold", "700", "font-display"],
   ["font-normal", "400", "numeric"],
-  ["font-semibold", "600", "numeric"],
+  ["font-semibold", "600 (Space Mono has 700)", "numeric"],
+  ["font-bold", "700", "numeric"],
 ] as const;
 
-/** Nunito Sans is a variable font (every weight from one file); Cinzel loads Bold only, IBM Plex Mono 400 and 600. */
+/** Rubik is a variable font (300 to 900 from one file); Almendra loads Bold only, Space Mono 400 and 700. */
 export const Weights: Story = {
   render: () => (
     <ul className="flex flex-col gap-2 p-4 text-foreground">
@@ -99,8 +100,9 @@ export const Sizes: Story = {
 const SCORES = ["1", "11", "111", "1,240", "8,888", "0.00", "12,345"];
 
 /**
- * Scores line up when the digits share a width. Nunito Sans has proportional digits by default; `tabular-nums` fixes
- * them. `numeric` is IBM Plex Mono with `tabular-nums`: the class scores, counters and prices use.
+ * Scores line up when the digits share a width. Rubik has proportional digits by default; `tabular-nums` fixes
+ * them. `numeric` is Space Mono with `tabular-nums` (a monospace face is tabular already; the property keeps the
+ * class right if the face changes): the class scores, counters and prices use.
  */
 export const TabularNumbers: Story = {
   render: () => (
@@ -109,7 +111,7 @@ export const TabularNumbers: Story = {
         [
           ["font-sans proportional-nums", "font-sans proportional-nums"],
           ["font-sans tabular-nums", "font-sans tabular-nums"],
-          ["numeric (IBM Plex Mono, tabular-nums)", "numeric"],
+          ["numeric (Space Mono, tabular-nums)", "numeric"],
         ] as const
       ).map(([label, cls]) => (
         <section key={label} className="flex flex-col gap-2">

@@ -75,6 +75,7 @@ COVERAGE_GROUPS=(
   "tests-seed|paved::tests::seed|"
   "tests-walk-cost|paved::tests::walk_cost|"
   "gas|test_gas_|"
+  "profile-g7|test_profile_g7_|"
 )
 
 # `check-groups`: every file of the crate with a #[test] (src/**, and tests/*.cairo by test name) must match the filter
