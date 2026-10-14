@@ -79,7 +79,8 @@ export function targetsLabel(tasks: TaskTarget[]): string {
 export function scheduleLabel(q: Pick<QuestDefinition, "startTime" | "endTime" | "duration" | "interval">): string {
   if (q.duration === 86400 && q.interval === 86400) return "Every UTC day";
   if (q.duration === 86400 && q.interval === 259200) return "Every third UTC day";
-  if (q.duration === 604800 && q.interval === 604800) return "Every week (Monday to Sunday UTC)";
+  // The week is Monday to Sunday only when it starts on a Monday: start 345,600 (1970-01-05) plus whole weeks.
+  if (q.duration === 604800 && q.interval === 604800 && (((q.startTime - 345600) % 604800) + 604800) % 604800 === 0) return "Every week (Monday to Sunday UTC)";
   if (q.duration === 0 && q.interval === 0) return "Once";
   return "On a custom schedule";
 }

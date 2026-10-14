@@ -8,7 +8,7 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   1: { title: "Daily Run", description: "Finish today's Challenge.", icon: "flag-checkered" },
   2: { title: "Master Builder", description: "Score roads and cities in a day.", icon: "city" },
   3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities.", icon: "tree" },
-  4: { title: "Point Chaser", description: "Collect points in a day: the sum of the day's finished Challenge games, not a single game.", icon: "star" },
+  4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Challenge games, not a single game.", icon: "star" },
   // v2a (quests.md "As built: v2a", CORE's proposals): the rotating dailies, three sets of three, and the weeklies.
   5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate.", icon: "city" },
   6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate.", icon: "city" },
@@ -33,7 +33,7 @@ export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: stri
   6: { title: "Forester", description: "Score forests.", icon: "tree" },
   7: { title: "Pilgrimage", description: "Score a wonder.", icon: "landmark-dome" },
   8: { title: "High Roller", description: "Finish a Challenge game with a high score.", icon: "dice" },
-  9: { title: "On the Podium", description: "Take a place in the top 3 of a day. Counted once the day has closed.", icon: "crown" },
+  9: { title: "On the Podium", description: "Take a place in the top 3 of a day's tournament. Counted once the day has closed.", icon: "crown" },
   // v2a higher tiers.
   10: { title: "Forester II", description: "Score more forests: the second tier of Forester.", icon: "tree" },
   11: { title: "Pilgrimage II", description: "Score more wonders: the second tier of Pilgrimage.", icon: "landmark-dome" },

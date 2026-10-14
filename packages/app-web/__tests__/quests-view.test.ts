@@ -48,6 +48,16 @@ describe("scheduleLabel", () => {
     expect(scheduleLabel({ startTime: 345_600, endTime: 0, duration: 7 * DAY, interval: 7 * DAY })).toBe("Every week (Monday to Sunday UTC)");
   });
 
+  it("keeps the Monday label for any whole number of weeks from the first Monday, before it too", () => {
+    expect(scheduleLabel({ startTime: 345_600 + 3 * 604_800, endTime: 0, duration: 7 * DAY, interval: 7 * DAY })).toBe("Every week (Monday to Sunday UTC)");
+    expect(scheduleLabel({ startTime: 345_600 - 604_800, endTime: 0, duration: 7 * DAY, interval: 7 * DAY })).toBe("Every week (Monday to Sunday UTC)");
+  });
+
+  it("gives a weekly that does not start on a Monday the custom label (start 0 is a Thursday)", () => {
+    expect(scheduleLabel({ startTime: 0, endTime: 0, duration: 7 * DAY, interval: 7 * DAY })).toBe("On a custom schedule");
+    expect(scheduleLabel({ startTime: 345_600 + DAY, endTime: 0, duration: 7 * DAY, interval: 7 * DAY })).toBe("On a custom schedule");
+  });
+
   it("guesses nothing for another schedule", () => {
     expect(scheduleLabel(at(DAY, 2 * DAY))).toBe("On a custom schedule");
     expect(scheduleLabel(at(3 * DAY, 3 * DAY))).toBe("On a custom schedule");
