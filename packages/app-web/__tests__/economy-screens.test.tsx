@@ -3,14 +3,14 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, formatUnits, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent, readPurchaseIntent, spawnForIntent } from "../src/utils/economy-start";
-import { CLIFF_TEXT, paved, referralLink, referrerFromSearch, settleState } from "../src/utils/economy-view";
+import { CLIFF_TEXT, paved, vpaved, referralLink, referrerFromSearch, settleState } from "../src/utils/economy-view";
 import { resolveEconomyNetwork } from "../src/utils/economy-network";
 import { PLAYER, fakeGame, renderPage } from "./helpers/page-fixtures";
 
@@ -80,8 +80,11 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
 
 const where = () => screen.getByTestId("where").textContent ?? "";
 
-/** The `min_out` the confirm shows for `stake` with the default fakes: the floor the intent carries. */
-const floor = (stake: number) => new FakeEconomy().expectedMinOut(stake);
+/**
+ * The `min_out` the confirm shows for `stake` with the default fakes: the floor the intent carries. With a referrer the
+ * referral leaves the one swap (P-56), so the floor is the quote of the price less it.
+ */
+const floor = (stake: number, referred = false) => new FakeEconomy().expectedMinOut(stake, new FakePoolQuoter(), referred);
 
 /** A purchase button once it is offered: the price, the referrer and the pool's quote are all in. */
 async function enabled(text: string): Promise<HTMLButtonElement> {
@@ -132,7 +135,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(dialog).toContain("gets 1 USDC out of the stakers' margin: you pay the same 20 USDC");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=challenge|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER, confirmedMinOut: await floor(10), acceptedLowQuote: false });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER, confirmedMinOut: await floor(10, true), acceptedLowQuote: false });
   });
 
   it("a malformed referrer in the link (?ref=abc) is ignored: no referrer shown or sent", async () => {
@@ -208,16 +211,18 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fetchSpy.mockRestore();
   });
 
-  it("shows the least PAVED bought: the pool's quote of the burn part less the slippage", async () => {
+  it("shows the least PAVED bought: the pool's quote of the one swap (burn quote + margin) less the slippage", async () => {
     const pool = new FakePoolQuoter();
     const economy = new FakeEconomy();
     land({ pool, economy });
     fireEvent.click(await screen.findByText(/mode challenge/));
     const least = await economy.expectedMinOut(1);
-    expect(await screen.findByText(`PAVED bought and burned: at least ${paved(least)} (quoted again when sent)`)).toBeTruthy();
-    expect(pool.calls).toContain((await economy.quote(1)).burnQuote);
+    expect(await screen.findByText(`PAVED bought: at least ${paved(least)} (quoted again when sent)`)).toBeTruthy();
+    // No referrer: the whole price is swapped once.
+    expect(pool.calls).toContain((await economy.quote(1)).price);
+    expect(pool.calls).not.toContain((await economy.quote(1)).burnQuote);
     fireEvent.click(await enabled("Buy for 2 USDC"));
-    expect(screen.getByText(`At least ${paved(least)} bought and burned: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`)).toBeTruthy();
+    expect(screen.getByText(`At least ${paved(least)} bought: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`)).toBeTruthy();
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=challenge|"));
     // The floor the player confirmed rides in the intent.
@@ -227,11 +232,12 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
   it("labels the burn share 'at today's terms' at the picker and at the confirm (burn_bps may change before the transaction)", async () => {
     land();
     fireEvent.click(await screen.findByText(/mode challenge/));
-    // Stake 1: 2 USDC, of which the fake's burn_bps (70 %) is swapped and burned.
-    expect(await screen.findByText("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms")).toBeTruthy();
+    // Stake 1: 2 USDC swapped once; the PAVED of the fake's burn_bps (70 %) is burned, the margin's to the Vault (P-56).
+    expect(await screen.findByText("Swapped for PAVED in one swap: 2 USDC")).toBeTruthy();
+    expect(screen.getByText("Burned: the PAVED of 1.4 USDC of the price (70 %), at today's terms; the rest goes to the Vault (vPAVED) for the stakers")).toBeTruthy();
     fireEvent.click(await enabled("Buy for 2 USDC"));
     const dialog = screen.getByRole("dialog", { name: "Confirm purchase" });
-    expect(dialog.textContent).toContain("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms.");
+    expect(dialog.textContent).toContain("2 USDC swapped for PAVED in one swap: the PAVED of 1.4 USDC of the price (70 %), at today's terms is burned, the rest goes to the Vault for the stakers.");
   });
 
   it("a pool quote at 95 % of the guard-rate value: no warning, no extra confirmation", async () => {
@@ -250,8 +256,8 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n }; // 95 % of 70/80: 83.1 % of the guard-rate value
     land({ pool });
     fireEvent.click(await screen.findByText(/mode challenge/));
-    const quote = await pool.quoteSwap(1_400_000n);
-    const text = `The pool quotes ${paved(quote)} for the burn, below 90 % of the ${paved(112n * P)} the guard rate implies: the pool may have been pushed.`;
+    const quote = await pool.quoteSwap(2_000_000n);
+    const text = `The pool quotes ${paved(quote)} for the swap, below 90 % of the ${paved(160n * P)} the guard rate implies: the pool may have been pushed.`;
     expect(await screen.findByText(text)).toBeTruthy();
     fireEvent.click(await enabled("Buy for 2 USDC"));
     const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
@@ -273,7 +279,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fireEvent.click(await screen.findByText(/mode challenge/));
     expect(await screen.findByText(ROUTER_NOT_PINNED)).toBeTruthy();
     expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(screen.queryByText(/PAVED bought: at least/)).toBeNull();
     expect(pool.calls).toHaveLength(0);
   });
 
@@ -290,7 +296,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     pool.rate = { paved: 60n * 10n ** 18n, usdc: 1_000_000n };
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
-    expect(await screen.findAllByText(new RegExp(`The pool quotes ${paved(await pool.quoteSwap(1_400_000n)).replace(".", "\\.")}`))).toBeTruthy();
+    expect(await screen.findAllByText(new RegExp(`The pool quotes ${paved(await pool.quoteSwap(2_000_000n)).replace(".", "\\.")}`))).toBeTruthy();
     await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false));
     expect(confirm.disabled).toBe(true);
     visibility.mockRestore();
@@ -310,7 +316,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     economy.guardRate_ = economy.guardRate_ * 2n;
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
-    expect(await screen.findAllByText(new RegExp(`the ${paved(224n * P).replace(".", "\\.")} the guard rate implies`))).toBeTruthy();
+    expect(await screen.findAllByText(new RegExp(`the ${paved(320n * P).replace(".", "\\.")} the guard rate implies`))).toBeTruthy();
     await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false));
     expect(confirm.disabled).toBe(true);
     visibility.mockRestore();
@@ -403,7 +409,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     land({ pool });
     fireEvent.click(await screen.findByText(/mode challenge/));
     expect(await screen.findByText(POOL_CANNOT_FILL)).toBeTruthy();
-    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(screen.queryByText(/PAVED bought: at least/)).toBeNull();
     expect(screen.queryByText(/partial fill/)).toBeNull();
     expect((screen.getByText("Pool cannot fill", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -415,7 +421,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fireEvent.click(await screen.findByText(/mode challenge/));
     expect(await screen.findByText(POOL_QUOTE_UNAVAILABLE)).toBeTruthy();
     expect(screen.queryByText(POOL_CANNOT_FILL)).toBeNull();
-    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(screen.queryByText(/PAVED bought: at least/)).toBeNull();
     expect((screen.getByText("Pool quote unavailable", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -426,13 +432,13 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     pool.quoteSwap = async (usdcIn: bigint) => (usdcIn > 5_000_000n ? Promise.reject(new Error("Economy: partial fill")) : quoteSwap(usdcIn));
     land({ pool });
     fireEvent.click(await screen.findByText(/mode challenge/));
-    expect(await screen.findByText(/PAVED bought and burned: at least/)).toBeTruthy();
+    expect(await screen.findByText(/PAVED bought: at least/)).toBeTruthy();
     fireEvent.click(screen.getByText("10", { selector: "button" }));
     expect(await screen.findByText(POOL_CANNOT_FILL)).toBeTruthy();
-    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(screen.queryByText(/PAVED bought: at least/)).toBeNull();
     expect((screen.getByText("Pool cannot fill", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByText("1", { selector: "button" }));
-    expect(await screen.findByText(/PAVED bought and burned: at least/)).toBeTruthy();
+    expect(await screen.findByText(/PAVED bought: at least/)).toBeTruthy();
     expect(screen.queryByText(POOL_CANNOT_FILL)).toBeNull();
   });
 
@@ -440,12 +446,12 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     const pool = new FakePoolQuoter();
     land({ pool });
     fireEvent.click(await screen.findByText(/mode challenge/));
-    expect(await screen.findByText(/PAVED bought and burned: at least/)).toBeTruthy();
+    expect(await screen.findByText(/PAVED bought: at least/)).toBeTruthy();
     pool.fail = "Economy: partial fill";
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     expect(await screen.findByText(POOL_CANNOT_FILL)).toBeTruthy();
-    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(screen.queryByText(/PAVED bought: at least/)).toBeNull();
     visibility.mockRestore();
   });
 
@@ -454,7 +460,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     economy.days.set(DAY, { prior: 3_980_000, sum: 0n, weight: 0, mean: 0, closed: false });
     land({ economy });
     fireEvent.click(await screen.findByText(/mode challenge/));
-    expect(await screen.findByText("Slippage on the burn swap: 1 % (at most 5 %)")).toBeTruthy();
+    expect(await screen.findByText("Slippage on the swap: 1 % (at most 5 %)")).toBeTruthy();
     expect(screen.getByText("A paid game expires 24 h after its purchase; an expired game gets no reward.")).toBeTruthy();
     expect(
       screen.getAllByText("Current reference: mean 3980 points, threshold 3980 points; the day's own mean is known only at settlement.").length,
@@ -487,69 +493,134 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
   });
 });
 
-describe("Vault: stake, unstake, dividends, each after a confirm", () => {
-  it("stake sends approve + stake of exactly the confirmed amount, only after Confirm", async () => {
+describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no claim", () => {
+  /** A holder of 1 vPAVED at a rate of 1.5 PAVED per vPAVED (purchases' margins raised it), with a 1 % exit fee. */
+  function holder() {
     const economy = new FakeEconomy();
+    economy.vaultAssets = 1_500n * P;
+    economy.vaultSupply = 1_000n * P;
+    economy.setShares(PLAYER, P);
     economy.setBalance("paved", PLAYER, 5n * P);
-    economy.setVault(PLAYER, { staked: P, pending: 2_500_000n });
+    return economy;
+  }
+
+  it("shows the vPAVED, its PAVED value, the rate, the exit fee and max_withdraw; no dividends, no claim", async () => {
+    const economy = holder();
+    land({ economy });
+    const { value, maxWithdraw } = await economy.vault(PLAYER);
+    expect(await screen.findByText(`Your share: 1 vPAVED, worth ${paved(value)}`)).toBeTruthy();
+    expect(screen.getByText(`Withdrawable now: ${paved(maxWithdraw)}, after the exit fee`)).toBeTruthy();
+    // (1,501.5 PAVED + 1) / (1,001 vPAVED + 1) is just under 1.5: cut, not rounded.
+    expect(screen.getByText("Rate: 1.4999 PAVED per vPAVED")).toBeTruthy();
+    expect(screen.getByText("1 % exit fee, left to the other stakers")).toBeTruthy();
+    expect(screen.getByText("Wallet: 5 PAVED")).toBeTruthy();
+    expect(maxWithdraw < value).toBe(true);
+    expect(screen.queryByText(/Dividends|Claim|USDC pending/)).toBeNull();
+  });
+
+  it("an exit fee of 2.5 % reads as such", async () => {
+    const economy = holder();
+    economy.exitFeeBps = 250;
+    land({ economy });
+    expect(await screen.findByText("2.5 % exit fee, left to the other stakers")).toBeTruthy();
+  });
+
+  it("deposit sends approve + deposit(amount, self) of exactly the confirmed amount, only after Confirm", async () => {
+    const economy = holder();
     const { writer } = land({ economy });
-    expect(await screen.findByText("Dividends: 2.5 USDC")).toBeTruthy();
-    expect(screen.getByText("Staked: 1 PAVED of 0 PAVED")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Vault amount"), { target: { value: "1.5" } });
-    fireEvent.click(screen.getByText("Stake"));
+    const field = await screen.findByLabelText("Vault amount");
+    fireEvent.change(field, { target: { value: "1.5" } });
+    fireEvent.click(await enabled("Deposit"));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm" });
+    expect(dialog.textContent).toContain(`Deposit 1.5 PAVED for about ${vpaved(await economy.previewDeposit(15n * 10n ** 17n))}?`);
     expect(writer.sendCalls).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Stake 1.5 PAVED in the Vault?");
-    fireEvent.click(screen.getByText("Unstake"));
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Unstake 1.5 PAVED from the Vault? Your dividends stay claimable.");
-    fireEvent.click(screen.getByText("Stake"));
-    fireEvent.click(screen.getByText("Confirm stake"));
+    fireEvent.click(screen.getByText("Confirm deposit"));
     await waitFor(() => expect(writer.sent).toHaveLength(1));
-    expect(writer.sent[0].map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.pavedToken, "approve"], [ECON.vault, "stake"]]);
-    expect(writer.sent[0][1].calldata).toEqual([`0x${(15n * 10n ** 17n).toString(16)}`, "0x0"]);
+    expect(writer.sent[0].map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.pavedToken, "approve"], [ECON.vault, "deposit"]]);
+    expect(writer.sent[0][1].calldata).toEqual([`0x${(15n * 10n ** 17n).toString(16)}`, "0x0", PLAYER]);
+  });
+
+  it("withdraw shows the vPAVED it uses, the fee included, and sends withdraw(amount, self, self)", async () => {
+    const economy = holder();
+    const { writer } = land({ economy });
+    fireEvent.change(await screen.findByLabelText("Vault amount"), { target: { value: "1" } });
+    fireEvent.click(await enabled("Withdraw"));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm" });
+    expect(dialog.textContent).toContain(`Withdraw 1 PAVED? It uses about ${vpaved(await economy.previewWithdraw(P))}, the 1 % exit fee, left to the other stakers included.`);
+    fireEvent.click(screen.getByText("Confirm withdraw"));
+    await waitFor(() => expect(writer.sent).toHaveLength(1));
+    expect(writer.sent[0].map((c) => [c.entrypoint, c.calldata])).toEqual([["withdraw", ["0xde0b6b3a7640000", "0x0", PLAYER, PLAYER]]]);
+  });
+
+  it("a withdraw above max_withdraw is refused with a plain message, nothing sent", async () => {
+    const economy = holder();
+    const { writer } = land({ economy });
+    const { value, maxWithdraw } = await economy.vault(PLAYER);
+    await screen.findByText(/Your share: 1 vPAVED/);
+    // The value before the fee: above max_withdraw by the fee.
+    fireEvent.change(screen.getByLabelText("Vault amount"), { target: { value: formatUnits(value, 18) } });
+    fireEvent.click(await enabled("Withdraw"));
+    expect(await screen.findByText(`More than you can withdraw: at most ${paved(maxWithdraw)} now, the exit fee taken. Nothing was sent.`)).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Confirm" })).toBeNull();
+    expect(writer.sendCalls).not.toHaveBeenCalled();
+  });
+
+  it("withdraw all redeems every vPAVED held for their PAVED less the fee", async () => {
+    const economy = holder();
+    const { writer } = land({ economy });
+    const { maxWithdraw } = await economy.vault(PLAYER);
+    fireEvent.click(await enabled("Withdraw all"));
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain(`Withdraw everything: 1 vPAVED for about ${paved(maxWithdraw)}, after the 1 % exit fee, left to the other stakers?`);
+    fireEvent.click(screen.getByText("Confirm withdraw"));
+    await waitFor(() => expect(writer.sent).toHaveLength(1));
+    expect(writer.sent[0].map((c) => [c.entrypoint, c.calldata])).toEqual([["redeem", ["0xde0b6b3a7640000", "0x0", PLAYER, PLAYER]]]);
+  });
+
+  it("vPAVED that changed between the confirm and the send: the new amount is said, nothing sent", async () => {
+    const economy = holder();
+    const { writer } = land({ economy });
+    fireEvent.click(await enabled("Withdraw all"));
+    economy.setShares(PLAYER, 2n * P); // a transfer in meanwhile
+    fireEvent.click(screen.getByText("Confirm withdraw"));
+    expect(await screen.findByText("Your vPAVED changed from 1 vPAVED to 2 vPAVED: confirm again")).toBeTruthy();
+    expect(writer.sent).toHaveLength(0);
+  });
+
+  it("a deposit too small to mint any vPAVED is refused with a plain message, nothing sent", async () => {
+    const economy = holder();
+    const { writer } = land({ economy });
+    fireEvent.change(await screen.findByLabelText("Vault amount"), { target: { value: "0.000000000000000001" } });
+    fireEvent.click(await enabled("Deposit"));
+    expect(await screen.findByText("This amount is too small to get any vPAVED: deposit more. Your PAVED was not moved.")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Confirm" })).toBeNull();
+    expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 
   it("an amount edited after the first click is refused at send", async () => {
-    const economy = new FakeEconomy();
-    economy.setBalance("paved", PLAYER, 5n * P);
+    const economy = holder();
     const { writer } = land({ economy });
     const field = await screen.findByLabelText("Vault amount");
     fireEvent.change(field, { target: { value: "1" } });
-    fireEvent.click(screen.getByText("Stake"));
+    fireEvent.click(await enabled("Deposit"));
+    await screen.findByRole("dialog", { name: "Confirm" });
     fireEvent.change(field, { target: { value: "2" } });
-    fireEvent.click(screen.getByText("Confirm stake"));
+    fireEvent.click(screen.getByText("Confirm deposit"));
     expect(await screen.findByText("The amount changed: confirm again")).toBeTruthy();
     expect(writer.sent).toHaveLength(0);
   });
 
-  it("claim dividends shows the amount and sends the confirmed one", async () => {
-    const economy = new FakeEconomy();
-    economy.setVault(PLAYER, { staked: P, pending: 2_500_000n });
-    const { writer } = land({ economy });
-    fireEvent.click(await screen.findByText("Claim dividends"));
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Claim 2.5 USDC of dividends?");
-    fireEvent.click(screen.getByText("Confirm claim"));
-    await waitFor(() => expect(writer.sent).toHaveLength(1));
-    expect(writer.sent[0].map((c) => c.entrypoint)).toEqual(["claim"]);
+  it("a holder of no vPAVED cannot withdraw all", async () => {
+    land();
+    expect(await screen.findByText(/Your share: 0 vPAVED/)).toBeTruthy();
+    expect((screen.getByText("Withdraw all") as HTMLButtonElement).disabled).toBe(true);
   });
-});
 
-describe("dividends that change between the confirm and the send", () => {
-  it("show the new amount and ask for a new confirm, sending nothing until then", async () => {
-    const economy = new FakeEconomy();
-    economy.setVault(PLAYER, { staked: P, pending: 2_500_000n });
-    const { writer } = land({ economy });
-    fireEvent.click(await screen.findByText("Claim dividends"));
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Claim 2.5 USDC of dividends?");
-    // A purchase elsewhere pays the Vault meanwhile.
-    economy.setVault(PLAYER, { staked: P, pending: 3_000_000n });
-    fireEvent.click(screen.getByText("Confirm claim"));
-    expect(await screen.findByText("Your dividends changed from 2.5 USDC to 3 USDC: confirm again")).toBeTruthy();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Claim 3 USDC of dividends?");
-    expect(writer.sent).toHaveLength(0);
-    expect(screen.queryByText("The amount changed: confirm again")).toBeNull();
-    fireEvent.click(screen.getByText("Confirm claim"));
-    await waitFor(() => expect(writer.sent).toHaveLength(1));
-    expect(writer.sent[0].map((c) => c.entrypoint)).toEqual(["claim"]);
+  it("a Vault that cannot be read says so and offers no write", async () => {
+    const economy = holder();
+    economy.fail = "node down";
+    land({ economy });
+    expect(await screen.findByText(/Vault unavailable: /)).toBeTruthy();
+    expect((screen.getByText("Withdraw all") as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -673,7 +744,7 @@ describe("the economy page (/economy)", () => {
     fireEvent.click(await enabled("Buy for 2 USDC"));
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=challenge|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER, confirmedMinOut: await floor(1), acceptedLowQuote: false });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER, confirmedMinOut: await floor(1, true), acceptedLowQuote: false });
     expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 

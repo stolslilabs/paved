@@ -1,4 +1,18 @@
-import { ADDRESS_BOUND, PAVED_DECIMALS, PAVED_LABEL, USDC_DECIMALS, USDC_LABEL, expiresAt, formatUnits, settlesAfter } from "@paved/chain";
+import {
+  ADDRESS_BOUND,
+  PAVED_DECIMALS,
+  PAVED_LABEL,
+  USDC_DECIMALS,
+  USDC_LABEL,
+  VAULT_RATE_SCALE,
+  VPAVED_DECIMALS,
+  VPAVED_LABEL,
+  expiresAt,
+  formatPercentBps,
+  formatUnits,
+  settlesAfter,
+  vaultRate,
+} from "@paved/chain";
 import type { TermsView } from "@paved/chain";
 
 /** The cliff, said as it is (D-10, P-31). Shown at the purchase and after the day. */
@@ -6,6 +20,20 @@ export const CLIFF_TEXT = "Below the shifted mean the stake is lost.";
 
 export const usdc = (amount: bigint) => `${formatUnits(amount, USDC_DECIMALS, 2)} ${USDC_LABEL}`;
 export const paved = (amount: bigint) => `${formatUnits(amount, PAVED_DECIMALS, 4)} ${PAVED_LABEL}`;
+export const vpaved = (amount: bigint) => `${formatUnits(amount, VPAVED_DECIMALS, 4)} ${VPAVED_LABEL}`;
+
+const VAULT_RATE_DIGITS = VAULT_RATE_SCALE.toString().length - 1;
+
+/** The Vault's rate as the player reads it: "1.0123 PAVED per vPAVED" (cut, not rounded, at 4 digits). */
+export function vaultRateText(totalAssets: bigint, totalSupply: bigint): string {
+  // `vaultRate` is scaled by `VAULT_RATE_SCALE`, 1e18: 18 fraction digits.
+  return `${formatUnits(vaultRate(totalAssets, totalSupply), VAULT_RATE_DIGITS, 4)} ${PAVED_LABEL} per ${VPAVED_LABEL}`;
+}
+
+/** The exit fee as the player reads it: "1 % exit fee, left to the other stakers". */
+export function exitFeeText(bps: number): string {
+  return `${formatPercentBps(bps)} exit fee, left to the other stakers`;
+}
 
 /** The query key of a referral link: `/?ref=0x...`. */
 export const REFERRAL_PARAM = "ref";
