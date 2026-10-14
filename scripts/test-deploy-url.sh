@@ -217,7 +217,7 @@ chmod +x "$tc/spbin/snforge"
 tc_expect "coverage-split skips a group with no runnable test and merges the others" \
   "$(tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 0 "group tests-walk-cost: no runnable test (all ignored), skipped" "no coverage.lcov for group"
 tc_expect "coverage-split still fails a group that passes nothing and ignores nothing" \
-  "$(sed -i 's/1 ignored/0 ignored/' "$tc/spbin/snforge"; tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 1 "no coverage.lcov for group tests-walk-cost"
+  "$(stub="$(<"$tc/spbin/snforge")"; printf '%s\n' "${stub//1 ignored/0 ignored}" >"$tc/spbin/snforge"; tc_out env PATH="$tc/spbin:$PATH" ALLOW_COVERAGE_SPLIT_ON_LINUX=1 PAVED_SCARB_SHIM="$tc/none/scarb" PAVED_SNFORGE_SHIM="$tc/none/snforge" "$tc/sp/scripts/measure.sh" coverage-split)" 1 "no coverage.lcov for group tests-walk-cost"
 # check-groups: no toolchain, no shim, no build; fails when a test module is in no COVERAGE_GROUPS group
 tc_expect "measure.sh check-groups: every test module is in a group (no toolchain on the PATH)" \
   "$(tc_out env PATH=/usr/bin:/bin "$here/measure.sh" check-groups)" 0 "every test module is in a COVERAGE_GROUPS group" "is in no"
@@ -1285,6 +1285,21 @@ SH
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
   # D-21, D-24, D-25 E: a fresh run declares Setup, and neither Tutorial, Lobby nor Account, in deploy order.
   order="$(sed -n 's/^   estimate \([A-Za-z]*\): .*/\1/p' <<<"$out" | tr '\n' ' ')"
+  # sncast found nowhere: the funding check's class-hash call discards stderr, so the cause must be printed before it.
+  main_node_log="$(<"$est/node.log")"; main_log="$(<"$log")"
+  mkdir -p "$est/nosn"
+  for t in npm scarb node curl addr_mark; do ln -sf "$est/bin/$t" "$est/nosn/$t"; done
+  nosn_out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/nosn:/usr/bin:/bin" SHIM_LOG="$log" \
+    FAKE_NODE=estimate PAVED_SCARB_SHIM="$est/nosn/scarb" SCARB_BIN_DIR="$est/nosn" SNCAST_BIN_DIR="$est/nosn" ESTIMATE_RELEASE_DIR="$est/classes" \
+    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia --estimate-only 2>&1)"
+  nosn_rc=$?
+  # The logs go back to the main run's, which the checks below read.
+  printf '%s\n' "$main_node_log" >"$est/node.log"; printf '%s\n' "$main_log" >"$log"
+  if [[ $nosn_rc -eq 0 || "$nosn_out" != *"deploy.sh: sncast not found: neither $est/nosn/sncast nor on the PATH"* || "$nosn_out" == *"declared unknown"* ]]; then
+    echo "FAIL: sepolia --estimate-only with no sncast: expected the cause 'sncast not found' and a failing exit, got $nosn_rc:"; echo "$nosn_out" | sed 's/^/    /'; fail=1
+  else
+    echo "ok: sepolia --estimate-only with no sncast prints the cause (sncast not found)"
+  fi
   if [[ "$order" != "Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection " ]]; then
     echo "FAIL: sepolia --estimate-only: the fresh run's classes are not Setup's list without Tutorial, Lobby and Account: $order"; fail=1
   else
