@@ -539,6 +539,8 @@ body='{"jsonrpc":"2.0","id":1,"error":{"code":29,"message":"Transaction hash not
 case "$config" in
   *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
   *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  # --rehearse: the node's first predeployed account (the fresh guardian cases).
+  *devnet_getPredeployedAccounts*) body='{"jsonrpc":"2.0","id":1,"result":[{"address":"0xDEADBEEF","private_key":"0xMARKER"}]}' ;;
   # --d18: the Lobby class Daily and Tutorial store (named params only, as deploy.sh sends them).
   *starknet_getStorageAt*'\"contract_address\"'*)
     body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"$(cat "$dir/lobby" 2>/dev/null || echo 0x1b)\"}" ;;
@@ -1603,8 +1605,6 @@ verdict '"result"' not
 verdict 'not json' not
 verdict '' not
 
-# S1 audit: no external entry point of Challenge or Setup takes a Mode (Challenge fixes it: Mode::Challenge; the Lobby class
-
 # The fresh path's guardian step and its smoke reads, run against the fake node through the test hook
 # --check-fresh-guardian <step|smoke> <Challenge address> (the same code as a fresh run: fresh_guardian_step and
 # fresh_guardian_smoke). The record is a fresh one, as a run keeps it.
@@ -1613,14 +1613,32 @@ fg_case() { # [files to touch in the fake node...]
   printf '{"network":"sepolia","chain_id":"0x534e5f5345504f4c4941","fresh":{"salt":"0x1","at":"unmerged-test"}}\n' >"$rp/fresh.json"
   touch "$rp/bin/invoke_ok" "$@"
 }
-fg_run() { rp_run --check-fresh-guardian "$1" 0xc0 --out "$rp/fresh.json"; }
+# --rehearse: the node is local (RPC_URL), the deployer is the node's first predeployed account (the curl stub answers
+# devnet_getPredeployedAccounts), and the funded account's variables are not set.
+fg_run() {
+  : >"$rp/bin/signer.log"; : >"$rp/bin/sent.log"
+  env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL RPC_URL=http://127.0.0.1:5050 PATH="$rp/bin:$PATH" SHIM_LOG="$rp/curl.log" \
+    PAVED_SCARB_SHIM="$rp/bin/scarb" SCARB_BIN_DIR="$rp/bin" SNCAST_BIN_DIR="$rp/bin" "$rp/root/scripts/deploy.sh" sepolia --rehearse \
+    --check-fresh-guardian "$1" 0xc0 --out "$rp/fresh.json" 2>&1
+}
+# No value of the private key (MARKER) in an output; 0x999, the other guardian, is never printed either.
+fg_clean() { ! grep -qi MARKER <<<"$1"; }
 fg_fail() { echo "FAIL: the fresh path's guardian, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"; echo "sent: $(cat "$rp/bin/sent.log")"; fail=1; }
 fg_tx() { python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["fresh"].get("guardian_tx",""))' "$rp/fresh.json"; }
+# The hook is refused on real sepolia (no --rehearse) before anything is read or sent: exit 2, no signer call, no curl call.
+: >"$rp/curl.log"; fg_case
+out="$(rp_run --check-fresh-guardian step 0xc0 --out "$rp/fresh.json")"; rc=$?
+if [[ $rc -ne 2 || "$out" != *"--check-fresh-guardian is a test hook of the rehearsal: it needs sepolia --rehearse"* ||
+    -s "$rp/bin/sent.log" || -s "$rp/bin/signer.log" || -s "$rp/curl.log" ]] || leaks -q <<<"$out"; then
+  fg_fail "the hook on sepolia without --rehearse: expected exit 2, the refusal, no signer call, no node read, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --check-fresh-guardian step without --rehearse is refused before anything is read or sent"
+fi
 # guardian none: set_guardian(@account) is sent, once, its hash recorded, and read back as the deployer.
 fg_case
 out="$(fg_run step)"; rc=$?
 if [[ $rc -ne 0 || "$(tr '\n' ';' <"$rp/bin/sent.log" | sed 's/ 0x1a0[0-9a-f]*;/;/')" != "invoke set_guardian @account;" ||
-    "$out" != *"Challenge.set_guardian(the deployer): the deployer is the guardian"* || "$(fg_tx)" != 0x1a00001 ]] || leaks -q <<<"$out"; then
+    "$out" != *"Challenge.set_guardian(the deployer): the deployer is the guardian"* || "$(fg_tx)" != 0x1a00001 ]] || ! fg_clean "$out"; then
   fg_fail "guardian none: expected exit 0, set_guardian(@account) sent once, its hash recorded, read back, got $rc" "$out"
 else
   echo "ok: the fresh path's guardian step with no guardian sends set_guardian(@account) once, records guardian_tx and reads the deployer back"
@@ -1628,7 +1646,7 @@ fi
 # guardian already the deployer: the step sends nothing.
 fg_case "$rp/bin/guardian_set"
 out="$(fg_run step)"; rc=$?
-if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is the deployer already"* ]] || leaks -q <<<"$out"; then
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is the deployer already"* ]] || ! fg_clean "$out"; then
   fg_fail "guardian already the deployer: expected exit 0, nothing sent, got $rc" "$out"
 else
   echo "ok: the fresh path's guardian step skips when the deployer is the guardian already, nothing sent"
@@ -1636,7 +1654,7 @@ fi
 # guardian another address: the run dies, nothing sent, the address not printed.
 fg_case "$rp/bin/guardian_other"
 out="$(fg_run step)"; rc=$?
-if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is another address: not replaced; nothing more was sent"* || "$out" == *0x999* ]] || leaks -q <<<"$out"; then
+if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is another address: not replaced; nothing more was sent"* || "$out" == *0x999* ]] || ! fg_clean "$out"; then
   fg_fail "guardian another address: expected a non-zero exit, nothing sent, the address unprinted, got $rc" "$out"
 else
   echo "ok: the fresh path's guardian step dies on another address, nothing sent, the address unprinted"
@@ -1653,7 +1671,7 @@ fi
 # The smoke: the deployer and not paused passes; another address, none or a paused spawn fails.
 fg_case "$rp/bin/guardian_set"
 out="$(fg_run smoke)"; rc=$?
-if [[ $rc -ne 0 || "$out" != *"Challenge.guardian(): the deployer; spawn_paused(): false"* ]] || leaks -q <<<"$out"; then
+if [[ $rc -ne 0 || "$out" != *"Challenge.guardian(): the deployer; spawn_paused(): false"* ]] || ! fg_clean "$out"; then
   fg_fail "smoke with the deployer as guardian: expected exit 0, got $rc" "$out"
 else
   echo "ok: the fresh smoke passes with the deployer as guardian and spawn not paused"
@@ -1665,13 +1683,14 @@ for bad in "guardian_other:Challenge.guardian() is not the deployer" "none:Chall
     *) fg_case "$rp/bin/${bad%%:*}" ;;
   esac
   out="$(fg_run smoke)"; rc=$?
-  if [[ $rc -eq 0 || "$out" != *"${bad#*:}"* || "$out" == *0x999* ]] || leaks -q <<<"$out"; then
+  if [[ $rc -eq 0 || "$out" != *"${bad#*:}"* || "$out" == *0x999* ]] || ! fg_clean "$out"; then
     fg_fail "smoke with ${bad%%:*}: expected a non-zero exit and '${bad#*:}', got $rc" "$out"
   else
     echo "ok: the fresh smoke fails with ${bad%%:*}: ${bad#*:}"
   fi
 done
 
+# S1 audit: no external entry point of Challenge or Setup takes a Mode (Challenge fixes it: Mode::Challenge; the Lobby class
 # that took one is gone since D-24). Read from the committed ABIs, which CI checks against the build.
 for contract in Challenge Setup; do
   abi="$here/../contracts/abis/$contract.json"

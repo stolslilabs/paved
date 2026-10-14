@@ -398,10 +398,15 @@ elif [[ "$NETWORK" == "sepolia" && -n "${2:-}" ]]; then
           { echo "deploy.sh: --guardian expects the keyword deployer (the fresh path always sets the deployer as guardian)" >&2; exit 2; }
         shift 2 ;;
       --check-fresh-guardian)
-        # Test hook (scripts/test-deploy-url.sh), like --check-send-failure: after the node, deployer and build checks, runs
-        # fresh_guardian_step or fresh_guardian_smoke (<step|smoke>) against the Challenge <address>, then exits.
+        # Test hook (scripts/test-deploy-url.sh): after the node, deployer and build checks, runs fresh_guardian_step or
+        # fresh_guardian_smoke (<step|smoke>) against the Challenge <address>, then exits. `step` can send set_guardian, so,
+        # unlike --check-send-failure (which signs and sends nothing), the hook is refused here, at parse time and before
+        # anything is read or sent, unless the run is a --rehearse one: the rehearsal takes its node from RPC_URL, which must
+        # be local, signs with the node's predeployed account and unsets the funded account's variables, so the hook can
+        # never send on a public network. The test drives it against a fake node on a local RPC_URL.
+        ((REHEARSE)) || { echo "deploy.sh: --check-fresh-guardian is a test hook of the rehearsal: it needs sepolia --rehearse (a local node) and is refused on sepolia; nothing was read or sent" >&2; exit 2; }
         [[ "${2:-}" == step || "${2:-}" == smoke ]] && [[ "${3:-}" =~ ^0x[0-9a-fA-F]+$ ]] ||
-          { echo "deploy.sh: --check-fresh-guardian is a test hook: <step|smoke> <Challenge address>" >&2; exit 2; }
+          { echo "deploy.sh: --check-fresh-guardian expects <step|smoke> <Challenge address>" >&2; exit 2; }
         FRESH_GUARDIAN_HOOK="$2"; FRESH_GUARDIAN_CHALLENGE="$3"
         shift 3 ;;
       *) echo "deploy.sh: unknown option '$1' for 'sepolia$( ((REHEARSE)) && echo ' --rehearse')'" >&2; echo "$USAGE" >&2; exit 2 ;;
