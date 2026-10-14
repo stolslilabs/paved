@@ -201,7 +201,7 @@ const M4: u128 = 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f;
 
 /// The number of bits set in `x`.
 #[inline]
-fn popcount(x: u128) -> u32 {
+pub fn popcount(x: u128) -> u32 {
     let x = x - ((x / 2) & M1);
     let x = (x & M2) + ((x / 4) & M2);
     let x = (x + x / 16) & M4;

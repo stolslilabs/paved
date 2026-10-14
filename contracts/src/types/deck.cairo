@@ -1,9 +1,10 @@
 // Core imports
 
 use core::hash::HashStateTrait;
+use core::num::traits::Pow;
 use core::poseidon::{HashState, PoseidonTrait};
 use paved::elements::decks::simple::DeckImpl as Simple;
-use paved::helpers::bitmap::Bitmap;
+use paved::helpers::random_deck::popcount;
 use paved::types::orientation::Orientation;
 
 // Internal imports
@@ -13,7 +14,15 @@ use paved::types::plan::Plan;
 // Constants
 
 pub const NONE: felt252 = 0;
-pub const MULTIPLIER: u128 = 10_000;
+/// The domain of the deck's hashes (G1).
+pub const DECK_DOMAIN: felt252 = 'DECK';
+/// The draws one lane gives: 10 draws on at most 72 values use under 2^62 of a lane of 2^123 or
+/// more, so the draws are uniform up to a statistical distance below 2^-61 per lane (G1).
+pub const LANE_DRAWS: u8 = 10;
+
+pub mod errors {
+    pub const DECK_TOO_SMALL: felt252 = 'Deck: too small';
+}
 
 // The u8 code of Simple stays 2 (1 was Base, used by Weekly; 3 was Tutorial, gone with D-21), so
 // the codes do not shift. 1 and 3 stay reserved, never given to another deck (P-42): they read as
@@ -99,42 +108,85 @@ pub impl DeckImpl of DeckTrait {
         }
     }
 
-    fn tiles(self: Deck, mut tiles: u128, seed: felt252) -> u128 {
+    /// Removes `total_count() - count()` free tiles from `tiles` (set bits are out of the deck),
+    /// so that the deck keeps `count()` tiles; returns the bitmap, which the draws then read.
+    ///
+    /// G1: selection sampling (Knuth, TAOCP 2, 3.4.2, algorithm S) over the free indexes, in
+    /// order: a free index is removed when a draw uniform on `[0, free)` falls below `need`, where
+    /// `free` counts the free indexes from this one on and `need` the tiles still to remove. Every
+    /// subset of `need` free indexes is then equally likely. The draws are the digits of `lane` in
+    /// the mixed radix of the successive `free`: a lane is one half of a Poseidon hash of the seed
+    /// (`low`, then `high`), and gives `LANE_DRAWS` draws, so one hash serves `2 * LANE_DRAWS`
+    /// free indexes instead of one. Once `need == free` every free index left goes, with no draw.
+    fn tiles(self: Deck, tiles: u128, seed: felt252) -> u128 {
         match self {
             Deck::Simple => {
-                let total_count: u128 = self.total_count().into();
-                let mut to_removes = total_count - self.count().into();
-                let mut index: u8 = 0;
-                loop {
-                    // [Check] Stop if nothing else to remove
-                    if to_removes == 0 {
-                        break tiles;
-                    }
-                    // [Check] Check if the tile is free, otherwise skip
-                    let value = Bitmap::get_bit_at(tiles, index);
-                    if value {
-                        index += 1;
-                        continue;
-                    }
-                    // [Check] Remove the tile from the deck with a dynamic probability
-                    let state: HashState = PoseidonTrait::new();
-                    let state = state.update(seed);
-                    let state = state.update(index.into());
-                    let random_u256: u256 = state.finalize().into();
-                    let random: u128 = random_u256.low % MULTIPLIER;
-                    let probability: u128 = to_removes.into()
-                        * MULTIPLIER
-                        / (total_count - index.into()).into();
-                    if random <= probability {
-                        to_removes -= 1;
-                        tiles = Bitmap::set_bit_at(tiles, index, true);
-                    }
-                    index += 1;
-                }
+                let total_count = self.total_count();
+                let full: u128 = Pow::pow(2_u128, total_count.into()) - 1;
+                let free: u128 = total_count.into() - popcount(tiles & full).into();
+                let need: u128 = (total_count - self.count()).into();
+                sample(tiles, full, free, need, seed)
             },
             _ => tiles,
         }
     }
+}
+
+/// The selection sampling of `DeckTrait::tiles`: removes `need` of the `free` free indexes of
+/// `tiles` (the clear bits under `full`).
+pub fn sample(mut tiles: u128, full: u128, mut free: u128, mut need: u128, seed: felt252) -> u128 {
+    assert(need <= free, errors::DECK_TOO_SMALL);
+    let mut mask: u128 = 1;
+    let mut batch: felt252 = 0;
+    let (mut lane, mut spare) = lanes(seed, batch);
+    let mut spared = true;
+    let mut left = LANE_DRAWS;
+    loop {
+        // [Check] Stop when nothing else is to be removed
+        if need == 0 {
+            break tiles;
+        }
+        // [Effect] Every free index left goes: the indexes from `mask` on
+        if need == free {
+            break tiles | (full - (mask - 1));
+        }
+        // [Check] A free index: draw on `[0, free)`
+        if tiles & mask == 0 {
+            if left == 0 {
+                if spared {
+                    lane = spare;
+                    spared = false;
+                } else {
+                    batch += 1;
+                    let (low, high) = lanes(seed, batch);
+                    lane = low;
+                    spare = high;
+                    spared = true;
+                }
+                left = LANE_DRAWS;
+            }
+            let (quotient, draw) = DivRem::div_rem(lane, free.try_into().unwrap());
+            lane = quotient;
+            left -= 1;
+            if draw < need {
+                tiles = tiles | mask;
+                need -= 1;
+            }
+            free -= 1;
+        }
+        mask *= 2;
+    }
+}
+
+/// The two halves of the hash of batch `batch`: `Poseidon(seed, DECK_DOMAIN + batch)`. The domain
+/// keeps these hashes apart from the reseeds of the draws (`Poseidon(seed, tile_count)`).
+#[inline]
+fn lanes(seed: felt252, batch: felt252) -> (u128, u128) {
+    let state: HashState = PoseidonTrait::new();
+    let state = state.update(seed);
+    let state = state.update(DECK_DOMAIN + batch);
+    let random: u256 = state.finalize().into();
+    (random.low, random.high)
 }
 
 pub impl DeckPartialEq of PartialEq<Deck> {
@@ -188,6 +240,7 @@ pub mod tests {
         let deck: Deck = Deck::Simple;
         let seed: felt252 = 0;
         let tiles: u128 = deck.tiles(0, seed);
+        println!("DECK test_tiles {}", tiles);
         assert(tiles == 0x51cc75898dfe86a218, 'Deck: tiles');
     }
 }
