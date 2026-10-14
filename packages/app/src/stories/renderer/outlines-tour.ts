@@ -34,7 +34,8 @@ export const VIEW_LABELS: Record<View, string> = {
 export const MIN_DISTANCE = 5;
 export const MAX_DISTANCE = 300;
 export const DEFAULT_DISTANCE = 240;
-const TOP_DISTANCE = 110;
+/** Close enough that the outlines are on in a small window (a tile about 160 px wide at 500 px high). */
+const TOP_DISTANCE = 50;
 const MAX_POLAR = Math.PI * 0.15;
 /** Straight down: the camera's own start has the same tiny offset (no gimbal lock). */
 const DOWN = 0.0001;
