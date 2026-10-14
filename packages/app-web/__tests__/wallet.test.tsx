@@ -226,6 +226,16 @@ describe("signing (P-14)", () => {
     expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
   });
 
+  it("no staking action is in the session (PM ruling, P-56): no deposit, withdraw or redeem, and the only approve is the entry's, to Challenge", async () => {
+    const fake = fakeController();
+    setup(SEPOLIA_ENV, fake, async () => ({ token: "0x5", amount: 2_000_000n }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods);
+    for (const vault of ["deposit", "withdraw", "redeem", "stake", "unstake", "claim"]) expect(methods.map((m) => m.entrypoint)).not.toContain(vault);
+    expect(methods.filter((m) => m.entrypoint === "approve").map((m) => m.spender)).toEqual([getChecksumAddress("0x2")]);
+  });
+
   it("the cap counts the economy's MAX_STAKE stakes (10)", () => {
     expect(ENTRY_MAX_STAKE).toBe(10n);
   });
