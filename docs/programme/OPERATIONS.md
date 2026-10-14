@@ -292,6 +292,89 @@ refuse, and before it the six-argument call, which the D-18 classes refuse. So t
 the upgrade: it is built from the commit where part B's `sepolia.json` merges, or later (it holds #324, the cleanup
 #325 and R-1 part B's `MockRouter`), and released right after part B.
 
+## Fresh Sepolia deployment (F, P-53)
+
+One fresh Sepolia deployment of the whole D-19 to D-25 system, after D-23b (#354). It replaces the old Sepolia
+deployment: its test data is dropped, the indexer is rebuilt once, and CLIENT and META ship their matching versions in
+the same wave. D-17 stays the path for mainnet. `--repoint` and `--d18` stay as they are, pinned to 06c024d. Part A
+(brief `docs/briefs/f-fresh-sepolia.md`) built the tool and rehearsed it on devnet; part B is the real run.
+
+**Command.** From merged main on the VPS, the funded account in the environment by name only (as in "Sepolia" above),
+the contracts prebuilt under the cap of AGENTS.md:
+
+```
+scripts/deploy.sh sepolia --check-only --out contracts/deployments/sepolia-next.json   # every check, nothing sent
+scripts/deploy.sh sepolia --out contracts/deployments/sepolia-next.json                # the run; rerun to resume
+```
+
+and first its rehearsal on a fresh local devnet (`--seed 42`, the node's first predeployed account in the signer's
+environment only): `scripts/deploy.sh sepolia --rehearse [--check-only] --out <file>`.
+
+**The deployment file.** The tool refuses to overwrite a file that holds a live deployment (one with no `fresh`
+record): `contracts/deployments/sepolia.json` describes the old deployment, so the run names a new path with `--out`.
+Part B writes `contracts/deployments/sepolia-next.json`, then its pull request moves it over `sepolia.json`
+(`git mv`; the old file stays in the history), so the client, the indexer and META keep reading `sepolia.json`. The keys:
+`contracts.Challenge` (no longer `Daily`), `contracts.Setup`, `contracts.Collection`, `contracts.Economy`,
+`contracts.PavedToken`, `contracts.Vault`, `contracts.Faucet` (the test USDC, no longer `MockUSDC`),
+`contracts.MockRouter`, each `{address, class_hash}`; `token` (the Faucet, 6 decimals, `USDC`); `network`, `chain_id`,
+`rpc_url` (`$STARKNET_RPC_URL`, never the value), `deployed_at`, `deployed_block` (the Faucet's deploy); and the
+tool's record, `fresh`. No `Account`, `Daily`, `Tutorial`, `Lobby` or `Token`. devnet.json has the same keys (less
+`fresh`, plus `test_paved`).
+
+**Checks, before anything is sent.** The three variables (named when missing, never printed); the chain id is
+SN_SEPOLIA (SN_MAIN refused, by deploy.sh and again by the signer); the deployer is deployed; the output file is new or
+holds this path's record for the same network and chain; after the build, a resumed record's class hashes are the
+ones built; the funding check (1.25 x the estimates of the declares still to send + 20 STRK, or the 200 STRK floor
+when an estimate fails; the bounds of each declare, as in "Sepolia"). `--check-only` stops there, lists what the
+record holds and ends "every check passed; nothing was sent"; a failed check exits non-zero.
+
+**Steps.** Each is skipped when what it would send has landed, read from the chain:
+
+1. declare the 8 classes (Challenge, Setup, Faucet, PavedToken, MockRouter, Vault, Economy, Collection);
+2. deploy in dependency order: Faucet, PavedToken, MockRouter (the E-9 class, with `quote_swap`), Vault; the pool (one
+   multicall: 800,000 PAVED and the Faucet's 10,000 USDC premint, D-16, P-39); the owner's stake (one multicall:
+   200,000 PAVED, all of it staked); Economy (its constructor takes the router, the router's pool key with the limit 0,
+   the P-46 configuration `burn_bps` 7,000, `sigma_bps` 0, `slope_bps` 12,220, cap 5, target 1,000,000 PAVED, MEAN0
+   3,980,000 and the launch rate 7.6e31); `PavedToken.set_minter(Economy)`; Setup; Challenge(owner, USDC, Setup);
+   Collection;
+3. wire, one multicall of what is missing: `Setup.set_reporter(Challenge)`, `Economy.set_game(Challenge)`,
+   `Setup.set_economy`, `Setup.set_collection`, `Collection.set_minters(Challenge, 0)`; then read back, with
+   Economy's router, pool, configuration and mean;
+4. define the quests.md v1 set on Setup, one multicall of the definitions it does not hold: quests 1 to 4 (Daily Run
+   `GAME_FINISHED` 1, Master Builder `STRUCTURE_SCORED` 6, Into the Woods `FOREST_SCORED` 1, Point Chaser `POINTS`
+   3,000; daily: start 0, end 0, duration = interval = 86,400) and achievements 1 to 9 (First Stone task 10 x 1, 10
+   points; Settler I, II, III `GAME_FINISHED` 1, 10, 50, 10/20/40 points; Grand Builder `BIG_STRUCTURE` 1, 20; Forester
+   `FOREST_SCORED` 10, 20; Pilgrimage `WONDER_SCORED` 1, 30; High Roller `HIGH_SCORE` 1, 30; On the Podium `PODIUM`
+   1, 50, credited by the indexer). Task 9 (`WIN`) has no definition (Champion is not in the list). Every target is a
+   first guess "to be calibrated" (quests.md, Q-4): a definition cannot be edited, only retired and replaced under a
+   new id;
+5. write the deployment file's `contracts` and `token`;
+6. smoke: `owner()` on Economy, Challenge, Setup and Collection; `Setup.wiring()`; every definition held (slot A of
+   each, read from Setup's storage); `Economy.router()` against the file's MockRouter, its pool, `quote_swap(1.4 USDC)`
+   and `rate()`; a paid spawn at stake 1 through that router; one D-18 build next to the starter; the surrender, a game
+   over reported to Setup (2 events or more); the game's token; `claim_tutorial` once. The rehearsal also settles the
+   game at (D + 2) x 86400; on Sepolia the keeper does.
+
+**The order (#346's audit).** `claim_tutorial` is one-shot, so the definitions (step 4) land before Setup's address
+reaches `contracts` (step 5): until then the file holds `network`, `chain_id` and the `fresh` record alone, and the
+record keeps transaction hashes, never an address (a resumed deploy's address is read from its receipt). The smoke
+checks that Setup holds every definition before the run reports success.
+
+**Resume.** The `fresh` record holds the salt and the first run's commit (written before the first send), the class
+hashes, and each transaction's hash as the signer sends it. A rerun awaits each recorded transaction first (its receipt,
+up to 300 s): landed, it is not sent again; reverted, it may be; no receipt stops the run, the hash named. A hash the
+signer finds `not landed` is cleared. So a run stopped anywhere is rerun with the same command and sends only what is
+left; after completion (`fresh.complete`) a rerun sends nothing and needs no funding margin.
+
+**What changes in the same wave.**
+
+- CLIENT reads `contracts.Challenge` and `contracts.Faucet` (no `Daily`, no `MockUSDC`, no `Token`: the entry token is
+  the top-level `token`, the Faucet), `contracts.MockRouter` as the expected router, and `contracts.Setup` for the
+  quests and the tutorial claim; it ships against `sepolia.json` once part B's pull request merges, not before.
+- The indexer is rebuilt once from the new `deployed_block`, filtering by the new Challenge and Setup addresses (the
+  quiver events are Setup's, `GameOver` is Challenge's); the old database is dropped with the old test data.
+- META and the e2e on Sepolia read the same file.
+
 ## Checks that gate a merge
 
 - CI build
