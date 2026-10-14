@@ -1,7 +1,7 @@
 {
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
-  "rpc_url": "http://127.0.0.1:5071",
+  "rpc_url": "http://127.0.0.1:5050",
   "deployed_at": "unmerged-bd91d1e471220d51fcc3536b3677da6d6a5469e9",
   "deployed_block": 9,
   "token": {
