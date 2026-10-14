@@ -7,10 +7,13 @@ import { AppShell } from "./components/WalletNotice";
 
 /**
  * The routes that play off chain and use nothing of it: the Tutorial, and Training (a mode of `/game`). They are rendered
- * with no chain client, no controller connector and no indexer client.
+ * with no chain client, no controller connector and no indexer client. An old `/game?mode=tutorial` link is one too: the
+ * game page only redirects it to `/tutorial`.
  */
 export function isOffChainRoute(location: { pathname: string; search: string }): boolean {
-  return location.pathname === "/tutorial" || (location.pathname === "/game" && new URLSearchParams(location.search).get("mode") === "training");
+  if (location.pathname === "/tutorial") return true;
+  const mode = location.pathname === "/game" ? new URLSearchParams(location.search).get("mode") : null;
+  return mode === "training" || mode === "tutorial";
 }
 
 /** What mounts the chain side (wallet, paved client, indexer client) around its children, given the network's `supportsMint`. */

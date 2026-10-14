@@ -1,18 +1,20 @@
 /**
- * Test setup only: starts a local starknet-devnet and declares the Lobby class and deploys the four contracts from
- * the classes `scarb build` leaves in `contracts/target/dev/`. Not deploy tooling (that is CORE's).
+ * Test setup only: connects to a local starknet-devnet that `scripts/deploy.sh devnet` has already deployed to, and
+ * reads the deployment file it wrote (the same file and the same accounts as `e2e-devnet.test.ts`). It starts and
+ * deploys nothing: the economy (Economy, Faucet, PAVED token, Vault, router) is deployed by the script, not rebuilt here.
  *
- * Needs `starknet-devnet` 0.10 (`DEVNET_BIN`, default on the PATH) and `universal-sierra-compiler`
- * (`USC_BIN`, default on the PATH), and `scarb build` run in `contracts/` first.
+ *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node (DEVNET_BIN where it is an asdf shim)
+ *   scripts/deploy.sh devnet                                   # or `--unmerged` for a PR's tree (file in a temp dir)
+ *
+ * Env: `E2E_DEPLOYMENT` (the file; default contracts/deployments/devnet.json), shared with the e2e test.
  */
-import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { Account, RpcProvider, json } from "starknet";
-import type { ContractName } from "../../src/abis";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { Account, RpcProvider } from "starknet";
+import { resolveDeployment, type Deployment, type DeploymentFile } from "../../src/deployment";
+import { resolveEconomyDeployment, type EconomyDeploymentFile } from "../../src/economy";
 
-const CLASSES = resolve(__dirname, "../../../../contracts/target/dev");
+const REPO = resolve(__dirname, "../../../..");
 
 export interface DevAccount {
   address: string;
@@ -21,17 +23,16 @@ export interface DevAccount {
 }
 
 export interface Devnet {
+  file: DeploymentFile;
+  deployment: Deployment;
+  economy: ReturnType<typeof resolveEconomyDeployment>;
   rpcUrl: string;
   provider: RpcProvider;
+  /** The predeployed accounts: 0 is the deployer (its smoke game stays in the chain), 1 and up are free for tests. */
   accounts: DevAccount[];
-  addresses: Record<ContractName, string>;
-  /** Class hash of the declared Lobby library class. */
-  /** Block of the last deployment. */
-  deployedBlock: number;
-  stop(): void;
 }
 
-async function rpc(url: string, method: string, params: unknown = {}): Promise<any> {
+export async function rpc(url: string, method: string, params: unknown = {}): Promise<any> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -42,85 +43,19 @@ async function rpc(url: string, method: string, params: unknown = {}): Promise<a
   return body.result;
 }
 
-async function waitReady(url: string, child: ChildProcess, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`starknet-devnet exited with ${child.exitCode}`);
-    try {
-      await rpc(url, "starknet_specVersion");
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 200));
-    }
-  }
-  throw new Error(`starknet-devnet did not answer within ${timeoutMs} ms`);
-}
-
-export async function startDevnet(port: number): Promise<Devnet> {
-  const bin = process.env.DEVNET_BIN || "starknet-devnet";
-  const child = spawn(bin, ["--host", "127.0.0.1", "--port", String(port), "--seed", "0"], { stdio: "ignore" });
-  const rpcUrl = `http://127.0.0.1:${port}/rpc`;
-  const work = mkdtempSync(join(tmpdir(), "paved-devnet-"));
-  const stop = () => {
-    child.kill();
-    rmSync(work, { recursive: true, force: true });
-  };
-  try {
-    await waitReady(rpcUrl, child, 30_000);
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
-    const predeployed: Array<{ address: string; private_key: string }> = await rpc(
-      rpcUrl,
-      "devnet_getPredeployedAccounts",
-    );
-    const accounts = predeployed.slice(0, 2).map((a) => ({
-      address: a.address,
-      privateKey: a.private_key,
-      account: new Account({ provider, address: a.address, signer: a.private_key }),
-    }));
-    const deployer = accounts[0].account;
-    const owner = accounts[0].address;
-
-    const compile = (name: string) => {
-      const sierraPath = join(CLASSES, `paved_${name}.contract_class.json`);
-      const casmPath = join(work, `${name}.casm.json`);
-      execFileSync(process.env.USC_BIN || "universal-sierra-compiler", [
-        "compile-contract",
-        "--sierra-path",
-        sierraPath,
-        "--output-path",
-        casmPath,
-      ]);
-      return { contract: json.parse(readFileSync(sierraPath, "utf8")), casm: json.parse(readFileSync(casmPath, "utf8")) };
-    };
-
-    const deploy = async (name: ContractName, constructorCalldata: string[]) => {
-      const result = await deployer.declareAndDeploy(
-        { ...compile(name), constructorCalldata, salt: "0x1", unique: false },
-        { tip: 0n, retryInterval: 200 },
-      );
-      return result.deploy.contract_address;
-    };
-
-    // Step D (D-21, D-24): no Tutorial and no Lobby; Setup holds the quests and the tutorial claim, and Daily reports
-    // to it at game over, as an allowed reporter.
-    const Token = await deploy("Token", []);
-    const AccountAddress = await deploy("Account", [owner]);
-    const Setup = await deploy("Setup", [owner]);
-    const Daily = await deploy("Daily", [owner, AccountAddress, Token, Setup]);
-    const allowed = await deployer.execute([{ contractAddress: Setup, entrypoint: "set_reporter", calldata: [Daily, "1"] }], { tip: 0n });
-    await provider.waitForTransaction(allowed.transaction_hash, { retryInterval: 200 });
-    const deployedBlock = (await provider.getBlockNumber()) as number;
-
-    return {
-      rpcUrl,
-      provider,
-      accounts,
-      addresses: { Account: AccountAddress, Daily, Setup, Token },
-      deployedBlock,
-      stop,
-    };
-  } catch (error) {
-    stop();
-    throw error;
-  }
+/** Reads the deployment file and connects to the node it names. Throws when the node does not answer. */
+export async function connectDevnet(): Promise<Devnet> {
+  const path = process.env.E2E_DEPLOYMENT ?? resolve(REPO, "contracts/deployments/devnet.json");
+  const file = JSON.parse(readFileSync(path, "utf8")) as DeploymentFile;
+  const deployment = resolveDeployment({ network: "devnet", file });
+  const economy = resolveEconomyDeployment({ base: deployment, file: file as EconomyDeploymentFile });
+  const rpcUrl = deployment.rpcUrl;
+  const provider = new RpcProvider({ nodeUrl: rpcUrl });
+  const predeployed: Array<{ address: string; private_key: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
+  const accounts = predeployed.map((a) => ({
+    address: a.address,
+    privateKey: a.private_key,
+    account: new Account({ provider, address: a.address, signer: a.private_key }),
+  }));
+  return { file, deployment, economy, rpcUrl, provider, accounts };
 }

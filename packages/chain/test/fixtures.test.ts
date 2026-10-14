@@ -21,7 +21,8 @@ const deployment = resolveDeployment({
   env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Account" | "Daily" | "Token", string> },
 });
 const player = record.player!;
-const daily: GameKey = { mode: "daily", gameId: 1 };
+const gameId = record.gameId ?? 1;
+const daily: GameKey = { mode: "daily", gameId };
 
 function client() {
   const provider = replay(record);
@@ -47,7 +48,7 @@ describe("views on recorded answers", () => {
   // The recording's views of a game were of the on-chain Tutorial, which left (D-21); a Daily game's view is read below.
   test("game of a Daily game", async () => {
     const game = await client().client.views.game(daily);
-    expect(game).toMatchObject({ id: 1, mode: 1 });
+    expect(game).toMatchObject({ id: gameId, mode: 1 });
     expect(BigInt(game.playerId)).toBe(BigInt(player));
     expect(game.dayId).toBeGreaterThan(20000);
   });
@@ -61,7 +62,9 @@ describe("views on recorded answers", () => {
     const { client: c } = client();
     const p = await c.player(player);
     expect(p?.name).toBe("alice");
-    expect(await c.balance(player)).toBeGreaterThan(DAILY_PRICE);
+    // The entry price as recorded (the faucet's USDC, 6 decimals, in a fixture recorded on a deploy.sh node).
+    const price = (await c.views.entryPrice().catch(() => null))?.amount ?? DAILY_PRICE;
+    expect(await c.balance(player)).toBeGreaterThan(price);
   });
 
   test("the node's revert messages map to typed errors", () => {
@@ -76,7 +79,7 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ mode: "daily", gameId: 1, over: true }),
+        expect.objectContaining({ mode: "daily", gameId, over: true }),
       ]),
     );
     expect(games).toHaveLength(1);
@@ -98,15 +101,15 @@ describe("writer on recorded receipts", () => {
   test("discard and surrender of a Daily game", async () => {
     const { client: c } = client();
     const writer = c.writer(account([record.receipts.discardDaily, record.receipts.surrenderDaily]));
-    expect(placementOutcome((await writer.discard(daily)).events, 1).discarded).not.toBeNull();
-    expect(placementOutcome((await writer.surrender(daily)).events, 1).over).not.toBeNull();
+    expect(placementOutcome((await writer.discard(daily)).events, gameId).discarded).not.toBeNull();
+    expect(placementOutcome((await writer.surrender(daily)).events, gameId).over).not.toBeNull();
   });
 
   test("a Daily build sends the game id and the move", async () => {
     const { client: c } = client();
     const acc = account([record.receipts.discardDaily]);
     await c.writer(acc).build(daily, { orientation: 1, x: 2, y: 3 });
-    expect(acc.sent[0][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3"]);
+    expect(acc.sent[0][0].calldata).toEqual([`0x${gameId.toString(16)}`, "0x1", "0x2", "0x3"]);
   });
 
   test("a reverted receipt is a WriteError with its reason", async () => {
