@@ -90,11 +90,14 @@ export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 2: 6 }, { 1:
 /** The same day with Weekly Forester done (5 of 5). */
 export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 8: 5 }, { 1: MOCK_NOW - 3 * HOUR, 8: MOCK_NOW - 5 * HOUR });
 
-/** Yesterday, closed (the rotation's other pair): everything done, the week's three included. */
+/**
+ * Yesterday, closed (the rotation's other pair): the three dailies done. The weeklies are at or below today's counts (a
+ * week's progress only grows inside its interval), so this day and `QUESTS_TODAY` never contradict each other.
+ */
 export const QUESTS_ALL_DONE = day(
   TODAY - 1,
-  { 1: 1, 6: 4, 7: 7_300, 8: 6, 9: 31, 10: 21_500 },
-  { 1: (TODAY - 1) * DAY + 9 * HOUR, 6: (TODAY - 1) * DAY + 11 * HOUR, 7: (TODAY - 1) * DAY + 17 * HOUR, 8: (TODAY - 1) * DAY + 11 * HOUR, 9: (TODAY - 1) * DAY + 12 * HOUR, 10: (TODAY - 1) * DAY + 17 * HOUR },
+  { 1: 1, 6: 4, 7: 7_300, 8: 2, 9: 18, 10: 9_000 },
+  { 1: (TODAY - 1) * DAY + 9 * HOUR, 6: (TODAY - 1) * DAY + 11 * HOUR, 7: (TODAY - 1) * DAY + 17 * HOUR },
 );
 
 /** A past day the player did not play: every count at 0. */

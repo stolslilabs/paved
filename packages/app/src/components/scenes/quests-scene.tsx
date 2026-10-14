@@ -54,7 +54,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   useCompletionToasts("quest", tracked, ({ id }) => {
     const { title, icon } = questText(id);
     return { title, icon };
-  });
+  }, { scope: day, live: open });
 
   return (
     <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate}>

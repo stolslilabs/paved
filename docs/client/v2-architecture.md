@@ -1254,7 +1254,12 @@ countdowns from it, a weekly's week from its definition (not from a Monday), and
 `duration`. P9 passes the scene the indexer's list with the schedule fields, and the indexer's clock as `now`.
 `newlyCompleted` in `lib/quest-toasts.ts` is the pure function behind the toast ("Quest completed: <title>", also "Achievement
 earned"): the scene's `useCompletionToasts` calls it on each new `quests` prop, so P9 only has to refresh the prop; the toast shows once
-per (quest, interval), never on the first read. The `Toaster` is the app's, mounted once above the pages (the stories mount their own).
+per (quest, interval), never on the first read, never for a past day's data, and not on a change of day (the hook takes the day as its `scope` and
+drops its last list when it changes). P9 must keep: (1) `announced` (the keys already toasted) lives above the route, per player, in the app's
+store, so a cached-then-fresh read after a remount does not toast again; the scene's hook keeps it in a ref today. (2) Whether completions made while the scene
+was unmounted are announced on return is P9's to decide; recommended yes, by keeping the last list per player in the store and giving it to the
+hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
+To do: P1 or P9 mounts the `Toaster` once above the pages; the app mounts none yet (the stories mount their own).
 
 Every session (Training, Tutorial, Challenge) keeps its engine state between moves and replays the moves only on
 resume (the PM, 2026-10-14).

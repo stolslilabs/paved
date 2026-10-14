@@ -22,7 +22,7 @@ import { Toaster, toast } from "../src/components/ui/sonner";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
-import { ACHIEVEMENTS_MIXED, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO } from "../src/mocks/quests";
+import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO } from "../src/mocks/quests";
 import { REFERRAL_LINK } from "../src/mocks/referral";
 import { ACHIEVEMENTS, LEADERBOARD, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
@@ -345,7 +345,7 @@ describe("Quests", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
     const daily = within(screen.getByRole("region", { name: "Daily" }));
     expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Forest Warden", "Point Chaser II"]);
-    expect(screen.getAllByText("Complete")).toHaveLength(6);
+    expect(screen.getAllByText("Complete")).toHaveLength(3);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
@@ -385,6 +385,7 @@ describe("Quests", () => {
 
   it("raises a toast once when a quest completes between two renders, not on a first read or a refresh", async () => {
     toast.dismiss();
+    const success = vi.spyOn(toast, "success");
     const scene = (quests: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} quests={quests} /></>);
     const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
     // Daily Run was already complete at the first read: no toast for it.
@@ -400,6 +401,23 @@ describe("Quests", () => {
     rerender(scene(QUESTS_TODAY_ONE_TO_GO));
     rerender(scene(QUESTS_TODAY_COMPLETED));
     expect(screen.getAllByText(/Quest completed/)).toHaveLength(1);
+    expect(success).toHaveBeenCalledTimes(1);
+    success.mockRestore();
+  });
+
+  it("raises no toast on a mere change of day, in either direction", async () => {
+    toast.dismiss();
+    const success = vi.spyOn(toast, "success");
+    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
+    const { rerender } = render(scene(QUESTS_TODAY));
+    await Promise.resolve();
+    rerender(scene(QUESTS_ALL_DONE));
+    rerender(scene(QUESTS_TODAY));
+    rerender(scene(QUESTS_ALL_DONE));
+    await Promise.resolve();
+    expect(success).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    success.mockRestore();
   });
 
   it("raises the same toast for an achievement earned", async () => {
