@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { useIndexerRead, usePaved, useRead } from "@paved/chain";
+import { SPAWN_PAUSED_TEXT, useIndexerRead, usePaved, useRead } from "@paved/chain";
 import type { GameMode, LeaderboardEntry, GameView, PavedClient, PlayerGame } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
@@ -101,6 +101,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const games = useRead((c) => (address ? listGames(c, address) : Promise.resolve([])), [address], { onVisible: true });
   // What a Challenge spawn pulls (O-23): the same source the contract's `spawn` uses.
   const price = useRead((c) => c.views.entryPrice(), [], { onVisible: true });
+  // New Challenge games paused (G4): a notice on the card; a failed read shows nothing, as before.
+  const spawnPaused = useRead((c) => c.views.spawnPaused(), [], { onVisible: true });
   // The current day (`Challenge.current_day`), for the time left in it.
   const day = useRead((c) => c.views.currentDay(), [], { onVisible: true });
 
@@ -111,7 +113,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
 
   // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
-    after = [...after, price.refresh]; // a write may change what the entry costs the player to see
+    after = [...after, price.refresh, spawnPaused.refresh]; // a write may change what the entry costs the player to see
     if (writing) return;
     setWriting(true);
     setWriteError(null);
@@ -182,6 +184,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     timeRemaining: m.mode === "challenge" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
     extra: m.mode === "challenge" ? <ChallengeTop day={day.data} /> : undefined,
+    notice: m.mode === "challenge" && spawnPaused.data === true && !spawnPaused.error ? SPAWN_PAUSED_TEXT : undefined,
     onPress: () => setSelected(m.mode),
   }));
   // The Tutorial is a page of its own on the engine (U1), off chain since D-21: no dialog, no start, no wallet.

@@ -7,6 +7,7 @@ import {
   POOL_CANNOT_FILL,
   POOL_QUOTE_UNAVAILABLE,
   SANITY_FLOOR_BPS,
+  SPAWN_PAUSED_TEXT,
   STAKES,
   boostBps,
   formatBps,
@@ -63,6 +64,9 @@ export function EconomyPurchase({
   const [asking, setAsking] = useState(false);
   const [acceptLow, setAcceptLow] = useState(false);
   const entry = useAsyncRead(() => client.base.views.entryPrice(), [client], { onVisible: true });
+  // New games paused (G4). A failed read keeps today's behaviour: the purchase is offered, and the writer reads it again at send.
+  const paused = useAsyncRead(() => client.base.views.spawnPaused(), [client], { onVisible: true });
+  const spawnPaused = paused.data === true && paused.error === null;
   const quote = useAsyncRead(() => client.views.quote(stake), [client, stake], { onVisible: true });
   // The router pin and the guard's rate, read with the quote (the send reads both again in its own prepare).
   // The RPC must be on the deployment's chain; nothing else is read for a purchase before. A match is kept by the client, a
@@ -114,6 +118,7 @@ export function EconomyPurchase({
   const implied = burn !== null && rate !== null ? impliedPaved(burn, rate) : null;
   const lowQuote = minPaved !== null && burn !== null && rate !== null && quoteBelowFloor(poolQuote.data!, burn, rate);
   const canBuy =
+    !spawnPaused &&
     ready &&
     chainOk &&
     price !== null &&
@@ -168,6 +173,7 @@ export function EconomyPurchase({
         <span>{`Current reference: mean ${points(quote.data.mean)} points, threshold ${points(quote.data.threshold)} points; the day's own mean is known only at settlement.`}</span>
       )}
       <span style={warning}>{CLIFF_TEXT}</span>
+      {spawnPaused && <span role="alert" style={alert}>{SPAWN_PAUSED_TEXT}</span>}
       {priceProblem && <span role="alert" style={alert}>{priceProblem}</span>}
       {noPool && <span role="alert" style={alert}>No pool quote: purchase unavailable</span>}
       {chainProblem && <span role="alert" style={alert}>{chainProblem}</span>}
@@ -175,7 +181,7 @@ export function EconomyPurchase({
       {rateRefusal && <span role="alert" style={alert}>{rateRefusal}</span>}
       {!noPool && cannotFill && <span role="alert" style={alert}>{POOL_CANNOT_FILL}</span>}
       {!noPool && unreadable && <span role="alert" style={alert}>{POOL_QUOTE_UNAVAILABLE}</span>}
-      {!asking ? (
+      {!asking || spawnPaused ? (
         <button
           type="button"
           style={confirmButton}
@@ -185,7 +191,7 @@ export function EconomyPurchase({
             setAsking(true);
           }}
         >
-          {!ready ? "Not connected" : noPool ? "No pool quote" : chainProblem || routerRefusal ? "Purchases are off" : rateRefusal ? "Purchases paused" : cannotFill ? "Pool cannot fill" : unreadable ? "Pool quote unavailable" : price !== null ? `Buy for ${usdc(price)}` : "Price unavailable"}
+          {spawnPaused ? "New games paused" : !ready ? "Not connected" : noPool ? "No pool quote" : chainProblem || routerRefusal ? "Purchases are off" : rateRefusal ? "Purchases paused" : cannotFill ? "Pool cannot fill" : unreadable ? "Pool quote unavailable" : price !== null ? `Buy for ${usdc(price)}` : "Price unavailable"}
         </button>
       ) : (
         price !== null && (

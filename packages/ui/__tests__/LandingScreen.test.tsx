@@ -75,4 +75,10 @@ describe("LandingScreen", () => {
   it("shows no Game Modes section when there is no card", () => {
     expect(elementsOf(LandingScreen({ connected: false, gameModes: [] }), GameModeCardView)).toEqual([]);
   });
+
+  it("a card's notice shows as plain text, and a card without one shows none (G4: new games paused)", () => {
+    const notice = "New Challenge games are paused for now. Games already started can still be played.";
+    expect(textsOf(GameModeCardView({ ...card("challenge"), notice }))).toContain(notice);
+    expect(textsOf(GameModeCardView(card("challenge")))).not.toContain(notice);
+  });
 });

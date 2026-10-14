@@ -14,7 +14,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   }
 
   test("Challenge exposes the game views and the day views (IChallengeView); Setup none of them", () => {
-    for (const fn of ["game", "tiles", "builder", "current_day", "entry_price"]) {
+    for (const fn of ["game", "tiles", "builder", "current_day", "entry_price", "spawn_paused", "guardian"]) {
       expect(codecs.Challenge.hasFunction(fn)).toBe(true);
       expect(codecs.Setup.hasFunction(fn)).toBe(false);
     }

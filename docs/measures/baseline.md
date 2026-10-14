@@ -1030,3 +1030,54 @@ golden and differential figures:
 **Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G1"):
 `Challenge` 59,664 -> 60,997 CASM felts (+1,333), 11,950 under the P-44 cap (72,947). No ABI changes
 (`scripts/abis.sh` rewrites `contracts/abis/` identically).
+
+## After G4 (the pause guardian on `Challenge.spawn`)
+
+G4 adds one check at the start of `spawn` (`spawn_paused`, one storage read) and nothing to the moves. Same tests and
+method: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, VPS, 2026-10-14, the whole run of the G4 branch
+(`snforge test --max-threads 2` under `prlimit --as=16106127360`: 673 passed, 0 failed, 9 ignored; peak RSS
+3,806,460 kB).
+
+| | Scenario | G1 | G4 | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,997,115 | 17,746,877 | -250,238 | 18,896,971 | 93.9 % |
+| n | Challenge spawn, stake 10, referred | 18,723,565 | 18,473,327 | -250,238 | 19,659,744 | 94.0 % |
+| a0 | Open simple move | 5,558,903 | 5,558,903 | 0 | 5,709,834 | 97.4 % |
+| a | Simple move, closes a 2-tile city | 5,129,292 | 5,129,292 | 0 | 5,315,180 | 96.5 % |
+| c | Close a large city | 6,605,882 | 6,605,882 | 0 | 6,936,177 | 95.2 % |
+| d | Worst case of P0 | 5,465,200 | 5,465,200 | 0 | 5,662,074 | 96.5 % |
+| e | Close a forest of 4 | 9,095,020 | 9,095,020 | 0 | 9,549,771 | 95.2 % |
+| f | Worst forest scan | 18,583,486 | 18,583,486 | 0 | 18,923,195 | **98.2 %** |
+| g | Closing move in its day | 3,169,668 | 3,169,868 | +200 | 3,672,907 | 86.3 % |
+| i | Closing move after its day | 2,712,128 | 2,712,328 | +200 | 2,847,987 | 95.2 % |
+| k | Closing move, full report | 3,603,848 | 3,604,048 | +200 | 4,018,231 | 89.7 % |
+| l | Game over on a build | 7,127,545 | 7,127,745 | +200 | 7,774,092 | 91.7 % |
+| s | Game over on a discard | 3,358,963 | 3,359,163 | +200 | 3,528,109 | 95.2 % |
+
+Every ceiling is kept; f stays the tightest, at 98.2 %. The +200 on the five game overs is measured, its cause not
+isolated (the moves run the same code; the class is larger).
+
+**The spawn's check costs 40,480; the spawns fell because the address moved.** Since D-23 a game's seed is
+Poseidon(salt, `Challenge`'s address, game id), and the address of a test deployment depends on the class hash, which
+G4 changes; G1 showed that the walk's cost depends on the seed. So m and n compare two decks, not two spawns. A probe
+(not committed) deployed `Challenge` at one fixed address (`deploy_at`) in `contracts/tests/setup.cairo` and ran the
+scenarios twice on the same build, with the check and with its line removed:
+
+| | With the check | Without it | The check |
+|---|---:|---:|---:|
+| m | 18,673,117 | 18,632,637 | +40,480 |
+| n | 19,399,567 | 19,359,087 | +40,480 |
+
+(the same seed, so the same deck; the other scenarios are identical to the unit between the two runs and the whole
+run above). The spawns' ceilings are kept: m at 18,673,117 would be 98.8 % of its ceiling, so a deck at another
+address can bring m near it; a ceiling bounds the scenario, not every deck (G1's note above).
+
+**Test budgets.** Every existing `#[available_gas]` holds. The new tests get measured + 5 % from the whole run:
+`tests::e2e::guardian` (the seven that do not expect a revert) and `tests::e2e::upgrade_g4` (146,907,191 + 5 %);
+`cold_paths_audit::test_daily_pins_its_storage_variables_by_name`, which now pins the two new slots, is reset to
+55,202,204 + 5 %. Goldens unchanged: the 19 golden tests pass with their expected moves and scores (their seed is the
+day's, `DaySeed` in `golden::harness`, not the address's, so the new address does not move them).
+
+**Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G4"):
+`Challenge` 60,997 -> 62,323 CASM felts (+1,326), 10,624 under the P-44 cap (72,947). `scripts/abis.sh` rewrites
+`contracts/abis/Challenge.json` only (the new interface, its impl and the three events).
