@@ -20,6 +20,7 @@ jobs:
       indexer: ${{ steps.filter.outputs.indexer }}
       client: ${{ steps.filter.outputs.client }}
       signer: ${{ steps.filter.outputs.signer }}
+      e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # dorny/paths-filter v3.0.4
@@ -72,6 +73,20 @@ jobs:
               - 'contracts/src/tests/golden/**'
               - 'contracts/src/tests/differential.cairo'
               - 'contracts/fixtures/**'
+            # The Training Playwright e2e (packages/app-web/e2e): it mounts the real board in a browser, so the board's
+            # renderer, the rules and the app run it. Not the whole `packages/**` of the client job. The dev server it
+            # starts aliases @paved/chain and @paved/ui to their sources (app-web/vite.config.ts, e2e/vitest.config.ts), so
+            # those two are in; bun.lock and the root package.json change the installed versions the browser runs.
+            e2e:
+              - 'packages/renderer/**'
+              - 'packages/game-core/**'
+              - 'packages/app/**'
+              - 'packages/app-web/**'
+              - 'packages/chain/**'
+              - 'packages/ui/**'
+              - 'bun.lock'
+              - 'package.json'
+              - '.github/workflows/test.yaml'
             # The starknet.js signer that signs with the deployer key on Sepolia (P-40): its unit tests gate a merge.
             signer:
               - 'scripts/signer/**'
@@ -232,6 +247,85 @@ jobs:
       - name: Test
         run: bun run test
 
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    name: Training e2e (headless)
+    # Measured 4 min 01 s with warm caches (the vitest step 205 s). About twice: 8 min.
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    env:
+      # The heap cap of app-web's tests (AGENTS.md): the T2 run used the same.
+      NODE_OPTIONS: --max-old-space-size=1536
+      # One full game, not the local default of 2: clearly shorter, same code paths.
+      PAVED_E2E_GAMES: "1"
+      PAVED_E2E_SHOTS: ${{ github.workspace }}/e2e-shots
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # actions/setup-node v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      # oven-sh/setup-bun v2.2.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      # The same modules cache and key as the client job: the same files, so one job's save serves the other.
+      - name: Runner image
+        id: image
+        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        id: modules
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            !node_modules/.cache
+            !packages/*/node_modules/.cache
+            !packages/*/node_modules/.vite
+          key: node-modules-${{ runner.os }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-node-24-bun-1.4.2-${{ hashFiles('bun.lock', 'package.json', 'packages/*/package.json') }}
+      - name: Install
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: bun install --frozen-lockfile
+      # The browser is the one playwright-core 1.63.0 (pinned in packages/app-web/package.json and bun.lock) names:
+      # chromium-headless-shell revision 1243, Chrome 153.0.8010.12 (browsers.json of that version). The command runs
+      # from the workspace, so it resolves the locked package and never a newer one. Its folder is cached under the
+      # pinned version; a miss downloads the same revision.
+      - name: Playwright version
+        id: playwright
+        working-directory: packages/app-web
+        run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
+        shell: bash
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        id: browser
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+      # --with-deps also installs the system libraries (apt) on a hit: the cache holds the browser folder only.
+      - name: Install the browser
+        working-directory: packages/app-web
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+        shell: bash
+      - name: Training e2e
+        working-directory: packages/app-web
+        run: |
+          mkdir -p "$PAVED_E2E_SHOTS"
+          bun run e2e
+        shell: bash
+      # actions/upload-artifact v4.6.2
+      - name: Upload the screenshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e2e-shots
+          path: e2e-shots
+          retention-days: 7
+          if-no-files-found: ignore
+
   signer:
     needs: changes
     if: needs.changes.outputs.signer == 'true'
@@ -256,7 +350,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ci
     if: always()
-    needs: [changes, check, build, abis, test, indexer, client, signer]
+    needs: [changes, check, build, abis, test, indexer, client, e2e, signer]
     steps:
       - name: Require every job to have succeeded or been skipped
         run: |
