@@ -42,12 +42,10 @@ type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 
 // Welcome
 
-const mosaic = BOARD_72.tiles.map(({ plan, orientation }) => ({ plan, orientation }));
-
 export const WELCOME = {
-  firstVisit: { mosaic, tileArt: RENDERER_ASSETS },
-  connecting: { mosaic, tileArt: RENDERER_ASSETS, connecting: true },
-  failed: { mosaic, tileArt: RENDERER_ASSETS, error: "The controller window was closed before the account connected." },
+  firstVisit: {},
+  connecting: { connecting: true },
+  failed: { error: "The controller window was closed before the account connected." },
 } satisfies Record<string, Data<WelcomeSceneProps>>;
 
 // Loading

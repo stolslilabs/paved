@@ -6,7 +6,12 @@ import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { formatUnits } from "../src/components/elements/amount";
-import { formatRemaining } from "../src/components/elements/countdown";
+import { Background } from "../src/components/elements/background";
+import { Countdown, formatRemaining } from "../src/components/elements/countdown";
+import { Score } from "../src/components/elements/score";
+import { StatRow } from "../src/components/elements/stat-row";
+import { TilesLeft } from "../src/components/elements/tiles-left";
+import { AppNav } from "../src/components/containers/app-nav";
 import { formatLocal, formatRelative, formatUtc } from "../src/components/elements/deadline";
 import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
@@ -366,5 +371,49 @@ describe("no wiring (SC1, SC2)", () => {
   it("leaves the routes without the scenes, so the app bundle is unchanged", () => {
     const routes = files(join(src, "routes")).concat(join(src, "App.tsx"), join(src, "main.tsx"));
     for (const f of routes) expect(readFileSync(f, "utf8")).not.toMatch(/components\/(scenes|containers|elements)|mocks\//);
+  });
+});
+
+describe("Element feedback (EL)", () => {
+  it("puts the icon on the value's row, under the title", () => {
+    const { container, unmount } = render(<Score value={1270} label="Score" icon="star" />);
+    const value = screen.getByTestId("score-value");
+    const icon = container.querySelector("[data-icon='star']")!;
+    expect(value.parentElement).toBe(icon.parentElement!.parentElement);
+    expect(screen.getByText("Score").parentElement).not.toBe(value.parentElement);
+    unmount();
+    const tiles = render(<TilesLeft remaining={12} />);
+    const left = screen.getByTestId("tiles-left");
+    expect(tiles.container.querySelector("[data-icon='table-cells-large']")!.parentElement!.parentElement).toBe(left.parentElement);
+    expect(tiles.container).not.toHaveTextContent(/discard/i);
+  });
+
+  it("keeps a stat row's hint under its label, the icon and the value on the first row", () => {
+    const { container } = render(<StatRow icon="city" label="Cities closed" hint="450 pts" value={4} />);
+    const row = container.firstElementChild!;
+    expect(row.className).toContain("grid");
+    expect(screen.getByText("450 pts").className).toContain("col-start-2");
+  });
+
+  it("hides the countdown's label and keeps its accessible name", () => {
+    render(<Countdown expiresAt={MOCK_NOW + 9 * 3600} now={MOCK_NOW} label="Closes in" hideLabel />);
+    expect(screen.queryByText("Closes in")).not.toBeInTheDocument();
+    expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
+  });
+
+  it("draws the Vault tab with the piggy bank, and the bar sticky at the bottom", () => {
+    render(wrap(<AppNav active="home" />));
+    const vault = screen.getByRole("button", { name: "Vault" });
+    expect(vault.querySelector("[data-icon='piggy-bank']")).not.toBeNull();
+    expect(screen.getByRole("navigation", { name: "Main" }).className).toMatch(/sticky.*bottom-0/);
+  });
+
+  it("serves the background as AVIF, WebP and a JPEG fallback from this host", () => {
+    const { container } = render(<Background base="/" />);
+    const sources = [...container.querySelectorAll("source")].map((e) => [e.type, e.srcset] as const);
+    expect(sources.map(([t]) => t)).toEqual(["image/avif", "image/webp"]);
+    expect(sources[0]![1]).toContain("/backgrounds/placeholder-720.avif 720w");
+    expect(container.querySelector("img")).toHaveAttribute("src", "/backgrounds/placeholder-1440.jpg");
+    expect(container.innerHTML).not.toMatch(/https?:/);
   });
 });

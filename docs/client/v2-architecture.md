@@ -1217,7 +1217,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome` | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards; a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |

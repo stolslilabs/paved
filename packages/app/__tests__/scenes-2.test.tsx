@@ -86,8 +86,7 @@ describe("Leaderboard", () => {
     await userEvent.click(within(list).getAllByRole("button")[0]);
     expect(onSelectPlayer).toHaveBeenCalledWith("0x0123aa");
     expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Ranks" })).toHaveAttribute("aria-current", "page");
-    // Many role queries over a 20-row list with the nav: 5 s was not enough on a CI runner (run 38614226869).
-  }, 20_000);
+  });
 
   it("ranks the rows in score order", () => {
     for (const state of ["today", "closed", "offTop"] as const) {
