@@ -18,6 +18,8 @@ export interface GameCanvasProps {
   style?: React.CSSProperties;
   className?: string;
   onReady?: (scene: GameScene) => void;
+  /** Called when the scene cannot start, for example without a WebGL context. */
+  onError?: (error: unknown) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
@@ -34,39 +36,65 @@ export function GameCanvas({
   style,
   className,
   onReady,
+  onError,
   onTileClick,
   onTileHover,
   onHoverLeave,
 }: GameCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GameScene | null>(null);
 
+  const onReadyRef = useRef(onReady);
+  const onErrorRef = useRef(onError);
   const onTileClickRef = useRef(onTileClick);
   const onTileHoverRef = useRef(onTileHover);
   const onHoverLeaveRef = useRef(onHoverLeave);
 
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Each scene owns its canvas, and so its WebGL context: disposing one scene loses only
+    // its own context, never that of the next scene mounted in the same place (StrictMode
+    // remounts, a `basePath` change).
+    const canvas = document.createElement("canvas");
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    container.appendChild(canvas);
 
     const gameScene = new GameScene();
     sceneRef.current = gameScene;
+    let cancelled = false;
 
-    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(() => {
-      gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
-      gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
-      gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
-      gameScene.start();
-      onReady?.(gameScene);
-    });
+    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(
+      () => {
+        // Unmounted while init was pending: never start the scene.
+        if (cancelled) return;
+        gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+        gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
+        gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        gameScene.start();
+        onReadyRef.current?.(gameScene);
+      },
+      (error: unknown) => {
+        gameScene.dispose();
+        if (!cancelled) onErrorRef.current?.(error);
+      },
+    );
 
     return () => {
-      gameScene.dispose();
+      cancelled = true;
       sceneRef.current = null;
+      // A pending init sees the scene disposed after its await and stops there.
+      gameScene.dispose();
+      canvas.remove();
     };
   }, [basePath]);
 
@@ -95,8 +123,8 @@ export function GameCanvas({
   }, [cameraMode]);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
+      ref={containerRef}
       style={{ width: "100%", height: "100%", ...style }}
       className={className}
     />
