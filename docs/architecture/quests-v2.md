@@ -4,7 +4,7 @@ Documents only: no contract change. Brief: `docs/briefs/quests-v2-benchmark.md` 
 2026-10-14). v1 is `docs/architecture/quests.md` (the accepted list of P-22, the Setup contract of D-24/D-25), with
 its indexer (`docs/architecture/indexer.md`, "As built (P7 indexer, quests and achievements)") and its client page.
 
-**v2a: built in #<this PR>** (the (A) definitions, shipped by the fresh deployment: `quests.md`, "As built: v2a, definitions only").
+**v2a: built in #423** (the (A) definitions, shipped by the fresh deployment: `quests.md`, "As built: v2a, definitions only").
 
 ## Sources and how they are cited
 
