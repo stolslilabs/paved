@@ -156,9 +156,15 @@ and dies on one that is there but not as below:
 | achievements 10 to 16 | higher tiers, no window | | `FOREST_SCORED` 50 (40 points); `WONDER_SCORED` 10 (50); `BIG_STRUCTURE` 10 (40); `HIGH_SCORE` 10 (50) and 25 (80); `GAME_FINISHED` 250 (60) and 1,000 (80) |
 
 The live rotating quest of a UTC day is the one whose start offset is `day number mod 3` (a day number is `floor(time / 86400)`).
-Task ids 11 to 18 are reserved and none is defined. The client shows `Quest #<id>` for an id it has no text for (CLIENT's part).
+Task ids 11 to 18 are reserved and none is defined. The client shows `Quest #<id>` (`Achievement #<id>` for an achievement) for an id it has no text for (CLIENT's part).
 
-**The events to expect in the run's blocks** (read from the rehearsed devnet: 105 events in all, counted by selector):
+**What the definitions check proves, and what it does not.** `deploy.sh` reads each definition back from Setup's storage and compares it with
+quiver 0.2.0's packing (`fresh_expected_slots`, `fresh_slot_matches`). No CI test pins that packing: the fake node of `test-deploy-url.sh` uses the
+same formula, so only a run against the real Setup class checks it. That is step 1.1a's rehearsal at the deploy commit. A line `quest N is
+defined, but not as specified` (or `achievement N ...`) there, or on the day, means **stop**: a definition cannot be edited, so report it and
+send nothing more.
+
+**The events to expect in the run's blocks** (105 events in all were read from the rehearsed devnet before v2a; v2a adds 19, one `QuestDefined` or `AchievementDefined` per definition, so **124 is computed, not measured**; counted by selector):
 
 | Event | Count | Emitted by |
 |---|---|---|
@@ -167,6 +173,8 @@ Task ids 11 to 18 are reserved and none is defined. The client shows `Quest #<id
 | `PoolSet` | 1 | Economy (constructor) |
 | `EconomyConfigured` | 1 | Economy (constructor) |
 | `GuardianSet` | 1 | Challenge (the wiring step's guardian call) |
+| `QuestDefined` | 16 (computed: 4 of v1 + 12 of v2a) | Setup (the definitions multicall) |
+| `AchievementDefined` | 16 (computed: 9 of v1 + 7 of v2a) | Setup (the definitions multicall) |
 
 The indexer must know `GuardianSet` (and `SpawnPaused`, `SpawnUnpaused`) before it reads this deployment: it halts on an unknown
 selector. That is step 2's concern (it is built from the same commit), and the reason the indexer is rebuilt after the contracts.
