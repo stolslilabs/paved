@@ -145,7 +145,7 @@ What the draw reads, and where the client gets it:
 | The draw reads | Contract | The client gets it from |
 |---|---|---|
 | The initial seed | `TokenSeed`: `Poseidon(0, Challenge, game_id)` (`seed.cairo:20-37`), passed to `start` (`hostable.cairo:81-82`) | `initial_seed(game_id)` (new, `views.cairo:92`, `:200-206`; `systems/challenge.cairo:338-340`) |
-| The deck's withdrawal at spawn | `deck.tiles(tiles, seed)` (`models/game.cairo:156-176`) | the engine, from the initial seed |
+| The deck's withdrawal at spawn | `deck.tiles(tiles, seed)` (`models/game.cairo:156-176`), G1's walk since 78ab2ab0 | the engine, from the initial seed (G1's walk: a game spawned by a pre-G1 class used the old one, see below) |
 | Each draw | `draw_from_bitmap(seed, number, tiles)`, then `seed = Poseidon(seed, tile_count)` (`game.cairo:294-317`) | the engine |
 | The reseed before a draw | `seed = Poseidon(seed, x, y)` of the tile built or discarded (`game.cairo:192-198`; `playable.cairo:99`, `:243`) | `tiles()`: the position of a placed tile |
 | The tiles drawn so far, in order | ids 1 to `tile_count` | `tiles(game_id, from, count)`: every drawn tile, in draw order, with its status (placed, discarded, held) (`views.cairo:140-181`) |
@@ -170,10 +170,19 @@ in `GameView` (CLIENT 9.4 calls it unnecessary at 38 tiles).
 
 `initial_seed` is computed, not stored: `TokenSeed` is the only seed source of `spawn` (`challenge.cairo:223-231`),
 and the Sepolia `Challenge` has used it since its deployment (`deployments/sepolia.json`, `deployed_at` 5dbc692b),
-so the formula holds for every game on it, before and after this upgrade, at no gas and no storage. What reverses it:
+so the seed it returns is right for every game, at no gas and no storage. What reverses it:
 a seed source that cannot be recomputed from the game id (a VRF, `seed.cairo:1-7`) must store the seed at spawn and
 this view read it. The golden games of the tests start from another source (`tests::golden::harness`); their
 `initial_seed` is not their seed, which only tests can see.
+
+**Which games the replay holds for.** The seed is right for every game, but the replay also needs the deck's
+withdrawal at spawn, and that changed with G1 (78ab2ab0): a game spawned by a pre-G1 class built its deck with the old
+walk (`tests::legacy_g1::tiles_before_g1`), which the current engine does not reproduce. The class live on Sepolia
+(5dbc692b) predates G1. By D-27 that class is never upgraded in place: G6 part B is dropped, and Sepolia gets one fresh
+deployment at the end. So every game that `initial_seed` can be read for is spawned by a post-G1 class, and the replay
+holds for all of them. If a class were ever upgraded over games spawned before G1, those games' decks would use the
+pre-G1 walk: the client's open-time check against `game()` (its seed and tile in hand) would fail, and the client must
+fall back to no prediction for them (CLIENT's `v2-architecture.md`, 9.3, "The initial check fails").
 
 ## For the PM
 

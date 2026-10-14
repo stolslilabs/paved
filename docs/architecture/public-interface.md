@@ -120,9 +120,13 @@ tile, ids `1..=tile_count` in the order they were drawn, with its status. A disc
 ### `initial_seed(game_id: u32) -> felt252`
 
 The seed the game started with, before the deck's withdrawal and the first draw (S1): its token's
-seed, `Poseidon(0, Challenge, game_id)` (`TokenSeed`, D-23). With `tiles`, what a client replays to
-compute the next draw locally (`client-spec-core.md`, section 3). Reverts `Game: does not exist` for
-no game.
+seed, `Poseidon(0, Challenge, game_id)` (`TokenSeed`, D-23), right for every game. With `tiles`, what a
+client replays to compute the next draw locally (`client-spec-core.md`, section 3), for every game spawned
+by a class from G1 (78ab2ab0) on: the only games a network gets under D-27 (one fresh Sepolia deployment, no
+upgrade of the pre-G1 class live there). A game spawned by a pre-G1 class built its deck with the old walk
+(`tests::legacy_g1::tiles_before_g1`): if a class were ever upgraded over such games, the client's open-time
+check against `game()` fails for them, and it falls back to no prediction. Reverts `Game: does not exist`
+for no game.
 
 ### `builder(game_id: u32, player_id: felt252) -> BuilderView`
 
