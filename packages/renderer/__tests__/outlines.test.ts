@@ -70,10 +70,15 @@ describe("outlineStroke: the zoom-to-width function", () => {
     expect(outlineStroke(60.5, step)).toEqual({ width: 1 + (2.5 - 1) * (Math.log(60.5 / 60) / Math.log(500 / 60)), opacity: 1 });
   });
 
-  it("defaults: off at the game's opening view of a 900 px window, at full width zoomed in", () => {
+  it("defaults: off at 48 px a tile, fading in at the game's opening view of a 900 px window, on at 96 px, at full width zoomed in", () => {
     const camera = new THREE.PerspectiveCamera(50, 1.6, 1, 2000);
     camera.zoom = 5;
-    expect(outlineStroke(tilePixels(camera, 240, 900)).opacity).toBe(0);
+    expect(DEFAULT_OUTLINE_SETTINGS).toMatchObject({ fadeThresholdTilePx: 48, fadeRangeTilePx: 48, minWidthPx: 1, maxWidthPx: 2 });
+    expect(outlineStroke(48).opacity).toBe(0);
+    const opening = outlineStroke(tilePixels(camera, 240, 900));
+    expect(opening.opacity).toBeGreaterThan(0);
+    expect(opening.opacity).toBeLessThan(1);
+    expect(outlineStroke(96)).toEqual({ width: DEFAULT_OUTLINE_SETTINGS.minWidthPx, opacity: 1 });
     expect(outlineStroke(tilePixels(camera, 5, 900))).toEqual({ width: DEFAULT_OUTLINE_SETTINGS.maxWidthPx, opacity: 1 });
   });
 });

@@ -35,12 +35,12 @@ export interface OutlineSettings {
 
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
-  // Tuned on the 72-tile bench board (R-OUT captures): a tile has 16 to 20 voxels a side, and its forests a crease on
-  // nearly every voxel. Below about 100 px a tile (a voxel of 5 px) a 1 px line on each of them darkens the tile; at
-  // 160 px opaque lines still weigh on the forests, so the fade runs to 192 px. The game opens at 60 px a tile in a
-  // 900 px window: it opens without outlines, and they come in as the player zooms in.
-  fadeThresholdTilePx: 96,
-  fadeRangeTilePx: 96,
+  // Tuned on the 72-tile bench board (R-OUT captures, PM's ruling of 2026-10-14): a tile has 16 to 20 voxels a side,
+  // and its forests a crease on nearly every voxel. The game opens at 60 px a tile in a 900 px window, and the mockups
+  // show outlines there, so they start at 48 px and are fully on at 96 px. At 60 px they take a steady 19 % of the
+  // scene's brightness across a pan (main's 1 px lines: about 40 %), and the board is about 18 % darker than without.
+  fadeThresholdTilePx: 48,
+  fadeRangeTilePx: 48,
   minWidthPx: 1,
   maxWidthPx: 2,
   maxWidthTilePx: 800,

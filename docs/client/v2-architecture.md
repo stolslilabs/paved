@@ -811,7 +811,8 @@ or multiple render targets), outlined everything on screen, and its pixel edges 
 anti-aliasing. The width and opacity follow the on-screen size of a tile (CSS px, which folds in distance,
 field of view, camera zoom and viewport height), from one settings object, `RendererSettings`
 (`core/settings.ts`), given to `GameScene`, `GameCanvas` or `GameCanvasNative`: off at or below
-`fadeThresholdTilePx` (96), a smooth fade-in over `fadeRangeTilePx` (96), then from `minWidthPx` (1) to
+`fadeThresholdTilePx` (48), a smooth fade-in over `fadeRangeTilePx` (48), so the game's opening view (about
+60 px a tile) shows them as the mockups do (PM's ruling, 2026-10-14), then from `minWidthPx` (1) to
 `maxWidthPx` (2) at `maxWidthTilePx` (800). The camera's distance limits (5, 300) and an optional zoom-out
 cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target (5.2, item 1) is the
 `multisampling` setting, off by default: it costs 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max for
