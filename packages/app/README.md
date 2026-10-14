@@ -39,7 +39,7 @@ The CI `client` job runs `build-storybook`, so a broken story fails the pull req
 | Path | What |
 |---|---|
 | `src/styles/theme.css` | The only file with raw colours: scales, semantic tokens, breakpoints (Tailwind's defaults plus `mobile` / `tablet` / `desktop` / `wide`). Dark only; `index.html` sets `data-theme="dark"`, which the `dark:` variant needs |
-| `src/styles/fonts.css` | Rubik Mono One and Inter Variable, Latin subset, from `@fontsource*` |
+| `src/styles/fonts.css` | Cinzel, Nunito Sans Variable and IBM Plex Mono, Latin subset, from `@fontsource*` |
 | `src/routes/pages.ts` | The route map, one entry per page: path, title, bottom-nav tab |
 | `src/routes/Shell.tsx` | The layouts: with the bottom tabs, and full screen |
 | `src/lib/query-client.ts` | The TanStack Query client |
