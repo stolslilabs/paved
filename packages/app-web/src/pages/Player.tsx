@@ -72,7 +72,8 @@ export function PlayerPage() {
         stats && (
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 16px", margin: 0, fontSize: 14 }}>
             <dt style={{ color: "#999" }}>Best score</dt>
-            <dd style={{ margin: 0 }}>{stats.bestScore}</dd>
+            {/* No finished game: the indexer's 0 is not a score (a player whose only game runs, D-25 (E)). */}
+            <dd style={{ margin: 0 }}>{stats.dailyFinished === 0 ? "–" : stats.bestScore}</dd>
             <dt style={{ color: "#999" }}>Daily games</dt>
             <dd style={{ margin: 0 }}>{`${stats.dailyGames} (${stats.dailyFinished} finished)`}</dd>
           </dl>

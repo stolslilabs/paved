@@ -163,8 +163,8 @@ export interface PlayerInfo {
 export interface PlayerStats {
   daily_games: number;
   daily_finished: number;
-  /** Best score of a finished Daily game, null when none finished. */
-  best_score: number | null;
+  /** Best score of a finished Daily game, 0 when none finished; `daily_finished` says whether 0 is a real score. */
+  best_score: number;
   /** Daily games the player bought (`Purchased`). Appended in E3. */
   paid_games: number;
   /** Of them, the games settled. */

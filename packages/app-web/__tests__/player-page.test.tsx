@@ -31,6 +31,23 @@ describe("Player page", () => {
     expect(fixture.requests).toEqual([]);
   });
 
+  // D-25 (E): a player exists from their first spawn, so one whose only game still runs is common; the indexer answers
+  // best_score 0 then, which is not a score.
+  it("no finished game: the best score reads –, not 0", async () => {
+    const running = async (input: RequestInfo | URL) => {
+      const answer = await fixture.fetch(input);
+      if (!/\/v1\/players\/0x[0-9a-f]{64}$/.test(new URL(String(input)).pathname)) return answer;
+      const body = await answer.json();
+      body.stats = { ...body.stats, daily_games: 1, daily_finished: 0, best_score: 0 };
+      return new Response(JSON.stringify(body), { status: answer.status, headers: answer.headers });
+    };
+    player(FIXTURE_ADA, { indexer: new IndexerClient({ url: "http://indexer.test", fetch: running as typeof fetch }) });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
+    const best = await screen.findByText("Best score", { selector: "dt" });
+    expect(best.nextElementSibling!.textContent).toBe("–");
+    expect(screen.getByText("1 (0 finished)")).toBeTruthy();
+  });
+
   // D-25 (E): the heading is the short address; another player's name is not looked up, and the indexer has none.
   it("loading, then the short address, stats, tournaments and games", async () => {
     player(FIXTURE_ADA);

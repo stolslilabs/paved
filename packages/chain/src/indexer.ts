@@ -154,6 +154,7 @@ export interface IndexedPlayer {
 export interface PlayerStats {
   dailyGames: number;
   dailyFinished: number;
+  /** 0 when no Daily game finished; `dailyFinished` says whether 0 is a real score. */
   bestScore: number;
   /** E3 (appended to v1); undefined from an indexer that predates it. */
   paidGames?: number;
