@@ -216,7 +216,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     });
     expect(chain).toMatchObject({ stake: 1, recorded: true, settled: true });
     const player = await get<PlayerAnswer>(`/v1/players/${me}`);
-    expect(player.player).not.toHaveProperty("name");
+    expect(player.player?.name).toBeNull(); // N1: the lookup is off (`--no-names`)
     expect(player.stats).toMatchObject({ paid_games: 1, settled_games: 1, rewards: chain.reward });
     expect(player.unsettled).toEqual([]);
     // The settlement closed the smoke's day: the indexer's close is the contract's.

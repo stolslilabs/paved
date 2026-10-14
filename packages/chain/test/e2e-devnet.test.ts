@@ -25,6 +25,7 @@
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { EngineGame } from "@paved/game-core";
 import { Account, RpcProvider, hash } from "starknet";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FAUCET_USDC_AMOUNT } from "../src/abis";
@@ -69,6 +70,12 @@ const SALT = 0n;
  */
 const tokenSeed = (challenge: string, gameId: number): bigint =>
   BigInt(hash.computePoseidonHashOnElements([SALT, BigInt(challenge), BigInt(gameId)]));
+/**
+ * The seed the game view shows right after the spawn: the stored seed is the one after the first draw (`spawn_with` starts
+ * the game and draws the tile in hand, which moves the seed on), so the spawn is replayed off chain from `tokenSeed` with
+ * the engine, which the parity goldens pin to the contract.
+ */
+const spawnedSeed = (challenge: string, gameId: number): bigint => EngineGame.start({ deck: "simple", seed: tokenSeed(challenge, gameId) }).seed;
 
 interface Player {
   name: string;
@@ -325,10 +332,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
       const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
-      // The token id is pinned (a fresh node), and so is the seed of its deck, which the game view returns.
+      // The token id is pinned (a fresh node), and so is the seed of its deck: the view's seed is the spawn's, replayed.
       expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
       const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
-      expect(seed, `${p.name}'s seed is Poseidon(${SALT}, Challenge, ${bought.gameId})`).toBe(tokenSeed(client.deployment.addresses.Challenge, bought.gameId));
+      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${bought.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, bought.gameId));
       challengeGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
@@ -358,7 +365,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const terms = await economy.views.terms(bought.gameId);
       expect(terms).toMatchObject({ stake: k, recorded: false, settled: false, expired: false });
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
-      evidence.push(`${p.name} k=${k} game ${bought.gameId} seed 0x${seed.toString(16)} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
+      evidence.push(`${p.name} k=${k} game ${bought.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, bought.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
     }
     pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
@@ -428,10 +435,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(board.data.total).toBe(players.length);
     expect(board.data.entries.map((e) => e.bestScore)).toEqual(ranked.map(([, s]) => s));
     for (const e of board.data.entries) {
-      // Each row is one of the three wallets, by address: names are off chain since D-25 (E), and no row carries one.
+      // Each row is one of the three wallets, by address: no name on chain since D-25 (E); N1's off-chain name is null with the lookup off (`--no-names`).
       const p = players.find((x) => BigInt(x.address) === BigInt(e.playerId))!;
       expect(p).toBeDefined();
-      expect(e).not.toHaveProperty("name");
+      expect(e.name).toBeNull();
       expect(e.bestScore).toBe(scores.get(p.name));
       expect(e.bestGameId).toBe(challengeGames.get(p.name));
       expect(e.gamesFinished).toBe(1);
@@ -568,7 +575,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
     bobSecondGame = purchase.gameId;
     expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
-    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(tokenSeed(client.deployment.addresses.Challenge, bobSecondGame));
+    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(spawnedSeed(client.deployment.addresses.Challenge, bobSecondGame));
     const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
     const earned = await economy.views.vault(carol.address);
     // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.
