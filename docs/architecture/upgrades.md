@@ -240,16 +240,37 @@ its own brief when needed:
 
 ## Trust
 
-The upgrade owner can replace the code of `Challenge` (the game; the prize pools left with D-20), of `Economy` (the only
-minter of PAVED: a new class can mint) and of `Account` and `Collection`. That is the custody of the prizes and of the
-PAVED supply. It cannot touch `Vault` (stakers' PAVED and USDC) or the PAVED already held, except through what
-`Economy` mints.
+Facts checked against `main` at 27dc96dd. The detail, entry point by entry point, is in `upgrade-owner.md` (#361); this
+section is the summary.
 
-`set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`. A `Lobby` class runs by library call on the game
-contract's storage, so a new one can move the prize pools, rewrite `owner`, or replace the class
-(`replace_class_syscall`). Whoever may set the `Lobby` class holds the same keys as the upgrade owner.
+The upgrade owner of a contract can replace its code with `upgrade` (only class hash 0 is refused). Four contracts have
+an owner, each its own (`contracts/src/components/ownable.cairo:96-98`):
 
-Hence the mainnet gate, for `upgrade` and `set_lobby_class` alike: an owner account, later a multisig or a timelock.
+- `Challenge`, the game (`challenge.cairo:223-226`).
+- `Economy`, the only minter of PAVED: a new class can mint (`economy.cairo:906-912`).
+- `Setup`, the quests and achievements and, since D-25 E, the wiring `Challenge` reads at every spawn
+  (`challenge.cairo:315`; `Setup.upgrade` is `setup.cairo:353-356`). Its owner is on the money path: a new class can name any
+  economy and take the price of every later spawn, or block every game over (`challenge.cairo:394-395`).
+- `Collection`, the game NFTs, which hold no value (`collection.cairo:366-369`).
+
+That is the custody of the PAVED supply and of the price of every later purchase. The owner cannot touch `Vault` (the
+stakers' PAVED and USDC; "No owner, no setter, no pause, no upgrade", `vault.cairo:9-10`) or the PAVED already held,
+except through what `Economy` mints. `PavedToken` has no owner, but its only minter is `Economy` for good
+(`token.cairo:128-134`).
+
+Three owner calls are as strong as an upgrade for new money, each taking the price of every later purchase without
+changing the class of `Challenge` or `Economy`: `Challenge.set_setup` (`challenge.cairo:206-213`), `Economy.set_router`
+(`economy.cairo:792-800`) and `Setup.upgrade`. `Economy.set_pool` (`economy.cairo:777-780`) and `Setup.set_reporter`
+(`setup.cairo:284-290`) are not bounded either. `Economy.configure` is bounded and reaches later purchases only
+(`economy.cairo:772-775`).
+
+History: until D-24, `set_lobby_class` on `Daily` and `Tutorial` was as strong as `upgrade` (a `Lobby` class ran by
+library call on the game contract's storage). It left with the `Lobby` path (above); `contracts/src` has no
+`set_lobby_class`. `Account` was an upgradable contract until D-25 E deleted it (above).
+
+No contract has a pause. The mainnet gate on who owns the upgrades (an owner account, a multisig, a timelock) is weighed
+in `upgrade-owner.md`: a multisig at launch, a timelock in front of it once a pause guardian exists. Two gates in
+`docs/programme/PLAN.md` follow: a pause guardian on `Challenge.spawn`, and bounds on `set_router` and `set_pool`.
 
 ## Tests
 
