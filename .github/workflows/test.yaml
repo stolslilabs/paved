@@ -252,7 +252,7 @@ jobs:
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     name: Training e2e (headless)
-    # Measured 4 min 01 s with warm caches (the vitest step 205 s); a cold browser download adds about 20 s. About twice: 8 min.
+    # Measured 4 min 01 s with warm caches (the vitest step 205 s). About twice: 8 min.
     timeout-minutes: 8
     permissions:
       contents: read
