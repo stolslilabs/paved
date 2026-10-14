@@ -86,7 +86,8 @@ async function expectMirror(page: Page, model: EngineGame, where: string, move?:
   await page.waitForFunction(
     ([built, discarded]) => document.body.innerText.includes(`${built}/38`) && /Discarded\s*\n?\s*(\d+)/.exec(document.body.innerText)?.[1] === String(discarded),
     [model.built, model.discarded] as [number, number],
-    { timeout: 30_000 },
+    // Moves can take ~25 s under load: the test checks the page shows the move, not how fast.
+    { timeout: 60_000 },
   );
   const ui = await readUi(page);
   expect(ui.score, `${where}: score`).toBe(model.score);
@@ -226,7 +227,8 @@ describe("Training, played by a bot in a headless browser", () => {
       expect((await readUi(page)).complete?.finalScore).toBeDefined();
       await page.getByText("New game", { exact: true }).click();
       await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? "{}").moves?.length === 0, TRAINING_KEY);
-      await expect.poll(async () => (await readUi(page)).complete, { message: "the dialog goes with the finished game", timeout: 30_000 }).toBeNull();
+      // The app's moves can take ~25 s under load; this checks that the dialog goes, not how fast.
+      await expect.poll(async () => (await readUi(page)).complete, { message: "the dialog goes with the finished game", timeout: 60_000 }).toBeNull();
       await expectMirror(page, replaySave((await readSave(page))!), "new game");
     }
     console.log(`[e2e] ${GAMES} complete games: ${closed} closures seen, ${zero} of them for 0 points`);

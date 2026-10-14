@@ -496,6 +496,24 @@ describe("Economy's events", () => {
   });
 });
 
+describe("Collection's MintersSet", () => {
+  test("its ABI members are the data [challenge, tutorial] and no key; it is known by name and skipped", () => {
+    const event = abi("Collection").find((item) => item.type === "event" && item.kind === "struct" && shortOf(item) === "MintersSet")!;
+    expect(event.members!.map((m) => [m.name, m.kind])).toEqual([
+      ["challenge", "data"],
+      ["tutorial", "data"],
+    ]);
+    expect(SELECTORS.MintersSet).toBe(canonical("0x02632a922cf815e41989d3cf4de3982c06135cb9800aae1009c741731db43102"));
+    expect((IGNORED as readonly string[]).includes("MintersSet")).toBe(true);
+    expect("MintersSet" in EMITTERS).toBe(false);
+  });
+
+  test("a raw MintersSet does not halt the decoder, whatever its shape", () => {
+    expect(decode("collection", [SELECTORS.MintersSet], ["0x1111", "0x2222"])).toBeNull();
+    expect(decode("collection", [SELECTORS.MintersSet], [])).toBeNull();
+  });
+});
+
 describe("Collection's mint", () => {
   test("its Transfer keys are the ABI's: from, to and the token id are all keys, and there is no data", () => {
     const transfer = abi("Collection").find((item) => item.type === "event" && item.kind === "struct" && shortOf(item) === "Transfer")!;

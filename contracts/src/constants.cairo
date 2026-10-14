@@ -9,8 +9,10 @@ pub const CENTER: u32 = 0x7fffffff;
 
 // Challenge
 
-/// The price of one stake unit of a Challenge game: 2 USDC (6 decimals), `economy::BASE_PRICE`.
-pub const CHALLENGE_PRICE: felt252 = 2_000_000;
+/// The price of one stake unit of a Challenge game: 2 USDC (6 decimals). The only definition of
+/// the price: `Mode::price` (what `Challenge.spawn` pulls) reads it, and `economy::BASE_PRICE`
+/// (what `Economy.purchase` checks) is built from it, so the two cannot differ.
+pub const CHALLENGE_PRICE: u128 = 2_000_000;
 /// The length of a day, which `day::day_id` divides by.
 pub const CHALLENGE_DURATION: u64 = 86400; // 1 day
 /// How long a Challenge game can be played (S1, the PM's ruling on the client specification): from
