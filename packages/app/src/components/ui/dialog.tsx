@@ -40,7 +40,8 @@ export function DialogClose(props: ComponentProps<typeof DialogPrimitive.Close>)
 
 const TRANSITION = { ease: "easeOut", duration: 0.2 } as const;
 
-export function DialogOverlay({ className, ...props }: ComponentProps<typeof DialogPrimitive.Overlay>) {
+/** Only inside `DialogContent`, which renders it under its `AnimatePresence`: not exported. */
+function DialogOverlay({ className, ...props }: ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay forceMount asChild {...props}>
       <m.div

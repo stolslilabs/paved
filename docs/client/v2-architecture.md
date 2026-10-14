@@ -478,6 +478,8 @@ transitions for plain hovers. Why:
 - React Spring is smaller in full but has no layout or shared-element animation, which the tabs and the
   tile hand need.
 
+F3b moved the feature set to `domMax` for the Tabs highlight's shared `layoutId` and the list's `layout`: see section 3.5.
+
 **Decided for the owner;** reversed if the measured bundle of the foundations PR exceeds its budget
 (proposed: 200 kB gzip for the initial route's JS, without three.js, which loads with the board route).
 
@@ -568,7 +570,10 @@ nothing is fetched at run time.
 **One animation runtime: Motion.** Every component above animates with Motion, except two that are not a second
 Motion: Sonner animates its toasts with CSS transitions (no JS runtime), and Embla, the owner's carousel engine,
 animates the track's scroll with its own drag and snap physics, which Motion does not provide. Both follow reduced
-motion: Sonner through `theme.css`, Embla's buttons and arrow keys jump instead of scrolling.
+motion: Sonner through `theme.css`, Embla's buttons and arrow keys jump instead of scrolling. The settle after a drag
+is driven by the user's own gesture and keeps its motion: in Embla 8.6 the `duration` option sets only the API
+scrolls (which already jump), and the release settle uses a fixed internal speed (25, or 43 with `dragFree`) that no
+option reaches.
 
 **The feature set is now `domMax`** (section 3.2 said `domAnimation`): the tab highlight's shared `layoutId` and the
 list's `layout` need Motion's layout features. It still loads after the first paint (`components/motion-features.ts`, its

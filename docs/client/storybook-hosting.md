@@ -57,6 +57,13 @@ curl -sI https://storybook.paved.bal7hazar.com/ | head -1      # HTTP/2 200
 readlink /var/www/paved-storybook/current                       # releases/<the name just published>
 ```
 
+Then remove the publish checkout (the release is a copy, so it does not need it):
+
+```bash
+cd /home/claude/projects/paved
+git worktree remove <checkout>
+```
+
 ### Rollback
 
 `switch.sh` supports it, and honours `WWW_ROOT` like `publish.sh` (`ROOT=${WWW_ROOT:-/var/www/paved}`):
