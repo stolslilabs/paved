@@ -29,7 +29,10 @@ export function Countdown({ expiresAt, now, label = "Expires in", className }: C
   const left = expiresAt - now;
   const state = left <= 0 ? "expired" : left < COUNTDOWN_WARN_S ? "warning" : "ok";
   return (
+    // The label is hidden on a phone: the wrapper carries the whole sentence for a screen reader.
     <span
+      role="timer"
+      aria-label={state === "expired" ? "Expired" : `${label} ${formatRemaining(left)}`}
       data-state={state}
       className={cn(
         "inline-flex items-center gap-1.5 text-xs",

@@ -10,6 +10,7 @@ import { formatRemaining } from "../src/components/elements/countdown";
 import { formatLocal, formatRelative, formatUtc } from "../src/components/elements/deadline";
 import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
+import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { HomeScene } from "../src/components/scenes/home-scene";
 import { LoadingScene } from "../src/components/scenes/loading-scene";
@@ -54,6 +55,10 @@ describe("element helpers", () => {
     expect(formatLocal(t, "Europe/Paris")).toBe("Thu 15 Oct, 17:00");
     expect(formatLocal(t, "America/New_York")).toBe("Thu 15 Oct, 11:00");
     expect(formatUtc(t)).toBe("2026-10-15 15:00 UTC");
+    // Across midnight: Auckland (NZDT, UTC+13) is already on Friday.
+    expect(formatLocal(t, "Pacific/Auckland")).toBe("Fri 16 Oct, 04:00");
+    // Midnight itself reads 00:00, not 24:00: 22:00 UTC is 00:00 in Paris.
+    expect(formatLocal(t + 7 * 3600, "Europe/Paris")).toBe("Fri 16 Oct, 00:00");
   });
 
   it("reads a chain plan id as its nine letters", () => {
@@ -160,7 +165,7 @@ describe("Board", () => {
     expect(screen.getByTestId("score-value")).toHaveTextContent(pts(BOARD.placing.score));
     expect(screen.getByTestId("tiles-left")).toHaveTextContent("12");
     expect(screen.getByText("2 discarded")).toBeInTheDocument();
-    expect(screen.getByText("19:00:00")).toBeInTheDocument();
+    expect(screen.getByRole("timer", { name: "Expires in 19:00:00" })).toBeInTheDocument();
   });
 
   it("shows the tile in hand with the board's art, turned to its orientation", () => {
@@ -170,6 +175,19 @@ describe("Board", () => {
     const art = chip.querySelector("img");
     expect(art).toHaveAttribute("src", `${RENDERER_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(art?.style.transform).toBe(`rotate(${(BOARD_38.next.orientation - 1) * 90}deg)`);
+  });
+
+  it("falls back to the tile art when there is no WebGL, without an error", () => {
+    // jsdom has no WebGL: the renderer's tile view and the board scene's hand both show the PNG chip.
+    const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={RENDERER_ASSETS} />));
+    const chip = screen.getByRole("img", { name: /^Tile / });
+    expect(chip).toHaveAttribute("data-view", "art");
+    expect(chip.querySelector("img")).toHaveAttribute("src", `${RENDERER_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
+    expect(document.querySelector("canvas")).toBeNull();
+    unmount();
+    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={RENDERER_ASSETS} />} />));
+    const hand = screen.getByRole("region", { name: "Your tile" });
+    expect(within(hand).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "art");
   });
 
   it("falls back to the plan's nine areas without the art", () => {
@@ -213,7 +231,7 @@ describe("Board", () => {
   it("asks to surrender an expired game and allows nothing else", async () => {
     const onSurrender = vi.fn();
     render(wrap(<BoardScene {...BOARD.expired} onSurrender={onSurrender} />));
-    expect(screen.getAllByText(/Expired/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("timer", { name: "Expired" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /Surrender/ }));
@@ -273,10 +291,11 @@ describe("Purchase", () => {
     expect(screen.getByRole("radio", { name: "Stake 3" })).toHaveAttribute("data-state", "on");
     expect(screen.getByText("+3%")).toBeInTheDocument();
     expect(screen.getByText(/To 0x0456…beef/)).toBeInTheDocument();
-    // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part.
+    // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part, and the parts shown add up
+    // to the price shown (4.42 + 1.28 + 0.30 = 6.00).
     const price = screen.getByRole("region", { name: "Price" });
     expect(within(price).getByText("Burned").closest("div")).toHaveTextContent("4.42");
-    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("1.27");
+    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("1.28");
     expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.30");
     expect(screen.getByText("expires in 24 h 0 min")).toBeInTheDocument();
     expect(screen.getByText("Thu 15 Oct, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
@@ -291,7 +310,8 @@ describe("Purchase", () => {
     expect(screen.getByText("+10%")).toBeInTheDocument();
     expect(screen.getByText(/No referrer: the Vault keeps it/)).toBeInTheDocument();
     const price = screen.getByRole("region", { name: "Price" });
-    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("5.26");
+    expect(within(price).getByText("Burned").closest("div")).toHaveTextContent("14.73");
+    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("5.27");
     expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.00");
   });
 
