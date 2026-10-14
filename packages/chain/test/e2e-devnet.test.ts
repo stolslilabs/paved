@@ -11,7 +11,8 @@
  * fails, naming the day, the game ids and the scores, on a deck where she does not. bob and carol cannot reach the threshold whatever
  * the deck: they stop after a handful of placements (`NAIVE_MAX_MOVES`) and surrender, and their scores are checked
  * against a floor under any threshold of the day (the prior alone, diluted by every stake), so their reward is 0.
- * carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
+ * carol then deposits her own 1,000 test PAVED (P-38) in the Vault (vPAVED, P-56): a later purchase's margin raises its
+ * rate with no share minted, and her withdraws pay the exit fee, which stays in the Vault.
  *
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
@@ -32,7 +33,10 @@ import { FAUCET_USDC_AMOUNT } from "../src/abis";
 import { sameAddress, type DecodedEvent } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import {
+  PoolPriceMovedError,
+  VaultOverMaxWithdrawError,
   createEconomyClient,
+  vaultRate,
   expiresAt,
   resolveEconomyDeployment,
   RefusedReferrerError,
@@ -330,26 +334,29 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const before = {
         player: await usdc(p.address),
         referrer: referrer ? await usdc(referrer.address) : 0n,
-        vault: await usdc(vaultAddress),
+        vaultUsdc: await usdc(vaultAddress),
+        vault: await economy.views.vault(vaultAddress),
         supply: await pavedSupply(),
       };
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
-      const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
+      const purchase = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
+      const purchaseHash = purchase.transactionHash;
       // The token id is pinned (a fresh node), and so is the seed of its deck: the view's seed is the spawn's, replayed.
-      expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
-      const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
-      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${bought.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, bought.gameId));
-      challengeGames.set(p.name, bought.gameId);
+      expect(purchase.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
+      const seed = BigInt((await client.views.game({ mode: "challenge", gameId: purchase.gameId })).seed);
+      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${purchase.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, purchase.gameId));
+      challengeGames.set(p.name, purchase.gameId);
       stakes.set(p.name, k);
-      expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
-      const purchased = (await economyEvents(bought.transactionHash)).find((e) => e.name === "Purchased")!;
+      expect(purchase.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
+      const purchased = (await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!;
       expect(purchased, "Economy.Purchased in the receipt").toBeDefined();
       const f = purchased.fields as Record<string, bigint | number | string>;
       const burnedQuote = BigInt(f.burnedQuote as bigint);
       const burned = BigInt(f.burned as bigint);
       const referral = BigInt(f.referral as bigint);
       const margin = BigInt(f.margin as bigint);
+      const vaultPaved = BigInt(f.vaultPaved as bigint);
       // price: the player paid exactly k x unit
       expect(before.player - (await usdc(p.address))).toBe(quote.price);
       expect(BigInt(f.price as bigint)).toBe(quote.price);
@@ -358,20 +365,31 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(referral).toBe(referrer ? quote.referral : 0n);
       if (referrer) expect(referral).toBe((quote.price * 500n) / 10_000n);
       expect((referrer ? await usdc(referrer.address) : 0n) - before.referrer).toBe(referral);
-      // margin: to the Vault, on the same call
-      expect((await usdc(vaultAddress)) - before.vault).toBe(margin);
+      // margin: swapped with the burn quote in one swap (P-56); no USDC reaches the Vault
       expect(margin).toBe(quote.margin - referral);
-      // burn: the USDC swapped (burn_quote) buys PAVED, which is burned; the swap respects min_out
+      expect(await usdc(vaultAddress)).toBe(before.vaultUsdc);
       expect(burnedQuote).toBe(quote.burnQuote);
-      expect(before.supply - (await pavedSupply())).toBe(burned);
-      expect(burned).toBeGreaterThanOrEqual(planned.minOut);
       expect(burnedQuote + referral + margin).toBe(quote.price);
-      const terms = await economy.views.terms(bought.gameId);
+      // min_out against the contract's own computation: the client quoted exactly the USDC the contract swapped, and the
+      // swap paid that quote (nothing moved the pool in between); the PAVED it bought is at least min_out.
+      const bought = burned + vaultPaved;
+      expect(planned.swapIn, "the client's swap input = the contract's (burn quote + margin)").toBe(burnedQuote + margin);
+      expect(bought, "the swap paid the pool's quote of that input").toBe(planned.poolOut);
+      expect(bought).toBeGreaterThanOrEqual(planned.minOut);
+      // the split by input: the margin's PAVED to the Vault (rounded down), the rest burned
+      expect(vaultPaved).toBe((bought * margin) / (burnedQuote + margin));
+      expect(before.supply - (await pavedSupply())).toBe(burned);
+      // the rate rises: total_assets grows by the margin's PAVED, with no share minted
+      const vaultAfter = await economy.views.vault(vaultAddress);
+      expect(vaultAfter.totalAssets - before.vault.totalAssets).toBe(vaultPaved);
+      expect(vaultAfter.totalSupply).toBe(before.vault.totalSupply);
+      expect(vaultRate(vaultAfter.totalAssets, vaultAfter.totalSupply)).toBeGreaterThan(vaultRate(before.vault.totalAssets, before.vault.totalSupply));
+      const terms = await economy.views.terms(purchase.gameId);
       expect(terms).toMatchObject({ stake: k, recorded: false, settled: false, expired: false });
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
-      evidence.push(`${p.name} k=${k} game ${bought.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, bought.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
+      evidence.push(`${p.name} k=${k} game ${purchase.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, purchase.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} + referral ${referral} + margin ${margin}; one swap of ${planned.swapIn} USDC -> ${bought} PAVED (quote ${planned.poolOut}, min_out ${planned.minOut}): ${burned} burned, ${vaultPaved} to the Vault (total_assets +${vaultPaved}, supply unchanged), ${short(purchaseHash)}`);
     }
-    pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `day ${dayId}: ${evidence.join("; ")}`);
+    pass("buy: approve + spawn with stake k and referrer; one swap of burn quote + margin (P-56); price, burn, referral, Vault PAVED vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
 
   test("the threshold the settlement will use: the day's prior and the formula", async () => {
@@ -559,39 +577,87 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("settle after D+1: PAVED reward = R x h(score / mean) (Settled event = terms = balance change), positive above the threshold, 0 below", evidence.join("; "));
   }, 120_000);
 
-  test("the Vault: a test account stakes its own PAVED, earns dividends from a later purchase, claims them", async () => {
+  test("the Vault (vPAVED): a deposit; a later purchase raises the rate with no share minted; withdraws pay the exit fee into the Vault", async () => {
     const [, bob, carol] = players;
-    // carol stakes the 1,000 test PAVED that deploy.sh gives each predeployed account but the deployer (P-38): her
+    const vaultAddress = economy.deployment.addresses.Vault;
+    // carol deposits the 1,000 test PAVED that deploy.sh gives each predeployed account but the deployer (P-38): her
     // own, not the deployer's stake. Her game was under the threshold, so that is all the PAVED she holds.
     const testPaved = 1_000n * 10n ** 18n;
     expect(settledReward.get(carol.name)).toBe(0n);
     expect(await paved(carol.address)).toBe(testPaved);
-    const amount = testPaved;
-    const staked = await carol.econ.stake(amount, { confirmedAmount: amount });
-    const position = await economy.views.vault(carol.address);
-    expect(position.staked).toBe(amount);
+    const expectedShares = await economy.views.previewDeposit(testPaved);
+    const deposited = await carol.econ.deposit(testPaved, { confirmedAmount: testPaved });
+    const held = await economy.views.vault(carol.address);
+    expect(held.shares).toBe(expectedShares);
     expect(await paved(carol.address)).toBe(0n);
-    expect(position.pending).toBe(0n);
+    const fee = BigInt(held.exitFeeBps);
+    expect(fee, "the default exit fee (deploy.sh)").toBe(100n);
 
-    // A later purchase (bob, stake 1, no referrer: its whole margin goes to the Vault) earns dividends.
-    // It is bob's second game: bought on the day D+2, never played (the expired game below).
+    // The slippage bound holds. Client side: a floor above the fresh quote sends nothing. On chain: a spawn whose min_out is
+    // one above what the swap pays reverts ('Economy: swap below min_out'), and bob's USDC does not move.
     const quote = await economy.views.quote(1);
-    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const planned = await bob.econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const usdcBefore = await usdc(bob.address);
+    await expect(bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut + 1n, referrer: null })).rejects.toBeInstanceOf(PoolPriceMovedError);
+    const tooHigh = planned.calls.map((call) =>
+      call.entrypoint === "spawn" ? { ...call, calldata: [call.calldata[0], call.calldata[1], `0x${(planned.poolOut + 1n).toString(16)}`, "0x0"] } : call,
+    );
+    const below = await bob.writer.sendCalls(async () => ({ calls: tooHigh, events: "Challenge" })).catch((e: unknown) => e);
+    expect(String((below as Error).message)).toMatch(/swap below min_out|73776170652062656c6f77206d696e5f6f7574/i);
+    expect(await usdc(bob.address)).toBe(usdcBefore);
+
+    // A later purchase (bob, stake 1, no referrer) raises the rate: its margin's PAVED reaches the Vault, no share minted.
+    // It is bob's second game: bought on the day D+2, never played (the expired game below).
+    const v0 = await economy.views.vault(vaultAddress);
+    const valueBefore = (await economy.views.vault(carol.address)).value;
+    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
     bobSecondGame = purchase.gameId;
     expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
     expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(spawnedSeed(client.deployment.addresses.Challenge, bobSecondGame));
-    const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
-    const earned = await economy.views.vault(carol.address);
-    // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.
-    const scale = 10n ** 36n;
-    const share = (amount * ((margin * scale) / earned.totalStaked)) / scale;
-    expect(earned.pending, "dividends pending after a later purchase").toBeGreaterThan(0n);
-    expect(earned.pending).toBe(share);
-    const before = await usdc(carol.address);
-    const claimed = await carol.econ.claimDividends({ confirmedAmount: earned.pending });
-    expect((await usdc(carol.address)) - before).toBe(earned.pending);
-    expect((await economy.views.vault(carol.address)).pending).toBe(0n);
-    pass("Vault: a test account stakes its own PAVED, dividends from a later purchase, claim", `carol staked her ${amount} test PAVED ${short(staked.transactionHash)}; bob's purchase margin ${margin} USDC -> carol's pending ${earned.pending} = ${amount} x (margin x 1e36 / ${earned.totalStaked}) / 1e36; claimed ${short(claimed.transactionHash)}, USDC +${earned.pending} = pending`);
+    const vaultPaved = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { vaultPaved: bigint }).vaultPaved);
+    const v1 = await economy.views.vault(vaultAddress);
+    expect(vaultPaved).toBeGreaterThan(0n);
+    expect(v1.totalAssets - v0.totalAssets, "total_assets grows by the margin's PAVED").toBe(vaultPaved);
+    expect(v1.totalSupply, "no share minted").toBe(v0.totalSupply);
+    expect(vaultRate(v1.totalAssets, v1.totalSupply)).toBeGreaterThan(vaultRate(v0.totalAssets, v0.totalSupply));
+    const position = await economy.views.vault(carol.address);
+    expect(position.shares).toBe(held.shares);
+    expect(position.value).toBeGreaterThan(valueBefore);
+
+    // Above max_withdraw: refused client-side, nothing sent.
+    const refused = await carol.econ.withdraw(position.maxWithdraw + 1n, { confirmedAmount: position.maxWithdraw + 1n }).catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(VaultOverMaxWithdrawError);
+    expect((await economy.views.vault(carol.address)).shares).toBe(position.shares);
+
+    // A withdraw of half of max_withdraw: carol receives exactly the amount; the shares burned are preview_withdraw's, which
+    // is OpenZeppelin's formula with the fee on top, rounded up; total_assets falls by the amount only: the fee stays.
+    const amount = position.maxWithdraw / 2n;
+    const ceil = (a: bigint, b: bigint) => (a + b - 1n) / b;
+    const expectedBurn = ceil((amount + ceil(amount * fee, 10_000n)) * (v1.totalSupply + 1n), v1.totalAssets + 1n);
+    expect(await economy.views.previewWithdraw(amount)).toBe(expectedBurn);
+    const withdrew = await carol.econ.withdraw(amount, { confirmedAmount: amount });
+    const v2 = await economy.views.vault(vaultAddress);
+    const afterWithdraw = await economy.views.vault(carol.address);
+    expect(await paved(carol.address)).toBe(amount);
+    expect(position.shares - afterWithdraw.shares).toBe(expectedBurn);
+    expect(v1.totalAssets - v2.totalAssets, "only the amount leaves: the exit fee stays in the Vault").toBe(amount);
+    expect(v1.totalSupply - v2.totalSupply).toBe(expectedBurn);
+    expect(vaultRate(v2.totalAssets, v2.totalSupply), "the fee raises the rate of those who stay").toBeGreaterThan(vaultRate(v1.totalAssets, v1.totalSupply));
+
+    // Withdraw all: every vPAVED redeemed for preview_redeem's PAVED, the fee taken.
+    const redeemable = await economy.views.previewRedeem(afterWithdraw.shares);
+    expect(redeemable).toBe(afterWithdraw.maxWithdraw);
+    const redeemed = await carol.econ.withdrawAll({ confirmedShares: afterWithdraw.shares });
+    expect(await paved(carol.address)).toBe(amount + redeemable);
+    expect((await economy.views.vault(carol.address)).shares).toBe(0n);
+    const v3 = await economy.views.vault(vaultAddress);
+    expect(v2.totalAssets - v3.totalAssets).toBe(redeemable);
+    expect(v3.totalAssets).toBeGreaterThan(v0.totalAssets - testPaved); // the fees and the margin stay
+
+    pass(
+      "Vault (vPAVED): deposit; a purchase raises the rate (no share minted); the slippage bound; withdraw and withdraw all pay the exit fee into the Vault",
+      `carol deposited ${testPaved} PAVED for ${held.shares} vPAVED ${short(deposited.transactionHash)}; min_out ${planned.poolOut + 1n} (quote + 1) reverted on chain, USDC unchanged; bob's purchase sent ${vaultPaved} PAVED: total_assets ${v0.totalAssets} -> ${v1.totalAssets}, supply ${v1.totalSupply} unchanged; withdraw ${amount} burned ${expectedBurn} vPAVED (= preview_withdraw, fee ${fee} bps on top), total_assets -${amount} only ${short(withdrew.transactionHash)}; withdraw all redeemed ${afterWithdraw.shares} vPAVED for ${redeemable} PAVED ${short(redeemed.transactionHash)}`,
+    );
   }, 120_000);
 
   test("a day nobody plays passes: the current day moves on", async () => {
