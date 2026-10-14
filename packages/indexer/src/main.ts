@@ -14,7 +14,7 @@
 // is refused, and `rebuild` is the way to follow a redeployed set of contracts.
 // The RPC URL may carry a provider's key: it is never logged, not even when it is refused.
 import { parseArgs } from "node:util";
-import { Chain, httpRpc, parseRpcUrl, redact } from "./chain.ts";
+import { Chain, DEFAULT_CONCURRENCY, httpRpc, parseRpcUrl, redact } from "./chain.ts";
 import {
   DeploymentError,
   defaultRpcUrl,
@@ -25,9 +25,10 @@ import { DEFAULT_NAMES_URL, NameResolver, cartridgeLookup, namesEnabled } from "
 import { DEFAULT_BURST, DEFAULT_RATE } from "./ratelimit.ts";
 import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
+import { Throttle } from "./throttle.ts";
 
 const USAGE =
-  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--range <blocks> (default ${RANGE_SPAN}, 0: block by block)] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on for sepolia and mainnet, off otherwise)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--range <blocks> (default ${RANGE_SPAN}, 0: block by block)] [--concurrency <n> (default ${DEFAULT_CONCURRENCY}, 1: one block after the other)] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>] [--no-names|--names (default: on for sepolia and mainnet, off otherwise)] [--names-url <url> (default ${DEFAULT_NAMES_URL})]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -69,6 +70,7 @@ function parsed() {
         depth: { type: "string" },
         batch: { type: "string" },
         range: { type: "string" },
+        concurrency: { type: "string" },
         recheck: { type: "string" },
         "recheck-every": { type: "string" },
         "allow-origin": { type: "string", multiple: true },
@@ -115,6 +117,7 @@ const config = {
 };
 const batch = integer(values.batch, "batch", 100, 1);
 const range = integer(values.range, "range", RANGE_SPAN);
+const concurrency = integer(values.concurrency, "concurrency", DEFAULT_CONCURRENCY, 1);
 const poll = integer(values.poll, "poll", 1000, 1);
 const recheck = {
   depth: integer(values.recheck, "recheck", 10),
@@ -153,7 +156,7 @@ try {
 if (command === "rebuild")
   log(`rebuild: the database is empty; following from block ${config.from}`);
 
-const chain = new Chain(httpRpc(rpcUrl), config);
+const chain = new Chain(httpRpc(rpcUrl), config, new Throttle({ max: concurrency, log }));
 let indexer: Indexer;
 try {
   indexer = new Indexer({
@@ -163,6 +166,7 @@ try {
     depth,
     batch,
     range,
+    concurrency,
     recheck,
     log,
   });
@@ -231,7 +235,7 @@ server.listen(
         : String(address);
     const tip = store.tip();
     log(
-      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; ${depth === "l1" && range > 0 ? `catch-up by ranges of up to ${range} blocks below the L1-accepted block` : "block by block"}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}; names ${names ? `from ${new URL(namesUrl).origin}` : "off"}`,
+      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; ${depth === "l1" && range > 0 ? `catch-up by ranges of up to ${range} blocks below the L1-accepted block` : "block by block"}; ${concurrency} blocks read at once above it; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}; names ${names ? `from ${new URL(namesUrl).origin}` : "off"}`,
     );
   },
 );
