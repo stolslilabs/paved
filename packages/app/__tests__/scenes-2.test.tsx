@@ -421,11 +421,12 @@ describe("SC2 stories", () => {
   const fixtures = { leaderboard: LEADERBOARD, player: PLAYER_PAGE, vault: VAULT, settings: SETTINGS, theme: THEME, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
   const names = { leaderboard: "LEADERBOARD", player: "PLAYER_PAGE", vault: "VAULT", settings: "SETTINGS", theme: "THEME", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
 
-  it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s at the four viewports", (scene) => {
+  // One story per state (the owner, through the PM, 2026-10-14): the viewport is the toolbar's global (VP), never a story each.
+  it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story, at no fixed viewport", (scene) => {
     const text = readFileSync(join(__dirname, `../src/components/scenes/${scene}-scene.stories.tsx`), "utf8");
-    for (const state of Object.keys(fixtures[scene])) {
-      expect(text).toContain(`const ${state}: Story = { args: ${names[scene]}.${state} };`);
-      for (const viewport of ["mobile", "tablet", "desktop", "wide"]) expect(text).toContain(`at("${viewport}", ${state})`);
-    }
+    const stories = [...text.matchAll(/^export const (\w+): Story = \{ args: (\w+)\.(\w+) \};$/gm)];
+    expect(stories.map((m) => m[3]).sort()).toEqual(Object.keys(fixtures[scene]).sort());
+    expect(stories.every((m) => m[2] === names[scene])).toBe(true);
+    expect(text).not.toMatch(/\bat\(|viewports|globals/);
   });
 });
