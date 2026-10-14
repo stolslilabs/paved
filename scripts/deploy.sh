@@ -168,8 +168,11 @@
 #      starter on the new class (left open), then the deployer's STRK balance.
 # Every step is recorded under the file's `upgrade_g1g4` key as it lands (the previous class, the commit, each
 # transaction hash as the signer sends it), with the same receipt wait, `not landed` clearing and REPOINT_WAIT_S as
-# --repoint: a rerun sends only what is left, and a complete one sends nothing, needs no funding margin, and does not
-# assert the guardian and the pause (live state since, the guardian's and the owner's). --check-only: the checks, the
+# --repoint: a rerun sends only what is left. A complete record (`complete: yes`, written once the smoke passed, and
+# `guardian: deployer` when --guardian deployer is given) is never sent to again: its rerun asserts only what cannot
+# drift, Challenge's class (the recorded one) and each recorded transaction SUCCEEDED, needs no funding margin, and
+# reads neither the owner, the guardian, the pause nor the other classes (live state since: a transfer, the guardian's
+# pause, the owner's set_guardian, a later upgrade). A first run and a resume check everything. --check-only: the checks, the
 # funding check and what a run would send; nothing is sent, the file is not written, and it ends "every check passed;
 # nothing was sent".
 #
@@ -1812,6 +1815,11 @@ PY
   NEW_CHALLENGE_CLASS="$(sc sncast utils class-hash --contract-name Challenge | pyj 'd["class_hash"]')" || die "class-hash Challenge failed"
   [[ -n "$(rp_get previous.Challenge.class_hash)" ]] || ! felt_eq "$NEW_CHALLENGE_CLASS" "$OLD_CHALLENGE_CLASS" ||
     die "the built Challenge class is the file's ($OLD_CHALLENGE_CLASS): nothing to upgrade to"
+  # A complete record: nothing is read but what cannot drift (uc_complete_record), and nothing is sent.
+  if [[ "$(rp_get complete)" == yes ]] && { ((UC_GUARDIAN_DEPLOYER == 0)) || [[ "$(rp_get guardian)" == deployer ]]; }; then
+    uc_complete_record
+    return 0
+  fi
   echo "   file ${REPOINT_FILE#"$ROOT/"}: Challenge $CHALLENGE, class $OLD_CHALLENGE_CLASS"
   echo "   new Challenge class (G1, G4): $NEW_CHALLENGE_CLASS"
 
@@ -1873,26 +1881,51 @@ PY
       die "the smoke's paid spawn needs 2 USDC: the deployer holds $held base units and the faucet has minted $minted of its 20,000 USDC cap"
     echo "   smoke: the deployer holds $held USDC base units, the faucet has minted it $minted"
   fi
-  uc_complete
-  # A paused spawn would fail the smoke's: the owner unpauses first (unpause_spawn). A complete record sent its smoke
-  # already, and the pause is live state since (the guardian's), so it is not asserted then.
-  ((UC_COMPLETE || UC_PAUSED == 0)) ||
+  uc_nothing_left
+  # A paused spawn would fail the smoke's: the owner unpauses first (unpause_spawn).
+  ((UC_PAUSED == 0)) ||
     die "Challenge's spawn is paused: the smoke's paid spawn would fail; the owner unpauses it (unpause_spawn) first; nothing was sent"
 }
 
-# uc_complete: sets UC_COMPLETE when nothing is left to send (Challenge on the new class, the guardian set when asked,
-# the smoke's game and build recorded, every recorded transaction landed), so the funding check need not refuse a
-# rerun that sends nothing. Read-only.
+# uc_complete_record: a record whose run completed (`complete: yes`, written once the smoke passed; with --guardian
+# deployer, `guardian: deployer` too). Its rerun sends nothing, ever (no set_guardian, no smoke: F's lesson, #358), and
+# asserts only what cannot drift: Challenge's class on the node is the one the record declared, and each recorded
+# transaction is SUCCEEDED. The owner, the guardian, the pause and the other contracts' classes are live state since
+# (a two-step transfer, the guardian's pause, the owner's set_guardian, a later upgrade), so they are not read.
 UC_COMPLETE=0
-uc_complete() {
+uc_complete_record() {
+  local new class key tx
+  new="$(rp_get Challenge.class_hash)"
+  [[ -n "$new" ]] || new="$NEW_CHALLENGE_CLASS"
+  NEW_CHALLENGE_CLASS="$new"
+  v class class_of "$CHALLENGE"
+  felt_eq "$class" "$new" ||
+    die "the record is complete, but Challenge's class on the node is $class, not the recorded $new: check it; nothing was sent"
+  for key in declare_tx upgrade_tx guardian_tx smoke.spawn_tx smoke.build_tx; do
+    tx="$(rp_get "$key")"
+    [[ -n "$tx" ]] || continue
+    [[ "$(repoint_tx_status "$tx")" == SUCCEEDED ]] ||
+      die "the record is complete, but its $key $tx is not SUCCEEDED on the node: check it; nothing was sent"
+  done
+  UC_COMPLETE=1
+  echo "   file ${REPOINT_FILE#"$ROOT/"}: Challenge $CHALLENGE; complete record (key upgrade_g1g4)"
+  echo "   Challenge's class: $new (the recorded one); every recorded transaction SUCCEEDED"
+  echo "   complete: nothing is sent; the owner, the guardian, the pause and the other classes are live state since, not read"
+}
+
+# uc_nothing_left: sets UC_NOTHING_LEFT when a resume has nothing left to send (Challenge on the new class, the guardian
+# set when asked, the smoke's game and build recorded, every recorded transaction landed) but the record is not marked
+# complete yet (a run stopped after its last send): the funding check need not refuse it. Read-only.
+UC_NOTHING_LEFT=0
+uc_nothing_left() {
   local key
   ((UC_LEFT == 0)) || return 0
   [[ -n "$(rp_get smoke.game_id)" && -n "$(rp_get smoke.build_tx)" ]] || return 0
   for key in declare_tx upgrade_tx guardian_tx smoke.spawn_tx smoke.build_tx; do
     [[ -z "$(rp_get "$key")" || "$(repoint_tx_status "$(rp_get "$key")")" == SUCCEEDED ]] || return 0
   done
-  UC_COMPLETE=1
-  echo "   complete: upgraded$( ((UC_GUARDIAN_DEPLOYER)) && echo ", guardian set"), smoke recorded; nothing is left to send"
+  UC_NOTHING_LEFT=1
+  echo "   nothing is left to send: the smoke reads back and marks the record complete"
 }
 
 # uc_run: declares the new Challenge class, upgrades Challenge, sets the guardian when asked, records each step in the
@@ -1900,6 +1933,15 @@ uc_complete() {
 # is skipped when done, so a rerun sends only what is left; a complete one sends nothing.
 uc_run() {
   local raw class tx
+  if ((UC_COMPLETE)); then
+    if ((REPOINT_CHECK_ONLY)); then
+      echo "== upgrade-challenge: check only: the record is complete, a run would send nothing"
+      echo "== upgrade-challenge: check only: every check passed; nothing was sent"
+    else
+      echo "== upgrade-challenge: the record is complete; nothing was sent"
+    fi
+    exit 0
+  fi
   if ((REPOINT_CHECK_ONLY)); then
     echo "== upgrade-challenge: check only (nothing is sent, the file is not written)"
     if rpc starknet_getClass "[\"latest\",\"$NEW_CHALLENGE_CLASS\"]" | class_declared; then
@@ -2001,19 +2043,15 @@ uc_smoke() {
   [[ "$(hex_int "$raw")" == "$DEPLOYER_INT" ]] || die "Challenge.owner() is not the deployer"
   echo "   Challenge.owner(): the deployer"
   v raw call "$CHALLENGE" guardian
-  if ((UC_GUARDIAN_DEPLOYER && UC_COMPLETE == 0)); then
+  if ((UC_GUARDIAN_DEPLOYER)); then
     [[ "$(uc_guardian_label "$raw")" == "the deployer" ]] || die "Challenge.guardian() is not the deployer"
     echo "   Challenge.guardian(): the deployer"
   else
-    echo "   Challenge.guardian(): $(uc_guardian_label "$raw")$( ((UC_COMPLETE)) && echo "; not asserted (complete record)")"
+    echo "   Challenge.guardian(): $(uc_guardian_label "$raw") (not asked)"
   fi
   v raw call "$CHALLENGE" spawn_paused
-  if ((UC_COMPLETE)); then
-    echo "   Challenge.spawn_paused(): $( [[ "$(hex_int "$raw")" == 1 ]] && echo true || echo false); not asserted (complete record)"
-  else
-    [[ "$(hex_int "$raw")" == 0 ]] || die "Challenge.spawn_paused() is true"
-    echo "   Challenge.spawn_paused(): false"
-  fi
+  [[ "$(hex_int "$raw")" == 0 ]] || die "Challenge.spawn_paused() is true"
+  echo "   Challenge.spawn_paused(): false"
   uc_old_game
 
   # The paid spawn, once: a spawn a stopped run sent is read from its receipt.
@@ -2518,7 +2556,7 @@ PY
     echo "   --repoint: nothing is left to send, so the need does not apply"
   elif [[ "$funded" != 0 && "$D18" == 1 && "$D18_COMPLETE" == 1 ]]; then
     echo "   --d18: nothing is left to send, so the need does not apply"
-  elif [[ "$funded" != 0 && "$UPGRADE_CHALLENGE" == 1 && "$UC_COMPLETE" == 1 ]]; then
+  elif [[ "$funded" != 0 && "$UPGRADE_CHALLENGE" == 1 && ( "$UC_COMPLETE" == 1 || "$UC_NOTHING_LEFT" == 1 ) ]]; then
     echo "   --upgrade-challenge: nothing is left to send, so the need does not apply"
   elif [[ "$funded" != 0 && "$FRESH_COMPLETE" == 1 ]]; then
     echo "   fresh: the record is complete, nothing is left to send, so the need does not apply"

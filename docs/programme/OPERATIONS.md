@@ -431,8 +431,16 @@ declared class, and each transaction's hash as the signer sends it (`declare_tx`
 `smoke.spawn_tx`, `smoke.game_id`, `smoke.build_tx`). A rerun awaits each recorded transaction first (its receipt, up to
 300 s): landed, it is not sent again; reverted, it may be; no receipt stops the run, the hash named; a hash the signer
 finds `not landed` is cleared. So a run stopped anywhere is rerun with the same command and sends only what is left;
-after completion a rerun sends nothing and needs no funding margin, and it does not assert the guardian and the pause,
-live state since (the guardian may pause, the owner unpause or change the guardian).
+after completion (`complete: yes`, and `guardian: deployer` when the rerun gives `--guardian deployer`) a rerun sends
+nothing, ever (no `set_guardian`, no smoke), needs no funding margin, and asserts only what cannot drift: Challenge's
+class is the one the record declared, and each recorded transaction is SUCCEEDED. It does not read the owner, the
+guardian, the pause or the other contracts' classes, live state since (a two-step transfer, the guardian's pause, the
+owner's `set_guardian`, a later upgrade). A first run and a resume check everything.
+
+**Other classes on main (part B).** Part B stops if any other contract's class has changed on main since F (the build's
+class of Setup, Collection, Economy, PavedToken, Vault, Faucet or MockRouter is no longer the one in `sepolia.json`).
+Part B then runs from a commit whose other classes still match `sepolia.json`, for example the merge commit of
+part A's pull request (#367).
 
 **Games in flight.** A game spawned before the upgrade keeps its deck: the deck is built once at the spawn and stored
 in the game, and every later draw reads it (G1's upgrade test). The new storage of G4 reads zero on the old games'
