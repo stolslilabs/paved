@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { readDeployment } from "./deployment.ts";
 import { DEFAULT_PORT } from "./server.ts";
 import { afterAll, describe, expect, test } from "vitest";
 
@@ -72,5 +73,19 @@ describe("the command line", () => {
     const result = run("run", "--deployment", remote, "--db", join(dir, "b.db"));
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(/no RPC URL/);
+  });
+
+  test("the committed Sepolia file (the fresh deployment F) is accepted: its addresses are read, and only the RPC URL is missing", () => {
+    const committed = resolve(import.meta.dirname, "../../../contracts/deployments/sepolia.json");
+    const file = JSON.parse(readFileSync(committed, "utf8"));
+    const parsed = readDeployment(committed);
+    expect(parsed).toMatchObject({ network: "sepolia", chainId: file.chain_id, deployedBlock: file.deployed_block });
+    for (const [key, name] of [["challenge", "Challenge"], ["setup", "Setup"], ["economy", "Economy"], ["collection", "Collection"]] as const) {
+      expect(BigInt(parsed[key]!), name).toBe(BigInt(file.contracts[name].address));
+    }
+    const result = run("run", "--deployment", committed, "--db", join(dir, "c.db"));
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/no RPC URL/);
+    expect(result.stderr).not.toMatch(/no address for/);
   });
 });

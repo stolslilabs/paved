@@ -155,57 +155,55 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
   });
 });
 
-// The committed sepolia.json keeps the old keys (`Daily`, `MockUSDC`) until the fresh deployment F writes it (PM's ruling, P-53):
-// the client reads `contracts.Faucet` only, so today it resolves no faucet and no economy USDC from this file, and is not
-// configured (Challenge missing). These tests assert exactly that; they change when F writes the file.
-describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keyed Daily and MockUSDC until F", () => {
+// The committed sepolia.json is the fresh deployment F (part B): one key per contract. These tests read every value from the file;
+// the only pinned values are the network, its chain id (a constant of the network, not of the file) and the key set.
+describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), the fresh deployment F", () => {
   const real = committedFile("sepolia");
   const RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
   const contracts = real.contracts as Record<string, { address: string }>;
+  const SEPOLIA_CHAIN_ID = "0x534e5f5345504f4c4941";
 
-  test("the file's rpc_url is a placeholder, which is the premise of the tests below", () => {
+  test("the file is the fresh one: one key per contract, none of the old keys, and a placeholder rpc_url", () => {
+    expect(Object.keys(contracts).sort()).toEqual(["Challenge", "Collection", "Economy", "Faucet", "MockRouter", "PavedToken", "Setup", "Vault"]);
+    expect(real.chain_id).toBe(SEPOLIA_CHAIN_ID);
     expect(real.rpc_url).toBe("$STARKNET_RPC_URL");
   });
 
-  test("with VITE_RPC_URL: every other address comes from the file, and it is not configured: Challenge is missing", () => {
-    expect(contracts.Challenge).toBeUndefined();
-    expect(contracts.Daily).toBeDefined();
+  test("with VITE_RPC_URL: configured, with the file's Challenge, Setup and Collection", () => {
     const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
-    expect(d.configured).toBe(false);
-    expect(d.missing).toEqual(["Challenge address"]);
+    expect(d.configured).toBe(true);
+    expect(d.missing).toEqual([]);
     expect(d.rpcUrl).toBe(RPC);
-    expect(d.chainId).toBe("0x534e5f5345504f4c4941");
+    expect(d.chainId).toBe(real.chain_id);
     expect(d.deployedBlock).toBe(real.deployed_block);
-    expect(d.tokenDecimals).toBe(6);
-    expect(d.addresses.Challenge).toBe("");
-    // Sepolia's file is from before step D: its Tutorial is not read, and Setup is empty until the fresh deployment (P-53).
-    expect(d.addresses.Setup).toBe(contracts.Setup?.address ?? "");
-    // The old Token is gone: the entry token is read from Challenge.entry_price at run time, not from the file.
+    expect(d.tokenDecimals).toBe(real.token!.decimals);
+    expect(d.addresses.Challenge).toBe(contracts.Challenge.address);
+    expect(d.addresses.Setup).toBe(contracts.Setup.address);
+    // The entry token is read from Challenge.entry_price at run time, not from the file.
     expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
     expect(d.collection).toBe(contracts.Collection.address);
   });
 
-  test("the file keys the old MockUSDC, which the client no longer reads: no faucet until F writes contracts.Faucet", () => {
+  test("the faucet is the file's contracts.Faucet, whatever the env says", () => {
     const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
-    expect(contracts.Faucet).toBeUndefined();
-    expect(contracts.MockUSDC).toBeDefined();
-    expect(BigInt(real.token!.address!)).toBe(BigInt(contracts.MockUSDC.address));
-    expect(d.faucet).toBe("");
-    // No env override either: the faucet is the file's contracts.Faucet and nothing else.
-    expect(resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC, faucet: contracts.MockUSDC.address } as never }).faucet).toBe("");
+    expect(d.faucet).toBe(contracts.Faucet.address);
+    expect(d.faucet).toBe(real.token!.address);
+    expect(resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC, faucet: "0x1234" } as never }).faucet).toBe(contracts.Faucet.address);
   });
 
-  test("the economy's addresses come from the same file; USDC is missing too, as the file keys MockUSDC not Faucet", () => {
+  test("the economy is configured on the Faucet, with the file's Economy, PavedToken and Vault, and the router is MockRouter", () => {
     const base = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
     const economy = resolveEconomyDeployment({ base, file: real });
-    expect(economy.configured).toBe(false);
-    expect(economy.missing).toEqual(["Challenge address", "USDC address"]);
+    expect(economy.configured).toBe(true);
+    expect(economy.missing).toEqual([]);
     expect(economy.addresses).toEqual({
       Economy: contracts.Economy.address,
       PavedToken: contracts.PavedToken.address,
       Vault: contracts.Vault.address,
-      USDC: "",
+      USDC: contracts.Faucet.address,
     });
+    expect(economy.expectedRouter).toBe(contracts.MockRouter.address);
+    expect(economy.mainnet).toBe(false);
   });
 
   test("without VITE_RPC_URL the placeholder is never used as a URL: not connected, and it says so", () => {
@@ -213,7 +211,7 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
       const d = resolveDeployment({ network: "sepolia", file: real, env });
       expect(d.rpcUrl).toBe("");
       expect(d.configured).toBe(false);
-      expect(d.missing).toEqual(["Challenge address", "RPC URL"]);
+      expect(d.missing).toEqual(["RPC URL"]);
     }
   });
 
@@ -227,8 +225,44 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keye
   });
 
   test("mainnet never resolves a Faucet, even from this very file", () => {
-    const d = resolveDeployment({ network: "mainnet", file: { ...real, contracts: { ...real.contracts, Faucet: { address: contracts.MockUSDC.address } } }, env: { rpcUrl: RPC } });
+    const d = resolveDeployment({ network: "mainnet", file: real, env: { rpcUrl: RPC } });
     expect(d.faucet).toBe("");
+  });
+});
+
+// The file from before F (keys `Daily` and `MockUSDC`, no Challenge, Faucet or Setup), kept as a fixture: the not-configured path.
+describe("a Sepolia file from before F (fixture): not configured, nothing guessed", () => {
+  const RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
+  const OLD: DeploymentFile = {
+    chain_id: "0x534e5f5345504f4c4941",
+    rpc_url: "$STARKNET_RPC_URL",
+    deployed_block: 16421420,
+    token: { address: "0x5", decimals: 6, symbol: "USDC" },
+    contracts: {
+      Daily: { address: "0x1" },
+      MockUSDC: { address: "0x5" },
+      Collection: { address: "0x6" },
+      Economy: { address: "0x7" },
+      PavedToken: { address: "0x8" },
+      Vault: { address: "0x9" },
+    } as DeploymentFile["contracts"],
+  };
+
+  test("Challenge is missing, no Setup and no faucet: the old MockUSDC is not read", () => {
+    const d = resolveDeployment({ network: "sepolia", file: OLD, env: { rpcUrl: RPC } });
+    expect(d.configured).toBe(false);
+    expect(d.missing).toEqual(["Challenge address"]);
+    expect(d.addresses).toEqual({ Challenge: "", Setup: "" });
+    expect(d.faucet).toBe("");
+    expect(d.collection).toBe("0x6");
+  });
+
+  test("the economy is not configured either: Challenge and USDC are missing", () => {
+    const base = resolveDeployment({ network: "sepolia", file: OLD, env: { rpcUrl: RPC } });
+    const economy = resolveEconomyDeployment({ base, file: OLD });
+    expect(economy.configured).toBe(false);
+    expect(economy.missing).toEqual(["Challenge address", "USDC address"]);
+    expect(economy.expectedRouter).toBe("");
   });
 });
 
