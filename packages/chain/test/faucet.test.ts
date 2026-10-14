@@ -5,7 +5,7 @@ import { AbiCodec } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews } from "../src/views";
-import { FaucetCapError, WriteError } from "../src/writer";
+import { FaucetCapError, GameExpiredError, WriteError } from "../src/writer";
 
 const FAUCET_ADDR = "0x77";
 const PLAYER = "0x5";
@@ -127,5 +127,38 @@ describe("the devnet faucet is Faucet.mint(self, N)", () => {
       expect(resolveDeployment({ network, env: stray }).faucet, network).toBe("");
     }
     expect(resolveDeployment({ ...base, file: { contracts: { Faucet: { address: "0x0" } } } }).faucet).toBe("");
+  });
+});
+
+describe("an expired game (S1): build and discard revert with GameExpiredError, surrender does not", () => {
+  const key = { mode: "challenge", gameId: 4 } as const;
+  const hexReason = shortString.encodeShortString("Game: expired");
+
+  test("a revert in the receipt, as text or as the short string's hex, is the typed error", async () => {
+    for (const revert_reason of ["Error in contract: 'Game: expired'", `Error: ${hexReason}`]) {
+      const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason } });
+      for (const send of [() => writer.build(key, { orientation: 0, x: 1, y: 1 }), () => writer.discard(key)]) {
+        const error = await send().catch((e) => e);
+        expect(error).toBeInstanceOf(GameExpiredError);
+        expect(error).toMatchObject({ transactionHash: "0x1", reverted: true });
+        expect(error.message).toMatch(/24 hours are over/);
+        expect(error.message).toMatch(/Surrender/);
+      }
+    }
+  });
+
+  test("a refusal at the fee estimation is the same error, with no hash", async () => {
+    const { writer, execute } = writerWith();
+    execute.mockRejectedValueOnce(new Error(`Execution failed: ${hexReason}`));
+    const error = await writer.discard(key).catch((e) => e);
+    expect(error).toBeInstanceOf(GameExpiredError);
+    expect(error.transactionHash).toBeUndefined();
+  });
+
+  test("another revert is left as it is", async () => {
+    const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason: "Game: over" } });
+    const error = await writer.discard(key).catch((e) => e);
+    expect(error).not.toBeInstanceOf(GameExpiredError);
+    expect(error).toBeInstanceOf(WriteError);
   });
 });
