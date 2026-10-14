@@ -1,7 +1,7 @@
 import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
-import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
+import faucetAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
@@ -44,7 +44,7 @@ export const ECONOMY_ABIS: Record<EconomyContractName, Abi> = {
   Economy: economyAbi as Abi,
   PavedToken: pavedTokenAbi as Abi,
   Vault: vaultAbi as Abi,
-  USDC: mockUsdcAbi as Abi,
+  USDC: faucetAbi as Abi,
   Challenge: challengeAbi as Abi,
 };
 
@@ -61,7 +61,7 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
 }
 
 /** `Faucet.json`: the faucet's (devnet, Sepolia) `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
-export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
+export const FAUCET_ABI = faucetAbi as Abi;
 
 /**
  * What one faucet call mints: 100 USDC (6 decimals), enough for every stake of a day's games. Far under the contract's

@@ -23,9 +23,9 @@ export interface ControllerConfig {
 
 /**
  * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
- * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `MockUSDC.mint`
+ * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `Faucet.mint`
  * (the faucet, `PavedWriter.mint`) is left out too: it is a policy only where the
- * deployment has a MockUSDC (Sepolia; `controllerPolicies`), never on mainnet.
+ * deployment has a Faucet (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
   Challenge: ["spawn", "build", "discard", "surrender"],
@@ -38,8 +38,8 @@ export const CONTROLLER_ENTRY_POINTS = {
  * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
  * purchase; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
- * (`deployment.mockUsdc`: Sepolia, where the player signs with the controller; never mainnet).
+ * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
+ * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(
   deployment: Deployment,
@@ -50,8 +50,8 @@ export function controllerPolicies(
   const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>)
     .filter((contract) => isAddress(deployment.addresses[contract]))
     .flatMap((contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })));
-  if (isAddress(deployment.mockUsdc)) {
-    policies.push({ target: deployment.mockUsdc, method: "mint", description: "Test USDC faucet" });
+  if (isAddress(deployment.faucet)) {
+    policies.push({ target: deployment.faucet, method: "mint", description: "Test USDC faucet" });
   }
   const approve = options.approve;
   if (approve && approve.cap > 0n && isAddress(approve.token)) {

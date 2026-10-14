@@ -5,7 +5,7 @@ export { ABIS, FAUCET_USDC_AMOUNT, createCodecs } from "./abis";
 export type { ContractName, Codecs } from "./abis";
 export { AbiCodec, sameAddress } from "./codec";
 export type { Abi, DecodedEvent, RawEvent } from "./codec";
-export { MOCK_USDC_NETWORKS, resolveDeployment } from "./deployment";
+export { FAUCET_NETWORKS, resolveDeployment } from "./deployment";
 export type { Deployment, DeploymentEnv, DeploymentFile } from "./deployment";
 export {
   MAX_PAGE,

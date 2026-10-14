@@ -694,7 +694,7 @@ describe("helpers", () => {
   });
 
   it("the economy's addresses come from the same network's file, the env first", () => {
-    const files = { "/x/devnet.json": { default: { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, MockUSDC: { address: "0x23" } } } } };
+    const files = { "/x/devnet.json": { default: { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" } } } } };
     expect(resolveEconomyNetwork(base, {}, files).configured).toBe(true);
     expect(resolveEconomyNetwork(base, { VITE_USDC_ADDRESS: "0x99" }, files).addresses.USDC).toBe("0x99");
     expect(resolveEconomyNetwork(base, {}, {}).configured).toBe(false);

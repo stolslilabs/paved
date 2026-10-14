@@ -158,7 +158,7 @@ describe("amounts: BigInt base units, never floats", () => {
 });
 
 describe("deployment: the economy is configured from the E3 devnet.json", () => {
-  test("today's devnet.json has the four economy addresses (USDC is MockUSDC on devnet)", () => {
+  test("today's devnet.json has the four economy addresses (USDC is Faucet on devnet)", () => {
     const file = devnetFile as DeploymentFile & { contracts: Record<string, { address: string }> };
     const fromFile = resolveDeployment({ network: "devnet", file });
     const economy = resolveEconomyDeployment({ base: fromFile, file });
@@ -168,14 +168,14 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
       Economy: file.contracts.Economy.address,
       PavedToken: file.contracts.PavedToken.address,
       Vault: file.contracts.Vault.address,
-      USDC: file.contracts.MockUSDC.address,
+      USDC: file.contracts.Faucet.address,
     });
     for (const address of Object.values(economy.addresses)) expect(BigInt(address)).not.toBe(0n);
     expect(createEconomyClient(economy, new PavedClient(fromFile, {} as PavedRpc))).not.toBeNull();
   });
 
-  test("the file's E3 keys (MockUSDC on devnet) and the env, the env first", () => {
-    const file = { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, MockUSDC: { address: "0x23" } } };
+  test("the file's E3 keys (Faucet on devnet) and the env, the env first", () => {
+    const file = { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" } } };
     expect(resolveEconomyDeployment({ base, file }).addresses).toEqual({ Economy: "0x20", PavedToken: "0x21", Vault: "0x22", USDC: "0x23" });
     expect(resolveEconomyDeployment({ base, file, env: { vault: "0x99" } }).addresses.Vault).toBe("0x99");
     expect(resolveEconomyDeployment({ base: resolveDeployment({ network: "devnet" }), env: ECON }).configured).toBe(false);

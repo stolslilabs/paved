@@ -8,7 +8,7 @@ export interface DeploymentFile {
   deployed_block?: number;
   /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
-  contracts?: Partial<Record<ContractName | "MockUSDC" | "Collection", { address?: string; class_hash?: string }>>;
+  contracts?: Partial<Record<ContractName | "Faucet" | "Collection", { address?: string; class_hash?: string }>>;
 }
 
 /** Values from the environment; each one set overrides the file. */
@@ -16,8 +16,8 @@ export interface DeploymentEnv {
   rpcUrl?: string;
   deployedBlock?: string | number;
   addresses?: Partial<Record<ContractName, string>>;
-  /** The `MockUSDC` of devnet or Sepolia (the faucet's token). */
-  mockUsdc?: string;
+  /** The `Faucet` of devnet or Sepolia (the faucet's token). */
+  faucet?: string;
   /** The game NFT's Collection (E5b), optional. */
   collection?: string;
 }
@@ -32,8 +32,8 @@ export interface Deployment {
   tokenDecimals: number | null;
   /** Addresses of the contracts; an empty string when unknown. `Setup` is optional: not part of `configured`. */
   addresses: Record<ContractName, string>;
-  /** The `MockUSDC`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
-  mockUsdc: string;
+  /** The `Faucet`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
+  faucet: string;
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
   /**
@@ -48,10 +48,10 @@ export interface Deployment {
 const NAMES: ContractName[] = ["Challenge", "Token"];
 
 /**
- * The networks that resolve a `MockUSDC` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,
+ * The networks that resolve a `Faucet` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,
  * with the bounded faucet of `contracts/src/mocks/usdc.cairo`). Mainnet and any other network never do.
  */
-export const MOCK_USDC_NETWORKS: readonly string[] = ["devnet", "sepolia"];
+export const FAUCET_NETWORKS: readonly string[] = ["devnet", "sepolia"];
 
 /** An RPC URL a client can call: the file of a public network keeps a `$STARKNET_RPC_URL` placeholder, which is not one. */
 function isRpcUrl(value: string | undefined): value is string {
@@ -83,7 +83,7 @@ export function resolveDeployment(input: {
 
   for (const name of NAMES) {
     // `Token` is the entry token: `contracts.Token` where the old mock was deployed (devnet), else the file's top-level
-    // `token` (Sepolia has no old Token: its entry token is the MockUSDC, which `token` names).
+    // `token` (Sepolia has no old Token: its entry token is the Faucet, which `token` names).
     const value = env.addresses?.[name] || file.contracts?.[name]?.address || (name === "Token" ? file.token?.address : undefined);
     addresses[name] = isAddress(value) ? value : "";
     if (!addresses[name]) missing.push(`${name} address`);
@@ -102,9 +102,9 @@ export function resolveDeployment(input: {
   const envBlock = env.deployedBlock === undefined || env.deployedBlock === "" ? NaN : Number(env.deployedBlock);
   const deployedBlock = Number.isInteger(envBlock) && envBlock >= 0 ? envBlock : (file.deployed_block ?? 0);
 
-  // The faucet exists on the networks of `MOCK_USDC_NETWORKS` only: no other one (mainnet) resolves a MockUSDC, whatever
+  // The faucet exists on the networks of `FAUCET_NETWORKS` only: no other one (mainnet) resolves a Faucet, whatever
   // its file or env holds.
-  const mockUsdc = MOCK_USDC_NETWORKS.includes(input.network) ? env.mockUsdc || file.contracts?.MockUSDC?.address : undefined;
+  const faucet = FAUCET_NETWORKS.includes(input.network) ? env.faucet || file.contracts?.Faucet?.address : undefined;
 
   return {
     network: input.network,
@@ -113,7 +113,7 @@ export function resolveDeployment(input: {
     deployedBlock,
     tokenDecimals: Number.isInteger(file.token?.decimals) && file.token!.decimals! >= 0 && file.token!.decimals! <= 77 ? file.token!.decimals! : null,
     addresses,
-    mockUsdc: isAddress(mockUsdc) ? mockUsdc : "",
+    faucet: isAddress(faucet) ? faucet : "",
     collection: [env.collection, file.contracts?.Collection?.address].find(isAddress) ?? "",
     configured: missing.length === 0,
     missing,

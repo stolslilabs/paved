@@ -1,5 +1,5 @@
 import { Account, RpcProvider } from "starknet";
-import { MOCK_USDC_NETWORKS, createIndexerClient, resolveDeployment } from "@paved/chain";
+import { FAUCET_NETWORKS, createIndexerClient, resolveDeployment } from "@paved/chain";
 import type { Deployment, DeploymentFile, IndexerClient, WriteAccount } from "@paved/chain";
 
 /** The `VITE_*` variables the app reads; each one set overrides `contracts/deployments/<network>.json`. */
@@ -13,8 +13,8 @@ export interface NetworkEnv {
   VITE_TOKEN_ADDRESS?: string;
   /** The game NFT's Collection (E5b), optional, and first of the sources (an operator override); then the deployments file's `contracts.Collection`, then the indexer's head. */
   VITE_COLLECTION_ADDRESS?: string;
-  /** The MockUSDC of devnet or Sepolia, the faucet's token (overrides `contracts.MockUSDC`; ignored on any other network). */
-  VITE_MOCK_USDC_ADDRESS?: string;
+  /** The Faucet of devnet or Sepolia, the faucet's token (overrides `contracts.Faucet`; ignored on any other network). */
+  VITE_FAUCET_ADDRESS?: string;
   /** The account that plays: a devnet predeployed account, devnet only; without both, read-only. */
   VITE_PLAYER_ADDRESS?: string;
   VITE_PLAYER_PRIVATE_KEY?: string;
@@ -25,7 +25,7 @@ export interface NetworkEnv {
 
 export interface AppNetwork {
   deployment: Deployment;
-  /** The test token's faucet is offered (devnet and Sepolia, where MockUSDC is a mock; `VITE_SUPPORTS_TOKEN_MINT` overrides, but never makes a MockUSDC appear: the faucet also needs `deployment.mockUsdc`). */
+  /** The test token's faucet is offered (devnet and Sepolia, where Faucet is a mock; `VITE_SUPPORTS_TOKEN_MINT` overrides, but never makes a Faucet appear: the faucet also needs `deployment.faucet`). */
   supportsMint: boolean;
   /** Tip of each write: 0 on devnet, where starknet.js's tip estimate stalls; undefined elsewhere (Sepolia included): starknet.js's own estimate. */
   tip: bigint | undefined;
@@ -45,7 +45,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
     file: file && "default" in file ? (file.default ?? null) : (file as DeploymentFile | null),
     env: {
       rpcUrl: env.VITE_RPC_URL,
-      mockUsdc: env.VITE_MOCK_USDC_ADDRESS,
+      faucet: env.VITE_FAUCET_ADDRESS,
       collection: env.VITE_COLLECTION_ADDRESS,
       deployedBlock: env.VITE_DEPLOYED_BLOCK,
       addresses: {
@@ -59,7 +59,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
   const mint = env.VITE_SUPPORTS_TOKEN_MINT;
   return {
     deployment,
-    supportsMint: mint === undefined || mint === "" ? MOCK_USDC_NETWORKS.includes(network) : mint.toLowerCase() === "true",
+    supportsMint: mint === undefined || mint === "" ? FAUCET_NETWORKS.includes(network) : mint.toLowerCase() === "true",
     tip: devnet ? 0n : undefined,
     indexer: createIndexerClient(env.VITE_INDEXER_URL),
   };

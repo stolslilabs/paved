@@ -141,7 +141,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const dayEnd = day.data === null || day.data === undefined ? null : (day.data + 1) * 86400;
 
-  // The Challenge entry is paid in USDC since E3 (`contracts.USDC`, the devnet's MockUSDC), not in the old Token.
+  // The Challenge entry is paid in USDC since E3 (`contracts.USDC`, the devnet's Faucet), not in the old Token.
   const fee = entryFee(price, economy.deployment.addresses.USDC, deployment.tokenDecimals);
   const feeLabel =
     fee.kind === "amount"
@@ -233,7 +233,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         <TokenPanel
           networkLabel={deployment.network}
           balanceLabel={tokenLabel(balance.data ?? 0n, deployment.tokenDecimals)}
-          supportsMint={supportsMint && !!deployment.mockUsdc && status === "ready"}
+          supportsMint={supportsMint && !!deployment.faucet && status === "ready"}
           isMinting={writing}
           error={writeError}
           onMint={handleMint}

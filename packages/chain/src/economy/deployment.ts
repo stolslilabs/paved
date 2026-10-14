@@ -1,9 +1,9 @@
 import type { EconomyContractName } from "../abis";
-import { MOCK_USDC_NETWORKS, type Deployment, type DeploymentFile } from "../deployment";
+import { FAUCET_NETWORKS, type Deployment, type DeploymentFile } from "../deployment";
 
 /** The deployments file as E3 extends it (economy.md section 6): the economy's contracts under `contracts`. */
 export interface EconomyDeploymentFile extends DeploymentFile {
-  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "MockUSDC" | "USDC" | "MockRouter", { address?: string }>>;
+  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "Faucet" | "USDC" | "MockRouter", { address?: string }>>;
 }
 
 export interface EconomyEnv {
@@ -58,7 +58,7 @@ function isAddress(value: string | undefined): value is string {
 
 /**
  * The economy's addresses from the deployments file and the env, the env first. USDC is `contracts.USDC`, else the
- * devnet's `contracts.MockUSDC`. Nothing is assumed: a missing address leaves the economy not configured.
+ * devnet's `contracts.Faucet`. Nothing is assumed: a missing address leaves the economy not configured.
  */
 export function resolveEconomyDeployment(input: { base: Deployment; file?: EconomyDeploymentFile | null; env?: EconomyEnv }): EconomyDeployment {
   const contracts = input.file?.contracts ?? {};
@@ -68,7 +68,7 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
     Economy: pick(env.economy, contracts.Economy?.address),
     PavedToken: pick(env.pavedToken, contracts.PavedToken?.address),
     Vault: pick(env.vault, contracts.Vault?.address),
-    USDC: pick(env.usdc, contracts.USDC?.address, contracts.MockUSDC?.address),
+    USDC: pick(env.usdc, contracts.USDC?.address, contracts.Faucet?.address),
   };
   const missing = [
     ...(input.base.configured ? [] : input.base.missing),
@@ -86,7 +86,7 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
  */
 function expectedRouterOf(base: Deployment, mockRouter: string | undefined): string {
   if (isMainnet(base)) return MAINNET_ROUTER;
-  if (MOCK_USDC_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
+  if (FAUCET_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
   return "";
 }
 

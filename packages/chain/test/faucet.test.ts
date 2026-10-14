@@ -1,18 +1,18 @@
 import { shortString } from "starknet";
 import { describe, expect, test, vi } from "vitest";
-import { FAUCET_USDC_AMOUNT, MOCK_USDC_ABI, createCodecs } from "../src/abis";
+import { FAUCET_USDC_AMOUNT, FAUCET_ABI, createCodecs } from "../src/abis";
 import { AbiCodec } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews } from "../src/views";
 import { FaucetCapError, WriteError } from "../src/writer";
 
-const MOCK_USDC = "0x77";
+const FAUCET_ADDR = "0x77";
 const PLAYER = "0x5";
 const CHALLENGE = "0x2";
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, mockUsdc: MOCK_USDC },
+  env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, faucet: FAUCET_ADDR },
 });
 const codecs = createCodecs();
 const u256 = (value: bigint) => [`0x${(value & ((1n << 128n) - 1n)).toString(16)}`, `0x${(value >> 128n).toString(16)}`];
@@ -33,43 +33,43 @@ function writerWith(options: { receipt?: Receipt; views?: FakeGameViews; dep?: t
 
 const sent = (execute: ReturnType<typeof writerWith>["execute"]) => execute.mock.calls[0][0];
 
-describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
-  test("mint() calls MockUSDC at contracts.MockUSDC, never the old Token", async () => {
+describe("the devnet faucet is Faucet.mint(self, N)", () => {
+  test("mint() calls Faucet at contracts.Faucet, never the old Token", async () => {
     const { writer, execute } = writerWith();
     await writer.mint();
     const [call] = sent(execute);
-    expect([BigInt(call.contractAddress), call.entrypoint]).toEqual([BigInt(MOCK_USDC), "mint"]);
-    expect(call.calldata).toEqual(new AbiCodec(MOCK_USDC_ABI).encodeCall("mint", [PLAYER, FAUCET_USDC_AMOUNT]));
+    expect([BigInt(call.contractAddress), call.entrypoint]).toEqual([BigInt(FAUCET_ADDR), "mint"]);
+    expect(call.calldata).toEqual(new AbiCodec(FAUCET_ABI).encodeCall("mint", [PLAYER, FAUCET_USDC_AMOUNT]));
     expect(BigInt(call.calldata[0])).toBe(BigInt(PLAYER));
     expect(call.calldata.slice(1).map(BigInt)).toEqual(u256(FAUCET_USDC_AMOUNT).map(BigInt));
     expect(BigInt(call.contractAddress)).not.toBe(BigInt(deployment.addresses.Token));
   });
 
-  test("a deployment with no MockUSDC offers no faucet: nothing is sent", async () => {
+  test("a deployment with no Faucet offers no faucet: nothing is sent", async () => {
     const dep = resolveDeployment({ network: "mainnet", env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" } } });
-    expect(dep.mockUsdc).toBe("");
+    expect(dep.faucet).toBe("");
     const { writer, execute } = writerWith({ dep });
     await expect(writer.mint()).rejects.toThrow(WriteError);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("never on mainnet: a deployment with a MockUSDC in its file and env resolves none, and sends no mint", async () => {
-    const file = { contracts: { MockUSDC: { address: "0x9" } } };
-    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, mockUsdc: MOCK_USDC };
+  test("never on mainnet: a deployment with a Faucet in its file and env resolves none, and sends no mint", async () => {
+    const file = { contracts: { Faucet: { address: "0x9" } } };
+    const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" }, faucet: FAUCET_ADDR };
     for (const network of ["mainnet", "", "goerli", "Sepolia"]) {
       const dep = resolveDeployment({ network, file, env });
-      expect(dep.mockUsdc, network).toBe("");
+      expect(dep.faucet, network).toBe("");
       const { writer, execute } = writerWith({ dep });
       await expect(writer.mint()).rejects.toThrow(/No faucet/);
         expect(execute).not.toHaveBeenCalled();
     }
   });
 
-  test("sepolia resolves the MockUSDC of its file or env, and mints 100 USDC, under both caps of the contract", async () => {
-    const file = { contracts: { MockUSDC: { address: "0x9" } } };
+  test("sepolia resolves the Faucet of its file or env, and mints 100 USDC, under both caps of the contract", async () => {
+    const file = { contracts: { Faucet: { address: "0x9" } } };
     const env = { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" } };
-    expect(resolveDeployment({ network: "sepolia", file, env }).mockUsdc).toBe("0x9");
-    expect(resolveDeployment({ network: "sepolia", file, env: { ...env, mockUsdc: "0xa" } }).mockUsdc).toBe("0xa");
+    expect(resolveDeployment({ network: "sepolia", file, env }).faucet).toBe("0x9");
+    expect(resolveDeployment({ network: "sepolia", file, env: { ...env, faucet: "0xa" } }).faucet).toBe("0xa");
     const dep = resolveDeployment({ network: "sepolia", file, env });
     const { writer, execute } = writerWith({ dep });
     await writer.mint();
@@ -87,7 +87,7 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
     test.each([
       ["Faucet: over the address cap", "address", /received everything the faucet gives/],
       ["Faucet: over the call cap", "call", /over what one request may mint/],
-      // The MockUSDC still deployed on Sepolia until the fresh deployment (P-53).
+      // The Faucet still deployed on Sepolia until the fresh deployment (P-53).
       ["MockUSDC: over the address cap", "address", /received everything the faucet gives/],
       ["MockUSDC: over the call cap", "call", /over what one request may mint/],
     ] as const)("%s", async (reason, cap, words) => {
@@ -98,7 +98,7 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
         expect(error).toBeInstanceOf(WriteError);
         expect(error.cap).toBe(cap);
         expect(error.message).toMatch(words);
-        expect(error.message).not.toMatch(/MockUSDC|Faucet:|0x/);
+        expect(error.message).not.toMatch(/Faucet|Faucet:|0x/);
         expect(error.reverted).toBe(true);
       }
     });
@@ -117,11 +117,11 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
     });
   });
 
-  test("the address comes from the deployments file's contracts.MockUSDC, the env first", () => {
-    const file = { contracts: { MockUSDC: { address: "0x9" } } };
+  test("the address comes from the deployments file's contracts.Faucet, the env first", () => {
+    const file = { contracts: { Faucet: { address: "0x9" } } };
     const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: CHALLENGE, Setup: "0x3", Token: "0x4" } } };
-    expect(resolveDeployment({ ...base, file }).mockUsdc).toBe("0x9");
-    expect(resolveDeployment({ ...base, file, env: { ...base.env, mockUsdc: "0xa" } }).mockUsdc).toBe("0xa");
-    expect(resolveDeployment({ ...base, file: { contracts: { MockUSDC: { address: "0x0" } } } }).mockUsdc).toBe("");
+    expect(resolveDeployment({ ...base, file }).faucet).toBe("0x9");
+    expect(resolveDeployment({ ...base, file, env: { ...base.env, faucet: "0xa" } }).faucet).toBe("0xa");
+    expect(resolveDeployment({ ...base, file: { contracts: { Faucet: { address: "0x0" } } } }).faucet).toBe("");
   });
 });

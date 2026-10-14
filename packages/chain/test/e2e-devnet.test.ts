@@ -231,7 +231,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const file = JSON.parse(readFileSync(process.env.E2E_DEPLOYMENT ?? resolve(REPO, "contracts/deployments/devnet.json"), "utf8")) as DeploymentFile;
     const deployment = resolveDeployment({ network: "devnet", file });
     expect(deployment.configured).toBe(true);
-    expect(deployment.mockUsdc).not.toBe("");
+    expect(deployment.faucet).not.toBe("");
     rpcUrl = deployment.rpcUrl;
     provider = new RpcProvider({ nodeUrl: rpcUrl });
     client = new PavedClient(deployment, provider as unknown as PavedRpc);

@@ -317,20 +317,20 @@ describe("D-25 (E): the player is the connected wallet, with no registration", (
 });
 
 describe("The faucet button", () => {
-  it("is offered with a MockUSDC and calls mint; without one it is not offered", async () => {
+  it("is offered with a Faucet and calls mint; without one it is not offered", async () => {
     const mint = vi.fn(async () => result);
-    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment, writer: { mint } });
+    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), faucet: "0x77" } as unknown as Deployment, writer: { mint } });
     fireEvent.click(await screen.findByText("Mint"));
     await waitFor(() => expect(mint).toHaveBeenCalledTimes(1));
     cleanup();
-    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), mockUsdc: "" } as unknown as Deployment, writer: { mint } });
+    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), faucet: "" } as unknown as Deployment, writer: { mint } });
     await screen.findByText(/balance /);
     expect(screen.queryByText("Mint")).toBeNull();
   });
 });
 
-describe("The faucet's caps (MockUSDC, Sepolia)", () => {
-  const dep = { ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment;
+describe("The faucet's caps (Faucet, Sepolia)", () => {
+  const dep = { ...(configured as object), faucet: "0x77" } as unknown as Deployment;
 
   it.each([
     ["address", /received everything the faucet gives/],
@@ -342,7 +342,7 @@ describe("The faucet's caps (MockUSDC, Sepolia)", () => {
     renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: dep, writer: { mint } });
     fireEvent.click(await screen.findByText("Mint"));
     const shown = await screen.findByText(words);
-    expect(shown.textContent).not.toMatch(/MockUSDC|0x/);
+    expect(shown.textContent).not.toMatch(/Faucet|0x/);
   });
 });
 
@@ -350,7 +350,7 @@ describe("D-20: the prize leaves the landing", () => {
   it("no prize, sponsor, claim or reclaim is offered, and the day is read from current_day, not a tournament view", async () => {
     const views = new FakeGameViews();
     views.today = 20_000;
-    land({ views, deployment: { ...configured, mockUsdc: undefined } as Deployment, wrap: noEconomy(configured) });
+    land({ views, deployment: { ...configured, faucet: undefined } as Deployment, wrap: noEconomy(configured) });
     await screen.findByText(`connected:${PLAYER}`);
     await waitFor(() => expect(views.calls).toContain("current_day"));
     expect(views.calls.some((c) => c.startsWith("tournament"))).toBe(false);

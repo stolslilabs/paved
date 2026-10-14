@@ -36,7 +36,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
   beforeAll(async () => {
     devnet = await connectDevnet();
     expect(devnet.deployment.configured).toBe(true);
-    expect(devnet.deployment.mockUsdc).not.toBe("");
+    expect(devnet.deployment.faucet).not.toBe("");
     expect(devnet.economy.configured, devnet.economy.missing.join(", ")).toBe(true);
     const provider = recording(devnet.provider as unknown as PavedRpc, record);
     client = new PavedClient(devnet.deployment, provider);
@@ -75,7 +75,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const result = await writer.mint();
     record.receipts.mint = result.transactionHash;
     const price = await client.views.entryPrice();
-    expect(BigInt(price.token)).toBe(BigInt(devnet.deployment.mockUsdc));
+    expect(BigInt(price.token)).toBe(BigInt(devnet.deployment.faucet));
     expect(price.amount).toBeGreaterThan(0n);
     expect(await economy.views.usdcBalance(player)).toBe(FAUCET_USDC_AMOUNT);
     expect(await client.balance(player)).toBeGreaterThan(price.amount);
