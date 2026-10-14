@@ -802,6 +802,22 @@ Estimate, to measure in the renderer PR with the existing bench (`bun run bench`
 and draw calls the line geometry costs today. The P-7b figures frozen by D-7 are the bar it must not
 fall below.
 
+**Decided by R-OUT (t-0258, 2026-10-14): fat lines with a depth bias, not the edge pass.** The outlines are
+`LineSegments2` + `LineMaterial` (`core/outlines.ts`) built from the same `buildEdgesGeometry` segments, one
+shared material. The table's "still fights depth" holds for GL lines only: a `LineMaterial` line is a quad of
+triangles, so `polygonOffset` (factor -1, units -4, towards the camera) applies to it, and the lines no longer
+win or lose the depth test by rounding. The edge pass would have needed a normal buffer (a second scene pass,
+or multiple render targets), outlined everything on screen, and its pixel edges still crawl without
+anti-aliasing. The width and opacity follow the on-screen size of a tile (CSS px, which folds in distance,
+field of view, camera zoom and viewport height), from one settings object, `RendererSettings`
+(`core/settings.ts`), given to `GameScene`, `GameCanvas` or `GameCanvasNative`: off at or below
+`fadeThresholdTilePx` (96), a smooth fade-in over `fadeRangeTilePx` (96), then from `minWidthPx` (1) to
+`maxWidthPx` (2) at `maxWidthTilePx` (800). The camera's distance limits (5, 300) and an optional zoom-out
+cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target (5.2, item 1) is the
+`multisampling` setting, off by default: it costs 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max for
+little visible gain once the lines are biased. Measures and captures: PR #411 and the stories
+"Renderer/Outlines" and "Renderer/Outlines comparison".
+
 ### 5.4 The mockups' isometric voxel look: the cost
 
 Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:
