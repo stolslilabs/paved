@@ -14,7 +14,7 @@ pub mod HostableComponent {
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
-    use paved::seed::{DailySeed, SeedSource};
+    use paved::seed::{SeedSource, TokenSeed};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::storage::Map;
@@ -59,7 +59,7 @@ pub mod HostableComponent {
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn spawn(self: @ComponentState<TContractState>, mode: Mode) -> (u32, u256) {
-            self.spawn_with(mode, @DailySeed {})
+            self.spawn_with(mode, @TokenSeed {})
         }
 
         fn spawn_with<S, +SeedSource<S>>(

@@ -11,7 +11,7 @@ use paved::structure::record::ref_of;
 use paved::structure::state::StructuresTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, Systems, TestStore, TestStoreTrait};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -28,7 +28,7 @@ struct Board {
 #[generate_trait]
 impl BoardImpl of BoardTrait {
     fn new() -> Board {
-        let (store, systems, context) = setup::spawn_game(Mode::Daily);
+        let (store, systems, context) = setup::spawn_game(Mode::Challenge);
         Board { systems, store, game_id: context.game_id, player_id: context.player_id }
     }
 
@@ -41,7 +41,7 @@ impl BoardImpl of BoardTrait {
         let mut tile = self.store.tile(game, builder.tile_id);
         tile.plan = plan.into();
         self.store.set_tile(tile);
-        self.systems.daily.build(*self.game_id, orientation, x, y);
+        self.systems.challenge.build(*self.game_id, orientation, x, y);
         check::assert_tile_agrees(*self.store, *self.game_id, builder.tile_id);
         check::assert_move_scored(*self.store, *self.game_id, builder.tile_id, before);
     }

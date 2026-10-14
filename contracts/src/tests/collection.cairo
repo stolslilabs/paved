@@ -16,8 +16,8 @@ use paved::systems::collection::{
     TUTORIAL_OFFSET, metadata,
 };
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load, spy_events,
+    start_cheat_caller_address, stop_cheat_caller_address, store,
 };
 use starknet::ContractAddress;
 
@@ -94,13 +94,13 @@ pub fn OTHER() -> ContractAddress {
     'OTHER'.try_into().unwrap()
 }
 
-const DAILY_ID: u256 = 7;
+const CHALLENGE_ID: u256 = 7;
 const TUTORIAL_ID: u256 = 0x100000000 + 7;
 
 #[derive(Copy, Drop)]
 struct World {
     collection: ContractAddress,
-    daily: ContractAddress,
+    challenge: ContractAddress,
     tutorial: ContractAddress,
 }
 
@@ -114,7 +114,7 @@ fn deploy_double() -> ContractAddress {
 fn deploy() -> World {
     let class = declare("Collection").unwrap().contract_class();
     let (collection, _) = class.deploy(@array![OWNER().into()]).unwrap();
-    World { collection, daily: deploy_double(), tutorial: deploy_double() }
+    World { collection, challenge: deploy_double(), tutorial: deploy_double() }
 }
 
 fn setup() -> World {
@@ -126,7 +126,7 @@ fn setup() -> World {
 fn set_minters(world: @World, caller: ContractAddress) {
     start_cheat_caller_address(*world.collection, caller);
     ICollectionDispatcher { contract_address: *world.collection }
-        .set_minters(*world.daily, *world.tutorial);
+        .set_minters(*world.challenge, *world.tutorial);
     stop_cheat_caller_address(*world.collection);
 }
 
@@ -141,7 +141,7 @@ fn erc721(world: @World) -> IERC721SoulboundDispatcher {
 }
 
 fn minted(world: @World) {
-    mint(world, *world.daily, PLAYER(), DAILY_ID);
+    mint(world, *world.challenge, PLAYER(), CHALLENGE_ID);
     mint(world, *world.tutorial, PLAYER(), TUTORIAL_ID);
 }
 
@@ -160,7 +160,7 @@ fn test_collection_mint_by_range() {
                     world.collection,
                     Collection::Event::Transfer(
                         Collection::Transfer {
-                            from: Zero::zero(), to: PLAYER(), token_id: DAILY_ID,
+                            from: Zero::zero(), to: PLAYER(), token_id: CHALLENGE_ID,
                         },
                     ),
                 ),
@@ -175,70 +175,70 @@ fn test_collection_mint_by_range() {
             ],
         );
     let erc721 = erc721(@world);
-    assert_eq!(erc721.owner_of(DAILY_ID), PLAYER());
+    assert_eq!(erc721.owner_of(CHALLENGE_ID), PLAYER());
     assert_eq!(erc721.owner_of(TUTORIAL_ID), PLAYER());
     assert_eq!(erc721.balance_of(PLAYER()), 2);
     assert_eq!(erc721.balance_of(OTHER()), 0);
     let camel = IERC721SoulboundCamelDispatcher { contract_address: world.collection };
-    assert_eq!(camel.ownerOf(DAILY_ID), PLAYER());
+    assert_eq!(camel.ownerOf(CHALLENGE_ID), PLAYER());
     assert_eq!(camel.balanceOf(PLAYER()), 2);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
-fn test_collection_mint_daily_id_by_tutorial() {
+fn test_collection_mint_challenge_id_by_tutorial() {
     let world = setup();
-    mint(@world, world.tutorial, PLAYER(), DAILY_ID);
+    mint(@world, world.tutorial, PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
-fn test_collection_mint_tutorial_id_by_daily() {
+fn test_collection_mint_tutorial_id_by_challenge() {
     let world = setup();
-    mint(@world, world.daily, PLAYER(), TUTORIAL_ID);
+    mint(@world, world.challenge, PLAYER(), TUTORIAL_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
 fn test_collection_mint_by_anyone() {
     let world = setup();
-    mint(@world, OTHER(), PLAYER(), DAILY_ID);
+    mint(@world, OTHER(), PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
 fn test_collection_mint_by_owner() {
     let world = setup();
-    mint(@world, OWNER(), PLAYER(), DAILY_ID);
+    mint(@world, OWNER(), PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
 fn test_collection_mint_before_minters() {
     let world = deploy();
-    mint(@world, world.daily, PLAYER(), DAILY_ID);
+    mint(@world, world.challenge, PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: not minter')]
 fn test_collection_mint_before_minters_by_zero() {
     let world = deploy();
-    mint(@world, Zero::zero(), PLAYER(), DAILY_ID);
+    mint(@world, Zero::zero(), PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: already minted')]
 fn test_collection_mint_twice() {
     let world = setup();
-    mint(@world, world.daily, PLAYER(), DAILY_ID);
-    mint(@world, world.daily, OTHER(), DAILY_ID);
+    mint(@world, world.challenge, PLAYER(), CHALLENGE_ID);
+    mint(@world, world.challenge, OTHER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: zero recipient')]
 fn test_collection_mint_to_zero() {
     let world = setup();
-    mint(@world, world.daily, Zero::zero(), DAILY_ID);
+    mint(@world, world.challenge, Zero::zero(), CHALLENGE_ID);
 }
 
 #[test]
@@ -262,7 +262,20 @@ fn test_collection_minters_are_read() {
     let world = setup();
     let collection = ICollectionDispatcher { contract_address: world.collection };
     assert_eq!(IOwnableDispatcher { contract_address: world.collection }.owner(), OWNER());
-    assert_eq!(collection.daily(), world.daily);
+    assert_eq!(collection.challenge(), world.challenge);
+}
+
+/// D-23 renamed the view `daily()` to `challenge()`, not the field (P-42): the Challenge minter is
+/// still stored at `sn_keccak("daily")`, and `challenge()` reads it from there.
+#[test]
+fn test_collection_pins_the_challenge_minter_at_daily() {
+    let world = setup();
+    let stored = load(world.collection, selector!("daily"), 1);
+    assert_eq!(*stored.at(0), world.challenge.into());
+    let collection = ICollectionDispatcher { contract_address: world.collection };
+    let other: ContractAddress = 'MOVED'.try_into().unwrap();
+    store(world.collection, selector!("daily"), array![other.into()].span());
+    assert_eq!(collection.challenge(), other);
 }
 
 #[test]
@@ -278,7 +291,7 @@ fn test_collection_set_minters_refuses_one_address_for_both() {
     let world = deploy();
     start_cheat_caller_address(world.collection, OWNER());
     ICollectionDispatcher { contract_address: world.collection }
-        .set_minters(world.daily, world.daily);
+        .set_minters(world.challenge, world.challenge);
 }
 
 #[test]
@@ -296,24 +309,24 @@ fn test_collection_set_minters_zero_tutorial() {
     let world = deploy();
     start_cheat_caller_address(world.collection, OWNER());
     ICollectionDispatcher { contract_address: world.collection }
-        .set_minters(world.daily, Zero::zero());
+        .set_minters(world.challenge, Zero::zero());
     stop_cheat_caller_address(world.collection);
     let collection = ICollectionDispatcher { contract_address: world.collection };
-    assert_eq!(collection.daily(), world.daily);
+    assert_eq!(collection.challenge(), world.challenge);
     let safe = ICollectionSafeDispatcher { contract_address: world.collection };
-    for caller in array![world.daily, world.tutorial, Zero::zero()] {
+    for caller in array![world.challenge, world.tutorial, Zero::zero()] {
         start_cheat_caller_address(world.collection, caller);
         let error = safe.mint(PLAYER(), TUTORIAL_ID).unwrap_err();
         assert_eq!(*error.at(0), 'Collection: not minter');
     }
     stop_cheat_caller_address(world.collection);
     // [Daily] still mints its own range
-    mint(@world, world.daily, PLAYER(), DAILY_ID);
+    mint(@world, world.challenge, PLAYER(), CHALLENGE_ID);
 }
 
 #[test]
 #[should_panic(expected: 'Collection: zero minter')]
-fn test_collection_set_minters_zero_daily() {
+fn test_collection_set_minters_zero_challenge() {
     let world = deploy();
     start_cheat_caller_address(world.collection, OWNER());
     ICollectionDispatcher { contract_address: world.collection }
@@ -362,8 +375,8 @@ fn test_collection_every_transfer_and_approval_reverts() {
     minted(@world);
     let owner = PLAYER();
     // Minted tokens, called by the owner of the token, the collection's owner, a minter, anyone.
-    for caller in array![owner, OWNER(), world.daily, world.tutorial, OTHER()] {
-        for token_id in array![DAILY_ID, TUTORIAL_ID] {
+    for caller in array![owner, OWNER(), world.challenge, world.tutorial, OTHER()] {
+        for token_id in array![CHALLENGE_ID, TUTORIAL_ID] {
             assert_all_revert(@world, caller, token_id);
         }
     }
@@ -373,7 +386,7 @@ fn test_collection_every_transfer_and_approval_reverts() {
         assert_all_revert(@world, OTHER(), token_id);
     }
     // Nothing moved.
-    assert_eq!(erc721(@world).owner_of(DAILY_ID), owner);
+    assert_eq!(erc721(@world).owner_of(CHALLENGE_ID), owner);
     assert_eq!(erc721(@world).balance_of(owner), 2);
     assert_eq!(erc721(@world).balance_of(OTHER()), 0);
 }
@@ -383,11 +396,11 @@ fn test_collection_approvals_are_always_empty() {
     let world = setup();
     minted(@world);
     let erc721 = erc721(@world);
-    assert!(erc721.get_approved(DAILY_ID).is_zero());
+    assert!(erc721.get_approved(CHALLENGE_ID).is_zero());
     assert!(erc721.get_approved(99).is_zero());
     assert!(!erc721.is_approved_for_all(PLAYER(), OTHER()));
     let camel = IERC721SoulboundCamelDispatcher { contract_address: world.collection };
-    assert!(camel.getApproved(DAILY_ID).is_zero());
+    assert!(camel.getApproved(CHALLENGE_ID).is_zero());
     assert!(!camel.isApprovedForAll(PLAYER(), OTHER()));
 }
 
@@ -395,7 +408,7 @@ fn test_collection_approvals_are_always_empty() {
 #[should_panic(expected: 'Collection: invalid token')]
 fn test_collection_owner_of_unminted() {
     let world = setup();
-    erc721(@world).owner_of(DAILY_ID);
+    erc721(@world).owner_of(CHALLENGE_ID);
 }
 
 #[test]
@@ -420,24 +433,24 @@ fn test_collection_name_and_symbol() {
 }
 
 #[test]
-fn test_collection_token_uri_running_daily_game() {
+fn test_collection_token_uri_running_challenge_game() {
     let world = setup();
     minted(@world);
-    set_game(world.daily, 0, false, 20000 * 86400 + 5);
+    set_game(world.challenge, 0, false, 20000 * 86400 + 5);
     let metadata = IERC721MetadataSoulboundDispatcher { contract_address: world.collection };
     let expected: ByteArray =
         "data:application/json;base64,eyJuYW1lIjoiUGF2ZWQgR2FtZXMgIzciLCJkZXNjcmlwdGlvbiI6IkEgZ2FtZSBvZiBQYXZlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU2NvcmUiLCJ2YWx1ZSI6MH0seyJ0cmFpdF90eXBlIjoiT3ZlciIsInZhbHVlIjpmYWxzZX0seyJ0cmFpdF90eXBlIjoiRGF5IiwidmFsdWUiOjIwMDAwfV19";
-    assert_eq!(metadata.token_uri(DAILY_ID), expected.clone());
-    assert_eq!(metadata.tokenURI(DAILY_ID), expected);
+    assert_eq!(metadata.token_uri(CHALLENGE_ID), expected.clone());
+    assert_eq!(metadata.tokenURI(CHALLENGE_ID), expected);
 }
 
 #[test]
 fn test_collection_token_uri_finished_tutorial_game() {
     let world = setup();
     minted(@world);
-    // The tutorial double is read for the tutorial range, the daily one is not.
+    // The tutorial double is read for the tutorial range, the challenge one is not.
     set_game(world.tutorial, 1234, true, 20001 * 86400);
-    set_game(world.daily, 5, false, 0);
+    set_game(world.challenge, 5, false, 0);
     let metadata = IERC721MetadataSoulboundDispatcher { contract_address: world.collection };
     let expected: ByteArray =
         "data:application/json;base64,eyJuYW1lIjoiUGF2ZWQgR2FtZXMgIzQyOTQ5NjczMDMiLCJkZXNjcmlwdGlvbiI6IkEgZ2FtZSBvZiBQYXZlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU2NvcmUiLCJ2YWx1ZSI6MTIzNH0seyJ0cmFpdF90eXBlIjoiT3ZlciIsInZhbHVlIjp0cnVlfSx7InRyYWl0X3R5cGUiOiJEYXkiLCJ2YWx1ZSI6MjAwMDF9XX0=";
@@ -448,7 +461,7 @@ fn test_collection_token_uri_finished_tutorial_game() {
 #[should_panic(expected: 'Collection: invalid token')]
 fn test_collection_token_uri_unminted() {
     let world = setup();
-    IERC721MetadataSoulboundDispatcher { contract_address: world.collection }.token_uri(DAILY_ID);
+    IERC721MetadataSoulboundDispatcher { contract_address: world.collection }.token_uri(CHALLENGE_ID);
 }
 
 #[test]

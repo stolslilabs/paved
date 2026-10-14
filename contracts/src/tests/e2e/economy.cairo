@@ -7,13 +7,13 @@ use core::num::traits::Zero;
 use paved::constants;
 use paved::mocks::token::IERC20Dispatcher;
 use paved::models::tile::CENTER;
-use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
+use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::economy::{BASE_PRICE, IEconomyDispatcherTrait};
 use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use paved::tests::e2e::quests::almost_over_daily;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
+    ANYONE, IChallengeDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -38,7 +38,7 @@ fn assert_paid_spawn(
     let token = *context.token;
     let economy = *systems.economy;
     let before = token.balance_of(PLAYER());
-    let game_id = systems.daily.spawn(stake, Zero::zero(), 0);
+    let game_id = systems.challenge.spawn(stake, Zero::zero(), 0);
     assert(
         before - token.balance_of(PLAYER()) == stake.into() * BASE_PRICE, 'Economy: player debit',
     );
@@ -53,7 +53,7 @@ fn assert_paid_spawn(
 
 #[test]
 fn test_economy_entry_price_is_the_stake_unit() {
-    let price: u256 = constants::DAILY_PRICE.into();
+    let price: u256 = constants::CHALLENGE_PRICE.into();
     assert(price == BASE_PRICE, 'Economy: unit price');
 }
 
@@ -83,18 +83,18 @@ fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
 #[feature("safe_dispatcher")]
 fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let daily = IDailySafeDispatcher { contract_address: systems.daily.contract_address };
+    let challenge = IChallengeSafeDispatcher { contract_address: systems.challenge.contract_address };
     let before = context.token.balance_of(PLAYER());
     // Stakes 0 and 11
-    let reason = *daily.spawn(0, Zero::zero(), 0).unwrap_err().at(0);
+    let reason = *challenge.spawn(0, Zero::zero(), 0).unwrap_err().at(0);
     assert(reason == 'Economy: wrong stake', 'Economy: stake 0');
-    let reason = *daily.spawn(11, Zero::zero(), 0).unwrap_err().at(0);
+    let reason = *challenge.spawn(11, Zero::zero(), 0).unwrap_err().at(0);
     assert(reason == 'Economy: wrong stake', 'Economy: stake 11');
     // No approval
     start_cheat_caller_address(context.token.contract_address, PLAYER());
-    context.token.approve(systems.daily.contract_address, 0);
+    context.token.approve(systems.challenge.contract_address, 0);
     stop_cheat_caller_address(context.token.contract_address);
-    let reason = *daily.spawn(1, Zero::zero(), 0).unwrap_err().at(0);
+    let reason = *challenge.spawn(1, Zero::zero(), 0).unwrap_err().at(0);
     assert(reason == 'ERC20: insufficient allowance', 'Economy: no approval');
     // Nothing happened
     assert(store.game(1).player_id == 0, 'Economy: a game was left');
@@ -112,18 +112,18 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
     let token = context.token;
     // An address that plays: 5 % of 2 USDC
     let before = token.balance_of(ANYONE());
-    systems.daily.spawn(1, ANYONE(), 0);
+    systems.challenge.spawn(1, ANYONE(), 0);
     assert(token.balance_of(ANYONE()) - before == 100_000, 'Economy: referral paid');
     // An address that never played nor held USDC: 5 % too
-    systems.daily.spawn(1, STRANGER(), 0);
+    systems.challenge.spawn(1, STRANGER(), 0);
     assert(token.balance_of(STRANGER()) == 100_000, 'Economy: stranger not paid');
     // The payer: no referral, the payer pays the whole price
     let before = token.balance_of(PLAYER());
-    systems.daily.spawn(1, PLAYER(), 0);
+    systems.challenge.spawn(1, PLAYER(), 0);
     assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Economy: self-referral');
     // Zero: no referral
     let before = token.balance_of(PLAYER());
-    systems.daily.spawn(1, Zero::zero(), 0);
+    systems.challenge.spawn(1, Zero::zero(), 0);
     assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Economy: zero referral');
 }
 
@@ -137,10 +137,10 @@ fn test_economy_protocol_address_referrer_is_no_referral() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
     let vault = systems.economy.addresses().vault;
-    for referrer in array![systems.economy.contract_address, systems.daily.contract_address] {
+    for referrer in array![systems.economy.contract_address, systems.challenge.contract_address] {
         let before = token.balance_of(PLAYER());
         let vault_before = token.balance_of(vault);
-        systems.daily.spawn(1, referrer, 0);
+        systems.challenge.spawn(1, referrer, 0);
         assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Protocol: price');
         assert(token.balance_of(vault) - vault_before == 600_000, 'Protocol: margin');
         assert(token.balance_of(referrer) == 0, 'Protocol: referrer paid');
@@ -166,7 +166,7 @@ fn test_economy_records_a_game_over_on_build() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::RFFFRFFFR.into();
     store.set_tile(tile);
-    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     assert_recorded(store, @systems, context.game_id);
 }
 
@@ -174,15 +174,15 @@ fn test_economy_records_a_game_over_on_build() {
 #[available_gas(l2_gas: 128562000)]
 fn test_economy_records_a_game_over_on_discard() {
     let (store, systems, context) = almost_over_daily();
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
     assert_recorded(store, @systems, context.game_id);
 }
 
 #[test]
 #[available_gas(l2_gas: 122288000)]
 fn test_economy_records_a_game_over_on_surrender() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    systems.daily.surrender(context.game_id);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    systems.challenge.surrender(context.game_id);
     assert_recorded(store, @systems, context.game_id);
 }
 
@@ -202,17 +202,17 @@ fn test_economy_spawn_reverts_before_set_economy() {
         snforge_std::DeclareResultTrait::contract_class(@wiring), @array![owner],
     )
         .unwrap();
-    let daily = snforge_std::declare("Daily").unwrap();
-    let (daily, _) = snforge_std::ContractClassTrait::deploy(
-        snforge_std::DeclareResultTrait::contract_class(@daily),
+    let challenge = snforge_std::declare("Challenge").unwrap();
+    let (challenge, _) = snforge_std::ContractClassTrait::deploy(
+        snforge_std::DeclareResultTrait::contract_class(@challenge),
         @array![owner, usdc.into(), wiring.into()],
     )
         .unwrap();
-    start_cheat_caller_address(daily, PLAYER());
-    let safe = IDailySafeDispatcher { contract_address: daily };
+    start_cheat_caller_address(challenge, PLAYER());
+    let safe = IChallengeSafeDispatcher { contract_address: challenge };
     let reason = *safe.spawn(1, Zero::zero(), 0).unwrap_err().at(0);
-    assert(reason == 'Daily: economy not set', 'Economy: reason');
-    assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Economy: a game was left');
+    assert(reason == 'Challenge: economy not set', 'Economy: reason');
+    assert(TestStoreTrait::new(challenge).game(1).player_id == 0, 'Economy: a game was left');
 }
 
 /// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
@@ -222,11 +222,11 @@ fn test_economy_spawn_reverts_before_set_economy() {
 fn test_economy_records_an_expired_game_over() {
     snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
     let (store, systems, _) = setup::spawn_game(Mode::None);
-    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
+    let game_id = systems.challenge.spawn(1, Zero::zero(), 0);
     let spawned = store.game(game_id).start_time;
     let day = spawned / 86400;
     snforge_std::start_cheat_block_timestamp_global(spawned + 86400);
-    systems.daily.surrender(game_id);
+    systems.challenge.surrender(game_id);
     let terms = systems.economy.terms(game_id);
     assert(terms.recorded && terms.expired, 'Economy: not expired');
     snforge_std::start_cheat_block_timestamp_global((day + 2) * 86400);

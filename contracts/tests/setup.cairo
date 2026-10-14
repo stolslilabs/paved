@@ -14,8 +14,8 @@ pub mod setup {
     use paved::models::tile::Tile;
     use paved::store::{StoreImpl, StoreTrait};
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
-    use paved::systems::daily::IDailyDispatcher;
-    pub use paved::systems::daily::IDailyDispatcherTrait;
+    use paved::systems::challenge::IChallengeDispatcher;
+    pub use paved::systems::challenge::IChallengeDispatcherTrait;
 
     // Internal imports
 
@@ -72,7 +72,7 @@ pub mod setup {
 
     #[derive(Drop)]
     pub struct Systems {
-        pub daily: IDailyDispatcher,
+        pub challenge: IChallengeDispatcher,
         pub setup: ISetupDispatcher,
         pub economy: IEconomyDispatcher,
         pub collection: ICollectionDispatcher,
@@ -197,11 +197,11 @@ pub mod setup {
         (economy, usdc)
     }
 
-    /// Gives `who` the faucet's USDC, approved for `daily`. A player needs nothing else (D-25).
-    pub fn fund(usdc: ContractAddress, daily: ContractAddress, who: ContractAddress) {
+    /// Gives `who` the faucet's USDC, approved for `challenge`. A player needs nothing else (D-25).
+    pub fn fund(usdc: ContractAddress, challenge: ContractAddress, who: ContractAddress) {
         IFaucetDispatcher { contract_address: usdc }.mint(who, FUNDS);
         start_cheat_caller_address(usdc, who);
-        IERC20Dispatcher { contract_address: usdc }.approve(daily, FUNDS);
+        IERC20Dispatcher { contract_address: usdc }.approve(challenge, FUNDS);
         stop_cheat_caller_address(usdc);
     }
 
@@ -219,10 +219,10 @@ pub mod setup {
         let collection_address = deploy("Collection", array![owner]);
         let setup_address = deploy("Setup", array![owner]);
         let daily_address = deploy(
-            "Daily", array![owner, token_address.into(), setup_address.into()],
+            "Challenge", array![owner, token_address.into(), setup_address.into()],
         );
         let systems = Systems {
-            daily: IDailyDispatcher { contract_address: daily_address },
+            challenge: IChallengeDispatcher { contract_address: daily_address },
             setup: ISetupDispatcher { contract_address: setup_address },
             economy: IEconomyDispatcher { contract_address: economy_address },
             collection: ICollectionDispatcher { contract_address: collection_address },
@@ -252,7 +252,7 @@ pub mod setup {
 
         // [Setup] Game if mode is set
         let game_id = match mode {
-            Mode::Daily => systems.daily.spawn(1, Zero::zero(), 0),
+            Mode::Challenge => systems.challenge.spawn(1, Zero::zero(), 0),
             _ => 0,
         };
 

@@ -7,12 +7,12 @@ pub const WONDER_BASE_POINTS: u32 = 900;
 pub const DISCARD_POINTS: u32 = 50;
 pub const CENTER: u32 = 0x7fffffff;
 
-// Daily
+// Challenge
 
-/// The price of one stake unit of a Daily game: 2 USDC (6 decimals), `economy::BASE_PRICE`.
-pub const DAILY_PRICE: felt252 = 2_000_000;
+/// The price of one stake unit of a Challenge game: 2 USDC (6 decimals), `economy::BASE_PRICE`.
+pub const CHALLENGE_PRICE: felt252 = 2_000_000;
 /// The length of a day, which `day::day_id` divides by.
-pub const DAILY_DURATION: u64 = 86400; // 1 day
+pub const CHALLENGE_DURATION: u64 = 86400; // 1 day
 
 // Bonus curve
 
@@ -43,7 +43,7 @@ pub const TASK_TUTORIAL_FINISHED: u32 = 10;
 
 /// A road or a city of at least this many tiles is a big structure (to calibrate).
 pub const BIG_SIZE: u32 = 8;
-/// A Daily game of at least this score is a high score (to calibrate).
+/// A Challenge game of at least this score is a high score (to calibrate).
 pub const HIGH_SCORE: u32 = 4000;
 
 /// The counters of `GameState` saturate at the maximum of their bit width (7, 6, 4 and 6 bits).

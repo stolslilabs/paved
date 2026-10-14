@@ -67,7 +67,7 @@ pub struct BuilderView {
     pub plan: u8,
 }
 
-/// The entry price of `Daily`: the ERC20 `spawn` pulls from the player and the amount it pulls.
+/// The entry price of `Challenge`: the ERC20 `spawn` pulls from the player and the amount it pulls.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct PriceView {
     pub token: ContractAddress,
@@ -76,7 +76,7 @@ pub struct PriceView {
 
 // Interfaces
 
-/// Views of a game, on `Daily`.
+/// Views of a game, on `Challenge`.
 #[starknet::interface]
 pub trait IGameView<TContractState> {
     fn game(self: @TContractState, game_id: u32) -> GameView;
@@ -84,9 +84,9 @@ pub trait IGameView<TContractState> {
     fn builder(self: @TContractState, game_id: u32, player_id: felt252) -> BuilderView;
 }
 
-/// Views of the Daily days, on `Daily` (`ITournamentView` before D-20).
+/// Views of the Challenge days, on `Challenge` (`ITournamentView` before D-20).
 #[starknet::interface]
-pub trait IDailyView<TContractState> {
+pub trait IChallengeView<TContractState> {
     /// The day id of now: `block_timestamp / 86400` (`current_tournament_id` before D-20).
     fn current_day(self: @TContractState) -> u64;
     fn entry_price(self: @TContractState) -> PriceView;
@@ -184,12 +184,12 @@ pub impl ViewsImpl of ViewsTrait {
     }
 
     fn current_day(time: u64) -> u64 {
-        day_id(time, constants::DAILY_DURATION)
+        day_id(time, constants::CHALLENGE_DURATION)
     }
 
-    /// The entry price of a Daily game, from the same source as `spawn` (`Mode::price`).
+    /// The entry price of a Challenge game, from the same source as `spawn` (`Mode::price`).
     fn entry_price(token: ContractAddress) -> PriceView {
-        PriceView { token, amount: Mode::Daily.price().into() }
+        PriceView { token, amount: Mode::Challenge.price().into() }
     }
 
     fn existing_game(store: Store, game_id: u32) -> Game {

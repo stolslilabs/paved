@@ -30,7 +30,7 @@ use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use snforge_std::start_cheat_block_timestamp_global;
 use crate::setup::setup;
-use crate::setup::setup::{ANYONE, IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
+use crate::setup::setup::{ANYONE, IChallengeDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 pub const CEILING_OPEN: u128 = 5709834;
@@ -76,7 +76,7 @@ struct Scenario {
 #[generate_trait]
 impl ScenarioImpl of ScenarioTrait {
     fn new() -> Scenario {
-        let (store, systems, context) = setup::spawn_game(Mode::Daily);
+        let (store, systems, context) = setup::spawn_game(Mode::Challenge);
         Scenario { systems, store, game_id: context.game_id, player_id: context.player_id }
     }
 
@@ -90,7 +90,7 @@ impl ScenarioImpl of ScenarioTrait {
         self.store.set_tile(tile);
 
         let before = get_available_gas();
-        self.systems.daily.build(*self.game_id, orientation, x, y);
+        self.systems.challenge.build(*self.game_id, orientation, x, y);
         let after = get_available_gas();
         before - after
     }
@@ -257,7 +257,7 @@ fn scored_game() -> Scenario {
 
 fn surrender(s: @Scenario) -> u128 {
     let before = get_available_gas();
-    s.systems.daily.surrender(*s.game_id);
+    s.systems.challenge.surrender(*s.game_id);
     let after = get_available_gas();
     before - after
 }
@@ -278,7 +278,7 @@ fn test_gas_g_closing_move_in_its_day() {
 fn test_gas_i_closing_move_after_its_day() {
     let s = scored_game();
     let game = s.store.game(s.game_id);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::CHALLENGE_DURATION + 1);
     let gas = surrender(@s);
     assert(s.store.game(s.game_id).day_id == 0, 'Gas: in a day');
     report("i_closing_move_after_its_day", gas, CEILING_CLOSING_AFTER);
@@ -307,7 +307,7 @@ fn test_gas_s_game_over_on_discard() {
     game.tile_limit = game.tile_count.try_into().unwrap();
     s.store.set_game(game);
     let before = get_available_gas();
-    s.systems.daily.discard(s.game_id);
+    s.systems.challenge.discard(s.game_id);
     let after = get_available_gas();
     assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
     report("s_game_over_on_discard", before - after, CEILING_GAME_OVER_ON_DISCARD);
@@ -333,9 +333,9 @@ fn test_gas_k_closing_move_full_report() {
 /// already written.
 #[test]
 fn test_gas_m_spawn_daily() {
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     let before = get_available_gas();
-    systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     let after = get_available_gas();
     report("m_spawn_daily", before - after, CEILING_SPAWN_DAILY);
 }
@@ -344,9 +344,9 @@ fn test_gas_m_spawn_daily() {
 /// no registration is read).
 #[test]
 fn test_gas_n_spawn_daily_referred() {
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     let before = get_available_gas();
-    systems.daily.spawn(10, ANYONE(), 0);
+    systems.challenge.spawn(10, ANYONE(), 0);
     let after = get_available_gas();
     report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
 }

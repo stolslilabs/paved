@@ -36,11 +36,11 @@ use paved::models::game::GameTrait;
 use paved::models::index::Tile;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
-use paved::systems::daily::{Daily, IDailyDispatcher};
+use paved::systems::challenge::{Challenge, IChallengeDispatcher};
 use paved::tests::oracle::check;
 use paved::tests::oracle::forest::ForestCount;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -54,7 +54,7 @@ use snforge_std::{
 /// what the move scored against the oracle.
 fn put(
     store: TestStore,
-    daily: IDailyDispatcher,
+    challenge: IChallengeDispatcher,
     game_id: u32,
     player_id: felt252,
     plan: Plan,
@@ -68,7 +68,7 @@ fn put(
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = plan.into();
     store.set_tile(tile);
-    daily.build(game_id, orientation, x, y);
+    challenge.build(game_id, orientation, x, y);
     // [Check] The structure state of the built tile agrees with the walks (P5-4), and the move
     // scored what the walks give (D-18b)
     check::assert_tile_agrees(store, game_id, builder.tile_id);
@@ -105,8 +105,8 @@ fn forest_at(store: TestStore, game_id: u32, x: u32, y: u32, at: Spot) -> (u32, 
 /// The Scored event of a structure.
 fn scored(
     game_id: u32, player_id: felt252, category: Category, size: u32, points: u32,
-) -> Daily::Event {
-    Daily::Event::PavedEvent(
+) -> Challenge::Event {
+    Challenge::Event::PavedEvent(
         PavedEvent::Scored(Scored { game_id, player_id, category: category.into(), size, points }),
     )
 }
@@ -131,12 +131,12 @@ fn count_scored(ref spy: EventSpy, category: Category) -> u32 {
 /// corner). Facing South the curve joins its east and south edges, facing West its west and
 /// south, North its north and west, East its north and east: the four roads make one closed loop
 /// under the starter, and the four corners inside make the forest of 4 tiles.
-fn ring(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252, closing: bool) {
-    put(store, daily, g, p, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
-    put(store, daily, g, p, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
-    put(store, daily, g, p, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
+fn ring(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, closing: bool) {
+    put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
+    put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
+    put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
     if closing {
-        put(store, daily, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+        put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     }
 }
 
@@ -144,21 +144,21 @@ fn ring(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252, closing: 
 /// corner forest between two roads) in a 2x2 block east of the starter. The corner of each tile
 /// that faces the middle of the block belongs to the forest of 4 tiles; the 4 roads between the
 /// tiles of the block are closed (each runs from a stop to a stop).
-fn crossings(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252, closing: bool) {
-    put(store, daily, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER);
-    put(store, daily, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER);
-    put(store, daily, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER - 1);
+fn crossings(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, closing: bool) {
+    put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER);
+    put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER);
+    put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER - 1);
     if closing {
-        put(store, daily, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1);
+        put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1);
     }
 }
 
 /// Sandwich: a straight road east of the starter, and another one above it. The forest between
 /// them has 2 tiles; its ends look at empty positions (east of both tiles, west of the upper one),
 /// and both roads next to it are open at both ends.
-fn sandwich(store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252) {
-    put(store, daily, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
-    put(store, daily, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER + 1);
+fn sandwich(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252) {
+    put(store, challenge, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
+    put(store, challenge, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER + 1);
 }
 
 /// What closes the north of the corridors of the city boards.
@@ -178,22 +178,22 @@ enum Top {
 /// is closed to the south by a city cap (a copy of the starter, east of it) that is built before,
 /// when `top` is not `Open`.
 fn corridors(
-    store: TestStore, daily: IDailyDispatcher, g: u32, p: felt252, top: Top, closing: bool,
+    store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, top: Top, closing: bool,
 ) {
-    put(store, daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
+    put(store, challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     if top == Top::Caps {
-        put(store, daily, g, p, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2);
-        put(store, daily, g, p, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2);
+        put(store, challenge, g, p, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2);
+        put(store, challenge, g, p, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2);
     }
     if top == Top::Arch {
-        put(store, daily, g, p, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2);
-        put(store, daily, g, p, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2);
+        put(store, challenge, g, p, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2);
+        put(store, challenge, g, p, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2);
     }
     if top != Top::Open {
-        put(store, daily, g, p, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER);
+        put(store, challenge, g, p, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER);
     }
     if closing {
-        put(store, daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
+        put(store, challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
     }
 }
 
@@ -202,12 +202,12 @@ fn corridors(
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_forest_walk_ring_open_then_closed() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    ring(store, systems.daily, g, p, false);
+    ring(store, systems.challenge, g, p, false);
     // One tile short: a neighbour of the forest is missing.
     assert_eq!(forest_at(store, g, CENTER, CENTER - 1, Spot::SouthEast), (0, 0, 0), "open");
-    put(store, systems.daily, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    put(store, systems.challenge, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     // Closed: 4 tiles, one road (the loop), no city.
     assert_eq!(forest_at(store, g, CENTER, CENTER - 1, Spot::SouthEast), (4, 1, 0), "closed");
 }
@@ -215,18 +215,18 @@ fn test_forest_walk_ring_open_then_closed() {
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_forest_walk_crossings_count_each_road() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    crossings(store, systems.daily, g, p, true);
+    crossings(store, systems.challenge, g, p, true);
     assert_eq!(forest_at(store, g, CENTER + 1, CENTER, Spot::SouthEast), (4, 4, 0), "crossings");
 }
 
 #[test]
 #[available_gas(l2_gas: 300000000)]
 fn test_forest_walk_sandwich_open_roads() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    sandwich(store, systems.daily, g, p);
+    sandwich(store, systems.challenge, g, p);
     // The forest's ends and its roads are open: not finished.
     assert_eq!(forest_at(store, g, CENTER + 1, CENTER, Spot::North), (0, 0, 0), "sandwich");
 }
@@ -234,27 +234,27 @@ fn test_forest_walk_sandwich_open_roads() {
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_forest_walk_one_city_touched_twice_counts_once() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Arch, true);
+    corridors(store, systems.challenge, g, p, Top::Arch, true);
     assert_eq!(forest_at(store, g, CENTER, CENTER + 1, Spot::East), (2, 0, 1), "arch");
 }
 
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_forest_walk_two_cities_count_twice() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Caps, true);
+    corridors(store, systems.challenge, g, p, Top::Caps, true);
     assert_eq!(forest_at(store, g, CENTER, CENTER + 1, Spot::East), (2, 0, 2), "caps");
 }
 
 #[test]
 #[available_gas(l2_gas: 300000000)]
 fn test_forest_walk_open_cities_do_not_count_nor_block() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Open, true);
+    corridors(store, systems.challenge, g, p, Top::Open, true);
     // Both cities are open: the forest is closed all the same, and no city counts.
     assert_eq!(forest_at(store, g, CENTER, CENTER + 1, Spot::East), (2, 0, 0), "open cities");
 }
@@ -268,9 +268,9 @@ fn test_forest_walk_open_cities_do_not_count_nor_block() {
 #[should_panic(expected: ('Check: board points differ',))]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_oracle_finds_a_closed_structure_left_unscored() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    ring(store, systems.daily, g, p, false);
+    ring(store, systems.challenge, g, p, false);
     check::assert_board_scored(store, g, 0);
     write(store, g, 100, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     check::assert_board_scored(store, g, 0);
@@ -279,9 +279,9 @@ fn test_forest_oracle_finds_a_closed_structure_left_unscored() {
 #[test]
 #[available_gas(l2_gas: 300000000)]
 fn test_forest_ring_one_tile_short_scores_nothing() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    ring(store, systems.daily, g, p, false);
+    ring(store, systems.challenge, g, p, false);
     assert_eq!(store.game(g).score, 0, "score");
     assert_eq!(store.game(g).forests(), 0, "no forest");
 }
@@ -292,18 +292,18 @@ fn test_forest_ring_one_tile_short_scores_nothing() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_ring_closes_with_its_road() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    ring(store, systems.daily, g, p, false);
+    ring(store, systems.challenge, g, p, false);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    put(store, systems.challenge, g, p, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     assert_eq!(store.game(g).score, 767, "score");
-    let daily = systems.daily.contract_address;
+    let challenge = systems.challenge.contract_address;
     spy
         .assert_emitted(
             @array![
-                (daily, scored(g, p, Category::Road, 4, 438)),
-                (daily, scored(g, p, Category::Forest, 4, 329)),
+                (challenge, scored(g, p, Category::Road, 4, 438)),
+                (challenge, scored(g, p, Category::Forest, 4, 329)),
             ],
         );
     assert_eq!(store.game(g).forests(), 1, "one forest");
@@ -314,14 +314,14 @@ fn test_forest_ring_closes_with_its_road() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_scores_four_roads() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    crossings(store, systems.daily, g, p, false);
+    crossings(store, systems.challenge, g, p, false);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1);
+    put(store, systems.challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1);
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::Forest, 4, 1316))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::Forest, 4, 1316))],
         );
     assert_eq!(count_scored(ref spy, Category::Forest), 1, "one forest");
 }
@@ -331,10 +331,10 @@ fn test_forest_scores_four_roads() {
 #[test]
 #[available_gas(l2_gas: 300000000)]
 fn test_forest_bounded_by_open_roads_does_not_score() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
     let mut spy = spy_events();
-    sandwich(store, systems.daily, g, p);
+    sandwich(store, systems.challenge, g, p);
     assert_eq!(count_scored(ref spy, Category::Forest), 0, "no forest scored");
     assert_eq!(store.game(g).forests(), 0, "no forest counted");
 }
@@ -345,14 +345,14 @@ fn test_forest_bounded_by_open_roads_does_not_score() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_scores_one_city_touched_twice_once() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Arch, false);
+    corridors(store, systems.challenge, g, p, Top::Arch, false);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
+    put(store, systems.challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::Forest, 2, 314))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::Forest, 2, 314))],
         );
 }
 
@@ -360,14 +360,14 @@ fn test_forest_scores_one_city_touched_twice_once() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_scores_two_cities() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Caps, false);
+    corridors(store, systems.challenge, g, p, Top::Caps, false);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
+    put(store, systems.challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::Forest, 2, 628))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::Forest, 2, 628))],
         );
 }
 
@@ -376,15 +376,15 @@ fn test_forest_scores_two_cities() {
 #[test]
 #[available_gas(l2_gas: 300000000)]
 fn test_forest_closing_with_zero_points_emits_and_counts_once() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    corridors(store, systems.daily, g, p, Top::Open, false);
+    corridors(store, systems.challenge, g, p, Top::Open, false);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
+    put(store, systems.challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
     // The forest is closed, the cities are not: no point, one event, one forest counted
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::Forest, 2, 0))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::Forest, 2, 0))],
         );
     assert_eq!(count_scored(ref spy, Category::Forest), 1, "one event");
     assert_eq!(store.game(g).forests(), 1, "one forest counted");
@@ -396,18 +396,18 @@ fn test_forest_closing_with_zero_points_emits_and_counts_once() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_forest_open_city_touched_twice_scores_nothing() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
-    let daily = systems.daily;
-    put(store, daily, g, p, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER);
-    put(store, daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
-    put(store, daily, g, p, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2);
-    put(store, daily, g, p, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2);
+    let challenge = systems.challenge;
+    put(store, challenge, g, p, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER);
+    put(store, challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1);
+    put(store, challenge, g, p, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2);
+    put(store, challenge, g, p, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2);
     let mut spy = spy_events();
-    put(store, daily, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
+    put(store, challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     // The forest of 2 tiles is closed, the only city around it is open: no city counts
     assert_eq!(forest_at(store, g, CENTER, CENTER + 1, Spot::East), (2, 0, 0), "the walk");
-    spy.assert_emitted(@array![(daily.contract_address, scored(g, p, Category::Forest, 2, 0))]);
+    spy.assert_emitted(@array![(challenge.contract_address, scored(g, p, Category::Forest, 2, 0))]);
 }
 
 // Once per move: a root that the built tile reaches from two start spots scores once (D-18b,
@@ -425,16 +425,16 @@ const OY: u32 = CENTER + 20;
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_once_per_move_road_reached_from_two_start_spots() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
     write(store, g, 100, Plan::RFRFFFFFR, Orientation::South, OX, OY + 1);
     write(store, g, 101, Plan::RFRFFFFFR, Orientation::West, OX + 1, OY + 1);
     write(store, g, 102, Plan::RFRFFFFFR, Orientation::North, OX + 1, OY);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::SFRFRFFFR, Orientation::North, OX, OY);
+    put(store, systems.challenge, g, p, Plan::SFRFRFFFR, Orientation::North, OX, OY);
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::Road, 5, 561))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::Road, 5, 561))],
         );
     assert_eq!(count_scored(ref spy, Category::Road), 1, "the road scores once");
     assert_eq!(store.game(g).score, 890, "score");
@@ -446,7 +446,7 @@ fn test_once_per_move_road_reached_from_two_start_spots() {
 #[test]
 #[available_gas(l2_gas: 500000000)]
 fn test_once_per_move_city_reached_from_two_start_spots() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
     write(store, g, 100, Plan::FFFFCCCFF, Orientation::North, OX, OY + 1);
     write(store, g, 101, Plan::FFFFCCCFF, Orientation::East, OX + 1, OY + 1);
@@ -454,10 +454,10 @@ fn test_once_per_move_city_reached_from_two_start_spots() {
     write(store, g, 103, Plan::FFFFCCCFF, Orientation::South, OX + 1, OY - 1);
     write(store, g, 104, Plan::FFFFCCCFF, Orientation::West, OX, OY - 1);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, Plan::FFCFFFCFF, Orientation::North, OX, OY);
+    put(store, systems.challenge, g, p, Plan::FFCFFFCFF, Orientation::North, OX, OY);
     spy
         .assert_emitted(
-            @array![(systems.daily.contract_address, scored(g, p, Category::City, 7, 1646))],
+            @array![(systems.challenge.contract_address, scored(g, p, Category::City, 7, 1646))],
         );
     assert_eq!(count_scored(ref spy, Category::City), 1, "the city scores once");
     assert_eq!(store.game(g).score, 1646, "score");
@@ -480,7 +480,7 @@ fn test_once_per_move_city_reached_from_two_start_spots() {
 #[test]
 #[available_gas(l2_gas: 900000000)]
 fn test_once_per_move_forest_reached_from_two_start_spots() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
     let straight = Plan::RFFFRFFFR;
     let curve = Plan::RFRFFFFFR;
@@ -502,7 +502,7 @@ fn test_once_per_move_forest_reached_from_two_start_spots() {
     write(store, g, 113, Plan::WFFFFFFFF, Orientation::North, OX, OY - 1);
     write(store, g, 114, Plan::WFFFFFFFF, Orientation::North, OX + 1, OY - 1);
     let mut spy = spy_events();
-    put(store, systems.daily, g, p, straight, Orientation::North, OX, OY);
+    put(store, systems.challenge, g, p, straight, Orientation::North, OX, OY);
     assert_eq!(count_scored(ref spy, Category::Forest), 1, "the forest scores once");
     assert_eq!(count_scored(ref spy, Category::Road), 1, "the road scores once");
     assert_eq!(count_scored(ref spy, Category::Wonder), 3, "each wonder once");

@@ -6,7 +6,7 @@ use paved::mocks::erc20::interface::{
 use paved::models::tile::CENTER;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
+    ANYONE, IChallengeDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -18,18 +18,18 @@ use snforge_std::{
 #[test]
 #[available_gas(l2_gas: 120682000)]
 fn test_daily_e2e_discard_increments_counter() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
 
     let game = store.game(context.game_id);
-    assert(game.discarded == 1, 'Daily: discard count');
+    assert(game.discarded == 1, 'Challenge: discard count');
 }
 
 #[test]
 #[available_gas(l2_gas: 129985000)]
 fn test_daily_e2e_build_then_discard_tracks_both_actions() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
@@ -37,18 +37,18 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
 
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
-    systems.daily.discard(context.game_id);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.discard(context.game_id);
 
     let game = store.game(context.game_id);
-    assert(game.built == 1, 'Daily: build kept');
-    assert(game.discarded == 1, 'Daily: discard kept');
+    assert(game.built == 1, 'Challenge: build kept');
+    assert(game.discarded == 1, 'Challenge: discard kept');
 }
 
 #[test]
 #[available_gas(l2_gas: 121935000)]
 fn test_daily_e2e_token_erc20_entrypoints() {
-    let (_, _, context) = setup::spawn_game(Mode::Daily);
+    let (_, _, context) = setup::spawn_game(Mode::Challenge);
 
     let token_address = context.token.contract_address;
     let metadata = IERC20MetadataDispatcher { contract_address: token_address };

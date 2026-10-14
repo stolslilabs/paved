@@ -14,14 +14,14 @@ use paved::mocks::reentrant_token::{
 };
 use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
-use paved::systems::daily::Daily::DeadFieldsTrait;
-use paved::systems::daily::{Daily, IDailyDispatcher};
+use paved::systems::challenge::Challenge::DeadFieldsTrait;
+use paved::systems::challenge::{Challenge, IChallengeDispatcher};
 use paved::tests::e2e::cold_paths::{
     ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in,
 };
 use paved::tests::e2e::quests::define_accepted_list;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -48,23 +48,23 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 #[available_gas(l2_gas: 400000000)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let ownable = IOwnableDispatcher { contract_address: daily };
+    let challenge = systems.challenge.contract_address;
+    let ownable = IOwnableDispatcher { contract_address: challenge };
     assert(
-        raw(daily, selector!("token_address")) == context.token.contract_address.into(),
+        raw(challenge, selector!("token_address")) == context.token.contract_address.into(),
         'Pin: token_address',
     );
-    assert(raw(daily, selector!("setup")) == systems.setup.contract_address.into(), 'Pin: setup');
-    assert(raw(daily, selector!("owner")) == OWNER().into(), 'Pin: owner');
-    assert(raw(daily, selector!("pending_owner")) == 0, 'Pin: pending_owner before');
-    start_cheat_caller_address(daily, OWNER());
+    assert(raw(challenge, selector!("setup")) == systems.setup.contract_address.into(), 'Pin: setup');
+    assert(raw(challenge, selector!("owner")) == OWNER().into(), 'Pin: owner');
+    assert(raw(challenge, selector!("pending_owner")) == 0, 'Pin: pending_owner before');
+    start_cheat_caller_address(challenge, OWNER());
     ownable.transfer_ownership(ANYONE());
-    assert(raw(daily, selector!("pending_owner")) == ANYONE().into(), 'Pin: pending_owner');
-    start_cheat_caller_address(daily, ANYONE());
+    assert(raw(challenge, selector!("pending_owner")) == ANYONE().into(), 'Pin: pending_owner');
+    start_cheat_caller_address(challenge, ANYONE());
     ownable.accept_ownership();
-    stop_cheat_caller_address(daily);
-    assert(raw(daily, selector!("owner")) == ANYONE().into(), 'Pin: owner after');
-    assert(raw(daily, selector!("pending_owner")) == 0, 'Pin: pending_owner after');
+    stop_cheat_caller_address(challenge);
+    assert(raw(challenge, selector!("owner")) == ANYONE().into(), 'Pin: owner after');
+    assert(raw(challenge, selector!("pending_owner")) == 0, 'Pin: pending_owner after');
 }
 
 // Dead since D-20, D-24 and D-25 E (P-42): declared, never written or read, never reused
@@ -100,8 +100,8 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 fn test_daily_pins_the_dead_fields_by_name() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let daily = systems.daily.contract_address;
-    let day: u64 = day_id(10 * 86400, constants::DAILY_DURATION);
+    let challenge = systems.challenge.contract_address;
+    let day: u64 = day_id(10 * 86400, constants::CHALLENGE_DURATION);
     let player: ContractAddress = PLAYER();
     let id: u32 = 1;
 
@@ -109,7 +109,7 @@ fn test_daily_pins_the_dead_fields_by_name() {
     let sponsorship = map_entry_address(
         selector!("sponsorships"), array![day.into(), player.into()].span(),
     );
-    let on_daily: HostableComponent::ComponentState<Daily::ContractState> =
+    let on_daily: HostableComponent::ComponentState<Challenge::ContractState> =
         HostableComponent::component_state_for_testing();
     assert(on_daily.sponsorship_address(day, player) == sponsorship, 'Dead: sponsorships');
     // [Name] D-20: `tournaments` and `rankings`, members of the `paved` node
@@ -144,7 +144,7 @@ fn test_daily_pins_the_dead_fields_by_name() {
         map_entry_address(selector!("Achievement_extra_tasks"), array![k].span()),
         map_entry_address(selector!("Achievement_reporters"), array![p].span()),
     ];
-    let state = Daily::contract_state_for_testing();
+    let state = Challenge::contract_state_for_testing();
     let resolved = state.dead_addresses(id, p, player);
     assert(resolved.len() == literal.len(), 'Dead: D-24 count');
     let mut i = 0;
@@ -164,31 +164,31 @@ fn test_daily_pins_the_dead_fields_by_name() {
     let sentinel = 'D-20 D-24 D-25 dead';
     let mut i = 0;
     while i < slots.len() {
-        write_raw(daily, *slots.at(i), array![sentinel + *slots.at(i)].span());
+        write_raw(challenge, *slots.at(i), array![sentinel + *slots.at(i)].span());
         i += 1;
     }
 
     // [Effect] The accepted list on `Setup`, then a whole game of that day: spawn, build, discard,
     // surrender (the game over reports to `Setup`)
     define_accepted_list(systems.setup.contract_address);
-    start_cheat_caller_address(daily, player);
-    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
+    start_cheat_caller_address(challenge, player);
+    let game_id = systems.challenge.spawn(1, Zero::zero(), 0);
     let game = store.game(game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
-    systems.daily.build(game_id, Orientation::North, CENTER, CENTER + 1);
-    systems.daily.discard(game_id);
-    systems.daily.surrender(game_id);
-    stop_cheat_caller_address(daily);
+    systems.challenge.build(game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.discard(game_id);
+    systems.challenge.surrender(game_id);
+    stop_cheat_caller_address(challenge);
     assert(store.game(game_id).day_id == day, 'Dead: game not in the day');
 
     // [Assert] Every sentinel intact
     let mut i = 0;
     while i < slots.len() {
         assert(
-            *load(daily, *slots.at(i), 1).at(0) == sentinel + *slots.at(i), 'Dead: field written',
+            *load(challenge, *slots.at(i), 1).at(0) == sentinel + *slots.at(i), 'Dead: field written',
         );
         i += 1;
     }
@@ -197,11 +197,11 @@ fn test_daily_pins_the_dead_fields_by_name() {
 // Re-entry: a token that calls back into `Daily` during its spawn
 
 fn reentrant_with_economy() -> (
-    IDailyDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
+    IChallengeDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
 ) {
     start_cheat_block_timestamp_global(100);
-    let (daily, token, economy, _) = daily_paid_in("ReentrantToken");
-    (daily, IReentrantTokenDispatcher { contract_address: token }, economy)
+    let (challenge, token, economy, _) = daily_paid_in("ReentrantToken");
+    (challenge, IReentrantTokenDispatcher { contract_address: token }, economy)
 }
 
 /// A spawn pays by `transferFrom` after the game is stored; the token calls `spawn` again from
@@ -211,22 +211,22 @@ fn reentrant_with_economy() -> (
 #[test]
 #[available_gas(l2_gas: 140000000)]
 fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
-    let (daily, token, economy) = reentrant_with_economy();
-    token.arm(daily.contract_address, SPAWN);
-    let views = IGameViewDispatcher { contract_address: daily.contract_address };
-    let price: u256 = constants::DAILY_PRICE.into();
-    let first = daily.spawn(1, Zero::zero(), 0);
+    let (challenge, token, economy) = reentrant_with_economy();
+    token.arm(challenge.contract_address, SPAWN);
+    let views = IGameViewDispatcher { contract_address: challenge.contract_address };
+    let price: u256 = constants::CHALLENGE_PRICE.into();
+    let first = challenge.spawn(1, Zero::zero(), 0);
     let (attempts, reverted) = token.outcome();
     assert(attempts == 1 && reverted == 0, 'Reentry: nested spawn refused');
     assert(first == 1, 'Reentry: first id');
     // [Nested game] exists, is the player's, is a Daily game
     let nested = views.game(2);
     assert(nested.id == 2 && nested.player_id == PLAYER().into(), 'Reentry: nested game');
-    assert(nested.mode == Mode::Daily.into() && nested.tile_id != 0, 'Reentry: nested mode');
+    assert(nested.mode == Mode::Challenge.into() && nested.tile_id != 0, 'Reentry: nested mode');
     // [First game] unchanged
     let game = views.game(1);
     assert(game.id == 1 && game.player_id == PLAYER().into(), 'Reentry: first game');
-    assert(game.mode == Mode::Daily.into() && game.tile_count == 2, 'Reentry: first changed');
+    assert(game.mode == Mode::Challenge.into() && game.tile_count == 2, 'Reentry: first changed');
     assert(game.tile_id != 0 && !game.over, 'Reentry: first state');
     // [Terms] one purchase per game; the outer one is the last, on game 1
     let purchase = economy.purchased();
@@ -241,15 +241,15 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
 
 // Mode: no entry point of `Daily` takes a mode
 
-/// `Daily.spawn` has no mode argument (it passes `Mode::Daily`): the game it stores has that mode,
+/// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that mode,
 /// for any caller.
 #[test]
 #[available_gas(l2_gas: 140000000)]
 fn test_daily_spawn_mode_is_fixed_by_the_game_contract() {
     start_cheat_block_timestamp_global(100);
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let daily = IGameViewDispatcher { contract_address: systems.daily.contract_address };
-    start_cheat_caller_address(systems.daily.contract_address, ANYONE());
-    let daily_id = systems.daily.spawn(1, Zero::zero(), 0);
-    assert(daily.game(daily_id).mode == Mode::Daily.into(), 'Mode: daily');
+    let challenge = IGameViewDispatcher { contract_address: systems.challenge.contract_address };
+    start_cheat_caller_address(systems.challenge.contract_address, ANYONE());
+    let daily_id = systems.challenge.spawn(1, Zero::zero(), 0);
+    assert(challenge.game(daily_id).mode == Mode::Challenge.into(), 'Mode: challenge');
 }

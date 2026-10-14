@@ -1,17 +1,17 @@
 //! `Setup`, the system that holds the quests and the achievements (D-24, P-51 ruling 3, named by
 //! D-25; `docs/architecture/quests.md`, `leaderboard.md` "D-24").
 //!
-//! The mode contracts report to it: an allowlisted reporter (Challenge, today `Daily`) sends one
+//! The mode contracts report to it: an allowlisted reporter (Challenge, today `Challenge`) sends one
 //! `report` per game over, with the entries its own tally gives (`paved::quests`); `Setup` knows
 //! tasks, not games. It trusts the reporter for whom the report is: it cannot read a game's player
-//! without calling the reporter back. The guarantee is the reporter's code (`Daily` reports only
+//! without calling the reporter back. The guarantee is the reporter's code (`Challenge` reports only
 //! for the caller of the move that ended the game, who must be the game's player).
 //!
 //! The tutorial is off chain (D-21): its achievement is claimed here by the player, once, with no
 //! check (P-49 ruling 2).
 //!
 //! Since step E (D-25) it is also the single registry of the wiring (P-53 ruling 2): the economy
-//! and collection addresses that `Account` held, set by the owner and read by `Daily` through one
+//! and collection addresses that `Account` held, set by the owner and read by `Challenge` through one
 //! view per call (`wiring`). They are new storage members: none of the earlier members moves.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
@@ -22,7 +22,7 @@ use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use starknet::ContractAddress;
 
-/// The wiring `Daily` reads at spawn and at game over: the `Economy` of the paid games and the
+/// The wiring `Challenge` reads at spawn and at game over: the `Economy` of the paid games and the
 /// `Collection` of the game NFTs (each zero until set).
 #[derive(Copy, Drop, Debug, PartialEq, Serde)]
 pub struct Wiring {
@@ -69,13 +69,13 @@ pub trait ISetup<TContractState> {
     fn claim_tutorial(ref self: TContractState);
     fn is_reporter(self: @TContractState, reporter: ContractAddress) -> bool;
     fn tutorial_claimed(self: @TContractState, player_id: felt252) -> bool;
-    /// Sets the `Economy` that `Daily` pays into, once: the owner only, never zero. Emits
+    /// Sets the `Economy` that `Challenge` pays into, once: the owner only, never zero. Emits
     /// `EconomySet`.
     fn set_economy(ref self: TContractState, economy: ContractAddress);
-    /// Sets the `Collection` that `Daily` mints the games to, once: the owner only, never zero.
+    /// Sets the `Collection` that `Challenge` mints the games to, once: the owner only, never zero.
     /// Emits `CollectionSet`.
     fn set_collection(ref self: TContractState, collection: ContractAddress);
-    /// The wiring, in one call (P-53 ruling 2): `Daily` reads it at spawn and at game over.
+    /// The wiring, in one call (P-53 ruling 2): `Challenge` reads it at spawn and at game over.
     fn wiring(self: @TContractState) -> Wiring;
 }
 
@@ -186,7 +186,7 @@ pub mod Setup {
         achievement: AchievementComponent::Storage,
         /// Whether a player has claimed the tutorial achievement (one slot per player).
         tutorial_claims: Map<felt252, bool>,
-        /// The `Economy` of the paid Daily games; written once by the owner (step E).
+        /// The `Economy` of the paid Challenge games; written once by the owner (step E).
         economy: ContractAddress,
         /// The `Collection` of the game NFTs; written once by the owner (step E).
         collection: ContractAddress,

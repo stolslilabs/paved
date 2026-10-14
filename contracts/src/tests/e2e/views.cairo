@@ -6,22 +6,22 @@ use paved::models::tile::CENTER;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, Systems, TestStore,
+    IChallengeDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, Systems, TestStore,
     TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::views::{
-    BuilderView, IDailyViewDispatcher, IDailyViewDispatcherTrait, IGameViewDispatcher,
+    BuilderView, IChallengeViewDispatcher, IChallengeViewDispatcherTrait, IGameViewDispatcher,
     IGameViewDispatcherTrait, MAX_PAGE, TILE_DISCARDED, TILE_HELD, TILE_PLACED,
 };
 use snforge_std::{EventSpyTrait, spy_events, start_cheat_block_timestamp_global};
 
-const DAY: u64 = constants::DAILY_DURATION;
+const DAY: u64 = constants::CHALLENGE_DURATION;
 
 fn daily_views(systems: @Systems) -> IGameViewDispatcher {
-    IGameViewDispatcher { contract_address: *systems.daily.contract_address }
+    IGameViewDispatcher { contract_address: *systems.challenge.contract_address }
 }
 
 /// Sets the plan of the tile in hand, so the next build is known.
@@ -36,11 +36,11 @@ fn force_plan(store: TestStore, game_id: u32, player_id: felt252, plan: Plan) {
 /// Builds tile 2 north of the starter (it closes the starter's city), then tile 3 on top, which
 /// closes the north city of tile 2.
 fn build_two(store: TestStore, systems: @Systems, game_id: u32, player_id: felt252) {
-    let daily = *systems.daily;
+    let challenge = *systems.challenge;
     force_plan(store, game_id, player_id, Plan::FFCFFFCFF);
-    daily.build(game_id, Orientation::North, CENTER, CENTER + 1);
+    challenge.build(game_id, Orientation::North, CENTER, CENTER + 1);
     force_plan(store, game_id, player_id, Plan::FFCFFFCFF);
-    daily.build(game_id, Orientation::North, CENTER, CENTER + 2);
+    challenge.build(game_id, Orientation::North, CENTER, CENTER + 2);
     // [Check] The structure state agrees with the walks on the board (P5-4)
     check::assert_board_agrees(store, game_id);
 }
@@ -51,14 +51,14 @@ fn build_two(store: TestStore, systems: @Systems, game_id: u32, player_id: felt2
 #[available_gas(l2_gas: 120734000)]
 fn test_views_game_after_spawn() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let view = daily_views(@systems).game(context.game_id);
     let game = store.game(context.game_id);
     let tile = store.tile(game, 2);
 
     assert(view.id == context.game_id, 'Views: id');
     assert(view.player_id == context.player_id, 'Views: player');
-    assert(view.mode == Mode::Daily.into(), 'Views: mode');
+    assert(view.mode == Mode::Challenge.into(), 'Views: mode');
     assert(view.seed == game.seed, 'Views: seed');
     assert(view.score == 0, 'Views: score');
     assert(!view.over, 'Views: not over');
@@ -80,7 +80,7 @@ fn test_views_game_after_spawn() {
 fn test_views_game_player_answerable_without_any_build() {
     // The player is in `GameConfig`: a game that nobody built on still answers for its player,
     // and the builder facade holds the first drawn tile.
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     let views = daily_views(@systems);
     let view = views.game(context.game_id);
     assert(view.player_id == context.player_id, 'Views: player');
@@ -94,9 +94,9 @@ fn test_views_game_player_answerable_without_any_build() {
 #[test]
 #[available_gas(l2_gas: 183826000)]
 fn test_views_game_after_builds_and_discard() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     build_two(store, @systems, context.game_id, context.player_id);
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
     let view = daily_views(@systems).game(context.game_id);
 
     assert(view.score > 0, 'Views: city scored');
@@ -112,9 +112,9 @@ fn test_views_game_after_builds_and_discard() {
 #[available_gas(l2_gas: 189715000)]
 fn test_views_game_closed_by_surrender() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     build_two(store, @systems, context.game_id, context.player_id);
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
     let views = daily_views(@systems);
     let view = views.game(context.game_id);
 
@@ -137,12 +137,12 @@ fn test_views_game_closed_by_surrender() {
 #[test]
 #[available_gas(l2_gas: 125970000)]
 fn test_views_game_closed_by_last_tile() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     // Shrink the deck: the next discard ends the game.
     let mut game = store.game(context.game_id);
     game.tile_limit = 2;
     store.set_game(game);
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
     let views = daily_views(@systems);
     let view = views.game(context.game_id);
 
@@ -158,14 +158,14 @@ fn test_views_game_closed_by_last_tile() {
 #[test]
 #[should_panic(expected: 'Game: does not exist')]
 fn test_views_game_missing() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     daily_views(@systems).game(context.game_id + 1);
 }
 
 #[test]
 #[should_panic(expected: 'Game: does not exist')]
 fn test_views_game_zero() {
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     daily_views(@systems).game(0);
 }
 
@@ -174,9 +174,9 @@ fn test_views_game_zero() {
 #[test]
 #[available_gas(l2_gas: 184422000)]
 fn test_views_tiles_whole_game() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     build_two(store, @systems, context.game_id, context.player_id);
-    systems.daily.discard(context.game_id);
+    systems.challenge.discard(context.game_id);
     let tiles = daily_views(@systems).tiles(context.game_id, 0, MAX_PAGE);
 
     assert(tiles.len() == 5, 'Views: length');
@@ -207,7 +207,7 @@ fn test_views_tiles_whole_game() {
 #[test]
 #[available_gas(l2_gas: 185440000)]
 fn test_views_tiles_paging_edges() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     build_two(store, @systems, context.game_id, context.player_id);
     let views = daily_views(@systems);
     // 4 tiles: ids 1 to 4.
@@ -234,7 +234,7 @@ fn test_views_tiles_paging_edges() {
 #[test]
 #[available_gas(l2_gas: 133223000)]
 fn test_views_tiles_capped_at_max_page() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     // Pretend more tiles were drawn than one page holds; the extra ids read as empty tiles.
     let mut game = store.game(context.game_id);
     game.tile_count = MAX_PAGE + 10;
@@ -250,7 +250,7 @@ fn test_views_tiles_capped_at_max_page() {
 #[test]
 #[should_panic(expected: 'Game: does not exist')]
 fn test_views_tiles_missing_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     daily_views(@systems).tiles(context.game_id + 1, 0, 1);
 }
 
@@ -260,7 +260,7 @@ fn test_views_tiles_missing_game() {
 #[test]
 #[available_gas(l2_gas: 148836000)]
 fn test_views_builder_is_the_tile_in_hand() {
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let views = daily_views(@systems);
 
     let builder = views.builder(context.game_id, context.player_id);
@@ -274,7 +274,7 @@ fn test_views_builder_is_the_tile_in_hand() {
 
     // After a build, the tile in hand is the next one drawn
     force_plan(store, context.game_id, context.player_id, Plan::FFCFFFCFF);
-    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.challenge.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     let builder = views.builder(context.game_id, context.player_id);
     assert(builder.tile_id == 3, 'Views: next tile');
     assert(builder.plan == store.tile(store.game(context.game_id), 3).plan, 'Views: next plan');
@@ -283,7 +283,7 @@ fn test_views_builder_is_the_tile_in_hand() {
 #[test]
 #[should_panic(expected: 'View: not the game player')]
 fn test_views_builder_other_player() {
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     daily_views(@systems).builder(context.game_id, SOMEONE().into());
 }
 
@@ -293,13 +293,13 @@ fn test_views_builder_other_player() {
 #[available_gas(l2_gas: 197263000)]
 fn test_views_current_day_and_the_day_of_a_game() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let days = IDailyViewDispatcher { contract_address: systems.daily.contract_address };
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    let days = IChallengeViewDispatcher { contract_address: systems.challenge.contract_address };
     assert(days.current_day() == 3, 'Views: current day');
     assert(daily_views(@systems).game(context.game_id).day_id == 0, 'Views: no day before end');
 
     build_two(store, @systems, context.game_id, context.player_id);
-    systems.daily.surrender(context.game_id);
+    systems.challenge.surrender(context.game_id);
     assert(daily_views(@systems).game(context.game_id).day_id == 3, 'Views: day of the game');
 
     start_cheat_block_timestamp_global(4 * DAY);
@@ -311,13 +311,13 @@ fn test_views_current_day_and_the_day_of_a_game() {
 #[available_gas(l2_gas: 117998000)]
 fn test_views_entry_price_equals_the_spawn_debit() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
-    let days = IDailyViewDispatcher { contract_address: systems.daily.contract_address };
+    let days = IChallengeViewDispatcher { contract_address: systems.challenge.contract_address };
     let price = days.entry_price();
     assert(price.token == context.token.contract_address, 'Views: price token');
     assert(price.amount > 0, 'Views: price amount');
 
     let player_before = context.token.balance_of(PLAYER());
-    systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     assert(player_before - context.token.balance_of(PLAYER()) == price.amount, 'Views: debit');
 }
 
@@ -329,11 +329,11 @@ fn test_views_events_keys_carry_the_player() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    let game_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     // Close a city so the final score is not zero.
     build_two(store, @systems, game_id, context.player_id);
     start_cheat_block_timestamp_global(3 * DAY + 200);
-    systems.daily.surrender(game_id);
+    systems.challenge.surrender(game_id);
     let score = store.game(game_id).score;
     assert(score > 0, 'Views: scored');
     let player: felt252 = PLAYER().into();
@@ -342,7 +342,7 @@ fn test_views_events_keys_carry_the_player() {
     let mut over = false;
     for item in spy.get_events().events {
         let (from, event) = item;
-        if from != systems.daily.contract_address {
+        if from != systems.challenge.contract_address {
             continue;
         }
         let keys = event.keys.span();
@@ -359,7 +359,7 @@ fn test_views_events_keys_carry_the_player() {
             // Data: mode, score, start_time, end_time.
             let data = event.data.span();
             assert(data.len() == 4, 'Views: over data');
-            let mode: u8 = Mode::Daily.into();
+            let mode: u8 = Mode::Challenge.into();
             assert(*data.at(0) == mode.into(), 'Views: over mode');
             assert(*data.at(1) == score.into(), 'Views: over score');
             assert(*data.at(2) == (3 * DAY + 100).into(), 'Views: over start');
