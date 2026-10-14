@@ -43,6 +43,7 @@ pub mod errors {
     pub const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
     pub const GAME_IS_OVER: felt252 = 'Game: is over';
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
+    pub const GAME_EXPIRED: felt252 = 'Game: expired';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
 }
 
@@ -177,6 +178,14 @@ pub impl GameImpl of GameTrait {
     #[inline]
     fn is_over(self: Game) -> bool {
         self.over
+    }
+
+    /// The first second at which the game no longer takes a move: its start plus
+    /// `constants::GAME_VALIDITY` (24 h). Read from `GameConfig.start_time`, so a game spawned
+    /// before this rule gets the same 24 h from its own start.
+    #[inline]
+    fn expires_at(self: Game) -> u64 {
+        self.start_time + constants::GAME_VALIDITY
     }
 
     #[inline]
@@ -488,6 +497,12 @@ pub impl GameAssert of AssertTrait {
     #[inline]
     fn assert_is_over(self: Game) {
         assert(self.is_over(), errors::GAME_NOT_OVER);
+    }
+
+    /// The game still takes a move at `time`: strictly before `expires_at`.
+    #[inline]
+    fn assert_not_expired(self: Game, time: u64) {
+        assert(time < self.expires_at(), errors::GAME_EXPIRED);
     }
 }
 

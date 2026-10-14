@@ -26,7 +26,7 @@ function tilesFelts(from: number, n: number, extra = 0): string[] {
 
 describe("decodeResult refuses a layout the ABI does not describe", () => {
   test("felts left over after a struct", () => {
-    const game = Array(16).fill("0x1");
+    const game = Array(17).fill("0x1");
     expect(() => codecs.Challenge.decodeResult("game", [...game, "0x2"])).toThrow(AbiMismatchError);
     expect(() => codecs.Challenge.decodeResult("game", game)).not.toThrow();
   });

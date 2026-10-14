@@ -60,6 +60,9 @@ pub mod PlayableComponent {
             // [Check] Game is not over
             game.assert_not_over();
 
+            // [Check] Game has not expired (24 h from its start)
+            game.assert_not_expired(get_block_timestamp());
+
             // [Check] The caller is the player of the game: the game has one builder, its
             // player's, and anyone else has none
             let player_id: felt252 = get_caller_address().into();
@@ -135,6 +138,9 @@ pub mod PlayableComponent {
             // [Check] Game is not over
             game.assert_not_over();
 
+            // [Info] No expiry check: surrender is how an expired game ends, so that its score
+            // (frozen at its last move) is still recorded, as expired, and settled (S1)
+
             // [Check] The caller is the player of the game: the game has one builder, its
             // player's, and anyone else has none
             let player_id: felt252 = get_caller_address().into();
@@ -181,6 +187,9 @@ pub mod PlayableComponent {
 
             // [Check] Game is not over
             game.assert_not_over();
+
+            // [Check] Game has not expired (24 h from its start)
+            game.assert_not_expired(get_block_timestamp());
 
             // [Check] The caller is the player of the game: the game has one builder, its
             // player's, and anyone else has none

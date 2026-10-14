@@ -73,6 +73,28 @@ export class FaucetCapError extends WriteError {
   }
 }
 
+const GAME_EXPIRED = "Game: expired";
+/** What the player reads when a game's 24 hours are over (the card and the typed error). */
+export const GAME_EXPIRED_TEXT = "This game has expired: its 24 hours are over. Surrender to close it: its score is recorded, but an expired game earns no reward.";
+
+/**
+ * The game's 24 hours are over (S1): `build` and `discard` are refused, `surrender` is not. Raised before any call is
+ * sent when the game view says so, and when a `'Game: expired'` revert comes back after a race. A move that reverts
+ * moved nothing.
+ */
+export class GameExpiredError extends WriteError {
+  constructor(transactionHash?: string) {
+    super(GAME_EXPIRED_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "GameExpiredError";
+  }
+}
+
+/** `'Game: expired'` as its typed error, from the fee estimation or the receipt; any other error unchanged. */
+function expiredRevert(error: unknown): never {
+  if (error instanceof WriteError && revertNames(error.message, GAME_EXPIRED)) throw new GameExpiredError(error.transactionHash);
+  throw error;
+}
+
 /** A known revert of `Faucet.mint` as its clear state; any other error unchanged. */
 function faucetRevert(error: unknown): unknown {
   if (!(error instanceof WriteError)) return error;
@@ -133,12 +155,12 @@ export class PavedWriter {
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */
   build(key: GameKey, move: BuildMove): Promise<WriteResult> {
     const contract = gameContract(key.mode);
-    return this.send(contract, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]);
+    return this.send(contract, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]).catch(expiredRevert);
   }
 
   discard(key: GameKey): Promise<WriteResult> {
     const contract = gameContract(key.mode);
-    return this.send(contract, [this.call(contract, "discard", [key.gameId])]);
+    return this.send(contract, [this.call(contract, "discard", [key.gameId])]).catch(expiredRevert);
   }
 
   surrender(key: GameKey): Promise<WriteResult> {
