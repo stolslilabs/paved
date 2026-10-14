@@ -491,3 +491,82 @@ accepted list and the tally's encoding (`quests.cairo`) are unchanged; what move
   of a game over through the real contracts, the claim against the accepted list), `tests::e2e::cold_paths` (one report
   per game over, by build, discard and surrender, none otherwise, and a move by another player reverts before any).
 
+
+## As built: v2a, definitions only
+
+Brief `docs/briefs/quests-v2a-definitions.md` (track CORE; the PM's rulings of 2026-10-14 on `quests-v2.md`, class (A)).
+**Definitions only**: no contract code changes, no class changes, no ABI change, no indexer change. The 19 definitions
+are `Setup` owner calls (`define_quest`, `define_achievement`) that `scripts/deploy.sh`'s fresh path sends in the same
+multicall as the v1 set, so the fresh Sepolia deployment ships them. **No reward on any of them** (the reward question
+is the owner's, R0 by default, `quests-v2.md` 2.2). Every target is a first guess to calibrate (Q-4), like v1's.
+
+**Task ids 11 to 18 are reserved** (`constants.cairo`, `TASK_RESERVED_FIRST` and `TASK_RESERVED_LAST`): no task takes
+one, the contract reports none, and no v2a definition uses one. The ids the v2 proposals name for them are `ROAD_SCORED`,
+`CITY_SCORED`, `HUGE_STRUCTURE`, `GAME_PAID`, `NO_DISCARD`, `STREAK_DAYS`, `STAKED_GAME`, `STAKE_UNITS`; only a later
+ruling gives one a meaning. v2a uses tasks 1 to 7 only, all already reported (`quests.cairo`): tasks 2, 3 and 4 reach the
+quests; 1, 4, 5, 6 and 7 reach the achievements.
+
+### Rotating daily quests (9, ids 5 to 13)
+
+Three families (roads and cities scored, forests scored, points), three targets each. Every quest lasts one UTC day in a
+**3-day interval** (`duration` 86,400, `interval` 259,200, no `end`), and its `start` is an offset of 0, 1 or 2 whole days:
+Setup checks only `start % 86400 == 0`. The quest live on a UTC day is the one whose offset is the **day number mod 3**
+(`floor(time / 86400) mod 3`; 2026-10-14 is day 20,740, so offset 1: quests 6, 9 and 12), so each day shows one quest of
+each family and the targets rotate: three live a day, beside v1's four. Counts are per UTC day over the games that end
+that day, as v1's.
+
+| Id | Title (CLIENT's) | Task, target | Start offset | Live when day mod 3 is |
+|---|---|---|---|---|
+| 5 | Small Works | `STRUCTURE_SCORED` 4 | 0 | 0 |
+| 6 | Public Works | `STRUCTURE_SCORED` 8 | 86,400 | 1 |
+| 7 | Great Works | `STRUCTURE_SCORED` 12 | 172,800 | 2 |
+| 8 | Woodland Walk | `FOREST_SCORED` 2 | 0 | 0 |
+| 9 | Deep Woods | `FOREST_SCORED` 3 | 86,400 | 1 |
+| 10 | Old Growth | `FOREST_SCORED` 4 | 172,800 | 2 |
+| 11 | Warm-Up Score | `POINTS` 2,000 | 0 | 0 |
+| 12 | Strong Day | `POINTS` 5,000 | 86,400 | 1 |
+| 13 | Grand Day | `POINTS` 8,000 | 172,800 | 2 |
+
+### Weekly quests (3, ids 14 to 16)
+
+`duration = interval = 604,800` and `start` 345,600, **Monday 1970-01-05 00:00 UTC**, so a week runs Monday to Sunday
+UTC (the epoch is a Thursday, so a start of 0 would have put the week boundary on Thursdays). The count is the sum over
+the games that end in the week.
+
+| Id | Title (CLIENT's) | Task, target |
+|---|---|---|
+| 14 | Weekly Forester | `FOREST_SCORED` 5 |
+| 15 | Weekly Builder | `STRUCTURE_SCORED` 30 |
+| 16 | Weekly Points | `POINTS` 20,000 |
+
+### Higher tiers (7 achievements, ids 10 to 16)
+
+No window; `points` display only, from 40 to 80.
+
+| Id | Title (CLIENT's) | Task, target | Points |
+|---|---|---|---|
+| 10 | Forester II | `FOREST_SCORED` 50 | 40 |
+| 11 | Pilgrimage II | `WONDER_SCORED` 10 | 50 |
+| 12 | Grand Builder II | `BIG_STRUCTURE` 10 | 40 |
+| 13 | High Roller II | `HIGH_SCORE` 10 | 50 |
+| 14 | High Roller III | `HIGH_SCORE` 25 | 80 |
+| 15 | Settler IV | `GAME_FINISHED` 250 | 60 |
+| 16 | Settler V | `GAME_FINISHED` 1,000 | 80 |
+
+Titles and descriptions are not on chain (`quests-v2.md`, class (A)): the ones above are proposals for the client's
+`quests-view.ts`; until it knows an id the screens show `Quest #<id>`.
+
+### How the fresh deployment defines them
+
+`scripts/deploy.sh`, `FRESH_QUESTS` and `FRESH_ACHIEVEMENTS` (quests 1 to 16, achievements 1 to 16), one multicall of the
+definitions Setup does not hold, recorded as `definitions_tx`.
+
+- Each definition's storage slots (quiver 0.2.0: `Quest_definitions`, `Quest_tasks`, `Achievement_definitions`) are read
+  before the multicall: a defined one is not sent again, so a rerun sends only what is missing and a complete record
+  sends nothing.
+- After the multicall, and again in the smoke, every slot is compared with the packing of its table entry (schedule,
+  task, total, points, the `defined` bit), not only tested for non-zero: a definition that is there but is not the
+  specified one stops the run, since quiver refuses to define an id twice and a definition cannot be edited. A retired
+  definition (the owner's `retire_*`) still passes: retirement is live state.
+- `--check-only` says which definitions a run covers; `scripts/test-deploy-url.sh` runs the step and the smoke against a
+  fake node (`--check-fresh-definitions`, a test hook of the rehearsal).

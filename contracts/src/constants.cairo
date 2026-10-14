@@ -47,6 +47,13 @@ pub const TASK_PODIUM: u32 = 8;
 /// so that the id is never given to another task, for an indexer-credited Champion.
 pub const TASK_WIN: u32 = 9;
 pub const TASK_TUTORIAL_FINISHED: u32 = 10;
+/// Task ids 11 to 18 are reserved (docs/architecture/quests-v2.md, "Catalogue additions"; Q-10): no
+/// task takes one and the contract reports none of them. They are the ids the v2 proposals name,
+/// and only a later ruling gives one a meaning: 11 `ROAD_SCORED`, 12 `CITY_SCORED`, 13
+/// `HUGE_STRUCTURE`, 14 `GAME_PAID`, 15 `NO_DISCARD`, 16 `STREAK_DAYS`, 17 `STAKED_GAME`, 18
+/// `STAKE_UNITS`. The v2a definitions (quests.md, "v2a") use tasks 1 to 7 only.
+pub const TASK_RESERVED_FIRST: u32 = 11;
+pub const TASK_RESERVED_LAST: u32 = 18;
 
 /// A road or a city of at least this many tiles is a big structure (to calibrate).
 pub const BIG_SIZE: u32 = 8;
