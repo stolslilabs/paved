@@ -664,3 +664,27 @@ The addendum's estimate for vPAVED was 25,000 to 40,000 felts. Its contents:
 `Economy` grows by the split (`referral_bps`, its packing and checks, `split_bps`), the full-fill check, the split by
 input, and one field of `Purchased`. Every other class is unchanged to the felt (`Challenge` 62,045, `Collection`
 14,485, `Setup` 14,499, `PavedToken` 8,055).
+
+## After G7a (the first gas cuts: C1, C2, C3, C5; P-59)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, VPS, 2026-10-14, under
+`prlimit --as=12884901888`, peak RSS 3,782,500 kB at most). Main is an export of 82193903 (`git archive`), measured
+the same way. Each cut's share is the final code less the same code with that cut alone put back as on main.
+
+| Class | Sierra main | CASM main | Sierra G7a | CASM G7a | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 28,435 | 62,706 | 29,426 | 64,089 | +1,383 | 78.2 % |
+
+**`Challenge` is 8,858 CASM felts under the P-44 cap (72,947; 12.1 % of the cap)**, against 10,241 on main.
+
+| Cut | CASM |
+|---|---:|
+| C1, the closure flag of `place_move` | +657 |
+| C2, the starter from constants (the spawn no longer reaches `place_alone`) | -576 |
+| C3, the seeded walk | +746 |
+| C5, the edge words (a nested match of 76 words) | +485 |
+
+The four add up to +1,312 of the +1,383. Two variants were measured and dropped:
+- C5 as a flat table of one `u32` per plan saved 390 felts but cost 46,415 L2 gas per build;
+- C3 with the side tiles kept in the walker cost about 930 felts more (`baseline.md`, "After G7a").
+

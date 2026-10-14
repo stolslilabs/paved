@@ -507,3 +507,12 @@ Mac. No contract change.
    walk) are rejected in section 3.
 
 Ruled: P-59.
+
+## Status (owner, 2026-10-14)
+
+The owner's decision, relayed by the PM: the gas is fine for now, and optimisation comes later.
+
+- **G7a (C1, C2, C3, C5):** done, in the PR that adds this section (`docs/measures/baseline.md`, "After G7a").
+- **C4 and C6** (the storage layout changes), **C7** and any further gas work: paused until the owner asks.
+- **C8:** stays declined (P-59).
+- **C9:** measured (`docs/measures/release-profile.md`).

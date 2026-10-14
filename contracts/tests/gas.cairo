@@ -50,16 +50,18 @@ use crate::setup::setup::{
 };
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 5384523;
+pub const CEILING_OPEN: u128 = 4805849;
 pub const CEILING_SIMPLE: u128 = 5172772;
 // G5 cut the draw that follows each build (a table of bits, popcount by one product) and reset
 // a0 to e, m and n to measured + 5 % (`docs/measures/baseline.md`, "After G5"). c and e had been
 // raised by G1 (the draw read another deck on the same seed). f's measured + 5 % (19,032,185)
 // would be above its ceiling, which is kept.
+// G7a (P-59) reset a0, d, e, f, l, m and n to measured + 5 % (`docs/measures/baseline.md`, "After
+// G7a"); a's and c's measured + 5 % would be above their ceilings, which are kept.
 pub const CEILING_CLOSE_LARGE: u128 = 5602221;
-pub const CEILING_WORST_CASE: u128 = 5551116;
-pub const CEILING_FOREST: u128 = 9069821;
-pub const CEILING_FOREST_WORST: u128 = 18923195;
+pub const CEILING_WORST_CASE: u128 = 5448875;
+pub const CEILING_FOREST: u128 = 8744784;
+pub const CEILING_FOREST_WORST: u128 = 18714365;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the economy read (from
@@ -73,13 +75,13 @@ pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
 // (2,531,088).
 pub const CEILING_CLOSING_AFTER: u128 = 2847987;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 6910289;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
-pub const CEILING_SPAWN_DAILY: u128 = 18411921;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19174693;
+pub const CEILING_SPAWN_DAILY: u128 = 16869631;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 17765302;
 // t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
 // checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
 pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
