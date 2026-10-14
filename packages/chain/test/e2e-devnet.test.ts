@@ -25,7 +25,7 @@
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { EngineGame } from "@paved/game-core";
+import { EngineGame, OrientationType } from "@paved/game-core";
 import { Account, RpcProvider, hash } from "starknet";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FAUCET_USDC_AMOUNT } from "../src/abis";
@@ -45,8 +45,9 @@ import {
 import { IndexerClient, indexerPlayerId, type IndexedGame, type LeaderboardEntry } from "../src/indexer";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
+import { GameSession } from "../src/session";
 import { TILE_STATUS, type GameKey } from "../src/views";
-import { type BuildMove, type PavedWriter } from "../src/writer";
+import { GameExpiredError, type BuildMove, type PavedWriter } from "../src/writer";
 import { ChallengePlayer } from "./challenge-player";
 import { dayMean, payout, PRIOR_WEIGHT, threshold } from "./economy-curve";
 
@@ -77,6 +78,13 @@ const tokenSeed = (challenge: string, gameId: number): bigint =>
  * the engine, which the parity goldens pin to the contract.
  */
 const spawnedSeed = (challenge: string, gameId: number): bigint => EngineGame.start({ deck: "simple", seed: tokenSeed(challenge, gameId) }).seed;
+
+/** The chain's orientation codes (1 to 4) as the engine's. */
+const ORIENTATIONS = [OrientationType.None, OrientationType.North, OrientationType.East, OrientationType.South, OrientationType.West];
+/** `GAME_VALIDITY` (S1): a Challenge game takes moves for 24 h from its start. */
+const GAME_VALIDITY = 86400;
+/** The contracts' `CENTER`: the starter tile's coordinates on chain. */
+const CENTER = 0x7fffffff;
 
 interface Player {
   name: string;
@@ -175,6 +183,23 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     }
   }
 
+  /** A legal placement next to the tiles placed (found by probing the node: nothing is sent), or null. */
+  async function firstLegal(player: Player, key: GameKey, tiles: Array<{ x: number; y: number }>): Promise<BuildMove | null> {
+    const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
+    for (const t of tiles) {
+      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+        const x = t.x + dx;
+        const y = t.y + dy;
+        if (taken.has(`${x},${y}`)) continue;
+        for (let orientation = 0; orientation < 4; orientation++) {
+          const move = { orientation, x, y };
+          if (await legal(player, key, move)) return move;
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * The naive player (bob and carol): a Challenge game for at most `maxMoves` placements, a legal placement next to the tiles placed
    * (found by probing the node), then sent through the writer. It
@@ -185,21 +210,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     let hash = "";
     for (let game = await client.views.game(key); !game.over && moves < maxMoves; game = await client.views.game(key)) {
       const tiles = (await client.views.tiles(key)).filter((t) => t.status === TILE_STATUS.placed);
-      const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
-      let chosen: BuildMove | null = null;
-      search: for (const t of tiles) {
-        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-          const x = t.x + dx;
-          const y = t.y + dy;
-          if (taken.has(`${x},${y}`)) continue;
-          for (let orientation = 0; orientation < 4; orientation++) {
-            const move = { orientation, x, y };
-            if (!(await legal(player, key, move))) continue;
-            chosen = move;
-            break search;
-          }
-        }
-      }
+      const chosen = await firstLegal(player, key, tiles);
       if (chosen) {
         const result = await player.writer.build(key, chosen);
         hash = result.transactionHash;
@@ -340,6 +351,11 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
       const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
       expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${bought.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, bought.gameId));
+      // S1: `initial_seed` is that seed before the deck's withdrawal and the first draw, and `expires_at` is the start plus 24 h.
+      const initial = await client.views.initialSeed({ mode: "challenge", gameId: bought.gameId });
+      expect(BigInt(initial), `${p.name}'s initial_seed is Poseidon(${SALT}, Challenge, ${bought.gameId})`).toBe(tokenSeed(client.deployment.addresses.Challenge, bought.gameId));
+      const spawned = await client.views.game({ mode: "challenge", gameId: bought.gameId });
+      expect(spawned.expiresAt, `${p.name}'s expires_at is start_time + ${GAME_VALIDITY}`).toBe(spawned.startTime + GAME_VALIDITY);
       challengeGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
@@ -671,4 +687,91 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(await usdc(alice.address)).toBe(usdcBefore - price);
     pass("G4: pause spawn", `paused in tx ${short(pausedAt)}: SpawnPausedError, no block, USDC unchanged; indexer ok at head ${paused.head.number}; unpaused, game ${bought.gameId} bought, indexer ok at head ${after.head.number}`);
   }, 120_000);
+
+  test("S1: initial_seed replays the draws (a discard included); after 24 h build and discard are refused, surrender closes the game, which is recorded and settled", async () => {
+    const [, bob] = players;
+    const quote = await economy.views.quote(1);
+    const planned = await bob.econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
+    const key: GameKey = { mode: "challenge", gameId: purchase.gameId };
+
+    // initial_seed is the token seed, and expires_at is the start plus 24 h.
+    const initial = BigInt(await client.views.initialSeed(key));
+    expect(initial).toBe(tokenSeed(client.deployment.addresses.Challenge, key.gameId));
+    const fresh = await client.views.game(key);
+    expect(fresh.expiresAt).toBe(fresh.startTime + GAME_VALIDITY);
+    expect(fresh.startTime).toBeGreaterThan(0);
+
+    // A discard, a placement, another discard.
+    await bob.writer.discard(key);
+    const placed = await firstLegal(bob, key, (await client.views.tiles(key)).filter((t) => t.status === TILE_STATUS.placed));
+    expect(placed, "a legal placement").not.toBeNull();
+    await bob.writer.build(key, placed!);
+    await bob.writer.discard(key);
+
+    // The client's replay: the engine from initial_seed, the moves in draw order. tiles() reports a discarded tile at
+    // (0, 0); the engine reseeds it on (CENTER, CENTER), as the contract does.
+    const engine = EngineGame.start({ deck: "simple", seed: initial });
+    const tiles = await client.views.tiles(key);
+    expect(tiles.map((t) => t.status)).toEqual([TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.held]);
+    for (const tile of tiles) {
+      if (tile.status === TILE_STATUS.held) break;
+      expect(engine.hand?.id, `tile ${tile.id} is the engine's draw`).toBe(tile.id);
+      if (tile.status === TILE_STATUS.discarded) engine.discard();
+      else if (tile.id > 1) engine.build({ orientation: ORIENTATIONS[tile.orientation], x: tile.x - CENTER, y: tile.y - CENTER });
+    }
+    const now = await client.views.game(key);
+    expect(engine.seed).toBe(BigInt(now.seed));
+    expect(engine.hand?.id).toBe(now.tileId);
+    expect(engine.score).toBe(now.score);
+
+    // 24 h pass: the node's clock moves and a block lands.
+    await advance(fresh.expiresAt - (await chainTime()));
+    await rpc(rpcUrl, "devnet_createBlock");
+    expect(await chainTime()).toBeGreaterThanOrEqual(fresh.expiresAt);
+
+    // The session sees the game expired and sends nothing.
+    let sent = 0;
+    const send = async () => {
+      sent++;
+      throw new Error("sent");
+    };
+    const blockBefore = (await provider.getBlockNumber()) as number;
+    const session = new GameSession(client.views, key, bob.address, () => fresh.expiresAt);
+    await session.load();
+    expect(await session.discard(send)).toBe(false);
+    expect(await session.place({ orientation: 1, x: CENTER, y: CENTER }, send)).toBe(false);
+    expect(sent).toBe(0);
+    expect(session.state.writeError).toMatch(/24 hours are over/);
+
+    // After a race (the client thinks the game is open) the chain's revert is the same typed error, and no block lands.
+    const raced = new GameSession(client.views, key, bob.address, () => fresh.expiresAt - 1);
+    await raced.load();
+    expect(await raced.discard(() => bob.writer.discard(key))).toBe(false);
+    expect(raced.state.writeError).toMatch(/Surrender to close it/);
+    await expect(bob.writer.discard(key)).rejects.toBeInstanceOf(GameExpiredError);
+    await expect(bob.writer.build(key, placed!)).rejects.toBeInstanceOf(GameExpiredError);
+    expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
+
+    // Surrender is open: the game ends, and the Economy records it as expired, with its score.
+    const surrendered = await bob.writer.surrender(key);
+    expect(placementOutcome(surrendered.events, key.gameId).over).not.toBeNull();
+    const over = await client.views.game(key);
+    expect(over.over).toBe(true);
+    const terms = await economy.views.terms(key.gameId);
+    expect(terms).toMatchObject({ recorded: true, expired: true, settled: false, score: over.score });
+
+    // Settled once its day may be. A raw call: EconomyWriter.settle refuses a recorded expired game client-side.
+    await toNextDay();
+    await toNextDay();
+    expect(await chainTime()).toBeGreaterThanOrEqual(settlesAfter(terms.day));
+    const call = { contractAddress: economy.deployment.addresses.Economy, entrypoint: "settle", calldata: ["0x1", `0x${key.gameId.toString(16)}`] };
+    const tx = await bob.account.execute([call], { tip: 0n });
+    await provider.waitForTransaction(tx.transaction_hash);
+    expect(await economy.views.terms(key.gameId)).toMatchObject({ settled: true, reward: 0n });
+    pass(
+      "S1: initial_seed replay, expiry, surrender, record, settle",
+      `game ${key.gameId}: initial_seed = Poseidon(0, Challenge, id); expires_at ${fresh.expiresAt} = start ${fresh.startTime} + ${GAME_VALIDITY}; engine replay (discard, build, discard) = seed, tile in hand and score of the chain; at the expiry the session sent nothing and build/discard were GameExpiredError with no block (${blockBefore}); surrender ${short(surrendered.transactionHash)}; recorded expired, score ${over.score}; settled with reward 0 ${short(tx.transaction_hash)}`,
+    );
+  }, 300_000);
 });

@@ -140,6 +140,23 @@ CORE's) and has no Controller policy for them. The purchase path reads `spawn_pa
 error. A failed `spawn_paused` read keeps today's behaviour: the purchase is not blocked by the client, the contract is the
 guard. The indexer skips the three pause events by name (`packages/indexer/README.md`).
 
+**A game's 24 hours (S1).** A Challenge game takes moves for 24 h from its start. `GameView.expires_at` (`expiresAt`, the last
+field of the view) is the start plus 86,400; from that second on `build` and `discard` revert with `'Game: expired'`, and
+`surrender` stays open: an expired game ends only when its player surrenders, is recorded by the Economy as expired (its
+score, no reward, no mean) and is settled for 0. The client types the revert as `GameExpiredError` (`writer.ts`, from the
+fee estimation or the receipt, text or short-string hex), whose message is true to that rule: "This game has expired: its
+24 hours are over. Surrender to close it; it still counts for its score." `GameSession` checks `expiresAt` against the
+time it is given (the clock by default, the block time in the e2e) before a `place` or a `discard` and sends nothing;
+`surrender` has no pre-check. The game page shows the message through its existing `writeError` notice. A game bought
+before the upgrade has the same 24 h from its stored start. `EconomyWriter.settle` still refuses a recorded expired
+game client-side ("is expired: no reward"), while the chain settles it for 0: left to the economy track.
+
+**The initial seed (S1).** `initial_seed(game_id) -> felt252` (`GameViews.initialSeed`) is the seed the game started with,
+before the deck's withdrawal and the first draw: `Poseidon(0, Challenge, game_id)`. `tiles()` stays in draw order with
+statuses, so `EngineGame.start({ deck: "simple", seed })`, then each tile in order (`build` at its position, or `discard`,
+which reseeds on `(CENTER, CENTER)` as the contract does though `tiles()` reports `(0, 0)`), gives the chain's current
+seed, the tile in hand and the score, with no extra call per move. It holds for every game deployed after G1.
+
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
 predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
 old hard-coded Katana master key is gone), and the Cartridge controller placeholder
@@ -188,7 +205,7 @@ the Dojo burner manager (`@dojoengine/create-burner`).
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
 short page), `builder`, `currentDay` (`Challenge.current_day`, `IChallengeView`; `current_tournament_id` before D-20), `entryPrice`,
-and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
+`initialSeed(game)` (S1) and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
 The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
