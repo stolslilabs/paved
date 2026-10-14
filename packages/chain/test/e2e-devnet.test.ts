@@ -29,7 +29,7 @@ import {
   createEconomyClient,
   expiresAt,
   resolveEconomyDeployment,
-  SelfReferralError,
+  RefusedReferrerError,
   settlesAfter,
   type EconomyClient,
   type EconomyDeploymentFile,
@@ -272,10 +272,20 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   test("buys three Daily games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
     dayId = await client.views.currentDay();
     const [alice, bob, carol] = players;
-    // D-25 (E): a referrer is any non-zero address other than the payer. The payer's own is refused here, nothing sent.
-    const self = await alice.econ.purchase({ stake: 1, confirmedPrice: price, confirmedMinOut: 1n, referrer: alice.address }).catch((e: unknown) => e);
-    expect(self).toBeInstanceOf(SelfReferralError);
+    // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy. Those three are refused
+    // here before anything is sent: alice's USDC does not move.
+    const refusedCases: Array<[string, string]> = [
+      ["payer", alice.address],
+      ["daily", client.deployment.addresses.Daily],
+      ["economy", economy.deployment.addresses.Economy],
+    ];
+    for (const [who, address] of refusedCases) {
+      const refused = await alice.econ.purchase({ stake: 1, confirmedPrice: price, confirmedMinOut: 1n, referrer: address }).catch((e: unknown) => e);
+      expect(refused, who).toBeInstanceOf(RefusedReferrerError);
+      expect((refused as RefusedReferrerError).who).toBe(who);
+    }
     expect(await usdc(alice.address)).toBe(FAUCET_USDC_AMOUNT);
+    pass("referrer refused client-side: the payer, Daily, Economy", "RefusedReferrerError x3, nothing sent, USDC unchanged");
     const plan: Array<[Player, number, Player | null]> = [[alice, 3, bob], [bob, 2, null], [carol, 1, alice]];
     const vaultAddress = economy.deployment.addresses.Vault;
     const evidence: string[] = [];

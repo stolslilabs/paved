@@ -161,7 +161,7 @@ the Dojo burner manager (`@dojoengine/create-burner`).
   not from Setup's wiring view): it resolves them from the deployment file, as before (`economy/deployment.ts`,
   `deployment.ts`). Setup's wiring view is the contracts' source; the indexer checks Setup's `EconomySet` and
   `CollectionSet` against the same file.
-- **The referrer** is any non-zero address other than the payer: see `client-economy.md`.
+- **The referrer** is any non-zero address other than the payer, the Daily and the Economy: see `client-economy.md`.
 
 ## Views
 

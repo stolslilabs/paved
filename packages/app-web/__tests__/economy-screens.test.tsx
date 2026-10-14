@@ -164,11 +164,17 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
   });
 
-  it("a referral link to one's own address is refused with a message, and no referrer is sent", async () => {
-    land({ search: `?ref=${PLAYER}` });
+  // D-25 (E): the payer's own address, the Daily and the Economy are refused, with one plain message, and none is sent.
+  it.each([
+    ["one's own address", PLAYER],
+    ["the Daily contract", ADDR.Daily],
+    ["the Economy contract", ECON.economy],
+  ])("a referral link to %s is refused with a message, and no referrer is sent", async (_what, address) => {
+    land({ search: `?ref=${address}` });
     fireEvent.click(await screen.findByText(/mode daily/));
-    await screen.findByText("Referral link: your own address cannot be your referrer, so no referrer is sent");
+    await screen.findByText("Referral link: this address cannot be your referrer, so no referrer is sent");
     fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).not.toContain("gets");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();

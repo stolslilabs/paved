@@ -109,11 +109,14 @@ export class RateUnavailableError extends WriteError {
   }
 }
 
-/** The payer named themselves as the referrer (D-25 (E): a referrer is any non-zero address other than the payer). Nothing was sent. */
-export class SelfReferralError extends WriteError {
-  constructor() {
-    super("Your own address cannot be your referrer. Nothing was sent.");
-    this.name = "SelfReferralError";
+/**
+ * The referrer is one the contract would not pay (D-25 (E)): the payer's own address, or the deployment's Daily or Economy.
+ * One plain message for all three; `who` says which. Nothing was sent.
+ */
+export class RefusedReferrerError extends WriteError {
+  constructor(readonly who: RefusedReferrer) {
+    super("This address cannot be your referrer. Nothing was sent.");
+    this.name = "RefusedReferrerError";
   }
 }
 
@@ -209,7 +212,7 @@ export class EconomyWriter {
    * Buys a Daily game of stake `k`: approves `Daily` on USDC for exactly the price, then
    * `Daily.spawn(stake, referrer, min_out)`, in one multicall. The entry unit and the quote are read again first;
    * the price must be `k x entry_price().amount` and the one the player confirmed. The payer's own address as the
-   * referrer is refused (`SelfReferralError`): the contract would not pay it.
+   * referrer, or the deployment's Daily or Economy, is refused (`RefusedReferrerError`): the contract would not pay it.
    */
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     let result: WriteResult;
@@ -255,7 +258,7 @@ export class EconomyWriter {
     if (quote.price !== price) throw new WriteError("The quote disagrees with the entry price: nothing was sent");
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
     if (typeof request.confirmedMinOut !== "bigint" || request.confirmedMinOut <= 0n) throw new WriteError("No confirmed minimum PAVED: confirm again");
-    const referrer = referrerOf(request.referrer, this.address);
+    const referrer = referrerOf(request.referrer, this.address, { daily: deployment.base.addresses.Daily, economy: deployment.addresses.Economy });
     // `min_out` from the pool's quote (fee included) less the slippage; never from `min_out_hint`, which leaves the
     // fee out and would make the purchase revert (P-35). No quote, or a 0 one, is no slippage protection: refused.
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
@@ -402,12 +405,38 @@ export class EconomyWriter {
   }
 }
 
+/** Why a referrer is refused: the payer's own address, or one of the game's contracts that the contract never pays. */
+export type RefusedReferrer = "payer" | "daily" | "economy";
+
+/** The contracts a referrer may not be (CORE's step E: the contract ignores them), from the deployment. */
+export interface ReferrerContracts {
+  daily: string;
+  economy: string;
+}
+
 /**
- * The referrer to send: "0x0" for none (null or the zero address). Since D-25 (E) a referrer is any non-zero address other
- * than the payer, with no registration: the payer's own address is refused with `SelfReferralError`, and nothing is sent.
- * A malformed one is a `WriteError`, never a raw parse error.
+ * Which rule refuses `referrer` (any spelling, padded or not), or null when it may be sent. Since D-25 (E) a referrer is any
+ * non-zero address other than the payer, the Daily and the Economy, with no registration.
  */
-export function referrerOf(referrer: string | null, self: string): string {
+export function refusedReferrer(referrer: string | bigint, self: string | null, contracts: ReferrerContracts): RefusedReferrer | null {
+  const same = (other: string | null) => {
+    try {
+      return !!other && BigInt(other) !== 0n && sameAddress(referrer, other);
+    } catch {
+      return false;
+    }
+  };
+  if (same(self)) return "payer";
+  if (same(contracts.daily)) return "daily";
+  if (same(contracts.economy)) return "economy";
+  return null;
+}
+
+/**
+ * The referrer to send: "0x0" for none (null or the zero address). A referrer `refusedReferrer` refuses is a
+ * `RefusedReferrerError`, and nothing is sent. A malformed one is a `WriteError`, never a raw parse error.
+ */
+export function referrerOf(referrer: string | null, self: string, contracts: ReferrerContracts): string {
   if (!referrer) return "0x0";
   let value: bigint;
   try {
@@ -417,7 +446,8 @@ export function referrerOf(referrer: string | null, self: string): string {
   }
   if (value < 0n || value >= ADDRESS_BOUND) throw new WriteError(`Not a referrer address: ${referrer}`);
   if (value === 0n) return "0x0";
-  if (sameAddress(value, self)) throw new SelfReferralError();
+  const refused = refusedReferrer(value, self, contracts);
+  if (refused) throw new RefusedReferrerError(refused);
   return toHex(value);
 }
 

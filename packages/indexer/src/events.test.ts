@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hash } from "starknet";
 import { describe, expect, test } from "vitest";
@@ -24,16 +24,13 @@ type AbiItem = {
 const abiPath = (name: string) => resolve(import.meta.dirname, `../../../contracts/abis/${name}.json`);
 const abi = (name: string): AbiItem[] => JSON.parse(readFileSync(abiPath(name), "utf8"));
 
+/** The contract whose ABI declares the quest and achievement events: `Setup` since CORE's step D (D-24). */
+const QUESTS = "Setup";
 /**
- * The contract whose ABI declares the quest and achievement events: `Setup` from CORE's step D (D-24), `Daily` before its
- * ABIs land on the branch (the events are quiver's, the same structs in either).
+ * The contracts whose ABIs are committed: every event of each is known. The past ones (Tutorial and Lobby with D-21 and
+ * D-24, Account with D-25 (E)) have no ABI in the tree any more; their events stay known by name.
  */
-const QUESTS = existsSync(abiPath("Setup")) ? "Setup" : "Daily";
-/**
- * The contracts of today, then the past ones (D-21, D-24, D-25 (E): Account) while their ABIs are still in the tree: every
- * event of each is known.
- */
-const CONTRACTS = ["Daily", "Setup", "Account", "Economy", "Collection", "Tutorial", "Lobby"].filter((name) => existsSync(abiPath(name)));
+const CONTRACTS = ["Daily", "Setup", "Economy", "Collection"];
 
 /** The event structs of a contract's ABI that `paved::events` declares (the ones the indexer may meet). */
 const pavedEvents = (name: string) =>
@@ -93,15 +90,13 @@ describe("the ABIs", () => {
   test("Setup emits the wiring, EconomySet and CollectionSet, with the address in the data (D-25 (E))", () => {
     expect(EMITTERS.EconomySet).toEqual(["setup"]);
     expect(EMITTERS.CollectionSet).toEqual(["setup"]);
-    // The ABI facts hold once CORE regenerates the ABIs of step E: until then Setup's ABI does not declare the two events
-    // (Account's did), and only the declaring ABIs are checked.
+    // Setup is the only contract that declares them (Account's ABI left with D-25 (E)).
     const wiring = (contract: string) =>
       abi(contract).filter(
         (item) => item.type === "event" && item.kind === "struct" && ["EconomySet", "CollectionSet"].includes(shortOf(item)),
       );
-    const declaring = CONTRACTS.filter((contract) => wiring(contract).length > 0);
-    expect(declaring.length).toBeGreaterThan(0);
-    for (const contract of declaring) {
+    expect(CONTRACTS.filter((contract) => wiring(contract).length > 0)).toEqual(["Setup"]);
+    for (const contract of ["Setup"]) {
       expect(
         wiring(contract)
           .map((item) => [shortOf(item), item.members!.map((m) => [m.name, m.kind, m.type.split("::").at(-1)])])

@@ -19,6 +19,7 @@ import {
   quoteBelowFloor,
   referralOf,
   routerProblem,
+  refusedReferrer,
   sameAddress,
   useAsyncRead,
 } from "@paved/chain";
@@ -76,10 +77,13 @@ export function EconomyPurchase({
   const rate = gate.data && gate.error === null ? gate.data[1] : null;
   // Mainnet at a rate of 0 (unexpected, E-9c): purchases are paused; nothing is quoted nor offered.
   const rateRefusal = rate !== null && routerRefusal === null ? rateProblem(client.deployment, rate) : null;
-  // D-25 (E): a referrer is any non-zero address other than the payer, with no registration. The link's parser already
-  // drops a zero one; the payer's own is shown as refused and not sent (the writer refuses it too: `SelfReferralError`).
-  const self = referrer !== null && address !== null && sameAddress(referrer, address);
-  const usedReferrer = referrer && !self ? referrer : null;
+  // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy, with no registration.
+  // The link's parser already drops a zero one; a refused one is shown as such and not sent (the writer refuses it too:
+  // `RefusedReferrerError`).
+  const refused =
+    referrer !== null &&
+    refusedReferrer(referrer, address, { daily: client.deployment.base.addresses.Daily, economy: client.deployment.addresses.Economy }) !== null;
+  const usedReferrer = referrer && !refused ? referrer : null;
 
   const unit = entry.data && sameAddress(entry.data.token, client.deployment.addresses.USDC) ? entry.data.amount : null;
   const price = unit !== null && unit > 0n && quote.data && quote.data.price === priceOf(unit, stake) ? quote.data.price : null;
@@ -152,7 +156,7 @@ export function EconomyPurchase({
       <span>{`Reward boost: x${formatBps(boostBps(stake))}`}</span>
       {referrer && (
         <span>
-          {self ? "Referral link: your own address cannot be your referrer, so no referrer is sent" : `Referrer: ${shortAddress(referrer)}`}
+          {refused ? "Referral link: this address cannot be your referrer, so no referrer is sent" : `Referrer: ${shortAddress(referrer)}`}
         </span>
       )}
       {burnShare && <span>{`Swapped for PAVED and burned: ${burnShare}`}</span>}

@@ -80,12 +80,13 @@ its purchase); `settle` refuses it before sending.
 
 Referrers: a `?ref=` must be a non-zero hex address below `2^251 - 256` (`ADDRESS_BOUND`, itself below the felt prime);
 a value out of range counts as no referrer, as does a malformed one. The writer applies the same bound to what it sends.
-Since D-25 (E) a referrer is **any non-zero address other than the payer** (the contract's rule, CORE's step E), with no
-registration: there is no `Account` to ask, so no read holds the purchase back. Before E the referrer had to be a
-registered player other than the payer (the client read `Account.player` and dropped an unregistered one). The payer's
-own address is refused by the writer with `SelfReferralError` ("Your own address cannot be your referrer. Nothing was
-sent."), in any spelling (padded or not); the landing page shows a link to one's own address as "Referral link: your own
-address cannot be your referrer, so no referrer is sent" and sends none. A zero referrer is no referrer (`0x0`).
+Since D-25 (E) a referrer is **any non-zero address other than the payer, the Daily and the Economy** (the contract's
+rule, CORE's step E: it ignores those three), with no registration: there is no `Account` to ask, so no read holds the
+purchase back. Before E the referrer had to be a registered player other than the payer (the client read `Account.player`
+and dropped an unregistered one). The writer refuses the payer's own address and the deployment's `Daily` and `Economy`
+addresses, in any spelling (padded or not), with `RefusedReferrerError` (`who`: `payer`, `daily` or `economy`) and one plain
+message, "This address cannot be your referrer. Nothing was sent." (`refusedReferrer` is the check). The landing page shows
+such a link as "Referral link: this address cannot be your referrer, so no referrer is sent" and sends none. A zero referrer is no referrer (`0x0`).
 
 ## The devnet faucet and the entry token
 
@@ -272,7 +273,7 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
-| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer as the referrer (`SelfReferralError`, D-25 (E)). A zero referrer is sent as `0x0` |
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer, the Daily or the Economy as the referrer (`RefusedReferrerError`, D-25 (E)). A zero referrer is sent as `0x0` |
 | `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each: not bought (stake 0), not recorded (not over, or expired: no reward), already settled, or its day not yet settleable (`now < settlesAfter(day)`, the end of the next day, `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); a failed block read sends nothing |
 | `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
@@ -324,7 +325,7 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   `readPurchaseIntent` refuses any malformed state (a stake outside 1..10, a price that is not a positive integer string,
   a referrer that is not hex). A malformed `?ref=` (`?ref=abc`) is ignored on the landing page: no referrer is shown or sent.
 - **The referrer comes from a link; the consent never does.** `?ref=0x...` on the landing page names a referrer, shown at
-  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address is refused and said so,
+  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, the Daily or the Economy is refused and said so,
   and no referrer is sent (D-25 (E): any other non-zero address is a referrer, with no registration read).
 - **Cleared before sending.** The game page reads the purchase at mount, clears the history state (replace, state
   null) before anything is sent, and keeps the intent in a ref, exactly as the Daily start; the 30 s expiry without a
