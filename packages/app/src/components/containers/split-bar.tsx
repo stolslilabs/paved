@@ -18,8 +18,8 @@ export interface SplitBarProps {
  */
 export function SplitBar({ split, highlight, className }: SplitBarProps) {
   const parts = [
-    { key: "burn", label: "Burned", bps: split.burn, hint: "buys $TILE and burns it" },
-    { key: "vault", label: "Vault", bps: split.vault - split.referral, hint: "to the vPAVED holders" },
+    { key: "burn", label: "Burned", bps: split.burn, hint: "buys $TILE, burns it" },
+    { key: "vault", label: "Vault", bps: split.vault - split.referral, hint: "the referral included" },
     { key: "referral", label: "Referral", bps: split.referral, hint: "out of the Vault's part" },
   ] as const;
   const fill = (key: (typeof parts)[number]["key"]) =>
@@ -41,7 +41,7 @@ export function SplitBar({ split, highlight, className }: SplitBarProps) {
             <dd className={cn("numeric text-sm font-semibold", highlight === p.key && "text-primary")}>
               {formatBps(p.key === "vault" ? split.vault : p.bps)}
             </dd>
-            <dd className="truncate text-[11px] text-muted-foreground">{p.key === "vault" ? `${p.hint}, the referral included` : p.hint}</dd>
+            <dd className="truncate text-[11px] text-muted-foreground">{p.hint}</dd>
           </div>
         ))}
       </dl>

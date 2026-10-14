@@ -18,7 +18,7 @@ export interface ThemeOption {
 
 /** The spec's five, in its order: Default (meadows) and Forest selectable, Snow, Desert and Volcano coming soon. */
 export const THEMES: readonly ThemeOption[] = [
-  { id: "default", name: "Default", tagline: "Meadows, roads and stone cities", icon: "sun", available: true },
+  { id: "default", name: "Default", tagline: "Meadows and stone cities", icon: "sun", available: true },
   { id: "forest", name: "Forest", tagline: "Deep woods: the extended tiles", icon: "tree", available: true },
   { id: "snow", name: "Snow", tagline: "Frozen fields", icon: "snowflake", available: false },
   { id: "desert", name: "Desert", tagline: "Dunes and oases", icon: "sun-plant-wilt", available: false },
