@@ -297,3 +297,20 @@ fn test_target_below_its_bound_is_refused() {
 fn test_target_above_its_bound_is_refused() {
     validate(with(7_000, 0, 18_130, 5, 10_000_000 * PAVED + 1));
 }
+
+// Coverage T1 (docs/measures/coverage.md): the overflow guards
+
+/// A reference reward above `u128::MAX` is refused (`reference` counts at most the PAVED supply, so
+/// this is out of reach in practice): 2^128 base units counted, at stake 1 and a factor of 1x.
+#[test]
+#[should_panic(expected: 'Curve: overflow')]
+fn test_reference_overflow_reverts() {
+    reference(u256 { low: 0, high: 1 }, 1, 10_000);
+}
+
+/// A payout above `u128::MAX` is refused: the cap lifts it to 5 x R.
+#[test]
+#[should_panic(expected: 'Curve: overflow')]
+fn test_payout_overflow_reverts() {
+    payout(core::num::traits::Bounded::<u128>::MAX, 1_000, 1_000, 12_220, 5);
+}
