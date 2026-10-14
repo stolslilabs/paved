@@ -3,7 +3,7 @@
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
 # (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
 # its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1) and the --d18 path
-# (D-18c). Usage:
+# (D-18c), and on the fresh path's --check-only and --out (F). Usage:
 # scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,6 +58,14 @@ refuse 2 "sepolia --rehearse --repoint needs --deployment <file>" sepolia --rehe
 refuse 2 "--deployment expects an existing deployment file" sepolia --rehearse --repoint --deployment "$repoint_file.missing"
 refuse 2 "unknown option '--frobnicate' for 'sepolia --repoint'" sepolia --repoint --frobnicate
 refuse 2 "unknown option '--estimate-only' for 'sepolia --repoint'" sepolia --repoint --estimate-only
+# The fresh path (F): --check-only and --out <file>, for sepolia and its rehearsal; nothing else.
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --check-only
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --check-only --out "$repoint_file.new"
+refuse 2 "--out expects a file path in an existing directory" sepolia --out
+refuse 2 "--out expects a file path in an existing directory" sepolia --out "$repoint_file.missing/x.json"
+refuse 2 "--out expects a file path in an existing directory" sepolia --rehearse --out --check-only
+refuse 2 "unknown option '--frobnicate' for 'sepolia --rehearse'" sepolia --rehearse --check-only --frobnicate
+refuse 2 "unknown option '--check-only' for 'devnet'" devnet --check-only
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --repoint --deployment "$repoint_file" 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse --repoint refuses a remote node, its key unprinted"
@@ -205,6 +213,13 @@ else
   echo "ok: deploy.sh retried starknet_specVersion twice after -32601 (HTTP 400), then went on"
 fi
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
+# The fresh path's options (F): the same checks, the marker URL and address kept out of every output, argv and child.
+at_node down "no node answers at \$STARKNET_RPC_URL" --check-only
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --check-only --out "$shims/fresh.json"
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --check-only
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --out "$shims/fresh.json"
+if [[ -e "$shims/fresh.json" ]]; then echo "FAIL: a fresh run stopped at the node wrote its deployment file"; fail=1
+else echo "ok: a fresh run stopped at the node writes no deployment file"; fi
 # The --repoint path (R-1) shares those checks: the marker URL and address stay out of every output, argv and child
 # environment there too, and nothing is signed (no node or npm call).
 at_node down "no node answers at \$STARKNET_RPC_URL" --repoint
@@ -849,6 +864,8 @@ SH
   # (FAKE_STRK_BALANCE), the classes the node has (`declared`) and maybe a failing estimate (`estimate_error`).
   real_run() { # <STRK balance, base units> -> output; the signer's log in $est/node.log
     printf '%s' "$1" >"$est/strk"
+    # Each case starts with no deployment file: a run records what it sends there (F), and the next case would resume it.
+    rm -f "$root/contracts/deployments/sepolia.json"
     : >"$est/node.log"
     env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
       FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
@@ -941,6 +958,94 @@ SH
   else
     echo "ok: sepolia whose estimates fail falls back to the 200 STRK floor; 150 STRK stops before its first declare"
   fi
+  # The fresh path's deployment file (F), past every check of a real run: a live deployment (no `fresh` record) is
+  # refused before anything is built or sent; --check-only to a new path passes every check, sends nothing and writes no
+  # file; a complete record with no STRK passes the funding check (nothing is left to send).
+  fresh_run() { # <STRK balance, base units> <deploy.sh options after sepolia...> -> output
+    printf '%s' "$1" >"$est/strk"; shift
+    : >"$est/node.log"
+    env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+      FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
+      "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia "$@" 2>&1
+  }
+  live="$root/contracts/deployments/sepolia.json"
+  mkdir -p "$root/contracts/deployments"
+  printf '{"network":"sepolia","chain_id":"0x534e5f5345504f4c4941","contracts":{"Daily":{"address":"0x1"}}}\n' >"$live"
+  cp "$live" "$est/live.before"
+  for mode in "" --check-only; do
+    out="$(fresh_run 1000000000000000000000 $mode)"; rc=$?
+    if [[ $rc -ne 1 || "$out" != *"contracts/deployments/sepolia.json holds a live deployment (no fresh record): it is not overwritten; name a new output path with --out <file>; nothing was sent"* ||
+        "$out" == *"== build"* ]] || ! cmp -s "$live" "$est/live.before" ||
+        grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+      echo "FAIL: sepolia ${mode:-(run)} over a live deployment file: expected a refusal before the build, the file unchanged, got $rc:"
+      sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+    else
+      echo "ok: sepolia ${mode:-(run)} refuses to overwrite a live deployment file before the build; nothing sent"
+    fi
+  done
+  rm -f "$live" "$est/live.before"
+  new="$est/fresh-new.json"
+  out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
+  if [[ $rc -ne 0 || "$out" != *"== fresh: check only: every check passed; nothing was sent"* || "$out" == *"== declare"* ||
+      "$out" != *"no record: a run would declare 8 classes"* ]] || [[ -e "$new" ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia --check-only --out <new file>: expected exit 0, 'every check passed; nothing was sent', no file, no add*, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia --check-only --out <new file> passes every check, sends nothing and writes no file"
+  fi
+  # A complete record and no STRK: --check-only passes (the need waived); its keys listed.
+  printf '{"network":"sepolia","chain_id":"0x534e5f5345504f4c4941","fresh":{"salt":"0x1","complete":"yes"}}\n' >"$new"
+  out="$(fresh_run 0 --check-only --out "$new")"; rc=$?
+  if [[ $rc -ne 0 || "$out" != *"fresh: the record is complete, nothing is left to send, so the need does not apply"* ||
+      "$out" != *"complete: a run would send nothing"* || "$out" != *"every check passed; nothing was sent"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia --check-only on a complete record with no STRK: expected the need waived and a pass, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia --check-only on a complete record with no STRK: the need waived, every check passed, nothing sent"
+  fi
+  # A record holding a transaction hash under every key a run records (review of #358, note 2): --check-only lists each
+  # key with its status read from the node (UNKNOWN here: the fake node knows no transaction), sends nothing, leaves
+  # the file as it was, and no value of the three variables reaches an output, the file or a child's argv.
+  python3 -I - "$new" <<'PY2'
+import json, sys
+keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
+        "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
+        "wiring_tx", "definitions_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
+        "smoke.settle_tx"]
+fresh = {"salt": "0x1", "at": "unmerged-test"}
+for i, key in enumerate(keys):
+    node = fresh
+    *parents, leaf = key.split(".")
+    for part in parents:
+        node = node.setdefault(part, {})
+    node[leaf] = "0x%x" % (0xabc000 + i)
+json.dump({"network": "sepolia", "chain_id": "0x534e5f5345504f4c4941", "fresh": fresh}, open(sys.argv[1], "w"), indent=2)
+PY2
+  cp "$new" "$est/record.before"
+  : >"$log"
+  out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
+  listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
+  if [[ $rc -ne 0 || "$listed" != 19 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+      ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
+      grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
+    echo "FAIL: sepolia --check-only over a record of 19 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia --check-only over a record of 19 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+  fi
+  rm -f "$est/record.before"
+  # A record of another network is refused.
+  printf '{"network":"devnet","chain_id":"0x534e5f5345504f4c4941","fresh":{}}\n' >"$new"
+  out="$(fresh_run 1000000000000000000000 --out "$new")"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"records a 'devnet' deployment, not sepolia; nothing was sent"* ]]; then
+    echo "FAIL: sepolia --out <a devnet record>: expected a refusal, got $rc:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia --out <a devnet record> is refused; nothing sent"
+  fi
+  rm -f "$new" "$est/strk"
   # A diagnostic option is checked by deploy.sh before anything runs, and only with --estimate-only.
   for bad in "--block-id pending" "--bounds x" "--frobnicate"; do
     # shellcheck disable=SC2086

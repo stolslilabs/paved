@@ -1,7 +1,7 @@
 // The economy's fixed numbers and the client's arithmetic on them (`docs/architecture/economy.md`, P-31). Every
 // amount is a bigint in the token's base unit: never a float.
 
-/** USDC has 6 decimals (Starknet USDC, and MockUSDC on devnet). */
+/** USDC has 6 decimals (Starknet USDC, and Faucet on devnet). */
 export const USDC_DECIMALS = 6;
 /** PAVED has 18 decimals (D-10). */
 export const PAVED_DECIMALS = 18;

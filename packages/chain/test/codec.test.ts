@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { hash } from "starknet";
-import { ABIS, createCodecs } from "../src/abis";
+import { ABIS, FAUCET_ABI, createCodecs } from "../src/abis";
 import { AbiCodec, camelCase } from "../src/codec";
 import { VIEW_FIELDS, toViewError } from "../src/views";
 
@@ -28,7 +28,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the on-chain Tutorial left (D-21): no Tutorial or Lobby ABI, Setup holds the claim", () => {
-    expect(Object.keys(ABIS).sort()).toEqual(["Challenge", "Setup", "Token"]);
+    expect(Object.keys(ABIS).sort()).toEqual(["Challenge", "Setup"]);
     expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
     expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
     // The claim's state is a view of Setup (step D): read before any write.
@@ -96,7 +96,7 @@ describe("AbiCodec", () => {
 
   test("encodes a u256 as low, high", () => {
     const amount = (1n << 128n) + 5n;
-    expect(codecs.Token.encodeCall("approve", ["0xabc", amount])).toEqual(["0xabc", "0x5", "0x1"]);
+    expect(new AbiCodec(FAUCET_ABI).encodeCall("approve", ["0xabc", amount])).toEqual(["0xabc", "0x5", "0x1"]);
   });
 
   test("checks the argument count", () => {

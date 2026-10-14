@@ -16,7 +16,8 @@ export const FAKE_CHAIN_ID = "0x534e5f5345504f4c4941";
  * A deployments file that names `FAKE_ROUTER` as the mock router and `FAKE_CHAIN_ID` as its chain: the purchase's router
  * pin and chain check then accept the fakes.
  */
-export const FAKE_ROUTER_FILE = { chain_id: FAKE_CHAIN_ID, contracts: { MockRouter: { address: FAKE_ROUTER } } };
+/** The fake network's file: its MockRouter, and a Faucet at 0x13 (the USDC of the tests' `ECON`: on the faucet networks the economy reads the Faucet only). */
+export const FAKE_ROUTER_FILE = { chain_id: FAKE_CHAIN_ID, contracts: { MockRouter: { address: FAKE_ROUTER }, Faucet: { address: "0x13" } } };
 
 /** What `terms` answers for a game that was not bought (E2). */
 const notBought: TermsView = {

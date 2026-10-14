@@ -1,7 +1,6 @@
 import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
-import tokenAbi from "../../../contracts/abis/Token.json";
-import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
+import faucetAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
@@ -12,12 +11,11 @@ import { AbiCodec, type Abi } from "./codec";
  * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
  * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration.
  */
-export type ContractName = "Challenge" | "Setup" | "Token";
+export type ContractName = "Challenge" | "Setup";
 
 export const ABIS: Record<ContractName, Abi> = {
   Challenge: challengeAbi as Abi,
   Setup: setupAbi as Abi,
-  Token: tokenAbi as Abi,
 };
 
 export type Codecs = Record<ContractName, AbiCodec>;
@@ -26,7 +24,6 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
   return {
     Challenge: new AbiCodec(abis.Challenge),
     Setup: new AbiCodec(abis.Setup),
-    Token: new AbiCodec(abis.Token),
   };
 }
 
@@ -44,7 +41,7 @@ export const ECONOMY_ABIS: Record<EconomyContractName, Abi> = {
   Economy: economyAbi as Abi,
   PavedToken: pavedTokenAbi as Abi,
   Vault: vaultAbi as Abi,
-  USDC: mockUsdcAbi as Abi,
+  USDC: faucetAbi as Abi,
   Challenge: challengeAbi as Abi,
 };
 
@@ -61,7 +58,7 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
 }
 
 /** `Faucet.json`: the faucet's (devnet, Sepolia) `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
-export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
+export const FAUCET_ABI = faucetAbi as Abi;
 
 /**
  * What one faucet call mints: 100 USDC (6 decimals), enough for every stake of a day's games. Far under the contract's

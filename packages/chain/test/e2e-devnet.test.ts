@@ -231,7 +231,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const file = JSON.parse(readFileSync(process.env.E2E_DEPLOYMENT ?? resolve(REPO, "contracts/deployments/devnet.json"), "utf8")) as DeploymentFile;
     const deployment = resolveDeployment({ network: "devnet", file });
     expect(deployment.configured).toBe(true);
-    expect(deployment.mockUsdc).not.toBe("");
+    expect(deployment.faucet).not.toBe("");
     rpcUrl = deployment.rpcUrl;
     provider = new RpcProvider({ nodeUrl: rpcUrl });
     client = new PavedClient(deployment, provider as unknown as PavedRpc);
@@ -283,8 +283,11 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(await client.balance(p.address)).toBe(FAUCET_USDC_AMOUNT);
       hashes.push(`${p.name} ${short(result.transactionHash)}`);
     }
-    price = (await client.views.entryPrice()).amount;
+    const entry = await client.views.entryPrice();
+    price = entry.amount;
     expect(price).toBeGreaterThan(0n);
+    // The entry token Challenge charges is contracts.Faucet, explicitly (the client has no other entry token to prefer).
+    expect(BigInt(entry.token)).toBe(BigInt(client.deployment.faucet));
     pass("faucet: mint(self, N), no registration", `${FAUCET_USDC_AMOUNT} base units each; ${hashes.join(", ")}`);
   }, 60_000);
 

@@ -8,7 +8,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 
 | What | From | Override |
 |---|---|---|
-| ABIs of `Challenge`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
+| ABIs of `Challenge` and `Setup` (the entry token reads with `Faucet.json`; the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
 | The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
@@ -18,10 +18,9 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 |---|---|
 | `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
-| `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
-| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a MockUSDC: mainnet resolves none) |
+| `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below). `VITE_ACCOUNT_ADDRESS` left with D-25 (E) |
+| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a Faucet: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
-| `VITE_MOCK_USDC_ADDRESS` | the MockUSDC the faucet mints, devnet and Sepolia only (overrides `contracts.MockUSDC`; ignored on any other network) |
 
 The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
 tolerates a missing folder) and picks `<network>.json`.
@@ -54,15 +53,15 @@ A build with `VITE_NETWORK=sepolia`, `VITE_RPC_URL=https://api.cartridge.gg/x/st
 `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` plays on CORE's deployment (`contracts/deployments/sepolia.json`, S-1). What
 differs from devnet:
 
-- **Addresses**: all from the file. It has no `contracts.Token` (the old mock was never deployed there), so `Token`, the entry
-  token, is the file's top-level `token`, which is the MockUSDC. Where `contracts.Token` exists (devnet) it still wins.
-  `Economy`, `PavedToken`, `Vault` and `MockUSDC` give the economy, whose USDC is the MockUSDC.
+- **Addresses**: all from the file. The old `Token` is gone (CORE's file has one key per contract): the only required address is `Challenge`.
+  The entry token is the address `Challenge.entry_price` names (the Faucet, on devnet and Sepolia), read at run time.
+  `Economy`, `PavedToken`, `Vault` and `Faucet` give the economy, whose USDC is the Faucet.
 - **RPC**: the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`. `resolveDeployment` takes an `rpc_url` only when it is
   an `http(s)` URL without a `$`, so the placeholder is never called; without `VITE_RPC_URL` the build says "Not connected to
   sepolia: RPC URL missing" (`configured: false`). The RPC is Cartridge's, not Zan's (which rate-limits reads with -32011).
 - **Signer**: the Cartridge controller, as on mainnet (the env's burner key is devnet only). Writes pass no tip: starknet.js's own
   estimate (only devnet passes 0).
-- **Faucet**: `MockUSDC` is resolved on `devnet` and `sepolia` (`MOCK_USDC_NETWORKS`) and nowhere else; `mint` is a session
+- **Faucet**: `Faucet` is resolved on `devnet` and `sepolia` (`FAUCET_NETWORKS`) and nowhere else; `mint` is a session
   policy where it is (see "Signing"). The faucet button is offered on Sepolia
   (`supportsMint`), and never on mainnet.
 - **Pool quote**: `Economy.quote_swap` on the MockRouter (`EconomyPoolQuoter`), as on devnet: Ekubo serves no Sepolia. Mainnet keeps
@@ -395,8 +394,8 @@ runs in Cartridge's iframe. The connector is configured as follows:
   `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
   an approve's `spender` and `amount`, and the controller turns an approve without both into a
   policy on any spender and any amount. The policies hold:
-  - `MockUSDC.mint` (the test faucet: `PavedWriter.mint`) **when, and only when,
-    the deployment resolves a MockUSDC** (`deployment.mockUsdc`): Sepolia. Mainnet resolves none, so it has no such policy,
+  - `Faucet.mint` (the test faucet: `PavedWriter.mint`) **when, and only when,
+    the deployment resolves a Faucet** (`deployment.faucet`): Sepolia. Mainnet resolves none, so it has no such policy,
     and neither has a deployment whose file lacks the mock. The faucet mints 100 USDC a call, under the contract's caps
     (10,000 USDC a call, 20,000 USDC an address in all, `contracts/src/mocks/usdc.cairo`); an address that has used its total
     gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
@@ -420,7 +419,7 @@ runs in Cartridge's iframe. The connector is configured as follows:
 
   The economy's other writes are not in the session, so each one prompts: `Economy.settle`,
   `PavedToken.approve(Vault, …)`, and Vault `stake`/`unstake`/`claim`. Their addresses belong to
-  the economy's deployment, not to `Deployment`. `MockUSDC.mint` (was `Token.mint`) is not a policy, because the faucet
+  the economy's deployment, not to `Deployment`. `Faucet.mint` (was `Token.mint`) is not a policy, because the faucet
   exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
 
   A test (`chain/test/controller.test.ts`) drives every write of `PavedWriter` and `EconomyWriter`,

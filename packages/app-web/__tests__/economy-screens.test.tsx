@@ -37,7 +37,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const REFERRER = "0x77";
 const DAY = 20_000;
 const P = 10n ** 18n;
-const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18, chainId: FAKE_CHAIN_ID } as Deployment;
+const base = { ...resolveDeployment({ network: "devnet", file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18, chainId: FAKE_CHAIN_ID } as Deployment;
 const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FILE, env: ECON });
 
 /** A base writer that runs the economy's `prepare` (its reads and checks) and records the calls it would send. */
@@ -693,10 +693,11 @@ describe("helpers", () => {
     expect(settleState({ ...terms, settled: true, reward: 5n }, bought, 0)).toEqual({ kind: "settled", reward: 5n });
   });
 
-  it("the economy's addresses come from the same network's file, the env first", () => {
-    const files = { "/x/devnet.json": { default: { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, MockUSDC: { address: "0x23" } } } } };
-    expect(resolveEconomyNetwork(base, {}, files).configured).toBe(true);
-    expect(resolveEconomyNetwork(base, { VITE_USDC_ADDRESS: "0x99" }, files).addresses.USDC).toBe("0x99");
+  it("the economy's addresses come from the same network's file; VITE_USDC_ADDRESS is ignored on devnet (the entry token is the Faucet)", () => {
+    const files = { "/x/devnet.json": { default: { contracts: { Economy: { address: "0x20" }, PavedToken: { address: "0x21" }, Vault: { address: "0x22" }, Faucet: { address: "0x23" } } } } };
+    const withFaucet = { ...base, faucet: "0x23" }; // the base's faucet is the one resolution
+    expect(resolveEconomyNetwork(withFaucet, {}, files).configured).toBe(true);
+    expect(resolveEconomyNetwork(withFaucet, { VITE_USDC_ADDRESS: "0x99" }, files).addresses.USDC).toBe("0x23");
     expect(resolveEconomyNetwork(base, {}, {}).configured).toBe(false);
   });
 });

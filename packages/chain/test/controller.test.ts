@@ -17,16 +17,18 @@ import { FakeGameViews } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
-  // Sepolia has a MockUSDC (D-16, P-39): the faucet's `mint` is a session policy there.
-  env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  // Sepolia has a Faucet (D-16, P-39): the faucet's `mint` is a session policy there.
+  file: { contracts: { Faucet: { address: "0x14" } } },
+  env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2", Setup: "0x3" } },
 });
 const mainnet = resolveDeployment({
   network: "mainnet",
-  env: { rpcUrl: "http://m/rpc", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  file: { contracts: { Faucet: { address: "0x14" } } },
+  env: { rpcUrl: "http://m/rpc", addresses: { Challenge: "0x2", Setup: "0x3" } },
 });
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Challenge entry is paid in USDC. */
-const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
+const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x14" };
 /** The approve the app gives the session (`entryApprove`): the token entry_price names, MAX_STAKE x its unit. */
 const USDC_APPROVE = { token: ECON.usdc, cap: BigInt(MAX_STAKE) * FAKE_UNIT };
 const session = controllerPolicies(deployment, { approve: USDC_APPROVE });
@@ -52,7 +54,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
-  // Mainnet never resolves a MockUSDC, whatever the env says: its writer has no faucet.
+  // Mainnet never resolves a Faucet, whatever the env says: its writer has no faucet.
   const mainnetWriter = new PavedClient(mainnet, rpc, createCodecs(), gameViews).writer(account);
   const economy = new FakeEconomy();
   economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
@@ -62,7 +64,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
   const move = { orientation: 1, x: 2, y: 3 };
   const writes: Record<string, () => Promise<unknown>> = {
-    // The faucet (MockUSDC.mint): signed in the controller's session on Sepolia, where the deployment has a MockUSDC.
+    // The faucet (Faucet.mint): signed in the controller's session on Sepolia, where the deployment has a Faucet.
     "faucet mint": () => writer.mint(),
     "faucet on mainnet": () => mainnetWriter.mint(),
     // The tutorial claim (D-21): `Setup.claim_tutorial()`, signed in the session where the deployment has a Setup.
@@ -145,15 +147,16 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(session.filter((p) => p.method === "mint")).toEqual([{ target: "0x14", method: "mint", description: "Test USDC faucet" }]);
   });
 
-  test("on mainnet there is no MockUSDC, no faucet write and no mint policy, whatever the env says", async () => {
+  test("on mainnet there is no Faucet, no faucet write and no mint policy, whatever the env says", async () => {
     const sent = await sentByEveryWrite();
-    expect(mainnet.mockUsdc).toBe("");
+    expect(mainnet.faucet).toBe("");
     expect(sent["faucet on mainnet"]).toEqual([]);
     const onMainnet = controllerPolicies(mainnet, { approve: USDC_APPROVE });
     expect(onMainnet.map((p) => p.method)).not.toContain("mint");
-    expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
-    expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]).toBeUndefined();
-    // A deployment with no MockUSDC at all (a Sepolia file without one) has none either.
+    // The entry token's approve may target this address (the test's USDC is 0x14 too); a mint never does.
+    expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14") && p.method === "mint")).toBe(false);
+    expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]?.methods.map((m) => m.entrypoint) ?? []).not.toContain("mint");
+    // A deployment with no Faucet at all (a Sepolia file without one) has none either.
     const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2", Token: "0x4" } } });
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("mint");
     // Nor a Setup (a deployment from before step D): it stays configured, with no claim policy on an empty target.

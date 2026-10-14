@@ -1,3 +1,4 @@
+import devnetFile from "../../../../contracts/deployments/devnet.json";
 import React from "react";
 import { vi } from "vitest";
 import { render } from "@testing-library/react";
@@ -7,7 +8,9 @@ import { FAKE_CHAIN_ID } from "@paved/chain/testing";
 import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
-export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
+/** The devnet.json Faucet: the one value the app's economy reads as the entry token (USDC) on devnet. */
+const DEVNET_FAUCET = (devnetFile as { contracts: { Faucet: { address: string } } }).contracts.Faucet.address;
+export const configured = { configured: true, network: "devnet", tokenDecimals: 18, faucet: DEVNET_FAUCET, addresses: { Challenge: "0x2", Setup: "0x3" } } as unknown as Deployment;
 export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Challenge: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
 export const account = { address: PLAYER, execute: async () => ({ transaction_hash: "0x0" }) };
 
