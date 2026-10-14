@@ -6,6 +6,7 @@ pub mod cold_paths_audit;
 pub mod economy;
 pub mod events;
 pub mod forest;
+pub mod guardian;
 pub mod mint;
 pub mod quests;
 pub mod setup_system;
