@@ -9,6 +9,7 @@
 use paved::constants;
 use paved::day::day_id;
 use paved::models::game::{Game, GameAssert, GameImpl};
+use paved::seed::{SeedSource, TokenSeed};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
@@ -47,6 +48,9 @@ pub struct GameView {
     pub start_time: u64,
     pub end_time: u64,
     pub day_id: u64,
+    /// The first second at which `build` and `discard` revert with `'Game: expired'`: `start_time`
+    /// + 24 h (S1, appended). `surrender` stays open after it.
+    pub expires_at: u64,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -82,6 +86,10 @@ pub trait IGameView<TContractState> {
     fn game(self: @TContractState, game_id: u32) -> GameView;
     fn tiles(self: @TContractState, game_id: u32, from: u32, count: u32) -> Array<TileView>;
     fn builder(self: @TContractState, game_id: u32, player_id: felt252) -> BuilderView;
+    /// The seed the game started with, before the deck's withdrawal and the first draw (S1): with
+    /// `tiles` (every drawn tile, in draw order), what the client replays to predict the next
+    /// draw. Reverts `'Game: does not exist'` for no game.
+    fn initial_seed(self: @TContractState, game_id: u32) -> felt252;
 }
 
 /// Views of the Challenge days, on `Challenge` (`ITournamentView` before D-20).
@@ -125,6 +133,7 @@ pub impl ViewsImpl of ViewsTrait {
             start_time: game.start_time,
             end_time: game.end_time,
             day_id: game.day_id,
+            expires_at: game.expires_at(),
         }
     }
 
@@ -181,6 +190,18 @@ pub impl ViewsImpl of ViewsTrait {
             store.tile(game, builder.tile_id).plan
         };
         BuilderView { game_id, player_id, tile_id: builder.tile_id, plan }
+    }
+
+    /// The initial seed of an existing game of the contract `contract`: its token's seed
+    /// (`TokenSeed`, D-23), the only `SeedSource` that `spawn` uses, and the one the Sepolia
+    /// `Challenge` has used since its deployment (5dbc692b), so it holds for every game spawned
+    /// there. It is computed, not stored: a seed source that cannot be recomputed (a VRF) must
+    /// store the seed at spawn and this view read it.
+    fn initial_seed(store: Store, contract: ContractAddress, game_id: u32) -> felt252 {
+        let game = Self::existing_game(store, game_id);
+        let mode: Mode = game.mode.into();
+        // [Info] The salt is the seed of a new game, 0 (`GameImpl::new`)
+        TokenSeed { contract }.seed(mode, game.start_time, game_id, 0)
     }
 
     fn current_day(time: u64) -> u64 {

@@ -69,6 +69,7 @@ pub mod Double {
                 start_time: self.start_time.read(),
                 end_time: 0,
                 day_id: 0,
+                expires_at: 0,
             }
         }
 
@@ -77,6 +78,10 @@ pub mod Double {
         }
 
         fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
+            panic!("unused")
+        }
+
+        fn initial_seed(self: @ContractState, game_id: u32) -> felt252 {
             panic!("unused")
         }
     }
