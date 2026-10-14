@@ -390,8 +390,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(board.data.total).toBe(players.length);
     expect(board.data.entries.map((e) => e.bestScore)).toEqual(ranked.map(([, s]) => s));
     for (const e of board.data.entries) {
+      // Each row is one of the three wallets, by address: names are off chain since D-25 (E), and no row carries one.
       const p = players.find((x) => BigInt(x.address) === BigInt(e.playerId))!;
-      expect(e.name).toBe(p.name);
+      expect(p).toBeDefined();
+      expect(e).not.toHaveProperty("name");
       expect(e.bestScore).toBe(scores.get(p.name));
       expect(e.bestGameId).toBe(dailyGames.get(p.name));
       expect(e.gamesFinished).toBe(1);

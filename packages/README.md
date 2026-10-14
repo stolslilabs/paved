@@ -107,8 +107,9 @@ a pull request (the source check is skipped) and writes the deployment file to a
 
 `packages/chain/test/devnet.test.ts` (`bun run test:devnet`, `PAVED_DEVNET=1`) is the smaller check on the same stack: it
 reads the same deployment file (`E2E_DEPLOYMENT`), starts nothing, and uses the first two predeployed accounts after the
-deployer that are not registered yet (so it re-runs on one node, and can run after the end-to-end test on it; it fails
-clearly when fewer than two are left): it creates a player with the faucet, claims the tutorial, buys a Daily game with
+deployer that are still fresh: no game, no tutorial claim and no USDC (D-25 (E): no registration to check; so it re-runs
+on one node, and can run after the end-to-end test on it; it fails clearly when fewer than two are left): it mints the
+faucet USDC with no registration, claims the tutorial, buys a Daily game with
 `EconomyWriter.purchase`, discards and surrenders it, and reads the games and the typed errors back.
 
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),

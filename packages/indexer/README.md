@@ -114,5 +114,7 @@ The devnet scenario starts its own `starknet-devnet` 0.10 on port 5072 (`DEVNET_
 plays complete Daily games with three accounts over two days, runs the real indexer process against it (restart, a
 replaced block, a second indexer rebuilt from the chain), and compares the API with the contracts' own views. It stops what
 it starts by PID and writes `contracts/deployments/devnet.json` back as it was. Needs `starknet-devnet` 0.10 (`DEVNET_BIN`,
-else the asdf install) and the toolchain of `scripts/deploy.sh`. `PAVED_TRANSCRIPT=<file>` also writes the API answers it
+else the asdf install) and the toolchain of `scripts/deploy.sh`. On a pull request's branch, whose contract sources differ
+from main, set `PAVED_DEPLOY_UNMERGED=1` (it passes `--unmerged` to `deploy.sh`). A node port of your own must not be one the
+fetch standard blocks (5060 and 5061 are): Node's `fetch` refuses it ("bad port"). `PAVED_TRANSCRIPT=<file>` also writes the API answers it
 compared.
