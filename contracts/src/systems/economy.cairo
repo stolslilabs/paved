@@ -1,11 +1,11 @@
 //! The economy of the paid Challenge game (P8, `docs/architecture/economy.md`, sections 1, 2, 5 and
 //! 6, P-31).
 //!
-//! - `purchase` (the game only): the price `P` is already on `Economy` (`Challenge` pulls it from
-//! the
-//!   player). 5 % goes to the referrer, if any; `BURN_BPS` (70 %) is swapped to PAVED through the
-//!   Ekubo router (transfer, `swap`, `clear_minimum`, `clear`, in one call) and burned; the rest,
-//!   with any USDC the router gave back, goes to the Vault, at once. The game's terms are frozen:
+//! - `purchase` (the game only): the price `P` is already on `Economy` (`Challenge` pulls it
+//!   from the player). 5 % goes to the referrer, if any; `BURN_BPS` (70 %) is swapped to PAVED
+//!   through the Ekubo router (transfer, `swap`, `clear_minimum`, `clear`, in one call) and burned;
+//!   the rest, with any USDC the router gave back, goes to the Vault, at once. The game's terms are
+//!   frozen:
 //!   the reference reward `R` (the PAVED bought, price-guarded, times the stake boost and the
 //!   supply factor read after the burn) and the curve in force. `Economy` holds nothing after the
 //!   call.
