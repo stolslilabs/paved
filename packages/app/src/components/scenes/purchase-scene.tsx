@@ -56,7 +56,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
               <h2 id="stake-title" className="font-display text-sm font-semibold">Stake</h2>
               <span className="text-xs text-muted-foreground">{formatUnits(quote.price / BigInt(stake), TOKENS.usdc.decimals, 0)} USDC per stake</span>
             </div>
-            <StakePicker value={stake} max={props.maxStake} disabled={buying} onChange={props.onStakeChange} />
+            <StakePicker value={stake} max={props.maxStake} price={<Amount value={quote.price} token="usdc" />} disabled={buying} onChange={props.onStakeChange} />
             <p className="text-xs text-muted-foreground">A higher stake costs more and boosts the burn; the reward scales with it.</p>
           </section>
 

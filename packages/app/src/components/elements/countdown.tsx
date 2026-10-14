@@ -21,11 +21,13 @@ export interface CountdownProps {
   /** Seconds since the epoch: the scene's clock, a prop so a story or a test stays still. */
   now: number;
   label?: string;
+  /** Leaves the visible label out (the icon and the time stay); the timer's accessible name still carries it. */
+  hideLabel?: boolean;
   className?: string;
 }
 
 /** The time left before a game expires (`expires_at`); amber under an hour, red once expired. */
-export function Countdown({ expiresAt, now, label = "Expires in", className }: CountdownProps) {
+export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, className }: CountdownProps) {
   const left = expiresAt - now;
   const state = left <= 0 ? "expired" : left < COUNTDOWN_WARN_S ? "warning" : "ok";
   return (
@@ -47,7 +49,7 @@ export function Countdown({ expiresAt, now, label = "Expires in", className }: C
         <span className="font-semibold">Expired</span>
       ) : (
         <>
-          <span className="hidden tablet:inline">{label}</span>
+          {!hideLabel && <span className="hidden tablet:inline">{label}</span>}
           <time dateTime={`PT${Math.max(0, left)}S`} className="numeric font-semibold">{formatRemaining(left)}</time>
         </>
       )}

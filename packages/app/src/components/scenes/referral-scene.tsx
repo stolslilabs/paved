@@ -119,15 +119,13 @@ export function ReferralScene(props: ReferralSceneProps) {
                 ) : (
                   <ul aria-label="Purchases through your link" className="flex flex-col divide-y divide-border">
                     {earnings.recent.map((p, i) => (
-                      <li key={`${p.purchasedAt}-${i}`} className="flex items-center gap-3 py-2">
+                      <li key={`${p.purchasedAt}-${i}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 py-2">
                         <Icon name="ticket" size="sm" className="text-muted-foreground" />
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="text-sm">
-                            Stake <span className="numeric">{p.stake}</span> · <Amount value={BigInt(p.price)} token="usdc" />
-                          </span>
-                          <span className="text-xs text-muted-foreground">{ago(now - p.purchasedAt)}</span>
+                        <span className="text-sm leading-5">
+                          Stake <span className="numeric">{p.stake}</span> · <Amount value={BigInt(p.price)} token="usdc" />
                         </span>
                         <Amount value={BigInt(p.referral)} token="usdc" className="text-success" />
+                        <span className="col-start-2 text-xs text-muted-foreground">{ago(now - p.purchasedAt)}</span>
                       </li>
                     ))}
                   </ul>

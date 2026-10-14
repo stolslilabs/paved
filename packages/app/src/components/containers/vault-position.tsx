@@ -45,7 +45,7 @@ export function VaultPosition({ position, className }: VaultPositionProps) {
       />
       <StatRow icon="arrow-trend-up" label="Rate" hint="$TILE per vPAVED, rises with every purchase" value={`1 : ${formatUnits(rate, 18, 4)}`} tone="success" />
       <StatRow icon="percent" label="Exit fee" hint="Kept in the Vault for the other holders" value={formatBps(position.exitFeeBps)} />
-      <StatRow icon="vault" label="In the Vault" hint="All holders" value={<Amount value={position.totalAssets} token="paved" />} tone="muted" />
+      <StatRow icon="piggy-bank" label="In the Vault" hint="All holders" value={<Amount value={position.totalAssets} token="paved" />} tone="muted" />
     </div>
   );
 }

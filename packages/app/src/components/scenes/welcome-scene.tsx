@@ -1,14 +1,10 @@
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
-import { TileChip } from "../elements/tile-chip";
+import { Background } from "../elements/background";
 import { Wordmark } from "../elements/wordmark";
 
 export interface WelcomeSceneProps {
-  /** Plans for the decorative mosaic behind the title (a recorded board's first tiles). */
-  mosaic: { plan: number; orientation: number }[];
-  /** Where the board's tile art is served; without it the mosaic draws the plans' areas. */
-  tileArt?: string;
   /** The controller's window is open. */
   connecting?: boolean;
   /** The last connect failed. */
@@ -24,16 +20,10 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 ];
 
 /** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */
-export function WelcomeScene({ mosaic, tileArt, connecting, error, onConnect, onTraining }: WelcomeSceneProps) {
+export function WelcomeScene({ connecting, error, onConnect, onTraining }: WelcomeSceneProps) {
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-board text-foreground">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[55vh] [mask-image:linear-gradient(to_bottom,black,transparent)]">
-        <div className="grid -rotate-12 scale-125 grid-cols-8 gap-1 opacity-30 tablet:grid-cols-12">
-          {mosaic.concat(mosaic).slice(0, 48).map((t, i) => (
-            <TileChip key={i} plan={t.plan} orientation={t.orientation} artBase={tileArt} className="aspect-square size-auto w-full rounded-sm border" />
-          ))}
-        </div>
-      </div>
+      <Background />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_30%,var(--color-gold-950),transparent)] opacity-70" />
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pt-24 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16 desktop:pt-8">
