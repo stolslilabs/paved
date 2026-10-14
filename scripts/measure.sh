@@ -11,22 +11,45 @@
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
 # Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 15 GiB of address space (from VmPeak, see below) and reports its peak resident memory.
-# Toolchain: scarb 2.20.1 and snforge 0.64.0 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
-# cairo-coverage must be on the PATH (https://github.com/software-mansion/cairo-coverage).
+# Toolchain: scarb 2.20.1 and snforge 0.64.0, plain `scarb` and `snforge` from the PATH, with no prepend (the owner's
+# Cairo rule, 2026-10-14: at most one Cairo run at a time on the VPS, always through the shims ~/.local/bin/scarb and
+# ~/.local/bin/snforge, which hold the machine-wide lock). SCARB_BIN_DIR / SNFORGE_BIN_DIR go first on the PATH only when
+# the caller sets them (=$HOME/.local/bin passes). Before any build a guard refuses (exit 2) when a shim exists and the
+# tool resolves elsewhere (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns.
+# PAVED_SCARB_SHIM / PAVED_SNFORGE_SHIM are the shim paths the guard expects (defaults ~/.local/bin/scarb and
+# ~/.local/bin/snforge): a hook for scripts/test-deploy-url.sh, not a way round the rule.
+# cairo-coverage (https://github.com/software-mansion/cairo-coverage) is not a Cairo build: snforge finds it on the PATH,
+# where its directory (CAIRO_COVERAGE_BIN_DIR, default the asdf install, when it exists) goes first: it holds no scarb or
+# snforge, and the guard, run after the PATH is set, refuses if it ever does.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/contracts"
 
-SCARB_BIN_DIR="${SCARB_BIN_DIR:-$HOME/.asdf/installs/scarb/2.20.1/bin}"
-SNFORGE_BIN_DIR="${SNFORGE_BIN_DIR:-$HOME/.asdf/installs/starknet-foundry/0.64.0/bin}"
+[ -z "${SCARB_BIN_DIR:-}" ] || export PATH="$SCARB_BIN_DIR:$PATH"
+[ -z "${SNFORGE_BIN_DIR:-}" ] || export PATH="$SNFORGE_BIN_DIR:$PATH"
+# snforge calls `cairo-coverage` from the PATH, and the asdf shim of it wants a version set, so its install directory
+# goes first when it exists. It holds only cairo-coverage, so it cannot shadow the shims: the guard below runs after the
+# PATH is set, and refuses if that directory ever holds a scarb or snforge.
 CAIRO_COVERAGE_BIN_DIR="${CAIRO_COVERAGE_BIN_DIR:-$HOME/.asdf/installs/cairo-coverage/0.6.1/bin}"
-# snforge calls `cairo-coverage` from the PATH: the asdf shim wants a version set, so the install
-# directory comes first when it exists
 if [ -d "$CAIRO_COVERAGE_BIN_DIR" ]; then
   export PATH="$CAIRO_COVERAGE_BIN_DIR:$PATH"
 fi
-export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
+# one tool, one shim: refuse when the shim exists and the tool resolves elsewhere, warn when there is no shim
+shim_guard() { # <tool> <shim path> <override variable name>
+  local found
+  found="$(command -v "$1" || true)"
+  if [ -x "$2" ]; then
+    if [ "$found" != "$2" ]; then
+      echo "measure.sh: $1 resolves to ${found:-(not found)}, not the shim $2: the owner's rule is one Cairo run at a time through the shims (set $3=\$HOME/.local/bin, or fix PATH)" >&2
+      exit 2
+    fi
+  else
+    echo "measure.sh: warning: no shim at $2, using $1 ${found:-(not found)}" >&2
+  fi
+}
+shim_guard scarb "${PAVED_SCARB_SHIM:-$HOME/.local/bin/scarb}" SCARB_BIN_DIR
+shim_guard snforge "${PAVED_SNFORGE_SHIM:-$HOME/.local/bin/snforge}" SNFORGE_BIN_DIR
 # `prlimit --as` caps address space, so caps come from VmPeak, not RSS (D-251): cap = 1.5 x the VmPeak of the
 # largest process of the run, rounded up to a whole GiB, within [8, 16] GiB. Measured on the VPS on 2026-10-10
 # (RAYON_NUM_THREADS=1, under a 16 GiB cap; see AGENTS.md): `snforge test paved::types::` VmPeak 10,374,784 kB

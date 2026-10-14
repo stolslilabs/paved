@@ -2,7 +2,7 @@
 """The expected table of `Economy`'s end-to-end fixture (P8 E2, `test_fixture_matches_sim` in
 contracts/src/tests/economy/economy.cairo), from sim.py's formulas.
 
-    python3 -I -B scripts/montecarlo/fixture.py [--sim-pool]
+    python3 -I -B scripts/montecarlo/fixture.py [--sim-pool] [--margin-paved]
 
 It imports sim.py's `payout_factor` and `Ema` and runs the purchase and day lines of `simulate` on
 the fixture's inputs: the launch pool (800,000 PAVED and 10,000 USDC) and the initial supply, the
@@ -15,6 +15,11 @@ games in one block, so it moves once a day here.
 The pool keeps its fee in its reserves, as MockRouter does (sim.py keeps it out: `--sim-pool` runs
 sim.py's pool instead, to measure that gap). It prints the day means and the rows of `expected()` in
 the test: (PAVED bought, R, payout), in base units.
+
+`--margin-paved` runs the purchase as `Economy` does since P-56: one swap of the burn quote and the
+margin (the price less any referral), its PAVED split by input, the margin's part to the Vault and the
+burn's part burned; R and the guard read the burn's part, which "PAVED bought" reports. The test's
+table is this output.
 """
 
 import sys
@@ -24,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sim  # noqa: E402
 
 SIM_POOL = "--sim-pool" in sys.argv[1:]
+MARGIN_PAVED = "--margin-paved" in sys.argv[1:]
 
 MEAN0 = 3980.0
 SIGMA, SLOPE, CAP = 0.0, 1.222, 5
@@ -61,10 +67,15 @@ def main():
             # The purchase, as sim.py's `simulate` (the referral leaves the burn unchanged)
             price = stake * sim.BASE_PRICE
             quote = price * sim.BURN
-            fee = quote * sim.POOL_FEE
-            out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
-            pool_usdc += quote - fee if SIM_POOL else quote
-            pool_paved -= out
+            swapped = quote
+            if MARGIN_PAVED:
+                swapped = price * (1 - sim.REFERRAL) if referred else price
+            fee = swapped * sim.POOL_FEE
+            bought = pool_paved * (swapped - fee) / (pool_usdc + swapped - fee)
+            pool_usdc += swapped - fee if SIM_POOL else swapped
+            pool_paved -= bought
+            # The burn's part, by input (all of it without --margin-paved)
+            out = bought * quote / swapped if MARGIN_PAVED else bought
             supply -= out
             factor = min(max((2 * TARGET - supply) / TARGET, 0.0), 2.0)
             # The guard, then sim.py's R

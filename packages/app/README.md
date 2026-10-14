@@ -28,11 +28,18 @@ background; the viewports are the four named breakpoints.
 
 The Foundations stories (`src/styles/*.stories.tsx`) read the token file itself (`src/styles/tokens.ts`), so they cannot
 drift from it: Colors (scales with hex and OKLCH; semantic tokens with their computed contrast), Typography, Motion
-(reduced motion off and on), Spacing and radius, Breakpoints. Icons wait for F4 (no story yet). Tiles, board and scenes
+(reduced motion off and on), Spacing and radius, Breakpoints. Icons (F4) are in `src/components/ui/icon.stories.tsx`. Tiles, board and scenes
 come with F6 and the pages. The a11y panel shows the checks in the browser; running them in CI is Q2's. Hosting is F5.
 
 The CI `client` job runs `build-storybook`, so a broken story fails the pull request. Cap the heap as above:
 `NODE_OPTIONS=--max-old-space-size=1536 bun run --filter @paved/app build-storybook`.
+
+## Icons (F4)
+
+Font Awesome Pro 6.6.0, from the owner's three files in `public/fontawesome/js` (source, licence and hashes in the
+README beside them; section 8 of the architecture). `src/lib/font-awesome.ts` injects them after the first frame with
+DOM rewriting off; `<Icon name="house" variant="solid" size="md" label="Home" />` (`src/components/ui/icon.tsx`) draws
+the icon as an SVG that React owns. Without `label` it is `aria-hidden`. `thin.min.js` holds one icon, `spider-web`.
 
 ## Layout
 

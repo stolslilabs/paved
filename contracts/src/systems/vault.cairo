@@ -1,42 +1,41 @@
-//! The staking Vault (P8, `docs/architecture/economy.md` section 4, P-31).
+//! The staking Vault and its share, vPAVED (P8, `docs/architecture/economy.md` section 4, P-31,
+//! P-55, P-56, `docs/architecture/vault-share.md`, its addendum).
 //!
-//! Stakers lock PAVED and earn the USDC that reaches the Vault (the margin of every purchase, or
-//! any donation), pro rata of their stake. There is no `pay` entry point: income is whatever USDC
-//! balance the Vault has not yet accounted for. Before every action the Vault syncs it into `acc`,
-//! a reward per staked unit scaled by `ACC_SCALE` (1e36). USDC that arrives while nobody stakes
-//! waits in the balance for the first staker.
+//! An OpenZeppelin ERC4626 over PAVED ("Vault PAVED", `vPAVED`, 18 decimals, offset 0): `deposit`,
+//! `mint`, `withdraw` and `redeem`. The rate (PAVED per vPAVED) is `(total_assets + 1) /
+//! (total_supply + 1)`, where `total_assets` is the PAVED the Vault holds. Only three things raise
+//! it: PAVED reaching the Vault without shares (the margin of every purchase, which `Economy` sends
+//! as PAVED by a plain transfer, or a donation), the exit fee, and the rounding, which always
+//! favours the Vault.
 //!
-//! No owner, no setter, no pause, no upgrade: the two token addresses are set in the constructor
-//! and only a staker moves their own stake and dividends.
-
-// Starknet imports
-
-use starknet::ContractAddress;
+//! - The exit fee: `exit_fee` bps of the PAVED that leaves, on `withdraw` and `redeem` alike, kept
+//!   in the Vault for the holders who stay (`Fee::Assets`). `max_withdraw` counts it.
+//! - The inflation defence: the deployment deposits 1,000 PAVED of dead shares, held by the Vault
+//!   itself (nothing can redeem them), before any purchase; a deposit that would mint no share
+//!   reverts.
+//! - Votes: `VotesComponent`, a timestamp clock, units counted in vPAVED once delegated.
+//! - The owner (two-step) may replace the class (`upgrade`, P-56, D-17, P-42) and set the exit fee
+//!   within `MAX_EXIT_FEE_BPS`; nothing else: no pause, no other setter, no way into the holders'
+//!   PAVED but an upgrade.
+//!
+//! USDC sent to the Vault is stranded: it has no USDC path.
 
 // Constants
 
-/// Scale of the reward per staked unit: a sync loses less than 1e-36 USDC base unit per staked
-/// unit.
-pub const ACC_SCALE: u256 = 1_000_000_000_000_000_000_000_000_000_000_000_000;
+/// The exit fee's default (5 %) and the owner's ceiling (10 %), in basis points (owner, 2026-10-14,
+/// P-56).
+pub const DEFAULT_EXIT_FEE_BPS: u16 = 500;
+pub const MAX_EXIT_FEE_BPS: u16 = 1_000;
+pub const BPS: u256 = 10_000;
+/// The dead shares of the deployment: 1,000 PAVED deposited for the Vault itself.
+pub const DEAD_ASSETS: u256 = 1_000_000_000_000_000_000_000;
 
 #[starknet::interface]
 pub trait IVault<TContractState> {
-    /// Pulls `amount` PAVED from the caller (approve first) and adds it to their stake.
-    fn stake(ref self: TContractState, amount: u256);
-    /// Returns `amount` PAVED of the caller's stake; the USDC earned so far stays claimable.
-    fn unstake(ref self: TContractState, amount: u256);
-    /// Pays the caller's pending USDC; returns the amount paid.
-    fn claim(ref self: TContractState) -> u256;
-    /// The USDC `account` would receive from `claim` now, the unsynced income included.
-    fn pending(self: @TContractState, account: ContractAddress) -> u256;
-    fn staked(self: @TContractState, account: ContractAddress) -> u256;
-    fn total_staked(self: @TContractState) -> u256;
-    /// The reward per staked unit, scaled by `ACC_SCALE`, as of the last sync.
-    fn acc(self: @TContractState) -> u256;
-    /// The USDC balance already distributed into `acc` and not yet claimed.
-    fn accounted(self: @TContractState) -> u256;
-    /// The staked token (PAVED) and the dividend token (USDC).
-    fn tokens(self: @TContractState) -> (ContractAddress, ContractAddress);
+    /// The exit fee, in basis points of the PAVED that leaves.
+    fn exit_fee(self: @TContractState) -> u16;
+    /// Sets the exit fee, at most `MAX_EXIT_FEE_BPS`. The owner only.
+    fn set_exit_fee(ref self: TContractState, fee: u16);
 }
 
 #[starknet::contract]
@@ -47,44 +46,107 @@ pub mod Vault {
 
     // External imports
 
-    use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin_governance::votes::VotesComponent;
+    use openzeppelin_interfaces::erc20::IERC20;
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_token::erc20::ERC20Component;
+    use openzeppelin_token::erc20::extensions::erc4626::ERC4626Component::Fee;
+    use openzeppelin_token::erc20::extensions::erc4626::{
+        DefaultConfig as ERC4626DefaultConfig, ERC4626Component, ERC4626SelfAssetsManagement,
+    };
+    use openzeppelin_upgrades::UpgradeableComponent;
+    use openzeppelin_utils::contract_clock::ERC6372TimestampClock;
+    use openzeppelin_utils::cryptography::nonces::NoncesComponent;
+    use openzeppelin_utils::cryptography::snip12::SNIP12Metadata;
+    use openzeppelin_utils::math;
+    use openzeppelin_utils::math::Rounding;
+    use paved::components::ownable::OwnableComponent;
+    use paved::systems::token::DECIMALS;
 
     // Starknet imports
 
-    use starknet::storage::{
-        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-        StoragePointerWriteAccess,
-    };
-    use starknet::{ContractAddress, get_caller_address, get_contract_address};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
 
     // Local imports
 
-    use super::{ACC_SCALE, IVault};
+    use super::{BPS, IVault, MAX_EXIT_FEE_BPS};
 
     // Errors
 
     pub mod errors {
-        pub const ZERO_TOKEN: felt252 = 'Vault: zero token';
-        pub const SAME_TOKEN: felt252 = 'Vault: same token';
-        pub const ZERO_AMOUNT: felt252 = 'Vault: zero amount';
-        pub const NOT_ENOUGH_STAKED: felt252 = 'Vault: not enough staked';
-        pub const TRANSFER_FAILED: felt252 = 'Vault: transfer failed';
+        pub const ZERO_ADDRESS: felt252 = 'Vault: zero address';
+        pub const FEE_TOO_HIGH: felt252 = 'Vault: fee too high';
+        pub const ZERO_SHARES: felt252 = 'Vault: zero shares';
+    }
+
+    // Components
+
+    component!(path: ERC20Component, storage: erc20, event: ERC20Event);
+    component!(path: ERC4626Component, storage: erc4626, event: ERC4626Event);
+    component!(path: VotesComponent, storage: erc20_votes, event: VotesEvent);
+    component!(path: NoncesComponent, storage: nonces, event: NoncesEvent);
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+
+    #[abi(embed_v0)]
+    impl ERC20Impl = ERC20Component::ERC20Impl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC20CamelOnlyImpl = ERC20Component::ERC20CamelOnlyImpl<ContractState>;
+    impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC4626Impl = ERC4626Component::ERC4626Impl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC4626MetadataImpl = ERC4626Component::ERC4626MetadataImpl<ContractState>;
+    impl ERC4626InternalImpl = ERC4626Component::InternalImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl VotesImpl = VotesComponent::VotesImpl<ContractState>;
+    impl VotesInternalImpl = VotesComponent::InternalImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl NoncesImpl = NoncesComponent::NoncesImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+
+    /// The ERC20's own decimals are not read: `ERC4626MetadataImpl` gives PAVED's 18 plus the
+    /// offset 0 (`ERC4626DefaultConfig`).
+    impl ERC20Config of ERC20Component::ImmutableConfig {
+        const DECIMALS: u8 = DECIMALS;
+    }
+
+    /// The SNIP-12 domain of `delegate_by_sig`.
+    impl SNIP12MetadataImpl of SNIP12Metadata {
+        fn name() -> felt252 {
+            'vPAVED'
+        }
+
+        fn version() -> felt252 {
+            '1'
+        }
     }
 
     // Storage
 
     #[storage]
     struct Storage {
-        paved: ContractAddress,
-        usdc: ContractAddress,
-        total_staked: u256,
-        acc: u256,
-        accounted: u256,
-        stakes: Map<ContractAddress, u256>,
-        /// `acc` at the account's last settlement.
-        snapshots: Map<ContractAddress, u256>,
-        /// USDC settled to the account and not yet claimed.
-        owed: Map<ContractAddress, u256>,
+        /// The share: `ERC20_balances` and `ERC20_total_supply`.
+        #[substorage(v0)]
+        erc20: ERC20Component::Storage,
+        /// `ERC4626_asset`, PAVED.
+        #[substorage(v0)]
+        erc4626: ERC4626Component::Storage,
+        #[substorage(v0)]
+        erc20_votes: VotesComponent::Storage,
+        #[substorage(v0)]
+        nonces: NoncesComponent::Storage,
+        /// `owner` and `pending_owner`, flat.
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
+        /// The exit fee, in basis points.
+        exit_fee: u16,
     }
 
     // Events
@@ -92,179 +154,149 @@ pub mod Vault {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
-        Staked: Staked,
-        Unstaked: Unstaked,
-        Claimed: Claimed,
-        Distributed: Distributed,
+        ExitFeeSet: ExitFeeSet,
+        #[flat]
+        ERC20Event: ERC20Component::Event,
+        #[flat]
+        ERC4626Event: ERC4626Component::Event,
+        #[flat]
+        VotesEvent: VotesComponent::Event,
+        #[flat]
+        NoncesEvent: NoncesComponent::Event,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct Staked {
-        #[key]
-        pub account: ContractAddress,
-        pub amount: u256,
-        pub total_staked: u256,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct Unstaked {
-        #[key]
-        pub account: ContractAddress,
-        pub amount: u256,
-        pub total_staked: u256,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct Claimed {
-        #[key]
-        pub account: ContractAddress,
-        pub amount: u256,
-    }
-
-    /// New USDC income folded into `acc` by a sync.
-    #[derive(Drop, starknet::Event)]
-    pub struct Distributed {
-        pub amount: u256,
-        pub acc: u256,
-        pub total_staked: u256,
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct ExitFeeSet {
+        pub previous: u16,
+        pub fee: u16,
     }
 
     // Constructor
 
+    /// `exit_fee` in basis points, at most `MAX_EXIT_FEE_BPS` (`DEFAULT_EXIT_FEE_BPS` at launch).
     #[constructor]
-    fn constructor(ref self: ContractState, paved: ContractAddress, usdc: ContractAddress) {
-        // [Check] Two distinct tokens
-        assert(paved.is_non_zero() && usdc.is_non_zero(), errors::ZERO_TOKEN);
-        assert(paved != usdc, errors::SAME_TOKEN);
-        // [Effect] Store them, for good
-        self.paved.write(paved);
-        self.usdc.write(usdc);
+    fn constructor(
+        ref self: ContractState, owner: ContractAddress, paved: ContractAddress, exit_fee: u16,
+    ) {
+        // [Check] An owner, an asset (the component checks it is not zero)
+        assert(owner.is_non_zero(), errors::ZERO_ADDRESS);
+        // [Effect] The share's metadata, its asset, the owner, the fee
+        self.erc20.initializer("Vault PAVED", "vPAVED");
+        self.erc4626.initializer(paved);
+        self.ownable.initialize(owner);
+        self.write_exit_fee(exit_fee);
+    }
+
+    // Hooks
+
+    /// Every balance change (transfer, mint on deposit, burn on withdraw) moves the voting units
+    /// after it, and the supply's checkpoint on a mint or a burn.
+    impl ERC20HooksImpl of ERC20Component::ERC20HooksTrait<ContractState> {
+        fn after_update(
+            ref self: ERC20Component::ComponentState<ContractState>,
+            from: ContractAddress,
+            recipient: ContractAddress,
+            amount: u256,
+        ) {
+            let mut contract_state = self.get_contract_mut();
+            contract_state.erc20_votes.transfer_voting_units(from, recipient, amount);
+        }
+    }
+
+    /// A deposit that would mint no share reverts. The exit fee, `Fee::Assets`, needs no move: the
+    /// component sends out only the assets net of it, so it stays in `total_assets`.
+    impl ERC4626HooksImpl of ERC4626Component::ERC4626HooksTrait<ContractState> {
+        fn before_deposit(
+            ref self: ERC4626Component::ComponentState<ContractState>,
+            caller: ContractAddress,
+            receiver: ContractAddress,
+            assets: u256,
+            shares: u256,
+            fee: Option<Fee>,
+        ) {
+            assert(shares.is_non_zero(), errors::ZERO_SHARES);
+        }
+    }
+
+    /// The exit fee is `f = exit_fee / 10_000` of the PAVED the holder receives, on both exits,
+    /// rounded up: on a `withdraw` of `a`, `a x f` on top (the shares of `a + fee` burn); on a
+    /// `redeem` worth `v`, `v x f / (1 + f)` inside (the holder gets `v - fee`). No entry fee.
+    impl FeeConfigImpl of ERC4626Component::FeeConfigTrait<ContractState> {
+        fn calculate_withdraw_fee(
+            self: @ERC4626Component::ComponentState<ContractState>, assets: u256, shares: u256,
+        ) -> Option<Fee> {
+            let fee: u256 = self.get_contract().exit_fee.read().into();
+            Option::Some(Fee::Assets(math::u256_mul_div(assets, fee, BPS, Rounding::Ceil)))
+        }
+
+        fn calculate_redeem_fee(
+            self: @ERC4626Component::ComponentState<ContractState>, assets: u256, shares: u256,
+        ) -> Option<Fee> {
+            let fee: u256 = self.get_contract().exit_fee.read().into();
+            Option::Some(Fee::Assets(math::u256_mul_div(assets, fee, fee + BPS, Rounding::Ceil)))
+        }
+    }
+
+    /// `max_withdraw` is what redeeming the whole balance pays, the fee taken: `withdraw` of it
+    /// burns at most the balance.
+    impl LimitConfigImpl of ERC4626Component::LimitConfigTrait<ContractState> {
+        fn withdraw_limit(
+            self: @ERC4626Component::ComponentState<ContractState>, owner: ContractAddress,
+        ) -> Option<u256> {
+            let contract_state = self.get_contract();
+            let shares = contract_state.erc20.balance_of(owner);
+            Option::Some(contract_state.erc4626._preview_redeem_assets(shares))
+        }
     }
 
     // Implementations
 
     #[abi(embed_v0)]
     impl VaultImpl of IVault<ContractState> {
-        fn stake(ref self: ContractState, amount: u256) {
-            // [Check] Amount
-            assert(amount.is_non_zero(), errors::ZERO_AMOUNT);
-            // [Effect] Sync the income to the current stakers, settle the caller
-            let account = get_caller_address();
-            self.sync();
-            self.settle(account);
-            // [Effect] Add to the stake
-            let total_staked = self.total_staked.read() + amount;
-            self.stakes.write(account, self.stakes.read(account) + amount);
-            self.total_staked.write(total_staked);
-            // [Interaction] Pull the PAVED
-            let paved = IERC20Dispatcher { contract_address: self.paved.read() };
-            let ok = paved.transfer_from(account, get_contract_address(), amount);
-            assert(ok, errors::TRANSFER_FAILED);
-            self.emit(Staked { account, amount, total_staked });
+        fn exit_fee(self: @ContractState) -> u16 {
+            self.exit_fee.read()
         }
 
-        fn unstake(ref self: ContractState, amount: u256) {
-            // [Check] Amount
-            assert(amount.is_non_zero(), errors::ZERO_AMOUNT);
-            let account = get_caller_address();
-            let stake = self.stakes.read(account);
-            assert(amount <= stake, errors::NOT_ENOUGH_STAKED);
-            // [Effect] Sync the income to the current stakers, settle the caller
-            self.sync();
-            self.settle(account);
-            // [Effect] Remove from the stake
-            let total_staked = self.total_staked.read() - amount;
-            self.stakes.write(account, stake - amount);
-            self.total_staked.write(total_staked);
-            // [Interaction] Return the PAVED
-            let paved = IERC20Dispatcher { contract_address: self.paved.read() };
-            assert(paved.transfer(account, amount), errors::TRANSFER_FAILED);
-            self.emit(Unstaked { account, amount, total_staked });
+        fn set_exit_fee(ref self: ContractState, fee: u16) {
+            self.ownable.assert_only_owner();
+            self.write_exit_fee(fee);
         }
+    }
 
-        fn claim(ref self: ContractState) -> u256 {
-            // [Effect] Sync, settle, empty the caller's dividends
-            let account = get_caller_address();
-            self.sync();
-            self.settle(account);
-            let amount = self.owed.read(account);
-            if amount.is_zero() {
-                return 0;
-            }
-            self.owed.write(account, 0);
-            self.accounted.write(self.accounted.read() - amount);
-            // [Interaction] Pay the USDC
-            let usdc = IERC20Dispatcher { contract_address: self.usdc.read() };
-            assert(usdc.transfer(account, amount), errors::TRANSFER_FAILED);
-            self.emit(Claimed { account, amount });
-            amount
-        }
-
-        fn pending(self: @ContractState, account: ContractAddress) -> u256 {
-            // [Compute] The accumulator after a sync, then the account's settlement
-            let (acc, _) = self.synced();
-            self.owed.read(account)
-                + self.stakes.read(account) * (acc - self.snapshots.read(account)) / ACC_SCALE
-        }
-
-        fn staked(self: @ContractState, account: ContractAddress) -> u256 {
-            self.stakes.read(account)
-        }
-
-        fn total_staked(self: @ContractState) -> u256 {
-            self.total_staked.read()
-        }
-
-        fn acc(self: @ContractState) -> u256 {
-            self.acc.read()
-        }
-
-        fn accounted(self: @ContractState) -> u256 {
-            self.accounted.read()
-        }
-
-        fn tokens(self: @ContractState) -> (ContractAddress, ContractAddress) {
-            (self.paved.read(), self.usdc.read())
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-        /// The accumulator and the accounted balance once the unaccounted USDC is distributed.
-        /// Nothing is distributed while nobody stakes: the USDC waits for the first staker.
-        fn synced(self: @ContractState) -> (u256, u256) {
-            let acc = self.acc.read();
-            let accounted = self.accounted.read();
-            let total_staked = self.total_staked.read();
-            if total_staked.is_zero() {
-                return (acc, accounted);
-            }
-            let usdc = IERC20Dispatcher { contract_address: self.usdc.read() };
-            let income = usdc.balance_of(get_contract_address()) - accounted;
-            (acc + income * ACC_SCALE / total_staked, accounted + income)
+        fn write_exit_fee(ref self: ContractState, fee: u16) {
+            // [Check] Within the ceiling
+            assert(fee <= MAX_EXIT_FEE_BPS, errors::FEE_TOO_HIGH);
+            // [Effect] Store it
+            let previous = self.exit_fee.read();
+            self.exit_fee.write(fee);
+            self.emit(ExitFeeSet { previous, fee });
         }
+    }
 
-        fn sync(ref self: ContractState) {
-            let (acc, accounted) = self.synced();
-            let amount = accounted - self.accounted.read();
-            if amount.is_zero() {
-                return;
-            }
-            self.acc.write(acc);
-            self.accounted.write(accounted);
-            self.emit(Distributed { amount, acc, total_staked: self.total_staked.read() });
-        }
-
-        /// Moves what `account` earned since its last settlement into its owed USDC.
-        fn settle(ref self: ContractState, account: ContractAddress) {
-            let acc = self.acc.read();
-            let earned = self.stakes.read(account)
-                * (acc - self.snapshots.read(account))
-                / ACC_SCALE;
-            if earned.is_non_zero() {
-                self.owed.write(account, self.owed.read(account) + earned);
-            }
-            self.snapshots.write(account, acc);
+    #[generate_trait]
+    impl PreviewImpl of PreviewTrait {
+        /// `preview_redeem`, for the withdraw limit.
+        fn _preview_redeem_assets(
+            self: @ERC4626Component::ComponentState<ContractState>, shares: u256,
+        ) -> u256 {
+            let value = self._convert_to_assets(shares, Rounding::Floor);
+            let fee: u256 = self.get_contract().exit_fee.read().into();
+            value - math::u256_mul_div(value, fee, fee + BPS, Rounding::Ceil)
         }
     }
 }

@@ -141,7 +141,7 @@ fn test_token_seed_is_the_seed_of_a_challenge_spawn() {
 
 /// Game 1 of two Challenge deployments draws two seeds, each that of its own contract.
 #[test]
-#[available_gas(l2_gas: 172107216)]
+#[available_gas(l2_gas: 185128913)]
 fn test_token_seed_game_1_of_two_deployments_differ() {
     snforge_std::start_cheat_block_timestamp_global(TIME);
     let (store_a, systems_a, context_a) = setup::spawn_game(Mode::Challenge);

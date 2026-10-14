@@ -173,7 +173,8 @@ export const ev = {
     raw(source, "AchievementRetired", [achievementId], []),
   /**
    * Economy's `Purchased`: keys game_id, player_id; data day, stake, price (u256: low, high), referrer, referral,
-   * burned_quote, burned, margin, supply (u256 each), factor, reference (u128). Defaults: a stake-1 purchase, no referrer.
+   * burned_quote, burned, margin, supply (u256 each), factor, reference (u128), vault_paved (u256, P-56). Defaults: a
+   * stake-1 purchase, no referrer.
    */
   purchased: (
     gameId: number,
@@ -190,6 +191,7 @@ export const ev = {
       supply?: bigint;
       factor?: number;
       reference?: bigint;
+      vaultPaved?: bigint;
     } = {},
   ) => {
     const stake = options.stake ?? 1;
@@ -210,6 +212,7 @@ export const ev = {
         ...u256(options.supply ?? 999_893n * 10n ** 18n),
         options.factor ?? 10_000,
         options.reference ?? 107n * 10n ** 18n,
+        ...u256(options.vaultPaved ?? 45n * 10n ** 18n),
       ],
     );
   },

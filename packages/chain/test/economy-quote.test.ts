@@ -159,7 +159,7 @@ describe("the min_out the player confirmed is a floor: never sent below it", () 
   test("a send-time quote lower than the confirmed one: PoolPriceMovedError, nothing sent", async () => {
     const shown = new FakePoolQuoter();
     const { economy } = setup(shown);
-    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).burnQuote));
+    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).price));
     const { econWriter, execute } = setup(moved(79n * 10n ** 18n)); // the pool moved down
     const refused = await econWriter.purchase({ stake: 3, confirmedPrice: 3n * FAKE_UNIT, confirmedMinOut, referrer: null }).then(() => null, (e: unknown) => e);
     expect(refused).toBeInstanceOf(PoolPriceMovedError);
@@ -172,7 +172,7 @@ describe("the min_out the player confirmed is a floor: never sent below it", () 
   test("an equal or higher one sends, with min_out at least the confirmed one", async () => {
     const shown = new FakePoolQuoter();
     const { economy } = setup(shown);
-    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).burnQuote));
+    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).price));
     for (const pool of [new FakePoolQuoter(), moved(81n * 10n ** 18n)]) {
       const { econWriter, minOutSent } = setup(pool);
       await econWriter.purchase({ stake: 3, confirmedPrice: 3n * FAKE_UNIT, confirmedMinOut, referrer: null });
@@ -213,13 +213,35 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test.each([1, 4, 10])("stake %i: the quote is for exactly the burn part the purchase swaps (Economy.quote's burn_quote)", async (stake) => {
+  test.each([1, 4, 10])("stake %i: the quote is for exactly the one swap the purchase makes, the burn quote and the margin (P-56)", async (stake) => {
     const pool = new FakePoolQuoter();
     const { economy, econWriter, minOutSent } = setup(pool);
     await econWriter.purchase({ stake, confirmedPrice: BigInt(stake) * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
-    const { burnQuote } = await economy.quote(stake);
-    expect(pool.calls).toEqual([burnQuote]);
-    expect(minOutSent()).toBe(minOutFor(await new FakePoolQuoter().quoteSwap(burnQuote)));
+    const { burnQuote, margin } = await economy.quote(stake);
+    expect(pool.calls).toEqual([burnQuote + margin]);
+    expect(minOutSent()).toBe(minOutFor(await new FakePoolQuoter().quoteSwap(burnQuote + margin)));
+  });
+
+  test("with a referrer, the referral leaves the swap: the quote is for the price less the referral", async () => {
+    const pool = new FakePoolQuoter();
+    const { economy, econWriter, minOutSent } = setup(pool);
+    await econWriter.purchase({ stake: 4, confirmedPrice: 4n * FAKE_UNIT, confirmedMinOut: 1n, referrer: "0x77" });
+    const { price, referral } = await economy.quote(4);
+    expect(pool.calls).toEqual([price - referral]);
+    expect(minOutSent()).toBe(minOutFor(await new FakePoolQuoter().quoteSwap(price - referral)));
+  });
+
+  test("a referral above the margin is not this purchase's quote: refused before any quote", async () => {
+    const pool = new FakePoolQuoter();
+    const { economy, econWriter, execute } = setup(pool);
+    const real = economy.quote.bind(economy);
+    economy.quote = async (stake) => {
+      const q = await real(stake);
+      return { ...q, referral: q.margin + 1n };
+    };
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/referral is not within the margin/);
+    expect(pool.calls).toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
   });
 
   test("a burn part outside (0, price] is not this purchase's: refused before any quote", async () => {
@@ -240,15 +262,15 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
   test("a quote that changes between display and send: the send quotes again and takes min_out from that quote", async () => {
     const pool = new FakePoolQuoter();
     const { economy, econWriter, minOutSent } = setup(pool);
-    const { burnQuote } = await economy.quote(2);
-    const shown = minOutFor(await pool.quoteSwap(burnQuote)); // what the purchase screen displayed
+    const { price } = await economy.quote(2); // no referrer: the whole price is swapped
+    const shown = minOutFor(await pool.quoteSwap(price)); // what the purchase screen displayed
     pool.rate = { paved: 40n * 10n ** 18n, usdc: 1_000_000n }; // the pool moved: half the PAVED per USDC
     // Half the guard-rate value is below the sanity floor: the player accepted the warning at the confirm.
     await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null, acceptedLowQuote: true });
-    expect(pool.calls).toEqual([burnQuote, burnQuote]); // the display's quote, then the send's own
+    expect(pool.calls).toEqual([price, price]); // the display's quote, then the send's own
     const moved = new FakePoolQuoter();
     moved.rate = pool.rate;
-    expect(minOutSent()).toBe(minOutFor(await moved.quoteSwap(burnQuote)));
+    expect(minOutSent()).toBe(minOutFor(await moved.quoteSwap(price)));
     expect(minOutSent()).toBeLessThan(shown);
     // Each send quotes again: nothing is cached between purchases.
     await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null, acceptedLowQuote: true });

@@ -20,7 +20,7 @@ the deployed Sepolia contract or a past step ("was written by", "run by") says `
 | `Collection` | yes | constructor `owner` | the game NFTs |
 | `Lobby` | no instance | none | a declared class, run by `Daily` and `Tutorial`; replaced by `set_lobby_class` (below) |
 | `PavedToken` | **no** | none (admin cleared by `set_minter`) | a standard ERC20; an upgrade key would be a mint and seize key |
-| `Vault` | **no** | none | holds the stakers' PAVED and their USDC dividends; an upgrade key would be a custody key |
+| `Vault` (vPAVED) | yes, since P-56 | constructor `owner` | the stakers' PAVED behind an ERC4626 share with votes; its owner may also set the exit fee (0 to 1,000 bps). Before P-56: not upgradable, no owner (a custody key) |
 
 ## Mechanism
 
@@ -192,6 +192,30 @@ G4 class, and then reads no guardian and no pause; a new game spawns and the gam
 **On Sepolia (D-17)** the upgrade of `Challenge` to the G4 class is the owner's `upgrade` alone: no setter is needed,
 spawn stays open, games in flight are unaffected. The owner sets a guardian afterwards (`set_guardian`), if any.
 
+## The Vault's layout and Economy's split since P-56 (P-42)
+
+**The Vault** is a new class at a new address (the fresh Sepolia of D-27), so nothing of the former `Vault` carries
+over and no slot is dead. From its first deployment on it follows P-42's rules.
+
+- Its substorage names are pinned by `test_upgrade_layout_pins_the_vault_by_name`, read at the raw address of each
+  name after a paid spawn, a delegation and a pending transfer:
+  - `owner` and `pending_owner`, flat;
+  - `ERC20_total_supply` and `ERC20_balances`, the owner's entry and the dead shares';
+  - `ERC4626_asset`;
+  - `Votes_delegatee` and `Votes_total_checkpoints`;
+  - `exit_fee`.
+- `test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes` upgrades it to the probe class. The probe then
+  reads the same balance, supply, fee, owner and delegation, and the PAVED behind the shares (the token's balance of
+  the Vault) has not moved, so the rate is kept.
+- The Vault joins the four other contracts in the shared upgrade tests (owner only, zero class refused, `Upgraded`, a
+  value read back through the probe, the two-step transfer).
+
+**`Economy.config`** keeps its slot and its packed felt, and gains `referral_bps` in its top bits, stored plus one. A
+`Config` packed by an earlier class has 0 there and reads back as the default, 500 bps, the former constant.
+`test_config_stored_before_the_referral_reads_it_at_its_default` writes such a felt into the slot and reads it back,
+then configures a referral of 0, which round-trips. No other `Economy` slot changes. `Purchased` gains `vault_paved`,
+and `EconomyConfigured` gains `referral_bps` (appended).
+
 ## Dead slots since D-25 E (P-42)
 
 `Account` left the systems (P-53 ruling 5): a player is the wallet address. Two members of the `paved` storage node
@@ -243,10 +267,10 @@ one computed from the literal name, and sentinels written there must survive a w
 
 ## Not upgradable: migrations
 
-A fix to `PavedToken` or `Vault` is a migration to a new contract, never an in-place upgrade. Outline, to detail in
-its own brief when needed:
+A fix to `PavedToken` is a migration to a new contract, never an in-place upgrade (the `Vault` too until P-56; it is
+upgradable since, and its outline below stays as the record). Outline, to detail in its own brief when needed:
 
-- **`Vault`.** Deploy `Vault` v2. Upgrade `Economy` to a class that points the margin at v2 (its `vault` has no
+- **`Vault` (before P-56).** Deploy `Vault` v2. Upgrade `Economy` to a class that points the margin at v2 (its `vault` has no
   setter: the new class writes it once, in a migration call). Stakers move themselves: `unstake` and `claim` on v1 keep
   working (no owner can stop them), then `stake` on v2. USDC that reached v1 stays claimable there. The client shows
   both until v1 is empty. No balance is moved by anyone but its staker.
@@ -262,7 +286,7 @@ its own brief when needed:
 Facts checked against `main` at 27dc96dd. The detail, entry point by entry point, is in `upgrade-owner.md` (#361); this
 section is the summary.
 
-The upgrade owner of a contract can replace its code with `upgrade` (only class hash 0 is refused). Four contracts have
+The upgrade owner of a contract can replace its code with `upgrade` (only class hash 0 is refused). Five contracts have
 an owner, each its own (`contracts/src/components/ownable.cairo:96-98`):
 
 - `Challenge`, the game (`challenge.cairo:223-226`).
@@ -271,10 +295,11 @@ an owner, each its own (`contracts/src/components/ownable.cairo:96-98`):
   (`challenge.cairo:315`; `Setup.upgrade` is `setup.cairo:353-356`). Its owner is on the money path: a new class can name any
   economy and take the price of every later spawn, or block every game over (`challenge.cairo:394-395`).
 - `Collection`, the game NFTs, which hold no value (`collection.cairo:366-369`).
+- `Vault` (vPAVED, since P-56), the stakers' PAVED and the votes: a new class can move them. Its owner also sets the
+  exit fee, bounded to 0 to 1,000 bps.
 
-That is the custody of the PAVED supply and of the price of every later purchase. The owner cannot touch `Vault` (the
-stakers' PAVED and USDC; "No owner, no setter, no pause, no upgrade", `vault.cairo:9-10`) or the PAVED already held,
-except through what `Economy` mints. `PavedToken` has no owner, but its only minter is `Economy` for good
+That is the custody of the PAVED supply, of the price of every later purchase and, since P-56, of the staked PAVED. The
+owner cannot touch the PAVED held outside the `Vault`, except through what `Economy` mints. `PavedToken` has no owner, but its only minter is `Economy` for good
 (`token.cairo:128-134`).
 
 Three owner calls are as strong as an upgrade for new money, each taking the price of every later purchase without
@@ -304,5 +329,6 @@ open.
   one cannot.
 - `set_lobby_class`: owner only, non-zero, emits `LobbyClassSet`, and the next `spawn` of `Daily` and of `Tutorial`
   runs the new class (a probe whose `spawn` returns a mark); after a transfer, the new owner sets it.
-- `PavedToken` and `Vault`: a call to `upgrade` finds no entry point (`ENTRYPOINT_NOT_FOUND`).
-- The layout pins above. Two-step ownership on all four: `tests::e2e::access`.
+- `PavedToken`: a call to `upgrade` finds no entry point (`ENTRYPOINT_NOT_FOUND`). The `Vault` is in the shared tests
+  since P-56, and has its own upgrade test and layout pins (above).
+- The layout pins above. Two-step ownership: `tests::e2e::access`.

@@ -306,3 +306,17 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+
+================================================================================
+Font Awesome Pro 6.6.0 (public/fontawesome/js: fontawesome.min.js, solid.min.js, thin.min.js)
+https://fontawesome.com
+================================================================================
+
+Copyright 2024 Fonticons, Inc.
+
+Used under the owner's Font Awesome Commercial License
+(https://fontawesome.com/license). The three files are kept byte-identical to
+those the owner added to the repository in commit 21788fb, and they keep
+their own header. They are not covered by the Apache 2.0 licence of Paved's
+code.

@@ -106,6 +106,8 @@ export type Decoded =
       factor: number;
       /** `R`, PAVED base units (u128). */
       reference: bigint;
+      /** PAVED base units the margin bought, sent to the Vault without shares (u256, P-56). */
+      vaultPaved: bigint;
     }
   | {
       /** The mint of a game's token (`Collection` emits no other transfer: it is soulbound). */
@@ -502,8 +504,8 @@ export function decode(
       return { name, achievementId: small(keys[1], 32, "achievement_id") };
     case "Purchased":
       // keys game_id, player_id; data day, stake, price (u256), referrer, referral, burned_quote, burned, margin,
-      // supply (u256 each), factor, reference
-      shape(name, keys, data, 2, 17);
+      // supply (u256 each), factor, reference, vault_paved (u256, P-56)
+      shape(name, keys, data, 2, 19);
       return {
         name,
         gameId: small(keys[1], 32, "game_id"),
@@ -519,6 +521,7 @@ export function decode(
         supply: u256(data, 13, "supply"),
         factor: small(data[15], 32, "factor"),
         reference: uint(data[16], 128, "reference"),
+        vaultPaved: u256(data, 17, "vault_paved"),
       };
     case "Transfer": {
       // keys from, to, token_id (u256: low, high); no data. Only the mint (from 0) exists on this contract.

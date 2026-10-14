@@ -64,13 +64,34 @@ export interface TermsView {
   reward: bigint;
 }
 
-/** A staker's position in the `Vault` (E1's real ABI). */
+/**
+ * A holder's position in the `Vault`, vPAVED (P-56: an ERC4626 over PAVED with an exit fee). Every amount is in base units
+ * of 18 decimals. The screens show `value` as the position's worth and `maxWithdraw` as what leaves now, the fee taken.
+ */
 export interface VaultPosition {
-  /** PAVED base units. */
-  staked: bigint;
-  /** USDC base units of dividends not yet paid. */
-  pending: bigint;
-  totalStaked: bigint;
+  /** vPAVED held (`balance_of`). */
+  shares: bigint;
+  /** Their PAVED at the current rate, before the exit fee (`convert_to_assets(shares)`). */
+  value: bigint;
+  /** The most PAVED a `withdraw` pays now, the exit fee taken (`max_withdraw`, equal to `preview_redeem(shares)`). */
+  maxWithdraw: bigint;
+  /** The exit fee, bps of the PAVED that leaves (`exit_fee`), kept in the Vault for the other holders. */
+  exitFeeBps: number;
+  /** The PAVED the Vault holds (`total_assets`), the dead shares' 1,000 included. */
+  totalAssets: bigint;
+  /** All vPAVED (`total_supply`), the dead shares included. */
+  totalSupply: bigint;
+}
+
+/**
+ * `Economy.split_bps()` (P-56): how the price splits now, in bps. `burn` is swapped for the burn and `vault` for the Vault;
+ * they add up to 10,000. A referrer is paid `referral` of the price out of the Vault's part, which is not swapped then.
+ * Owner-set: the screens read it, never a constant.
+ */
+export interface SplitView {
+  burn: number;
+  vault: number;
+  referral: number;
 }
 
 /** Field lists in ABI order; a test checks them against `contracts/abis/Economy.json`. */
@@ -87,6 +108,8 @@ export const ECONOMY_VIEW_FIELDS = {
 /** The economy's reads. `RpcEconomyViews` calls the contracts; `FakeEconomy` (`economy/fake.ts`) is for unit tests. */
 export interface EconomyViews {
   quote(stake: number): Promise<QuoteView>;
+  /** `Economy.split_bps()`: the split of the price in force (P-56). */
+  split(): Promise<SplitView>;
   /** `Economy.rate()`: the guard's swap rate, PAVED base units per USDC base unit x `RATE_SCALE`; 0 before any purchase. */
   guardRate(): Promise<bigint>;
   /** `Economy.router()`, as 0x-hex: the router the purchase swaps through (checked against the pin, E-9b). */
@@ -94,6 +117,12 @@ export interface EconomyViews {
   day(day: number): Promise<DayView>;
   terms(gameId: number): Promise<TermsView>;
   vault(account: string): Promise<VaultPosition>;
+  /** `Vault.preview_deposit(assets)`: the vPAVED a deposit of `assets` PAVED mints now (0 is refused by the contract). */
+  previewDeposit(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_withdraw(assets)`: the vPAVED a withdraw of `assets` PAVED burns now, the exit fee included. */
+  previewWithdraw(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_redeem(shares)`: the PAVED a redeem of `shares` pays now, the exit fee taken. */
+  previewRedeem(shares: bigint): Promise<bigint>;
   usdcBalance(account: string): Promise<bigint>;
   pavedBalance(account: string): Promise<bigint>;
 }
@@ -107,6 +136,19 @@ export class RpcEconomyViews implements EconomyViews {
 
   async quote(stake: number): Promise<QuoteView> {
     return (await this.call("Economy", "quote", [stake])) as QuoteView;
+  }
+
+  async split(): Promise<SplitView> {
+    // A tuple `(u16, u16, u16)`, which the codec does not decode: three felts read here, each checked.
+    const felts = await this.raw("Economy", "split_bps", []);
+    if (felts.length !== 3) throw new ViewError("rpc", `split_bps: ${felts.length} felts, expected 3`);
+    const [burn, vault, referral] = felts.map((felt) => {
+      const value = BigInt(felt);
+      if (value < 0n || value >= 1n << 16n) throw new ViewError("rpc", `split_bps: ${felt} is not a u16`);
+      return Number(value);
+    });
+    if (burn + vault !== 10_000 || referral > vault) throw new ViewError("rpc", `split_bps: ${burn} / ${vault} / ${referral} is not a split of the price`);
+    return { burn, vault, referral };
   }
 
   async guardRate(): Promise<bigint> {
@@ -126,12 +168,34 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   async vault(account: string): Promise<VaultPosition> {
-    const [staked, pending, totalStaked] = await Promise.all([
-      this.call("Vault", "staked", [account]),
-      this.call("Vault", "pending", [account]),
-      this.call("Vault", "total_staked", []),
+    const [shares, maxWithdraw, exitFee, totalAssets, totalSupply] = await Promise.all([
+      this.call("Vault", "balance_of", [account]),
+      this.call("Vault", "max_withdraw", [account]),
+      this.call("Vault", "exit_fee", []),
+      this.call("Vault", "total_assets", []),
+      this.call("Vault", "total_supply", []),
     ]);
-    return { staked: staked as bigint, pending: pending as bigint, totalStaked: totalStaked as bigint };
+    const value = (await this.call("Vault", "convert_to_assets", [shares as bigint])) as bigint;
+    return {
+      shares: shares as bigint,
+      value,
+      maxWithdraw: maxWithdraw as bigint,
+      exitFeeBps: Number(exitFee),
+      totalAssets: totalAssets as bigint,
+      totalSupply: totalSupply as bigint,
+    };
+  }
+
+  async previewDeposit(assets: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_deposit", [assets])) as bigint;
+  }
+
+  async previewWithdraw(assets: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_withdraw", [assets])) as bigint;
+  }
+
+  async previewRedeem(shares: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_redeem", [shares])) as bigint;
   }
 
   async usdcBalance(account: string): Promise<bigint> {
@@ -143,15 +207,23 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   private async call(contract: Exclude<EconomyContractName, "Challenge">, entrypoint: string, args: Encodable[]): Promise<unknown> {
-    if (!this.deployment.configured) throw new ViewError("not-configured", `Economy not deployed: ${this.deployment.missing.join(", ")} missing`);
-    const codec = this.codecs[contract];
+    const felts = await this.raw(contract, entrypoint, args);
     try {
-      const felts = await this.provider.callContract({
+      return this.codecs[contract].decodeResult(entrypoint, felts);
+    } catch (error) {
+      throw toViewError(error);
+    }
+  }
+
+  /** The felts a view returns, undecoded. */
+  private async raw(contract: Exclude<EconomyContractName, "Challenge">, entrypoint: string, args: Encodable[]): Promise<string[]> {
+    if (!this.deployment.configured) throw new ViewError("not-configured", `Economy not deployed: ${this.deployment.missing.join(", ")} missing`);
+    try {
+      return await this.provider.callContract({
         contractAddress: this.deployment.addresses[contract],
         entrypoint,
-        calldata: codec.encodeCall(entrypoint, args),
+        calldata: this.codecs[contract].encodeCall(entrypoint, args),
       });
-      return codec.decodeResult(entrypoint, felts);
     } catch (error) {
       throw toViewError(error);
     }

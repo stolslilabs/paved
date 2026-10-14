@@ -4,6 +4,14 @@
 Deterministic: fixed seeds, the standard library only, no input but the score sample.
 
     python3 -I scripts/montecarlo/sim.py [scripts/montecarlo/scores.csv]
+    python3 -I scripts/montecarlo/sim.py --margin-paved [scripts/montecarlo/scores.csv]
+
+`--margin-paved` prints only the table of `docs/architecture/vault-share.md` (addendum, A4): each run
+with the margin paid to the Vault in USDC, as here by default, and with the margin in PAVED as
+`Economy.purchase` makes it since P-56: one swap of the burn quote and the margin, its PAVED split by
+input, the margin's part kept by the Vault (never sold), the burn's part burned and read by R. (#372's
+A4 swapped the margin after the burn instead; fix loop 1 of #382 made the option model the contract.)
+The default output does not change.
 
 The score sample (`scores.csv`: day, strategy, seed, score) holds whole Daily games played by bots on
 the contracts (`sampler.cairo`, run one game per snforge run). Strategies: 0 greedy (the bot of the
@@ -160,6 +168,8 @@ def simulate(days, params, seed):
     pool_paved = POOL_PAVED * params["depth"]
     price0 = pool_usdc / pool_paved
     paid = received = burned = minted = vault = lp_usdc = lp_paved = referral = 0.0
+    vault_paved = 0.0
+    prices = []
     games = lost = 0
     by_kind = {k: [0.0, 0.0, 0] for k in kinds}
     multiples = []
@@ -197,16 +207,34 @@ def simulate(days, params, seed):
             price = stake * BASE_PRICE
             # Purchase: referral and margin in USDC, the burn share swapped and burned
             ref = price * REFERRAL if rng.random() < params["referred"] else 0.0
-            quote = price * BURN
-            fee = quote * POOL_FEE
-            out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
-            pool_usdc += quote - fee
-            lp_usdc += fee
-            pool_paved -= out
-            supply -= out
-            burned += out
-            vault += price - quote - ref
-            referral += ref
+            quote = price * params.get("burn", BURN)
+            if params.get("margin") == "paved":
+                # P-56, as `Economy.purchase` does: ONE swap of the burn quote and the margin, its
+                # PAVED split by input (`curve::vault_split`), the margin's part to the Vault, which
+                # never sells it, the burn's part burned; R reads the burn's part
+                margin = price - quote - ref
+                swapped = quote + margin
+                fee = swapped * POOL_FEE
+                bought = pool_paved * (swapped - fee) / (pool_usdc + swapped - fee)
+                pool_usdc += swapped - fee
+                lp_usdc += fee
+                pool_paved -= bought
+                out = bought * quote / swapped
+                vault_paved += bought - out
+                supply -= out
+                burned += out
+                vault += margin
+                referral += ref
+            else:
+                fee = quote * POOL_FEE
+                out = pool_paved * (quote - fee) / (pool_usdc + quote - fee)
+                pool_usdc += quote - fee
+                lp_usdc += fee
+                pool_paved -= out
+                supply -= out
+                burned += out
+                vault += price - quote - ref
+                referral += ref
             # The supply factor is read at spawn, after the burn
             factor = min(max((2 * target - supply) / target, 0.0), 2.0)
             reference = out * (1 + stake / 100) * factor
@@ -241,6 +269,7 @@ def simulate(days, params, seed):
                 ema.push(day_total / day_weight, day_weight, 0)
             pending = []
         daily_lost.append(lost_today / params["games"])
+        prices.append((pool_usdc / pool_paved) / price0)
     multiples.sort()
     daily_lost.sort()
 
@@ -265,6 +294,14 @@ def simulate(days, params, seed):
         "daily_lost_p10": pct(daily_lost, 0.1),
         "daily_lost_p90": pct(daily_lost, 0.9),
         "by_kind": {k: (v[1] / v[0] if v[0] else 0.0, v[2]) for k, v in by_kind.items()},
+        "margin_in": vault,
+        "vault_paved": vault_paved,
+        # The Vault's PAVED sold into the final pool at once, the fee taken
+        "vault_sold": pool_usdc * vault_paved * (1 - POOL_FEE) / (pool_paved + vault_paved * (1 - POOL_FEE)),
+        "pool_usdc": pool_usdc,
+        "pool_paved": pool_paved,
+        "price_day1": prices[0],
+        "price_day30": prices[min(29, len(prices) - 1)],
     }
 
 
@@ -292,14 +329,17 @@ def describe(days):
 
 
 def main():
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).with_name("scores.csv")
+    args = [a for a in sys.argv[1:] if a != "--margin-paved"]
+    margin_paved = len(args) != len(sys.argv) - 1
+    path = Path(args[0]) if args else Path(__file__).with_name("scores.csv")
     days = {d: v for d, v in load(path).items() if all(k in v for k in ("greedy", "noisy", "novice"))}
-    describe(days)
-
     population = {"greedy": 0.25, "noisy": 0.5, "novice": 0.25, "replayer": 0.0}
     sample = mixture(days, population)
     min_score = 100
     mean = chain_mean(sample, min_score)
+    if margin_paved:
+        return margin_table(days, population, mean, min_score)
+    describe(days)
 
     print("## Calibration of the slope (E[h] = rho on the stationary sample, cap 5)")
     print()
@@ -413,6 +453,75 @@ def main():
             run("20 games a day", games=20)
             run("20 games a day, prior weight 20", games=20, prior_weight=20)
         print()
+
+def margin_table(days, population, mean, min_score):
+    """The runs of vault-share.md's A4, with the margin in USDC and in PAVED."""
+    base = {
+        "population": population,
+        "stakes": "inverse",
+        "sigma": 0.0,
+        "rho": 0.9,
+        "cap": 5,
+        "mean0": mean,
+        "max_weight": 1000,
+        "min_score": min_score,
+        "prior_weight": 100,
+        "clamp": 4,
+        "target": INITIAL_SUPPLY,
+        "depth": 1.0,
+        "referred": 0.5,
+        "sell": 1.0,
+        "days": 365,
+        "games": 200,
+    }
+    print("## The margin in PAVED (P-56): 365 days, seed 8")
+    print()
+    print(
+        "| Run (365 days) | Margin | mint / burn | house edge | return p50 | p90 | supply end | price day 1 | "
+        "day 30 | end / start | Vault PAVED end | sold at end (USDC) | margin in (USDC) | greedy | noisy | novice |"
+    )
+    print("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    runs = (
+        ("B, base", {"settle": "day"}),
+        ("A, base", {"settle": "spawn"}),
+        ("B, 20 games a day", {"settle": "day", "games": 20}),
+        ("B, pool depth x0.1", {"settle": "day", "depth": 0.1}),
+        ("B, players keep half", {"settle": "day", "sell": 0.5}),
+    )
+    # The owner's split (P-56, 2026-10-14): 7,368 bps of the price swapped for the burn, so that 70 %
+    # of the price is burned after the pool's 5 %; the margin in PAVED only
+    split = (
+        ("B, base, burn 73.68 %", {"settle": "day", "burn": 0.7368}),
+        ("A, base, burn 73.68 %", {"settle": "spawn", "burn": 0.7368}),
+        ("B, 20 games a day, burn 73.68 %", {"settle": "day", "games": 20, "burn": 0.7368}),
+    )
+    for label, changes in runs + split:
+        for margin in ("usdc", "paved"):
+            if "burn" in changes and margin == "usdc":
+                continue
+            params = dict(base)
+            params.update(changes)
+            params["margin"] = margin
+            params["slope"] = calibrate(
+                mixture(days, params["population"]), params["sigma"], params["rho"], params["cap"], min_score
+            )
+            r = simulate(days, params, seed=8)
+            kinds = " | ".join(f"{r['by_kind'][k][0]:.2f}" for k in ("greedy", "noisy", "novice"))
+            paved = margin == "paved"
+            vault = f"{r['vault_paved']:,.0f}" if paved else "0"
+            sold = f"{r['vault_sold']:,.0f}" if paved else ""
+            print(
+                f"| {label} | {margin.upper()} | {r['mint_per_burn']:.3f} | {r['house_edge']:.1%} | "
+                f"{r['p50']:.2f} | {r['p90']:.2f} | {r['supply'] / 1e3:,.0f}k | {r['price_day1']:.3f} | "
+                f"{r['price_day30']:.3f} | {r['price_ratio']:,.2f} | {vault} | {sold} | {r['margin_in']:,.0f} | "
+                f"{kinds} |"
+            )
+            if label == "B, base":
+                print(
+                    f"<!-- B base, {margin}: pool ends at {r['pool_usdc']:,.0f} USDC and "
+                    f"{r['pool_paved']:,.0f} PAVED -->"
+                )
+
 
 if __name__ == "__main__":
     main()

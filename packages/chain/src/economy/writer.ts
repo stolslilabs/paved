@@ -2,7 +2,7 @@ import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
-import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, impliedPaved, isStake, minOutFor, priceOf, quoteBelowFloor, settlesAfter } from "./amounts";
+import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, PAVED_DECIMALS, PAVED_LABEL, expiresAt, formatUnits, impliedPaved, isStake, minOutFor, priceOf, quoteBelowFloor, settlesAfter, swapInputOf } from "./amounts";
 import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, rateProblem, routerProblem, type PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
@@ -156,6 +156,60 @@ export class VaultAmountChangedError extends Error {
   }
 }
 
+const ZERO_SHARES = "Vault: zero shares";
+const OVER_MAX_WITHDRAW = "ERC4626: exceeds max withdraw";
+const OVER_MAX_REDEEM = "ERC4626: exceeds max redeem";
+const NO_ALLOWANCE = "ERC20: insufficient allowance";
+
+/**
+ * A deposit too small to mint one vPAVED at the current rate (`preview_deposit` gives 0; the contract reverts with
+ * `'Vault: zero shares'`, the inflation defence). Raised before sending when the preview reads 0, and from that revert.
+ */
+export class VaultZeroSharesError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("This amount is too small to get any vPAVED: deposit more. Your PAVED was not moved.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultZeroSharesError";
+  }
+}
+
+/**
+ * A withdraw above `max_withdraw` (the most PAVED that leaves now, the exit fee taken), or a redeem above the vPAVED held.
+ * Raised before sending from a fresh read, and from the ERC4626 revert after a race. `max` is null when only the revert says so.
+ */
+export class VaultOverMaxWithdrawError extends WriteError {
+  constructor(readonly max: bigint | null, transactionHash?: string) {
+    super(
+      max === null
+        ? "More than you can withdraw now. Your PAVED was not moved."
+        : `More than you can withdraw: at most ${formatUnits(max, PAVED_DECIMALS, 4)} ${PAVED_LABEL} now, the exit fee taken. Nothing was sent.`,
+      transactionHash,
+      transactionHash !== undefined,
+    );
+    this.name = "VaultOverMaxWithdrawError";
+  }
+}
+
+/**
+ * The Vault could not pull the PAVED of a deposit: the allowance was missing or too small (`'ERC20: insufficient
+ * allowance'`). The deposit approves exactly its amount in the same multicall, so only a changed approval in between
+ * meets it. The revert moved nothing.
+ */
+export class VaultAllowanceError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("The Vault was not allowed to take your PAVED: deposit again. Your PAVED was not moved.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultAllowanceError";
+  }
+}
+
+/** A known revert of the Vault as its clear state; any other error unchanged. */
+function vaultRevert(error: unknown): unknown {
+  if (!(error instanceof WriteError) || error instanceof VaultOverMaxWithdrawError || error instanceof VaultZeroSharesError) return error;
+  if (revertNames(error.message, ZERO_SHARES)) return new VaultZeroSharesError(error.transactionHash);
+  if (revertNames(error.message, OVER_MAX_WITHDRAW) || revertNames(error.message, OVER_MAX_REDEEM)) return new VaultOverMaxWithdrawError(null, error.transactionHash);
+  if (revertNames(error.message, NO_ALLOWANCE)) return new VaultAllowanceError(error.transactionHash);
+  return error;
+}
+
 export interface PurchaseRequest {
   /** `k`, 1 to 10. */
   stake: number;
@@ -182,9 +236,11 @@ export interface PurchasePlan {
   calls: Call[];
   price: bigint;
   minOut: bigint;
-  /** The pool's PAVED for the burn quote, fee included, before the slippage. */
+  /** The USDC the purchase swaps in one swap (P-56): the burn quote plus the margin, the referral taken (`swapInputOf`). */
+  swapIn: bigint;
+  /** The pool's PAVED for `swapIn`, fee included, before the slippage. */
   poolOut: bigint;
-  /** The burn quote's PAVED at the guard's rate (`impliedPaved`), null at a rate of 0. */
+  /** `swapIn`'s PAVED at the guard's rate (`impliedPaved`), null at a rate of 0. */
   implied: bigint | null;
   /** `Economy.router()`, read in this prepare and checked against the pin. */
   router: string;
@@ -194,7 +250,7 @@ export interface PurchasePlan {
 
 /**
  * The economy's writes for one account: the paid Challenge purchase, the settlement of a bought game (the player's
- * claim of PAVED), and the Vault's stake, unstake and dividends. Each one reads what it pays or receives again
+ * claim of PAVED), and the Vault's deposit and withdraw (vPAVED, P-56; no claim: the rate is the only reward). Each one reads what it pays or receives again
  * just before sending and refuses an amount the player did not confirm, or any failed read, sending nothing. The
  * writes go through the account's `PavedWriter`, so they are serialised with the game's writes.
  */
@@ -207,7 +263,7 @@ export class EconomyWriter {
       views: EconomyViews;
       /** The game views of the same deployment: `Challenge.entry_price`. */
       gameViews: Pick<GameViews, "entryPrice" | "spawnPaused">;
-      /** The pool's quote for the burn swap; null until CORE confirms `quote_swap` (every purchase is refused then). */
+      /** The pool's quote for the purchase's swap; null until CORE confirms `quote_swap` (every purchase is refused then). */
       poolQuoter: PoolQuoter | null;
       /**
        * Seconds since the epoch, compared with the day view's `settles_at`: the latest block's timestamp when the
@@ -284,13 +340,16 @@ export class EconomyWriter {
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
     if (typeof slippage !== "bigint" || slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
     if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
-    // The burn part of the price is what `purchase` swaps; a quote of it outside (0, price] is not this purchase's.
+    // A burn part outside (0, price], or a referral above the margin, is not this purchase's quote.
     if (quote.burnQuote <= 0n || quote.burnQuote > price) throw new WriteError("The quote's burn part is not within the price: nothing was sent");
+    if (quote.referral < 0n || quote.referral > price - quote.burnQuote) throw new WriteError("The quote's referral is not within the margin: nothing was sent");
+    // One swap of the burn quote and the margin (P-56): the price less the referral, which is paid only with a referrer.
+    const swapIn = swapInputOf(quote, referrer !== "0x0");
     // A fresh quote at every send, taken here just before the account executes: never one shown earlier, nor cached.
     let poolOut: bigint;
     try {
-      // The quote is for exactly the USDC the purchase swaps: `burn_quote`, the burn part of the price (economy.md).
-      poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote);
+      // The quote is for exactly the USDC the purchase swaps: `swapIn`, the burn quote and the margin (P-56).
+      poolOut = await this.options.poolQuoter.quoteSwap(swapIn);
     } catch (error) {
       // No quote, no slippage protection: nothing is sent. Only the contract's revert (`'Economy: partial fill'`, any
       // router revert) means the pool cannot fill; a call that failed is a quote that could not be read.
@@ -303,34 +362,38 @@ export class EconomyWriter {
     if (minOut < request.confirmedMinOut) throw new PoolPriceMovedError(request.confirmedMinOut, minOut);
     // The sanity floor (E-9b, ruling 1): a quote below 90 % of the guard-rate value is a warning the player must have
     // accepted at the confirm; never a refusal on its own. A confirm without the warning sends nothing if it appears now.
-    const implied = impliedPaved(quote.burnQuote, rate);
-    if (implied !== null && quoteBelowFloor(poolOut, quote.burnQuote, rate) && request.acceptedLowQuote !== true) {
+    const implied = impliedPaved(swapIn, rate);
+    if (implied !== null && quoteBelowFloor(poolOut, swapIn, rate) && request.acceptedLowQuote !== true) {
       throw new PoolQuoteBelowFloorError(poolOut, implied);
     }
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Challenge, price]),
       this.call("Challenge", "spawn", [request.stake, referrer, minOut]),
     ];
-    return { calls, price, minOut, poolOut, implied, router, referrer, quote };
+    return { calls, price, minOut, swapIn, poolOut, implied, router, referrer, quote };
   }
 
   /**
    * Settles bought Challenge games once their day may be settled, after the end of the next day (P-34): the contract
    * mints each one's reward to its player (`R x h(score / mean)`, 0 below the day's shifted mean). This is the
-   * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over), expired (no reward) or
-   * already settled, or whose day settles after the latest block's time (`settlesAfter`, from the chain's day id),
-   * sends nothing.
+   * player's claim of PAVED; anyone may settle. It refuses what `Economy.settle` refuses (`contracts/src/systems/economy.cairo`,
+   * `settle`): a game not bought (`'Economy: unknown game'`), not recorded (`'Economy: not recorded'`: not over, or never
+   * recorded past its 24 h), or whose day cannot close yet (`'Economy: day cannot close yet'`, before `settlesAfter`, from
+   * the chain's day id); and a game already settled, which the contract skips (`continue`), so sending it would only pay a
+   * fee. A recorded expired game (P-34) is settled: the contract settles it for a reward of 0, and `noReward` lists it.
    */
-  async settle(gameIds: number[]): Promise<WriteResult> {
+  async settle(gameIds: number[]): Promise<WriteResult & { noReward: number[] }> {
+    const noReward: number[] = [];
     try {
-      return await this.sendSettle(gameIds);
+      return { ...(await this.sendSettle(gameIds, noReward)), noReward };
     } catch (error) {
       throw economyRevert(error);
     }
   }
 
-  private sendSettle(gameIds: number[]): Promise<WriteResult> {
+  private sendSettle(gameIds: number[], noReward: number[]): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
+      noReward.length = 0;
       gameIds = [...new Set(gameIds)];
       if (gameIds.length === 0) throw new WriteError("No game to settle");
       let now: number;
@@ -347,13 +410,19 @@ export class EconomyWriter {
       }
       checked.forEach((terms, i) => {
         const id = gameIds[i];
+        // `'Economy: unknown game'`: no player bought it.
         if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
+        // Skipped by the contract: a send would settle nothing and still pay the network fee.
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
-        // An expired game (recorded 24 h or more after its purchase, or never recorded, P-34) gets no reward and has no mean.
-        if (terms.expired || (!terms.recorded && now >= expiresAt(terms.time))) throw new WriteError(`Game ${id} is expired: no reward`);
+        // `'Economy: not recorded'`. Never recorded within its 24 h, it is expired too (P-34): no reward whenever it is
+        // recorded; still refused until then, as the contract does.
+        if (!terms.recorded && now >= expiresAt(terms.time)) throw new WriteError(`Game ${id} is expired: no reward`);
         if (!terms.recorded) throw new WriteError(`Game ${id} is not over yet`);
+        // `'Economy: day cannot close yet'`: before the end of the next day, expired or not.
         const after = settlesAfter(terms.day);
         if (now < after) throw new WriteError(`Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
+        // Recorded expired (24 h or more after its purchase): the contract settles it for 0, outside the day's mean.
+        if (terms.expired) noReward.push(id);
       });
       // `Span<u32>` by hand (the codec encodes no arrays): the length, then each id.
       const calldata = [toHex(gameIds.length), ...gameIds.map((id) => this.u32(id))];
@@ -362,35 +431,56 @@ export class EconomyWriter {
     });
   }
 
-  /** Stakes PAVED in the Vault: approves exactly `amount`, then `stake`, in one multicall. */
-  stake(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
-    return this.options.writer.sendCalls(async () => {
+  /**
+   * Deposits PAVED in the Vault for vPAVED: approves exactly `amount`, then `deposit(amount, self)`, in one multicall. A
+   * balance too small, or an amount too small to mint one vPAVED now (`preview_deposit` gives 0), sends nothing.
+   */
+  deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
+    return this.sendVault(async () => {
       this.checkAmount(amount, options.confirmedAmount);
-      const balance = await this.read(() => this.options.views.pavedBalance(this.address), "PAVED balance");
+      const [balance, shares] = await Promise.all([
+        this.read(() => this.options.views.pavedBalance(this.address), "PAVED balance"),
+        this.read(() => this.options.views.previewDeposit(amount), "Vault rate"),
+      ]);
       if (balance < amount) throw new WriteError("Not enough PAVED");
+      if (shares === 0n) throw new VaultZeroSharesError();
       const { Vault } = this.options.deployment.addresses;
-      return { calls: [this.call("PavedToken", "approve", [Vault, amount]), this.call("Vault", "stake", [amount])], events: this.vaultEvents() };
+      return { calls: [this.call("PavedToken", "approve", [Vault, amount]), this.call("Vault", "deposit", [amount, this.address])], events: this.vaultEvents() };
     });
   }
 
-  /** Takes PAVED back out of the Vault. The dividends earned so far are credited, not paid: they stay claimable (E1). */
-  unstake(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
-    return this.options.writer.sendCalls(async () => {
+  /**
+   * Withdraws exactly `amount` PAVED: `withdraw(amount, self, self)`, which burns the vPAVED of `amount` plus the exit fee
+   * (the fee stays in the Vault). Above `max_withdraw`, read just before, sends nothing (`VaultOverMaxWithdrawError`).
+   */
+  withdraw(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
+    return this.sendVault(async () => {
       this.checkAmount(amount, options.confirmedAmount);
       const position = await this.read(() => this.options.views.vault(this.address), "Vault position");
-      if (position.staked < amount) throw new WriteError("More than is staked");
-      return { calls: [this.call("Vault", "unstake", [amount])], events: this.vaultEvents() };
+      if (amount > position.maxWithdraw) throw new VaultOverMaxWithdrawError(position.maxWithdraw);
+      return { calls: [this.call("Vault", "withdraw", [amount, this.address, this.address])], events: this.vaultEvents() };
     });
   }
 
-  /** Pays the pending USDC dividends. `confirmedAmount` is what the player saw: another amount sends nothing. */
-  claimDividends(options: { confirmedAmount: bigint }): Promise<WriteResult> {
-    return this.options.writer.sendCalls(async () => {
-      const position = await this.read(() => this.options.views.vault(this.address), "dividends");
-      if (position.pending === 0n) throw new WriteError("No dividends to claim");
-      if (position.pending !== options.confirmedAmount) throw new VaultAmountChangedError(options.confirmedAmount, position.pending);
-      return { calls: [this.call("Vault", "claim", [])], events: this.vaultEvents() };
+  /**
+   * Withdraws everything: `redeem(shares, self, self)` of every vPAVED held, for their PAVED less the exit fee. The vPAVED
+   * held at send must be the `confirmedShares` the player saw: another amount sends nothing (`VaultAmountChangedError`).
+   */
+  withdrawAll(options: { confirmedShares: bigint }): Promise<WriteResult> {
+    return this.sendVault(async () => {
+      const position = await this.read(() => this.options.views.vault(this.address), "Vault position");
+      if (position.shares === 0n) throw new WriteError("No vPAVED to withdraw");
+      if (position.shares !== options.confirmedShares) throw new VaultAmountChangedError(options.confirmedShares, position.shares);
+      return { calls: [this.call("Vault", "redeem", [position.shares, this.address, this.address])], events: this.vaultEvents() };
     });
+  }
+
+  private async sendVault(prepare: () => Promise<{ calls: Call[]; events: ReturnType<EconomyWriter["vaultEvents"]> }>): Promise<WriteResult> {
+    try {
+      return await this.options.writer.sendCalls(prepare);
+    } catch (error) {
+      throw vaultRevert(error);
+    }
   }
 
   private checkAmount(amount: bigint, confirmed: bigint): void {
