@@ -64,13 +64,23 @@ export interface TermsView {
   reward: bigint;
 }
 
-/** A staker's position in the `Vault` (E1's real ABI). */
+/**
+ * A holder's position in the `Vault`, vPAVED (P-56: an ERC4626 over PAVED with an exit fee). Every amount is in base units
+ * of 18 decimals. The screens show `value` as the position's worth and `maxWithdraw` as what leaves now, the fee taken.
+ */
 export interface VaultPosition {
-  /** PAVED base units. */
-  staked: bigint;
-  /** USDC base units of dividends not yet paid. */
-  pending: bigint;
-  totalStaked: bigint;
+  /** vPAVED held (`balance_of`). */
+  shares: bigint;
+  /** Their PAVED at the current rate, before the exit fee (`convert_to_assets(shares)`). */
+  value: bigint;
+  /** The most PAVED a `withdraw` pays now, the exit fee taken (`max_withdraw`, equal to `preview_redeem(shares)`). */
+  maxWithdraw: bigint;
+  /** The exit fee, bps of the PAVED that leaves (`exit_fee`), kept in the Vault for the other holders. */
+  exitFeeBps: number;
+  /** The PAVED the Vault holds (`total_assets`), the dead shares' 1,000 included. */
+  totalAssets: bigint;
+  /** All vPAVED (`total_supply`), the dead shares included. */
+  totalSupply: bigint;
 }
 
 /** Field lists in ABI order; a test checks them against `contracts/abis/Economy.json`. */
@@ -94,6 +104,12 @@ export interface EconomyViews {
   day(day: number): Promise<DayView>;
   terms(gameId: number): Promise<TermsView>;
   vault(account: string): Promise<VaultPosition>;
+  /** `Vault.preview_deposit(assets)`: the vPAVED a deposit of `assets` PAVED mints now (0 is refused by the contract). */
+  previewDeposit(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_withdraw(assets)`: the vPAVED a withdraw of `assets` PAVED burns now, the exit fee included. */
+  previewWithdraw(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_redeem(shares)`: the PAVED a redeem of `shares` pays now, the exit fee taken. */
+  previewRedeem(shares: bigint): Promise<bigint>;
   usdcBalance(account: string): Promise<bigint>;
   pavedBalance(account: string): Promise<bigint>;
 }
@@ -126,12 +142,34 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   async vault(account: string): Promise<VaultPosition> {
-    const [staked, pending, totalStaked] = await Promise.all([
-      this.call("Vault", "staked", [account]),
-      this.call("Vault", "pending", [account]),
-      this.call("Vault", "total_staked", []),
+    const [shares, maxWithdraw, exitFee, totalAssets, totalSupply] = await Promise.all([
+      this.call("Vault", "balance_of", [account]),
+      this.call("Vault", "max_withdraw", [account]),
+      this.call("Vault", "exit_fee", []),
+      this.call("Vault", "total_assets", []),
+      this.call("Vault", "total_supply", []),
     ]);
-    return { staked: staked as bigint, pending: pending as bigint, totalStaked: totalStaked as bigint };
+    const value = (await this.call("Vault", "convert_to_assets", [shares as bigint])) as bigint;
+    return {
+      shares: shares as bigint,
+      value,
+      maxWithdraw: maxWithdraw as bigint,
+      exitFeeBps: Number(exitFee),
+      totalAssets: totalAssets as bigint,
+      totalSupply: totalSupply as bigint,
+    };
+  }
+
+  async previewDeposit(assets: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_deposit", [assets])) as bigint;
+  }
+
+  async previewWithdraw(assets: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_withdraw", [assets])) as bigint;
+  }
+
+  async previewRedeem(shares: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_redeem", [shares])) as bigint;
   }
 
   async usdcBalance(account: string): Promise<bigint> {

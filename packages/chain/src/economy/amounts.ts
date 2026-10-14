@@ -57,6 +57,17 @@ export function minOutFor(poolOut: bigint, slippageBps: bigint = DEFAULT_SLIPPAG
   return (poolOut * (BPS - slippageBps)) / BPS;
 }
 
+/**
+ * The USDC `Economy.purchase` swaps (P-56): the price less the referral, i.e. the burn quote plus the margin, in one swap.
+ * `referred` is whether the purchase sends a referrer (any non-zero address the writer accepts): the contract pays the
+ * referral out of the margin first, then swaps the whole rest. `min_out` and the sanity floor are over this amount.
+ */
+export function swapInputOf(quote: { price: bigint; burnQuote: bigint; referral: bigint }, referred: boolean): bigint {
+  const input = quote.price - (referred ? quote.referral : 0n);
+  if (input < quote.burnQuote) throw new RangeError("The referral is larger than the margin");
+  return input;
+}
+
 /** The scale of `Economy.rate()`, the guard's swap rate: PAVED base units per USDC base unit, x 1e18 (`curve::RATE_SCALE`). */
 export const RATE_SCALE = 10n ** 18n;
 
@@ -127,6 +138,30 @@ export function parseUnits(text: string, decimals: number): bigint | null {
   if (fraction.length > decimals) return null;
   const amount = BigInt(m[1]) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
   return amount > 0n ? amount : null;
+}
+
+/**
+ * The vPAVED share (P-56): an ERC4626 over PAVED, 18 decimals like PAVED, with an exit fee in bps. The label is fixed,
+ * whatever the chain's symbol says.
+ */
+export const VPAVED_LABEL = "vPAVED";
+export const VPAVED_DECIMALS = 18;
+/** The scale of `vaultRate`: PAVED per vPAVED x 1e18. */
+export const VAULT_RATE_SCALE = 10n ** 18n;
+
+/**
+ * The Vault's rate, PAVED per vPAVED x `VAULT_RATE_SCALE`, rounded down: OpenZeppelin's conversion at offset 0,
+ * `(total_assets + 1) / (total_supply + 1)` (vault-share.md, addendum A1). Deposits and exits leave it unchanged up to
+ * rounding; the margin of every purchase and the exit fee raise it.
+ */
+export function vaultRate(totalAssets: bigint, totalSupply: bigint): bigint {
+  if (totalAssets < 0n || totalSupply < 0n) throw new RangeError("The Vault's totals are not negative");
+  return ((totalAssets + 1n) * VAULT_RATE_SCALE) / (totalSupply + 1n);
+}
+
+/** A bps figure as a percentage, e.g. 100 -> "1 %", 150 -> "1.5 %". */
+export function formatPercentBps(bps: bigint | number): string {
+  return `${formatUnits(BigInt(bps), 2)} %`;
 }
 
 /** A bps figure as a multiplier, e.g. 10_300 -> "1.03". */
