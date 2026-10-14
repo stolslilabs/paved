@@ -31,7 +31,7 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
-use core::num::traits::Pow;
+use core::num::traits::WideMul;
 use core::poseidon::PoseidonTrait;
 
 // Constants
@@ -194,10 +194,11 @@ pub impl DeckImpl of DeckTrait {
 // card `q` is not withdrawn at a rank below `tau`; otherwise what the last slot held just before
 // that withdrawal (which may be withdrawn later, then the same rule applies again).
 
-const TWO_POW_64: u128 = 0x10000000000000000;
+const TWO_POW_120: u128 = 0x1000000000000000000000000000000;
 const M1: u128 = 0x55555555555555555555555555555555;
 const M2: u128 = 0x33333333333333333333333333333333;
 const M4: u128 = 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f;
+const H01: u128 = 0x01010101010101010101010101010101;
 
 /// The number of bits set in `x`.
 #[inline]
@@ -205,19 +206,60 @@ pub fn popcount(x: u128) -> u32 {
     let x = x - ((x / 2) & M1);
     let x = (x & M2) + ((x / 4) & M2);
     let x = (x + x / 16) & M4;
-    let x = x + x / 256;
-    let x = x + x / 65536;
-    let x = x + x / 4294967296;
-    let x = x + x / TWO_POW_64;
-    (x & 0xff).try_into().unwrap()
+    // G5: one product sums the 16 byte counts into the top byte (each partial sum is at most 128,
+    // so no byte carries), in place of four shifts and adds
+    (x.wide_mul(H01).low / TWO_POW_120).try_into().unwrap()
+}
+
+/// The bit of each card: `BITS[c - 1]` is 2^(c - 1), the bit of card `c` (G5: one read in
+/// place of a 128-bit power per card `slot_card` steps over).
+const BITS: [u128; 128] = [
+    0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000,
+    0x8000, 0x10000, 0x20000, 0x40000, 0x80000, 0x100000, 0x200000, 0x400000, 0x800000, 0x1000000,
+    0x2000000, 0x4000000, 0x8000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000, 0x100000000,
+    0x200000000, 0x400000000, 0x800000000, 0x1000000000, 0x2000000000, 0x4000000000, 0x8000000000,
+    0x10000000000, 0x20000000000, 0x40000000000, 0x80000000000, 0x100000000000, 0x200000000000,
+    0x400000000000, 0x800000000000, 0x1000000000000, 0x2000000000000, 0x4000000000000,
+    0x8000000000000, 0x10000000000000, 0x20000000000000, 0x40000000000000, 0x80000000000000,
+    0x100000000000000, 0x200000000000000, 0x400000000000000, 0x800000000000000, 0x1000000000000000,
+    0x2000000000000000, 0x4000000000000000, 0x8000000000000000, 0x10000000000000000,
+    0x20000000000000000, 0x40000000000000000, 0x80000000000000000, 0x100000000000000000,
+    0x200000000000000000, 0x400000000000000000, 0x800000000000000000, 0x1000000000000000000,
+    0x2000000000000000000, 0x4000000000000000000, 0x8000000000000000000, 0x10000000000000000000,
+    0x20000000000000000000, 0x40000000000000000000, 0x80000000000000000000, 0x100000000000000000000,
+    0x200000000000000000000, 0x400000000000000000000, 0x800000000000000000000,
+    0x1000000000000000000000, 0x2000000000000000000000, 0x4000000000000000000000,
+    0x8000000000000000000000, 0x10000000000000000000000, 0x20000000000000000000000,
+    0x40000000000000000000000, 0x80000000000000000000000, 0x100000000000000000000000,
+    0x200000000000000000000000, 0x400000000000000000000000, 0x800000000000000000000000,
+    0x1000000000000000000000000, 0x2000000000000000000000000, 0x4000000000000000000000000,
+    0x8000000000000000000000000, 0x10000000000000000000000000, 0x20000000000000000000000000,
+    0x40000000000000000000000000, 0x80000000000000000000000000, 0x100000000000000000000000000,
+    0x200000000000000000000000000, 0x400000000000000000000000000, 0x800000000000000000000000000,
+    0x1000000000000000000000000000, 0x2000000000000000000000000000, 0x4000000000000000000000000000,
+    0x8000000000000000000000000000, 0x10000000000000000000000000000,
+    0x20000000000000000000000000000, 0x40000000000000000000000000000,
+    0x80000000000000000000000000000, 0x100000000000000000000000000000,
+    0x200000000000000000000000000000, 0x400000000000000000000000000000,
+    0x800000000000000000000000000000, 0x1000000000000000000000000000000,
+    0x2000000000000000000000000000000, 0x4000000000000000000000000000000,
+    0x8000000000000000000000000000000, 0x10000000000000000000000000000000,
+    0x20000000000000000000000000000000, 0x40000000000000000000000000000000,
+    0x80000000000000000000000000000000,
+];
+
+/// `2^index`, for `index` below 128: one read of `BITS`.
+#[inline]
+pub fn bit_at(index: u8) -> u128 {
+    *BITS.span()[index.into()]
 }
 
 /// The card in slot `slot` once the withdrawals of rank below `tau` are done.
-fn slot_card(bitmap: u128, number: u32, slot: u8, tau: u32) -> u8 {
+fn slot_card(bitmap: u128, number: u32, slot: u8, tau: u32, bits: Span<u128>) -> u8 {
     let mut card: u8 = slot;
     loop {
         // Card `c` is the bit `c - 1`; `bit - 1 + bit` is the mask of the bits up to it
-        let bit: u128 = 2_u128.pow((card - 1).into());
+        let bit: u128 = *bits[(card - 1).into()];
         if bitmap & bit == 0 {
             break;
         }
@@ -225,7 +267,7 @@ fn slot_card(bitmap: u128, number: u32, slot: u8, tau: u32) -> u8 {
         if rank >= tau {
             break;
         }
-        card = slot_card(bitmap, number, (number - rank + 1).try_into().unwrap(), rank);
+        card = slot_card(bitmap, number, (number - rank + 1).try_into().unwrap(), rank, bits);
     }
     card
 }
@@ -235,10 +277,11 @@ fn slot_card(bitmap: u128, number: u32, slot: u8, tau: u32) -> u8 {
 pub fn draw_from_bitmap(seed: felt252, number: u32, bitmap: u128) -> (u8, u32) {
     assert(number <= 128, errors::TOO_MANY_CARDS);
     // Only the cards of the deck are read, as `from_bitmap` does
+    let bits = BITS.span();
     let bitmap = if number == 128 {
         bitmap
     } else {
-        bitmap & (2_u128.pow(number) - 1)
+        bitmap & (*bits[number] - 1)
     };
     let withdrawn = popcount(bitmap);
     let remaining = number - withdrawn;
@@ -249,7 +292,7 @@ pub fn draw_from_bitmap(seed: felt252, number: u32, bitmap: u128) -> (u8, u32) {
     state = state.update(remaining.into());
     let random: u256 = state.finalize().into();
     let key: u8 = (random % remaining.into() + 1).try_into().unwrap();
-    (slot_card(bitmap, number, key, withdrawn + 1), remaining - 1)
+    (slot_card(bitmap, number, key, withdrawn + 1, bits), remaining - 1)
 }
 
 #[cfg(test)]

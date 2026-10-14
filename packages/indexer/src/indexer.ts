@@ -18,6 +18,10 @@
 //    header and events were read: N+1 is applied only if N is still the node's (hash AND
 //    commitments). On devnet a replacement keeps the replaced block's hash, so N+1's parent hash
 //    does not prove N; without this, N+1 could land on a stale N. That read is also N's check.
+//    With `concurrency` above 1 (I2), the headers and events of the next `concurrency` blocks are read in parallel, then
+//    each parent N is read again (in parallel too, after every read of the window ended, so after N+1's), and the
+//    blocks are applied one by one in ascending order with the same two checks: the first that fails ends the step,
+//    and the blocks after it in the window are dropped. The calls per block are those of block by block.
 // It halts (state `halted`, for good; the reason in the log and in every answer) on an event of
 // the four contracts it cannot decode, a game or a player that the tables contradict (store.ts), or a
 // node that went back below the kept history. A halt found while
@@ -36,7 +40,17 @@
 // do), is not seen: the tip and the window above it look unchanged. On a real network a replaced
 // block changes its hash, so its children's parent hashes change up to the tip, and the tip check
 // sees it. Nothing here covers that devnet case beyond the window.
-import { BadAnswer, Chain, RpcError, sameBlock, type Header, type RangedEvent, type RawEvent } from "./chain.ts";
+import {
+  BadAnswer,
+  Chain,
+  DEFAULT_CONCURRENCY,
+  NOT_A_PAGE_SIZE,
+  RpcError,
+  sameBlock,
+  type Header,
+  type RangedEvent,
+  type RawEvent,
+} from "./chain.ts";
 import { DecodeError, decode } from "./events.ts";
 import { Halt, Store, type Applied, type Config } from "./store.ts";
 
@@ -52,6 +66,12 @@ export type Options = {
   depth: Depth;
   /** Blocks applied in one step before the tip is checked again (at least 1). */
   batch?: number;
+  /**
+   * Blocks read at once above the final zone (I2): headers and events of the next `concurrency` blocks in parallel,
+   * applied in order. 1 reads one block after the other. Default DEFAULT_CONCURRENCY. The reads in flight are bounded by
+   * the Chain's throttle.
+   */
+  concurrency?: number;
   /**
    * The widest range read in one step while catching up in the final zone (`depth` l1, blocks at or below the last
    * L1-accepted one); 0 reads block by block everywhere. Default RANGE_SPAN.
@@ -102,6 +122,7 @@ export class Indexer {
   private readonly config: Config;
   private readonly depth: Depth;
   private readonly batch: number;
+  private readonly concurrency: number;
   /** The widest range to read (0: never by range); `span` is the current one, halved on a refusal, doubled back after a read. */
   private readonly range: number;
   private span: number;
@@ -119,6 +140,7 @@ export class Indexer {
     this.config = options.config;
     this.depth = options.depth;
     this.batch = Math.max(1, options.batch ?? 100);
+    this.concurrency = Math.max(1, Math.floor(options.concurrency ?? DEFAULT_CONCURRENCY));
     this.range = this.depth === "l1" ? Math.max(0, options.range ?? RANGE_SPAN) : 0;
     this.span = this.range;
     this.recheck = options.recheck ?? { depth: 10, everyMs: 10_000 };
@@ -262,6 +284,7 @@ export class Indexer {
       }
     }
     const last = Math.min(chainTip.number, next + this.batch - 1);
+    if (this.concurrency > 1) return this.ahead(next, last);
     for (; next <= last; next++) {
       const block = await this.chain.header(next);
       if (!block) break;
@@ -295,6 +318,65 @@ export class Indexer {
   }
 
   /**
+   * Blocks `next` to `last` (at most the node's tip), `concurrency` at a time (see 3. above): each window's headers, then
+   * events, are read in parallel; then the stored tip and every block of the window but the last are read again, in
+   * parallel, after every read of the window ended; then the blocks are applied in ascending order, each only if its
+   * parent is the stored tip and that parent was still the node's when read again. The first block that fails a check
+   * ends the step (the next one rewinds, as block by block), and the blocks after it are dropped. A block the node does
+   * not have ends the window there. A read that failed is thrown once the blocks before it are applied.
+   */
+  private async ahead(next: number, last: number): Promise<boolean> {
+    while (next <= last) {
+      const end = Math.min(last, next + this.concurrency - 1);
+      const numbers = Array.from({ length: end - next + 1 }, (_, i) => next + i);
+      const reads = await Promise.allSettled(
+        numbers.map(async (number) => {
+          const block = await this.chain.header(number);
+          return block ? { block, raws: await this.chain.events(block) } : null;
+        }),
+      );
+      // The blocks read, up to the first missing or failed one.
+      const read: { block: Header; raws: RawEvent[] }[] = [];
+      let failure: unknown = null;
+      for (const result of reads) {
+        if (result.status === "rejected") failure = result.reason;
+        else if (result.value) read.push(result.value);
+        if (result.status === "rejected" || !result.value) break;
+      }
+      // Each block's parent, read again after every read above ended: the stored tip, then the window's own blocks.
+      const tip = this.store.tip();
+      const parents = [tip, ...read.slice(0, -1).map((entry) => entry.block)];
+      const still = await Promise.allSettled(parents.map((parent) => (parent ? this.still(parent) : true)));
+      for (const [index, { block, raws }] of read.entries()) {
+        const below = this.store.tip();
+        if (below && block.parent !== below.hash) return true; // the next step's checks rewind
+        if (below) {
+          const check = still[index]!;
+          if (check.status === "rejected") throw check.reason;
+          if (!check.value) return true;
+          if (this.store.checked() < below.number) this.store.setChecked(below.number);
+        }
+        try {
+          const events = this.decoded(block, raws);
+          this.store.apply(block, events);
+          this.blocksApplied++;
+          this.eventsApplied += events.length;
+        } catch (error) {
+          if (!(error instanceof Halt)) throw error;
+          const consistent = (await this.still(block)) && (!below || (await this.still(below)));
+          if (consistent) throw error;
+          this.log(`block ${block.number} changed while it was applied (${error.message}); checking again`);
+          return true;
+        }
+      }
+      if (failure !== null) throw failure;
+      if (read.length < numbers.length) return true; // a block the node does not have (yet, or any more)
+      next = end + 1;
+    }
+    return true;
+  }
+
+  /**
    * One step of the catch-up by range, in the final zone: `next` to at most `final` (the last L1-accepted block, at or
    * below the node's tip) are final, so no block there can be replaced and the per-block checks are not needed. The
    * events of the range are read by contract over the whole range (Chain.rangeEvents), and only these blocks are read
@@ -309,7 +391,9 @@ export class Indexer {
    * row but `blocks`, and `prune` forgets the headers below the final floor in both cases. Block times are taken as
    * non-decreasing (the binary search needs it; a header that contradicts it is a BadAnswer). A node that refuses the
    * range (any RPC error but a page size, which Chain halves) gets half of it at the next step; the span doubles back
-   * after a read that succeeds. A Halt here is permanent: the blocks are final.
+   * after a read that succeeds. A refusal that persists at a span of one block halves the page size instead (down to one
+   * event; never for a code of NOT_A_PAGE_SIZE), and the page size doubles back after a read that succeeds, up to the
+   * largest size the node did not refuse as too big (Chain.rangeChunkCeiling). A Halt here is permanent: the blocks are final.
    */
   private async catchUp(stored: Header | null, next: number, final: number): Promise<boolean> {
     const end = Math.min(final, next + this.span - 1);
@@ -317,12 +401,22 @@ export class Indexer {
     try {
       raws = await this.chain.rangeEvents(next, end);
     } catch (error) {
-      if (!(error instanceof RpcError) || end === next) throw error;
+      if (!(error instanceof RpcError)) throw error;
+      if (end === next) {
+        // A refusal that persists at one block: the page, not the range, is what the node refuses (a node that says so
+        // with neither code 31 nor its text). Halved down to one event, then the error is thrown, as before; never for a
+        // code that names another cause (an outage), and doubled back after each ranged read that succeeds.
+        if (this.chain.rangeChunkSize <= 1 || NOT_A_PAGE_SIZE.includes(error.code)) throw error;
+        this.chain.rangeChunkSize = Math.max(1, Math.floor(this.chain.rangeChunkSize / 2));
+        this.log(`the node refused block ${next} (${error.message}); pages of ${this.chain.rangeChunkSize} events`);
+        return true;
+      }
       this.span = Math.max(1, Math.floor((end - next + 1) / 2));
       this.log(`the node refused blocks ${next} to ${end} (${error.message}); reading ${this.span} blocks at a time`);
       return true;
     }
     this.span = Math.min(this.range, this.span * 2);
+    this.chain.rangeChunkSize = Math.min(this.chain.rangeChunkCeiling, this.chain.rangeChunkSize * 2);
     const headers = new Map<number, Header>();
     const header = async (number: number): Promise<Header> => {
       let found = headers.get(number);
