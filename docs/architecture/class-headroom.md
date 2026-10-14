@@ -87,7 +87,7 @@ The first four figures are those of the brief, reproduced.
 |---|---|---|---|
 | `Daily` | Hostable (spawn, claim, sponsor), Ownable (embedded ABI: owner, pending_owner, transfer_ownership, accept_ownership, upgrade), Payable (pay, refund), Playable (build, discard, surrender); with P7 quiver `QuestComponent` and `AchievementComponent` (internal layer) | `IDaily` (spawn, claim, sponsor, discard, surrender, build), `IGameView` (4 views), `ITournamentView` (3 views), with P7 `IDailyQuests` (4 owner-only) | the whole engine: `structure::{placement, state, assessment, forest, oriented, tables, record}`, `models::{game, builder, tile, tournament}`, `helpers::random_deck`, `types::deck`, `store`, `views`, `leaderboard`, with P7 `quests` |
 | `Tutorial` | Hostable (spawn), Ownable, Tutoriable (build, discard, surrender); with P7 `AchievementComponent` | `ITutorial` (spawn, discard, surrender, build), `IGameView` | the same engine, its own copy |
-| `Account` | Ownable | register, player views | `models::player` |
+| `Account` (historical: deleted in D-25 E, with `models::player`) | Ownable | register, player views | `models::player` |
 | `Token` | ERC20 mock | ERC20 | `mocks` |
 
 ### Where the bytes go (CASM felts per module, release)

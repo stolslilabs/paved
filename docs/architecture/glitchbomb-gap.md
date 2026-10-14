@@ -591,7 +591,8 @@ This is flagged under "For the PM": "Account to the mocks" has a consumer only o
 
 - **Identity.** No registration: `HostableComponent::spawn_with` takes the caller's address as the player id and checks
   nothing more. `Store.player`, `Store.initialize`, `Store.set_player` and `PlayerAssert` in the spawn path are
-  gone, and nothing emits `PlayerCreated` (still declared in `Daily.json` until the indexer drops it); `models/player.cairo` stays for the game models that still name `Player`.
+  gone, and nothing emits `PlayerCreated` (still declared in `Daily.json` until the indexer drops it).
+  `models/player.cairo` and the `Player` struct are deleted: nothing used them after the registry left (fix loop 1).
 - **Storage.** No key and no event layout changed. `PavedStorage.account` and `PavedStorage.players` stay declared and
   dead in Challenge's layout (P-42), pinned by name and against reuse in
   `tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name` (`upgrades.md`, "Dead slots since D-25 E").
