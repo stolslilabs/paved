@@ -364,7 +364,11 @@ checks that Setup holds every definition before the run reports success.
 hashes, and each transaction's hash as the signer sends it. A rerun awaits each recorded transaction first (its receipt,
 up to 300 s): landed, it is not sent again; reverted, it may be; no receipt stops the run, the hash named. A hash the
 signer finds `not landed` is cleared. So a run stopped anywhere is rerun with the same command and sends only what is
-left; after completion (`fresh.complete`) a rerun sends nothing and needs no funding margin.
+left; after completion (`fresh.complete`) a rerun sends nothing and needs no funding margin. A complete rerun reads back
+only what always holds (addresses, classes, owners, `wiring()`, `router()`, the definitions, the smoke's recorded game):
+the pool, the stake, Economy's pool, configuration and mean, the guard rate and the day's figures move with play, the
+owner and the keeper, so it does not assert them. A first run does, the launch pool and `rate()` = 7.6e31 before the
+smoke's spawn included.
 
 **What changes in the same wave.**
 

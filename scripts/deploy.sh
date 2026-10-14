@@ -64,7 +64,11 @@
 # transaction), never an address. A recorded transaction is awaited first (its receipt, up to REPOINT_WAIT_S): landed, it
 # is not sent again (a deploy's address is read from its receipt); reverted, it may be; no receipt stops the run, the
 # hash named; a hash the signer finds `not landed` is cleared. So a rerun after a stop sends only what is left, and a
-# rerun after completion (`fresh.complete`) sends nothing and needs no funding margin. --check-only: every check above,
+# rerun after completion (`fresh.complete`) sends nothing, needs no funding margin, and reads back only what always holds
+# (addresses, classes, owners, wiring(), router(), the definitions, the smoke's recorded game): the pool, the stake,
+# Economy's pool, config and mean, the guard rate and the day's figures move with live play, the owner and the keeper,
+# so they are not asserted then (review of #358). A first run asserts them, the launch pool (800,000 PAVED, 10,000
+# USDC) and the guard rate (LAUNCH_RATE) before the smoke's spawn included. --check-only: every check above,
 # the funding check, and what the record holds; nothing is sent, the file is not written, and it ends "every check
 # passed; nothing was sent".
 #
@@ -1918,9 +1922,9 @@ fresh_check_only() {
     echo "   Challenge and Collection, seed the pool, stake, wire, define quests 1 to 4 and achievements 1 to 9 on Setup,"
     echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
   else
-    for key in Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
+    for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx definitions_tx \
-        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx; do
+        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
     done
@@ -2231,9 +2235,18 @@ echo "== pool and stake"
 # The launch pool, in the router's token order, from the initial supply and the Faucet's premint to the deployer (its
 # constructor, outside the faucet's caps: S-1's audit). A pool a stopped run sent: its receipt first; a seeded pool is
 # not seeded again.
+# A complete record (FRESH_COMPLETE) sends nothing and reads no launch state: its rerun keeps only what always holds
+# (addresses, classes, owners, wiring(), router(), the definitions), since live play and the keeper move the rest.
 fr_settled pool_tx || true
-read -r -a RESERVES <<<"$(call "$ROUTER" reserves)"
-if [[ "$(hex_int "${RESERVES[0]}")" != 0 && "$(hex_int "${RESERVES[2]}")" != 0 ]]; then
+if ((FRESH_COMPLETE)); then
+  RESERVES=()
+else
+  v RAW call "$ROUTER" reserves
+  read -r -a RESERVES <<<"$RAW"
+fi
+if ((FRESH_COMPLETE)); then
+  echo "   pool: complete record, not read again (tx $(fr_get pool_tx))"
+elif [[ "$(hex_int "${RESERVES[0]}")" != 0 && "$(hex_int "${RESERVES[2]}")" != 0 ]]; then
   echo "   pool seeded already$( [[ -n "$(fr_get pool_tx)" ]] && echo ", tx $(fr_get pool_tx)")"
 else
   read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
@@ -2253,7 +2266,14 @@ else
 fi
 # The owner's stake, before Economy can buy anything (E1's audit): the Vault never has zero stakers.
 fr_settled stake_tx || true
-if [[ "$(u256_of $(call "$VAULT" staked "$DEPLOYER_ARG"))" == "$STAKE_PAVED" ]]; then
+STAKED=""
+if ((FRESH_COMPLETE == 0)); then
+  v RAW call "$VAULT" staked "$DEPLOYER_ARG"
+  STAKED="$(u256_of $RAW)"
+fi
+if ((FRESH_COMPLETE)); then
+  echo "   stake: complete record, not read again (tx $(fr_get stake_tx))"
+elif [[ "$STAKED" == "$STAKE_PAVED" ]]; then
   echo "   stake made already$( [[ -n "$(fr_get stake_tx)" ]] && echo ", tx $(fr_get stake_tx)")"
 else
   RECORD_SENDING=stake_tx
@@ -2275,7 +2295,8 @@ read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 ECONOMY="$(fresh_deploy Economy "$ECONOMY_CLASS" "$DEPLOYER_ARG" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
   "${POOL_KEY[@]}" 0 0 "${CONFIG[@]}" "$MEAN0" $(u256 "$LAUNCH_RATE"))"
 fr_settled minter_tx || true
-if [[ "$(hex_int "$(call "$PAVED" minter)")" != "$(hex_int "$ECONOMY")" ]]; then
+v RAW call "$PAVED" minter
+if [[ "$(hex_int "$RAW")" != "$(hex_int "$ECONOMY")" ]]; then
   RECORD_SENDING=minter_tx
   invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
   RECORD_SENDING=""
@@ -2301,10 +2322,12 @@ if [[ -z "$(fr_get smoke.spawn_tx)" ]]; then
 else
   echo "   launch supply checks skipped: the smoke's game has moved PAVED since (tx $(fr_get smoke.spawn_tx))"
 fi
-read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER_ARG")"
-[[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
-  die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} PAVED"
-echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
+if ((FRESH_COMPLETE == 0)); then
+  read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER_ARG")"
+  [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
+    die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} PAVED"
+  echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
+fi
 
 # The quests and achievements (D-24): Challenge reports each game over to Setup, which accepts reporters only.
 SETUP="$(fresh_deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
@@ -2335,6 +2358,9 @@ echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Eco
 # Economy's router and pool (its constructor's): the MockRouter, its key and the limit 0; the P-46 configuration and
 # the initial mean, read back.
 [[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$ROUTER")" ]] || die "Economy.router() is not MockRouter"
+if ((FRESH_COMPLETE)); then
+  echo "   Economy: router MockRouter; pool, config and mean not read again (complete record: the owner and play may move them)"
+else
 read -r -a ECONOMY_POOL <<<"$(call "$ECONOMY" pool)"
 python3 -I - "${ECONOMY_POOL[@]}" "${POOL_KEY[@]}" <<'PY' || die "Economy.pool() is not the MockRouter's key and the limit 0"
 import sys
@@ -2353,6 +2379,7 @@ if [[ -z "$(fr_get smoke.spawn_tx)" ]]; then
   [[ "$(hex_int "${EMA_VIEW[2]}")" == "$MEAN0" ]] || die "Economy.ema() mean is $(hex_int "${EMA_VIEW[2]}"), not MEAN0 $MEAN0"
 fi
 echo "   Economy: router MockRouter, pool its key with the limit 0, config burn 7000 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED, mean $(hex_int "${EMA_VIEW[2]}") (MEAN0 $MEAN0)"
+fi
 
 echo "== definitions"
 # The quests.md v1 set on Setup, as its owner (D-24), before Setup's address reaches the deployment file's `contracts`
@@ -2488,19 +2515,36 @@ echo "   entry_price: 2 USDC per stake unit"
 # since), Economy's quote_swap(1.4 USDC) through it, and the guard rate (7.6e31 at launch; a purchase moves it).
 FILE_ROUTER="$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["contracts"]["MockRouter"]["address"])' "$OUT")"
 [[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$FILE_ROUTER")" ]] || die "Economy.router() is not the file's MockRouter $FILE_ROUTER"
-read -r -a RESERVES <<<"$(call "$ROUTER" reserves)"
-read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap 1400000 0)"
-gt "$(hex_int "$SWAP_LOW")" 0 || die "Economy.quote_swap(1400000) is 0"
-read -r RATE_LOW RATE_HIGH <<<"$(call "$ECONOMY" rate)"
-python3 -I - "$PAVED" "$USDC" "${RESERVES[@]}" "$SWAP_LOW" "$RATE_LOW" "$RATE_HIGH" <<'PY2'
+if ((FRESH_COMPLETE)); then
+  echo "   Economy.router() is the file's MockRouter; pool, quote and rate not read again (complete record)"
+else
+  v RAW call "$ROUTER" reserves
+  read -r -a RESERVES <<<"$RAW"
+  v RAW call "$ECONOMY" quote_swap 1400000 0
+  read -r SWAP_LOW _ <<<"$RAW"
+  gt "$(hex_int "$SWAP_LOW")" 0 || die "Economy.quote_swap(1400000) is 0"
+  v RAW call "$ECONOMY" rate
+  read -r RATE_LOW RATE_HIGH <<<"$RAW"
+  # Before the smoke's spawn (a first run, or a resume that has not spawned), the launch values are asserted: the pool
+  # is the seed and the guard rate is LAUNCH_RATE. After it, play has moved both: printed only.
+  LAUNCH=0
+  [[ -n "$(fr_get smoke.spawn_tx)" ]] || LAUNCH=1
+  python3 -I - "$PAVED" "$USDC" "${RESERVES[@]}" "$SWAP_LOW" "$RATE_LOW" "$RATE_HIGH" "$LAUNCH" "$POOL_PAVED" "$POOL_USDC" \
+      "$LAUNCH_RATE" <<'PY2' || die "the launch pool or rate is not the seed: see above"
 import sys
-paved, usdc, r0l, r0h, r1l, r1h, swap, rl, rh = sys.argv[1:]
+paved, usdc, r0l, r0h, r1l, r1h, swap, rl, rh, launch, pool_paved, pool_usdc, launch_rate = sys.argv[1:]
 r0, r1 = int(r0l, 16) + (int(r0h, 16) << 128), int(r1l, 16) + (int(r1h, 16) << 128)
 p, u = (r0, r1) if int(paved, 16) < int(usdc, 16) else (r1, r0)
 rate = int(rl, 16) + (int(rh, 16) << 128)
 print(f"   Economy.router() is the file's MockRouter; its pool: {p / 10**18:,.6f} PAVED and {u / 10**6:,.6f} USDC")
 print(f"   Economy.quote_swap(1.4 USDC) = {int(swap, 16)} PAVED base units; Economy.rate() = {rate} ({rate / 10**18 / 10**12:,.4f} PAVED per USDC)")
+if launch == "1":
+    ok = (p, u, rate) == (int(pool_paved), int(pool_usdc), int(launch_rate))
+    print(f"   launch values: pool {p} PAVED and {u} USDC base units, rate {rate}: "
+          + ("the seed and LAUNCH_RATE" if ok else f"NOT the seed ({pool_paved}, {pool_usdc}) and LAUNCH_RATE {launch_rate}"))
+    sys.exit(0 if ok else 1)
 PY2
+fi
 
 # A paid Challenge game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %. The 2 USDC come
 # from the faucet, unless the deployer already holds them: on Sepolia anyone may have filled its faucet cap, and
@@ -2611,7 +2655,7 @@ fi
 SETTLE_AT=$(((DAY + 2) * 86400))
 if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
   fr_settled smoke.settle_tx || true
-  if [[ "$T_SETTLED" != 1 ]]; then
+  if [[ "$T_SETTLED" != 1 && "$FRESH_COMPLETE" == 0 ]]; then
     rpc devnet_setTime "{\"time\":$SETTLE_AT,\"generate_block\":true}" >/dev/null || die "devnet_setTime failed"
     RECORD_SENDING=smoke.settle_tx
     SETTLE_TX="$(invoke "$ECONOMY" settle 1 "$PAID_ID")"
@@ -2630,9 +2674,12 @@ fi
 # no on-chain ranking since D-20). On Sepolia the day is still open (its time cannot move): its close is the keeper's.
 read -r -a DAYVIEW <<<"$(call "$ECONOMY" day "$DAY")"
 read -r -a T <<<"$(call "$ECONOMY" terms "$PAID_ID")"
+# A complete record: the day and the EMA belong to live play and the keeper since; printed, never asserted.
 SCORE="$(hex_int "${T[8]}")"
 EMA_AFTER="$(call "$ECONOMY" ema)"
-if (( SCORE < 100 )); then
+if ((FRESH_COMPLETE)); then
+  echo "   day $DAY: score $SCORE, weight $(hex_int "${DAYVIEW[2]}"), closed $(hex_int "${DAYVIEW[4]}"); not asserted (complete record)"
+elif (( SCORE < 100 )); then
   [[ "$EMA_AFTER" == "$EMA_BEFORE" ]] || die "the EMA moved"
   if [[ "$NETWORK" == "devnet" || "$REHEARSE" == 1 ]]; then
     [[ "$(hex_int "${DAYVIEW[2]}")" == 0 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY has a weight or is not closed"
