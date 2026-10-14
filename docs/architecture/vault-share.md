@@ -19,6 +19,39 @@ are unchanged since `c52467ca`, where the note was written); `GB:` is Glitchbomb
 are those of the version Paved would use. `OZ:governance-4.0.1/…` is `openzeppelin_governance` 4.0.1, read from the
 local scarbs.xyz cache.
 
+### As built (V1b, P-56)
+
+The addendum is built, with the owner's two later decisions (2026-10-14) and these corrections.
+
+- **The exit fee: 500 bps by default, owner bounds 0 to 1,000** (owner; A2 proposed 100 and 500).
+  - It is `Fee::Assets` on both exits, rounded up: `withdraw` uses `fee_on_raw` (`assets x f` on top) and `redeem`
+    uses `fee_on_total` (`v x f / (1 + f)` inside), so both charge `f` of what the holder receives.
+  - `LimitConfigTrait::withdraw_limit` is `preview_redeem(balance)`, so `withdraw(max_withdraw)` burns at most the
+    balance (tested at an odd rate).
+  - The event is `ExitFeeSet { previous, fee }`, as A2 proposed; the brief's shorthand "FeeSet" names this event.
+- **The constructor is `(owner, paved, exit_fee)`**, as A7 says, and refuses a fee above the bound.
+- **The split is owner-set** (the PM's addendum "the split", the owner's figures):
+  - `Config` gains `referral_bps` (0 to 1,000, at most the Vault's part, paid out of it).
+  - The Vault's part is `10,000 - burn_bps`, derived and shown by `split_bps()`.
+  - The defaults are burn 7,368 and referral 500: 69.996 % of the price burned after the 5 % pool fee, and 25.004 % to
+    the Vault, or 20.254 % with a referral.
+  - The table with each residual is in `economy.md`, section 4.
+- **The swap's input is Economy's whole USDC balance after the referral**: the burn quote, the Vault's part, and any
+  USDC sent to `Economy` before. A3 says "quote + margin". Today's code already sends such strays to the Vault with the
+  margin, and swapping them keeps `Economy` holding nothing; they count with the Vault's part of the split.
+  - `min_out` bounds the whole swap.
+  - The full-fill check reads the swap's own USDC leg (`'Economy: partial fill'`).
+- **`Quote.min_out_hint`** now estimates a referred purchase's whole swap (`price - referral`), not the burn quote.
+- **One swap, split by input, is not sim.py's model** (A4 swaps the margin after the burn).
+  - The burn's part gets the average price of the one swap, a little below the first swap's. The contract's R and
+    guard are therefore lower than sim.py's by one swap's extra impact.
+  - `fixture.py --margin-paved` models the contract's way, and `test_fixture_matches_sim` checks it.
+  - `sim.py --margin-paved` reproduces A4 to the digit, with A4's two swaps.
+- **Votes.** The dead shares are held by the Vault and never delegated. `get_past_total_supply` counts them, as A6
+  says.
+- **The fork tests.** Their two partial-fill purchases now expect the revert. No fork test runs a full purchase: the
+  fork reads a public RPC, which this PR does not run.
+
 ### Summary
 
 - **The share**: "Vault PAVED", `vPAVED`, 18 decimals, SNIP-12 name `'vPAVED'`. It is an OpenZeppelin ERC4626 over
