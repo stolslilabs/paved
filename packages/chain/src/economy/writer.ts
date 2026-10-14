@@ -376,20 +376,24 @@ export class EconomyWriter {
   /**
    * Settles bought Challenge games once their day may be settled, after the end of the next day (P-34): the contract
    * mints each one's reward to its player (`R x h(score / mean)`, 0 below the day's shifted mean). This is the
-   * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over), expired (no reward) or
-   * already settled, or whose day settles after the latest block's time (`settlesAfter`, from the chain's day id),
-   * sends nothing.
+   * player's claim of PAVED; anyone may settle. It refuses what `Economy.settle` refuses (`contracts/src/systems/economy.cairo`,
+   * `settle`): a game not bought (`'Economy: unknown game'`), not recorded (`'Economy: not recorded'`: not over, or never
+   * recorded past its 24 h), or whose day cannot close yet (`'Economy: day cannot close yet'`, before `settlesAfter`, from
+   * the chain's day id); and a game already settled, which the contract skips (`continue`), so sending it would only pay a
+   * fee. A recorded expired game (P-34) is settled: the contract settles it for a reward of 0, and `noReward` lists it.
    */
-  async settle(gameIds: number[]): Promise<WriteResult> {
+  async settle(gameIds: number[]): Promise<WriteResult & { noReward: number[] }> {
+    const noReward: number[] = [];
     try {
-      return await this.sendSettle(gameIds);
+      return { ...(await this.sendSettle(gameIds, noReward)), noReward };
     } catch (error) {
       throw economyRevert(error);
     }
   }
 
-  private sendSettle(gameIds: number[]): Promise<WriteResult> {
+  private sendSettle(gameIds: number[], noReward: number[]): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
+      noReward.length = 0;
       gameIds = [...new Set(gameIds)];
       if (gameIds.length === 0) throw new WriteError("No game to settle");
       let now: number;
@@ -406,13 +410,19 @@ export class EconomyWriter {
       }
       checked.forEach((terms, i) => {
         const id = gameIds[i];
+        // `'Economy: unknown game'`: no player bought it.
         if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
+        // Skipped by the contract: a send would settle nothing and still pay the network fee.
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
-        // An expired game (recorded 24 h or more after its purchase, or never recorded, P-34) gets no reward and has no mean.
-        if (terms.expired || (!terms.recorded && now >= expiresAt(terms.time))) throw new WriteError(`Game ${id} is expired: no reward`);
+        // `'Economy: not recorded'`. Never recorded within its 24 h, it is expired too (P-34): no reward whenever it is
+        // recorded; still refused until then, as the contract does.
+        if (!terms.recorded && now >= expiresAt(terms.time)) throw new WriteError(`Game ${id} is expired: no reward`);
         if (!terms.recorded) throw new WriteError(`Game ${id} is not over yet`);
+        // `'Economy: day cannot close yet'`: before the end of the next day, expired or not.
         const after = settlesAfter(terms.day);
         if (now < after) throw new WriteError(`Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
+        // Recorded expired (24 h or more after its purchase): the contract settles it for 0, outside the day's mean.
+        if (terms.expired) noReward.push(id);
       });
       // `Span<u32>` by hand (the codec encodes no arrays): the length, then each id.
       const calldata = [toHex(gameIds.length), ...gameIds.map((id) => this.u32(id))];

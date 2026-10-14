@@ -429,6 +429,26 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     expect(result.events[0].fields.reward).toBe(10n ** 18n);
   });
 
+  test("a recorded expired game is settled, not refused: the contract settles it for 0 (P-34), and noReward says so", async () => {
+    const zero = { ...settled, data: [`0x${DAY.toString(16)}`, "0x0", "0xd19", "0x0"] }; // score 0, reward 0
+    const { economy, econWriter, sent } = setup({ receiptEvents: [zero] });
+    economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, score: 0, expired: true }));
+    economy.terms_.set(8, fakeTerms({ stake: 1, day: DAY, score: 4000 }));
+    const result = await econWriter.settle([7, 8]);
+    expect(sent()[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x2", "0x7", "0x8"] }]);
+    expect(result.noReward).toEqual([7]);
+    expect(result.events[0].fields.reward).toBe(0n);
+    // Alone, the same: one call, its reward said to be 0 before the receipt.
+    const one = setup({ receiptEvents: [zero] });
+    one.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true }));
+    expect((await one.econWriter.settle([7])).noReward).toEqual([7]);
+    expect(one.sent()).toHaveLength(1);
+    // A game that is not expired is not listed.
+    const live = setup({ receiptEvents: [] });
+    live.economy.terms_.set(8, fakeTerms({ stake: 1, day: DAY }));
+    expect((await live.econWriter.settle([8])).noReward).toEqual([]);
+  });
+
   test("several ids: [n, id...], duplicates sent once", async () => {
     const { economy, econWriter, sent } = setup({ receiptEvents: [] });
     for (const id of [7, 8, 300]) economy.terms_.set(id, fakeTerms({ stake: 1, day: DAY }));
@@ -459,12 +479,14 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
+  test("refused, sending nothing, as Economy.settle refuses: day running, not recorded (not over, or expired unplayed), not bought; and already settled (skipped on chain); a failed read", async () => {
     const cases: Array<[string, (s: ReturnType<typeof setup>) => void, RegExp, number?]> = [
       ["day D before D+1 ends", () => {}, /settles after/, settlesAfter(DAY) - 1],
       ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over yet/, DAY * 86_400 + 3_600],
-      ["expired and recorded", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true })), /expired: no reward/],
+      ["expired and recorded, its day not closable yet ('Economy: day cannot close yet')", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true })), /settles after/, settlesAfter(DAY) - 1],
+      // Never recorded: the contract refuses it ('Economy: not recorded'), expired or not.
       ["never recorded, past its 24 h", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /expired: no reward/, expiresAt(DAY * 86_400)],
+      ["never recorded, past its day", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /expired: no reward/],
       ["settled", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, settled: true })), /already settled/],
       ["not bought", (s) => s.economy.terms_.delete(7), /not bought/],
       ["read fails", (s) => (s.economy.fail = "down"), /Cannot read the game/],
