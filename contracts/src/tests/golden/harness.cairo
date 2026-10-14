@@ -73,7 +73,9 @@ pub fn spawn_on_the_day_seed(
     // [Info] One call each, Challenge's own: the purchase's `transferFrom`, `Economy.purchase` and
     // `Collection.mint` (the calls `Economy` then makes are its own)
     for callee in callees {
-        snforge_std::cheat_caller_address(callee, challenge, snforge_std::CheatSpan::TargetCalls(1));
+        snforge_std::cheat_caller_address(
+            callee, challenge, snforge_std::CheatSpan::TargetCalls(1),
+        );
     }
     let game_id = snforge_std::interact_with_state(
         challenge,

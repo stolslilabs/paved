@@ -461,7 +461,8 @@ fn test_collection_token_uri_finished_tutorial_game() {
 #[should_panic(expected: 'Collection: invalid token')]
 fn test_collection_token_uri_unminted() {
     let world = setup();
-    IERC721MetadataSoulboundDispatcher { contract_address: world.collection }.token_uri(CHALLENGE_ID);
+    IERC721MetadataSoulboundDispatcher { contract_address: world.collection }
+        .token_uri(CHALLENGE_ID);
 }
 
 #[test]

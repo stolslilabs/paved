@@ -134,4 +134,3 @@ fn test_start_stub_source_changes_the_draw() {
     }
     assert!(found);
 }
-

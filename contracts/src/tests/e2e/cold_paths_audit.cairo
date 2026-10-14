@@ -54,7 +54,9 @@ fn test_daily_pins_its_storage_variables_by_name() {
         raw(challenge, selector!("token_address")) == context.token.contract_address.into(),
         'Pin: token_address',
     );
-    assert(raw(challenge, selector!("setup")) == systems.setup.contract_address.into(), 'Pin: setup');
+    assert(
+        raw(challenge, selector!("setup")) == systems.setup.contract_address.into(), 'Pin: setup',
+    );
     assert(raw(challenge, selector!("owner")) == OWNER().into(), 'Pin: owner');
     assert(raw(challenge, selector!("pending_owner")) == 0, 'Pin: pending_owner before');
     start_cheat_caller_address(challenge, OWNER());
@@ -188,7 +190,8 @@ fn test_daily_pins_the_dead_fields_by_name() {
     let mut i = 0;
     while i < slots.len() {
         assert(
-            *load(challenge, *slots.at(i), 1).at(0) == sentinel + *slots.at(i), 'Dead: field written',
+            *load(challenge, *slots.at(i), 1).at(0) == sentinel + *slots.at(i),
+            'Dead: field written',
         );
         i += 1;
     }
@@ -241,8 +244,8 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
 
 // Mode: no entry point of `Daily` takes a mode
 
-/// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that mode,
-/// for any caller.
+/// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that
+/// mode, for any caller.
 #[test]
 #[available_gas(l2_gas: 140000000)]
 fn test_daily_spawn_mode_is_fixed_by_the_game_contract() {

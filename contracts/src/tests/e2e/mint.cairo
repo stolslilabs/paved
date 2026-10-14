@@ -6,13 +6,13 @@
 
 use core::byte_array::ByteArrayTrait;
 use core::num::traits::Zero;
+use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::collection::{
     Collection, ICollectionSafeDispatcher, ICollectionSafeDispatcherTrait,
     IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
     IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
     IERC721SoulboundSafeDispatcherTrait, TUTORIAL_OFFSET, metadata,
 };
-use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
@@ -105,7 +105,9 @@ fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
         let reason = *collection.mint(PLAYER(), future).unwrap_err().at(0);
         assert(reason == 'Collection: not minter', 'Mint: a caller mints');
     }
-    start_cheat_caller_address(systems.collection.contract_address, systems.challenge.contract_address);
+    start_cheat_caller_address(
+        systems.collection.contract_address, systems.challenge.contract_address,
+    );
     let reason = *collection.mint(PLAYER(), tutorial_token(5)).unwrap_err().at(0);
     assert(reason == 'Collection: not minter', 'Mint: challenge mints tutorial');
     start_cheat_caller_address(systems.collection.contract_address, Zero::zero());

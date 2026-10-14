@@ -318,7 +318,9 @@ fn test_forest_scores_four_roads() {
     let (g, p) = (context.game_id, context.player_id);
     crossings(store, systems.challenge, g, p, false);
     let mut spy = spy_events();
-    put(store, systems.challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1);
+    put(
+        store, systems.challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1,
+    );
     spy
         .assert_emitted(
             @array![(systems.challenge.contract_address, scored(g, p, Category::Forest, 4, 1316))],
