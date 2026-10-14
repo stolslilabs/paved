@@ -3017,13 +3017,16 @@ else
   fr_set "smoke.spawn_tx=$CHALLENGE_TX" "smoke.game_id=$PAID_ID"
   USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
   [[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
-  [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
+  # USDC the router held before the purchase comes back to Economy (`clear`) and waits for the next margin (P-56): anyone
+  # can send some to the router, so it is printed, not refused (security audit note 1 of #382)
+  STRAY_USDC="$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")"
+  [[ "$STRAY_USDC" == 0 ]] || echo "   Economy holds $STRAY_USDC USDC base units the router gave back: the next purchase's margin"
   [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
   VAULT_AFTER="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
   gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "the purchase sent no PAVED to the Vault"
   [[ "$(hex_int "$(call "$VAULT" total_supply | cut -d' ' -f1)")" == "$SHARES_BEFORE" ]] || die "the purchase minted vPAVED"
   [[ "$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")" == 0 ]] || die "the Vault holds USDC after the purchase"
-  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds nothing;"
+  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds no PAVED;"
   echo "   the Vault's PAVED grew by $((VAULT_AFTER - VAULT_BEFORE)) base units, its shares unchanged"
 fi
 DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$CHALLENGE" game "$PAID_ID" | cut -d' ' -f14)")"
