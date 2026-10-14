@@ -4,7 +4,7 @@ import { connectionStatus } from "../src/react";
 
 const configured = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 
 describe("connectionStatus", () => {

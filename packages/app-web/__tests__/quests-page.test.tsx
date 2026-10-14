@@ -65,7 +65,7 @@ describe("Quests page", () => {
     expect(list.getAllByRole("listitem")).toHaveLength(4);
     const run = within(q("Daily Run"));
     expect(run.getByText(/^Completed 20\d\d-\d\d-\d\d$/)).toBeTruthy();
-    expect(run.getByText("1 / 1 Daily games finished")).toBeTruthy();
+    expect(run.getByText("1 / 1 Challenge games finished")).toBeTruthy();
     const chaser = within(q("Point Chaser"));
     expect(chaser.getByText("2,700 / 3,000 points")).toBeTruthy();
     expect(chaser.queryByText(/Completed/)).toBeNull();
@@ -87,7 +87,7 @@ describe("Quests page", () => {
     expect(settler.getByText(/^Completed/)).toBeTruthy();
     expect(settler.getByText("10 points")).toBeTruthy();
     const second = within(a("Settler II"));
-    expect(second.getByText("1 / 10 Daily games finished")).toBeTruthy();
+    expect(second.getByText("1 / 10 Challenge games finished")).toBeTruthy();
     expect(second.getByText("20 points")).toBeTruthy();
     expect(within(a("On the Podium")).getByText("0 / 1 podium places")).toBeTruthy();
   });
@@ -100,7 +100,7 @@ describe("Quests page", () => {
     const chaser = within(screen.getByRole("list", { name: "Quest definitions" })).getByText("Point Chaser").closest("li")!;
     expect(within(chaser).getByText("Every UTC day")).toBeTruthy();
     expect(within(chaser).getByText("Target: 3,000 points")).toBeTruthy();
-    expect(within(chaser).getByText(/the sum of the scores of the day's finished Daily games/)).toBeTruthy();
+    expect(within(chaser).getByText(/the sum of the scores of the day's finished Challenge games/)).toBeTruthy();
     const podium = within(screen.getByRole("list", { name: "Achievement definitions" })).getByText("On the Podium").closest("li")!;
     expect(within(podium).getByText("50 points")).toBeTruthy();
     expect(within(podium).getByText(/Counted once the day has closed/)).toBeTruthy();
@@ -178,7 +178,7 @@ describe("Quests page", () => {
   it("a player with no progress sees zero counts and zero points", async () => {
     quests({ account: ME(FIXTURE_BO) });
     await quest();
-    expect(within(q("Daily Run")).getByText("0 / 1 Daily games finished")).toBeTruthy();
+    expect(within(q("Daily Run")).getByText("0 / 1 Challenge games finished")).toBeTruthy();
     expect(within(q("Daily Run")).queryByText(/Completed/)).toBeNull();
     await screen.findByText("Achievement points: 0");
   });

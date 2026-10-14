@@ -51,7 +51,7 @@ function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ ga
   const tree = (acc: typeof account | null) => {
     const inner = (
       <PavedProvider deployment={deployment} account={acc} client={client}>
-        <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.url ?? "?mode=daily", state: opts.state }]}>
+        <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.url ?? "?mode=challenge", state: opts.state }]}>
           <Where />
           <GoHome />
           <Routes>

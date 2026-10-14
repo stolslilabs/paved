@@ -110,7 +110,7 @@ export class RateUnavailableError extends WriteError {
 }
 
 /**
- * The referrer is one the contract would not pay (D-25 (E)): the payer's own address, or the deployment's Daily or Economy.
+ * The referrer is one the contract would not pay (D-25 (E)): the payer's own address, or the deployment's Challenge or Economy.
  * One plain message for all three; `who` says which. Nothing was sent.
  */
 export class RefusedReferrerError extends WriteError {
@@ -176,7 +176,7 @@ export interface PurchasePlan {
 }
 
 /**
- * The economy's writes for one account: the paid Daily purchase, the settlement of a bought game (the player's
+ * The economy's writes for one account: the paid Challenge purchase, the settlement of a bought game (the player's
  * claim of PAVED), and the Vault's stake, unstake and dividends. Each one reads what it pays or receives again
  * just before sending and refuses an amount the player did not confirm, or any failed read, sending nothing. The
  * writes go through the account's `PavedWriter`, so they are serialised with the game's writes.
@@ -188,7 +188,7 @@ export class EconomyWriter {
       deployment: EconomyDeployment;
       codecs: EconomyCodecs;
       views: EconomyViews;
-      /** The game views of the same deployment: `Daily.entry_price`. */
+      /** The game views of the same deployment: `Challenge.entry_price`. */
       gameViews: Pick<GameViews, "entryPrice">;
       /** The pool's quote for the burn swap; null until CORE confirms `quote_swap` (every purchase is refused then). */
       poolQuoter: PoolQuoter | null;
@@ -209,15 +209,15 @@ export class EconomyWriter {
   }
 
   /**
-   * Buys a Daily game of stake `k`: approves `Daily` on USDC for exactly the price, then
-   * `Daily.spawn(stake, referrer, min_out)`, in one multicall. The entry unit and the quote are read again first;
+   * Buys a Challenge game of stake `k`: approves `Challenge` on USDC for exactly the price, then
+   * `Challenge.spawn(stake, referrer, min_out)`, in one multicall. The entry unit and the quote are read again first;
    * the price must be `k x entry_price().amount` and the one the player confirmed. The payer's own address as the
-   * referrer, or the deployment's Daily or Economy, is refused (`RefusedReferrerError`): the contract would not pay it.
+   * referrer, or the deployment's Challenge or Economy, is refused (`RefusedReferrerError`): the contract would not pay it.
    */
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     let result: WriteResult;
     try {
-      result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Daily" }));
+      result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Challenge" }));
     } catch (error) {
       // Sent, but its receipt could not be read (timeout, RPC drop): the USDC may have moved. Not a failure, unlike a
       // revert, which is a known one.
@@ -252,13 +252,13 @@ export class EconomyWriter {
     // On mainnet a rate of 0 is unexpected (the constructor refuses it, E-9c): purchases are paused, the pool not quoted.
     const rateRefusal = rateProblem(deployment, rate);
     if (rateRefusal) throw new RateUnavailableError(rateRefusal);
-    if (!sameAddress(entry.token, deployment.addresses.USDC)) throw new WriteError("Unknown entry token: the Daily entry is not paid in USDC");
+    if (!sameAddress(entry.token, deployment.addresses.USDC)) throw new WriteError("Unknown entry token: the Challenge entry is not paid in USDC");
     const price = priceOf(entry.amount, request.stake);
-    if (price === 0n) throw new WriteError("The Daily entry has no price: nothing to buy");
+    if (price === 0n) throw new WriteError("The Challenge entry has no price: nothing to buy");
     if (quote.price !== price) throw new WriteError("The quote disagrees with the entry price: nothing was sent");
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
     if (typeof request.confirmedMinOut !== "bigint" || request.confirmedMinOut <= 0n) throw new WriteError("No confirmed minimum PAVED: confirm again");
-    const referrer = referrerOf(request.referrer, this.address, { daily: deployment.base.addresses.Daily, economy: deployment.addresses.Economy });
+    const referrer = referrerOf(request.referrer, this.address, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
     // `min_out` from the pool's quote (fee included) less the slippage; never from `min_out_hint`, which leaves the
     // fee out and would make the purchase revert (P-35). No quote, or a 0 one, is no slippage protection: refused.
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
@@ -288,14 +288,14 @@ export class EconomyWriter {
       throw new PoolQuoteBelowFloorError(poolOut, implied);
     }
     const calls = [
-      this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
-      this.call("Daily", "spawn", [request.stake, referrer, minOut]),
+      this.call("USDC", "approve", [deployment.base.addresses.Challenge, price]),
+      this.call("Challenge", "spawn", [request.stake, referrer, minOut]),
     ];
     return { calls, price, minOut, poolOut, implied, router, referrer, quote };
   }
 
   /**
-   * Settles bought Daily games once their day may be settled, after the end of the next day (P-34): the contract
+   * Settles bought Challenge games once their day may be settled, after the end of the next day (P-34): the contract
    * mints each one's reward to its player (`R x h(score / mean)`, 0 below the day's shifted mean). This is the
    * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over), expired (no reward) or
    * already settled, or whose day settles after the latest block's time (`settlesAfter`, from the chain's day id),
@@ -398,7 +398,7 @@ export class EconomyWriter {
   private call(contract: EconomyContractName, entrypoint: string, args: Encodable[]): Call {
     const { addresses, base } = this.options.deployment;
     return {
-      contractAddress: contract === "Daily" ? base.addresses.Daily : addresses[contract],
+      contractAddress: contract === "Challenge" ? base.addresses.Challenge : addresses[contract],
       entrypoint,
       calldata: this.options.codecs[contract].encodeCall(entrypoint, args),
     };
@@ -406,17 +406,17 @@ export class EconomyWriter {
 }
 
 /** Why a referrer is refused: the payer's own address, or one of the game's contracts that the contract never pays. */
-export type RefusedReferrer = "payer" | "daily" | "economy";
+export type RefusedReferrer = "payer" | "challenge" | "economy";
 
 /** The contracts a referrer may not be (CORE's step E: the contract ignores them), from the deployment. */
 export interface ReferrerContracts {
-  daily: string;
+  challenge: string;
   economy: string;
 }
 
 /**
  * Which rule refuses `referrer` (any spelling, padded or not), or null when it may be sent. Since D-25 (E) a referrer is any
- * non-zero address other than the payer, the Daily and the Economy, with no registration.
+ * non-zero address other than the payer, the Challenge and the Economy, with no registration.
  */
 export function refusedReferrer(referrer: string | bigint, self: string | null, contracts: ReferrerContracts): RefusedReferrer | null {
   const same = (other: string | null) => {
@@ -427,7 +427,7 @@ export function refusedReferrer(referrer: string | bigint, self: string | null, 
     }
   };
   if (same(self)) return "payer";
-  if (same(contracts.daily)) return "daily";
+  if (same(contracts.challenge)) return "challenge";
   if (same(contracts.economy)) return "economy";
   return null;
 }

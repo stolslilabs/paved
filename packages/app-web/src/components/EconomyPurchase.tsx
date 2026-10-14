@@ -29,7 +29,7 @@ import { shortAddress } from "../utils/landing-helpers";
 import { alert, button, confirmButton, warning } from "./EconomyStyles";
 
 /**
- * The paid Daily: the stake picker with its price `P = 2k` USDC (read from the chain) and the boost, then a confirm
+ * The paid Challenge: the stake picker with its price `P = 2k` USDC (read from the chain) and the boost, then a confirm
  * that shows the amount and the referrer. Only "Confirm purchase" calls `onConfirm`, with the price shown; the
  * purchase itself is sent by the game page from the history state, and re-checked there. The pool's quote of the burn
  * (`Economy.quote_swap(burn_quote)`, E-9) is shown as the least PAVED bought; the purchase quotes again at send and
@@ -77,12 +77,12 @@ export function EconomyPurchase({
   const rate = gate.data && gate.error === null ? gate.data[1] : null;
   // Mainnet at a rate of 0 (unexpected, E-9c): purchases are paused; nothing is quoted nor offered.
   const rateRefusal = rate !== null && routerRefusal === null ? rateProblem(client.deployment, rate) : null;
-  // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy, with no registration.
+  // D-25 (E): a referrer is any non-zero address other than the payer, the Challenge and the Economy, with no registration.
   // The link's parser already drops a zero one; a refused one is shown as such and not sent (the writer refuses it too:
   // `RefusedReferrerError`).
   const refused =
     referrer !== null &&
-    refusedReferrer(referrer, address, { daily: client.deployment.base.addresses.Daily, economy: client.deployment.addresses.Economy }) !== null;
+    refusedReferrer(referrer, address, { challenge: client.deployment.base.addresses.Challenge, economy: client.deployment.addresses.Economy }) !== null;
   const usedReferrer = referrer && !refused ? referrer : null;
 
   const unit = entry.data && sameAddress(entry.data.token, client.deployment.addresses.USDC) ? entry.data.amount : null;
@@ -190,7 +190,7 @@ export function EconomyPurchase({
       ) : (
         price !== null && (
           <div role="dialog" aria-label="Confirm purchase" style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #444", paddingTop: 8 }}>
-            <span>{`Pay ${usdc(price)} (approve USDC, then buy) for a Daily game at stake ${stake}?`}</span>
+            <span>{`Pay ${usdc(price)} (approve USDC, then buy) for a Challenge game at stake ${stake}?`}</span>
             {burnShare && <span>{`Swapped for PAVED and burned: ${burnShare}.`}</span>}
             {minPaved !== null && minPaved > 0n && (
               <span>{`At least ${paved(minPaved)} bought and burned: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`}</span>

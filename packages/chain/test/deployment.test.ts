@@ -4,6 +4,11 @@ import { describe, expect, test } from "vitest";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import { USDC_LABEL, resolveEconomyDeployment } from "../src/economy";
 
+/** CORE's committed `contracts/deployments/<network>.json`, as it is. */
+const committedFile = (network: "devnet" | "sepolia") =>
+  JSON.parse(readFileSync(resolve(__dirname, `../../../contracts/deployments/${network}.json`), "utf8")) as DeploymentFile;
+
+
 const FILE: DeploymentFile = {
   chain_id: "0x534e5f5345504f4c4941",
   rpc_url: "http://file:5050/rpc",
@@ -11,7 +16,7 @@ const FILE: DeploymentFile = {
   deployed_block: 12,
   token: { decimals: 18, symbol: "TKN" },
   contracts: {
-    Daily: { address: "0x2", class_hash: "0xb" },
+    Challenge: { address: "0x2", class_hash: "0xb" },
     Setup: { address: "0x3", class_hash: "0xc" },
     Token: { address: "0x4", class_hash: "0xd" },
   },
@@ -24,7 +29,7 @@ describe("resolveDeployment", () => {
       rpcUrl: "http://file:5050/rpc",
       deployedBlock: 12,
       tokenDecimals: 18,
-      addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" },
+      addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" },
       configured: true,
       missing: [],
     });
@@ -34,17 +39,17 @@ describe("resolveDeployment", () => {
     const d = resolveDeployment({
       network: "devnet",
       file: FILE,
-      env: { rpcUrl: "http://env/rpc", deployedBlock: "40", addresses: { Daily: "0x22" } },
+      env: { rpcUrl: "http://env/rpc", deployedBlock: "40", addresses: { Challenge: "0x22" } },
     });
     expect(d.rpcUrl).toBe("http://env/rpc");
     expect(d.deployedBlock).toBe(40);
-    expect(d.addresses).toEqual({ Daily: "0x22", Setup: "0x3", Token: "0x4" });
+    expect(d.addresses).toEqual({ Challenge: "0x22", Setup: "0x3", Token: "0x4" });
   });
 
   test("no file and no env: not configured, with what is missing", () => {
     const d = resolveDeployment({ network: "devnet", file: null });
     expect(d.configured).toBe(false);
-    expect(d.missing).toEqual(["Daily address", "Token address", "RPC URL"]);
+    expect(d.missing).toEqual(["Challenge address", "Token address", "RPC URL"]);
     expect(d.deployedBlock).toBe(0);
   });
 
@@ -67,7 +72,7 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ network: "devnet", file: { ...FILE, contracts: before }, env: { addresses: { Setup: "0x33" } } }).addresses.Setup).toBe("0x33");
     // An old file's Tutorial (D-21) and Account (D-25 (E)) keys are not read.
     const old = { ...FILE, contracts: { ...before, Tutorial: { address: "0x9" }, Account: { address: "0x1" } } } as DeploymentFile;
-    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Daily", "Setup", "Token"]);
+    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Challenge", "Setup", "Token"]);
   });
 
   test("Account is not required since D-25 (E): a file without it is configured, one with it is read without it", () => {
@@ -79,10 +84,10 @@ describe("resolveDeployment", () => {
   });
 
   test("an empty or invalid env value does not override", () => {
-    const d = resolveDeployment({ network: "devnet", file: FILE, env: { rpcUrl: "", deployedBlock: "x", addresses: { Daily: "" } } });
+    const d = resolveDeployment({ network: "devnet", file: FILE, env: { rpcUrl: "", deployedBlock: "x", addresses: { Challenge: "" } } });
     expect(d.rpcUrl).toBe(FILE.rpc_url);
     expect(d.deployedBlock).toBe(12);
-    expect(d.addresses.Daily).toBe("0x2");
+    expect(d.addresses.Challenge).toBe("0x2");
   });
 });
 
@@ -98,7 +103,7 @@ describe("controllerPolicies", () => {
 });
 
 describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
-  const real = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/devnet.json"), "utf8")) as DeploymentFile;
+  const real = committedFile("devnet");
 
   test("is read as it is: the addresses, rpc url, deployed block, decimals", () => {
     const d = resolveDeployment({ network: "devnet", file: real });
@@ -109,7 +114,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(d.deployedBlock).toBe(real.deployed_block);
     expect(real.token!.decimals).toBe(6); // the entry token is USDC since E3 (MockUSDC on devnet)
     expect(d.tokenDecimals).toBe(real.token!.decimals);
-    for (const name of ["Daily", "Token"] as const) {
+    for (const name of ["Challenge", "Token"] as const) {
       expect(d.addresses[name]).toBe(real.contracts![name]!.address);
     }
     // Setup when the file has one (step D's deploy.sh writes it; a file from before has none).
@@ -123,11 +128,11 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     const d = resolveDeployment({
       network: "devnet",
       file: real,
-      env: { rpcUrl: "http://other:5050", deployedBlock: 99, addresses: { Daily: "0xdead" } },
+      env: { rpcUrl: "http://other:5050", deployedBlock: 99, addresses: { Challenge: "0xdead" } },
     });
     expect(d.rpcUrl).toBe("http://other:5050");
     expect(d.deployedBlock).toBe(99);
-    expect(d.addresses.Daily).toBe("0xdead");
+    expect(d.addresses.Challenge).toBe("0xdead");
     expect(d.addresses.Token).toBe(real.contracts!.Token?.address ?? real.token!.address);
   });
 
@@ -139,7 +144,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     const d = resolveDeployment({ network: "devnet", file: withClasses });
     expect(d.configured).toBe(true);
     expect(d.tokenDecimals).toBe(real.token!.decimals);
-    expect(Object.keys(d.addresses).sort()).toEqual(["Daily", "Setup", "Token"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup", "Token"]);
   });
 
   test("the symbol is never read for display: the label is the client's USDC constant (E3)", () => {
@@ -151,8 +156,10 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
   });
 });
 
-describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
-  const real = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as DeploymentFile;
+// The committed sepolia.json keeps the `Daily` key until the fresh deployment F (PM's ruling, P-53): main's client never goes
+// to Sepolia before F, so it is read as it is and resolves as not configured, with only the Challenge address missing.
+describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), still keyed Daily until F", () => {
+  const real = committedFile("sepolia");
   const RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
   const contracts = real.contracts as Record<string, { address: string }>;
 
@@ -160,15 +167,17 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
     expect(real.rpc_url).toBe("$STARKNET_RPC_URL");
   });
 
-  test("with VITE_RPC_URL: every address comes from the file, and the deployment is connected", () => {
+  test("with VITE_RPC_URL: every other address comes from the file, and it is not configured: Challenge is missing", () => {
+    expect(contracts.Challenge).toBeUndefined();
+    expect(contracts.Daily).toBeDefined();
     const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
-    expect(d.configured).toBe(true);
-    expect(d.missing).toEqual([]);
+    expect(d.configured).toBe(false);
+    expect(d.missing).toEqual(["Challenge address"]);
     expect(d.rpcUrl).toBe(RPC);
     expect(d.chainId).toBe("0x534e5f5345504f4c4941");
     expect(d.deployedBlock).toBe(real.deployed_block);
     expect(d.tokenDecimals).toBe(6);
-    expect(d.addresses.Daily).toBe(contracts.Daily.address);
+    expect(d.addresses.Challenge).toBe("");
     // Sepolia's file is from before step D: its Tutorial is not read, and Setup is empty until the fresh deployment (P-53).
     expect(d.addresses.Setup).toBe(contracts.Setup?.address ?? "");
     // The file has no contracts.Token (the old mock was never deployed there): Token is the entry token, the top-level `token`.
@@ -183,11 +192,11 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
     expect(d.mockUsdc).toBe(contracts.MockUSDC.address);
   });
 
-  test("the economy is configured from the same file, on the MockUSDC", () => {
+  test("the economy's addresses come from the same file, on the MockUSDC; it is not configured while the base is not", () => {
     const base = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
     const economy = resolveEconomyDeployment({ base, file: real });
-    expect(economy.configured).toBe(true);
-    expect(economy.missing).toEqual([]);
+    expect(economy.configured).toBe(false);
+    expect(economy.missing).toEqual(["Challenge address"]);
     expect(economy.addresses).toEqual({
       Economy: contracts.Economy.address,
       PavedToken: contracts.PavedToken.address,
@@ -201,12 +210,12 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
       const d = resolveDeployment({ network: "sepolia", file: real, env });
       expect(d.rpcUrl).toBe("");
       expect(d.configured).toBe(false);
-      expect(d.missing).toEqual(["RPC URL"]);
+      expect(d.missing).toEqual(["Challenge address", "RPC URL"]);
     }
   });
 
   test("an unusable rpc_url is skipped for the next source; a URL in the file is used", () => {
-    const base = { network: "sepolia", env: { addresses: { Daily: "0x2" } } };
+    const base = { network: "sepolia", env: { addresses: { Challenge: "0x2" } } };
     for (const rpc_url of ["$STARKNET_RPC_URL", "${RPC}", "https://x/$KEY", "not a url", "ftp://x", " "]) {
       expect(resolveDeployment({ ...base, file: { ...real, rpc_url } }).rpcUrl, rpc_url).toBe("");
       expect(resolveDeployment({ ...base, file: { ...real, rpc_url }, env: { ...base.env, rpcUrl: RPC } }).rpcUrl, rpc_url).toBe(RPC);
@@ -221,7 +230,7 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
 });
 
 describe("the Token address", () => {
-  const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Daily: "0x2" } } };
+  const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } };
   const token = { address: "0x7", decimals: 6 };
 
   test("contracts.Token wins over the top-level token, and the env over both", () => {

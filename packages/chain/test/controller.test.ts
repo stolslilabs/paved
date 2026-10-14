@@ -18,14 +18,14 @@ import { FakeGameViews } from "../src/views";
 const deployment = resolveDeployment({
   network: "sepolia",
   // Sepolia has a MockUSDC (D-16, P-39): the faucet's `mint` is a session policy there.
-  env: { rpcUrl: "http://s/rpc", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const mainnet = resolveDeployment({
   network: "mainnet",
-  env: { rpcUrl: "http://m/rpc", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://m/rpc", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
-/** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
+/** The economy of the same deployment (E3): the Challenge entry is paid in USDC. */
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 /** The approve the app gives the session (`entryApprove`): the token entry_price names, MAX_STAKE x its unit. */
 const USDC_APPROVE = { token: ECON.usdc, cap: BigInt(MAX_STAKE) * FAKE_UNIT };
@@ -67,9 +67,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "faucet on mainnet": () => mainnetWriter.mint(),
     // The tutorial claim (D-21): `Setup.claim_tutorial()`, signed in the session where the deployment has a Setup.
     "tutorial claim": () => writer.claimTutorial(),
-    "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
-    "daily discard": () => writer.discard({ mode: "daily", gameId: 1 }),
-    "daily surrender": () => writer.surrender({ mode: "daily", gameId: 1 }),
+    "challenge build": () => writer.build({ mode: "challenge", gameId: 1 }, move),
+    "challenge discard": () => writer.discard({ mode: "challenge", gameId: 1 }),
+    "challenge surrender": () => writer.surrender({ mode: "challenge", gameId: 1 }),
     "purchase, stake 1": () => econWriter.purchase({ stake: 1, confirmedPrice: priceOf(FAKE_UNIT, 1), confirmedMinOut: 1n, referrer: null }),
     "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), confirmedMinOut: 1n, referrer: null }),
     settle: () => econWriter.settle([7]),
@@ -103,13 +103,13 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "tutorial claim", "daily build", "daily discard", "daily surrender", "purchase, stake 1",
+  "tutorial claim", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault stake", "vault unstake", "vault claim"];
 
 describe("controllerPolicies against what the writers send (E3)", () => {
-  test("every game write and the paid Daily purchase are signed in the session", async () => {
+  test("every game write and the paid Challenge purchase are signed in the session", async () => {
     const sent = await sentByEveryWrite();
     for (const label of GAME_AND_PURCHASE) {
       expect(sent[label].length, label).toBeGreaterThan(0);
@@ -154,23 +154,23 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
     expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]).toBeUndefined();
     // A deployment with no MockUSDC at all (a Sepolia file without one) has none either.
-    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Daily: "0x2", Token: "0x4" } } });
+    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2", Token: "0x4" } } });
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("mint");
     // Nor a Setup (a deployment from before step D): it stays configured, with no claim policy on an empty target.
     expect(none.configured).toBe(true);
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("claim_tutorial");
   });
 
-  test("the purchase approves USDC to Daily for stake x unit; at stake 10 that is exactly the cap", async () => {
+  test("the purchase approves USDC to Challenge for stake x unit; at stake 10 that is exactly the cap", async () => {
     const sent = await sentByEveryWrite();
     for (const [label, stake] of [["purchase, stake 1", 1], ["purchase, stake 10", MAX_STAKE]] as const) {
       const [approve, spawn] = sent[label];
       expect(BigInt(approve.contractAddress)).toBe(BigInt(ECON.usdc));
       expect(approve.entrypoint).toBe("approve");
       const data = approve.calldata as string[];
-      expect(BigInt(data[0])).toBe(BigInt(deployment.addresses.Daily));
+      expect(BigInt(data[0])).toBe(BigInt(deployment.addresses.Challenge));
       expect(u256(data[1], data[2])).toBe(priceOf(FAKE_UNIT, stake));
-      expect([BigInt(spawn.contractAddress), spawn.entrypoint]).toEqual([BigInt(deployment.addresses.Daily), "spawn"]);
+      expect([BigInt(spawn.contractAddress), spawn.entrypoint]).toEqual([BigInt(deployment.addresses.Challenge), "spawn"]);
     }
     expect(priceOf(FAKE_UNIT, MAX_STAKE)).toBe(USDC_APPROVE.cap);
   });

@@ -27,7 +27,7 @@ export function EconomyPanel({
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label="Economy">
       {!client ? (
         <div style={panel}>
-          <strong>Paid Daily (USDC)</strong>
+          <strong>Paid Challenge (USDC)</strong>
           <span>{`Not deployed on ${deployment.base.network}: ${deployment.missing.join(", ")}.`}</span>
         </div>
       ) : (

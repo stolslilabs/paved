@@ -19,7 +19,7 @@ describe("GameListItem", () => {
 
     const requiredProps = {
       gameId: 42,
-      mode: "daily",
+      mode: "challenge",
       score: 150,
       tilesPlaced: 30,
       totalTiles: 72,

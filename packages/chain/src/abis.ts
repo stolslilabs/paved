@@ -1,4 +1,4 @@
-import dailyAbi from "../../../contracts/abis/Daily.json";
+import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
 import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
@@ -12,10 +12,10 @@ import { AbiCodec, type Abi } from "./codec";
  * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
  * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration.
  */
-export type ContractName = "Daily" | "Setup" | "Token";
+export type ContractName = "Challenge" | "Setup" | "Token";
 
 export const ABIS: Record<ContractName, Abi> = {
-  Daily: dailyAbi as Abi,
+  Challenge: challengeAbi as Abi,
   Setup: setupAbi as Abi,
   Token: tokenAbi as Abi,
 };
@@ -24,7 +24,7 @@ export type Codecs = Record<ContractName, AbiCodec>;
 
 export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
   return {
-    Daily: new AbiCodec(abis.Daily),
+    Challenge: new AbiCodec(abis.Challenge),
     Setup: new AbiCodec(abis.Setup),
     Token: new AbiCodec(abis.Token),
   };
@@ -34,18 +34,18 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
 // optional until CORE deploys them, so a deployment without them keeps working (`economy/deployment.ts`).
 
 /**
- * All of them are CORE's committed ABIs: `PavedToken` and `Vault` (E1), `Economy` (E2), and `Daily` with the paid
+ * All of them are CORE's committed ABIs: `PavedToken` and `Vault` (E1), `Economy` (E2), and `Challenge` with the paid
  * `spawn(stake, referrer, min_out)` (E3). `USDC` is `Faucet.json`: the ERC20 interface (`approve`, `balance_of`,
  * `allowance`) the real USDC exposes too, plus the mock's faucet `mint`.
  */
-export type EconomyContractName = "Economy" | "PavedToken" | "Vault" | "USDC" | "Daily";
+export type EconomyContractName = "Economy" | "PavedToken" | "Vault" | "USDC" | "Challenge";
 
 export const ECONOMY_ABIS: Record<EconomyContractName, Abi> = {
   Economy: economyAbi as Abi,
   PavedToken: pavedTokenAbi as Abi,
   Vault: vaultAbi as Abi,
   USDC: mockUsdcAbi as Abi,
-  Daily: dailyAbi as Abi,
+  Challenge: challengeAbi as Abi,
 };
 
 export type EconomyCodecs = Record<EconomyContractName, AbiCodec>;
@@ -56,7 +56,7 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
     PavedToken: new AbiCodec(abis.PavedToken),
     Vault: new AbiCodec(abis.Vault),
     USDC: new AbiCodec(abis.USDC),
-    Daily: new AbiCodec(abis.Daily),
+    Challenge: new AbiCodec(abis.Challenge),
   };
 }
 

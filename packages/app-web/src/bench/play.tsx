@@ -220,7 +220,7 @@ export function mountPlay(): void {
     <StrictMode>
       <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
         <PavedProvider deployment={network.deployment} account={account} tip={0n}>
-          <MemoryRouter initialEntries={[`/game?mode=daily&id=${gameId}`]}>
+          <MemoryRouter initialEntries={[`/game?mode=challenge&id=${gameId}`]}>
             <Profiler id="game" onRender={bench.onRender}>
               <App />
             </Profiler>

@@ -6,7 +6,7 @@ export interface Recording {
   addresses?: Record<string, string>;
   player?: string;
   other?: string;
-  /** The id of the bought Daily game the receipts are of (absent: 1). */
+  /** The id of the bought Challenge game the receipts are of (absent: 1). */
   gameId?: number;
   calls: Array<{ contractAddress: string; entrypoint: string; calldata: string[]; result: string[] }>;
   events: Array<{ address: string; keys: string[][]; events: RawEvent[] }>;

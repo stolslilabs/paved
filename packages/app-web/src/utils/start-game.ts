@@ -6,19 +6,19 @@ import type { GameMode, PlayerGame } from "@paved/chain";
  */
 export interface StartIntent {
   start: true;
-  /** The Daily entry amount the player saw and confirmed (base unit, decimal string). */
+  /** The Challenge entry amount the player saw and confirmed (base unit, decimal string). */
   confirmedAmount?: string;
 }
 
 export function startIntent(mode: GameMode, confirmedAmount: bigint | null): StartIntent {
-  return mode === "daily" && confirmedAmount !== null ? { start: true, confirmedAmount: confirmedAmount.toString() } : { start: true };
+  return mode === "challenge" && confirmedAmount !== null ? { start: true, confirmedAmount: confirmedAmount.toString() } : { start: true };
 }
 
 /** The intent in a location's state, or null: anything else (a link, a reload after it was cleared) starts nothing. */
 export function readStartIntent(state: unknown, mode: GameMode): { confirmedAmount: bigint | undefined } | null {
   if (typeof state !== "object" || state === null || (state as { start?: unknown }).start !== true) return null;
   const amount = (state as { confirmedAmount?: unknown }).confirmedAmount;
-  // A Daily start pays: it needs the confirmed amount, as a plain integer.
+  // A Challenge start pays: it needs the confirmed amount, as a plain integer.
   return typeof amount === "string" && /^(0|[1-9][0-9]{0,77})$/.test(amount) ? { confirmedAmount: BigInt(amount) } : null;
 }
 

@@ -1,6 +1,6 @@
 import type { PriceView, ReadState } from "@paved/chain";
 
-/** The label of the token Daily charges: USDC since E3 (PAVED is the reward, shown by the economy screens). */
+/** The label of the token Challenge charges: USDC since E3 (PAVED is the reward, shown by the economy screens). */
 export const TOKEN_LABEL = "USDC";
 
 export function formatTimeRemaining(endTimeUnix: number, nowUnix = Math.floor(Date.now() / 1000)): string {
@@ -41,7 +41,7 @@ export function shortAddress(address: string): string {
   return hex.length <= 10 ? `0x${hex}` : `0x${hex.slice(0, 4)}…${hex.slice(-4)}`;
 }
 
-/** What the Daily entry card can say: one state, used for the fee shown and for the confirm. */
+/** What the Challenge entry card can say: one state, used for the fee shown and for the confirm. */
 export type EntryFee =
   | { kind: "loading" }
   | { kind: "error"; message: string }
@@ -50,7 +50,7 @@ export type EntryFee =
   | { kind: "amount"; amount: bigint };
 
 /**
- * The Daily entry as the player may see it. The amount is formatted with the decimals of the
+ * The Challenge entry as the player may see it. The amount is formatted with the decimals of the
  * deployment's token only: another token (`price.token`) has unknown decimals, so no figure.
  */
 export function entryFee(price: Pick<ReadState<PriceView>, "data" | "error">, deploymentToken: string, decimals: number | null): EntryFee {
@@ -62,7 +62,7 @@ export function entryFee(price: Pick<ReadState<PriceView>, "data" | "error">, de
   return price.data.amount === 0n ? { kind: "free" } : { kind: "amount", amount: price.data.amount };
 }
 
-/** The Daily confirm is allowed only when the fee is known; resuming a game costs nothing. */
+/** The Challenge confirm is allowed only when the fee is known; resuming a game costs nothing. */
 export function canConfirmEntry(fee: EntryFee, resuming: boolean): boolean {
   return resuming || fee.kind === "free" || fee.kind === "amount";
 }

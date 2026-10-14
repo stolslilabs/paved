@@ -59,12 +59,12 @@ const ENTRIES: Row[] = [
 
 const GAMES: Row[] = [
   // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_day_id` and `end_time` null (`RUNNING_GAME`).
-  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, day_id: 20733, over: true, score: 187, counted_day_id: 20733, end_time: 1791871203, token_id: 912 },
-  { contract: "daily", game_id: 55, player_id: FIXTURE_ADA, mode: 1, start_time: 1791760000, day_id: 20731, over: true, score: 64, counted_day_id: 20731, end_time: 1791761000, token_id: 55 },
+  { contract: "challenge", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, day_id: 20733, over: true, score: 187, counted_day_id: 20733, end_time: 1791871203, token_id: 912 },
+  { contract: "challenge", game_id: 55, player_id: FIXTURE_ADA, mode: 1, start_time: 1791760000, day_id: 20731, over: true, score: 64, counted_day_id: 20731, end_time: 1791761000, token_id: 55 },
 ];
 
 /** A game that has not ended, as the real indexer writes it. */
-export const RUNNING_GAME: Row = { contract: "daily", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, day_id: 20733, over: false, score: null, counted_day_id: null, end_time: null };
+export const RUNNING_GAME: Row = { contract: "challenge", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, day_id: 20733, over: false, score: null, counted_day_id: null, end_time: null };
 
 const DEFINED_AT = 1791000000;
 
@@ -159,7 +159,7 @@ export class FixtureIndexer {
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);
-      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", setup: "0x3", ...(this.state.collection === undefined ? {} : { collection: this.state.collection }) }, checks: { definitions_excluded: 0 } });
+      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", challenge: "0x2", setup: "0x3", ...(this.state.collection === undefined ? {} : { collection: this.state.collection }) }, checks: { definitions_excluded: 0 } });
     }
     if (a === "tournaments" && !b) {
       const e = allowed("limit", "before");
@@ -203,17 +203,17 @@ export class FixtureIndexer {
         if (e) return fail(400, e);
         const known = ENTRIES.find((r) => r.player_id === b);
         if (!known) return ok({ player: null, stats: null });
-        const mine = this.games.filter((g) => g.contract === "daily");
+        const mine = this.games.filter((g) => g.contract === "challenge");
         return ok({
           player: { player_id: b, name: this.named(known).name, created: 1791000000 },
-          stats: { daily_games: mine.length || (known.games_played as number), daily_finished: known.games_finished, best_score: known.best_score },
+          stats: { challenge_games: mine.length || (known.games_played as number), challenge_finished: known.games_finished, best_score: known.best_score },
         });
       }
       if (c === "games" && !d) {
         const e = allowed("contract", "limit", "before");
         if (e) return fail(400, e);
         const contract = url.searchParams.get("contract");
-        if (contract !== null && contract !== "daily") return fail(400, "malformed contract");
+        if (contract !== null && contract !== "challenge") return fail(400, "malformed contract");
         const limit = int("limit", 1, 100, 20);
         if (typeof limit === "string") return fail(400, limit);
         if (b !== FIXTURE_ADA) return ok({ games: [], next: null });
@@ -250,7 +250,7 @@ export class FixtureIndexer {
     }
     if (a === "games" && b && c && !d) {
       const e = allowed();
-      if (e || b !== "daily" || !/^\d+$/.test(c)) return fail(400, e ?? "malformed game");
+      if (e || b !== "challenge" || !/^\d+$/.test(c)) return fail(400, e ?? "malformed game");
       const game = this.games.find((g) => g.contract === b && g.game_id === Number(c));
       return game ? ok({ game }) : fail(404, "no such game");
     }

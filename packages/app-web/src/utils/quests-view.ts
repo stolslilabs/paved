@@ -5,27 +5,27 @@
 import type { AchievementDefinition, QuestDefinition, TaskTarget } from "@paved/chain";
 
 export const QUEST_TEXT: Record<number, { title: string; description: string }> = {
-  1: { title: "Daily Run", description: "Finish today's Daily." },
+  1: { title: "Daily Run", description: "Finish today's Challenge." },
   2: { title: "Master Builder", description: "Score roads and cities in a day." },
   3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities." },
-  4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Daily games, not a single game." },
+  4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Challenge games, not a single game." },
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string }> = {
   1: { title: "First Stone", description: "Finish the tutorial and claim it." },
-  2: { title: "Settler I", description: "Finish a Daily game." },
-  3: { title: "Settler II", description: "Finish Daily games: the second tier." },
-  4: { title: "Settler III", description: "Finish Daily games: the third tier." },
+  2: { title: "Settler I", description: "Finish a Challenge game." },
+  3: { title: "Settler II", description: "Finish Challenge games: the second tier." },
+  4: { title: "Settler III", description: "Finish Challenge games: the third tier." },
   5: { title: "Grand Builder", description: "Score a large road or city." },
   6: { title: "Forester", description: "Score forests." },
   7: { title: "Pilgrimage", description: "Score a wonder." },
-  8: { title: "High Roller", description: "Finish a Daily game with a high score." },
+  8: { title: "High Roller", description: "Finish a Challenge game with a high score." },
   9: { title: "On the Podium", description: "Take a place in the top 3 of a day's tournament. Counted once the day has closed." },
 };
 
 /** What one unit of a task is, after the count ("2,700 / 3,000 points"). */
 const TASK_UNIT: Record<number, string> = {
-  1: "Daily games finished",
+  1: "Challenge games finished",
   2: "roads and cities scored",
   3: "points",
   4: "forests scored",

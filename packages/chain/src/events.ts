@@ -91,7 +91,7 @@ export class EventReader {
   }
 
   /** The games of a player, newest first. */
-  async playerGames(playerId: string, modes: GameMode[] = ["daily"]): Promise<PlayerGame[]> {
+  async playerGames(playerId: string, modes: GameMode[] = ["challenge"]): Promise<PlayerGame[]> {
     const lists = await Promise.all(
       modes.map(async (mode) => {
         const contract = gameContract(mode);

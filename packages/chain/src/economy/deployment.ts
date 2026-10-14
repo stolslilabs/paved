@@ -13,11 +13,11 @@ export interface EconomyEnv {
   usdc?: string;
 }
 
-/** The addresses the economy client calls, apart from `Deployment`'s (which it also needs: `Daily`). */
+/** The addresses the economy client calls, apart from `Deployment`'s (which it also needs: `Challenge`). */
 export interface EconomyDeployment {
-  /** The game's deployment: `Daily` takes the purchase. */
+  /** The game's deployment: `Challenge` takes the purchase. */
   base: Deployment;
-  addresses: Record<Exclude<EconomyContractName, "Daily">, string>;
+  addresses: Record<Exclude<EconomyContractName, "Challenge">, string>;
   /**
    * True when the base deployment is configured and the four economy addresses are known: the only case where the
    * economy screens read or offer a write. False on every deployment until CORE's E2/E3 add the addresses.

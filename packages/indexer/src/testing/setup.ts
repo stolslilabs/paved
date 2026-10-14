@@ -6,10 +6,10 @@
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { CHAIN_ID, COLLECTION, DAILY, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
+import { CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
 
 export const CONFIG = {
-  daily: DAILY,
+  challenge: CHALLENGE,
   setup: SETUP,
   economy: ECONOMY,
   collection: COLLECTION,
@@ -29,7 +29,7 @@ export function indexerOf(
     afterServed,
     log,
     chain: new Chain(node.rpc, {
-      daily: DAILY,
+      challenge: CHALLENGE,
       setup: SETUP,
       economy: ECONOMY,
       collection: COLLECTION,
@@ -44,7 +44,7 @@ export function indexerOf(
 export function indexerWithoutCollection(node: FakeNode): Indexer {
   const config = { ...CONFIG, collection: undefined };
   return new Indexer({
-    chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, economy: ECONOMY }),
+    chain: new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY }),
     store: new Store(":memory:"),
     config,
     depth: 1000,

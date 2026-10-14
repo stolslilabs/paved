@@ -9,7 +9,7 @@ export const PAVED_DECIMALS = 18;
 export const USDC_LABEL = "USDC";
 export const PAVED_LABEL = "PAVED";
 
-/** The stake `k` of a paid Daily: 1 to 10 (Glitchbomb's bundles). */
+/** The stake `k` of a paid Challenge: 1 to 10 (Glitchbomb's bundles). */
 export const MIN_STAKE = 1;
 export const MAX_STAKE = 10;
 export const STAKES: readonly number[] = Array.from({ length: MAX_STAKE - MIN_STAKE + 1 }, (_, i) => MIN_STAKE + i);
@@ -30,7 +30,7 @@ export function isStake(stake: unknown): stake is number {
   return typeof stake === "number" && Number.isInteger(stake) && stake >= MIN_STAKE && stake <= MAX_STAKE;
 }
 
-/** `P = k x unit`, the unit being `Daily.entry_price().amount` (2 USDC, "per stake unit" after E3). */
+/** `P = k x unit`, the unit being `Challenge.entry_price().amount` (2 USDC, "per stake unit" after E3). */
 export function priceOf(unit: bigint, stake: number): bigint {
   if (!isStake(stake)) throw new RangeError(`A stake is ${MIN_STAKE} to ${MAX_STAKE}, got ${String(stake)}`);
   return unit * BigInt(stake);
@@ -87,7 +87,7 @@ export function quoteBelowFloor(poolOut: bigint, burnQuote: bigint, rate: bigint
   return poolOut * BPS * RATE_SCALE < burnQuote * rate * SANITY_FLOOR_BPS;
 }
 
-/** The economy's day of a Unix time (the Daily day id, `day_id`). */
+/** The economy's day of a Unix time (the Challenge day id, `day_id`). */
 export function dayOf(unixSeconds: number): number {
   return Math.floor(unixSeconds / SECONDS_PER_DAY);
 }

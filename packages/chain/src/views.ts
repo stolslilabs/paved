@@ -4,10 +4,10 @@ import { AbiMismatchError, type Encodable } from "./codec";
 import type { Deployment } from "./deployment";
 
 /**
- * The game contract the client plays: Daily (Challenge, D-23). The on-chain Tutorial left the contracts (D-21): the
+ * The game contract the client plays: Challenge (D-23, Daily before). The on-chain Tutorial left the contracts (D-21): the
  * tutorial is off chain (`/tutorial`). A game is still keyed (mode, id).
  */
-export type GameMode = "daily";
+export type GameMode = "challenge";
 
 export interface GameKey {
   mode: GameMode;
@@ -15,14 +15,14 @@ export interface GameKey {
 }
 
 /** `mode` codes of the contracts (`public-interface.md`); 2 was Weekly and 3 the Tutorial, never given again. */
-export const MODE_CODE: Record<GameMode, number> = { daily: 1 };
+export const MODE_CODE: Record<GameMode, number> = { challenge: 1 };
 
 export function modeFromCode(code: number): GameMode | null {
-  return code === 1 ? "daily" : null;
+  return code === 1 ? "challenge" : null;
 }
 
 export function gameContract(_mode: GameMode): ContractName {
-  return "Daily";
+  return "Challenge";
 }
 
 /** Field types and meanings: `docs/architecture/public-interface.md`. Felts are 0x-hex strings. */
@@ -64,7 +64,7 @@ export interface BuilderView {
   plan: number;
 }
 
-/** What a Daily `spawn` pulls from the player: the ERC20 and the amount (`Daily.entry_price`). */
+/** What a Challenge `spawn` pulls from the player: the ERC20 and the amount (`Challenge.entry_price`). */
 export interface PriceView {
   token: string;
   amount: bigint;
@@ -122,7 +122,7 @@ export interface GameViews {
   tiles(key: GameKey): Promise<TileView[]>;
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
   currentDay(): Promise<number>;
-  /** The Daily entry: token and amount, from the same source `spawn` uses. */
+  /** The Challenge entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
   /** `Setup.tutorial_claimed(player_id)`: the player's tutorial claim is made (D-21). A `not-configured` ViewError without Setup. */
   tutorialClaimed(playerId: string): Promise<boolean>;
@@ -160,11 +160,11 @@ export class RpcGameViews implements GameViews {
   }
 
   async currentDay(): Promise<number> {
-    return Number(await this.call("Daily", "current_day", []));
+    return Number(await this.call("Challenge", "current_day", []));
   }
 
   async entryPrice(): Promise<PriceView> {
-    return (await this.call("Daily", "entry_price", [])) as PriceView;
+    return (await this.call("Challenge", "entry_price", [])) as PriceView;
   }
 
   async tutorialClaimed(playerId: string): Promise<boolean> {

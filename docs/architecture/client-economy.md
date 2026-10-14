@@ -1,6 +1,6 @@
 # Client economy (P8)
 
-How the web client buys a paid Daily game in USDC, settles it after the day, and stakes PAVED in the Vault. The
+How the web client buys a paid Challenge game in USDC, settles it after the day, and stakes PAVED in the Vault. The
 contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are
 `client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels and the `/economy` page of
 `packages/app-web` (part b, below).
@@ -11,8 +11,8 @@ since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, MockUSDC, 
 
 Since D-23 the paid game's contract is named `Challenge` (`Daily` before; `public-interface.md`, "Breaking change D-23"):
 its ABI becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`, with the same
-entry points (`spawn`, `entry_price`). `packages/chain` still names it `Daily` (the `Daily` codec, `Daily.json`,
-`contracts.Daily`) until CLIENT's own D-23 PR, and so does this document where it describes the client.
+entry points (`spawn`, `entry_price`). `packages/chain` names it `Challenge` too (the `Challenge` codec,
+`Challenge.json`, `contracts.Challenge`) since CLIENT's W1e.
 
 ## What E3 made real (P8, #275)
 
@@ -22,15 +22,15 @@ panel no longer prints that purchases are not possible.
 | Piece | Source |
 |---|---|
 | `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
-| `Daily.spawn(stake, referrer, min_out)` | `contracts/abis/Daily.json` (E3), encoded by the `Daily` codec of `ECONOMY_ABIS` |
+| `Challenge.spawn(stake, referrer, min_out)` | `contracts/abis/Challenge.json` (E3, `Daily.json` before D-23), encoded by the `Challenge` codec of `ECONOMY_ABIS` |
 | USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/MockUSDC.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
 | Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`; or the env |
 | Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |
 
 What a purchase sends (`EconomyWriter.purchase`), in one multicall:
 
-1. `USDC.approve(Daily, price)`, `price = stake x Daily.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
-2. `Daily.spawn(stake, referrer, min_out)`, `min_out` = `Economy.quote_swap(Economy.quote(stake).burn_quote)` on every
+1. `USDC.approve(Challenge, price)`, `price = stake x Challenge.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
+2. `Challenge.spawn(stake, referrer, min_out)`, `min_out` = `Economy.quote_swap(Economy.quote(stake).burn_quote)` on every
    network (the on-chain quote of the purchase's own route since E-9: "The pool quote" below) less the player's slippage
    (1 % by default, at most 5 %, rounded down).
 
@@ -40,12 +40,12 @@ nothing sent after a failed read or a missing pool quote.
 
 What E3 removed from the client:
 
-- `PavedWriter.spawn("daily")`, with its approve of `entry_price` and `EntryPriceChangedError`: it now throws and sends
-  nothing, a Daily game is bought only by `EconomyWriter.purchase`. `spawn("tutorial")` stays: the Tutorial is free and
-  unchanged. The Landing dialog of a Daily game only resumes one; a new one is bought with the stake picker.
+- `PavedWriter.spawn("challenge")`, with its approve of `entry_price` and `EntryPriceChangedError`: it now throws and sends
+  nothing, a Challenge game is bought only by `EconomyWriter.purchase`. `spawn("tutorial")` stays: the Tutorial is free and
+  unchanged. The Landing dialog of a Challenge game only resumes one; a new one is bought with the stake picker.
 - The prize no longer grew with entries (economy.md section 7, P-31): it was **sponsor-only**, and D-20 removed it with
   sponsoring, claiming and reclaiming. The Landing labels the entry in USDC (`TOKEN_LABEL`).
-  `PavedClient.balance` reads the token `Daily.entry_price` names.
+  `PavedClient.balance` reads the token `Challenge.entry_price` names.
 - "Price unavailable" on the purchase button is only a failed price read now, never the stubs.
 
 The indexer's appended fields (API v1, indexer.md "As built (P8 E3)") are parsed by `IndexerClient` and optional, so an indexer
@@ -70,7 +70,7 @@ What E2 changed from the stub it had, and what the client does with it:
   86400`). Until a day closes, `day()` answers a zero `mean`, `sum` and `weight`: never shown as figures. The screens show
   `Quote.mean` and `Quote.threshold` as "the current reference; the day's own mean is known only at settlement", and no
   projected reward.
-- `TermsView.stake` is 0 for a Daily game that was not bought, with `recorded` and `settled` false.
+- `TermsView.stake` is 0 for a Challenge game that was not bought, with `recorded` and `settled` false.
 
 Errors of the Economy shown as clear states (`economy/writer.ts`, matched in the revert reason as text or as the hex of
 the short string):
@@ -85,11 +85,11 @@ its purchase); `settle` refuses it before sending.
 
 Referrers: a `?ref=` must be a non-zero hex address below `2^251 - 256` (`ADDRESS_BOUND`, itself below the felt prime);
 a value out of range counts as no referrer, as does a malformed one. The writer applies the same bound to what it sends.
-Since D-25 (E) a referrer is **any non-zero address other than the payer, the Challenge (the client's `Daily`) and the Economy** (the contract's
+Since D-25 (E) a referrer is **any non-zero address other than the payer, the Challenge and the Economy** (the contract's
 rule, CORE's step E: it ignores those three), with no registration: there is no `Account` to ask, so no read holds the
 purchase back. Before E the referrer had to be a registered player other than the payer (the client read `Account.player`
-and dropped an unregistered one). The writer refuses the payer's own address and the deployment's `Daily` and `Economy`
-addresses, in any spelling (padded or not), with `RefusedReferrerError` (`who`: `payer`, `daily` or `economy`) and one plain
+and dropped an unregistered one). The writer refuses the payer's own address and the deployment's `Challenge` and `Economy`
+addresses, in any spelling (padded or not), with `RefusedReferrerError` (`who`: `payer`, `challenge` or `economy`) and one plain
 message, "This address cannot be your referrer. Nothing was sent." (`refusedReferrer` is the check). The landing page shows
 such a link as "Referral link: this address cannot be your referrer, so no referrer is sent" and sends none. A zero referrer is no referrer (`0x0`).
 
@@ -100,7 +100,7 @@ such a link as "Referral link: this address cannot be your referrer, so no refer
   replaces the old `Token.mint()`. `mockUsdc` resolves on `devnet` and `sepolia` only (`MOCK_USDC_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies). The Landing offers the faucet button only with `supportsMint && !!deployment.mockUsdc` (`createPlayer` and its `mintTestToken` left with D-25 (E): there is no account to create). A deployment without that address has no faucet: `mint` throws `No faucet` and sends nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
-- `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
+- `Landing` compares `Challenge.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
   `addresses.Token`: a different entry token, or no USDC address known, is "Unknown token".
 
 ## The prize, its claims and the reclaim (D-20)
@@ -263,7 +263,7 @@ Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, econo
 
 | Figure | How the client gets it |
 |---|---|
-| Price `P` of stake `k` (1 to 10) | `k x Daily.entry_price().amount` (2 USDC per stake unit after E3), and `Economy.quote(k).price` must be the same, else nothing is sent |
+| Price `P` of stake `k` (1 to 10) | `k x Challenge.entry_price().amount` (2 USDC per stake unit after E3), and `Economy.quote(k).price` must be the same, else nothing is sent |
 | Boost | `1 + k/100` (`boostBps`), shown as a multiplier; the reward itself is the contract's |
 | Referral | 5 % of `P`, **out of the margin**: it changes no amount the player pays (P-31) |
 | `min_out` | the pool quote for `burn_quote` (`PoolQuoter.quoteSwap`, fee included) less the slippage, rounded down: 1 % by default (`DEFAULT_SLIPPAGE_BPS`), at most 5 % (`MAX_SLIPPAGE_BPS`), shown to the player (P-35). Never `min_out_hint` |
@@ -278,7 +278,7 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
-| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer, the Daily or the Economy as the referrer (`RefusedReferrerError`, D-25 (E)). A zero referrer is sent as `0x0` |
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Challenge, P)`, `Challenge.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer, the Challenge or the Economy as the referrer (`RefusedReferrerError`, D-25 (E)). A zero referrer is sent as `0x0` |
 | `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each: not bought (stake 0), not recorded (not over, or expired: no reward), already settled, or its day not yet settleable (`now < settlesAfter(day)`, the end of the next day, `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); a failed block read sends nothing |
 | `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
@@ -308,14 +308,14 @@ All on the landing page (`App.tsx`, which holds the routes, is outside this task
 the build is `useEconomy()` (`utils/economy-context.ts`): the same network's deployments file and the env
 (`VITE_ECONOMY_ADDRESS`, `VITE_PAVED_TOKEN_ADDRESS`, `VITE_VAULT_ADDRESS`, `VITE_USDC_ADDRESS`, `utils/economy-network.ts`);
 `EconomyProvider` overrides it in tests. While it is not configured, the panel says "Not deployed on `<network>`" with what
-is missing, the Daily keeps today's confirm, and nothing of the economy is read.
+is missing, the Challenge keeps today's confirm, and nothing of the economy is read.
 
 | Screen | Where | What it shows and does |
 |---|---|---|
-| Purchase | the Daily dialog (`EconomyPurchase`), when the economy is configured and no Daily game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. The least PAVED bought (`Economy.quote_swap(burn_quote)` less the slippage, "quoted again when sent"). A quote that reverts or fails shows "The pool cannot fill this purchase right now. Try a smaller stake or later." and a disabled "Pool cannot fill", with no figure. Without a pool quoter (the economy not deployed) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=daily` with the purchase in the history state |
+| Purchase | the Challenge dialog (`EconomyPurchase`), when the economy is configured and no Challenge game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. The least PAVED bought (`Economy.quote_swap(burn_quote)` less the slippage, "quoted again when sent"). A quote that reverts or fails shows "The pool cannot fill this purchase right now. Try a smaller stake or later." and a disabled "Pool cannot fill", with no figure. Without a pool quoter (the economy not deployed) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=challenge` with the purchase in the history state |
 | Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
 | Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them); dividends that changed between the confirm and the send (`VaultAmountChangedError`) reopen the confirm with the new amount and say so, sending nothing |
-| After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Daily games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
+| After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Challenge games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
 
 The cliff is said as it is wherever a game is bought or settled: **"Below the shifted mean the stake is lost."** No
 reward is shown before the contract computed it (`terms.reward` after settlement).
@@ -330,11 +330,11 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   `readPurchaseIntent` refuses any malformed state (a stake outside 1..10, a price that is not a positive integer string,
   a referrer that is not hex). A malformed `?ref=` (`?ref=abc`) is ignored on the landing page: no referrer is shown or sent.
 - **The referrer comes from a link; the consent never does.** `?ref=0x...` on the landing page names a referrer, shown at
-  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, the Daily or the Economy is refused and said so,
+  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, the Challenge or the Economy is refused and said so,
   and no referrer is sent (D-25 (E): any other non-zero address is a referrer, with no registration read).
 - **Cleared before sending.** The game page reads the purchase at mount, clears the history state (replace, state
-  null) before anything is sent, and keeps the intent in a ref, exactly as the Daily start; the 30 s expiry without a
-  ready writer applies too. An active Daily game is resumed instead of buying another.
+  null) before anything is sent, and keeps the intent in a ref, exactly as the Challenge start; the 30 s expiry without a
+  ready writer applies too. An active Challenge game is resumed instead of buying another.
 - **Amounts re-checked at send** by `EconomyWriter` (part a); a changed price shows "The price changed: confirm
   again". The Vault's amount field is read again at the confirm click and handed over with the confirmed amount.
 - **Writes serialised** with the game's (`PavedWriter.sendCalls`); the panels share the landing's `writing` flag.
@@ -386,7 +386,7 @@ the history state to the game page, which sends it, as from the Landing.
   `starknet-devnet --seed 42` after `scripts/deploy.sh devnet`, with the indexer on 127.0.0.1:8787: faucet, a paid purchase with a
   referrer (price = burn + referral + margin against the balances), play to game over (recorded in the Economy), the
   settlement, the Vault and an expired game (the prize and the sponsor's reclaim steps left with D-20). Since t-0081 (2026-10-10, 18 of 18 on day 20738): alice plays with
-  the search player of `test/daily-player.ts` and scores 9,084 against a threshold of 3,455.877 (prior 3,353, her stake 3, bob's and
+  the search player of `test/challenge-player.ts` and scores 9,084 against a threshold of 3,455.877 (prior 3,353, her stake 3, bob's and
   carol's 1,257 at stakes 2 and 1); her settlement mints 1,566.385536085290946482 PAVED, and the `Settled` event, `terms.reward`, her
   balance change and `R x c x score / threshold` from the chain's terms (`test/economy-curve.ts`) agree; bob and carol get 0. carol
   stakes her own 1,000 test PAVED in the Vault; bob's later purchase gives her 3,125 USDC base units pending, which she claims.
@@ -394,6 +394,6 @@ the history state to the game page, which sends it, as from the Landing.
   deploys the old four contracts): the paid spawn is not re-recorded.
   These figures were measured before D-18 with prior 3,353 and slope 18,130; new deploys use slope 12,220 and a mean of 3,980 (P-46), and the client's fakes follow.
 - The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` uses
-  its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
+  its codec, the same ERC20); the entry token is read from `Challenge.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
 - If a batch settle is ever added, it skips expired games.

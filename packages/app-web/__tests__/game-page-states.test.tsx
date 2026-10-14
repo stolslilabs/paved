@@ -24,7 +24,7 @@ vi.mock("@paved/ui", async () => {
 afterEach(cleanup);
 
 const open = (opts: Parameters<typeof renderPage>[0] extends infer T ? Partial<T> : never) =>
-  renderPage({ page: <GamePage />, path: "/game", search: "?mode=daily&id=4", ...opts });
+  renderPage({ page: <GamePage />, path: "/game", search: "?mode=challenge&id=4", ...opts });
 
 function viewsWith(game = fakeGame()) {
   const views = new FakeGameViews();
@@ -40,11 +40,18 @@ describe("Game page states", () => {
 
   it("game not found", async () => {
     open({});
-    await screen.findByText("Game not found: daily game 4");
+    await screen.findByText("Game not found: challenge game 4");
+  });
+
+  it("an old Daily link (D-23) is replaced by the Challenge one, its id and state kept", async () => {
+    const state = { kept: true };
+    open({ search: "?mode=daily&id=4&readonly=true", state });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe(`/game?mode=challenge&id=4&readonly=true|${JSON.stringify(state)}`));
+    await screen.findByText("Game not found: challenge game 4");
   });
 
   it("a malformed id is a game not found too", () => {
-    open({ search: "?mode=daily&id=abc" });
+    open({ search: "?mode=challenge&id=abc" });
     expect(screen.getByText("Game not found: abc")).toBeTruthy();
   });
 

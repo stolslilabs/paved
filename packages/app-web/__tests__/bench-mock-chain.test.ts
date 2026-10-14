@@ -25,7 +25,7 @@ function setup(options?: MockOptions) {
   let id = 0;
   const rpc = (method: string, params: unknown) => mock.rpc({ id: ++id, method, params }) as any;
   /** `starknet_call` of a view, decoded with the ABI of its contract. */
-  const view = (contract: "Daily" | "Token", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
+  const view = (contract: "Challenge" | "Token", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
     const out = rpc("starknet_call", {
       request: { contract_address: hex(to), entry_point_selector: selector(name), calldata: codecs[contract].encodeCall(name, args) },
       block_id: "latest",
@@ -33,7 +33,7 @@ function setup(options?: MockOptions) {
     if (out.error) throw new Error(out.error.data?.revert_error ?? out.error.message);
     return codecs[contract].decodeResult(name, out.result) as any;
   };
-  const daily = (name: string, args: Array<string | number | bigint | boolean> = []) => view("Daily", BENCH.Daily, name, args);
+  const challenge = (name: string, args: Array<string | number | bigint | boolean> = []) => view("Challenge", BENCH.Challenge, name, args);
   const gameId = mock.gameId;
   /** An invoke of a multicall of calls [to, entry name, calldata]; returns the receipt. */
   const invoke = (calls: Array<[bigint, string, Array<string | number | bigint>]>) => {
@@ -45,17 +45,17 @@ function setup(options?: MockOptions) {
   /** The `build` of the placement the mock expects next, or with changes. */
   const build = (over: Partial<{ game: number; orientation: number; x: number; y: number }> = {}) => {
     const next = mock.next()!;
-    return [BENCH.Daily, "build", [over.game ?? gameId, over.orientation ?? next.orientation, over.x ?? next.x, over.y ?? next.y]] as [bigint, string, number[]];
+    return [BENCH.Challenge, "build", [over.game ?? gameId, over.orientation ?? next.orientation, over.x ?? next.x, over.y ?? next.y]] as [bigint, string, number[]];
   };
-  const events = (receipt: any): DecodedEvent[] => receiptEvents(receipt, codecs, "Daily", hex(BENCH.Daily));
-  return { mock, rpc, view, daily, gameId, invoke, build, events };
+  const events = (receipt: any): DecodedEvent[] => receiptEvents(receipt, codecs, "Challenge", hex(BENCH.Challenge));
+  return { mock, rpc, view, challenge, gameId, invoke, build, events };
 }
 
 describe("addresses", () => {
   it("are the ones of the page, one source", () => {
     // D-25 (E): no Account: the bench reads no player registration.
     expect(BENCH).not.toHaveProperty("Account");
-    expect(BENCH.Daily).toBe(BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS));
+    expect(BENCH.Challenge).toBe(BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS));
     expect(BENCH.Token).toBe(BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS));
     expect(BENCH.player).toBe(BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS));
   });
@@ -63,8 +63,8 @@ describe("addresses", () => {
 
 describe("views, decoded with the real ABIs", () => {
   it("game", () => {
-    const { daily, gameId, mock } = setup();
-    const g = daily("game", [gameId]);
+    const { challenge, gameId, mock } = setup();
+    const g = challenge("game", [gameId]);
     expect(Number(g.id)).toBe(gameId);
     expect(BigInt(g.playerId)).toBe(BENCH.player);
     expect(Number(g.mode)).toBe(1);
@@ -75,24 +75,24 @@ describe("views, decoded with the real ABIs", () => {
   });
 
   it("tiles: the placed tiles, then the tile in hand, in pages", () => {
-    const { daily, gameId, mock } = setup();
-    const page = daily("tiles", [gameId, 0, 64]);
+    const { challenge, gameId, mock } = setup();
+    const page = challenge("tiles", [gameId, 0, 64]);
     expect(page).toHaveLength(64);
-    const rest = daily("tiles", [gameId, 64, 64]);
+    const rest = challenge("tiles", [gameId, 64, 64]);
     expect(rest).toHaveLength(73 - 64);
     expect(rest.at(-1)).toMatchObject({ status: 3, id: mock.next()!.id });
     expect(page.every((t: any) => t.status === 1)).toBe(true);
   });
 
   it("builder, current_day, entry_price, player and balance_of", () => {
-    const { daily, view, gameId, mock } = setup();
-    const b = daily("builder", [gameId, BENCH.player]);
+    const { challenge, view, gameId, mock } = setup();
+    const b = challenge("builder", [gameId, BENCH.player]);
     expect(Number(b.gameId)).toBe(gameId);
     expect(Number(b.tileId)).toBe(mock.next()!.id);
     expect(Number(b.plan)).toBe(mock.next()!.plan);
     expect(Object.keys(b)).toEqual(["gameId", "playerId", "tileId", "plan"]);
-    expect(Number(daily("current_day"))).toBe(Math.floor(Date.parse("2026-10-06T08:00:00Z") / 1000 / 86400));
-    const price = daily("entry_price");
+    expect(Number(challenge("current_day"))).toBe(Math.floor(Date.parse("2026-10-06T08:00:00Z") / 1000 / 86400));
+    const price = challenge("entry_price");
     expect(BigInt(price.token)).toBe(BENCH.Token);
     expect(BigInt(price.amount)).toBeGreaterThan(0n);
     expect(BigInt(view("Token", BENCH.Token, "balance_of", [BENCH.player]))).toBeGreaterThan(0n);
@@ -100,15 +100,15 @@ describe("views, decoded with the real ABIs", () => {
 
   it("no view leaves felts over or short: each decodes whole", () => {
     // decodeResult refuses leftover felts and short reads (AbiMismatchError): the calls above passed it.
-    const { daily, gameId } = setup();
-    expect(() => daily("game", [gameId])).not.toThrow();
-    expect(() => daily("tiles", [gameId, 0, 1])).not.toThrow();
+    const { challenge, gameId } = setup();
+    expect(() => challenge("game", [gameId])).not.toThrow();
+    expect(() => challenge("tiles", [gameId, 0, 1])).not.toThrow();
   });
 });
 
 describe("a build of the next placement", () => {
   it("succeeds, and its receipt holds Built and Scored, read back with the ABI", () => {
-    const { mock, invoke, build, events, gameId, daily } = setup();
+    const { mock, invoke, build, events, gameId, challenge } = setup();
     const next = mock.next()!;
     const { receipt, status } = invoke([build()]);
     expect(receipt.execution_status).toBe("SUCCEEDED");
@@ -119,11 +119,11 @@ describe("a build of the next placement", () => {
     expect(out.over).toBeNull();
     expect(mock.placed).toBe(1);
     expect(mock.violations).toEqual([]);
-    expect(Number(daily("game", [gameId]).placedCount)).toBe(73);
+    expect(Number(challenge("game", [gameId]).placedCount)).toBe(73);
   });
 
   it("ends the game with the last placement: GameOver in the receipt, over in the view", () => {
-    const { mock, invoke, build, events, gameId, daily } = setup();
+    const { mock, invoke, build, events, gameId, challenge } = setup();
     let last: any;
     while (mock.next()) last = invoke([build()]).receipt;
     expect(mock.violations).toEqual([]);
@@ -132,7 +132,7 @@ describe("a build of the next placement", () => {
     expect(out.over!.score).toBeGreaterThan(0);
     const names = events(last).map((e) => e.name);
     expect(names).toEqual(["Built", "Scored", "GameOver"]);
-    expect(daily("game", [gameId]).over).toBe(true);
+    expect(challenge("game", [gameId]).over).toBe(true);
   });
 });
 
@@ -153,7 +153,7 @@ describe("what the bench does not expect", () => {
 
   it("reverts the whole multicall when one call is not a build, even next to a good build", () => {
     const { mock, invoke, build } = setup();
-    const { receipt } = invoke([build(), [BENCH.Token, "approve", [BENCH.Daily, 1, 0]]]);
+    const { receipt } = invoke([build(), [BENCH.Token, "approve", [BENCH.Challenge, 1, 0]]]);
     expect(receipt.execution_status).toBe("REVERTED");
     expect(mock.placed).toBe(0);
     expect(mock.violations.map((v) => v.kind)).toEqual(["non-build-call"]);
@@ -161,15 +161,15 @@ describe("what the bench does not expect", () => {
 
   it("records a view of another game or another player", () => {
     const { mock, view, gameId } = setup();
-    view("Daily", BENCH.Daily, "game", [gameId + 1]); // answered, but recorded
-    view("Daily", BENCH.Daily, "builder", [gameId, 0x7777]);
+    view("Challenge", BENCH.Challenge, "game", [gameId + 1]); // answered, but recorded
+    view("Challenge", BENCH.Challenge, "builder", [gameId, 0x7777]);
     view("Token", BENCH.Token, "balance_of", [0x7777]);
     expect(mock.violations.map((v) => v.kind)).toEqual(["other-game", "other-player", "other-player"]);
   });
 
   it("records a view it does not serve (the `tournament` view D-20 removed), and fails it", () => {
     const { mock, rpc } = setup();
-    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Daily), entry_point_selector: selector("tournament"), calldata: [] } });
+    const out = rpc("starknet_call", { request: { contract_address: hex(BENCH.Challenge), entry_point_selector: selector("tournament"), calldata: [] } });
     expect(out.error).toBeDefined();
     const other = rpc("starknet_call", { request: { contract_address: hex(0x99), entry_point_selector: selector("game"), calldata: ["0x1"] } });
     expect(other.error).toBeDefined();
