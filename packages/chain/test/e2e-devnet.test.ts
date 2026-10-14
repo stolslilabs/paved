@@ -4,9 +4,13 @@
  * a paid purchase with a referrer, play, the settlement, the Vault and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
+ * The Daily deck, and so every score, depends on the UTC day of the chain; the test proves the same economics on any day.
  * alice plays her Daily game with the search player of `daily-player.ts` and must score above the day's threshold, so
- * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); bob and
- * carol play naively and stay under it (reward 0). carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
+ * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); the test
+ * fails, naming the day and the scores, on a day when she does not. bob and carol cannot reach the threshold whatever
+ * the deck: they stop after a handful of placements (`NAIVE_MAX_MOVES`) and surrender, and their scores are checked
+ * against a floor under any threshold of the day (the prior alone, diluted by every stake), so their reward is 0.
+ * carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
  *
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
@@ -40,11 +44,13 @@ import { placementOutcome } from "../src/placement";
 import { TILE_STATUS, type GameKey } from "../src/views";
 import { type BuildMove, type PavedWriter } from "../src/writer";
 import { DailyPlayer } from "./daily-player";
-import { dayMean, payout, threshold } from "./economy-curve";
+import { dayMean, payout, PRIOR_WEIGHT, threshold } from "./economy-curve";
 
 const enabled = process.env.PAVED_E2E === "1";
 const DAY = 86400;
 const REPO = resolve(__dirname, "../../..");
+/** Placements the naive players make before they surrender: too few to score near any day's threshold. */
+const NAIVE_MAX_MOVES: Record<string, number> = { bob: 3, carol: 2 };
 
 interface Player {
   name: string;
@@ -351,7 +357,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(terms).toMatchObject({ recorded: true, expired: false, settled: false, score: done.score });
       evidence.push(`alice (search player) ${done.moves} moves ${done.discards} discards score ${done.score} in ${(done.ms / 1000).toFixed(0)} s, ${done.simulations} simulations, recorded ${short(done.hash)}`);
     }
-    for (const [p, maxMoves] of [[players[1], 36], [players[2], 25]] as const) {
+    for (const p of [players[1], players[2]]) {
+      const maxMoves = NAIVE_MAX_MOVES[p.name];
       const key: GameKey = { mode: "daily", gameId: dailyGames.get(p.name)! };
       const done = await playDaily(p, key, maxMoves);
       scores.set(p.name, done.score);
@@ -361,12 +368,21 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       evidence.push(`${p.name} ${done.moves} moves score ${done.score} recorded ${short(done.hash)}`);
     }
     // The threshold the settlement will use, from the formula: alice must beat it, bob and carol stay under it.
+    // The deck depends on the chain's day, so a failure names the day and the scores.
     const games = players.map((p) => ({ score: scores.get(p.name)!, stake: stakes.get(p.name)! }));
     cliff = threshold(dayMean(prior, games), (await economy.views.terms(dailyGames.get(players[0].name)!)).sigmaBps);
-    expect(BigInt(scores.get("alice")!) * 1000n, `alice's score against the threshold ${cliff / 1000n}`).toBeGreaterThanOrEqual(cliff);
-    expect(BigInt(scores.get("bob")!) * 1000n).toBeLessThan(cliff);
-    expect(BigInt(scores.get("carol")!) * 1000n).toBeLessThan(cliff);
-    pass("Daily: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points: alice above, bob and carol below`);
+    const where = `day ${dayId}, prior ${prior / 1000}, threshold ${Number(cliff) / 1000}, scores ${[...scores].map(([n, s]) => `${n} ${s}`).join(", ")}`;
+    expect(BigInt(scores.get("alice")!) * 1000n, `alice's search player must beat the threshold (${where})`).toBeGreaterThanOrEqual(cliff);
+    // bob and carol cannot reach it by construction: the day's mean is at least the prior diluted by every stake (a
+    // game enters it at 0 or more), so no threshold of the day is under this floor; their scores stay under the floor.
+    const sigma = (await economy.views.terms(dailyGames.get(players[0].name)!)).sigmaBps;
+    const totalStake = [...stakes.values()].reduce((a, b) => a + b, 0);
+    const floor = threshold((PRIOR_WEIGHT * BigInt(prior)) / (PRIOR_WEIGHT + BigInt(totalStake)), sigma);
+    expect(cliff, `the threshold is not under its floor (${where})`).toBeGreaterThanOrEqual(floor);
+    for (const name of ["bob", "carol"]) {
+      expect(BigInt(scores.get(name)!) * 1000n, `${name} cannot reach the threshold floor ${Number(floor) / 1000} (${where})`).toBeLessThan(floor);
+    }
+    pass("Daily: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points (floor ${Number(floor) / 1000}): alice above, bob and carol below`);
   }, 1_800_000);
 
   test("the indexer matches the contract views while the day is open", async () => {
@@ -478,12 +494,15 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const dayCliff = threshold(BigInt(day.mean), after.sigmaBps);
       expect(dayCliff, "the settlement's threshold is the one computed before it").toBe(cliff);
       expect(after.reward).toBe(payout(after.reference, after.score, dayCliff, after.slopeBps, after.cap));
+      // Whichever side of the threshold the score fell on, the reward follows it: positive at or above, 0 below.
+      if (BigInt(after.score) * 1000n >= dayCliff) expect(after.reward, `${p.name} at or above the threshold (day ${dayId})`).toBeGreaterThan(0n);
+      else expect(after.reward, `${p.name} below the threshold (day ${dayId})`).toBe(0n);
       settledReward.set(p.name, after.reward);
       evidence.push(`${p.name} k=${stakes.get(p.name)} score ${after.score} vs threshold ${Number(dayCliff) / 1000}: R ${after.reference} -> reward ${after.reward} PAVED${after.reward === 0n ? " (below the threshold: stake lost)" : ` = R x ${after.slopeBps} x ${after.score}000 / (${dayCliff} x 10000)`} (Settled = terms = balance change), ${short(result.transactionHash)}`);
       // settling twice sends nothing
       await expect(p.econ.settle([gameId])).rejects.toThrow(/already settled/);
     }
-    // Both cases: a positive reward above the threshold, 0 below it.
+    // Both cases on every run: alice's search player is above the threshold, bob and carol cannot reach it.
     expect(settledReward.get("alice")).toBeGreaterThan(0n);
     expect(settledReward.get("bob")).toBe(0n);
     expect(settledReward.get("carol")).toBe(0n);
