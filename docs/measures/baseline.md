@@ -1081,3 +1081,109 @@ day's, `DaySeed` in `golden::harness`, not the address's, so the new address doe
 **Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G4"):
 `Challenge` 60,997 -> 62,323 CASM felts (+1,326), 10,624 under the P-44 cap (72,947). `scripts/abis.sh` rewrites
 `contracts/abis/Challenge.json` only (the new interface, its impl and the three events).
+
+## After G5 (the draw's table of bits)
+
+G5 cuts the draw's variable cost without changing which card is drawn. Same tests and method:
+`contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, VPS, 2026-10-14, `RAYON_NUM_THREADS=1`, 15 GiB cap,
+`--max-threads 2`; the whole run of the G5 branch: 689 passed, 0 failed, 9 ignored, peak RSS 5,556,520 kB (the 13
+scenarios below identical to the unit with the scoped run). Before is "After G4" above: main deb2845b has the same contracts as G4's b33bdb5d, and the before
+side, re-run on the G5 branch with main's `random_deck.cairo`, `game.cairo` and `lib.cairo` put back for the run,
+gives G4's figures to the unit.
+
+**The cost.** `draw_from_bitmap` finds the drawn card with `slot_card`, which steps from the drawn slot over the
+withdrawn cards that moved into it. Each step paid a 128-bit power for the card's bit (`2_u128.pow`, about 86,000 L2
+gas in the test profile: 100 calls in a loop cost 10,923,280, a modulo included) and a popcount for its rank (about
+82,500: 100 calls cost 8,255,300). The draw also paid one power for the deck's mask, and `Game::draw_plan` one more
+for the drawn card's bit. The steps grow with the number of withdrawn cards (`src/tests/draw_mask.cairo`,
+`test_draw_cost*`: the Simple deck, 72 cards, 10 pseudo-random withdrawn sets per count, the draw alone):
+
+| Withdrawn | Mean before | Mean G5 | Worst before | Worst G5 |
+|---:|---:|---:|---:|---:|
+| 0 | 180,459 | 10,050 | 199,083 | 10,050 |
+| 7 | 229,238 | 30,078 | 497,197 | 110,191 |
+| 14 | 229,904 | 30,078 | 531,137 | 110,191 |
+| 21 | 347,224 | 71,743 | 1,672,165 | 526,844 |
+| 28 | 554,963 | 153,465 | 1,871,479 | 626,985 |
+| 35 (a game's first draw) | 632,785 | 185,116 | 2,287,001 | 785,241 |
+| 41 | 972,072 | 308,503 | 2,622,555 | 885,382 |
+| 47 | 596,944 | 163,479 | 2,299,101 | 785,241 |
+| 53 | 1,118,408 | 376,008 | 2,210,961 | 785,241 |
+| 59 | 2,122,525 | 763,603 | 3,797,497 | 1,402,176 |
+| 65 | 1,880,169 | 686,084 | 8,232,745 | 3,110,814 |
+| 71 (the last card) | 14,770,575 | 5,802,345 | 22,344,607 | 8,795,548 |
+
+A Python model of `slot_card` (300 sets per count) gives the mean steps: 1.0 at 0 withdrawn, 2.7 at 35, 9.7 at 59,
+18.2 at 65, 71.9 at 71. It also shows that no step is taken twice: memoizing the recursion saves nothing, so the lever
+is the cost of a step, not their number.
+
+**The design.** A running mask, as G1's walk has, needs the cards in order; `slot_card` jumps from a slot to the top
+of the deck (slot `number - rank + 1`) and back, so its cards come in no order. Instead:
+
+- the bit of a card is read from a constant table of the 128 powers of two (`BITS`, `helpers/random_deck.cairo`),
+  in place of the power; the deck's mask (`BITS[number] - 1`) and the drawn card's bit in `Game::draw_plan` and
+  `Game::start` (`bit_at`) read the same table;
+- `popcount` sums its 16 byte counts into the top byte with one 128 x 128-bit product (each partial sum is at most
+  128, so no byte carries), in place of four shifts and adds: 100 calls cost 5,474,000 instead of 8,255,300.
+
+The recursion, the ranks and the slots are untouched, so the card is the same by construction; the tests below prove
+it.
+
+**Equality.** The old draw is frozen in `src/tests/legacy_g5.cairo` (`draw_from_bitmap_before_g5`, with its
+`slot_card` and `popcount`), and `src/tests/draw_mask.cairo` compares the card and the count left of both on: every
+withdrawn set of the decks of 1 to 8 cards (two seeds each) and of 10 cards; the 72-card deck at every count of
+withdrawn cards from 0 to 71 (8, 6, 4 and 3 sets per count across the range); the 72-card deck with every card but one
+withdrawn, for each of the 72 cards left; whole decks drawn as `Game::draw_plan` draws them (the first draw on an empty
+bitmap, the last on one card left) on 10, 16, 33 and three 72-card decks; and the 128-card deck (the top bit, the full
+width, bits above a deck ignored). `bit_at` equals the power for the 128 indexes, and the new `popcount` the old one
+on the edges and 1,000 pseudo-random values. The existing tests of `random_deck.cairo`, which compare the draw with
+the dictionary deck (`DeckTrait::from_bitmap` then `draw`), pass unchanged.
+
+**Goldens and parity unchanged.** The 19 golden tests pass with their expected moves and scores; `git diff deb2845b
+-- contracts/src/tests/golden docs/measures/golden-games.md` is empty, and so is `git diff deb2845b -- packages`: the
+parity fixture does not change and CLIENT's engine needs nothing.
+
+| | Scenario | G4 | G5 | Change | Ceiling G4 | Ceiling G5 | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 17,746,877 | 17,535,162 | -211,715 (-1.2 %) | 18,896,971 | 18,411,921 | 95.2 % |
+| n | Challenge spawn, stake 10, referred | 18,473,327 | 18,261,612 | -211,715 (-1.1 %) | 19,659,744 | 19,174,693 | 95.2 % |
+| c | Close a large city | 6,605,882 | 5,335,448 | -1,270,434 (-19.2 %) | 6,936,177 | 5,602,221 | 95.2 % |
+| e | Close a forest of 4 | 9,095,020 | 8,637,924 | -457,096 (-5.0 %) | 9,549,771 | 9,069,821 | 95.2 % |
+| f | Worst forest scan | 18,583,486 | 18,125,890 | -457,596 (-2.5 %) | 18,923,195 | kept | **95.8 %** |
+| a0 | Open simple move | 5,558,903 | 5,128,117 | -430,786 (-7.7 %) | 5,709,834 | 5,384,523 | 95.2 % |
+| a | Simple move, closes a 2-tile city | 5,129,292 | 4,926,449 | -202,843 (-4.0 %) | 5,315,180 | 5,172,772 | 95.2 % |
+| d | Worst case of P0 | 5,465,200 | 5,286,777 | -178,423 (-3.3 %) | 5,662,074 | 5,551,116 | 95.2 % |
+| g | Closing move in its day | 3,169,868 | 3,169,868 | 0 | 3,672,907 | kept | 86.3 % |
+| i | Closing move after its day | 2,712,328 | 2,712,328 | 0 | 2,847,987 | kept | 95.2 % |
+| k | Closing move, full report | 3,604,048 | 3,604,048 | 0 | 4,018,231 | kept | 89.7 % |
+| l | Game over on a build | 7,127,745 | 7,127,745 | 0 | 7,774,092 | kept | 91.7 % |
+| s | Game over on a discard | 3,359,163 | 3,359,163 | 0 | 3,528,109 | kept | 95.2 % |
+
+The moves a0 to f save their draw's cost: c, whose draw G1 had made costly (1,924,689), saves the most. The five game
+overs do not draw and are unchanged to the unit. Every figure that fell has its ceiling reset to measured + 5 %,
+rounded up; none rises. **f** stays the tightest: its measured + 5 % (19,032,185) would be above its ceiling, so the
+ceiling is kept and f lands at 95.8 % of it, against 98.2 % after G4.
+
+**The spawns on one deck.** A game's seed depends on `Challenge`'s address, which moves with its class hash (G4's
+note), so m and n above compare two decks. The probe of G4 (not committed: `Challenge` deployed at one fixed address
+by `deploy_at` in `contracts/tests/setup.cairo`), run on main's draw and on G5's, gives the spawn alone on the same
+deck: m 18,158,547 -> 17,617,248 and n 18,884,997 -> 18,343,698, both -541,299 (-3.0 %): the spawn's first draw at 35
+withdrawn, the starter's bit and the walk's popcount. The moves are identical to the unit between the probe and the
+runs above. The ceilings of m and n leave 876,759 and 913,081 above the measured spawns; G1 measured the walk within
+about 50,000 across 100 seeds, and the first draw's worst case at 35 withdrawn is 600,125 above its mean (table
+above), so a deck at another address is expected to stay under them: an estimate from those spreads, not a bound
+(G1's note: a ceiling bounds the scenario, not every deck).
+
+**Test budgets.** Every `#[available_gas]` of the suite holds (the whole run above); the draws fall, so none is
+raised, and none is reset but the scenario ceilings of the table. The 16 tests of `draw_mask.cairo` have no budget, as
+`deck_walk.cairo`'s.
+
+**Storage and ABI.** No change: no storage variable is added, removed or read differently, and `scripts/abis.sh`
+rewrites `contracts/abis/` identically.
+
+**Sepolia.** G5 ships in a later D-17 upgrade of `Challenge`. The draw reads the same state as before (the seed, the
+withdrawn bitmap, the deck's size) and computes the same function of it, so a game in flight draws the same cards
+before and after the upgrade by construction; no upgrade test is added.
+
+**Sizes** (`scripts/class-sizes.sh`, release, under `prlimit --as=12884901888`; `class-headroom.md`, "After G5"):
+`Challenge` 62,323 -> 62,045 CASM felts (-278), 10,902 under the P-44 cap (72,947).
