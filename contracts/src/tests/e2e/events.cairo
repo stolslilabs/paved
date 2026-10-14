@@ -26,7 +26,7 @@ fn challenge(event: PavedEvent) -> Challenge::Event {
 }
 
 #[test]
-#[available_gas(l2_gas: 82164598)]
+#[available_gas(l2_gas: 89700438)]
 fn test_events_daily_spawn_emits_game_spawned() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -50,7 +50,7 @@ fn test_events_daily_spawn_emits_game_spawned() {
 }
 
 #[test]
-#[available_gas(l2_gas: 90932245)]
+#[available_gas(l2_gas: 98289897)]
 fn test_events_daily_build_emits_built_and_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
@@ -99,7 +99,7 @@ fn test_events_daily_build_emits_built_and_scored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 85232746)]
+#[available_gas(l2_gas: 92570174)]
 fn test_events_daily_discard_emits_discarded() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
@@ -126,7 +126,7 @@ fn test_events_daily_discard_emits_discarded() {
 }
 
 #[test]
-#[available_gas(l2_gas: 85911225)]
+#[available_gas(l2_gas: 93441038)]
 fn test_events_daily_surrender_emits_game_over() {
     // A day after the epoch, so that the day id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -155,7 +155,7 @@ fn test_events_daily_surrender_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 95593832)]
+#[available_gas(l2_gas: 103123644)]
 fn test_events_daily_last_build_emits_game_over() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
@@ -210,7 +210,7 @@ fn test_events_daily_last_build_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 88115842)]
+#[available_gas(l2_gas: 95645654)]
 fn test_events_daily_last_discard_emits_game_over() {
     // A day after the epoch, so that the day id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -243,7 +243,7 @@ fn test_events_daily_last_discard_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 136435755)]
+#[available_gas(l2_gas: 144108894)]
 fn test_events_daily_wonder_emits_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);

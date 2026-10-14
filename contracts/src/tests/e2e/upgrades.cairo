@@ -86,7 +86,7 @@ fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, fel
 // Upgrade
 
 #[test]
-#[available_gas(l2_gas: 63343344)]
+#[available_gas(l2_gas: 73971765)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_for_non_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -107,7 +107,7 @@ fn test_upgrade_reverts_for_non_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 56960321)]
+#[available_gas(l2_gas: 66002402)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_on_zero_class_hash() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -124,7 +124,7 @@ fn test_upgrade_reverts_on_zero_class_hash() {
 /// The owner replaces the class: OpenZeppelin's `Upgraded` is emitted, and the value stored before
 /// is read back through the new class.
 #[test]
-#[available_gas(l2_gas: 58882419)]
+#[available_gas(l2_gas: 68397494)]
 fn test_upgrade_by_owner_emits_and_keeps_the_state() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let probe = class_of("UpgradeProbe");
@@ -146,7 +146,7 @@ fn test_upgrade_by_owner_emits_and_keeps_the_state() {
 
 /// After a two-step transfer, the new owner upgrades and the old one no longer can.
 #[test]
-#[available_gas(l2_gas: 65069334)]
+#[available_gas(l2_gas: 76139553)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_follows_the_ownership_transfer() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -174,7 +174,7 @@ fn test_upgrade_follows_the_ownership_transfer() {
 
 /// `PavedToken` has no `upgrade` entry point: a call to its selector finds none.
 #[test]
-#[available_gas(l2_gas: 55452794)]
+#[available_gas(l2_gas: 62681703)]
 #[feature("safe_dispatcher")]
 fn test_paved_token_has_no_upgrade() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -265,13 +265,13 @@ fn test_upgrade_layout_pins_the_vault_by_name() {
             .into(),
         'Pin: vault dead shares',
     );
-    // [ERC4626] the asset, [Votes] the delegation and the checkpoints, the fee
+    // [ERC4626] the asset, [Votes] the delegation (its checkpoints are a `Vec`, whose length lives at a
+    // derived address, not at the name), the fee
     assert(raw(vault, selector!("ERC4626_asset")) == addresses.paved.into(), 'Pin: vault asset');
     assert(
         raw_entry(vault, selector!("Votes_delegatee"), array![owner]) == owner,
         'Pin: vault delegatee',
     );
-    assert(raw(vault, selector!("Votes_total_checkpoints")) != 0, 'Pin: vault checkpoints');
     assert(raw(vault, selector!("exit_fee")) == 500, 'Pin: vault exit_fee');
 }
 

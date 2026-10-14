@@ -82,10 +82,10 @@ pub const CEILING_SPAWN_DAILY: u128 = 18411921;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19174693;
 // t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
 // checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
-pub const CEILING_VAULT_DEPOSIT: u128 = 100000000;
-pub const CEILING_VAULT_REDEEM: u128 = 100000000;
-pub const CEILING_VAULT_WITHDRAW: u128 = 100000000;
-pub const CEILING_VAULT_TRANSFER: u128 = 100000000;
+pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
+pub const CEILING_VAULT_REDEEM: u128 = 3809165;
+pub const CEILING_VAULT_WITHDRAW: u128 = 5499165;
+pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
