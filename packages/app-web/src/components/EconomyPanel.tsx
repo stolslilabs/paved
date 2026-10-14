@@ -36,7 +36,7 @@ export function EconomyPanel({
           <EconomySettle client={client} writer={writer} address={address} write={write} busy={busy} now={economy.now} />
         </>
       )}
-      <EconomyReferral address={address} origin={origin} />
+      <EconomyReferral address={address} origin={origin} client={client} />
       <Link to="/economy" style={{ color: "#f59e0b", fontSize: 13 }}>Open the economy page</Link>
     </div>
   );

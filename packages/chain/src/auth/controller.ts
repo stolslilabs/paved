@@ -34,31 +34,16 @@ export const CONTROLLER_ENTRY_POINTS = {
 } as const;
 
 /**
- * The Vault's entry points the client calls (vPAVED, P-56): `deposit`, `withdraw` and `redeem`. A policy only when
- * `controllerPolicies` is given the economy's Vault, with the PAVED approve to the Vault beside them. The Vault has no
- * `stake`, `unstake` or `claim` any more, and none is ever a policy.
- */
-export const VAULT_ENTRY_POINTS = ["deposit", "withdraw", "redeem"] as const;
-
-/**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
  * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
  * purchase; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts. With `vault`, the Vault's deposit, withdraw and redeem, and a PAVED approve to the
- * Vault up to its cap. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
+ * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
  * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(
   deployment: Deployment,
-  options: {
-    approve?: { token: string; cap: bigint } | null;
-    /**
-     * The economy's Vault and PAVED (P-56): `Vault.deposit`, `withdraw` and `redeem` are policies, and a PAVED approve to the
-     * Vault up to `cap` (above it, or to another spender, it prompts), scoped as the entry approve. Null or absent: none.
-     */
-    vault?: { vault: string; pavedToken: string; cap: bigint } | null;
-  } = {},
+  options: { approve?: { token: string; cap: bigint } | null } = {},
 ): ControllerPolicy[] {
   // No policy on an empty target: the deployment must be complete.
   if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
@@ -71,13 +56,6 @@ export function controllerPolicies(
   const approve = options.approve;
   if (approve && approve.cap > 0n && isAddress(approve.token)) {
     policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Challenge, amount: approve.cap });
-  }
-  const vault = options.vault;
-  if (vault && isAddress(vault.vault)) {
-    policies.push(...VAULT_ENTRY_POINTS.map((method) => ({ target: vault.vault, method })));
-    if (vault.cap > 0n && isAddress(vault.pavedToken)) {
-      policies.push({ target: vault.pavedToken, method: "approve", spender: vault.vault, amount: vault.cap });
-    }
   }
   return policies;
 }

@@ -15,7 +15,10 @@ export const MAX_STAKE = 10;
 export const STAKES: readonly number[] = Array.from({ length: MAX_STAKE - MIN_STAKE + 1 }, (_, i) => MIN_STAKE + i);
 
 export const BPS = 10_000n;
-/** The referrer's share of the price, paid out of the Vault's margin (P-31): the player pays the same. */
+/**
+ * The referrer's share of the price at deployment (`DEFAULT_REFERRAL_BPS`), out of the Vault's part: the player pays the
+ * same. Owner-set since P-56: the screens show `Economy.split_bps().referral` or `Quote.referral`, never this constant.
+ */
 export const REFERRAL_BPS = 500n;
 
 /** The slippage the client takes off the pool quote for `min_out`: 1 % by default, at most 5 % (P-35). */
@@ -42,7 +45,7 @@ export function boostBps(stake: number): bigint {
   return BPS + 100n * BigInt(stake);
 }
 
-/** What a referrer gets out of the margin: 5 % of the price. The player's price does not change. */
+/** What a referrer gets at the deployment's default (`REFERRAL_BPS`); the chain's figure is `Quote.referral`. */
 export function referralOf(price: bigint): bigint {
   return (price * REFERRAL_BPS) / BPS;
 }
@@ -146,11 +149,6 @@ export function parseUnits(text: string, decimals: number): bigint | null {
  */
 export const VPAVED_LABEL = "vPAVED";
 export const VPAVED_DECIMALS = 18;
-/**
- * The most PAVED a controller session approves to the Vault without a prompt (the deposit's approve): 10,000 PAVED, ten
- * times a test account's 1,000. Above it the approve prompts. A product choice (W1j); a measured deposit size may move it.
- */
-export const VAULT_SESSION_APPROVE_CAP = 10_000n * 10n ** 18n;
 /** The scale of `vaultRate`: PAVED per vPAVED x 1e18. */
 export const VAULT_RATE_SCALE = 10n ** 18n;
 

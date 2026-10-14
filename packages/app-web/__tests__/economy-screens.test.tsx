@@ -521,6 +521,28 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
   });
 });
 
+describe("the referral link's share is the chain's (split_bps().referral, owner-set since P-56)", () => {
+  it("shows the chain's referral, here 7 %, not a fixed 5 %", async () => {
+    const economy = new FakeEconomy();
+    economy.split_ = { burn: 7_368, vault: 2_632, referral: 700 };
+    land({ economy });
+    expect(await screen.findByText("A player who buys through your link pays the same price; you get 7 % of it, out of the stakers' margin.")).toBeTruthy();
+    expect(screen.queryByText(/you get 5 %/)).toBeNull();
+  });
+
+  it("an unreadable split or no economy shows no figure", async () => {
+    const economy = new FakeEconomy();
+    economy.split = async () => {
+      throw new Error("node down");
+    };
+    land({ economy });
+    expect(await screen.findByText("A player who buys through your link pays the same price; you get a share of it, out of the stakers' margin.")).toBeTruthy();
+    cleanup();
+    land({ deployment: resolveEconomyDeployment({ base }) });
+    expect(await screen.findByText(/you get a share of it/)).toBeTruthy();
+  });
+});
+
 describe("Vault (vPAVED, P-56): deposit and withdraw, each after a confirm; no claim", () => {
   /** A holder of 1 vPAVED at a rate of 1.5 PAVED per vPAVED (purchases' margins raised it), with the deployment's 5 % exit fee. */
   function holder() {

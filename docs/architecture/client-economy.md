@@ -347,13 +347,16 @@ CORE's V1b made the Vault an OpenZeppelin ERC4626 over PAVED, "Vault PAVED" `vPA
   referrer "21.32 % of the price, after the referrer's 5 %"), and "To the Vault: at least X PAVED", the margin's PAVED split
   off `min_out` by input as the contract does (a floor). The referrer's amount is `quote.referral`. A split that cannot
   be read hides the breakdown; the purchase does not depend on it (`min_out` comes from the quote of `swap_in`).
-- **Controller session** (`controllerPolicies(deployment, { approve, vault })`, `auth/controller.ts`): given the
-  economy's Vault (`vaultPolicy`, `WalletProvider`, when the build's economy is configured), the session holds
-  `Vault.deposit`, `withdraw` and `redeem` (`VAULT_ENTRY_POINTS`) and a PAVED approve to the Vault capped at
-  `VAULT_SESSION_APPROVE_CAP` (10,000 PAVED), scoped like the entry approve (that spender, at most that amount; above it,
-  or to another spender, it prompts). No `stake`, `unstake` or `claim` is ever a policy. The purchase's policies are
-  unchanged under P-56: it still sends `USDC.approve(Challenge)` and `Challenge.spawn`; Challenge calls Economy, and
-  nothing in the session targets Economy or the router. `settle` stays outside the session.
+- **No staking action in the Controller session** (PM ruling, 2026-10-14). `Vault.deposit(assets, receiver)`,
+  `withdraw(assets, receiver, owner)` and `redeem(shares, receiver, owner)` take a free `receiver`, which a Cartridge session
+  cannot constrain (it scopes only an approve's spender and amount): with them in the session, a leaked session key could
+  send a holder's vPAVED, or their PAVED as someone else's shares, to any address. So no Vault entry point, and no approve
+  whose spender is the Vault, is a policy; every deposit, withdraw and withdraw all prompts (a PAVED approve alone in the
+  session would gain nothing: the deposit's multicall prompts anyway). `controller.test.ts` asserts it on every network's
+  session. The purchase's policies are unchanged under P-56 (`USDC.approve(Challenge)`, `Challenge.spawn`; Challenge calls
+  Economy, and nothing in the session targets Economy or the router).
+- **The referral link** (`EconomyReferral`) shows the chain's share (`split_bps().referral`), and no figure when it cannot
+  be read.
 - **Votes and delegation**: nothing is read or wrapped; the delegation UI waits for its spec.
 - **The indexer** does not read the Vault (its sources are Challenge, Setup, Economy and Collection). `Purchased` gained
   `vault_paved` (u256, the PAVED the margin bought): the indexer decodes it, stores it in `purchases.vault_paved`, and moves
