@@ -109,12 +109,12 @@ describe("Quests page", () => {
   it("the targets are the chain's: a recalibrated quest shows the new number, an unknown id shows by number", async () => {
     fixture.quests = [
       { ...fixture.quests[3], tasks: [{ task_id: 3, total: 5000 }] },
-      { ...fixture.quests[0], quest_id: 12, tasks: [{ task_id: 42, total: 2 }] },
+      { ...fixture.quests[0], quest_id: 99, tasks: [{ task_id: 42, total: 2 }] },
     ];
     quests();
     await quest();
     expect(within(q("Point Chaser")).getByText("2,700 / 5,000 points")).toBeTruthy();
-    expect(within(q("Quest #12")).getByText("0 / 2 task 42")).toBeTruthy();
+    expect(within(q("Quest #99")).getByText("0 / 2 task 42")).toBeTruthy();
     expect(screen.getByText("Target: 5,000 points")).toBeTruthy();
   });
 

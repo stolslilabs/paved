@@ -12,10 +12,11 @@ export const WEEK_S = 7 * DAY_S;
 
 /**
  * A quest's schedule, in seconds since the epoch (quests-v2.md 2.1: `start` a multiple of 86,400, `duration` 86,400,
- * `interval` k x 86,400 for a rotating daily, 7 x 86,400 for a weekly).
+ * `interval` 3 x 86,400 for a rotating daily, 7 x 86,400 for a weekly: v2a, on main since #423, defines them so, the weeklies
+ * from Monday 1970-01-05, `start` 345,600).
  *
- * Provisional until CORE v2a and P9: `@paved/chain`'s parsed `PlayerQuest` does not carry these three fields yet; the field
- * names are those of quests-v2.md.
+ * Provisional until P9: `@paved/chain`'s parsed `PlayerQuest` does not carry these three fields yet; the field names are those
+ * of quests-v2.md.
  */
 export interface QuestSchedule {
   start: number;
@@ -23,10 +24,10 @@ export interface QuestSchedule {
   duration: number;
 }
 
-/** A quest as the scenes read it once v2a's definitions are served: the indexer's `PlayerQuest` and its schedule. Provisional (see `QuestSchedule`). */
+/** A quest as the scenes read it once v2a's definitions are served: the indexer's `PlayerQuest` and its schedule. Provisional until P9 (see `QuestSchedule`). */
 export type ScheduledQuest = PlayerQuest & QuestSchedule;
 
-/** A player's quests of one UTC day, each with its schedule. Provisional (see `QuestSchedule`). */
+/** A player's quests of one UTC day, each with its schedule. Provisional until P9 (see `QuestSchedule`). */
 export type ScheduledQuests = Omit<PlayerQuests, "quests"> & { quests: ScheduledQuest[] };
 
 export interface QuestWindow {

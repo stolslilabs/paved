@@ -5,8 +5,9 @@ import { PLAYER_ID, TODAY } from "./players";
 
 /**
  * The quests and achievements as the indexer serves them (`/v1/players/:id/quests?day=`, `/v1/players/:id/achievements`,
- * `packages/indexer/src/api.ts`), in the shapes `@paved/chain`'s indexer client reads them into. The quests are a v2a-shaped
- * catalogue (below); the nine achievements are the accepted list (docs/architecture/quests.md), their targets as defined there.
+ * `packages/indexer/src/api.ts`), in the shapes `@paved/chain`'s indexer client reads them into. The quests are v2a's
+ * definitions (below, quests.md "As built: v2a"); the sixteen achievements are the accepted list and v2a's higher tiers, their
+ * targets as defined there.
  */
 
 /** Task ids (`TaskId` of the contracts, quests.md). */
@@ -22,23 +23,24 @@ const TUTORIAL_FINISHED = 10;
 
 const task = (taskId: number, total: number, count: number): TaskProgress => ({ taskId, total, count: Math.min(count, total) });
 
-/** The day the quests were defined: their schedule starts at its 00:00 UTC, so a day's interval id counts from it. */
+/** The first day the app shows quests for: the day the fresh deployment defined them (a mock date; nothing is live before it). */
 export const QUESTS_FROM = TODAY - 21;
 
 /*
- * A v2a-shaped catalogue (quests-v2.md 2.1, "Rotation" and "Weekly"): definitions only, no contract change. Provisional until
- * CORE v2a and P9: the ids, the targets and the offsets are this module's, the field names (`start`, `interval`, `duration`)
- * are the document's, and the chain's parsed quest types do not carry them yet (see `lib/quest-window.ts`).
+ * CORE's v2a definitions (quests.md "As built: v2a"; `FRESH_QUESTS` of scripts/deploy.sh), schedules as defined, from the epoch:
  *
- *  - Daily Run is live every day (`duration = interval = 1 day`).
- *  - Six rotating dailies in a 3-day interval, `start` offset by 0, 1 or 2 days (Nums' scheme): two are live each day.
- *  - Three weeklies in a 7-day interval. Their week starts on a Friday here on purpose: the client reads the week from the
- *    definition, it does not assume Monday.
+ *  - v1's four (ids 1 to 4) are live every day (`duration = interval = 1 day`, `start` 0): Daily Run is one of them.
+ *  - Nine rotating dailies, ids 5 to 13, in three sets of three (structures 5 to 7, forests 8 to 10, points 11 to 13): each
+ *    lasts one day in a 3-day interval, `start` offset by 0, 1 or 2 days, so the one live on a UTC day is the one whose offset
+ *    is the day number mod 3, and three are live each day (today, day 20,740, offset 1: quests 6, 9 and 12).
+ *  - Three weeklies, ids 14 to 16, `duration = interval = 7 days`, `start` 345,600: Monday 1970-01-05 00:00 UTC, so a week runs
+ *    Monday to Sunday UTC (the epoch is a Thursday; a start of 0 would have put the boundary on Thursdays).
+ *
+ * The client still reads the week from the definition, it does not assume Monday (`lib/quest-window.ts`). The schedule fields are
+ * the document's (`start`, `interval`, `duration`); `@paved/chain`'s parsed quest types do not carry them yet (P9).
  */
-const FROM = QUESTS_FROM * DAY;
-const dailyAt = (offsetDays: number, everyDays: number): QuestSchedule => ({ start: FROM + offsetDays * DAY, interval: everyDays * DAY, duration: DAY });
-const WEEK_START = FROM + 2 * DAY;
-const weekly: QuestSchedule = { start: WEEK_START, interval: 7 * DAY, duration: 7 * DAY };
+const dailyAt = (offsetDays: number, everyDays: number): QuestSchedule => ({ start: offsetDays * DAY, interval: everyDays * DAY, duration: DAY });
+const weekly: QuestSchedule = { start: 345_600, interval: 7 * DAY, duration: 7 * DAY };
 
 export interface QuestDefinition extends QuestSchedule {
   questId: number;
@@ -48,15 +50,21 @@ export interface QuestDefinition extends QuestSchedule {
 
 export const QUEST_DEFINITIONS: readonly QuestDefinition[] = [
   { questId: 1, taskId: GAME_FINISHED, total: 1, ...dailyAt(0, 1) },
-  { questId: 2, taskId: STRUCTURE_SCORED, total: 6, ...dailyAt(0, 3) },
-  { questId: 4, taskId: POINTS, total: 3_000, ...dailyAt(0, 3) },
-  { questId: 3, taskId: FOREST_SCORED, total: 1, ...dailyAt(1, 3) },
-  { questId: 5, taskId: STRUCTURE_SCORED, total: 12, ...dailyAt(1, 3) },
-  { questId: 6, taskId: FOREST_SCORED, total: 3, ...dailyAt(2, 3) },
-  { questId: 7, taskId: POINTS, total: 6_000, ...dailyAt(2, 3) },
-  { questId: 8, taskId: FOREST_SCORED, total: 5, ...weekly },
-  { questId: 9, taskId: STRUCTURE_SCORED, total: 30, ...weekly },
-  { questId: 10, taskId: POINTS, total: 20_000, ...weekly },
+  { questId: 2, taskId: STRUCTURE_SCORED, total: 6, ...dailyAt(0, 1) },
+  { questId: 3, taskId: FOREST_SCORED, total: 1, ...dailyAt(0, 1) },
+  { questId: 4, taskId: POINTS, total: 3_000, ...dailyAt(0, 1) },
+  { questId: 5, taskId: STRUCTURE_SCORED, total: 4, ...dailyAt(0, 3) },
+  { questId: 6, taskId: STRUCTURE_SCORED, total: 8, ...dailyAt(1, 3) },
+  { questId: 7, taskId: STRUCTURE_SCORED, total: 12, ...dailyAt(2, 3) },
+  { questId: 8, taskId: FOREST_SCORED, total: 2, ...dailyAt(0, 3) },
+  { questId: 9, taskId: FOREST_SCORED, total: 3, ...dailyAt(1, 3) },
+  { questId: 10, taskId: FOREST_SCORED, total: 4, ...dailyAt(2, 3) },
+  { questId: 11, taskId: POINTS, total: 2_000, ...dailyAt(0, 3) },
+  { questId: 12, taskId: POINTS, total: 5_000, ...dailyAt(1, 3) },
+  { questId: 13, taskId: POINTS, total: 8_000, ...dailyAt(2, 3) },
+  { questId: 14, taskId: FOREST_SCORED, total: 5, ...weekly },
+  { questId: 15, taskId: STRUCTURE_SCORED, total: 30, ...weekly },
+  { questId: 16, taskId: POINTS, total: 20_000, ...weekly },
 ];
 
 const quest = (def: QuestDefinition, day: number, count: number, completedAt: number | null): ScheduledQuest => {
@@ -75,32 +83,42 @@ const day = (d: number, counts: Record<number, number>, completedAt: Record<numb
   day: d,
   startTime: d * DAY,
   endTime: (d + 1) * DAY,
-  quests: QUEST_DEFINITIONS.filter((def) => isLiveOnDay(def, d)).map((def) => quest(def, d, counts[def.questId] ?? 0, completedAt[def.questId] ?? null)),
+  // Nothing is live before the day the quests were defined.
+  quests: (d < QUESTS_FROM ? [] : QUEST_DEFINITIONS.filter((def) => isLiveOnDay(def, d))).map((def) => quest(def, d, counts[def.questId] ?? 0, completedAt[def.questId] ?? null)),
 });
 
-/** Today (Wednesday, 2 days before the week ends): Daily Run done, Master Builder 4 of 6, Point Chaser 2,710 of 3,000; Weekly Forester 3 of 5, Builder 22 of 30, Points 12,400 of 20,000. */
-const TODAY_COUNTS = { 1: 1, 2: 4, 4: 2_710, 8: 3, 9: 22, 10: 12_400 };
-export const QUESTS_TODAY = day(TODAY, TODAY_COUNTS, { 1: MOCK_NOW - 3 * HOUR });
-
-/** Master Builder one structure from done: scoring it completes the quest (the toast's story). */
-export const QUESTS_TODAY_ONE_TO_GO = day(TODAY, { ...TODAY_COUNTS, 2: 5 }, { 1: MOCK_NOW - 3 * HOUR });
-/** ... and the read after it: 6 of 6. */
-export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 2: 6 }, { 1: MOCK_NOW - 3 * HOUR, 2: MOCK_NOW });
-
-/** The same day with Weekly Forester done (5 of 5). */
-export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 8: 5 }, { 1: MOCK_NOW - 3 * HOUR, 8: MOCK_NOW - 5 * HOUR });
+/** When Daily Run and Into the Woods were done today. */
+const DONE_TODAY = { 1: MOCK_NOW - 3 * HOUR, 3: MOCK_NOW - 4 * HOUR };
 
 /**
- * Yesterday, closed (the rotation's other pair): the three dailies done. The weeklies are at or below today's counts (a
- * week's progress only grows inside its interval), so this day and `QUESTS_TODAY` never contradict each other.
+ * Today (Wednesday 2026-10-14, day 20,740: the rotation is 6, 9 and 12; the week began on Monday). Counts are per task, as the
+ * indexer's are: 1 game, 4 structures, 1 forest and 2,710 points scored today, so Daily Run and Into the Woods are done, Master
+ * Builder is 4 of 6, Point Chaser 2,710 of 3,000, and the rotating Public Works is 4 of 8, Deep Woods 1 of 3, Strong Day 2,710
+ * of 5,000. The week: Weekly Forester 3 of 5, Builder 22 of 30, Points 12,400 of 20,000.
  */
+const TODAY_COUNTS = { 1: 1, 2: 4, 3: 1, 4: 2_710, 6: 4, 9: 1, 12: 2_710, 14: 3, 15: 22, 16: 12_400 };
+export const QUESTS_TODAY = day(TODAY, TODAY_COUNTS, DONE_TODAY);
+
+/** Master Builder one structure from done: scoring it completes the quest (the toast's story); Public Works moves with it, 5 of 8. */
+export const QUESTS_TODAY_ONE_TO_GO = day(TODAY, { ...TODAY_COUNTS, 2: 5, 6: 5 }, DONE_TODAY);
+/** ... and the read after it: 6 of 6 (and Public Works 6 of 8, still under way). */
+export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 2: 6, 6: 6 }, { ...DONE_TODAY, 2: MOCK_NOW });
+
+/** The same day with Weekly Forester done (5 of 5). */
+export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR });
+
+/**
+ * Yesterday, closed (day 20,739, offset 0: the rotation is 5, 8 and 11): the seven dailies done. The weeklies are at or below
+ * today's counts (a week's progress only grows inside its interval), so this day and `QUESTS_TODAY` never contradict each other.
+ */
+const YESTERDAY = TODAY - 1;
 export const QUESTS_ALL_DONE = day(
-  TODAY - 1,
-  { 1: 1, 6: 4, 7: 7_300, 8: 2, 9: 18, 10: 9_000 },
-  { 1: (TODAY - 1) * DAY + 9 * HOUR, 6: (TODAY - 1) * DAY + 11 * HOUR, 7: (TODAY - 1) * DAY + 17 * HOUR },
+  YESTERDAY,
+  { 1: 1, 2: 6, 3: 2, 4: 7_300, 5: 6, 8: 2, 11: 7_300, 14: 2, 15: 18, 16: 9_000 },
+  Object.fromEntries([1, 2, 3, 4, 5, 8, 11].map((id, i) => [id, YESTERDAY * DAY + (8 + i * 2) * HOUR])),
 );
 
-/** A past day the player did not play: every count at 0. */
+/** A past day the player did not play (day 20,736, offset 0: 5, 8 and 11, and last week's three): every count at 0. */
 export const QUESTS_IDLE = day(TODAY - 4, {});
 
 /** A day before the quests were defined: none live. */
@@ -117,7 +135,10 @@ const achievements = (list: PlayerAchievement[]): PlayerAchievements => ({
   achievements: list,
 });
 
-/** The player's nine: four earned, two in progress (Settler III 21 of 50, Forester 7 of 10), three locked (nothing counted yet). */
+/**
+ * The player's sixteen: four earned, six in progress (Settler III 21 of 50, Forester 7 of 10, Forester II 7 of 50, Grand Builder II
+ * 1 of 10, Settler IV 21 of 250, Settler V 21 of 1,000), six locked (nothing counted yet). Tiers 10 to 16 are v2a's, with its points.
+ */
 export const ACHIEVEMENTS_MIXED = achievements([
   achievement(1, 10, [task(TUTORIAL_FINISHED, 1, 1)], MOCK_NOW - 29 * DAY),
   achievement(2, 10, [task(GAME_FINISHED, 1, 21)], MOCK_NOW - 28 * DAY),
@@ -128,9 +149,16 @@ export const ACHIEVEMENTS_MIXED = achievements([
   achievement(7, 30, [task(WONDER_SCORED, 1, 0)]),
   achievement(8, 30, [task(HIGH_SCORE, 1, 0)]),
   achievement(9, 50, [task(PODIUM, 1, 0)]),
+  achievement(10, 40, [task(FOREST_SCORED, 50, 7)]),
+  achievement(11, 50, [task(WONDER_SCORED, 10, 0)]),
+  achievement(12, 40, [task(BIG_STRUCTURE, 10, 1)]),
+  achievement(13, 50, [task(HIGH_SCORE, 10, 0)]),
+  achievement(14, 80, [task(HIGH_SCORE, 25, 0)]),
+  achievement(15, 60, [task(GAME_FINISHED, 250, 21)]),
+  achievement(16, 80, [task(GAME_FINISHED, 1_000, 21)]),
 ]);
 
-/** A new player: nothing counted, all nine locked. */
+/** A new player: nothing counted, all sixteen locked. */
 export const ACHIEVEMENTS_NEW = achievements(ACHIEVEMENTS_MIXED.achievements.map((a) => achievement(a.achievementId, a.points, a.tasks.map((t) => ({ ...t, count: 0 })))));
 
 /** Every one earned. */
