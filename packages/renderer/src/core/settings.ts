@@ -9,6 +9,11 @@ export interface RendererSettings {
   outlines: OutlineSettings;
   /** How close and how far the camera may go. */
   camera: CameraZoomSettings;
+  /**
+   * Multisampled anti-aliasing of the scene (4 samples). Off by default: the outlines are stable without it (their
+   * depth bias is what fixed the flicker), and it costs about 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max.
+   */
+  multisampling: boolean;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -29,6 +34,7 @@ export interface CameraZoomSettings {
 export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
+  multisampling?: boolean;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -42,6 +48,7 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
+  multisampling: false,
 };
 
 /** `input` over `base`, field by field. */
@@ -52,6 +59,7 @@ export function resolveRendererSettings(
   return {
     outlines: { ...base.outlines, ...input.outlines },
     camera: { ...base.camera, ...input.camera },
+    multisampling: input.multisampling ?? base.multisampling,
   };
 }
 

@@ -27,6 +27,7 @@ export interface OutlinesBoardProps {
   maxDistance?: number;
   capZoomOut?: boolean;
   zoomOutCapDistance?: number;
+  multisampling?: boolean;
 }
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
@@ -41,6 +42,7 @@ export const SETTINGS_DEFAULTS = {
   maxDistance: CAMERA.maxDistance,
   capZoomOut: CAMERA.capZoomOut,
   zoomOutCapDistance: CAMERA.zoomOutCapDistance,
+  multisampling: DEFAULT_RENDERER_SETTINGS.multisampling,
 };
 
 interface Zoom {
@@ -93,8 +95,9 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
     () => ({
       outlines: { fadeThresholdTilePx: o.fadeThresholdTilePx, fadeRangeTilePx: o.fadeRangeTilePx, maxWidthPx: o.maxWidthPx, maxWidthTilePx: o.maxWidthTilePx },
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
+      multisampling: o.multisampling,
     }),
-    [o.fadeThresholdTilePx, o.fadeRangeTilePx, o.maxWidthPx, o.maxWidthTilePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance],
+    [o.fadeThresholdTilePx, o.fadeRangeTilePx, o.maxWidthPx, o.maxWidthTilePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).

@@ -33,6 +33,16 @@ describe("GameScene settings", () => {
     expect(requestRender).toHaveBeenCalled();
   });
 
+  it("turns the scene's multisampling on and off, off by default", () => {
+    const { scene } = sceneWithCamera();
+    const setMultisampling = vi.fn();
+    (scene as any).effects = { setMultisampling };
+    scene.setSettings({ multisampling: true });
+    expect(setMultisampling).toHaveBeenLastCalledWith(true);
+    scene.setSettings({});
+    expect(setMultisampling).toHaveBeenLastCalledWith(false);
+  });
+
   it("reports the zoom and the outlines' stroke at it", () => {
     const { scene, camera } = sceneWithCamera();
     const zoom = scene.getZoom();

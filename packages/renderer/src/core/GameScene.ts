@@ -193,7 +193,7 @@ export class GameScene {
     this.setupLighting();
 
     // Post-processing
-    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile);
+    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.settings.multisampling);
     this.effects.setCapabilities(effectsCapabilities);
 
     // Preload assets
@@ -405,11 +405,12 @@ export class GameScene {
 
   /**
    * Replace the renderer's settings (`settings.ts`): fields `input` does not name take the defaults. The outlines
-   * follow from the next frame, the camera's zoom limits at once.
+   * follow from the next frame, the camera's zoom limits and the multisampling at once.
    */
   setSettings(input: RendererSettingsInput): void {
     this.settings = resolveRendererSettings(input);
     this.applyCameraLimits();
+    this.effects.setMultisampling(this.settings.multisampling);
     this.requestRender();
   }
 

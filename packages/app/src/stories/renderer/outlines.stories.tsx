@@ -32,6 +32,7 @@ const meta = {
     maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
     zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
+    multisampling: { control: "boolean", description: "Multisampled anti-aliasing (4x): smoother edges, about 3 to 4 ms of GPU a frame", table: { category: "Quality" } },
   },
   args: { tour: true, view: "default", redraw: false, readout: true, ...SETTINGS_DEFAULTS },
 } satisfies Meta<typeof OutlinesBoard>;

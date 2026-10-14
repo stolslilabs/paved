@@ -56,7 +56,7 @@ export interface EffectsCapabilities {
   supportsVignette?: boolean;
   supportsSSAO?: boolean;
   lowPowerDevice?: boolean;
-  /** Multisampled anti-aliasing of the scene's render target (WebGL2). Default true. */
+  /** Whether the device can multisample a render target (WebGL2); false keeps `multisampling` off. Default true. */
   supportsMultisampling?: boolean;
 }
 
