@@ -570,9 +570,9 @@ nothing is fetched at run time.
 
 - **animate-ui** (`imskyleen/animate-ui` efeb96f): its licence is "MIT + Commons Clause", not MIT: the components may be
   used in a product "so long as you do not sell or redistribute the components themselves in their original form". The
-  repository is public under Apache 2.0, so copying them in redistributes their source. A licence is the owner's
-  (reserved); nothing of animate-ui is in the repository. Its Radix Tabs, Dialog, Sheet, Button and Motion Carousel
-  would otherwise have been the first candidates.
+  repository is public under Apache 2.0, so copying them in redistributes their source. The owner decided
+  (2026-10-14): no animate-ui. Nothing of it is in the repository, and it has no entry in `THIRD_PARTY_NOTICES.txt`.
+  Its Radix Tabs, Dialog, Sheet, Button and Motion Carousel would otherwise have been the first candidates.
 - **coss ui** (`cosscom/ui` 107dc0a; `apps/ui` MIT, the rest of the repository AGPL-3.0): built on Base UI. Taking its
   components would put a second primitive library beside Radix (F3).
 - **cult-ui** (`nolly-studio/cult-ui` 7f031dc, MIT): read; its components are marketing effects or need other
