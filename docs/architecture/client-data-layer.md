@@ -166,7 +166,7 @@ the Dojo burner manager (`@dojoengine/create-burner`).
 ## Views
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
-short page), `builder`, `currentDay` (`Challenge.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`,
+short page), `builder`, `currentDay` (`Challenge.current_day`, `IChallengeView`; `current_tournament_id` before D-20), `entryPrice`,
 and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
 The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.

@@ -3,7 +3,7 @@
 //
 // It plays the native contracts (packages/chain, docs/architecture/client-data-layer.md) on the
 // 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`, and
-// `IDailyView`'s `current_day` and `entry_price`) and the read `balance_of`
+// `IChallengeView`'s `current_day` and `entry_price`) and the read `balance_of`
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
 // fixed sequence applies it, and its receipt holds the events the client shows the move from

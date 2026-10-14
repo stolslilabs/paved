@@ -7,7 +7,7 @@
 
 export const API_VERSION = 1;
 
-/** Seconds of a tournament, a UTC day (`DAILY_DURATION` of the contracts). */
+/** Seconds of a tournament, a UTC day (`CHALLENGE_DURATION` of the contracts). */
 export const TOURNAMENT_DURATION = 86400;
 
 /** The most unsettled games an answer lists (`unsettled`); the whole count is `unsettled_count`. API v1 has no cursor for them. */
