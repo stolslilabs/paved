@@ -1,15 +1,23 @@
+/*
+ * Source: shadcn/ui's Sonner wrapper on Sonner (`sonner` 2.0.8, https://sonner.emilkowal.ski, MIT, (c) 2023 Emil
+ * Kowalski), kept from F3 as F3b's toast (docs/client/v2-architecture.md, "Animated components: chosen sources").
+ */
 import type { ComponentProps } from "react";
+import { useReducedMotionConfig } from "motion/react";
 import { Toaster as Sonner, toast } from "sonner";
+import { cn } from "../../lib/utils";
 
 /**
  * The toast host (the mockups' "Tile placed! + 8 points"). Dark only, so the theme is fixed. Sonner animates its own
- * toasts; under reduced motion the transitions are cut in `theme.css`. Colours come from the semantic tokens.
+ * toasts on CSS transitions; under reduced motion (the app's `MotionConfig`) `theme.css` cuts them. Colours come from
+ * the semantic tokens.
  */
-export function Toaster(props: ComponentProps<typeof Sonner>) {
+export function Toaster({ className, ...props }: ComponentProps<typeof Sonner>) {
+  const reduced = useReducedMotionConfig();
   return (
     <Sonner
       theme="dark"
-      className="toaster group"
+      className={cn("toaster group", reduced && "toaster-reduced-motion", className)}
       style={
         {
           "--normal-bg": "var(--popover)",

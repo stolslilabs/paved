@@ -188,7 +188,16 @@
   }
 }
 
-/* 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. */
+/*
+ * 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. The
+ * Toaster adds `toaster-reduced-motion` when `MotionConfig` asks for reduced motion (the app's "user" follows the OS,
+ * a story can force it); the media query covers a toaster rendered outside `MotionConfig`.
+ */
+.toaster-reduced-motion [data-sonner-toast],
+.toaster-reduced-motion [data-sonner-toast] * {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-sonner-toast],
   [data-sonner-toast] * {
