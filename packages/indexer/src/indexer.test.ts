@@ -284,6 +284,15 @@ describe("Economy", () => {
     expect(indexer.eventsApplied).toBe(0);
   });
 
+  test("Collection's MintersSet (the owner's set_minters) is skipped", async () => {
+    const node = new FakeNode();
+    node.mine([raw("collection", "MintersSet", [], [0x1111, 0x2222])]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(indexer.eventsApplied).toBe(0);
+  });
+
   describe("Setup's wiring against the deployment file (D-25 (E))", () => {
     const reason = async (events: ReturnType<typeof ev.economySet>[], make: (node: FakeNode) => Indexer = indexerOf) => {
       const node = new FakeNode();
