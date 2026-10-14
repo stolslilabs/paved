@@ -460,8 +460,8 @@ and `coverage` passes `--max-threads 2` (not re-measured).
 ## Re-measure (after T1, T2, P-58, #395)
 
 Measured on 2026-10-14 on main at `f8ed19f5` (T1 #398, P-58 #399, `measure.sh` #395 `5c480528`). Brief:
-`docs/briefs/coverage-2-remeasure.md`. A measure only: no contract, test or script changed. T2 is not in this tree: the last
-commits of main are T1 (#398) and the P-58 documents (#399), so the access gaps of "Access" above are still open.
+`docs/briefs/coverage-2-remeasure.md`. A measure only: no contract, test or script changed. T2 (#393 `d146406c`) and T1 (#398) are in this tree,
+and so are the P-58 documents (#399).
 
 ### Command, toolchain, peaks
 
@@ -490,7 +490,7 @@ The group `tests-walk-cost` (filter `paved::tests::walk_cost`) holds only `#[ign
 
 - snforge printed `[IGNORE] paved::tests::walk_cost::test_walk_cost_full_deck`, then
   `[WARNING] No trace data to generate coverage from`, then `Tests: 0 passed, 0 failed, 1 ignored, 782 filtered out`.
-  It exited with a status that the script took as 0 (the group was not reported as failed), and it wrote no lcov.
+  It exited with status 0 (the script aborts on a non-zero status and did not), and it wrote no lcov.
 - `measure.sh` printed `group tests-walk-cost: no runnable test (all ignored), skipped`, did not look for
   `coverage.lcov` for it, and carried on with `gas`, then the merge. The run ended with exit 0 and a table.
 - Before #395 this group stopped the run (no lcov). Now it is skipped, and no stale lcov of the previous group was copied.
@@ -541,7 +541,7 @@ fit a 16 GB budget; `coverage-split` is the way. Whether it would finish with mo
 **None.** Every line of `systems/{economy,challenge,collection,setup,token,faucet,vault}`, of `economy/{curve,mean,ekubo}` and of
 `components/ownable` is hit (the lcov has no `DA:` record at 0 in any of them). The gaps of "Value" and "Access" above
 (branches on one line, the vPAVED maths in OpenZeppelin, lines that run but are not asserted, the access gaps T2 was to
-close) are not visible to line coverage, so this measure neither confirms nor closes them.
+close; whether they are closed is not read from lines) are not visible to line coverage, so this measure neither confirms nor closes them.
 
 ### Remaining uncovered lines: everywhere else (134 lines)
 
