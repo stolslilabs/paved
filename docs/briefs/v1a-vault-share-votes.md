@@ -101,3 +101,21 @@ ee0aef4) made it block ranges in the L1-final zone. Correct that line, and only 
   - "For the PM";
   - the line `Review: none — documents only (a design note and decision rows; no code changed)` at the end.
 - Report: the PR's number and head, the diff stat, and the CI result. Do not merge.
+
+## Addendum: D-28 (PM, 2026-10-14)
+
+Record the owner's D-28 with the D-27 rows.
+
+- `docs/programme/DECISIONS.md`, a row D-28 (owner, via the PM, 2026-10-14):
+  - no VRF for now; the seed stays per game and evolves with the placements;
+  - the mainnet questions are deferred (the upgrade owner, and the VRF as a gate);
+  - Paved stays on Sepolia, and an L3 is possible later if performance is not enough; Sepolia performance is measured
+    once the fresh deployment exists.
+  Reversed by: "the owner reopens a mainnet question or asks for a VRF".
+- `docs/programme/PLAN.md`: mark each mainnet gate that D-28 defers (the upgrade owner; the VRF as a gate, if listed)
+  "deferred by the owner, 2026-10-14". Keep the rows; change only their status.
+- `docs/programme/RISKS.md`: R-4 says the seed is per game, mixing the Challenge address and the token id, evolves with
+  the placements, and that no VRF is planned for now (D-28).
+
+Allowlist additions: `docs/programme/PLAN.md` (status of the deferred gates only), `docs/programme/RISKS.md` (R-4 only).
+Same PR, same rules.
