@@ -264,6 +264,15 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
     expect(resolveEconomyDeployment({ base: base("sepolia"), file: sepoliaFile }).expectedRouter).toBe(sepoliaFile.contracts.MockRouter.address);
   });
 
+  test("the committed Sepolia file configures the economy on its Faucet, with its MockRouter as the router", () => {
+    const base = resolveDeployment({ network: "sepolia", file: sepoliaFile, env: { rpcUrl: "http://x" } });
+    const economy = resolveEconomyDeployment({ base, file: sepoliaFile });
+    expect(economy.configured).toBe(true);
+    expect(economy.addresses.USDC).toBe(sepoliaFile.contracts.Faucet.address);
+    expect(economy.addresses.Economy).toBe(sepoliaFile.contracts.Economy.address);
+    expect(economy.expectedRouter).toBe(sepoliaFile.contracts.MockRouter.address);
+  });
+
   test("read at every send, with the quote: a router changed since the last purchase refuses the next one", async () => {
     const { economy, econWriter, execute } = setup();
     await econWriter.purchase(buy());
