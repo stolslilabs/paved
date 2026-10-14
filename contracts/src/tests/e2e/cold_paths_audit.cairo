@@ -67,7 +67,7 @@ fn test_daily_pins_its_storage_variables_by_name() {
     assert(raw(daily, selector!("pending_owner")) == 0, 'Pin: pending_owner after');
 }
 
-// Dead since D-20 and D-24 (P-42): declared, never written or read, never reused
+// Dead since D-20, D-24 and D-25 E (P-42): declared, never written or read, never reused
 
 /// The `Slots` of a map entry of the `paved` node, computed from the names alone: a member of a
 /// storage node sits at `pedersen(node, selector!(name))`, a map entry at `pedersen(map, key)`.
@@ -81,7 +81,8 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 }
 
 /// Pins the dead fields of `Daily` by name, two ways: those of D-20, `sponsorships` (hostable),
-/// `tournaments` and `rankings` (the `paved` node), and those of D-24, `lobby_class` and every
+/// `tournaments` and `rankings` (the `paved` node), those of D-25 E, `account` and `players` (the
+/// `paved` node: `Account` left the systems), and those of D-24, `lobby_class` and every
 /// member of the flat quest and achievement substorage (`Quest_definitions`, `Quest_tasks`,
 /// `Quest_conditions`, `Quest_progress`, `Quest_records`, `Quest_held`, `Quest_reporters`,
 /// `Achievement_definitions`, `Achievement_extra_tasks`, `Achievement_reporters`).
@@ -119,6 +120,13 @@ fn test_daily_pins_the_dead_fields_by_name() {
         address_of(node.as_path().tournaments.entry(day)) == tournament, 'Dead: tournaments name',
     );
     assert(address_of(node.as_path().rankings.entry(day)) == ranking, 'Dead: rankings name');
+    // [Name] D-25 E: `account` and `players`, members of the `paved` node
+    let account = core::pedersen::pedersen(selector!("paved"), selector!("account"));
+    let players = paved_entry(selector!("players"), player.into());
+    assert(address_of(node.as_path().account) == account, 'Dead: account name');
+    assert(
+        address_of(node.as_path().players.entry(player.into())) == players, 'Dead: players name',
+    );
 
     // [Name] D-24: `lobby_class` and the quiver members, from their literal names
     let p: felt252 = player.into();
@@ -148,11 +156,12 @@ fn test_daily_pins_the_dead_fields_by_name() {
     // [Reuse] Sentinels at every slot (every slot of `Slots2` and `Slots4` for D-20)
     let mut slots: Array<felt252> = array![
         sponsorship, tournament, tournament + 1, ranking, ranking + 1, ranking + 2, ranking + 3,
+        account, players, players + 1,
     ];
     for slot in literal {
         slots.append(slot);
     }
-    let sentinel = 'D-20 D-24 dead';
+    let sentinel = 'D-20 D-24 D-25 dead';
     let mut i = 0;
     while i < slots.len() {
         write_raw(daily, *slots.at(i), array![sentinel + *slots.at(i)].span());

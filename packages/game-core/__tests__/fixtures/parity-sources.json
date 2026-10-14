@@ -1,37 +1,37 @@
 {
   "games": {
     "daily_city5": {
-      "source": "contracts/src/tests/golden/daily.cairo:54 (test_golden_daily_city5_game_over)",
+      "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_city5_game_over)",
       "seed": "Poseidon(0, 1000): Mode::seed of day(0) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "daily_road6": {
-      "source": "contracts/src/tests/golden/daily.cairo:69 (test_golden_daily_road6)",
+      "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_road6)",
       "seed": "Poseidon(0, 1001): Mode::seed of day(1) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "daily_mixed": {
-      "source": "contracts/src/tests/golden/daily.cairo:84 (test_golden_daily_mixed_roles)",
+      "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_mixed_roles)",
       "seed": "Poseidon(0, 1002): Mode::seed of day(2) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "daily_deck": {
-      "source": "contracts/src/tests/golden/daily.cairo:100 (test_golden_daily_real_deck_discards_to_game_over)",
+      "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_real_deck_discards_to_game_over)",
       "seed": "Poseidon(0, 1003): Mode::seed of day(3) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "forest_ring": {
-      "source": "contracts/src/tests/golden/forest.cairo:97 (test_golden_daily_forest_woodsman_ring)",
+      "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_woodsman_ring)",
       "seed": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
           "move": 3,
-          "source": "contracts/src/tests/golden/forest.cairo:28-31"
+          "source": "contracts/src/tests/golden/forest.cairo, doc comment of woodsman_ring_moves"
         }
       ]
     },
     "forest_caps": {
-      "source": "contracts/src/tests/golden/forest.cairo:112 (test_golden_daily_forest_herdsman_caps)",
+      "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_herdsman_caps)",
       "seed": "Poseidon(0, 1005): Mode::seed of day(5) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
@@ -45,77 +45,77 @@
       ]
     },
     "forest_both": {
-      "source": "contracts/src/tests/golden/forest.cairo:127 (test_golden_daily_forest_both_roles)",
+      "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_both_roles)",
       "seed": "Poseidon(0, 1006): Mode::seed of day(6) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
           "move": 8,
-          "source": "contracts/src/tests/golden/forest.cairo:53-57"
+          "source": "contracts/src/tests/golden/forest.cairo, doc comment of both_roles_moves"
         }
       ]
     },
     "forest_open": {
-      "source": "contracts/src/tests/golden/forest.cairo:144 (test_golden_daily_forest_herdsman_open_city)",
+      "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_herdsman_open_city)",
       "seed": "Poseidon(0, 1007): Mode::seed of day(7) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
           "move": 4,
-          "source": "contracts/src/tests/golden/forest.cairo:84-86"
+          "source": "contracts/src/tests/golden/forest.cairo, doc comment of herdsman_open_city_moves"
         }
       ]
     },
     "forest_last": {
-      "source": "contracts/src/tests/golden/forest.cairo:223 (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
+      "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
       "seed": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
           "move": 3,
-          "source": "contracts/src/tests/golden/forest.cairo:28-31"
+          "source": "contracts/src/tests/golden/forest.cairo, doc comment of woodsman_ring_moves"
         }
       ]
     },
     "daily_full_deck": {
-      "source": "contracts/src/tests/golden/full_deck.cairo:141 (test_golden_daily_full_deck)",
+      "source": "contracts/src/tests/golden/full_deck.cairo (test_golden_daily_full_deck)",
       "seed": "Poseidon(0, 1010): Mode::seed of day(10) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "tutorial_full": {
-      "source": "frozen at 38f1c95 from contracts/src/tests/golden/tutorial.cairo:17 (test_golden_tutorial_full_sequence); placements from contracts/src/elements/decks/tutorial.cairo (parameters)",
+      "source": "frozen at 38f1c95 from contracts/src/tests/golden/tutorial.cairo (test_golden_tutorial_full_sequence); placements from contracts/src/elements/decks/tutorial.cairo (parameters)",
       "seed": "contracts/src/types/mode.cairo, Mode::seed: 0 for the Tutorial",
       "scored": []
     },
     "test_differential_gas_scenarios_a0_a_b#1": {
-      "source": "contracts/src/tests/differential.cairo:55 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenarios_a0_a_b#2": {
-      "source": "contracts/src/tests/differential.cairo:55 (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenarios_a0_a_b); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_c": {
-      "source": "contracts/src/tests/differential.cairo:65 (test_differential_gas_scenario_c); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenario_c); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_d": {
-      "source": "contracts/src/tests/differential.cairo:79 (test_differential_gas_scenario_d); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenario_d); expectation: contracts/src/tests/differential.cairo (assert game.score > 0)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_e": {
-      "source": "contracts/src/tests/differential.cairo:100 (test_differential_gas_scenario_e); expectation: contracts/tests/gas.cairo:65 (SCORE_E)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenario_e); expectation: contracts/tests/gas.cairo (SCORE_E)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_gas_scenario_f": {
-      "source": "contracts/src/tests/differential.cairo:116 (test_differential_gas_scenario_f); expectation: contracts/tests/gas.cairo:66 (SCORE_F)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_gas_scenario_f); expectation: contracts/tests/gas.cairo (SCORE_F)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     },
     "test_differential_two_areas_of_one_tile_join_one_structure": {
-      "source": "contracts/src/tests/differential.cairo:149 (test_differential_two_areas_of_one_tile_join_one_structure); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
+      "source": "contracts/src/tests/differential.cairo (test_differential_two_areas_of_one_tile_join_one_structure); expectation: contracts/src/tests/differential.cairo (no score asserted: every move must be legal)",
       "seed": "any: the plans are forced and no draw is asserted",
       "scored": []
     }

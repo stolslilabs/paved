@@ -494,10 +494,6 @@
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        "name": "account_address",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
         "name": "token_address",
         "type": "core::starknet::contract_address::ContractAddress"
       },

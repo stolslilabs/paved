@@ -122,15 +122,17 @@
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
 #   3,980 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
-#   minter() == Economy and admin() == 0 are checked), Account(owner), Setup(owner), Daily(owner, account, USDC,
-#   Setup), Setup.set_reporter(Daily, true) (Daily.setup() and Setup.is_reporter(Daily) checked by read back),
-#   Economy.set_game(Daily) (after the stake), Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound
-#   ERC721 of the games), then as the owner Account.set_collection(Collection) and Collection.set_minters(Daily, 0)
-#   (no Tutorial minter since D-21; both checked by read back). The quests and achievements are defined on Setup
+#   minter() == Economy and admin() == 0 are checked), Setup(owner), Daily(owner, USDC, Setup),
+#   Setup.set_reporter(Daily, true) (Daily.setup() and Setup.is_reporter(Daily) checked by read back),
+#   Economy.set_game(Daily) (after the stake), Setup.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound
+#   ERC721 of the games), then as the owner Setup.set_collection(Collection) and Collection.set_minters(Daily, 0)
+#   (no Tutorial minter since D-21; Setup.wiring() and Collection.daily() checked by read back). Since D-25 E no
+#   Account is deployed: a player is the wallet address, Setup holds the wiring, and contracts.Account is not written
+#   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements are defined on Setup
 #   by its owner after the deploy (no script defines them). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
-# Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Account, Daily, Setup and Collection is
-#   the deployer, who alone may `upgrade` them (and set Daily's Setup and Setup's reporters); the smoke reads
+# Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Daily, Setup and Collection is
+#   the deployer, who alone may `upgrade` them (and set Daily's Setup, Setup's reporters and Setup's wiring); the smoke reads
 #   owner() back on each. PavedToken and Vault have no owner and no upgrade.
 # Deployer, owner and smoke player: devnet and --rehearse, the first predeployed account, read from the node at run
 # time (public dev keys of the node), its key held in a temporary accounts file removed on exit (devnet) or in the
@@ -1756,7 +1758,7 @@ ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
 # Account, Daily, Tutorial and Lobby.
-FUNDING_CLASSES=(Account Daily Setup Faucet PavedToken MockRouter Vault Economy Collection)
+FUNDING_CLASSES=(Daily Setup Faucet PavedToken MockRouter Vault Economy Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 if ((USE_SIGNER)); then
@@ -1881,7 +1883,6 @@ echo "== declare"
 TOKEN_CLASS=""
 TOKEN=""
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN_CLASS="$(declare_class Token)"; fi
-ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
 SETUP_CLASS="$(declare_class Setup)"
 USDC_CLASS="$(declare_class Faucet)"
@@ -1968,25 +1969,26 @@ read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER_ARG")"
 echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
-ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER_ARG")"
 # The quests and achievements (D-24): Daily reports each game over to Setup, which accepts reporters only.
 SETUP="$(deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
-DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$USDC" "$SETUP")"
+DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER_ARG" "$USDC" "$SETUP")"
 invoke "$SETUP" set_reporter "$DAILY" 1 >/dev/null
 [[ "$(hex_int "$(call "$DAILY" setup)")" == "$(hex_int "$SETUP")" ]] || die "Daily.setup() is not Setup"
 [[ "$(hex_int "$(call "$SETUP" is_reporter "$DAILY")")" == 1 ]] || die "Setup.is_reporter(Daily) is not true"
 echo "   Setup: Daily reports to it, its one reporter"
 invoke "$ECONOMY" set_game "$DAILY" >/dev/null
-invoke "$ACCOUNT" set_economy "$ECONOMY" >/dev/null
-[[ "$(hex_int "$(call "$ACCOUNT" economy)")" == "$(hex_int "$ECONOMY")" ]] || die "Account.economy() is not Economy"
+# The wiring (D-25 E): Setup holds it, Daily reads it in one call at spawn and at game over.
+invoke "$SETUP" set_economy "$ECONOMY" >/dev/null
 # The game NFT: without it every spawn reverts ('Daily: collection not set'), so it is wired before the smoke. No
 # Tutorial minter since D-21: the Tutorial range has none.
 COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
-invoke "$ACCOUNT" set_collection "$COLLECTION" >/dev/null
+invoke "$SETUP" set_collection "$COLLECTION" >/dev/null
 invoke "$COLLECTION" set_minters "$DAILY" 0 >/dev/null
-[[ "$(hex_int "$(call "$ACCOUNT" collection)")" == "$(hex_int "$COLLECTION")" ]] || die "Account.collection() is not Collection"
+read -r WIRED_ECONOMY WIRED_COLLECTION <<<"$(call "$SETUP" wiring)"
+[[ "$(hex_int "$WIRED_ECONOMY")" == "$(hex_int "$ECONOMY")" ]] || die "Setup.wiring() economy is not Economy"
+[[ "$(hex_int "$WIRED_COLLECTION")" == "$(hex_int "$COLLECTION")" ]] || die "Setup.wiring() collection is not Collection"
 [[ "$(hex_int "$(call "$COLLECTION" daily)")" == "$(hex_int "$DAILY")" ]] || die "Collection.daily() is not Daily"
-echo "   Collection: minter Daily, registered in Account"
+echo "   Setup: wiring Economy and Collection; Collection: minter Daily"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
@@ -1998,8 +2000,7 @@ mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
   "$DECIMALS" "$SYMBOL" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
-  "Economy=$ECONOMY=$ECONOMY_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
-  "Daily=$DAILY=$DAILY_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
+  "Economy=$ECONOMY=$ECONOMY_CLASS" "Daily=$DAILY=$DAILY_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
   "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, sys
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
@@ -2012,7 +2013,7 @@ for item in items:
     if address:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
-names = ["Account", "Daily", "Setup", "Collection", "Token", "Economy", "PavedToken", "Vault"]
+names = ["Daily", "Setup", "Collection", "Token", "Economy", "PavedToken", "Vault"]
 # The old mock Token is devnet only; devnet and Sepolia both run the Faucet and MockRouter (P-39).
 if network != "devnet":
     names.remove("Token")
@@ -2070,11 +2071,10 @@ print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, 
 
 echo "== smoke"
 # P-42: the upgrade owner of every upgradable contract is the deployer.
-for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Setup=$SETUP" "Collection=$COLLECTION"; do
+for entry in "Economy=$ECONOMY" "Daily=$DAILY" "Setup=$SETUP" "Collection=$COLLECTION"; do
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
-echo "   owner() of Economy, Account, Daily, Setup and Collection: the deployer"
-invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
+echo "   owner() of Economy, Daily, Setup and Collection: the deployer"
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not the Faucet"
 [[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"

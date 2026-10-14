@@ -6,8 +6,6 @@
 //! stored, and values are packed into whole felts (see `docs/architecture/native-storage.md`).
 
 use core::num::traits::Zero;
-use paved::models::player::Player;
-use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::tests::legacy::builder::Builder;
 use paved::tests::legacy::character::Char;
 use paved::tests::legacy::events::Event;
@@ -132,11 +130,6 @@ pub impl StoreImpl of StoreTrait {
         Store {}
     }
 
-    /// Records the `Account` contract that keeps the players (game contracts only).
-    fn initialize(self: Store, account: ContractAddress) {
-        storage().account.write(account);
-    }
-
     /// Returns a new game id (1 for the first game of the contract).
     fn uuid(self: Store) -> u32 {
         let game_id = storage().game_count.read() + 1;
@@ -188,15 +181,6 @@ pub impl StoreImpl of StoreTrait {
             // [Info] Nothing is above the counters: the quotient is the 23 bits
             counts: (s.high / TWO_POW_88).try_into().unwrap(),
         }
-    }
-
-    fn player(self: Store, player_id: felt252) -> Player {
-        let account = storage().account.read();
-        if account.is_non_zero() {
-            return IAccountDispatcher { contract_address: account }.player(player_id);
-        }
-        let slots = storage().players.entry(player_id).read();
-        Player { id: player_id, name: slots.a, master: slots.b }
     }
 
     /// The builder of `player_id`, read from `GameState` as it is now (a move that changes the
@@ -412,10 +396,6 @@ pub impl StoreImpl of StoreTrait {
     fn set_game_end(self: Store, game: Game) {
         let word: u128 = game.end_time.into() + game.tournament_id.into() * TWO_POW_64;
         storage().game_ends.entry(game.id).write(word.into());
-    }
-
-    fn set_player(self: Store, player: Player) {
-        storage().players.entry(player.id).write(Slots2 { a: player.name, b: player.master });
     }
 
     /// Writes the tile in hand and the roles placed of the builder into `GameState`.

@@ -11,10 +11,8 @@ pub mod setup {
     pub use paved::mocks::token::IERC20DispatcherTrait;
     use paved::models::builder::Builder;
     use paved::models::game::{Game, GameImpl};
-    use paved::models::player::Player;
     use paved::models::tile::Tile;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::daily::IDailyDispatcher;
     pub use paved::systems::daily::IDailyDispatcherTrait;
@@ -74,7 +72,6 @@ pub mod setup {
 
     #[derive(Drop)]
     pub struct Systems {
-        pub account: IAccountDispatcher,
         pub daily: IDailyDispatcher,
         pub setup: ISetupDispatcher,
         pub economy: IEconomyDispatcher,
@@ -111,10 +108,6 @@ pub mod setup {
 
         fn game(self: TestStore, game_id: u32) -> Game {
             interact_with_state(self.contract, || StoreImpl::new().game(game_id))
-        }
-
-        fn player(self: TestStore, player_id: felt252) -> Player {
-            interact_with_state(self.contract, || StoreImpl::new().player(player_id))
         }
 
         fn builder(self: TestStore, game: Game, player_id: felt252) -> Builder {
@@ -204,42 +197,31 @@ pub mod setup {
         (economy, usdc)
     }
 
-    /// Gives `who` the faucet's USDC, approved for `daily`, and registers it as a player.
-    fn register(
-        account: IAccountDispatcher,
-        usdc: ContractAddress,
-        daily: ContractAddress,
-        who: ContractAddress,
-        name: felt252,
-    ) {
+    /// Gives `who` the faucet's USDC, approved for `daily`. A player needs nothing else (D-25).
+    pub fn fund(usdc: ContractAddress, daily: ContractAddress, who: ContractAddress) {
         IFaucetDispatcher { contract_address: usdc }.mint(who, FUNDS);
         start_cheat_caller_address(usdc, who);
         IERC20Dispatcher { contract_address: usdc }.approve(daily, FUNDS);
         stop_cheat_caller_address(usdc);
-        start_cheat_caller_address(account.contract_address, who);
-        account.create(name, who);
-        stop_cheat_caller_address(account.contract_address);
     }
 
-    /// Deploys the economy (`deploy_economy`), `Account`, `Setup` and `Daily` (USDC as its token,
-    /// reporting to `Setup`), wires `Economy` to `Daily`, `Account` to `Economy`, `Daily` as the
-    /// reporter of `Setup` and the only minter of `Collection`, registers four players with USDC
-    /// approved for `Daily`, and spawns a game of `mode` for `PLAYER` (none for `Mode::None`; a
-    /// Daily game at stake 1). Returns a `TestStore` of `Daily`.
+    /// Deploys the economy (`deploy_economy`), `Collection`, `Setup` and `Daily` (USDC as its
+    /// token, reporting to `Setup`), wires `Economy` to `Daily`, `Setup` to `Economy` and
+    /// `Collection` (the wiring), `Daily` as the reporter of `Setup` and the only minter of
+    /// `Collection`, funds four players with USDC approved for `Daily`, and spawns a game of `mode`
+    /// for `PLAYER` (none for `Mode::None`; a Daily game at stake 1). Returns a `TestStore` of
+    /// `Daily`.
     #[inline]
     pub fn spawn_game(mode: Mode) -> (TestStore, Systems, Context) {
         // [Setup] Systems
         let owner: felt252 = OWNER().into();
         let (economy_address, token_address) = deploy_economy();
-        let account_address = deploy("Account", array![owner]);
         let collection_address = deploy("Collection", array![owner]);
         let setup_address = deploy("Setup", array![owner]);
         let daily_address = deploy(
-            "Daily",
-            array![owner, account_address.into(), token_address.into(), setup_address.into()],
+            "Daily", array![owner, token_address.into(), setup_address.into()],
         );
         let systems = Systems {
-            account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },
             setup: ISetupDispatcher { contract_address: setup_address },
             economy: IEconomyDispatcher { contract_address: economy_address },
@@ -248,23 +230,21 @@ pub mod setup {
         start_cheat_caller_address(economy_address, OWNER());
         systems.economy.set_game(daily_address);
         stop_cheat_caller_address(economy_address);
-        start_cheat_caller_address(account_address, OWNER());
-        systems.account.set_economy(economy_address);
-        systems.account.set_collection(collection_address);
-        stop_cheat_caller_address(account_address);
         start_cheat_caller_address(collection_address, OWNER());
         systems.collection.set_minters(daily_address, Zero::zero());
         stop_cheat_caller_address(collection_address);
         start_cheat_caller_address(setup_address, OWNER());
         systems.setup.set_reporter(daily_address, true);
+        systems.setup.set_economy(economy_address);
+        systems.setup.set_collection(collection_address);
         stop_cheat_caller_address(setup_address);
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
-        register(systems.account, token_address, daily_address, ANYONE(), ANYONE_NAME);
-        register(systems.account, token_address, daily_address, SOMEONE(), SOMEONE_NAME);
-        register(systems.account, token_address, daily_address, NOONE(), NOONE_NAME);
-        register(systems.account, token_address, daily_address, PLAYER(), PLAYER_NAME);
+        fund(token_address, daily_address, ANYONE());
+        fund(token_address, daily_address, SOMEONE());
+        fund(token_address, daily_address, NOONE());
+        fund(token_address, daily_address, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Keep player as caller for game interactions

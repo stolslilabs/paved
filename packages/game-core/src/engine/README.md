@@ -85,8 +85,9 @@ with D-21, so the script reads it from `scripts/tutorial-golden.frozen.ts`, tran
 cd packages/game-core && bun run generate:parity
 ```
 
-It writes `parity.json` and `parity-sources.json` (the Cairo file and line of each game, of each seed and of
-each `scored` entry the script adds, and what is not covered). Since it is a hand transcription, a value the
+It writes `parity.json` and `parity-sources.json` (the Cairo file and test function of each game, of each seed and of
+each `scored` entry the script adds, and what is not covered; by name, never by line number, so a `scarb fmt` moves
+nothing, and a changed move or expected value fails `engine-parity.test.ts` through `parity.json`). Since it is a hand transcription, a value the
 Cairo source does not hold as a literal is left out, and the test does not check it:
 
 - `scored` only on the moves whose events a Cairo comment or `docs/measures/golden-games.md` states by hand

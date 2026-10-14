@@ -20,3 +20,8 @@ export function modeFromParam(_mode: string | null | undefined): GameMode {
 export function isTrainingParam(mode: string | null | undefined): boolean {
   return mode === "training";
 }
+
+/** True for `?mode=tutorial`, the link of the on-chain Tutorial that left (D-21): the page sends it to `/tutorial`. */
+export function isTutorialParam(mode: string | null | undefined): boolean {
+  return mode === "tutorial";
+}
