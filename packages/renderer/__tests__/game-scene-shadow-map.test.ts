@@ -15,6 +15,7 @@ const adapter: RenderSurfaceAdapter = {
 async function createScene() {
   const renderer = {
     setPixelRatio: vi.fn(),
+    forceContextLoss: vi.fn(),
     setSize: vi.fn(),
     dispose: vi.fn(),
     shadowMap: { enabled: false, type: 0, autoUpdate: true, needsUpdate: false },

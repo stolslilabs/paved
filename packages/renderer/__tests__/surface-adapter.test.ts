@@ -65,6 +65,7 @@ function createController() {
 function createRenderer() {
   return {
     setPixelRatio: vi.fn(),
+    forceContextLoss: vi.fn(),
     setSize: vi.fn(),
     render: vi.fn(),
     dispose: vi.fn(),

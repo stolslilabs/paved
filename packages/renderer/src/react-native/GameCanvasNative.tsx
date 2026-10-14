@@ -21,10 +21,16 @@ export interface GameCanvasNativeProps {
   createRenderer?: GameSceneDependencies["createRenderer"];
   createCameraController?: GameSceneDependencies["createCameraController"];
   onReady?: (scene: GameScene) => void;
+  /** Called when the scene cannot start, for example without a GL context. */
+  onError?: (error: unknown) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
 }
+
+// The surface comes from the caller and outlives a scene (StrictMode remounts reuse it), and its
+// GL context belongs to the surface's owner: a scene must not lose it.
+const RELEASE_NOTHING = { releaseContext: false } as const;
 
 export function GameCanvasNative({
   surface,
@@ -39,16 +45,21 @@ export function GameCanvasNative({
   createRenderer,
   createCameraController,
   onReady,
+  onError,
   onTileClick,
   onTileHover,
   onHoverLeave,
 }: GameCanvasNativeProps) {
   const sceneRef = useRef<GameScene | null>(null);
 
+  const onReadyRef = useRef(onReady);
+  const onErrorRef = useRef(onError);
   const onTileClickRef = useRef(onTileClick);
   const onTileHoverRef = useRef(onTileHover);
   const onHoverLeaveRef = useRef(onHoverLeave);
 
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
@@ -57,17 +68,29 @@ export function GameCanvasNative({
     const scene = new GameScene({ createRenderer, createCameraController });
     sceneRef.current = scene;
 
-    scene.init({ surface, basePath, effectsCapabilities }).then(() => {
-      scene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
-      scene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
-      scene.onHoverLeave(() => onHoverLeaveRef.current?.());
-      scene.start();
-      onReady?.(scene);
-    });
+    let cancelled = false;
+
+    scene.init({ surface, basePath, effectsCapabilities }).then(
+      () => {
+        // Unmounted while init was pending: never start the scene.
+        if (cancelled) return;
+        scene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+        scene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
+        scene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        scene.start();
+        onReadyRef.current?.(scene);
+      },
+      (error: unknown) => {
+        scene.dispose(RELEASE_NOTHING);
+        if (!cancelled) onErrorRef.current?.(error);
+      },
+    );
 
     return () => {
-      scene.dispose();
+      cancelled = true;
       sceneRef.current = null;
+      // A pending init sees the scene disposed after its await and stops there.
+      scene.dispose(RELEASE_NOTHING);
     };
   }, [surface, basePath, createRenderer, createCameraController, effectsCapabilities]);
 
