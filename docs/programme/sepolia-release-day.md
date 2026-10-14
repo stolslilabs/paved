@@ -86,6 +86,11 @@ scripts/deploy.sh sepolia --out contracts/deployments/sepolia-next.json --guardi
 after the wiring; `--guardian deployer` only spells that default out, and no other value is accepted. Nothing is left to do
 by hand afterwards.
 
+**The default is not Sepolia's alone.** It changes `deploy.sh devnet` for every user of it: the node's first predeployed account (the
+deployer) becomes Challenge's guardian, with one `GuardianSet` event at deploy. CLIENT's `e2e-devnet` test
+(`packages/chain/test/e2e-devnet.test.ts`) calls `set_guardian` with the same account again, which is harmless (the same address, one
+more `GuardianSet`).
+
 Expected, in order (each stage prints its transactions; the names below are the `== ` headings of the output):
 
 | Stage | What lands | What to see |
@@ -147,7 +152,9 @@ send), each class hash, each transaction hash as the signer sends it. **Rerun th
 - skips each step whose result is on the chain (declares, deploys, the wiring, the guardian, each definition);
 - refuses a changed build: a resumed record's classes must be the ones built (so the same commit, never another);
 - needs the funding for what is left only; after `fresh.complete` it sends nothing, needs no margin, and reads back only what always
-  holds (the owner, the guardian and the pause are live state since, so they are not read).
+  holds: addresses, classes, `Setup.wiring()`, `router()`, the definitions and **`owner()` of Economy, Challenge, Setup, Collection and
+  Vault, which must still be the deployer on every run (the run dies if one is not)**. The guardian and `spawn_paused()` are live state
+  since (the owner's `set_guardian`, the guardian's pause), so a complete record's rerun does not read them.
 
 `--check-only --out <the same file>` on a partial record lists each recorded transaction with its status and what a run would send,
 and sends nothing: the first thing to run after a stop. The funded account's nonce is never reused by hand. A failure that is not a

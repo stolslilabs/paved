@@ -260,8 +260,9 @@ refuse 2 "unknown option '--check-only' for 'devnet'" devnet --guardian deployer
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --guardian deployer
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --check-only --out "$repoint_file.new" --guardian deployer
 refuse 2 "is for sepolia --upgrade-challenge only" sepolia --repoint --guardian deployer
-# The fresh path sets the guardian right after the wiring and before the definitions, and its smoke reads guardian()
-# and spawn_paused() and fails otherwise (read from the script: the run itself needs a node).
+# The fresh path calls the guardian step right after the wiring and before the definitions, and the smoke reads
+# guardian() and spawn_paused() through fresh_guardian_smoke: the order, read from the script. What the two functions
+# do is tested below against the fake node (fg_case).
 if python3 -I - "$here/deploy.sh" <<'PY'
 import re, sys
 t = open(sys.argv[1]).read().split("\n")
@@ -271,16 +272,17 @@ def first(pat, start=0):
             return i
     raise SystemExit("missing: " + pat)
 wire = first(r'^echo "== wire"')
-send = first(r'invoke "\$CHALLENGE" set_guardian "\$DEPLOYER_ARG"', wire)
+send = first(r'^fresh_guardian_step$', wire)
 defs = first(r'^echo "== definitions"', wire)
 smoke = first(r'^echo "== smoke"', defs)
-assert wire < send < defs < smoke, (wire, send, defs, smoke)
-first(r'RECORD_SENDING=guardian_tx', wire)
-first(r'Challenge\.guardian\(\) is another address', wire)
-first(r'die "Challenge\.guardian\(\) is not the deployer"', smoke)
-first(r'die "Challenge\.spawn_paused\(\) is true"', smoke)
+read = first(r'^fresh_guardian_smoke$', smoke)
+assert wire < send < defs < smoke < read, (wire, send, defs, smoke, read)
+first(r'RECORD_SENDING=guardian_tx')
+first(r'Challenge\.guardian\(\) is another address')
+first(r'die "Challenge\.guardian\(\) is not the deployer"')
+first(r'die "Challenge\.spawn_paused\(\) is true"')
 PY
-then echo "ok: the fresh path sets the guardian after the wiring and before the definitions; its smoke reads guardian() and spawn_paused()"
+then echo "ok: the fresh path calls the guardian step after the wiring and before the definitions; its smoke calls the guardian and pause reads"
 else echo "FAIL: the fresh path does not set the guardian between the wiring and the definitions, or its smoke does not read guardian() and spawn_paused()"; fail=1; fi
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --repoint --deployment "$repoint_file" 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
@@ -1510,7 +1512,7 @@ SH
 import json, sys
 keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
         "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
-        "wiring_tx", "definitions_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
+        "wiring_tx", "guardian_tx", "definitions_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
         "smoke.settle_tx"]
 fresh = {"salt": "0x1", "at": "unmerged-test"}
 for i, key in enumerate(keys):
@@ -1525,14 +1527,21 @@ PY2
   : >"$log"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
-  if [[ $rc -ne 0 || "$listed" != 19 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+  if [[ $rc -ne 0 || "$listed" != 20 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
       ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
       grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
-    echo "FAIL: sepolia --check-only over a record of 19 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    echo "FAIL: sepolia --check-only over a record of 20 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia --check-only over a record of 19 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+    echo "ok: sepolia --check-only over a record of 20 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+  fi
+  # guardian_tx (PM, 2026-10-14) is one of the 20: its status line is listed, between wiring_tx and definitions_tx.
+  if [[ "$(grep -n '^   [A-Za-z.]*_tx ' <<<"$out" | sed -n '/wiring_tx/,/definitions_tx/p' | grep -o '[a-z.A-Z]*_tx ' | tr -d '\n')" == "wiring_tx guardian_tx definitions_tx " ]] &&
+      grep -q '^   guardian_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out"; then
+    echo "ok: sepolia --check-only lists guardian_tx between wiring_tx and definitions_tx"
+  else
+    echo "FAIL: sepolia --check-only does not list guardian_tx between wiring_tx and definitions_tx:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
   rm -f "$est/record.before"
   # A record of another network is refused.
@@ -1595,6 +1604,74 @@ verdict 'not json' not
 verdict '' not
 
 # S1 audit: no external entry point of Challenge or Setup takes a Mode (Challenge fixes it: Mode::Challenge; the Lobby class
+
+# The fresh path's guardian step and its smoke reads, run against the fake node through the test hook
+# --check-fresh-guardian <step|smoke> <Challenge address> (the same code as a fresh run: fresh_guardian_step and
+# fresh_guardian_smoke). The record is a fresh one, as a run keeps it.
+fg_case() { # [files to touch in the fake node...]
+  rp_case
+  printf '{"network":"sepolia","chain_id":"0x534e5f5345504f4c4941","fresh":{"salt":"0x1","at":"unmerged-test"}}\n' >"$rp/fresh.json"
+  touch "$rp/bin/invoke_ok" "$@"
+}
+fg_run() { rp_run --check-fresh-guardian "$1" 0xc0 --out "$rp/fresh.json"; }
+fg_fail() { echo "FAIL: the fresh path's guardian, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"; echo "sent: $(cat "$rp/bin/sent.log")"; fail=1; }
+fg_tx() { python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["fresh"].get("guardian_tx",""))' "$rp/fresh.json"; }
+# guardian none: set_guardian(@account) is sent, once, its hash recorded, and read back as the deployer.
+fg_case
+out="$(fg_run step)"; rc=$?
+if [[ $rc -ne 0 || "$(tr '\n' ';' <"$rp/bin/sent.log" | sed 's/ 0x1a0[0-9a-f]*;/;/')" != "invoke set_guardian @account;" ||
+    "$out" != *"Challenge.set_guardian(the deployer): the deployer is the guardian"* || "$(fg_tx)" != 0x1a00001 ]] || leaks -q <<<"$out"; then
+  fg_fail "guardian none: expected exit 0, set_guardian(@account) sent once, its hash recorded, read back, got $rc" "$out"
+else
+  echo "ok: the fresh path's guardian step with no guardian sends set_guardian(@account) once, records guardian_tx and reads the deployer back"
+fi
+# guardian already the deployer: the step sends nothing.
+fg_case "$rp/bin/guardian_set"
+out="$(fg_run step)"; rc=$?
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is the deployer already"* ]] || leaks -q <<<"$out"; then
+  fg_fail "guardian already the deployer: expected exit 0, nothing sent, got $rc" "$out"
+else
+  echo "ok: the fresh path's guardian step skips when the deployer is the guardian already, nothing sent"
+fi
+# guardian another address: the run dies, nothing sent, the address not printed.
+fg_case "$rp/bin/guardian_other"
+out="$(fg_run step)"; rc=$?
+if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Challenge.guardian() is another address: not replaced; nothing more was sent"* || "$out" == *0x999* ]] || leaks -q <<<"$out"; then
+  fg_fail "guardian another address: expected a non-zero exit, nothing sent, the address unprinted, got $rc" "$out"
+else
+  echo "ok: the fresh path's guardian step dies on another address, nothing sent, the address unprinted"
+fi
+# A complete record: the step reads and sends nothing (live state since).
+fg_case
+python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["fresh"]["complete"]="yes";json.dump(d,open(sys.argv[1],"w"))' "$rp/fresh.json"
+out="$(fg_run step)"; rc=$?
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" ]]; then
+  fg_fail "a complete record: expected exit 0 and nothing sent, got $rc" "$out"
+else
+  echo "ok: the fresh path's guardian step sends nothing for a complete record"
+fi
+# The smoke: the deployer and not paused passes; another address, none or a paused spawn fails.
+fg_case "$rp/bin/guardian_set"
+out="$(fg_run smoke)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"Challenge.guardian(): the deployer; spawn_paused(): false"* ]] || leaks -q <<<"$out"; then
+  fg_fail "smoke with the deployer as guardian: expected exit 0, got $rc" "$out"
+else
+  echo "ok: the fresh smoke passes with the deployer as guardian and spawn not paused"
+fi
+for bad in "guardian_other:Challenge.guardian() is not the deployer" "none:Challenge.guardian() is not the deployer" "paused:Challenge.spawn_paused() is true"; do
+  case "${bad%%:*}" in
+    none) fg_case ;;
+    paused) fg_case "$rp/bin/guardian_set" "$rp/bin/paused" ;;
+    *) fg_case "$rp/bin/${bad%%:*}" ;;
+  esac
+  out="$(fg_run smoke)"; rc=$?
+  if [[ $rc -eq 0 || "$out" != *"${bad#*:}"* || "$out" == *0x999* ]] || leaks -q <<<"$out"; then
+    fg_fail "smoke with ${bad%%:*}: expected a non-zero exit and '${bad#*:}', got $rc" "$out"
+  else
+    echo "ok: the fresh smoke fails with ${bad%%:*}: ${bad#*:}"
+  fi
+done
+
 # that took one is gone since D-24). Read from the committed ABIs, which CI checks against the build.
 for contract in Challenge Setup; do
   abi="$here/../contracts/abis/$contract.json"
