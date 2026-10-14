@@ -5,7 +5,6 @@ use core::num::traits::Bounded;
 use paved::constants;
 use paved::models::builder::Builder;
 use paved::models::game::{Game, GameImpl};
-use paved::models::player::Player;
 use paved::models::tile::{Tile, TilePosition};
 use paved::store::{StoreImpl, StoreTrait};
 use paved::tests::setup::setup;
@@ -91,11 +90,9 @@ fn test_store_round_trips_at_maximum_values() {
 fn test_store_missing_entries_read_as_zero_with_keys() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
-        systems.account.contract_address,
+        systems.daily.contract_address,
         || {
             let store = StoreImpl::new();
-            let player = store.player('NOBODY');
-            assert_eq!(player, Player { id: 'NOBODY', name: 0, master: 0 });
             let game = store.game(42);
             assert_eq!(game.id, 42);
             assert_eq!(game.tile_count, 0);

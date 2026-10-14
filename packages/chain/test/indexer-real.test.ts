@@ -27,7 +27,7 @@ afterEach(() => {
 
 async function start(): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
   const node = new FakeNode();
-  node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]); // "Ada", "Bo"
+  node.mine([], []); // D-25 (E): no registration; a player is known from their first event
   node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
   node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
   node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
@@ -44,7 +44,8 @@ const T0 = DAY * 86400;
 async function startQuests() {
   const node = new FakeNode();
   node.time = T0 + 100;
-  node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]); // "Ada", "Bo"
+  // D-25 (E): no registration; a player is known from their first event. Bo is known from a game of the day before.
+  node.mine([], [ev.spawned("daily", 9, B, { day: DAY - 1 })]);
   node.mine(
     [ev.questDefined(1, { start: T0, tasks: [[1, 1]] })],
     [ev.questDefined(2, { start: T0, tasks: [[2, 6]] })],
@@ -79,7 +80,8 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1 });
-    expect(data.contracts).toMatchObject({ daily: "0x1111", setup: "0x2222", account: "0x3333", economy: "0x4444" });
+    expect(data.contracts).toMatchObject({ daily: "0x1111", setup: "0x2222", economy: "0x4444" });
+    expect(data.contracts).not.toHaveProperty("account");
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });
@@ -87,7 +89,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("E3's appended economy fields are read: game, player stats and the day's economy", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x41)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 1200, { day: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
     const { client } = await serveNode(node);
@@ -141,9 +143,10 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const first = await client.leaderboard(DAY, { limit: 1 });
     expect(first.data).toMatchObject({ tournamentId: DAY, total: 2, nextOffset: 1 });
-    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, name: "Ada", bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77 });
+    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77 });
     const second = await client.leaderboard(DAY, { limit: 1, offset: first.data.nextOffset! });
-    expect(second.data.entries[0]).toMatchObject({ rank: 2, playerId: BO, name: "Bo", bestScore: 40 });
+    expect(second.data.entries[0]).toMatchObject({ rank: 2, playerId: BO, bestScore: 40 });
+    expect(second.data.entries[0]).not.toHaveProperty("name");
     expect(second.data.nextOffset).toBeNull();
     expect((await client.leaderboard(7)).data).toMatchObject({ total: 0, entries: [], nextOffset: null });
   });
@@ -151,7 +154,8 @@ describe("IndexerClient against the real indexer", () => {
   test("/v1/players/{id}: a known player, an unknown one", async () => {
     const { client } = await start();
     const known = await client.player(ADA);
-    expect(known.data.player).toMatchObject({ playerId: ADA, name: "Ada" });
+    // D-25 (E): known from the first GameSpawned, with no name.
+    expect(known.data.player).toEqual({ playerId: ADA, created: expect.any(Number) });
     expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, paidGames: 0, settledGames: 0, rewards: "0" });
     expect(await client.player(0xeen)).toMatchObject({ data: { player: null, stats: null } });
   });
@@ -235,6 +239,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("/v1/players/{id}/quests: a known player with none, and an unknown player, have zero counts", async () => {
     const { client } = await startQuests();
+    expect((await client.player(BO)).data.player).not.toBeNull();
     for (const id of [BO, indexerPlayerId(0xdeadn)]) {
       const { data } = await client.playerQuests(id, { day: DAY });
       expect(data.quests.map((q) => q.questId)).toEqual([1, 2, 4]);
@@ -264,7 +269,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("the tutorial claim (D-21): Setup's task 10 completes First Stone, read through the client", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x41)], [ev.achievementDefined(1, { tasks: [[10, 1]], points: 10 })]);
+    node.mine([], [ev.achievementDefined(1, { tasks: [[10, 1]], points: 10 })]);
     node.mine([ev.tutorialClaimed(A)]);
     const { client } = await serveNode(node);
     const { data } = await client.playerAchievements(ADA);
@@ -276,6 +281,7 @@ describe("IndexerClient against the real indexer", () => {
 
   test("/v1/players/{id}/achievements: no progress is zero points, and so is an unknown player", async () => {
     const { client } = await startQuests();
+    expect((await client.player(BO)).data.player).not.toBeNull();
     for (const id of [BO, indexerPlayerId(0xdeadn)]) {
       const { data } = await client.playerAchievements(id);
       expect(data.points).toBe(0);

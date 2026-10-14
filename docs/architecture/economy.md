@@ -223,8 +223,29 @@ transaction and no day state, but the closing move pays the mint.
 The margin was recommended and is DECIDED (P-31). It keeps D-10's "70 % of the price swapped and burned on each purchase" to the
 letter, the reward of a game does not depend on who referred it, and it is what Nums and Glitchbomb do. Its cost is
 on the stakers: 5 points of price on every referred purchase. A player who refers themself from a second address
-takes those 5 points. A referrer must be a registered Paved player (`Account`) other than the payer, which stops the
-trivial case only.
+takes those 5 points. A referrer must be a non-zero address other than the payer and the protocol addresses `Daily`
+knows, which stops the trivial case only.
+
+**The referral rule since D-25 E (economy lens of P-52 (6)).** Before step E the referrer had to be "a registered Paved
+player (`Account`) other than the payer". `Account` left the systems and a player is the wallet address, so the rule
+is now **"a non-zero address other than the payer"** (`Daily::purchase`, `systems/daily.cairo`), and other than the
+two protocol addresses `Daily` knows, `Economy` (from `Setup.wiring()`) and `Daily` itself (economy note N2 of #350):
+paid to `Economy`, the 5 % would be swept back into the margin and `Purchased` would report it twice (as `referral`
+and inside `margin`); paid to `Daily`, it would be stranded (nothing in `Daily` transfers USDC out). The `Vault` is not
+excluded: `Daily` does not know its address (reading it from `Economy` would cost a call per referred spawn), and a
+referral paid to the Vault is counted once (`referral` 5 % plus `margin` 25 %: the Vault holds 30 %, as without a
+referrer). Any other address that cannot spend (another contract) is like any address the payer names: the 5 % leaves
+the margin, at the stakers' cost, as for self-referral (E-6). The rest is unchanged:
+a zero referrer or the payer as referrer is ignored, the spawn goes on with no referral (the payer pays `P` and the
+margin is 30 %), and `Economy.purchase` keeps its own check (non-zero, not the player). The rule's strength is
+unchanged: registration was permissionless (`Account.create` by any caller, once per address), so it never kept a second
+wallet of the payer out; self-referral through a second address costs the stakers 5 points of price, as above (E-6).
+What changes is that a referrer need not have played or registered: any address the payer names (but the protocol
+addresses above) is paid 5 %. Tests, besides `test_economy_protocol_address_referrer_is_no_referral` and
+`test_cold_paths_spawn_ignores_a_protocol_address_as_referrer` for the protocol addresses:
+`tests::e2e::economy::test_economy_referrer_is_any_address_but_the_payer` (an address that plays and one that never
+did are paid; the payer and zero are not) and the three `tests::e2e::cold_paths::test_cold_paths_spawn_*referr*` tests
+(what `Economy.purchase` receives).
 
 Taking the referral from the burn would make self-referral pointless and keep the stakers whole, but it changes the
 burn rate D-10 fixed. **DECIDED (P-31, 2026-10-09): the margin.**

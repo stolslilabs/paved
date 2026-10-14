@@ -11,7 +11,8 @@ day one and the playtest data survives fixes.
 |---|---|---|---|
 | `Daily` | yes | constructor `owner` | the game; holds the sponsored prize pools |
 | `Tutorial` | yes | constructor `owner` | the tutorial game |
-| `Account` | yes | constructor `owner` | the player registry, read by `Daily`, `Tutorial` and `Lobby` |
+| `Account` | removed (D-25 E) | | the player registry and the wiring until step E; deleted, a minimal mock serves one test (below) |
+| `Setup` | yes | constructor `owner` | the quests and achievements (D-24) and, since D-25 E, the wiring `Daily` reads |
 | `Economy` | yes | constructor `owner` | the minter of PAVED and the purchase and settlement logic; holds nothing between transactions |
 | `Collection` | yes | constructor `owner` | the game NFTs |
 | `Lobby` | no instance | none | a declared class, run by `Daily` and `Tutorial`; replaced by `set_lobby_class` (below) |
@@ -90,8 +91,9 @@ map). So, for every upgradable contract and for `Lobby`:
   same rule as an upgrade.
 - **Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_its_storage_variables_by_name` (`owner`,
   `pending_owner`, `token_address` and `setup` of `Daily`; it replaced the pin of the variables `Lobby` shared with
-  `Daily`, `test_lobby_and_daily_pin_every_shared_storage_variable_by_name`, at D-24) and `tests::e2e::upgrades::test_upgrade_layout_pins_account_and_economy_by_name` (the
-  wiring of `Account`, the addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
+  `Daily`, `test_lobby_and_daily_pin_every_shared_storage_variable_by_name`, at D-24) and `tests::e2e::upgrades::test_upgrade_layout_pins_setup_and_economy_by_name` (the
+  ownable and the wiring of `Setup`, `economy` and `collection`, which were `Account`'s pins until D-25 E; the
+  addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
   raw address of its name. Whoever adds a variable adds it there.
 - **Packed slots keep their bits.** A field added to a packed slot takes bits that are free in every slot written
   before, so that an old slot reads the new field as 0; dead bits are never reused. The tile slot
@@ -146,12 +148,54 @@ survive a whole game (the accepted list defined on `Setup`, then spawn, build, d
 reported to `Setup`).
 
 **New live slot**: `Daily.setup: ContractAddress`, written by the constructor and by the owner's `set_setup` (P-42).
-Step E's single registry can keep it as the one address `Daily` reads its wiring from.
+Since step E it is the one address `Daily` reads its wiring from (below).
 
 **Rule for any future in-place upgrade of a `Daily` without `setup`** (D-17; mainnet later; not Sepolia, P-53): deploy
 `Setup` and call `Setup.set_reporter(Daily, true)` first, then send `Daily.upgrade` and `Daily.set_setup(Setup)` in one
-owner multicall, and read `Daily.setup()` back. If `setup` is still zero, a game over still ends and is recorded
-(`finish` skips the report when the slot is zero), but that game's progress is lost.
+owner multicall, and read `Daily.setup()` back. Until step E, a zero `setup` let a game over end and be recorded with
+its progress lost; since step E the wiring is `Setup`'s, so with a zero `setup` a spawn and a game over both revert
+(`'Daily: setup is zero'`) and the game stays live until `set_setup` runs. Before such an upgrade, `Setup` also needs
+`set_economy` and `set_collection` (the addresses the old `Account` held).
+
+**Re-pointing `Daily` to another `Setup` (`set_setup`) re-points the whole wiring** since D-25 E: every later spawn
+pays into and mints from, and every later game over records into, the new `Setup`'s economy and collection, not only
+the reports. Re-point only with no game in flight: a game bought under one economy would be recorded on another, whose
+`record` refuses a game it never sold (`'Economy: unknown game'`), so that game could not end (security note 1 and
+economy note N1 of #350).
+
+**`Setup`'s setters are once-only.** A wrong address is fixed in one of two ways:
+- an upgrade of `Setup` to a class that can write the slot (owner only; the slots are pinned by name);
+- a new `Setup`, wired and allowlisting `Daily`, then `Daily.set_setup` to it (under the rule above). This loses the old
+  `Setup`'s reporters and tutorial claims; the quests and achievements are event mode, so their state is the indexer's
+  and stays readable from the old `Setup`'s events.
+
+## Dead slots since D-25 E (P-42)
+
+`Account` left the systems (P-53 ruling 5): a player is the wallet address. Two members of the `paved` storage node
+(`store.cairo`, `PavedStorage`), declared in every game contract's layout, are now dead. Their names do not change.
+
+| Slot | Declared in | Was written by |
+|---|---|---|
+| `account: ContractAddress` (`pedersen(selector!("paved"), selector!("account"))`) | `Daily`, through `PavedStorage` | `Store.initialize` in `Daily`'s constructor (gone: the constructor has no `account_address` since E) |
+| `players: Map<felt252, Slots2>` (name, master) | `Daily`, through `PavedStorage` | nothing in a game contract: `Account` kept the players in its own storage, and `Store.player` read `Account` when `account` was set |
+
+**Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name` pins both with the D-20 and D-24
+slots: `PavedStorage.account` and `PavedStorage.players.entry(player)` resolve to the addresses computed from the
+literal names, and sentinels at `account` and at both slots of `players` survive a whole game (whose spawn reads the
+wiring from `Setup`, never the `account` slot).
+
+**New live slots** in `Setup`: `economy: ContractAddress` and `collection: ContractAddress`, each written once by the
+owner (`set_economy`, `set_collection`), pinned by name in `test_upgrade_layout_pins_setup_and_economy_by_name`.
+
+**The mock `Account`.** P-53 ruling 5: the Account belongs in the mocks. `Account` is deleted from the systems (git
+history keeps it: `git show aff59e06:contracts/src/systems/account.cairo`), and `MockAccount`
+(`contracts/src/mocks/account.cairo`) keeps a registration and the player view, nothing else. Its one user,
+`tests::e2e::access::test_access_a_registration_changes_nothing`, shows that `Daily` plays and pays a referrer the same
+whether the address registered or not. `deploy.sh` never deploys it and `abis.sh` writes no ABI for it. No other test
+needs it: the layout pin moved to `Setup`'s wiring; the frozen classes of the D-18 and D-19 upgrade tests never spawn,
+so their copy of `Store.player` was dead code and went; and Sepolia gets a fresh deployment (P-53), so no `--rehearse`
+of an upgrade from the `Account` layout remains. `deploy.sh --d18` still declares the `Account` of 06c024d
+from the pinned commit (`scripts/check-artifact-names.sh` accepts that name in the pinned paths only).
 
 ## D-20 on Sepolia (superseded by P-53: fresh deployment)
 
@@ -208,9 +252,9 @@ Hence the mainnet gate, for `upgrade` and `set_lobby_class` alike: an owner acco
 
 - `upgrade` by a stranger, and by a pending owner before it accepts, reverts; to class hash 0 reverts; by the owner,
   to a probe class, emits OpenZeppelin's `Upgraded` and a value stored before reads back through the probe (for each of
-  `Daily`, `Tutorial`, `Account`, `Economy`, `Collection`); after a two-step transfer the new owner upgrades and the old
+  `Daily`, `Setup`, `Economy`, `Collection`; `Tutorial` left at D-21, `Account` at D-25 E); after a two-step transfer the new owner upgrades and the old
   one cannot.
 - `set_lobby_class`: owner only, non-zero, emits `LobbyClassSet`, and the next `spawn` of `Daily` and of `Tutorial`
   runs the new class (a probe whose `spawn` returns a mark); after a transfer, the new owner sets it.
 - `PavedToken` and `Vault`: a call to `upgrade` finds no entry point (`ENTRYPOINT_NOT_FOUND`).
-- The layout pins above. Two-step ownership on all five: `tests::e2e::access`.
+- The layout pins above. Two-step ownership on all four: `tests::e2e::access`.

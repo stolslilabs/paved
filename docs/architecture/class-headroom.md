@@ -87,7 +87,7 @@ The first four figures are those of the brief, reproduced.
 |---|---|---|---|
 | `Daily` | Hostable (spawn, claim, sponsor), Ownable (embedded ABI: owner, pending_owner, transfer_ownership, accept_ownership, upgrade), Payable (pay, refund), Playable (build, discard, surrender); with P7 quiver `QuestComponent` and `AchievementComponent` (internal layer) | `IDaily` (spawn, claim, sponsor, discard, surrender, build), `IGameView` (4 views), `ITournamentView` (3 views), with P7 `IDailyQuests` (4 owner-only) | the whole engine: `structure::{placement, state, assessment, forest, oriented, tables, record}`, `models::{game, builder, tile, tournament}`, `helpers::random_deck`, `types::deck`, `store`, `views`, `leaderboard`, with P7 `quests` |
 | `Tutorial` | Hostable (spawn), Ownable, Tutoriable (build, discard, surrender); with P7 `AchievementComponent` | `ITutorial` (spawn, discard, surrender, build), `IGameView` | the same engine, its own copy |
-| `Account` | Ownable | register, player views | `models::player` |
+| `Account` (historical: deleted in D-25 E, with `models::player`) | Ownable | register, player views | `models::player` |
 | `Token` | ERC20 mock | ERC20 | `mocks` |
 
 ### Where the bytes go (CASM felts per module, release)
@@ -569,3 +569,26 @@ classes are unchanged to the felt.
 
 **Fix loop 1 (review #346):** the zero-`setup` guard in `finish` adds 16 CASM felts: `Daily` 60,576 (Sierra 27,430),
 **12,371 under the P-44 cap (17.0 %)**. `Setup` is unchanged (13,449).
+
+## After D-25 E (Account leaves, Setup holds the wiring; step E)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-13, under `prlimit --as=12884901888`): before on an
+export of main aff59e06 (step D merged), after on the step E branch (the contracts of the fix after review, which keep
+the `PlayerCreated` variant declared: 33 felts more than without it).
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Daily` (Challenge) | 27,430 | 60,576 | 27,078 | 59,642 | -934 | 72.8 % |
+| `Setup` | 6,856 | 13,449 | 7,290 | 14,499 | +1,050 | 17.7 % |
+| `Account` | 1,500 | 3,577 | | | deleted | |
+
+**`Daily` is 13,305 CASM felts under the P-44 cap (72,947; 18.2 % of the cap)**, against 12,371 after step D. It loses
+the registration check, the `Account` dispatcher and its two views, `Store.initialize` and `Store.player`, the
+`account_address` constructor argument, and gains the `Setup.wiring()` call. `Setup`
+gains the two setters, their events and the view. The other classes are unchanged to the felt (`Collection` 14,485,
+`Economy` 26,567).
+
+**Fix loop 1 (review and audits of #350):** `Daily` 59,702 CASM felts (Sierra 27,116), **13,245 under the P-44 cap
+(18.2 %)**, -874 against main. Against the first E head (59,642) it adds 60: the referrer check against `Economy` and
+`Daily` itself, and the game over checking only the economy. `Setup` is unchanged (14,499). The test-only mock
+`MockAccount` is 466 CASM felts and is never declared by `deploy.sh`.

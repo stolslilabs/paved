@@ -161,6 +161,20 @@
     ]
   },
   {
+    "type": "struct",
+    "name": "paved::systems::setup::Wiring",
+    "members": [
+      {
+        "name": "economy",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "collection",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
     "type": "interface",
     "name": "paved::systems::setup::ISetup",
     "items": [
@@ -307,6 +321,41 @@
         "outputs": [
           {
             "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_economy",
+        "inputs": [
+          {
+            "name": "economy",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_collection",
+        "inputs": [
+          {
+            "name": "collection",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "wiring",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::Wiring"
           }
         ],
         "state_mutability": "view"
@@ -739,6 +788,30 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::EconomySet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "economy",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CollectionSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "collection",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -761,6 +834,16 @@
         "name": "AchievementEvent",
         "type": "quiver_achievement::component::AchievementComponent::Event",
         "kind": "flat"
+      },
+      {
+        "name": "EconomySet",
+        "type": "paved::systems::setup::Setup::EconomySet",
+        "kind": "nested"
+      },
+      {
+        "name": "CollectionSet",
+        "type": "paved::systems::setup::Setup::CollectionSet",
+        "kind": "nested"
       }
     ]
   }

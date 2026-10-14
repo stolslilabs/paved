@@ -3,21 +3,17 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { FakeGameViews, FaucetCapError, IndexerClient } from "@paved/chain";
-import { FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
+import { FIXTURE_ADA, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
+import { shortId } from "../src/utils/indexer-view";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
 import { configured, notConfigured, renderPage, PLAYER } from "./helpers/page-fixtures";
 
 vi.mock("@paved/ui", () => ({
-  LandingScreen: ({ connected, playerName, onSpawn, gameModes }: any) => (
+  LandingScreen: ({ connected, playerName, gameModes }: any) => (
     <div>
       <span>{connected ? `connected:${playerName ?? "new"}` : "not connected"}</span>
-      {connected && !playerName && (
-        <button type="button" onClick={onSpawn}>
-          Create Account
-        </button>
-      )}
       {gameModes.map((m: any) => (
         <div key={m.mode} data-testid={`card-${m.mode}`}>
           <button type="button" onClick={m.onPress}>
@@ -174,15 +170,16 @@ describe("Daily card, top 3", () => {
   };
   const top = () => within(screen.getByTestId("card-daily"));
 
-  it("shows the first three rows with rank, name and score, each linking to the player, and the leaderboard link", async () => {
+  it("shows the first three rows with rank, short address and score, each linking to the player, and the leaderboard link", async () => {
     daily();
     const list = await screen.findByTestId("daily-top");
     expect(fixture.requests).toContain(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
     const ada = within(rows[0]);
-    expect(rows[0].textContent).toBe("1. Ada - 187");
-    expect(ada.getByRole("link", { name: "Ada" }).getAttribute("href")).toMatch(/^\/player\/0x[0-9a-f]{64}$/);
+    // D-25 (E): no name from the indexer; the short address (the connected player would see their username).
+    expect(rows[0].textContent).toBe(`1. ${shortId(FIXTURE_ADA)} - 187`);
+    expect(ada.getByRole("link", { name: shortId(FIXTURE_ADA) }).getAttribute("href")).toBe(`/player/${FIXTURE_ADA}`);
     expect(rows[1].textContent).toMatch(/^2\. .+ - \d+$/);
     expect(rows[2].textContent).toMatch(/^3\. .+ - \d+$/);
     const see = top().getByRole("link", { name: "See the leaderboard" });
@@ -292,61 +289,20 @@ describe("Landing states", () => {
   });
 });
 
-describe("Player name at account creation", () => {
-  const setup = () => {
-    const createPlayer = vi.fn(async () => result);
-    land({ player: null, writer: { createPlayer } });
-    return createPlayer;
-  };
-  const create = async () => fireEvent.click(await screen.findByText("Create Account"));
-
-  it("an empty or too long name is refused before sending", async () => {
-    const createPlayer = setup();
-    await create();
-    expect((await screen.findByText("A name is 1 to 31 ASCII characters")).getAttribute("role")).toBe("alert");
-    fireEvent.change(screen.getByLabelText("Player name"), { target: { value: "é" } });
-    await create();
-    expect(createPlayer).not.toHaveBeenCalled();
+describe("D-25 (E): the player is the connected wallet, with no registration", () => {
+  it("a connected wallet is a player at once: named by its short address (no Controller here), no create, no name input", async () => {
+    const { client } = land({});
+    await screen.findByText(`connected:${PLAYER}`);
+    expect(screen.queryByText("Create Account")).toBeNull();
+    expect(screen.queryByLabelText("Player name")).toBeNull();
+    // Nothing reads a registration: the client has no `player` read any more.
+    expect((client as unknown as Record<string, unknown>).player).toBeUndefined();
   });
 
-  it("a name of 32 characters is refused before sending, and one of 31 is sent", async () => {
-    const createPlayer = setup();
-    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "a".repeat(32) } });
-    await create();
-    expect((await screen.findByText("A name is 1 to 31 ASCII characters")).getAttribute("role")).toBe("alert");
-    expect(createPlayer).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Player name"), { target: { value: "a".repeat(31) } });
-    await create();
-    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("a".repeat(31), { mintTestToken: false }));
-  });
-
-  it("a valid name is sent as typed", async () => {
-    const createPlayer = setup();
-    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed Zed" } });
-    await create();
-    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed Zed", { mintTestToken: false }));
-  });
-});
-
-describe("The faucet at account creation", () => {
-  const create = async () => fireEvent.click(await screen.findByText("Create Account"));
-  const landMint = (deployment: Deployment, createPlayer: ReturnType<typeof vi.fn>) =>
-    renderPage({ page: <LandingPage supportsMint />, path: "/", player: null, deployment, writer: { createPlayer } });
-
-  it("asks for the faucet only when the deployment has a MockUSDC", async () => {
-    const createPlayer = vi.fn(async () => result);
-    landMint({ ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment, createPlayer);
-    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed" } });
-    await create();
-    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed", { mintTestToken: true }));
-  });
-
-  it("a missing MockUSDC never blocks account creation: the account is created without a mint", async () => {
-    const createPlayer = vi.fn(async () => result);
-    landMint({ ...(configured as object), mockUsdc: "" } as unknown as Deployment, createPlayer);
-    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed" } });
-    await create();
-    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed", { mintTestToken: false }));
+  it("a long address is shortened", async () => {
+    const address = "0x05f3a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d59a1c";
+    land({ account: { address, execute: async () => ({ transaction_hash: "0x0" }) } });
+    await screen.findByText("connected:0x5f3a…9a1c");
   });
 });
 
@@ -385,7 +341,7 @@ describe("D-20: the prize leaves the landing", () => {
     const views = new FakeGameViews();
     views.today = 20_000;
     land({ views, deployment: { ...configured, mockUsdc: undefined } as Deployment, wrap: noEconomy(configured) });
-    await screen.findByText("connected:Zed");
+    await screen.findByText(`connected:${PLAYER}`);
     await waitFor(() => expect(views.calls).toContain("current_day"));
     expect(views.calls.some((c) => c.startsWith("tournament"))).toBe(false);
     expect(document.body.textContent).not.toMatch(/prize|sponsor|claim/i);

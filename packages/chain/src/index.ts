@@ -56,7 +56,7 @@ export {
 } from "./writer";
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";
 export { PavedClient, createPavedClient } from "./paved-client";
-export type { PavedRpc, PlayerRecord } from "./paved-client";
+export type { PavedRpc } from "./paved-client";
 export {
   DEFAULT_MAX_LAG,
   INDEXER_API_VERSION,

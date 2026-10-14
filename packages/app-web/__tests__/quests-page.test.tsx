@@ -33,11 +33,12 @@ const holdRequests = (match: RegExp) => {
 };
 const visible = () => act(async () => void document.dispatchEvent(new Event("visibilitychange")));
 
-const ME = (id: string) => ({ id, name: "Me", master: "0xabc" });
+/** D-25 (E): the connected wallet is the player: the account whose address is `id`. */
+const ME = (id: string) => ({ address: id, execute: async () => ({ transaction_hash: "0x0" }) });
 const quests = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
   const views = new FakeGameViews();
   views.today = FIXTURE_TOURNAMENT;
-  return renderPage({ page: <QuestsPage />, path: "/quests", route: "/quests/:day?", indexer, views, player: ME(FIXTURE_ADA), ...opts });
+  return renderPage({ page: <QuestsPage />, path: "/quests", route: "/quests/:day?", indexer, views, account: ME(FIXTURE_ADA), ...opts });
 };
 // A quest or an achievement is named in its progress and again in the definitions: tests look in one region.
 const region = (name: string) => within(screen.getByRole("region", { name }));
@@ -56,7 +57,8 @@ describe("Quests page", () => {
 
   it("loading, then today's quests with their progress for the connected player", async () => {
     quests();
-    expect(screen.getByText("Loading player…")).toBeTruthy();
+    // D-25 (E): no player read first: the connected wallet is the player.
+    expect(screen.queryByText("Loading player…")).toBeNull();
     await quest();
     expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/quests?day=${FIXTURE_TOURNAMENT}`);
     const list = within(screen.getByRole("list", { name: "Daily quests" }));
@@ -174,7 +176,7 @@ describe("Quests page", () => {
   });
 
   it("a player with no progress sees zero counts and zero points", async () => {
-    quests({ player: ME(FIXTURE_BO) });
+    quests({ account: ME(FIXTURE_BO) });
     await quest();
     expect(within(q("Daily Run")).getByText("0 / 1 Daily games finished")).toBeTruthy();
     expect(within(q("Daily Run")).queryByText(/Completed/)).toBeNull();
@@ -188,13 +190,6 @@ describe("Quests page", () => {
     await screen.findAllByTestId("definition");
     expect(fixture.requests.filter((r) => r.startsWith("/v1/players/"))).toEqual([]);
     expect(screen.queryByRole("region", { name: "Your quests" })).toBeNull();
-  });
-
-  it("a connected account without a player yet: says so, reads no progress", async () => {
-    quests({ player: null });
-    await screen.findByText("You have no player yet: your quests appear after your first game.");
-    await screen.findByText("What counts");
-    expect(fixture.requests.filter((r) => r.startsWith("/v1/players/"))).toEqual([]);
   });
 
   it("the lag line: up to date, then behind with the reason progress may be late", async () => {

@@ -605,3 +605,54 @@ quest_id, schedule, tasks, conditions }`, `QuestProgressed { #[key] player_id, #
 { #[key] reporter, allowed }`, `AchievementReporterSet { #[key] reporter, allowed }`; plus `Upgraded` and the ownership
 events. The indexer follows them from `Setup`'s deployment block; the ones `Daily` and `Tutorial` emitted before stay
 history (not migrated, P-51 (5)).
+
+## Breaking change D-25 (E)
+
+D-25, P-52 and P-53 (`docs/programme/DECISIONS.md`), step E: `Account` leaves the systems, a player's identity is
+the wallet address, and `Setup` holds the wiring (P-53 ruling 2: the single registry, read through one view per call).
+**Built by step E**; the tables are the ABI diff as built (`contracts/abis/`). A stated exception to the stability
+promise. Sepolia gets one fresh deployment (P-53, step F), so no deployed contract is upgraded across this change.
+
+### `Account` (`Account.json`): removed
+
+| Item | Before (main, aff59e06) | After |
+|---|---|---|
+| `IAccount.create(name: felt252, master: ContractAddress)`, `player(id: felt252) -> Player { id, name, master }` | registration and its view | **removed**: no registration; a player is any address (`get_caller_address()` as a felt, which it already was) |
+| `IAccount.set_economy`, `economy()`, `set_collection`, `collection()`, events `EconomySet { economy }`, `CollectionSet { collection }` | the wiring, owner, once, non-zero | **moved to `Setup`** (below), same events, same names and fields |
+| `IOwnable`, `upgrade`, the constructor `(owner)` | | removed with the contract |
+| `Account.json` | in `contracts/abis/`, written by `scripts/abis.sh` | **removed** (history: `git show aff59e06:contracts/abis/Account.json`). The mock `MockAccount` (`contracts/src/mocks/account.cairo`) serves one test and has no ABI file: no tool needs one |
+
+### `Daily` (`Daily.json`)
+
+| Item | Before (main) | After |
+|---|---|---|
+| Constructor | `(owner, account_address, token_address, setup_address)` | **`(owner, token_address, setup_address)`**: `account_address` and `'Daily: account is zero'` are gone |
+| `spawn(stake, referrer, min_out)` | the caller had to be registered in `Account` (`'Player: Does not exist'`); the referrer counted if registered and not the payer | same signature. **Any account may play.** The referrer counts if it is **a non-zero address other than the payer, `Economy` and `Daily`** (any of those, or zero: no referral, the spawn goes on). The wiring is read from `Setup` in one call |
+| `spawn` with no wiring | `'Daily: economy not set'`, `'Daily: collection not set'` (read from `Account`) | the same two errors, read from `Setup.wiring()`. A zero `setup` slot (an in-place upgrade before `set_setup`) reverts `'Daily: setup is zero'` and leaves no game |
+| A game over (`build`, `discard`, `surrender` that ends the game) | reported to `Setup` if `setup` is set, then `Economy.record` (economy read from `Account`) | reported to `Setup`, then `Economy.record` with the economy read from `Setup.wiring()` (a game over checks only the economy; a spawn checks both). With a zero `setup` slot the move **reverts** (`'Daily: setup is zero'`): the economy is out of reach, so the game stays live until the owner sets the `Setup` (step D ended it unreported) |
+| Event `PlayerCreated { #[key] player_id, name, master }` | in `Daily.json` (the shared `paved::events::Event`), emitted by `Account` only | **emitted by nothing deployed**: a past event (below). It stays declared in `Daily.json`, as it always was (never emitted by a game contract), because the indexer's tests read it from there; it leaves the ABI with META's indexer change |
+| `GameSpawned`, `Built`, `Discarded`, `Scored`, `GameOver`, `SetupSet` | | unchanged; `player_id` is the address felt, as before |
+
+### `Setup` (`Setup.json`): the wiring
+
+| Entry point or view | Who | What |
+|---|---|---|
+| `set_economy(economy: ContractAddress)` | owner | once, non-zero: `'Setup: economy already set'`, `'Setup: economy is zero'`; emits `EconomySet { economy }` |
+| `set_collection(collection: ContractAddress)` | owner | once, non-zero: `'Setup: collection already set'`, `'Setup: collection is zero'`; emits `CollectionSet { collection }` |
+| `wiring() -> Wiring { economy: ContractAddress, collection: ContractAddress }` | anyone | both addresses in one call, each zero until set; `Daily` reads it at spawn and at game over |
+
+`EconomySet` and `CollectionSet` keep `Account`'s names and fields, so their selectors and layouts are those an indexer
+already decodes; only the emitter changes (`Setup`'s address). Everything else of `Setup` is as in "Breaking change
+D-24".
+
+### Past events: `PlayerCreated`
+
+Emitted by `Account.create` before step E, from `Account`'s address only, and by nothing deployed after it. An indexer
+replaying history keeps knowing it and skips it, as for the D-20 prize events.
+
+| Event | `keys` | `data` | Emitted by (main, before E) |
+|---|---|---|---|
+| `PlayerCreated` | `[selector("PlayerCreated"), player_id: felt252]` | `[name: felt252, master: felt252]` | `Account.create` (`components/manageable.cairo`) |
+
+On Sepolia it was emitted by the deployed `Account` of 06c024d; the fresh deployment (step F) has no `Account`, so an
+indexer of the new deployment meets none. Names come from the Controller (the Cartridge username), off chain.

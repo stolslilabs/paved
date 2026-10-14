@@ -10,6 +10,13 @@ function elementsOf(node: unknown, type: unknown): Array<{ props: Record<string,
   if (!element || typeof element !== "object") return [];
   return [...(element.type === type ? [element as { props: Record<string, unknown> }] : []), ...elementsOf(element.props?.children, type)];
 }
+/** Every string child of a tree, as the screen renders it. */
+function textsOf(node: unknown): string[] {
+  if (typeof node === "string") return [node];
+  if (Array.isArray(node)) return node.flatMap(textsOf);
+  const element = node as { props?: { children?: unknown } } | null;
+  return element && typeof element === "object" ? textsOf(element.props?.children) : [];
+}
 const card = (mode: string) => ({ mode, title: mode, description: "", tileCount: 10, duration: "", entryFee: "Free", onPress: () => {} });
 
 describe("LandingScreen", () => {
@@ -38,13 +45,17 @@ describe("LandingScreen", () => {
     expect(typeof props.onModeSelect).toBe("function");
   });
 
-  it("maintains backward compatibility with original props", () => {
-    const props: LandingScreenProps = {
-      connected: false,
-      playerName: "OG",
-      onSpawn: () => {},
-    };
-    expect(props).toBeDefined();
+  // D-25 (E): a player is the wallet address; there is no account to create and no name on chain.
+  it("a connected wallet is the player: no Create Account, a welcome with the name, and its games section", () => {
+    for (const playerName of ["ada", "0x05f3…9a1c", undefined]) {
+      const texts = textsOf(LandingScreen({ connected: true, playerName }));
+      expect(texts).not.toContain("Create Account");
+      if (playerName) expect(texts).toContain(`Welcome, ${playerName}`);
+      expect(texts).toContain("Your Games");
+    }
+    const away = textsOf(LandingScreen({ connected: false }));
+    expect(away).toContain("Connect your wallet to begin");
+    expect(away).not.toContain("Your Games");
   });
 
   it("offers the quests screen through onQuests, next to the leaderboard", () => {

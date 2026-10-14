@@ -9,6 +9,11 @@ export interface WalletState {
   signer: Signer;
   /** The controller's account once the player connected; null otherwise (and always on devnet). */
   controller: WriteAccount | null;
+  /**
+   * The connected player's Controller username (D-25 (E): a player is the wallet address, its name is off chain); null
+   * until it is read, when it cannot be, and always on devnet (a burner has none).
+   */
+  username: string | null;
   connecting: boolean;
   /** Why the last connect or disconnect failed. */
   error: string | null;
@@ -81,8 +86,20 @@ export function WalletProvider({
     });
   }, [signer, deployment, reader, createConnector]);
   const [controller, setController] = useState<WriteAccount | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The username of the connected account, read once it is connected; a failed read leaves it null (a short address shows).
+  useEffect(() => {
+    setUsername(null);
+    if (!connector || !controller) return;
+    let cancelled = false;
+    connector.username().then((name) => !cancelled && setUsername(name), () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [connector, controller]);
 
   // A session approved earlier in this browser comes back without a prompt.
   useEffect(() => {
@@ -125,8 +142,8 @@ export function WalletProvider({
   // One account object per signer: a new one would give a new writer, and the writer serialises writes.
   const account = useMemo(() => resolvePlayerAccount(env, deployment, controller), [env, deployment, controller]);
   const wallet = useMemo<WalletState>(
-    () => ({ signer, controller, connecting, error, connect, disconnect }),
-    [signer, controller, connecting, error, connect, disconnect],
+    () => ({ signer, controller, username, connecting, error, connect, disconnect }),
+    [signer, controller, username, connecting, error, connect, disconnect],
   );
 
   return (

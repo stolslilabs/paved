@@ -27,13 +27,6 @@ pub struct Game {
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
-pub struct Player {
-    pub id: felt252,
-    pub name: felt252,
-    pub master: felt252,
-}
-
-#[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Builder {
     pub game_id: u32,
     pub player_id: felt252,

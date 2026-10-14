@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,8 +7,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { Chain } from "./chain.ts";
 import { SELECTORS, decode, padded } from "./events.ts";
 import { Indexer } from "./indexer.ts";
-import { SCHEMA_VERSION, SchemaMismatch, Store } from "./store.ts";
-import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, SETUP, ev, raw } from "./testing/fake-node.ts";
+import { SCHEMA_VERSION, SchemaMismatch, Store, deploymentHash } from "./store.ts";
+import { COLLECTION, ECONOMY, DAILY, FakeNode, SETUP, ev, raw, type FakeEvent } from "./testing/fake-node.ts";
 import { CONFIG, indexerOf, indexerWithoutCollection, settle } from "./testing/setup.ts";
 
 const ADA = 0xa1n;
@@ -23,9 +24,9 @@ const tempDb = () => {
   return join(dir, "db.sqlite");
 };
 
-/** A chain with two players and a few games, one block each. */
+/** A chain with two players and a few games, one block each (the first block holds no event). */
 function played(node = new FakeNode()) {
-  node.mine([ev.created(ADA, 0x416461)], [ev.created(BO, 0x426f)]);
+  node.mine([], []);
   node.mine([ev.spawned("daily", 1, ADA), ev.built("daily", 1)]);
   node.mine([ev.spawned("daily", 2, BO)], [ev.spawned("daily", 3, ADA)]);
   node.mine([ev.over("daily", 1, ADA, 50)]);
@@ -34,29 +35,31 @@ function played(node = new FakeNode()) {
 }
 
 describe("following the chain", () => {
-  test("applies the three events in block order and skips the known ones", async () => {
+  test("applies the game events in block order and skips the known ones", async () => {
     const node = played();
     const indexer = indexerOf(node);
     await settle(indexer);
     expect(indexer.status).toBe("ok");
     expect(indexer.served?.number).toBe(node.tip);
     const dump = indexer.store.dump();
-    expect(dump.players.map((p) => p.name)).toEqual([padded(0x416461n), padded(0x426fn)]);
+    // A player is the address, from its first GameSpawned (D-25 (E)): no name, no master.
+    expect(dump.players).toEqual([
+      { player_id: padded(ADA), created_block: 2, created_time: node.blocks[2]!.timestamp },
+      { player_id: padded(BO), created_block: 3, created_time: node.blocks[3]!.timestamp },
+    ]);
     expect(dump.games.map((g) => [g.contract, g.game_id, g.over, g.score])).toEqual([
       ["daily", 1, 1, 50],
       ["daily", 2, 0, null],
       ["daily", 3, 1, 9],
     ]);
     expect(dump.events.map((e) => e.name)).toEqual([
-      "PlayerCreated",
-      "PlayerCreated",
       "GameSpawned",
       "GameSpawned",
       "GameSpawned",
       "GameOver",
       "GameOver",
     ]);
-    expect(indexer.eventsApplied).toBe(7);
+    expect(indexer.eventsApplied).toBe(5);
   });
 
   test("a block applied twice changes nothing", async () => {
@@ -65,7 +68,7 @@ describe("following the chain", () => {
     await settle(indexer);
     const before = indexer.store.dump();
     const block = indexer.store.block(3)!;
-    const raws = await new Chain(node.rpc, { daily: DAILY, setup: SETUP, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }).events(block);
+    const raws = await new Chain(node.rpc, { daily: DAILY, setup: SETUP, economy: ECONOMY, collection: COLLECTION }).events(block);
     expect(raws.length).toBeGreaterThan(0);
     const events = raws.flatMap((raw) => {
       const event = decode(raw.source, raw.keys, raw.data);
@@ -79,7 +82,7 @@ describe("following the chain", () => {
     const path = tempDb();
     const node = played();
     const first = new Indexer({
-      chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }),
+      chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, economy: ECONOMY, collection: COLLECTION }),
       store: new Store(path),
       config: CONFIG,
       depth: 1000,
@@ -91,7 +94,7 @@ describe("following the chain", () => {
 
     node.mine([ev.over("daily", 2, BO, 70)]);
     const second = new Indexer({
-      chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }),
+      chain: new Chain(node.rpc, { daily: DAILY, setup: SETUP, economy: ECONOMY, collection: COLLECTION }),
       store: new Store(path),
       config: CONFIG,
       depth: 1000,
@@ -103,9 +106,82 @@ describe("following the chain", () => {
   });
 });
 
+describe("players (D-25 (E): a player is the wallet address, seen from its first event)", () => {
+  const players = (indexer: Indexer) =>
+    indexer.store.dump().players.map((p) => [p.player_id, p.created_block, p.created_time]);
+
+  test("the first GameSpawned creates the player, a later event does not change its creation", async () => {
+    const node = new FakeNode();
+    const first = node.mine([ev.spawned("daily", 1, ADA)]);
+    node.mine([ev.over("daily", 1, ADA, 5)], [ev.spawned("daily", 2, ADA)]);
+    node.mine([ev.purchased(2, ADA), ev.questProgressed(ADA, 1, 1)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(players(indexer)).toEqual([[padded(ADA), first, node.blocks[first]!.timestamp]]);
+    // Stored as the API names it: 0x and 64 lowercase hex digits.
+    expect(String(players(indexer)[0]![0])).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  test("a Purchased first creates the player; its referrer is not a player", async () => {
+    const node = new FakeNode();
+    const first = node.mine([ev.purchased(1, ADA, { referrer: BO })]);
+    node.mine([ev.spawned("daily", 1, ADA)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(players(indexer)).toEqual([[padded(ADA), first, node.blocks[first]!.timestamp]]);
+  });
+
+  test("a quest or an achievement progress first creates the player (the tutorial claim too)", async () => {
+    const node = new FakeNode();
+    const quest = node.mine([ev.questProgressed(ADA, 1, 1)]);
+    const claim = node.mine([ev.tutorialClaimed(BO)]);
+    node.mine([ev.spawned("daily", 1, ADA)], [ev.spawned("daily", 2, BO)], [ev.achievementProgressed(ADA, 2, 1)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(players(indexer)).toEqual([
+      [padded(ADA), quest, node.blocks[quest]!.timestamp],
+      [padded(BO), claim, node.blocks[claim]!.timestamp],
+    ]);
+  });
+
+  test("a past progress from Daily (skipped) creates no player", async () => {
+    const node = new FakeNode();
+    node.mine([ev.questProgressed(ADA, 1, 1, "daily"), ev.achievementProgressed(ADA, 1, 1, "daily")]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(players(indexer)).toEqual([]);
+  });
+});
+
+describe("an old history (before D-25 (E))", () => {
+  test("a PlayerCreated is skipped by name from a source still read, and never seen from Account's address", async () => {
+    const node = new FakeNode();
+    node.mine(
+      // Daily's ABI declared PlayerCreated: from Daily's address it is known and skipped, never a halt.
+      [ev.pastCreated("daily", ADA, 0x416461)],
+      // Account's address is not a source: nothing asks the node for its events (the fake node holds them unread).
+      [{ ...ev.pastCreated("daily", BO, 0x426f), source: "account" } as unknown as FakeEvent],
+      [{ ...ev.economySet(), source: "account" } as unknown as FakeEvent],
+    );
+    node.mine([ev.spawned("daily", 1, ADA)]);
+    node.mine([ev.over("daily", 1, ADA, 7)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(indexer.served?.number).toBe(node.tip);
+    const dump = indexer.store.dump();
+    expect(dump.events.map((e) => e.name)).toEqual(["GameSpawned", "GameOver"]);
+    expect(dump.players.map((p) => [p.player_id, p.created_block])).toEqual([[padded(ADA), 2]]);
+  });
+});
+
 /** A paid game of Ada: bought with its spawn, ended and recorded, its day closed and the game settled. */
 function paid(node = new FakeNode()) {
-  node.mine([ev.created(ADA, 0x416461)]);
+  node.mine([]);
   node.mine([ev.spawned("daily", 1, ADA), ev.purchased(1, ADA, { day: 100 })]);
   node.mine([ev.over("daily", 1, ADA, 5000), ev.recorded(1, 5000)]);
   node.mine([ev.dayClosed(100), ev.settled(1, ADA, { day: 100, score: 5000, reward: 2n ** 70n })]);
@@ -115,7 +191,7 @@ function paid(node = new FakeNode()) {
 describe("Collection's mint", () => {
   test("the token id is stored with each game, the Daily id as is; a past Tutorial token is skipped (D-21)", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, ADA), ev.purchased(1, ADA, { day: 100 }), ev.minted(ADA, 1)]);
     node.mine([ev.minted(ADA, 2 ** 32 + 1)]);
     const indexer = indexerOf(node);
@@ -129,7 +205,7 @@ describe("Collection's mint", () => {
 
   test("without a Collection address no mint is read: the games carry no token id", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, ADA), ev.minted(ADA, 1)]);
     const indexer = indexerWithoutCollection(node);
     await settle(indexer);
@@ -178,7 +254,7 @@ describe("Economy", () => {
     expect(dump.events.map((e) => [e.source, e.name])).toContainEqual(["economy", "Settled"]);
   });
 
-  test("the owner events at Economy's deploy and Account's EconomySet are skipped", async () => {
+  test("the owner events at Economy's deploy are skipped", async () => {
     const node = new FakeNode();
     node.mine([
       raw("economy", "EconomyConfigured", [], [7000, 0, 18130, 5, 10n ** 24n]),
@@ -191,7 +267,7 @@ describe("Economy", () => {
     expect(indexer.eventsApplied).toBe(0);
   });
 
-  describe("Account's registry against the deployment file", () => {
+  describe("Setup's wiring against the deployment file (D-25 (E))", () => {
     const reason = async (events: ReturnType<typeof ev.economySet>[], make: (node: FakeNode) => Indexer = indexerOf) => {
       const node = new FakeNode();
       node.mine(events);
@@ -203,7 +279,10 @@ describe("Economy", () => {
     test("a match: EconomySet and CollectionSet of the file's addresses are indexed and nothing halts", async () => {
       const { indexer } = await reason([ev.economySet(), ev.collectionSet()]);
       expect(indexer.status).toBe("ok");
-      expect(indexer.store.dump().events.map((e) => e.name)).toEqual(["EconomySet", "CollectionSet"]);
+      expect(indexer.store.dump().events.map((e) => [e.source, e.name])).toEqual([
+        ["setup", "EconomySet"],
+        ["setup", "CollectionSet"],
+      ]);
     });
 
     test("an Economy other than the file's halts, saying both", async () => {
@@ -212,6 +291,7 @@ describe("Economy", () => {
       expect(why).toContain("EconomySet");
       expect(why).toContain(padded(0x9999n));
       expect(why).toContain(padded(BigInt(ECONOMY)));
+      expect(why).toContain("Setup registers the Economy");
     });
 
     test("a Collection other than the file's halts, saying both", async () => {
@@ -222,12 +302,12 @@ describe("Economy", () => {
       expect(why).toContain(padded(BigInt(COLLECTION)));
     });
 
-    test("no Collection in the file and none in Account: still optional, nothing halts", async () => {
+    test("no Collection in the file and none in Setup: still optional, nothing halts", async () => {
       const { indexer } = await reason([ev.economySet()], indexerWithoutCollection);
       expect(indexer.status).toBe("ok");
     });
 
-    test("no Collection in the file but one in Account halts: the mints would go unread", async () => {
+    test("no Collection in the file but one in Setup halts: the mints would go unread", async () => {
       const { indexer, reason: why } = await reason([ev.collectionSet()], indexerWithoutCollection);
       expect(indexer.status).toBe("halted");
       expect(why).toContain("the deployment file has none");
@@ -283,7 +363,8 @@ describe("reorgs", () => {
     await settle(indexer);
     const games = indexer.store.dump().games;
     expect(games.map((g) => [g.contract, g.game_id, g.over])).toEqual([["daily", 1, 0]]);
-    expect(indexer.store.dump().players).toHaveLength(2);
+    // Bo's only event was taken back: so is Bo. Ada's first event stays, and so does her creation.
+    expect(indexer.store.dump().players.map((p) => [p.player_id, p.created_block])).toEqual([[padded(ADA), 2]]);
   });
 
   test("a devnet replacement that keeps the block hash is seen through its commitments", async () => {
@@ -300,7 +381,7 @@ describe("reorgs", () => {
 describe("halts", () => {
   const halted = async (...blocks: Parameters<FakeNode["mine"]>[]) => {
     const node = new FakeNode();
-    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([]);
     for (const transactions of blocks) node.mine(...transactions);
     const indexer = indexerOf(node);
     await settle(indexer);
@@ -319,13 +400,10 @@ describe("halts", () => {
     expect(indexer.reason).toMatch(/already over/);
   });
 
-  test("a GameSpawned for an existing id, and a second PlayerCreated", async () => {
+  test("a GameSpawned for an existing id", async () => {
     const twice = await halted([[ev.spawned("daily", 1, ADA)]], [[ev.spawned("daily", 1, BO)]]);
     expect(twice.status).toBe("halted");
     expect(twice.reason).toMatch(/already exists/);
-    const player = await halted([[ev.created(ADA, 0x41)]]);
-    expect(player.status).toBe("halted");
-    expect(player.reason).toMatch(/player already exists/);
   });
 
   test("a mode that does not match its contract", async () => {
@@ -345,7 +423,7 @@ describe("halts", () => {
     const unknown = await halted([[{ source: "daily", keys: ["0x1234"], data: [] }]]);
     expect(unknown.status).toBe("halted");
     expect(unknown.reason).toMatch(/undecodable event of daily/);
-    const wrong = await halted([[{ ...ev.spawned("daily", 1, ADA), source: "account" }]]);
+    const wrong = await halted([[{ ...ev.spawned("daily", 1, ADA), source: "economy" }]]);
     expect(wrong.status).toBe("halted");
     const shape = await halted([[{ source: "daily", keys: [SELECTORS.GameOver, "0x1"], data: [] }]]);
     expect(shape.status).toBe("halted");
@@ -392,16 +470,44 @@ describe("the database", () => {
     store.close();
   });
 
-  test("D-21/D-24: schema 8 (Setup's address replaces Tutorial's), and a database of schema 7 or 6 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("8");
-    for (const old of ["7", "6"]) {
+  test("D-25 (E): schema 9 (Account out, players from their first event), and a database of schema 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("9");
+    for (const old of ["8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 8: rebuild it`));
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 9: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 9.
+      const rebuilt = new Store(path, { rebuild: true });
+      rebuilt.open(CONFIG);
+      expect(rebuilt.meta("schema")).toBe("9");
+      rebuilt.close();
     }
+  });
+
+  test("a schema 8 database with its tables (players with a name and a master) is refused as it is, and rebuilt on request", () => {
+    const path = tempDb();
+    const raw = new DatabaseSync(path);
+    raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      INSERT INTO meta VALUES ('schema', '8');
+      CREATE TABLE players (player_id TEXT PRIMARY KEY, name TEXT NOT NULL, master TEXT NOT NULL,
+        created_block INTEGER NOT NULL, created_time INTEGER NOT NULL);
+      INSERT INTO players VALUES ('${padded(ADA)}', '${padded(0x416461n)}', '${padded(0xabcn)}', 2, 1000)`);
+    raw.close();
+    expect(() => new Store(path)).toThrow(SchemaMismatch);
+    expect(Store.peek(path)).toMatchObject({ schema: "8" });
+    const rebuilt = new Store(path, { rebuild: true });
+    rebuilt.open(CONFIG);
+    expect(rebuilt.dump().players).toEqual([]);
+    rebuilt.close();
+  });
+
+  test("the deployment hash covers Daily, Setup, Economy and Collection, in that order, and no Account", () => {
+    const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+    expect(deploymentHash(CONFIG)).toBe(sha([DAILY, SETUP, ECONOMY, COLLECTION].join(",")));
+    expect(deploymentHash({ ...CONFIG, collection: undefined })).toBe(sha([DAILY, SETUP, ECONOMY].join(",")));
   });
 
   test("a database is never reused for another deployment, another start or another chain", () => {

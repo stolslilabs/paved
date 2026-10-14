@@ -2,8 +2,9 @@
  * Integration test against a local starknet-devnet that `scripts/deploy.sh devnet` has deployed to (see
  * `devnet/devnet.ts`), through the client layer on the paid Daily path: the faucet, `EconomyWriter.purchase`, then play.
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. It uses the first two
- * predeployed accounts after account 0 (the deployer, whose smoke game is another game) that are not registered players
- * yet, so it re-runs on one node and can run after the end-to-end test on it.
+ * predeployed accounts after account 0 (the deployer, whose smoke game is another game) that are still fresh: no game in
+ * `playerGames`, no tutorial claim and no USDC (D-25 (E): there is no registration to check, a player is the wallet
+ * address), so it re-runs on one node and can run after the end-to-end test on it.
  * With PAVED_RECORD=1 it also rewrites `fixtures/devnet.json`, which the unit tests replay.
  */
 import { writeFileSync } from "node:fs";
@@ -40,17 +41,22 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const provider = recording(devnet.provider as unknown as PavedRpc, record);
     client = new PavedClient(devnet.deployment, provider);
     other = new PavedClient(devnet.deployment, devnet.provider as unknown as PavedRpc);
+    // Built on the raw provider: the economy checks the chain id, which the recording wrapper does not forward.
+    economy = createEconomyClient(devnet.economy, other)!;
+    // A fresh account: no game, no tutorial claim, no USDC, which is what the tests below assert of it.
+    const fresh = async (address: string) =>
+      (await other.events.playerGames(address)).length === 0 &&
+      !(await other.views.tutorialClaimed(address)) &&
+      (await economy.views.usdcBalance(address)) === 0n;
     const free: typeof devnet.accounts = [];
     for (const a of devnet.accounts.slice(1)) {
-      if (free.length < 2 && (await other.player(a.address)) === null) free.push(a);
+      if (free.length < 2 && (await fresh(a.address))) free.push(a);
     }
-    if (free.length < 2) throw new Error("devnet: fewer than two predeployed accounts after account 0 are unregistered; start a fresh node");
+    if (free.length < 2) throw new Error("devnet: fewer than two fresh predeployed accounts after account 0; start a fresh node");
     player = free[0].address;
     console.info(`devnet test accounts: player ${free[0].address}, bystander ${free[1].address}`);
     bystander = free[1].address;
     writer = client.writer(free[0].account, { tip: 0n });
-    // Built on the raw provider: the economy checks the chain id, which the recording wrapper does not forward.
-    economy = createEconomyClient(devnet.economy, other)!;
     econ = economy.writer(writer);
   }, 60_000);
 
@@ -64,13 +70,10 @@ describe.skipIf(!enabled)("devnet integration", () => {
     }
   });
 
-  // Was "registers a player and mints the test token": the faucet is MockUSDC.mint(self, N), the entry token.
-  test("registers a player and mints the faucet USDC", async () => {
-    expect(await client.player(player)).toBeNull();
-    const result = await writer.createPlayer("alice", { mintTestToken: true });
-    record.receipts.create = result.transactionHash;
-    expect(result.events.map((e) => e.name)).toEqual(["PlayerCreated"]);
-    expect((await client.player(player))?.name).toBe("alice");
+  // Was "registers a player and mints the faucet USDC": D-25 (E) removed the registration, so only the faucet remains.
+  test("mints the faucet USDC, with no registration", async () => {
+    const result = await writer.mint();
+    record.receipts.mint = result.transactionHash;
     const price = await client.views.entryPrice();
     expect(BigInt(price.token)).toBe(BigInt(devnet.deployment.mockUsdc));
     expect(price.amount).toBeGreaterThan(0n);

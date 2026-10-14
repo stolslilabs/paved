@@ -23,7 +23,8 @@ sh scripts/contracts.sh
 The Dojo and Torii scripts (`scripts/indexer.sh`, `scripts/dev-stack.sh`) were removed with the Dojo
 contracts (P2). The client (`packages/app-web`) reads `contracts/deployments/<network>.json`
 (`VITE_NETWORK`, default `devnet`), written by CORE's deploy script; each `VITE_*` variable set
-overrides it: `VITE_RPC_URL`, `VITE_DEPLOYED_BLOCK`, `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`,
-`VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS`. The playing account is `VITE_PLAYER_ADDRESS` and
+overrides it: `VITE_RPC_URL`, `VITE_DEPLOYED_BLOCK`, `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`,
+`VITE_TOKEN_ADDRESS` (no `Account` since D-25 E: a player is the wallet address, with no registration, and the
+name comes from the Controller). The playing account is `VITE_PLAYER_ADDRESS` and
 `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); without it the client is read-only, and
 without a full deployment it shows "not connected". Design: `docs/architecture/client-data-layer.md`.

@@ -50,8 +50,26 @@ export function shortId(id: string): string {
   return id.length > 14 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
-export function playerLabel(name: string | null, id: string): string {
-  return name && name.length > 0 ? name : shortId(id);
+/** The connected player as the labels see them: their id (the wallet address) and their Controller username. */
+export interface Me {
+  id: string | null;
+  username: string | null;
+}
+
+function sameId(a: string, b: string): boolean {
+  try {
+    return BigInt(a) === BigInt(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A player's label (D-25 (E): names are off chain). The connected player shows as their Controller username when it is
+ * known; anyone else as a short address: other players' usernames are not looked up (a new external service).
+ */
+export function playerLabel(id: string, me?: Me): string {
+  return me?.username && me.id !== null && sameId(id, me.id) ? me.username : shortId(id);
 }
 
 /** A tournament is one UTC day: "2026-10-07". */

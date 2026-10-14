@@ -3,13 +3,16 @@
 
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, OwnableComponent};
 use paved::constants;
+use paved::mocks::account::{IMockAccountDispatcher, IMockAccountDispatcherTrait};
 use paved::models::tile::CENTER;
-use paved::systems::account::IAccountDispatcherTrait;
+use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
 use paved::systems::daily::{IDailySetupDispatcher, IDailySetupDispatcherTrait};
+use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup, Wiring};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME,
-    SOMEONE, TestStoreTrait,
+    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, SOMEONE,
+    TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -21,7 +24,6 @@ use starknet::ContractAddress;
 
 fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
     array![
-        IOwnableDispatcher { contract_address: *systems.account.contract_address },
         IOwnableDispatcher { contract_address: *systems.daily.contract_address },
         IOwnableDispatcher { contract_address: *systems.setup.contract_address },
         IOwnableDispatcher { contract_address: *systems.economy.contract_address },
@@ -89,7 +91,7 @@ fn test_access_pending_owner_accepts_ownership() {
 #[available_gas(l2_gas: 66707000)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     propose(ownable, OWNER(), ANYONE());
     accept(ownable, ANYONE());
     // The new owner proposes in turn.
@@ -101,7 +103,7 @@ fn test_access_new_owner_holds_the_power() {
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_access_old_owner_cannot_transfer_after_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     propose(ownable, OWNER(), ANYONE());
     accept(ownable, ANYONE());
     propose(ownable, OWNER(), NOONE());
@@ -137,7 +139,7 @@ fn test_access_accept_ownership_reverts_without_proposal() {
 #[should_panic(expected: 'Ownable: caller not pending')]
 fn test_access_accept_ownership_twice_reverts() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     propose(ownable, OWNER(), ANYONE());
     accept(ownable, ANYONE());
     // The pending owner was cleared by the first accept.
@@ -148,7 +150,7 @@ fn test_access_accept_ownership_twice_reverts() {
 #[should_panic(expected: 'Ownable: caller not pending')]
 fn test_access_new_proposal_overwrites_the_pending_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     propose(ownable, OWNER(), ANYONE());
     propose(ownable, OWNER(), NOONE());
     assert(ownable.pending_owner() == NOONE(), 'Access: pending overwritten');
@@ -160,7 +162,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 #[available_gas(l2_gas: 66285000)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     propose(ownable, OWNER(), ANYONE());
     propose(ownable, OWNER(), NOONE());
     accept(ownable, NOONE());
@@ -171,40 +173,64 @@ fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
 #[should_panic(expected: 'Ownable: new owner is zero')]
 fn test_access_transfer_ownership_reverts_to_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     start_cheat_caller_address(ownable.contract_address, OWNER());
     ownable.transfer_ownership(0.try_into().unwrap());
 }
 
+/// Any account may play (D-25): an address that never registered anywhere, only funded, spawns a
+/// paid game that is its own (its id is the address), minted to it, and plays it.
 #[test]
-#[should_panic(expected: 'Player: Already exist')]
-fn test_access_account_creates_once_per_address() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    start_cheat_caller_address(systems.account.contract_address, PLAYER());
-    systems.account.create('AGAIN', PLAYER());
-}
-
-#[test]
-#[available_gas(l2_gas: 63919000)]
-fn test_access_account_player_view() {
-    let (_, systems, context) = setup::spawn_game(Mode::None);
-    let player = systems.account.player(context.player_id);
-    assert(player.id == context.player_id, 'Access: player id');
-    assert(player.name == PLAYER_NAME, 'Access: player name');
-    let unknown = systems.account.player('UNKNOWN');
-    assert(unknown.id == 'UNKNOWN', 'Access: unknown id');
-    assert(unknown.name == 0, 'Access: unknown name');
-}
-
-#[test]
-#[should_panic(expected: 'Player: Does not exist')]
-fn test_access_daily_spawn_reverts_for_unregistered_caller() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
+fn test_access_daily_spawn_by_an_unregistered_address() {
+    let (store, systems, _) = setup::spawn_game(Mode::None);
     let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
-    start_cheat_caller_address(systems.daily.contract_address, stranger);
-    systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    let daily = systems.daily.contract_address;
+    let usdc = systems.economy.addresses().usdc;
+    setup::fund(usdc, daily, stranger);
+    start_cheat_caller_address(daily, stranger);
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    assert(store.game(game_id).player_id == stranger.into(), 'Access: stranger game');
+    let erc721 = IERC721SoulboundDispatcher {
+        contract_address: systems.collection.contract_address,
+    };
+    assert(erc721.owner_of(game_id.into()) == stranger, 'Access: stranger token');
+    systems.daily.surrender(game_id);
+    assert(store.game(game_id).over, 'Access: stranger over');
 }
 
+
+/// A registration in the old registry (now a mock, P-53 ruling 5) changes nothing for `Daily`
+/// (D-25 E): PLAYER is registered and STRANGER is not; each spawns, and each, named as the other's
+/// referrer, is paid the same 5 % of 2 USDC.
+#[test]
+fn test_access_a_registration_changes_nothing() {
+    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let registry = IMockAccountDispatcher { contract_address: deploy_mock_account() };
+    start_cheat_caller_address(registry.contract_address, PLAYER());
+    registry.register('PLAYER');
+    stop_cheat_caller_address(registry.contract_address);
+    let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
+    assert(registry.player(PLAYER().into()) == 'PLAYER', 'Mock: registered');
+    assert(registry.player(stranger.into()) == 0, 'Mock: stranger registered');
+    let daily = systems.daily.contract_address;
+    let token = context.token;
+    setup::fund(token.contract_address, daily, stranger);
+    // [Registered] pays the unregistered referrer
+    start_cheat_caller_address(daily, PLAYER());
+    systems.daily.spawn(1, stranger, 0);
+    assert(token.balance_of(stranger) - setup::FUNDS == 100_000, 'Mock: stranger not paid');
+    // [Unregistered] pays the registered referrer
+    let before = token.balance_of(PLAYER());
+    start_cheat_caller_address(daily, stranger);
+    systems.daily.spawn(1, PLAYER(), 0);
+    assert(token.balance_of(PLAYER()) - before == 100_000, 'Mock: player not paid');
+}
+
+fn deploy_mock_account() -> ContractAddress {
+    let class = declare("MockAccount").unwrap().contract_class();
+    let (address, _) = class.deploy(@array![]).unwrap();
+    address
+}
 
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
@@ -243,22 +269,10 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 
 #[test]
 #[available_gas(l2_gas: 554348)]
-fn test_access_daily_constructor_reverts_on_zero_account() {
-    let owner: felt252 = OWNER().into();
-    let token: felt252 = SOMEONE().into();
-    assert(
-        constructor_panic("Daily", array![owner, 0, token, SETUP]) == 'Daily: account is zero',
-        'Access: account',
-    );
-}
-
-#[test]
-#[available_gas(l2_gas: 554348)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
-    let account: felt252 = SOMEONE().into();
     assert(
-        constructor_panic("Daily", array![owner, account, 0, SETUP]) == 'Daily: token is zero',
+        constructor_panic("Daily", array![owner, 0, SETUP]) == 'Daily: token is zero',
         'Access: token',
     );
 }
@@ -267,10 +281,9 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
 #[available_gas(l2_gas: 554978)]
 fn test_access_daily_constructor_reverts_on_zero_setup() {
     let owner: felt252 = OWNER().into();
-    let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
     assert(
-        constructor_panic("Daily", array![owner, account, token, 0]) == 'Daily: setup is zero',
+        constructor_panic("Daily", array![owner, token, 0]) == 'Daily: setup is zero',
         'Access: daily setup',
     );
 }
@@ -323,20 +336,13 @@ fn test_access_daily_set_setup_reverts_on_zero() {
 #[test]
 #[available_gas(l2_gas: 1415736)]
 fn test_access_constructors_revert_on_zero_owner() {
-    let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
-    assert(
-        constructor_panic("Account", array![0]) == 'Ownable: new owner is zero',
-        'Access: account owner',
-    );
     assert(
         constructor_panic("Setup", array![0]) == 'Ownable: new owner is zero',
         'Access: setup owner',
     );
     assert(
-        constructor_panic(
-            "Daily", array![0, account, token, SETUP],
-        ) == 'Ownable: new owner is zero',
+        constructor_panic("Daily", array![0, token, SETUP]) == 'Ownable: new owner is zero',
         'Access: daily owner',
     );
 }
@@ -357,113 +363,141 @@ fn test_access_daily_player_zero_cannot_end_its_game() {
     systems.daily.surrender(context.game_id);
 }
 
-/// A fresh `Account` of `OWNER`, its economy not set.
-fn fresh_account() -> paved::systems::account::IAccountDispatcher {
-    let class = declare("Account").unwrap().contract_class();
+// Setup's wiring (D-25 E): the owner sets each address once, never zero; `wiring` reads both
+
+/// A fresh `Setup` of `OWNER`, its wiring not set.
+fn fresh_setup() -> ISetupDispatcher {
+    let class = declare("Setup").unwrap().contract_class();
     let owner: felt252 = OWNER().into();
     let (address, _) = class.deploy(@array![owner]).unwrap();
-    paved::systems::account::IAccountDispatcher { contract_address: address }
+    ISetupDispatcher { contract_address: address }
 }
 
 fn ECONOMY() -> ContractAddress {
     'ECONOMY'.try_into().unwrap()
 }
 
-#[test]
-#[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_access_account_set_economy_reverts_for_non_owner() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, ANYONE());
-    account.set_economy(ECONOMY());
-}
-
-#[test]
-#[should_panic(expected: 'Account: economy already set')]
-fn test_access_account_set_economy_reverts_twice() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_economy(ECONOMY());
-    account.set_economy(ANYONE());
-}
-
-#[test]
-#[should_panic(expected: 'Account: economy is zero')]
-fn test_access_account_set_economy_reverts_on_zero() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_economy(core::num::traits::Zero::zero());
-}
-
-#[test]
-#[available_gas(l2_gas: 2490978)]
-fn test_access_account_set_economy_emits_economy_set() {
-    let account = fresh_account();
-    assert(account.economy() == core::num::traits::Zero::zero(), 'Account: economy before');
-    let mut spy = spy_events();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_economy(ECONOMY());
-    assert(account.economy() == ECONOMY(), 'Account: economy after');
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    account.contract_address,
-                    paved::systems::account::Account::Event::EconomySet(
-                        paved::systems::account::Account::EconomySet { economy: ECONOMY() },
-                    ),
-                ),
-            ],
-        );
-}
-
 fn COLLECTION() -> ContractAddress {
     'COLLECTION'.try_into().unwrap()
 }
 
+fn zero() -> ContractAddress {
+    core::num::traits::Zero::zero()
+}
+
 #[test]
 #[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_access_account_set_collection_reverts_for_non_owner() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, ANYONE());
-    account.set_collection(COLLECTION());
+fn test_access_setup_set_economy_reverts_for_non_owner() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, ANYONE());
+    setup.set_economy(ECONOMY());
 }
 
 #[test]
-#[should_panic(expected: 'Account: collection already set')]
-fn test_access_account_set_collection_reverts_twice() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_collection(COLLECTION());
-    account.set_collection(ANYONE());
+#[should_panic(expected: 'Setup: economy already set')]
+fn test_access_setup_set_economy_reverts_twice() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_economy(ECONOMY());
+    setup.set_economy(ANYONE());
 }
 
 #[test]
-#[should_panic(expected: 'Account: collection is zero')]
-fn test_access_account_set_collection_reverts_on_zero() {
-    let account = fresh_account();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_collection(core::num::traits::Zero::zero());
+#[should_panic(expected: 'Setup: economy is zero')]
+fn test_access_setup_set_economy_reverts_on_zero() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_economy(zero());
 }
 
 #[test]
-fn test_access_account_set_collection_emits_collection_set() {
-    let account = fresh_account();
-    assert(account.collection() == core::num::traits::Zero::zero(), 'Account: collection before');
+fn test_access_setup_set_economy_emits_economy_set() {
+    let setup = fresh_setup();
+    assert(setup.wiring() == Wiring { economy: zero(), collection: zero() }, 'Setup: before');
     let mut spy = spy_events();
-    start_cheat_caller_address(account.contract_address, OWNER());
-    account.set_collection(COLLECTION());
-    assert(account.collection() == COLLECTION(), 'Account: collection after');
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_economy(ECONOMY());
+    assert(
+        setup.wiring() == Wiring { economy: ECONOMY(), collection: zero() }, 'Setup: economy after',
+    );
     spy
         .assert_emitted(
             @array![
                 (
-                    account.contract_address,
-                    paved::systems::account::Account::Event::CollectionSet(
-                        paved::systems::account::Account::CollectionSet {
-                            collection: COLLECTION(),
-                        },
-                    ),
+                    setup.contract_address,
+                    Setup::Event::EconomySet(Setup::EconomySet { economy: ECONOMY() }),
                 ),
             ],
         );
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_setup_set_collection_reverts_for_non_owner() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, ANYONE());
+    setup.set_collection(COLLECTION());
+}
+
+#[test]
+#[should_panic(expected: 'Setup: collection already set')]
+fn test_access_setup_set_collection_reverts_twice() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_collection(COLLECTION());
+    setup.set_collection(ANYONE());
+}
+
+#[test]
+#[should_panic(expected: 'Setup: collection is zero')]
+fn test_access_setup_set_collection_reverts_on_zero() {
+    let setup = fresh_setup();
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_collection(zero());
+}
+
+#[test]
+fn test_access_setup_set_collection_emits_collection_set() {
+    let setup = fresh_setup();
+    let mut spy = spy_events();
+    start_cheat_caller_address(setup.contract_address, OWNER());
+    setup.set_collection(COLLECTION());
+    assert(
+        setup.wiring() == Wiring { economy: zero(), collection: COLLECTION() },
+        'Setup: collection after',
+    );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.contract_address,
+                    Setup::Event::CollectionSet(Setup::CollectionSet { collection: COLLECTION() }),
+                ),
+            ],
+        );
+}
+
+/// The pending owner holds no power over the wiring before it accepts.
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_setup_wiring_reverts_for_the_pending_owner() {
+    let setup = fresh_setup();
+    propose(IOwnableDispatcher { contract_address: setup.contract_address }, OWNER(), ANYONE());
+    start_cheat_caller_address(setup.contract_address, ANYONE());
+    setup.set_economy(ECONOMY());
+}
+
+/// The deployment's wiring, read back through the one view.
+#[test]
+fn test_access_setup_wiring_of_the_deployment() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    assert(
+        systems
+            .setup
+            .wiring() == Wiring {
+                economy: systems.economy.contract_address,
+                collection: systems.collection.contract_address,
+            },
+        'Setup: deployment wiring',
+    );
 }

@@ -822,3 +822,56 @@ no figure before.
 - **The spawns m, n: -283,210 each.** The library call to `Lobby` is gone (and #342's Faucet is inside this figure).
 - **The building moves a0 to f: -6,100 each.** Not analysed (the move's own code is unchanged; `Daily`'s dispatch
   changed: an estimate would be a guess).
+
+## After D-25 E (Account leaves, Setup holds the wiring; step E)
+
+Step E (t-0260): `spawn` reads the wiring from `Setup` in one call (`Setup.wiring()`) instead of `Account` (the
+caller's registration, `economy()`, the referrer's registration, `collection()`); a game over reads the economy from
+`Setup.wiring()` instead of `Account.economy()`. Measured on the VPS, 2026-10-13, scarb 2.20.1, snforge 0.64.0,
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test test_gas_ --max-threads 2`. **Before**:
+this branch's base, main aff59e06 (step D merged), with the brief only (7019c683); peak RSS of the run 6,356,708 kB.
+**After**: the step E contracts (4e36a1d1, gas file of 8f2fb530); peak RSS 3,518,992 kB.
+
+| | Scenario | Before (aff59e06) | After E | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| m | Daily spawn, stake 1 | 49,988,176 | 49,482,886 | **-505,290 (-1.01 %)** | 52,743,229 | 93.8 % |
+| n | Daily spawn, stake 10, referred | 51,014,286 | 50,189,546 | **-824,740 (-1.62 %)** | 53,820,644 | 93.3 % |
+| l | game over on the last `build` | 7,131,785 | 7,132,145 | +360 | 7,774,092 | 91.7 % |
+| s | game over on the last `discard` | 3,363,203 | 3,363,563 | +360 | 3,528,109 | 95.3 % |
+| g | closing move in its day (surrender) | 3,173,008 | 3,174,268 | +1,260 | 3,672,907 | 86.4 % |
+| i | game over after its day (surrender) | 2,715,468 | 2,716,728 | +1,260 | 2,847,987 | 95.4 % |
+| k | closing move, largest report (surrender) | 3,607,188 | 3,608,448 | +1,260 | 4,018,231 | 89.8 % |
+| a0 | open simple move | 5,499,903 | 5,499,623 | -280 | 5,709,834 | 96.3 % |
+| a | closes a 2-tile city | 5,129,572 | 5,129,292 | -280 | 5,315,180 | 96.5 % |
+| c | closes a 6-tile city | 5,202,070 | 5,201,790 | -280 | 5,393,424 | 96.4 % |
+| d | closes a 12-tile city tree | 5,465,480 | 5,465,200 | -280 | 5,662,074 | 96.5 % |
+| e | closes a forest of 4 tiles | 8,720,646 | 8,720,366 | -280 | 8,962,300 | 97.3 % |
+| f | closes a forest of 16 nodes, the worst scan | 18,554,876 | 18,554,596 | -280 | 18,923,195 | 98.1 % |
+
+- **The spawns: m -505,290, n -824,740.** The glitchbomb-gap note estimated -200,000 to -300,000 (the wiring in one
+  view instead of two). The rest is the registration: the caller's `Account.player` read (the `assert_exists` of
+  `hostable`) goes from both, and n also loses the referrer's `Account.player` read.
+- **The game overs: +360 to +1,260.** `Setup.wiring()` (two slots, a two-felt return) against `Account.economy()` (one
+  slot), and the zero-`setup` check now made once for the wiring and the report. No ceiling changes; none is passed.
+- **The building moves: -280 each.** Not analysed (`Daily`'s dispatch changed with its interface; an estimate would be
+  a guess).
+- No ceiling changes. f, the tightest, is at 98.05 % of its ceiling, as before.
+
+**Fix loop 1 (review and audits of #350).** Same command, on the fix-loop branch (peak RSS 3,614,352 kB). Against the
+"After E" column above:
+
+| | Scenario | After E | Fix loop 1 | Change |
+|---|---|---:|---:|---:|
+| m | Daily spawn, stake 1 | 49,482,886 | 49,484,346 | +1,460 |
+| n | Daily spawn, stake 10, referred | 50,189,546 | 50,210,796 | +21,250 |
+| l | game over on the last `build` | 7,132,145 | 7,127,545 | -4,600 |
+| s | game over on the last `discard` | 3,363,563 | 3,358,963 | -4,600 |
+| g | closing move in its day | 3,174,268 | 3,169,668 | -4,600 |
+| i | game over after its day | 2,716,728 | 2,712,128 | -4,600 |
+| k | closing move, largest report | 3,608,448 | 3,603,848 | -4,600 |
+| a0, a, c, d, e, f | the building moves | | | 0 (f 18,554,596, 98.05 % of its ceiling) |
+
+- **n +21,250, m +1,460:** the referrer is now compared with `Economy` and with `Daily` itself (`get_contract_address`),
+  which runs only when the referrer is non-zero and not the payer; m (no referrer) pays the extra branch only.
+- **The game overs -4,600:** `finish` no longer asserts the collection, which it does not use.
+- Spawn against main aff59e06: m -503,830, n -803,490. No ceiling changes; none is passed.

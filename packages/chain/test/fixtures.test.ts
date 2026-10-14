@@ -18,7 +18,7 @@ import { replay } from "./replay";
 const record = recordJson as unknown as Recording;
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Account" | "Daily" | "Token", string> },
+  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Daily" | "Token", string> },
 });
 const player = record.player!;
 const gameId = record.gameId ?? 1;
@@ -58,10 +58,9 @@ describe("views on recorded answers", () => {
     expect(await c.views.currentDay()).toBeGreaterThan(20000);
   });
 
-  test("player and balance", async () => {
+  // The recording predates D-25 (E): its `Account.player` answer is no longer read (a player is the wallet address).
+  test("balance", async () => {
     const { client: c } = client();
-    const p = await c.player(player);
-    expect(p?.name).toBe("alice");
     // The entry price as recorded (the faucet's USDC, 6 decimals, in a fixture recorded on a deploy.sh node).
     const price = (await c.views.entryPrice().catch(() => null))?.amount ?? DAILY_PRICE;
     expect(await c.balance(player)).toBeGreaterThan(price);

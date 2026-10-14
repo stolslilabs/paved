@@ -67,20 +67,17 @@ pub mod models {
     pub mod builder;
     pub mod game;
     pub mod index;
-    pub mod player;
     pub mod tile;
 }
 
 pub mod components {
     pub mod hostable;
-    pub mod manageable;
     pub mod ownable;
     pub mod payable;
     pub mod playable;
 }
 
 pub mod systems {
-    pub mod account;
     pub mod collection;
     pub mod daily;
     pub mod economy;
@@ -103,6 +100,7 @@ pub mod structure {
 }
 
 pub mod mocks {
+    pub mod account;
     pub mod reentrant_token;
     pub mod router;
     pub mod token;

@@ -1,8 +1,9 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MAX_TOURNAMENT_ID, indexerPlayerId, useIndexer, usePaved, useRead } from "@paved/chain";
+import { MAX_TOURNAMENT_ID, useIndexer } from "@paved/chain";
 import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure } from "../components/IndexerLag";
 import { ProgressSections } from "../components/Progress";
+import { useMe } from "../utils/player-label";
 import { useDays } from "../utils/use-days";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
@@ -20,12 +21,11 @@ export function QuestsPage() {
   const params = useParams();
   const navigate = useNavigate();
   const indexer = useIndexer();
-  const { address } = usePaved();
+  // D-25 (E): the connected wallet is the player, with no registration to read first.
+  const myId = useMe().id;
 
   const requested = params.day === undefined ? undefined : routeDay(params.day);
   const { current, waitingForToday, id, listed } = useDays(requested);
-  const me = useRead((c) => (address ? c.player(address) : Promise.resolve(null)), [address]);
-  const myId = me.data ? indexerPlayerId(me.data.id) : null;
 
   if (!indexer) {
     return (
@@ -43,15 +43,7 @@ export function QuestsPage() {
       <h1 style={{ margin: 0 }}>Quests</h1>
       {id !== null && <DayPicker id={id} listed={listed} today={current.data} onChange={(day) => navigate(`/quests/${day}`)} />}
       {requested === null && <div role="alert">Not a day</div>}
-      {!address ? (
-        <div role="status">Connect an account to see your quests and achievements.</div>
-      ) : me.error && !me.loaded ? (
-        <div role="alert">{`Your player could not be read: ${me.error}`}</div>
-      ) : !me.loaded ? (
-        <div role="status">Loading player…</div>
-      ) : me.data === null ? (
-        <div role="status">You have no player yet: your quests appear after your first game.</div>
-      ) : null}
+      {myId === null && <div role="status">Connect an account to see your quests and achievements.</div>}
       <ProgressSections playerId={myId} day={requested === null ? null : id} waiting={waitingForToday} definitions label="Your quests" />
       <p style={{ color: "#999", fontSize: 12, margin: 0 }}>
         Counted by the indexer from the games the chain reports. Daily quests start over at 00:00 UTC. Achievement points are for display.

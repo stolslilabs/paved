@@ -10,8 +10,9 @@
 //! The tutorial is off chain (D-21): its achievement is claimed here by the player, once, with no
 //! check (P-49 ruling 2).
 //!
-//! Step E (D-25) adds the wiring `Account` holds today (the economy and collection addresses) as
-//! new storage members: none of the members below moves.
+//! Since step E (D-25) it is also the single registry of the wiring (P-53 ruling 2): the economy
+//! and collection addresses that `Account` held, set by the owner and read by `Daily` through one
+//! view per call (`wiring`). They are new storage members: none of the earlier members moves.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -20,6 +21,14 @@ use quiver_quest::types::batch::TaskProgress as QuestProgress;
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use starknet::ContractAddress;
+
+/// The wiring `Daily` reads at spawn and at game over: the `Economy` of the paid games and the
+/// `Collection` of the game NFTs (each zero until set).
+#[derive(Copy, Drop, Debug, PartialEq, Serde)]
+pub struct Wiring {
+    pub economy: ContractAddress,
+    pub collection: ContractAddress,
+}
 
 #[starknet::interface]
 pub trait ISetup<TContractState> {
@@ -60,12 +69,21 @@ pub trait ISetup<TContractState> {
     fn claim_tutorial(ref self: TContractState);
     fn is_reporter(self: @TContractState, reporter: ContractAddress) -> bool;
     fn tutorial_claimed(self: @TContractState, player_id: felt252) -> bool;
+    /// Sets the `Economy` that `Daily` pays into, once: the owner only, never zero. Emits
+    /// `EconomySet`.
+    fn set_economy(ref self: TContractState, economy: ContractAddress);
+    /// Sets the `Collection` that `Daily` mints the games to, once: the owner only, never zero.
+    /// Emits `CollectionSet`.
+    fn set_collection(ref self: TContractState, collection: ContractAddress);
+    /// The wiring, in one call (P-53 ruling 2): `Daily` reads it at spawn and at game over.
+    fn wiring(self: @TContractState) -> Wiring;
 }
 
 #[starknet::contract]
 pub mod Setup {
     // Imports
 
+    use core::num::traits::Zero;
     use openzeppelin_interfaces::upgrades::IUpgradeable;
     use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::ownable::OwnableComponent;
@@ -75,6 +93,7 @@ pub mod Setup {
     use quiver_quest::types::mode::Mode as QuestMode;
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
     };
     use starknet::{ClassHash, ContractAddress, get_caller_address};
 
@@ -82,7 +101,7 @@ pub mod Setup {
 
     use super::{
         AchievementProgress, AchievementTask, AchievementWindow, ISetup, QuestProgress,
-        QuestSchedule, QuestTask,
+        QuestSchedule, QuestTask, Wiring,
     };
 
     // Errors
@@ -91,6 +110,10 @@ pub mod Setup {
         pub const MISALIGNED_QUEST: felt252 = 'Setup: quest not on UTC day';
         pub const TASK_TOTAL_ZERO: felt252 = 'Setup: task total is zero';
         pub const TASK_REPEATED: felt252 = 'Setup: task id repeated';
+        pub const ECONOMY_SET: felt252 = 'Setup: economy already set';
+        pub const ZERO_ECONOMY: felt252 = 'Setup: economy is zero';
+        pub const COLLECTION_SET: felt252 = 'Setup: collection already set';
+        pub const ZERO_COLLECTION: felt252 = 'Setup: collection is zero';
     }
 
     // Components
@@ -163,6 +186,10 @@ pub mod Setup {
         achievement: AchievementComponent::Storage,
         /// Whether a player has claimed the tutorial achievement (one slot per player).
         tutorial_claims: Map<felt252, bool>,
+        /// The `Economy` of the paid Daily games; written once by the owner (step E).
+        economy: ContractAddress,
+        /// The `Collection` of the game NFTs; written once by the owner (step E).
+        collection: ContractAddress,
     }
 
     // Events
@@ -178,6 +205,19 @@ pub mod Setup {
         QuestEvent: QuestComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
+        EconomySet: EconomySet,
+        CollectionSet: CollectionSet,
+    }
+
+    /// The names and fields `Account` emitted before step E.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct EconomySet {
+        pub economy: ContractAddress,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CollectionSet {
+        pub collection: ContractAddress,
     }
 
     // Constructor
@@ -280,6 +320,30 @@ pub mod Setup {
 
         fn tutorial_claimed(self: @ContractState, player_id: felt252) -> bool {
             self.tutorial_claims.read(player_id)
+        }
+
+        fn set_economy(ref self: ContractState, economy: ContractAddress) {
+            // [Check] The owner, once, a real address
+            self.ownable.assert_only_owner();
+            assert(self.economy.read().is_zero(), errors::ECONOMY_SET);
+            assert(economy.is_non_zero(), errors::ZERO_ECONOMY);
+            // [Effect] Set it for good
+            self.economy.write(economy);
+            self.emit(EconomySet { economy });
+        }
+
+        fn set_collection(ref self: ContractState, collection: ContractAddress) {
+            // [Check] The owner, once, a real address
+            self.ownable.assert_only_owner();
+            assert(self.collection.read().is_zero(), errors::COLLECTION_SET);
+            assert(collection.is_non_zero(), errors::ZERO_COLLECTION);
+            // [Effect] Set it for good
+            self.collection.write(collection);
+            self.emit(CollectionSet { collection });
+        }
+
+        fn wiring(self: @ContractState) -> Wiring {
+            Wiring { economy: self.economy.read(), collection: self.collection.read() }
         }
     }
 

@@ -12,6 +12,7 @@ const FILE = {
   rpc_url: "http://127.0.0.1:5050",
   deployed_block: 6,
   contracts: {
+    // A past contract (D-25 (E)): a file written before step E still names Account; not read.
     Account: { address: "0x0003" },
     Daily: { address: "0x1" },
     Setup: { address: "0x2" },
@@ -24,7 +25,7 @@ const FILE = {
 };
 
 describe("the deployment file", () => {
-  test("the committed devnet.json gives the five addresses, the start block and the chain", () => {
+  test("the committed devnet.json gives the four addresses, the start block and the chain", () => {
     const file = JSON.parse(readFileSync(committed, "utf8"));
     // The file is regenerated from main once E3 has merged (scripts/deploy.sh deploys main-equivalent sources only):
     // until then it predates Economy, and the indexer refuses it.
@@ -50,11 +51,11 @@ describe("the deployment file", () => {
       deployedBlock: file.deployed_block,
       daily: of("Daily"),
       setup: of("Setup"),
-      account: of("Account"),
       economy: of("Economy"),
       collection: of("Collection"),
     });
-    expect(new Set([deployment.daily, deployment.setup, deployment.account, deployment.economy, deployment.collection]).size).toBe(5);
+    expect(new Set([deployment.daily, deployment.setup, deployment.economy, deployment.collection]).size).toBe(4);
+    expect(deployment).not.toHaveProperty("account");
     expect(defaultRpcUrl(deployment)).toBe("http://127.0.0.1:5050");
   });
 
@@ -66,7 +67,6 @@ describe("the deployment file", () => {
       deployedBlock: 6,
       daily: "0x1",
       setup: "0x2",
-      account: "0x3",
       economy: "0x4",
       collection: "0x6",
     });
@@ -78,7 +78,10 @@ describe("the deployment file", () => {
     expect(() => parseDeployment({ ...ok, deployed_block: "5" })).toThrow(/deployed_block/);
     expect(() => parseDeployment({ ...ok, chain_id: 5 })).toThrow(/chain_id/);
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Daily: {} } })).toThrow(/Daily/);
-    expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Account: { address: "0x0" } } })).toThrow(/Account/);
+    // Not read since D-25 (E): a file without Account, or with a bad one, is a deployment like any other.
+    const { Account: _account, ...noAccount } = ok.contracts;
+    expect(parseDeployment({ ...ok, contracts: noAccount })).toEqual(parseDeployment(ok));
+    expect(parseDeployment({ ...ok, contracts: { ...ok.contracts, Account: { address: "0x0" } } })).toEqual(parseDeployment(ok));
     // Required since E3: a deployment without its Economy would index half of each paid game.
     // Required since D-24: the quests and achievements are Setup's.
     const { Setup: _setup, ...noSetup } = ok.contracts;

@@ -6,7 +6,6 @@ use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
 pub use paved::models::index::Builder;
-use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl};
 use paved::store::{Store, StoreImpl};
 use paved::types::orientation::Orientation;

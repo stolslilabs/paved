@@ -5,7 +5,7 @@
 // back). This copy is maintained by the Paved repository.
 //
 // The indexer's tables, in SQLite (node:sqlite). Bounded integers (game id, score, mode, day id, every time: all
-// below 2^53) are INTEGER; only felts (player id, price, name, master) are fixed-width lowercase hex text, 66 characters.
+// below 2^53) are INTEGER; only felts (player id, price, referrer) are fixed-width lowercase hex text, 66 characters.
 // Economy's amounts (u256 and u128: USDC and PAVED base units) can exceed 2^63 and are decimal text.
 //
 // Rewinding to a block F is one transaction: the rows created after F are deleted, and the games finished after F go back
@@ -13,7 +13,7 @@
 //
 // Idempotence: an event whose (block, tx, idx) is already in `events` is skipped, so applying one block twice changes
 // nothing. A duplicate game is never merged: a GameOver for a game with no GameSpawned, a second GameOver for one game, a
-// GameSpawned for an existing id, a second PlayerCreated, a mode that does not match its contract, or an event of a
+// GameSpawned for an existing id, a mode that does not match its contract, or an event of a
 // contract that does not emit it, halts the indexer (what it holds is not the chain's). The same for Economy: a second
 // Purchased for one game, a Recorded or a Settled for a game not purchased, a second Recorded or Settled for one game, a
 // Settled before its Recorded or that names another player, day or score than the purchase and the record, or a second
@@ -38,7 +38,6 @@ export class SchemaMismatch extends Error {}
 export type Config = {
   daily: string;
   setup: string;
-  account: string;
   economy: string;
   /** Undefined for a deployment before E5b: no mint is read and no game has a token id. */
   collection: string | undefined;
@@ -51,15 +50,18 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "8";
+export const SCHEMA_VERSION = "9";
 
-/** The sha256 of the five addresses (canonical, in a fixed order): the identity of a deployment. */
+/**
+ * The sha256 of the four addresses (canonical, in a fixed order: Daily, Setup, Economy, then Collection when there is
+ * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)).
+ */
 export function deploymentHash(
-  config: Pick<Config, "daily" | "setup" | "account" | "economy" | "collection">,
+  config: Pick<Config, "daily" | "setup" | "economy" | "collection">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.daily, config.setup, config.account, config.economy, config.collection]
+      [config.daily, config.setup, config.economy, config.collection]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -81,9 +83,10 @@ const SCHEMA = `
     source TEXT NOT NULL, name TEXT NOT NULL, keys TEXT NOT NULL, data TEXT NOT NULL,
     PRIMARY KEY (block, tx, idx)
   );
+  -- A player is a wallet address (D-25 (E): no registry, no name on chain), seen from the first event that names it:
+  -- GameSpawned, Purchased, QuestProgressed or AchievementProgressed. Its block and time are the player's creation.
   CREATE TABLE IF NOT EXISTS players (
-    player_id TEXT PRIMARY KEY, name TEXT NOT NULL, master TEXT NOT NULL,
-    created_block INTEGER NOT NULL, created_time INTEGER NOT NULL
+    player_id TEXT PRIMARY KEY, created_block INTEGER NOT NULL, created_time INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS players_created ON players (created_block);
   CREATE TABLE IF NOT EXISTS games (
@@ -181,7 +184,6 @@ function normalize(config: Config): Config {
   return {
     daily: canonical(config.daily),
     setup: canonical(config.setup),
-    account: canonical(config.account),
     economy: canonical(config.economy),
     collection: config.collection === undefined ? undefined : canonical(config.collection),
     from: config.from,
@@ -189,7 +191,7 @@ function normalize(config: Config): Config {
   };
 }
 
-/** The meta rows of a configuration (the four addresses are kept as their hash, and as text for the API). */
+/** The meta rows of a configuration (the addresses are kept as their hash, and as text for the API). */
 function metaOf(config: Config): Record<string, string> {
   return {
     chain_id: config.chainId,
@@ -198,7 +200,6 @@ function metaOf(config: Config): Record<string, string> {
     addresses: JSON.stringify({
       daily: config.daily,
       setup: config.setup,
-      account: config.account,
       economy: config.economy,
       collection: config.collection ?? null,
     }),
@@ -354,7 +355,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { daily: string; setup: string; account: string; economy: string; collection: string | null }
+    | { daily: string; setup: string; economy: string; collection: string | null }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -420,6 +421,7 @@ export class Store {
                 `GameSpawned of ${contract} game ${event.gameId} ${where}: the game already exists`,
               );
             }
+            this.sql.insertPlayer.run(padded(event.playerId), at, block.timestamp);
             this.sql.insertGame.run({
               contract,
               game_id: event.gameId,
@@ -543,6 +545,7 @@ export class Store {
           }
           case "QuestProgressed":
           case "AchievementProgressed": {
+            this.sql.insertPlayer.run(padded(event.playerId), at, block.timestamp);
             this.sql.insertProgress.run({
               block: at,
               tx: raw.transactionIndex,
@@ -560,6 +563,8 @@ export class Store {
             if (this.sql.purchase.get(event.gameId)) {
               throw new Halt(`Purchased of game ${event.gameId} ${where}: the game is already purchased`);
             }
+            // The buyer is a player from here (the referrer is not: it may never play).
+            this.sql.insertPlayer.run(padded(event.playerId), at, block.timestamp);
             this.sql.insertPurchase.run({
               game_id: event.gameId,
               player_id: padded(event.playerId),
@@ -627,40 +632,21 @@ export class Store {
           }
           case "EconomySet":
           case "CollectionSet": {
-            // Account's registry against the deployment file: the file alone names the contracts that are read.
+            // Setup's wiring (D-25 (E)) against the deployment file: the file alone names the contracts that are read.
             const [what, set, filed] =
               event.name === "EconomySet"
                 ? (["Economy", event.economy, this.contracts()?.economy] as const)
                 : (["Collection", event.collection, this.contracts()?.collection] as const);
             if (filed === undefined || filed === null) {
               throw new Halt(
-                `${event.name} ${where}: Account registers the ${what} ${padded(set)}, the deployment file has none`,
+                `${event.name} ${where}: Setup registers the ${what} ${padded(set)}, the deployment file has none`,
               );
             }
             if (BigInt(filed) !== set) {
               throw new Halt(
-                `${event.name} ${where}: Account registers the ${what} ${padded(set)}, the deployment file has ${padded(filed)}`,
+                `${event.name} ${where}: Setup registers the ${what} ${padded(set)}, the deployment file has ${padded(filed)}`,
               );
             }
-            break;
-          }
-          case "PlayerCreated": {
-            if (raw.source !== "account") {
-              throw new Halt(`PlayerCreated from ${raw.source} ${where}`);
-            }
-            const playerId = padded(event.playerId);
-            if (this.sql.player.get(playerId)) {
-              throw new Halt(
-                `PlayerCreated of ${playerId} ${where}: the player already exists`,
-              );
-            }
-            this.sql.insertPlayer.run(
-              playerId,
-              padded(event.displayName),
-              padded(event.master),
-              at,
-              block.timestamp,
-            );
             break;
           }
         }
@@ -813,9 +799,9 @@ function statements(db: DatabaseSync) {
          over_block = :over_block, over_tx = :over_tx, over_idx = :over_idx
        WHERE contract = :contract AND game_id = :game_id`,
     ),
-    player: db.prepare("SELECT 1 FROM players WHERE player_id = ?"),
+    // Insert if absent: the first event that names the address creates the player; a later one changes nothing.
     insertPlayer: db.prepare(
-      "INSERT INTO players (player_id, name, master, created_block, created_time) VALUES (?, ?, ?, ?, ?)",
+      "INSERT OR IGNORE INTO players (player_id, created_block, created_time) VALUES (?, ?, ?)",
     ),
     rewindGames: db.prepare("DELETE FROM games WHERE spawned_block > ?"),
     unfinishGames: db.prepare(

@@ -7,6 +7,7 @@ import { FakeGameViews, IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { PlayerPage } from "../src/pages/Player";
 import { renderPage } from "./helpers/page-fixtures";
+import { shortId } from "../src/utils/indexer-view";
 
 // A cold CI run is slow on the first render: the library's 1 s default is too tight.
 configure({ asyncUtilTimeout: 5000 });
@@ -30,10 +31,28 @@ describe("Player page", () => {
     expect(fixture.requests).toEqual([]);
   });
 
-  it("loading, then name, stats, tournaments and games", async () => {
+  // D-25 (E): a player exists from their first spawn, so one whose only game still runs is common; the indexer answers
+  // best_score 0 then, which is not a score.
+  it("no finished game: the best score reads –, not 0", async () => {
+    const running = async (input: RequestInfo | URL) => {
+      const answer = await fixture.fetch(input);
+      if (!/\/v1\/players\/0x[0-9a-f]{64}$/.test(new URL(String(input)).pathname)) return answer;
+      const body = await answer.json();
+      body.stats = { ...body.stats, daily_games: 1, daily_finished: 0, best_score: 0 };
+      return new Response(JSON.stringify(body), { status: answer.status, headers: answer.headers });
+    };
+    player(FIXTURE_ADA, { indexer: new IndexerClient({ url: "http://indexer.test", fetch: running as typeof fetch }) });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
+    const best = await screen.findByText("Best score", { selector: "dt" });
+    expect(best.nextElementSibling!.textContent).toBe("–");
+    expect(screen.getByText("1 (0 finished)")).toBeTruthy();
+  });
+
+  // D-25 (E): the heading is the short address; another player's name is not looked up, and the indexer has none.
+  it("loading, then the short address, stats, tournaments and games", async () => {
     player(FIXTURE_ADA);
     expect(screen.getByText("Loading player…")).toBeTruthy();
-    await screen.findByRole("heading", { name: "Ada" });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
     expect(screen.getByText("Best score", { selector: "dt" }).nextElementSibling!.textContent).toBe("187");
     // The on-chain Tutorial left (D-21): no Tutorial count, no Tutorial row (the old games are dropped).
     expect(screen.queryByText("Tutorial games")).toBeNull();
@@ -67,7 +86,7 @@ describe("Player page", () => {
   it("shows the indexer's lag", async () => {
     fixture.state.behind = 4;
     player(FIXTURE_ADA);
-    await screen.findByRole("heading", { name: "Ada" });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
     expect(screen.getByTestId("lag").textContent).toContain("Updated 4 blocks behind");
   });
 
@@ -153,7 +172,7 @@ describe("Player page", () => {
 
     it("quests unavailable do not hide the player: the profile still shows, the quests say why with Retry", async () => {
       withViews();
-      await screen.findByRole("heading", { name: "Ada" });
+      await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
       await screen.findByRole("list", { name: "Daily quests" });
       cleanup();
       fixture.state.status = "loading";

@@ -121,7 +121,7 @@ describe("the HTTP server", () => {
 
   async function start(rate: number, burst: number, now: () => number) {
     const node = new FakeNode();
-    node.mine([ev.created(0xa1n, 0x416461)]);
+    node.mine([]);
     const indexer = indexerOf(node);
     await settle(indexer);
     server = serve(indexer, {

@@ -4,7 +4,6 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::models::player::{Player, PlayerImpl};
 use paved::tests::legacy::character::{Char, CharImpl};
 use paved::tests::legacy::game::{Game, GameImpl};
 pub use paved::tests::legacy::index::Builder;

@@ -6,6 +6,7 @@ import { FakeGameViews, IndexerClient, MAX_TOURNAMENT_ID } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { LeaderboardPage } from "../src/pages/Leaderboard";
 import { renderPage } from "./helpers/page-fixtures";
+import { shortId } from "../src/utils/indexer-view";
 
 afterEach(cleanup);
 
@@ -28,6 +29,8 @@ const holdRequests = (match: RegExp) => {
   return () => act(async () => hold!.release());
 };
 
+/** Ada's label: a short address (D-25 (E): no name on chain, none from the indexer). */
+const ADA = shortId(FIXTURE_ADA);
 const board = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
   const views = new FakeGameViews();
   views.today = FIXTURE_TOURNAMENT;
@@ -45,7 +48,7 @@ describe("Leaderboard page", () => {
   it("loading, then today's board with rank, name, best score and games", async () => {
     board();
     expect(screen.getByText("Loading leaderboard…")).toBeTruthy();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(fixture.requests).toContain(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=20&offset=0`);
     const rows = screen.getAllByRole("row");
     // header + 20 rows
@@ -60,7 +63,7 @@ describe("Leaderboard page", () => {
 
   it("D-20: no prize slots, no amount and no claim anywhere; one row per player", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(screen.queryByText("Prize slots")).toBeNull();
     expect(document.body.textContent).not.toMatch(/prize|slot/i);
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rank", "Player", "Best score", "Games"]);
@@ -74,7 +77,7 @@ describe("Leaderboard page", () => {
 
   it("pages with limit and offset", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     fireEvent.click(screen.getByText("Next"));
     await screen.findByText("21–40 of 41");
     expect(fixture.requests).toContain(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=20&offset=20`);
@@ -87,7 +90,7 @@ describe("Leaderboard page", () => {
 
   it("a past day through the day picker", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     const picker = screen.getByLabelText("Day") as HTMLSelectElement;
     expect(within(picker).getByText(/\(today\)/)).toBeTruthy();
     expect(picker.options).toHaveLength(3);
@@ -99,7 +102,7 @@ describe("Leaderboard page", () => {
 
   it("a day from the route is read as it is", async () => {
     board({ path: `/leaderboard/${FIXTURE_TOURNAMENT}` });
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
   });
 
   it("empty: a day nobody finished a game on", async () => {
@@ -112,20 +115,20 @@ describe("Leaderboard page", () => {
   it("behind by a few blocks: says how many, rows stay", async () => {
     fixture.state.behind = 3;
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(screen.getByTestId("lag").textContent).toContain("Updated 3 blocks behind");
     expect(screen.getByTestId("lag").textContent).not.toContain("late");
     fixture.state.behind = 1;
     cleanup();
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(screen.getByTestId("lag").textContent).toContain("Updated 1 block behind");
   });
 
   it("far behind: marked late", async () => {
     fixture.state.behind = 40;
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(screen.getByTestId("lag").textContent).toContain("Updated 40 blocks behind: scores may be late");
   });
 
@@ -146,7 +149,7 @@ describe("Leaderboard page", () => {
     expect(await screen.findByText(/the indexer cannot be reached/)).toBeTruthy();
     fixture.state.down = false;
     fireEvent.click(screen.getByText("Retry"));
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
   });
 
   it("another API version: unavailable", async () => {
@@ -157,41 +160,41 @@ describe("Leaderboard page", () => {
 
   it("a failed refresh of the same page keeps its rows, marked stale, and the next success clears it", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     fixture.state.down = true;
     // The page becoming visible again reads the same day and page again.
     await act(async () => void document.dispatchEvent(new Event("visibilitychange")));
     await screen.findByTestId("stale");
     expect(screen.getByTestId("stale").textContent).toContain("Stale: Leaderboard unavailable: the indexer cannot be reached");
-    expect(screen.getByText("Ada")).toBeTruthy();
+    expect(screen.getByText(ADA)).toBeTruthy();
     expect(screen.getByText("1–20 of 41")).toBeTruthy();
     fixture.state.down = false;
     await act(async () => void document.dispatchEvent(new Event("visibilitychange")));
     await waitFor(() => expect(screen.queryByTestId("stale")).toBeNull());
-    expect(screen.getByText("Ada")).toBeTruthy();
+    expect(screen.getByText(ADA)).toBeTruthy();
   });
 
   it("a page change shows no row of the other page while it loads", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     const release = holdRequests(/offset=20/);
     fireEvent.click(screen.getByText("Next"));
     expect(await screen.findByText("Loading leaderboard…")).toBeTruthy();
-    expect(screen.queryByText("Ada")).toBeNull();
+    expect(screen.queryByText(ADA)).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByText("1–20 of 41")).toBeNull();
     await release();
     await screen.findByText("21–40 of 41");
-    expect(screen.queryByText("Ada")).toBeNull();
+    expect(screen.queryByText(ADA)).toBeNull();
   });
 
   it("a page change that fails shows the failure with Retry, not the other page's rows as stale", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     fixture.state.down = true;
     fireEvent.click(screen.getByText("Next"));
     expect(await screen.findByText(/the indexer cannot be reached/)).toBeTruthy();
-    expect(screen.queryByText("Ada")).toBeNull();
+    expect(screen.queryByText(ADA)).toBeNull();
     expect(screen.queryByTestId("stale")).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
     fixture.state.down = false;
@@ -201,11 +204,11 @@ describe("Leaderboard page", () => {
 
   it("a day change shows no row of the other day while it loads, and the picker keeps its labels", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     const release = holdRequests(new RegExp(`/tournaments/${FIXTURE_TOURNAMENT - 1}/leaderboard`));
     fireEvent.change(screen.getByLabelText("Day"), { target: { value: String(FIXTURE_TOURNAMENT - 1) } });
     expect(await screen.findByText("Loading leaderboard…")).toBeTruthy();
-    expect(screen.queryByText("Ada")).toBeNull();
+    expect(screen.queryByText(ADA)).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
     expect((screen.getByLabelText("Day") as HTMLSelectElement).options).toHaveLength(3);
     await release();
@@ -214,11 +217,11 @@ describe("Leaderboard page", () => {
 
   it("a day change that fails shows the failure, not the other day's rows as stale", async () => {
     board();
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     fixture.state.down = true;
     fireEvent.change(screen.getByLabelText("Day"), { target: { value: String(FIXTURE_TOURNAMENT - 1) } });
     expect(await screen.findByText(/the indexer cannot be reached/)).toBeTruthy();
-    expect(screen.queryByText("Ada")).toBeNull();
+    expect(screen.queryByText(ADA)).toBeNull();
     expect(screen.queryByTestId("stale")).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
   });
@@ -244,7 +247,7 @@ describe("Leaderboard page", () => {
     expect(screen.queryByText("Loading leaderboard…")).toBeNull();
     fixture.state.down = false;
     fireEvent.click(screen.getByText("Retry"));
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
   });
 
   it("no day to show and the list of days is empty: No tournament yet", async () => {
@@ -261,15 +264,21 @@ describe("Leaderboard page", () => {
     const views = new FakeGameViews();
     views.currentDay = () => Promise.reject(new Error("rpc down"));
     board({ views });
-    await screen.findByText("Ada");
+    await screen.findByText(ADA);
     expect(fixture.requests.some((r) => r.startsWith(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard`))).toBe(true);
   });
 
-  it("the player's own row is marked", async () => {
-    board({ player: { id: FIXTURE_BO, name: "Bo", master: "0x1" } });
-    await screen.findByText("Ada");
-    expect(screen.getByText(/\(you\)/).closest("tr")!.textContent).toContain("Bo");
-    void FIXTURE_ADA;
+  it("the player's own row is marked: the connected wallet, with no registration (D-25 (E))", async () => {
+    board({ account: { address: FIXTURE_BO, execute: async () => ({ transaction_hash: "0x0" }) } });
+    await screen.findByText(ADA);
+    expect(screen.getByText(/\(you\)/).closest("tr")!.textContent).toContain(shortId(FIXTURE_BO));
+  });
+
+  it("names are short addresses: the indexer has none since D-25 (E), and no other player's name is looked up", async () => {
+    board();
+    await screen.findByText(ADA);
+    expect(screen.getByText(shortId(FIXTURE_BO))).toBeTruthy();
+    expect(screen.queryByText("Ada")).toBeNull();
   });
 
   it("a day above what the API serves is not a tournament, and is never asked", async () => {

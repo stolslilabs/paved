@@ -3,12 +3,9 @@
 
 use paved::constants;
 use paved::day::day_id;
-use paved::events::{
-    Built, Discarded, Event as PavedEvent, GameOver, GameSpawned, PlayerCreated, Scored,
-};
+use paved::events::{Built, Discarded, Event as PavedEvent, GameOver, GameSpawned, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::{CENTER, Tile};
-use paved::systems::account::{Account, IAccountDispatcherTrait};
 use paved::systems::daily::Daily;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
@@ -26,22 +23,6 @@ use starknet::ContractAddress;
 
 fn daily(event: PavedEvent) -> Daily::Event {
     Daily::Event::PavedEvent(event)
-}
-
-#[test]
-#[available_gas(l2_gas: 65217000)]
-fn test_events_account_create_emits_player_created() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let caller: ContractAddress = 'NEWCOMER'.try_into().unwrap();
-    let mut spy = spy_events();
-    start_cheat_caller_address(systems.account.contract_address, caller);
-    systems.account.create('NEWCOMER', caller);
-    let event = Account::Event::PavedEvent(
-        PavedEvent::PlayerCreated(
-            PlayerCreated { player_id: caller.into(), name: 'NEWCOMER', master: caller.into() },
-        ),
-    );
-    spy.assert_emitted(@array![(systems.account.contract_address, event)]);
 }
 
 #[test]
