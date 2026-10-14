@@ -1,4 +1,5 @@
-//! Gas baseline of one `Challenge.build` call on five scenarios (phase P0).
+//! Gas baseline of one `Challenge.build` call on five scenarios (phase P0), and of the spawns and
+//! the Vault's calls since.
 //!
 //! Each test plays a deterministic sequence of moves and isolates the L2 (Sierra) gas of the LAST
 //! `build` call only: the gas available to the test is read right before and right after that
@@ -38,10 +39,14 @@ use snforge_std::{
     CheatSpan, cheat_caller_address, interact_with_state, start_cheat_block_timestamp_global,
     start_cheat_caller_address, stop_cheat_caller_address, test_address,
 };
+use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
+use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
+use paved::systems::economy::IEconomyDispatcherTrait;
 use starknet::ContractAddress;
 use crate::setup::setup;
 use crate::setup::setup::{
-    ANYONE, IChallengeDispatcherTrait, PLAYER, Systems, TestStore, TestStoreTrait,
+    ANYONE, IChallengeDispatcherTrait, OWNER, PAVED, PLAYER, Systems, TestStore, TestStoreTrait,
 };
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
@@ -75,6 +80,12 @@ pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
 pub const CEILING_SPAWN_DAILY: u128 = 18411921;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19174693;
+// t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
+// checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
+pub const CEILING_VAULT_DEPOSIT: u128 = 100000000;
+pub const CEILING_VAULT_REDEEM: u128 = 100000000;
+pub const CEILING_VAULT_WITHDRAW: u128 = 100000000;
+pub const CEILING_VAULT_TRANSFER: u128 = 100000000;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
@@ -413,4 +424,63 @@ fn test_gas_n_spawn_daily_referred() {
     systems.challenge.spawn(10, ANYONE(), 0);
     let after = get_available_gas();
     report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
+}
+
+/// The Vault after a paid spawn, its owner delegated to themselves and holding 2,000 PAVED (from a
+/// redeem of 2,000 shares) approved for the Vault. Returns the share, PAVED, and the owner cheated
+/// as the caller of the Vault.
+fn vault() -> (ERC4626ABIDispatcher, IERC20Dispatcher) {
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    let addresses = systems.economy.addresses();
+    let share = ERC4626ABIDispatcher { contract_address: addresses.vault };
+    let paved = IERC20Dispatcher { contract_address: addresses.paved };
+    start_cheat_caller_address(addresses.vault, OWNER());
+    IVotesDispatcher { contract_address: addresses.vault }.delegate(OWNER());
+    share.redeem(2_000 * PAVED, OWNER(), OWNER());
+    start_cheat_caller_address(addresses.paved, OWNER());
+    paved.approve(addresses.vault, 2_000 * PAVED);
+    stop_cheat_caller_address(addresses.paved);
+    (share, paved)
+}
+
+/// t. A deposit of 1,000 PAVED (ERC4626: the PAVED pulled, the shares minted, the votes' two
+/// checkpoints moved).
+#[test]
+fn test_gas_t_vault_deposit() {
+    let (share, _) = vault();
+    let before = get_available_gas();
+    share.deposit(1_000 * PAVED, OWNER());
+    let after = get_available_gas();
+    report("t_vault_deposit", before - after, CEILING_VAULT_DEPOSIT);
+}
+
+/// u. A redeem of 1,000 shares at the exit fee (the fee left in the Vault).
+#[test]
+fn test_gas_u_vault_redeem() {
+    let (share, _) = vault();
+    let before = get_available_gas();
+    share.redeem(1_000 * PAVED, OWNER(), OWNER());
+    let after = get_available_gas();
+    report("u_vault_redeem", before - after, CEILING_VAULT_REDEEM);
+}
+
+/// v. A withdraw of 1,000 PAVED at the exit fee (its limit read first).
+#[test]
+fn test_gas_v_vault_withdraw() {
+    let (share, _) = vault();
+    let before = get_available_gas();
+    share.withdraw(1_000 * PAVED, OWNER(), OWNER());
+    let after = get_available_gas();
+    report("v_vault_withdraw", before - after, CEILING_VAULT_WITHDRAW);
+}
+
+/// w. A transfer of 1,000 shares to an account that never held any (the votes move off the
+/// owner's delegate).
+#[test]
+fn test_gas_w_vault_transfer() {
+    let (share, _) = vault();
+    let before = get_available_gas();
+    share.transfer(ANYONE(), 1_000 * PAVED);
+    let after = get_available_gas();
+    report("w_vault_transfer", before - after, CEILING_VAULT_TRANSFER);
 }
