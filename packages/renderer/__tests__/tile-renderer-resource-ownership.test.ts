@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { TileRenderer } from "../src/core/TileRenderer";
+import { isOutline } from "../src/core/outlines";
 import type { TileRenderData } from "../src/core/types";
 
 function makeTile(overrides: Partial<TileRenderData> = {}): TileRenderData {
@@ -56,9 +57,9 @@ describe("TileRenderer resource ownership", () => {
 
     renderer.updateTiles([makeTile()]);
 
-    const edgeLines: THREE.LineSegments[] = [];
+    const edgeLines: THREE.Mesh[] = [];
     renderer.getGroup().traverse((obj) => {
-      if (obj instanceof THREE.LineSegments) edgeLines.push(obj);
+      if (isOutline(obj)) edgeLines.push(obj as THREE.Mesh);
     });
 
     expect(edgeLines.length).toBeGreaterThan(0);
@@ -86,7 +87,7 @@ describe("TileRenderer resource ownership", () => {
 
     const meshes: THREE.Mesh[] = [];
     renderer.getGroup().traverse((obj) => {
-      if (obj instanceof THREE.Mesh) meshes.push(obj);
+      if (obj instanceof THREE.Mesh && !isOutline(obj)) meshes.push(obj);
     });
 
     expect(meshes).toHaveLength(2);
@@ -94,11 +95,27 @@ describe("TileRenderer resource ownership", () => {
     expect(meshes[1].geometry).toBe(assets.geometry);
     expect(meshes[0].material).toBe(meshes[1].material);
 
-    const edges: THREE.LineSegments[] = [];
+    const edges: THREE.Mesh[] = [];
     renderer.getGroup().traverse((obj) => {
-      if (obj instanceof THREE.LineSegments) edges.push(obj);
+      if (isOutline(obj)) edges.push(obj as THREE.Mesh);
     });
     expect(edges).toHaveLength(2);
     expect(edges[0].geometry).toBe(edges[1].geometry);
+    expect(edges[0].material).toBe(edges[1].material);
+  });
+
+  it("gives each tile mesh one outline, and a pending tile keeps it", () => {
+    const assets = createSharedAssetLoader();
+    const renderer = new TileRenderer(assets as any);
+
+    renderer.updateTiles([makeTile({ pending: true })]);
+
+    const outlines: THREE.Mesh[] = [];
+    renderer.getGroup().traverse((obj) => {
+      if (isOutline(obj)) outlines.push(obj as THREE.Mesh);
+    });
+    expect(outlines).toHaveLength(1);
+    expect(outlines[0].children).toHaveLength(0);
+    expect(outlines[0].material).not.toBeInstanceOf(THREE.MeshStandardMaterial);
   });
 });

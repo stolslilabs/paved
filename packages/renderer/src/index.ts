@@ -11,6 +11,21 @@ export type { NativeSurfaceHost } from "./core/NativeSurfaceAdapter";
 export { AssetLoader } from "./core/AssetLoader";
 export { Effects } from "./core/Effects";
 export type { EffectsConfig } from "./core/Effects";
+export {
+  DEFAULT_OUTLINE_SETTINGS,
+  OUTLINE_DEPTH_BIAS,
+  outlineStroke,
+  tilePixels,
+  distanceForTilePixels,
+} from "./core/outlines";
+export type { OutlineSettings, OutlineStroke } from "./core/outlines";
+export {
+  DEFAULT_RENDERER_SETTINGS,
+  DEFAULT_CAMERA_ZOOM_SETTINGS,
+  resolveRendererSettings,
+  cameraDistanceLimits,
+} from "./core/settings";
+export type { RendererSettings, RendererSettingsInput, CameraZoomSettings } from "./core/settings";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 

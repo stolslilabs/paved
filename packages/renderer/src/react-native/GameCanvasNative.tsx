@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { GameScene, type GameSceneDependencies } from "../core/GameScene";
+import type { RendererSettingsInput } from "../core/settings";
 import type {
   TileRenderData,
   HoverState,
@@ -20,6 +21,8 @@ export interface GameCanvasNativeProps {
   effectsCapabilities?: EffectsCapabilities;
   createRenderer?: GameSceneDependencies["createRenderer"];
   createCameraController?: GameSceneDependencies["createCameraController"];
+  /** Outlines and camera zoom limits (`RendererSettings`); unnamed fields take the defaults. */
+  settings?: RendererSettingsInput;
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a GL context. */
   onError?: (error: unknown) => void;
@@ -40,6 +43,7 @@ export function GameCanvasNative({
   strategyMode = false,
   compassRotation = 0,
   cameraMode = "play",
+  settings,
   basePath = "",
   effectsCapabilities,
   createRenderer,
@@ -63,6 +67,9 @@ export function GameCanvasNative({
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
+  // Read at init; later changes go through setSettings.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     const scene = new GameScene({ createRenderer, createCameraController });
@@ -70,7 +77,7 @@ export function GameCanvasNative({
 
     let cancelled = false;
 
-    scene.init({ surface, basePath, effectsCapabilities }).then(
+    scene.init({ surface, basePath, effectsCapabilities, settings: settingsRef.current }).then(
       () => {
         // Unmounted while init was pending: never start the scene.
         if (cancelled) return;
@@ -117,6 +124,10 @@ export function GameCanvasNative({
   useEffect(() => {
     sceneRef.current?.setCameraMode(cameraMode);
   }, [cameraMode]);
+
+  useEffect(() => {
+    sceneRef.current?.setSettings(settings ?? {});
+  }, [settings]);
 
   return null;
 }

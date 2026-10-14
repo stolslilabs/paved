@@ -36,6 +36,9 @@ const VignetteShader = {
   `,
 };
 
+/** Samples of the multisampled scene target. */
+const MSAA_SAMPLES = 4;
+
 export interface EffectsConfig {
   bloom?: {
     threshold?: number;
@@ -69,6 +72,7 @@ export class Effects {
   private profile: RenderProfile = "play";
   private ssaoPass: SSAOPass | null = null;
   private capabilities: EffectsCapabilities = {};
+  private multisampling = false;
 
   constructor(config: EffectsConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -79,7 +83,9 @@ export class Effects {
     scene: THREE.Scene,
     camera: THREE.Camera,
     profile: RenderProfile = "play",
+    multisampling = false,
   ): void {
+    this.multisampling = multisampling;
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -89,6 +95,13 @@ export class Effects {
 
   setProfile(profile: RenderProfile): void {
     this.profile = profile;
+    this.buildComposer();
+  }
+
+  /** Multisample the scene's render target (`RendererSettings.multisampling`). Rebuilds the passes when it changes. */
+  setMultisampling(on: boolean): void {
+    if (this.multisampling === on) return;
+    this.multisampling = on;
     this.buildComposer();
   }
 
@@ -105,7 +118,22 @@ export class Effects {
     const renderer = this.renderer;
     const scene = this.scene;
     const camera = this.camera;
-    this.composer = new EffectComposer(renderer);
+    // The scene is drawn into the composer's target, not the canvas: the canvas's `antialias` does not reach it. The
+    // target can be multisampled itself, at a GPU cost (R-OUT measures: about 3 to 4 ms a frame at 1440x900 on an M2
+    // Max), so it is a setting, off by default.
+    const multisample = this.multisampling && this.capabilities.supportsMultisampling !== false;
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.HalfFloatType,
+      samples: multisample ? MSAA_SAMPLES : 0,
+    });
+    target.texture.name = "EffectComposer.rt1";
+    this.composer = new EffectComposer(renderer, target);
+    // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
+    // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
+    this.composer.setPixelRatio(renderer.getPixelRatio());
+    const css = renderer.getSize(new THREE.Vector2());
+    this.composer.setSize(css.x, css.y);
 
     // Render pass
     const renderPass = new RenderPass(scene, camera);
