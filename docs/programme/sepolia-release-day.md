@@ -6,9 +6,10 @@ indexer, then the client.** Nothing in this file is run before the go of step 1.
 stay with the PM and the owner. No line holds a secret: the funded account is in the environment by name only
 (`STARKNET_ACCOUNT_ADDRESS`, `STARKNET_PRIVATE_KEY`, `STARKNET_RPC_URL`), and nobody pastes a value into a command, a file or a report.
 
-The rehearsal that backs this file ran at main `a28f1e8d` plus the guardian change of this pull request, on local starknet-devnet
-0.10.0 (spec 0.10.2, seed 42): `deploy.sh devnet`, `deploy.sh sepolia --rehearse`, `--rehearse --estimate-only` and a
-`--rehearse --check-only` rerun on the complete record. All passed. Its figures are marked as local ones wherever they appear.
+The rehearsal that backs this file ran twice on local starknet-devnet 0.10.0 (spec 0.10.2, seed 42): at main `a28f1e8d`, and again at
+`9924820a` (which has G7a, #413) with the guardian change of this pull request: `deploy.sh devnet`, `deploy.sh sepolia --rehearse`,
+`--rehearse --estimate-only` and a `--rehearse --check-only` rerun on the complete record. All passed both times. Its figures are marked as
+local ones wherever they appear.
 
 ## 0. Before the day
 
@@ -55,9 +56,9 @@ is not Sepolia's. The funding figures, side by side:
 |---|---|---|
 | Held by the D-16 deployer account after F (the PM) | 3,005 | the PM, 2026-10-14 |
 | Needed by a fresh deployment (the PM's estimate, from F) | about 150 | the PM, 2026-10-14 |
-| Declares of the 8 classes, estimated | 9.72 | **local** devnet, `--rehearse --estimate-only`, this PR |
-| The whole rehearsed run, spent (declares, deploys, wiring, definitions, the guardian, the smoke) | 9.82 | **local** devnet, balance 1,000 before and 990.18 after |
-| What `deploy.sh` requires before it sends (1.25 x the declares + 20 STRK margin; the bounds of one declare: 33.03 STRK locally) | 33 locally | **local**, the script's own funding check |
+| Declares of the 8 classes, estimated (9.72 at `a28f1e8d`; Challenge's class grew with G7a) | 9.81 | **local** devnet, `--rehearse --estimate-only` at `9924820a` |
+| The whole rehearsed run, spent (declares, deploys, wiring, definitions, the guardian, the smoke) | 9.82 | **local** devnet at `a28f1e8d` (before G7a), balance 1,000 before and 990.18 after; not re-measured at `9924820a` |
+| What `deploy.sh` requires before it sends (1.25 x the declares + 20 STRK margin; the bounds of one declare: 33.16 STRK locally) | 33 locally | **local**, the script's own funding check at `9924820a` |
 
 The two local figures are an estimate: a devnet prices gas by its own constants, not Sepolia's, so only their shape carries (the
 declares are the bulk, about 99 % of the run; the deploys, the multicalls and the smoke are cents). Sepolia's prices make the real
