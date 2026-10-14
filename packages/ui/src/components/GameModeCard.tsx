@@ -66,6 +66,7 @@ export const GameModeCardStats = styled(XStack as any, {
 } as any) as any;
 
 export function GameModeCardView({
+  mode,
   title,
   description,
   tileCount,
@@ -84,6 +85,7 @@ export function GameModeCardView({
   const podium = free ? undefined : topPlayers;
   return (
     <GameModeCard
+      data-testid={`mode-card-${mode}`}
       onPress={onPress}
       borderColor={hasActiveGame ? "$primary" : "$borderColor"}
     >

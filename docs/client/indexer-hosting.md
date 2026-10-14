@@ -230,7 +230,7 @@ on purpose. Stop the service, then either delete the three files (`sepolia.db`, 
 `rebuild` command (the same arguments with `rebuild` instead of `run`) in the foreground until `/v1/head` says `state: "ok"` and
 `behind: 0`, stop it with Ctrl-C, and start the service. A `rebuild` also serves the API while it catches up; the routes answer
 `503 loading` until it has. For new code only (the same contracts), `git pull`, `bun install --frozen-lockfile`, `systemctl restart`.
-A database of another schema version is refused too (`SchemaMismatch`: `rebuild` it). Schema 7 (D-20) needs a `rebuild` at the next deployment: the running database is schema 6, which the D-20 indexer refuses; the rebuild happens with the fresh Sepolia deployment (P-53), not before.
+A database of another schema version is refused too (`SchemaMismatch`: `rebuild` it). Schema 7 (D-20) needs a `rebuild` at the next deployment: the running database is schema 6, which the D-20 indexer refuses; the rebuild happens with the fresh Sepolia deployment (P-53), not before. Schema 11 (D-23b) is the one F rebuilds into: the exact commands are "Release at F" in the runbook below.
 
 **Health.** `curl -s http://127.0.0.1:8787/v1/head`: `state` is `ok` (not `loading`, `rewinding`, `halted`), `behind` is a few
 blocks at most, `checks.last_mismatch` is `null` (a day whose replayed prize slots differ from the contract's `tournament` view
@@ -612,6 +612,114 @@ grep -rl 'api.paved.bal7hazar.com' packages/app-web/dist/assets | head -1       
 - Rollback: `/usr/local/lib/paved/switch.sh --list`, then `/usr/local/lib/paved/switch.sh <older-release>`. No Caddy reload is
   needed: `index.html` is `no-cache`, and the assets are named by hash.
 - Check: `curl -sI https://paved.bal7hazar.com/ | head -1` is `200`; `readlink /var/www/paved/current` is the new release.
+
+### Release at F (the fresh Sepolia deployment, schema 11)
+
+Written 2026-10-14 (F0). **Nothing here is run until CORE's F part B has merged** and the PM gives the go. At F the client and the
+indexer are released together against F's `contracts/deployments/sepolia.json`; the checklist of the whole release is
+`docs/client/f-release.md`, and this section is its indexer part. The PM copies the lines into the root script; each one says who
+runs it: **root** or **deploy user** (`paved-deploy`). No line holds a secret value.
+
+What changes for the indexer, and why a plain restart is not enough:
+
+- **Schema 11.** The running database is schema 6. `run` refuses any database of another schema (exit 2, `SchemaMismatch`), so
+  the old file cannot be reused; it is moved aside, and `rebuild` makes a new one from the chain.
+- **New contracts, new start block.** F's file has new addresses and a new `deployed_block`. The indexer takes its start block from
+  the file's `deployed_block`; **there is no flag for it** (the usage has none), so "set the start block" means "the release
+  contains F's file". The unit's `--deployment` is `/opt/paved-indexer/current/contracts/deployments/sepolia.json`, a path inside
+  the release: a release made from F's commit points at F's file with no change to the unit.
+- **Keys it reads:** `contracts.Challenge`, `Setup` and `Economy` are required, `Collection` is read when present, and the file's
+  `network` (`sepolia`) turns the display-name lookup on. A file that still keys `Daily` is refused at start.
+- **Names (N1).** On for `network: sepolia` with no flag. It needs outbound HTTPS to `api.cartridge.gg` port 443 (`POST /lookup`).
+
+Flags were checked on main at 382a2411 against the usage that `node packages/indexer/src/main.ts` prints (there is no `--help`
+flag; with no command it prints the usage and exits 2): `run|rebuild --deployment --db [--port] [--host] [--poll] [--depth]
+[--batch] [--recheck] [--recheck-every] [--allow-origin]... [--rate] [--burst] [--rpc] [--no-names|--names] [--names-url]`. The
+unit's `ExecStart` is unchanged; the `rebuild` below is that line with `rebuild` for `run`.
+
+```bash
+# --- Release at F: <F-commit> is the full 40-character commit that contains F's contracts/deployments/sepolia.json ---
+NEW=<F-commit>                                                   # (root)
+STAMP=$(date +%Y%m%d-%H%M)                                       # (root)
+
+# 1. Stop the service, and the watch so that nothing restarts it during the rebuild                       (root)
+systemctl stop paved-indexer-watch.timer
+systemctl stop paved-indexer
+systemctl is-active paved-indexer || true                        # inactive
+
+# 2. Put the release in place: the same steps as "Upgrade", the commit is F's                            (root)
+git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-indexer/releases/$NEW
+git -C /opt/paved-indexer/releases/$NEW checkout --detach $NEW
+
+# 3. Dependencies, as in "Upgrade", then switch `current`                                                (root)
+(cd /opt/paved-indexer/releases/$NEW && bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer && chmod -R go-w .)
+ln -sfnT releases/$NEW /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+
+# 4. F's file is the one the unit reads: look at it before anything else                                  (root)
+F=/opt/paved-indexer/current/contracts/deployments/sepolia.json
+jq '{network, chain_id, deployed_block, keys: (.contracts | keys)}' "$F"
+#   network "sepolia", chain_id "0x534e5f5345504f4c4941", deployed_block an integer, keys include Challenge, Setup, Economy,
+#   Collection, Faucet (and no Daily). Stop here if any of it differs.
+RPC=$(systemctl show paved-indexer -p Environment --value | tr ' ' '\n' | sed -n 's/^INDEXER_RPC_URL=//p')   # the unit's own value, never printed
+test -n "$RPC" || echo "INDEXER_RPC_URL is not in the unit's Environment: take it from the unit's EnvironmentFile instead"
+# The read-only checks of docs/client/f-release.md against the chain (they send nothing):
+CHECK_RPC_URL="$RPC" /usr/bin/node /opt/paved-indexer/current/scripts/client/check-deployment.mjs --file "$F"   # ends: every check passed; nothing was sent
+
+# 5. Move the old database aside (schema 6, refused anyway); `rebuild` would drop it, this keeps it       (root)
+for s in "" -wal -shm; do
+  [ -e /var/lib/paved-indexer/sepolia.db$s ] && mv /var/lib/paved-indexer/sepolia.db$s /var/lib/paved-indexer/sepolia.db$s.schema6-$STAMP
+done
+ls -l /var/lib/paved-indexer/                                    # no sepolia.db left, the .schema6-* files
+
+# 6. Rebuild in the foreground, as the service user and with the unit's flags (names are on by the file's network)   (root)
+cd /opt/paved-indexer/current && runuser -u paved-indexer -- env \
+  INDEXER_RPC_URL="$RPC" NODE_OPTIONS=--max-old-space-size=384 \
+  /usr/bin/node packages/indexer/src/main.ts rebuild \
+  --deployment /opt/paved-indexer/current/contracts/deployments/sepolia.json \
+  --db /var/lib/paved-indexer/sepolia.db \
+  --host 127.0.0.1 --port 8787 \
+  --allow-origin https://paved.bal7hazar.com \
+  --depth l1 --poll 3000 --recheck 5 --recheck-every 60000
+#   The log says "rebuild: the database is empty; following from block <deployed_block>".
+#   In a second shell (root), until it says status ok, state ok and behind 0, then Ctrl-C in the first:
+#     curl -s http://127.0.0.1:8787/v1/head | jq '{status, state, behind, from_block}'
+#   While it loads the answer is 503 {"status":"loading"}. Exit 2 in the first shell is a configuration error: read the message.
+
+# 7. Start the service and the watch                                                                     (root)
+systemctl start paved-indexer
+sleep 10
+systemctl start paved-indexer-watch.timer
+```
+
+Checks after, all read-only:
+
+```bash
+# (root) the service is the one that was rebuilt
+systemctl is-active paved-indexer                                # active
+curl -s http://127.0.0.1:8787/v1/head | jq '{status, state, behind, chain_id, from_block}'
+#   status "ok", state "ok", behind a few blocks at most, chain_id 0x534e5f5345504f4c4941, from_block = the file's deployed_block
+jq .deployed_block /opt/paved-indexer/current/contracts/deployments/sepolia.json
+curl -s http://127.0.0.1:8787/v1/head | jq -c '.contracts'       # the Challenge, Setup, Economy (and Collection) of F's file
+journalctl -u paved-indexer -n 20 --no-pager                     # "serving on http://127.0.0.1:8787, following <hash> from block …", no "halted"
+
+# (root) names: on for sepolia, and the lookup host is reachable (any HTTP code means reachable; no address is sent)
+curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 https://api.cartridge.gg/
+# Once games exist (the F smoke game is one), a leaderboard entry carries a `name` (a Controller username, else null):
+curl -s 'http://127.0.0.1:8787/v1/tournaments?limit=1' | jq -c '.tournaments[0]'
+#   take its id as <day>:  curl -s http://127.0.0.1:8787/v1/tournaments/<day>/leaderboard | jq -c '[.. | objects | select(has("name")) | .name]'
+#   null at first is normal: the lookup runs in the background, one request per 5 s at most.
+
+# (anyone) through the proxy, as in step 9 of the commands above
+curl -fsS https://api.paved.bal7hazar.com/v1/head | jq '{status, behind}'                          # status "ok"
+curl -si -H 'Origin: https://paved.bal7hazar.com' https://api.paved.bal7hazar.com/v1/head | grep -i '^access-control-allow-origin'
+systemctl list-timers paved-indexer-watch.timer --no-pager      # (root) the watch is back
+```
+
+"Done" for the indexer: `/v1/head` says `status "ok"`, `state "ok"` and a small `behind`; `from_block` and `chain_id` are the file's;
+the service is `active` and the watch timer is listed; the proxy answers the same. Only then does the client release go out
+(`docs/client/f-release.md`, "Order"). **If the rebuild fails:** the previous release directory and the `.schema6-*` files are
+still there, but they only serve the old contracts, which F replaces; the recovery is to read the message and run step 6 again
+(it starts from an empty database each time).
 
 ### Upgrade the indexer, rebuild, roll back, remove
 
