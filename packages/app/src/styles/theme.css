@@ -132,7 +132,7 @@
   --info: var(--color-river-400);
   --warning: var(--color-amber-400);
   --border: var(--color-ink-800);
-  --input: var(--color-ink-700);
+  --input: var(--color-ink-600); /* 3.11:1 on --background (WCAG 1.4.11); ink-700 gave 2.11:1 */
   --ring: var(--accent-scale-400);
   --board: var(--color-board);
 }
@@ -170,4 +170,13 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground font-sans antialiased; }
+}
+
+/* 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
