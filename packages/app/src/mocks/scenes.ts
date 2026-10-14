@@ -16,7 +16,7 @@ import type { ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import { RENDERER_ASSETS } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
-import { MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
+import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import {
@@ -32,7 +32,7 @@ import {
   VIEWER_OFF_TOP,
 } from "./leaderboard";
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEKLY_DONE } from "./quests";
 import { REFERRAL_LINK, REFERRED_PURCHASES } from "./referral";
 import { THEME_TILES } from "./settings";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE } from "./vault";
@@ -215,8 +215,12 @@ export const QUESTS = {
   allDone: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE },
   idle: { ...questsBase, day: QUESTS_IDLE.day, quests: QUESTS_IDLE },
   none: { ...questsBase, firstDay: QUESTS_NONE.day, day: QUESTS_NONE.day, quests: QUESTS_NONE },
+  weeklyDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEKLY_DONE },
+  // 4 minutes before 00:00 UTC: the Daily countdown turns amber (the Weekly one has about a day).
+  endingSoon: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, now: (TODAY + 1) * DAY - 4 * 60 },
   guest: { ...questsBase, day: TODAY, quests: null, connected: false },
   loading: { ...questsBase, day: TODAY, quests: null },
+  error: { ...questsBase, day: TODAY, quests: null, error: "The indexer did not answer (HTTP 503)." },
 } satisfies Record<string, Data<QuestsSceneProps>>;
 
 export const ACHIEVEMENTS = {

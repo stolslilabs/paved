@@ -7,6 +7,13 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   2: { title: "Master Builder", description: "Score roads and cities in a day.", icon: "city" },
   3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities.", icon: "tree" },
   4: { title: "Point Chaser", description: "Collect points in a day: the sum of the day's finished Challenge games, not a single game.", icon: "star" },
+  // v2a (quests-v2.md 2.1): the rotating dailies and the weeklies. Provisional until CORE v2a and P9 fix the ids.
+  5: { title: "Master Builder II", description: "Score twice as many roads and cities in a day.", icon: "city" },
+  6: { title: "Forest Warden", description: "Close three forests in a day.", icon: "tree" },
+  7: { title: "Point Chaser II", description: "Collect twice the points in a day, over the day's finished games.", icon: "star" },
+  8: { title: "Weekly Forester", description: "Close forests over the week.", icon: "tree" },
+  9: { title: "Weekly Builder", description: "Score roads and cities over the week.", icon: "city" },
+  10: { title: "Weekly Points", description: "Collect points over the week's finished games.", icon: "trophy" },
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string; icon: string }> = {

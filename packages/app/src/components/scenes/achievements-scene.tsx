@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import type { PlayerAchievements } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { Skeleton } from "../ui/skeleton";
 import { Notice } from "../elements/notice";
+import { useCompletionToasts } from "../containers/completion-toasts";
 import { ProgressCard, progressState } from "../containers/progress-card";
 import { achievementText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
@@ -29,6 +31,11 @@ const ORDER = { complete: 0, progress: 1, none: 2 } as const;
 export function AchievementsScene(props: AchievementsSceneProps) {
   const { achievements, connected, error } = props;
   const list = achievements ? [...achievements.achievements].sort((a, b) => ORDER[progressState(a)] - ORDER[progressState(b)]) : [];
+  const tracked = useMemo(() => achievements?.achievements.map((a) => ({ id: a.achievementId, completed: a.completed, points: a.points })) ?? null, [achievements]);
+  useCompletionToasts("achievement", tracked, ({ id, points }) => {
+    const { title, icon } = achievementText(id);
+    return { title, icon, description: `+${points} pts` };
+  });
   const earned = list.filter((a) => a.completed).length;
   const possible = list.reduce((sum, a) => sum + a.points, 0);
   return (
