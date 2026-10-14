@@ -550,103 +550,103 @@ fn prep(name: felt252) {
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_a0() {
+fn test_gas_profile_g7_replay_a0() {
     replay('a0');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_a() {
+fn test_gas_profile_g7_replay_a() {
     replay('a');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_c() {
+fn test_gas_profile_g7_replay_c() {
     replay('c');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_d() {
+fn test_gas_profile_g7_replay_d() {
     replay('d');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_e() {
+fn test_gas_profile_g7_replay_e() {
     replay('e');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_replay_f() {
+fn test_gas_profile_g7_replay_f() {
     replay('f');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_a0() {
+fn test_gas_profile_g7_real_a0() {
     real('a0');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_a() {
+fn test_gas_profile_g7_real_a() {
     real('a');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_c() {
+fn test_gas_profile_g7_real_c() {
     real('c');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_d() {
+fn test_gas_profile_g7_real_d() {
     real('d');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_e() {
+fn test_gas_profile_g7_real_e() {
     real('e');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_f() {
+fn test_gas_profile_g7_real_f() {
     real('f');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_a0() {
+fn test_gas_profile_g7_prep_a0() {
     prep('a0');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_c() {
+fn test_gas_profile_g7_prep_c() {
     prep('c');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_d() {
+fn test_gas_profile_g7_prep_d() {
     prep('d');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_e() {
+fn test_gas_profile_g7_prep_e() {
     prep('e');
 }
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_f() {
+fn test_gas_profile_g7_prep_f() {
     prep('f');
 }
 
@@ -668,7 +668,7 @@ fn scored(last: bool) -> Scenario {
 /// l. The game over on the last `build`, replayed (the move of a0 east of the starter).
 #[test]
 #[ignore]
-fn test_profile_g7_replay_l() {
+fn test_gas_profile_g7_replay_l() {
     let s = scored(true);
     force(@s, Plan::RFFFRFFFR);
     let game_id = s.game_id;
@@ -682,7 +682,7 @@ fn test_profile_g7_replay_l() {
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_l() {
+fn test_gas_profile_g7_real_l() {
     let s = scored(true);
     force(@s, Plan::RFFFRFFFR);
     let before = get_available_gas();
@@ -692,7 +692,7 @@ fn test_profile_g7_real_l() {
 
 #[test]
 #[ignore]
-fn test_profile_g7_prep_l() {
+fn test_gas_profile_g7_prep_l() {
     let s = scored(true);
     force(@s, Plan::RFFFRFFFR);
 }
@@ -813,7 +813,7 @@ fn replay_discard(game_id: u32, player_id: felt252) {
 /// A discard that does not end the game (the game of scenario c, one tile later).
 #[test]
 #[ignore]
-fn test_profile_g7_replay_discard() {
+fn test_gas_profile_g7_replay_discard() {
     let s = scored(false);
     let game_id = s.game_id;
     let player_id = s.player_id;
@@ -824,7 +824,7 @@ fn test_profile_g7_replay_discard() {
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_discard() {
+fn test_gas_profile_g7_real_discard() {
     let s = scored(false);
     let before = get_available_gas();
     s.systems.challenge.discard(s.game_id);
@@ -834,7 +834,7 @@ fn test_profile_g7_real_discard() {
 /// s. The game over on the last `discard`, replayed, then `finish`'s calls.
 #[test]
 #[ignore]
-fn test_profile_g7_replay_s() {
+fn test_gas_profile_g7_replay_s() {
     let s = scored(true);
     let game_id = s.game_id;
     let player_id = s.player_id;
@@ -936,7 +936,7 @@ fn finish_parts(s: @Scenario, game: Game) {
 /// g. The closing move in its day (a surrender), replayed, then `finish`'s calls.
 #[test]
 #[ignore]
-fn test_profile_g7_replay_g() {
+fn test_gas_profile_g7_replay_g() {
     let s = scored(false);
     let game_id = s.game_id;
     let player_id = s.player_id;
@@ -949,7 +949,7 @@ fn test_profile_g7_replay_g() {
 /// k. The closing move with the largest report, replayed, then `finish`'s calls.
 #[test]
 #[ignore]
-fn test_profile_g7_replay_k() {
+fn test_gas_profile_g7_replay_k() {
     let s = scored(false);
     let mut game = s.store.game(s.game_id);
     game.score = 4500;
@@ -969,7 +969,7 @@ fn test_profile_g7_replay_k() {
 /// is left out.
 #[test]
 #[ignore]
-fn test_profile_g7_replay_m() {
+fn test_gas_profile_g7_replay_m() {
     let (_, systems, context) = setup::spawn_game(Mode::Challenge);
     let challenge = systems.challenge.contract_address;
     let before = get_available_gas();
@@ -1077,7 +1077,7 @@ fn replay_spawn(player_id: felt252) -> (u32, u256) {
 
 #[test]
 #[ignore]
-fn test_profile_g7_real_m() {
+fn test_gas_profile_g7_real_m() {
     let (_, systems, _) = setup::spawn_game(Mode::Challenge);
     let before = get_available_gas();
     systems.challenge.spawn(1, Zero::zero(), 0);
@@ -1088,7 +1088,7 @@ fn test_profile_g7_real_m() {
 /// tile in hand, tile 2). Each figure is ten operations less ten turns of the same empty loop.
 #[test]
 #[ignore]
-fn test_profile_g7_units() {
+fn test_gas_profile_g7_units() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let game_id = context.game_id;
     start_cheat_block_timestamp_global(0);
@@ -1282,7 +1282,7 @@ fn one_read(game_id: u32) -> felt252 {
 /// How the available gas reads around loops of n turns and around a call.
 #[test]
 #[ignore]
-fn test_profile_g7_method() {
+fn test_gas_profile_g7_method() {
     let (store, _, context) = setup::spawn_game(Mode::Challenge);
     let game_id = context.game_id;
     interact_with_state(

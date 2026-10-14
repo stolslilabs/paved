@@ -78,11 +78,14 @@ syscall counts come from the first run; snforge prints them per test, so they do
   decode, each event, a Poseidon, a dictionary access, an empty neighbourhood.
 - **`method`.** The measurement below, which decides how every piece is measured.
 
+The tests are named `test_gas_profile_g7_*`: `scripts/measure.sh check-groups`, which CI runs, requires every
+test to be in a coverage group, and the `gas` group's filter is `test_gas_`. Being ignored, they run in no gas job.
+
 ### 1.3 Why each piece runs in a loop
 
 Sierra charges the gas of straight-line code ahead of time, at the last loop turn or function entry the solver picks,
 and refunds the unused part at branch merges. So the available gas read in the middle of a function is not a running
-counter. `test_profile_g7_method` shows it:
+counter. `test_gas_profile_g7_method` shows it:
 
 | Around | L2 gas |
 |---|---:|
@@ -102,7 +105,7 @@ The pieces add up to 96.5 % to 99.6 % of the real `build` and to 89 % to 97 % of
 the position check" in `baseline.md`), `finish`'s calls made from the contract instead of the test, and the replay's
 own error.
 
-### 1.4 Unit costs (`test_profile_g7_units`)
+### 1.4 Unit costs (`test_gas_profile_g7_units`)
 
 | Operation | L2 gas |
 |---|---:|
