@@ -146,7 +146,7 @@ The player approves `Daily` for `P` USDC, then calls `spawn`. `Daily` runs `Lobb
 
 | Step | Formula | Goes to |
 |---|---|---|
-| Referral | `ref = P x 500 / 10_000` if `referrer` is non-zero and is not the player, else 0 | the referrer, in USDC |
+| Referral | `ref = P x 500 / 10_000` if `referrer` is not in the excluded set (zero, the payer, the Vault, the router, `Economy`, the game; section 1, "The referral rule since P-57"), else 0 | the referrer, in USDC |
 | Burn share | `q = P x BURN_BPS / 10_000` (70 %: `q = 0.7 P`) | the Ekubo router, swapped USDC -> PAVED |
 | LP fee | `0.05 q`, taken by the pool from the input | the pool's liquidity (the LP position holder: the owner's act) |
 | PAVED bought | `b`, the router's output, at least `min_out` (`clear_minimum(PAVED, min_out)`): about `0.95 q / price` minus price impact | `Economy`, then **burned** (`PavedToken.burn(b)`) |
@@ -226,19 +226,19 @@ transaction and no day state, but the closing move pays the mint.
 The margin was recommended and is DECIDED (P-31). It keeps D-10's "70 % of the price swapped and burned on each purchase" to the
 letter, the reward of a game does not depend on who referred it, and it is what Nums and Glitchbomb do. Its cost is
 on the stakers: 5 points of price on every referred purchase. A player who refers themself from a second address
-takes those 5 points. A referrer must be a non-zero address other than the payer and the protocol addresses `Challenge`
-(named `Daily` before D-23) knows, which stops the trivial case only.
+takes those 5 points. A referrer must be a non-zero address other than the payer and the protocol addresses (the full set
+is in "The referral rule since P-57" below), which stops the trivial case only.
 
 **The referral rule since D-25 E (economy lens of P-52 (6)).** Before step E the referrer had to be "a registered Paved
 player (`Account`) other than the payer". `Account` left the systems and a player is the wallet address, so the rule
 is now **"a non-zero address other than the payer"** (`Challenge::purchase`, `systems/challenge.cairo`), and other than the
 two protocol addresses `Challenge` knows, `Economy` (from `Setup.wiring()`) and `Challenge` itself (economy note N2 of #350):
 paid to `Economy`, the 5 % would be swept back into the margin and `Purchased` would report it twice (as `referral`
-and inside `margin`); paid to `Challenge`, it would be stranded (nothing in `Challenge` transfers USDC out). The `Vault` is not
-excluded: `Challenge` does not know its address (reading it from `Economy` would cost a call per referred spawn), and a
-referral paid to the Vault is counted once (`referral` 5 % plus `margin` 25 %: the Vault holds 30 %, as without a
-referrer). Any other address that cannot spend (another contract) is like any address the payer names: the 5 % leaves
-the margin, at the stakers' cost, as for self-referral (E-6). The rest is unchanged:
+and inside `margin`); paid to `Challenge`, it would be stranded (nothing in `Challenge` transfers USDC out). Step E left the
+`Vault` allowed on the premise that a referral paid to it is counted once (`referral` 5 % plus `margin` 25 %: the Vault holds
+30 %); **that premise is gone, and so is the allowance (P-57, below)**: since P-56 the margin reaches the Vault as PAVED,
+and USDC sent to the Vault is stranded (`vault.cairo`). Any other address that cannot spend (another contract) is like any
+address the payer names: the 5 % leaves the margin, at the stakers' cost, as for self-referral (E-6). The rest is unchanged:
 a zero referrer or the payer as referrer is ignored, the spawn goes on with no referral (the payer pays `P` and the
 margin is 30 %), and `Economy.purchase` keeps its own check (non-zero, not the player). The rule's strength is
 unchanged: registration was permissionless (`Account.create` by any caller, once per address), so it never kept a second
@@ -249,6 +249,37 @@ addresses above) is paid 5 %. Tests, besides `test_economy_protocol_address_refe
 `tests::e2e::economy::test_economy_referrer_is_any_address_but_the_payer` (an address that plays and one that never
 did are paid; the payer and zero are not) and the three `tests::e2e::cold_paths::test_cold_paths_spawn_*referr*` tests
 (what `Economy.purchase` receives).
+
+**The referral rule since P-57 (PM ruling of 2026-10-14 on `docs/measures/coverage.md`, finding 2).** A referral is paid
+to none of these; it is ignored, `Purchased.referrer` and `referral` read 0, and the 5 % stays in the Vault's part, as for
+a self-referral:
+
+| Excluded referrer | Where it is checked | Why |
+|---|---|---|
+| zero | `Challenge.purchase` and `Economy.purchase` | no referrer |
+| the payer | both | self-referral through the same wallet |
+| `Economy` | both (`Challenge` reads it from `Setup.wiring()`; `Economy` knows itself) | the 5 % would be swept into the margin and counted twice |
+| `Challenge` (the game: the one address `Economy.set_game` accepts) | both | the 5 % would be stranded |
+| the Vault (`Economy.vault`) | `Economy.purchase` | since P-56 the margin reaches the Vault as PAVED, and USDC sent to it is stranded |
+| the router (`Economy.router`, read on each purchase) | `Economy.purchase` | `clear(usdc)` brings the USDC back to `Economy`, where it joins the next margin: counted as a referral and again in a margin |
+
+`Economy` reads the Vault and the router when the purchase runs, so `set_router(new)` moves the exclusion with it: the new
+router is excluded and the old one is a plain address, paid like any other (`test_set_router_moves_the_excluded_router`).
+`Challenge` does not check the Vault and the router (reading them from `Economy` would cost a call per referred spawn), so
+`Economy` is the rule's owner; `Challenge`'s two extra checks are kept as they were. Tests:
+`tests::economy::hardening::test_referrals_to_the_protocol_pay_nothing_and_change_nothing` (the Vault, the router,
+`Economy`, the game and the payer: the `Purchased` data, the Vault's PAVED and the supply are those of a purchase with no
+referrer, and the referrer gains no USDC) and `test_referral_to_an_outsider_is_paid` (the control).
+
+**The swap's PAVED leg (P-57, finding 1).** `Economy.swap` refuses a router whose PAVED leg is not paid out to `Economy`
+(`'Economy: wrong delta'`, the rule of `quote_swap`): on a `Delta`, a leg with `sign: true` is paid by the pool to the
+caller, so the PAVED leg must be `sign: true` (a zero magnitude passes). The check runs before `min_out` and before the
+PAVED bought is used, so a router that answers a PAVED leg paid in cannot make `R` and the rate follow PAVED never
+received, and PAVED donated to `Economy` cannot stand in for it. A zero PAVED leg, which the real router never answers (it
+reverts on a zero output), buys nothing: nothing is burned, nothing goes to the Vault, the price stays on `Economy` as USDC
+and joins the next purchase's margin. Tests: `test_purchase_refuses_a_paved_leg_paid_in` (with PAVED donated to
+`Economy`), `..._without_a_donation`, `test_purchase_with_a_zero_paved_leg_buys_nothing` and
+`test_purchase_through_the_router_is_unchanged`.
 
 Taking the referral from the burn would make self-referral pointless and keep the stakers whole, but it changes the
 burn rate D-10 fixed. **DECIDED (P-31, 2026-10-09): the margin.**

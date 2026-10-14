@@ -662,7 +662,15 @@ pub mod Economy {
 
             // [Interaction] The referral, out of the margin
             let config = self.config.read();
-            let referred = referrer.is_non_zero() && referrer != player;
+            // No referral to the payer, the Vault, the router (read now: `set_router` moves it),
+            // `Economy` itself or the game: it is ignored and its share stays in the Vault's part,
+            // as for a self-referral. `Challenge` filters `Economy` and itself first.
+            let referred = referrer.is_non_zero()
+                && referrer != player
+                && referrer != self.vault.read()
+                && referrer != self.router.read()
+                && referrer != this
+                && referrer != self.game.read();
             let (referral, quote, _) = curve::split(
                 price, config.burn_bps, config.referral_bps, referred,
             );
@@ -1074,6 +1082,10 @@ pub mod Economy {
             };
             // [Check] The whole input filled: an unswapped rest would stay as USDC
             assert(!used.sign && used.mag >= mag, errors::PARTIAL_FILL);
+            // [Check] The PAVED is paid out, before its magnitude is read: on a `Delta`, a leg
+            // that is `sign: true` is paid by the pool to the caller, so a PAVED leg that is
+            // `sign: false` is paid in (as `quote_swap` checks)
+            assert(out.sign || out.mag == 0, errors::WRONG_DELTA);
             // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
             assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };
