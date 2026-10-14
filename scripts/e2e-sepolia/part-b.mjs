@@ -48,7 +48,7 @@ const tracker = createTracker();
 const startedAt = new Date().toISOString();
 const stage = (s) => (log.stage = s);
 const note = (s) => (log.notes.push(`${log.stage}: ${scrub(s)}`), console.error(`[${log.stage}] ${scrub(s)}`));
-const latencyMeta = () => ({ url, api, network: "sepolia", startedAt, localHour: new Date().getHours(), notes: log.notes.filter((n) => /^(extra-mint|buy-challenge|moves)/.test(n)).slice(-12) });
+const latencyMeta = () => ({ url, api, network: "sepolia", startedAt, localHour: new Date().getHours(), notes: [...log.notes.filter((n) => /^(extra-mint|buy-challenge|moves)/.test(n)).slice(-12), ...log.notes.filter((n) => n.startsWith("chain: "))] });
 const save = () => {
   writeFileSync(join(out, "part-b-run.json"), JSON.stringify(log, null, 2));
   if (samples.length) {
@@ -69,8 +69,12 @@ const closeAll = async () => {
   if (closed) return;
   closed = true;
   // S2: what each transaction cost, read from the node now that the run is over (reads only; a failed read leaves null and a note).
-  if (samples.length) log.notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `moves: ${scrub(n)}`));
+  // The files are written first and again after the reads, so a slow node or a Ctrl-C costs the fee and gas, never the files.
   save();
+  if (samples.length) {
+    log.notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `chain: ${scrub(n)}`));
+    save();
+  }
   if (cdp && authenticatorId) await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId }).catch(() => {});
   await context.close().catch(() => {});
   await browser.close().catch(() => {});

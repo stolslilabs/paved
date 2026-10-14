@@ -294,9 +294,12 @@ export function receiptFields(receipt) {
   };
 }
 
+/** A read that takes longer is given up: the sample keeps null and a note. */
+export const RPC_TIMEOUT_MS = 10_000;
+
 /** One JSON-RPC call; the result, or a thrown Error with the node's message. `fetchFn` is injectable for the tests. */
-export async function rpc(rpcUrl, method, params, fetchFn = fetch) {
-  const res = await fetchFn(rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+export async function rpc(rpcUrl, method, params, fetchFn = fetch, timeoutMs = RPC_TIMEOUT_MS) {
+  const res = await fetchFn(rpcUrl, { signal: AbortSignal.timeout(timeoutMs), method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
   const body = await res.json();
   if (body.error) throw new Error(`${method}: ${body.error.code} ${body.error.message}`);
   if (body.result === undefined) throw new Error(`${method}: no result`);
@@ -311,14 +314,14 @@ const NO_CHAIN = { block: null, blockTimestamp: null, fee: null, resources: null
  * could not give and one note in the returned list (the run never fails on it). A sample already enriched, or with no hash, is left as is.
  * Returns the notes.
  */
-export async function enrichSamples(samples, rpcUrl, fetchFn = fetch) {
+export async function enrichSamples(samples, rpcUrl, fetchFn = fetch, timeoutMs = RPC_TIMEOUT_MS) {
   const notes = [];
   const stamps = new Map();
   const timestamp = async (block) => {
     if (!stamps.has(block)) {
       stamps.set(
         block,
-        rpc(rpcUrl, "starknet_getBlockWithTxHashes", { block_id: { block_number: block } }, fetchFn).then(
+        rpc(rpcUrl, "starknet_getBlockWithTxHashes", { block_id: { block_number: block } }, fetchFn, timeoutMs).then(
           (b) => (Number.isFinite(b?.timestamp) ? b.timestamp : null),
           (e) => (notes.push(`chain read: block ${block} timestamp: ${e.message}`), null),
         ),
@@ -330,12 +333,16 @@ export async function enrichSamples(samples, rpcUrl, fetchFn = fetch) {
     if (!s.hash || "blockTimestamp" in s) continue;
     Object.assign(s, NO_CHAIN);
     try {
-      Object.assign(s, receiptFields(await rpc(rpcUrl, "starknet_getTransactionReceipt", { transaction_hash: s.hash }, fetchFn)));
+      Object.assign(s, receiptFields(await rpc(rpcUrl, "starknet_getTransactionReceipt", { transaction_hash: s.hash }, fetchFn, timeoutMs)));
     } catch (e) {
       notes.push(`chain read: ${s.kind} ${s.n} receipt ${s.hash}: ${e.message}`);
     }
     if (s.block !== null) s.blockTimestamp = await timestamp(s.block);
     else if (!notes.some((n) => n.includes(s.hash))) notes.push(`chain read: ${s.kind} ${s.n} receipt ${s.hash}: not in a block`);
+  }
+  for (const kind of new Set(samples.map((s) => s.kind))) {
+    const units = new Set(samples.filter((s) => s.kind === kind && s.fee).map((s) => s.fee.unit));
+    if (units.size > 1) notes.push(`chain read: ${kind} fees in ${[...units].join(" and ")}: the median fee counts the first unit only`);
   }
   return notes;
 }

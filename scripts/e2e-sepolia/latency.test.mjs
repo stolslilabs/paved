@@ -216,3 +216,19 @@ test("a kind with no fee read has a null median fee and gas, shown n/a", () => {
   expect(summarize(s).faucet).toMatchObject({ fee: null, l2Gas: null });
   expect(renderMarkdown(s, { url: "u", startedAt: "s", localHour: 1, network: "n", notes: [] })).toContain("Median fee n/a, median L2 gas n/a");
 });
+
+test("a node that never answers is given up at the timeout: null and a note, and the run goes on", async () => {
+  const hang = (_url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(new Error("The operation timed out."))));
+  const samples = [sampleWith("move", 1, "0xab")];
+  const notes = await enrichSamples(samples, "http://node", hang, 20);
+  expect(samples[0]).toMatchObject({ block: null, blockTimestamp: null, fee: null, resources: null });
+  expect(notes).toHaveLength(1);
+  expect(notes[0]).toContain("timed out");
+});
+
+test("fees of one kind in two units give a note", async () => {
+  const samples = [sampleWith("move", 1, "0xab"), sampleWith("move", 2, "0xcd")];
+  const { fetchFn } = node({ "0xab": RECEIPT, "0xcd": { ...RECEIPT, actual_fee: { amount: "0x5", unit: "WEI" } } }, { 4242: { timestamp: 1 } });
+  const notes = await enrichSamples(samples, "http://node", fetchFn);
+  expect(notes).toEqual(["chain read: move fees in FRI and WEI: the median fee counts the first unit only"]);
+});

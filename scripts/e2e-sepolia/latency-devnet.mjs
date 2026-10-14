@@ -85,10 +85,14 @@ try {
     note(`move ${k}: tiles ${(text.match(/(\d+)\s*\/\s*38/) || [])[1]}; hash ${s.hash ? "seen" : "NOT seen"}; error lines: ${text.split("\n").filter((l) => /error|fail|revert|reject/i.test(l)).slice(0, 3).join(" | ") || "none"}`);
   }
 } finally {
-  notes.push(...(await enrichSamples(samples, rpcUrl)));
   const meta = { url, api: null, network: "devnet (dry run: instant blocks, not release figures)", startedAt, localHour: new Date().getHours(), notes };
-  writeFileSync(join(out, "latency.json"), JSON.stringify(toJson(samples, meta), null, 2));
-  writeFileSync(join(out, "latency.md"), renderMarkdown(samples, meta));
+  const write = () => {
+    writeFileSync(join(out, "latency.json"), JSON.stringify(toJson(samples, meta), null, 2));
+    writeFileSync(join(out, "latency.md"), renderMarkdown(samples, meta));
+  };
+  write(); // before the reads of fee and gas, so a slow node costs them and never the files
+  notes.push(...(await enrichSamples(samples, rpcUrl)).map((n) => `chain: ${n}`));
+  write();
   writeFileSync(join(out, "probe.json"), JSON.stringify({ events: await probeEvents(page), presses, hashes: tracker.hashes }, null, 1));
   await page.screenshot({ path: join(out, "end.jpg"), type: "jpeg", quality: 60 }).catch(() => {});
   await browser.close();
