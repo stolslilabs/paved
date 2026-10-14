@@ -66,7 +66,7 @@ mainnet" in section 8.
 ## Summary
 
 - **Where the money goes.** For a purchase of stake `k`, the price is `P = 2k` USDC.
-  - 70 % (`0.7 P`) is swapped to PAVED through Ekubo and burned.
+  - The burn share, `burn_bps` of the price (7,368 by default since P-56; 70 % (`0.7 P`) is the figure this text was written at), is swapped to PAVED through Ekubo and burned.
   - The rest goes to the Vault: since P-56 its part is `10,000 - burn_bps` (26.32 % by default; this text was written at 70 / 30), it reaches the Vault as PAVED, and a referrer's `referral_bps` (5 %) comes out of it.
     **DECIDED (P-31): the referral comes out of the margin**, so the 70 % burn of D-10 holds on every purchase.
   - The pool keeps its 5 % fee on the swapped USDC.
@@ -147,7 +147,7 @@ The player approves `Daily` for `P` USDC, then calls `spawn`. `Daily` runs `Lobb
 | Step | Formula | Goes to |
 |---|---|---|
 | Referral | `ref = P x referral_bps / 10_000` (500 by default) if `referrer` is not in the excluded set (zero, the payer, the Vault, the router, `Economy`, the game; section 1, "The referral rule since P-58"), else 0 | the referrer, in USDC |
-| Burn share | `q = P x BURN_BPS / 10_000` (70 %: `q = 0.7 P`) | the Ekubo router, swapped USDC -> PAVED |
+| Burn share | `q = P x burn_bps / 10_000` (`burn_bps` 7,368 by default since P-56; as written at `BURN_BPS = 7_000`: `q = 0.7 P`) | the Ekubo router, swapped USDC -> PAVED |
 | LP fee | `0.05 q`, taken by the pool from the input | the pool's liquidity (the LP position holder: the owner's act) |
 | PAVED bought | `b`, the router's output, at least `min_out` (`clear_minimum(PAVED, min_out)`): about `0.95 q / price` minus price impact | `Economy`, then **burned** (`PavedToken.burn(b)`) |
 | Margin | `m = P - q - ref` (the Vault's part, `10,000 - burn_bps`, less the referral; as written at 70 / 30: 30 %, or 25 % with a referrer) | swapped with `q` in the one swap since P-56; its PAVED goes to the `Vault` as PAVED, not as USDC |
@@ -277,8 +277,9 @@ caller, so the PAVED leg must be `sign: true` (a zero magnitude passes). The che
 PAVED bought is used, so a router that answers a PAVED leg paid in cannot make `R` and the rate follow PAVED never
 received, and PAVED donated to `Economy` cannot stand in for it. A zero PAVED leg is a case of the double only: the real
 `MockRouter` reverts on a zero output, and Ekubo's does not answer one for a full fill. With a router that did report a full
-fill and a zero PAVED leg, the router has by its own delta taken the USDC, so nothing comes back to `Economy`: nothing is
-burned (but for PAVED donated to `Economy`), nothing goes to the Vault, `R` is 0, and the purchase is still sold. (The
+fill and a zero PAVED leg, the router has by its own delta taken the USDC, so nothing comes back to `Economy`: nothing
+comes from the swap to burn or to give the Vault; what is burned is the whole PAVED balance of `Economy` after `clear_minimum(paved, min_out)`,
+which also pulls the PAVED left on the router (so PAVED donated to `Economy` or left on the router is burned, and no more), nothing goes to the Vault, `R` is 0, and the purchase is still sold. (The
 test's double returns the legs without moving tokens, so there the price stays on `Economy` as USDC and joins the next
 margin; that is the double's, not a router's.) The sign check holds against an honest router: a router the owner set that
 misreports its own `Delta` is outside what `Economy` can check, which is the trust in `set_router` that `upgrade-owner.md`
