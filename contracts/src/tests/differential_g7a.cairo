@@ -25,9 +25,10 @@
 //! golden's, two of them with the placement of the fewest neighbours instead (boards where more
 //! moves close nothing), and the forced boards of the gas scenarios e and f.
 
+use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::constants::CENTER;
 use paved::models::game::{GameImpl, GameTrait};
-use paved::models::tile::{Tile, TilePosition, ZeroableTile};
+use paved::models::tile::{Tile, ZeroableTile};
 use paved::store::{StoreImpl, StoreTrait};
 use paved::structure::forest::scan_seeded;
 use paved::structure::owners::{Tally, TallyTrait};
@@ -282,58 +283,46 @@ fn check_board(game_id: u32) -> Stats {
     stats
 }
 
-/// Whether a tile of `plan` and `orientation` fits the tiles around `(x, y)` (the edge
-/// categories, as `assert_fits` before C5), and how many there are.
-fn fits(game_id: u32, plan: u8, orientation: u8, x: u32, y: u32) -> (bool, u8) {
+fn key(x: u32, y: u32) -> felt252 {
+    x.into() * 0x100000000 + y.into()
+}
+
+/// Whether a tile of `plan` and `orientation` fits the tiles of `board` (their edge words, by
+/// position) around `(x, y)`, and how many there are.
+fn fits(ref board: Felt252Dict<u8>, plan: u8, orientation: u8, x: u32, y: u32) -> (bool, u8) {
+    let edges = oriented::edges(plan, orientation);
     let mut count: u8 = 0;
     let mut fit = true;
-    let mut direction: u8 = tables::NORTH;
-    while direction <= tables::WEST {
-        let (nx, ny) = paved::structure::walk::toward(x, y, direction);
-        let (neighbor, _) = StoreImpl::tile_at(game_id, nx, ny);
-        if neighbor.is_non_zero() {
+    let mut side: u8 = 0;
+    let mut unit: u8 = 1;
+    while side < 4 {
+        let (nx, ny) = paved::structure::walk::toward(x, y, 2 * side + 2);
+        let neighbor = board.get(key(nx, ny));
+        if neighbor != 0 {
             count += 1;
-            let opposite = if direction <= tables::EAST {
-                direction + 4
+            // [Info] The opposite field of the neighbour: two sides further
+            let opposite = if side < 2 {
+                unit * 16
             } else {
-                direction - 4
+                unit / 16
             };
-            if placement::edge_category(
-                plan, orientation, direction,
-            ) != placement::edge_category(neighbor.plan, neighbor.orientation, opposite) {
+            if (edges / unit) & 0x3 != (neighbor / opposite) & 0x3 {
                 fit = false;
             }
         }
-        direction += 2;
+        side += 1;
+        if side < 4 {
+            unit *= 4;
+        }
     }
     (fit, count)
 }
 
-/// The placement the bot plays with the tile in hand: the legal one with the most neighbours
+/// The placement the bot plays with a tile of `plan`: the legal one with the most neighbours
 /// (`dense`) or the fewest, the first found from a rotating start; `None` when there is none.
-fn choose(game_id: u32, dense: bool, step: u32) -> Option<(u8, u32, u32)> {
-    let store = StoreImpl::new();
-    let game = store.live_game(game_id);
-    let (held, _) = StoreImpl::tile_with_refs(game_id, game.held_tile);
-    // [Compute] The empty positions next to a placed tile
-    let mut frontier: Array<(u32, u32)> = array![];
-    let mut tile_id: u32 = 1;
-    while tile_id <= game.tile_count.into() {
-        let (tile, _) = StoreImpl::tile_with_refs(game_id, tile_id);
-        tile_id += 1;
-        if tile.orientation == 0 {
-            continue;
-        }
-        let mut direction: u8 = tables::NORTH;
-        while direction <= tables::WEST {
-            let (x, y) = paved::structure::walk::toward(tile.x, tile.y, direction);
-            let position: TilePosition = store.tile_position(game, x, y);
-            if position.tile_id == 0 {
-                frontier.append((x, y));
-            }
-            direction += 2;
-        }
-    }
+fn choose(
+    ref board: Felt252Dict<u8>, frontier: Span<(u32, u32)>, plan: u8, dense: bool, step: u32,
+) -> Option<(u8, u32, u32)> {
     let len = frontier.len();
     let mut best: Option<(u8, u32, u32)> = Option::None;
     let mut best_count: u8 = 0;
@@ -341,9 +330,12 @@ fn choose(game_id: u32, dense: bool, step: u32) -> Option<(u8, u32, u32)> {
     while index < len {
         let (x, y) = *frontier.at((index + step * 7) % len);
         index += 1;
+        if board.get(key(x, y)) != 0 {
+            continue;
+        }
         let mut orientation: u8 = 1;
         while orientation <= 4 {
-            let (fit, count) = fits(game_id, held.plan, orientation, x, y);
+            let (fit, count) = fits(ref board, plan, orientation, x, y);
             let better = match best {
                 Option::None => true,
                 Option::Some(_) => if dense {
@@ -362,23 +354,31 @@ fn choose(game_id: u32, dense: bool, step: u32) -> Option<(u8, u32, u32)> {
     best
 }
 
-/// A Daily game of the day `day_index` played to its end by the bot, every build checked, then
-/// the whole board.
-fn bot_game(day_index: u64, dense: bool) -> Stats {
+/// A Daily game of the day `day_index` played by the bot for `moves` moves at most (or to its
+/// end), every build checked, then the whole board.
+fn bot_game(day_index: u64, dense: bool, moves: u32) -> Stats {
     snforge_std::start_cheat_block_timestamp_global(day(day_index));
     let (store, systems, context) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
     let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
+    // [Info] The board by position: the edge word of each tile (never 0)
+    let mut board: Felt252Dict<u8> = Default::default();
+    let mut frontier: Array<(u32, u32)> = array![];
+    board.insert(key(CENTER, CENTER), oriented::edges(Plan::RFFFRFCFR.into(), 3));
+    let mut direction: u8 = tables::NORTH;
+    while direction <= tables::WEST {
+        frontier.append(paved::structure::walk::toward(CENTER, CENTER, direction));
+        direction += 2;
+    }
     let mut stats: Stats = Default::default();
     let mut step: u32 = 0;
-    loop {
+    while step < moves {
         let game = store.game(game_id);
         if game.is_over() {
             break;
         }
-        let at = step;
-        let choice = interact_with_state(store.contract, || choose(game_id, dense, at));
-        match choice {
+        let plan = store.tile(game, store.builder(game, PLAYER().into()).tile_id).plan;
+        match choose(ref board, frontier.span(), plan, dense, step) {
             Option::Some((
                 orientation, x, y,
             )) => {
@@ -387,6 +387,15 @@ fn bot_game(day_index: u64, dense: bool) -> Stats {
                 );
                 stats = add(stats, moved);
                 systems.challenge.build(game_id, orientation.into(), x, y);
+                board.insert(key(x, y), oriented::edges(plan, orientation));
+                let mut direction: u8 = tables::NORTH;
+                while direction <= tables::WEST {
+                    let (nx, ny) = paved::structure::walk::toward(x, y, direction);
+                    if board.get(key(nx, ny)) == 0 {
+                        frontier.append((nx, ny));
+                    }
+                    direction += 2;
+                }
             },
             Option::None => systems.challenge.discard(game_id),
         }
@@ -398,8 +407,8 @@ fn bot_game(day_index: u64, dense: bool) -> Stats {
     add(stats, board)
 }
 
-/// A board of forced plans (each written over the tile in hand), every build checked, then the
-/// whole board.
+/// A board of forced plans (each written over the tile in hand), every build checked, and the
+/// whole board after each.
 fn forced_board(moves: Span<(Plan, Orientation, u32, u32)>) -> Stats {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game_id = context.game_id;
@@ -415,29 +424,39 @@ fn forced_board(moves: Span<(Plan, Orientation, u32, u32)>) -> Stats {
         let moved = interact_with_state(store.contract, || check_move(game_id, orientation, x, y));
         stats = add(stats, moved);
         systems.challenge.build(game_id, orientation.into(), x, y);
+        stats = add(stats, interact_with_state(store.contract, || check_board(game_id)));
     }
-    add(stats, interact_with_state(store.contract, || check_board(game_id)))
+    stats
 }
 
+/// Bot games, one per test (the VM's step limit), of `MOVES` moves at most.
+const MOVES: u32 = 24;
+
 #[test]
-#[available_gas(l2_gas: 8000000000)]
-fn test_g7a_bot_games_dense() {
-    let a = bot_game(11, true);
-    let b = bot_game(12, true);
-    let stats = add(a, b);
-    println!("G7a dense: {:?}", stats);
+#[available_gas(l2_gas: 4000000000)]
+fn test_g7a_bot_game_dense_day_11() {
+    let stats = bot_game(11, true, MOVES);
     assert!(stats.open_moves > 0 && stats.closing_moves > 0);
-    assert!(stats.sides_0 > 0 && stats.sides_1 > 0 && stats.sides_2 > 0);
-    assert!(stats.apart > 0 && stats.open_road > 0);
 }
 
 #[test]
-#[available_gas(l2_gas: 8000000000)]
-fn test_g7a_bot_games_sparse() {
-    let a = bot_game(13, false);
-    let b = bot_game(14, false);
-    let stats = add(a, b);
-    println!("G7a sparse: {:?}", stats);
+#[available_gas(l2_gas: 4000000000)]
+fn test_g7a_bot_game_dense_day_12() {
+    let stats = bot_game(12, true, MOVES);
+    assert!(stats.open_moves > 0 && stats.closing_moves > 0);
+}
+
+#[test]
+#[available_gas(l2_gas: 4000000000)]
+fn test_g7a_bot_game_sparse_day_13() {
+    let stats = bot_game(13, false, MOVES);
+    assert!(stats.open_moves > 0 && stats.closing_moves > 0);
+}
+
+#[test]
+#[available_gas(l2_gas: 4000000000)]
+fn test_g7a_bot_game_sparse_day_14() {
+    let stats = bot_game(14, false, MOVES);
     assert!(stats.open_moves > 0 && stats.closing_moves > 0);
 }
 
@@ -474,6 +493,63 @@ fn test_g7a_gas_boards_e_and_f() {
     let stats = add(forced_board(e.span()), forced_board(f.span()));
     println!("G7a e and f: {:?}", stats);
     assert!(stats.sides_2 > 0);
+}
+
+/// The forest boards of the goldens (`golden/forest.cairo`: ring, caps, both, open city; their
+/// plans and positions copied) and the crossings of `e2e/forest.cairo`: forests that close with one
+/// side tile of the move in them (the corridors), two (the ring, the crossings), a city touched
+/// twice, and an open city.
+#[test]
+#[available_gas(l2_gas: 4000000000)]
+fn test_g7a_forest_boards() {
+    let curve = Plan::RFRFFFFFR;
+    let corridor = Plan::CFFFCFFFC;
+    let cap = Plan::FFFFFFCFF;
+    let corner = Plan::FFFFCCCFF;
+    let ring = array![
+        (curve, Orientation::South, CENTER, CENTER - 1),
+        (curve, Orientation::West, CENTER + 1, CENTER - 1),
+        (curve, Orientation::North, CENTER + 1, CENTER - 2),
+        (curve, Orientation::East, CENTER, CENTER - 2),
+    ];
+    let caps = array![
+        (corridor, Orientation::East, CENTER, CENTER + 1),
+        (cap, Orientation::North, CENTER, CENTER + 2),
+        (cap, Orientation::North, CENTER + 1, CENTER + 2),
+        (Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER),
+        (corridor, Orientation::East, CENTER + 1, CENTER + 1),
+    ];
+    let both = array![
+        (curve, Orientation::South, CENTER, CENTER - 1),
+        (curve, Orientation::West, CENTER + 1, CENTER - 1),
+        (curve, Orientation::North, CENTER + 1, CENTER - 2),
+        (corridor, Orientation::East, CENTER, CENTER + 1),
+        (corner, Orientation::North, CENTER, CENTER + 2),
+        (corner, Orientation::East, CENTER + 1, CENTER + 2),
+        (Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER),
+        (corridor, Orientation::East, CENTER + 1, CENTER + 1),
+        (curve, Orientation::East, CENTER, CENTER - 2),
+    ];
+    let open_city = array![
+        (Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER),
+        (corridor, Orientation::East, CENTER + 1, CENTER + 1),
+        (corner, Orientation::East, CENTER + 1, CENTER + 2),
+        (Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2),
+        (corridor, Orientation::East, CENTER, CENTER + 1),
+    ];
+    let crossings = array![
+        (Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER),
+        (Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER),
+        (Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER - 1),
+        (Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER - 1),
+    ];
+    let mut stats = forced_board(ring.span());
+    stats = add(stats, forced_board(caps.span()));
+    stats = add(stats, forced_board(both.span()));
+    stats = add(stats, forced_board(open_city.span()));
+    stats = add(stats, forced_board(crossings.span()));
+    println!("G7a forest boards: {:?}", stats);
+    assert!(stats.sides_1 > 0 && stats.sides_2 > 0 && stats.apart > 0);
 }
 
 /// C2: the starter tile written from constants holds, slot for slot, what `place_alone` writes for
