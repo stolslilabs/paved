@@ -21,7 +21,7 @@ export interface IconProps {
   size?: IconSize;
   /** The accessible name. Without it the icon is decorative and hidden from assistive technology. */
   label?: string;
-  /** A fixed 1.25em width, so a column of icons lines up. */
+  /** A fixed 1.25em width, so a column of icons lines up and the icon does not shift the text when it replaces its box. */
   fixedWidth?: boolean;
   className?: string;
 }
@@ -35,8 +35,10 @@ function toElement(node: FaNode | string, key: number, extra: Record<string, unk
 
 /**
  * An icon from the Font Awesome Pro files (section 8), as an inline SVG that `currentColor` paints.
- * The scripts load after the first render, so until they are ready (or if they fail) it is an empty box of the
- * same size.
+ * The scripts load after the first render, so until they are ready (or if they fail) it is an empty box 1em high.
+ * Its width is exact only with `fixedWidth` (1.25em, as the drawn icon); otherwise the drawn icon takes its width
+ * from its viewBox (0.5em to about 1.25em for most solid icons, 1.125em for "house"), so text beside it can shift
+ * by up to a quarter of an em when the scripts arrive. Use `fixedWidth` where that must not happen.
  */
 export function Icon({ name, variant = "solid", size = "md", label, fixedWidth, className }: IconProps) {
   useEffect(() => loadFontAwesome(), []);
@@ -48,7 +50,7 @@ export function Icon({ name, variant = "solid", size = "md", label, fixedWidth, 
   const classes = [SIZES[size], className].filter(Boolean).join(" ");
   const a11y = label ? { role: "img", "aria-label": label } : { "aria-hidden": true };
 
-  if (!tree) return <span {...a11y} data-icon={name} className={`inline-block h-[1em] w-[1em] align-[-0.125em] ${classes}`} />;
+  if (!tree) return <span {...a11y} data-icon={name} style={{ width: fixedWidth ? "1.25em" : "1em" }} className={`inline-block h-[1em] align-[-0.125em] ${classes}`} />;
 
   // Font Awesome's own `aria-hidden`, `role` and `focusable` give way to ours; its class keeps the sizing CSS it injects.
   const { "aria-hidden": _hidden, role: _role, focusable: _focusable, ...attributes } = tree.attributes;

@@ -55,6 +55,16 @@ describe("Icon", () => {
     expect(box.className).toContain("text-[2rem]");
   });
 
+  it("keeps the width of its box with fixedWidth: 1.25em before and after the scripts", () => {
+    const { container } = render(<Icon name="house" fixedWidth />);
+    expect((container.firstElementChild as HTMLElement).style.width).toBe("1.25em");
+    runInjectedScripts();
+    const svg = container.querySelector("svg")!;
+    expect(svg).toHaveClass("fa-fw");
+    // Font Awesome's own rule for fa-fw: width: var(--fa-fw-width, 1.25em).
+    expect(getComputedStyle(svg).width).toContain("1.25em");
+  });
+
   it("renders solid and thin icons as React-managed SVG", () => {
     const { container } = render(
       <>
