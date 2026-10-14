@@ -18,9 +18,11 @@ import { ReferralScene, ago } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
+import { Toaster, toast } from "../src/components/ui/sonner";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
+import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO, QUESTS_WEEKLY_DONE } from "../src/mocks/quests";
 import { REFERRAL_LINK } from "../src/mocks/referral";
 import { ACHIEVEMENTS, LEADERBOARD, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
@@ -320,43 +322,124 @@ describe("Theme", () => {
 });
 
 describe("Quests", () => {
-  it("shows the day's quests with their progress and state, and the Achievements tab", async () => {
+  it("shows the day's rotating dailies and the weeklies with their progress, each with its countdown, and the Achievements tab", async () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
-    expect(screen.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
-    expect(screen.getByRole("article", { name: "Master Builder" })).toHaveAttribute("data-state", "progress");
-    expect(screen.getByRole("article", { name: "Into the Woods" })).toHaveAttribute("data-state", "none");
-    expect(screen.getByRole("progressbar", { name: "points: 2,710 of 3,000" })).toBeInTheDocument();
-    expect(screen.getByText("Complete")).toBeInTheDocument();
-    expect(screen.getByText("To do")).toBeInTheDocument();
-    expect(screen.getByRole("timer", { name: "New quests in 9:00:00" })).toBeInTheDocument();
+    const daily = within(screen.getByRole("region", { name: "Daily" }));
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Point Chaser"]);
+    expect(daily.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
+    expect(daily.getByRole("article", { name: "Master Builder" })).toHaveAttribute("data-state", "progress");
+    expect(daily.getByRole("progressbar", { name: "points: 2,710 of 3,000" })).toBeInTheDocument();
+    // 00:00 UTC is 9 hours after the mocks' 15:00.
+    expect(daily.getByRole("timer", { name: "Daily ends in 9:00:00" })).toBeInTheDocument();
+    const weekly = within(screen.getByRole("region", { name: "Weekly" }));
+    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
+    // The week is the definitions': it ends on Friday 00:00 UTC, 33 hours on.
+    expect(weekly.getByRole("timer", { name: "Weekly ends in 33:00:00" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Quests" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("tab", { name: "Achievements" }));
     expect(onTab).toHaveBeenCalledWith("achievements");
   });
 
-  it("shows a day with all four complete as closed", () => {
+  it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
-    expect(screen.getAllByText("Complete")).toHaveLength(4);
+    const daily = within(screen.getByRole("region", { name: "Daily" }));
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Forest Warden", "Point Chaser II"]);
+    expect(screen.getAllByText("Complete")).toHaveLength(3);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
+  });
+
+  it("shows a weekly complete, and the daily countdown in its last minutes as a warning", () => {
+    const { unmount } = render(wrap(<QuestsScene {...QUESTS.weeklyDone} />));
+    expect(within(screen.getByRole("region", { name: "Weekly" })).getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
+    unmount();
+    render(wrap(<QuestsScene {...QUESTS.endingSoon} />));
+    expect(screen.getByRole("timer", { name: "Daily ends in 0:04:00" })).toHaveAttribute("data-state", "warning");
   });
 
   it("shows a day not played at zero, and a day with no quest", () => {
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.idle} />));
-    expect(screen.getAllByText("To do")).toHaveLength(4);
+    expect(screen.getAllByText("To do")).toHaveLength(6);
     unmount();
     render(wrap(<QuestsScene {...QUESTS.none} />));
     expect(screen.getByText("No quest this day")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Weekly" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous day" })).toBeDisabled();
   });
 
-  it("asks a guest to connect, and loads", () => {
+  it("asks a guest to connect, loads, and fails with a retry", async () => {
+    const onRetry = vi.fn();
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.guest} />));
     expect(screen.getByRole("status")).toHaveTextContent("Connect to see your quests");
     unmount();
-    render(wrap(<QuestsScene {...QUESTS.loading} />));
+    const loading = render(wrap(<QuestsScene {...QUESTS.loading} />));
     expect(screen.getByRole("status", { name: "Loading the quests" })).toBeInTheDocument();
+    loading.unmount();
+    render(wrap(<QuestsScene {...QUESTS.error} onRetry={onRetry} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the quests");
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("raises a toast once when a quest completes between two renders, not on a first read or a refresh", async () => {
+    toast.dismiss();
+    const success = vi.spyOn(toast, "success");
+    const scene = (quests: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} quests={quests} /></>);
+    const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
+    // Daily Run was already complete at the first read: no toast for it.
+    await Promise.resolve();
+    expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    rerender(scene(QUESTS_TODAY_COMPLETED));
+    expect(await screen.findByText("Quest completed: Master Builder")).toBeInTheDocument();
+    // A refresh of the same data, and a copy of it, add nothing.
+    rerender(scene({ ...QUESTS_TODAY_COMPLETED }));
+    rerender(scene(QUESTS_TODAY_COMPLETED));
+    expect(screen.getAllByText(/Quest completed/)).toHaveLength(1);
+    // Progress that dips and comes back within the interval is not announced a second time.
+    rerender(scene(QUESTS_TODAY_ONE_TO_GO));
+    rerender(scene(QUESTS_TODAY_COMPLETED));
+    expect(screen.getAllByText(/Quest completed/)).toHaveLength(1);
+    expect(success).toHaveBeenCalledTimes(1);
+    success.mockRestore();
+  });
+
+  it("raises no toast on a mere change of day, in either direction", async () => {
+    toast.dismiss();
+    const success = vi.spyOn(toast, "success");
+    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
+    const { rerender } = render(scene(QUESTS_TODAY));
+    await Promise.resolve();
+    rerender(scene(QUESTS_ALL_DONE));
+    rerender(scene(QUESTS_TODAY));
+    rerender(scene(QUESTS_ALL_DONE));
+    await Promise.resolve();
+    expect(success).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    success.mockRestore();
+  });
+
+  it("treats a return to today as a first read: Weekly Forester 2 of 5 yesterday, 5 of 5 today, no toast", async () => {
+    toast.dismiss();
+    const success = vi.spyOn(toast, "success");
+    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
+    const { rerender } = render(scene(QUESTS_ALL_DONE));
+    await Promise.resolve();
+    rerender(scene(QUESTS_WEEKLY_DONE));
+    await Promise.resolve();
+    expect(success).not.toHaveBeenCalled();
+    success.mockRestore();
+  });
+
+  it("raises the same toast for an achievement earned", async () => {
+    toast.dismiss();
+    const scene = (achievements: typeof ACHIEVEMENTS_MIXED) => wrap(<><Toaster /><AchievementsScene achievements={achievements} connected /></>);
+    const { rerender } = render(scene(ACHIEVEMENTS_MIXED));
+    const earned = { ...ACHIEVEMENTS_MIXED, achievements: ACHIEVEMENTS_MIXED.achievements.map((a) => (a.achievementId === 6 ? { ...a, completed: true, completedAt: MOCK_NOW, tasks: a.tasks.map((t) => ({ ...t, count: t.total })) } : a)) };
+    rerender(scene(earned));
+    expect(await screen.findByText("Achievement earned: Forester")).toBeInTheDocument();
+    expect(screen.getByText("+20 pts")).toBeInTheDocument();
   });
 });
 

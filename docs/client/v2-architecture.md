@@ -1227,6 +1227,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`Economy.split_bps`, V1b: burn and Vault, the referral out of the Vault's part), the 24 h validity and the threshold | 3 d |
 | SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers. **Done** (2026-10-14) | 2.5 d |
+| SC2b | The quests scene with CORE v2a's rotation (a different daily subset live each day), weekly quests, a countdown to the end of the day and of the week, and a toast when a quest completes (`quests-v2.md` 1.2, 2.1, 1.5). **Done** (2026-10-14) | 1 d |
 
 **Wiring the scenes**
 
@@ -1244,6 +1245,21 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
 | P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
+
+**P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
+`lib/quest-window.ts`, provisional until CORE v2a ships the definitions; `@paved/chain`'s `PlayerQuest` does not carry them yet).
+`questWindow` there is the rule of `quests-v2.md` 1.2 (active when `(now - start) % interval < duration`, interval id
+`floor((now - start) / interval)`, window end `start + id * interval + duration`): the scene derives the Daily and Weekly
+countdowns from it, a weekly's week from its definition (not from a Monday), and a quest is a daily or a weekly by its
+`duration`. P9 passes the scene the indexer's list with the schedule fields, and the indexer's clock as `now`.
+`newlyCompleted` in `lib/quest-toasts.ts` is the pure function behind the toast ("Quest completed: <title>", also "Achievement
+earned"): the scene's `useCompletionToasts` calls it on each new `quests` prop, so P9 only has to refresh the prop; the toast shows once
+per (quest, interval), never on the first read, never for a past day's data, and not on a change of day (the hook takes the day as its `scope` and
+drops its last list when it changes). P9 must keep: (1) `announced` (the keys already toasted) lives above the route, per player, in the app's
+store, so a cached-then-fresh read after a remount does not toast again; the scene's hook keeps it in a ref today. (2) Whether completions made while the scene
+was unmounted are announced on return is P9's to decide; recommended yes, by keeping the last list per player in the store and giving it to the
+hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
+To do: P1 or P9 mounts the `Toaster` once above the pages; the app mounts none yet (the stories mount their own).
 
 Every session (Training, Tutorial, Challenge) keeps its engine state between moves and replays the moves only on
 resume (the PM, 2026-10-14).
