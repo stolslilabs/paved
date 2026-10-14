@@ -5,7 +5,8 @@
  * day from the API's unsettled list, the indexer
  * (the real process, `src/main.ts`) follows live, is stopped and restarted mid-run, sees a replaced block, and a second
  * indexer rebuilt from the chain answers the same. Last, the whole chain is replayed in process block by block and by range
- * (an L1-accepted block simulated: devnet has none), and the two databases are compared table by table. The API is compared with the contracts' own views (D-20: the leaderboard
+ * (an L1-accepted block simulated: devnet has none), each with 1 and 8 blocks read at once (I2), and the databases are
+ * compared table by table. The API is compared with the contracts' own views (D-20: the leaderboard
  * is the indexer's own; no `tournament` view remains to compare it with).
  *
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. Needs `starknet-devnet` 0.10 (DEVNET_BIN, else the
@@ -406,7 +407,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     await stopIndexer(API[0]!);
   });
 
-  test("replayed block by block and by range (an L1 block simulated), every table is the same", async () => {
+  test("replayed block by block and by range (an L1 block simulated), 1 and 8 blocks at once, every table is the same", async () => {
     const parsed = readDeployment(file);
     const config = {
       challenge: parsed.challenge,
@@ -423,9 +424,16 @@ describe.skipIf(!enabled)("devnet scenario", () => {
         return tip - 3;
       }
     }
-    const replay = async (range: number) => {
+    const replay = async (range: number, concurrency: number) => {
       const chain = new SimulatedL1(httpRpc(node.url), config);
-      const indexer = new Indexer({ chain, store: new Store(join(work, `replay-${range}.db`)), config, depth: "l1", range });
+      const indexer = new Indexer({
+        chain,
+        store: new Store(join(work, `replay-${range}-${concurrency}.db`)),
+        config,
+        depth: "l1",
+        range,
+        concurrency,
+      });
       for (let i = 0; i < 10_000; i++) {
         try {
           if (!(await indexer.step())) break;
@@ -440,12 +448,17 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       const calls = Object.values(chain.calls).reduce((sum, n) => sum + n, 0);
       return { dump: indexer.store.dump(), calls };
     };
-    const blockwise = await replay(0);
+    const blockwise = await replay(0, 1);
+    // I2: block by block with 8 blocks read at once, the same tables and the same calls give or take the window's ends.
+    const concurrent = await replay(0, 8);
+    expect(concurrent.dump, "range 0, concurrency 8").toEqual(blockwise.dump);
     // 10,000: the whole range in one read; 7: many ranges, each day boundary inside one or on an edge.
     for (const range of [10_000, 7]) {
-      const ranged = await replay(range);
-      expect(ranged.dump, `range ${range}`).toEqual(blockwise.dump);
-      expect(ranged.calls).toBeLessThan(blockwise.calls);
+      for (const concurrency of [1, 8]) {
+        const ranged = await replay(range, concurrency);
+        expect(ranged.dump, `range ${range}, concurrency ${concurrency}`).toEqual(blockwise.dump);
+        expect(ranged.calls).toBeLessThan(blockwise.calls);
+      }
     }
     expect(blockwise.dump.day_closes.length).toBeGreaterThan(0);
     expect(blockwise.dump.games.length).toBeGreaterThan(0);

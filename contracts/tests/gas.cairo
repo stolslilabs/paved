@@ -45,16 +45,15 @@ use crate::setup::setup::{
 };
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 5709834;
-pub const CEILING_SIMPLE: u128 = 5315180;
-// c, e: G1 raised them to measured + 5 % (CORE's decision, reversed if the PM rules it a
-// regression):
-// the build is unchanged, the draw that follows it reads the deck G1 built on the same seed, and
-// costs more there (c +1,404,092, e +374,654, each the draw alone; `docs/measures/baseline.md`,
-// "After G1").
-pub const CEILING_CLOSE_LARGE: u128 = 6936177;
-pub const CEILING_WORST_CASE: u128 = 5662074;
-pub const CEILING_FOREST: u128 = 9549771;
+pub const CEILING_OPEN: u128 = 5384523;
+pub const CEILING_SIMPLE: u128 = 5172772;
+// G5 cut the draw that follows each build (a table of bits, popcount by one product) and reset
+// a0 to e, m and n to measured + 5 % (`docs/measures/baseline.md`, "After G5"). c and e had been
+// raised by G1 (the draw read another deck on the same seed). f's measured + 5 % (19,032,185)
+// would be above its ceiling, which is kept.
+pub const CEILING_CLOSE_LARGE: u128 = 5602221;
+pub const CEILING_WORST_CASE: u128 = 5551116;
+pub const CEILING_FOREST: u128 = 9069821;
 pub const CEILING_FOREST_WORST: u128 = 18923195;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
@@ -74,8 +73,8 @@ pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
-pub const CEILING_SPAWN_DAILY: u128 = 18896971;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19659744;
+pub const CEILING_SPAWN_DAILY: u128 = 18411921;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19174693;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).

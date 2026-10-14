@@ -1,6 +1,6 @@
 // The catch-up by range (indexer.ts, `catchUp`): in the final zone it must leave every table as block-by-block does.
 import { describe, expect, test } from "vitest";
-import { Chain } from "./chain.ts";
+import { BLOCK_NOT_FOUND, Chain, RpcError } from "./chain.ts";
 import { Indexer } from "./indexer.ts";
 import { Store } from "./store.ts";
 import { CHALLENGE, COLLECTION, ECONOMY, FakeNode, SETUP, ev } from "./testing/fake-node.ts";
@@ -14,9 +14,12 @@ const CY = 0xc3n;
 const chainOf = (node: FakeNode) =>
   new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION });
 
-/** An indexer at depth l1: `range` 0 reads block by block, else by ranges of up to `range` blocks. */
-const indexerOf = (node: FakeNode, range: number) =>
-  new Indexer({ chain: chainOf(node), store: new Store(":memory:"), config: CONFIG, depth: "l1", range });
+/**
+ * An indexer at depth l1: `range` 0 reads block by block, else by ranges of up to `range` blocks; `concurrency` blocks
+ * read at once above the L1 block (I2).
+ */
+const indexerOf = (node: FakeNode, range: number, concurrency = 1) =>
+  new Indexer({ chain: chainOf(node), store: new Store(":memory:"), config: CONFIG, depth: "l1", range, concurrency });
 
 /** The calls the indexer made through its Chain, all methods. */
 const callsOf = (indexer: Indexer) => Object.values(indexer.chain.calls).reduce((a, b) => a + b, 0);
@@ -88,6 +91,124 @@ describe("the catch-up by range", () => {
     expect(ranged.rewindCount).toBe(1);
     expect(ranged.store.dump()).toEqual(blockwise.store.dump());
     expect(ranged.store.dump().games.some((g) => g.game_id === 999)).toBe(true);
+  });
+
+  test("I2: concurrency 1 and 8 leave the same tables, by range and block by block, through a handover and a reorg", async () => {
+    const node = history();
+    node.l1Accepted = node.tip - 30;
+    const subjects = [0, 25].flatMap((range) => [1, 8].map((concurrency) => indexerOf(node, range, concurrency)));
+    const [reference, ...others] = subjects;
+    const same = async (label: string) => {
+      for (const subject of subjects) await settle(subject);
+      for (const [index, subject] of others.entries()) {
+        expect(subject.reason, `${label}, subject ${index + 1}`).toBe("");
+        expect(subject.store.dump(), `${label}, subject ${index + 1}`).toEqual(reference!.store.dump());
+      }
+      expect(reference!.served?.number).toBe(node.tip);
+    };
+    await same("first catch-up");
+    history(node, node.time + DAY, 100);
+    node.l1Accepted = node.tip - 50;
+    await same("more blocks");
+    node.reorg(4, [[[ev.spawned("challenge", 999, ADA)]], [], [], [], []]);
+    await same("a reorg above the L1 block");
+    for (const subject of subjects) expect(subject.rewindCount).toBe(1);
+    expect(reference!.store.dump().games.some((g) => g.game_id === 999)).toBe(true);
+  });
+
+  test("R1: a page boundary inside one block's events keeps the per-block order", async () => {
+    const node = new FakeNode(2);
+    // Block 2: five events of Challenge across three transactions, interleaved with Economy's; pages of 2 cut inside it.
+    node.mine(
+      [ev.spawned("challenge", 1, ADA), ev.purchased(1, ADA), ev.spawned("challenge", 2, BO)],
+      [ev.purchased(2, BO), ev.spawned("challenge", 3, CY), ev.purchased(3, CY)],
+      [ev.over("challenge", 1, ADA, 7), ev.over("challenge", 2, BO, 9)],
+    );
+    node.mine([ev.spawned("challenge", 4, ADA)]);
+    node.l1Accepted = node.tip;
+    const chain = chainOf(node);
+    chain.rangeChunkSize = 2;
+    const position = (e: { source: string; transactionIndex: number; eventIndex: number }) => [e.source, e.transactionIndex, e.eventIndex];
+    const ranged = (await chain.rangeEvents(0, node.tip)).filter((e) => e.block === 2);
+    const blockwise = await chain.events((await chain.header(2))!);
+    expect(ranged.map(position)).toEqual(blockwise.map(position));
+    expect(ranged.filter((e) => e.source === "challenge")).toHaveLength(5);
+    expect(chain.calls.starknet_getEvents).toBeGreaterThanOrEqual(3 + 2 + 1 + 1); // Challenge's 6 in 3 pages, Economy's 3 in 2: cut inside block 2
+    const reference = indexerOf(node, 0);
+    const paged = indexerOf(node, 10_000);
+    paged.chain.rangeChunkSize = 2;
+    await settle(reference);
+    await settle(paged);
+    expect(paged.store.dump()).toEqual(reference.store.dump());
+  });
+
+  test("R1: a page refusal is known by its text too, or by a refusal that persists at one block", async () => {
+    for (const refusal of [
+      { code: -32602, message: "Invalid params: requested page size is too big, the maximum is 100" },
+      { code: -32000, message: "Server error" }, // neither the code nor the text: the span of 1 says it
+    ]) {
+      const node = history();
+      node.l1Accepted = node.tip;
+      node.maxChunk = 100;
+      node.pageRefusal = refusal;
+      const logs: string[] = [];
+      const reference = indexerOf(node, 0);
+      const ranged = new Indexer({
+        chain: chainOf(node),
+        store: new Store(":memory:"),
+        config: CONFIG,
+        depth: "l1",
+        range: 64,
+        log: (message) => logs.push(message),
+      });
+      await settle(reference);
+      await settle(ranged);
+      expect(ranged.status, refusal.message).toBe("ok");
+      expect(ranged.store.dump(), refusal.message).toEqual(reference.store.dump());
+      // Known by its text: the ceiling, for good. Known by the span of 1: cut, then doubled back after each read (the
+      // node refuses the doubled page again, so the size moves between 64 and 128 until the chain is read).
+      if (refusal.code === -32602) expect(ranged.chain.rangeChunkSize).toBe(64);
+      else expect(ranged.chain.rangeChunkSize).toBeLessThanOrEqual(128);
+      if (refusal.code === -32602) expect(logs.some((line) => line.includes("blocks at a time"))).toBe(false);
+      else expect(logs.some((line) => line.includes("pages of 512 events"))).toBe(true);
+    }
+  });
+
+  test("R1 review: an outage at one block never cuts the page for a code that names it; an unnamed one is cut, then the page size returns", async () => {
+    for (const code of [-32603, BLOCK_NOT_FOUND, -32005, -32000]) {
+      const node = history();
+      node.l1Accepted = node.tip;
+      let failing = true;
+      node.tamper = (method, _params, result) => {
+        if (failing && method === "starknet_getEvents") throw new RpcError(method, { code, message: "unavailable" });
+        return result;
+      };
+      const reference = indexerOf(node, 0);
+      const ranged = indexerOf(node, 8);
+      let failed = 0;
+      for (let i = 0; i < 12; i++) {
+        try {
+          await ranged.step();
+        } catch {
+          failed++;
+        }
+      }
+      // 8, 4, 2, then one block: -32000 is cut at each step there; the codes that name a cause fail the step instead.
+      if (code === -32000) {
+        expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024 / 2 ** 9);
+        expect(failed).toBe(0);
+      } else {
+        expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024);
+        expect(failed).toBe(9);
+      }
+      failing = false;
+      node.tamper = null;
+      await settle(reference);
+      await settle(ranged);
+      expect(ranged.reason).toBe("");
+      expect(ranged.store.dump(), `code ${code}`).toEqual(reference.store.dump());
+      expect(ranged.chain.rangeChunkSize, `code ${code}`).toBe(1024);
+    }
   });
 
   test("two contracts' events interleaved in one block keep the block's order", async () => {

@@ -2,14 +2,13 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
-use core::num::traits::Pow;
 use core::poseidon::{HashState, PoseidonTrait};
 
 // Internal imports
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::helpers::random_deck::draw_from_bitmap;
+use paved::helpers::random_deck::{bit_at, draw_from_bitmap};
 use paved::models::builder::{Builder, BuilderTrait};
 pub use paved::models::index::Game;
 use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
@@ -62,10 +61,11 @@ fn min_u32(value: u32, max: u32) -> u32 {
 }
 
 /// `2^index`, the bit of a card in the deck bitmap (`Bitmap::set_bit_at` computes it with a
-/// loop of 256-bit products, which costs about 0.25M L2 gas).
+/// loop of 256-bit products, which costs about 0.25M L2 gas; G5 reads it from a table instead of a
+/// 128-bit power).
 #[inline]
 fn bit(index: u8) -> u128 {
-    2_u128.pow(index.into())
+    bit_at(index)
 }
 
 #[generate_trait]

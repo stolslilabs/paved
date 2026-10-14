@@ -115,12 +115,14 @@ pub mod tests {
     pub mod collection;
     pub mod deck_walk;
     pub mod differential;
+    pub mod draw_mask;
     pub mod e2e;
     pub mod economy;
     pub mod golden;
     pub mod legacy;
     pub mod legacy_d18;
     pub mod legacy_g1;
+    pub mod legacy_g5;
     pub mod oracle;
     pub mod owners;
     pub mod seed;
