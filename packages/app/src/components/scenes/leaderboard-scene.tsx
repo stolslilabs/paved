@@ -34,7 +34,7 @@ export interface LeaderboardSceneProps {
 function Summary({ board, open, now }: { board: Leaderboard; open: boolean; now: number }) {
   const best = board.entries[0]?.bestScore;
   return (
-    <div data-slot="card" className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-card p-4">
+    <div data-slot="card" className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-card p-4 desktop:grid-cols-2">
       <div className="flex flex-col gap-0.5">
         <span className="text-[11px] text-muted-foreground">Players</span>
         <span className="numeric text-lg font-semibold">{board.total}</span>
@@ -43,10 +43,11 @@ function Summary({ board, open, now }: { board: Leaderboard; open: boolean; now:
         <span className="text-[11px] text-muted-foreground">Best</span>
         <span className="numeric text-lg font-semibold text-primary">{best == null ? "–" : formatPoints(best)}</span>
       </div>
-      <div className="flex flex-col items-start gap-1">
+      {/* The caption names the countdown: its own label is hidden (its timer keeps the sentence); in the 16 rem side card (from `desktop`) it takes the whole row. */}
+      <div className="flex flex-col items-start gap-1 desktop:col-span-2">
         <span className="text-[11px] text-muted-foreground">{open ? "Closes in" : "Day"}</span>
         {open ? (
-          <Countdown expiresAt={board.endTime} now={now} label="Closes in" className="text-sm text-foreground" />
+          <Countdown expiresAt={board.endTime} now={now} label="Closes in" className="text-sm text-foreground [&>span]:hidden" />
         ) : (
           <Badge variant="secondary">
             <Icon name="lock" size="xs" />
@@ -89,7 +90,7 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
       ) : leaderboard === null ? (
         <RankingSkeleton />
       ) : (
-        <div className="grid gap-4 desktop:grid-cols-[1fr_16rem] desktop:items-start">
+        <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_16rem] desktop:items-start">
           <div className="flex flex-col gap-3 desktop:order-2">
             <Summary board={leaderboard} open={open} now={now} />
             {!open && leaderboard.total > 0 && (

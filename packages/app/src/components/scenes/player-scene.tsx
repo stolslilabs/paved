@@ -63,7 +63,7 @@ export function PlayerScene(props: PlayerSceneProps) {
           The indexer has seen no game from this address yet.
         </p>
       ) : (
-        <div className="grid gap-4 desktop:grid-cols-2 desktop:items-start">
+        <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
           <section aria-label="Record" data-slot="card" className="rounded-xl border border-border bg-card px-4 py-2">
             {stats ? (
               <>

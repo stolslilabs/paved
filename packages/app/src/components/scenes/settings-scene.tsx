@@ -57,7 +57,7 @@ export function SettingsScene(props: SettingsSceneProps) {
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
   return (
     <TabPage tab="settings" title="Settings" onNavigate={props.onNavigate}>
-      <div className="grid gap-4 desktop:grid-cols-2 desktop:items-start">
+      <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
         <div className="flex flex-col gap-4">
           <SettingsGroup title="Visuals">
             <div className="flex flex-col gap-2 py-2.5">

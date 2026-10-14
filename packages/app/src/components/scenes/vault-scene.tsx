@@ -61,7 +61,7 @@ export function VaultScene(props: VaultSceneProps) {
   const nothing = none && balance === 0n;
   return (
     <TabPage tab="vault" title="Vault" subtitle="Stake $TILE for vPAVED" end={end} onNavigate={props.onNavigate}>
-      <div className="grid gap-4 desktop:grid-cols-[1fr_22rem] desktop:items-start">
+      <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
         <div className="flex flex-col gap-4">
           <section aria-label="Your position" data-slot="card" className="rounded-xl border border-gold-900 bg-gold-950/40 px-4 pt-4 pb-2">
             {none ? (
