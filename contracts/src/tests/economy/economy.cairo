@@ -92,7 +92,7 @@ fn setup_with(rate: u256) -> Setup {
     let paved_address = deploy_token(RECIPIENT());
     let usdc_address = deploy("Faucet", array![]);
     let router = deploy("MockRouter", array![paved_address.into(), usdc_address.into()]);
-    let vault = deploy("Vault", array![paved_address.into(), usdc_address.into()]);
+    let vault = deploy("Vault", array![OWNER().into(), paved_address.into(), usdc_address.into()]);
     let paved = IERC20Dispatcher { contract_address: paved_address };
     let usdc = IERC20Dispatcher { contract_address: usdc_address };
     // [Setup] The pool

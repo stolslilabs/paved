@@ -156,7 +156,7 @@ pub mod setup {
         let paved = deploy("PavedToken", array![owner.into(), owner.into()]);
         let usdc = deploy("Faucet", array![]);
         let router = deploy("MockRouter", array![paved.into(), usdc.into()]);
-        let vault = deploy("Vault", array![paved.into(), usdc.into()]);
+        let vault = deploy("Vault", array![owner.into(), paved.into(), usdc.into()]);
         // [Setup] The pool, from the owner's PAVED and the faucet's USDC
         IFaucetDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
         let paved_token = IERC20Dispatcher { contract_address: paved };

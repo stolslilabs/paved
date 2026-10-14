@@ -45,7 +45,9 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 fn setup() -> Setup {
     let paved_address = deploy_token(RECIPIENT());
     let usdc_address = deploy("Faucet", array![]);
-    let vault_address = deploy("Vault", array![paved_address.into(), usdc_address.into()]);
+    let vault_address = deploy(
+        "Vault", array![OWNER().into(), paved_address.into(), usdc_address.into()],
+    );
     let paved = IERC20Dispatcher { contract_address: paved_address };
     start_cheat_caller_address(paved_address, RECIPIENT());
     paved.transfer(ALICE(), 1_000 * PAVED);
@@ -314,5 +316,5 @@ fn test_vault_tokens() {
 #[should_panic]
 fn test_vault_constructor_refuses_the_same_token_twice() {
     let paved = deploy_token(RECIPIENT());
-    deploy("Vault", array![paved.into(), paved.into()]);
+    deploy("Vault", array![OWNER().into(), paved.into(), paved.into()]);
 }
