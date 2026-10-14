@@ -13,6 +13,7 @@
 //! differs from the one the new walk would have built on the same seed; every one of the 37 tiles
 //! drawn is a tile of the old deck, each once, so the 37 plans drawn are exactly the old deck's.
 
+use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::num::traits::{Pow, Zero};
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::helpers::random_deck::popcount;
@@ -28,28 +29,36 @@ use paved::types::mode::Mode;
 use paved::types::plan::Plan;
 use snforge_std::{DeclareResultTrait, declare, get_class_hash, start_cheat_caller_address};
 
-/// The number of tiles of each plan among the indexes of `bitmap` that are free (clear bits), by
-/// plan id: the bit `i` is the card `i + 1`, as `Game::draw_plan` reads it.
-fn plans_of_free(bitmap: u128) -> Array<u32> {
-    let deck = Deck::Simple;
+/// How many tiles of each plan `plans` holds, by plan id (0 to 63).
+fn counts(plans: Span<u8>) -> Array<u32> {
+    let mut by_plan: Felt252Dict<u32> = Default::default();
+    for plan in plans {
+        by_plan.insert((*plan).into(), by_plan.get((*plan).into()) + 1);
+    }
     let mut counts: Array<u32> = array![];
-    let mut plan: u8 = 0;
-    while plan < 64 {
-        let mut count: u32 = 0;
-        let mut index: u8 = 0;
-        while index < deck.total_count() {
-            if bitmap & 2_u128.pow(index.into()) == 0 {
-                let id: u8 = deck.plan((index + 1).into()).into();
-                if id == plan {
-                    count += 1;
-                }
-            }
-            index += 1;
-        }
-        counts.append(count);
+    let mut plan: felt252 = 0;
+    while plan != 64 {
+        counts.append(by_plan.get(plan));
         plan += 1;
     }
     counts
+}
+
+/// The plans of the free indexes (clear bits) of `bitmap`: the bit `i` is the card `i + 1`, as
+/// `Game::draw_plan` reads it.
+fn plans_of_free(bitmap: u128) -> Array<u8> {
+    let deck = Deck::Simple;
+    let mut plans: Array<u8> = array![];
+    let mut mask: u128 = 1;
+    let mut index: u8 = 0;
+    while index < deck.total_count() {
+        if bitmap & mask == 0 {
+            plans.append(deck.plan((index + 1).into()).into());
+        }
+        mask *= 2;
+        index += 1;
+    }
+    plans
 }
 
 #[test]
@@ -112,19 +121,7 @@ fn test_upgrade_g1_game_spawned_before_keeps_its_deck() {
     assert_eq!(drawn.len(), 37);
 
     // The 37 plans drawn are the old deck's 37 tiles, plan by plan, and not the new deck's
-    let expected = plans_of_free(old);
-    let mut counts: Array<u32> = array![];
-    let mut plan: u8 = 0;
-    while plan < 64 {
-        let mut count: u32 = 0;
-        for id in drawn.span() {
-            if *id == plan {
-                count += 1;
-            }
-        }
-        counts.append(count);
-        plan += 1;
-    }
-    assert_eq!(counts, expected);
-    assert(counts != plans_of_free(new), 'G1: same plans');
+    let drawn = counts(drawn.span());
+    assert_eq!(drawn, counts(plans_of_free(old).span()));
+    assert(drawn != counts(plans_of_free(new).span()), 'G1: same plans');
 }

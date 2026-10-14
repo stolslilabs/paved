@@ -240,7 +240,7 @@ pub mod tests {
         let deck: Deck = Deck::Simple;
         let seed: felt252 = 0;
         let tiles: u128 = deck.tiles(0, seed);
-        println!("DECK test_tiles {}", tiles);
-        assert(tiles == 0x51cc75898dfe86a218, 'Deck: tiles');
+        // [Info] G1: also given by an independent JavaScript implementation of the walk
+        assert(tiles == 0xc88526b74cd8588fe4, 'Deck: tiles');
     }
 }
