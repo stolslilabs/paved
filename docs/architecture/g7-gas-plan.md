@@ -475,3 +475,5 @@ Mac. No contract change.
    compute cut gains less in release.
 6. **None of the cuts above changes a rule.** The ones that would (a 128-bit seed, fewer quest entries, a lazy deck
    walk) are rejected in section 3.
+
+Ruled: P-59.
