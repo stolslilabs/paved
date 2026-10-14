@@ -331,15 +331,25 @@ describe("Purchase", () => {
   });
 });
 
-describe("no wiring (SC1)", () => {
+describe("no wiring (SC1, SC2)", () => {
   const src = join(__dirname, "../src");
   const files = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)]));
 
+  const tiers = () => ["components/elements", "components/containers", "components/scenes", "mocks"].flatMap((d) => files(join(src, d)));
+
   it("imports only types from @paved/chain in the scenes, containers, elements and mocks", () => {
-    const tiers = ["components/elements", "components/containers", "components/scenes", "mocks"].flatMap((d) => files(join(src, d)));
-    const valueImports = tiers.filter((f) => /^import (?!type )[^;]*from "@paved\/chain"/m.test(readFileSync(f, "utf8")));
+    const valueImports = tiers().filter((f) => /^import (?!type )[^;]*from "@paved\/chain"/m.test(readFileSync(f, "utf8")));
     expect(valueImports).toEqual([]);
+  });
+
+  // SC2: the quests, achievements and referral read the indexer's answers. Its package is the daemon (SQLite, starknet.js):
+  // never a value import, and no request (fetch, the chain package's IndexerClient, a session) from these tiers.
+  it("imports only types from @paved/indexer, and calls no indexer, chain or session", () => {
+    const valueImports = tiers().filter((f) => /^import (?!type )[^;]*from "@paved\/indexer[^"]*"/m.test(readFileSync(f, "utf8")));
+    expect(valueImports).toEqual([]);
+    const calls = tiers().filter((f) => /\bfetch\(|IndexerClient|createEconomyClient|RpcEconomyViews|EconomyWriter|PageSession|LocalSession|useAsyncRead|useIndexerRead/.test(readFileSync(f, "utf8")));
+    expect(calls).toEqual([]);
   });
 
   it("leaves the routes without the scenes, so the app bundle is unchanged", () => {

@@ -22,7 +22,7 @@ function position(shares: bigint): VaultPosition {
 /** No vPAVED yet. */
 export const VAULT_NONE = position(0n);
 
-/** 1,250.4 vPAVED: worth about 1,355.69 PAVED, 1,287.90 of it withdrawable now. */
+/** 1,250.4 vPAVED: worth about 1,355.68 PAVED, 1,287.89 of it withdrawable now. */
 export const VAULT_HELD = position(1_250_400_000_000_000_000_000n);
 
 /** `Vault.preview_deposit(100 PAVED)` at this rate. */
