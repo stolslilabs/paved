@@ -1,7 +1,11 @@
 # Line coverage of the contracts, and the gaps that matter (P5)
 
 Measured on 2026-10-14 on main at `420d9529`. Brief: `docs/briefs/coverage-1-measure.md`. This is a
-measure and a test plan: no contract or test code changes here.
+measure and a test plan: no contract or test code changes here. Every `file:line` is at `420d9529`.
+
+#391 (`25fad57c`) was merged after the measure. It adds a position check to `Challenge.build` and the tests in
+`e2e/position.cairo`. The `systems/challenge.cairo` lines cited below from 245 on are 10 lines lower on main.
+Nothing else in `contracts/src` moved.
 
 ## Summary
 
