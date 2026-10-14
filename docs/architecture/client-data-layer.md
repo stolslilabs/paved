@@ -145,7 +145,7 @@ field of the view) is the start plus 86,400; from that second on `build` and `di
 `surrender` stays open: an expired game ends only when its player surrenders, is recorded by the Economy as expired (its
 score, no reward, no mean) and is settled for 0. The client types the revert as `GameExpiredError` (`writer.ts`, from the
 fee estimation or the receipt, text or short-string hex), whose message is true to that rule: "This game has expired: its
-24 hours are over. Surrender to close it; it still counts for its score." `GameSession` checks `expiresAt` against the
+24 hours are over. Surrender to close it: its score is recorded, but an expired game earns no reward." `GameSession` checks `expiresAt` against the
 time it is given (the clock by default, the block time in the e2e) before a `place` or a `discard` and sends nothing;
 `surrender` has no pre-check. The game page shows the message through its existing `writeError` notice. A game bought
 before the upgrade has the same 24 h from its stored start. `EconomyWriter.settle` still refuses a recorded expired

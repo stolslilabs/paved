@@ -75,7 +75,7 @@ export class FaucetCapError extends WriteError {
 
 const GAME_EXPIRED = "Game: expired";
 /** What the player reads when a game's 24 hours are over (the card and the typed error). */
-export const GAME_EXPIRED_TEXT = "This game has expired: its 24 hours are over. Surrender to close it; it still counts for its score.";
+export const GAME_EXPIRED_TEXT = "This game has expired: its 24 hours are over. Surrender to close it: its score is recorded, but an expired game earns no reward.";
 
 /**
  * The game's 24 hours are over (S1): `build` and `discard` are refused, `surrender` is not. Raised before any call is

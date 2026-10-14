@@ -74,7 +74,7 @@ export class GameSession {
     private readonly views: GameViews,
     readonly key: GameKey,
     private readonly playerId: string | null,
-    /** The time in seconds that `expiresAt` is compared with: the block time where it is known, else the clock. */
+    /** The time in seconds that `expiresAt` is compared with: the wall clock by default; the e2e passes block time. */
     private readonly now: () => number = () => Math.floor(Date.now() / 1000),
   ) {
     this.current = {
