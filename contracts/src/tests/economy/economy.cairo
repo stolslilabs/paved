@@ -18,7 +18,7 @@ use openzeppelin_interfaces::erc4626::{
 };
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::economy::curve::{
-    RATE_SCALE, guarded, next_rate, reference, split, supply_factor, vault_split,
+    RATE_SCALE, guarded, next_rate, payout, reference, split, supply_factor, threshold, vault_split,
 };
 use paved::economy::ekubo::{
     Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
@@ -27,7 +27,7 @@ use paved::economy::ekubo::{
 use paved::economy::mean::Ema;
 use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
 use paved::systems::economy::Economy::{
-    DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, RouterSet, Settled,
+    DayClosed, EconomyConfigured, Event, GameSet, PoolSet, Purchased, Recorded, RouterSet, Settled,
 };
 use paved::systems::economy::{
     BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
@@ -361,10 +361,36 @@ fn test_purchase_without_a_referrer_swaps_the_whole_price() {
 #[test]
 fn test_purchase_referring_oneself_pays_no_referral() {
     let s = setup();
-    buy(s, 1, PLAYER(), 1, PLAYER());
+    let supply = s.paved.total_supply();
+    let (referral, quote, margin) = split(2 * USDC, 7_000, 500, false);
+    assert_eq!((referral, quote, margin), (0, 1_400_000, 600_000));
+    let out = router_quote(s, 2_000_000);
+    let (burn_part, to_vault) = vault_split(out, quote, margin);
+    let mut spy = spy_events();
+    let r = buy(s, 1, PLAYER(), 1, PLAYER());
     assert_eq!(s.usdc.balance_of(PLAYER()), 0);
     assert_eq!(usdc_reserve(s), 10_002 * USDC);
     assert_nothing_left(s);
+    // The event reports no referrer and no referral, not the player as its own referrer
+    let after = s.paved.total_supply();
+    assert_eq!(supply - after, burn_part);
+    let event = Purchased {
+        game_id: 1,
+        player_id: PLAYER().into(),
+        day: DAY0,
+        stake: 1,
+        price: 2 * USDC,
+        referrer: Zero::zero(),
+        referral: 0,
+        burned_quote: quote,
+        burned: burn_part,
+        margin,
+        supply: after,
+        factor: supply_factor(after, 1_000_000 * ONE_PAVED),
+        reference: r,
+        vault_paved: to_vault,
+    };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::Purchased(event))]);
 }
 
 /// Each purchase's margin reaches the Vault as PAVED with no share minted: the Vault's assets grow
@@ -407,12 +433,34 @@ fn test_donations_to_economy_join_the_margin_and_the_burn() {
     stop_cheat_caller_address(s.paved.contract_address);
     let out = router_quote(s, 7_000_000);
     let supply = s.paved.total_supply();
-    buy(s, 1, PLAYER(), 1, Zero::zero());
+    let mut spy = spy_events();
+    let r = buy(s, 1, PLAYER(), 1, Zero::zero());
     assert_eq!(usdc_reserve(s), 10_007 * USDC);
     // The margin is 0.6 USDC of the price and the 5 USDC donated
     assert_eq!(vault_paved(s), out * 5_600_000 / 7_000_000);
     assert_eq!(supply - s.paved.total_supply(), out - vault_paved(s) + 7 * ONE_PAVED);
     assert_nothing_left(s);
+    // The event reports the donation in the margin, the Vault's PAVED, and the donated PAVED burned
+    let (burn_part, to_vault) = vault_split(out, 1_400_000, 5_600_000);
+    assert_eq!(to_vault, out * 5_600_000 / 7_000_000);
+    let after = s.paved.total_supply();
+    let event = Purchased {
+        game_id: 1,
+        player_id: PLAYER().into(),
+        day: DAY0,
+        stake: 1,
+        price: 2 * USDC,
+        referrer: Zero::zero(),
+        referral: 0,
+        burned_quote: 1_400_000,
+        burned: burn_part + 7 * ONE_PAVED,
+        margin: 5_600_000,
+        supply: after,
+        factor: supply_factor(after, 1_000_000 * ONE_PAVED),
+        reference: r,
+        vault_paved: to_vault,
+    };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::Purchased(event))]);
 }
 
 #[test]
@@ -1119,9 +1167,16 @@ fn test_configure_the_split_at_its_bounds_and_its_event() {
         let reserve = usdc_reserve(s);
         let price = 7 * BASE_PRICE;
         let game_id: u32 = burn_bps.into() + referral_bps.into();
+        let vault_before = vault_paved(s);
         buy(s, game_id, PLAYER(), 7, REFERRER());
         let referral = price * referral_bps.into() / 10_000;
         assert_eq!(usdc_reserve(s) - reserve, price - referral);
+        // The Vault's PAVED: nothing when the referral takes the whole margin, else it grows
+        if referral_bps == 10_000 - burn_bps {
+            assert_eq!(vault_paved(s), vault_before);
+        } else {
+            assert!(vault_paved(s) > vault_before);
+        }
         assert_nothing_left(s);
     }
     assert_eq!(s.usdc.balance_of(REFERRER()), 2 * 7 * BASE_PRICE * 1_000 / 10_000);
@@ -1217,9 +1272,12 @@ fn test_set_pool_takes_another_fee_on_the_same_tokens() {
     let s = setup();
     let (pool_key, _) = s.economy.pool();
     let other = PoolKey { fee: 1, ..pool_key };
+    let mut spy = spy_events();
     start_cheat_caller_address(s.economy.contract_address, OWNER());
     s.economy.set_pool(other, 7);
     assert_eq!(s.economy.pool(), (other, 7));
+    let event = PoolSet { pool_key: other, sqrt_ratio_limit: 7 };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::PoolSet(event))]);
 }
 
 #[test]
@@ -1557,6 +1615,233 @@ fn test_purchase_at_99_percent_of_quote_swap_passes() {
     s.economy.purchase(1, PLAYER(), DAY0, 10, 10 * BASE_PRICE, Zero::zero(), min_out);
     stop_cheat_caller_address(s.economy.contract_address);
     assert_nothing_left(s);
+}
+
+// Coverage T1 (docs/measures/coverage.md): what settlement and the quotes read, the router's
+// legs, the constructor and the first operand of the game guard
+
+/// A curve unlike the decided one in its sigma, slope and cap.
+fn other_curve() -> Config {
+    Config { sigma_bps: -3_000, slope_bps: 1_000, cap: 1, ..decided() }
+}
+
+/// `settle` reads the curve that the purchase froze in the game's terms, not today's `config`: game
+/// 1 is bought before a `configure`, game 2 after, and each is paid and reported with its own.
+#[test]
+fn test_settle_pays_with_the_curve_frozen_at_purchase() {
+    let s = setup();
+    let r1 = buy(s, 1, PLAYER(), 2, Zero::zero());
+    configure(s, other_curve());
+    let r2 = buy(s, 2, SOMEONE(), 2, Zero::zero());
+    assert_eq!((s.economy.terms(1).sigma_bps, s.economy.terms(1).slope_bps), (0, 12_220));
+    assert_eq!((s.economy.terms(2).sigma_bps, s.economy.terms(2).slope_bps), (-3_000, 1_000));
+    record(s, 1, 6_000);
+    record(s, 2, 6_000);
+    at(DAY0 + 2, 0);
+    let mut spy = spy_events();
+    let minted = s.economy.settle(array![1, 2].span());
+    // The day's mean: (100 x prior + 4 x 6,000,000) / 104, two games of stake 2
+    let mean: u64 = (100 * MEAN0 + 24_000_000) / 104;
+    assert_eq!(s.economy.day(DAY0).mean, mean);
+    // Game 1 with the curve of its purchase (cap 5), game 2 with the new one (cap 1)
+    let first = payout(r1, 6_000, threshold(mean, 0), 12_220, 5);
+    let second = payout(r2, 6_000, threshold(mean, -3_000), 1_000, 1);
+    assert!(first > 0 && second > 0);
+    assert_eq!(s.economy.terms(1).reward, first);
+    assert_eq!(s.economy.terms(2).reward, second);
+    assert_eq!(s.paved.balance_of(PLAYER()), first.into());
+    assert_eq!(s.paved.balance_of(SOMEONE()), second.into());
+    let total: u256 = first.into() + second.into();
+    assert_eq!(minted, total);
+    // The configuration of the day of the settlement would have paid game 1 otherwise
+    assert!(payout(r1, 6_000, threshold(mean, -3_000), 1_000, 1) != first);
+    let settled_1 = Settled {
+        game_id: 1,
+        player_id: PLAYER().into(),
+        day: DAY0,
+        score: 6_000,
+        threshold: mean,
+        reward: first,
+    };
+    let settled_2 = Settled {
+        game_id: 2,
+        player_id: SOMEONE().into(),
+        day: DAY0,
+        score: 6_000,
+        threshold: threshold(mean, -3_000),
+        reward: second,
+    };
+    assert_eq!(settled_2.threshold, mean * 7 / 10);
+    spy
+        .assert_emitted(
+            @array![
+                (s.economy.contract_address, Event::Settled(settled_1)),
+                (s.economy.contract_address, Event::Settled(settled_2)),
+            ],
+        );
+}
+
+/// A batch returns what it minted: the sum of every paying game's reward, not the last one's.
+#[test]
+fn test_settle_returns_the_sum_of_a_batch() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    buy(s, 2, SOMEONE(), 3, Zero::zero());
+    record(s, 1, 6_000);
+    record(s, 2, 9_000);
+    at(DAY0 + 2, 0);
+    let supply = s.paved.total_supply();
+    let minted = s.economy.settle(array![1, 2].span());
+    let first = s.paved.balance_of(PLAYER());
+    let second = s.paved.balance_of(SOMEONE());
+    assert!(first > 0 && second > 0);
+    assert_eq!(first, s.economy.terms(1).reward.into());
+    assert_eq!(second, s.economy.terms(2).reward.into());
+    assert_eq!(minted, first + second);
+    assert_eq!(s.paved.total_supply() - supply, minted);
+}
+
+/// The same game twice in one batch pays once: the first pass writes SETTLED, the second skips it.
+#[test]
+fn test_settle_the_same_game_twice_in_one_batch_pays_once() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    record(s, 1, 6_000);
+    at(DAY0 + 2, 0);
+    let supply = s.paved.total_supply();
+    let minted = s.economy.settle(array![1, 1].span());
+    let reward: u256 = s.economy.terms(1).reward.into();
+    assert!(reward > 0);
+    assert_eq!(minted, reward);
+    assert_eq!(s.paved.balance_of(PLAYER()), reward);
+    assert_eq!(s.paved.total_supply() - supply, reward);
+}
+
+/// A day that has a prior quotes it as its mean, though the EMA has moved since: game 2 is bought
+/// on `DAY0 + 2` (prior `MEAN0`), then day 0 closes and the EMA moves.
+#[test]
+fn test_quote_uses_todays_prior_not_the_moved_ema() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    record(s, 1, 6_000);
+    at(DAY0 + 2, 3600);
+    buy(s, 2, SOMEONE(), 1, Zero::zero());
+    assert_eq!(s.economy.day(DAY0 + 2).prior, MEAN0);
+    s.economy.settle(array![1].span());
+    let (_, ema_mean) = s.economy.ema();
+    assert_eq!(ema_mean, (100 * MEAN0 + 12_000_000) / 102);
+    assert!(ema_mean != MEAN0);
+    let quote = s.economy.quote(1);
+    assert_eq!(quote.mean, MEAN0);
+    assert_eq!(quote.threshold, MEAN0);
+}
+
+/// The quote's cliff follows the configured sigma, and its factor the supply against the target.
+#[test]
+fn test_quote_threshold_follows_sigma() {
+    let s = setup();
+    configure(s, Config { sigma_bps: -3_000, ..decided() });
+    let quote = s.economy.quote(1);
+    assert_eq!(quote.mean, MEAN0);
+    assert_eq!(quote.threshold, threshold(MEAN0, -3_000));
+    assert_eq!(quote.threshold, 2_786_000);
+    // After a burn the supply is under the target: the factor is above 1x
+    buy(s, 1, PLAYER(), 10, Zero::zero());
+    let quote = s.economy.quote(1);
+    let factor = supply_factor(s.paved.total_supply(), 1_000_000 * ONE_PAVED);
+    assert_eq!(quote.factor, factor);
+    assert!(factor > 10_000 && factor < 20_000);
+}
+
+/// A router that reports the USDC leg as paid out (not paid in) is refused as a partial fill.
+#[test]
+#[should_panic(expected: 'Economy: partial fill')]
+fn test_purchase_refuses_a_usdc_leg_paid_out() {
+    let s = setup();
+    mock_swap(
+        s, i129 { mag: 2_000_000, sign: true }, i129 { mag: 100 * ONE_PAVED.low, sign: true },
+    );
+    buy(s, 1, PLAYER(), 1, Zero::zero());
+}
+
+/// A quote of a zero PAVED leg, with the sign of an input, is 0.
+#[test]
+fn test_quote_swap_of_a_zero_paved_leg_paid_in_is_zero() {
+    let s = setup();
+    mock_quote(s, i129 { mag: 1_400_000, sign: false }, i129 { mag: 0, sign: false });
+    assert_eq!(s.economy.quote_swap(1_400_000), 0);
+}
+
+/// The Economy's calldata at the launch rate, the addresses given.
+fn economy_calldata(
+    s: Setup,
+    owner: ContractAddress,
+    paved: ContractAddress,
+    usdc: ContractAddress,
+    vault: ContractAddress,
+    router: ContractAddress,
+) -> Array<felt252> {
+    let (pool_key, _) = s.economy.pool();
+    let mut calldata: Array<felt252> = array![
+        owner.into(), paved.into(), usdc.into(), vault.into(), router.into(),
+    ];
+    pool_key.serialize(ref calldata);
+    0_u256.serialize(ref calldata);
+    decided().serialize(ref calldata);
+    MEAN0.serialize(ref calldata);
+    POOL_RATE.serialize(ref calldata);
+    calldata
+}
+
+/// A zero owner, PAVED, USDC, Vault or router is refused, each in turn (a zero Vault would send the
+/// margin's PAVED to address 0).
+#[test]
+fn test_constructor_refuses_a_zero_address() {
+    let s = setup();
+    let class = declare("Economy").unwrap().contract_class();
+    let zero: ContractAddress = Zero::zero();
+    let (paved, usdc) = (s.paved.contract_address, s.usdc.contract_address);
+    let calls = array![
+        economy_calldata(s, zero, paved, usdc, s.vault, s.router),
+        economy_calldata(s, OWNER(), zero, usdc, s.vault, s.router),
+        economy_calldata(s, OWNER(), paved, zero, s.vault, s.router),
+        economy_calldata(s, OWNER(), paved, usdc, zero, s.router),
+        economy_calldata(s, OWNER(), paved, usdc, s.vault, zero),
+    ];
+    for calldata in calls {
+        match class.deploy(@calldata) {
+            Result::Ok(_) => panic!("a zero address was accepted"),
+            Result::Err(data) => assert_eq!(*data.at(0), 'Economy: zero address'),
+        }
+    }
+    // The same calldata with none zero deploys
+    class.deploy(@economy_calldata(s, OWNER(), paved, usdc, s.vault, s.router)).unwrap();
+}
+
+/// Before `set_game` the game is the zero address, and the zero caller is not it: a zero game with
+/// a zero caller would otherwise match.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_purchase_before_set_game_reverts_for_zero() {
+    let s = setup();
+    let class = declare("Economy").unwrap().contract_class();
+    let (paved, usdc) = (s.paved.contract_address, s.usdc.contract_address);
+    let (address, _) = class
+        .deploy(@economy_calldata(s, OWNER(), paved, usdc, s.vault, s.router))
+        .unwrap();
+    let zero: ContractAddress = Zero::zero();
+    assert_eq!(IEconomyDispatcher { contract_address: address }.addresses().game, zero);
+    IFaucetDispatcher { contract_address: usdc }.mint(address, BASE_PRICE);
+    start_cheat_caller_address(address, zero);
+    let safe = IEconomySafeDispatcher { contract_address: address };
+    match safe.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, zero, 0) {
+        Result::Ok(_) => panic!("a purchase by the zero caller passed"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: not the game'),
+    }
+    match safe.record(1, 1_000) {
+        Result::Ok(_) => panic!("a record by the zero caller passed"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: not the game'),
+    }
 }
 
 // The end-to-end fixture against sim.py

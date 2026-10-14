@@ -4,9 +4,11 @@
 #   2. line coverage of contracts/src (snforge --coverage + cairo-coverage + lcov), whole or in
 #      split runs (one snforge run per test group, lcov files merged) to lower the peak of each run.
 #
-# Usage: scripts/measure.sh [gas|coverage|coverage-split|check-setup|all]   (default: all;
-#        `all` runs the whole coverage, `coverage-split` is the split one: its peak is
-#        9.34 GB RSS, so it runs on the Mac or in CI, and is refused on Linux without an override)
+# Usage: scripts/measure.sh [gas|coverage|coverage-split|check-setup|check-groups|all]   (default: all;
+#        `all` runs the whole coverage, `coverage-split` is the split one. Coverage runs peak at 8.4 to 14.6 GB RSS
+#        (docs/measures/coverage.md, "Peaks"), so they run on the Mac under a 16 GB stop (stop the run above it and
+#        report) or in CI, and are refused on Linux without an override. `check-groups` builds nothing and needs no
+#        toolchain: it fails when a test module of the crate is in no COVERAGE_GROUPS group.)
 #        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
@@ -17,7 +19,9 @@
 # the caller sets them (=$HOME/.local/bin passes). Before any build a guard refuses (exit 2) when a shim exists and the
 # tool resolves elsewhere (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns.
 # PAVED_SCARB_SHIM / PAVED_SNFORGE_SHIM are the shim paths the guard expects (defaults ~/.local/bin/scarb and
-# ~/.local/bin/snforge): a hook for scripts/test-deploy-url.sh, not a way round the rule.
+# ~/.local/bin/snforge): TEST HOOKS ONLY (PM, 2026-10-14), for scripts/test-deploy-url.sh. A thread never points them at
+# a real binary to get past the guard. A shim is a script (`#!` first line): a native binary at that path (the Mac holds
+# a stray scarb there) is no shim, and only warns.
 # cairo-coverage (https://github.com/software-mansion/cairo-coverage) is not a Cairo build: snforge finds it on the PATH,
 # where its directory (CAIRO_COVERAGE_BIN_DIR, default the asdf install, when it exists) goes first: it holds no scarb or
 # snforge, and the guard, run after the PATH is set, refuses if it ever does.
@@ -25,6 +29,82 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/contracts"
+
+# The test groups of the split run: `name|snforge filter|extra snforge arguments` (a filter is a
+# substring of the test path; one run each). They are meant to cover every test of the crate, `tests/gas.cairo`
+# included, and `check-groups` fails when a test module is in none. The exhaustive table tests (`paved::structure::tables`) peak above
+# 8 GiB when run together, so they run by partition (`--partition i/12`: two tests per run).
+COVERAGE_GROUPS=(
+  "types|paved::types::|"
+  "elements|paved::elements::|"
+  "helpers-random-deck|paved::helpers::random_deck::|"
+  "helpers-multiplier|paved::helpers::multiplier::|"
+  "models|paved::models::|"
+  "structure-record|paved::structure::record::|"
+  "structure-placement|paved::structure::placement::|"
+  "structure-state|paved::structure::state::|"
+  "structure-oriented|paved::structure::oriented::|"
+  "structure-tables-1|paved::structure::tables::|--partition 1/12"
+  "structure-tables-2|paved::structure::tables::|--partition 2/12"
+  "structure-tables-3|paved::structure::tables::|--partition 3/12"
+  "structure-tables-4|paved::structure::tables::|--partition 4/12"
+  "structure-tables-5|paved::structure::tables::|--partition 5/12"
+  "structure-tables-6|paved::structure::tables::|--partition 6/12"
+  "structure-tables-7|paved::structure::tables::|--partition 7/12"
+  "structure-tables-8|paved::structure::tables::|--partition 8/12"
+  "structure-tables-9|paved::structure::tables::|--partition 9/12"
+  "structure-tables-10|paved::structure::tables::|--partition 10/12"
+  "structure-tables-11|paved::structure::tables::|--partition 11/12"
+  "structure-tables-12|paved::structure::tables::|--partition 12/12"
+  "store|paved::store::|"
+  "quests|paved::quests::|"
+  "e2e|paved::tests::e2e::|"
+  "golden|paved::tests::golden::|"
+  "differential|paved::tests::differential|"
+  "oracle|paved::tests::oracle|"
+  "tests-collection|paved::tests::collection|"
+  "tests-deck-walk|paved::tests::deck_walk|"
+  "tests-draw-mask|paved::tests::draw_mask|"
+  "tests-economy|paved::tests::economy::|"
+  "tests-owners|paved::tests::owners|"
+  "tests-seed|paved::tests::seed|"
+  "tests-walk-cost|paved::tests::walk_cost|"
+  "gas|test_gas_|"
+)
+
+# `check-groups`: every file of the crate with a #[test] (src/**, and tests/*.cairo by test name) must match the filter
+# of at least one group. A module `paved::a::b` is matched when a filter is a substring of `paved::a::b::`, as a test
+# path `paved::a::b::<test>` would be. Reads the source tree only: no build, no toolchain.
+check_groups() {
+  local f mod name g rest filter missing=0 hit
+  while IFS= read -r f; do
+    mod="paved::$(echo "${f#src/}" | sed -e 's/\.cairo$//' -e 's#/#::#g')::"
+    hit=0
+    for g in "${COVERAGE_GROUPS[@]}"; do
+      rest="${g#*|}"; filter="${rest%%|*}"
+      [[ "$mod" == *"$filter"* ]] && { hit=1; break; }
+    done
+    [[ "$hit" == 1 ]] || { echo "check-groups: module ${mod%::} ($f) is in no COVERAGE_GROUPS group"; missing=1; }
+  done < <(grep -rl '#\[test\]' src | LC_ALL=C sort)
+  while IFS= read -r name; do
+    hit=0
+    for g in "${COVERAGE_GROUPS[@]}"; do
+      rest="${g#*|}"; filter="${rest%%|*}"
+      [[ "$name" == *"$filter"* ]] && { hit=1; break; }
+    done
+    [[ "$hit" == 1 ]] || { echo "check-groups: integration test $name (tests/) is in no COVERAGE_GROUPS group"; missing=1; }
+  done < <(find tests -name '*.cairo' -print0 | xargs -0 awk '/#\[test\]/ { t = 1; next } t && /^[[:space:]]*(pub )?fn / { sub(/^[[:space:]]*(pub )?fn /, ""); sub(/\(.*/, ""); print; t = 0 }' | LC_ALL=C sort)
+  # `test_gas_` is a name filter: a src test named like it would run in two groups (warned, not failed)
+  grep -rnE 'fn test_gas_' src | sed 's/^/check-groups: warning: a src test is also matched by the test_gas_ group: /' || true
+  [[ "$missing" == 0 ]] || return 1
+  echo "check-groups: every test module is in a COVERAGE_GROUPS group (${#COVERAGE_GROUPS[@]} groups)"
+}
+
+# Limits of check-groups: it matches by module path and test name only. A module whose tests are all #[ignore] is still
+# required to be in a group (coverage_split skips a group that runs nothing); a test matched by two groups is not detected,
+# except the test_gas_ name filter (warned).
+# check-groups reads the source tree only: it runs before the shim guard, which needs a toolchain.
+if [ "${1:-}" = check-groups ]; then check_groups; exit $?; fi
 
 [ -z "${SCARB_BIN_DIR:-}" ] || export PATH="$SCARB_BIN_DIR:$PATH"
 [ -z "${SNFORGE_BIN_DIR:-}" ] || export PATH="$SNFORGE_BIN_DIR:$PATH"
@@ -35,18 +115,25 @@ CAIRO_COVERAGE_BIN_DIR="${CAIRO_COVERAGE_BIN_DIR:-$HOME/.asdf/installs/cairo-cov
 if [ -d "$CAIRO_COVERAGE_BIN_DIR" ]; then
   export PATH="$CAIRO_COVERAGE_BIN_DIR:$PATH"
 fi
-# one tool, one shim: refuse when the shim exists and the tool resolves elsewhere, warn when there is no shim
+# one tool, one shim: refuse when the shim exists and the tool resolves elsewhere, warn when there is no shim. A shim is
+# an executable script (`#!` first line); a native binary at the path counts as no shim.
 shim_guard() { # <tool> <shim path> <override variable name>
-  local found
+  local found note
   found="$(command -v "$1" || true)"
-  if [ -x "$2" ]; then
+  note="no shim at $2"
+  if [ -x "$2" ] && [ ! -r "$2" ]; then
+    echo "measure.sh: the shim $2 is executable but unreadable, so it cannot be told from a stray binary: refusing (fix its permissions)" >&2
+    exit 2
+  elif [ -x "$2" ] && [ "$(head -c 2 "$2" 2>/dev/null | tr -d '\0')" != '#!' ]; then
+    note="no shim at $2 (a native binary, not a script)"
+  elif [ -x "$2" ]; then
     if [ "$found" != "$2" ]; then
       echo "measure.sh: $1 resolves to ${found:-(not found)}, not the shim $2: the owner's rule is one Cairo run at a time through the shims (set $3=\$HOME/.local/bin, or fix PATH)" >&2
       exit 2
     fi
-  else
-    echo "measure.sh: warning: no shim at $2, using $1 ${found:-(not found)}" >&2
+    return 0
   fi
+  echo "measure.sh: warning: $note, using $1 ${found:-(not found)}" >&2
 }
 shim_guard scarb "${PAVED_SCARB_SHIM:-$HOME/.local/bin/scarb}" SCARB_BIN_DIR
 shim_guard snforge "${PAVED_SNFORGE_SHIM:-$HOME/.local/bin/snforge}" SNFORGE_BIN_DIR
@@ -55,9 +142,11 @@ shim_guard snforge "${PAVED_SNFORGE_SHIM:-$HOME/.local/bin/snforge}" SNFORGE_BIN
 # (RAYON_NUM_THREADS=1, under a 16 GiB cap; see AGENTS.md): `snforge test paved::types::` VmPeak 10,374,784 kB
 # (9.89 GiB; VmHWM 6,269,668 kB), the largest of any snforge run (its scarb test-build child), so the cap is
 # 15 GiB for every snforge run here (a cold test build after `scarb clean` peaked at 9,326,232 kB, 14 GiB).
-# `coverage` and `all` are unmeasured (expected above 8 GB RSS): refused on Linux, measure on the Mac or in CI. `coverage-split` has an RSS of 9.34 GB, above
-# the Mac threshold, and its VmPeak is unmeasured on Linux: it runs on the Mac (P-33, no cap) or in CI, and is
-# refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum); `coverage` and `all` (unmeasured) too. MEM_CAP_BYTES overrides.
+# Coverage runs (`coverage-split` groups, `coverage`, `all`) peak at 8.4 to 14.6 GB RSS on the Mac (docs/measures/coverage.md,
+# "Peaks": largest group `e2e` 14.64 GB, `tests-draw-mask` 13.99 GB; the unsplit run with default threads reached 18.5 GB and was
+# stopped, hence its --max-threads 2 now), and their VmPeak is unmeasured on Linux. They run on the Mac (P-33, no cap, `time -l`,
+# stopped above 16 GB) or in CI, and are refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum).
+# MEM_CAP_BYTES overrides.
 # A capped run with no progress for 15 minutes is stopped and moved, never left waiting.
 MEM_CAP_DEFAULT_BYTES=16106127360
 MEM_CAP_COVERAGE_SPLIT_BYTES=17179869184
@@ -67,8 +156,8 @@ export RAYON_NUM_THREADS=1
 mode="${1:-all}"
 if [ "$(uname -s)" != Darwin ] && [ "${ALLOW_COVERAGE_SPLIT_ON_LINUX:-}" != 1 ]; then
   case "$mode" in
-    coverage-split) echo "coverage-split peaks at 9.34 GB RSS: run it on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
-    coverage|all) echo "$mode is unmeasured, expected above 8 GB RSS: run on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
+    coverage-split) echo "coverage-split peaks at 8.4 to 14.6 GB RSS: run it on the Mac (stop above 16 GB) or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
+    coverage|all) echo "$mode peaks above 8 GB RSS: run it on the Mac (stop above 16 GB) or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
   esac
 fi
 
@@ -119,45 +208,11 @@ coverage_table() {
 coverage() {
   echo "== Line coverage of contracts/src"
   rm -rf coverage
-  run_capped snforge test -P coverage --coverage 2>&1 | grep -iE '^Tests:|maximum resident|coverage'
+  run_capped snforge test -P coverage --coverage --max-threads 2 2>&1 | grep -iE '^Tests:|maximum resident|coverage'
   lcov="$(pwd)/coverage/coverage.lcov"
   test -s "$lcov" || { echo "no coverage.lcov produced"; exit 1; }
   coverage_table "$lcov"
 }
-
-# The test groups of the split run: `name|snforge filter|extra snforge arguments` (a filter is a
-# substring of the test path; one run each). Together they cover every test of the crate,
-# `tests/gas.cairo` included. The exhaustive table tests (`paved::structure::tables`) peak above
-# 8 GiB when run together, so they run by partition (`--partition i/12`: two tests per run).
-COVERAGE_GROUPS=(
-  "types|paved::types::|"
-  "elements|paved::elements::|"
-  "helpers-random-deck|paved::helpers::random_deck::|"
-  "helpers-multiplier|paved::helpers::multiplier::|"
-  "models|paved::models::|"
-  "structure-record|paved::structure::record::|"
-  "structure-placement|paved::structure::placement::|"
-  "structure-state|paved::structure::state::|"
-  "structure-oriented|paved::structure::oriented::|"
-  "structure-tables-1|paved::structure::tables::|--partition 1/12"
-  "structure-tables-2|paved::structure::tables::|--partition 2/12"
-  "structure-tables-3|paved::structure::tables::|--partition 3/12"
-  "structure-tables-4|paved::structure::tables::|--partition 4/12"
-  "structure-tables-5|paved::structure::tables::|--partition 5/12"
-  "structure-tables-6|paved::structure::tables::|--partition 6/12"
-  "structure-tables-7|paved::structure::tables::|--partition 7/12"
-  "structure-tables-8|paved::structure::tables::|--partition 8/12"
-  "structure-tables-9|paved::structure::tables::|--partition 9/12"
-  "structure-tables-10|paved::structure::tables::|--partition 10/12"
-  "structure-tables-11|paved::structure::tables::|--partition 11/12"
-  "structure-tables-12|paved::structure::tables::|--partition 12/12"
-  "store|paved::store::|"
-  "e2e|paved::tests::e2e::|"
-  "golden|paved::tests::golden::|"
-  "differential|paved::tests::differential|"
-  "oracle|paved::tests::oracle|"
-  "gas|test_gas_|"
-)
 
 # Sums the line hits of lcov files per source file and line: `merge_lcov out in...`.
 merge_lcov() {
@@ -199,6 +254,11 @@ coverage_split() {
       echo "group $name: snforge exited with status $status (log: $log)"; exit 1
     fi
     grep -qE '^Tests:.* 0 failed' "$log" || { echo "group $name: its Tests: line does not say 0 failed (log: $log)"; exit 1; }
+    # A group whose tests are all #[ignore] (tests-walk-cost) runs nothing and writes no lcov: skipped, not failed.
+    # `rm -rf coverage` above leaves no lcov of a previous group to be copied by mistake.
+    if grep -qE '^Tests:.* 0 passed' "$log" && grep -qE '^Tests:.* [1-9][0-9]* ignored' "$log"; then
+      echo "group $name: no runnable test (all ignored), skipped"; continue
+    fi
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")
@@ -214,6 +274,7 @@ case "$mode" in
   coverage) versions; coverage ;;
   coverage-split) versions; coverage_split ;;
   check-setup) versions; check_setup ;;
+  check-groups) check_groups ;;
   all) versions; check_setup; gas; coverage ;;
-  *) echo "usage: $0 [gas|coverage|coverage-split|check-setup|all]"; exit 2 ;;
+  *) echo "usage: $0 [gas|coverage|coverage-split|check-setup|check-groups|all]"; exit 2 ;;
 esac
