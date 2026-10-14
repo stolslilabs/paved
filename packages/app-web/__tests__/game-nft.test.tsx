@@ -214,9 +214,11 @@ describe("Game page: the game's NFT", () => {
     expect(collection.calls).toEqual(["owner_of 4", "token_uri 4"]);
   });
 
-  it("an old on-chain Tutorial link (D-21) opens the Daily game of that id, never a 2^32 + id token", async () => {
+  it("an old on-chain Tutorial link (D-21) is redirected to /tutorial: no game, no token id (see offchain-routes)", async () => {
     open("?mode=tutorial&id=4");
-    expect((await screen.findByTestId("game-nft")).textContent).toBe("NFT: 0x0777…7777 #4Metadata");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("game-nft")).toBeNull();
+    expect(collection.calls).toEqual([]);
   });
 
   it("the indexer's Collection is used when the deployment has none", async () => {
