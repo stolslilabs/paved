@@ -2,58 +2,51 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "82dcfe4179b1bd2a752a7077d575f33afe06796b",
-  "deployed_block": 12,
+  "deployed_at": "unmerged-d6da021100bf33089dded7ba05f1e3ed0c6d20d8",
+  "deployed_block": 10,
   "token": {
-    "address": "0x07a47df3630fba9141faaf316601ca4ac1355a8daa08dcc11f6afe9cc1497a0a",
-    "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03",
+    "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
+    "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16",
     "decimals": 6,
     "symbol": "USDC"
   },
   "contracts": {
-    "Account": {
-      "address": "0x040bd120b931a8fef4ff298f2e7873b14684613c2a9c9fa652e534b7197f83e4",
-      "class_hash": "0x06ebe06aea650249adc3091c05125c9ad0ca3f2ee791c5f52c3d0d2088ec6a94"
+    "Challenge": {
+      "address": "0x00615f6a19954bc8cefb2285dd933b0374d42f64c3eb412efc229b5b08a8f015",
+      "class_hash": "0x06482c9b8ef5238a9e778646edd40e6ebe6523cc86c4e19cbf2e161cc711ab31"
     },
-    "Daily": {
-      "address": "0x0514095b1de7427ab3d03f68568e60748718d60d95d182aa8a5aaa73d6d7e6b7",
-      "class_hash": "0x02ba6398cc96b94232aa59473f627fcbd6302249537eefe9db97cd380a69f9f9"
-    },
-    "Tutorial": {
-      "address": "0x06bccee6082b9aeff2e44a622a199d146c9e80974dd38c8cc5495a17ae8bee79",
-      "class_hash": "0x00189ebf3c31270e867595aee5d624f389a26b068ae5fc5b23d21a2aa82c29aa"
+    "Setup": {
+      "address": "0x02e95dbdf1004c7b65ddab92dd662c81fe9e9b2d1026ce270c8f94fe9421764d",
+      "class_hash": "0x022f048c88e73aa44d6c8c47ffd5f71c7d7885ae6da4142fa8587b0efe3468d5"
     },
     "Collection": {
-      "address": "0x01796dcf8b5009ed453aeab23908452fbf535b473141138f543ec5eed2095fb2",
-      "class_hash": "0x06e2ce9c7e01741e65d9fef5d62e681fede934cc03bb69da727aa9aa77607087"
+      "address": "0x014e154c9d39292d220fdfac06caca6f31c2cade0903fd329c575631784ac633",
+      "class_hash": "0x04d7ee5c85ce35b817a9b297ee62c7d1fb47a7660b50041f9988b14f767503c5"
     },
     "Token": {
       "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
       "class_hash": "0x041f8b68c2be80df578aff51c57cf28ba7dc1eac2ce2d60104da3755cc3530c9"
     },
     "Economy": {
-      "address": "0x0064149068356297cebe9b02c062513e6d330b51c91eecbe33f276f4c06943cc",
-      "class_hash": "0x00193f3e086e17c964b275721f9a5e12f8e84991fbcda87becb0e56627c95d90"
+      "address": "0x03240fa22f5e4ce386a7a3d098df2e2b269d4f6a85c9c8d1338a284d8dba82f0",
+      "class_hash": "0x03a43be4d5689cf2175d4cb91a85f1dcf9a4d4a2cfe19ddece5e23a5406c20b5"
     },
     "PavedToken": {
-      "address": "0x03bf402a32d9aad6df4facdecd8a3c23959583eca0c5952421bba0c8277596fd",
-      "class_hash": "0x012cdbc4de283aef70bd1e056b4310da595ae072d332b9274566d7609eabfdcb"
+      "address": "0x014549e0f72c7bc2926fbef56846202832e396e75801867aade8f8e591f643df",
+      "class_hash": "0x05f4ea19c194ca861556964572dbf022dada95ae964ae79dcee10123e58b5a1a"
     },
     "Vault": {
-      "address": "0x035265a88b27349ad4247bf335022e6f18c635e175a61ea412eb0162e8ba894b",
-      "class_hash": "0x0520ae02d3b73b4f4fcb0637a82c04927688bd32fcb479562111982a4f256b02"
+      "address": "0x02b20a311a45581775c4e7e830e7402661b01606f98c62cb74b7cee63e36cd09",
+      "class_hash": "0x07f391b69bc1af0d468fe153117fa5bcf03a915ae4e99ab22ea7a4bc98a1541d"
     },
     "MockUSDC": {
-      "address": "0x07a47df3630fba9141faaf316601ca4ac1355a8daa08dcc11f6afe9cc1497a0a",
-      "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03"
+      "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
+      "class_hash": "0x0795562c4d103d98ebfb63785915035c00418907808f86f395ea5b2827a05f16"
     },
     "MockRouter": {
-      "address": "0x00d3def244b7921bf703f0e7b98b32b0f74ac8720071e3796ae5ca74163f5c1d",
-      "class_hash": "0x01ac7204d74dfb7e7dddfa564261c32f89d4dddf5ef0d66f478c8e8741a5ac07"
+      "address": "0x04050ed9f37dfcb5beddab4c0171798447241389032b8c560d69cd0e476e6a72",
+      "class_hash": "0x07c2bb76a82808e2e0f7c82bde477847f34b51bf7ff5c42b54b071af4d8297aa"
     }
-  },
-  "classes": {
-    "Lobby": "0x05bd429dc632b4c0612147bceafded0fdf5eba2ef820fb2689f1682117f09972"
   },
   "test_paved": {
     "0x02939f2dc3f80cc7d620e8a86f2e69c1e187b7ff44b74056647368b5c49dc370": "1000000000000000000000",
