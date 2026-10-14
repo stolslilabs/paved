@@ -19,6 +19,14 @@ not depend on the random draw; plans stay within the Base deck counts. `--detail
 whole-test totals and `--gas-report` does not exist in snforge 0.51.2, hence the deltas. Two runs gave
 identical figures. Each test asserts `gas <= ceiling`, ceiling = measured + 5 %, rounded up.
 
+**Fixed seed (D-23, CORE's decision).** The scenarios measure a known board, so they spawn on a fixed seed: the day
+seed they were calibrated with, Poseidon(0, day id) at time 0, through `Challenge`'s own spawn path (`spawn_from`, as
+the goldens do). The plans are forced, but the draw that follows each move, and the deck the spawn builds, read the
+seed, so on another seed the same move costs something else. The move cost of a real game varies with its deck (since
+D-23 each game has its own, Poseidon(0, the Challenge contract's address, game id)), and that is expected: a ceiling bounds the scenario, not every deck.
+The spawn scenarios m and n measure the entry point itself and so the token seed; it is fixed too in the test (game 2,
+Poseidon(0, 2); since fix loop 1, Poseidon(0, the contract's address, 2)).
+
 | | Scenario | Tiles in structure | L2 gas (delta) | Ceiling (+5 %) |
 | --- | --- | --- | --- | --- |
 | a0 | open simple move: a road tile east of the start tile, closes nothing, no character | open | 53,633,322 | 56,314,989 |
@@ -875,3 +883,47 @@ this branch's base, main aff59e06 (step D merged), with the brief only (7019c683
   which runs only when the referrer is non-zero and not the payer; m (no referrer) pays the extra branch only.
 - **The game overs -4,600:** `finish` no longer asserts the collection, which it does not use.
 - Spawn against main aff59e06: m -503,830, n -803,490. No ceiling changes; none is passed.
+
+## After D-23 (Daily becomes Challenge, the token seed; D-23b)
+
+Same tests and method (scarb 2.20.1, snforge 0.64.0, VPS, `RAYON_NUM_THREADS=1`, 15 GiB cap). The moves spawn on the
+day seed (method note above): a0, a, c, d, e, f, g, i, k, l and s are identical to "Fix loop 1 (review and audits of
+#350)" above (f 18,554,596). On the token seed instead, a was 6,551,754 (ceiling 5,315,180), c 5,523,562 and d
+6,079,306: the deck, not the code.
+
+| | Scenario | After E (fix loop 1) | D-23b | Change |
+|---|---|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 49,484,346 | 51,202,206 | +1,717,860 |
+| n | Challenge spawn, stake 10, referred | 50,210,796 | 51,928,656 | +1,717,860 |
+
+**Fix loop 1 (PM, 2026-10-14: the seed mixes in the Challenge contract's address).** Game 2's seed is now
+Poseidon(0, the test's Challenge address, 2); same command (peak RSS 3,584,444 kB). The moves are identical (day seed);
+the spawns move with the new deck:
+
+| | Scenario | After E (fix loop 1) | D-23b fix loop 1 | Change |
+|---|---|---:|---:|---:|
+| m | Challenge spawn, stake 1 | 49,484,346 | 49,873,311 | +388,965 |
+| n | Challenge spawn, stake 10, referred | 50,210,796 | 50,599,761 | +388,965 |
+
+The cause below holds (the deck walk of that seed); the figures of the table below are those of the two-input seed.
+
+**Why the spawns rose: the deck of game 2's seed.** The spawn draws and places nothing new. m spawns game 2 at time 0:
+before D-23 its seed was the day's, Poseidon(0, 0); it became Poseidon(0, 2) (then, with fix loop 1, Poseidon(0, the
+contract's address, 2)). `Game::start` builds the deck with
+`Deck::tiles`, which walks the deck's indexes and draws a Poseidon per free index until the extra tiles are removed:
+how far it walks depends on the seed. Measured off chain (`GameImpl::new`, `start`, `draw_plan`, gas read around
+each; a probe, not committed):
+
+| Seed | `start` (`Deck::tiles`) | first draw | Both |
+|---|---:|---:|---:|
+| Poseidon(0, 0), the day seed of game 2 before D-23 | 34,828,885 | 561,587 | 35,390,472 |
+| Poseidon(0, 2), the token seed of game 2 | 36,572,025 | 542,437 | 37,114,462 |
+| Poseidon(0, 1), the token seed of game 1 | 36,289,301 | 259,423 | 36,548,724 |
+
+The difference of the two seeds of game 2 is +1,723,990 (`start` +1,743,140, the draw -19,150), within
+6,130 of the spawn's rise. The same full spawn path (`spawn_from` in `Challenge`'s state) on the two seeds gives 44,465,578 and 46,274,088
+(+1,808,510; that path has no entry-point dispatch, so its totals are lower than m's). `TokenSeed` itself costs one
+two-input Poseidon, as the day seed did (with a division more): not the cause. The cost that varies is `Deck::tiles`'
+walk, about 35M of the 51M spawn whatever the seed; cutting it means changing how the deck is built, which changes every
+deck and so the goldens: a P5 subject, not D-23b's. No ceiling changes; none is passed.
+

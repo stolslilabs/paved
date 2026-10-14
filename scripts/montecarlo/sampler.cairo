@@ -11,14 +11,19 @@
 //! rows of `scores.csv` keep their keys. Strategy 1 no longer draws the coin that chose, on each
 //! candidate, whether to try a character: its random stream is the placement's alone, so its games
 //! are not those of the sample before D-18 (the deal is: the day and the seed are unchanged).
+//!
+//! D-23: names only (`Challenge`, `IChallengeSafeDispatcher`, `systems.challenge`), no logic change. Since D-23
+//! `spawn` seeds a game by its token id, Poseidon(0, the contract's address, game id), not by the day: as written,
+//! every run draws the deck of game 1 of its test deployment whatever DAY says. To replay the day decks of `scores.csv` and `decks.csv`, spawn with
+//! `golden::harness::spawn_on_the_day_seed` (the day seed of the goldens) instead of `systems.challenge.spawn`.
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
+use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::tests::golden::full_deck::{edge_table, fits, key};
 use paved::tests::golden::harness::day;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use snforge_std::env::var;
 
@@ -47,9 +52,9 @@ fn test_sampler() {
     let random = strategy == 1 || strategy == 3;
     snforge_std::start_cheat_block_timestamp_global(day(day_index));
     let (store, systems, _) = setup::spawn_game(Mode::None);
-    snforge_std::start_cheat_caller_address(systems.daily.contract_address, PLAYER());
-    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
-    let safe = IDailySafeDispatcher { contract_address: systems.daily.contract_address };
+    snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
+    let game_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
+    let safe = IChallengeSafeDispatcher { contract_address: systems.challenge.contract_address };
     let table = edge_table();
     let mut board: Felt252Dict<u8> = Default::default();
     let mut seen: Felt252Dict<bool> = Default::default();
@@ -101,7 +106,7 @@ fn test_sampler() {
             }
         }
         if best == 0 {
-            systems.daily.discard(game_id);
+            systems.challenge.discard(game_id);
             discards += 1;
             continue;
         }
@@ -148,7 +153,7 @@ fn test_sampler() {
             }
         }
         if !done {
-            systems.daily.discard(game_id);
+            systems.challenge.discard(game_id);
             discards += 1;
             continue;
         }

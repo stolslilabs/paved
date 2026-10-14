@@ -4,8 +4,8 @@
  * a paid purchase with a referrer, play, the settlement, the Vault and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
- * Each Challenge game's deck, and so every score, comes from its token id since D-23b (Poseidon(0, game id), no longer the
- * UTC day): the test proves the same economics whatever the decks of the game ids the node hands out, on any day.
+ * Each Challenge game's deck, and so every score, comes from its token id since D-23b (Poseidon(0, Challenge's address,
+ * game id), no longer the UTC day): the test proves the same economics whatever the decks of the game ids the node hands out, on any day.
  * alice plays her Challenge game with the search player of `challenge-player.ts` and must score above the day's threshold, so
  * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); the test
  * fails, naming the day, the game ids and the scores, on a deck where she does not. bob and carol cannot reach the threshold whatever
@@ -62,8 +62,13 @@ const EXPECTED_GAME_IDS: Record<string, number> = { alice: 2, bob: 3, carol: 4 }
 const EXPECTED_BOB_SECOND_GAME = 5;
 /** The salt of every game (`Game::new` sets 0). */
 const SALT = 0n;
-/** A Challenge game's seed since D-23b: Poseidon(salt, token id), the token id being the game id (`TokenSeed`). */
-const tokenSeed = (gameId: number): bigint => BigInt(hash.computePoseidonHashOnElements([SALT, BigInt(gameId)]));
+/**
+ * A Challenge game's seed since D-23b: Poseidon(salt, the Challenge contract, token id), the token id being the game id
+ * (`TokenSeed`, `contracts/src/seed.cairo`). The contract's address is the deployment file's: on a fresh seed-42 node it is
+ * deterministic too, so are the decks.
+ */
+const tokenSeed = (challenge: string, gameId: number): bigint =>
+  BigInt(hash.computePoseidonHashOnElements([SALT, BigInt(challenge), BigInt(gameId)]));
 
 interface Player {
   name: string;
@@ -323,7 +328,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       // The token id is pinned (a fresh node), and so is the seed of its deck, which the game view returns.
       expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
       const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
-      expect(seed, `${p.name}'s seed is Poseidon(${SALT}, ${bought.gameId})`).toBe(tokenSeed(bought.gameId));
+      expect(seed, `${p.name}'s seed is Poseidon(${SALT}, Challenge, ${bought.gameId})`).toBe(tokenSeed(client.deployment.addresses.Challenge, bought.gameId));
       challengeGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
@@ -563,7 +568,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
     bobSecondGame = purchase.gameId;
     expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
-    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(tokenSeed(bobSecondGame));
+    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(tokenSeed(client.deployment.addresses.Challenge, bobSecondGame));
     const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
     const earned = await economy.views.vault(carol.address);
     // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.

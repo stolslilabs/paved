@@ -40,7 +40,7 @@ import {
 } from "../src/economy";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
-import { asChallenge, committedFile } from "./committed-deployment";
+import devnetFile from "../../../contracts/deployments/devnet.json";
 
 const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
@@ -159,7 +159,7 @@ describe("amounts: BigInt base units, never floats", () => {
 
 describe("deployment: the economy is configured from the E3 devnet.json", () => {
   test("today's devnet.json has the four economy addresses (USDC is MockUSDC on devnet)", () => {
-    const file = asChallenge(committedFile("devnet")) as DeploymentFile & { contracts: Record<string, { address: string }> };
+    const file = devnetFile as DeploymentFile & { contracts: Record<string, { address: string }> };
     const fromFile = resolveDeployment({ network: "devnet", file });
     const economy = resolveEconomyDeployment({ base: fromFile, file });
     expect(economy.configured).toBe(true);

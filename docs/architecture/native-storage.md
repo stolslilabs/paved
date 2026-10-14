@@ -4,6 +4,10 @@ The contracts of `contracts/` are plain Starknet contracts since P2: no Dojo wor
 no Dojo permission. This document is the reference for the contract split, the storage layout, the
 events and the access rules. Brief: `docs/briefs/p2-native.md`.
 
+Names are those of P2 and the phases after it. Since D-23 the contract `Daily` is `Challenge`
+(`systems/challenge.cairo`, `IChallenge`, `Mode::Challenge`, errors `'Challenge: ...'`), and a game's seed is
+Poseidon(0, the Challenge contract's address, game id) (`TokenSeed`), no longer the day's: `public-interface.md`, "Breaking change D-23".
+
 ## Contract split
 
 Three game contracts and one test token, as under Dojo, with the same interfaces (`IAccount`,

@@ -13,7 +13,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
     });
   }
 
-  test("Challenge exposes the game views and the day views (IDailyView); Setup none of them", () => {
+  test("Challenge exposes the game views and the day views (IChallengeView); Setup none of them", () => {
     for (const fn of ["game", "tiles", "builder", "current_day", "entry_price"]) {
       expect(codecs.Challenge.hasFunction(fn)).toBe(true);
       expect(codecs.Setup.hasFunction(fn)).toBe(false);
@@ -57,7 +57,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
       for (const fn of ["claim", "sponsor", "tournament", "current_tournament_id"]) expect(codec.hasFunction(fn), fn).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/TournamentView|ITournamentView|tournament_id|::Sponsored|::Claimed|::Reclaimed/);
     }
-    expect(JSON.stringify(codecs.Challenge.abi)).toMatch(/paved::views::IDailyView/);
+    expect(JSON.stringify(codecs.Challenge.abi)).toMatch(/paved::views::IChallengeView/);
   });
 
   test("the day id is day_id in GameSpawned, GameOver and GameView", () => {

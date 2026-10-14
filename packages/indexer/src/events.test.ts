@@ -21,8 +21,7 @@ type AbiItem = {
   members?: { name: string; type: string; kind: string }[];
 };
 
-// TEMP until CORE pushes Challenge.json: the ABI of Challenge is still committed as Daily.json.
-const abiPath = (name: string) => resolve(import.meta.dirname, `../../../contracts/abis/${name === "Challenge" ? "Daily" : name}.json`);
+const abiPath = (name: string) => resolve(import.meta.dirname, `../../../contracts/abis/${name}.json`);
 const abi = (name: string): AbiItem[] => JSON.parse(readFileSync(abiPath(name), "utf8"));
 
 /** The contract whose ABI declares the quest and achievement events: `Setup` since CORE's step D (D-24). */
@@ -75,6 +74,8 @@ describe("the ABIs", () => {
   test("Challenge declares the game events; PlayerCreated is a past event, known by name and skipped (D-25 (E))", () => {
     const names = (contract: string) => pavedEvents(contract).map(shortOf);
     expect(names("Challenge")).toEqual(expect.arrayContaining(["GameSpawned", "GameOver"]));
+    // D-23b removed it from the event enum: no committed ABI declares it any more.
+    for (const contract of CONTRACTS) expect(names(contract), contract).not.toContain("PlayerCreated");
     expect(EMITTERS.GameSpawned).toEqual(["challenge"]);
     expect(EMITTERS.GameOver).toEqual(["challenge"]);
     expect("PlayerCreated" in EMITTERS).toBe(false);

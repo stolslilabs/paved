@@ -101,7 +101,7 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 ```
 
 To run on another chain day, start the node with `--start-time <unix seconds>`. Since D-23b a Challenge game's deck comes from its
-token id (Poseidon(0, game id)), not from the day: on a fresh seed-42 node the test buys known ids, so the decks and
+token id in its contract (Poseidon(0, Challenge's address, game id)), not from the day: on a fresh seed-42 node the address and the ids are known, so the decks and
 alice's margin over the threshold are the same on any day.
 
 Two options matter where the defaults do not fit. `DEVNET_BIN=<path>` names the `starknet-devnet` binary the shell

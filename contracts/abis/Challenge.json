@@ -1,8 +1,8 @@
 [
   {
     "type": "impl",
-    "name": "DailyImpl",
-    "interface_name": "paved::systems::daily::IDaily"
+    "name": "ChallengeImpl",
+    "interface_name": "paved::systems::challenge::IChallenge"
   },
   {
     "type": "struct",
@@ -46,7 +46,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::systems::daily::IDaily",
+    "name": "paved::systems::challenge::IChallenge",
     "items": [
       {
         "type": "function",
@@ -124,12 +124,12 @@
   },
   {
     "type": "impl",
-    "name": "DailySetupImpl",
-    "interface_name": "paved::systems::daily::IDailySetup"
+    "name": "ChallengeSetupImpl",
+    "interface_name": "paved::systems::challenge::IChallengeSetup"
   },
   {
     "type": "interface",
-    "name": "paved::systems::daily::IDailySetup",
+    "name": "paved::systems::challenge::IChallengeSetup",
     "items": [
       {
         "type": "function",
@@ -388,8 +388,8 @@
   },
   {
     "type": "impl",
-    "name": "DailyViewImpl",
-    "interface_name": "paved::views::IDailyView"
+    "name": "ChallengeViewImpl",
+    "interface_name": "paved::views::IChallengeView"
   },
   {
     "type": "struct",
@@ -407,7 +407,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::views::IDailyView",
+    "name": "paved::views::IChallengeView",
     "items": [
       {
         "type": "function",
@@ -500,28 +500,6 @@
       {
         "name": "setup_address",
         "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::PlayerCreated",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "key"
-      },
-      {
-        "name": "name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "master",
-        "type": "core::felt252",
-        "kind": "data"
       }
     ]
   },
@@ -716,11 +694,6 @@
     "kind": "enum",
     "variants": [
       {
-        "name": "PlayerCreated",
-        "type": "paved::events::PlayerCreated",
-        "kind": "nested"
-      },
-      {
         "name": "GameSpawned",
         "type": "paved::events::GameSpawned",
         "kind": "nested"
@@ -842,7 +815,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::daily::SetupSet",
+    "name": "paved::systems::challenge::SetupSet",
     "kind": "struct",
     "members": [
       {
@@ -854,7 +827,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::daily::Daily::Event",
+    "name": "paved::systems::challenge::Challenge::Event",
     "kind": "enum",
     "variants": [
       {
@@ -889,7 +862,7 @@
       },
       {
         "name": "SetupSet",
-        "type": "paved::systems::daily::SetupSet",
+        "type": "paved::systems::challenge::SetupSet",
         "kind": "nested"
       }
     ]

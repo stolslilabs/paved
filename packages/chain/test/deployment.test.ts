@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import { USDC_LABEL, resolveEconomyDeployment } from "../src/economy";
-import { asChallenge, committedFile, namesDaily } from "./committed-deployment";
+
+/** CORE's committed `contracts/deployments/<network>.json`, as it is. */
+const committedFile = (network: "devnet" | "sepolia") =>
+  JSON.parse(readFileSync(resolve(__dirname, `../../../contracts/deployments/${network}.json`), "utf8")) as DeploymentFile;
+
 
 const FILE: DeploymentFile = {
   chain_id: "0x534e5f5345504f4c4941",
@@ -97,15 +103,7 @@ describe("controllerPolicies", () => {
 });
 
 describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
-  const real = asChallenge(committedFile("devnet"));
-
-  test("a file that still keys the contract `Daily` (before D-23b's deployment) is not configured: Challenge is missing", () => {
-    const file = committedFile("devnet");
-    if (!namesDaily(file)) return;
-    const d = resolveDeployment({ network: "devnet", file });
-    expect(d.configured).toBe(false);
-    expect(d.missing).toEqual(["Challenge address"]);
-  });
+  const real = committedFile("devnet");
 
   test("is read as it is: the addresses, rpc url, deployed block, decimals", () => {
     const d = resolveDeployment({ network: "devnet", file: real });

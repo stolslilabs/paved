@@ -73,8 +73,16 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   **As built (D-21):** the tutorial game is no longer in CORE's fixture; CLIENT keeps it frozen, `tutorial_full`
   (2,794) and its scripted placements, as a game-core fixture taken from 38f1c95.
 - **The differential games** (`contracts/src/tests/differential.cairo`): the gas scenarios a0, a, b (one board), c,
-  d, e, f, `two_areas_of_one_tile_join_one_structure` and `wonder_ring`, each a Daily board with the plan written over
-  the tile in hand (`forced: true`). Their tutorial board goes with D-21.
+  d, e, f, `two_areas_of_one_tile_join_one_structure` and `wonder_ring`, each a Challenge board (Daily before D-23)
+  with the plan written over the tile in hand (`forced: true`). Their tutorial board goes with D-21.
+- **As built (D-23): the fixture does not change.** Its games are keyed by name and carry their seed. The goldens
+  still spawn with the seed of the day they were recorded with: the harness spawns through `Challenge`'s own path
+  (`spawn_from`) with a test source, `tests::seed::DaySeed`, Poseidon(0, day id), instead of `TokenSeed`
+  (`golden/harness.cairo`, `spawn_on_the_day_seed`). So every golden's seed, draws and scores are those of P0, and
+  CLIENT's transcription (`packages/game-core/scripts/transcribe-goldens.ts`, which computes the same Poseidon(0, day
+  id) from `play_daily`'s `day(n)`) stays valid. Only its `seedSource` text, which names `Mode::seed` (removed by
+  D-23), is stale: CLIENT's to reword. The differential boards force every plan, so their seed is not read. A
+  Challenge game played on chain now has the seed Poseidon(0, the Challenge contract's address, game id); a client replaying one takes `GameView.seed`.
 
 ## How a Cairo test keeps it current
 

@@ -9,6 +9,11 @@ contract side is `economy.md` (ruled by the PM: P-31); the data layer and its pa
 economy **not configured**, and the screens say so; nothing is read or sent. The committed `contracts/deployments/devnet.json`
 since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, MockUSDC, MockRouter}` (written by `scripts/deploy.sh`).
 
+Since D-23 the paid game's contract is named `Challenge` (`Daily` before; `public-interface.md`, "Breaking change D-23"):
+its ABI becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`, with the same
+entry points (`spawn`, `entry_price`). `packages/chain` names it `Challenge` too (the `Challenge` codec,
+`Challenge.json`, `contracts.Challenge`) since CLIENT's W1e.
+
 ## What E3 made real (P8, #275)
 
 Every ABI is now a committed one. There are no stubs, `stub-abi.ts` and `ECONOMY_ABI_IS_STUB` are gone, and the economy
@@ -17,7 +22,7 @@ panel no longer prints that purchases are not possible.
 | Piece | Source |
 |---|---|
 | `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
-| `Challenge.spawn(stake, referrer, min_out)` | `contracts/abis/Daily.json` (E3), encoded by the `Challenge` codec of `ECONOMY_ABIS` |
+| `Challenge.spawn(stake, referrer, min_out)` | `contracts/abis/Challenge.json` (E3, `Daily.json` before D-23), encoded by the `Challenge` codec of `ECONOMY_ABIS` |
 | USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/MockUSDC.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
 | Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`; or the env |
 | Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |

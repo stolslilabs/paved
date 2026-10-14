@@ -35,6 +35,12 @@ and the tutorial claim) is resolved from `contracts.Setup` (the key of step D's 
 and only the tutorial claim is unavailable. An old file's `contracts.Tutorial` and `contracts.Account` (D-25 (E)) are not
 read.
 
+**D-23.** The contract `Daily` is named `Challenge` since D-23 (`public-interface.md`, "Breaking change D-23"): its ABI
+becomes `contracts/abis/Challenge.json` and a fresh deployment file's key `contracts.Challenge`; entry point and event
+names (selectors) and `mode` code 1 do not change. The live Sepolia file keeps `contracts.Daily` until the fresh
+deployment (F), and main's client never goes to Sepolia before F: `packages/chain` imports `Challenge.json` and reads
+`contracts.Challenge` only (and `VITE_CHALLENGE_ADDRESS`), with no fallback to `contracts.Daily` (CLIENT's W1e).
+
 Only the keys above are read: any other key of the file, such as `classes` (the declared library
 class `Lobby` of P-26, which has no address; the class left with D-24), is ignored.
 

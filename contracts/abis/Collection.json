@@ -27,7 +27,7 @@
         "name": "set_minters",
         "inputs": [
           {
-            "name": "daily",
+            "name": "challenge",
             "type": "core::starknet::contract_address::ContractAddress"
           },
           {
@@ -56,7 +56,7 @@
       },
       {
         "type": "function",
-        "name": "daily",
+        "name": "challenge",
         "inputs": [],
         "outputs": [
           {

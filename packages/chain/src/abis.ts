@@ -1,4 +1,4 @@
-import challengeAbi from "../../../contracts/abis/Daily.json";
+import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
 import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
