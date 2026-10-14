@@ -94,6 +94,13 @@ day (`day_closes`), ranks 1 to 3 of that day go to the `podium` table, three dif
 closing block. The past prize events of `Challenge` (`Sponsored`, `Claimed`, `Reclaimed`, emitted before D-20) are known by
 name and skipped, so a replay of a history holding them never halts.
 
+Challenge's spawn pause (G4, a mainnet gate) emits three events: `GuardianSet { guardian }` (the owner names the guardian),
+`SpawnPaused { by }` and `SpawnUnpaused`. They are known by name and skipped (`IGNORED`), from any source: the decoder is
+strict and halts on an unknown selector of a contract it indexes, so a Sepolia Challenge that emits them must not stop it.
+The leaderboard needs none of them: a paused spawn emits no `GameSpawned`, and the games already bought are still recorded
+and settled while it is paused. No schema change, no rebuild. The test replays a history holding the three between two
+games without a halt (`indexer.test.ts`, "Challenge's spawn pause").
+
 Since D-21 and D-24 the on-chain Tutorial is gone and the quests and achievements live in `Setup`: their six events
 (`QuestDefined`, `QuestProgressed`, `QuestRetired`, `AchievementDefined`, `AchievementProgressed`,
 `AchievementRetired`) are read from Setup's address only. The tutorial claim, `Setup.claim_tutorial()`, emits

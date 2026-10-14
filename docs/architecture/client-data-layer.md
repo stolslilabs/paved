@@ -131,6 +131,15 @@ a click; it does not make the price atomic with the spawn. The approve is built 
 just before `execute` (`entry_price`, then the multicall), so the contract could change the price
 in between: accepted for the MVP, where the owner is the only one who can upgrade it.
 
+**Spawn paused (G4).** Challenge has an emergency stop on `spawn` only: a guardian set by the owner (or the owner) calls
+`pause_spawn`, the owner calls `unpause_spawn`; the views are `spawn_paused() -> bool` and `guardian()`
+(`GameViews.spawnPaused()`, `GameViews.guardian()`). Build, discard, surrender, the record and the settlement keep working
+while paused, so a game already bought is played to its end. The client wraps no pause entry point (the owner's tools are
+CORE's) and has no Controller policy for them. The purchase path reads `spawn_paused()` before it builds any call
+(`SpawnPausedError`, nothing sent); a `'Challenge: spawn paused'` revert that still comes back after a race maps to the same
+error. A failed `spawn_paused` read keeps today's behaviour: the purchase is not blocked by the client, the contract is the
+guard. The indexer skips the three pause events by name (`packages/indexer/README.md`).
+
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
 predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
 old hard-coded Katana master key is gone), and the Cartridge controller placeholder
@@ -210,7 +219,9 @@ filtering:
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
 | Landing: today's day (its end) | `Challenge.current_day` (D-20: no prize and no on-chain top 3 any more) | on connect, when the page becomes visible |
 | Landing: Challenge entry fee | `Challenge.entry_price()` | on connect, when the page becomes visible, after a write |
-| Challenge spawn: the approve | `Challenge.entry_price()` | before each Challenge spawn |
+| Landing: new games paused | `Challenge.spawn_paused()` (G4) | on connect, when the page becomes visible, after a write |
+| Purchase dialog: new games paused | `Challenge.spawn_paused()` | on open, when the page becomes visible |
+| Challenge spawn: the pause, then the approve | `Challenge.spawn_paused()`, then `Challenge.entry_price()` | before each Challenge spawn |
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
 | Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Challenge.current_day` | on open, when the page becomes visible, on paging |
 | Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |

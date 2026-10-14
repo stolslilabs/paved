@@ -36,6 +36,7 @@ import {
   expiresAt,
   resolveEconomyDeployment,
   RefusedReferrerError,
+  SpawnPausedError,
   settlesAfter,
   type EconomyClient,
   type EconomyDeploymentFile,
@@ -622,4 +623,52 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(head.data.state).toBe("ok");
     pass("indexer after the economy steps", `head ${head.head.number}, state ${head.data.state}`);
   }, 60_000);
+
+  test("G4: the owner pauses spawn: the client refuses the purchase, the indexer runs on, unpausing lets the purchase through", async () => {
+    // The deployer is the node's first predeployed account (`deploy.sh devnet`), Challenge's owner. It makes itself the guardian
+    // first (owner-only `set_guardian`), so that `pause_spawn` is the guardian's call whether or not CORE lets the owner pause.
+    const predeployed: Array<{ address: string; private_key: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
+    const owner = new Account({ provider, address: predeployed[0].address, signer: predeployed[0].private_key });
+    const challenge = client.deployment.addresses.Challenge;
+    const codec = client.codecs.Challenge;
+    const ownerCall = async (entrypoint: string, args: Array<string | number | bigint> = []) => {
+      const sent = await owner.execute([{ contractAddress: challenge, entrypoint, calldata: codec.encodeCall(entrypoint, args) }], { tip: 0n });
+      await provider.waitForTransaction(sent.transaction_hash);
+      return sent.transaction_hash;
+    };
+    const [alice] = players;
+    expect(await client.views.spawnPaused()).toBe(false);
+
+    await ownerCall("set_guardian", [owner.address]);
+    expect(BigInt(await client.views.guardian())).toBe(BigInt(owner.address));
+    const pausedAt = await ownerCall("pause_spawn");
+    expect(await client.views.spawnPaused()).toBe(true);
+
+    // The purchase path reads the pause before it builds any call: the typed error, no transaction, USDC unchanged.
+    const usdcBefore = await usdc(alice.address);
+    const blockBefore = (await provider.getBlockNumber()) as number;
+    const request = { stake: 1, confirmedPrice: price, confirmedMinOut: 1n, referrer: null };
+    const refused = await alice.econ.purchase(request).catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(SpawnPausedError);
+    expect((refused as Error).message).toBe("New Challenge games are paused for now. Games already started can still be played.");
+    expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
+    expect(await usdc(alice.address)).toBe(usdcBefore);
+
+    // The indexer keeps running past GuardianSet and SpawnPaused (strict decoding: an unknown selector would halt it).
+    await caughtUp();
+    const paused = await indexer.head();
+    expect(paused.data.state).toBe("ok");
+    expect(paused.head.number).toBeGreaterThanOrEqual(blockBefore);
+
+    await ownerCall("unpause_spawn");
+    expect(await client.views.spawnPaused()).toBe(false);
+    const planned = await alice.econ.planPurchase(request);
+    const bought = await alice.econ.purchase({ ...request, confirmedMinOut: planned.minOut });
+    expect(bought.gameId).toBeGreaterThan(EXPECTED_BOB_SECOND_GAME);
+    await caughtUp();
+    const after = await indexer.head();
+    expect(after.data.state).toBe("ok");
+    expect(await usdc(alice.address)).toBe(usdcBefore - price);
+    pass("G4: pause spawn", `paused in tx ${short(pausedAt)}: SpawnPausedError, no block, USDC unchanged; indexer ok at head ${paused.head.number}; unpaused, game ${bought.gameId} bought, indexer ok at head ${after.head.number}`);
+  }, 120_000);
 });
