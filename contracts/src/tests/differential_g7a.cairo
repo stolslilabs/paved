@@ -26,6 +26,7 @@
 //! moves close nothing), and the forced boards of the gas scenarios e and f.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
+use core::testing::get_available_gas;
 use paved::constants::CENTER;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::{Tile, ZeroableTile};
@@ -569,9 +570,36 @@ fn test_g7a_starter_constants_equal_place_alone() {
             assert_eq!(starter.orientation, Orientation::South.into());
             assert_eq!((starter.x, starter.y), (CENTER, CENTER));
             let alone = Tile { game_id: 1001, ..starter };
-            // Before G7a: `set_tile` places it alone
-            s.set_tile(alone);
-            placement::place_starter(s, starter);
+            // Before G7a: `set_tile` places it alone. Each write runs in a loop of one turn known
+            // only at run time (`once`, the starter's id), less an empty turn: the method of
+            // `docs/architecture/g7-gas-plan.md`, 1.3
+            let once = starter.id;
+            let start = get_available_gas();
+            let mut turn: u32 = 0;
+            while turn < once {
+                turn += 1;
+            }
+            let empty = start - get_available_gas();
+            let start = get_available_gas();
+            let mut turn: u32 = 0;
+            while turn < once {
+                s.set_tile(alone);
+                turn += 1;
+            }
+            let before = start - get_available_gas() - empty;
+            let start = get_available_gas();
+            let mut turn: u32 = 0;
+            while turn < once {
+                placement::place_starter(s, starter);
+                turn += 1;
+            }
+            let after = start - get_available_gas() - empty;
+            println!(
+                "G7a C2: starter by set_tile {}, by place_starter {}, empty turn {}",
+                before,
+                after,
+                empty,
+            );
             let (kept, refs) = StoreImpl::tile_with_refs(1000, 1);
             let (kept_alone, refs_alone) = StoreImpl::tile_with_refs(1001, 1);
             assert_eq!(kept, starter);
