@@ -13,8 +13,9 @@
       "name": "@paved/app",
       "version": "0.1.0",
       "dependencies": {
-        "@fontsource-variable/inter": "5.3.0",
-        "@fontsource/rubik-mono-one": "5.3.0",
+        "@fontsource-variable/nunito-sans": "5.3.0",
+        "@fontsource/cinzel": "5.3.0",
+        "@fontsource/ibm-plex-mono": "5.3.0",
         "@tanstack/react-query": "5.104.2",
         "class-variance-authority": "0.7.1",
         "clsx": "2.1.1",
@@ -411,9 +412,11 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
-    "@fontsource-variable/inter": ["@fontsource-variable/inter@5.3.0", "", {}, "sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA=="],
+    "@fontsource-variable/nunito-sans": ["@fontsource-variable/nunito-sans@5.3.0", "", {}, "sha512-Vk1PSfckNDwgw2yGcsvJP3o/0zEW8Rp6KzbD8Ql/6iRHQshnhhAjt+cSIfAUyp5vQuSlleGHFW2LfYaaex0diw=="],
 
-    "@fontsource/rubik-mono-one": ["@fontsource/rubik-mono-one@5.3.0", "", {}, "sha512-ReaCXaIKJAFdJAUaw8Gq3qXC9od7JotgqZFsVnwp06KqnBFtrX9qdeUvBdL+7avyUTic20gmzSH0NtEC6xAbDQ=="],
+    "@fontsource/cinzel": ["@fontsource/cinzel@5.3.0", "", {}, "sha512-KEOYTsrRppW0uRIPWBDPrQgunCS6f8u4nzZxYRBfo9SCknKojLYjK7B0ZoVmJhyVLefz271ZQRF9EOpHZlfhRw=="],
+
+    "@fontsource/ibm-plex-mono": ["@fontsource/ibm-plex-mono@5.3.0", "", {}, "sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q=="],
 
     "@hono/node-server": ["@hono/node-server@2.1.5", "", { "peerDependencies": { "hono": "^4 || ^5.0.0-0" } }, "sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q=="],
 

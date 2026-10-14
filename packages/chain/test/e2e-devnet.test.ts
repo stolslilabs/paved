@@ -11,7 +11,8 @@
  * fails, naming the day, the game ids and the scores, on a deck where she does not. bob and carol cannot reach the threshold whatever
  * the deck: they stop after a handful of placements (`NAIVE_MAX_MOVES`) and surrender, and their scores are checked
  * against a floor under any threshold of the day (the prior alone, diluted by every stake), so their reward is 0.
- * carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
+ * carol then deposits her own 1,000 test PAVED (P-38) in the Vault (vPAVED, P-56): a later purchase's margin raises its
+ * rate with no share minted, and her withdraws pay the exit fee, which stays in the Vault.
  *
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
@@ -25,14 +26,17 @@
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { EngineGame } from "@paved/game-core";
+import { EngineGame, OrientationType } from "@paved/game-core";
 import { Account, RpcProvider, hash } from "starknet";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FAUCET_USDC_AMOUNT } from "../src/abis";
 import { sameAddress, type DecodedEvent } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import {
+  PoolPriceMovedError,
+  VaultOverMaxWithdrawError,
   createEconomyClient,
+  vaultRate,
   expiresAt,
   resolveEconomyDeployment,
   RefusedReferrerError,
@@ -45,8 +49,9 @@ import {
 import { IndexerClient, indexerPlayerId, type IndexedGame, type LeaderboardEntry } from "../src/indexer";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
+import { GameSession } from "../src/session";
 import { TILE_STATUS, type GameKey } from "../src/views";
-import { type BuildMove, type PavedWriter } from "../src/writer";
+import { GameExpiredError, type BuildMove, type PavedWriter } from "../src/writer";
 import { ChallengePlayer } from "./challenge-player";
 import { dayMean, payout, PRIOR_WEIGHT, threshold } from "./economy-curve";
 
@@ -77,6 +82,13 @@ const tokenSeed = (challenge: string, gameId: number): bigint =>
  * the engine, which the parity goldens pin to the contract.
  */
 const spawnedSeed = (challenge: string, gameId: number): bigint => EngineGame.start({ deck: "simple", seed: tokenSeed(challenge, gameId) }).seed;
+
+/** The chain's orientation codes (1 to 4) as the engine's. */
+const ORIENTATIONS = [OrientationType.None, OrientationType.North, OrientationType.East, OrientationType.South, OrientationType.West];
+/** `GAME_VALIDITY` (S1): a Challenge game takes moves for 24 h from its start. */
+const GAME_VALIDITY = 86400;
+/** The contracts' `CENTER`: the starter tile's coordinates on chain. */
+const CENTER = 0x7fffffff;
 
 interface Player {
   name: string;
@@ -175,6 +187,23 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     }
   }
 
+  /** A legal placement next to the tiles placed (found by probing the node: nothing is sent), or null. */
+  async function firstLegal(player: Player, key: GameKey, tiles: Array<{ x: number; y: number }>): Promise<BuildMove | null> {
+    const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
+    for (const t of tiles) {
+      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+        const x = t.x + dx;
+        const y = t.y + dy;
+        if (taken.has(`${x},${y}`)) continue;
+        for (let orientation = 0; orientation < 4; orientation++) {
+          const move = { orientation, x, y };
+          if (await legal(player, key, move)) return move;
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * The naive player (bob and carol): a Challenge game for at most `maxMoves` placements, a legal placement next to the tiles placed
    * (found by probing the node), then sent through the writer. It
@@ -185,21 +214,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     let hash = "";
     for (let game = await client.views.game(key); !game.over && moves < maxMoves; game = await client.views.game(key)) {
       const tiles = (await client.views.tiles(key)).filter((t) => t.status === TILE_STATUS.placed);
-      const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
-      let chosen: BuildMove | null = null;
-      search: for (const t of tiles) {
-        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-          const x = t.x + dx;
-          const y = t.y + dy;
-          if (taken.has(`${x},${y}`)) continue;
-          for (let orientation = 0; orientation < 4; orientation++) {
-            const move = { orientation, x, y };
-            if (!(await legal(player, key, move))) continue;
-            chosen = move;
-            break search;
-          }
-        }
-      }
+      const chosen = await firstLegal(player, key, tiles);
       if (chosen) {
         const result = await player.writer.build(key, chosen);
         hash = result.transactionHash;
@@ -330,26 +345,34 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const before = {
         player: await usdc(p.address),
         referrer: referrer ? await usdc(referrer.address) : 0n,
-        vault: await usdc(vaultAddress),
+        vaultUsdc: await usdc(vaultAddress),
+        vault: await economy.views.vault(vaultAddress),
         supply: await pavedSupply(),
       };
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
-      const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
+      const purchase = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
+      const purchaseHash = purchase.transactionHash;
       // The token id is pinned (a fresh node), and so is the seed of its deck: the view's seed is the spawn's, replayed.
-      expect(bought.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
-      const seed = BigInt((await client.views.game({ mode: "challenge", gameId: bought.gameId })).seed);
-      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${bought.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, bought.gameId));
-      challengeGames.set(p.name, bought.gameId);
+      expect(purchase.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
+      const seed = BigInt((await client.views.game({ mode: "challenge", gameId: purchase.gameId })).seed);
+      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${purchase.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, purchase.gameId));
+      // S1: `initial_seed` is that seed before the deck's withdrawal and the first draw, and `expires_at` is the start plus 24 h.
+      const initial = await client.views.initialSeed({ mode: "challenge", gameId: purchase.gameId });
+      expect(BigInt(initial), `${p.name}'s initial_seed is Poseidon(${SALT}, Challenge, ${purchase.gameId})`).toBe(tokenSeed(client.deployment.addresses.Challenge, purchase.gameId));
+      const spawned = await client.views.game({ mode: "challenge", gameId: purchase.gameId });
+      expect(spawned.expiresAt, `${p.name}'s expires_at is start_time + ${GAME_VALIDITY}`).toBe(spawned.startTime + GAME_VALIDITY);
+      challengeGames.set(p.name, purchase.gameId);
       stakes.set(p.name, k);
-      expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
-      const purchased = (await economyEvents(bought.transactionHash)).find((e) => e.name === "Purchased")!;
+      expect(purchase.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
+      const purchased = (await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!;
       expect(purchased, "Economy.Purchased in the receipt").toBeDefined();
       const f = purchased.fields as Record<string, bigint | number | string>;
       const burnedQuote = BigInt(f.burnedQuote as bigint);
       const burned = BigInt(f.burned as bigint);
       const referral = BigInt(f.referral as bigint);
       const margin = BigInt(f.margin as bigint);
+      const vaultPaved = BigInt(f.vaultPaved as bigint);
       // price: the player paid exactly k x unit
       expect(before.player - (await usdc(p.address))).toBe(quote.price);
       expect(BigInt(f.price as bigint)).toBe(quote.price);
@@ -358,20 +381,31 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(referral).toBe(referrer ? quote.referral : 0n);
       if (referrer) expect(referral).toBe((quote.price * 500n) / 10_000n);
       expect((referrer ? await usdc(referrer.address) : 0n) - before.referrer).toBe(referral);
-      // margin: to the Vault, on the same call
-      expect((await usdc(vaultAddress)) - before.vault).toBe(margin);
+      // margin: swapped with the burn quote in one swap (P-56); no USDC reaches the Vault
       expect(margin).toBe(quote.margin - referral);
-      // burn: the USDC swapped (burn_quote) buys PAVED, which is burned; the swap respects min_out
+      expect(await usdc(vaultAddress)).toBe(before.vaultUsdc);
       expect(burnedQuote).toBe(quote.burnQuote);
-      expect(before.supply - (await pavedSupply())).toBe(burned);
-      expect(burned).toBeGreaterThanOrEqual(planned.minOut);
       expect(burnedQuote + referral + margin).toBe(quote.price);
-      const terms = await economy.views.terms(bought.gameId);
+      // min_out against the contract's own computation: the client quoted exactly the USDC the contract swapped, and the
+      // swap paid that quote (nothing moved the pool in between); the PAVED it bought is at least min_out.
+      const bought = burned + vaultPaved;
+      expect(planned.swapIn, "the client's swap input = the contract's (burn quote + margin)").toBe(burnedQuote + margin);
+      expect(bought, "the swap paid the pool's quote of that input").toBe(planned.poolOut);
+      expect(bought).toBeGreaterThanOrEqual(planned.minOut);
+      // the split by input: the margin's PAVED to the Vault (rounded down), the rest burned
+      expect(vaultPaved).toBe((bought * margin) / (burnedQuote + margin));
+      expect(before.supply - (await pavedSupply())).toBe(burned);
+      // the rate rises: total_assets grows by the margin's PAVED, with no share minted
+      const vaultAfter = await economy.views.vault(vaultAddress);
+      expect(vaultAfter.totalAssets - before.vault.totalAssets).toBe(vaultPaved);
+      expect(vaultAfter.totalSupply).toBe(before.vault.totalSupply);
+      expect(vaultRate(vaultAfter.totalAssets, vaultAfter.totalSupply)).toBeGreaterThan(vaultRate(before.vault.totalAssets, before.vault.totalSupply));
+      const terms = await economy.views.terms(purchase.gameId);
       expect(terms).toMatchObject({ stake: k, recorded: false, settled: false, expired: false });
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
-      evidence.push(`${p.name} k=${k} game ${bought.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, bought.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
+      evidence.push(`${p.name} k=${k} game ${purchase.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, purchase.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} + referral ${referral} + margin ${margin}; one swap of ${planned.swapIn} USDC -> ${bought} PAVED (quote ${planned.poolOut}, min_out ${planned.minOut}): ${burned} burned, ${vaultPaved} to the Vault (total_assets +${vaultPaved}, supply unchanged), ${short(purchaseHash)}`);
     }
-    pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `day ${dayId}: ${evidence.join("; ")}`);
+    pass("buy: approve + spawn with stake k and referrer; one swap of burn quote + margin (P-56); price, burn, referral, Vault PAVED vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
 
   test("the threshold the settlement will use: the day's prior and the formula", async () => {
@@ -559,39 +593,87 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("settle after D+1: PAVED reward = R x h(score / mean) (Settled event = terms = balance change), positive above the threshold, 0 below", evidence.join("; "));
   }, 120_000);
 
-  test("the Vault: a test account stakes its own PAVED, earns dividends from a later purchase, claims them", async () => {
+  test("the Vault (vPAVED): a deposit; a later purchase raises the rate with no share minted; withdraws pay the exit fee into the Vault", async () => {
     const [, bob, carol] = players;
-    // carol stakes the 1,000 test PAVED that deploy.sh gives each predeployed account but the deployer (P-38): her
+    const vaultAddress = economy.deployment.addresses.Vault;
+    // carol deposits the 1,000 test PAVED that deploy.sh gives each predeployed account but the deployer (P-38): her
     // own, not the deployer's stake. Her game was under the threshold, so that is all the PAVED she holds.
     const testPaved = 1_000n * 10n ** 18n;
     expect(settledReward.get(carol.name)).toBe(0n);
     expect(await paved(carol.address)).toBe(testPaved);
-    const amount = testPaved;
-    const staked = await carol.econ.stake(amount, { confirmedAmount: amount });
-    const position = await economy.views.vault(carol.address);
-    expect(position.staked).toBe(amount);
+    const expectedShares = await economy.views.previewDeposit(testPaved);
+    const deposited = await carol.econ.deposit(testPaved, { confirmedAmount: testPaved });
+    const held = await economy.views.vault(carol.address);
+    expect(held.shares).toBe(expectedShares);
     expect(await paved(carol.address)).toBe(0n);
-    expect(position.pending).toBe(0n);
+    const fee = BigInt(held.exitFeeBps);
+    expect(fee, "the default exit fee (deploy.sh: DEFAULT_EXIT_FEE_BPS, 5 %, owner 2026-10-14)").toBe(500n);
 
-    // A later purchase (bob, stake 1, no referrer: its whole margin goes to the Vault) earns dividends.
-    // It is bob's second game: bought on the day D+2, never played (the expired game below).
+    // The slippage bound holds. Client side: a floor above the fresh quote sends nothing. On chain: a spawn whose min_out is
+    // one above what the swap pays reverts ('Economy: swap below min_out'), and bob's USDC does not move.
     const quote = await economy.views.quote(1);
-    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const planned = await bob.econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const usdcBefore = await usdc(bob.address);
+    await expect(bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut + 1n, referrer: null })).rejects.toBeInstanceOf(PoolPriceMovedError);
+    const tooHigh = planned.calls.map((call) =>
+      call.entrypoint === "spawn" ? { ...call, calldata: [call.calldata[0], call.calldata[1], `0x${(planned.poolOut + 1n).toString(16)}`, "0x0"] } : call,
+    );
+    const below = await bob.writer.sendCalls(async () => ({ calls: tooHigh, events: "Challenge" })).catch((e: unknown) => e);
+    expect(String((below as Error).message)).toMatch(/swap below min_out|73776170652062656c6f77206d696e5f6f7574/i);
+    expect(await usdc(bob.address)).toBe(usdcBefore);
+
+    // A later purchase (bob, stake 1, no referrer) raises the rate: its margin's PAVED reaches the Vault, no share minted.
+    // It is bob's second game: bought on the day D+2, never played (the expired game below).
+    const v0 = await economy.views.vault(vaultAddress);
+    const valueBefore = (await economy.views.vault(carol.address)).value;
+    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
     bobSecondGame = purchase.gameId;
     expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
     expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(spawnedSeed(client.deployment.addresses.Challenge, bobSecondGame));
-    const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
-    const earned = await economy.views.vault(carol.address);
-    // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.
-    const scale = 10n ** 36n;
-    const share = (amount * ((margin * scale) / earned.totalStaked)) / scale;
-    expect(earned.pending, "dividends pending after a later purchase").toBeGreaterThan(0n);
-    expect(earned.pending).toBe(share);
-    const before = await usdc(carol.address);
-    const claimed = await carol.econ.claimDividends({ confirmedAmount: earned.pending });
-    expect((await usdc(carol.address)) - before).toBe(earned.pending);
-    expect((await economy.views.vault(carol.address)).pending).toBe(0n);
-    pass("Vault: a test account stakes its own PAVED, dividends from a later purchase, claim", `carol staked her ${amount} test PAVED ${short(staked.transactionHash)}; bob's purchase margin ${margin} USDC -> carol's pending ${earned.pending} = ${amount} x (margin x 1e36 / ${earned.totalStaked}) / 1e36; claimed ${short(claimed.transactionHash)}, USDC +${earned.pending} = pending`);
+    const vaultPaved = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { vaultPaved: bigint }).vaultPaved);
+    const v1 = await economy.views.vault(vaultAddress);
+    expect(vaultPaved).toBeGreaterThan(0n);
+    expect(v1.totalAssets - v0.totalAssets, "total_assets grows by the margin's PAVED").toBe(vaultPaved);
+    expect(v1.totalSupply, "no share minted").toBe(v0.totalSupply);
+    expect(vaultRate(v1.totalAssets, v1.totalSupply)).toBeGreaterThan(vaultRate(v0.totalAssets, v0.totalSupply));
+    const position = await economy.views.vault(carol.address);
+    expect(position.shares).toBe(held.shares);
+    expect(position.value).toBeGreaterThan(valueBefore);
+
+    // Above max_withdraw: refused client-side, nothing sent.
+    const refused = await carol.econ.withdraw(position.maxWithdraw + 1n, { confirmedAmount: position.maxWithdraw + 1n }).catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(VaultOverMaxWithdrawError);
+    expect((await economy.views.vault(carol.address)).shares).toBe(position.shares);
+
+    // A withdraw of half of max_withdraw: carol receives exactly the amount; the shares burned are preview_withdraw's, which
+    // is OpenZeppelin's formula with the fee on top, rounded up; total_assets falls by the amount only: the fee stays.
+    const amount = position.maxWithdraw / 2n;
+    const ceil = (a: bigint, b: bigint) => (a + b - 1n) / b;
+    const expectedBurn = ceil((amount + ceil(amount * fee, 10_000n)) * (v1.totalSupply + 1n), v1.totalAssets + 1n);
+    expect(await economy.views.previewWithdraw(amount)).toBe(expectedBurn);
+    const withdrew = await carol.econ.withdraw(amount, { confirmedAmount: amount });
+    const v2 = await economy.views.vault(vaultAddress);
+    const afterWithdraw = await economy.views.vault(carol.address);
+    expect(await paved(carol.address)).toBe(amount);
+    expect(position.shares - afterWithdraw.shares).toBe(expectedBurn);
+    expect(v1.totalAssets - v2.totalAssets, "only the amount leaves: the exit fee stays in the Vault").toBe(amount);
+    expect(v1.totalSupply - v2.totalSupply).toBe(expectedBurn);
+    expect(vaultRate(v2.totalAssets, v2.totalSupply), "the fee raises the rate of those who stay").toBeGreaterThan(vaultRate(v1.totalAssets, v1.totalSupply));
+
+    // Withdraw all: every vPAVED redeemed for preview_redeem's PAVED, the fee taken.
+    const redeemable = await economy.views.previewRedeem(afterWithdraw.shares);
+    expect(redeemable).toBe(afterWithdraw.maxWithdraw);
+    const redeemed = await carol.econ.withdrawAll({ confirmedShares: afterWithdraw.shares });
+    expect(await paved(carol.address)).toBe(amount + redeemable);
+    expect((await economy.views.vault(carol.address)).shares).toBe(0n);
+    const v3 = await economy.views.vault(vaultAddress);
+    expect(v2.totalAssets - v3.totalAssets).toBe(redeemable);
+    expect(v3.totalAssets).toBeGreaterThan(v0.totalAssets - testPaved); // the fees and the margin stay
+
+    pass(
+      "Vault (vPAVED): deposit; a purchase raises the rate (no share minted); the slippage bound; withdraw and withdraw all pay the exit fee into the Vault",
+      `carol deposited ${testPaved} PAVED for ${held.shares} vPAVED ${short(deposited.transactionHash)}; min_out ${planned.poolOut + 1n} (quote + 1) reverted on chain, USDC unchanged; bob's purchase sent ${vaultPaved} PAVED: total_assets ${v0.totalAssets} -> ${v1.totalAssets}, supply ${v1.totalSupply} unchanged; withdraw ${amount} burned ${expectedBurn} vPAVED (= preview_withdraw, fee ${fee} bps on top), total_assets -${amount} only ${short(withdrew.transactionHash)}; withdraw all redeemed ${afterWithdraw.shares} vPAVED for ${redeemable} PAVED ${short(redeemed.transactionHash)}`,
+    );
   }, 120_000);
 
   test("a day nobody plays passes: the current day moves on", async () => {
@@ -671,4 +753,94 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(await usdc(alice.address)).toBe(usdcBefore - price);
     pass("G4: pause spawn", `paused in tx ${short(pausedAt)}: SpawnPausedError, no block, USDC unchanged; indexer ok at head ${paused.head.number}; unpaused, game ${bought.gameId} bought, indexer ok at head ${after.head.number}`);
   }, 120_000);
+
+  test("S1: initial_seed replays the draws (a discard included); after 24 h build and discard are refused, surrender closes the game, which is recorded and settled", async () => {
+    const [, bob] = players;
+    const quote = await economy.views.quote(1);
+    const planned = await bob.econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
+    const key: GameKey = { mode: "challenge", gameId: purchase.gameId };
+
+    // initial_seed is the token seed, and expires_at is the start plus 24 h.
+    const initial = BigInt(await client.views.initialSeed(key));
+    expect(initial).toBe(tokenSeed(client.deployment.addresses.Challenge, key.gameId));
+    const fresh = await client.views.game(key);
+    expect(fresh.expiresAt).toBe(fresh.startTime + GAME_VALIDITY);
+    expect(fresh.startTime).toBeGreaterThan(0);
+
+    // A discard, a placement, another discard.
+    await bob.writer.discard(key);
+    const placed = await firstLegal(bob, key, (await client.views.tiles(key)).filter((t) => t.status === TILE_STATUS.placed));
+    expect(placed, "a legal placement").not.toBeNull();
+    await bob.writer.build(key, placed!);
+    await bob.writer.discard(key);
+
+    // The client's replay: the engine from initial_seed, the moves in draw order. tiles() reports a discarded tile at
+    // (0, 0); the engine reseeds it on (CENTER, CENTER), as the contract does.
+    const engine = EngineGame.start({ deck: "simple", seed: initial });
+    const tiles = await client.views.tiles(key);
+    expect(tiles.map((t) => t.status)).toEqual([TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.held]);
+    for (const tile of tiles) {
+      if (tile.status === TILE_STATUS.held) break;
+      if (tile.id === 1) continue; // the start tile, on the board before the first draw
+      expect(engine.hand?.id, `tile ${tile.id} is the engine's draw`).toBe(tile.id);
+      if (tile.status === TILE_STATUS.discarded) engine.discard();
+      else engine.build({ orientation: ORIENTATIONS[tile.orientation], x: tile.x - CENTER, y: tile.y - CENTER });
+    }
+    const now = await client.views.game(key);
+    expect(engine.seed).toBe(BigInt(now.seed));
+    expect(engine.hand?.id).toBe(now.tileId);
+    expect(engine.score).toBe(now.score);
+
+    // 24 h pass: the node's clock moves and a block lands.
+    await advance(fresh.expiresAt - (await chainTime()));
+    await rpc(rpcUrl, "devnet_createBlock");
+    expect(await chainTime()).toBeGreaterThanOrEqual(fresh.expiresAt);
+
+    // The session sees the game expired and sends nothing.
+    let sent = 0;
+    const send = async () => {
+      sent++;
+      throw new Error("sent");
+    };
+    const blockBefore = (await provider.getBlockNumber()) as number;
+    const session = new GameSession(client.views, key, bob.address, () => fresh.expiresAt);
+    await session.load();
+    expect(await session.discard(send)).toBe(false);
+    expect(await session.place({ orientation: 1, x: CENTER, y: CENTER }, send)).toBe(false);
+    expect(sent).toBe(0);
+    expect(session.state.writeError).toMatch(/24 hours are over/);
+
+    // After a race (the client thinks the game is open) the chain's revert is the same typed error, and no block lands.
+    const raced = new GameSession(client.views, key, bob.address, () => fresh.expiresAt - 1);
+    await raced.load();
+    expect(await raced.discard(() => bob.writer.discard(key))).toBe(false);
+    expect(raced.state.writeError).toMatch(/Surrender to close it/);
+    await expect(bob.writer.discard(key)).rejects.toBeInstanceOf(GameExpiredError);
+    await expect(bob.writer.build(key, placed!)).rejects.toBeInstanceOf(GameExpiredError);
+    expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
+
+    // Surrender is open: the game ends, and the Economy records it as expired, with its score.
+    const surrendered = await bob.writer.surrender(key);
+    expect(placementOutcome(surrendered.events, key.gameId).over).not.toBeNull();
+    const over = await client.views.game(key);
+    expect(over.over).toBe(true);
+    const terms = await economy.views.terms(key.gameId);
+    expect(terms).toMatchObject({ recorded: true, expired: true, settled: false, score: over.score });
+
+    // Settled once its day may be, through the client: since the W1j follow-up, EconomyWriter.settle sends a recorded expired
+    // game (the contract settles it for 0, P-34) and says so in `noReward`.
+    await toNextDay();
+    await toNextDay();
+    expect(await chainTime()).toBeGreaterThanOrEqual(settlesAfter(terms.day));
+    const settledExpired = await bob.econ.settle([key.gameId]);
+    expect(settledExpired.noReward).toEqual([key.gameId]);
+    expect(settledExpired.events.find((e) => e.name === "Settled")?.fields.reward).toBe(0n);
+    const tx = { transaction_hash: settledExpired.transactionHash };
+    expect(await economy.views.terms(key.gameId)).toMatchObject({ settled: true, reward: 0n });
+    pass(
+      "S1: initial_seed replay, expiry, surrender, record, settle",
+      `game ${key.gameId}: initial_seed = Poseidon(0, Challenge, id); expires_at ${fresh.expiresAt} = start ${fresh.startTime} + ${GAME_VALIDITY}; engine replay (discard, build, discard) = seed, tile in hand and score of the chain; at the expiry the session sent nothing and build/discard were GameExpiredError with no block (${blockBefore}); surrender ${short(surrendered.transactionHash)}; recorded expired, score ${over.score}; settled with reward 0 ${short(tx.transaction_hash)}`,
+    );
+  }, 300_000);
 });

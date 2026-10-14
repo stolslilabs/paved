@@ -86,10 +86,11 @@
   /* The board: the 3D scene's clear colour and the Storybook background; measured #07111A. */
   --color-board: oklch(0.173 0.024 246.1); /* #07111A */
 
-  /* Fonts (section 2.3). */
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Rubik Mono One", "Inter Variable", ui-sans-serif, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
+  --font-sans: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cinzel", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-numeric: var(--font-mono);
 
   /* Breakpoints (section 3.4): mobile first, the base is the small mobile. Tailwind's defaults (sm, md, lg, xl, 2xl)
      stay: shadcn's components use them. The named ones sit beside. */
@@ -186,6 +187,12 @@
   [data-input-surface] {
     --input: var(--input-surface);
   }
+}
+
+/* Numbers (section 2.3): scores, counters and prices use IBM Plex Mono with tabular figures, so digits keep one width. */
+@utility numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 /*

@@ -13,6 +13,11 @@ pub const CENTER: u32 = 0x7fffffff;
 pub const CHALLENGE_PRICE: felt252 = 2_000_000;
 /// The length of a day, which `day::day_id` divides by.
 pub const CHALLENGE_DURATION: u64 = 86400; // 1 day
+/// How long a Challenge game can be played (S1, the PM's ruling on the client specification): from
+/// its start, `build` and `discard` revert with `'Game: expired'` at and after `start_time +
+/// GAME_VALIDITY`. Equal to `economy::DAY`, so a game whose last move is accepted is recorded
+/// before its economic expiry (`Economy.record`, `>= time + DAY`) and the two deadlines are one.
+pub const GAME_VALIDITY: u64 = 86400; // 24 h
 
 // Bonus curve
 

@@ -1,17 +1,21 @@
-//! Upgrades (D-17, P-42, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Economy` and
-//! `Collection` replace their class through OpenZeppelin's `UpgradeableComponent`,
-//! gated by the two-step owner; `PavedToken` and `Vault` have no `upgrade` at all. Since D-24
-//! `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo` pins
-//! the dead `lobby_class` slot).
+//! Upgrades (D-17, P-42, P-56, `docs/architecture/upgrades.md`): `Daily`, `Setup`, `Economy`,
+//! `Collection` and `Vault` (vPAVED) replace their class through OpenZeppelin's
+//! `UpgradeableComponent`, gated by the two-step owner; `PavedToken` has no `upgrade` at all. Since
+//! D-24 `Daily` runs no `Lobby` class: its `set_lobby_class` is gone (`e2e/cold_paths_audit.cairo`
+//! pins the dead `lobby_class` slot).
 
 use core::num::traits::Zero;
+use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::upgrades::{
     IUpgradeableDispatcher, IUpgradeableDispatcherTrait, IUpgradeableSafeDispatcher,
     IUpgradeableSafeDispatcherTrait,
 };
+use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use openzeppelin_upgrades::UpgradeableComponent;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::vault::DEAD_ASSETS;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
 use paved::types::mode::Mode;
@@ -46,6 +50,9 @@ pub mod UpgradeProbe {
     }
 }
 
+/// One PAVED (and one vPAVED) in base units.
+const ONE: u256 = 1_000_000_000_000_000_000;
+
 fn class_of(name: ByteArray) -> ClassHash {
     *declare(name).unwrap().contract_class().class_hash
 }
@@ -72,13 +79,14 @@ fn upgradables(systems: @setup::Systems) -> Array<(ContractAddress, felt252, fel
         ),
         (*systems.economy.contract_address, selector!("game"), challenge),
         (*systems.collection.contract_address, selector!("daily"), challenge),
+        ((*systems.economy).addresses().vault, selector!("exit_fee"), 500),
     ]
 }
 
 // Upgrade
 
 #[test]
-#[available_gas(l2_gas: 63343344)]
+#[available_gas(l2_gas: 73971765)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_for_non_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -99,7 +107,7 @@ fn test_upgrade_reverts_for_non_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 56960321)]
+#[available_gas(l2_gas: 66002402)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_reverts_on_zero_class_hash() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -116,7 +124,7 @@ fn test_upgrade_reverts_on_zero_class_hash() {
 /// The owner replaces the class: OpenZeppelin's `Upgraded` is emitted, and the value stored before
 /// is read back through the new class.
 #[test]
-#[available_gas(l2_gas: 58882419)]
+#[available_gas(l2_gas: 68397494)]
 fn test_upgrade_by_owner_emits_and_keeps_the_state() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let probe = class_of("UpgradeProbe");
@@ -138,7 +146,7 @@ fn test_upgrade_by_owner_emits_and_keeps_the_state() {
 
 /// After a two-step transfer, the new owner upgrades and the old one no longer can.
 #[test]
-#[available_gas(l2_gas: 65069334)]
+#[available_gas(l2_gas: 76139553)]
 #[feature("safe_dispatcher")]
 fn test_upgrade_follows_the_ownership_transfer() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -162,25 +170,59 @@ fn test_upgrade_follows_the_ownership_transfer() {
     }
 }
 
-// Not upgradable: PavedToken and Vault
+// Not upgradable: PavedToken
 
-/// `PavedToken` and `Vault` have no `upgrade` entry point: a call to its selector finds none.
+/// `PavedToken` has no `upgrade` entry point: a call to its selector finds none.
 #[test]
-#[available_gas(l2_gas: 55452794)]
+#[available_gas(l2_gas: 62681703)]
 #[feature("safe_dispatcher")]
-fn test_paved_token_and_vault_have_no_upgrade() {
+fn test_paved_token_has_no_upgrade() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let addresses = systems.economy.addresses();
-    let probe = class_of("UpgradeProbe");
-    let contracts: Array<ContractAddress> = array![addresses.paved, addresses.vault];
-    for contract in contracts {
-        start_cheat_caller_address(contract, OWNER());
-        let error = IUpgradeableSafeDispatcher { contract_address: contract }
-            .upgrade(probe)
-            .unwrap_err();
-        assert(*error.at(0) == 'ENTRYPOINT_NOT_FOUND', 'Upgrade: entry point found');
-        stop_cheat_caller_address(contract);
-    }
+    let contract = systems.economy.addresses().paved;
+    start_cheat_caller_address(contract, OWNER());
+    let error = IUpgradeableSafeDispatcher { contract_address: contract }
+        .upgrade(class_of("UpgradeProbe"))
+        .unwrap_err();
+    assert(*error.at(0) == 'ENTRYPOINT_NOT_FOUND', 'Upgrade: entry point found');
+    stop_cheat_caller_address(contract);
+}
+
+// The Vault (vPAVED, P-56): its upgrade keeps the shares, the PAVED behind them and the votes
+
+/// After a paid game (its margin in the Vault) and the owner's self-delegation, the owner upgrades
+/// the Vault: the new class reads the same shares, supply, fee and votes, and the PAVED behind
+/// them, which the token holds, has not moved: the rate is kept.
+#[test]
+fn test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes() {
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    let vault = systems.economy.addresses().vault;
+    let paved = IERC20Dispatcher { contract_address: systems.economy.addresses().paved };
+    let share = ERC4626ABIDispatcher { contract_address: vault };
+    start_cheat_caller_address(vault, OWNER());
+    IVotesDispatcher { contract_address: vault }.delegate(OWNER());
+    stop_cheat_caller_address(vault);
+    let balance = share.balance_of(OWNER());
+    let supply = share.total_supply();
+    let assets = paved.balance_of(vault);
+    let rate = share.convert_to_assets(ONE);
+    assert(assets > supply, 'Vault: margin in');
+    start_cheat_caller_address(vault, OWNER());
+    IUpgradeableDispatcher { contract_address: vault }.upgrade(class_of("UpgradeProbe"));
+    stop_cheat_caller_address(vault);
+    let probed = IUpgradeProbeDispatcher { contract_address: vault };
+    let owner: felt252 = OWNER().into();
+    let key = map_entry_address(selector!("ERC20_balances"), array![owner].span());
+    assert(probed.probe(key) == balance.low.into(), 'Vault: balance kept');
+    assert(
+        probed.probe(selector!("ERC20_total_supply")) == supply.low.into(), 'Vault: supply kept',
+    );
+    assert(probed.probe(selector!("exit_fee")) == 500, 'Vault: fee kept');
+    assert(probed.probe(selector!("owner")) == owner, 'Vault: owner kept');
+    let delegate = map_entry_address(selector!("Votes_delegatee"), array![owner].span());
+    assert(probed.probe(delegate) == owner, 'Vault: delegation kept');
+    // The PAVED behind the shares is the token's: the rate the next class computes is the same
+    assert(paved.balance_of(vault) == assets, 'Vault: assets kept');
+    assert(ONE * (assets + 1) / (supply + 1) == rate, 'Vault: rate kept');
 }
 
 // Storage layout: the key variables of `Setup`'s wiring and of `Economy`, pinned by name
@@ -188,6 +230,51 @@ fn test_paved_token_and_vault_have_no_upgrade() {
 /// The raw slot of a map entry.
 fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> felt252 {
     *load(contract, map_entry_address(map, key.span()), 1).at(0)
+}
+
+/// The Vault's layout (P-42 since P-56): its components' variables and its fee, read at the raw
+/// address of their names after a paid spawn and a delegation. A rename or a retype of a
+/// substorage field fails here.
+#[test]
+fn test_upgrade_layout_pins_the_vault_by_name() {
+    let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    let addresses = systems.economy.addresses();
+    let vault = addresses.vault;
+    let owner: felt252 = OWNER().into();
+    start_cheat_caller_address(vault, OWNER());
+    IVotesDispatcher { contract_address: vault }.delegate(OWNER());
+    IOwnableDispatcher { contract_address: vault }.transfer_ownership(ANYONE());
+    stop_cheat_caller_address(vault);
+    let share = ERC4626ABIDispatcher { contract_address: vault };
+    // [Ownable] flat, as in every owned contract
+    assert(raw(vault, selector!("owner")) == owner, 'Pin: vault owner');
+    assert(raw(vault, selector!("pending_owner")) == ANYONE().into(), 'Pin: vault pending');
+    // [ERC20] the share
+    assert(
+        raw(vault, selector!("ERC20_total_supply")) == share.total_supply().low.into(),
+        'Pin: vault supply',
+    );
+    assert(
+        raw_entry(vault, selector!("ERC20_balances"), array![owner]) == share
+            .balance_of(OWNER())
+            .low
+            .into(),
+        'Pin: vault balances',
+    );
+    assert(
+        raw_entry(vault, selector!("ERC20_balances"), array![vault.into()]) == DEAD_ASSETS
+            .low
+            .into(),
+        'Pin: vault dead shares',
+    );
+    // [ERC4626] the asset, [Votes] the delegation (its checkpoints are a `Vec`, whose length lives
+    // at a derived address, not at the name), the fee
+    assert(raw(vault, selector!("ERC4626_asset")) == addresses.paved.into(), 'Pin: vault asset');
+    assert(
+        raw_entry(vault, selector!("Votes_delegatee"), array![owner]) == owner,
+        'Pin: vault delegatee',
+    );
+    assert(raw(vault, selector!("exit_fee")) == 500, 'Pin: vault exit_fee');
 }
 
 /// An upgrade keeps the storage only if the new class finds every variable at its slot, and the

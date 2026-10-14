@@ -42,11 +42,14 @@ const PLAYER = "0x5";
 const NUMS_ROUTER = "0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066";
 const SN_MAIN = "0x534e5f4d41494e";
 
-/** Stake 1: a price of 2 USDC, a burn of 70 %. At this rate the burn's guard-rate value is exactly 112 PAVED. */
-const BURN = 1_400_000n;
+/**
+ * Stake 1 without a referrer: a price of 2 USDC, swapped whole in one swap (the burn quote and the margin, P-56). At this
+ * rate its guard-rate value is exactly 160 PAVED.
+ */
+const BURN = 2_000_000n;
 const RATE = 80n * 10n ** 30n;
-const IMPLIED = 112n * 10n ** 18n;
-const AT_FLOOR = (IMPLIED * 9_000n) / 10_000n; // 100.8 PAVED, exactly 90 %
+const IMPLIED = 160n * 10n ** 18n;
+const AT_FLOOR = (IMPLIED * 9_000n) / 10_000n; // 144 PAVED, exactly 90 %
 
 const economyOn = (network: string, file?: EconomyDeploymentFile) =>
   resolveEconomyDeployment({ base: resolveDeployment({ network, file, env: { rpcUrl: "http://x", addresses: ADDR } }), file, env: ECON });
@@ -91,7 +94,7 @@ const buy = (extra: { acceptedLowQuote?: boolean; confirmedMinOut?: bigint } = {
   ...extra,
 });
 
-describe("the sanity floor: implied = burn_quote x rate / RATE_SCALE, a warning below 90 % (ruling 1)", () => {
+describe("the sanity floor: implied = swap input x rate / RATE_SCALE, a warning below 90 % (ruling 1)", () => {
   test("the constants: Economy's RATE_SCALE (curve.cairo, 1e18) and a floor of 90 %", () => {
     expect(RATE_SCALE).toBe(10n ** 18n);
     expect(SANITY_FLOOR_BPS).toBe(9_000n);

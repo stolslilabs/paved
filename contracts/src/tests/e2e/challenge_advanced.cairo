@@ -16,7 +16,7 @@ use snforge_std::{
 };
 
 #[test]
-#[available_gas(l2_gas: 82709209)]
+#[available_gas(l2_gas: 90046638)]
 fn test_daily_e2e_discard_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
@@ -27,7 +27,7 @@ fn test_daily_e2e_discard_increments_counter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 92776823)]
+#[available_gas(l2_gas: 99898876)]
 fn test_daily_e2e_build_then_discard_tracks_both_actions() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
 
@@ -46,7 +46,7 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
 }
 
 #[test]
-#[available_gas(l2_gas: 84638608)]
+#[available_gas(l2_gas: 92163381)]
 fn test_daily_e2e_token_erc20_entrypoints() {
     let (_, _, context) = setup::spawn_game(Mode::Challenge);
 

@@ -15,7 +15,10 @@ export const MAX_STAKE = 10;
 export const STAKES: readonly number[] = Array.from({ length: MAX_STAKE - MIN_STAKE + 1 }, (_, i) => MIN_STAKE + i);
 
 export const BPS = 10_000n;
-/** The referrer's share of the price, paid out of the Vault's margin (P-31): the player pays the same. */
+/**
+ * The referrer's share of the price at deployment (`DEFAULT_REFERRAL_BPS`), out of the Vault's part: the player pays the
+ * same. Owner-set since P-56: the screens show `Economy.split_bps().referral` or `Quote.referral`, never this constant.
+ */
 export const REFERRAL_BPS = 500n;
 
 /** The slippage the client takes off the pool quote for `min_out`: 1 % by default, at most 5 % (P-35). */
@@ -42,7 +45,7 @@ export function boostBps(stake: number): bigint {
   return BPS + 100n * BigInt(stake);
 }
 
-/** What a referrer gets out of the margin: 5 % of the price. The player's price does not change. */
+/** What a referrer gets at the deployment's default (`REFERRAL_BPS`); the chain's figure is `Quote.referral`. */
 export function referralOf(price: bigint): bigint {
   return (price * REFERRAL_BPS) / BPS;
 }
@@ -55,6 +58,17 @@ export function minOutFor(poolOut: bigint, slippageBps: bigint = DEFAULT_SLIPPAG
   if (slippageBps < 0n || slippageBps > MAX_SLIPPAGE_BPS) throw new RangeError(`Slippage ${slippageBps} bps is out of 0..${MAX_SLIPPAGE_BPS}`);
   if (poolOut < 0n) throw new RangeError("A pool quote is not negative");
   return (poolOut * (BPS - slippageBps)) / BPS;
+}
+
+/**
+ * The USDC `Economy.purchase` swaps (P-56): the price less the referral, i.e. the burn quote plus the margin, in one swap.
+ * `referred` is whether the purchase sends a referrer (any non-zero address the writer accepts): the contract pays the
+ * referral out of the margin first, then swaps the whole rest. `min_out` and the sanity floor are over this amount.
+ */
+export function swapInputOf(quote: { price: bigint; burnQuote: bigint; referral: bigint }, referred: boolean): bigint {
+  const input = quote.price - (referred ? quote.referral : 0n);
+  if (input < quote.burnQuote) throw new RangeError("The referral is larger than the margin");
+  return input;
 }
 
 /** The scale of `Economy.rate()`, the guard's swap rate: PAVED base units per USDC base unit, x 1e18 (`curve::RATE_SCALE`). */
@@ -127,6 +141,30 @@ export function parseUnits(text: string, decimals: number): bigint | null {
   if (fraction.length > decimals) return null;
   const amount = BigInt(m[1]) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
   return amount > 0n ? amount : null;
+}
+
+/**
+ * The vPAVED share (P-56): an ERC4626 over PAVED, 18 decimals like PAVED, with an exit fee in bps. The label is fixed,
+ * whatever the chain's symbol says.
+ */
+export const VPAVED_LABEL = "vPAVED";
+export const VPAVED_DECIMALS = 18;
+/** The scale of `vaultRate`: PAVED per vPAVED x 1e18. */
+export const VAULT_RATE_SCALE = 10n ** 18n;
+
+/**
+ * The Vault's rate, PAVED per vPAVED x `VAULT_RATE_SCALE`, rounded down: OpenZeppelin's conversion at offset 0,
+ * `(total_assets + 1) / (total_supply + 1)` (vault-share.md, addendum A1). Deposits and exits leave it unchanged up to
+ * rounding; the margin of every purchase and the exit fee raise it.
+ */
+export function vaultRate(totalAssets: bigint, totalSupply: bigint): bigint {
+  if (totalAssets < 0n || totalSupply < 0n) throw new RangeError("The Vault's totals are not negative");
+  return ((totalAssets + 1n) * VAULT_RATE_SCALE) / (totalSupply + 1n);
+}
+
+/** A bps figure as a percentage, e.g. 100 -> "1 %", 150 -> "1.5 %". */
+export function formatPercentBps(bps: bigint | number): string {
+  return `${formatUnits(BigInt(bps), 2)} %`;
 }
 
 /** A bps figure as a multiplier, e.g. 10_300 -> "1.03". */

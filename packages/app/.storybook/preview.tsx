@@ -3,21 +3,15 @@ import { QueryClient, QueryClientProvider, type QueryKey } from "@tanstack/react
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { useState } from "react";
 import { MemoryRouter } from "react-router";
-import interUrl from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
-import rubikUrl from "@fontsource/rubik-mono-one/files/rubik-mono-one-latin-400-normal.woff2?url";
 import "../src/styles/fonts.css";
+import { preloadFonts } from "../src/styles/fonts";
 import "../src/styles/theme.css";
 import { board } from "../src/styles/tokens";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
 
-// The font preloads (section 2.3), the same hashed URLs fonts.css loads from.
-for (const href of [interUrl, rubikUrl]) {
-  const link = document.createElement("link");
-  Object.assign(link, { rel: "preload", as: "font", type: "font/woff2", crossOrigin: "anonymous", href });
-  document.head.append(link);
-}
+preloadFonts();
 
 /** Query data a story seeds: `parameters.queryFixtures = [[queryKey, data], ...]`. */
 type QueryFixtures = ReadonlyArray<readonly [QueryKey, unknown]>;

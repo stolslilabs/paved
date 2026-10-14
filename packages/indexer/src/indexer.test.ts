@@ -261,6 +261,7 @@ describe("Economy", () => {
         price: "2000000",
         referrer: padded(0n),
         reference: String(107n * 10n ** 18n),
+        vault_paved: String(45n * 10n ** 18n),
         score: 5000,
         expired: 0,
         reward: String(2n ** 70n),
@@ -486,19 +487,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("D-23b: schema 11 (Daily renamed Challenge in the stored contract and the deployment; 10 added the names cache, N1), and a database of schema 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("11");
-    for (const old of ["10", "9", "8", "7"]) {
+  test("P-56: schema 12 (purchases.vault_paved; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("12");
+    for (const old of ["11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 11: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 11.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 12: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 12.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("11");
+      expect(rebuilt.meta("schema")).toBe("12");
       rebuilt.close();
     }
   });

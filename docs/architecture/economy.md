@@ -129,7 +129,8 @@ mainnet" in section 8.
 | Stake `k` | `u8`, 1 to 10 | Glitchbomb's 10 bundles |
 
 Constants: base price `p0 = 2_000_000` (2 USDC, the `Mode::Daily` price, which replaces today's 1e18 test token
-price); `BURN_BPS = 7_000` (configurable, section 6); `REFERRAL_BPS = 500`; Ekubo fee `0.05 x 2^128`.
+price); `BURN_BPS = 7_000` (configurable, section 6); `REFERRAL_BPS = 500`; Ekubo fee `0.05 x 2^128`. Since P-56 the
+referral is the owner-set `referral_bps` and `burn_bps` is 7,368 by default (section 4, "As built: V1b").
 
 ### Purchase (`Daily.spawn(stake, referrer, min_out)`)
 
@@ -526,7 +527,132 @@ is 0 again from `sigma` +0.1 (54 % and 52 % lost).
 
 ## 4. The Vault
 
-**DECIDED (P-31): a simple staking vault, not Nums' ERC4626.**
+### As built: V1b (vPAVED, the margin as PAVED, the split; P-56)
+
+P-56 (the owner's correction of P-55's 1:1 share, 2026-10-14; design: `docs/architecture/vault-share.md`, addendum)
+replaces the simple vault below, which stays as the record of P-31.
+
+**The share.** `Vault` is vPAVED ("Vault PAVED", 18 decimals), an OpenZeppelin ERC4626 over PAVED with offset 0:
+
+- `deposit`, `mint`, `withdraw`, `redeem` and the ERC4626 views;
+- the rate (PAVED per vPAVED) is `(total_assets + 1) / (total_supply + 1)`, `total_assets` being the PAVED the Vault
+  holds;
+- votes (`VotesComponent`, a timestamp clock, delegation by SNIP-12 signature `'vPAVED'`/`'1'`), units counted in
+  vPAVED once delegated;
+- the two-step owner (the deployer) may `upgrade` and `set_exit_fee`, nothing else.
+
+Three things raise the rate:
+
+- the Vault's part of every price, reaching the Vault as PAVED with no share minted;
+- the exit fee;
+- rounding, which always favours the Vault.
+
+**The inflation defence.** The deployment deposits 1,000 PAVED of dead shares for the Vault itself before
+`Economy.set_game`. Nothing can redeem them, and they never vote. A deposit that would mint no share reverts.
+
+**The exit fee.** It is `Fee::Assets` on `withdraw` and `redeem` alike: `f` of the PAVED the holder receives, rounded
+up, and left in the Vault for the holders who stay.
+
+- `max_withdraw` is the redeem of the whole balance less the fee, so it is exact.
+- Default 500 bps. The owner's bounds are 0 to 1,000, and a change is evented (`ExitFeeSet`).
+- Owner's decision, 2026-10-14.
+
+**No USDC claim.** `acc`, `claim`, `pending` and the per-account settlement are gone: the rate is the only mechanism.
+USDC sent to the Vault is stranded, since the Vault has no USDC path.
+
+**The margin path** (`Economy.purchase`):
+
+1. The referral is paid in USDC, if any.
+2. One swap of the rest (the burn quote and the Vault's part) runs through the router. It must fill whole: a partial
+   fill reverts, as the Vault has no use for USDC. `min_out` bounds the whole swap.
+3. The PAVED is split by input. The Vault's part, `bought x margin / (quote + margin)` rounded down, goes to the Vault
+   by a plain transfer. The rest, and any stray PAVED, is burned.
+4. R and the guard read the burn's part against the burn quote.
+
+`Purchased` gains `vault_paved`. D-10 holds: all of the Vault's part goes to the Vault's holders, as PAVED.
+
+**The dead shares take their cut.** Of every margin and every exit fee, the 1,000 dead shares take
+`1,000 / total_supply`. That cut is locked forever: nothing can redeem them. At deploy.sh's launch amounts (1,000 dead
+shares and 199,000 of the owner's stake) it is 0.5 %, and it grows as real stakers leave. With no real stake, every
+margin and fee accrues to the dead shares until someone deposits. That PAVED stays in the token's `total_supply`, so
+the supply factor counts it as circulating.
+
+**Stray USDC on the router** waits in `Economy`. `clear(usdc)` returns it to `Economy` after the swap, and the next
+purchase adds it to its margin. So `Economy` holds nothing of its own after a purchase, except the router's strays
+(security audit note 1 of #382).
+
+**The split** (owner-set through `configure`, bounded and evented by `EconomyConfigured`):
+
+| Parameter | Default | Bounds | Role |
+|---|---:|---|---|
+| `burn_bps` | 7,368 | 5,000 to 9,000 | The burn quote (USDC), the same with or without a referrer |
+| Vault's part | 2,632 | `10,000 - burn_bps`, derived (`split_bps`) | The burn and the Vault add up to the price by construction |
+| `referral_bps` | 500 | 0 to 1,000, and at most the Vault's part | Paid out of the Vault's part, never out of the burn |
+
+**The burned PAVED with and without a referrer.**
+- The burn's USDC is exactly `burn_bps` of the price in both cases, and the split by input keeps the burn's part of
+  the PAVED proportional to it.
+- At a fixed rate, the burned PAVED is therefore identical (`test_burned_paved_does_not_depend_on_the_referrer`,
+  with a fixed-rate router double).
+- In a real pool the swap is smaller with a referral (95 % of the price), so its price impact is smaller. The burned
+  PAVED then differs only by that impact.
+
+The derived Vault part is the cleaner equivalent of a stored `vault_bps`: a stored pair could disagree, a derived one
+cannot, and `split_bps()` exposes it.
+
+`Config` is packed: `referral_bps` takes the top bits, stored plus one. A configuration packed before it existed reads
+the default 500 there, which was the former constant (pinned by
+`test_config_stored_before_the_referral_reads_it_at_its_default`).
+
+**The owner's figures** (2026-10-14): 70 % burned after the 5 % pool fee, 25 % to the Vault, 5 % to the Ekubo LP; with
+a referral, 70 / 20 / 5 / 5 (burned, Vault, referrer, LP).
+
+The pool fee is 5 % of the amount swapped, which is the burn quote plus the Vault's part, and so of everything but
+the referral. With burn `b` and referral `r` (shares of the price):
+
+- burned: `0.95 b`;
+- Vault: `0.95 (1 - b - r)`;
+- LP: `0.05 (1 - r)`;
+- referrer: `r`.
+
+Then `burn_bps = 7,368` gives `0.95 x 7,368 = 6,999.6` bps burned, the closest to 7,000; 7,369 gives 7,000.55. The
+exact shares at the defaults, with each residual against the owner's figure:
+
+| | Burned | Vault | Referrer | Ekubo LP |
+|---|---:|---:|---:|---:|
+| No referral | 69.996 % (-0.40 bps) | 25.004 % (+0.40 bps) | | 5.000 % (0) |
+| With a referral | 69.996 % (-0.40 bps) | 20.254 % (+25.40 bps) | 5.000 % (0) | 4.750 % (-25.00 bps) |
+
+With a referral the LP cannot reach 5 %: the referral is paid in USDC and never swapped. The 25 bps it misses stay
+with the Vault. The 5 % pool fee is accepted as the LP's part (owner, P-56), and D-10's burn stays 70 % of the price,
+counted after the fee.
+
+At the former 7,000 bps (#372's figures), the shares were 66.5 % burned, 28.5 % to the Vault and 5 % to the LP.
+
+**The figures** (`python3 -I -B scripts/montecarlo/sim.py --margin-paved`, seed 8, 365 days; two runs identical, sha256
+prefix `9c078f4b6e2b577d`; the default output byte-identical to `output.md`).
+
+Since fix loop 1 of #382, the option models the contract: one swap of the burn quote and the margin, its PAVED split
+by input, and R read from the burn's part. #372's A4 and the first figures of P-56 swapped the margin after the burn
+instead, which gave the burn the better first price. The two models give the same total PAVED out; only its split
+between the burn and the Vault differs, by one swap's extra price impact per purchase. Old (two swaps) and new (one
+swap, the contract):
+
+| Run | house edge, two swaps | house edge, one swap | Vault PAVED end, two swaps | Vault PAVED end, one swap | its share of the supply |
+|---|---:|---:|---:|---:|---:|
+| B, 200 games a day, burn 70 % (A4) | 37.4 % | 37.4 % | 653,168 | 653,212 | 66 % |
+| B, 200 games a day, the owner's split (73.68 %) | 34.0 % | 34.0 % | 630,982 | 631,034 | 64 % |
+| A, 200 games a day, the owner's split | 35.0 % | 35.1 % | 634,148 | 634,206 | 64 % |
+| B, 20 games a day, the owner's split | 35.6 % | 35.6 % | 372,492 | 372,597 | 39 % |
+
+At the owner's split, run B gives a return p50 of 0.92, a supply end of 984k and a price end/start of 202.96 (one
+swap) against 202.91.
+
+The one-swap model moves 52 to 105 PAVED a year from the burn to the Vault, and the house edge by 0.1 point at most:
+the gap is real and small. `fixture.py --margin-paved` and `test_fixture_matches_sim` check the contract's way on the
+fixture's games.
+
+**DECIDED (P-31; replaced by P-56, above): a simple staking vault, not Nums' ERC4626.**
 
 Nums' Vault (`systems/vault.cairo`, 445 lines plus 300 of components and models) is an OpenZeppelin ERC4626 over NUMS
 with a transferable share token `vNUMS`, `Votes` for governance, and a USDC reward-per-share accumulator settled in
@@ -568,7 +694,9 @@ the constructor. Lockup and exit fee: none. Dividends arrive per purchase, a few
 before a purchase earns only that purchase's pro-rata share; a lockup would buy nothing.
 
 What reverses the decision: the owner wants a transferable or tradable share (an LP of vPAVED, governance).
-Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kept.
+Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kept. **Realised by P-56 (vPAVED)**, with
+two differences: the accumulator went too (no USDC income: the Vault's part arrives as PAVED), and the owner keeps
+the upgrade and the exit fee.
 
 ## 5. Swap and LP
 
@@ -577,7 +705,8 @@ Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kep
 1. transfer `q` USDC to the router;
 2. `swap(RouteNode { pool_key, sqrt_ratio_limit, skip_ahead: 0 }, TokenAmount { token: USDC, amount: i129 { mag: q, sign: false } })`;
 3. `clear_minimum(PAVED, min_out)` (the PAVED comes back to `Economy`, at least `min_out` or the call reverts);
-4. `clear(USDC)` (any unswapped USDC comes back and joins the margin).
+4. `clear(USDC)` (any unswapped USDC comes back and joins the margin). Since P-56 the swap is the burn quote plus the
+   Vault's part and must fill whole (section 4, "As built: V1b").
 
 The interfaces are declared locally in `contracts/src/economy/ekubo.cairo`, ABI-compatible (`PoolKey { token0,
 token1, fee: u128, tick_spacing: u128, extension }`, `i129 { mag: u128, sign: bool }`, `RouteNode`, `TokenAmount`,
