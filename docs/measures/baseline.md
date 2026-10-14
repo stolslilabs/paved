@@ -1228,3 +1228,6 @@ difference comes from the deck, not from S1's code.
 
 **Storage and ABI.** No storage variable is added. `scripts/abis.sh` changes `contracts/abis/Challenge.json` only:
 `GameView.expires_at` (appended) and the `initial_seed` view.
+
+**Sizes** (`scripts/class-sizes.sh`, release, through the `scarb` shim under `prlimit --as=12884901888`, peak RSS
+3,585,520 kB): `Challenge` 62,045 -> 62,525 CASM felts (+480), 10,422 under the P-44 cap (72,947); 28,360 Sierra felts.
