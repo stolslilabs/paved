@@ -204,6 +204,22 @@ token. A client reads `spawn_paused()` to disable its "play" button and say why,
 A fresh deployment has no guardian and is not paused; so is a `Challenge` upgraded in place to this class (both
 storage slots read zero).
 
+## The errors of `Challenge.build`
+
+`build(game_id, orientation, x, y)` checks `x` and `y` first, before any read or write:
+
+| Error | When |
+|---|---|
+| `'Challenge: invalid position'` | `x` or `y` is `0` or `4294967295` (`u32::MAX`). Checked before everything else, so it also wins over `'Game: does not exist'` and the others below |
+| `'Game: does not exist'`, `'Game: not yet started'`, `'Game: is over'`, `'Game: expired'` | the game is not there, has not started, is over, or is past `expires_at` |
+| `'Builder: does not exist'` | the caller is not the player of the game |
+| `'Tile: already exists'`, `'Tile: no neighbors'`, `'Tile: cannot place'` and the other board errors | the position is taken, has no neighbour, or the tile does not fit |
+
+The rule is exact: a build reads the eight neighbours of `(x, y)`, so a position with a coordinate of `0` or `u32::MAX`
+can never be built (its neighbour leaves `u32`), and every other position is left to the board's own checks. The board
+has no other bound: `CENTER` (`0x7fffffff`) only marks where the starter tile lies. Before this check, such a call
+reverted with a raw `u32_sub Overflow` (or `u32_add Overflow`). The ABI does not change: only the error is new.
+
 ## Events for lists
 
 The views read one game; lists come from events. The player id is a key of the two events a list
