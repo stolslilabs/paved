@@ -1,74 +1,87 @@
-# V1b brief: the Vault's share token with votes (P-55, P-56), the implementation
+# V1b brief (re-scoped): vPAVED, the Vault as an ERC4626 share with votes, and the margin as PAVED
 
-Track CORE of Paved. It holds and pays tokens: a review and two audits follow (security lens, economy lens). Commit
-this brief as `docs/briefs/v1b-vault-share-impl.md`, as the first commit of your PR.
+Track CORE of Paved. **This replaces your earlier V1b brief** (the 1:1 stPAVED share), which the owner reversed. It
+holds and pays tokens, so a review and two audits follow (security lens, economy lens). Commit this text as
+`docs/briefs/v1b-vault-share-impl.md`, replacing the old brief's content, as a commit on your branch. Reuse what you
+built (the ERC20, votes, Ownable two-step, Upgradeable, the dependency) where it fits; drop the 1:1 reward hook.
 
 ## The specification
 
-- `docs/architecture/vault-share.md` (#371, 596808f): the design. Implement it, with the PM's rulings below. Where the
-  code shows the note is wrong, follow the code's truth, fix the note in the same PR, and say so under "Spec
-  corrections".
-- D-27 point 3, P-55 in `docs/programme/DECISIONS.md`.
+- `docs/architecture/vault-share.md`, the section "Addendum: vPAVED (owner correction, 2026-10-14)" (#372, 22967ee).
+  The 1:1 sections below it are superseded. Implement the addendum, with the PM's rulings below. Where the code shows
+  the addendum is wrong, follow the code's truth, fix the note in the same PR, and say so under "Spec corrections".
 
-## The PM's rulings (2026-10-14): record them as P-56
+## The PM's rulings (2026-10-14): record them as P-56 (corrected)
 
-1. **A 1:1 share**, "Staked PAVED" / `stPAVED`, 18 decimals, not ERC4626. Reversed if PAVED income is routed to the
-   Vault. Mark P-31's ERC4626 clause (`economy.md:570-571`, and its DECISIONS row) "replaced by P-56".
-2. **The new Vault is upgradable** (D-17, P-42): OpenZeppelin Upgradeable, gated by the two-step Ownable, with the
-   deployer as owner, as for the other four.
-   - Why: its reward path is new and has never run in production, and the owner wants an owner-controlled version
-     first (D-27), so a fix must not need a migration of stakes.
-   - Add it to `docs/architecture/upgrade-owner.md` as a fifth owned contract, with its owner powers: `upgrade` only,
-     unless you add another owner entry point, which you must justify.
-   - Reversed if the DAO takes ownership, or if the owner asks for an immutable Vault.
-3. **Stranded USDC is accepted for now.** USDC earned by shares held by contracts that cannot call `claim` stays
-   there. Say so in the docs (vault-share.md, economy.md) and in the share's description (its doc comment, and
-   public-interface.md).
-4. Glitchbomb's reward path has never run in production: a reason for the audits.
+Write the P-56 row with every point below, and say it corrects P-55/P-56's 1:1 ruling 1 (the owner's correction).
+1. **The share:** vPAVED, an OpenZeppelin ERC4626 over PAVED, 18 decimals, SNIP-12 'vPAVED'. It has VotesComponent
+   (timestamp clock, Nonces, SNIP-12 delegation), the two-step Ownable and Upgradeable, with the deployer as owner.
+2. **The inflation defence:** decimals offset 0. 1,000 PAVED of dead shares are minted to the Vault before
+   Economy.set_game. A deposit that would mint zero shares reverts.
+3. **The exit fee:** Fee::Assets on both withdraw and redeem, left in the Vault for the remaining holders, with
+   max_withdraw and max_redeem correct (a withdraw limit). Default 100 bps, bounds 0 to 500, owner-set, with an event.
+   **Do not copy Glitchbomb's bugs** (#372 lists them: its redeem burns Fee::Shares, its withdraw and redeem formulas
+   are swapped, and its max_withdraw ignores the fee).
+4. **The margin path:** in Economy's purchase, one swap of the burn quote plus the margin. The burn's share is burned;
+   the margin's PAVED goes to the Vault by a plain transfer, with no shares minted, so the rate rises. A partial fill
+   reverts. D-10 holds: the whole margin goes to stakers, as PAVED.
+   - The 5 % pool fee on that swap (about 1.4 % of each price, to the team's LP position) is the owner's call on D-10.
+     The PM has asked, recommending to accept. Build it as designed; if the owner refuses, the margin path changes in
+     a follow-up.
+5. **No rewardable claim:** the rate is the only mechanism. The USDC claim, `acc` and the per-account settlement go.
+6. **RISKS.md:** add, as information, that the Vault absorbs about two thirds of the supply in a year at 200 games a
+   day (#372's sim.py figures), which thins the pool's float. It feeds E4 and P-46.
+7. Mark P-31's ERC4626 clause (economy.md:570-571) as "realised by P-56 (vPAVED)" rather than replaced.
+8. The stranded-USDC wording of the old P-56 point 3 no longer applies (no USDC claim): remove it where V1a wrote it,
+   or mark it superseded.
 
-Add the P-56 row (who "PM", date 2026-10-14; reversal as above, per point).
+## What to build
 
-## What to build (from the note)
-
-1. **`systems/vault.cairo`** becomes an ERC20 share contract.
-   - OpenZeppelin `ERC20Component` (name "Staked PAVED", symbol `stPAVED`, 18 decimals).
-   - `VotesComponent`, with a timestamp clock (`ERC6372TimestampClock`), `NoncesComponent` and SNIP-12 metadata, as the
-     note says.
-   - `OwnableComponent` (two-step) and `UpgradeableComponent`; the constructor takes the owner.
-   - `stake(amount)` takes PAVED and mints shares 1:1; `unstake(amount)` burns shares and returns PAVED 1:1; `claim()`
-     pays the caller's settled USDC.
-   - **The reward hook:** in the ERC20 `before_update`, `sync()` then `settle(from)` and `settle(to)` while the balances
-     are still the old ones. Skip the zero address. Refuse the Vault itself as a recipient. In `after_update`,
-     `transfer_voting_units`.
-   - The existing views (`pending`, `staked` (= the share balance), `total_staked` (= total supply), `acc`,
-     `accounted`, `tokens`) keep their meaning; say which become aliases.
-   - Events: the ERC20 `Transfer` and `Approval`, the votes events, plus today's `Staked`, `Unstaked`, `Claimed` and
-     `Distributed`, unchanged in layout.
-2. **Economy** pays the margin to the Vault as today. Check nothing in Economy reads Vault state that changes meaning.
-3. **deploy.sh's fresh path** deploys the new Vault with the deployer as owner. The devnet path too. `--upgrade-challenge`
-   is untouched. Regenerate `devnet.json`.
+1. **`systems/vault.cairo`:** the ERC4626 vPAVED as above.
+   - `deposit`, `mint`, `withdraw` and `redeem`, with the fee.
+   - The rate is `total_assets` over total shares; `total_assets` is the PAVED the Vault holds.
+   - The owner-set fee.
+   - Events: ERC4626 `Deposit` and `Withdraw`, ERC20 `Transfer` and `Approval`, the votes events, and `FeeSet`.
+   - The old `stake`, `unstake`, `claim`, `pending`, `acc` and `accounted` go; say which views remain or map.
+2. **`systems/economy.cairo`:** the margin path of point 4, through the router. Keep the burn's behaviour and the
+   referral unchanged.
+3. **deploy.sh's fresh and devnet paths:** deploy vPAVED with the deployer as owner, mint the 1,000 dead shares before
+   `Economy.set_game`, and set the fee to its default. Regenerate devnet.json. `--upgrade-challenge` is untouched.
 
 ## Tests
 
-- **The reward invariant across transfers.** For random sequences of stake, unstake, transfer, transferFrom, income
-  arrivals and claims among several accounts: the USDC paid plus the USDC pending equals the income, to within the
-  rounding dust the note bounds. Write it as a fuzz test or many seeded sequences.
-- Explicit cases:
-  - a transfer settles both sides;
-  - a transfer to the Vault reverts;
-  - a transfer to and from a contract;
-  - mint and burn;
-  - a claim after transfers;
-  - shares held by a contract that never claims (the stranded USDC stays, and no one else gains it).
-- **Votes:** delegation (self and other), checkpoints after stake, unstake and transfer, `get_past_votes` and
-  `get_past_total_supply` at past timestamps, delegation by signature with a nonce.
-- **Ownership and upgrade:** owner-only upgrade, the two-step transfer, an upgrade that keeps balances and `acc`, and
-  P-42 storage pins for the new layout.
-- Economy end to end: a purchase sends the margin to the Vault, which distributes it to holders by share.
-- Goldens unchanged. Gas: stake, unstake, transfer, claim, and a purchase (the margin transfer), before and after.
-- ABIs: `scripts/abis.sh`. The Vault's ABI gains the ERC20, votes, ownable and upgrade entry points. CLIENT follows
-  on this branch (the pattern).
-- CASM: the Vault's size.
+- **The rate:**
+  - deposits and redeems at a stable rate;
+  - margin transfers raise it;
+  - exit fees raise it for the remaining holders;
+  - rounding always favours the Vault.
+- **The inflation attack:** a first depositor donating PAVED cannot steal a later depositor's deposit, with the dead
+  shares in place. A zero-share deposit reverts.
+- **The fee:**
+  - withdraw and redeem both charge it, as Fee::Assets kept in the Vault;
+  - max_withdraw and max_redeem are exact;
+  - the owner can set it, within the bounds;
+  - non-owners cannot set it.
+- **The margin path, end to end:** a purchase swaps once, burns the burn share, and transfers the margin PAVED to the
+  Vault. The rate moves by exactly that amount over total shares. A partial fill reverts. The referral is unchanged.
+- **Votes:**
+  - delegation, and checkpoints after deposit, redeem and transfer;
+  - past votes and past total supply;
+  - delegation by signature.
+- **Ownership and upgrade:**
+  - an owner-only upgrade that keeps balances and the rate;
+  - the two-step transfer;
+  - P-42 pins.
+- **Sizes and gas:**
+  - goldens unchanged;
+  - purchase gas before and after (the margin swap), and deposit, redeem and transfer;
+  - every scenario under its ceiling; f is the tightest;
+  - CASM of the Vault and of Economy.
+- **ABIs:** via scripts/abis.sh. The Vault and Economy ABIs change, so CLIENT follows on this branch.
+- **The economy figures:**
+  - add a `--margin-paved` (or similar) option to scripts/montecarlo/sim.py that reproduces #372's figures, keeping
+    the default output byte-identical;
+  - re-run it twice for determinism.
 
 ## Runs (VPS, D-251)
 
@@ -76,45 +89,47 @@ Add the P-56 row (who "PM", date 2026-10-14; reversal as above, per point).
 - snforge: `RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test <filter> --max-threads 2`.
 - scarb build: `prlimit --as=12884901888`.
 - Only after `free -g` shows 8 GB or more available. One build at a time. Record the peaks.
-- Scoped runs first (vault, economy, the fuzz test), then the whole suite once.
+- Scoped runs first (vault, economy, router), then the whole suite once.
 - A capped run with no progress for 15 minutes is stopped and reported.
 - Never use or print the `STARKNET_*` variables. Nothing is sent to any network.
 - For `scripts/test-deploy-url.sh`, put Node 24's binary first on `PATH`.
 
 ## Git
 
-- **Push the branch right after the brief commit**: CLIENT builds on it.
+- **Push your branch now**, with the new brief commit, and then as you go: CLIENT's W1j builds on it.
 - **Never `git rebase`**, never force-push. If main moves, `git merge origin/main`. Plain pushes only.
 
 ## Allowlist
 
-- `contracts/src/**`, `contracts/tests/**`, `contracts/Scarb.toml` (the `openzeppelin_governance` dependency, pinned
-  as the note says), and `contracts/abis/**` through `scripts/abis.sh`.
-- `contracts/deployments/devnet.json` (regenerated).
-- `scripts/deploy.sh` (the fresh and devnet paths), `scripts/test-deploy-url.sh`, `scripts/check-artifact-names.sh`.
+- `contracts/src/**` (S1, running in parallel, owns challenge.cairo's expiry and the game view; do not touch
+  `systems/challenge.cairo`, `models/game.cairo` or `views.cairo` unless the margin path requires it, and say so).
+- `contracts/tests/**`, `contracts/Scarb.toml`, `contracts/abis/**` via abis.sh, `contracts/deployments/devnet.json`.
+- Scripts:
+  - `scripts/deploy.sh` (fresh and devnet paths), `scripts/test-deploy-url.sh`, `scripts/check-artifact-names.sh`;
+  - `scripts/montecarlo/sim.py` (the option only; the default output byte-identical) and `output.md` if regenerated
+    identically.
 - Docs:
-  - `docs/architecture/vault-share.md` ("As built");
-  - `upgrade-owner.md` (the fifth owned contract);
-  - `economy.md` (P-31's clause, stranded USDC);
-  - `public-interface.md` (the Vault's new ABI);
-  - `upgrades.md` (the Vault's pins);
-  - `docs/programme/DECISIONS.md` (P-56, and P-31 marked);
+  - `docs/architecture/vault-share.md` ("As built"), `upgrade-owner.md` (the Vault as the fifth owned contract, its
+    powers: upgrade and the fee), `economy.md` (the margin path, P-31), `public-interface.md`, `upgrades.md`;
+  - `docs/programme/DECISIONS.md` (P-56 corrected, P-31 marked), `docs/programme/RISKS.md` (point 6);
   - `class-headroom.md`, `docs/measures/baseline.md`.
 - `docs/briefs/v1b-vault-share-impl.md`.
 - Not `packages/**`, not `contracts/deployments/sepolia.json`.
 
 ## PR
 
-- Title: `feat: V1b, the Vault's stPAVED share with votes, upgradable (P-55, P-56)`.
+- Title: `feat: V1b, vPAVED (ERC4626 share with votes and an exit fee), the margin as PAVED (P-56)`.
 - Body:
   - the interface;
-  - the hook and the invariant, with the test's evidence;
+  - the rate and the fee;
+  - the inflation defence;
+  - the margin path, with its gas;
   - votes;
   - ownership and upgrade;
   - the ABI diff;
-  - gas and sizes;
+  - sizes and gas;
+  - the sim.py figures;
   - "Spec corrections";
-  - "For CLIENT": the Vault's new ABI, events, and devnet.json;
+  - "For CLIENT";
   - one line on the audits: security and economy, since it holds and pays tokens.
 - Report: the PR's number and head, everything in the body, and the peaks. Do not merge.
-
