@@ -24,7 +24,7 @@ Storybook 10 with `@storybook/react-vite`, the docs and a11y addons (section 4 o
 holds `main.ts` (stories `src/**/*.stories.tsx`), `preview.tsx` (the token file and fonts, `<html data-theme="dark">`,
 `MotionConfig`, a `QueryClient` seeded from `parameters.queryFixtures`, a `MemoryRouter` at `parameters.route`, the font
 preloads), `theme.ts` and `manager.ts` (the Storybook UI, dark on the board's colour). The board colour `#07111A` is the only
-background; the viewports are the four named breakpoints.
+background; the viewport toolbar in the header is the only width control (mobile 360, tablet 640, desktop 1024, wide 1440; none picked is the full width).
 
 The Foundations stories (`src/styles/*.stories.tsx`) read the token file itself (`src/styles/tokens.ts`), so they cannot
 drift from it: Colors (scales with hex and OKLCH; semantic tokens with their computed contrast), Typography, Motion
@@ -46,7 +46,7 @@ the icon as an SVG that React owns. Without `label` it is `aria-hidden`. `thin.m
 | Path | What |
 |---|---|
 | `src/styles/theme.css` | The only file with raw colours: scales, semantic tokens, breakpoints (Tailwind's defaults plus `mobile` / `tablet` / `desktop` / `wide`). Dark only; `index.html` sets `data-theme="dark"`, which the `dark:` variant needs |
-| `src/styles/fonts.css` | Cinzel, Nunito Sans Variable and IBM Plex Mono, Latin subset, from `@fontsource*` |
+| `src/styles/fonts.css` | Almendra (700), Rubik Variable and Space Mono (400, 700), Latin subset, from `@fontsource*` |
 | `src/routes/pages.ts` | The route map, one entry per page: path, title, bottom-nav tab |
 | `src/routes/Shell.tsx` | The layouts: with the bottom tabs, and full screen |
 | `src/lib/query-client.ts` | The TanStack Query client |
