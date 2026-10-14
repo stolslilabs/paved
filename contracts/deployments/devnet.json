@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "unmerged-d6da021100bf33089dded7ba05f1e3ed0c6d20d8",
+  "deployed_at": "unmerged-efbc01ead12d6ab886acd25bb900fc6bdefbcf61",
   "deployed_block": 10,
   "token": {
     "address": "0x048e5cb5d8ef87f0f655a6967a09a9ca51d2a8e520c00877fbec4b194d4bd345",
@@ -12,8 +12,8 @@
   },
   "contracts": {
     "Challenge": {
-      "address": "0x00615f6a19954bc8cefb2285dd933b0374d42f64c3eb412efc229b5b08a8f015",
-      "class_hash": "0x06482c9b8ef5238a9e778646edd40e6ebe6523cc86c4e19cbf2e161cc711ab31"
+      "address": "0x047caa6cfd2cd46e212569733621943ad51ee62c024302f60d22b6fec084c8da",
+      "class_hash": "0x02a67fe4db49cc171783bf0234d49db103488ceb244746a6495116c598c01076"
     },
     "Setup": {
       "address": "0x02e95dbdf1004c7b65ddab92dd662c81fe9e9b2d1026ce270c8f94fe9421764d",
