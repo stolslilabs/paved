@@ -49,7 +49,7 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// The dead ones are pinned by `test_daily_pins_the_dead_fields_by_name`. `UpgradeableComponent`
 /// has no storage.
 #[test]
-#[available_gas(l2_gas: 57962315)]
+#[available_gas(l2_gas: 65850624)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
@@ -116,7 +116,7 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 /// The names `test_daily_pins_*` are kept from before D-23 (`Daily` became `Challenge`) on purpose:
 /// the docs and the comments of the code cite them.
 #[test]
-#[available_gas(l2_gas: 128698602)]
+#[available_gas(l2_gas: 135825905)]
 fn test_daily_pins_the_dead_fields_by_name() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -265,7 +265,7 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
 /// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that
 /// mode, for any caller.
 #[test]
-#[available_gas(l2_gas: 81385987)]
+#[available_gas(l2_gas: 88910759)]
 fn test_daily_spawn_mode_is_fixed_by_the_game_contract() {
     start_cheat_block_timestamp_global(100);
     let (_, systems, _) = setup::spawn_game(Mode::None);

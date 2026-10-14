@@ -51,6 +51,10 @@
       {
         "name": "target",
         "type": "core::integer::u128"
+      },
+      {
+        "name": "referral_bps",
+        "type": "core::integer::u16"
       }
     ]
   },
@@ -469,6 +473,17 @@
       },
       {
         "type": "function",
+        "name": "split_bps",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "(core::integer::u16, core::integer::u16, core::integer::u16)"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "ema",
         "inputs": [],
         "outputs": [
@@ -714,6 +729,11 @@
         "name": "reference",
         "type": "core::integer::u128",
         "kind": "data"
+      },
+      {
+        "name": "vault_paved",
+        "type": "core::integer::u256",
+        "kind": "data"
       }
     ]
   },
@@ -836,6 +856,11 @@
       {
         "name": "target",
         "type": "core::integer::u128",
+        "kind": "data"
+      },
+      {
+        "name": "referral_bps",
+        "type": "core::integer::u16",
         "kind": "data"
       }
     ]

@@ -222,7 +222,7 @@ fn test_forest_walk_crossings_count_each_road() {
 }
 
 #[test]
-#[available_gas(l2_gas: 143358258)]
+#[available_gas(l2_gas: 150658009)]
 fn test_forest_walk_sandwich_open_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -331,7 +331,7 @@ fn test_forest_scores_four_roads() {
 /// A forest bounded by open roads (and with open ends of its own) does not score: no `Scored`, no
 /// forest counted.
 #[test]
-#[available_gas(l2_gas: 143062660)]
+#[available_gas(l2_gas: 150362411)]
 fn test_forest_bounded_by_open_roads_does_not_score() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);

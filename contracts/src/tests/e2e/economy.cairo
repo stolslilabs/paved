@@ -58,7 +58,7 @@ fn test_economy_entry_price_is_the_stake_unit() {
 }
 
 #[test]
-#[available_gas(l2_gas: 109556258)]
+#[available_gas(l2_gas: 116729676)]
 fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     assert_paid_spawn(store, @systems, @context, 1);
@@ -68,7 +68,7 @@ fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
 /// A USDC donation already on `Economy` does not pay for the game: the full price still comes
 /// from the player, and the donation leaves with the purchase (to the Vault, as margin).
 #[test]
-#[available_gas(l2_gas: 84110385)]
+#[available_gas(l2_gas: 91635157)]
 fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     IFaucetDispatcher { contract_address: context.token.contract_address }
@@ -79,7 +79,7 @@ fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
 /// A spawn that cannot be paid, or at a stake out of 1 to 10, reverts as a whole: no game, no
 /// terms, no debit.
 #[test]
-#[available_gas(l2_gas: 90259582)]
+#[available_gas(l2_gas: 98167749)]
 #[feature("safe_dispatcher")]
 fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -131,20 +131,28 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
 
 /// The protocol addresses `Daily` knows, `Economy` and `Daily` itself, are ignored as referrers,
 /// like the payer (economy audit N2 of #350): nothing is paid to them, the payer pays the whole
-/// price, and the Vault gets the whole margin (30 % of 2 USDC). Paid to `Economy`, the 5 % would be
-/// swept back into the margin and counted twice by `Purchased`; paid to `Daily`, it would be stuck.
+/// price, and the whole price is swapped (no referral taken out of the Vault's part, which reaches
+/// the Vault as PAVED, P-56). Paid to `Economy`, the 5 % would be swept back into the margin and
+/// counted twice by `Purchased`; paid to `Daily`, it would be stuck.
 #[test]
-#[available_gas(l2_gas: 106657639)]
+#[available_gas(l2_gas: 117984689)]
 fn test_economy_protocol_address_referrer_is_no_referral() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
-    let vault = systems.economy.addresses().vault;
+    let addresses = systems.economy.addresses();
+    let paved = IERC20Dispatcher { contract_address: addresses.paved };
     for referrer in array![systems.economy.contract_address, systems.challenge.contract_address] {
         let before = token.balance_of(PLAYER());
-        let vault_before = token.balance_of(vault);
+        let vault_before = paved.balance_of(addresses.vault);
+        let swapped = systems.economy.quote_swap(BASE_PRICE);
+        let supply = paved.total_supply();
         systems.challenge.spawn(1, referrer, 0);
         assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Protocol: price');
-        assert(token.balance_of(vault) - vault_before == 600_000, 'Protocol: margin');
+        assert(token.balance_of(addresses.vault) == 0, 'Protocol: USDC to the Vault');
+        // The whole price was swapped: its PAVED is the burn's and the Vault's parts
+        let to_vault = paved.balance_of(addresses.vault) - vault_before;
+        assert(to_vault > 0, 'Protocol: margin');
+        assert(supply - paved.total_supply() + to_vault == swapped, 'Protocol: whole swap');
         assert(token.balance_of(referrer) == 0, 'Protocol: referrer paid');
     }
 }
@@ -160,7 +168,7 @@ fn assert_recorded(store: setup::TestStore, systems: @setup::Systems, game_id: u
 }
 
 #[test]
-#[available_gas(l2_gas: 96315796)]
+#[available_gas(l2_gas: 103845608)]
 fn test_economy_records_a_game_over_on_build() {
     let (store, systems, context) = almost_over_daily();
     let game = store.game(context.game_id);
@@ -173,7 +181,7 @@ fn test_economy_records_a_game_over_on_build() {
 }
 
 #[test]
-#[available_gas(l2_gas: 88903100)]
+#[available_gas(l2_gas: 96432913)]
 fn test_economy_records_a_game_over_on_discard() {
     let (store, systems, context) = almost_over_daily();
     systems.challenge.discard(context.game_id);
@@ -181,7 +189,7 @@ fn test_economy_records_a_game_over_on_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 85081589)]
+#[available_gas(l2_gas: 92611401)]
 fn test_economy_records_a_game_over_on_surrender() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     systems.challenge.surrender(context.game_id);
@@ -220,7 +228,7 @@ fn test_economy_spawn_reverts_before_set_economy() {
 /// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
 /// mean, its day closes empty, and its settlement pays 0.
 #[test]
-#[available_gas(l2_gas: 88803828)]
+#[available_gas(l2_gas: 96343301)]
 fn test_economy_records_an_expired_game_over() {
     snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
     let (store, systems, _) = setup::spawn_game(Mode::None);

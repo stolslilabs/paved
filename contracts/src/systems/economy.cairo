@@ -2,13 +2,15 @@
 //! 6, P-31).
 //!
 //! - `purchase` (the game only): the price `P` is already on `Economy` (`Challenge` pulls it
-//!   from the player). 5 % goes to the referrer, if any; `BURN_BPS` (70 %) is swapped to PAVED
-//!   through the Ekubo router (transfer, `swap`, `clear_minimum`, `clear`, in one call) and burned;
-//!   the rest, with any USDC the router gave back, goes to the Vault, at once. The game's terms are
-//!   frozen:
-//!   the reference reward `R` (the PAVED bought, price-guarded, times the stake boost and the
-//!   supply factor read after the burn) and the curve in force. `Economy` holds nothing after the
-//!   call.
+//!   from the player). 5 % goes to the referrer, if any; the rest, the burn quote (`burn_bps`,
+//!   70 %) and the margin, is swapped to PAVED in one swap through the Ekubo router (transfer,
+//!   `swap`, `clear_minimum`, `clear`, in one call), which must fill whole. The PAVED is split by
+//!   input: the margin's part goes to the Vault (vPAVED) by a plain transfer, with no share
+//!   minted, which raises its rate (P-56); the burn's part is burned. The game's terms are frozen:
+//!   the reference reward `R` (the burn's PAVED, price-guarded, times the stake boost and the
+//!   supply factor read after the burn) and the curve in force. `Economy` holds nothing of its own
+//!   after the call; USDC that the router held before (returned by `clear`) waits on `Economy` and
+//!   joins the next purchase's margin.
 //! - `record` (the game only): the game's score; a game that ended within its day with a score of
 //!   at least 100 enters the day's accumulator.
 //! - `settle` (anyone, after the day): the day's mean is fixed on its first settlement (option B)
@@ -51,8 +53,17 @@ pub const MIN_CAP: u8 = 1;
 pub const MAX_CAP: u8 = 20;
 pub const MIN_TARGET: u128 = 100_000 * PAVED;
 pub const MAX_TARGET: u128 = 10_000_000 * PAVED;
+pub const MAX_REFERRAL_BPS: u16 = 1_000;
+/// The referral of a configuration stored before `referral_bps` existed (its packed slot reads 0):
+/// the former constant (P-31), so an upgrade keeps the split it had.
+pub const DEFAULT_REFERRAL_BPS: u16 = 500;
 
 /// The tunable parameters; a purchase freezes them into its game's terms.
+///
+/// The price splits between the burn (`burn_bps`) and the Vault (the rest, `10_000 - burn_bps`,
+/// `Economy.split_bps`): the two add up to the price by construction. A referrer is paid
+/// `referral_bps` of the price out of the Vault's part, never out of the burn (P-56). The pool's
+/// fee is taken inside the swap of the two parts, not out of the split.
 #[derive(Copy, Drop, Serde, PartialEq, Debug)]
 pub struct Config {
     /// The share of the price swapped and burned (bps).
@@ -65,11 +76,24 @@ pub struct Config {
     pub cap: u8,
     /// The supply target `T` of the supply factor (PAVED base units).
     pub target: u128,
+    /// The referrer's share of the price, out of the Vault's part (bps).
+    pub referral_bps: u16,
 }
 
-/// The decided configuration (P-31, P-46): 70 % burned, sigma 0, c 1.222, H 5, T 1,000,000 PAVED.
+/// The decided configuration (P-31, P-46, P-56): 73.68 % of the price swapped for the burn, so that
+/// 70 % of the price is burned after the pool's 5 % fee, and 26.32 % for the Vault, of which 5 % of
+/// the price to a referrer (owner, 2026-10-14: 70 / 25 / 5 burned, Vault, LP; with a referral
+/// 70 / 20 / 5 / 5 with the referrer, the LP then 4.75 % since the referral is not swapped); sigma
+/// 0, c 1.222, H 5, T 1,000,000 PAVED.
 pub fn decided() -> Config {
-    Config { burn_bps: 7_000, sigma_bps: 0, slope_bps: 12_220, cap: 5, target: 1_000_000 * PAVED }
+    Config {
+        burn_bps: 7_368,
+        sigma_bps: 0,
+        slope_bps: 12_220,
+        cap: 5,
+        target: 1_000_000 * PAVED,
+        referral_bps: DEFAULT_REFERRAL_BPS,
+    }
 }
 
 /// Reverts unless every parameter is within the bounds of section 6.
@@ -90,6 +114,10 @@ pub fn validate(config: Config) {
     assert(
         config.target >= MIN_TARGET && config.target <= MAX_TARGET, 'Economy: target out of bounds',
     );
+    assert(config.referral_bps <= MAX_REFERRAL_BPS, 'Economy: referral out of bounds');
+    // The referral comes out of the Vault's part (with the bounds above it always fits: the
+    // Vault's part is at least 1,000 bps; kept as the rule itself, should a bound move)
+    assert(config.referral_bps <= 10_000 - config.burn_bps, 'Economy: referral above vault');
 }
 
 /// What a purchase of `stake` would pay and get now (the price of the current EMA and rate).
@@ -101,8 +129,10 @@ pub struct Quote {
     pub referral: u256,
     /// The margin without a referrer.
     pub margin: u256,
-    /// An estimate only: 99 % of the burn quote at the guard's swap rate. Never send it as
-    /// `min_out`: the client quotes the pool and sends 99 % of that.
+    /// An estimate only: 99 % of the swap of a referred purchase (the burn quote and the margin
+    /// less the referral, P-56) at the guard's swap rate; a purchase with no referrer swaps more.
+    /// Never send it as `min_out`: the client quotes the pool for the whole swap and sends 99 % of
+    /// that.
     pub min_out_hint: u256,
     /// The supply factor at the current supply (bps).
     pub factor: u32,
@@ -189,6 +219,9 @@ pub trait IEconomy<TContractState> {
     fn day(self: @TContractState, day: u64) -> DayView;
     fn terms(self: @TContractState, game_id: u32) -> TermsView;
     fn config(self: @TContractState) -> Config;
+    /// The split of the price in force, in bps: `(burn, vault, referral)`. The burn and the Vault
+    /// add up to 10,000; a referrer's part comes out of the Vault's.
+    fn split_bps(self: @TContractState) -> (u16, u16, u16);
     /// The EMA (sum and weight) and its mean, points x 1,000.
     fn ema(self: @TContractState) -> (Ema, u64);
     /// The guard's swap rate: PAVED base units per USDC base unit, x 1e18. It moves at most once
@@ -388,7 +421,10 @@ pub mod Economy {
 
     impl ConfigStorePacking of starknet::storage_access::StorePacking<Config, felt252> {
         fn pack(value: Config) -> felt252 {
-            let mut high: u256 = value.cap.into();
+            // The referral is stored plus one, so that a configuration packed before it existed
+            // (its top bits 0) reads as the default
+            let mut high: u256 = value.referral_bps.into() + 1;
+            high = high * TWO_POW_8 + value.cap.into();
             high = high * TWO_POW_32 + value.slope_bps.into();
             high = high * TWO_POW_16 + sigma_to_u16(value.sigma_bps);
             high = high * TWO_POW_16 + value.burn_bps.into();
@@ -405,8 +441,14 @@ pub mod Economy {
             high /= TWO_POW_16;
             let slope_bps = (high % TWO_POW_32).try_into().unwrap();
             high /= TWO_POW_32;
-            let cap = high.try_into().unwrap();
-            Config { burn_bps, sigma_bps, slope_bps, cap, target: packed.low }
+            let cap = (high % TWO_POW_8).try_into().unwrap();
+            high /= TWO_POW_8;
+            let referral_bps = if high == 0 {
+                super::DEFAULT_REFERRAL_BPS
+            } else {
+                (high - 1).try_into().unwrap()
+            };
+            Config { burn_bps, sigma_bps, slope_bps, cap, target: packed.low, referral_bps }
         }
     }
 
@@ -486,6 +528,8 @@ pub mod Economy {
         pub supply: u256,
         pub factor: u32,
         pub reference: u128,
+        /// The PAVED the margin bought, sent to the Vault (P-56).
+        pub vault_paved: u256,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -525,6 +569,7 @@ pub mod Economy {
         pub slope_bps: u32,
         pub cap: u8,
         pub target: u128,
+        pub referral_bps: u16,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -618,37 +663,43 @@ pub mod Economy {
             // [Interaction] The referral, out of the margin
             let config = self.config.read();
             let referred = referrer.is_non_zero() && referrer != player;
-            let (referral, quote, _) = curve::split(price, config.burn_bps, referred);
+            let (referral, quote, _) = curve::split(
+                price, config.burn_bps, config.referral_bps, referred,
+            );
             if referral != 0 {
                 assert(usdc.transfer(referrer, referral), errors::TRANSFER_FAILED);
             }
 
-            // [Interaction] Swap the burn quote, burn the whole PAVED balance (what it bought, and
-            // anything sent to the router or to Economy before)
-            let bought = self.swap(usdc, quote, min_out);
+            // [Interaction] One swap of the burn quote and the margin (the whole USDC balance: any
+            // USDC sent to Economy before joins the margin), filled whole
+            let amount = usdc.balance_of(this);
+            let margin = amount - quote;
+            let bought = self.swap(usdc, amount, min_out);
+            let (bought_burn, vault_paved) = curve::vault_split(bought, quote, margin);
+
+            // [Interaction] The margin's PAVED to the Vault, without shares (its rate rises); then
+            // burn the whole PAVED balance (the burn's part, and anything sent to the router or to
+            // Economy before)
             let paved = IERC20Dispatcher { contract_address: self.paved.read() };
+            if vault_paved != 0 {
+                assert(paved.transfer(self.vault.read(), vault_paved), errors::TRANSFER_FAILED);
+            }
             let burned = paved.balance_of(this);
             IPavedTokenDispatcher { contract_address: paved.contract_address }.burn(burned);
 
-            // [Interaction] The margin, and any USDC the router gave back, to the Vault
-            let margin = usdc.balance_of(this);
-            if margin != 0 {
-                assert(usdc.transfer(self.vault.read(), margin), errors::TRANSFER_FAILED);
-            }
-
-            // [Compute] R: the guarded PAVED the swap paid out, the stake boost, the supply after
-            // the burn
+            // [Compute] R: the guarded PAVED the burn quote bought, the stake boost, the supply
+            // after the burn
             let supply = paved.total_supply();
             let factor = curve::supply_factor(supply, config.target.into());
             let guard = self.guard.read();
             let rate: u256 = guard.rate.into();
-            let counted = curve::guarded(bought, quote, rate);
+            let counted = curve::guarded(bought_burn, quote, rate);
             let reference = curve::reference(counted, stake, factor);
 
             // [Effect] The rate, at most once per block, and the terms
             let now = get_block_timestamp();
             if now != guard.updated {
-                let next = curve::next_rate(rate, bought, quote);
+                let next = curve::next_rate(rate, bought_burn, quote);
                 self
                     .guard
                     .write(
@@ -684,6 +735,7 @@ pub mod Economy {
                         supply,
                         factor,
                         reference,
+                        vault_paved,
                     },
                 );
             reference
@@ -803,7 +855,9 @@ pub mod Economy {
             assert(stake >= 1 && stake <= MAX_STAKE, errors::WRONG_STAKE);
             let config = self.config.read();
             let price = stake.into() * BASE_PRICE;
-            let (referral, burn_quote, _) = curve::split(price, config.burn_bps, true);
+            let (referral, burn_quote, _) = curve::split(
+                price, config.burn_bps, config.referral_bps, true,
+            );
             let supply = IERC20Dispatcher { contract_address: self.paved.read() }.total_supply();
             let prior = self.days.read(get_block_timestamp() / DAY).prior;
             let mean = if prior != 0 {
@@ -817,7 +871,7 @@ pub mod Economy {
                 burn_quote,
                 referral,
                 margin: price - burn_quote,
-                min_out_hint: burn_quote * rate * 99 / (100 * curve::RATE_SCALE),
+                min_out_hint: (price - referral) * rate * 99 / (100 * curve::RATE_SCALE),
                 factor: curve::supply_factor(supply, config.target.into()),
                 mean,
                 threshold: curve::threshold(mean, config.sigma_bps),
@@ -869,6 +923,11 @@ pub mod Economy {
                 settled: outcome.status == SETTLED,
                 reward: outcome.reward,
             }
+        }
+
+        fn split_bps(self: @ContractState) -> (u16, u16, u16) {
+            let config = self.config.read();
+            (config.burn_bps, 10_000 - config.burn_bps, config.referral_bps)
         }
 
         fn config(self: @ContractState) -> Config {
@@ -931,6 +990,7 @@ pub mod Economy {
                         slope_bps: config.slope_bps,
                         cap: config.cap,
                         target: config.target,
+                        referral_bps: config.referral_bps,
                     },
                 );
         }
@@ -987,28 +1047,33 @@ pub mod Economy {
             }
         }
 
-        /// Ekubo's pattern in one call: the quote to the router, `swap`, the PAVED back (at least
-        /// `min_out`), the unswapped USDC back. Returns the PAVED the swap paid out, from its
-        /// delta: the router's balance may hold more, sent there by anyone.
+        /// Ekubo's pattern in one call: the USDC to the router, `swap`, the PAVED back (at least
+        /// `min_out`), the router's stray USDC back (it stays on `Economy` until the next
+        /// purchase's margin). The swap must fill whole (P-56: the Vault has
+        /// no use for USDC). Returns the PAVED the swap paid out, from its delta: the router's
+        /// balance may hold more, sent there by anyone.
         fn swap(
-            ref self: ContractState, usdc: IERC20Dispatcher, quote: u256, min_out: u256,
+            ref self: ContractState, usdc: IERC20Dispatcher, usdc_in: u256, min_out: u256,
         ) -> u256 {
             let router = self.router.read();
-            assert(usdc.transfer(router, quote), errors::TRANSFER_FAILED);
+            assert(usdc.transfer(router, usdc_in), errors::TRANSFER_FAILED);
             let node = RouteNode {
                 pool_key: self.pool_key(),
                 sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
                 skip_ahead: 0,
             };
-            let amount = i129 { mag: quote.try_into().unwrap(), sign: false };
+            let mag: u128 = usdc_in.try_into().expect(errors::AMOUNT_TOO_LARGE);
+            let amount = i129 { mag, sign: false };
             let delta = IRouterDispatcher { contract_address: router }
                 .swap(node, TokenAmount { token: usdc.contract_address, amount });
             let paved = self.paved.read();
-            let out = if paved < usdc.contract_address {
-                delta.amount0
+            let (used, out) = if paved < usdc.contract_address {
+                (delta.amount1, delta.amount0)
             } else {
-                delta.amount1
+                (delta.amount0, delta.amount1)
             };
+            // [Check] The whole input filled: an unswapped rest would stay as USDC
+            assert(!used.sign && used.mag >= mag, errors::PARTIAL_FILL);
             // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
             assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };

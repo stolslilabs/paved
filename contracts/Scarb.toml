@@ -13,9 +13,11 @@ test = "snforge test"
 starknet = "2.20.1"
 quiver_quest = "=0.2.0"
 quiver_achievement = "=0.2.0"
+openzeppelin_governance = "=4.0.1"
 openzeppelin_interfaces = "=2.2.0"
 openzeppelin_token = "=4.0.1"
 openzeppelin_upgrades = "=4.0.1"
+openzeppelin_utils = "=2.2.0"
 
 [[target.starknet-contract]]
 casm = true

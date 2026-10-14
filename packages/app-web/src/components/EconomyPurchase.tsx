@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  BPS,
   DEFAULT_SLIPPAGE_BPS,
   MAX_SLIPPAGE_BPS,
   PAID_GAME_TTL_SECONDS,
@@ -11,6 +10,7 @@ import {
   STAKES,
   boostBps,
   formatBps,
+  formatPercentBps,
   formatUnits,
   impliedPaved,
   isQuoteRevert,
@@ -18,10 +18,10 @@ import {
   minOutFor,
   priceOf,
   quoteBelowFloor,
-  referralOf,
   routerProblem,
   refusedReferrer,
   sameAddress,
+  swapInputOf,
   useAsyncRead,
 } from "@paved/chain";
 import type { EconomyClient } from "@paved/chain";
@@ -32,12 +32,14 @@ import { alert, button, confirmButton, warning } from "./EconomyStyles";
 /**
  * The paid Challenge: the stake picker with its price `P = 2k` USDC (read from the chain) and the boost, then a confirm
  * that shows the amount and the referrer. Only "Confirm purchase" calls `onConfirm`, with the price shown; the
- * purchase itself is sent by the game page from the history state, and re-checked there. The pool's quote of the burn
- * (`Economy.quote_swap(burn_quote)`, E-9) is shown as the least PAVED bought; the purchase quotes again at send and
- * takes `min_out` from that quote only. A quote that reverts or fails offers no purchase and shows no figure.
+ * purchase itself is sent by the game page from the history state, and re-checked there. The purchase makes one swap of
+ * the burn quote and the margin (P-56: the price less the referral); the pool's quote of it (`Economy.quote_swap`, E-9)
+ * is shown as the least PAVED bought. The burn's part is burned and the margin's part goes to the Vault (vPAVED). The
+ * purchase quotes again at send and takes `min_out` from that quote only. A quote that reverts or fails offers no
+ * purchase and shows no figure.
  *
  * The two mainnet gates (E-9b, economy.md "For CLIENT"): `Economy.router()` must be the pinned router, else nothing is
- * quoted nor offered; and a pool quote below 90 % of the guard-rate value (`burn_quote x rate / RATE_SCALE`) is shown
+ * quoted nor offered; and a pool quote below 90 % of the guard-rate value (`swap input x rate / RATE_SCALE`) is shown
  * next to that value and needs an explicit extra confirmation, never a refusal. The burn share is labelled "at today's
  * terms": `burn_bps` may change by an owner act before the transaction (CORE's ruling, 2026-10-12).
  */
@@ -68,6 +70,8 @@ export function EconomyPurchase({
   const paused = useAsyncRead(() => client.base.views.spawnPaused(), [client], { onVisible: true });
   const spawnPaused = paused.data === true && paused.error === null;
   const quote = useAsyncRead(() => client.views.quote(stake), [client, stake], { onVisible: true });
+  // The split of the price in force (P-56, owner-set): the breakdown shows the chain's, never a constant.
+  const split = useAsyncRead(() => client.views.split(), [client], { onVisible: true });
   // The router pin and the guard's rate, read with the quote (the send reads both again in its own prepare).
   // The RPC must be on the deployment's chain; nothing else is read for a purchase before. A match is kept by the client, a
   // failed read is tried again when the page is shown again, a mismatch stays refused.
@@ -102,11 +106,13 @@ export function EconomyPurchase({
           : null;
   // No pool quote, no safe `min_out`: the purchase is refused (P-35), so it is not offered.
   const noPool = client.poolQuoter === null;
-  // The quote of the exact USDC the purchase swaps (the burn part), for the price shown only.
   const burn = price !== null && quote.data ? quote.data.burnQuote : null;
+  // The quote of the exact USDC the purchase swaps once (P-56): the burn quote and the margin, the referral taken when a
+  // referrer is sent. A quote whose referral exceeds its margin is not this purchase's: nothing is quoted.
+  const swapIn = price !== null && quote.data ? swapInputOrNull(quote.data, usedReferrer !== null) : null;
   // No quote through a router that is not the pinned one (ruling 2): it is not read at all.
-  const quotable = client.poolQuoter !== null && burn !== null && gate.data !== null && routerRefusal === null && rateRefusal === null;
-  const poolQuote = useAsyncRead(quotable ? () => client.poolQuoter!.quoteSwap(burn!) : null, [client, stake, burn, quotable], {
+  const quotable = client.poolQuoter !== null && swapIn !== null && gate.data !== null && routerRefusal === null && rateRefusal === null;
+  const poolQuote = useAsyncRead(quotable ? () => client.poolQuoter!.quoteSwap(swapIn!) : null, [client, stake, swapIn, quotable], {
     onVisible: true,
   });
   // A figure only from an answer for these inputs that is not being read again, never next to an error (no stale quote).
@@ -115,8 +121,8 @@ export function EconomyPurchase({
   const unreadable = poolQuote.error !== null && !isQuoteRevert(poolQuote.cause);
   const cannotFill = (poolQuote.error !== null && !unreadable) || minPaved === 0n;
   // The sanity floor (ruling 1): both figures shown, and an explicit extra confirmation; never a refusal.
-  const implied = burn !== null && rate !== null ? impliedPaved(burn, rate) : null;
-  const lowQuote = minPaved !== null && burn !== null && rate !== null && quoteBelowFloor(poolQuote.data!, burn, rate);
+  const implied = swapIn !== null && rate !== null ? impliedPaved(swapIn, rate) : null;
+  const lowQuote = minPaved !== null && swapIn !== null && rate !== null && quoteBelowFloor(poolQuote.data!, swapIn, rate);
   const canBuy =
     !spawnPaused &&
     ready &&
@@ -134,7 +140,15 @@ export function EconomyPurchase({
   const shownQuote = poolQuote.data;
   useEffect(() => setAcceptLow(false), [shownQuote, implied, lowQuote]);
   // The burn share of the price, at today's `burn_bps`: an owner act may change it before the transaction.
-  const burnShare = price !== null && burn !== null ? `${usdc(burn)} of the price (${formatUnits((burn * BPS) / price, 2)} %), at today's terms` : null;
+  const shares = split.data && split.error === null ? split.data : null;
+  const burnShare = price !== null && burn !== null && shares ? `${usdc(burn)} of the price (${formatPercentBps(shares.burn)}), at today's terms` : null;
+  // The Vault's part of the swap: the margin, the referral taken when a referrer is sent; its PAVED is split off the swap's
+  // by input, rounded down, as the contract does (`curve::vault_split`). From `min_out`, so a floor.
+  const vaultShare =
+    price !== null && shares && swapIn !== null && burn !== null
+      ? `${formatPercentBps(usedReferrer !== null ? shares.vault - shares.referral : shares.vault)} of the price${usedReferrer !== null ? `, after the referrer's ${formatPercentBps(shares.referral)}` : ""}`
+      : null;
+  const vaultPaved = minPaved !== null && swapIn !== null && burn !== null && swapIn > 0n ? (minPaved * (swapIn - burn)) / swapIn : null;
 
   return (
     <div aria-label="Purchase" style={{ display: "flex", flexDirection: "column", gap: 8, color: "#f5f5f5", fontSize: 13 }}>
@@ -164,10 +178,12 @@ export function EconomyPurchase({
           {refused ? "Referral link: this address cannot be your referrer, so no referrer is sent" : `Referrer: ${shortAddress(referrer)}`}
         </span>
       )}
-      {burnShare && <span>{`Swapped for PAVED and burned: ${burnShare}`}</span>}
-      {minPaved !== null && minPaved > 0n && <span>{`PAVED bought and burned: at least ${paved(minPaved)} (quoted again when sent)`}</span>}
+      {swapIn !== null && <span>{`Swapped for PAVED in one swap: ${usdc(swapIn)}`}</span>}
+      {burnShare && vaultShare && <span>{`Burned: the PAVED of ${burnShare}; the Vault (vPAVED) gets the PAVED of ${vaultShare}`}</span>}
+      {vaultPaved !== null && vaultPaved > 0n && <span>{`To the Vault: at least ${paved(vaultPaved)}, which raises its rate`}</span>}
+      {minPaved !== null && minPaved > 0n && <span>{`PAVED bought: at least ${paved(minPaved)} (quoted again when sent)`}</span>}
       {lowQuote && implied !== null && <span role="alert" style={alert}>{lowQuoteText(poolQuote.data!, implied)}</span>}
-      <span>{`Slippage on the burn swap: ${formatUnits(DEFAULT_SLIPPAGE_BPS, 2)} % (at most ${formatUnits(MAX_SLIPPAGE_BPS, 2)} %)`}</span>
+      <span>{`Slippage on the swap: ${formatUnits(DEFAULT_SLIPPAGE_BPS, 2)} % (at most ${formatUnits(MAX_SLIPPAGE_BPS, 2)} %)`}</span>
       <span>{`A paid game expires ${PAID_GAME_TTL_SECONDS / 3600} h after its purchase; an expired game gets no reward.`}</span>
       {quote.data && (
         <span>{`Current reference: mean ${points(quote.data.mean)} points, threshold ${points(quote.data.threshold)} points; the day's own mean is known only at settlement.`}</span>
@@ -197,12 +213,14 @@ export function EconomyPurchase({
         price !== null && (
           <div role="dialog" aria-label="Confirm purchase" style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #444", paddingTop: 8 }}>
             <span>{`Pay ${usdc(price)} (approve USDC, then buy) for a Challenge game at stake ${stake}?`}</span>
-            {burnShare && <span>{`Swapped for PAVED and burned: ${burnShare}.`}</span>}
-            {minPaved !== null && minPaved > 0n && (
-              <span>{`At least ${paved(minPaved)} bought and burned: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`}</span>
+            {swapIn !== null && burnShare && vaultShare && (
+              <span>{`${usdc(swapIn)} swapped for PAVED in one swap: the PAVED of ${burnShare} is burned, that of ${vaultShare} goes to the Vault for the stakers.`}</span>
             )}
-            {usedReferrer && (
-              <span>{`Referrer ${shortAddress(usedReferrer)} gets ${usdc(referralOf(price))} out of the stakers' margin: you pay the same ${usdc(price)}.`}</span>
+            {minPaved !== null && minPaved > 0n && (
+              <span>{`At least ${paved(minPaved)} bought: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`}</span>
+            )}
+            {usedReferrer && quote.data && (
+              <span>{`Referrer ${shortAddress(usedReferrer)} gets ${usdc(quote.data.referral)} out of the stakers' margin: you pay the same ${usdc(price)}.`}</span>
             )}
             <span style={warning}>{CLIFF_TEXT} The reward, if any, is computed by the contract after the day.</span>
             {lowQuote && implied !== null && (
@@ -237,7 +255,15 @@ export function EconomyPurchase({
   );
 }
 
-/** The sanity warning: the pool's quote of the burn and the guard-rate value, both in PAVED. */
+function swapInputOrNull(quote: Parameters<typeof swapInputOf>[0], referred: boolean): bigint | null {
+  try {
+    return swapInputOf(quote, referred);
+  } catch {
+    return null;
+  }
+}
+
+/** The sanity warning: the pool's quote of the swap and the guard-rate value, both in PAVED. */
 function lowQuoteText(quote: bigint, implied: bigint): string {
-  return `The pool quotes ${paved(quote)} for the burn, below ${formatUnits(SANITY_FLOOR_BPS / 100n, 0)} % of the ${paved(implied)} the guard rate implies: the pool may have been pushed.`;
+  return `The pool quotes ${paved(quote)} for the swap, below ${formatUnits(SANITY_FLOOR_BPS / 100n, 0)} % of the ${paved(implied)} the guard rate implies: the pool may have been pushed.`;
 }

@@ -1,9 +1,9 @@
 // FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it from `@paved/chain/testing`, the entry for
 // test doubles. No app code may import it.
 import { ViewError } from "../views";
-import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, referralOf } from "./amounts";
+import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, swapInputOf } from "./amounts";
 import type { PoolQuoter } from "./pool";
-import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
+import type { DayView, EconomyViews, QuoteView, SplitView, TermsView, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Challenge` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
@@ -38,16 +38,23 @@ export class FakeEconomy implements EconomyViews {
   rate = { paved: 80n * 10n ** 18n, usdc: 1_000_000n };
   /** `Economy.rate()`, x `RATE_SCALE`: by default the same ratio as `rate`, so `FakePoolQuoter` quotes 95 % of implied. */
   guardRate_ = (80n * 10n ** 18n * RATE_SCALE) / 1_000_000n;
+  /** `Economy.split_bps()`: the quote follows it (burn and referral of the price, the Vault the rest). */
+  split_: SplitView = { burn: 7_000, vault: 3_000, referral: 500 };
   /** `Economy.router()`. */
   router_ = FAKE_ROUTER;
   threshold = 3_980_000;
   mean = 3_980_000;
   readonly days = new Map<number, DayView>();
   readonly terms_ = new Map<number, TermsView>();
-  readonly vaults = new Map<string, VaultPosition>();
+  /** vPAVED held, by account. */
+  readonly shares = new Map<string, bigint>();
+  /** The Vault (P-56): its PAVED, its vPAVED (1,000 dead shares at deployment, as `deploy.sh`) and the exit fee. */
+  vaultAssets = 1_000n * 10n ** 18n;
+  vaultSupply = 1_000n * 10n ** 18n;
+  /** The deployment's default (`DEFAULT_EXIT_FEE_BPS`, 5 %, P-56). */
+  exitFeeBps = 500;
   readonly usdc = new Map<string, bigint>();
   readonly paved = new Map<string, bigint>();
-  totalStaked = 0n;
   fail: string | null = null;
   calls: string[] = [];
 
@@ -55,13 +62,13 @@ export class FakeEconomy implements EconomyViews {
     this.check(`quote ${stake}`);
     if (!isStake(stake)) throw new ViewError("rpc", "Economy: bad stake");
     const price = priceOf(this.unit, stake);
-    const burnQuote = (price * 7_000n) / BPS;
+    const burnQuote = (price * BigInt(this.split_.burn)) / BPS;
     // An estimate at the guard's rate without the pool fee, as E2: above what the swap returns.
     const out = (burnQuote * this.rate.paved) / this.rate.usdc;
     return {
       price,
       burnQuote,
-      referral: referralOf(price),
+      referral: (price * BigInt(this.split_.referral)) / BPS,
       margin: price - burnQuote,
       minOutHint: out,
       factor: 10_000,
@@ -70,6 +77,11 @@ export class FakeEconomy implements EconomyViews {
       slope: 12_220,
       cap: 5,
     };
+  }
+
+  async split(): Promise<SplitView> {
+    this.check("split");
+    return { ...this.split_ };
   }
 
   async guardRate(): Promise<bigint> {
@@ -94,8 +106,42 @@ export class FakeEconomy implements EconomyViews {
 
   async vault(account: string): Promise<VaultPosition> {
     this.check(`vault ${account}`);
-    const own = this.vaults.get(BigInt(account).toString(16)) ?? { staked: 0n, pending: 0n, totalStaked: 0n };
-    return { ...own, totalStaked: this.totalStaked };
+    const shares = this.shares.get(BigInt(account).toString(16)) ?? 0n;
+    return {
+      shares,
+      value: this.toAssets(shares),
+      maxWithdraw: this.redeemed(shares),
+      exitFeeBps: this.exitFeeBps,
+      totalAssets: this.vaultAssets,
+      totalSupply: this.vaultSupply,
+    };
+  }
+
+  // OpenZeppelin's ERC4626 at offset 0 with the Vault's exit fee (`contracts/src/systems/vault.cairo`).
+  async previewDeposit(assets: bigint): Promise<bigint> {
+    this.check(`preview_deposit ${assets}`);
+    return (assets * (this.vaultSupply + 1n)) / (this.vaultAssets + 1n);
+  }
+
+  async previewWithdraw(assets: bigint): Promise<bigint> {
+    this.check(`preview_withdraw ${assets}`);
+    const total = assets + ceilDiv(assets * BigInt(this.exitFeeBps), BPS);
+    return ceilDiv(total * (this.vaultSupply + 1n), this.vaultAssets + 1n);
+  }
+
+  async previewRedeem(shares: bigint): Promise<bigint> {
+    this.check(`preview_redeem ${shares}`);
+    return this.redeemed(shares);
+  }
+
+  private toAssets(shares: bigint): bigint {
+    return (shares * (this.vaultAssets + 1n)) / (this.vaultSupply + 1n);
+  }
+
+  private redeemed(shares: bigint): bigint {
+    const value = this.toAssets(shares);
+    const fee = BigInt(this.exitFeeBps);
+    return value - ceilDiv(value * fee, fee + BPS);
   }
 
   async usdcBalance(account: string): Promise<bigint> {
@@ -108,17 +154,25 @@ export class FakeEconomy implements EconomyViews {
     return this.paved.get(BigInt(account).toString(16)) ?? 0n;
   }
 
-  setVault(account: string, position: Omit<VaultPosition, "totalStaked">): void {
-    this.vaults.set(BigInt(account).toString(16), { ...position, totalStaked: 0n });
+  /** Gives `account` `shares` vPAVED, minted at the current rate: the Vault's totals grow by the shares and their PAVED. */
+  setShares(account: string, shares: bigint): void {
+    const key = BigInt(account).toString(16);
+    const delta = shares - (this.shares.get(key) ?? 0n);
+    this.vaultAssets += this.toAssets(delta);
+    this.vaultSupply += delta;
+    this.shares.set(key, shares);
   }
 
   setBalance(token: "usdc" | "paved", account: string, amount: bigint): void {
     (token === "usdc" ? this.usdc : this.paved).set(BigInt(account).toString(16), amount);
   }
 
-  /** The `min_out` a purchase of `stake` sends with `FakePoolQuoter` and the default slippage. */
-  async expectedMinOut(stake: number, pool: FakePoolQuoter = new FakePoolQuoter()): Promise<bigint> {
-    return minOutFor(await pool.quoteSwap((await this.quote(stake)).burnQuote));
+  /**
+   * The `min_out` a purchase of `stake` sends with `FakePoolQuoter` and the default slippage: the quote of its one swap,
+   * the burn quote and the margin, the referral taken when `referred` (P-56).
+   */
+  async expectedMinOut(stake: number, pool: FakePoolQuoter = new FakePoolQuoter(), referred = false): Promise<bigint> {
+    return minOutFor(await pool.quoteSwap(swapInputOf(await this.quote(stake), referred)));
   }
 
   private check(call: string): void {
@@ -140,4 +194,8 @@ export class FakePoolQuoter implements PoolQuoter {
     if (this.zero) return 0n;
     return (usdcIn * 95n * this.rate.paved) / (100n * this.rate.usdc);
   }
+}
+
+function ceilDiv(a: bigint, b: bigint): bigint {
+  return (a + b - 1n) / b;
 }

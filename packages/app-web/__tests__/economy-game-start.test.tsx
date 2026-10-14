@@ -62,12 +62,13 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
 
 describe("GamePage purchase", () => {
   it("clears the consent, then sends approve USDC + spawn(stake, referrer, min_out) of the confirmed price, and opens the game", async () => {
-    const { sent, spawn, economy } = setup({ state: purchaseIntent(4, 8_000_000n, "0x77", await new FakeEconomy().expectedMinOut(4)) });
+    // With a referrer, the referral leaves the one swap (P-56): the floor is the quote of the price less it.
+    const { sent, spawn, economy } = setup({ state: purchaseIntent(4, 8_000_000n, "0x77", await new FakeEconomy().expectedMinOut(4, new FakePoolQuoter(), true)) });
     await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
     expect(sent).toHaveLength(1);
     expect(sent[0].map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Challenge, "spawn"]]);
     expect(sent[0][0].calldata).toEqual([ADDR.Challenge, "0x7a1200", "0x0"]);
-    const minOut = await economy.expectedMinOut(4);
+    const minOut = await economy.expectedMinOut(4, new FakePoolQuoter(), true);
     expect(sent[0][1].calldata).toEqual(["0x4", "0x77", `0x${minOut.toString(16)}`, "0x0"]);
     expect(spawn).not.toHaveBeenCalled(); // not the free-entry path
   });
