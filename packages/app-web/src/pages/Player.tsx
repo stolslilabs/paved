@@ -58,7 +58,7 @@ export function PlayerPage() {
   return (
     <div style={page}>
       {back}
-      <h1 style={{ margin: 0 }}>{label(id)}</h1>
+      <h1 style={{ margin: 0 }}>{label(id, player?.name)}</h1>
       <div style={{ color: "#999", fontSize: 12, wordBreak: "break-all" }}>{id}</div>
       <IndexerLag answer={profile.data} error={profile.cause} />
 

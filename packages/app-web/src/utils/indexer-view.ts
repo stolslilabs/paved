@@ -65,11 +65,13 @@ function sameId(a: string, b: string): boolean {
 }
 
 /**
- * A player's label (D-25 (E): names are off chain). The connected player shows as their Controller username when it is
- * known; anyone else as a short address: other players' usernames are not looked up (a new external service).
+ * A player's label (D-25 (E): no name on chain). The connected player shows as their Controller username when it is
+ * known. Anyone else shows as the username the indexer looked up (N1, `name`: display only, never an identity), or
+ * as a short address when it has none yet.
  */
-export function playerLabel(id: string, me?: Me): string {
-  return me?.username && me.id !== null && sameId(id, me.id) ? me.username : shortId(id);
+export function playerLabel(id: string, me?: Me, name?: string | null): string {
+  if (me?.username && me.id !== null && sameId(id, me.id)) return me.username;
+  return name ? name : shortId(id);
 }
 
 /** A tournament is one UTC day: "2026-10-07". */
