@@ -9,6 +9,7 @@ import {
   closureText,
   confirmDisabled,
   openTraining,
+  panelRects,
   readSave,
   readUi,
   ready,
@@ -28,6 +29,9 @@ import type { EngineGame } from "@paved/game-core";
  * replay of what the browser saved. `PAVED_E2E_GAMES` sets the number of full games of the first test (default 2: the length that passes in one run on a loaded VPS).
  */
 const GAMES = Number(process.env.PAVED_E2E_GAMES ?? 2);
+/** A seed (hex felt, `0x…`) for the first game of the first test, to replay a failing game: the log prints every seed in full. */
+const FIRST_SEED = process.env.PAVED_E2E_SEED;
+if (FIRST_SEED !== undefined && !/^0x[0-9a-f]{1,64}$/.test(FIRST_SEED)) throw new Error("PAVED_E2E_SEED must be a lowercase hex felt, 0x…");
 const LAUNCH_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 
 let server: ViteDevServer | null = null;
@@ -129,7 +133,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
   const { discardRate = 0, stopAfter = Infinity, keyboard = false, checkSlots = true } = options;
   while (!model.over && out.moves < stopAfter) {
     const legal = model.legalPlacements();
-    const at = `seed ${save.seed.slice(0, 10)}, move ${model.built + model.discarded + 1}`;
+    const at = `seed ${save.seed}, move ${model.built + model.discarded + 1}`;
 
     if (checkSlots) {
       for (let o = 1; o <= 4; o++) {
@@ -170,7 +174,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
       await expect.poll(() => confirmDisabled(page), { message: `${at}: the page refuses ${JSON.stringify(placement)}`, timeout: 20_000 }).toBe(false);
     } catch (error) {
       if (process.env.PAVED_E2E_SHOTS) await page.screenshot({ path: `${process.env.PAVED_E2E_SHOTS}/refused-${save.seed.slice(0, 8)}-${model.built}.png` });
-      console.log(`[e2e] ${at}: clicked ${JSON.stringify(point)} for ${JSON.stringify(placement)}; view ${JSON.stringify(await page.evaluate(() => (window as any).__PAVED_E2E__.view))}`);
+      console.log(`[e2e] ${at}: panels ${JSON.stringify(await panelRects(page))}; clicked ${JSON.stringify(point)} for ${JSON.stringify(placement)}; view ${JSON.stringify(await page.evaluate(() => (window as any).__PAVED_E2E__.view))}`);
       throw error;
     }
 
@@ -193,7 +197,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
     const ui = await readUi(page);
     expect(ui.complete, "the game-over dialog").not.toBeNull();
     expect(ui.complete!.finalScore.replace(/\D/g, "")).toBe(String(model.score));
-    console.log(`[e2e] game over: seed ${save.seed.slice(0, 10)}, ${model.built} built + ${model.discarded} discarded, score ${model.score} (the page: Built ${ui.built}/38)`);
+    console.log(`[e2e] game over: seed ${save.seed}, ${model.built} built + ${model.discarded} discarded, score ${model.score} (the page: Built ${ui.built}/38)`);
   } else {
     expect((await readUi(page)).complete).toBeNull();
   }
@@ -203,6 +207,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 describe("Training, played by a bot in a headless browser", () => {
   it(`plays ${GAMES} complete games, with New game between them`, async () => {
     const { context, page, errors } = await freshPage();
+    if (FIRST_SEED) await page.addInitScript(([key, seed]) => localStorage.setItem(key, JSON.stringify({ v: 1, seed, moves: [] })), [TRAINING_KEY, FIRST_SEED] as [string, string]);
     await openTraining(page, base);
     const seeds = new Set<string>();
     let closed = 0;
