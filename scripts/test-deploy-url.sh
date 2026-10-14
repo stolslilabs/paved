@@ -249,6 +249,39 @@ refuse 2 "--out expects a file path in an existing directory" sepolia --out "$re
 refuse 2 "--out expects a file path in an existing directory" sepolia --rehearse --out --check-only
 refuse 2 "unknown option '--frobnicate' for 'sepolia --rehearse'" sepolia --rehearse --check-only --frobnicate
 refuse 2 "unknown option '--check-only' for 'devnet'" devnet --check-only
+# The guardian on the fresh path (PM, 2026-10-14): set by default; `--guardian deployer` is its explicit spelling, on
+# devnet and sepolia and its rehearsal, and no other value is accepted.
+refuse 2 "--guardian expects the keyword deployer" sepolia --guardian
+refuse 2 "--guardian expects the keyword deployer" sepolia --guardian 0x1
+refuse 2 "--guardian expects the keyword deployer" sepolia --rehearse --check-only --guardian none
+refuse 2 "--guardian expects the keyword deployer" devnet --guardian
+refuse 2 "--guardian expects the keyword deployer" devnet --unmerged --guardian 0x1
+refuse 2 "unknown option '--check-only' for 'devnet'" devnet --guardian deployer --check-only
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --guardian deployer
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --check-only --out "$repoint_file.new" --guardian deployer
+refuse 2 "is for sepolia --upgrade-challenge only" sepolia --repoint --guardian deployer
+# The fresh path sets the guardian right after the wiring and before the definitions, and its smoke reads guardian()
+# and spawn_paused() and fails otherwise (read from the script: the run itself needs a node).
+if python3 -I - "$here/deploy.sh" <<'PY'
+import re, sys
+t = open(sys.argv[1]).read().split("\n")
+def first(pat, start=0):
+    for i in range(start, len(t)):
+        if re.search(pat, t[i]):
+            return i
+    raise SystemExit("missing: " + pat)
+wire = first(r'^echo "== wire"')
+send = first(r'invoke "\$CHALLENGE" set_guardian "\$DEPLOYER_ARG"', wire)
+defs = first(r'^echo "== definitions"', wire)
+smoke = first(r'^echo "== smoke"', defs)
+assert wire < send < defs < smoke, (wire, send, defs, smoke)
+first(r'RECORD_SENDING=guardian_tx', wire)
+first(r'Challenge\.guardian\(\) is another address', wire)
+first(r'die "Challenge\.guardian\(\) is not the deployer"', smoke)
+first(r'die "Challenge\.spawn_paused\(\) is true"', smoke)
+PY
+then echo "ok: the fresh path sets the guardian after the wiring and before the definitions; its smoke reads guardian() and spawn_paused()"
+else echo "FAIL: the fresh path does not set the guardian between the wiring and the definitions, or its smoke does not read guardian() and spawn_paused()"; fail=1; fi
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --repoint --deployment "$repoint_file" 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse --repoint refuses a remote node, its key unprinted"

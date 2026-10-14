@@ -2,8 +2,8 @@
 # Builds, declares and deploys the native Paved contracts, writes contracts/deployments/<network>.json for the
 # client, then runs a smoke check.
 #
-# Usage: scripts/deploy.sh devnet [--unmerged]
-#        scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>]
+# Usage: scripts/deploy.sh devnet [--unmerged] [--guardian deployer]
+#        scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] [--guardian deployer]
 #        scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]
 #        scripts/deploy.sh sepolia --repoint [--check-only]
 #        scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]
@@ -62,6 +62,13 @@
 #   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
 #   claim_tutorial once; the rehearsal settles the game at (D + 2) x 86400 too.
+# The guardian (PM, 2026-10-14): the fresh path sets the deployer as Challenge's guardian in the same run, by default
+# (devnet, sepolia and their rehearsal), right after the wiring and before the definitions: Challenge.set_guardian(@account),
+# the same call and checks as --upgrade-challenge's (guardian() none or the deployer, another address refused and never
+# printed; the deployer's address is the signer's `@account`, in no argv). `--guardian deployer` is accepted on the fresh path
+# as the explicit spelling of that default; there is no other value and no way to leave the guardian unset. The smoke reads
+# guardian() (the deployer) and spawn_paused() (false) and fails otherwise; a complete record's rerun reads neither (live
+# state since: the owner's set_guardian, the guardian's pause). The hash is recorded as `guardian_tx`.
 # The record is the file's `fresh` key: the salt and the first run's commit, written before the first send; each class
 # hash; each transaction hash as the signer sends it (deploys, pool, stake, minter, wiring, definitions, each smoke
 # transaction), never an address. A recorded transaction is awaited first (its receipt, up to REPOINT_WAIT_S): landed, it
@@ -264,7 +271,7 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] | scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only] | scripts/deploy.sh sepolia --upgrade-challenge [--check-only] [--guardian deployer] | scripts/deploy.sh sepolia --rehearse --upgrade-challenge --deployment <file> [--check-only] [--guardian deployer]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] [--guardian deployer] | scripts/deploy.sh sepolia [--rehearse] [--check-only] [--out <file>] [--guardian deployer] | scripts/deploy.sh sepolia [--rehearse] --estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only] | scripts/deploy.sh sepolia --d18 [--check-only] | scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only] | scripts/deploy.sh sepolia --upgrade-challenge [--check-only] [--guardian deployer] | scripts/deploy.sh sepolia --rehearse --upgrade-challenge --deployment <file> [--check-only] [--guardian deployer]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
@@ -352,8 +359,20 @@ elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
   # PATH, which fails. With real variables and the real signer it is one read-only call to 0x1 on that node:
   # nothing is built, signed or sent.
   CHECK_SEND=1
-elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" && -z "${3:-}" ]]; then
-  UNMERGED=1
+elif [[ "$NETWORK" == "devnet" && ( "${2:-}" == "--unmerged" || "${2:-}" == "--guardian" ) ]]; then
+  # devnet [--unmerged] [--guardian deployer], in either order. --guardian deployer is the default spelled out.
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --unmerged) UNMERGED=1; shift ;;
+      --guardian)
+        [[ "${2:-}" == deployer ]] ||
+          { echo "deploy.sh: --guardian expects the keyword deployer (the fresh path always sets the deployer as guardian)" >&2; exit 2; }
+        shift 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'devnet'" >&2; echo "$USAGE" >&2; exit 2 ;;
+    esac
+  done
+  set -- devnet
 elif [[ "$NETWORK" == "sepolia" && -n "${2:-}" ]]; then
   # sepolia [--rehearse] [--check-only] [--out <file>] (F): the fresh path (see "sepolia, the fresh path" above).
   shift
@@ -365,6 +384,10 @@ elif [[ "$NETWORK" == "sepolia" && -n "${2:-}" ]]; then
         [[ -n "${2:-}" && "$2" != -* && -d "$(dirname "$2")" && ! -d "$2" ]] ||
           { echo "deploy.sh: --out expects a file path in an existing directory" >&2; exit 2; }
         FRESH_OUT="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+        shift 2 ;;
+      --guardian)
+        [[ "${2:-}" == deployer ]] ||
+          { echo "deploy.sh: --guardian expects the keyword deployer (the fresh path always sets the deployer as guardian)" >&2; exit 2; }
         shift 2 ;;
       *) echo "deploy.sh: unknown option '$1' for 'sepolia$( ((REHEARSE)) && echo ' --rehearse')'" >&2; echo "$USAGE" >&2; exit 2 ;;
     esac
@@ -2385,7 +2408,7 @@ fresh_check_only() {
     echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
   else
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
-        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx definitions_tx \
+        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
@@ -2846,6 +2869,23 @@ v WIRING_RAW fresh_wiring_calls
 [[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
 echo "   Setup: Challenge reports to it, its one reporter; Challenge.setup() is Setup"
 echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
+# Challenge's guardian (PM, 2026-10-14): the deployer, set in this run. A complete record's rerun sends nothing and does
+# not read it (the owner may have moved it since).
+if ((FRESH_COMPLETE == 0)); then
+  fr_settled guardian_tx || true
+  v RAW call "$CHALLENGE" guardian
+  case "$(uc_guardian_label "$RAW")" in
+    "the deployer") echo "   Challenge.guardian() is the deployer already$( [[ -n "$(fr_get guardian_tx)" ]] && echo ", tx $(fr_get guardian_tx)")" ;;
+    none)
+      RECORD_SENDING=guardian_tx
+      invoke "$CHALLENGE" set_guardian "$DEPLOYER_ARG" >/dev/null || die "Challenge.set_guardian failed"
+      RECORD_SENDING=""
+      v RAW call "$CHALLENGE" guardian
+      [[ "$(uc_guardian_label "$RAW")" == "the deployer" ]] || die "after set_guardian, Challenge.guardian() is not the deployer"
+      echo "   Challenge.set_guardian(the deployer): the deployer is the guardian" ;;
+    *) die "Challenge.guardian() is another address: not replaced; nothing more was sent" ;;
+  esac
+fi
 # Economy's router and pool (its constructor's): the MockRouter, its key and the limit 0; the P-46 configuration and
 # the initial mean, read back.
 [[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$ROUTER")" ]] || die "Economy.router() is not MockRouter"
@@ -2990,6 +3030,17 @@ for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collectio
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
 echo "   owner() of Economy, Challenge, Setup, Collection and Vault: the deployer"
+# The guardian and the pause (PM, 2026-10-14): a first run and a resume read both; a complete record's rerun reads
+# neither (the owner's set_guardian and the guardian's pause are live state since).
+if ((FRESH_COMPLETE)); then
+  echo "   Challenge.guardian() and spawn_paused() not read (complete record: live state since)"
+else
+  v RAW call "$CHALLENGE" guardian
+  [[ "$(uc_guardian_label "$RAW")" == "the deployer" ]] || die "Challenge.guardian() is not the deployer"
+  v RAW call "$CHALLENGE" spawn_paused
+  [[ "$(hex_int "$RAW")" == 0 ]] || die "Challenge.spawn_paused() is true"
+  echo "   Challenge.guardian(): the deployer; spawn_paused(): false"
+fi
 # The Vault's exit fee: the default at launch; the owner may have moved it since, within its bound
 VAULT_FEE="$(hex_int "$(call "$VAULT" exit_fee)")"
 if ((FRESH_COMPLETE)); then
