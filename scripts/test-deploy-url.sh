@@ -772,7 +772,7 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   # The real signer refuses a key that is not a felt: a hex marker, checked for leaks below as well.
   KEY_MARK=fedcba9876543210fedcba98
   mkdir -p "$est/bin" "$est/classes"
-  for name in Daily Setup Faucet PavedToken MockRouter Vault Economy Collection; do
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection; do
     cp "$here/signer/test/fixtures/tiny.contract_class.json" "$est/classes/paved_$name.contract_class.json"
     cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$est/classes/paved_$name.compiled_contract_class.json"
   done
@@ -823,10 +823,10 @@ SH
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
   # D-21, D-24, D-25 E: a fresh run declares Setup, and neither Tutorial, Lobby nor Account, in deploy order.
   order="$(sed -n 's/^   estimate \([A-Za-z]*\): .*/\1/p' <<<"$out" | tr '\n' ' ')"
-  if [[ "$order" != "Daily Setup Faucet PavedToken MockRouter Vault Economy Collection " ]]; then
+  if [[ "$order" != "Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection " ]]; then
     echo "FAIL: sepolia --estimate-only: the fresh run's classes are not Setup's list without Tutorial, Lobby and Account: $order"; fail=1
   else
-    echo "ok: a fresh run declares Daily Setup Faucet PavedToken MockRouter Vault Economy Collection (no Tutorial, no Lobby, no Account)"
+    echo "ok: a fresh run declares Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection (no Tutorial, no Lobby, no Account)"
   fi
   if [[ $rc -ne 0 || "$lines" != 8 || "$out" != *"== estimate only: each of the 8 classes estimated or already declared; nothing was sent"* ||
       "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
@@ -858,7 +858,7 @@ SH
   touch "$est/bin/hashes"
   # 1. Five of eight classes declared, 150 STRK (below the old 200 STRK floor): three estimates, need 20.00 STRK, passes
   #    and goes on to declare.
-  for name in Daily Setup Faucet PavedToken MockRouter; do hexname "$name"; done >"$est/bin/declared"
+  for name in Challenge Setup Faucet PavedToken MockRouter; do hexname "$name"; done >"$est/bin/declared"
   out="$(real_run 150000000000000000000)"; rc=$?
   if [[ $rc -ne 1 || "$out" != *"== funding: 3 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
       "$out" != *"   deployer STRK balance 150.00 STRK: covers the need of 20.00 STRK"* || "$out" != *"== declare"* ||
@@ -883,7 +883,7 @@ SH
   fi
   # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
   #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
-  for name in Daily Setup Faucet PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
   printf '%s' 30000000000000000000 >"$est/fee"
   out="$(real_run 110000000000000000000)"; rc=$?
   rm -f "$est/fee"
@@ -902,7 +902,7 @@ SH
   touch "$est/add_lost"
   out="$(real_run 150000000000000000000)"; rc=$?
   rm -f "$est/add_lost"
-  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Daily failed"* || "$out" == *"declare Setup"* ||
+  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Challenge failed"* || "$out" == *"declare Setup"* ||
       "$out" != *"signer: sent, status unknown: 0x"*"; check it before any rerun"* ]] ||
       ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
       [[ "$(grep -c '^fake-node: asked starknet_addDeclareTransaction$' "$est/node.log")" != 1 ]] ||
@@ -917,7 +917,7 @@ SH
   touch "$est/add_refused"
   out="$(real_run 150000000000000000000)"; rc=$?
   rm -f "$est/add_refused"
-  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Daily failed"* || "$out" == *"declare Setup"* ]] ||
+  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Challenge failed"* || "$out" == *"declare Setup"* ]] ||
       [[ "$(grep -c 'signer: sending starknet_add' <<<"$out")" != 1 ]] ||
       ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
       ! grep -q '^deploy.sh: signer declare failed:$' <<<"$out" ||
@@ -991,9 +991,9 @@ verdict '"result"' not
 verdict 'not json' not
 verdict '' not
 
-# S1 audit: no external entry point of Daily or Setup takes a Mode (Daily fixes it: Mode::Daily; the Lobby class
+# S1 audit: no external entry point of Challenge or Setup takes a Mode (Challenge fixes it: Mode::Challenge; the Lobby class
 # that took one is gone since D-24). Read from the committed ABIs, which CI checks against the build.
-for contract in Daily Setup; do
+for contract in Challenge Setup; do
   abi="$here/../contracts/abis/$contract.json"
   if python3 -I - "$abi" <<'PY'
 import json, sys
