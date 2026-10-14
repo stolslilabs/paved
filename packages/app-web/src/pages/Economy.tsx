@@ -14,7 +14,7 @@ import { buildGameRoute } from "../utils/mode-routing";
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
 
 /**
- * The economy as a page (P8): the paid Daily's purchase, the Vault and the after-the-day settlement. The Landing keeps
+ * The economy as a page (P8): the paid Challenge's purchase, the Vault and the after-the-day settlement. The Landing keeps
  * its own entry points; this page shows the same panels together. The purchase is only confirmed here: the game page
  * sends it from the history state, as from the Landing.
  */
@@ -48,19 +48,19 @@ export function EconomyPage() {
       <h2 style={{ margin: 0 }}>Economy</h2>
       {!client ? (
         <div style={panel}>
-          <strong>Paid Daily (USDC)</strong>
+          <strong>Paid Challenge (USDC)</strong>
           <span>{`Not deployed on ${deployment.base.network}: ${deployment.missing.join(", ")}.`}</span>
         </div>
       ) : (
         <>
           <div style={panel}>
-            <strong>Paid Daily</strong>
+            <strong>Paid Challenge</strong>
             <EconomyPurchase
               client={client}
               address={address}
               ready={status === "ready" && writer !== null}
               referrer={referrer}
-              onConfirm={(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) => navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) })}
+              onConfirm={(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) => navigate(buildGameRoute({ mode: "challenge" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) })}
             />
           </div>
           {writeError && <span role="alert" style={alert}>{writeError}</span>}

@@ -1,7 +1,6 @@
 /** The economy client (P8) on the committed ABIs (E1 to E3) and the fake: `docs/architecture/client-economy.md`. */
 import { describe, expect, test, vi } from "vitest";
 import { hash, shortString } from "starknet";
-import devnetFile from "../../../contracts/deployments/devnet.json";
 import { ABIS, createCodecs, createEconomyCodecs, ECONOMY_ABIS } from "../src/abis";
 import { AbiCodec, camelCase, type Abi } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
@@ -41,8 +40,9 @@ import {
 } from "../src/economy";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
+import { asChallenge, committedFile } from "./committed-deployment";
 
-const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const REFERRER = "0x77";
@@ -51,7 +51,7 @@ const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FIL
 const DAY = 20_000;
 
 const spawnedEvent = (gameId: number) => ({
-  from_address: ADDR.Daily,
+  from_address: ADDR.Challenge,
   keys: [hash.getSelectorFromName("GameSpawned"), `0x${gameId.toString(16)}`, "0x9"],
   data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"],
 });
@@ -96,16 +96,16 @@ describe("ABIs: all committed (Economy E2, paid spawn E3; USDC is the ERC20 of T
     expect(codec.encodeCall("record", [7, 4000])).toEqual(["0x7", "0xfa0"]);
   });
 
-  test("the paid spawn is E3's, on the real committed Daily ABI: spawn(stake, referrer, min_out)", () => {
+  test("the paid spawn is E3's, on the real committed Challenge ABI: spawn(stake, referrer, min_out)", () => {
     const spawnOf = (abi: Abi) => abi.flatMap((e) => e.items ?? []).find((i) => i.name === "spawn");
-    expect(spawnOf(ECONOMY_ABIS.Daily)?.inputs?.map((i) => `${i.name}: ${i.type}`)).toEqual([
+    expect(spawnOf(ECONOMY_ABIS.Challenge)?.inputs?.map((i) => `${i.name}: ${i.type}`)).toEqual([
       "stake: core::integer::u8",
       "referrer: core::starknet::contract_address::ContractAddress",
       "min_out: core::integer::u256",
     ]);
-    expect(ECONOMY_ABIS.Daily).toBe(ABIS.Daily);
+    expect(ECONOMY_ABIS.Challenge).toBe(ABIS.Challenge);
     const codecs = createEconomyCodecs();
-    expect(codecs.Daily.encodeCall("spawn", [3, "0x0", 5n])).toEqual(["0x3", "0x0", "0x5", "0x0"]);
+    expect(codecs.Challenge.encodeCall("spawn", [3, "0x0", 5n])).toEqual(["0x3", "0x0", "0x5", "0x0"]);
     for (const f of ["approve", "balance_of", "allowance"]) expect(codecs.USDC.hasFunction(f)).toBe(true);
   });
 
@@ -159,7 +159,7 @@ describe("amounts: BigInt base units, never floats", () => {
 
 describe("deployment: the economy is configured from the E3 devnet.json", () => {
   test("today's devnet.json has the four economy addresses (USDC is MockUSDC on devnet)", () => {
-    const file = devnetFile as DeploymentFile & { contracts: Record<string, { address: string }> };
+    const file = asChallenge(committedFile("devnet")) as DeploymentFile & { contracts: Record<string, { address: string }> };
     const fromFile = resolveDeployment({ network: "devnet", file });
     const economy = resolveEconomyDeployment({ base: fromFile, file });
     expect(economy.configured).toBe(true);
@@ -182,14 +182,14 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
   });
 });
 
-describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in one multicall", () => {
-  test("approves exactly the price to Daily; min_out is the pool quote less 1 %, never the hint", async () => {
+describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out), in one multicall", () => {
+  test("approves exactly the price to Challenge; min_out is the pool quote less 1 %, never the hint", async () => {
     const { economy, econWriter, sent } = setup();
     const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, confirmedMinOut: 1n, referrer: null });
     expect(result.gameId).toBe(9);
     const [calls] = sent();
-    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Daily, "spawn"]]);
-    expect(calls[0].calldata).toEqual([ADDR.Daily, "0x5b8d80", "0x0"]); // 6_000_000 as u256
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Challenge, "spawn"]]);
+    expect(calls[0].calldata).toEqual([ADDR.Challenge, "0x5b8d80", "0x0"]); // 6_000_000 as u256
     const quote = await economy.quote(3);
     const poolOut = (quote.burnQuote * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
     const minOut = (poolOut * 9_900n) / 10_000n;
@@ -210,8 +210,8 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(without.calls[1].calldata[1]).toBe("0x0");
   });
 
-  // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy, registered or not.
-  test("the referrer rule: none or zero is sent as 0x0; any other address is sent; the payer, Daily and Economy are refused, nothing sent", async () => {
+  // D-25 (E): a referrer is any non-zero address other than the payer, the Challenge and the Economy, registered or not.
+  test("the referrer rule: none or zero is sent as 0x0; any other address is sent; the payer, Challenge and Economy are refused, nothing sent", async () => {
     for (const none of [null, "", "0x0", "0x000"]) {
       expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: none })).referrer).toBe("0x0");
     }
@@ -220,11 +220,11 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: unregistered })).referrer).toBe(
       "0x123456789abcdef",
     );
-    // The payer, the deployment's Daily (0x2) and its Economy (0x10), in any spelling (padded, upper case): refused with the
+    // The payer, the deployment's Challenge (0x2) and its Economy (0x10), in any spelling (padded, upper case): refused with the
     // same plain message, and nothing is executed. The Vault, the token and USDC are ordinary addresses here.
     const refused: Array<[string, string]> = [
       [PLAYER, "payer"], [`0x${"0".repeat(63)}5`, "payer"], ["0X5", "payer"],
-      [ADDR.Daily, "daily"], [`0x${"0".repeat(63)}2`, "daily"],
+      [ADDR.Challenge, "challenge"], [`0x${"0".repeat(63)}2`, "challenge"],
       [ECON.economy, "economy"], ["0X10", "economy"],
     ];
     for (const [address, who] of refused) {
@@ -236,12 +236,12 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
       expect((error as Error).message).toBe("This address cannot be your referrer. Nothing was sent.");
       expect(execute).not.toHaveBeenCalled();
     }
-    const contracts = { daily: ADDR.Daily, economy: ECON.economy };
+    const contracts = { challenge: ADDR.Challenge, economy: ECON.economy };
     expect(referrerOf(REFERRER, PLAYER, contracts)).toBe(REFERRER);
     expect(() => referrerOf(PLAYER, PLAYER, contracts)).toThrow(RefusedReferrerError);
     expect(refusedReferrer(ECON.vault, PLAYER, contracts)).toBeNull();
     // A deployment without an Economy address refuses no address in its name (an empty address names nothing).
-    expect(refusedReferrer(REFERRER, null, { daily: "", economy: "" })).toBeNull();
+    expect(refusedReferrer(REFERRER, null, { challenge: "", economy: "" })).toBeNull();
   });
 
   test("a changed price sends nothing", async () => {
@@ -346,7 +346,7 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     const { econWriter, writer, execute } = setup({ execute: () => new Promise((r) => (release = () => r({ transaction_hash: "0x1" }))) });
     const first = econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null });
     await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
-    await expect(writer.discard({ mode: "daily", gameId: 1 })).rejects.toThrow(/Another write is pending/);
+    await expect(writer.discard({ mode: "challenge", gameId: 1 })).rejects.toThrow(/Another write is pending/);
     await expect(econWriter.claimDividends({ confirmedAmount: 1n })).rejects.toThrow(/Another write is pending/);
     release();
     await first;

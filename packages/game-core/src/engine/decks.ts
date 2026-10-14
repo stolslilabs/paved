@@ -1,5 +1,5 @@
 // The decks of the contracts (`contracts/src/types/deck.cairo`, `elements/decks/{base,simple,tutorial}.cairo`):
-// `simple` is Daily's (the 72 cards of the base deck, 38 played), `tutorial` is the scripted one.
+// `simple` is Challenge's (the 72 cards of the base deck, 38 played), `tutorial` is the scripted one.
 
 import { Base } from "../elements/decks/base";
 import { Tutorial } from "../elements/decks/tutorial";

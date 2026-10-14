@@ -1,6 +1,6 @@
 export enum ModeType {
   None = "none",
-  Daily = "daily",
+  Challenge = "challenge",
   Weekly = "weekly",
   Tutorial = "tutorial",
 }
@@ -23,7 +23,7 @@ export class Mode {
 
   public duration(): number {
     switch (this.value) {
-      case ModeType.Daily:
+      case ModeType.Challenge:
         return 86400;
       case ModeType.Weekly:
         return 604800;
@@ -36,7 +36,7 @@ export class Mode {
 
   public offset(): number {
     switch (this.value) {
-      case ModeType.Daily:
+      case ModeType.Challenge:
         return 19855;
       case ModeType.Weekly:
         return 2835;
@@ -49,7 +49,7 @@ export class Mode {
 
   public price(): bigint {
     switch (this.value) {
-      case ModeType.Daily:
+      case ModeType.Challenge:
         return BigInt("1000000000000000000");
       case ModeType.Weekly:
         return BigInt("1000000000000000000");
@@ -62,7 +62,7 @@ export class Mode {
 
   public count(): number {
     switch (this.value) {
-      case ModeType.Daily:
+      case ModeType.Challenge:
         return 38;
       case ModeType.Weekly:
         return 72;

@@ -6,7 +6,7 @@ import { EventReader, type EventProvider } from "../src/events";
 
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", deployedBlock: 7, addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", deployedBlock: 7, addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 const SPAWNED = hash.getSelectorFromName("GameSpawned");
 
@@ -24,7 +24,7 @@ describe("EventReader", () => {
         return { events: [spawned(3)] };
       },
     };
-    const events = await new EventReader(provider, deployment, createCodecs()).read("Daily", "GameSpawned", [null, "0xabc"]);
+    const events = await new EventReader(provider, deployment, createCodecs()).read("Challenge", "GameSpawned", [null, "0xabc"]);
     expect(events.map((e) => e.fields.gameId)).toEqual([1, 2, 3]);
     expect(filters).toEqual([
       { address: "0x2", from_block: { block_number: 7 }, to_block: "latest", keys: [[SPAWNED], [], ["0xabc"]], chunk_size: 100 },
@@ -35,6 +35,6 @@ describe("EventReader", () => {
   test("reads nothing for a contract with no address", async () => {
     const off = resolveDeployment({ network: "devnet" });
     const provider: EventProvider = { getEvents: async () => { throw new Error("must not be called"); } };
-    expect(await new EventReader(provider, off, createCodecs()).read("Daily", "GameSpawned")).toEqual([]);
+    expect(await new EventReader(provider, off, createCodecs()).read("Challenge", "GameSpawned")).toEqual([]);
   });
 });

@@ -18,14 +18,14 @@ const END = T0 + 86400;
 const DAILY_RUN = 1;
 const POINT_CHASER = 4;
 
-const daily: Schedule = { start: 0, end: 0, duration: 86400, period: 86400 };
+const challenge: Schedule = { start: 0, end: 0, duration: 86400, period: 86400 };
 
 describe("the schedule rules of quiver_quest", () => {
   test("interval_id: None outside the window or the active part, Some(0) for a one-off, (t - start) / interval", () => {
-    expect(intervalId(daily, 0)).toBe(0);
-    expect(intervalId(daily, 86399)).toBe(0);
-    expect(intervalId(daily, 86400)).toBe(1);
-    expect(intervalId(daily, T0 + 5)).toBe(DAY);
+    expect(intervalId(challenge, 0)).toBe(0);
+    expect(intervalId(challenge, 86399)).toBe(0);
+    expect(intervalId(challenge, 86400)).toBe(1);
+    expect(intervalId(challenge, T0 + 5)).toBe(DAY);
     const window = { start: 1000, end: 2000, duration: 0, period: 0 };
     expect(intervalId(window, 999)).toBeNull();
     expect(intervalId(window, 1000)).toBe(0);
@@ -38,14 +38,14 @@ describe("the schedule rules of quiver_quest", () => {
   });
 
   test("firstActive finds the first active second of a range", () => {
-    expect(firstActive(daily, T0, END)).toBe(T0);
-    expect(firstActive({ ...daily, start: T0 + 100 }, T0, END)).toBe(T0 + 100);
-    expect(firstActive({ ...daily, start: END }, T0, END)).toBeNull(); // starts after
-    expect(firstActive({ ...daily, end: T0 }, T0, END)).toBeNull(); // ended
+    expect(firstActive(challenge, T0, END)).toBe(T0);
+    expect(firstActive({ ...challenge, start: T0 + 100 }, T0, END)).toBe(T0 + 100);
+    expect(firstActive({ ...challenge, start: END }, T0, END)).toBeNull(); // starts after
+    expect(firstActive({ ...challenge, end: T0 }, T0, END)).toBeNull(); // ended
     const sparse = { start: 100, end: 0, duration: 10, period: 60 };
     expect(firstActive(sparse, 110, 150)).toBeNull();
     expect(firstActive(sparse, 110, 161)).toBe(160);
-    expect(intervalSpan(daily, DAY)).toEqual({ from: T0, to: END });
+    expect(intervalSpan(challenge, DAY)).toEqual({ from: T0, to: END });
     expect(intervalSpan({ start: 5, end: 9, duration: 0, period: 0 }, 0)).toEqual({ from: 5, to: 9 });
   });
 
@@ -93,7 +93,7 @@ const defineList = (node: FakeNode) =>
     [ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })],
   );
 
-/** A finished Daily game of `player` reported as the contract does: GAME_FINISHED 1, POINTS score; achievements 1 too. */
+/** A finished Challenge game of `player` reported as the contract does: GAME_FINISHED 1, POINTS score; achievements 1 too. */
 const finished = (player: bigint, score: number) => [
   ev.questProgressed(player, 1, 1),
   ev.questProgressed(player, 3, score),
@@ -331,8 +331,8 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
     node.mine([], [], [], []);
-    node.mine(...games.map(([player], index) => [ev.spawned("daily", index + 1, player, { day: DAY })]));
-    for (const [index, [player, score]] of games.entries()) node.mine([ev.over("daily", index + 1, player, score, { day: DAY })]);
+    node.mine(...games.map(([player], index) => [ev.spawned("challenge", index + 1, player, { day: DAY })]));
+    for (const [index, [player, score]] of games.entries()) node.mine([ev.over("challenge", index + 1, player, score, { day: DAY })]);
     if (close) {
       node.time = END + 5;
       node.mine();
@@ -403,9 +403,9 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })]);
     node.time = END + 5;
-    node.mine([ev.over("daily", 1, A, 99, { day: 0, end: 0 })]);
+    node.mine([ev.over("challenge", 1, A, 99, { day: 0, end: 0 })]);
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
@@ -416,10 +416,10 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     const node = new FakeNode();
     node.time = T0 + 10;
     node.mine([], []);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]); // before the close: credited
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })], [ev.spawned("challenge", 2, B, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY })]); // before the close: credited
     node.time = END + 5;
-    node.mine([ev.over("daily", 2, B, 90, { day: DAY })]); // in the closing block: not credited
+    node.mine([ev.over("challenge", 2, B, 90, { day: DAY })]); // in the closing block: not credited
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
@@ -440,8 +440,8 @@ describe("On the Podium (D-20: from the indexer's own daily leaderboard)", () =>
     expect(indexer.store.dump().day_closes).toEqual([]);
     expect(credited(queries, indexer.served!.number, A)).toMatchObject({ completed: false });
     // a game of D ends in the reopened day and takes a place; then the day closes again
-    node.mine([ev.spawned("daily", 9, D, { day: DAY })]);
-    node.mine([ev.over("daily", 9, D, 45, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 9, D, { day: DAY })]);
+    node.mine([ev.over("challenge", 9, D, 45, { day: DAY })]);
     node.time = END + 9;
     node.mine();
     await settle(indexer);
@@ -458,8 +458,8 @@ describe("the podium credit is ordered at the day's close", () => {
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY })]);
 
     const live = indexerOf(node);
     await settle(live);
@@ -492,8 +492,8 @@ describe("the podium credit is ordered at the day's close", () => {
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY })]);
     node.mine([ev.achievementRetired(9)]); // still inside the day
     node.time = END + 1;
     node.mine();
@@ -527,12 +527,12 @@ describe("the podium credit is ordered at the day's close", () => {
     expect(queries.playerAchievements(head, padded(A)).achievements.find((a) => a.achievement_id === 2)).toMatchObject({ completed: true });
   });
 
-  test("the same events from Daily's address are not indexed: skipped, no halt (P-51 ruling 5)", async () => {
+  test("the same events from Challenge's address are not indexed: skipped, no halt (P-51 ruling 5)", async () => {
     const { indexer, queries, head } = await open((node) => {
-      node.mine([ev.questDefined(1, { tasks: [[DAILY_RUN, 1]], source: "daily" })]);
-      node.mine([ev.achievementDefined(2, { tasks: [[1, 1]], points: 10, source: "daily" })]);
-      node.mine([ev.questProgressed(A, 1, 1, "daily"), ev.achievementProgressed(A, 1, 1, "daily")]);
-      node.mine([ev.questRetired(1, "daily"), ev.achievementRetired(2, "daily")]);
+      node.mine([ev.questDefined(1, { tasks: [[DAILY_RUN, 1]], source: "challenge" })]);
+      node.mine([ev.achievementDefined(2, { tasks: [[1, 1]], points: 10, source: "challenge" })]);
+      node.mine([ev.questProgressed(A, 1, 1, "challenge"), ev.achievementProgressed(A, 1, 1, "challenge")]);
+      node.mine([ev.questRetired(1, "challenge"), ev.achievementRetired(2, "challenge")]);
     });
     expect(queries.definitions(head)).toEqual({ quests: [], achievements: [] });
     expect(queries.playerAchievements(head, padded(A))).toEqual({ points: 0, achievements: [] });
@@ -541,22 +541,22 @@ describe("the podium credit is ordered at the day's close", () => {
 
   test("a replay of a history from before D-21, D-24 and D-25 (E) never halts, and keeps only what Setup says", async () => {
     const { indexer, queries, head } = await open((node) => {
-      // A past PlayerCreated from a source still read (Daily's ABI declared it): known by name and skipped.
-      node.mine([ev.pastCreated("daily", A, 0x41)]);
-      // Daily's own quests and a Tutorial-era claim credited by Daily, the owner's Lobby class, a past prize, the mint of a
+      // A past PlayerCreated from a source still read (Challenge's ABI declared it): known by name and skipped.
+      node.mine([ev.pastCreated("challenge", A, 0x41)]);
+      // Challenge's own quests and a Tutorial-era claim credited by Challenge, the owner's Lobby class, a past prize, the mint of a
       // Tutorial game's token: all past, all skipped.
-      node.mine([ev.questDefined(7, { source: "daily" }), ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], source: "daily" })]);
-      node.mine([raw("daily", "LobbyClassSet", [], [0x1234]), ev.sponsored(DAY, 0xabc)]);
-      node.mine([ev.achievementProgressed(A, TUTORIAL_TASK, 1, "daily"), ev.minted(A, 2 ** 32 + 1)]);
-      // A Daily game goes on as before.
-      node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.minted(A, 1)]);
+      node.mine([ev.questDefined(7, { source: "challenge" }), ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], source: "challenge" })]);
+      node.mine([raw("challenge", "LobbyClassSet", [], [0x1234]), ev.sponsored(DAY, 0xabc)]);
+      node.mine([ev.achievementProgressed(A, TUTORIAL_TASK, 1, "challenge"), ev.minted(A, 2 ** 32 + 1)]);
+      // A Challenge game goes on as before.
+      node.mine([ev.spawned("challenge", 1, A, { day: DAY }), ev.minted(A, 1)]);
       // Then Setup: First Stone defined, and A claims.
       node.mine([ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], points: 10 })]);
       node.mine([ev.tutorialClaimed(A)]);
     });
     expect(indexer.status).toBe("ok");
     const dump = indexer.store.dump();
-    expect(dump.games.map((g) => [g.contract, g.game_id, g.token_id])).toEqual([["daily", 1, 1]]);
+    expect(dump.games.map((g) => [g.contract, g.game_id, g.token_id])).toEqual([["challenge", 1, 1]]);
     expect(dump.events.map((e) => e.name)).not.toContain("PlayerCreated");
     // A is a player from its first event read: the spawn (block 5), not the skipped ones before it.
     expect(dump.players.map((p) => [p.player_id, p.created_block])).toEqual([[padded(A), 5]]);
@@ -602,8 +602,8 @@ describe("the day's closing block survives the pruning of its header", () => {
     node.time = T0 + 10;
     node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
     node.mine([]);
-    node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 50, { day: DAY })]);
+    node.mine([ev.spawned("challenge", 1, A, { day: DAY })]);
+    node.mine([ev.over("challenge", 1, A, 50, { day: DAY })]);
     node.time = END + 1;
     node.mine();
     node.mine([ev.achievementRetired(9)]);

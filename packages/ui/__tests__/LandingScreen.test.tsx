@@ -67,8 +67,8 @@ describe("LandingScreen", () => {
 
   it("shows the mode cards with no wallet and no player, so Training and the Tutorial sit among them", () => {
     for (const props of [{ connected: false }, { connected: true }, { connected: true, playerName: "Zed" }] as LandingScreenProps[]) {
-      const tree = LandingScreen({ ...props, gameModes: [card("daily"), card("training"), card("tutorial")] });
-      expect(elementsOf(tree, GameModeCardView).map((e) => e.props.mode)).toEqual(["daily", "training", "tutorial"]);
+      const tree = LandingScreen({ ...props, gameModes: [card("challenge"), card("training"), card("tutorial")] });
+      expect(elementsOf(tree, GameModeCardView).map((e) => e.props.mode)).toEqual(["challenge", "training", "tutorial"]);
     }
   });
 

@@ -19,9 +19,9 @@ describe("GameModeCard", () => {
     const { GameModeCard } = mod;
 
     const requiredProps = {
-      mode: "daily",
-      title: "Daily Challenge",
-      description: "Complete a daily puzzle",
+      mode: "challenge",
+      title: "Challenge",
+      description: "Complete a challenge puzzle",
       tileCount: 72,
       duration: "24h",
       entryFee: "Free",
@@ -72,12 +72,12 @@ describe("GameModeCard", () => {
     expect(text).toContain("Play");
   });
 
-  it("renders its extra content (the Daily's top 3) and keeps it out of the card's press", async () => {
+  it("renders its extra content (the Challenge's top 3) and keeps it out of the card's press", async () => {
     const { GameModeCardView } = await import("../src/components/GameModeCard");
     const { collectText } = await import("./helpers/collect-text");
     const card = GameModeCardView({
-      mode: "daily",
-      title: "Daily",
+      mode: "challenge",
+      title: "Challenge",
       description: "38 tiles",
       tileCount: 38,
       duration: "24 hours",
@@ -90,7 +90,7 @@ describe("GameModeCard", () => {
     const stop = vi.fn();
     wrapper.props.onClick({ stopPropagation: stop });
     expect(stop).toHaveBeenCalled();
-    const none = GameModeCardView({ mode: "daily", title: "D", description: "", tileCount: 1, duration: "", entryFee: "", onPress: vi.fn() }) as any;
+    const none = GameModeCardView({ mode: "challenge", title: "D", description: "", tileCount: 1, duration: "", entryFee: "", onPress: vi.fn() }) as any;
     expect((none.props.children as any[]).some((c) => c && c.type === "div")).toBe(false);
   });
 });

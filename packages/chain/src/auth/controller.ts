@@ -28,14 +28,14 @@ export interface ControllerConfig {
  * deployment has a MockUSDC (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
-  Daily: ["spawn", "build", "discard", "surrender"],
+  Challenge: ["spawn", "build", "discard", "surrender"],
   // The tutorial claim (D-21): a policy only where the deployment has a Setup (`controllerPolicies`).
   Setup: ["claim_tutorial"],
 } as const;
 
 /**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
- * above 0), an approve to the Daily contract on that token (the one `Daily.entry_price` names: the
+ * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
  * purchase; above the cap, or on another token or spender, it prompts. Without
  * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
@@ -55,7 +55,7 @@ export function controllerPolicies(
   }
   const approve = options.approve;
   if (approve && approve.cap > 0n && isAddress(approve.token)) {
-    policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Daily, amount: approve.cap });
+    policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Challenge, amount: approve.cap });
   }
   return policies;
 }

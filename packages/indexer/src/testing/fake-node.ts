@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/testing/fake-node.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four contracts (daily, setup, economy, collection) and Paved's event builders, and
+// Apache-2.0. Adapted for Paved: four contracts (challenge, setup, economy, collection) and Paved's event builders, and
 // `starknet_chainId`. This copy is maintained by the Paved repository.
 //
 // A fake Starknet node for the unit tests: no network. It answers the read methods the indexer
@@ -10,13 +10,13 @@
 import { RpcError, type Rpc } from "../chain.ts";
 import { SELECTORS, type Source } from "../events.ts";
 
-export const DAILY = "0x1111";
+export const CHALLENGE = "0x1111";
 export const SETUP = "0x2222";
 export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
-  daily: DAILY,
+  challenge: CHALLENGE,
   setup: SETUP,
   economy: ECONOMY,
   collection: COLLECTION,
@@ -51,12 +51,12 @@ export function raw(
   };
 }
 
-/** Where the quest and achievement builders emit: Setup (D-24), or Daily for a past history (skipped). */
-type QuestSource = "setup" | "daily";
+/** Where the quest and achievement builders emit: Setup (D-24), or Challenge for a past history (skipped). */
+type QuestSource = "setup" | "challenge";
 
 export const ev = {
   spawned: (
-    source: "daily",
+    source: "challenge",
     gameId: number,
     player: bigint | number,
     options: {
@@ -78,7 +78,7 @@ export const ev = {
       ],
     ),
   over: (
-    source: "daily",
+    source: "challenge",
     gameId: number,
     player: bigint | number,
     score: number,
@@ -102,7 +102,7 @@ export const ev = {
     ),
   /**
    * A past `PlayerCreated` (Account's registry, before D-25 (E)): key the player, data the name and the master. Only a
-   * source still read can carry one (Daily's ABI declared it); it is known by name and skipped.
+   * source still read can carry one (Challenge's ABI declared it); it is known by name and skipped.
    */
   pastCreated: (source: Source, player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
     raw(source, "PlayerCreated", [player], [name, master]),
@@ -209,7 +209,7 @@ export const ev = {
       ],
     );
   },
-  /** Collection's mint `Transfer` (keys from, to, token_id as u256; no data): a Daily game's token is its id. */
+  /** Collection's mint `Transfer` (keys from, to, token_id as u256; no data): a Challenge game's token is its id. */
   minted: (to: bigint | number, tokenId: bigint | number) =>
     raw("collection", "Transfer", [0, to, BigInt(tokenId) & (2n ** 128n - 1n), BigInt(tokenId) >> 128n], []),
   recorded: (gameId: number, score: number, expired = false) =>
@@ -236,16 +236,16 @@ export const ev = {
       [options.day ?? 100, options.score ?? 5000, options.threshold ?? 4_215_689, options.reward ?? 231n * 10n ** 18n],
     ),
   /**
-   * The past prize events of `Daily`, before D-20 (public-interface.md, "Past events"): known by name and skipped.
+   * The past prize events of `Challenge`, before D-20 (public-interface.md, "Past events"): known by name and skipped.
    * `Sponsored`: key the day, data the sponsor and the amount. `Claimed`: key the day, data the player, the rank and the
    * reward (u256). `Reclaimed`: keys the day and the sponsor, data the amount (u256).
    */
   sponsored: (day: number, sponsor: bigint | number, amount: bigint | number = 10n ** 18n) =>
-    raw("daily", "Sponsored", [day], [sponsor, amount]),
+    raw("challenge", "Sponsored", [day], [sponsor, amount]),
   claimed: (day: number, player: bigint | number, rank: number, reward: bigint | number = 10n ** 18n) =>
-    raw("daily", "Claimed", [day], [player, rank, reward, 0]),
+    raw("challenge", "Claimed", [day], [player, rank, reward, 0]),
   reclaimed: (day: number, sponsor: bigint | number, amount: bigint | number = 10n ** 18n) =>
-    raw("daily", "Reclaimed", [day, sponsor], [amount, 0]),
+    raw("challenge", "Reclaimed", [day, sponsor], [amount, 0]),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6]),

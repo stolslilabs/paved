@@ -125,15 +125,15 @@ function playerId(value: string, name = "player_id"): string {
 }
 
 function contractOf(value: string | undefined, name = "contract"): GameContract {
-  // The on-chain Tutorial's games are dropped (D-21): Daily is the only game contract.
-  if (value !== "daily") throw new BadRequest(`${name} must be daily`);
+  // The on-chain Tutorial's games are dropped (D-21): Challenge is the only game contract.
+  if (value !== "challenge") throw new BadRequest(`${name} must be challenge`);
   return value;
 }
 
 /** The cursor of the games list: `<start_time>:<contract>:<game_id>`. */
 function gamesCursor(value: string | undefined) {
   if (value === undefined) return undefined;
-  const match = /^(0|[1-9]\d{0,15}):(daily):([1-9]\d{0,9})$/.exec(value);
+  const match = /^(0|[1-9]\d{0,15}):(challenge):([1-9]\d{0,9})$/.exec(value);
   if (!match || Number(match[3]) > U32_MAX)
     throw new BadRequest("before must be <start_time>:<contract>:<game_id>");
   return {
@@ -362,7 +362,7 @@ export type HeadInfo = {
   chainId: string;
   fromBlock: number;
   contracts: {
-    daily: string;
+    challenge: string;
     setup: string;
     economy: string;
     collection: string | null;

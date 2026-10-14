@@ -11,7 +11,7 @@ import { GameNft, useCollection } from "../components/GameNft";
 import { CENTER, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
-import { buildGameRoute, isTrainingParam, isTutorialParam } from "../utils/mode-routing";
+import { buildGameRoute, isDailyParam, isTrainingParam, isTutorialParam, renamedModeSearch } from "../utils/mode-routing";
 import type { MoveSenders, PageSession, PageState } from "../training/page-session";
 import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";
@@ -129,8 +129,11 @@ function Screen({ text, onBack, backDisabled, action }: { text: string; onBack?:
  */
 export function GamePage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   // An old tutorial link (with or without an id) lands on the off-chain tutorial page.
   if (isTutorialParam(searchParams.get("mode"))) return <Navigate to="/tutorial" replace />;
+  // An old Daily link (D-23 renamed the mode Challenge) is the same game: only the param changes, the state is kept.
+  if (isDailyParam(searchParams.get("mode"))) return <Navigate to={{ pathname: "/game", search: renamedModeSearch(searchParams) }} state={location.state} replace />;
   // Training is a mode of this route; it never reads the chain providers.
   return isTrainingParam(searchParams.get("mode")) ? <TrainingBoard /> : <ChainGamePage />;
 }
@@ -166,8 +169,8 @@ function ChainGamePage() {
 
   useEffect(() => {
     if (consumed.current || gameParams.gameId !== null) return;
-    // A paid Daily (P8) carries its purchase; any other consent is the plain start's.
-    const purchase = gameParams.mode === "daily" ? readPurchaseIntent(location.state) : null;
+    // A paid Challenge (P8) carries its purchase; any other consent is the plain start's.
+    const purchase = gameParams.mode === "challenge" ? readPurchaseIntent(location.state) : null;
     const found = purchase ? { confirmedAmount: purchase.confirmedPrice, purchase } : readStartIntent(location.state, gameParams.mode);
     if (!found) return;
     intentRef.current = found;
@@ -200,8 +203,8 @@ function ChainGamePage() {
     setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
-      // A Daily game is bought (E3), and no other on-chain mode spawns since D-21: without a purchase nothing is sent.
-      spawn: () => spawnForIntent(intent.purchase, economy.writer, () => Promise.reject(new WriteError("A Daily game is bought with the economy writer: nothing was sent"))),
+      // A Challenge game is bought (E3), and no other on-chain mode spawns since D-21: without a purchase nothing is sent.
+      spawn: () => spawnForIntent(intent.purchase, economy.writer, () => Promise.reject(new WriteError("A Challenge game is bought with the economy writer: nothing was sent"))),
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
@@ -245,7 +248,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const { writer } = usePaved();
   const { session, state } = useGameSession(gameKey);
   const collection = useCollection();
-  // The game's NFT by the Collection's rule (Daily: the game id; Tutorial: 2^32 + the game id); null for an id no game has.
+  // The game's NFT by the Collection's rule (Challenge: the game id; Tutorial: 2^32 + the game id); null for an id no game has.
   const tokenId = useMemo(() => {
     try {
       return nftOf(gameKey.mode, gameKey.gameId);

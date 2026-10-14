@@ -28,11 +28,11 @@ export function useWallet(): WalletState | null {
   return useContext(WalletContext);
 }
 
-/** The most stakes one Daily purchase buys (the economy's MAX_STAKE, E3): its approve is at most this x the unit price. */
+/** The most stakes one Challenge purchase buys (the economy's MAX_STAKE, E3): its approve is at most this x the unit price. */
 export const ENTRY_MAX_STAKE = BigInt(MAX_STAKE);
 
 /**
- * The session's approve: the token `Daily.entry_price` names (the deployment's Token before E3, USDC
+ * The session's approve: the token `Challenge.entry_price` names (the deployment's Token before E3, USDC
  * after), capped at `ENTRY_MAX_STAKE` x its unit price. Null when the entry cannot be read: no approve
  * in the session then.
  */
@@ -79,7 +79,7 @@ export function WalletProvider({
     return createConnector({
       rpc: deployment.rpcUrl,
       chainId: deployment.chainId,
-      // An approve to Daily on the entry token up to 10 x the unit price is signed in the session (only a
+      // An approve to Challenge on the entry token up to 10 x the unit price is signed in the session (only a
       // purchase sends one); above that it prompts. The price is read once, at first use; when the
       // read fails, the session holds no approve and every approve prompts.
       policies: async () => controllerPolicies(deployment, { approve: await entryApprove(reader) }),

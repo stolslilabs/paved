@@ -49,7 +49,7 @@ async function confirmWith(events: unknown[]) {
   const views = new FakeGameViews();
   views.setGame(gameKey, fakeGame());
   const build = vi.fn(async () => ({ transactionHash: "0x1", events }));
-  renderPage({ page: <GamePage />, path: "/game", search: "?mode=daily&id=4", views, writer: { build } });
+  renderPage({ page: <GamePage />, path: "/game", search: "?mode=challenge&id=4", views, writer: { build } });
   const slot = await screen.findByText("Slot");
   const confirm = screen.getByText("Confirm move") as HTMLButtonElement;
   // Nothing to confirm before a valid slot is picked.
@@ -101,7 +101,7 @@ describe("The closures clear with the next write (D-18)", () => {
     const build = vi.fn(async () => receipt([built, scored(2, 3, 6)]));
     if (next.build) build.mockImplementationOnce(async () => receipt([built, scored(2, 3, 6)])).mockImplementation(next.build);
     const writer = { build, discard: vi.fn(next.discard ?? (async () => receipt([]))), surrender: vi.fn(next.surrender ?? (async () => receipt([]))) };
-    renderPage({ page: <GamePage />, path: "/game", search: "?mode=daily&id=4", views, writer });
+    renderPage({ page: <GamePage />, path: "/game", search: "?mode=challenge&id=4", views, writer });
     fireEvent.click(await screen.findByText("Slot"));
     const confirm = () => screen.getByText("Confirm move") as HTMLButtonElement;
     await waitFor(() => expect(confirm().disabled).toBe(false));

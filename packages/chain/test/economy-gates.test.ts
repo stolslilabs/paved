@@ -35,7 +35,7 @@ import {
 } from "../src/economy";
 import { FAKE_CHAIN_ID, FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
-const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Challenge: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 /** Nums' Router V3.0.3: no `quote_swap`, never to be used (economy.md). */
@@ -68,7 +68,7 @@ function setup(options: { network?: string; file?: EconomyDeploymentFile; router
   economy.guardRate_ = options.rate ?? RATE;
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
+  const spawned = { from_address: ADDR.Challenge, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
     getChainId: async () => options.rpcChain ?? FAKE_CHAIN_ID,
@@ -352,7 +352,7 @@ function setupChain(getChainId: (() => Promise<string>) | null, chainId: string)
   economy.guardRate_ = RATE;
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
+  const spawned = { from_address: ADDR.Challenge, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
     ...(getChainId ? { getChainId } : {}),

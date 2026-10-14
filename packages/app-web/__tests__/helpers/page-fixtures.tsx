@@ -7,8 +7,8 @@ import { FAKE_CHAIN_ID } from "@paved/chain/testing";
 import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
-export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
-export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Daily: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
+export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
+export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Challenge: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
 export const account = { address: PLAYER, execute: async () => ({ transaction_hash: "0x0" }) };
 
 const C = 0x7fffffff;
@@ -26,7 +26,7 @@ export function fakeGame(playerId = PLAYER, over = false): FakeGame {
   };
 }
 
-export const gameKey: GameKey = { mode: "daily", gameId: 4 };
+export const gameKey: GameKey = { mode: "challenge", gameId: 4 };
 
 export function Where() {
   const l = useLocation();

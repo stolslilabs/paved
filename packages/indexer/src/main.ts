@@ -101,7 +101,7 @@ const depth: Depth =
     ? "l1"
     : integer(values.depth, "depth", undefined, 1);
 const config = {
-  daily: deployment.daily,
+  challenge: deployment.challenge,
   setup: deployment.setup,
   economy: deployment.economy,
   collection: deployment.collection,
@@ -194,7 +194,7 @@ const server = serve(indexer, {
     chainId: config.chainId,
     fromBlock: config.from,
     contracts: {
-      daily: config.daily,
+      challenge: config.challenge,
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,

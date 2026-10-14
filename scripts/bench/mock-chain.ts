@@ -37,7 +37,7 @@ interface TileRow {
 
 /** The chain of the page (BENCH_ADDRESSES, one source): the contracts and the playing account. */
 export const BENCH = {
-  Daily: BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS),
+  Challenge: BigInt(BENCH_ADDRESSES.VITE_CHALLENGE_ADDRESS),
   Token: BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS),
   player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
 };
@@ -125,21 +125,21 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
 
   /** The view as the page asked it, after the checks of what the bench expects: this game, this player. */
   const call = (to: bigint, entry: bigint, args: bigint[]): Array<number | bigint> => {
-    const daily = to === BENCH.Daily;
+    const challenge = to === BENCH.Challenge;
     const what = `${hex(entry)}(${args.map(hex).join(", ")}) on ${hex(to)}`;
-    if (daily && [SEL.game, SEL.tiles, SEL.builder].includes(entry) && args[0] !== BigInt(gameId)) {
+    if (challenge && [SEL.game, SEL.tiles, SEL.builder].includes(entry) && args[0] !== BigInt(gameId)) {
       violate("other-game", `${what}, the game is ${gameId}`);
     }
-    if (daily && entry === SEL.builder && args[1] !== BENCH.player) {
+    if (challenge && entry === SEL.builder && args[1] !== BENCH.player) {
       violate("other-player", `${what}, the player is ${hex(BENCH.player)}`);
     }
     if (to === BENCH.Token && entry === SEL.balance_of && args[0] !== BENCH.player) violate("other-player", `balance_of(${hex(args[0])})`);
 
-    if (daily && entry === SEL.game) return gameView();
-    if (daily && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
-    if (daily && entry === SEL.builder) return builderView();
-    if (daily && entry === SEL.current_day) return [Math.floor(t0 / 86400)];
-    if (daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
+    if (challenge && entry === SEL.game) return gameView();
+    if (challenge && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
+    if (challenge && entry === SEL.builder) return builderView();
+    if (challenge && entry === SEL.current_day) return [Math.floor(t0 / 86400)];
+    if (challenge && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
     if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];
     const message = `no view ${hex(entry)} on ${hex(to)}`;
     violate("unknown-view", message);
@@ -170,7 +170,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
       const [to, entry, len] = [calldata[at], calldata[at + 1], Number(calldata[at + 2])];
       const args = calldata.slice(at + 3, at + 3 + len);
       at += 3 + len;
-      if (to !== BENCH.Daily || entry !== SEL.build) {
+      if (to !== BENCH.Challenge || entry !== SEL.build) {
         violate("non-build-call", `${hex(to)}.${hex(entry)}`);
         reverted ??= `not a build: ${hex(to)}.${hex(entry)}`;
         continue;
@@ -189,7 +189,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (!reverted) {
       for (const tile of accepted) {
         placed++;
-        const from_address = hex(BENCH.Daily);
+        const from_address = hex(BENCH.Challenge);
         events.push({
           from_address,
           keys: [hex(SEL.Built), hex(gameId)],

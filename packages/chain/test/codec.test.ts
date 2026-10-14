@@ -9,13 +9,13 @@ const codecs = createCodecs();
 describe("view types follow the ABIs of contracts/abis", () => {
   for (const [struct, fields] of Object.entries(VIEW_FIELDS)) {
     test(`${struct} has the ABI's fields, in order`, () => {
-      expect(codecs.Daily.structFields(struct)).toEqual(fields);
+      expect(codecs.Challenge.structFields(struct)).toEqual(fields);
     });
   }
 
-  test("Daily exposes the game views and the day views (IDailyView); Setup none of them", () => {
+  test("Challenge exposes the game views and the day views (IDailyView); Setup none of them", () => {
     for (const fn of ["game", "tiles", "builder", "current_day", "entry_price"]) {
-      expect(codecs.Daily.hasFunction(fn)).toBe(true);
+      expect(codecs.Challenge.hasFunction(fn)).toBe(true);
       expect(codecs.Setup.hasFunction(fn)).toBe(false);
     }
   });
@@ -28,16 +28,16 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the on-chain Tutorial left (D-21): no Tutorial or Lobby ABI, Setup holds the claim", () => {
-    expect(Object.keys(ABIS).sort()).toEqual(["Daily", "Setup", "Token"]);
+    expect(Object.keys(ABIS).sort()).toEqual(["Challenge", "Setup", "Token"]);
     expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
     expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
     // The claim's state is a view of Setup (step D): read before any write.
     expect(codecs.Setup.encodeCall("tutorial_claimed", ["0xabc"])).toEqual(["0xabc"]);
     expect(codecs.Setup.decodeResult("tutorial_claimed", ["0x1"])).toBe(true);
-    // The quests and achievements moved from Daily to Setup (D-24).
+    // The quests and achievements moved from Challenge to Setup (D-24).
     for (const fn of ["define_quest", "define_achievement", "set_reporter", "report"]) {
       expect(codecs.Setup.hasFunction(fn), fn).toBe(true);
-      expect(codecs.Daily.hasFunction(fn), fn).toBe(false);
+      expect(codecs.Challenge.hasFunction(fn), fn).toBe(false);
     }
     for (const codec of Object.values(codecs)) {
       expect(JSON.stringify(codec.abi)).not.toMatch(/systems::tutorial|systems::lobby|ILobbyClass|tutoriable/i);
@@ -53,16 +53,16 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the prize left (D-20): no claim, sponsor or tournament view, no TournamentView, no prize event", () => {
-    for (const codec of [codecs.Daily, codecs.Setup]) {
+    for (const codec of [codecs.Challenge, codecs.Setup]) {
       for (const fn of ["claim", "sponsor", "tournament", "current_tournament_id"]) expect(codec.hasFunction(fn), fn).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/TournamentView|ITournamentView|tournament_id|::Sponsored|::Claimed|::Reclaimed/);
     }
-    expect(JSON.stringify(codecs.Daily.abi)).toMatch(/paved::views::IDailyView/);
+    expect(JSON.stringify(codecs.Challenge.abi)).toMatch(/paved::views::IDailyView/);
   });
 
   test("the day id is day_id in GameSpawned, GameOver and GameView", () => {
-    expect(codecs.Daily.structFields("paved::views::GameView").at(-1)).toBe("dayId");
-    for (const codec of [codecs.Daily]) {
+    expect(codecs.Challenge.structFields("paved::views::GameView").at(-1)).toBe("dayId");
+    for (const codec of [codecs.Challenge]) {
       const events = (codec.abi as Array<{ type: string; name: string; members?: Array<{ name: string }> }>).filter(
         (item) => item.type === "event" && /::(GameSpawned|GameOver)$/.test(item.name),
       );
@@ -72,7 +72,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("characters left the game (D-18): no view, no role or spot type in the ABIs", () => {
-    for (const codec of [codecs.Daily, codecs.Setup]) {
+    for (const codec of [codecs.Challenge, codecs.Setup]) {
       expect(codec.hasFunction("characters")).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/CharacterView|types::role|types::spot/);
     }
@@ -85,13 +85,13 @@ describe("view types follow the ABIs of contracts/abis", () => {
 
 describe("AbiCodec", () => {
   test("encodes build: u32 and unit enums by variant index", () => {
-    expect(codecs.Daily.encodeCall("build", [7, 2, 0x7fffffff, 0x80000000])).toEqual([
+    expect(codecs.Challenge.encodeCall("build", [7, 2, 0x7fffffff, 0x80000000])).toEqual([
       "0x7", "0x2", "0x7fffffff", "0x80000000",
     ]);
   });
 
   test("refuses an enum code the ABI does not have", () => {
-    expect(() => codecs.Daily.encodeCall("build", [1, 5, 0, 0])).toThrow(/Orientation has no variant 5/);
+    expect(() => codecs.Challenge.encodeCall("build", [1, 5, 0, 0])).toThrow(/Orientation has no variant 5/);
   });
 
   test("encodes a u256 as low, high", () => {
@@ -100,36 +100,36 @@ describe("AbiCodec", () => {
   });
 
   test("checks the argument count", () => {
-    expect(() => codecs.Daily.encodeCall("discard", [])).toThrow(/takes 1 arguments/);
+    expect(() => codecs.Challenge.encodeCall("discard", [])).toThrow(/takes 1 arguments/);
   });
 
   test("decodes an array of structs", () => {
     const felts = ["0x2", "0x1", "0x1", "0x4", "0x1", "0x7fffffff", "0x7fffffff", "0x2", "0x3", "0x9", "0x0", "0x0", "0x0"];
-    expect(codecs.Daily.decodeResult("tiles", felts)).toEqual([
+    expect(codecs.Challenge.decodeResult("tiles", felts)).toEqual([
       { id: 1, status: 1, plan: 4, orientation: 1, x: 0x7fffffff, y: 0x7fffffff },
       { id: 2, status: 3, plan: 9, orientation: 0, x: 0, y: 0 },
     ]);
   });
 
   test("decodes u256 and felts in a struct", () => {
-    const price = codecs.Daily.decodeResult("entry_price", ["0xabc", "0xde0b6b3a7640000", "0x0"]) as Record<string, unknown>;
+    const price = codecs.Challenge.decodeResult("entry_price", ["0xabc", "0xde0b6b3a7640000", "0x0"]) as Record<string, unknown>;
     expect(price).toEqual({ token: "0xabc", amount: 10n ** 18n });
   });
 
   test("decodes bools and the day id of a game view", () => {
     const felts = ["0x5", "0xabc", "0x1", "0x9", "0x3", "0x1", "0x2", "0x1", "0x1", "0x0", "0x0", "0x0", "0x26", "0x100", "0x200", "0x4e20"];
-    const g = codecs.Daily.decodeResult("game", felts) as Record<string, unknown>;
+    const g = codecs.Challenge.decodeResult("game", felts) as Record<string, unknown>;
     expect(g).toMatchObject({ id: 5, playerId: "0xabc", over: true, score: 3, endTime: 0x200, dayId: 0x4e20 });
   });
 
   test("fails loudly on a short result", () => {
-    expect(() => codecs.Daily.decodeResult("game", ["0x1"])).toThrow(/Not enough felts/);
+    expect(() => codecs.Challenge.decodeResult("game", ["0x1"])).toThrow(/Not enough felts/);
   });
 
   test("decodes an event's keys and data by member kind", () => {
     const selector = hash.getSelectorFromName("GameOver");
-    expect(codecs.Daily.eventSelector("GameOver")).toBe(selector);
-    const event = codecs.Daily.decodeEvent({
+    expect(codecs.Challenge.eventSelector("GameOver")).toBe(selector);
+    const event = codecs.Challenge.decodeEvent({
       keys: [selector, "0x3", "0xabc", "0x4e20"],
       data: ["0x1", "0x2a", "0x100", "0x200"],
       from_address: "0x1",
@@ -146,7 +146,7 @@ describe("AbiCodec", () => {
   test("Built has six data fields (D-18); one from before the upgrade (role and spot, eight) still decodes to them", () => {
     const keys = [hash.getSelectorFromName("Built"), "0x3"];
     const fields = { gameId: 3, playerId: "0xabc", tileId: 2, plan: 7, orientation: 2, x: 0x80000000, y: 0x7fffffff };
-    for (const codec of [codecs.Daily]) {
+    for (const codec of [codecs.Challenge]) {
       const six = codec.decodeEvent({ keys, data: ["0xabc", "0x2", "0x7", "0x2", "0x80000000", "0x7fffffff"] });
       expect(six?.fields).toEqual(fields);
       // The two trailing felts are role and spot of the old layout: left unread, nothing else shifts.
@@ -156,8 +156,8 @@ describe("AbiCodec", () => {
   });
 
   test("ignores events it does not know", () => {
-    expect(codecs.Daily.decodeEvent({ keys: ["0x1234"], data: [] })).toBeNull();
-    expect(codecs.Daily.decodeEvent({ keys: [], data: [] })).toBeNull();
+    expect(codecs.Challenge.decodeEvent({ keys: ["0x1234"], data: [] })).toBeNull();
+    expect(codecs.Challenge.decodeEvent({ keys: [], data: [] })).toBeNull();
   });
 
   test("camelCase", () => {
@@ -177,7 +177,7 @@ describe("toViewError", () => {
 describe("tolerance to ABI growth (CORE's hardening adds entries and events)", () => {
   test("unknown entries, functions and events neither break the codec nor the decoding of known ones", () => {
     const grown = new AbiCodec([
-      ...ABIS.Daily,
+      ...ABIS.Challenge,
       { type: "l1_handler", name: "on_message", inputs: [{ name: "x", type: "core::some::Unknown" }] },
       { type: "function", name: "new_view", inputs: [{ name: "x", type: "paved::new::Type" }], outputs: [{ type: "paved::new::Type" }] },
       { type: "event", name: "paved::new::Paused", kind: "struct", members: [{ name: "by", type: "paved::new::Type", kind: "data" }] },

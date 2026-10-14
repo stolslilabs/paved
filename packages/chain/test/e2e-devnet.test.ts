@@ -4,8 +4,8 @@
  * a paid purchase with a referrer, play, the settlement, the Vault and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
- * The Daily deck, and so every score, depends on the UTC day of the chain; the test proves the same economics on any day.
- * alice plays her Daily game with the search player of `daily-player.ts` and must score above the day's threshold, so
+ * The Challenge deck, and so every score, depends on the UTC day of the chain; the test proves the same economics on any day.
+ * alice plays her Challenge game with the search player of `challenge-player.ts` and must score above the day's threshold, so
  * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); the test
  * fails, naming the day and the scores, on a day when she does not. bob and carol cannot reach the threshold whatever
  * the deck: they stop after a handful of placements (`NAIVE_MAX_MOVES`) and surrender, and their scores are checked
@@ -44,7 +44,7 @@ import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
 import { TILE_STATUS, type GameKey } from "../src/views";
 import { type BuildMove, type PavedWriter } from "../src/writer";
-import { DailyPlayer } from "./daily-player";
+import { ChallengePlayer } from "./challenge-player";
 import { dayMean, payout, PRIOR_WEIGHT, threshold } from "./economy-curve";
 
 const enabled = process.env.PAVED_E2E === "1";
@@ -84,8 +84,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   let players: Player[];
   let price: bigint;
   let dayId: number;
-  const dailyGames = new Map<string, number>(); // player name -> daily game id
-  const scores = new Map<string, number>(); // player name -> final Daily score
+  const challengeGames = new Map<string, number>(); // player name -> challenge game id
+  const scores = new Map<string, number>(); // player name -> final Challenge score
   let economy: EconomyClient;
   const stakes = new Map<string, number>(); // player name -> stake k
   const settledReward = new Map<string, bigint>();
@@ -102,7 +102,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const felts = await provider.callContract({ contractAddress: economy.deployment.addresses.PavedToken, entrypoint: "total_supply", calldata: [] });
     return codec.decodeResult("total_supply", felts) as bigint;
   };
-  /** The events of the Economy in a transaction's receipt, decoded with its ABI (the writer returns Daily's). */
+  /** The events of the Economy in a transaction's receipt, decoded with its ABI (the writer returns Challenge's). */
   async function economyEvents(hash: string): Promise<DecodedEvent[]> {
     const receipt = (await provider.getTransactionReceipt(hash)) as unknown as { events?: Array<{ from_address: string; keys: string[]; data: string[] }> };
     return (receipt.events ?? []).flatMap((raw) =>
@@ -138,9 +138,9 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   /** Whether the node accepts this placement (fee estimation runs the call): nothing is sent. */
   async function legal(player: Player, key: GameKey, move: BuildMove): Promise<boolean> {
     const call = {
-      contractAddress: client.deployment.addresses.Daily,
+      contractAddress: client.deployment.addresses.Challenge,
       entrypoint: "build",
-      calldata: client.codecs.Daily.encodeCall("build", [key.gameId, move.orientation, move.x, move.y]),
+      calldata: client.codecs.Challenge.encodeCall("build", [key.gameId, move.orientation, move.x, move.y]),
     };
     try {
       await player.account.estimateInvokeFee([call], { tip: 0n });
@@ -151,11 +151,11 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   }
 
   /**
-   * The naive player (bob and carol): a Daily game for at most `maxMoves` placements, a legal placement next to the tiles placed
+   * The naive player (bob and carol): a Challenge game for at most `maxMoves` placements, a legal placement next to the tiles placed
    * (found by probing the node), then sent through the writer. It
    * surrenders if the game is still running after that.
    */
-  async function playDaily(player: Player, key: GameKey, maxMoves: number): Promise<{ moves: number; score: number; hash: string }> {
+  async function playChallenge(player: Player, key: GameKey, maxMoves: number): Promise<{ moves: number; score: number; hash: string }> {
     let moves = 0;
     let hash = "";
     for (let game = await client.views.game(key); !game.over && moves < maxMoves; game = await client.views.game(key)) {
@@ -224,7 +224,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       return { name, address: a.address, account, writer, econ: economy.writer(writer) };
     });
 
-    // Keep the three Daily games inside one day, whatever the wall clock says.
+    // Keep the three Challenge games inside one day, whatever the wall clock says.
     const t = await chainTime();
     if (DAY - (t % DAY) < 1800) await rpc(rpcUrl, "devnet_increaseTime", { time: DAY - (t % DAY) + 60 });
   }, 60_000);
@@ -241,7 +241,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(head.data.state).toBe("ok");
     expect(BigInt(head.data.chainId)).toBe(BigInt(await provider.getChainId()));
     expect(head.data.fromBlock).toBe(client.deployment.deployedBlock);
-    expect(BigInt(head.data.contracts.daily)).toBe(BigInt(client.deployment.addresses.Daily));
+    expect(BigInt(head.data.contracts.challenge)).toBe(BigInt(client.deployment.addresses.Challenge));
     expect(BigInt(head.data.contracts.setup)).toBe(BigInt(client.deployment.addresses.Setup));
     // D-25 (E): no Account in the deployment nor in the indexer's sources.
     expect(head.data.contracts).not.toHaveProperty("account");
@@ -275,14 +275,14 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("tutorial claim: credited once, idempotent", `first ${short(first.transactionHash)}, second ${short(second.transactionHash)} (no event)`);
   }, 60_000);
 
-  test("buys three Daily games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
+  test("buys three Challenge games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
     dayId = await client.views.currentDay();
     const [alice, bob, carol] = players;
-    // D-25 (E): a referrer is any non-zero address other than the payer, the Daily and the Economy. Those three are refused
+    // D-25 (E): a referrer is any non-zero address other than the payer, the Challenge and the Economy. Those three are refused
     // here before anything is sent: alice's USDC does not move.
     const refusedCases: Array<[string, string]> = [
       ["payer", alice.address],
-      ["daily", client.deployment.addresses.Daily],
+      ["challenge", client.deployment.addresses.Challenge],
       ["economy", economy.deployment.addresses.Economy],
     ];
     for (const [who, address] of refusedCases) {
@@ -291,7 +291,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect((refused as RefusedReferrerError).who).toBe(who);
     }
     expect(await usdc(alice.address)).toBe(FAUCET_USDC_AMOUNT);
-    pass("referrer refused client-side: the payer, Daily, Economy", "RefusedReferrerError x3, nothing sent, USDC unchanged");
+    pass("referrer refused client-side: the payer, Challenge, Economy", "RefusedReferrerError x3, nothing sent, USDC unchanged");
     const plan: Array<[Player, number, Player | null]> = [[alice, 3, bob], [bob, 2, null], [carol, 1, alice]];
     const vaultAddress = economy.deployment.addresses.Vault;
     const evidence: string[] = [];
@@ -308,7 +308,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
       const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
-      dailyGames.set(p.name, bought.gameId);
+      challengeGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
       const purchased = (await economyEvents(bought.transactionHash)).find((e) => e.name === "Purchased")!;
@@ -347,7 +347,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     // with its games (stake x min(score, 4 x prior)); the threshold is that mean shifted by sigma.
     const day = await economy.views.day(dayId);
     const quote = await economy.views.quote(1);
-    const terms = await economy.views.terms(dailyGames.get(players[0].name)!);
+    const terms = await economy.views.terms(challengeGames.get(players[0].name)!);
     prior = day.prior;
     expect(day.closed).toBe(false);
     expect(prior).toBeGreaterThan(0);
@@ -356,13 +356,13 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("threshold before play", `day ${dayId}: prior ${prior / 1000} points, sigma ${terms.sigmaBps} bps, c ${terms.slopeBps} bps, H ${terms.cap}: threshold now ${quote.threshold / 1000} points (Quote.threshold), and the day's games move it by stake x min(score, 4 x prior) at weight 100 + sum k`);
   }, 30_000);
 
-  test("plays the Daily games to game over: alice with the search player, bob and carol naively", async () => {
+  test("plays the Challenge games to game over: alice with the search player, bob and carol naively", async () => {
     const evidence: string[] = [];
-    // alice (stake 3) plays the whole game with the player of daily-player.ts, which asks the node for every candidate.
+    // alice (stake 3) plays the whole game with the player of challenge-player.ts, which asks the node for every candidate.
     {
       const [alice] = players;
-      const key: GameKey = { mode: "daily", gameId: dailyGames.get(alice.name)! };
-      const player = new DailyPlayer({ rpcUrl, client, daily: client.deployment.addresses.Daily, codec: client.codecs.Daily, address: alice.address, writer: alice.writer });
+      const key: GameKey = { mode: "challenge", gameId: challengeGames.get(alice.name)! };
+      const player = new ChallengePlayer({ rpcUrl, client, challenge: client.deployment.addresses.Challenge, codec: client.codecs.Challenge, address: alice.address, writer: alice.writer });
       const done = await player.play(key, {
         onMove: process.env.E2E_VERBOSE ? (line) => appendFileSync(process.env.E2E_VERBOSE!, `alice ${line}\n`) : undefined,
       });
@@ -373,8 +373,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     }
     for (const p of [players[1], players[2]]) {
       const maxMoves = NAIVE_MAX_MOVES[p.name];
-      const key: GameKey = { mode: "daily", gameId: dailyGames.get(p.name)! };
-      const done = await playDaily(p, key, maxMoves);
+      const key: GameKey = { mode: "challenge", gameId: challengeGames.get(p.name)! };
+      const done = await playChallenge(p, key, maxMoves);
       scores.set(p.name, done.score);
       const terms = await economy.views.terms(key.gameId);
       // The game is recorded in the Economy when it ends, with its score (the settlement reads it).
@@ -384,19 +384,19 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     // The threshold the settlement will use, from the formula: alice must beat it, bob and carol stay under it.
     // The deck depends on the chain's day, so a failure names the day and the scores.
     const games = players.map((p) => ({ score: scores.get(p.name)!, stake: stakes.get(p.name)! }));
-    cliff = threshold(dayMean(prior, games), (await economy.views.terms(dailyGames.get(players[0].name)!)).sigmaBps);
+    cliff = threshold(dayMean(prior, games), (await economy.views.terms(challengeGames.get(players[0].name)!)).sigmaBps);
     const where = `day ${dayId}, prior ${prior / 1000}, threshold ${Number(cliff) / 1000}, scores ${[...scores].map(([n, s]) => `${n} ${s}`).join(", ")}`;
     expect(BigInt(scores.get("alice")!) * 1000n, `alice's search player must beat the threshold (${where})`).toBeGreaterThanOrEqual(cliff);
     // bob and carol cannot reach it by construction: the day's mean is at least the prior diluted by every stake (a
     // game enters it at 0 or more), so no threshold of the day is under this floor; their scores stay under the floor.
-    const sigma = (await economy.views.terms(dailyGames.get(players[0].name)!)).sigmaBps;
+    const sigma = (await economy.views.terms(challengeGames.get(players[0].name)!)).sigmaBps;
     const totalStake = [...stakes.values()].reduce((a, b) => a + b, 0);
     const floor = threshold((PRIOR_WEIGHT * BigInt(prior)) / (PRIOR_WEIGHT + BigInt(totalStake)), sigma);
     expect(cliff, `the threshold is not under its floor (${where})`).toBeGreaterThanOrEqual(floor);
     for (const name of ["bob", "carol"]) {
       expect(BigInt(scores.get(name)!) * 1000n, `${name} cannot reach the threshold floor ${Number(floor) / 1000} (${where})`).toBeLessThan(floor);
     }
-    pass("Daily: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points (floor ${Number(floor) / 1000}): alice above, bob and carol below`);
+    pass("Challenge: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points (floor ${Number(floor) / 1000}): alice above, bob and carol below`);
   }, 1_800_000);
 
   test("the indexer matches the contract views while the day is open", async () => {
@@ -411,7 +411,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(p).toBeDefined();
       expect(e).not.toHaveProperty("name");
       expect(e.bestScore).toBe(scores.get(p.name));
-      expect(e.bestGameId).toBe(dailyGames.get(p.name));
+      expect(e.bestGameId).toBe(challengeGames.get(p.name));
       expect(e.gamesFinished).toBe(1);
     }
     expect(await client.views.currentDay()).toBe(dayId);
@@ -428,10 +428,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     // A bought game settles after the end of the NEXT day (P-34): now, one day too early, the writer sends nothing.
     const [alice] = players;
     const blockBefore = (await provider.getBlockNumber()) as number;
-    const early = await alice.econ.settle([dailyGames.get(alice.name)!]).catch((e: unknown) => e);
+    const early = await alice.econ.settle([challengeGames.get(alice.name)!]).catch((e: unknown) => e);
     expect(String((early as Error).message)).toMatch(/settles after/);
     expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
-    expect((await economy.views.terms(dailyGames.get(alice.name)!)).settled).toBe(false);
+    expect((await economy.views.terms(challengeGames.get(alice.name)!)).settled).toBe(false);
     pass("end the day (devnet_increaseTime)", `chain time ${t} -> ${await chainTime()}, current day ${dayId} -> ${next}`);
   }, 30_000);
 
@@ -451,7 +451,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const profile = await indexer.player(p.address);
       // Known from the first event that names the address (its purchase), with no name (D-25 (E)).
       expect(profile.data.player?.playerId).toBe(indexerPlayerId(p.address));
-      expect(profile.data.stats).toMatchObject({ dailyGames: 1, dailyFinished: 1, bestScore: scores.get(p.name) });
+      expect(profile.data.stats).toMatchObject({ challengeGames: 1, challengeFinished: 1, bestScore: scores.get(p.name) });
       const row = await indexer.playerTournament(p.address, dayId);
       expect(row.data).not.toBeNull();
       expect((row.data as LeaderboardEntry).bestScore).toBe(scores.get(p.name));
@@ -466,7 +466,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
         const view = await client.views.game({ mode: g.contract, gameId: g.gameId });
         expect(BigInt(view.playerId)).toBe(BigInt(p.address));
         expect(g).toMatchObject({ mode: view.mode, over: view.over, score: view.score, startTime: view.startTime, dayId: view.dayId });
-        if (g.contract === "daily") expect(g.countedDayId).toBe(dayId);
+        if (g.contract === "challenge") expect(g.countedDayId).toBe(dayId);
         const one = (await indexer.game(g.contract, g.gameId)).data;
         expect(one.gameId).toBe(g.gameId);
       }
@@ -477,24 +477,24 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("indexer players and games vs views and events", lines.join("; "));
   }, 120_000);
 
-  test("the deploy script's smoke game is the deployer's: a paid Daily game, finished and settled", async () => {
-    // deploy.sh buys a paid Daily game (stake 1), plays it and settles it two days later (no Tutorial since D-21).
+  test("the deploy script's smoke game is the deployer's: a paid Challenge game, finished and settled", async () => {
+    // deploy.sh buys a paid Challenge game (stake 1), plays it and settles it two days later (no Tutorial since D-21).
     // The step fails when they are missing: a node not deployed by scripts/deploy.sh is not what this check is run on.
     const predeployed: Array<{ address: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
     const deployer = predeployed[0].address;
-    const daily = (await indexer.playerGames(deployer, { contract: "daily" })).data.games;
-    expect(daily).toHaveLength(1);
-    expect(daily[0]).toMatchObject({ contract: "daily", over: true });
-    const smoke = await economy.views.terms(daily[0].gameId);
+    const challenge = (await indexer.playerGames(deployer, { contract: "challenge" })).data.games;
+    expect(challenge).toHaveLength(1);
+    expect(challenge[0]).toMatchObject({ contract: "challenge", over: true });
+    const smoke = await economy.views.terms(challenge[0].gameId);
     expect(smoke).toMatchObject({ stake: 1, recorded: true, settled: true });
-    pass("deployer's smoke game seen by the indexer", `Daily game ${daily[0].gameId} (stake 1, settled, reward ${smoke.reward})`);
+    pass("deployer's smoke game seen by the indexer", `Challenge game ${challenge[0].gameId} (stake 1, settled, reward ${smoke.reward})`);
   }, 120_000);
 
   test("past the end of the next day, each bought game settles and its PAVED reward is the chain's", async () => {
     await toNextDay(); // the end of D+1: the day of the purchases may be settled now (P-34)
     const evidence: string[] = [];
     for (const p of players) {
-      const gameId = dailyGames.get(p.name)!;
+      const gameId = challengeGames.get(p.name)!;
       const before = await economy.views.terms(gameId);
       expect(before.settled).toBe(false);
       expect(await chainTime()).toBeGreaterThanOrEqual(settlesAfter(before.day));

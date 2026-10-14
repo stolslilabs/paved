@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/chain.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four addresses (daily, setup, economy, collection) instead of hub and market, the `Source` type
+// Apache-2.0. Adapted for Paved: four addresses (challenge, setup, economy, collection) instead of hub and market, the `Source` type
 // of events.ts, a smaller `getEvents` page, and a read call added (`chainId`, for the chain id check). URL redaction, block header and commitments, call counters unchanged. This
 // copy is maintained by the Paved repository.
 //
@@ -158,7 +158,7 @@ export class Chain {
   constructor(rpc: Rpc, addresses: Addresses) {
     this.rpc = rpc;
     this.addresses = {
-      daily: canonical(addresses.daily),
+      challenge: canonical(addresses.challenge),
       setup: canonical(addresses.setup),
       economy: canonical(addresses.economy),
       collection: addresses.collection === undefined ? undefined : canonical(addresses.collection),

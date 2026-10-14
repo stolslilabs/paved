@@ -19,8 +19,8 @@ describe("ModeDetailDialog", () => {
 
     const requiredProps = {
       open: true,
-      mode: "daily",
-      title: "Daily Challenge",
+      mode: "challenge",
+      title: "Challenge",
       tileCount: 72,
       entryFee: "Free",
       duration: "24h",
@@ -38,8 +38,8 @@ describe("ModeDetailDialog", () => {
 
     const allProps = {
       open: true,
-      mode: "daily",
-      title: "Daily Challenge",
+      mode: "challenge",
+      title: "Challenge",
       tileCount: 144,
       entryFee: "1 PAVED",
       duration: "7d",

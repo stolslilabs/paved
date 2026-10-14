@@ -7,7 +7,7 @@ import { resolveAppNetwork, resolvePlayerAccount, signerOf } from "../src/utils/
 const DEVNET = {
   rpc_url: "http://127.0.0.1:5050/rpc",
   deployed_block: 3,
-  contracts: { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } },
+  contracts: { Challenge: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } },
 };
 const FILES = { "../../../../contracts/deployments/devnet.json": { default: DEVNET } };
 
@@ -20,15 +20,15 @@ describe("resolveAppNetwork", () => {
   });
 
   it("env overrides the file", () => {
-    const { deployment } = resolveAppNetwork({ VITE_DAILY_ADDRESS: "0x22", VITE_RPC_URL: "http://x/rpc" }, FILES);
-    expect(deployment.addresses.Daily).toBe("0x22");
+    const { deployment } = resolveAppNetwork({ VITE_CHALLENGE_ADDRESS: "0x22", VITE_RPC_URL: "http://x/rpc" }, FILES);
+    expect(deployment.addresses.Challenge).toBe("0x22");
     expect(deployment.rpcUrl).toBe("http://x/rpc");
   });
 
   it("no file for the network and no env: not configured", () => {
     const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, FILES);
     expect(deployment.configured).toBe(false);
-    expect(deployment.missing).toContain("Daily address");
+    expect(deployment.missing).toContain("Challenge address");
     // The faucet is a property of the network; it still needs a MockUSDC (none without a file).
     expect(supportsMint).toBe(true);
     expect(deployment.mockUsdc).toBe("");
@@ -37,7 +37,7 @@ describe("resolveAppNetwork", () => {
 
   it("env alone can configure the app", () => {
     const { deployment } = resolveAppNetwork(
-      { VITE_RPC_URL: "http://x", VITE_DAILY_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
+      { VITE_RPC_URL: "http://x", VITE_CHALLENGE_ADDRESS: "0x2", VITE_SETUP_ADDRESS: "0x3", VITE_TOKEN_ADDRESS: "0x4" },
       {},
     );
     expect(deployment.configured).toBe(true);
@@ -45,7 +45,11 @@ describe("resolveAppNetwork", () => {
   });
 });
 
-const SEPOLIA = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as { contracts: Record<string, { address: string }> };
+const COMMITTED_SEPOLIA = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as { contracts: Record<string, { address: string }> };
+// The committed sepolia.json is rewritten by the fresh deployment (P-53), which writes `contracts.Challenge` (D-23b). Until
+// then it keys the contract `Daily`: the tests read it under the new key, and the file as it is is not configured.
+const { Daily: OLD_KEY, ...OTHERS } = COMMITTED_SEPOLIA.contracts;
+const SEPOLIA = COMMITTED_SEPOLIA.contracts.Challenge === undefined && OLD_KEY !== undefined ? { ...COMMITTED_SEPOLIA, contracts: { ...OTHERS, Challenge: OLD_KEY } } : COMMITTED_SEPOLIA;
 const SEPOLIA_FILES = { "../../../contracts/deployments/sepolia.json": { default: SEPOLIA }, ...FILES };
 const SEPOLIA_RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
 
@@ -56,7 +60,7 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
     const { deployment, indexer } = resolveAppNetwork(env, SEPOLIA_FILES);
     expect(deployment).toMatchObject({ network: "sepolia", configured: true, missing: [], rpcUrl: SEPOLIA_RPC, deployedBlock: 16421420 });
     expect(deployment.addresses).toMatchObject({
-      Daily: SEPOLIA.contracts.Daily.address,
+      Challenge: SEPOLIA.contracts.Challenge.address,
     });
     // Sepolia's file is from before step D: no Setup until the fresh deployment (P-53), and the build stays connected.
     expect(deployment.addresses.Setup).toBe(SEPOLIA.contracts.Setup?.address ?? "");
@@ -66,6 +70,13 @@ describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
     expect(economy.missing).toEqual([]);
     expect(economy.addresses.Economy).toBe(SEPOLIA.contracts.Economy.address);
     expect(economy.addresses.USDC).toBe(SEPOLIA.contracts.MockUSDC.address);
+  });
+
+  it("the committed file as it is, while it keys the contract `Daily`, is not configured: Challenge is missing", () => {
+    if (SEPOLIA === COMMITTED_SEPOLIA) return;
+    const { deployment } = resolveAppNetwork(env, { "../../../contracts/deployments/sepolia.json": { default: COMMITTED_SEPOLIA } });
+    expect(deployment.configured).toBe(false);
+    expect(deployment.missing).toEqual(["Challenge address"]);
   });
 
   it("without VITE_RPC_URL it is not connected and says it plainly: the file's placeholder is not a URL", () => {

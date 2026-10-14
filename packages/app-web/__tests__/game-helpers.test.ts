@@ -4,7 +4,7 @@ import type { SessionState } from "@paved/chain";
 
 describe("toRenderBoard", () => {
   const state = {
-    key: { mode: "daily", gameId: 3 },
+    key: { mode: "challenge", gameId: 3 },
     tiles: [
       { id: 1, plan: 4, orientation: 1, x: CENTER, y: CENTER },
       { id: 2, plan: 7, orientation: 2, x: CENTER + 1, y: CENTER - 1, pending: true },

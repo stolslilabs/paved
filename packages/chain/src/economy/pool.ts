@@ -11,7 +11,7 @@ export interface PoolQuoter {
 }
 
 /**
- * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter, and the paid `Daily.spawn`
+ * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter, and the paid `Challenge.spawn`
  * (E3) takes its `min_out`. A missing quoter refuses the purchase with "No pool quote: nothing was sent".
  */
 export const POOL_QUOTE_CONFIRMED = true;

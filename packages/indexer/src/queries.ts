@@ -86,9 +86,9 @@ function gameEconomy(row: Row, head: number): GameEconomy | null {
 const total = (amounts: readonly SQLInputValue[]): string =>
   String(amounts.reduce<bigint>((sum, amount) => sum + BigInt(String(amount)), 0n));
 
-/** A game and its purchase: Economy's game ids are Daily's own, and a purchase above `:h` has not happened yet. */
+/** A game and its purchase: Economy's game ids are Challenge's own, and a purchase above `:h` has not happened yet. */
 const GAME_FROM = `games g LEFT JOIN purchases p
-  ON g.contract = 'daily' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
+  ON g.contract = 'challenge' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
 
 const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_day, g.start_time, g.over, g.score,
   g.day_id, g.end_time, g.over_block, g.token_id,
@@ -112,7 +112,7 @@ const BOARD = `
   SELECT ranked.rank AS rank, ranked.player_id AS player_id,
     ranked.score AS best_score, ranked.game_id AS best_game_id, ranked.end_time AS finished_at,
     (SELECT count(*) FROM counted c WHERE c.player_id = ranked.player_id) AS games_finished,
-    (SELECT count(*) FROM games g WHERE g.contract = 'daily' AND g.spawn_day = :t
+    (SELECT count(*) FROM games g WHERE g.contract = 'challenge' AND g.spawn_day = :t
        AND g.player_id = ranked.player_id AND g.spawned_block <= :h) AS games_played
   FROM ranked
   WHERE (:p IS NULL OR ranked.player_id = :p)
@@ -137,7 +137,7 @@ export class Queries {
           (
             this.store
               .statement(
-                "SELECT count(*) AS n FROM games WHERE contract = 'daily' AND spawn_day = ? AND spawned_block <= ?",
+                "SELECT count(*) AS n FROM games WHERE contract = 'challenge' AND spawn_day = ? AND spawned_block <= ?",
               )
               .get(id, head) as Row
           ).n,
@@ -171,7 +171,7 @@ export class Queries {
       this.store
         .statement(
           `SELECT spawn_day AS id FROM games
-           WHERE contract = 'daily' AND spawn_day > 0 AND spawned_block <= :h
+           WHERE contract = 'challenge' AND spawn_day > 0 AND spawned_block <= :h
              AND (:before IS NULL OR spawn_day < :before)
            GROUP BY spawn_day ORDER BY spawn_day DESC LIMIT :n`,
         )
@@ -251,7 +251,7 @@ export class Queries {
       this.store
         .statement(
           `SELECT max(score) AS best FROM games
-           WHERE player_id = ? AND contract = 'daily' AND over = 1 AND over_block <= ?`,
+           WHERE player_id = ? AND contract = 'challenge' AND over = 1 AND over_block <= ?`,
         )
         .get(playerId, head) as Row
     ).best;
@@ -261,11 +261,11 @@ export class Queries {
         created: Number(row.created_time),
       },
       stats: {
-        daily_games: count(
-          "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'daily' AND spawned_block <= ?",
+        challenge_games: count(
+          "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'challenge' AND spawned_block <= ?",
         ),
-        daily_finished: count(
-          "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'daily' AND over = 1 AND over_block <= ?",
+        challenge_finished: count(
+          "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'challenge' AND over = 1 AND over_block <= ?",
         ),
         // No finished game yet is 0, as a day with no game answers zeros. Since D-25 (E) a player exists from their first
         // spawn, so a player whose only game still runs is common.

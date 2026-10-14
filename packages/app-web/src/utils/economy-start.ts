@@ -2,7 +2,7 @@ import { isStake } from "@paved/chain";
 import type { EconomyWriter } from "@paved/chain";
 
 /**
- * The player's consent to buy a Daily game, carried in the router's history state like `StartIntent`: a link cannot
+ * The player's consent to buy a Challenge game, carried in the router's history state like `StartIntent`: a link cannot
  * set it. Only the purchase confirm builds one. The referrer rides with it, as shown at the confirm.
  */
 export interface PurchaseIntent {
