@@ -129,12 +129,25 @@ tc_expect "measure.sh accepts SCARB_BIN_DIR and SNFORGE_BIN_DIR when they are th
   "$(m PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" SNFORGE_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb" PAVED_SNFORGE_SHIM="$tc/shim/snforge")" 0 "shim-snforge" "resolves to"
 tc_expect "run-sample.sh accepts SCARB_BIN_DIR when it is the shim" \
   "$(r PATH="$tc/other:$PATH" SCARB_BIN_DIR="$tc/shim" PAVED_SCARB_SHIM="$tc/shim/scarb")" 1 "shim-scarb" "resolves to"
-# sncast found nowhere: a clear error, not a function that calls itself
+# sncast found nowhere: a clear error at its first call, not a function that calls itself
 NOSN=(PATH="$tc/shim:/usr/bin:/bin" PAVED_SCARB_SHIM="$tc/shim/scarb" SNCAST_BIN_DIR="$tc/none")
-tc_expect "deploy.sh stops when sncast is found nowhere" \
-  "$(d "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "no node answers"
-tc_expect "run-sample.sh stops when sncast is found nowhere" \
-  "$(r "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "== versions"
+tc_expect "run-sample.sh stops at its first sncast call when sncast is found nowhere" \
+  "$(r "${NOSN[@]}")" 2 "sncast not found: neither $tc/none/sncast nor on the PATH" "start devnet"
+# deploy.sh resolves sncast at its first call too (the node checks and refusals never call it): the wrapper block of
+# deploy.sh, run on its own: not found -> a clear error, status 2; found in SNCAST_BIN_DIR or on the PATH -> that sncast
+# runs, and the wrapper never calls itself.
+sn_block="$(sed -n '/^# sncast-wrapper begin/,/^# sncast-wrapper end/p' "$here/deploy.sh")"
+sn_run() { # <PATH> <SNCAST_BIN_DIR>
+  tc_out env -i PATH="$1" SNCAST_BIN_DIR="$2" bash -c "$sn_block"$'\nsncast --version'
+}
+tc_stub sncast-dir "$tc/sn" sncast
+tc_stub sncast-path "$tc/snpath" sncast
+tc_expect "deploy.sh's sncast wrapper: not found anywhere is an error, not a loop" \
+  "$(sn_run /usr/bin:/bin "$tc/none")" 2 "deploy.sh: sncast not found: neither $tc/none/sncast nor on the PATH"
+tc_expect "deploy.sh's sncast wrapper: runs SNCAST_BIN_DIR's sncast first" \
+  "$(sn_run "$tc/snpath:/usr/bin:/bin" "$tc/sn")" 0 "sncast-dir-sncast"
+tc_expect "deploy.sh's sncast wrapper: falls back to the PATH's sncast" \
+  "$(sn_run "$tc/snpath:/usr/bin:/bin" "$tc/none")" 0 "sncast-path-sncast"
 # measure.sh: the cairo-coverage directory goes first (the asdf shim of it wants a version set) and cannot shadow the
 # shims; if it ever holds a scarb, the guard refuses
 if tc_out env "${SH[@]}" CAIRO_COVERAGE_BIN_DIR="$tc/cov" bash -x "$here/measure.sh" check-setup | grep -qF "PATH=$tc/cov:"; then

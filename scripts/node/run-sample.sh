@@ -31,13 +31,21 @@ if [[ -x "$PAVED_SCARB_SHIM" ]]; then
 else
   echo "run-sample.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
 fi
-SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
-[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || true)"
-if [[ -z "$SNCAST_BIN" ]]; then
-  echo "run-sample.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
-  exit 2
-fi
-sncast() { "$SNCAST_BIN" "$@"; }
+# sncast-wrapper begin (scripts/test-deploy-url.sh runs this block)
+# Resolved at the first call, so a run that never calls sncast needs none; `type -P` looks at files only, so the wrapper
+# never finds itself.
+sncast() {
+  if [[ -z "${SNCAST_BIN:-}" ]]; then
+    SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
+    [[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(type -P sncast || true)"
+  fi
+  if [[ -z "$SNCAST_BIN" ]]; then
+    echo "run-sample.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
+    return 2
+  fi
+  "$SNCAST_BIN" "$@"
+}
+# sncast-wrapper end
 PID=""
 
 cleanup() {

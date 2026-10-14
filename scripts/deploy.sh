@@ -215,7 +215,7 @@
 # (an asdf directory included, overrides too); with no shim (the Mac, CI) it only warns. PAVED_SCARB_SHIM is the shim
 # path the guard expects (default ~/.local/bin/scarb): a hook for scripts/test-deploy-url.sh and its stubs, not a way
 # round the rule. sncast is not a Cairo build: it is run by its absolute path, $SNCAST_BIN_DIR/sncast (default: the asdf
-# starknet-foundry 0.64.0 bin; plain `sncast` from the PATH when that file is absent; "sncast not found", exit 2, when neither exists), so its directory never goes on the
+# starknet-foundry 0.64.0 bin; plain `sncast` from the PATH when that file is absent; "sncast not found" at its first call when neither exists), so its directory never goes on the
 # PATH and cannot put an asdf scarb or snforge ahead of the shim (sncast itself calls `scarb` from the PATH).
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
 # sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
@@ -456,13 +456,21 @@ else
   echo "deploy.sh: warning: no shim at $PAVED_SCARB_SHIM, using scarb ${SCARB_FOUND:-(not found)}" >&2
 fi
 # sncast by its absolute path (see the header); a function, so `sc sncast ...` and a bare `sncast` both use it.
-SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
-[[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(command -v sncast || true)"
-if [[ -z "$SNCAST_BIN" ]]; then
-  echo "deploy.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
-  exit 2
-fi
-sncast() { "$SNCAST_BIN" "$@"; }
+# sncast-wrapper begin (scripts/test-deploy-url.sh runs this block)
+# Resolved at the first call, so a run that never calls sncast needs none; `type -P` looks at files only, so the wrapper
+# never finds itself.
+sncast() {
+  if [[ -z "${SNCAST_BIN:-}" ]]; then
+    SNCAST_BIN="$SNCAST_BIN_DIR/sncast"
+    [[ -x "$SNCAST_BIN" ]] || SNCAST_BIN="$(type -P sncast || true)"
+  fi
+  if [[ -z "$SNCAST_BIN" ]]; then
+    echo "deploy.sh: sncast not found: neither $SNCAST_BIN_DIR/sncast nor on the PATH (set SNCAST_BIN_DIR)" >&2
+    return 2
+  fi
+  "$SNCAST_BIN" "$@"
+}
+# sncast-wrapper end
 # devnet: salt 1 and no `--unique`, so the addresses are stable across runs. sepolia (and its rehearsal): a fresh
 # random salt and `--unique`, so the addresses depend on the deployer and no rerun collides with an earlier one.
 if [[ "$NETWORK" == "devnet" ]]; then
