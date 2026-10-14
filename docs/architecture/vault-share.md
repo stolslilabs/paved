@@ -6,7 +6,7 @@ yet; section 7 is the plan.
 
 References:
 
-- Paved, at origin/main `db469fb5`: paths from the repository root, e.g. `contracts/src/systems/vault.cairo:148`.
+- Paved, at origin/main `c52467ca`: paths from the repository root, e.g. `contracts/src/systems/vault.cairo:148`.
 - Glitchbomb at `5efcbce` (read only): `GB:` plus the path, e.g. `GB:contracts/src/systems/vault.cairo:240`.
 - OpenZeppelin for Cairo: `OZ:token-4.0.1/…` is the published `openzeppelin_token` 4.0.1 that Paved already pins
   (`contracts/Scarb.toml:17`); `OZ:utils-2.2.0/…` is `openzeppelin_utils` 2.2.0 (in `contracts/Scarb.lock`, a
