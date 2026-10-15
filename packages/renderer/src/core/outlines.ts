@@ -48,10 +48,11 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
-  // The PM's ruling (2026-10-15, R-VIS): off at 52 px a tile, fully on at 64. The game opens at about 60 px a tile in a
-  // 900 px high window, where they show at two thirds.
-  fadeOffTilePx: 52,
-  fadeFullTilePx: 64,
+  // The PM's ruling (2026-10-15, R-VIS): off at 44 px a tile, fully on at 60, so the outlines show at the game's
+  // opening view on a phone too (about 52 px a tile at 360 x 780, half on) and are fully on in a 900 px high window
+  // (about 60 px a tile).
+  fadeOffTilePx: 44,
+  fadeFullTilePx: 60,
   // The owner's proposal, 1 to 2 % of a voxel: 1.5 %. That is under a device pixel until a voxel is about 33 CSS px wide
   // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
   widthVoxels: 0.015,

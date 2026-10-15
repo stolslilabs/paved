@@ -96,23 +96,26 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     expect(outlineStroke(60.5, step)).toEqual({ width: 1, opacity: 1 });
   });
 
-  it("defaults: off at 52 px a tile, about two thirds at the game's opening view of a 900 px window, on at 64 px, a hairline, dark grey", () => {
+  it("defaults: off at 44 px a tile, half on at a phone's opening view, fully on at 60 px (a 900 px window's), a hairline, dark grey", () => {
     const camera = new THREE.PerspectiveCamera(50, 1.6, 1, 2000);
     camera.zoom = 5;
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
-      fadeOffTilePx: 52,
-      fadeFullTilePx: 64,
+      fadeOffTilePx: 44,
+      fadeFullTilePx: 60,
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
       color: "#1f1f1f",
     });
-    expect(outlineStroke(52).opacity).toBe(0);
-    const opening = outlineStroke(tilePixels(camera, 240, 900));
-    expect(opening.opacity).toBeGreaterThan(0.6);
-    expect(opening.opacity).toBeLessThan(0.75);
-    expect(outlineStroke(64)).toEqual({ width: 1, opacity: 1 });
+    expect(outlineStroke(44).opacity).toBe(0);
+    // The opening view (distance 240) on a 360 x 780 phone: a tile about 52 px, half on.
+    const phone = outlineStroke(tilePixels(camera, 240, 780));
+    expect(phone.opacity).toBeGreaterThan(0.4);
+    expect(phone.opacity).toBeLessThan(0.6);
+    // In a 900 px high window: a tile about 60 px, fully on.
+    expect(outlineStroke(tilePixels(camera, 240, 900))).toEqual({ width: 1, opacity: 1 });
+    expect(outlineStroke(60)).toEqual({ width: 1, opacity: 1 });
     // Fully zoomed in (distance 5) at DPR 2 the world width (about 2.2 device px) is past the hairline, under the cap.
     const zoomedIn = outlineStroke(tilePixels(camera, 5, 900), DEFAULT_OUTLINE_SETTINGS, 2);
     expect(zoomedIn.width).toBeGreaterThan(1);

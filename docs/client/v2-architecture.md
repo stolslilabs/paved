@@ -849,9 +849,10 @@ under a device pixel is drawn one pixel wide at that share of its opacity. Segme
 so a straight edge split into many segments covers each pixel once. The width is set in the world:
 `widthVoxels` (0.015, the owner's 1 to 2 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
-zoomed in). The opacity is linear from off at `fadeOffTilePx` (52) to fully on at `fadeFullTilePx` (64), and
-the material is hidden below 1/255; the game's opening view (about 60 px a tile in a 900 px high window)
-shows them at about two thirds. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
+zoomed in). The opacity is linear from off at `fadeOffTilePx` (44) to fully on at `fadeFullTilePx` (60), and
+the material is hidden below 1/255 (the PM's ruling: outlines show at a phone's opening view). The game's
+opening view shows them fully in a 900 px high window (about 60 px a tile) and half on a 360 x 780 phone
+(about 52 px); a 900 px window's farthest zoom (distance 300, 48 px) keeps them at a quarter. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
 target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
