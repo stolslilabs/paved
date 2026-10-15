@@ -85,11 +85,12 @@ export function usePlayerQuests(playerId: string | null, day: number | null): { 
         enabled: playerId !== null && day !== null,
       },
     ],
-    combine: ([definitions, progress]) => ({
-      data: definitions.data && progress.data ? scheduled(definitions.data, progress.data) : undefined,
-      isPending: definitions.isPending || progress.isPending,
-      error: definitions.error ?? progress.error,
-    }),
+    combine: ([definitions, progress]) => {
+      const ready = definitions.data !== undefined && progress.data !== undefined;
+      const error = definitions.error ?? progress.error;
+      // A failed read ends the wait: pending only while nothing failed.
+      return { data: ready ? scheduled(definitions.data, progress.data) : undefined, isPending: !ready && !error, error };
+    },
   });
 }
 
@@ -141,6 +142,7 @@ export function usePlayerStatus(playerId: string | null, day: number | null): { 
       if (playerId === null) return { data: null, isPending: false, error: null };
       // Without a day there is no row of today to wait for.
       const ready = [profile, usdc, paved, ...(day === null ? [] : [today])].every((q) => q.data !== undefined);
+      const error = all.find((q) => q.error)?.error ?? null;
       return {
         data: ready
           ? {
@@ -151,8 +153,8 @@ export function usePlayerStatus(playerId: string | null, day: number | null): { 
               paved: paved.data ?? 0n,
             }
           : undefined,
-        isPending: !ready,
-        error: all.find((q) => q.error)?.error ?? null,
+        isPending: !ready && !error,
+        error,
       };
     },
   });

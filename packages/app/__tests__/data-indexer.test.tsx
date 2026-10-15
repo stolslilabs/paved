@@ -1,3 +1,4 @@
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_TOURNAMENT, type FixtureIndexer } from "@paved/chain/testing";
@@ -119,6 +120,21 @@ describe("the indexer's hooks, on the fixture indexer", () => {
 
     const guest = renderData(() => usePlayerStatus(null, FIXTURE_TOURNAMENT), f.sources);
     expect(guest.result.current.data).toBeNull();
+  });
+
+  it("usePlayerStatus and usePlayerQuests stop pending when a read fails", async () => {
+    const f = fakeSources();
+    const failing = (route: string): FixtureIndexer["fetch"] => async (input) =>
+      new URL(String(input)).pathname.endsWith(route) ? new Response("{}", { status: 500 }) : f.fixture.fetch(input);
+    const on = (route: string) => ({ ...f.sources, indexer: new IndexerClient({ url: "http://indexer.test/", fetch: failing(route) as typeof globalThis.fetch }) });
+
+    const status = renderData(() => usePlayerStatus(FIXTURE_ADA, FIXTURE_TOURNAMENT), on(`/tournaments/${FIXTURE_TOURNAMENT}`));
+    await waitFor(() => expect(status.result.current.error).not.toBeNull());
+    expect(status.result.current).toMatchObject({ isPending: false, data: undefined });
+
+    const quests = renderData(() => usePlayerQuests(FIXTURE_ADA, FIXTURE_TOURNAMENT), on("/v1/definitions"));
+    await waitFor(() => expect(quests.result.current.error).not.toBeNull());
+    expect(quests.result.current).toMatchObject({ isPending: false, data: undefined });
   });
 });
 
