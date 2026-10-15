@@ -36,7 +36,7 @@ cd "$root/contracts"
 # 8 GiB when run together, so they run by partition (`--partition i/12`: two tests per run).
 # `tests-draw-mask` peaked at 15.89 GB as one group (0.11 GB under the 16 GB stop), so it runs by partition too (`--partition i/3`,
 # about five or six of its 16 tests per run; snforge assigns the tests, not this file). Measured on the Mac on 2026-10-15: the parts
-# run 5, 6 and 5 tests (the 16 once each) and peak at 15.35 to 15.36 GB, no lower than that run's other groups; the whole group was not re-run, so the partition's effect is not measured (docs/measures/coverage.md).
+# run 5, 6 and 5 tests (the 16 once each) and peak at 15.35 to 15.36 GB, within this run's range of other groups (14.00 to 15.47 GB), near its top; the whole group was not re-run, so the partition's effect is not measured (docs/measures/coverage.md).
 COVERAGE_GROUPS=(
   "types|paved::types::|"
   "elements|paved::elements::|"

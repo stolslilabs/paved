@@ -605,16 +605,16 @@ under `/usr/bin/time -l`), one after the other, warm build, the watchdog on. Run
 - **`--partition` splits after the name filter.** The filter leaves 16 tests (`filtered out` counts 270, 268 and 269 other tests beside
   the 5, 6 and 5 that ran), the parts run 5, 6 and 5 tests, none runs 0, and the 16 names are distinct: each of the 16 `#[test]` of
   `src/tests/draw_mask.cairo` ran exactly once, none twice, none missing. Each part wrote a `coverage.lcov`.
-- **The partition's effect on the peak is not measured.** The three parts peak at 15.35 to 15.36 GB, no lower than this run's other
-  groups (14.00 to 15.47 GB); the whole group was not re-run in this state, so no comparison with one group is made (the 15.89 GB
+- **The partition's effect on the peak is not measured.** The three parts peak at 15.35 to 15.36 GB, within this run's range of other groups (14.00 to 15.47 GB), near its top;
+  the whole group was not re-run in this state, so no comparison with one group is made (the 15.89 GB
   of 2026-10-14 and 13.99 GB of the first measure are other runs). The watchdog puts the peak in `cairo-coverage` (14,982,016 kB,
-  against 10,885,024 kB for snforge); that it comes from the pass over the trace of the test build is a hypothesis. The parts'
-  15.35 GB is 0.64 GB under the 16.00 GB stop.
+  against 10,885,024 kB for snforge); that it comes from the pass over the trace of the test build is a hypothesis. The highest part
+  (15.36 GB) is 0.64 GB under the 16.00 GB stop.
 
 ### Recommendations (nothing fixed here)
 
 - Whether partitioning `tests-draw-mask` buys memory is not measured; it can stay (it is harmless: 16 of 16 tests run once) or go
-  back to one group. Its parts are no lower than the other groups of this run (14.00 to 15.47 GB).
+  back to one group. Its parts are within this run's range of other groups (14.00 to 15.47 GB), near its top.
 - `coverage-split` did not complete in this run (`e2e` over the stop). A run with the same stop may fail again (hypothesis: load, not measured): run it with
   the other apps closed, or only in CI, and look at what raises the `cairo-coverage` peak (the lcov of the test trace) before
   splitting further.
