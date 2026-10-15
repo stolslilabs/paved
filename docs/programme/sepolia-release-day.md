@@ -129,7 +129,7 @@ Expected, in order (each stage prints its transactions; the names below are the 
 | `== pool and stake` | the pool (800,000 PAVED and the Faucet's 10,000 USDC), **the Vault's 1,000 dead shares, then the owner's 199,000 PAVED stake**, then Economy (split defaults), `PavedToken.set_minter(Economy)` | `PavedToken: minter Economy, admin 0`; `PavedToken: total supply 1,000,000 PAVED, deployer holds 0`; `Vault: dead shares 1,000 vPAVED, owner's stake 199000 vPAVED` |
 | (Setup, Challenge, Collection) | deployed after the stake | |
 | `== wire` | one multicall: `Setup.set_reporter(Challenge)`, `Economy.set_game(Challenge)`, `Setup.set_economy`, `Setup.set_collection`, `Collection.set_minters(Challenge, 0)`; then **`Challenge.set_guardian(@account)`** | `Setup: Challenge reports to it...`; `Economy: router MockRouter, ... config burn 7368 sigma 0 slope 12220 cap 5 target 1,000,000 PAVED referral 500, mean 3980000`; `Challenge.set_guardian(the deployer): the deployer is the guardian` |
-| `== definitions` | quests 1 to 16 and achievements 1 to 16 on Setup (32 definitions, one multicall): v1 (quests 1 to 4, achievements 1 to 9) and **v2a** (quests 5 to 16, achievements 10 to 16; see below) | `32 definition(s) to send`; `Setup holds quests 1 to 16 and achievements 1 to 16, v1 and v2a, each as specified` |
+| `== definitions` | quests 1 and 5 to 16 and achievements 1 to 16 on Setup (29 definitions, one multicall): v1 (quest 1, Daily Run; achievements 1 to 9) and **v2a** (quests 5 to 16, achievements 10 to 16; see below); quests 2 to 4 are not defined (four dailies a day, the PM's ruling of 2026-10-14) | `29 definition(s) to send`; `Setup holds quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, each as specified` |
 | `== wrote contracts/deployments/sepolia-next.json` | `contracts` and `token`, only now (claim_tutorial is one-shot) | |
 | `== smoke` | reads, then a paid spawn at stake 1, one build, the surrender, `claim_tutorial`; the keeper settles the game at (D + 2) x 86400 | `smoke ok` |
 | end | | `== fresh: complete; a rerun sends nothing` and the file's content |
@@ -142,13 +142,14 @@ Collection and Vault: the deployer`); Challenge's Setup is wired and Setup's rep
 before the definitions, and the smoke reads it.
 
 **The smoke reads, and fails otherwise:** `Challenge.guardian(): the deployer; spawn_paused(): false`; and, for the definitions,
-`Setup holds every definition, each as specified: quests 1 to 16, achievements 1 to 16 (v1 and v2a)`.
+`Setup holds every definition, each as specified: quests 1 and 5 to 16, achievements 1 to 16 (v1 and v2a)`.
 
 **The v2a definitions to expect** (`quests.md`, "As built: v2a, definitions only"; no reward on any, no contract change). The run reads each one back from Setup's storage
 and dies on one that is there but not as below:
 
 | Ids | What | Schedule (seconds) | Tasks |
 |---|---|---|---|
+| quest 1 (v1) | Daily Run, the only v1 daily defined (quests 2, 3 and 4 are not) | 86,400 in 86,400, start 0 | `GAME_FINISHED` 1 |
 | quests 5, 6, 7 | rotating daily, roads and cities | 86,400 in 259,200, start 0 / 86,400 / 172,800 | `STRUCTURE_SCORED` 4 / 8 / 12 |
 | quests 8, 9, 10 | rotating daily, forests | the same | `FOREST_SCORED` 2 / 3 / 4 |
 | quests 11, 12, 13 | rotating daily, points | the same | `POINTS` 2,000 / 5,000 / 8,000 |
@@ -164,7 +165,7 @@ same formula, so only a run against the real Setup class checks it. That is step
 defined, but not as specified` (or `achievement N ...`) there, or on the day, means **stop**: a definition cannot be edited, so report it and
 send nothing more.
 
-**The events to expect in the run's blocks** (105 events in all were read from the rehearsed devnet before v2a; v2a adds 19, one `QuestDefined` or `AchievementDefined` per definition, so **124 is computed, not measured**; counted by selector):
+**The events to expect in the run's blocks** (105 events in all were read from the rehearsed devnet before v2a, with v1's 4 quests and 9 achievements; the fresh set has 29 definitions, one `QuestDefined` or `AchievementDefined` each, 16 more than v1's 13, so **121 is computed, not measured**. The two definition rows below were **measured** on a local devnet run of `deploy.sh devnet --unmerged` at this pull request's head: 13 `QuestDefined` and 16 `AchievementDefined` read by selector; that run's other events include the smoke's game, so its 177 are not comparable; counted by selector):
 
 | Event | Count | Emitted by |
 |---|---|---|
@@ -173,8 +174,8 @@ send nothing more.
 | `PoolSet` | 1 | Economy (constructor) |
 | `EconomyConfigured` | 1 | Economy (constructor) |
 | `GuardianSet` | 1 | Challenge (the wiring step's guardian call) |
-| `QuestDefined` | 16 (computed: 4 of v1 + 12 of v2a) | Setup (the definitions multicall) |
-| `AchievementDefined` | 16 (computed: 9 of v1 + 7 of v2a) | Setup (the definitions multicall) |
+| `QuestDefined` | 13 (measured on devnet: Daily Run of v1 + 12 of v2a; quests 2 to 4 are not defined) | Setup (the definitions multicall) |
+| `AchievementDefined` | 16 (measured on devnet: 9 of v1 + 7 of v2a) | Setup (the definitions multicall) |
 
 The indexer must know `GuardianSet` (and `SpawnPaused`, `SpawnUnpaused`) before it reads this deployment: it halts on an unknown
 selector. That is step 2's concern (it is built from the same commit), and the reason the indexer is rebuilt after the contracts.

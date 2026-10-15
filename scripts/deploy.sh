@@ -59,7 +59,7 @@
 #   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection; 3. wire, one multicall of what is
 #   missing: Setup.set_reporter(Challenge), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
-#   quests.md v1 and v2a sets on Setup (quests 1 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
+#   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
 #   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified;
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
@@ -2230,7 +2230,10 @@ fr_get() { if ((FRESH_RECORD)); then rp_get "$1"; fi; }
 fr_set() { if ((FRESH_RECORD)); then rp_set "$@"; fi; }
 fr_settled() { ((FRESH_RECORD)) || return 1; repoint_settled "$1"; }
 
-# The quests.md set, as Setup-owner calls: v1 (P-22, "The list") and v2a (quests-v2.md, "Catalogue additions", class (A):
+# The quests.md set, as Setup-owner calls: v1 (P-22, "The list"; of its four dailies only Daily Run, quest 1, is defined: the
+# PM's ruling of 2026-10-14 is four dailies a day, Daily Run plus the three rotating ones, so quests 2 to 4 stay unused ids;
+# their tasks (STRUCTURE_SCORED, FOREST_SCORED, POINTS) are the three families of the rotation, which does not change)
+# and v2a (quests-v2.md, "Catalogue additions", class (A):
 # definitions only, no reward). Quests: `id task total start duration interval`, no end, no prerequisite; achievements:
 # `id task total points`, no window (start = end = 0). Seconds: DAY 86,400; the rotating dailies (5 to 13) last a day in
 # a 3-day interval (259,200), their start offset 0, 1 or 2 days (the day number mod 3 picks the live one); the weekly
@@ -2239,8 +2242,9 @@ fr_settled() { ((FRESH_RECORD)) || return 1; repoint_settled "$1"; }
 # 2 STRUCTURE_SCORED, 3 POINTS, 4 FOREST_SCORED, 5 WONDER_SCORED, 6 BIG_STRUCTURE, 7 HIGH_SCORE, 8 PODIUM (reported by the
 # indexer), 10 TUTORIAL_FINISHED (claim_tutorial). Task 9 (WIN) has no definition: Champion is not in the list; 11 to 18 are
 # reserved, none is defined. Every target is a first guess "to be calibrated" (quests.md, Q-4).
+FRESH_QUEST_IDS="1 and 5 to 16"   # the ids FRESH_QUESTS defines, as the messages say them (ids 2 to 4 are never defined)
 FRESH_QUESTS=(
-  "1 1 1 0 86400 86400" "2 2 6 0 86400 86400" "3 4 1 0 86400 86400" "4 3 3000 0 86400 86400"
+  "1 1 1 0 86400 86400"
   "5 2 4 0 86400 259200" "6 2 8 86400 86400 259200" "7 2 12 172800 86400 259200"
   "8 4 2 0 86400 259200" "9 4 3 86400 86400 259200" "10 4 4 172800 86400 259200"
   "11 3 2000 0 86400 259200" "12 3 5000 86400 86400 259200" "13 3 8000 172800 86400 259200"
@@ -2259,9 +2263,6 @@ FRESH_ACHIEVEMENTS=(
 # table above (fresh_expected_slots).
 FRESH_QUEST_SLOTS=(
   0x33c1fcb56930cd6e9dd8478a6522250393a86ef360281e1171a3cf668e03282
-  0x14f2ac8d624f3f4cfa315541e6dfc1a43598189563e8a70ad92709f431075c9
-  0x818fbcf87531854f5035d878d7b2217f6eaa1881f46994a791ea8e8ed9b4bf
-  0x936bc3bf3390e4e6c62b1c245b42a629837936fea3ce24488ffe1d0803c9e9
   0x6d232969d2c9d01e002de2b79d034a1c9660515f3296861e3a41da66e0ef571
   0x19b8f5aba683655ac6b8a41dbca006ccd6a1072ae33216593e08ac1903808d6
   0x339e3b655ff8f5618479ac25b60a8058609483398727752d5a75cf4f2a9e0c6
@@ -2277,9 +2278,6 @@ FRESH_QUEST_SLOTS=(
 )
 FRESH_QUEST_TASK_SLOTS=(
   0x5490f80b4047b68c6480bcf5d2466d9bb148ad22e7da13aa1c8c858e0bff9a3
-  0x49fc5f690e0859d758db1dee4d9eb204e181bf0eb7b958b2ec91493c0a2a296
-  0x10318243ae14ac501de11512ee67d0d0b4cb5f847d7f574496683895f82bfd0
-  0x7741a0bac58b9d9beff04ef31e5cf578efa2011c9b33648d07a5eca549aba23
   0x36482336199426dd6522bc80e124cd93ee2dbb5f5bdd56c9e1d526a833cadc3
   0x18e0b90ab9dacc26b0befb009bb59f066054f00ae75fcb92f2ed9ea4d1b8093
   0x7da9a4b0c5e0f88c8e7f2729c46492a000402d4a2dea5b0d0da2d48a5f00692
@@ -2292,6 +2290,13 @@ FRESH_QUEST_TASK_SLOTS=(
   0x77c72989f56dce56dbd9d2293e9755c553d78875bc36c261b0b9c842b35724d
   0x6254f8c26a90e19026cc006711c658f454133d21573c4afa30b7144a4ceecdf
   0x19bc7b582692c130d4e5272fb0af08c8c44a1ea1ba5fe1e6907e472341f8e11
+)
+# Slot A of quests 2, 3 and 4, which this set leaves undefined: "id slot". A Setup that holds one (a run started with the
+# earlier script, which defined them, and resumed with this one) would show seven dailies, so the read-back fails on it.
+FRESH_UNDEFINED_QUEST_SLOTS=(
+  "2 0x14f2ac8d624f3f4cfa315541e6dfc1a43598189563e8a70ad92709f431075c9"
+  "3 0x818fbcf87531854f5035d878d7b2217f6eaa1881f46994a791ea8e8ed9b4bf"
+  "4 0x936bc3bf3390e4e6c62b1c245b42a629837936fea3ce24488ffe1d0803c9e9"
 )
 FRESH_ACHIEVEMENT_SLOTS=(
   0x7a9f291f9177d1c0c517a1cd46595136ef9491d7b5463671e67e5d48a030ee7
@@ -2356,7 +2361,16 @@ fresh_slot_matches() {
 # never reads as "defined") and when a defined slot is not the table's (quiver refuses to define an id twice, so a wrong
 # one stays: the run dies, never sends over it).
 fresh_definition_calls() {
-  local i id task total start duration interval points slot want
+  local i id task total start duration interval points slot want entry
+  # Quests 2 to 4 stay undefined (four dailies a day): one that is defined and not retired makes seven dailies live.
+  for entry in "${FRESH_UNDEFINED_QUEST_SLOTS[@]}"; do
+    read -r id slot <<<"$entry"
+    slot="$(fresh_storage "$SETUP" "$slot")" || return 1
+    if [[ "$(python3 -I -c 'import sys;n=int(sys.argv[1],16);print(1 if (n >> 197) & 1 and not (n >> 198) & 1 else 0)' "$slot")" == 1 ]]; then
+      echo "deploy.sh: quest $id is defined on Setup, but this set leaves quests 2 to 4 undefined (four dailies a day): it would show seven dailies; nothing more was sent" >&2
+      return 1
+    fi
+  done
   for i in "${!FRESH_QUESTS[@]}"; do
     read -r id task total start duration interval <<<"${FRESH_QUESTS[i]}"
     slot="$(fresh_storage "$SETUP" "${FRESH_QUEST_SLOTS[i]}")" || return 1
@@ -2446,7 +2460,7 @@ fresh_definitions_step() {
   v DEFINE_RAW fresh_definition_calls
   while IFS= read -r spec; do [[ -n "$spec" ]] && DEFINE_CALLS+=("$spec"); done <<<"$DEFINE_RAW"
   if [[ "${#DEFINE_CALLS[@]}" == 0 ]]; then
-    echo "   defined already: quests 1 to ${#FRESH_QUESTS[@]}, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}$( [[ -n "$(fr_get definitions_tx)" ]] && echo ", tx $(fr_get definitions_tx)")"
+    echo "   defined already: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}$( [[ -n "$(fr_get definitions_tx)" ]] && echo ", tx $(fr_get definitions_tx)")"
   else
     echo "   ${#DEFINE_CALLS[@]} definition(s) to send"
     RECORD_SENDING=definitions_tx
@@ -2455,7 +2469,7 @@ fresh_definitions_step() {
   fi
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "after the definitions, Setup still lacks: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds quests 1 to ${#FRESH_QUESTS[@]} and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage)"
+  echo "   Setup holds quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage)"
 }
 
 # fresh_definitions_smoke: the smoke reads every definition back from Setup's storage and fails on one that is missing or
@@ -2463,7 +2477,7 @@ fresh_definitions_step() {
 fresh_definitions_smoke() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "Setup lacks a definition: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds every definition, each as specified: quests 1 to ${#FRESH_QUESTS[@]}, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a)"
+  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a)"
 }
 
 # fresh_deployed_address <tx> <class>: the contract of that class a deploy transaction created, from its receipt (the
@@ -2596,10 +2610,10 @@ fresh_check_only() {
   echo "== fresh: check only (nothing is sent, the file is not written)"
   if [[ ! -e "$OUT" ]]; then
     echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
-    echo "   Challenge and Collection, seed the pool, stake, wire, define quests 1 to ${#FRESH_QUESTS[@]} and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a),"
+    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a),"
     echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
   else
-    echo "   definitions (definitions_tx): quests 1 to ${#FRESH_QUESTS[@]} and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a; a run sends the ones Setup lacks and reads each back as specified"
+    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a; a run sends the ones Setup lacks and reads each back as specified"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.settle_tx; do
