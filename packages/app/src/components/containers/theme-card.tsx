@@ -29,7 +29,7 @@ export const THEMES: readonly ThemeOption[] = [
  * How a theme's preview tints the base tiles' art until its own art exists (Forest is Q4's extended tiles, the other three
  * have none yet): a sketch of the mood, said so on the card, never the theme's real art.
  */
-const TINT: Record<ThemeId, string | undefined> = {
+export const THEME_TINT: Record<ThemeId, string | undefined> = {
   default: undefined,
   forest: "saturate(1.35) hue-rotate(-18deg) brightness(0.78)",
   snow: "grayscale(0.7) brightness(1.45) contrast(0.9)",
@@ -55,7 +55,7 @@ export interface ThemeCardProps {
 export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className }: ThemeCardProps) {
   const soon = !theme.available;
   // A tinted sketch, never the theme's art: labelled on its own card (PM, 2026-10-14), so nobody takes it for final art.
-  const tinted = TINT[theme.id] !== undefined;
+  const tinted = THEME_TINT[theme.id] !== undefined;
   return (
     <button
       type="button"
@@ -71,7 +71,7 @@ export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className
       )}
     >
       <span className="relative block aspect-[2/1] overflow-hidden bg-secondary">
-        <span className="absolute inset-0 grid grid-cols-6 gap-0.5 p-0.5" style={{ filter: TINT[theme.id] }}>
+        <span className="absolute inset-0 grid grid-cols-6 gap-0.5 p-0.5" style={{ filter: THEME_TINT[theme.id] }}>
           {tiles.slice(0, 18).map((t, i) => (
             <TileChip key={i} plan={t.plan} orientation={t.orientation} artBase={artBase} size="sm" className="size-full rounded-sm border-0" />
           ))}

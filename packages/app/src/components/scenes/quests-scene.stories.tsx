@@ -11,7 +11,7 @@ import { QuestsScene } from "./quests-scene";
  * The quests (`/quests/:day?`): the day's rotating Daily set and the Weekly ones, each with a countdown, a toast when a
  * quest completes, and the day picker. One story per state; the viewport is the toolbar's (VP).
  */
-const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn() } } satisfies Meta<typeof QuestsScene>;
+const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -41,6 +41,24 @@ export const Loading: Story = { args: QUESTS.loading };
 
 /** The indexer did not answer. */
 export const Failed: Story = { args: QUESTS.error };
+
+/** P-61: today with Cobbles: Daily Run's 5 to claim, what each quest gives, the day's and the week's free game to earn. */
+export const CobblesToday: Story = { args: QUESTS.cobblesToday };
+
+/** Daily Run's Cobbles claimed. */
+export const CobblesClaimed: Story = { args: QUESTS.cobblesClaimed };
+
+/** Yesterday, closed and still claimable (no deadline): the four dailies' 20 Cobbles, Claim all, and the day's free game. */
+export const CobblesPastDay: Story = { args: QUESTS.cobblesPastDay };
+
+/** Claim all on its way. */
+export const CobblesClaiming: Story = { args: QUESTS.cobblesClaiming };
+
+/** Everything of yesterday claimed: a free game to play. */
+export const CobblesFreeGame: Story = { args: QUESTS.cobblesFreeGame };
+
+/** The three weeklies done: their Cobbles and the week's free game to claim. */
+export const CobblesWeekDone: Story = { args: QUESTS.cobblesWeekDone };
 
 type SceneProps = React.ComponentProps<typeof QuestsScene>;
 
