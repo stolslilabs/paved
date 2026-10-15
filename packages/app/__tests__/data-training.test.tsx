@@ -15,18 +15,19 @@ function firstMove(moves: SavedMove[]) {
 }
 
 describe("the board's Training session", () => {
-  it("useTrainingSession resumes the save once, then applies each move without a replay", async () => {
+  it("useTrainingSession resumes the save once (per engine), then applies each move without a replay", async () => {
     const first = firstMove([]);
     const second = firstMove([first.saved]);
     const store = memoryStore({ [TRAINING_KEY]: save([first.saved]) });
     const f = fakeSources({ store: () => store });
     const start = vi.spyOn(EngineGame, "start");
     const { result } = renderData(() => useTrainingSession(), f.sources);
-    expect(start).toHaveBeenCalledTimes(1);
+    // Two engines open the save, each replayed once: the session's and the rules engine beside it (slots, preview).
+    expect(start).toHaveBeenCalledTimes(2);
     expect(result.current.board.tiles).toHaveLength(2);
 
-    await act(() => result.current.session.place(second.move));
-    expect(start).toHaveBeenCalledTimes(1);
+    await act(() => result.current.game.place(second.move));
+    expect(start).toHaveBeenCalledTimes(2);
     expect(result.current.board.tiles).toHaveLength(3);
     expect(result.current.board).toEqual(boardOf(result.current.state));
     expect(JSON.parse(store.data.get(TRAINING_KEY)!).moves).toEqual([first.saved, second.saved]);

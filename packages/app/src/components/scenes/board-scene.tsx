@@ -1,7 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
+import { Button } from "../ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Notice } from "../elements/notice";
+import { formatPoints } from "../elements/score";
 import { BoardMap } from "../containers/board-map";
+import type { BoardGhost } from "../containers/board-viewport";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
 import { HandPanel, type HandState } from "../containers/hand-panel";
@@ -38,6 +42,14 @@ export interface BoardSceneProps {
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** `localStorage` refused: a Training or Tutorial game is not saved on this device. */
   storageDisabled?: boolean;
+  /** Storage is there but the last move's save did not land (quota, a refusal): a reload resumes an older move. */
+  saveDropped?: boolean;
+  /** The legal slots of the tile in hand (the contracts' coordinates): the plan view draws them as buttons. */
+  slots?: { x: number; y: number }[];
+  /** The tile in hand on its chosen slot, as the plan view draws it (the page gives the canvas its own). */
+  ghost?: BoardGhost | null;
+  /** A slot of the plan view was chosen. */
+  onSlotClick?: (slot: { x: number; y: number }) => void;
   /**
    * The 3D board: the real renderer's canvas (`BoardViewport`), given by the page. Without it the scene draws the
    * plan view (`BoardMap`), as in the render tests where jsdom has no WebGL.
@@ -47,6 +59,7 @@ export interface BoardSceneProps {
   onRotate?: () => void;
   onConfirm?: () => void;
   onDiscard?: () => void;
+  /** Called once the player confirms in the Surrender dialog the hand's Surrender opens. */
   onSurrender?: () => void;
 }
 
@@ -54,9 +67,10 @@ export interface BoardSceneProps {
 export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
   const title = mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode];
+  const [surrendering, setSurrendering] = useState(false);
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ?? <BoardMap tiles={tiles} />}
+      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} onSlotClick={props.onSlotClick} />}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud
@@ -74,6 +88,11 @@ export function BoardScene(props: BoardSceneProps) {
             This browser refuses local storage: this game is not saved and ends if the page closes.
           </Notice>
         )}
+        {!props.storageDisabled && props.saveDropped && (
+          <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
+            This browser refused to save the last move: if the page closes, the game resumes before it.
+          </Notice>
+        )}
         <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
 
@@ -89,9 +108,35 @@ export function BoardScene(props: BoardSceneProps) {
           onRotate={props.onRotate}
           onConfirm={props.onConfirm}
           onDiscard={props.onDiscard}
-          onSurrender={props.onSurrender}
+          onSurrender={() => setSurrendering(true)}
         />
       </div>
+
+      {/* Radix closes it on Esc and on a click outside (P3); the game goes on. */}
+      <Dialog open={surrendering} onOpenChange={setSurrendering}>
+        <DialogContent showClose={false}>
+          <DialogHeader>
+            <DialogTitle>Surrender this game?</DialogTitle>
+            <DialogDescription>
+              It ends now with your score of <span className="numeric">{formatPoints(props.score)}</span>. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">Keep playing</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setSurrendering(false);
+                props.onSurrender?.();
+              }}
+            >
+              Surrender
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

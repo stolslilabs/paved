@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readdirSync, readFileSync } from "node:fs";
@@ -240,7 +240,33 @@ describe("Board", () => {
     expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /Surrender/ }));
+    expect(onSurrender).not.toHaveBeenCalled();
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Surrender this game?" })).getByRole("button", { name: "Surrender" }));
     expect(onSurrender).toHaveBeenCalledOnce();
+  });
+
+  it("asks before a surrender; Esc and Keep playing close the dialog without surrendering (P3)", async () => {
+    const onSurrender = vi.fn();
+    render(wrap(<BoardScene {...BOARD.placing} onSurrender={onSurrender} />));
+    const surrender = screen.getByRole("button", { name: /Surrender/ });
+    await userEvent.click(surrender);
+    expect(screen.getByRole("dialog", { name: "Surrender this game?" })).toHaveTextContent(pts(BOARD.placing.score));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await userEvent.click(surrender);
+    await userEvent.click(screen.getByRole("button", { name: "Keep playing" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onSurrender).not.toHaveBeenCalled();
+  });
+
+  it("warns when the last save was dropped, and plays on the plan view's slots", async () => {
+    const onSlotClick = vi.fn();
+    const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
+    render(wrap(<BoardScene {...BOARD.storageDisabled} storageDisabled={false} saveDropped slots={[slot]} onSlotClick={onSlotClick} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("Last move not saved");
+    expect(screen.getByRole("group", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Slot / }));
+    expect(onSlotClick).toHaveBeenCalledWith(slot);
   });
 
   it("warns when storage is off, and a Training game shows no deadline", () => {
