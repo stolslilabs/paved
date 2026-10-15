@@ -2,7 +2,10 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
+import { createBrowserRouter } from "react-router";
 import { App } from "../src/App";
+import { earlierEntryExists } from "../src/routes/history";
+import { routes } from "../src/routes/router";
 import { PAGES } from "../src/routes/pages";
 import { withRef } from "../src/routes/ref";
 import { createTestRouter } from "../src/routes/router";
@@ -17,6 +20,9 @@ function open(path: string) {
 }
 
 beforeEach(() => {
+  // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory
+  // router (these tests) has none, so the state is cleared to let the tracked entries decide.
+  window.history.replaceState(null, "", "/");
   localStorage.clear();
   resetWelcomedForTests();
   markWelcomed();
@@ -283,5 +289,44 @@ describe("?ref= on the error and not-found pages", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Back home" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.location.search).toBe("?ref=0xabc");
+  });
+});
+
+describe("Back after a reload (the browser history's index)", () => {
+  it("decides from idx when there is one, from the tracked entries otherwise", () => {
+    expect(earlierEntryExists(0, ["a", "b"])).toBe(false);
+    expect(earlierEntryExists(1, ["a"])).toBe(true);
+    expect(earlierEntryExists(undefined, ["a"])).toBe(false);
+    expect(earlierEntryExists(undefined, ["a", "b"])).toBe(true);
+    expect(earlierEntryExists(null, ["a", "b"])).toBe(true);
+  });
+
+  it("a page opened by a reload at idx > 0 goes back in the history, not Home", async () => {
+    window.history.replaceState({ usr: null, key: "k1", idx: 1 }, "", "/play/challenge");
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    render(<App router={createBrowserRouter(routes)} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    expect(go).toHaveBeenCalledWith(-1);
+  });
+
+  it("a page opened at idx 0 goes Home", async () => {
+    window.history.replaceState({ usr: null, key: "k0", idx: 0 }, "", "/play/challenge");
+    const router = createBrowserRouter(routes);
+    render(<App router={router} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+
+  it("a pop to an unknown entry (the tracker never saw it) does not give it a predecessor", async () => {
+    const router = open("/play");
+    await screen.findByRole("heading", { level: 1, name: "Play" });
+    await act(() => router.navigate("/play/challenge"));
+    await act(() => router.navigate("/vault"));
+    // Back twice in the memory history, then forward: every key is known. Now a fresh router, started deeper, is unknown.
+    const fresh = createTestRouter("/play/challenge");
+    render(<App router={fresh} />);
+    const backs = await screen.findAllByRole("button", { name: "Back" });
+    await userEvent.click(backs[backs.length - 1]!);
+    await waitFor(() => expect(fresh.state.location.pathname).toBe("/"));
   });
 });
