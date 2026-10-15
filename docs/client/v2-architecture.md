@@ -1479,6 +1479,47 @@ replaying; not needed at 72 moves.
 - The Tutorial keeps its scripted engine run; Training keeps `LocalSession`; Challenge uses
   `PredictedSession`. A future Story mode (section 11) is `LocalSession` with a preset seed and board.
 
+**As built (P5).** Where this differs from 9.2 and 9.3, the code holds:
+
+- **Where.** `packages/game-core/src/sessions/predicted-session.ts`. `@paved/chain` depends on `game-core`, so the session
+  reads structural copies of the chain's types (`ChainGame`, `ChainTile`, `PredictedViews`, `MoveReceipt`): `RpcGameViews`,
+  `FakeGameViews` and `PavedWriter`'s results satisfy them unchanged. Like `LocalSession` and `GameSession` it is a small
+  observable class (`state`, `subscribe`), read with `useSyncExternalStore`, not a zustand store.
+- **Open.** The initial seed is CORE's `initial_seed` view (S1, #377: `GameViews.initialSeed`), never a hard-coded salt;
+  `replayChallenge` replays `tiles()` in draw order with `EngineGame.start` + `build` / `discard` (a surrendered game is
+  surrendered on the engine too). A discard is replayed as a discard, which reseeds at (`CENTER`, `CENTER`), whatever
+  position `tiles()` reports for it (0, 0). The check compares the engine's score and end, and, for a game in play, its
+  seed and tile in hand, with `game()`.
+- **Moves.** The engine plays first; the move is then sent with the `send` the page passes (the signer's write), after the
+  move before it is confirmed: `PavedWriter` refuses a second write while one is pending. The receipt's events (`Built`
+  with its tile, plan, orientation and position; each `Scored`; `Discarded` with its points; `GameOver` with the score)
+  and one `game()` read (score, end; for a game in play, seed and tile in hand) are compared with the prediction.
+  `MAX_UNCONFIRMED` is 2: a third move waits (refused at once, nothing queued). A move the engine refuses is never sent.
+- **Mismatches.** A refused write restores the engine cloned before the move, drops the moves queued after it, and shows
+  the writer's message (typed errors: `GameExpiredError`, `InvalidPositionError` for CORE #391's `'Challenge: invalid
+  position'`, added to `writer.ts` in P5). A write whose receipt could not be read (a hash, no known revert) may have
+  landed: after the rollback the session re-opens from the chain. An accepted move with another result re-opens the
+  session, drops the queued moves, logs the game, the move and the reason (`onMismatch`, `console.warn` by default), and
+  counts `resynced`: the board toasts "Board resynced". A failed check at open plays without prediction: the hand waits
+  for the chain, each move re-reads `game()` and `tiles()`, and the board's slots and preview come from an engine holding
+  the chain's board; a dev-only notice gives the reason.
+- **Expiry.** Past `expiresAt` (the session's clock: the wall clock, block time in the e2e) a build or a discard shows
+  `GameExpiredError`'s message and sends nothing; a surrender is accepted. The board's hand turns to `expired` and the
+  Surrender dialog opens by itself (`BoardScene`'s `promptSurrender`); the countdown is in the header.
+- **The route.** `/game/:gameId` (`routes/pages/board.tsx`) mounts the board scene on `useChallengeSession`
+  (`src/data/challenge.ts`), over the `DataProvider`'s sources: `views` (now `PavedClient.views` on the deployment the
+  build names, `src/data/chain-client.ts`, loaded with the first read so starknet.js stays out of the first bundle) and a
+  new `signer` slot (`GameSigner`: `PavedWriter`'s `address`, `build`, `discard`, `surrender`), null until P6 connects the
+  wallet. With no signer, or another player's game, the board is read only (no hand) with a "Connect to play" (or
+  "Another player's game") notice. Each confirmed move invalidates the `game(id)` and active-game queries of the other
+  pages. A finished game goes to `/game/:gameId/over`.
+- **Checked.** `packages/chain/test/predicted-session.test.ts` (the session against an engine-held chain,
+  `test/engine-chain.ts`), `packages/app/__tests__/challenge-route.test.tsx`, and the devnet e2e
+  `packages/chain/test/e2e-predicted.test.ts` (`PAVED_E2E_PREDICTED=1`, a node and `scripts/deploy.sh devnet`, no indexer):
+  a bought game opened in step, 16 moves predicted with closings and discard penalties, each equal to its receipt and
+  `game()`, two moves queued, a refusal rolled back, a move made behind the session's back resynced, an expired game
+  refusing a discard and closed by a surrender.
+
 ---
 
 ## 10. The skills to install
@@ -1574,7 +1615,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
 | P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379). **Done** (2026-10-15): `/training` and `/training/over` on a `TrainingGame` (`src/data/training.ts`: the session and a rules engine of the same moves for the slots and the preview, both kept between moves); the plan view is playable where the renderer cannot start; a tab follows the save another tab writes (the `storage` event); `DataProvider` mounted in `App.tsx` (Training's store; the chain and indexer sources refuse until their pages) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
-| P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
+| P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction. **Done** (2026-10-15; section 9.5, "As built (P5)"): `/game/:gameId` on the predicted session, read only until P6 fills the sources' `signer` | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |
 | P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game | 2 d |
 | P8 | The leaderboard and player scenes on the indexer | 0.5 d |
