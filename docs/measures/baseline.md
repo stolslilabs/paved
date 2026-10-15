@@ -1590,3 +1590,7 @@ The `report` call itself rose from 552,410 to 1,198,190 (+645,780: the day's and
 remaining +804,000 is outside the Sierra gas of the test's calls, which `get_available_gas()` sees: it comes with the rise of
 the test's L1 data gas (384 to 576), that is the two new storage slots the report writes, but the fee term that converts it to
 L2 gas was not isolated. **So it is not explained beyond that.**
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile): `Setup` 14,960 Sierra, 34,002 CASM felts, 41.5 % of the 81,920
+cap (31,216 after part 1: +2,786); `Economy` 10,774 Sierra, 30,432 CASM, 37.1 %; `Challenge` 29,831 Sierra, 64,826 CASM,
+unchanged.

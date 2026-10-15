@@ -116,7 +116,9 @@ dispatch; n's further +41,850 is the seller read in the referral rule, made only
 short-circuit). The game overs and `spawn_free` call `Setup`, whose dispatch grew (three entry points more); the build moves
 (a0 to f) and the Vault's calls (t to w) are identical to the unit.
 
-**Class sizes**: see `docs/measures/baseline.md`, "After cobbles v1, part 2".
+**Class sizes** (`scripts/class-sizes.sh`, release profile, VPS): `Setup` 14,960 Sierra and **34,002 CASM felts, 41.5 % of the
+81,920 cap** (31,216 after part 1: +2,786), still under the 50 % that would move the shop to its own system (decision 1).
+`Economy` 10,774 Sierra and 30,432 CASM (37.1 %). `Challenge` is unchanged (64,826 CASM).
 
 **Choices the design left open, and the small departures:**
 
