@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -61,6 +61,12 @@ export interface BoardSceneProps {
   onDiscard?: () => void;
   /** Called once the player confirms in the Surrender dialog the hand's Surrender opens. */
   onSurrender?: () => void;
+  /** No hand: the board of a game the viewer cannot play (no account, another player's game). */
+  readOnly?: boolean;
+  /** Lines under the header: "Connect to play", the dev-only prediction notice. */
+  notices?: ReactNode;
+  /** Opens the Surrender dialog when it turns true: an expired Challenge game closes only by a surrender (P5). */
+  promptSurrender?: boolean;
 }
 
 /** The game board (`/game/:id`, `/training`, `/tutorial`): the scene full screen, its header, the closings, the hand. */
@@ -68,6 +74,10 @@ export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
   const title = mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode];
   const [surrendering, setSurrendering] = useState(false);
+  const { promptSurrender } = props;
+  useEffect(() => {
+    if (promptSurrender) setSurrendering(true);
+  }, [promptSurrender]);
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} onSlotClick={props.onSlotClick} />}
@@ -93,24 +103,27 @@ export function BoardScene(props: BoardSceneProps) {
             This browser refused to save the last move: if the page closes, the game resumes before it.
           </Notice>
         )}
+        {props.notices}
         <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
 
-      <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] tablet:inset-x-auto tablet:right-4 tablet:bottom-4 tablet:w-96">
-        <HandPanel
-          tile={hand.tile}
-          state={hand.state}
-          slotChosen={hand.slotChosen}
-          preview={hand.preview}
-          error={hand.error}
-          tileArt={props.tileArt}
-          renderTile={props.renderHandTile}
-          onRotate={props.onRotate}
-          onConfirm={props.onConfirm}
-          onDiscard={props.onDiscard}
-          onSurrender={() => setSurrendering(true)}
-        />
-      </div>
+      {!props.readOnly && (
+        <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] tablet:inset-x-auto tablet:right-4 tablet:bottom-4 tablet:w-96">
+          <HandPanel
+            tile={hand.tile}
+            state={hand.state}
+            slotChosen={hand.slotChosen}
+            preview={hand.preview}
+            error={hand.error}
+            tileArt={props.tileArt}
+            renderTile={props.renderHandTile}
+            onRotate={props.onRotate}
+            onConfirm={props.onConfirm}
+            onDiscard={props.onDiscard}
+            onSurrender={() => setSurrendering(true)}
+          />
+        </div>
+      )}
 
       {/* Radix closes it on Esc and on a click outside (P3); the game goes on. */}
       <Dialog open={surrendering} onOpenChange={setSurrendering}>
@@ -118,6 +131,7 @@ export function BoardScene(props: BoardSceneProps) {
           <DialogHeader>
             <DialogTitle>Surrender this game?</DialogTitle>
             <DialogDescription>
+              {promptSurrender && "Its 24 hours are over: it takes no more moves, and only a surrender closes it. "}
               It ends now with your score of <span className="numeric">{formatPoints(props.score)}</span>. This cannot be undone.
             </DialogDescription>
           </DialogHeader>

@@ -99,6 +99,23 @@ user), which copies the build to `/var/www/paved/releases/<name>` and swaps `/va
 needs no Caddy reload. Check: `curl -sI https://paved.bal7hazar.com/ | head -1` is `200`; `readlink /var/www/paved/current` is the new release.
 Rolling the client back to a release built for the old contracts does not help once the indexer is rebuilt for F: the two go together.
 
+## Host compression of the renderer assets
+
+A release-day step for the host; this PR changes no host config. The paths are those of `packages/app/vite/renderer-assets.ts`
+under the app's base (`<base>` is `/` unless the build sets another), as the build writes them into `dist/`
+(`<client-root>` is the host's folder for the built client).
+
+| Path under `<client-root>` | Content type | Compress | Cache-Control |
+|---|---|---|---|
+| `renderer-assets/models/<plan>.<hash>.glb` (19 files, 10 hex digits of the file's SHA-256 in the name) | `model/gltf-binary` | yes | `public, max-age=31536000, immutable` |
+| `renderer-assets/manifest.json` | `application/json` | yes | `no-cache` (`AssetLoader` asks with `cache: "no-cache"` too) |
+| the app's own JavaScript and CSS (Vite's default `assets/` folder, hashed names) | `text/javascript`, `text/css` | yes, if the host does not already | as the host sets them today |
+| `renderer-assets/assets/tiles/*.png` | `image/png` | no, already compressed | `no-cache` or a short `max-age` (plain names) |
+
+The 19 models are 1,089,624 B as files; gzip (level 6) takes them to about 665,212 B and brotli to 618,540 B. These figures
+were measured on the files, not over the network. `vite preview` compresses only text and JavaScript, so the figures in
+`v2-architecture.md` 4.2 are the files as they are. The cache headers are those of 4.2.
+
 ## The order, with the indexer
 
 The client and the indexer read the same file from the same commit, and the leaderboard needs both, so the order is:

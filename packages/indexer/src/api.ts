@@ -143,6 +143,11 @@ export interface LeaderboardEntry {
   /** `end_time` of the best game. */
   finished_at: number;
   /**
+   * The best game is a free game (`GameSpawned.price` 0, bought with a credit): it ranks like any game, marked. Appended with
+   * cobbles v1 (schema 14).
+   */
+  free: boolean;
+  /**
    * The player's Cartridge username, from the indexer's cache only (names.ts): null until looked up, when there is none,
    * or when the lookup is off. Display only. Appended in schema 10 (N1).
    */
@@ -222,6 +227,11 @@ export interface GameRow {
    * safe integer; null for a game spawned before the collection existed. Appended in E5b.
    */
   token_id: number | null;
+  /**
+   * A free game (`GameSpawned.price` 0, a credit spent): it has no `economy` (no `Purchased`, `Recorded` or `Settled`) and
+   * pays no reward, and `economy: null` does not mean "not bought yet". Appended with cobbles v1 (schema 14).
+   */
+  free: boolean;
 }
 
 export interface GameEconomy {
@@ -290,6 +300,10 @@ export interface QuestDefinition {
   retired: boolean;
   /** Time of the block that retired it, null while it is live. */
   retired_at: number | null;
+  /** The cobbles a claim of this quest gives (`QuestCobblesSet`), 0 when none are set. Appended with cobbles v1 (schema 14). */
+  cobbles: number;
+  /** The kind of the cobbles' schedule: "daily" or "weekly" (its claim's period is a day or a week number); null without cobbles. */
+  cobbles_kind: "daily" | "weekly" | null;
 }
 
 export interface AchievementDefinition {
@@ -303,6 +317,8 @@ export interface AchievementDefinition {
   defined_at: number;
   retired: boolean;
   retired_at: number | null;
+  /** The cobbles a claim of this achievement gives (`AchievementCobblesSet`), 0 when none are set. Appended with cobbles v1 (schema 14). */
+  cobbles: number;
 }
 
 export interface DefinitionsAnswer extends Envelope {
@@ -351,4 +367,50 @@ export interface PlayerAchievementsAnswer extends Envelope {
   /** The points of the completed achievements. */
   points: number;
   achievements: PlayerAchievement[];
+}
+
+/** A player's cobbles and free-game credits at the served block (cobbles v1): the running values of the chain's own events. */
+export interface PlayerCobblesAnswer extends Envelope {
+  player_id: string;
+  /** The cobble balance, the `balance` of the last `CobblesClaimed`; 0 for a player with none. */
+  cobbles: number;
+  /** The free-game credits left: claimed (`CreditClaimed`) less spent (`CreditSpent`). */
+  credits: number;
+  credits_claimed: number;
+  credits_spent: number;
+  /** Ids of the achievements claimed, ascending. */
+  achievements_claimed: number[];
+}
+
+/** A claim of cobbles (`CobblesClaimed`). */
+export interface CobbleClaim {
+  kind: "quest" | "achievement";
+  /** The quest or achievement id. */
+  id: number;
+  /** A quest's day or week number (by its definition's `cobbles_kind`); 0 for an achievement. */
+  period: number;
+  cobbles: number;
+  /** Time of the block of the claim. */
+  claimed_at: number;
+}
+
+/** A claim of a free-game credit (`CreditClaimed`). */
+export interface CreditClaim {
+  kind: "daily" | "weekly";
+  /** The day number (`daily`) or the week number (`weekly`, Monday to Sunday UTC, week 0 from 1970-01-05). */
+  period: number;
+  claimed_at: number;
+}
+
+/**
+ * What a player has claimed for one UTC day: the quests of that day and of its week, the credits of that day and of its week,
+ * and every achievement claim. A client shows claimed against claimable from these and the definitions.
+ */
+export interface PlayerClaimsAnswer extends Envelope {
+  player_id: string;
+  day: number;
+  /** The week number the day falls in; null for a day before the first week (1970-01-01 to 1970-01-04). */
+  week: number | null;
+  claims: CobbleClaim[];
+  credits: CreditClaim[];
 }

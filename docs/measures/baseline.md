@@ -1480,3 +1480,65 @@ C2 and C3 cut storage reads, which cost the same in release. C1 and C5 cut compu
 | `snforge test --max-threads 2` (the whole suite, 6 min 32 s) | **782 passed, 0 failed, 38 ignored** | 6,433,052 kB |
 | `scripts/abis.sh` (under `prlimit --as=12884901888`) | no diff | 3,634,396 kB |
 | `scripts/class-sizes.sh` (under `prlimit --as=12884901888`; also on main and on each variant) | ok | 3,782,500 kB at most |
+
+## After cobbles v1, part 1 (the ledger, the claims, the free spawn; P-61)
+
+Measured on the VPS, 2026-10-15, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`, the L2 gas of one external call
+(`get_available_gas()` right before and after it). **Before**: main `91233c19` with the new scenario x added and nothing else
+changed (`snforge test test_gas_`, 18 passed); its figures equal "After G7a" to the unit (l 6,581,227). **After**: this branch.
+The design's +0.59M per paid game over (`cobbles-v1.md`, 1.3) was an estimate; these are the measures.
+
+**What a paid game over now writes** (`Setup.report`): the player's day slot and account slot, and from week 0 on (Monday
+1970-01-05) the week slot, each read and written whole. g, i, k, l and s run at time 0, before week 0, so they write two slots;
+x and y are g and k on Monday 1970-01-12 (week 1), so they write three.
+
+| Scenario | Before | After | Change |
+|---|---:|---:|---:|
+| g, closing move in its day | 3,174,468 | 3,820,384 | +645,916 |
+| i, closing move after its day | 2,716,928 | 3,362,844 | +645,916 |
+| k, the largest report (time 0) | 3,608,648 | 4,331,394 | +722,746 |
+| l, game over on the last build | 6,581,227 | 7,227,143 | +645,916 |
+| s, game over on the last discard | 3,395,653 | 4,041,569 | +645,916 |
+| x, g in a week (new) | 3,174,468 | 4,114,766 | **+940,298** |
+| y, k in a week (new) | not run | 4,642,366 | +1,033,718 (derived, below) |
+
+**Against P-22's guard (+1.5M on the closing move): within it.** The largest measured rise is x's +940,298. y was added after
+the before run; its before is taken as k's (3,608,648): on main the report reads no block time, and x's before equals g's to the
+unit at another time and seed, so y's before is k's. That gives +1,033,718, still under the guard. The week slot costs 294,382
+(x less g after); the larger tally of k adds 76,830 (more entries to sum). The estimate's 585,150 for three
+slots was low: three slots measure 940,298, because the first write of an empty slot in a period costs more than the estimate's
+unit write, and `report` now reads the block time and unpacks and packs each slot.
+
+**The new calls** (each one call, on the fresh deployment's definitions and cobbles):
+
+| Scenario | L2 gas | Design's estimate |
+|---|---:|---:|
+| z1, `claim_quest` (a daily) | 904,611 | about 0.50M |
+| z2, `claim_achievement` | 550,863 | about 0.38M |
+| z3, `claim_daily_credit` (10 dailies listed) | 2,322,515 | about 1.27M |
+| z4, `claim_weekly_credit` (3 weeklies) | 1,471,730 | about 0.73M |
+| z5, `spawn_free` | 6,563,616 | about 7.0M (m is 15,695,888) |
+| z6, a free game's game over (a surrender) | 1,760,224 | (g is 3,820,384) |
+
+A claim pays the same slot costs as the report, plus its event; the credits read every quest of their kind's list. The free
+spawn costs 42 % of a paid one: no `transferFrom`, no `Economy.purchase`, one `Setup.spend_credit`. A free game over makes one
+`Setup.report` (achievements only) and no `Economy.record`.
+
+**The other scenarios.** a0, a, c, d, e and f each rose by 30 (the build path is unchanged; the class's layout moved). m and n rose
+by 240,279: the spawn code adds one branch (`free`), but the seed is the token's, which depends on `Challenge`'s class hash, so
+each new class draws another deck (G7a's note: m measured from 15,549,521 to 16,066,315 across builds of one branch). Both stay
+under their ceilings, which are kept. The Vault's t to w are identical to the unit.
+
+**Ceilings.** g, i, k, l and s are reset to measured + 5 %; x, y and z1 to z6 get measured + 5 %. Every other ceiling is kept.
+Test budgets: `e2e::setup_system::test_setup_reporter_reports_every_entry` rose above its budget (the report now writes the ledger)
+and is reset to measured + 5 % (7,182,725); the 40 new tests of `e2e::cobbles` and `e2e::cobbles_ledger` get measured + 5 % (the fuzz
+test, whose figure is the largest of its runs, + 10 %). Every other budget of the suite holds (whole run below).
+
+**Commands and peaks (VPS):**
+
+| Run | Result |
+|---|---|
+| `snforge test test_gas_` on main `91233c19` with scenario x | 18 passed |
+| `snforge test test_gas_` (final) | 25 passed |
+| `snforge test paved::tests::e2e::cobbles` | 40 passed |
+| `snforge test` (the whole suite) | see the pull request |

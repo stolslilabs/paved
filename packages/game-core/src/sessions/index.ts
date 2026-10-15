@@ -1,5 +1,6 @@
-// The game sessions (P2): Training's `LocalSession` and its save, the scripted tutorial run and its save, and the
-// `PageSession` shape a board drives. No chain, no DOM: the chain's `GameSession` satisfies `PageSession` structurally.
+// The game sessions (P2): Training's `LocalSession` and its save, the scripted tutorial run and its save, Challenge's
+// `PredictedSession` (P5), and the `PageSession` shape a board drives. No chain, no DOM: the chain's `GameSession`
+// satisfies `PageSession` structurally.
 
 export type { BoardTile, Closure, MoveSenders, PageSession, PageState, PlaceMove, ScoredStructure, Send } from "./types";
 export { browserStore, windowStore } from "./storage";
@@ -32,4 +33,6 @@ export {
   tutorialSteps,
 } from "./tutorial-run";
 export type { Attempt, TutorialMove, TutorialStep, TutorialView } from "./tutorial-run";
+export { MAX_UNCONFIRMED, PredictedSession, replayChallenge } from "./predicted-session";
+export type { ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";
 export { TUTORIAL_STORAGE_KEY, loadMoves, saveMoves } from "./tutorial-storage";

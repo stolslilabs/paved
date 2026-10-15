@@ -27,20 +27,34 @@ pub struct Tally {
 
 /// Marks an encoded tally: a move that does not end the game returns 0.
 const OVER: u128 = 0x80000000000000000000000000000000;
+/// Marks the tally of a free game (cobbles v1, 4.2): its game over reports no quest entries and is
+/// not recorded by `Economy`.
+const FREE: u128 = 0x40000000000000000000000000000000;
 
 /// The tally of a game that is over, in one `u128` (a move that does not end the game returns 0,
 /// which costs nothing next to an `Option` of a struct): score (32 bits), 8 bits always 0 (the
 /// rank until D-20, left unused so that the layout is the same on either side of D-20),
-/// structures, forests, wonders and big (8 bits each), and the `OVER` flag. The
-/// counters are clamped to the widths of their `GameState` bits.
+/// structures, forests, wonders and big (8 bits each), the `FREE` flag of a free game (cobbles v1)
+/// and the `OVER` flag. The counters are clamped to the widths of their `GameState` bits.
 pub fn encode(game: Game) -> u128 {
     let t = tally(game, 0);
+    let free: u128 = if game.is_free() {
+        FREE
+    } else {
+        0
+    };
     OVER
+        + free
         + t.score.into()
         + t.structures.into() * 0x10000000000
         + t.forests.into() * 0x1000000000000
         + t.wonders.into() * 0x100000000000000
         + t.big.into() * 0x10000000000000000
+}
+
+/// Whether an encoded game over (a non-zero word) is a free game's.
+pub fn is_free(word: u128) -> bool {
+    word & FREE != 0
 }
 
 /// The tally of an encoded game over (a non-zero word), for `player_id`.

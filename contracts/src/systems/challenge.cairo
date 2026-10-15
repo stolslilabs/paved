@@ -13,6 +13,10 @@ pub trait IChallenge<TContractState> {
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;
+    /// A free game (cobbles v1, 4.1), on one of the caller's credits: no payment, no stake, no
+    /// `Economy` call. `'Setup: no credit'` without a credit; paused with `spawn`. Its
+    /// `GameSpawned.price` is 0, and its game over reports achievement progress only.
+    fn spawn_free(ref self: TContractState) -> u32;
     fn discard(ref self: TContractState, game_id: u32);
     fn surrender(ref self: TContractState, game_id: u32);
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
@@ -88,12 +92,15 @@ pub mod Challenge {
     // Internal imports
 
     use paved::events::Event as PavedEvent;
-    use paved::quests::{achievement_entries, decode, quest_entries};
+    use paved::quests::{achievement_entries, decode, is_free, quest_entries};
     use paved::seed::{SeedSource, TokenSeed};
     use paved::store::StoreImpl;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
-    use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Wiring};
+    use paved::systems::setup::{
+        ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher,
+        ISetupDispatcherTrait, Wiring,
+    };
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::views::{
@@ -231,6 +238,25 @@ pub mod Challenge {
                 .spawn_from(
                     @TokenSeed { contract: get_contract_address() }, stake, referrer, min_out,
                 )
+        }
+
+        fn spawn_free(ref self: ContractState) -> u32 {
+            // [Check] Spawn is not paused (G4): the pause stops free games too
+            assert(!self.spawn_paused.read(), errors::SPAWN_PAUSED);
+            // [Interaction] The wiring: the collection only, no economy
+            let setup = self.setup_dispatcher();
+            let collection = setup.wiring().collection;
+            assert(collection.is_non_zero(), errors::NO_COLLECTION);
+            // [Effect] Spawn a free game, marked free, `GameSpawned.price` 0
+            let (game_id, _) = self
+                .hostable
+                .spawn_with(Mode::Challenge, @TokenSeed { contract: get_contract_address() }, true);
+            // [Interaction] One credit of the caller spent for it (reverts without one)
+            ISetupCobblesDispatcher { contract_address: setup.contract_address }
+                .spend_credit(get_caller_address().into(), game_id);
+            // [Interaction] The game is minted to its player
+            self.mint(collection, game_id);
+            game_id
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
@@ -427,7 +453,7 @@ pub mod Challenge {
             // [Interaction] The wiring, in one call to `Setup`
             let wiring = wiring(self.setup_dispatcher(), true);
             // [Effect] Spawn a game
-            let (game_id, unit) = self.hostable.spawn_with(Mode::Challenge, source);
+            let (game_id, unit) = self.hostable.spawn_with(Mode::Challenge, source, false);
             // [Interaction] The game is purchased
             self.purchase(wiring.economy, game_id, unit, stake, referrer, min_out);
             // [Interaction] The game is minted to its player, under its own id and no other
@@ -500,11 +526,19 @@ pub mod Challenge {
         /// (`paved::quests`), so the report cannot revert for its content. Its score is then
         /// recorded by `Economy` (P-34), whose address is read from `Setup`'s wiring (D-25 E). With
         /// no `Setup` (a zero slot) the move reverts (`setup`): the economy is out of reach.
+        ///
+        /// A free game's game over (cobbles v1, 4.2) reports its achievement entries only, so no
+        /// quest progress and no day or week of the ledger, and is not recorded by `Economy`,
+        /// which never sold it.
         fn finish(ref self: ContractState, game_id: u32, over: u128) {
             if over != 0 {
                 let player_id: felt252 = get_caller_address().into();
                 let tally = decode(over, player_id);
                 let setup = self.setup_dispatcher();
+                if is_free(over) {
+                    setup.report(player_id, array![].span(), achievement_entries(tally).span());
+                    return;
+                }
                 let economy = wiring(setup, false).economy;
                 setup
                     .report(
