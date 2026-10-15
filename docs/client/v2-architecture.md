@@ -540,7 +540,8 @@ Why this beats the references' hooks and contexts:
   (chain data must be fresh).
 
 **As built (P2).** The sessions are in `@paved/game-core` (`src/sessions/`): `PageSession` and `PageState` (structural
-copies of the chain's shapes, since `@paved/chain` depends on game-core; `GameSession` satisfies them unchanged),
+copies of the chain's shapes, since `@paved/chain` depends on game-core; `GameSession` satisfies them unchanged, and app-web's
+`tsc` catches a drift of the chain's shapes through the state and the senders),
 `LocalSession` with its save (`paved:training:v1`) and `randomSeed`, and the tutorial run with its save
 (`paved.tutorial.v1`), both formats unchanged. `LocalSession` and `TutorialRun` keep their `EngineGame` between moves and
 replay only to resume (and the tutorial on Back, the engine having no undo). App-web imports them from there.
@@ -1253,7 +1254,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 
 | PR | Content | Estimate |
 |---|---|---|
-| P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome` | 1 d |
+| P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
 | P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
