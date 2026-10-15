@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer } from "./TileRenderer";
 import { CameraController } from "./CameraController";
-import { Effects } from "./Effects";
+import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, isClick, createThrottled } from "./interaction";
 import type {
   RendererConfig,
@@ -13,6 +13,7 @@ import type {
   RenderProfile,
   RenderSurfaceAdapter,
   SurfaceInputEvent,
+  EffectsCapabilities,
 } from "./types";
 import { TILE_SIZE } from "./types";
 import {
@@ -130,6 +131,10 @@ export class GameScene {
   private webgl: WebGLDetection = { renderer: null, software: false, reason: "not initialised" };
   /** The outline path last logged, so it is logged once, and again only when it changes. */
   private loggedOutlinePath: string | null = null;
+  /** What the caller said of the device's effects (`RendererConfig.effectsCapabilities`). */
+  private effectsCapabilities: EffectsCapabilities = {};
+  /** The face antialiasing path last logged, as for the outlines. */
+  private loggedAntialiasingPath: string | null = null;
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
@@ -227,8 +232,10 @@ export class GameScene {
     this.setupLighting();
 
     // Post-processing
-    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.settings.multisampling);
+    this.effectsCapabilities = effectsCapabilities;
+    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing());
     this.effects.setCapabilities(effectsCapabilities);
+    this.logAntialiasingPath();
 
     // Follow the container's size and the screen's pixel ratio, from now on: a change while the models load counts too.
     this.unbindResize = surface.onResize(() => this.resize());
@@ -472,14 +479,15 @@ export class GameScene {
 
   /**
    * Replace the renderer's settings (`settings.ts`): fields `input` does not name take the defaults. The outlines
-   * follow from the next frame, the camera's zoom limits and the multisampling at once.
+   * follow from the next frame, the camera's zoom limits and the face antialiasing at once.
    */
   setSettings(input: RendererSettingsInput): void {
     this.settings = resolveRendererSettings(input);
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
-    this.effects.setMultisampling(this.settings.multisampling);
+    this.effects.setAntialiasing(this.faceAntialiasing());
+    this.logAntialiasingPath();
     // A new cap refits the drawing buffer and the composer's targets at once.
     if (this.surface && this.renderer && this.cappedPixelRatio() !== this.pixelRatio) this.resize();
     this.requestRender();
@@ -521,6 +529,39 @@ export class GameScene {
     const path = `[renderer] outlines ${on ? "on" : "off"}: ${why}`;
     if (path === this.loggedOutlinePath) return;
     this.loggedOutlinePath = path;
+    console.info(path);
+  }
+
+  /**
+   * The face antialiasing for the settings on this device (`resolveFaceAntialiasing`): MSAA where the WebGL 2 context
+   * multisamples (`capabilities.maxSamples`) on a GPU, SMAA on software WebGL or without multisampling.
+   */
+  private faceAntialiasing(): FaceAntialiasing {
+    return resolveFaceAntialiasing(this.settings.multisampling, {
+      maxSamples: this.renderer?.capabilities?.maxSamples ?? 0,
+      software: this.webgl.software,
+      supportsMultisampling: this.effectsCapabilities.supportsMultisampling,
+    });
+  }
+
+  /** Logs which face antialiasing is taken, once, and again only when it changes. */
+  private logAntialiasingPath(): void {
+    if (!this.renderer) return;
+    const mode = this.faceAntialiasing();
+    const maxSamples = this.renderer.capabilities?.maxSamples ?? 0;
+    const why =
+      mode === "off"
+        ? "disabled by the settings"
+        : mode === "msaa"
+          ? `${maxSamples} samples available on ${this.webgl.reason}`
+          : this.webgl.software
+            ? this.webgl.reason
+            : this.effectsCapabilities.supportsMultisampling === false
+              ? "multisampling turned off by the effects capabilities"
+              : `multisampling unavailable (${maxSamples} samples)`;
+    const path = `[renderer] face antialiasing ${mode}: ${why}`;
+    if (path === this.loggedAntialiasingPath) return;
+    this.loggedAntialiasingPath = path;
     console.info(path);
   }
 

@@ -1,3 +1,4 @@
+import { CLOSEST_DISTANCE } from "./CameraController";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 
 /**
@@ -50,7 +51,8 @@ export interface RendererSettingsInput {
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
-  minDistance: 5,
+  // The near plane (5) plus the tallest tile at the play camera's steepest tilt (`CLOSEST_DISTANCE`).
+  minDistance: CLOSEST_DISTANCE,
   maxDistance: 300,
   capZoomOut: false,
   // Where a tile is about 96 px wide in a 900 px high window, the bench's (the outlines are fully on there: S, the

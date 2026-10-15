@@ -4,6 +4,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
+import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import type { RenderProfile, EffectsCapabilities } from "./types";
 import { resolveEffectsProfile } from "./render-profiles";
 
@@ -37,7 +38,33 @@ const VignetteShader = {
 };
 
 /** Samples of the multisampled scene target. */
-const MSAA_SAMPLES = 4;
+export const MSAA_SAMPLES = 4;
+
+/**
+ * How the tile faces are antialiased: `"msaa"` multisamples the scene's target (`MSAA_SAMPLES`), `"smaa"` ends the
+ * chain with an SMAA pass (where multisampling is missing or software), `"off"` does neither.
+ */
+export type FaceAntialiasing = "msaa" | "smaa" | "off";
+
+/** What `resolveFaceAntialiasing` reads of the device. */
+export interface FaceAntialiasingDevice {
+  /** The most samples a render target takes (`renderer.capabilities.maxSamples`; 0 without WebGL 2 multisampling). */
+  maxSamples: number;
+  /** Software WebGL (`detectSoftwareWebGL`): multisampling there is rasterised on the CPU. */
+  software: boolean;
+  /** `EffectsCapabilities.supportsMultisampling`: false forbids multisampling whatever the context says. */
+  supportsMultisampling?: boolean;
+}
+
+/**
+ * The face antialiasing in effect for `RendererSettings.multisampling` on this device: off when the setting is off;
+ * MSAA when the context multisamples at least `MSAA_SAMPLES` on a GPU; SMAA otherwise.
+ */
+export function resolveFaceAntialiasing(on: boolean, device: FaceAntialiasingDevice): FaceAntialiasing {
+  if (!on) return "off";
+  const msaa = device.supportsMultisampling !== false && !device.software && device.maxSamples >= MSAA_SAMPLES;
+  return msaa ? "msaa" : "smaa";
+}
 
 export interface EffectsConfig {
   bloom?: {
@@ -72,7 +99,7 @@ export class Effects {
   private profile: RenderProfile = "play";
   private ssaoPass: SSAOPass | null = null;
   private capabilities: EffectsCapabilities = {};
-  private multisampling = false;
+  private antialiasing: FaceAntialiasing = "off";
 
   constructor(config: EffectsConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -83,9 +110,9 @@ export class Effects {
     scene: THREE.Scene,
     camera: THREE.Camera,
     profile: RenderProfile = "play",
-    multisampling = false,
+    antialiasing: FaceAntialiasing = "off",
   ): void {
-    this.multisampling = multisampling;
+    this.antialiasing = antialiasing;
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -98,11 +125,20 @@ export class Effects {
     this.buildComposer();
   }
 
-  /** Multisample the scene's render target (`RendererSettings.multisampling`). Rebuilds the passes when it changes. */
-  setMultisampling(on: boolean): void {
-    if (this.multisampling === on) return;
-    this.multisampling = on;
+  /** The face antialiasing (`resolveFaceAntialiasing`). Rebuilds the passes when it changes. */
+  setAntialiasing(antialiasing: FaceAntialiasing): void {
+    if (this.antialiasing === antialiasing) return;
+    this.antialiasing = antialiasing;
     this.buildComposer();
+  }
+
+  getAntialiasing(): FaceAntialiasing {
+    return this.antialiasing;
+  }
+
+  /** The composer, for tests and the bench: its first target and its passes. */
+  getComposer(): EffectComposer | null {
+    return this.composer;
   }
 
   setCapabilities(capabilities: EffectsCapabilities): void {
@@ -119,9 +155,9 @@ export class Effects {
     const scene = this.scene;
     const camera = this.camera;
     // The scene is drawn into the composer's target, not the canvas: the canvas's `antialias` does not reach it. The
-    // target can be multisampled itself, at a GPU cost (R-OUT measures: about 3 to 4 ms a frame at 1440x900 on an M2
-    // Max), so it is a setting, off by default.
-    const multisample = this.multisampling && this.capabilities.supportsMultisampling !== false;
+    // target is multisampled itself for MSAA; the composer resolves it before the next pass reads it, and the outlines
+    // (drawn in the same pass, with their own coverage) are multisampled with the faces.
+    const multisample = this.antialiasing === "msaa";
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
@@ -129,6 +165,8 @@ export class Effects {
     });
     target.texture.name = "EffectComposer.rt1";
     this.composer = new EffectComposer(renderer, target);
+    // The composer clones the first target into its second: only the scene needs the samples, not the passes after it.
+    this.composer.renderTarget2.samples = 0;
     // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
     // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
     this.composer.setPixelRatio(renderer.getPixelRatio());
@@ -170,6 +208,11 @@ export class Effects {
     vignettePass.uniforms.offset.value = vignetteConfig.offset ?? 0.1;
     vignettePass.uniforms.darkness.value = vignetteConfig.darkness ?? 0.8;
     this.composer.addPass(vignettePass);
+
+    // SMAA last, where MSAA is not used: it reads the final colour, so it smooths the faces' edges after bloom and
+    // vignette, in the same linear colour the passes before it write.
+    // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
+    if (this.antialiasing === "smaa" && typeof Image !== "undefined") this.composer.addPass(new SMAAPass());
   }
 
   render(): void {

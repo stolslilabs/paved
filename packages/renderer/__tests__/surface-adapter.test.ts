@@ -216,7 +216,7 @@ describe("RenderSurfaceAdapter integration", () => {
     const { scene, renderer } = createSceneHarness();
     await scene.init({ surface: adapter.surface, settings: { maxPixelRatio: 1 } });
     const effects = (scene as any).effects;
-    effects.setMultisampling = vi.fn();
+    effects.setAntialiasing = vi.fn();
     scene.setSettings({ maxPixelRatio: 2 });
     expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
     expect(renderer.setSize).toHaveBeenLastCalledWith(300, 200, false);
