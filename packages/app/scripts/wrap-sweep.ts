@@ -1,0 +1,297 @@
+/**
+ * WRAP360: every story of the built Storybook, at 360 px (the priority width) and 320 px (small mobile), checked
+ * for text that does not fit. Headless Chromium only (Playwright's headless shell), against `storybook-static`
+ * served on the loopback by this script.
+ *
+ *   bun run --filter @paved/app build-storybook
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--json <file>]
+ *
+ * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
+ * names: `bunx playwright-core install chromium-headless-shell` once.
+ *
+ * Kinds, one row per element:
+ * - `viewport`: the element sticks out of the viewport (left or right), with no clipping or scrolling ancestor.
+ * - `overflow`: the content of a box is wider than the box (`scrollWidth > clientWidth`), the box does not clip
+ *   it, and text leaves the box. Only the innermost such box is listed.
+ * - `clip`: text cut by an ancestor with `overflow: hidden` or `clip` (either axis), without an ellipsis.
+ * - `truncate`: an ellipsis (`text-overflow: ellipsis`) whose full text is not reachable: no `title` or
+ *   `aria-label` on the element or an ancestor. An ellipsis with one of them is fine and not listed.
+ * - `scroll`: a box that scrolls horizontally. Only deliberate scrollers are fine, and they are in ALLOWED.
+ * - `page`: the page itself scrolls horizontally.
+ * - `error`: the story failed to render.
+ *
+ * Exit code 1 when a finding is not in ALLOWED.
+ */
+import { createServer, type Server } from "node:http";
+import { readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, extname, join, normalize, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium, type Page } from "playwright-core";
+
+type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "page" | "error";
+
+interface Finding {
+  story: string;
+  width: number;
+  kind: Kind;
+  element: string;
+}
+
+interface Allowed {
+  /** A story id, or a pattern over story ids. */
+  story: string | RegExp;
+  kind: Kind;
+  /** A part of the element's description, as the table prints it. */
+  element: string;
+}
+
+/**
+ * Deliberate exceptions. Each entry says why; none is a blanket skip of a story, a kind or a width.
+ */
+const ALLOWED: (Allowed & { why: string })[] = [];
+
+const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "scroll"];
+
+function args() {
+  const argv = process.argv.slice(2);
+  const get = (name: string) => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const here = dirname(fileURLToPath(import.meta.url));
+  return {
+    dir: resolve(get("dir") ?? join(here, "..", "storybook-static")),
+    widths: (get("widths") ?? "360,320").split(",").map(Number),
+    filter: get("filter"),
+    workers: Number(get("workers") ?? 4),
+    json: get("json"),
+  };
+}
+
+const TYPES: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".avif": "image/avif",
+  ".webp": "image/webp",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".glb": "model/gltf-binary",
+  ".wasm": "application/wasm",
+  ".txt": "text/plain",
+};
+
+/** The static site, on the loopback, on a free port. */
+async function serve(dir: string): Promise<{ server: Server; origin: string }> {
+  const server = createServer(async (req, res) => {
+    const path = normalize(decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname));
+    let file = join(dir, path);
+    if (!file.startsWith(dir)) {
+      res.writeHead(403).end();
+      return;
+    }
+    try {
+      if ((await stat(file)).isDirectory()) file = join(file, "index.html");
+      const body = await readFile(file);
+      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" }).end(body);
+    } catch {
+      res.writeHead(404).end();
+    }
+  });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("no port");
+  return { server, origin: `http://127.0.0.1:${address.port}` };
+}
+
+/** Runs in the page: the findings of the story on screen, at the current width. */
+function inspect(): { kind: string; element: string }[] {
+  const vw = document.documentElement.clientWidth;
+  const out: { kind: string; element: string; el: Element }[] = [];
+  const clips = (v: string) => v === "hidden" || v === "clip";
+  const scrolls = (v: string) => v === "auto" || v === "scroll";
+
+  const describe = (el: Element) => {
+    const slot = el.getAttribute("data-slot");
+    const label = el.getAttribute("aria-label");
+    const text = (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 48);
+    return `${el.tagName.toLowerCase()}${slot ? `[${slot}]` : ""}${label ? `[aria-label="${label}"]` : ""}${text ? ` "${text}"` : ""}`;
+  };
+
+  /** Hidden for the eye: not laid out, invisible, or the 1 px box of `sr-only`. */
+  const hidden = (el: Element, r: DOMRect, cs: CSSStyleDeclaration) =>
+    cs.display === "none" || cs.visibility === "hidden" || (r.width <= 1 && r.height <= 1) || (cs.position === "absolute" && cs.clip !== "auto" && cs.clip !== "");
+
+  /** Text rects of an element's text nodes, the descendants' included. */
+  const textRects = (el: Element) => {
+    const rects: DOMRect[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.textContent?.trim()) continue;
+      const parent = n.parentElement;
+      if (!parent || parent.closest("svg")) continue;
+      const pcs = getComputedStyle(parent);
+      if (pcs.visibility === "hidden" || pcs.display === "none") continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const r of range.getClientRects()) if (r.width > 0) rects.push(r);
+    }
+    return rects;
+  };
+
+  const skip = new Set<Element>();
+  for (const el of document.body.querySelectorAll("*")) {
+    if (el.closest("svg, canvas, script, style, #storybook-docs, .sb-wrapper, .sb-errordisplay, .sb-preparing-story, .sb-preparing-docs")) continue;
+    if (el.parentElement && skip.has(el.parentElement)) {
+      skip.add(el);
+      continue;
+    }
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    if (hidden(el, r, cs)) {
+      skip.add(el);
+      continue;
+    }
+
+    // Out of the viewport, and nothing clips or scrolls it: the outermost such element only.
+    if (r.right > vw + 1 || r.left < -1) {
+      let held = false;
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const acs = getComputedStyle(a);
+        if (clips(acs.overflowX) || scrolls(acs.overflowX)) held = true;
+      }
+      const parentOut = out.some((f) => f.kind === "viewport" && f.el === el.parentElement);
+      if (!held && !parentOut && cs.position !== "fixed") out.push({ kind: "viewport", element: describe(el), el });
+    }
+
+    if (cs.display === "inline" || el.clientWidth === 0) continue;
+    const wide = el.scrollWidth > el.clientWidth + 1;
+    if (scrolls(cs.overflowX)) {
+      if (wide) out.push({ kind: "scroll", element: describe(el), el });
+    } else if (cs.textOverflow === "ellipsis" && wide) {
+      const reachable = el.closest("[title], [aria-label]");
+      if (!reachable) out.push({ kind: "truncate", element: describe(el), el });
+    } else if (clips(cs.overflowX) || clips(cs.overflowY)) {
+      if (cs.webkitLineClamp && cs.webkitLineClamp !== "none") {
+        // A line clamp ends in an ellipsis: the same rule as text-overflow.
+        if (el.scrollHeight > el.clientHeight + 1 && !el.closest("[title], [aria-label]")) out.push({ kind: "truncate", element: describe(el), el });
+      } else {
+        const box = el.getBoundingClientRect();
+        const cut = textRects(el).some((t) => t.right > box.right + 1 || t.left < box.left - 1 || t.bottom > box.bottom + 1 || t.top < box.top - 1);
+        if (cut) out.push({ kind: "clip", element: describe(el), el });
+      }
+    } else if (wide) {
+      // Only text that leaves the box counts: a hover background bled into the parent's padding (`-mx-2`) does not.
+      const box = el.getBoundingClientRect();
+      if (textRects(el).some((t) => t.right > box.right + 1 || t.left < box.left - 1)) out.push({ kind: "overflow", element: describe(el), el });
+    }
+  }
+
+  // The innermost box of a chain of overflows is the cause; its ancestors only carry it.
+  const result = out.filter((f) => f.kind !== "overflow" || !out.some((g) => g !== f && g.kind === "overflow" && f.el.contains(g.el)));
+  if (document.documentElement.scrollWidth > window.innerWidth + 1) result.push({ kind: "page", element: `html scrollWidth ${document.documentElement.scrollWidth} > ${window.innerWidth}`, el: document.documentElement });
+  return result.map(({ kind, element }) => ({ kind, element }));
+}
+
+/** Opens a story's preview and waits for its render (play function included) to end; resolves to an error message or null. */
+async function render(page: Page, origin: string, id: string): Promise<string | null> {
+  try {
+    await page.goto(`${origin}/iframe.html?viewMode=story&id=${encodeURIComponent(id)}`);
+    const phase = await page.waitForFunction(
+      () => {
+        const render = (window as unknown as { __STORYBOOK_PREVIEW__?: { currentRender?: { phase?: string } } }).__STORYBOOK_PREVIEW__?.currentRender;
+        if (document.body.classList.contains("sb-show-errordisplay")) return "errored";
+        return render && ["finished", "completed", "errored", "aborted"].includes(render.phase ?? "") ? render.phase : false;
+      },
+      undefined,
+      { timeout: 60_000 },
+    );
+    const result = await phase.jsonValue();
+    if (result === "finished" || result === "completed") return null;
+    const message = await page.evaluate(() => document.querySelector(".sb-errordisplay")?.textContent?.trim().slice(0, 200) ?? "");
+    return `${result}: ${message}`;
+  } catch (e) {
+    return (e as Error).message.split("\n")[0];
+  }
+}
+
+/** Fonts loaded, animations done (or 1.5 s), two frames. */
+async function settle(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const end = performance.now() + 1500;
+    while (performance.now() < end && document.getAnimations().some((a) => a.playState === "running" && a.effect?.getComputedTiming().iterations !== Infinity)) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  await page.waitForTimeout(100);
+}
+
+function allowed(f: Finding) {
+  return ALLOWED.some((a) => a.kind === f.kind && (typeof a.story === "string" ? a.story === f.story : a.story.test(f.story)) && f.element.includes(a.element));
+}
+
+async function main() {
+  const opts = args();
+  const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
+  const stories = Object.values(index.entries)
+    .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)))
+    .map((e) => e.id);
+  const { server, origin } = await serve(opts.dir);
+  const browser = await chromium.launch({ headless: true });
+  const started = performance.now();
+  const findings: Finding[] = [];
+  // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
+  // rather than let four of them start together: a fixed shuffle, so two runs take the same order.
+  let seed = 360;
+  const queue = stories
+    .map((id) => ({ id, key: (seed = (seed * 1103515245 + 12345) % 2147483648) }))
+    .sort((a, b) => a.key - b.key)
+    .map((s) => s.id);
+
+  async function worker() {
+    const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    for (let id = queue.shift(); id; id = queue.shift()) {
+      await page.setViewportSize({ width: opts.widths[0], height: 740 });
+      const error = await render(page, origin, id);
+      for (const width of opts.widths) {
+        if (error) {
+          findings.push({ story: id, width, kind: "error", element: error });
+          continue;
+        }
+        await page.setViewportSize({ width, height: 740 });
+        await settle(page);
+        for (const f of await page.evaluate(inspect)) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
+      }
+    }
+    await context.close();
+  }
+
+  try {
+    await Promise.all(Array.from({ length: Math.min(opts.workers, stories.length) }, worker));
+  } finally {
+    await browser.close();
+    server.close();
+  }
+
+  findings.sort((a, b) => a.story.localeCompare(b.story) || b.width - a.width || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+  const open = findings.filter((f) => !allowed(f));
+  const rows = findings.map((f) => [allowed(f) ? "allowed" : "FINDING", f.story, String(f.width), f.kind, f.element]);
+  const head = ["status", "story", "width", "kind", "element"];
+  const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
+  const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
+  if (rows.length) console.log([line(head), line(widths.map((w) => "-".repeat(w))), ...rows.map(line)].join("\n"));
+  const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  console.log(`\n${stories.length} stories x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
+  if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
+  process.exitCode = open.length ? 1 : 0;
+}
+
+await main();
