@@ -36,9 +36,14 @@ use paved::seed::SeedSource;
 use paved::systems::challenge::Challenge;
 use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::setup::{ISetupDispatcherTrait, ISetupGemsDispatcher, ISetupGemsDispatcherTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
+use quiver_achievement::types::task::AchievementTask;
+use quiver_achievement::types::window::AchievementWindow;
+use quiver_quest::types::schedule::QuestSchedule;
+use quiver_quest::types::task::QuestTask;
 use snforge_std::{
     CheatSpan, cheat_caller_address, interact_with_state, start_cheat_block_timestamp_global,
     start_cheat_caller_address, stop_cheat_caller_address, test_address,
@@ -69,15 +74,15 @@ pub const CEILING_FOREST_WORST: u128 = 18714365;
 // i). D-20 took the ranking out of g, k and l, and h (the closing move that did not rank) and j
 // (the `tournament` view) out with it; the ceilings are those set when the ranking was there
 // (`docs/measures/baseline.md`, "After D-20").
-pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
+pub const CEILING_CLOSING_IN_DAY: u128 = 4011404;
 // i: raised at D-24 to measured + 5 % (2,712,368; CORE's decision, reversed if the PM asks for
 // savings): the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20
 // (2,531,088).
-pub const CEILING_CLOSING_AFTER: u128 = 2847987;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 6910289;
+pub const CEILING_CLOSING_AFTER: u128 = 3530987;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 4547964;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7588501;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
-pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
+pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4243648;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
 pub const CEILING_SPAWN_DAILY: u128 = 16869631;
@@ -88,8 +93,18 @@ pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
 pub const CEILING_VAULT_REDEEM: u128 = 3809165;
 pub const CEILING_VAULT_WITHDRAW: u128 = 5499165;
 pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
-// x: g's closing move in a week (gems v1): see the test.
-pub const CEILING_CLOSING_IN_A_WEEK: u128 = 100000000;
+// Gems v1, part 1 (P-61): every paid game over writes Setup's ledger (the day's and the account's
+// slots, and the week's from week 0 on), so g, i, k, l and s are reset to measured + 5 %
+// (`docs/measures/baseline.md`, "After gems v1, part 1"): +645,916 each, +722,746 on k. x and y
+// are g and k in a week (+940,298 on x); z1 to z6, the claims, the free spawn and a free game over.
+pub const CEILING_CLOSING_IN_A_WEEK: u128 = 4320505;
+pub const CEILING_FULL_REPORT_IN_A_WEEK: u128 = 4874485;
+pub const CEILING_CLAIM_QUEST: u128 = 949842;
+pub const CEILING_CLAIM_ACHIEVEMENT: u128 = 578407;
+pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
+pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
+pub const CEILING_SPAWN_FREE: u128 = 6891797;
+pub const CEILING_FREE_GAME_OVER: u128 = 1848236;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the gems' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -502,4 +517,161 @@ fn test_gas_w_vault_transfer() {
     share.transfer(ANYONE(), 1_000 * PAVED);
     let after = get_available_gas();
     report("w_vault_transfer", before - after, CEILING_VAULT_TRANSFER);
+}
+
+// Gems v1, part 1 (P-61): the claims, the free spawn and a free game's game over. Each figure is
+// one external call, read right before and right after it, on `Setup` with the fresh definitions
+// and gems of `scripts/deploy.sh` (13 quests, 10 of them daily; 15 achievements with gems).
+
+/// y. k's full report in a week: the largest paid report, writing the day's, the week's and the
+/// account's slots of the ledger (k runs at time 0, before week 0).
+#[test]
+fn test_gas_y_closing_move_full_report_in_a_week() {
+    start_cheat_block_timestamp_global(WEEK_1);
+    let s = scored_game();
+    let mut game = s.store.game(s.game_id);
+    game.score = 4500;
+    game.counts = GameImpl::counts_of(20, 5, 3, 4);
+    s.store.set_game(game);
+    let gas = surrender(@s);
+    assert(s.store.game(s.game_id).score == 4500, 'Gas: score');
+    report("y_closing_move_full_report_in_a_week", gas, CEILING_FULL_REPORT_IN_A_WEEK);
+}
+
+/// Wednesday 1970-01-14 (day 13, week 1), 100 s in.
+const GEMS_TIME: u64 = 13 * 86400 + 100;
+const GEMS_DAY: u64 = 13;
+const GEMS_WEEK: u64 = 1;
+
+/// The fresh quests (`id task total start duration interval gems`) and achievements (`id task
+/// total points`; gems = points, none for 9).
+fn define_fresh_gems(systems: @Systems) {
+    let setup = *systems.setup.contract_address;
+    let gems = ISetupGemsDispatcher { contract_address: setup };
+    start_cheat_caller_address(setup, OWNER());
+    let quests: Array<(u32, u32, u32, u64, u32, u32, u8)> = array![
+        (1, 1, 1, 0, 86400, 86400, 5), (5, 2, 4, 0, 86400, 259200, 5),
+        (6, 2, 8, 86400, 86400, 259200, 10), (7, 2, 12, 172800, 86400, 259200, 15),
+        (8, 4, 2, 0, 86400, 259200, 5), (9, 4, 3, 86400, 86400, 259200, 10),
+        (10, 4, 4, 172800, 86400, 259200, 15), (11, 3, 2000, 0, 86400, 259200, 5),
+        (12, 3, 5000, 86400, 86400, 259200, 10), (13, 3, 8000, 172800, 86400, 259200, 15),
+        (14, 4, 5, 345600, 604800, 604800, 15), (15, 2, 30, 345600, 604800, 604800, 15),
+        (16, 3, 20000, 345600, 604800, 604800, 15),
+    ];
+    for (id, task, total, start, duration, interval, amount) in quests {
+        systems
+            .setup
+            .define_quest(
+                id,
+                QuestSchedule { start, end: 0, duration, interval },
+                array![QuestTask { task_id: task, total }].span(),
+                array![].span(),
+            );
+        gems.set_quest_gems(id, amount);
+    }
+    let achievements: Array<(u32, u32, u32, u16)> = array![
+        (1, 10, 1, 10), (2, 1, 1, 10), (3, 1, 10, 20), (4, 1, 50, 40), (5, 6, 1, 20),
+        (6, 4, 10, 20), (7, 5, 1, 30), (8, 7, 1, 30), (9, 8, 1, 50), (10, 4, 50, 40),
+        (11, 5, 10, 50), (12, 6, 10, 40), (13, 7, 10, 50), (14, 7, 25, 80), (15, 1, 250, 60),
+        (16, 1, 1000, 80),
+    ];
+    for (id, task, total, points) in achievements {
+        systems
+            .setup
+            .define_achievement(
+                id,
+                AchievementWindow { start: 0, end: 0 },
+                array![AchievementTask { task_id: task, total }].span(),
+                points,
+            );
+        if id != 9 {
+            gems.set_achievement_gems(id, points.try_into().unwrap());
+        }
+    }
+    stop_cheat_caller_address(setup);
+}
+
+/// `PLAYER`'s paid game on `GEMS_TIME`, the fresh gems set, and the game ended on its last
+/// discard with every daily and weekly target met (30 structures, 5 forests, 20,000 points).
+fn gems_scenario() -> (Systems, TestStore, ISetupGemsDispatcher) {
+    start_cheat_block_timestamp_global(GEMS_TIME);
+    let (store, systems, context) = setup::spawn_game(Mode::Challenge);
+    define_fresh_gems(@systems);
+    let mut game = store.game(context.game_id);
+    game.score = 20050;
+    game.counts = GameImpl::counts_of(30, 5, 0, 0);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    store.set_game(game);
+    systems.challenge.discard(context.game_id);
+    let gems = ISetupGemsDispatcher { contract_address: systems.setup.contract_address };
+    start_cheat_caller_address(systems.setup.contract_address, PLAYER());
+    (systems, store, gems)
+}
+
+/// z1. `claim_quest` of a daily quest (Public Works, day 13): the quest's slot, the day's slot and
+/// the account read, two writes, one event.
+#[test]
+fn test_gas_z1_claim_quest() {
+    let (_, _, gems) = gems_scenario();
+    let before = get_available_gas();
+    gems.claim_quest(6, GEMS_DAY);
+    let after = get_available_gas();
+    report("z1_claim_quest", before - after, CEILING_CLAIM_QUEST);
+}
+
+/// z2. `claim_achievement` (Settler I): the achievement's slot and the account, one write.
+#[test]
+fn test_gas_z2_claim_achievement() {
+    let (_, _, gems) = gems_scenario();
+    let before = get_available_gas();
+    gems.claim_achievement(2);
+    let after = get_available_gas();
+    report("z2_claim_achievement", before - after, CEILING_CLAIM_ACHIEVEMENT);
+}
+
+/// z3. `claim_daily_credit` on day 13: the daily list, its 10 quests, the day and the account.
+#[test]
+fn test_gas_z3_claim_daily_credit() {
+    let (_, _, gems) = gems_scenario();
+    let before = get_available_gas();
+    gems.claim_daily_credit(GEMS_DAY);
+    let after = get_available_gas();
+    report("z3_claim_daily_credit", before - after, CEILING_CLAIM_DAILY_CREDIT);
+}
+
+/// z4. `claim_weekly_credit` of week 1: the weekly list, its 3 quests, the week and the account.
+#[test]
+fn test_gas_z4_claim_weekly_credit() {
+    let (_, _, gems) = gems_scenario();
+    let before = get_available_gas();
+    gems.claim_weekly_credit(GEMS_WEEK);
+    let after = get_available_gas();
+    report("z4_claim_weekly_credit", before - after, CEILING_CLAIM_WEEKLY_CREDIT);
+}
+
+/// z5. `spawn_free`: the wiring, the game, `Setup.spend_credit`, the mint; against m, the paid
+/// spawn.
+#[test]
+fn test_gas_z5_spawn_free() {
+    let (systems, _, gems) = gems_scenario();
+    gems.claim_daily_credit(GEMS_DAY);
+    stop_cheat_caller_address(systems.setup.contract_address);
+    let before = get_available_gas();
+    systems.challenge.spawn_free();
+    let after = get_available_gas();
+    report("z5_spawn_free", before - after, CEILING_SPAWN_FREE);
+}
+
+/// z6. A free game's game over (a surrender of a fresh free game): the report of its achievement
+/// entries only, no `Economy.record`; against g.
+#[test]
+fn test_gas_z6_free_game_over() {
+    let (systems, _, gems) = gems_scenario();
+    gems.claim_daily_credit(GEMS_DAY);
+    stop_cheat_caller_address(systems.setup.contract_address);
+    let game_id = systems.challenge.spawn_free();
+    let before = get_available_gas();
+    systems.challenge.surrender(game_id);
+    let after = get_available_gas();
+    report("z6_free_game_over", before - after, CEILING_FREE_GAME_OVER);
 }

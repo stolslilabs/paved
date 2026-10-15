@@ -25,12 +25,11 @@ use snforge_std::{
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
-use starknet::storage_access::StorePacking;
 
 // Fixtures
 
 pub fn REPORTER() -> ContractAddress {
-    starknet::contract_address_const::<'REPORTER'>()
+    'REPORTER'.try_into().unwrap()
 }
 
 /// The fresh deployment's quests (`scripts/deploy.sh`, `FRESH_QUESTS`): `id task total start
@@ -383,6 +382,7 @@ fn test_gems_schedule_shapes() {
 // The owner's settings (3.2, 7.1)
 
 #[test]
+#[feature("safe_dispatcher")]
 fn test_gems_set_quest_gems_lists_and_emits() {
     let setup = setup_alone();
     define_fresh(setup);
