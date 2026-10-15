@@ -943,6 +943,22 @@ to Home).
 | theme | — | — | — | the chosen theme |
 | settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
 
+**What gems change (P-61, SC3).** The owner's gems (`docs/architecture/gems-v1.md`) are an account balance in
+`Setup`, earned by claims and packs and spent on tile skins. SC3 builds them as scenes on typed mocks, no wiring:
+**purchase** gains a Gems tab beside the game's stake, with the four packs (50 for $5, 100 for $9, 500 for $40,
+1,000 for $70, the $0.20 reference struck through, -50 % to -65 %), confirmed and pending as a game is (approve +
+`buy_pack`); **theme** gains a theme's 19 tile skins, each priced by the rarity table (50 to 100 gems) and not owned
+(Buy), owned or active, at most one theme per plan, the switches batched and saved in one `set_skins` write;
+**quests** show each quest's gems (5, 10, 15; weeklies 15), a Claim per row and Claim all, past days still claimable,
+and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
+`claim_weekly_credit`), then a credit counter and Play free; **achievements** show their gems (their points; On the
+Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
+(`spawn_free`); the **leaderboard** marks a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
+`components/containers/gem-types.ts`, provisional until CORE's gems ABI. Two props sit beside the hooks' types
+rather than inside them, so `src/data/scene-types.ts` holds: the scenes' gem props are optional, and the leaderboard's
+free mark is a list of player ids (`free`), not a field of `LeaderboardEntry`.
+
 ### 6.5 What waits for CORE (P-57 B9)
 
 - **The 24 h validity.** Read: today a game is never blocked; only its reward is. `economy.cairo:701`
@@ -1259,6 +1275,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`Economy.split_bps`, V1b: burn and Vault, the referral out of the Vault's part), the 24 h validity and the threshold | 3 d |
 | SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers. **Done** (2026-10-14) | 2.5 d |
+| SC3 | The gems scenes (P-61, section 6.3's note): the gem balance, the packs on purchase, the tile skins on theme, the gem claims and free games on quests and achievements, Play free on home and play, the free mark on the leaderboard, on `src/mocks/gems.ts` (provisional until CORE's ABI). **Done** (2026-10-15). P9 (quests, achievements), P7b (purchase's packs) and P11b (theme's skins) wire it once CORE's three gems PRs land: (1) ledger, claims, free credits, `spawn_free`; (2) packs; (3) skins | 1.5 d |
 | SC2b | The quests scene with CORE v2a's rotation (a different daily subset live each day), weekly quests, a countdown to the end of the day and of the week, and a toast when a quest completes (`quests-v2.md` 1.2, 2.1, 1.5). **Done** (2026-10-14) | 1 d |
 
 **Wiring the scenes**
