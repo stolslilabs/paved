@@ -64,7 +64,7 @@ pub mod HostableComponent {
             self.spawn_with(mode, @TokenSeed { contract: get_contract_address() }, false)
         }
 
-        /// A game of `mode` for the caller, its seed from `source`. A `free` game (gems v1, 4.1)
+        /// A game of `mode` for the caller, its seed from `source`. A `free` game (cobbles v1, 4.1)
         /// carries the free mark (`GameImpl::is_free`) and is spawned with `GameSpawned.price` 0,
         /// the indexer's mark of a free game.
         fn spawn_with<S, +SeedSource<S>>(

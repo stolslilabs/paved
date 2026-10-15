@@ -36,7 +36,9 @@ use paved::seed::SeedSource;
 use paved::systems::challenge::Challenge;
 use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
-use paved::systems::setup::{ISetupDispatcherTrait, ISetupGemsDispatcher, ISetupGemsDispatcherTrait};
+use paved::systems::setup::{
+    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
+};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -93,9 +95,9 @@ pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
 pub const CEILING_VAULT_REDEEM: u128 = 3809165;
 pub const CEILING_VAULT_WITHDRAW: u128 = 5499165;
 pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
-// Gems v1, part 1 (P-61): every paid game over writes Setup's ledger (the day's and the account's
-// slots, and the week's from week 0 on), so g, i, k, l and s are reset to measured + 5 %
-// (`docs/measures/baseline.md`, "After gems v1, part 1"): +645,916 each, +722,746 on k. x and y
+// Cobbles v1, part 1 (P-61): every paid game over writes Setup's ledger (the day's and the
+// account's slots, and the week's from week 0 on), so g, i, k, l and s are reset to measured + 5 %
+// (`docs/measures/baseline.md`, "After cobbles v1, part 1"): +645,916 each, +722,746 on k. x and y
 // are g and k in a week (+940,298 on x); z1 to z6, the claims, the free spawn and a free game over.
 pub const CEILING_CLOSING_IN_A_WEEK: u128 = 4320505;
 pub const CEILING_FULL_REPORT_IN_A_WEEK: u128 = 4874485;
@@ -105,7 +107,7 @@ pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
 pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
 pub const CEILING_SPAWN_FREE: u128 = 6891797;
 pub const CEILING_FREE_GAME_OVER: u128 = 1848236;
-/// Monday 1970-01-12 00:00 UTC: the start of week 1 of the gems' calendar.
+/// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
@@ -369,10 +371,10 @@ fn test_gas_g_closing_move_in_its_day() {
     report("g_closing_move_in_its_day", gas, CEILING_CLOSING_IN_DAY);
 }
 
-/// x. g's closing move in a week (gems v1, P-61): the game spawned and ended on Monday 1970-01-12
-/// (`WEEK_1`, the start of week 1), so the report writes the day's, the week's and the account's
-/// slots of `Setup`'s ledger. g runs at time 0, before week 0 starts (345,600), so its report has
-/// no week to write.
+/// x. g's closing move in a week (cobbles v1, P-61): the game spawned and ended on Monday
+/// 1970-01-12 (`WEEK_1`, the start of week 1), so the report writes the day's, the week's and the
+/// account's slots of `Setup`'s ledger. g runs at time 0, before week 0 starts (345,600), so its
+/// report has no week to write.
 #[test]
 fn test_gas_x_closing_move_in_a_week() {
     start_cheat_block_timestamp_global(WEEK_1);
@@ -519,9 +521,9 @@ fn test_gas_w_vault_transfer() {
     report("w_vault_transfer", before - after, CEILING_VAULT_TRANSFER);
 }
 
-// Gems v1, part 1 (P-61): the claims, the free spawn and a free game's game over. Each figure is
+// Cobbles v1, part 1 (P-61): the claims, the free spawn and a free game's game over. Each figure is
 // one external call, read right before and right after it, on `Setup` with the fresh definitions
-// and gems of `scripts/deploy.sh` (13 quests, 10 of them daily; 15 achievements with gems).
+// and cobbles of `scripts/deploy.sh` (13 quests, 10 of them daily; 15 achievements with cobbles).
 
 /// y. k's full report in a week: the largest paid report, writing the day's, the week's and the
 /// account's slots of the ledger (k runs at time 0, before week 0).
@@ -539,15 +541,15 @@ fn test_gas_y_closing_move_full_report_in_a_week() {
 }
 
 /// Wednesday 1970-01-14 (day 13, week 1), 100 s in.
-const GEMS_TIME: u64 = 13 * 86400 + 100;
-const GEMS_DAY: u64 = 13;
-const GEMS_WEEK: u64 = 1;
+const COBBLES_TIME: u64 = 13 * 86400 + 100;
+const COBBLES_DAY: u64 = 13;
+const COBBLES_WEEK: u64 = 1;
 
-/// The fresh quests (`id task total start duration interval gems`) and achievements (`id task
-/// total points`; gems = points, none for 9).
-fn define_fresh_gems(systems: @Systems) {
+/// The fresh quests (`id task total start duration interval cobbles`) and achievements (`id task
+/// total points`; cobbles = points, none for 9).
+fn define_fresh_cobbles(systems: @Systems) {
     let setup = *systems.setup.contract_address;
-    let gems = ISetupGemsDispatcher { contract_address: setup };
+    let cobbles = ISetupCobblesDispatcher { contract_address: setup };
     start_cheat_caller_address(setup, OWNER());
     let quests: Array<(u32, u32, u32, u64, u32, u32, u8)> = array![
         (1, 1, 1, 0, 86400, 86400, 5), (5, 2, 4, 0, 86400, 259200, 5),
@@ -567,7 +569,7 @@ fn define_fresh_gems(systems: @Systems) {
                 array![QuestTask { task_id: task, total }].span(),
                 array![].span(),
             );
-        gems.set_quest_gems(id, amount);
+        cobbles.set_quest_cobbles(id, amount);
     }
     let achievements: Array<(u32, u32, u32, u16)> = array![
         (1, 10, 1, 10), (2, 1, 1, 10), (3, 1, 10, 20), (4, 1, 50, 40), (5, 6, 1, 20),
@@ -585,36 +587,36 @@ fn define_fresh_gems(systems: @Systems) {
                 points,
             );
         if id != 9 {
-            gems.set_achievement_gems(id, points.try_into().unwrap());
+            cobbles.set_achievement_cobbles(id, points.try_into().unwrap());
         }
     }
     stop_cheat_caller_address(setup);
 }
 
-/// `PLAYER`'s paid game on `GEMS_TIME`, the fresh gems set, and the game ended on its last
+/// `PLAYER`'s paid game on `COBBLES_TIME`, the fresh cobbles set, and the game ended on its last
 /// discard with every daily and weekly target met (30 structures, 5 forests, 20,000 points).
-fn gems_scenario() -> (Systems, TestStore, ISetupGemsDispatcher) {
-    start_cheat_block_timestamp_global(GEMS_TIME);
+fn cobbles_scenario() -> (Systems, TestStore, ISetupCobblesDispatcher) {
+    start_cheat_block_timestamp_global(COBBLES_TIME);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
-    define_fresh_gems(@systems);
+    define_fresh_cobbles(@systems);
     let mut game = store.game(context.game_id);
     game.score = 20050;
     game.counts = GameImpl::counts_of(30, 5, 0, 0);
     game.tile_limit = game.tile_count.try_into().unwrap();
     store.set_game(game);
     systems.challenge.discard(context.game_id);
-    let gems = ISetupGemsDispatcher { contract_address: systems.setup.contract_address };
+    let cobbles = ISetupCobblesDispatcher { contract_address: systems.setup.contract_address };
     start_cheat_caller_address(systems.setup.contract_address, PLAYER());
-    (systems, store, gems)
+    (systems, store, cobbles)
 }
 
 /// z1. `claim_quest` of a daily quest (Public Works, day 13): the quest's slot, the day's slot and
 /// the account read, two writes, one event.
 #[test]
 fn test_gas_z1_claim_quest() {
-    let (_, _, gems) = gems_scenario();
+    let (_, _, cobbles) = cobbles_scenario();
     let before = get_available_gas();
-    gems.claim_quest(6, GEMS_DAY);
+    cobbles.claim_quest(6, COBBLES_DAY);
     let after = get_available_gas();
     report("z1_claim_quest", before - after, CEILING_CLAIM_QUEST);
 }
@@ -622,9 +624,9 @@ fn test_gas_z1_claim_quest() {
 /// z2. `claim_achievement` (Settler I): the achievement's slot and the account, one write.
 #[test]
 fn test_gas_z2_claim_achievement() {
-    let (_, _, gems) = gems_scenario();
+    let (_, _, cobbles) = cobbles_scenario();
     let before = get_available_gas();
-    gems.claim_achievement(2);
+    cobbles.claim_achievement(2);
     let after = get_available_gas();
     report("z2_claim_achievement", before - after, CEILING_CLAIM_ACHIEVEMENT);
 }
@@ -632,9 +634,9 @@ fn test_gas_z2_claim_achievement() {
 /// z3. `claim_daily_credit` on day 13: the daily list, its 10 quests, the day and the account.
 #[test]
 fn test_gas_z3_claim_daily_credit() {
-    let (_, _, gems) = gems_scenario();
+    let (_, _, cobbles) = cobbles_scenario();
     let before = get_available_gas();
-    gems.claim_daily_credit(GEMS_DAY);
+    cobbles.claim_daily_credit(COBBLES_DAY);
     let after = get_available_gas();
     report("z3_claim_daily_credit", before - after, CEILING_CLAIM_DAILY_CREDIT);
 }
@@ -642,9 +644,9 @@ fn test_gas_z3_claim_daily_credit() {
 /// z4. `claim_weekly_credit` of week 1: the weekly list, its 3 quests, the week and the account.
 #[test]
 fn test_gas_z4_claim_weekly_credit() {
-    let (_, _, gems) = gems_scenario();
+    let (_, _, cobbles) = cobbles_scenario();
     let before = get_available_gas();
-    gems.claim_weekly_credit(GEMS_WEEK);
+    cobbles.claim_weekly_credit(COBBLES_WEEK);
     let after = get_available_gas();
     report("z4_claim_weekly_credit", before - after, CEILING_CLAIM_WEEKLY_CREDIT);
 }
@@ -653,8 +655,8 @@ fn test_gas_z4_claim_weekly_credit() {
 /// spawn.
 #[test]
 fn test_gas_z5_spawn_free() {
-    let (systems, _, gems) = gems_scenario();
-    gems.claim_daily_credit(GEMS_DAY);
+    let (systems, _, cobbles) = cobbles_scenario();
+    cobbles.claim_daily_credit(COBBLES_DAY);
     stop_cheat_caller_address(systems.setup.contract_address);
     let before = get_available_gas();
     systems.challenge.spawn_free();
@@ -666,8 +668,8 @@ fn test_gas_z5_spawn_free() {
 /// entries only, no `Economy.record`; against g.
 #[test]
 fn test_gas_z6_free_game_over() {
-    let (systems, _, gems) = gems_scenario();
-    gems.claim_daily_credit(GEMS_DAY);
+    let (systems, _, cobbles) = cobbles_scenario();
+    cobbles.claim_daily_credit(COBBLES_DAY);
     stop_cheat_caller_address(systems.setup.contract_address);
     let game_id = systems.challenge.spawn_free();
     let before = get_available_gas();

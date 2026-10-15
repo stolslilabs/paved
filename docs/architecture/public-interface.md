@@ -354,8 +354,8 @@ working.
     pauses. An indexer that refuses unknown selectors must know the three events before the owner first calls
     `set_guardian`.
 
-- **Gems v1, part 1** (P-61, `docs/architecture/gems-v1.md`; below, "Gems v1, part 1: `Setup` and `Challenge`").
-  - `Setup` gains the interface `ISetupGems`: seven entry points and five views, and five events. `Challenge` gains
+- **Cobbles v1, part 1** (P-61, `docs/architecture/cobbles-v1.md`; below, "Cobbles v1, part 1: `Setup` and `Challenge`").
+  - `Setup` gains the interface `ISetupCobbles`: seven entry points and five views, and five events. `Challenge` gains
     `spawn_free() -> u32`. `contracts/abis/Setup.json` and `Challenge.json` are regenerated. No entry point changes
     signature and none is removed.
   - A free game's `GameSpawned.price` is 0 (a paid game's never is). Its game over emits `GameOver` as any game's, then
@@ -1038,21 +1038,21 @@ minters) reverts and emits nothing.
 `Collection`'s events are now `Transfer { #[key] from, #[key] to, #[key] token_id }` (at mint only), `MintersSet`, the two
 ownership events and `Upgraded` (`Collection.json`). A consumer that halts on an unknown selector must know `MintersSet`.
 
-## Gems v1, part 1: `Setup` and `Challenge`
+## Cobbles v1, part 1: `Setup` and `Challenge`
 
-Built in this branch from `docs/architecture/gems-v1.md` (P-61), part 1: the ledger, the gem claims, the free-game credits and
-the free spawn. Packs (part 2) and skins (part 3) come in their own pull requests. Gems and credits are a balance per account in
+Built in this branch from `docs/architecture/cobbles-v1.md` (P-61), part 1: the ledger, the cobble claims, the free-game credits and
+the free spawn. Packs (part 2) and skins (part 3) come in their own pull requests. Cobbles and credits are a balance per account in
 `Setup`, with no transfer: no entry point moves them between accounts or acts for another address.
 
-### `Setup` (`paved::systems::setup::ISetupGems`, impl `SetupGemsImpl`)
+### `Setup` (`paved::systems::setup::ISetupCobbles`, impl `SetupCobblesImpl`)
 
 | Entry point | Who | What | Errors |
 |---|---|---|---|
-| `set_quest_gems(quest_id: u32, gems: u8)` | owner | sets the gems of a defined, live quest, 5 to 15 (0 removes them); copies its schedule and task; the quest joins its kind's list (at most 15) | `'Setup: invalid id'` (not 1 to 63), `'Setup: invalid gems'`, `'Quest: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1 to 4), `'Setup: invalid schedule'` (neither daily nor weekly, or an end), `'Setup: list full'` |
-| `set_achievement_gems(achievement_id: u32, gems: u8)` | owner | the same for an achievement, 10 to 90 (0 removes them) | `'Setup: invalid id'`, `'Setup: invalid gems'`, `'Achievement: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1, 4, 5, 6, 7 or 10: On the Podium, task 8, has none), `'Setup: total too high'` (above 65,535), `'Setup: achievement windowed'` |
-| `claim_quest(quest_id: u32, period: u64)` | the player, for itself | credits the quest's gems once for `period`, its day number (daily) or week number (weekly), when the period's sum of its task reaches its total | `'Setup: no gems'`, `'Setup: not live'`, `'Setup: not completed'`, `'Setup: claimed'` |
-| `claim_achievement(achievement_id: u32)` | the player, for itself | credits the achievement's gems once, when its lifetime count reaches its total (First Stone: `claim_tutorial` done) | `'Setup: no gems'`, `'Setup: not completed'`, `'Setup: claimed'` |
-| `claim_daily_credit(day: u64)` | the player, for itself | one free-game credit, once per day, when every daily quest with gems live that day is completed | `'Setup: credit claimed'`, `'Setup: not completed'`, `'Setup: no live quest'` |
+| `set_quest_cobbles(quest_id: u32, cobbles: u8)` | owner | sets the cobbles of a defined, live quest, 5 to 15 (0 removes them); copies its schedule and task; the quest joins its kind's list (at most 15) | `'Setup: invalid id'` (not 1 to 63), `'Setup: invalid cobbles'`, `'Quest: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1 to 4), `'Setup: invalid schedule'` (neither daily nor weekly, or an end), `'Setup: list full'` |
+| `set_achievement_cobbles(achievement_id: u32, cobbles: u8)` | owner | the same for an achievement, 10 to 90 (0 removes them) | `'Setup: invalid id'`, `'Setup: invalid cobbles'`, `'Achievement: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1, 4, 5, 6, 7 or 10: On the Podium, task 8, has none), `'Setup: total too high'` (above 65,535), `'Setup: achievement windowed'` |
+| `claim_quest(quest_id: u32, period: u64)` | the player, for itself | credits the quest's cobbles once for `period`, its day number (daily) or week number (weekly), when the period's sum of its task reaches its total | `'Setup: no cobbles'`, `'Setup: not live'`, `'Setup: not completed'`, `'Setup: claimed'` |
+| `claim_achievement(achievement_id: u32)` | the player, for itself | credits the achievement's cobbles once, when its lifetime count reaches its total (First Stone: `claim_tutorial` done) | `'Setup: no cobbles'`, `'Setup: not completed'`, `'Setup: claimed'` |
+| `claim_daily_credit(day: u64)` | the player, for itself | one free-game credit, once per day, when every daily quest with cobbles live that day is completed | `'Setup: credit claimed'`, `'Setup: not completed'`, `'Setup: no live quest'` |
 | `claim_weekly_credit(week: u64)` | the player, for itself | the same for the weekly quests and the week | the same |
 | `spend_credit(player_id: felt252, game_id: u32)` | an allowlisted reporter (`Challenge`) | one credit less, for the free game `game_id` | `'Quest: not reporter'`, `'Setup: no credit'` |
 
@@ -1060,11 +1060,11 @@ Views (anyone):
 
 | View | Returns |
 |---|---|
-| `account(player_id) -> Account` | `gems: u64`, `credits: u16`, the lifetime counts `games`, `forests`, `wonders`, `big`, `high` (`u16`, saturating), `achievements_claimed: u64` (bit `i`: achievement `i` claimed) |
+| `account(player_id) -> Account` | `cobbles: u64`, `credits: u16`, the lifetime counts `games`, `forests`, `wonders`, `big`, `high` (`u16`, saturating), `achievements_claimed: u64` (bit `i`: achievement `i` claimed) |
 | `day_progress(player_id, day) -> Progress` | the sums of the paid game overs that ended in that day: `games`, `structures`, `forests` (`u16`), `points` (`u32`), saturating; `claimed: u64` (bit `i`: quest `i` claimed for the day), `credit: bool` |
 | `week_progress(player_id, week) -> Progress` | the same for the week |
-| `quest_gems(quest_id) -> QuestGems` | `gems`, `kind` (1 daily, 2 weekly), `task`, `total`, `start`, `interval`; all 0 for a quest with no gems |
-| `achievement_gems(achievement_id) -> AchievementGems` | `gems`, `task`, `total` |
+| `quest_cobbles(quest_id) -> QuestCobbles` | `cobbles`, `kind` (1 daily, 2 weekly), `task`, `total`, `start`, `interval`; all 0 for a quest with no cobbles |
+| `achievement_cobbles(achievement_id) -> AchievementCobbles` | `cobbles`, `task`, `total` |
 
 **The calendar.** A day is `t / 86,400` (Paved's day id). A week runs Monday to Sunday UTC: week `w` starts at
 `345,600 + w x 604,800`, week 0 on Monday 1970-01-05. `t` is the block time of the game over: a game counts for the day and the
@@ -1072,15 +1072,15 @@ week it ends in. Past periods stay claimable with no deadline.
 
 **`report`** (same ABI) now also writes the ledger: the quest entries to the day and the week, the achievement entries to the
 account. A free game's report has no quest entries. **`retire_quest`** and **`retire_achievement`** (same ABI) also clear the
-gems, emitting `QuestGemsSet` or `AchievementGemsSet` with `gems: 0`.
+cobbles, emitting `QuestCobblesSet` or `AchievementCobblesSet` with `cobbles: 0`.
 
 Events of `Setup` (flat variants: the selector is the name):
 
 | Event | Keys | Data |
 |---|---|---|
-| `QuestGemsSet` | `quest_id: u32` | `gems: u8`, `kind: u8` (1 daily, 2 weekly) |
-| `AchievementGemsSet` | `achievement_id: u32` | `gems: u8` |
-| `GemsClaimed` | `player_id: felt252` | `kind: u8` (1 quest, 2 achievement), `id: u32`, `period: u64` (0 for an achievement), `gems: u8`, `balance: u64` |
+| `QuestCobblesSet` | `quest_id: u32` | `cobbles: u8`, `kind: u8` (1 daily, 2 weekly) |
+| `AchievementCobblesSet` | `achievement_id: u32` | `cobbles: u8` |
+| `CobblesClaimed` | `player_id: felt252` | `kind: u8` (1 quest, 2 achievement), `id: u32`, `period: u64` (0 for an achievement), `cobbles: u8`, `balance: u64` |
 | `CreditClaimed` | `player_id: felt252` | `kind: u8` (1 daily, 2 weekly), `period: u64`, `credits: u16` |
 | `CreditSpent` | `player_id: felt252` | `game_id: u32`, `credits: u16` |
 
@@ -1102,4 +1102,4 @@ game has no `Purchased`, `Recorded` or `Settled`, and `Economy.settle` refuses i
 final score and end come from `GameOver`, and the daily leaderboard, which ranks it like any Challenge game (P-61), must rank
 from `GameOver` (or join it) for free games. `Recorded.expired` has no free-game counterpart: an expired free game ends by a
 surrender, whose `GameOver` has `day_id` 0, and pays nothing, as every free game (no PAVED, no burn). Tested in
-`contracts/src/tests/e2e/gems.cairo` (`test_gems_free_game_over_*`, one per way it ends).
+`contracts/src/tests/e2e/cobbles.cairo` (`test_cobbles_free_game_over_*`, one per way it ends).

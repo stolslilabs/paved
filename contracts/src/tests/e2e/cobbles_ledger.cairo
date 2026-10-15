@@ -1,17 +1,18 @@
-//! Gems v1, part 1 (P-61, `docs/architecture/gems-v1.md`): the ledger of `Setup` on its own, with
-//! a test reporter in place of `Challenge` (7.1, 7.4). The packing of every slot, the calendar,
-//! the owner's settings, the claims, the credits and their spend, and the audit properties of 7.5
-//! that part 1 carries (A1, A2, A3, A5, A6), each in a test named after it. The paths through the
-//! real `Challenge` (the report of a game over, the free game: A7, A8) are `e2e::gems`.
+//! Cobbles v1, part 1 (P-61, `docs/architecture/cobbles-v1.md`): the ledger of `Setup` on its own,
+//! with a test reporter in place of `Challenge` (7.1, 7.4). The packing of every slot, the
+//! calendar, the owner's settings, the claims, the credits and their spend, and the audit
+//! properties of 7.5 that part 1 carries (A1, A2, A3, A5, A6), each in a test named after it. The
+//! paths through the real `Challenge` (the report of a game over, the free game: A7, A8) are
+//! `e2e::cobbles`.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::num::traits::Bounded;
 use paved::systems::setup::{
-    Account, AccountPacking, AchievementGems, AchievementGemsPacking, DAILY, DAY, ISetupDispatcher,
-    ISetupDispatcherTrait, ISetupGemsDispatcher, ISetupGemsDispatcherTrait,
-    ISetupGemsSafeDispatcher, ISetupGemsSafeDispatcherTrait, ISetupSafeDispatcherTrait, Progress,
-    ProgressPacking, QuestGems, QuestGemsPacking, QuestGemsTrait, Setup, WEEK, WEEKLY, WEEK_START,
-    list_ids, list_word, schedule_kind, week_of,
+    Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, DAILY, DAY,
+    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupCobblesSafeDispatcher,
+    ISetupCobblesSafeDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
+    ISetupSafeDispatcherTrait, Progress, ProgressPacking, QuestCobbles, QuestCobblesPacking,
+    QuestCobblesTrait, Setup, WEEK, WEEKLY, WEEK_START, list_ids, list_word, schedule_kind, week_of,
 };
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
@@ -33,7 +34,7 @@ pub fn REPORTER() -> ContractAddress {
 }
 
 /// The fresh deployment's quests (`scripts/deploy.sh`, `FRESH_QUESTS`): `id task total start
-/// duration interval`, and their gems (gems-v1.md, 3.1).
+/// duration interval`, and their cobbles (cobbles-v1.md, 3.1).
 pub fn fresh_quests() -> Array<(u32, u32, u32, u64, u32, u32, u8)> {
     array![
         (1, 1, 1, 0, 86400, 86400, 5), (5, 2, 4, 0, 86400, 259200, 5),
@@ -46,8 +47,8 @@ pub fn fresh_quests() -> Array<(u32, u32, u32, u64, u32, u32, u8)> {
     ]
 }
 
-/// The fresh deployment's achievements (`FRESH_ACHIEVEMENTS`): `id task total points`; their gems
-/// are their points, but for On the Podium (9), which has none in v1.
+/// The fresh deployment's achievements (`FRESH_ACHIEVEMENTS`): `id task total points`; their
+/// cobbles are their points, but for On the Podium (9), which has none in v1.
 pub fn fresh_achievements() -> Array<(u32, u32, u32, u16)> {
     array![
         (1, 10, 1, 10), (2, 1, 1, 10), (3, 1, 10, 20), (4, 1, 50, 40), (5, 6, 1, 20),
@@ -90,26 +91,26 @@ pub fn define_fresh(setup: ContractAddress) {
     stop_cheat_caller_address(setup);
 }
 
-/// Sets the gems of every fresh quest and achievement (but 9), as the owner.
-pub fn set_fresh_gems(setup: ContractAddress) {
-    let gems = ISetupGemsDispatcher { contract_address: setup };
+/// Sets the cobbles of every fresh quest and achievement (but 9), as the owner.
+pub fn set_fresh_cobbles(setup: ContractAddress) {
+    let cobbles = ISetupCobblesDispatcher { contract_address: setup };
     start_cheat_caller_address(setup, OWNER());
     for (id, _, _, _, _, _, amount) in fresh_quests() {
-        gems.set_quest_gems(id, amount);
+        cobbles.set_quest_cobbles(id, amount);
     }
     for (id, _, _, points) in fresh_achievements() {
         if id != 9 {
-            gems.set_achievement_gems(id, points.try_into().unwrap());
+            cobbles.set_achievement_cobbles(id, points.try_into().unwrap());
         }
     }
     stop_cheat_caller_address(setup);
 }
 
-/// A `Setup` with the fresh definitions and gems.
+/// A `Setup` with the fresh definitions and cobbles.
 pub fn fresh_setup() -> ContractAddress {
     let setup = setup_alone();
     define_fresh(setup);
-    set_fresh_gems(setup);
+    set_fresh_cobbles(setup);
     setup
 }
 
@@ -156,12 +157,12 @@ pub fn paid_report(
     );
 }
 
-fn gems_of(setup: ContractAddress) -> ISetupGemsDispatcher {
-    ISetupGemsDispatcher { contract_address: setup }
+fn cobbles_of(setup: ContractAddress) -> ISetupCobblesDispatcher {
+    ISetupCobblesDispatcher { contract_address: setup }
 }
 
-fn safe(setup: ContractAddress) -> ISetupGemsSafeDispatcher {
-    ISetupGemsSafeDispatcher { contract_address: setup }
+fn safe(setup: ContractAddress) -> ISetupCobblesSafeDispatcher {
+    ISetupCobblesSafeDispatcher { contract_address: setup }
 }
 
 /// The first error of a refused safe call.
@@ -191,24 +192,24 @@ fn round_trip_progress(value: Progress) {
     assert_eq!(ProgressPacking::unpack(ProgressPacking::pack(value)), value);
 }
 
-fn round_trip_quest(value: QuestGems) {
-    assert_eq!(QuestGemsPacking::unpack(QuestGemsPacking::pack(value)), value);
+fn round_trip_quest(value: QuestCobbles) {
+    assert_eq!(QuestCobblesPacking::unpack(QuestCobblesPacking::pack(value)), value);
 }
 
-fn round_trip_achievement(value: AchievementGems) {
-    assert_eq!(AchievementGemsPacking::unpack(AchievementGemsPacking::pack(value)), value);
+fn round_trip_achievement(value: AchievementCobbles) {
+    assert_eq!(AchievementCobblesPacking::unpack(AchievementCobblesPacking::pack(value)), value);
 }
 
 #[test]
 #[available_gas(l2_gas: 1921093)]
-fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
+fn test_cobbles_packing_round_trips_at_zero_one_and_maximum() {
     let m16 = Bounded::<u16>::MAX;
     let m32 = Bounded::<u32>::MAX;
     let m64 = Bounded::<u64>::MAX;
     round_trip_account(Default::default());
     round_trip_account(
         Account {
-            gems: 1,
+            cobbles: 1,
             credits: 1,
             games: 1,
             forests: 1,
@@ -220,7 +221,7 @@ fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
     );
     round_trip_account(
         Account {
-            gems: m64,
+            cobbles: m64,
             credits: m16,
             games: m16,
             forests: m16,
@@ -245,10 +246,12 @@ fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
     round_trip_progress(Progress { points: m32, ..Default::default() });
     round_trip_progress(Progress { credit: true, ..Default::default() });
     round_trip_quest(Default::default());
-    round_trip_quest(QuestGems { gems: 1, kind: 1, task: 1, total: 1, start: 1, interval: 1 });
     round_trip_quest(
-        QuestGems {
-            gems: Bounded::<u8>::MAX,
+        QuestCobbles { cobbles: 1, kind: 1, task: 1, total: 1, start: 1, interval: 1 },
+    );
+    round_trip_quest(
+        QuestCobbles {
+            cobbles: Bounded::<u8>::MAX,
             kind: Bounded::<u8>::MAX,
             task: m32,
             total: m32,
@@ -257,13 +260,15 @@ fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
         },
     );
     round_trip_achievement(Default::default());
-    round_trip_achievement(AchievementGems { gems: 1, task: 1, total: 1 });
-    round_trip_achievement(AchievementGems { gems: Bounded::<u8>::MAX, task: m32, total: m32 });
+    round_trip_achievement(AchievementCobbles { cobbles: 1, task: 1, total: 1 });
+    round_trip_achievement(
+        AchievementCobbles { cobbles: Bounded::<u8>::MAX, task: m32, total: m32 },
+    );
 }
 
 #[test]
 #[available_gas(l2_gas: 1990575)]
-fn test_gems_quest_list_round_trips() {
+fn test_cobbles_quest_list_round_trips() {
     // [Info] Empty, one, the bound of 15 with the highest id; a 16th is refused
     assert_eq!(list_ids(list_word(array![].span())).len(), 0);
     assert_eq!(list_ids(list_word(array![63].span())), array![63]);
@@ -274,14 +279,14 @@ fn test_gems_quest_list_round_trips() {
 #[test]
 #[available_gas(l2_gas: 62465)]
 #[should_panic(expected: 'Setup: list full')]
-fn test_gems_quest_list_refuses_a_sixteenth() {
+fn test_cobbles_quest_list_refuses_a_sixteenth() {
     list_word(array![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].span());
 }
 
 /// The counters saturate at their maximum and never wrap (7.1).
 #[test]
 #[available_gas(l2_gas: 13179384)]
-fn test_gems_counters_saturate() {
+fn test_cobbles_counters_saturate() {
     let setup = setup_alone();
     let time = WEEK_START;
     let max = Bounded::<u32>::MAX;
@@ -291,19 +296,19 @@ fn test_gems_counters_saturate() {
         setup, PLAYER(), time, array![], array![(1, max), (4, max), (5, max), (6, max), (7, max)],
     );
     report_at(setup, PLAYER(), time, array![], array![(1, 1), (7, 1)]);
-    let day = gems_of(setup).day_progress(PLAYER().into(), time / DAY);
+    let day = cobbles_of(setup).day_progress(PLAYER().into(), time / DAY);
     assert_eq!(day.games, 65535);
     assert_eq!(day.structures, 65535);
     assert_eq!(day.forests, 65535);
     assert_eq!(day.points, max);
-    assert_eq!(gems_of(setup).week_progress(PLAYER().into(), 0), day);
-    let account = gems_of(setup).account(PLAYER().into());
+    assert_eq!(cobbles_of(setup).week_progress(PLAYER().into(), 0), day);
+    let account = cobbles_of(setup).account(PLAYER().into());
     assert_eq!(account.games, 65535);
     assert_eq!(account.forests, 65535);
     assert_eq!(account.wonders, 65535);
     assert_eq!(account.big, 65535);
     assert_eq!(account.high, 65535);
-    assert_eq!(account.gems, 0);
+    assert_eq!(account.cobbles, 0);
     assert_eq!(account.credits, 0);
 }
 
@@ -311,7 +316,7 @@ fn test_gems_counters_saturate() {
 
 #[test]
 #[available_gas(l2_gas: 218453)]
-fn test_gems_calendar_boundaries() {
+fn test_cobbles_calendar_boundaries() {
     // [Info] A day is 00:00:00 to 23:59:59 UTC
     assert_eq!(86399_u64 / DAY, 0);
     assert_eq!(86400_u64 / DAY, 1);
@@ -331,13 +336,13 @@ fn test_gems_calendar_boundaries() {
 /// Daily Run every day, one rotating quest of each family by day mod 3, the weeklies every week.
 #[test]
 #[available_gas(l2_gas: 128313728)]
-fn test_gems_fresh_schedules_are_live_as_specified() {
+fn test_cobbles_fresh_schedules_are_live_as_specified() {
     let setup = fresh_setup();
-    let gems = gems_of(setup);
+    let cobbles = cobbles_of(setup);
     let mut day: u64 = 100;
     while day < 109 {
         for (id, _, _, start, _, interval, _) in fresh_quests() {
-            let entry = gems.quest_gems(id);
+            let entry = cobbles.quest_cobbles(id);
             if entry.kind == WEEKLY {
                 continue;
             }
@@ -351,7 +356,7 @@ fn test_gems_fresh_schedules_are_live_as_specified() {
         // [Info] The rotation: quests 5 + r, 8 + r and 11 + r live when day % 3 == r
         let r: u32 = (day % 3).try_into().unwrap();
         for family in array![5_u32, 8, 11] {
-            let entry = gems.quest_gems(family + r);
+            let entry = cobbles.quest_cobbles(family + r);
             assert!(entry.is_active(entry.period_start(day)));
         }
         day += 1;
@@ -359,7 +364,7 @@ fn test_gems_fresh_schedules_are_live_as_specified() {
     let mut week: u64 = 0;
     while week < 3 {
         for id in array![14_u32, 15, 16] {
-            let entry = gems.quest_gems(id);
+            let entry = cobbles.quest_cobbles(id);
             assert_eq!(entry.kind, WEEKLY);
             assert!(entry.is_active(entry.period_start(week)));
         }
@@ -369,7 +374,7 @@ fn test_gems_fresh_schedules_are_live_as_specified() {
 
 #[test]
 #[available_gas(l2_gas: 307251)]
-fn test_gems_schedule_shapes() {
+fn test_cobbles_schedule_shapes() {
     let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
     assert_eq!(schedule_kind(daily), DAILY);
     assert_eq!(schedule_kind(QuestSchedule { interval: 259200, start: 172800, ..daily }), DAILY);
@@ -391,57 +396,59 @@ fn test_gems_schedule_shapes() {
 #[test]
 #[available_gas(l2_gas: 56984282)]
 #[feature("safe_dispatcher")]
-fn test_gems_set_quest_gems_lists_and_emits() {
+fn test_cobbles_set_quest_cobbles_lists_and_emits() {
     let setup = setup_alone();
     define_fresh(setup);
     let mut spy = spy_events();
     as_caller(setup, OWNER());
-    gems_of(setup).set_quest_gems(6, 10);
-    gems_of(setup).set_quest_gems(6, 12);
-    gems_of(setup).set_quest_gems(14, 15);
-    let entry = gems_of(setup).quest_gems(6);
+    cobbles_of(setup).set_quest_cobbles(6, 10);
+    cobbles_of(setup).set_quest_cobbles(6, 12);
+    cobbles_of(setup).set_quest_cobbles(14, 15);
+    let entry = cobbles_of(setup).quest_cobbles(6);
     assert_eq!(
         entry,
-        QuestGems { gems: 12, kind: DAILY, task: 2, total: 8, start: 86400, interval: 259200 },
+        QuestCobbles {
+            cobbles: 12, kind: DAILY, task: 2, total: 8, start: 86400, interval: 259200,
+        },
     );
-    assert_eq!(gems_of(setup).quest_gems(14).kind, WEEKLY);
+    assert_eq!(cobbles_of(setup).quest_cobbles(14).kind, WEEKLY);
     spy
         .assert_emitted(
             @array![
                 (
                     setup,
-                    Setup::Event::QuestGemsSet(
-                        Setup::QuestGemsSet { quest_id: 6, gems: 10, kind: DAILY },
+                    Setup::Event::QuestCobblesSet(
+                        Setup::QuestCobblesSet { quest_id: 6, cobbles: 10, kind: DAILY },
                     ),
                 ),
                 (
                     setup,
-                    Setup::Event::QuestGemsSet(
-                        Setup::QuestGemsSet { quest_id: 14, gems: 15, kind: WEEKLY },
+                    Setup::Event::QuestCobblesSet(
+                        Setup::QuestCobblesSet { quest_id: 14, cobbles: 15, kind: WEEKLY },
                     ),
                 ),
             ],
         );
-    // [Info] 0 removes the gems and the list entry: a daily credit then finds no live quest
-    gems_of(setup).set_quest_gems(6, 0);
-    assert_eq!(gems_of(setup).quest_gems(6), Default::default());
+    // [Info] 0 removes the cobbles and the list entry: a daily credit then finds no live quest
+    cobbles_of(setup).set_quest_cobbles(6, 0);
+    assert_eq!(cobbles_of(setup).quest_cobbles(6), Default::default());
     stop_cheat_caller_address(setup);
     paid_report(setup, PLAYER(), 13 * DAY, 8, 0, 0);
     as_caller(setup, PLAYER());
     assert_eq!(error_of(safe(setup).claim_daily_credit(13)), 'Setup: no live quest');
-    assert_eq!(error_of(safe(setup).claim_quest(6, 13)), 'Setup: no gems');
+    assert_eq!(error_of(safe(setup).claim_quest(6, 13)), 'Setup: no cobbles');
 }
 
 #[test]
 #[available_gas(l2_gas: 66722124)]
 #[feature("safe_dispatcher")]
-fn test_gems_set_quest_gems_refuses_every_bound() {
+fn test_cobbles_set_quest_cobbles_refuses_every_bound() {
     let setup = setup_alone();
     define_fresh(setup);
     let admin = ISetupDispatcher { contract_address: setup };
     as_caller(setup, OWNER());
     let schedule = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
-    // [Setup] Quests that cannot carry gems: two tasks, a task the ledger does not sum, an end,
+    // [Setup] Quests that cannot carry cobbles: two tasks, a task the ledger does not sum, an end,
     // an hourly window, and one retired; one with id 64
     admin
         .define_quest(
@@ -478,28 +485,28 @@ fn test_gems_set_quest_gems_refuses_every_bound() {
             64, schedule, array![QuestTask { task_id: 1, total: 1 }].span(), array![].span(),
         );
     let s = safe(setup);
-    assert_eq!(error_of(s.set_quest_gems(1, 4)), 'Setup: invalid gems');
-    assert_eq!(error_of(s.set_quest_gems(1, 16)), 'Setup: invalid gems');
-    assert_eq!(error_of(s.set_quest_gems(0, 5)), 'Setup: invalid id');
-    assert_eq!(error_of(s.set_quest_gems(64, 5)), 'Setup: invalid id');
-    assert_eq!(error_of(s.set_quest_gems(2, 5)), 'Quest: does not exist');
-    assert_eq!(error_of(s.set_quest_gems(20, 5)), 'Setup: not one task');
-    assert_eq!(error_of(s.set_quest_gems(21, 5)), 'Setup: task not counted');
-    assert_eq!(error_of(s.set_quest_gems(22, 5)), 'Setup: invalid schedule');
-    assert_eq!(error_of(s.set_quest_gems(23, 5)), 'Setup: invalid schedule');
-    assert_eq!(error_of(s.set_quest_gems(24, 5)), 'Setup: retired');
+    assert_eq!(error_of(s.set_quest_cobbles(1, 4)), 'Setup: invalid cobbles');
+    assert_eq!(error_of(s.set_quest_cobbles(1, 16)), 'Setup: invalid cobbles');
+    assert_eq!(error_of(s.set_quest_cobbles(0, 5)), 'Setup: invalid id');
+    assert_eq!(error_of(s.set_quest_cobbles(64, 5)), 'Setup: invalid id');
+    assert_eq!(error_of(s.set_quest_cobbles(2, 5)), 'Quest: does not exist');
+    assert_eq!(error_of(s.set_quest_cobbles(20, 5)), 'Setup: not one task');
+    assert_eq!(error_of(s.set_quest_cobbles(21, 5)), 'Setup: task not counted');
+    assert_eq!(error_of(s.set_quest_cobbles(22, 5)), 'Setup: invalid schedule');
+    assert_eq!(error_of(s.set_quest_cobbles(23, 5)), 'Setup: invalid schedule');
+    assert_eq!(error_of(s.set_quest_cobbles(24, 5)), 'Setup: retired');
     // [Info] The bounds themselves are accepted
-    s.set_quest_gems(1, 5).unwrap();
-    s.set_quest_gems(1, 15).unwrap();
+    s.set_quest_cobbles(1, 5).unwrap();
+    s.set_quest_cobbles(1, 15).unwrap();
     stop_cheat_caller_address(setup);
     as_caller(setup, PLAYER());
-    assert_eq!(error_of(s.set_quest_gems(1, 5)), 'Ownable: caller is not owner');
+    assert_eq!(error_of(s.set_quest_cobbles(1, 5)), 'Ownable: caller is not owner');
 }
 
 #[test]
 #[available_gas(l2_gas: 59375525)]
 #[feature("safe_dispatcher")]
-fn test_gems_set_achievement_gems_refuses_every_bound() {
+fn test_cobbles_set_achievement_cobbles_refuses_every_bound() {
     let setup = setup_alone();
     define_fresh(setup);
     let admin = ISetupDispatcher { contract_address: setup };
@@ -536,59 +543,60 @@ fn test_gems_set_achievement_gems_refuses_every_bound() {
         );
     admin.retire_achievement(3);
     let s = safe(setup);
-    assert_eq!(error_of(s.set_achievement_gems(2, 9)), 'Setup: invalid gems');
-    assert_eq!(error_of(s.set_achievement_gems(2, 91)), 'Setup: invalid gems');
-    assert_eq!(error_of(s.set_achievement_gems(0, 10)), 'Setup: invalid id');
-    assert_eq!(error_of(s.set_achievement_gems(64, 10)), 'Setup: invalid id');
-    assert_eq!(error_of(s.set_achievement_gems(40, 10)), 'Achievement: does not exist');
-    assert_eq!(error_of(s.set_achievement_gems(20, 10)), 'Setup: not one task');
-    assert_eq!(error_of(s.set_achievement_gems(21, 10)), 'Setup: total too high');
-    assert_eq!(error_of(s.set_achievement_gems(22, 10)), 'Setup: achievement windowed');
-    assert_eq!(error_of(s.set_achievement_gems(23, 10)), 'Setup: task not counted');
-    assert_eq!(error_of(s.set_achievement_gems(3, 20)), 'Setup: retired');
-    // [Info] On the Podium (task 8) has no gems in v1: not counted on chain
-    assert_eq!(error_of(s.set_achievement_gems(9, 50)), 'Setup: task not counted');
+    assert_eq!(error_of(s.set_achievement_cobbles(2, 9)), 'Setup: invalid cobbles');
+    assert_eq!(error_of(s.set_achievement_cobbles(2, 91)), 'Setup: invalid cobbles');
+    assert_eq!(error_of(s.set_achievement_cobbles(0, 10)), 'Setup: invalid id');
+    assert_eq!(error_of(s.set_achievement_cobbles(64, 10)), 'Setup: invalid id');
+    assert_eq!(error_of(s.set_achievement_cobbles(40, 10)), 'Achievement: does not exist');
+    assert_eq!(error_of(s.set_achievement_cobbles(20, 10)), 'Setup: not one task');
+    assert_eq!(error_of(s.set_achievement_cobbles(21, 10)), 'Setup: total too high');
+    assert_eq!(error_of(s.set_achievement_cobbles(22, 10)), 'Setup: achievement windowed');
+    assert_eq!(error_of(s.set_achievement_cobbles(23, 10)), 'Setup: task not counted');
+    assert_eq!(error_of(s.set_achievement_cobbles(3, 20)), 'Setup: retired');
+    // [Info] On the Podium (task 8) has no cobbles in v1: not counted on chain
+    assert_eq!(error_of(s.set_achievement_cobbles(9, 50)), 'Setup: task not counted');
     // [Info] The bounds are accepted, and a total of 65,535
-    s.set_achievement_gems(2, 10).unwrap();
-    s.set_achievement_gems(2, 90).unwrap();
-    s.set_achievement_gems(24, 10).unwrap();
+    s.set_achievement_cobbles(2, 10).unwrap();
+    s.set_achievement_cobbles(2, 90).unwrap();
+    s.set_achievement_cobbles(24, 10).unwrap();
     stop_cheat_caller_address(setup);
     as_caller(setup, PLAYER());
-    assert_eq!(error_of(s.set_achievement_gems(2, 10)), 'Ownable: caller is not owner');
+    assert_eq!(error_of(s.set_achievement_cobbles(2, 10)), 'Ownable: caller is not owner');
 }
 
 #[test]
 #[available_gas(l2_gas: 45504048)]
-fn test_gems_set_achievement_gems_copies_and_emits() {
+fn test_cobbles_set_achievement_cobbles_copies_and_emits() {
     let setup = setup_alone();
     define_fresh(setup);
     let mut spy = spy_events();
     as_caller(setup, OWNER());
-    gems_of(setup).set_achievement_gems(16, 80);
+    cobbles_of(setup).set_achievement_cobbles(16, 80);
     assert_eq!(
-        gems_of(setup).achievement_gems(16), AchievementGems { gems: 80, task: 1, total: 1000 },
+        cobbles_of(setup).achievement_cobbles(16),
+        AchievementCobbles { cobbles: 80, task: 1, total: 1000 },
     );
     spy
         .assert_emitted(
             @array![
                 (
                     setup,
-                    Setup::Event::AchievementGemsSet(
-                        Setup::AchievementGemsSet { achievement_id: 16, gems: 80 },
+                    Setup::Event::AchievementCobblesSet(
+                        Setup::AchievementCobblesSet { achievement_id: 16, cobbles: 80 },
                     ),
                 ),
             ],
         );
-    gems_of(setup).set_achievement_gems(16, 0);
-    assert_eq!(gems_of(setup).achievement_gems(16), Default::default());
+    cobbles_of(setup).set_achievement_cobbles(16, 0);
+    assert_eq!(cobbles_of(setup).achievement_cobbles(16), Default::default());
 }
 
-/// `retire_quest` and `retire_achievement` clear the gems in the same call (3.2): a retired quest
-/// or achievement cannot be claimed, and leaves its kind's list.
+/// `retire_quest` and `retire_achievement` clear the cobbles in the same call (3.2): a retired
+/// quest or achievement cannot be claimed, and leaves its kind's list.
 #[test]
 #[available_gas(l2_gas: 93813716)]
 #[feature("safe_dispatcher")]
-fn test_gems_retire_clears_the_gems() {
+fn test_cobbles_retire_clears_the_cobbles() {
     let setup = fresh_setup();
     let admin = ISetupDispatcher { contract_address: setup };
     paid_report(setup, PLAYER(), 12 * DAY, 4, 2000, 2);
@@ -601,22 +609,22 @@ fn test_gems_retire_clears_the_gems() {
             @array![
                 (
                     setup,
-                    Setup::Event::QuestGemsSet(
-                        Setup::QuestGemsSet { quest_id: 5, gems: 0, kind: DAILY },
+                    Setup::Event::QuestCobblesSet(
+                        Setup::QuestCobblesSet { quest_id: 5, cobbles: 0, kind: DAILY },
                     ),
                 ),
                 (
                     setup,
-                    Setup::Event::AchievementGemsSet(
-                        Setup::AchievementGemsSet { achievement_id: 2, gems: 0 },
+                    Setup::Event::AchievementCobblesSet(
+                        Setup::AchievementCobblesSet { achievement_id: 2, cobbles: 0 },
                     ),
                 ),
             ],
         );
-    assert_eq!(gems_of(setup).quest_gems(5), Default::default());
+    assert_eq!(cobbles_of(setup).quest_cobbles(5), Default::default());
     as_caller(setup, PLAYER());
-    assert_eq!(error_of(safe(setup).claim_quest(5, 12)), 'Setup: no gems');
-    assert_eq!(error_of(safe(setup).claim_achievement(2)), 'Setup: no gems');
+    assert_eq!(error_of(safe(setup).claim_quest(5, 12)), 'Setup: no cobbles');
+    assert_eq!(error_of(safe(setup).claim_achievement(2)), 'Setup: no cobbles');
     // [Info] Day 12's credit no longer needs quest 5: the three others are met
     safe(setup).claim_daily_credit(12).unwrap();
 }
@@ -625,39 +633,39 @@ fn test_gems_retire_clears_the_gems() {
 
 #[test]
 #[available_gas(l2_gas: 93104396)]
-fn test_gems_claim_quest_credits_the_gems_once() {
+fn test_cobbles_claim_quest_credits_the_cobbles_once() {
     let setup = fresh_setup();
     // [Info] Day 13 (13 % 3 == 1): Public Works (6, 8 structures) is live
     paid_report(setup, PLAYER(), 13 * DAY + 10, 5, 100, 0);
     paid_report(setup, PLAYER(), 13 * DAY + 86399, 3, 100, 0);
     let mut spy = spy_events();
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_quest(6, 13);
-    gems_of(setup).claim_quest(1, 13);
+    cobbles_of(setup).claim_quest(6, 13);
+    cobbles_of(setup).claim_quest(1, 13);
     let p: felt252 = PLAYER().into();
     spy
         .assert_emitted(
             @array![
                 (
                     setup,
-                    Setup::Event::GemsClaimed(
-                        Setup::GemsClaimed {
-                            player_id: p, kind: 1, id: 6, period: 13, gems: 10, balance: 10,
+                    Setup::Event::CobblesClaimed(
+                        Setup::CobblesClaimed {
+                            player_id: p, kind: 1, id: 6, period: 13, cobbles: 10, balance: 10,
                         },
                     ),
                 ),
                 (
                     setup,
-                    Setup::Event::GemsClaimed(
-                        Setup::GemsClaimed {
-                            player_id: p, kind: 1, id: 1, period: 13, gems: 5, balance: 15,
+                    Setup::Event::CobblesClaimed(
+                        Setup::CobblesClaimed {
+                            player_id: p, kind: 1, id: 1, period: 13, cobbles: 5, balance: 15,
                         },
                     ),
                 ),
             ],
         );
-    assert_eq!(gems_of(setup).account(p).gems, 15);
-    let day = gems_of(setup).day_progress(p, 13);
+    assert_eq!(cobbles_of(setup).account(p).cobbles, 15);
+    let day = cobbles_of(setup).day_progress(p, 13);
     assert_eq!(day.claimed, 0x40 + 0x2);
     assert_eq!(day.structures, 8);
 }
@@ -665,7 +673,7 @@ fn test_gems_claim_quest_credits_the_gems_once() {
 #[test]
 #[available_gas(l2_gas: 94558912)]
 #[feature("safe_dispatcher")]
-fn test_gems_claim_quest_refusals() {
+fn test_cobbles_claim_quest_refusals() {
     let setup = fresh_setup();
     // [Info] Day 13: Public Works needs 8 structures, 7 are reported
     paid_report(setup, PLAYER(), 13 * DAY, 7, 0, 0);
@@ -674,8 +682,8 @@ fn test_gems_claim_quest_refusals() {
     assert_eq!(error_of(s.claim_quest(6, 13)), 'Setup: not completed');
     // [Info] The wrong day of a rotating quest: Small Works (5) is live on days % 3 == 0
     assert_eq!(error_of(s.claim_quest(5, 13)), 'Setup: not live');
-    // [Info] No gems: quests 2 to 4 are not defined
-    assert_eq!(error_of(s.claim_quest(2, 13)), 'Setup: no gems');
+    // [Info] No cobbles: quests 2 to 4 are not defined
+    assert_eq!(error_of(s.claim_quest(2, 13)), 'Setup: no cobbles');
     // [Info] A future period has an empty slot
     assert_eq!(error_of(s.claim_quest(1, 14)), 'Setup: not completed');
     // [Info] One more structure: completed
@@ -689,7 +697,7 @@ fn test_gems_claim_quest_refusals() {
 #[test]
 #[available_gas(l2_gas: 102025894)]
 #[feature("safe_dispatcher")]
-fn test_gems_claim_weekly_quest() {
+fn test_cobbles_claim_weekly_quest() {
     let setup = fresh_setup();
     let admin = ISetupDispatcher { contract_address: setup };
     as_caller(setup, OWNER());
@@ -703,7 +711,7 @@ fn test_gems_claim_weekly_quest() {
             array![QuestTask { task_id: 1, total: 1 }].span(),
             array![].span(),
         );
-    gems_of(setup).set_quest_gems(30, 15);
+    cobbles_of(setup).set_quest_cobbles(30, 15);
     stop_cheat_caller_address(setup);
     // [Info] Week 1: 3 games of 2 forests, on Monday, Wednesday and Sunday
     let monday = WEEK_START + WEEK;
@@ -716,32 +724,32 @@ fn test_gems_claim_weekly_quest() {
     assert_eq!(error_of(s.claim_quest(14, 1)), 'Setup: claimed');
     assert_eq!(error_of(s.claim_quest(14, 0)), 'Setup: not completed');
     assert_eq!(error_of(s.claim_quest(30, 1)), 'Setup: not live');
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 15);
-    assert_eq!(gems_of(setup).week_progress(PLAYER().into(), 1).forests, 5);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 15);
+    assert_eq!(cobbles_of(setup).week_progress(PLAYER().into(), 1).forests, 5);
 }
 
 /// Past periods have no deadline: day 13 is claimed on day 400.
 #[test]
 #[available_gas(l2_gas: 88631815)]
-fn test_gems_claim_past_period_has_no_deadline() {
+fn test_cobbles_claim_past_period_has_no_deadline() {
     let setup = fresh_setup();
     paid_report(setup, PLAYER(), 13 * DAY, 0, 0, 0);
     start_cheat_block_timestamp_global(400 * DAY);
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_quest(1, 13);
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 5);
+    cobbles_of(setup).claim_quest(1, 13);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 5);
 }
 
 #[test]
 #[available_gas(l2_gas: 107766653)]
 #[feature("safe_dispatcher")]
-fn test_gems_claim_achievement() {
+fn test_cobbles_claim_achievement() {
     let setup = fresh_setup();
     as_caller(setup, PLAYER());
     let s = safe(setup);
     assert_eq!(error_of(s.claim_achievement(2)), 'Setup: not completed');
-    // [Info] On the Podium has no gems
-    assert_eq!(error_of(s.claim_achievement(9)), 'Setup: no gems');
+    // [Info] On the Podium has no cobbles
+    assert_eq!(error_of(s.claim_achievement(9)), 'Setup: no cobbles');
     stop_cheat_caller_address(setup);
     let mut i: u32 = 0;
     while i < 10 {
@@ -756,21 +764,21 @@ fn test_gems_claim_achievement() {
     s.claim_achievement(13).unwrap();
     assert_eq!(error_of(s.claim_achievement(4)), 'Setup: not completed');
     assert_eq!(error_of(s.claim_achievement(14)), 'Setup: not completed');
-    let account = gems_of(setup).account(PLAYER().into());
-    assert_eq!(account.gems, 10 + 20 + 30 + 50);
+    let account = cobbles_of(setup).account(PLAYER().into());
+    assert_eq!(account.cobbles, 10 + 20 + 30 + 50);
     assert_eq!(account.achievements_claimed, 0x4 + 0x8 + 0x100 + 0x2000);
     spy
         .assert_emitted(
             @array![
                 (
                     setup,
-                    Setup::Event::GemsClaimed(
-                        Setup::GemsClaimed {
+                    Setup::Event::CobblesClaimed(
+                        Setup::CobblesClaimed {
                             player_id: PLAYER().into(),
                             kind: 2,
                             id: 13,
                             period: 0,
-                            gems: 50,
+                            cobbles: 50,
                             balance: 110,
                         },
                     ),
@@ -784,7 +792,7 @@ fn test_gems_claim_achievement() {
 #[test]
 #[available_gas(l2_gas: 86619244)]
 #[feature("safe_dispatcher")]
-fn test_gems_first_stone_through_the_tutorial_claim() {
+fn test_cobbles_first_stone_through_the_tutorial_claim() {
     let setup = fresh_setup();
     as_caller(setup, PLAYER());
     let s = safe(setup);
@@ -792,7 +800,7 @@ fn test_gems_first_stone_through_the_tutorial_claim() {
     ISetupDispatcher { contract_address: setup }.claim_tutorial();
     s.claim_achievement(1).unwrap();
     assert_eq!(error_of(s.claim_achievement(1)), 'Setup: claimed');
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 10);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 10);
 }
 
 // Credits (3.4, 7.1)
@@ -806,7 +814,7 @@ fn complete_day(setup: ContractAddress, player: ContractAddress, day: u64) {
 #[test]
 #[available_gas(l2_gas: 108082474)]
 #[feature("safe_dispatcher")]
-fn test_gems_daily_credit_on_every_rotation() {
+fn test_cobbles_daily_credit_on_every_rotation() {
     let setup = fresh_setup();
     let mut r: u64 = 0;
     while r < 3 {
@@ -832,14 +840,14 @@ fn test_gems_daily_credit_on_every_rotation() {
                 ],
             );
         assert_eq!(error_of(safe(setup).claim_daily_credit(day)), 'Setup: credit claimed');
-        assert!(gems_of(setup).day_progress(PLAYER().into(), day).credit);
+        assert!(cobbles_of(setup).day_progress(PLAYER().into(), day).credit);
         stop_cheat_caller_address(setup);
         r += 1;
     }
-    assert_eq!(gems_of(setup).account(PLAYER().into()).credits, 3);
-    // [Info] The credit does not need the gem claims, nor the reverse
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).credits, 3);
+    // [Info] The credit does not need the cobble claims, nor the reverse
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_quest(1, day_of_rotation(0));
+    cobbles_of(setup).claim_quest(1, day_of_rotation(0));
 }
 
 /// Each live daily missing by one count fails the day's credit: Daily Run (no game cannot be),
@@ -847,7 +855,7 @@ fn test_gems_daily_credit_on_every_rotation() {
 #[test]
 #[available_gas(l2_gas: 104633455)]
 #[feature("safe_dispatcher")]
-fn test_gems_daily_credit_missing_one_quest_by_one() {
+fn test_cobbles_daily_credit_missing_one_quest_by_one() {
     let setup = fresh_setup();
     let day = day_of_rotation(2);
     let players = array![PLAYER(), ANYONE(), OWNER()];
@@ -864,11 +872,11 @@ fn test_gems_daily_credit_missing_one_quest_by_one() {
     assert_eq!(error_of(safe(setup).claim_daily_credit(day + 1)), 'Setup: not completed');
 }
 
-/// A day with no live daily (no daily quest has gems) gives no credit.
+/// A day with no live daily (no daily quest has cobbles) gives no credit.
 #[test]
 #[available_gas(l2_gas: 50312722)]
 #[feature("safe_dispatcher")]
-fn test_gems_daily_credit_needs_a_live_quest() {
+fn test_cobbles_daily_credit_needs_a_live_quest() {
     let setup = setup_alone();
     define_fresh(setup);
     paid_report(setup, PLAYER(), 12 * DAY, 12, 8000, 4);
@@ -880,7 +888,7 @@ fn test_gems_daily_credit_needs_a_live_quest() {
 #[test]
 #[available_gas(l2_gas: 107216267)]
 #[feature("safe_dispatcher")]
-fn test_gems_weekly_credit() {
+fn test_cobbles_weekly_credit() {
     let setup = fresh_setup();
     let monday = WEEK_START + 2 * WEEK;
     // [Info] Week 2: 5 forests, 30 structures, 20,000 points over three games
@@ -919,11 +927,11 @@ fn test_gems_weekly_credit() {
 
 // The audit properties (7.5)
 
-/// A1: gems grow only by a claim, by the amount the owner set, from a met target; a report adds
+/// A1: cobbles grow only by a claim, by the amount the owner set, from a met target; a report adds
 /// none, whatever it reports.
 #[test]
 #[available_gas(l2_gas: 92386381)]
-fn test_gems_A1_no_gem_minted_outside_a_claim() {
+fn test_cobbles_A1_no_cobble_minted_outside_a_claim() {
     let setup = fresh_setup();
     complete_day(setup, PLAYER(), 14);
     report_at(
@@ -933,12 +941,12 @@ fn test_gems_A1_no_gem_minted_outside_a_claim() {
         array![],
         array![(1, 1000), (4, 100), (5, 100), (6, 100), (7, 100)],
     );
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 0);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 0);
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_quest(7, 14);
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 15);
-    gems_of(setup).claim_achievement(16);
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 95);
+    cobbles_of(setup).claim_quest(7, 14);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 15);
+    cobbles_of(setup).claim_achievement(16);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 95);
 }
 
 /// A2: each claim sets its bit in the write that credits it, once per (player, quest, period),
@@ -947,7 +955,7 @@ fn test_gems_A1_no_gem_minted_outside_a_claim() {
 #[test]
 #[available_gas(l2_gas: 119187281)]
 #[feature("safe_dispatcher")]
-fn test_gems_A2_no_double_claim() {
+fn test_cobbles_A2_no_double_claim() {
     let setup = fresh_setup();
     complete_day(setup, PLAYER(), 12);
     complete_day(setup, PLAYER(), 15);
@@ -977,8 +985,8 @@ fn test_gems_A2_no_double_claim() {
     as_caller(setup, ANYONE());
     s.claim_quest(1, 12).unwrap();
     s.claim_daily_credit(12).unwrap();
-    let account = gems_of(setup).account(PLAYER().into());
-    assert_eq!(account.gems, 5 + 5 + 10 + 15);
+    let account = cobbles_of(setup).account(PLAYER().into());
+    assert_eq!(account.cobbles, 5 + 5 + 10 + 15);
     assert_eq!(account.credits, 2);
 }
 
@@ -988,7 +996,7 @@ fn test_gems_A2_no_double_claim() {
 #[test]
 #[available_gas(l2_gas: 94781702)]
 #[feature("safe_dispatcher")]
-fn test_gems_A3_no_transfer_path() {
+fn test_cobbles_A3_no_transfer_path() {
     let setup = fresh_setup();
     complete_day(setup, PLAYER(), 12);
     as_caller(setup, ANYONE());
@@ -1000,9 +1008,9 @@ fn test_gems_A3_no_transfer_path() {
     as_caller(setup, PLAYER());
     s.claim_quest(1, 12).unwrap();
     s.claim_daily_credit(12).unwrap();
-    assert_eq!(gems_of(setup).account(ANYONE().into()), Default::default());
-    assert_eq!(gems_of(setup).account(PLAYER().into()).gems, 5);
-    assert_eq!(gems_of(setup).account(PLAYER().into()).credits, 1);
+    assert_eq!(cobbles_of(setup).account(ANYONE().into()), Default::default());
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 5);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).credits, 1);
 }
 
 /// A5: a credit falls only in `spend_credit`, by one, when positive, from an allowlisted reporter;
@@ -1010,7 +1018,7 @@ fn test_gems_A3_no_transfer_path() {
 #[test]
 #[available_gas(l2_gas: 100870883)]
 #[feature("safe_dispatcher")]
-fn test_gems_A5_a_credit_is_spent_once() {
+fn test_cobbles_A5_a_credit_is_spent_once() {
     let setup = fresh_setup();
     let p: felt252 = PLAYER().into();
     as_caller(setup, REPORTER());
@@ -1018,13 +1026,13 @@ fn test_gems_A5_a_credit_is_spent_once() {
     stop_cheat_caller_address(setup);
     complete_day(setup, PLAYER(), 12);
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_daily_credit(12);
+    cobbles_of(setup).claim_daily_credit(12);
     // [Info] The player cannot spend it directly
     assert_eq!(error_of(safe(setup).spend_credit(p, 1)), 'Quest: not reporter');
     stop_cheat_caller_address(setup);
     let mut spy = spy_events();
     as_caller(setup, REPORTER());
-    gems_of(setup).spend_credit(p, 7);
+    cobbles_of(setup).spend_credit(p, 7);
     spy
         .assert_emitted(
             @array![
@@ -1037,32 +1045,32 @@ fn test_gems_A5_a_credit_is_spent_once() {
             ],
         );
     assert_eq!(error_of(safe(setup).spend_credit(p, 8)), 'Setup: no credit');
-    assert_eq!(gems_of(setup).account(p).credits, 0);
+    assert_eq!(cobbles_of(setup).account(p).credits, 0);
     // [Info] A revoked reporter spends nothing
     stop_cheat_caller_address(setup);
     complete_day(setup, PLAYER(), 15);
     as_caller(setup, PLAYER());
-    gems_of(setup).claim_daily_credit(15);
+    cobbles_of(setup).claim_daily_credit(15);
     as_caller(setup, OWNER());
     ISetupDispatcher { contract_address: setup }.set_reporter(REPORTER(), false);
     as_caller(setup, REPORTER());
     assert_eq!(error_of(safe(setup).spend_credit(p, 9)), 'Quest: not reporter');
-    assert_eq!(gems_of(setup).account(p).credits, 1);
+    assert_eq!(cobbles_of(setup).account(p).credits, 1);
 }
 
 /// A6: every setter is the owner's; `report` and `spend_credit` are an allowlisted reporter's,
 /// and the allowlist is the owner's. The residual trust: a reporter can report any progress for
-/// any player, so any claimable gems and credits (`report` below, for `ANYONE`).
+/// any player, so any claimable cobbles and credits (`report` below, for `ANYONE`).
 #[test]
 #[available_gas(l2_gas: 93003654)]
 #[feature("safe_dispatcher")]
-fn test_gems_A6_access() {
+fn test_cobbles_A6_access() {
     let setup = fresh_setup();
     let s = safe(setup);
     let admin = paved::systems::setup::ISetupSafeDispatcher { contract_address: setup };
     as_caller(setup, PLAYER());
-    assert_eq!(error_of(s.set_quest_gems(1, 5)), 'Ownable: caller is not owner');
-    assert_eq!(error_of(s.set_achievement_gems(2, 10)), 'Ownable: caller is not owner');
+    assert_eq!(error_of(s.set_quest_cobbles(1, 5)), 'Ownable: caller is not owner');
+    assert_eq!(error_of(s.set_achievement_cobbles(2, 10)), 'Ownable: caller is not owner');
     assert_eq!(error_of(admin.set_reporter(PLAYER(), true)), 'Ownable: caller is not owner');
     assert_eq!(error_of(admin.retire_quest(1)), 'Ownable: caller is not owner');
     assert_eq!(
@@ -1076,7 +1084,7 @@ fn test_gems_A6_access() {
     assert_eq!(error_of(s.spend_credit(PLAYER().into(), 1)), 'Quest: not reporter');
     stop_cheat_caller_address(setup);
     complete_day(setup, ANYONE(), 12);
-    assert_eq!(gems_of(setup).day_progress(ANYONE().into(), 12).structures, 12);
+    assert_eq!(cobbles_of(setup).day_progress(ANYONE().into(), 12).structures, 12);
 }
 
 // The report (1.2, 7.2)
@@ -1085,29 +1093,29 @@ fn test_gems_A6_access() {
 /// game's) writes the account only; before week 0 there is no week.
 #[test]
 #[available_gas(l2_gas: 14711156)]
-fn test_gems_report_writes_the_ledger() {
+fn test_cobbles_report_writes_the_ledger() {
     let setup = setup_alone();
     let p: felt252 = PLAYER().into();
     let time = WEEK_START + 3 * WEEK + 2 * DAY + 5;
     paid_report(setup, PLAYER(), time, 3, 1200, 2);
-    let day = gems_of(setup).day_progress(p, time / DAY);
+    let day = cobbles_of(setup).day_progress(p, time / DAY);
     assert_eq!(
         day,
         Progress { games: 1, structures: 3, forests: 2, points: 1200, claimed: 0, credit: false },
     );
-    assert_eq!(gems_of(setup).week_progress(p, 3), day);
-    let account = gems_of(setup).account(p);
+    assert_eq!(cobbles_of(setup).week_progress(p, 3), day);
+    let account = cobbles_of(setup).account(p);
     assert_eq!(account.games, 1);
     assert_eq!(account.forests, 2);
     // [Info] A free game's report: achievements only
     report_at(setup, PLAYER(), time, array![], array![(1, 1), (5, 1), (6, 2), (7, 1)]);
-    assert_eq!(gems_of(setup).day_progress(p, time / DAY), day);
-    assert_eq!(gems_of(setup).week_progress(p, 3), day);
-    let account = gems_of(setup).account(p);
+    assert_eq!(cobbles_of(setup).day_progress(p, time / DAY), day);
+    assert_eq!(cobbles_of(setup).week_progress(p, 3), day);
+    let account = cobbles_of(setup).account(p);
     assert_eq!(
         account,
         Account {
-            gems: 0,
+            cobbles: 0,
             credits: 0,
             games: 2,
             forests: 2,
@@ -1119,8 +1127,8 @@ fn test_gems_report_writes_the_ledger() {
     );
     // [Info] Day 1, before week 0: the day only
     paid_report(setup, ANYONE(), DAY, 1, 1, 1);
-    assert_eq!(gems_of(setup).day_progress(ANYONE().into(), 1).games, 1);
-    assert_eq!(gems_of(setup).week_progress(ANYONE().into(), 0), Default::default());
+    assert_eq!(cobbles_of(setup).day_progress(ANYONE().into(), 1).games, 1);
+    assert_eq!(cobbles_of(setup).week_progress(ANYONE().into(), 0), Default::default());
 }
 
 // Fuzz (7.4)
@@ -1147,13 +1155,13 @@ const WEEKS: u64 = 1000000;
 
 /// The ledger (7.4): random paid reports at random block times over two weeks (days 11 to 24),
 /// then every claim the ledger could allow, each twice. A claim succeeds exactly when the test's
-/// own sums meet the target in a live period, never twice, and the gems and credits credited are
+/// own sums meet the target in a live period, never twice, and the cobbles and credits credited are
 /// exactly the sum of those claims (A1, A2).
 #[test]
 #[available_gas(l2_gas: 383137644)]
 #[fuzzer(runs: 12, seed: 61)]
 #[feature("safe_dispatcher")]
-fn test_gems_fuzz_ledger(seed: u64) {
+fn test_cobbles_fuzz_ledger(seed: u64) {
     let setup = fresh_setup();
     let mut state = seed;
     let mut sums: Felt252Dict<u32> = Default::default();
@@ -1191,15 +1199,15 @@ fn test_gems_fuzz_ledger(seed: u64) {
     }
     // [Check] Every quest claim of every period, twice; every credit, twice
     let s = safe(setup);
-    let gems = gems_of(setup);
+    let cobbles = cobbles_of(setup);
     as_caller(setup, PLAYER());
-    let mut expected_gems: u64 = 0;
+    let mut expected_cobbles: u64 = 0;
     let mut expected_credits: u16 = 0;
     let mut day = first_day;
     while day < first_day + days {
         let mut all = true;
         for (id, task, total, _, _, _, amount) in fresh_quests() {
-            let entry = gems.quest_gems(id);
+            let entry = cobbles.quest_cobbles(id);
             if entry.kind != DAILY {
                 continue;
             }
@@ -1208,7 +1216,7 @@ fn test_gems_fuzz_ledger(seed: u64) {
             let result = s.claim_quest(id, day);
             if live && met {
                 assert!(result.is_ok());
-                expected_gems += amount.into();
+                expected_cobbles += amount.into();
                 assert_eq!(error_of(s.claim_quest(id, day)), 'Setup: claimed');
             } else {
                 assert!(result.is_err());
@@ -1229,13 +1237,13 @@ fn test_gems_fuzz_ledger(seed: u64) {
     while week < 4 {
         let mut all = true;
         for (id, task, total, _, _, _, amount) in fresh_quests() {
-            if gems.quest_gems(id).kind != WEEKLY {
+            if cobbles.quest_cobbles(id).kind != WEEKLY {
                 continue;
             }
             let met = sum_of(ref sums, (WEEKS + week) * 8 + task.into()) >= total;
             assert_eq!(s.claim_quest(id, week).is_ok(), met);
             if met {
-                expected_gems += amount.into();
+                expected_cobbles += amount.into();
                 assert!(s.claim_quest(id, week).is_err());
             } else {
                 all = false;
@@ -1261,12 +1269,12 @@ fn test_gems_fuzz_ledger(seed: u64) {
         let met = count >= total;
         assert_eq!(s.claim_achievement(id).is_ok(), met);
         if met {
-            expected_gems += points.into();
+            expected_cobbles += points.into();
             assert!(s.claim_achievement(id).is_err());
         }
     }
-    let account = gems.account(PLAYER().into());
-    assert_eq!(account.gems, expected_gems);
+    let account = cobbles.account(PLAYER().into());
+    assert_eq!(account.cobbles, expected_cobbles);
     assert_eq!(account.credits, expected_credits);
     assert_eq!(account.games.into(), games);
 }

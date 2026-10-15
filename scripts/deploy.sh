@@ -60,9 +60,9 @@
 #   missing: Setup.set_reporter(Challenge), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
-#   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the gems
-#   (gems v1: set_quest_gems x 13, set_achievement_gems x 15, FRESH_QUEST_GEMS and FRESH_ACHIEVEMENT_GEMS) Setup does not
-#   hold, read back through its views quest_gems and achievement_gems;
+#   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the cobbles
+#   (cobbles v1: set_quest_cobbles x 13, set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) Setup does not
+#   hold, read back through its views quest_cobbles and achievement_cobbles;
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection and Vault, the Vault's exit fee, Setup.wiring(), every definition
@@ -2256,12 +2256,12 @@ FRESH_ACHIEVEMENTS=(
   "1 10 1 10" "2 1 1 10" "3 1 10 20" "4 1 50 40" "5 6 1 20" "6 4 10 20" "7 5 1 30" "8 7 1 30" "9 8 1 50"
   "10 4 50 40" "11 5 10 50" "12 6 10 40" "13 7 10 50" "14 7 25 80" "15 1 250 60" "16 1 1000 80"
 )
-# Gems v1, part 1 (P-61, docs/architecture/gems-v1.md, 3.1 and 6.4): the gems of each quest, in FRESH_QUESTS' order (5, 10
+# Cobbles v1, part 1 (P-61, docs/architecture/cobbles-v1.md, 3.1 and 6.4): the cobbles of each quest, in FRESH_QUESTS' order (5, 10
 # or 15 by the family's target, Daily Run 5, the weeklies 15), and of each achievement, in FRESH_ACHIEVEMENTS' order (its
-# points; On the Podium, 9, has none in v1: 0, no call). Set by Setup's owner (set_quest_gems, set_achievement_gems) in the
-# definitions' multicall, after them, and read back through the views quest_gems and achievement_gems.
-FRESH_QUEST_GEMS=(5 5 10 15 5 10 15 5 10 15 15 15 15)
-FRESH_ACHIEVEMENT_GEMS=(10 10 20 40 20 20 30 30 0 40 50 40 50 80 60 80)
+# points; On the Podium, 9, has none in v1: 0, no call). Set by Setup's owner (set_quest_cobbles, set_achievement_cobbles) in the
+# definitions' multicall, after them, and read back through the views quest_cobbles and achievement_cobbles.
+FRESH_QUEST_COBBLES=(5 5 10 15 5 10 15 5 10 15 15 15 15)
+FRESH_ACHIEVEMENT_COBBLES=(10 10 20 40 20 20 30 30 0 40 50 40 50 80 60 80)
 # Slots A and B of each definition in Setup's storage (quiver 0.2.0: `Quest_definitions`, `Quest_tasks` and
 # `Achievement_definitions`, maps of u32 to a packed felt, flat in Setup): pedersen(sn_keccak(name), id) mod 2^251 - 256,
 # as starknet.js's hash.starknetKeccak and hash.computePedersenHash compute it. A quest's slot A holds its schedule, its
@@ -2365,16 +2365,16 @@ fresh_slot_matches() {
 }
 
 # fresh_definition_calls: the definitions Setup does not hold yet (slot A zero), one call spec per line, quests then
-# achievements, then the gems (gems v1) Setup does not hold yet; nothing when it holds them all, each as specified. Fails
+# achievements, then the cobbles (cobbles v1) Setup does not hold yet; nothing when it holds them all, each as specified. Fails
 # when a read fails (through `v`, so a lost read never reads as "defined") and when a defined slot is not the table's
 # (quiver refuses to define an id twice, so a wrong one stays: the run dies, never sends over it).
-# The gems of a quest or achievement (gems v1): none (0) -> its set_*_gems call, after the definitions (the same multicall,
-# so a quest defined in it has its gems set after it); the table's -> nothing; another non-zero amount -> the owner's
-# setting since on a complete record (kept, never sent over: gems are calibrated by the owner, gems-v1.md 3.1), a stop
-# otherwise. A retired one has none and gets none (set_*_gems refuses a retired id; retire_* clears the gems).
+# The cobbles of a quest or achievement (cobbles v1): none (0) -> its set_*_cobbles call, after the definitions (the same multicall,
+# so a quest defined in it has its cobbles set after it); the table's -> nothing; another non-zero amount -> the owner's
+# setting since on a complete record (kept, never sent over: cobbles are calibrated by the owner, cobbles-v1.md 3.1), a stop
+# otherwise. A retired one has none and gets none (set_*_cobbles refuses a retired id; retire_* clears the cobbles).
 fresh_definition_calls() {
-  local i id task total start duration interval points slot want entry gems have retired
-  local gem_calls=()
+  local i id task total start duration interval points slot want entry cobbles have retired
+  local cobble_calls=()
   # Quests 2 to 4 stay undefined (four dailies a day): one that is defined and not retired makes seven dailies live.
   for entry in "${FRESH_UNDEFINED_QUEST_SLOTS[@]}"; do
     read -r id slot <<<"$entry"
@@ -2387,10 +2387,10 @@ fresh_definition_calls() {
   for i in "${!FRESH_QUESTS[@]}"; do
     read -r id task total start duration interval <<<"${FRESH_QUESTS[i]}"
     slot="$(fresh_storage "$SETUP" "${FRESH_QUEST_SLOTS[i]}")" || return 1
-    gems="${FRESH_QUEST_GEMS[i]}"
+    cobbles="${FRESH_QUEST_COBBLES[i]}"
     if [[ "$(hex_int "$slot")" == 0 ]]; then
       echo "$SETUP define_quest $id $start 0 $duration $interval 1 $task $total 0"
-      gem_calls+=("$SETUP set_quest_gems $id $gems")
+      cobble_calls+=("$SETUP set_quest_cobbles $id $cobbles")
       continue
     fi
     retired="$(python3 -I -c 'import sys;print((int(sys.argv[1],16) >> 198) & 1)' "$slot")"
@@ -2400,38 +2400,38 @@ fresh_definition_calls() {
     slot="$(fresh_storage "$SETUP" "${FRESH_QUEST_TASK_SLOTS[i]}")" || return 1
     fresh_slot_matches "quest $id (its task)" "$slot" "$(sed -n 2p <<<"$want")" || return 1
     [[ "$retired" == 0 ]] || continue
-    have="$(call "$SETUP" quest_gems "$id")" || return 1
+    have="$(call "$SETUP" quest_cobbles "$id")" || return 1
     have="$(hex_int "$(cut -d' ' -f1 <<<"$have")")"
-    fresh_gems_match "quest $id" "$have" "$gems" || return 1
-    [[ "$have" != 0 ]] || gem_calls+=("$SETUP set_quest_gems $id $gems")
+    fresh_cobbles_match "quest $id" "$have" "$cobbles" || return 1
+    [[ "$have" != 0 ]] || cobble_calls+=("$SETUP set_quest_cobbles $id $cobbles")
   done
   for i in "${!FRESH_ACHIEVEMENTS[@]}"; do
     read -r id task total points <<<"${FRESH_ACHIEVEMENTS[i]}"
     slot="$(fresh_storage "$SETUP" "${FRESH_ACHIEVEMENT_SLOTS[i]}")" || return 1
-    gems="${FRESH_ACHIEVEMENT_GEMS[i]}"
+    cobbles="${FRESH_ACHIEVEMENT_COBBLES[i]}"
     if [[ "$(hex_int "$slot")" == 0 ]]; then
       echo "$SETUP define_achievement $id 0 0 1 $task $total $points"
-      [[ "$gems" == 0 ]] || gem_calls+=("$SETUP set_achievement_gems $id $gems")
+      [[ "$cobbles" == 0 ]] || cobble_calls+=("$SETUP set_achievement_cobbles $id $cobbles")
       continue
     fi
     # shellcheck disable=SC2086
     want="$(fresh_expected_slots achievement ${FRESH_ACHIEVEMENTS[i]})" || return 1
     fresh_slot_matches "achievement $id" "$slot" "$want" 131 || return 1
-    [[ "$gems" != 0 && "$(python3 -I -c 'import sys;print((int(sys.argv[1],16) >> 131) & 1)' "$slot")" == 0 ]] || continue
-    have="$(call "$SETUP" achievement_gems "$id")" || return 1
+    [[ "$cobbles" != 0 && "$(python3 -I -c 'import sys;print((int(sys.argv[1],16) >> 131) & 1)' "$slot")" == 0 ]] || continue
+    have="$(call "$SETUP" achievement_cobbles "$id")" || return 1
     have="$(hex_int "$(cut -d' ' -f1 <<<"$have")")"
-    fresh_gems_match "achievement $id" "$have" "$gems" || return 1
-    [[ "$have" != 0 ]] || gem_calls+=("$SETUP set_achievement_gems $id $gems")
+    fresh_cobbles_match "achievement $id" "$have" "$cobbles" || return 1
+    [[ "$have" != 0 ]] || cobble_calls+=("$SETUP set_achievement_cobbles $id $cobbles")
   done
-  [[ "${#gem_calls[@]}" == 0 ]] || printf '%s\n' "${gem_calls[@]}"
+  [[ "${#cobble_calls[@]}" == 0 ]] || printf '%s\n' "${cobble_calls[@]}"
 }
 
-# fresh_gems_match <label> <gems held> <the table's>: none held, or the table's, passes; another amount passes on a complete
+# fresh_cobbles_match <label> <cobbles held> <the table's>: none held, or the table's, passes; another amount passes on a complete
 # record (the owner's calibration since, kept) and stops a run otherwise, on stderr.
-fresh_gems_match() {
+fresh_cobbles_match() {
   [[ "$2" == 0 || "$2" == "$3" ]] && return 0
   ((FRESH_COMPLETE)) && return 0
-  echo "deploy.sh: $1 has $2 gems, not the table's $3: not sent over; nothing more was sent" >&2
+  echo "deploy.sh: $1 has $2 cobbles, not the table's $3: not sent over; nothing more was sent" >&2
   return 1
 }
 
@@ -2500,14 +2500,14 @@ fresh_definitions_step() {
   if [[ "${#DEFINE_CALLS[@]}" == 0 ]]; then
     echo "   defined already: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}$( [[ -n "$(fr_get definitions_tx)" ]] && echo ", tx $(fr_get definitions_tx)")"
   else
-    echo "   ${#DEFINE_CALLS[@]} definition and gems call(s) to send"
+    echo "   ${#DEFINE_CALLS[@]} definition and cobbles call(s) to send"
     RECORD_SENDING=definitions_tx
     invoke_all "${DEFINE_CALLS[@]}"
     RECORD_SENDING=""
   fi
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "after the definitions, Setup still lacks: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage), with their gems (13 quests, 15 achievements; views quest_gems and achievement_gems)"
+  echo "   Setup holds quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage), with their cobbles (13 quests, 15 achievements; views quest_cobbles and achievement_cobbles)"
 }
 
 # fresh_definitions_smoke: the smoke reads every definition back from Setup's storage and fails on one that is missing or
@@ -2515,7 +2515,7 @@ fresh_definitions_step() {
 fresh_definitions_smoke() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "Setup lacks a definition: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their gems"
+  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their cobbles"
 }
 
 # fresh_deployed_address <tx> <class>: the contract of that class a deploy transaction created, from its receipt (the
@@ -2648,10 +2648,10 @@ fresh_check_only() {
   echo "== fresh: check only (nothing is sent, the file is not written)"
   if [[ ! -e "$OUT" ]]; then
     echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
-    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with their gems,"
+    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with their cobbles,"
     echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
   else
-    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then their gems (set_quest_gems x 13, set_achievement_gems x 15); a run sends the ones Setup lacks and reads each back as specified"
+    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.settle_tx; do
