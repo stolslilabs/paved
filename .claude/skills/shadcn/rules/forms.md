@@ -96,7 +96,7 @@ import { InputGroup, InputGroupInput, InputGroupAddon } from "../ui/input-group"
   <InputGroupInput placeholder="Search..." />
   <InputGroupAddon>
     <Button size="icon">
-      <SearchIcon data-icon="inline-start" />
+      <Icon name="magnifying-glass" label="Search" /> {/* Paved: Icon from ui/icon.tsx, see icons.md */}
     </Button>
   </InputGroupAddon>
 </InputGroup>
