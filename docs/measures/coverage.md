@@ -565,3 +565,56 @@ Outside value and access, line numbers at `f8ed19f5`, paths under `contracts/src
 - No fix of the script (brief). Two points found for the owner of `measure.sh`: the `tr: Illegal byte sequence` message of the
   shim guard on macOS, and that `coverage` (unsplit) cannot fit 16 GB even with `--max-threads 2`, so its comment and
   `AGENTS.md` ("not yet re-measured") can now say so.
+
+## The three `tests-draw-mask` partitions (Mac, 2026-10-15)
+
+Measured on 2026-10-15 on main at `d267c05a`. A measure only: no contract, test or script changed (this section, the comment above
+`COVERAGE_GROUPS` and one `AGENTS.md` note are the only edits). Closes the "peaks not measured yet" point of the re-measure above.
+
+### Setup
+
+- `scarb 2.20.1 (dd18779a1 2026-08-21)`, `snforge 0.64.0`, both as the run saw them (`~/.asdf/shims` ahead of the stray native scarb
+  in `~/.local/bin`, which was not touched); `cairo-coverage 0.6.1` (the script's default directory); `RAYON_NUM_THREADS=1`.
+- Memory stop: `/usr/bin/time -l`, and a watchdog (outside the repository) that sampled the RSS of the `snforge`, `scarb` and
+  `cairo-coverage` processes of the run every 2 s and stopped it above 15,625,000 kB.
+
+### 1. `scripts/measure.sh coverage-split` was stopped before the draw-mask groups
+
+- The run (one, from `origin/main`) was stopped by the watchdog in group `e2e`, after 23 groups, about 626 s in:
+  `cairo-coverage` at 15,843,216 kB. The groups of the script come in this order, so `tests-draw-mask-1..3` never ran in it, and
+  neither did the totals (783 tests, merged coverage): they are not measured by this run.
+- The groups before `e2e` peaked **higher than on 2026-10-14**, in `time -l` bytes (decimal GB): `structure-tables-3` and `-5` 15.47,
+  `structure-tables-9` 15.44, `structure-tables-7` 15.36, `helpers-random-deck` 15.25, the other `structure-tables` 15.02 to 15.21,
+  the others 14.00 to 14.36 (the 2026-10-14 run had them at 10.85 to 12.97, `structure-tables-4` 13.61). Same toolchain, same
+  command: the figure moves by 1 to 3 GB between runs, and this run had no group under 14 GB. The margin to the 16 GB stop is thin
+  for every group, and `e2e` crossed the stop.
+
+### 2. The three parts, run alone
+
+The same command as the script for each group (`snforge test -P coverage --coverage --max-threads 2 --partition i/3 paved::tests::draw_mask`,
+under `/usr/bin/time -l`), one after the other, warm build, the watchdog on. Run after (1), so on the same machine state.
+
+| Part | Tests (count) | Peak (`time -l`) | Wall | Result |
+| --- | --- | --- | --- | --- |
+| `tests-draw-mask-1` | `test_draw_cost_last`, `test_draw_same_simple_deck_counts_low`, `test_draw_same_deck_of_10_exhaustive`, `test_draw_same_simple_deck_last_card_low`, `test_draw_same_whole_games` (5) | 15,347,056,640 B (15.35 GB) | 27.9 s | 5 passed, 270 filtered out |
+| `tests-draw-mask-2` | `test_bit_at_is_the_power`, `test_popcount_is_the_old_one`, `test_draw_same_simple_deck_counts_high`, `test_draw_same_simple_deck_last_card_mid`, `test_draw_cost_late`, `test_draw_same_simple_deck_counts_mid` (6) | 15,350,038,528 B (15.35 GB) | 27.3 s | 6 passed, 268 filtered out |
+| `tests-draw-mask-3` | `test_draw_same_big_deck`, `test_draw_cost`, `test_draw_same_simple_deck_counts_late`, `test_draw_same_simple_deck_last_card_high`, `test_draw_same_small_decks_exhaustive` (5) | 15,362,048,000 B (15.36 GB) | 26.3 s | 5 passed, 269 filtered out |
+
+- Watchdog maxima over the three runs: snforge 10,885,024 kB, scarb 880,080 kB, **cairo-coverage 14,982,016 kB**. The peak is in
+  `cairo-coverage`, not in the tests.
+- **`--partition` splits after the name filter.** The filter leaves 16 tests (`filtered out` counts 270 + 5, 268 + 6, 269 + 5 = 275
+  each, the same total), the parts run 5, 6 and 5 tests, none runs 0, and the 16 names are distinct: each of the 16 `#[test]` of
+  `src/tests/draw_mask.cairo` ran exactly once, none twice, none missing. Each part wrote a `coverage.lcov`.
+- **The partition did not lower the peak.** The three parts peak at 15.35 to 15.36 GB, against 15.89 GB for the whole group
+  (2026-10-14) and 13.99 GB (first measure). The peak does not follow the number of tests: it is the `cairo-coverage` pass, on the
+  trace of the test build, and 5 tests or 16 cost about the same. Every group of this run sat at 14 to 15.5 GB, so the parts' 15.35 GB is the level of the run, not a draw-mask cost; it is 0.27 GB under the stop.
+
+### Recommendations (nothing fixed here)
+
+- Partitioning `tests-draw-mask` buys no memory; it can stay (it is harmless: 16 of 16 tests run once) or go back to one group.  Its parts are no
+  worse than the other groups of this run (14 to 15.5 GB).
+- `coverage-split` did not complete in this run (`e2e` over the stop). A run with the same stop may fail on a loaded Mac: run it with
+  the other apps closed, or only in CI, and look at what raises the `cairo-coverage` peak (the lcov of the test trace) before
+  splitting further.
+- Not measured: totals of the full run (groups, tests passed/failed/ignored, merged coverage). The next full run on the Mac
+  has to give them.

@@ -81,8 +81,8 @@ Memory figures and the VPS/Mac rule:
   13.99 GB); the unsplit `coverage` with default threads reached 18.5 GB and was stopped, so it now passes
   `--max-threads 2` like the groups. Re-measured on the Mac on 2026-10-14: the unsplit `coverage` with `--max-threads 2`
   does NOT fit 16 GB (stopped at 16.31 GB, about 105 s in); `coverage-split` fits, but its largest group, `tests-draw-mask`,
-  peaked at 15.89 GB, 0.11 GB under the stop, so that group now runs in three partitions (peaks not measured yet, the next
-  coverage run on the Mac measures them). `coverage-split` is the mode to use. Rule: coverage runs (`coverage-split`, `coverage`, `all`)
+  peaked at 15.89 GB, 0.11 GB under the stop, so that group now runs in three partitions (measured on 2026-10-15: 5, 6 and 5 tests, each at
+  15.35 to 15.36 GB, no lower than the whole group; in that run `coverage-split` was stopped in `e2e` at 15.84 GB, see coverage.md). `coverage-split` is the mode to use. Rule: coverage runs (`coverage-split`, `coverage`, `all`)
   go on the Mac (P-33, no cap) under a 16 GB stop: stop the run above it and report. Or in CI. `scripts/measure.sh`
   refuses them on Linux unless `ALLOW_COVERAGE_SPLIT_ON_LINUX=1` is set (then its cap is 16 GiB, the maximum).
   `measure.sh check-groups` builds nothing and fails when a test module is in no group. `gas` keeps its measured cap.
