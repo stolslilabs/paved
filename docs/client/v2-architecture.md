@@ -1730,7 +1730,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction. **Done** (2026-10-15; section 9.5, "As built (P5)"): `/game/:gameId` on the predicted session, read only until P6 fills the sources' `signer` | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene. **Done** (2026-10-15): the wallet (`src/wallet/`): `WalletProvider` fills the sources' `signer` (`PavedClient.writer` of the account: the moves, the tutorial's claim and P9's Cobbles claims) while connected and clears it on Disconnect; the Cartridge controller with the game's session policies outside devnet, the env's burner (`VITE_PLAYER_ADDRESS`, `VITE_PLAYER_PRIVATE_KEY`) on devnet, loaded in its own chunk on the first connect or on a page that reads the account (home, play, the tutorial's end), never by the welcome or Training; the welcome's Connect connects; the D-15 notice and the connected account with Disconnect in the shell's footer; the board routes (`h-dvh`) have no footer and show the notice compact under the board's header. A devnet key is read only in a devnet build (static accesses behind a build-time test), and a production build without `VITE_NETWORK` names no network: the chain client refuses rather than falling back to devnet. Home and play on their data (section 6.4, "As wired (P6)"); `/tutorial` on the board scene with its own `TutorialRun` (`data/tutorial.ts`) and, at its end, the First Stone claim through the signer (D-21). "Play free" on home and play, and the wallet restored on quests and achievements: done (PLAYFREE; see the P9 row) | 1 d |
 | P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game. **P7b done** (2026-10-15; "As built (P7b)" below): the purchase half, with Cobbles part 2's packs; the over page is P7a | 2 d |
-| P8 | The leaderboard and player scenes on the indexer | 0.5 d |
+| P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
 | P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
@@ -1797,6 +1797,30 @@ to claim". The toasts' memory (`announced`, and the last list per player and kin
 return. Left for others: the indexer in the app's sources (`routes/sources.ts` still refuses its reads), the signer with the claims
 (P6, done), Play free on home and play (done, PLAYFREE), the leaderboard's free mark (P8). The new query keys
 (`cobbleKeys`, `clockKey`) are in their data files until P6's change to `keys.ts` lands.
+
+**As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
+`currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
+non-number is today, and the picker goes no earlier than the indexer's first tournament (`useFirstDay`, which walks
+`/v1/tournaments`). Rows come 20 a page; "Show more" reads the next page under its own key (`useLeaderboardPages`), and the pages
+start again at the first on another day. The connected player's row (the wallet's address) is outlined, and read apart
+(`/v1/players/:id/tournaments/:day`) and shown after the page when it is not on the pages read. A row opens `/player/:id`, which
+shows the profile, its rank today, the stats and the last 20 games, and whose Back is the previous page of the app, the
+leaderboard when there is none; an id that is not an address below 2^252 is the not-found page. The lag (`useIndexerLag`, from
+`/v1/head`) is a quiet "Up to date" or "Updated N blocks behind" line under the rows, a warning once the indexer is behind by
+more than the client's `maxLag` ("scores may be late"), and "Stale" next to a refresh that failed while the rows stay.
+
+*The free mark.* A leaderboard row's and a game row's `free` (cobbles v1: the day's best game, or the game, was bought with a
+credit, `GameSpawned.price` 0) puts a "Free" badge on the ranking's rows, the home's top 3 and the player's games. `@paved/chain`'s
+indexer client parses it (`LeaderboardEntry.free`, `IndexedGame.free`): absent (an indexer before cobbles v1) reads false, a present
+non-boolean is a bad answer; the fixture serves a free best game and a free game. The scenes' `free` list stays (it wins when
+given); without it a row's own `free` decides (`data/free.ts`), so the home page needs no change. The tests check the mark against
+the fixture indexer, with no wrapper.
+
+*The closed-day rule (P2's review note).* `useLeaderboard`'s cache used to be final once the browser's clock passed `endTime`,
+which can cache a day before the indexer has ingested its last blocks. The cached read now carries `closed`: the indexer's served
+block (`head.timestamp`) is at or after the day's `endTime`. Only then is the page final (`staleTime: Infinity`); a read made
+before that is stale at once, so the next mount, focus or retry reads it again. `leaderboardQuery` (`data/leaderboard.ts`) holds it;
+`useLeaderboard` (the home's top 3 too) and the pages share it.
 
 Every session (Training, Tutorial, Challenge) keeps its engine state between moves and replays the moves only on
 resume (the PM, 2026-10-14).
