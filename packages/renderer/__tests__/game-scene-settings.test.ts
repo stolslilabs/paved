@@ -27,20 +27,41 @@ describe("GameScene settings", () => {
     scene.setSettings({ camera: { minDistance: 8, maxDistance: 250 } });
     expect(controls).toMatchObject({ minDistance: 8, maxDistance: 250 });
     scene.setSettings({ camera: { capZoomOut: true, zoomOutCapDistance: 120 } });
-    expect(controls).toMatchObject({ minDistance: 5, maxDistance: 120 });
+    expect(controls).toMatchObject({ minDistance: 8, maxDistance: 120 });
     scene.setSettings({});
-    expect(controls).toMatchObject({ minDistance: 5, maxDistance: 300 });
+    expect(controls).toMatchObject({ minDistance: 8, maxDistance: 300 });
     expect(requestRender).toHaveBeenCalled();
   });
 
-  it("turns the scene's multisampling on and off, off by default", () => {
+  it("turns the faces' antialiasing on and off with the multisampling setting: MSAA on a GPU that multisamples, SMAA otherwise", () => {
     const { scene } = sceneWithCamera();
-    const setMultisampling = vi.fn();
-    (scene as any).effects = { setMultisampling };
+    const setAntialiasing = vi.fn();
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    (scene as any).effects = { setAntialiasing };
+    (scene as any).renderer = { capabilities: { maxSamples: 4 } };
+    (scene as any).webgl = { renderer: "ANGLE (Apple, Metal)", software: false, reason: "GPU renderer" };
     scene.setSettings({ multisampling: true });
-    expect(setMultisampling).toHaveBeenLastCalledWith(true);
-    scene.setSettings({});
-    expect(setMultisampling).toHaveBeenLastCalledWith(false);
+    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa");
+    scene.setSettings({ multisampling: false });
+    expect(setAntialiasing).toHaveBeenLastCalledWith("off");
+    // No WebGL 2 multisampling: SMAA.
+    (scene as any).renderer = { capabilities: { maxSamples: 0 } };
+    scene.setSettings({ multisampling: true });
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    // Software WebGL multisamples on the CPU: SMAA.
+    (scene as any).renderer = { capabilities: { maxSamples: 16 } };
+    (scene as any).webgl = { renderer: "SwiftShader", software: true, reason: "software renderer" };
+    scene.setSettings({ multisampling: true });
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    // The path is logged once per change.
+    scene.setSettings({ multisampling: true });
+    expect(info.mock.calls.filter(([m]) => String(m).includes("face antialiasing")).map(([m]) => m)).toEqual([
+      "[renderer] face antialiasing msaa: 4 samples available on GPU renderer",
+      "[renderer] face antialiasing off: disabled by the settings",
+      "[renderer] face antialiasing smaa: multisampling unavailable (0 samples)",
+      "[renderer] face antialiasing smaa: software renderer",
+    ]);
+    info.mockRestore();
   });
 
   it("reports the zoom and the outlines' stroke at it", () => {
@@ -68,7 +89,7 @@ describe("GameScene settings", () => {
     const setOutlineStroke = vi.fn();
     (scene as any).tiles = { setOutlineStroke };
     (scene as any).renderer = { shadowMap: {} };
-    (scene as any).effects = { render: vi.fn(), setMultisampling: vi.fn() };
+    (scene as any).effects = { render: vi.fn(), setAntialiasing: vi.fn() };
     scene.render();
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(1);
@@ -116,11 +137,12 @@ describe("GameScene settings", () => {
     expect(scene.getZoom().outline).toEqual({ width: 0, opacity: 0 });
     scene.setSettings({ outlines: { force: "on" } });
     expect(scene.getZoom().outline.opacity).toBeGreaterThan(0);
-    expect(info).toHaveBeenLastCalledWith("[renderer] outlines on: forced on");
+    const outlinePaths = () => info.mock.calls.map(([m]) => String(m)).filter((m) => m.includes("outlines"));
+    expect(outlinePaths()).toEqual(["[renderer] outlines on: forced on"]);
     scene.setSettings({ outlines: { force: "on" } });
-    expect(info).toHaveBeenCalledTimes(1);
+    expect(outlinePaths()).toHaveLength(1);
     scene.setSettings({});
-    expect(info).toHaveBeenLastCalledWith('[renderer] outlines off: software renderer "Google SwiftShader"');
+    expect(outlinePaths().at(-1)).toBe('[renderer] outlines off: software renderer "Google SwiftShader"');
     (scene as any).webgl = { renderer: "Apple GPU", software: false, reason: 'GPU renderer "Apple GPU"' };
     expect(scene.getZoom().outline.opacity).toBeGreaterThan(0);
     scene.setSettings({ outlines: { force: "off" } });
