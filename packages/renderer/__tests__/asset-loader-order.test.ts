@@ -12,7 +12,7 @@ vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
   },
 }));
 
-import { AssetLoader, loadManifest, modelPath } from "../src/core/AssetLoader";
+import { AssetLoader, MANIFEST_RETRY_MS, loadManifest, modelPath } from "../src/core/AssetLoader";
 import { afterFirstFrame, firstModels } from "../src/core/load-order";
 import { GameScene } from "../src/core/GameScene";
 import type { RenderSurfaceAdapter, TileRenderData } from "../src/core/types";
@@ -37,6 +37,9 @@ let manifestBody: unknown = null;
 let base = 0;
 /** A fresh base path per test: the manifest is fetched once per base path for the page's life. */
 const nextBase = () => `http://assets.test/b${++base}`;
+
+// The retries' waits, shortened for the tests (the loader's own are 250 and 1000 ms).
+MANIFEST_RETRY_MS.splice(0, MANIFEST_RETRY_MS.length, 1, 1);
 
 beforeEach(() => {
   net.loadAsync.mockReset().mockImplementation(async (url: string) => {
@@ -82,6 +85,43 @@ describe("the manifest: a plan key to its content-hashed model", () => {
       expect(requested()).toHaveLength(19);
       expect(requested().every((url) => /\/models\/[a-z]{9}\.glb$/.test(url))).toBe(true);
     }
+  });
+
+  it("tries the manifest again after a network or server error, and uses it once it comes", async () => {
+    manifestBody = { models: { ccccccccc: "models/ccccccccc.2bb7ca783c.glb" } };
+    const answers: Array<() => Promise<Response>> = [
+      async () => {
+        throw new TypeError("network down");
+      },
+      async () => new Response("busy", { status: 503 }),
+    ];
+    vi.mocked(fetch).mockImplementation(async () => (answers.shift() ?? (async () => new Response(JSON.stringify(manifestBody))))());
+    const at = nextBase();
+    const assets = new AssetLoader(at);
+    await assets.preloadModels();
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(requested()).toContain(`${at}/models/ccccccccc.2bb7ca783c.glb`);
+  });
+
+  it("rejects when the manifest still cannot be reached after its retries (the app shows its plan view), and asks again later", async () => {
+    vi.mocked(fetch).mockImplementation(async () => {
+      throw new TypeError("network down");
+    });
+    const at = nextBase();
+    const assets = new AssetLoader(at);
+    assets.want(["ccccccccc"]);
+    await expect(assets.preloadAll()).rejects.toThrow("network down");
+    expect(fetch).toHaveBeenCalledTimes(1 + MANIFEST_RETRY_MS.length);
+    expect(net.loadAsync).not.toHaveBeenCalled();
+    // Not kept: the next loader of that base path asks again.
+    manifestBody = { models: {} };
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify(manifestBody)));
+    expect(await loadManifest(at)).toEqual({ models: {} });
+  });
+
+  it("has no manifest to ask for on a base path that is not a URL of this page", async () => {
+    expect(await loadManifest("/relative-in-node")).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("fails cleanly when a listed file does not load: the loader rejects, naming it", async () => {

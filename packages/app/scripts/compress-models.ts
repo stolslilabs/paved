@@ -7,7 +7,7 @@
  * removing the copies of an earlier run. `--check` writes nothing and fails when the committed copies are not exactly what
  * this run would write. Node 24 runs it as is (type stripping): the syntax stays erasable.
  *
- * Per model, lossless where the renderer can tell:
+ * Per model (positions lossless on the grid; normals and UVs within 0.001 degree / 8e-6):
  * - Vertices renumbered in the order the triangles first use them (the triangles and their order are kept, so the
  *   renderer's outlines, which pair triangles in index order, find the same edges).
  * - `KHR_mesh_quantization`, every attribute normalized: positions as 8-bit integers on the voxel grid (every coordinate a

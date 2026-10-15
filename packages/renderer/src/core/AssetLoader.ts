@@ -19,43 +19,79 @@ const PLAN_KEYS = Object.values(PlanType)
   .filter((v) => v !== PlanType.None)
   .map(getPlanKey);
 
-// meshopt decodes off the main thread where the browser gives workers (they start from an inline script, no fetch).
-if (typeof Worker !== "undefined") MeshoptDecoder.useWorkers(2);
-
-/** One manifest request per base path for the page's life (a failed one is asked again by the next loader). */
+/** One manifest request per base path for the page's life; a failed one (after its retries) is asked again by the next loader. */
 const manifests = new Map<string, Promise<AssetManifest | null>>();
+
+/** The waits before the manifest's second and third tries, after a network error or a server error. */
+export const MANIFEST_RETRY_MS = [250, 1000];
 
 function isManifest(value: unknown): value is AssetManifest {
   const models = (value as { models?: unknown } | null)?.models;
   return typeof models === "object" && models !== null && Object.values(models).every((v) => typeof v === "string");
 }
 
-/** The manifest at `<basePath>/manifest.json`, or null when there is none (not served, not JSON, not a manifest). */
+/**
+ * The manifest at `<basePath>/manifest.json`, or null when the host has none: a 404, a body that is not a manifest, or a
+ * base path with no host to ask (not a URL from this page). A network error or a server error is tried again
+ * (`MANIFEST_RETRY_MS`), then rejects, so the scene does not start (the app shows its plan view) rather than ask for plain
+ * names the app's build does not ship.
+ */
 export function loadManifest(basePath: string): Promise<AssetManifest | null> {
   let manifest = manifests.get(basePath);
   if (!manifest) {
-    manifest = (async () => {
-      try {
-        // Revalidated on every load: the manifest is the one renderer file whose name does not change with its content.
-        const response = await fetch(`${basePath}/manifest.json`, { cache: "no-cache" });
-        if (!response.ok) return null;
-        const value: unknown = await response.json();
-        return isManifest(value) ? value : null;
-      } catch {
-        return null;
-      }
-    })();
+    manifest = fetchManifest(basePath);
     manifests.set(basePath, manifest);
-    void manifest.then((m) => {
-      if (!m) manifests.delete(basePath);
+    manifest.catch(() => {
+      if (manifests.get(basePath) === manifest) manifests.delete(basePath);
     });
   }
   return manifest;
 }
 
+async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
+  let url: string;
+  try {
+    url = new URL(`${basePath}/manifest.json`, (globalThis as { location?: { href: string } }).location?.href).href;
+  } catch {
+    return null;
+  }
+  for (let attempt = 0; ; attempt++) {
+    let response: Response | null = null;
+    let failure: unknown = null;
+    try {
+      // Revalidated on every load: the manifest is the one renderer file whose name does not change with its content.
+      response = await fetch(url, { cache: "no-cache" });
+    } catch (error) {
+      failure = error;
+    }
+    if (response && (response.ok || response.status === 404)) {
+      if (!response.ok) return null;
+      try {
+        const value: unknown = await response.json();
+        return isManifest(value) ? value : null;
+      } catch {
+        return null;
+      }
+    }
+    if (attempt >= MANIFEST_RETRY_MS.length) {
+      throw failure ?? new Error(`AssetLoader: ${url} answered ${response!.status}`);
+    }
+    await new Promise((done) => setTimeout(done, MANIFEST_RETRY_MS[attempt]));
+  }
+}
+
 /** A plan's model path relative to `basePath`: its hashed name when the manifest lists it, else `models/<plan>.glb`. */
 export function modelPath(manifest: AssetManifest | null, key: string): string {
   return manifest?.models[key] ?? `models/${key}.glb`;
+}
+
+let workersStarted = false;
+
+/** meshopt decodes off the main thread where the browser gives workers (started from an inline script, no fetch), once. */
+function startDecoderWorkers(): void {
+  if (workersStarted || typeof Worker === "undefined") return;
+  workersStarted = true;
+  MeshoptDecoder.useWorkers(2);
 }
 
 export class AssetLoader {
@@ -78,6 +114,7 @@ export class AssetLoader {
   private disposed = false;
 
   constructor(basePath = "") {
+    startDecoderWorkers();
     this.gltfLoader = new GLTFLoader();
     // The app's models are meshopt-compressed (`EXT_meshopt_compression`); the decoder ships in the bundle, self-hosted.
     this.gltfLoader.setMeshoptDecoder?.(MeshoptDecoder);

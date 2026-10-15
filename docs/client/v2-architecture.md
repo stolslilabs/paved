@@ -754,13 +754,15 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     keys, and the 35-tile board's first frame was then no faster than with the originals. Tools, pinned devDependencies
     of `@paved/app`: `@gltf-transform/core` and `@gltf-transform/extensions` 4.5.1, `meshoptimizer` 1.1.1 (`bun.lock`
     adds those three and `property-graph` 4.1.0, `ktx-parse` 1.1.0). Vite serves the folder in dev and copies it into
-    `dist/`. The decoder is three's `meshopt_decoder.module.js`, in the bundle, decoding in two workers started from an
-    inline script.
+    `dist/`. The decoder is three's `meshopt_decoder.module.js`, in the bundle, decoding in two workers that the first
+    `AssetLoader` starts from an inline script (a `blob:` URL): a future Content-Security-Policy needs `worker-src blob:`.
+    Positions are lossless; normals and UVs within 0.001 degree / 8e-6.
   - **The manifest,** `renderer-assets/manifest.json`, `{ "models": { "<plan>": "models/<plan>.<hash>.glb" } }`, built by
     `packages/app/vite/renderer-assets.ts` from the file names (the build fails when a name's hash is not its file's, or a
     plan has two files): served in dev, written into `dist/` at build. `AssetLoader` reads `<basePath>/manifest.json` once
-    per base path; a plan it does not list, or no manifest (Storybook, which still maps app-web's folder whole), loads
-    `models/<plan>.glb`. Dev still answers those plain names from app-web; the build ships no original model and no Draco
+    per base path; a plan it does not list, or no manifest (a 404 or a body that is not one: Storybook, which still maps
+    app-web's folder whole), loads `models/<plan>.glb`. A network or server error is tried twice more (after 250 and
+    1000 ms), then the scene does not start and the page shows its plan view. Dev still answers those plain names from app-web; the build ships no original model and no Draco
     decoder.
   - **Tile images** `assets/tiles/<plan>.png` (19, the plan view's and the tile chips'), from app-web's `public/` under their
     plain names, served in dev and copied at build.
@@ -794,7 +796,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     code and fonts, the largest Font Awesome's `solid.min.js` (669,527 B). Draco (gltf-transform's defaults, edgebreaker),
     measured the same way (a hand-made build; its loader fetched each first model twice, about 20 KB each): 427,204 B for the 19 models and 250,876 B of decoder; first view 1,423,921 B fresh and
     1,795,893 B at 35 tiles; first frame on the phone-like profile 739 ms fresh, 1,177 ms at 35 tiles. meshopt was chosen:
-    lossless on the grid where Draco quantizes (14-bit positions, 10-bit normals), the smaller and faster fresh first view,
+    positions lossless and normals and UVs within 0.001 degree / 8e-6, where Draco quantizes (14-bit positions, 10-bit normals), the smaller and faster fresh first view,
     and a 29 KB decoder in the bundle instead of 251 KB to host; Draco would save about 0.42 MB and 90 ms on the phone at
     35 tiles, which is what would reverse the choice.
   - **No visual change:** captures before and after at 360 (DPR 3) and 1280 (DPR 2) px, three zooms (opening, mid,
