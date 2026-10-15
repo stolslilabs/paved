@@ -1,7 +1,7 @@
-import { createReadStream, readdirSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Plugin, PreviewServer, ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 
 /** app-web's `public/`: the one source of the renderer's assets, the folder Storybook maps to `/renderer-assets` too. */
 const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../app-web/public");
@@ -30,30 +30,40 @@ export function rendererAssetFiles(source = SOURCE): string[] {
 }
 
 /**
- * Serves the renderer's assets at `<base>renderer-assets/` from app-web's `public/`, in `vite` and in `vite preview`, and
- * copies them into `dist/renderer-assets/` at build: nothing is committed twice (until P12 moves them into the app).
+ * Serves the renderer's assets at `<base>renderer-assets/` from app-web's `public/` in `vite` (dev), and copies them into
+ * `dist/renderer-assets/` at build: nothing is committed twice (until P12 moves them into the app). `vite preview` serves
+ * `dist` as a static host does, so the built copy is what it shows. Storybook maps the same folder itself (`staticDirs`),
+ * whole: the plugin stays out of its builds.
  */
 export function rendererAssets(source = SOURCE): Plugin {
   let prefix = "/renderer-assets/";
-  const serve = (server: ViteDevServer | PreviewServer) => {
-    server.middlewares.use((req, res, next) => {
-      const path = decodeURIComponent((req.url ?? "").split("?")[0]!);
-      if (!path.startsWith(prefix)) return next();
-      const rel = path.slice(prefix.length);
-      if (!isRendererAsset(rel)) return next();
-      res.setHeader("Content-Type", TYPES[extname(rel)] ?? "application/octet-stream");
-      res.setHeader("Content-Length", statSync(join(source, rel)).size);
-      createReadStream(join(source, rel)).on("error", () => next()).pipe(res);
-    });
-  };
+  let off = false;
   return {
     name: "paved:renderer-assets",
     configResolved(config) {
       prefix = `${config.base}renderer-assets/`;
+      off = config.plugins.some((p) => p.name.startsWith("storybook:"));
     },
-    configureServer: serve,
-    configurePreviewServer: serve,
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
+        if (off) return next();
+        const url = (req.url ?? "").split("?")[0]!;
+        if (!url.startsWith(prefix)) return next();
+        let rel: string;
+        try {
+          rel = decodeURIComponent(url.slice(prefix.length));
+        } catch {
+          return next();
+        }
+        const file = join(source, rel);
+        if (!isRendererAsset(rel) || !existsSync(file)) return next();
+        res.setHeader("Content-Type", TYPES[extname(rel)] ?? "application/octet-stream");
+        res.setHeader("Content-Length", statSync(file).size);
+        createReadStream(file).on("error", () => res.destroy()).pipe(res);
+      });
+    },
     generateBundle() {
+      if (off) return;
       for (const rel of rendererAssetFiles(source)) {
         this.emitFile({ type: "asset", fileName: `renderer-assets/${rel}`, source: readFileSync(join(source, rel)) });
       }
