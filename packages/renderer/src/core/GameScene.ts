@@ -34,7 +34,9 @@ import {
   cameraDistanceLimits,
   capPixelRatio,
   resolveMaxPixelRatio,
+  resolveMultisampling,
   resolveRendererSettings,
+  type PixelRatioDevice,
   type RendererSettings,
   type RendererSettingsInput,
 } from "./settings";
@@ -266,10 +268,16 @@ export class GameScene {
    * screen it is shown in, not of the surface's own size).
    */
   private cappedPixelRatio(): number {
-    const surface = this.surface!;
+    const cap = resolveMaxPixelRatio(this.settings.maxPixelRatio, this.device());
+    return capPixelRatio(this.surface!.getDevicePixelRatio(), cap);
+  }
+
+  /** What the `"auto"` settings read of the device: its pointer, and the window's or screen's size. */
+  private device(): PixelRatioDevice {
+    const surface = this.surface;
+    if (!surface) return { coarsePointer: false, width: 0, height: 0 };
     const { width, height } = surface.getViewportSize?.() ?? surface.getSize();
-    const cap = resolveMaxPixelRatio(this.settings.maxPixelRatio, { coarsePointer: surface.hasCoarsePointer?.() ?? false, width, height });
-    return capPixelRatio(surface.getDevicePixelRatio(), cap);
+    return { coarsePointer: surface.hasCoarsePointer?.() ?? false, width, height };
   }
 
   /**
@@ -286,6 +294,9 @@ export class GameScene {
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
     this.effects.resize(width, height, this.pixelRatio);
+    // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
+    this.effects.setAntialiasing(this.faceAntialiasing());
+    this.logAntialiasingPath();
     this.requestRender();
   }
 
@@ -537,7 +548,7 @@ export class GameScene {
    * multisamples (`capabilities.maxSamples`) on a GPU, SMAA on software WebGL or without multisampling.
    */
   private faceAntialiasing(): FaceAntialiasing {
-    return resolveFaceAntialiasing(this.settings.multisampling, {
+    return resolveFaceAntialiasing(resolveMultisampling(this.settings.multisampling, this.device()), {
       maxSamples: this.renderer?.capabilities?.maxSamples ?? 0,
       software: this.webgl.software,
       supportsMultisampling: this.effectsCapabilities.supportsMultisampling,
@@ -551,7 +562,9 @@ export class GameScene {
     const maxSamples = this.renderer.capabilities?.maxSamples ?? 0;
     const why =
       mode === "off"
-        ? "disabled by the settings"
+        ? this.settings.multisampling === "auto"
+          ? "auto, off on a fine pointer and a large screen"
+          : "disabled by the settings"
         : mode === "msaa"
           ? `${maxSamples} samples available on ${this.webgl.reason}`
           : this.webgl.software

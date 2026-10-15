@@ -64,7 +64,14 @@ const meta = {
     maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
     zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
-    multisampling: { control: "boolean", description: "Multisampled anti-aliasing (4x): smoother edges, about 3 to 4 ms of GPU a frame", table: { category: "Quality" } },
+    multisampling: {
+      // `on` and `off` map to the booleans; a URL may also give `multisampling:!true`.
+      control: { type: "select", labels: { auto: "auto", on: "on", off: "off" } },
+      options: ["auto", "on", "off"],
+      mapping: { auto: "auto", on: true, off: false },
+      description: "Face antialiasing: MSAA (4 samples) where WebGL 2 multisamples on a GPU, SMAA at the end of the chain otherwise (software WebGL, no multisampling). auto: on on a coarse pointer or a small screen, off elsewhere (MSAA misses 12 ms on the Mac profile)",
+      table: { category: "Quality" },
+    },
     maxPixelRatio: {
       // Keys without a dot, so a URL can name one (`args=maxPixelRatio:x1_5`); `mapping` gives the renderer the number.
       control: { type: "select", labels: { auto: "auto", x1: "1", x1_5: "1.5", x2: "2", x3: "3" } },

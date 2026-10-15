@@ -12,7 +12,7 @@ export interface OutlinesBoardProps {
   tour: boolean;
   /** The view the camera holds while the tour is off. */
   view: View;
-  /** The camera's distance while the tour is off, 5 (fully zoomed in) to 300 (fully zoomed out); unset, the view's own. */
+  /** The camera's distance while the tour is off, 8 (fully zoomed in) to 300 (fully zoomed out); unset, the view's own. */
   distance?: number;
   /** Draw every frame even when nothing moves, as the frame-time measures need. */
   redraw?: boolean;
@@ -37,7 +37,8 @@ export interface OutlinesBoardProps {
   maxDistance?: number;
   capZoomOut?: boolean;
   zoomOutCapDistance?: number;
-  multisampling?: boolean;
+  /** The faces' antialiasing: on, off, or "auto" (the device's). */
+  multisampling?: boolean | "auto";
   /** The pixel-ratio cap: "auto" (the device's) or a number. */
   maxPixelRatio?: number | "auto";
 }

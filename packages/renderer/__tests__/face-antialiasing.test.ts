@@ -12,7 +12,8 @@ import {
   TALLEST_TILE_HEIGHT,
   type CameraInputAdapter,
 } from "../src/core/CameraController";
-import { DEFAULT_RENDERER_SETTINGS } from "../src/core/settings";
+import { DEFAULT_RENDERER_SETTINGS, SMALL_SCREEN_PX, resolveMultisampling, resolveRendererSettings } from "../src/core/settings";
+import { GameScene } from "../src/core/GameScene";
 import { TILE_SIZE } from "../src/core/types";
 
 const MODELS = fileURLToPath(new URL("../../app-web/public/models", import.meta.url));
@@ -74,6 +75,36 @@ describe("face antialiasing", () => {
     effects.setAntialiasing("smaa");
     expect(effects.getComposer()!.passes.at(-1)).toBeInstanceOf(SMAAPass);
     expect(effects.getAntialiasing()).toBe("smaa");
+  });
+
+  it("is on by default on coarse pointers and small screens, off elsewhere (the 12 ms rule, P4)", () => {
+    const desk = { coarsePointer: false, width: 1440, height: 900 };
+    expect(DEFAULT_RENDERER_SETTINGS.multisampling).toBe("auto");
+    expect(resolveMultisampling("auto", desk)).toBe(false);
+    expect(resolveMultisampling("auto", { ...desk, coarsePointer: true })).toBe(true);
+    expect(resolveMultisampling("auto", { ...desk, width: 360, height: 780 })).toBe(true);
+    expect(resolveMultisampling("auto", { ...desk, width: SMALL_SCREEN_PX + 1 })).toBe(false);
+    expect(resolveMultisampling(true, desk)).toBe(true);
+    expect(resolveMultisampling(false, { ...desk, coarsePointer: true })).toBe(false);
+    // An unknown value is the default.
+    expect(resolveRendererSettings({ multisampling: "x" as never }).multisampling).toBe("auto");
+  });
+
+  it("follows the window in GameScene: a resize to a small screen turns MSAA on under \"auto\"", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const scene = new GameScene();
+    let size = { width: 1440, height: 900 };
+    const setAntialiasing = vi.fn();
+    (scene as any).effects = { setAntialiasing, resize: vi.fn() };
+    (scene as any).renderer = { capabilities: { maxSamples: 4 }, setPixelRatio: vi.fn(), setSize: vi.fn() };
+    (scene as any).webgl = { renderer: "Apple GPU", software: false, reason: "GPU renderer" };
+    (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2 };
+    scene.resize();
+    expect(setAntialiasing).toHaveBeenLastCalledWith("off");
+    size = { width: 360, height: 780 };
+    scene.resize();
+    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa");
+    info.mockRestore();
   });
 
   it("leaves SMAA out where there is no Image constructor (React Native)", () => {

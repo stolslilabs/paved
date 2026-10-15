@@ -99,6 +99,7 @@ function createSceneHarness() {
     init: vi.fn(),
     setCapabilities: vi.fn(),
     setProfile: vi.fn(),
+    setAntialiasing: vi.fn(),
     resize: vi.fn(),
     render: vi.fn(),
     dispose: vi.fn(),

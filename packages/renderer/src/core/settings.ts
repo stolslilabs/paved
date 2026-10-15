@@ -15,10 +15,13 @@ export interface RendererSettings {
    */
   camera: CameraZoomSettings;
   /**
-   * Multisampled anti-aliasing of the scene (4 samples). Off by default: the outlines are stable without it (their
-   * depth bias is what fixed the flicker), and it costs about 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max.
+   * The tile faces' antialiasing: on, MSAA (4 samples) where WebGL 2 multisamples on a GPU, SMAA otherwise
+   * (`resolveFaceAntialiasing`, `Effects.ts`). `"auto"` (the default) takes the device's (`resolveMultisampling`): on on
+   * a coarse pointer or a small screen, off elsewhere. MSAA costs about 3.5 ms of p95 on the Mac profile, which breaks
+   * the 12 ms rule at cap 1.5; the phone-like profile stays far under 16.6 ms with it (P4, `docs/client/v2-architecture.md`
+   * 5.2). The outlines antialias themselves and are stable without it.
    */
-  multisampling: boolean;
+  multisampling: boolean | "auto";
   /**
    * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
    * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
@@ -46,7 +49,7 @@ export interface CameraZoomSettings {
 export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
-  multisampling?: boolean;
+  multisampling?: boolean | "auto";
   maxPixelRatio?: number | "auto";
 }
 
@@ -63,7 +66,7 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
-  multisampling: false,
+  multisampling: "auto",
   maxPixelRatio: "auto",
 };
 
@@ -88,12 +91,24 @@ export interface PixelRatioDevice {
   height: number;
 }
 
+/** A coarse pointer, or a window or screen whose shorter side is at most `SMALL_SCREEN_PX`: a phone or a tablet. */
+function coarseOrSmall(device: PixelRatioDevice): boolean {
+  const shorter = Math.min(device.width, device.height);
+  return device.coarsePointer || (shorter > 0 && shorter <= SMALL_SCREEN_PX);
+}
+
 /** The cap in effect: `maxPixelRatio` itself, or for `"auto"` the device's (`PIXEL_RATIO_CAPS`). */
 export function resolveMaxPixelRatio(maxPixelRatio: number | "auto", device: PixelRatioDevice): number {
   if (maxPixelRatio !== "auto") return maxPixelRatio;
-  const shorter = Math.min(device.width, device.height);
-  const small = shorter > 0 && shorter <= SMALL_SCREEN_PX;
-  return device.coarsePointer || small ? PIXEL_RATIO_CAPS.coarse : PIXEL_RATIO_CAPS.fine;
+  return coarseOrSmall(device) ? PIXEL_RATIO_CAPS.coarse : PIXEL_RATIO_CAPS.fine;
+}
+
+/**
+ * Whether the faces are antialiased: `multisampling` itself, or for `"auto"` the device's, on a coarse pointer or a
+ * small screen (the phone-like profile passes 16.6 ms with MSAA at cap 2), off elsewhere (the Mac profile misses 12 ms).
+ */
+export function resolveMultisampling(multisampling: boolean | "auto", device: PixelRatioDevice): boolean {
+  return multisampling === "auto" ? coarseOrSmall(device) : multisampling;
 }
 
 /** `input` over `base`, field by field. */
@@ -108,10 +123,12 @@ export function resolveRendererSettings(
   return {
     outlines,
     camera: { ...base.camera, ...input.camera },
-    multisampling: input.multisampling ?? base.multisampling,
+    multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
   };
 }
+
+const MULTISAMPLING_VALUES: readonly RendererSettings["multisampling"][] = [true, false, "auto"];
 
 const OUTLINE_FORCES: readonly OutlineSettings["force"][] = ["auto", "on", "off"];
 
