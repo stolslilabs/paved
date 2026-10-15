@@ -132,6 +132,8 @@ describe.skipIf(!enabled)("devnet gems and free games", () => {
     const aliceAddress = padded(alice.address);
     const boAddress = padded(bo.address);
     // The owner (the deployer) gives gems to Daily Run (the only daily with gems, so one paid game completes the day) and to Settler I.
+    // deploy.sh sets the gems of every fresh quest; the rotating dailies (5 to 13) are cleared so the day's credit needs Daily Run alone.
+    for (let id = 5; id <= 13; id++) await send(owner, setup(), "set_quest_gems", [id, 0]);
     await send(owner, setup(), "set_quest_gems", [1, 5]);
     await send(owner, setup(), "set_achievement_gems", [2, 10]);
 
