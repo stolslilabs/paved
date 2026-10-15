@@ -183,6 +183,8 @@ Base supports `multiple`, render-function children on `SelectValue`, and object 
 
 ## ToggleGroup
 
+<!-- Paved: the app's ToggleGroup has no `spacing` prop; it is dropped from the samples below. -->
+
 Base uses a `multiple` boolean prop. Radix uses `type="single"` or `type="multiple"`.
 
 **Incorrect (base):**
@@ -197,7 +199,7 @@ Base uses a `multiple` boolean prop. Radix uses `type="single"` or `type="multip
 
 ```tsx
 // Single (no prop needed), defaultValue is always an array.
-<ToggleGroup defaultValue={["daily"]} spacing={2}>
+<ToggleGroup defaultValue={["daily"]}>
   <ToggleGroupItem value="daily">Daily</ToggleGroupItem>
   <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
 </ToggleGroup>
@@ -213,7 +215,7 @@ Base uses a `multiple` boolean prop. Radix uses `type="single"` or `type="multip
 
 ```tsx
 // Single, defaultValue is a string.
-<ToggleGroup type="single" defaultValue="daily" spacing={2}>
+<ToggleGroup type="single" defaultValue="daily">
   <ToggleGroupItem value="daily">Daily</ToggleGroupItem>
   <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
 </ToggleGroup>

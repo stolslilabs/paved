@@ -59,7 +59,7 @@ For positive, negative, or status indicators, use Badge variants, semantic token
 <span className="text-destructive">-3.2%</span>
 ```
 
-<!-- Paved: `success`, `info` and `warning` exist as tokens in theme.css; the upstream advice to ask about a variable is kept for any other colour. -->
+<!-- Paved: `success`, `info` and `warning` exist as tokens in theme.css; the upstream advice to ask the user about a new variable is replaced by "add a token to theme.css". -->
 For positive, informational or warning states use the `success`, `info` and `warning` tokens (`text-success`, `bg-success`, ...). If a colour is still missing, add a token to `theme.css`; never a literal in a component.
 
 ---

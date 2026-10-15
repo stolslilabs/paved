@@ -2,7 +2,7 @@
 
 # Forms & Inputs
 
-<!-- Paved: `ui/` has no Field, FieldGroup or InputGroup yet. The rules below apply when one is added by hand; until then keep a form to a flex column with `gap-*` and a real `label` per control. -->
+<!-- Paved: samples import from `@/components/ui/...` upstream; the app has no `@` alias, so the paths here are relative to a file in a sibling tier folder such as `elements/` (adjust to the importing file). `ui/` has no Field, FieldGroup or InputGroup yet. The rules below apply when one is added by hand; until then keep a form to a flex column with `gap-*` and a real `label` per control. -->
 
 ## Contents
 
@@ -63,7 +63,7 @@ Never use raw `Input` or `Textarea` inside an `InputGroup`.
 **Correct:**
 
 ```tsx
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
+import { InputGroup, InputGroupInput } from "../ui/input-group"
 
 <InputGroup>
   <InputGroupInput placeholder="Search..." />
@@ -90,7 +90,7 @@ Never place a `Button` directly inside or adjacent to an `Input` with custom pos
 **Correct:**
 
 ```tsx
-import { InputGroup, InputGroupInput, InputGroupAddon } from "@/components/ui/input-group"
+import { InputGroup, InputGroupInput, InputGroupAddon } from "../ui/input-group"
 
 <InputGroup>
   <InputGroupInput placeholder="Search..." />
@@ -128,10 +128,11 @@ const [selected, setSelected] = useState("daily")
 
 **Correct:**
 
+<!-- Paved: Radix needs `type="single"` or `type="multiple"`; the app's ToggleGroup has no `spacing` prop, so it is dropped from these samples. -->
 ```tsx
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group"
 
-<ToggleGroup spacing={2}>
+<ToggleGroup type="single">
   <ToggleGroupItem value="daily">Daily</ToggleGroupItem>
   <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
   <ToggleGroupItem value="monthly">Monthly</ToggleGroupItem>
@@ -143,7 +144,7 @@ Combine with `Field` for labelled toggle groups:
 ```tsx
 <Field orientation="horizontal">
   <FieldTitle id="theme-label">Theme</FieldTitle>
-  <ToggleGroup aria-labelledby="theme-label" spacing={2}>
+  <ToggleGroup type="single" aria-labelledby="theme-label">
     <ToggleGroupItem value="light">Light</ToggleGroupItem>
     <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
     <ToggleGroupItem value="system">System</ToggleGroupItem>

@@ -5,6 +5,8 @@
 <!-- Paved: upstream says to import from the configured icon library (lucide-react and the like). This app uses Font Awesome Pro through `<Icon>` in `ui/icon.tsx`; it imports no icon set. The code samples below show the upstream icon components; write `<Icon name="magnifying-glass" />` instead. -->
 **Draw icons with `<Icon name="..." variant="solid" label="..." />` from `ui/icon.tsx`** (see the "Icons" section of the `paved-ui` skill). Never import `lucide-react` or another icon set, and never write `<i class="fa-...">`.
 
+<!-- Paved: the `data-icon` rule and the "no sizing classes" rule below do not apply to `<Icon>`. `ui/icon.tsx` drops unknown props and sets `data-icon` itself, and `ui/button.tsx` does not size svgs (it only sets `[&_svg]:pointer-events-none [&_svg]:shrink-0`). In a `Button`, the spacing comes from the button's `gap-2` and the size from `Icon`'s `size` prop (default `md`, e.g. `size="sm"`), never a `size-*` class. -->
+
 ---
 
 ## Icons in Button use data-icon attribute
