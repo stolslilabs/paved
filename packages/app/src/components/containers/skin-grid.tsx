@@ -57,7 +57,8 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
           {forSale ? <Gems value={price} size="sm" /> : <span className="text-xs text-muted-foreground">Not for sale</span>}
           {forSale && (
             <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} gems`}>
-              {buying ? "Buying…" : "Buy"}
+              {/* The spinner says it is on its way; a longer label would not fit a 320 px row of three (WRAP360). */}
+              Buy
             </Button>
           )}
           {forSale && !buying && short > 0 && <span className="text-[11px] text-warning">Need {short} more</span>}
