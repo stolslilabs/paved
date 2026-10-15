@@ -108,9 +108,9 @@ export function ReferralScene(props: ReferralSceneProps) {
               </div>
             ) : (
               <>
-                <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-wrap items-end justify-between gap-3">
                   <Amount value={earnings.total} token="usdc" className="text-3xl text-foreground" />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs whitespace-nowrap text-muted-foreground">
                     <span className="numeric font-semibold text-foreground">{earnings.count}</span> {earnings.count === 1 ? "purchase" : "purchases"}
                   </span>
                 </div>
@@ -119,12 +119,15 @@ export function ReferralScene(props: ReferralSceneProps) {
                 ) : (
                   <ul aria-label="Purchases through your link" className="flex flex-col divide-y divide-border">
                     {earnings.recent.map((p, i) => (
-                      <li key={`${p.purchasedAt}-${i}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 py-2">
-                        <Icon name="ticket" size="sm" className="text-muted-foreground" />
-                        <span className="text-sm leading-5">
+                      // The icon and the share on the first line; the stake and price wrap under each other when narrow (WRAP360).
+                      <li key={`${p.purchasedAt}-${i}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2">
+                        <span className="inline-flex h-5 items-center">
+                          <Icon name="ticket" size="sm" className="text-muted-foreground" />
+                        </span>
+                        <span className="flex flex-wrap items-baseline gap-x-1 text-sm leading-5">
                           Stake <span className="numeric">{p.stake}</span> · <Amount value={BigInt(p.price)} token="usdc" />
                         </span>
-                        <Amount value={BigInt(p.referral)} token="usdc" className="text-success" />
+                        <Amount value={BigInt(p.referral)} token="usdc" className="leading-5 text-success" />
                         <span className="col-start-2 text-xs text-muted-foreground">{ago(now - p.purchasedAt)}</span>
                       </li>
                     ))}

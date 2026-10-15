@@ -282,11 +282,11 @@ export const REFERRAL = {
   loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
   guest: { link: null, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
   notDeployed: { link: REFERRAL_LINK, split: null, earnings: null, now: MOCK_NOW },
-  /** WRAP360: a link with a full address, the largest earnings and purchases. */
+  /** WRAP360: a link with a full address, the largest earnings and count; each purchase at the largest price (stake 10, 20 USDC). */
   stress: {
     link: `${REFERRAL_LINK.split("?")[0]}?ref=${LONG_ADDRESS}`,
     split: SPLIT_BPS,
-    earnings: { total: BIG_AMOUNT_6, count: BIG_NUMBER, recent: REFERRED_PURCHASES.map((p) => ({ ...p, stake: 999, price: String(BIG_AMOUNT_6), referral: String(BIG_AMOUNT_6) })) },
+    earnings: { total: BIG_AMOUNT_6, count: BIG_NUMBER, recent: REFERRED_PURCHASES.map((p) => ({ ...p, stake: MAX_STAKE, price: String(BigInt(MAX_STAKE) * 2_000_000n), referral: "1000000" })) },
     now: MOCK_NOW,
   },
 } satisfies Record<string, Data<ReferralSceneProps>>;

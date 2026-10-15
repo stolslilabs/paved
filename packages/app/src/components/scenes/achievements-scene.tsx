@@ -51,7 +51,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
           {error}
         </Notice>
       ) : achievements === null ? (
-        <div role="status" aria-label="Loading the achievements" className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+        <div role="status" aria-label="Loading the achievements" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -75,7 +75,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
             </div>
             <Progress value={possible > 0 ? (achievements.points / possible) * 100 : 0} aria-label={`${achievements.points} of ${possible} points`} />
           </section>
-          <div className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
             {list.map((a) => (
               <ProgressCard
                 key={a.achievementId}

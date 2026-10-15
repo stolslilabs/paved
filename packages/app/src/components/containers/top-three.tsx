@@ -21,8 +21,9 @@ export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; sel
           entry.rank
         )}
       </span>
-      {/* The name is cut (its title holds it whole); "(you)" always shows. */}
-      <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-left text-sm">
+      {/* The name is cut (its title holds it whole); "(you)" always shows. `w-0` keeps a long name out of the row's
+          intrinsic width, so it cannot widen a card that sizes to its content. */}
+      <span className="flex w-0 min-w-0 flex-1 items-baseline gap-1.5 text-left text-sm">
         <PlayerName name={entry.name} address={entry.playerId} className="min-w-0" />
         {self && <span className="shrink-0 text-xs text-muted-foreground">(you)</span>}
       </span>

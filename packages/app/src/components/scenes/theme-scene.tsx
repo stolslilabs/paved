@@ -21,7 +21,7 @@ export interface ThemeSceneProps {
 export function ThemeScene({ selected, tiles, tileArt, onSelect, onBack, onNavigate }: ThemeSceneProps) {
   return (
     <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate}>
-      <div role="radiogroup" aria-label="Theme" className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+      <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
         {THEMES.map((t) => (
           <ThemeCard key={t.id} theme={t} selected={t.id === selected} tiles={tiles} artBase={tileArt} onSelect={onSelect} />
         ))}

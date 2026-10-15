@@ -50,7 +50,7 @@ export function HomeScene(props: HomeSceneProps) {
           <span className="text-xs text-muted-foreground">Day {leaderboard.tournamentId}</span>
         </header>
 
-        <div className="grid gap-4 wide:grid-cols-[1fr_24rem] wide:items-start">
+        <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
           <div className="flex flex-col gap-4">
             <PlayerStatus data={player} onConnect={props.onConnect} connecting={props.connecting} />
 
@@ -58,7 +58,7 @@ export function HomeScene(props: HomeSceneProps) {
               <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-gold-800 bg-gold-950/50 p-4">
                 <Icon name="play" className="text-primary" size="md" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-sm font-semibold">Challenge #{activeGame.id} in progress</span>
+                  <span className="text-sm font-semibold wrap-anywhere">Challenge #{activeGame.id} in progress</span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="numeric">{formatPoints(activeGame.score)} pts</span>
                     <span className="numeric">{activeGame.remainingCount} tiles left</span>
@@ -79,7 +79,7 @@ export function HomeScene(props: HomeSceneProps) {
               </Notice>
             )}
 
-            <div className="grid gap-3 tablet:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
               <ModeCard
                 icon="play"
                 title="Training"

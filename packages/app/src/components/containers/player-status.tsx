@@ -56,7 +56,8 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
         <Avatar className="size-10">
           <AvatarFallback className="bg-gold-900 font-semibold text-gold-200">{initial}</AvatarFallback>
         </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* `w-0`: a long username is cut, never widens the card (WRAP360). */}
+        <div className="flex w-0 min-w-0 flex-1 flex-col">
           <PlayerName name={player.name} address={player.playerId} className="text-sm font-semibold" />
           <span className="text-xs text-muted-foreground">
             {stats.challengeFinished} games · best {formatPoints(stats.bestScore)}

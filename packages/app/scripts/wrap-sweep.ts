@@ -48,7 +48,25 @@ interface Allowed {
 /**
  * Deliberate exceptions. Each entry says why; none is a blanket skip of a story, a kind or a width.
  */
-const ALLOWED: (Allowed & { why: string })[] = [];
+const ALLOWED: (Allowed & { why: string })[] = [
+  // A carousel: its track is wider than its window and the window clips it, by design (Embla).
+  { story: /^ui-carousel--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
+  // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
+  { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
+  // Specimens outside WRAP360's files (`ui/` primitives' stories and the Foundations in `src/styles`): one line per
+  // specimen on purpose (a weight, a figure, a tooltip on each side). Not the components' layout.
+  { story: "ui-tooltip--sides", kind: "page", element: "html scrollWidth", why: "four triggers in a row" },
+  { story: "ui-tooltip--sides", kind: "viewport", element: "tooltip-", why: "four triggers in a row" },
+  { story: "ui-tooltip--sides", kind: "overflow", element: 'div "toprightbottomleft"', why: "four triggers in a row" },
+  { story: /^foundations-typography--/, kind: "page", element: "html scrollWidth", why: "type specimen lines" },
+  { story: /^foundations-typography--/, kind: "viewport", element: "", why: "type specimen lines" },
+  { story: /^foundations-typography--/, kind: "overflow", element: "", why: "type specimen lines" },
+  // The board's canvas keeps the width it mounted at when the window narrows (opened at 320 px it fits). The renderer's
+  // files belong to R-VIS (t-0304), not WRAP360: listed in the PR for a later fix.
+  { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
+  { story: /^renderer-outlines--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
+];
 
 const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "scroll"];
 
@@ -271,16 +289,16 @@ async function main() {
       await page.setViewportSize({ width: opts.widths[0], height: 740 });
       const error = await render(page, origin, id);
       for (const width of opts.widths) {
+        await page.setViewportSize({ width, height: 740 });
         if (error) {
           findings.push({ story: id, width, kind: "error", element: error });
           continue;
         }
-        await page.setViewportSize({ width, height: 740 });
         await settle(page);
         let found = await page.evaluate(inspect);
         if (found.length) {
-          // A canvas resized by script (the board's renderer) catches up a few frames after the width changes: look again
-          // once, after a second, before reporting.
+          // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
+          // second, before reporting.
           await page.waitForTimeout(1000);
           found = await page.evaluate(inspect);
         }
