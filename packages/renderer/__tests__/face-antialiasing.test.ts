@@ -48,11 +48,12 @@ describe("face antialiasing", () => {
     expect(resolveFaceAntialiasing(false, { maxSamples: 0, software: true })).toBe("off");
   });
 
-  it("draws the scene into a multisampled target for MSAA, and only the scene's target", () => {
+  it("draws the scene into a multisampled target for MSAA, whichever of the composer's two targets it lands in", () => {
     const { composer } = composerFor("msaa");
     expect(MSAA_SAMPLES).toBe(4);
+    // The composer swaps its targets every frame: both must multisample, or every other frame loses the MSAA.
     expect(composer.renderTarget1.samples).toBe(MSAA_SAMPLES);
-    expect(composer.renderTarget2.samples).toBe(0);
+    expect(composer.renderTarget2.samples).toBe(MSAA_SAMPLES);
     expect(composer.passes.some((pass) => pass instanceof SMAAPass)).toBe(false);
     // The target is the drawing buffer's size.
     expect([composer.renderTarget1.width, composer.renderTarget1.height]).toEqual([800, 600]);

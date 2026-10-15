@@ -164,9 +164,10 @@ export class Effects {
       samples: multisample ? MSAA_SAMPLES : 0,
     });
     target.texture.name = "EffectComposer.rt1";
+    // The composer clones the first target into its second and swaps the two every frame (the vignette pass swaps even
+    // when it draws to the screen), so the scene lands in each target in turn: both keep the samples, or every other
+    // frame would be drawn without MSAA (a flicker, measured in P4).
     this.composer = new EffectComposer(renderer, target);
-    // The composer clones the first target into its second: only the scene needs the samples, not the passes after it.
-    this.composer.renderTarget2.samples = 0;
     // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
     // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
     this.composer.setPixelRatio(renderer.getPixelRatio());
