@@ -92,4 +92,15 @@ describe("GameScene shadow map", () => {
 
     expect(shadowDrawn).toEqual([true, false, true, false, false, true, true]);
   });
+
+  it("biases the shadow map so lit faces do not shadow themselves (acne), with three's PCF filter", async () => {
+    const { scene, renderer } = await createScene();
+    expect(renderer.shadowMap.type).toBe(THREE.PCFShadowMap);
+    const light = scene.scene.children.find((child): child is THREE.DirectionalLight => child instanceof THREE.DirectionalLight)!;
+    expect(light.castShadow).toBe(true);
+    expect(light.shadow.bias).toBeLessThan(0);
+    expect(light.shadow.normalBias).toBeGreaterThan(0);
+    // The normal bias stays within about one voxel (0.075 world units), so a voxel still shadows its neighbour.
+    expect(light.shadow.normalBias).toBeLessThanOrEqual(0.1);
+  });
 });

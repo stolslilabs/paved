@@ -35,6 +35,16 @@ const SHADOW_MAP_SIZE = 2048;
 const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
 const SHADOW_FRUSTUM = 50;
+/**
+ * The shadow map's biases (R-VIS). Without them every lit face shadows itself in diagonal bands ("shadow acne"): a
+ * 2048 map over the 100-unit frustum is about 0.05 world units a texel, the light meets the tops at about 56 degrees
+ * and the sides at up to 67, so the stored depth of a texel misses the face it covers by up to about 0.1 unit. The
+ * normal bias moves the lookup 0.1 unit out of the face (two texels, about one voxel: a tile is 40 voxels a side,
+ * 0.075 unit each), and the depth bias, in the shadow camera's 1 to 100 depth range, adds about 0.1 unit along the
+ * light. Measured on the 72-tile board (R-VIS captures): half these values leave faint bands.
+ */
+const SHADOW_NORMAL_BIAS = 0.1;
+const SHADOW_BIAS = -0.001;
 
 /**
  * Read-only measurement hook for the frame-time bench: it observes the render loop and
@@ -174,7 +184,9 @@ export class GameScene {
 
     if (shadows) {
       this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // three 0.186 removed PCFSoftShadowMap and falls back to this, with a warning: five taps on a disk turned by a
+      // per-pixel noise, whose dither shows wherever the depth test is unstable (the acne the biases above remove).
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
       // The light and its shadow camera are fixed: the map changes only with the shadow
       // casters (the tiles), not with the view, so it is drawn only when they change.
       this.renderer.shadowMap.autoUpdate = false;
@@ -237,6 +249,8 @@ export class GameScene {
     this.directionalLight.shadow.camera.right = SHADOW_FRUSTUM;
     this.directionalLight.shadow.camera.top = SHADOW_FRUSTUM;
     this.directionalLight.shadow.camera.bottom = -SHADOW_FRUSTUM;
+    this.directionalLight.shadow.bias = SHADOW_BIAS;
+    this.directionalLight.shadow.normalBias = SHADOW_NORMAL_BIAS;
 
     this.directionalTargetObject = new THREE.Object3D();
     this.directionalTargetObject.position.set(...DIRECTIONAL_TARGET);
