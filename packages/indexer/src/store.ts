@@ -162,7 +162,7 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS purchases_player ON purchases (player_id, game_id);
   CREATE INDEX IF NOT EXISTS purchases_day ON purchases (day, game_id);
   CREATE INDEX IF NOT EXISTS purchases_purchased ON purchases (purchased_block);
-  -- Cobbles v1 (gems-v1.md, 6.2), one row per event as the chain emitted it (a position: block, tx, idx), so that a rewind is a
+  -- Cobbles v1 (cobbles-v1.md, 6.2), one row per event as the chain emitted it (a position: block, tx, idx), so that a rewind is a
   -- delete by block. A player's cobbles and credits are the running values of the last row, never a stored sum.
   -- The owner's cobbles of a quest or an achievement (QuestCobblesSet, AchievementCobblesSet); the last row of an id is its amount (0: none).
   CREATE TABLE IF NOT EXISTS cobble_amounts (

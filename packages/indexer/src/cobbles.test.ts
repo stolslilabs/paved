@@ -1,4 +1,4 @@
-// Cobbles v1 (docs/architecture/gems-v1.md): the ledger, the claims, the credits and the free games, from the events to the API.
+// Cobbles v1 (docs/architecture/cobbles-v1.md): the ledger, the claims, the credits and the free games, from the events to the API.
 import { describe, expect, test } from "vitest";
 import { padded } from "./events.ts";
 import { Queries } from "./queries.ts";

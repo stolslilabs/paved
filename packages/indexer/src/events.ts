@@ -210,7 +210,7 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   AchievementDefined: ["setup"],
   AchievementProgressed: ["setup"],
   AchievementRetired: ["setup"],
-  // Cobbles v1 (gems-v1.md, 6.2): Setup's cobble amounts, claims and free-game credits.
+  // Cobbles v1 (cobbles-v1.md, 6.2): Setup's cobble amounts, claims and free-game credits.
   QuestCobblesSet: ["setup"],
   AchievementCobblesSet: ["setup"],
   CobblesClaimed: ["setup"],

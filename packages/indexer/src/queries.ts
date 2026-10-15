@@ -656,7 +656,7 @@ function achievementDefinition(row: Row, head: number, cobbles: number): Achieve
   };
 }
 
-/** The first Monday 00:00 UTC (1970-01-05) in seconds: week 0 of the weekly quests (gems-v1.md, 1.2). */
+/** The first Monday 00:00 UTC (1970-01-05) in seconds: week 0 of the weekly quests (cobbles-v1.md, 1.2). */
 const WEEK_ORIGIN = 345_600;
 const WEEK_SECONDS = 604_800;
 

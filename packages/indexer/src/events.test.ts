@@ -569,7 +569,7 @@ describe("felts", () => {
   });
 });
 
-describe("Cobbles v1 events (Setup, gems-v1.md 6.2)", () => {
+describe("Cobbles v1 events (Setup, cobbles-v1.md 6.2)", () => {
   const NAMES = ["QuestCobblesSet", "AchievementCobblesSet", "CobblesClaimed", "CreditClaimed", "CreditSpent"] as const;
 
   test("Setup declares all five, with the keys and data the decoder reads, and is their only emitter", () => {

@@ -693,7 +693,7 @@ D-23 (`public-interface.md`, "Breaking change D-23") renames the contract `Daily
 
 ## As built (IX-GEMS1, cobbles v1 part 1: the ledger, the claims, the credits and the free games)
 
-`gems-v1.md` (6.2, 6.3) adds five `Setup` events and a free spawn on `Challenge`. Schema version 14 (`rebuild` on an older
+`cobbles-v1.md` (6.2, 6.3) adds five `Setup` events and a free spawn on `Challenge`. Schema version 14 (`rebuild` on an older
 database). `Setup`'s events are flat variants: the selector is the variant's name.
 
 **Events**
@@ -747,7 +747,7 @@ that player (`GameSpawned.price` 0, emitted before it in the same transaction) o
 - `GET /v1/players/{player_id}/claims?day=<UTC day>` (default: the day of the served block): the claims for that day and
   its week. `claims`: `{ kind: "quest" | "achievement", id, period, cobbles, claimed_at }` for the quests claimed with `period`
   the day (daily) or `week` (weekly) and for every achievement; `credits`: `{ kind: "daily" | "weekly", period,
-  claimed_at }`. `week` is `floor((day x 86,400 - 345,600) / 604,800)`, null for the four days before week 0 (gems-v1.md,
+  claimed_at }`. `week` is `floor((day x 86,400 - 345,600) / 604,800)`, null for the four days before week 0 (cobbles-v1.md,
   1.2). A client shows claimed against claimable from these and the definitions.
 - `GET /v1/definitions`: `QuestDefinition.cobbles` and `cobbles_kind` (`"daily"`, `"weekly"`, null without cobbles), and
   `AchievementDefinition.cobbles`; 0 when none are set.
