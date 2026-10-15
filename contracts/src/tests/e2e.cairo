@@ -7,6 +7,8 @@ pub mod economy;
 pub mod events;
 pub mod expiry;
 pub mod forest;
+pub mod gems;
+pub mod gems_ledger;
 pub mod guardian;
 pub mod mint;
 pub mod position;
