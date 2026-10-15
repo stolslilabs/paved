@@ -30,10 +30,11 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
 
 ## Stories and tests
 
-- Every component has a `<name>.stories.tsx` beside it. Titles follow the tier: `Scenes/Home`, `Elements/...`.
+- Every new component has a `<name>.stories.tsx` beside it. Titles follow the tier: `Scenes/Home`, `Elements/...`.
 - **One story per state**, named after the state, on mock data: `export const Guest: Story = { args: HOME.guest };`
-  (`scenes/home-scene.stories.tsx`). A scene's mock object and its stories list the same states;
-  `__tests__/scenes-2.test.tsx` ("SC2 stories") checks that match.
+  (`scenes/home-scene.stories.tsx`). A scene's mock object and its stories list the same states.
+  `__tests__/scenes-2.test.tsx` ("SC2 stories") checks that match for the SC2 scenes only (leaderboard, player, vault,
+  settings, theme, quests, achievements, referral); the SC1 scenes (such as Home) are matched by hand.
 - **Width is Storybook's Viewport toolbar**: mobile 360, tablet 640, desktop 1024, wide 1440
   (`scenes/viewports.ts`, `.storybook/preview.tsx`). No `viewport` arg, no frame decorator, no story per width;
   `__tests__/viewport.test.tsx` and the SC2 test enforce it. With none picked a story takes the full width.
@@ -54,7 +55,8 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
 - **Tokens only.** Use semantic classes (`bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`,
   `bg-primary`, `border-border`, `ring-ring`, `text-destructive-text`, `success`, `info`, `warning`). Raw colours live in
   `src/styles/theme.css` alone: no hex, `oklch(`, `rgb(`, `bg-white`, `bg-black`, `bg-[#...]`, and no palette step
-  (`gold-300`, `ink-900`) in `ui/` or `elements/`. `__tests__/theme.test.tsx` fails on it ("keeps raw colours...").
+  (`gold-300`, `ink-900`) in `ui/` or `elements/`. `__tests__/theme.test.tsx` fails on it ("keeps raw colours..."); it bans palette steps
+  only in those two tiers (containers and scenes use some today), but new code uses semantic tokens everywhere.
   A missing colour is a new token in `theme.css`, not a literal in a component.
 - Dark only: `index.html` sets `data-theme="dark"` (the `dark:` variant needs it). `--input` re-points to
   `--input-surface` inside cards and dialogs; do not override it.
