@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD, FIXTURE_TOURNAMENT, FakeClaimer } from "@paved/chain/testing";
@@ -122,6 +122,20 @@ describe("Play free on /", { timeout: 15_000 }, () => {
     expect(spawner.sent).toBe(1);
     release();
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
+  });
+});
+
+describe("two quick taps", { timeout: 15_000 }, () => {
+  it("send one transaction and show no error, though the writer would refuse the second", async () => {
+    const error = vi.spyOn(toast, "error");
+    const { router, spawner } = open("/", { credits: 2 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    // Both taps in one tick: no render lands between them.
+    fireEvent.click(card);
+    fireEvent.click(card);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
+    expect(spawner.sent).toBe(1);
+    expect(error).not.toHaveBeenCalled();
   });
 });
 

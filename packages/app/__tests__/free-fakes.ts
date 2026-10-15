@@ -14,6 +14,7 @@ export class FakeFreeSpawner {
   sent = 0;
   /** While set, a spawn waits for it before answering. */
   gate: Promise<void> | null = null;
+  private inFlight = false;
   /** The next spawn fails with this error (then it is cleared). */
   failNext: Error | null = null;
 
@@ -25,6 +26,17 @@ export class FakeFreeSpawner {
   ) {}
 
   spawnFree = async (): Promise<WriteResult & { gameId: number }> => {
+    // As `PavedWriter` serialises: a write while another is pending is refused, and is not a transaction.
+    if (this.inFlight) throw new WriteError("Another write is pending");
+    this.inFlight = true;
+    try {
+      return await this.run();
+    } finally {
+      this.inFlight = false;
+    }
+  };
+
+  private async run(): Promise<WriteResult & { gameId: number }> {
     this.sent += 1;
     if (this.gate) await this.gate;
     if (this.failNext) {
@@ -38,7 +50,7 @@ export class FakeFreeSpawner {
     player.account = { ...player.account, credits: player.account.credits - 1 };
     const gameId = this.nextGameId++;
     return { transactionHash: "0xf1ee", gameId, events: [{ name: "GameSpawned", fields: { gameId, playerId: this.address, mode: 1, price: 0 }, fromAddress: "0x2" }] };
-  };
+  }
 }
 
 /** `fakeWallet`, whose signer also spawns free games (`spawner`) and, with `claimer`, claims. */

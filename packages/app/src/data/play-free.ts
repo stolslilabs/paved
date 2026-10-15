@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CobbleAccount, PavedWriter, WriteResult } from "@paved/chain";
 import { cobbleKeys } from "./cobbles";
@@ -20,7 +21,7 @@ export function freeSigner(sources: Pick<DataSources, "signer">): FreeSigner | n
 /**
  * Play free for the connected account. `spend()` sends the spawn and resolves with the new game's id; it resolves null,
  * sending nothing, while a spend is on its way or without a signer that can (a guest, a read only one). A refusal
- * (`NoCreditError`, `SpawnPausedError`, a rejected signature) is `error`, and `spend` rejects with it. After a receipt the
+ * (`NoCreditError`, `FreeSpawnPausedError`, a rejected signature) is `error`, and `spend` rejects with it. After a receipt the
  * credits in the cache go down by one and the player's games are read again; after a refusal the credits and the pause are
  * (the chain's answer may differ from the page's).
  */
@@ -28,6 +29,8 @@ export function usePlayFree(playerId: string | null) {
   const sources = useDataSources();
   const spender = freeSigner(sources);
   const client = useQueryClient();
+  // Set at once, not by a render: a second tap before the page re-renders must not reach the writer (it would refuse it).
+  const sending = useRef(false);
   const mutation = useMutation<WriteResult & { gameId: number }, Error, void>({
     mutationFn: () => (spender ? spender.spawnFree() : Promise.reject(new Error("Connect to play free"))),
     onSuccess: () => {
@@ -49,8 +52,13 @@ export function usePlayFree(playerId: string | null) {
     spending: mutation.isPending,
     error: mutation.error,
     spend: async (): Promise<number | null> => {
-      if (!spender || mutation.isPending) return null;
-      return (await mutation.mutateAsync()).gameId;
+      if (!spender || sending.current) return null;
+      sending.current = true;
+      try {
+        return (await mutation.mutateAsync()).gameId;
+      } finally {
+        sending.current = false;
+      }
     },
   };
 }
