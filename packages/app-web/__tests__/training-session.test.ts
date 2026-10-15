@@ -2,10 +2,17 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { EngineGame } from "@paved/game-core";
-import { LocalSession, replay } from "../src/training/local-session";
-import { randomSeed } from "../src/training/seed";
-import { TRAINING_KEY, loadGame, saveGame, type KeyValueStore, type SavedMove } from "../src/training/storage";
-import { openTraining } from "../src/training/use-training";
+import {
+  LocalSession,
+  TRAINING_KEY,
+  loadGame,
+  openTraining,
+  randomSeed,
+  replayTraining as replay,
+  saveGame,
+  type KeyValueStore,
+  type SavedMove,
+} from "@paved/game-core";
 import { CENTER } from "../src/utils/game-helpers";
 
 const STARK_PRIME = (1n << 251n) + 17n * (1n << 192n) + 1n;

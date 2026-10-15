@@ -1,7 +1,10 @@
-import { CategoryType, EngineGame, OrientationType, PlanType, TUTORIAL_STAGES } from "@paved/game-core";
-import type { EngineMoveResult, EnginePlacement, TutorialStage } from "@paved/game-core";
-import { CENTER } from "../utils/game-helpers";
-import type { Closure } from "../components/ClosedStructures";
+import { CENTER, EngineGame } from "../engine";
+import type { MoveResult, Placement } from "../engine";
+import { CategoryType } from "../types/category";
+import { OrientationType } from "../types/orientation";
+import { PlanType } from "../types/plan";
+import { TUTORIAL_STAGES, type TutorialStage } from "../types/tutorial-stage";
+import type { Closure } from "./types";
 
 /**
  * The scripted tutorial (D-21, P-49), as pure logic over the off-chain engine: no chain, no clock, no
@@ -15,7 +18,7 @@ export interface TutorialStep {
   /** `build`: place the tile in hand where the stage says. `burn`: the tile fits nowhere and is discarded. */
   kind: "build" | "burn";
   /** The scripted placement of a build step (relative to the starter), `null` for a burn. */
-  placement: EnginePlacement | null;
+  placement: Placement | null;
   /** The stage whose text and preset a build step shows, `null` for a burn. */
   stage: TutorialStage | null;
   /** The text shown while the step is current. */
@@ -34,13 +37,12 @@ export const orientationCode = (orientation: OrientationType): number => ORIENTA
 export const planCode = (plan: PlanType): number => PLANS.indexOf(plan);
 
 /** A stage's preset in the engine's terms: orientation, and a position relative to the starter. */
-export function presetPlacement(stage: TutorialStage): EnginePlacement {
+export function presetPlacement(stage: TutorialStage): Placement {
   const { orientation, x, y } = stage.presetTransaction;
   return { orientation: orientationName(orientation ?? 0), x: x - CENTER, y: y - CENTER };
 }
 
-const same = (a: EnginePlacement, b: EnginePlacement) =>
-  a.orientation === b.orientation && a.x === b.x && a.y === b.y;
+const same = (a: Placement, b: Placement) => a.orientation === b.orientation && a.x === b.x && a.y === b.y;
 
 function freshGame(): EngineGame {
   return EngineGame.start({ deck: "tutorial", seed: START_SEED });
@@ -85,32 +87,87 @@ export function tutorialSteps(): readonly TutorialStep[] {
 export interface TutorialView {
   game: EngineGame;
   /** The last move's result (its closures, its points), `null` before the first move. */
-  last: EngineMoveResult | null;
+  last: MoveResult | null;
   /** The step to play, `null` once the tutorial is over. */
   step: TutorialStep | null;
   over: boolean;
 }
 
-/** Plays the moves on a fresh engine. Throws when a move is not the next step's. */
-export function replay(moves: readonly TutorialMove[]): TutorialView {
+/** Plays the move on `game` as step `index`. Throws when it is not that step's move. */
+function playStep(game: EngineGame, index: number, move: TutorialMove): MoveResult {
+  const step = tutorialSteps()[index];
+  if (!step) throw new Error("Tutorial: more moves than steps");
+  if (move.kind === "discard") {
+    if (step.kind !== "burn") throw new Error("Tutorial: not a discard step");
+    return game.discard();
+  }
+  if (step.kind !== "build" || !step.placement) throw new Error("Tutorial: not a build step");
+  const placement = { orientation: orientationName(move.orientation), x: move.x, y: move.y };
+  if (!same(placement, step.placement)) throw new Error("Tutorial: not the scripted placement");
+  return game.build(placement);
+}
+
+/** Plays the moves on a fresh engine (a resume). Throws when a move is not the next step's. */
+export function replayTutorial(moves: readonly TutorialMove[]): TutorialView {
   const steps = tutorialSteps();
   if (moves.length > steps.length) throw new Error("Tutorial: more moves than steps");
   const game = freshGame();
-  let last: EngineMoveResult | null = null;
+  let last: MoveResult | null = null;
   moves.forEach((move, i) => {
-    const step = steps[i] as TutorialStep;
-    if (move.kind === "discard") {
-      if (step.kind !== "burn") throw new Error("Tutorial: not a discard step");
-      last = game.discard();
-    } else {
-      if (step.kind !== "build" || !step.placement) throw new Error("Tutorial: not a build step");
-      const placement = { orientation: orientationName(move.orientation), x: move.x, y: move.y };
-      if (!same(placement, step.placement)) throw new Error("Tutorial: not the scripted placement");
-      last = game.build(placement);
-    }
+    last = playStep(game, i, move);
   });
   return { game, last, step: steps[moves.length] ?? null, over: game.over };
 }
+
+const sameMove = (a: TutorialMove, b: TutorialMove) =>
+  a.kind === "discard" || b.kind === "discard"
+    ? a.kind === b.kind
+    : a.orientation === b.orientation && a.x === b.x && a.y === b.y;
+
+/**
+ * A tutorial run that keeps its engine game between moves: `sync` to a run that extends the current one plays only
+ * the new moves; it replays from the start only to resume, or to go back (the engine has no undo). Each view it
+ * returns holds its own copy of the engine game, so a view never changes after it is returned.
+ */
+export class TutorialRun {
+  private game = freshGame();
+  private moves: TutorialMove[] = [];
+  private last: MoveResult | null = null;
+  private current: TutorialView | null = null;
+  /** How many times the run started over from a fresh engine (resume or back), for tests. */
+  replays = 0;
+
+  /** The run at `moves`. Throws, leaving the run as it was, when a move is not the next step's. */
+  sync(moves: readonly TutorialMove[]): TutorialView {
+    const extends_ = this.moves.length <= moves.length && this.moves.every((m, i) => sameMove(m, moves[i] as TutorialMove));
+    if (extends_ && this.current && this.moves.length === moves.length) return this.current;
+    if (extends_) {
+      const game = this.game.clone();
+      let last = this.last;
+      for (let i = this.moves.length; i < moves.length; i++) last = playStep(game, i, moves[i] as TutorialMove);
+      this.game = game;
+      this.last = last;
+    } else {
+      const view = replayTutorial(moves);
+      this.replays += 1;
+      this.game = view.game;
+      this.last = view.last;
+    }
+    this.moves = [...moves];
+    this.current = {
+      game: this.game.clone(),
+      last: this.last,
+      step: tutorialSteps()[moves.length] ?? null,
+      over: this.game.over,
+    };
+    return this.current;
+  }
+}
+
+const pageRun = new TutorialRun();
+
+/** The run of the tutorial page (one per page): `TutorialRun.sync` on a run kept for the page's whole life. */
+export const followTutorial = (moves: readonly TutorialMove[]): TutorialView => pageRun.sync(moves);
 
 export type Attempt = { ok: true; moves: TutorialMove[] } | { ok: false; reason: string };
 
@@ -142,7 +199,7 @@ export const initialOrientation = (step: TutorialStep | null): number => step?.s
 export const rotate = (orientation: number): number => (orientation % 4) + 1;
 
 /** The final score of a finished run. */
-export const finalScore = (moves: readonly TutorialMove[]): number => replay(moves).game.score;
+export const finalScore = (moves: readonly TutorialMove[]): number => replayTutorial(moves).game.score;
 
 /** The moves the scripted game plays from the first stage to the last (what the page records). */
 export function scriptedMoves(): TutorialMove[] {
@@ -154,5 +211,5 @@ export function scriptedMoves(): TutorialMove[] {
 }
 
 /** A move's `Scored` events as the closures list shows them (category as its code). */
-export const closuresOf = (result: EngineMoveResult | null): Closure[] | null =>
+export const closuresOf = (result: MoveResult | null): Closure[] | null =>
   result ? result.scored.map(({ category, size, points }) => ({ category: CATEGORIES.indexOf(category), size, points })) : null;

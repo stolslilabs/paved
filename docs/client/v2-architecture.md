@@ -539,6 +539,27 @@ Why this beats the references' hooks and contexts:
 - **Persistence.** Settings and the Training save stay in `localStorage`; the query cache is not persisted
   (chain data must be fresh).
 
+**As built (P2).** The sessions are in `@paved/game-core` (`src/sessions/`): `PageSession` and `PageState` (structural
+copies of the chain's shapes, since `@paved/chain` depends on game-core; `GameSession` satisfies them unchanged, and app-web's
+`tsc` catches a drift of the chain's shapes through the state and the senders),
+`LocalSession` with its save (`paved:training:v1`) and `randomSeed`, and the tutorial run with its save
+(`paved.tutorial.v1`), both formats unchanged. `LocalSession` and `TutorialRun` keep their `EngineGame` between moves and
+replay only to resume (and the tutorial on Back, the engine having no undo). App-web imports them from there.
+The v2 app's data layer is `packages/app/src/data/`:
+
+| Module | What it holds |
+|---|---|
+| `keys.ts` | `queryKeys`, every key of the app: `['chain', read, ...args]` for a view or event read, `['indexer', read, ...args]` for the indexer, `['local', 'trainingSave']`; addresses normalised by `addressKey`, no bigint in a key |
+| `sources.tsx` | `DataProvider` and `DataSources`: the game views, the event reader (`playerGames`), the economy views and the pool quoter (null without an economy), the indexer client, the Training store |
+| `chain.ts` | `useSpawnPaused`, `useEntryPrice`, `useGame`, `usePlayerGames`, `useActiveGame`, `useQuote`, `useSplit`, `usePoolQuote`, `useTerms`, `useEconomyDay`, `useVaultPosition`, `useUsdcBalance`, `usePavedBalance` |
+| `indexer.ts` | `useLeaderboard`, `useTopThree`, `useLeaderboardEntry`, `usePlayerProfile`, `useIndexedPlayerGames`, `useIndexedGame`, `useDefinitions`, `usePlayerQuests` (progress joined with each definition's schedule), `usePlayerAchievements`, `usePlayerStatus` |
+| `training.ts` | `useTrainingSession` (the board's session: `LocalSession` read with `useSyncExternalStore`, and `boardOf` for the scene), `useTrainingSave` (the home card) |
+| `scene-types.ts` | compile-time checks that each hook's data is its scene prop's type |
+
+Each hook returns the type its scene's prop takes; where the indexer's type differs, the hook maps it (the quests'
+schedule from the definitions; a new player's null profile as an empty one). A past day's leaderboard and a closed
+economy day have `staleTime: Infinity`. No hook polls; the writes (P5, P7, P10) update these keys from their receipts.
+
 **Decided for the owner:** React Router 7 (data mode, lazy routes) rather than TanStack Router: already in
 the repository and in both references. Reversed if typed search params become a pain point.
 
@@ -1244,7 +1265,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | PR | Content | Estimate |
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
-| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
+| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
 | P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
