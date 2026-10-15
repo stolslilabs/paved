@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { OPENING_DISTANCE } from "./CameraController";
+import { mergeCollinearSegments } from "./edges";
 import { TILE_SIZE } from "./types";
 
 /**
@@ -18,6 +19,11 @@ import { TILE_SIZE } from "./types";
  * off at `fadeOffFactor` of it. They are drawn after the faces with a depth bias towards the camera: an outline lies
  * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
  * removed).
+ *
+ * The segments are cut by their size on screen (OUT-LOD): collinear pieces are merged once, when the outline is built,
+ * and the vertex shader drops a segment shorter on screen than `segmentOffDevicePx`, fading it in up to
+ * `segmentFullDevicePx`. The cut follows each segment's own projected length, so it changes continuously with the zoom
+ * and costs no CPU.
  *
  * The zoom is measured as the on-screen size of one tile, in CSS pixels, at the camera's target ("tile px"): it folds in
  * the distance, the field of view, the camera's zoom and the viewport's height, so a phone and a desktop window get the
@@ -43,6 +49,13 @@ export interface OutlineSettings {
   maxWidthPx: number;
   /** The stroke's colour on screen, a CSS hex colour. */
   color: string;
+  /**
+   * The screen-size cut (OUT-LOD): a crease segment shorter on screen than this, in device px, is not drawn (its quad
+   * is collapsed in the vertex shader, so it costs no fragments and no CPU).
+   */
+  segmentOffDevicePx: number;
+  /** A segment at least this long on screen, in device px, is drawn fully; between the two its opacity is linear. */
+  segmentFullDevicePx: number;
 }
 
 /** Voxels along a tile's side: every tile model is a 4-unit grid of 0.1-unit voxels, scaled to `TILE_SIZE`. */
@@ -68,6 +81,11 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   maxWidthPx: 2,
   // Dark grey, not black: about 88 % black.
   color: "#1f1f1f",
+  // Under a device pixel a segment covers a pixel only where a pixel's centre falls within its span, so it shows as a
+  // stray dot that comes and goes as the camera moves; at 0.5 px it covers at most half a pixel's row. It fades out
+  // from one device pixel down to half of one, so nothing pops. Top-down, the voxels' vertical edges are all under it.
+  segmentOffDevicePx: 0.5,
+  segmentFullDevicePx: 1,
 };
 
 /** The depth bias of the outlines (`polygonOffset`, negative: towards the camera). */
@@ -76,10 +94,16 @@ export const OUTLINE_DEPTH_BIAS = { factor: -1, units: -4 } as const;
 /** After the tile faces. */
 const OUTLINE_RENDER_ORDER = 1;
 
-/** How an outline is drawn at a zoom: its width in device px and its opacity; opacity 0 is not drawn. */
+/**
+ * How an outline is drawn at a zoom: its width in device px and its opacity; opacity 0 is not drawn. `segmentOff` and
+ * `segmentFull` are the screen-size cut in device px (`OutlineSettings.segmentOffDevicePx`, `segmentFullDevicePx`);
+ * unset, the defaults'.
+ */
 export interface OutlineStroke {
   width: number;
   opacity: number;
+  segmentOff?: number;
+  segmentFull?: number;
 }
 
 const OFF: OutlineStroke = { width: 0, opacity: 0 };
@@ -104,7 +128,7 @@ export function outlineStroke(
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
-  return width > 0 ? { width, opacity } : OFF;
+  return width > 0 ? { width, opacity, segmentOff: settings.segmentOffDevicePx, segmentFull: settings.segmentFullDevicePx } : OFF;
 }
 
 /** The opening tile size `outlineStroke` assumes when it is not given one: a 900 px high window's, about 60 px. */
@@ -116,6 +140,16 @@ export const DEFAULT_OPENING_TILE_PX = 60;
  */
 export function openingTilePixels(camera: THREE.PerspectiveCamera, heightPx: number): number {
   return tilePixels(camera, OPENING_DISTANCE, heightPx);
+}
+
+/**
+ * The share of a segment `lengthPx` device px long on screen that is drawn, by the screen-size cut: 0 below
+ * `off`, 1 from `full`, linear between (a step at `full` when the two are equal). The vertex shader computes the same.
+ */
+export function segmentFade(lengthPx: number, off: number, full: number): number {
+  if (!(lengthPx >= off)) return 0;
+  if (lengthPx >= full) return 1;
+  return (lengthPx - off) / (full - off);
 }
 
 /** Renderer strings of software WebGL: Chrome's SwiftShader, Mesa's llvmpipe and softpipe, Windows' Basic Render Driver. */
@@ -197,12 +231,16 @@ const vertexShader = /* glsl */ `
 
 uniform float linewidth;
 uniform vec4 viewport;
+// The screen-size cut, in device px: off below x, fully drawn from y.
+uniform vec2 segmentCut;
 
 attribute vec3 instanceStart;
 attribute vec3 instanceEnd;
 
 // The segment's two ends on screen, in device px (window coordinates): the same at every vertex of its quad.
 flat varying vec4 vSegment;
+// The share of the segment the screen-size cut keeps.
+flat varying float vFade;
 
 // Where a segment crossing the camera plane must be cut, three's LineMaterial's estimate.
 float trimSegment( const in vec4 start, const in vec4 end ) {
@@ -227,11 +265,19 @@ void main() {
 
   vec2 dir = screenEnd - screenStart;
   float len = length( dir );
+  // The screen-size cut: a segment shorter on screen than segmentCut.x is not drawn. Its quad collapses to one point
+  // outside the clip volume, so the GPU discards its triangles before they reach a pixel.
+  vFade = segmentCut.y > segmentCut.x ? clamp( ( len - segmentCut.x ) / ( segmentCut.y - segmentCut.x ), 0.0, 1.0 ) : step( segmentCut.y, len );
+  if ( vFade <= 0.0 ) {
+    gl_Position = vec4( 0.0, 0.0, 2.0, 1.0 );
+    return;
+  }
   dir = len > 0.0 ? dir / len : vec2( 1.0, 0.0 );
   // The quad covers the stroke (at least a pixel wide) and one more pixel on every side, for the antialiased edge.
   float reach = max( linewidth, 1.0 ) * 0.5 + 1.0;
-  // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 or 0 at its start, 1 or 2 at its end. This
-  // side of the normal keeps its triangles front-facing (the material culls back faces).
+  // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 at its start, 2 at its end (createOutline
+  // draws only its four corners). This side of the normal keeps its triangles front-facing (the material culls back
+  // faces).
   vec2 offset = vec2( dir.y, - dir.x ) * position.x * reach;
   if ( position.y < 0.0 ) offset -= dir * reach;
   else if ( position.y > 1.0 ) offset += dir * reach;
@@ -257,6 +303,7 @@ uniform float opacity;
 uniform float linewidth;
 
 flat varying vec4 vSegment;
+flat varying float vFade;
 
 void main() {
   #include <clipping_planes_fragment>
@@ -274,7 +321,7 @@ void main() {
   float coverage = clamp( w * 0.5 + 0.5 - across, 0.0, 1.0 ) * min( linewidth, 1.0 );
   if ( coverage <= 0.0 ) discard;
   #include <logdepthbuf_fragment>
-  gl_FragColor = vec4( diffuse, opacity * coverage );
+  gl_FragColor = vec4( diffuse, opacity * coverage * vFade );
   #include <fog_fragment>
 }
 `;
@@ -295,6 +342,7 @@ export type OutlineMaterial = THREE.ShaderMaterial & {
     opacity: THREE.IUniform<number>;
     linewidth: THREE.IUniform<number>;
     viewport: THREE.IUniform<THREE.Vector4>;
+    segmentCut: THREE.IUniform<THREE.Vector2>;
   };
 };
 
@@ -308,6 +356,9 @@ export function createOutlineMaterial(color = DEFAULT_OUTLINE_SETTINGS.color): O
         opacity: { value: 1 },
         linewidth: { value: 1 },
         viewport: { value: new THREE.Vector4(0, 0, 1, 1) },
+        segmentCut: {
+          value: new THREE.Vector2(DEFAULT_OUTLINE_SETTINGS.segmentOffDevicePx, DEFAULT_OUTLINE_SETTINGS.segmentFullDevicePx),
+        },
       },
     ]),
     vertexShader,
@@ -330,6 +381,10 @@ export function applyOutlineStroke(material: OutlineMaterial, stroke: OutlineStr
   if (!material.visible) return;
   material.uniforms.linewidth.value = stroke.width;
   material.uniforms.opacity.value = stroke.opacity;
+  material.uniforms.segmentCut.value.set(
+    stroke.segmentOff ?? DEFAULT_OUTLINE_SETTINGS.segmentOffDevicePx,
+    stroke.segmentFull ?? DEFAULT_OUTLINE_SETTINGS.segmentFullDevicePx,
+  );
 }
 
 const viewport = new THREE.Vector4();
@@ -342,10 +397,21 @@ class Outline extends THREE.Mesh<LineSegmentsGeometry, OutlineMaterial> {
   }
 }
 
-/** The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments). */
+/**
+ * LineSegmentsGeometry's eight vertices make a quad of three sections (start cap, body, end cap). The outline shader
+ * covers the stroke by distance, so it needs only the outer corners: 0 and 1 at the end side (y 2), 6 and 7 at the
+ * start side (y -1). Two triangles instead of six, four vertices instead of eight, over the same rectangle.
+ */
+const OUTLINE_QUAD_INDEX = [0, 6, 1, 6, 7, 1];
+
+/**
+ * The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments), collinear pieces merged
+ * (`mergeCollinearSegments`), one four-vertex quad each.
+ */
 export function createOutline(edges: THREE.BufferGeometry, material: OutlineMaterial): THREE.Mesh {
   const geometry = new LineSegmentsGeometry();
-  geometry.setPositions(edges.getAttribute("position").array as Float32Array);
+  geometry.setPositions(mergeCollinearSegments(edges.getAttribute("position").array));
+  geometry.setIndex(OUTLINE_QUAD_INDEX);
   edges.dispose();
   const outline = new Outline(geometry, material);
   outline.renderOrder = OUTLINE_RENDER_ORDER;

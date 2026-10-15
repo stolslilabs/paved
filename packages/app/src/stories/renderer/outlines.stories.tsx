@@ -50,6 +50,16 @@ const meta = {
     },
     maxWidthPx: { control: { type: "range", min: 0.5, max: 6, step: 0.25 }, description: "Widest stroke (CSS px): the cap zoomed in", table: { category: "Outlines" } },
     color: { control: "color", description: "Outline colour on screen", table: { category: "Outlines" } },
+    segmentOffDevicePx: {
+      control: { type: "range", min: 0, max: 4, step: 0.25 },
+      description: "Screen-size cut: a segment shorter on screen than this (device px) is not drawn. 0 with the next at 0: no cut",
+      table: { category: "Outlines" },
+    },
+    segmentFullDevicePx: {
+      control: { type: "range", min: 0, max: 4, step: 0.25 },
+      description: "A segment at least this long on screen (device px) is drawn fully; it fades in from the cut",
+      table: { category: "Outlines" },
+    },
     minDistance: { control: { type: "range", min: 1, max: 60, step: 1 }, description: "Closest camera distance (fully zoomed in)", table: { category: "Camera" } },
     maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
