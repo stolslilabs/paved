@@ -1,8 +1,10 @@
+import { DEFAULT_RENDERER_SETTINGS } from "@paved/renderer";
+
 /**
  * The camera stops of the "Renderer/Outlines" story, and the tour through them: pure functions of the board's bounds
  * and of the elapsed time, so the live story and the before/after captures see the same positions.
  *
- * Distances are those of the `play` camera (`CameraController`: 5 to 300 units, polar angle up to 0.15 PI); the game
+ * Distances are those of the `play` camera (`CameraController`: 8 to 300 units, polar angle up to 0.15 PI); the game
  * opens straight down at 240.
  */
 export interface Bounds {
@@ -31,8 +33,8 @@ export const VIEW_LABELS: Record<View, string> = {
 };
 
 /** The camera's distance limits (`CameraController`'s defaults) and the distance the game opens at. */
-export const MIN_DISTANCE = 5;
-export const MAX_DISTANCE = 300;
+export const MIN_DISTANCE = DEFAULT_RENDERER_SETTINGS.camera.minDistance;
+export const MAX_DISTANCE = DEFAULT_RENDERER_SETTINGS.camera.maxDistance;
 export const DEFAULT_DISTANCE = 240;
 /** Close enough that the outlines are on in a small window (a tile about 160 px wide at 500 px high). */
 const TOP_DISTANCE = 50;

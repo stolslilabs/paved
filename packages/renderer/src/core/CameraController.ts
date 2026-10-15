@@ -52,12 +52,33 @@ export type CameraInputAdapterFactory = (
   inputTarget: unknown,
 ) => CameraInputAdapter;
 
+/**
+ * The camera's near plane, in world units: 5 rather than 1 (P4, `docs/client/v2-architecture.md` 5.2), for five
+ * times the depth precision at any distance. The closest zoom (`CLOSEST_DISTANCE`) keeps the tallest tile beyond it.
+ */
+export const CAMERA_NEAR = 5;
+
+/**
+ * The tallest tile model's height in world units, a tile being 3 wide (`wfffffffr`: 3.5 of its 4-unit side).
+ */
+export const TALLEST_TILE_HEIGHT = 2.625;
+
+/** The steepest tilt of the play camera from straight down (`setMode("play")`), in radians: 27 degrees. */
+export const PLAY_MAX_POLAR_ANGLE = Math.PI * 0.15;
+
+/**
+ * The closest the camera comes to its target (the default `minDistance`): the near plane plus the tallest tile seen at
+ * the play camera's steepest tilt, 5 + 2.625 / cos 27 degrees = 7.95, rounded up. Closer, the near plane would cut the
+ * tops of tall tiles: the target distance alone (5 before P4) did not account for them.
+ */
+export const CLOSEST_DISTANCE = 8;
+
 const DEFAULT_CONFIG: Required<CameraConfig> = {
   position: [0, 0, 0],
   zoom: 5,
-  near: 1,
+  near: CAMERA_NEAR,
   far: 2000,
-  minDistance: 5,
+  minDistance: CLOSEST_DISTANCE,
   maxDistance: 300,
 };
 
@@ -181,7 +202,7 @@ export class CameraController {
       this.controls.minAzimuthAngle = 0;
       this.controls.maxAzimuthAngle = 0;
       this.controls.minPolarAngle = 0;
-      this.controls.maxPolarAngle = Math.PI * 0.15;
+      this.controls.maxPolarAngle = PLAY_MAX_POLAR_ANGLE;
       this.controls.touches = {
         ONE: THREE.TOUCH.PAN,
         TWO: THREE.TOUCH.DOLLY_PAN,
