@@ -18,7 +18,7 @@ type Story = StoryObj<typeof meta>;
 /** Today (Wednesday): Daily Run and the three of the rotation (offset 1), Daily Run done, and the week's three. Daily counts down to 00:00 UTC, Weekly to Monday 00:00 UTC. */
 export const Today: Story = { args: QUESTS.today };
 
-/** Yesterday, closed: the rotation's offset 0 (Small Works, Woodland Walk, Warm-Up Score), all seven dailies done; the weeklies are where they stood that day. No countdown on a closed day. */
+/** Yesterday, closed: Daily Run and the rotation's offset 0 (Small Works, Woodland Walk, Warm-Up Score), all four dailies done; the weeklies are where they stood that day. No countdown on a closed day. */
 export const AllComplete: Story = { args: QUESTS.allDone };
 
 /** A past day the player did not play. */
