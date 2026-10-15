@@ -393,9 +393,9 @@ export class TileRenderer {
     }
   }
 
-  /** Width and opacity of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
-  setOutlineStroke(stroke: OutlineStroke): void {
-    applyOutlineStroke(this.edgeMaterial, stroke);
+  /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
+  setOutlineStroke(stroke: OutlineStroke, color?: string): void {
+    applyOutlineStroke(this.edgeMaterial, stroke, color);
   }
 
   setStrategyMode(on: boolean): void {

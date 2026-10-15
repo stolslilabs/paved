@@ -14,11 +14,19 @@ export type { EffectsConfig } from "./core/Effects";
 export {
   DEFAULT_OUTLINE_SETTINGS,
   OUTLINE_DEPTH_BIAS,
+  MIN_OUTLINE_OPACITY,
+  TILE_VOXELS,
+  VOXEL_SIZE,
   outlineStroke,
+  openingTilePixels,
+  detectSoftwareWebGL,
+  isSoftwareRenderer,
+  outlinesAllowed,
+  DEFAULT_OPENING_TILE_PX,
   tilePixels,
   distanceForTilePixels,
 } from "./core/outlines";
-export type { OutlineSettings, OutlineStroke } from "./core/outlines";
+export type { OutlineSettings, OutlineStroke, WebGLDetection } from "./core/outlines";
 export {
   DEFAULT_RENDERER_SETTINGS,
   DEFAULT_CAMERA_ZOOM_SETTINGS,

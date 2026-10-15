@@ -176,9 +176,13 @@ export class Effects {
     this.composer?.render();
   }
 
-  resize(width: number, height: number): void {
+  /**
+   * Fit the composer's targets to a canvas of `width` x `height` CSS px at `pixelRatio` (the renderer's, by default).
+   * The composer sizes every pass, SSAO and bloom included, in device px.
+   */
+  resize(width: number, height: number, pixelRatio = this.renderer?.getPixelRatio() ?? 1): void {
+    this.composer?.setPixelRatio(pixelRatio);
     this.composer?.setSize(width, height);
-    this.ssaoPass?.setSize(width, height);
   }
 
   dispose(): void {
