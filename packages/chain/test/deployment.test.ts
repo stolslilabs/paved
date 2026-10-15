@@ -95,7 +95,7 @@ describe("controllerPolicies", () => {
     const { controllerPolicies } = await import("../src/auth/controller");
     const policies = controllerPolicies(resolveDeployment({ network: "devnet", file: FILE }));
     expect(policies).toContainEqual({ target: "0x2", method: "build" });
-    expect(policies.filter((p) => p.target === "0x3").map((p) => p.method)).toEqual(["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins"]);
+    expect(policies.filter((p) => p.target === "0x3").map((p) => p.method)).toEqual(["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins"]);
     expect(policies.filter((p) => p.method === "approve")).toEqual([]);
     expect(policies.map((p) => p.method)).not.toContain("claim");
   });

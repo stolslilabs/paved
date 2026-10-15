@@ -31,18 +31,19 @@ export const CONTROLLER_ENTRY_POINTS = {
   // `spawn_free` is Play free (a free-game credit spent): no token moves, so it is a session policy like the rest.
   Challenge: ["spawn", "spawn_free", "build", "discard", "surrender"],
   // The tutorial claim (D-21) and the Cobbles claims (cobbles v1, part 1: a quest's, an achievement's, a day's and a week's
-  // free game; Claim all is a multicall of them): policies only where the deployment has a Setup (`controllerPolicies`).
-  // The skins (cobbles v1, part 3): `buy_skin` spends Cobbles, which no token carries, and `set_skins` spends nothing, so
-  // neither needs an approve (P-56 holds).
-  Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins"],
+  // free game; Claim all is a multicall of them), and a pack's purchase (cobbles v1, part 2): policies only where the
+  // deployment has a Setup (`controllerPolicies`). A pack's approve to Setup is not a policy (P-56: the session's only
+  // approve is the entry's, to Challenge): it prompts once per pack. The skins (cobbles v1, part 3): `buy_skin` spends
+  // Cobbles, which no token carries, and `set_skins` spends nothing, so neither adds an approve (P-56 holds).
+  Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins"],
 } as const;
 
 /**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
  * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
- * purchase; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts. `Setup.claim_tutorial`, the four Cobbles claims and the two skin writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
+ * purchase; above the cap, or on another token or spender, it prompts: a pack's approve to `Setup` too (P-56). Without
+ * `approve`, every approve prompts. `Setup.claim_tutorial`, the four Cobbles claims, `buy_pack` and the two skin writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
  * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(

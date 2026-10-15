@@ -26,13 +26,13 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 // The amounts are gems-v1.md's: a mismatch here is a mock that drifted from the design.
 describe("Cobbles amounts (gems-v1.md)", () => {
   it("sells the owner's four tiers, each against the $0.20 reference (2.1)", () => {
-    expect(PACKS.map((p) => [p.gems, formatUsd(p.price), formatUsd(referencePrice(p.gems)), packDiscount(p)])).toEqual([
+    expect(PACKS.map((p) => [p.cobbles, formatUsd(p.price), formatUsd(referencePrice(p.cobbles)), packDiscount(p)])).toEqual([
       [50, "$5", "$10", 50],
       [100, "$9", "$20", 55],
       [500, "$40", "$100", 60],
       [1_000, "$70", "$200", 65],
     ]);
-    expect(PACKS.map((p) => formatUsd(p.price / BigInt(p.gems), 2))).toEqual(["$0.10", "$0.09", "$0.08", "$0.07"]);
+    expect(PACKS.map((p) => formatUsd(p.price / BigInt(p.cobbles), 2))).toEqual(["$0.10", "$0.09", "$0.08", "$0.07"]);
   });
 
   it("gives quests 5, 10 or 15 by their family's target, Daily Run 5 and a weekly 15 (3.1)", () => {

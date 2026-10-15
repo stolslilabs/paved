@@ -11,6 +11,7 @@ import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import type * as chain from "./chain";
 import type * as indexer from "./indexer";
+import type * as purchase from "./purchase";
 import type * as training from "./training";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -31,6 +32,7 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useQuote>, OrNull<PurchaseSceneProps["quote"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<PurchaseSceneProps["split"]>>>,
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<PurchaseSceneProps["balance"]>>>,
+  Expect<Equal<Data<typeof purchase.usePacks>, OrNull<NonNullable<PurchaseSceneProps["cobbles"]>["packs"]>>>,
   // board
   Expect<Equal<training.SessionBoard["tiles"], BoardSceneProps["tiles"]>>,
   Expect<Equal<training.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,

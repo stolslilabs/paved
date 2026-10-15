@@ -206,6 +206,103 @@ function skinRevert(error: unknown): never {
   throw error;
 }
 
+/**
+ * A pack's purchase as `Setup.buy_pack` takes it (cobbles v1, part 2, CORE #453). `price` is not an argument of the entry
+ * point: it is what the approve allows `Setup` to take, exactly the pack's price.
+ */
+export interface BuyPackRequest {
+  packId: number;
+  /** The referrer to send, "0x0" for none (`referrerOf` of the economy's writer checks it first). */
+  referrer: string;
+  /** The least PAVED the pack's one swap must buy (the pool quote less the slippage), above 0. */
+  minOut: bigint;
+  /** The pack's price in USDC base units, as the player confirmed it: the approve's amount. */
+  price: bigint;
+}
+
+/**
+ * `Setup.buy_pack`'s arguments, in ABI order: the one place they are listed (main's ABI, db6c6bc4: `pack_id`, `referrer`,
+ * `min_out`). A new argument of the entry point (a `max_price`) is one line here and one field of `BuyPackRequest`.
+ */
+export const buyPackArgs = (request: BuyPackRequest): Encodable[] => [request.packId, request.referrer, request.minOut];
+
+/** Why a pack's purchase was refused, by its revert (`setup.cairo`'s and `economy.cairo`'s `errors`, OpenZeppelin's ERC20). */
+export type PackRefusal = "not-on-sale" | "no-economy" | "payment-failed" | "price-moved" | "no-allowance" | "no-balance";
+
+/** Each refusal's revert reason. */
+const PACK_REVERTS: Array<[string, PackRefusal]> = [
+  ["Setup: pack not on sale", "not-on-sale"],
+  ["Setup: economy not set", "no-economy"],
+  ["Setup: payment failed", "payment-failed"],
+  ["Economy: swap below min_out", "price-moved"],
+  ["ERC20: insufficient allowance", "no-allowance"],
+  ["ERC20: insufficient balance", "no-balance"],
+];
+
+/** What the player reads for each refusal. A revert moves nothing (the approve, the payment and the swap are one transaction); its network fee is paid. */
+export const PACK_REFUSAL_TEXT: Record<PackRefusal, string> = {
+  "not-on-sale": "This pack is not on sale any more. Your USDC was not spent.",
+  "no-economy": "Packs are not on sale on this deployment yet. Your USDC was not spent.",
+  "payment-failed": "The payment did not go through. Your USDC was not spent.",
+  "price-moved": "The pool's quote moved before your purchase went through: your USDC was not spent. Confirm again.",
+  "no-allowance": "The pack's price changed since you confirmed it: your USDC was not spent. Confirm again.",
+  "no-balance": "Not enough USDC for this pack. Your USDC was not spent.",
+};
+
+/** `Setup` refused a pack's purchase (`buy_pack`): nothing moved. */
+export class PackRefusedError extends WriteError {
+  constructor(readonly reason: PackRefusal, transactionHash?: string) {
+    super(PACK_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "PackRefusedError";
+  }
+}
+
+/**
+ * The pack's purchase was sent, but its receipt could not be read, or carries no `PackBought`: the outcome is unknown, not
+ * a failure. The hash is kept; the page reads the balance again and never invites a second purchase on its own.
+ */
+export class PackOutcomeUnknownError extends WriteError {
+  constructor(transactionHash: string) {
+    super(`Purchase sent (${transactionHash}), outcome unknown: check your Cobbles before buying again`, transactionHash);
+    this.name = "PackOutcomeUnknownError";
+  }
+}
+
+/** `Setup`'s `PackBought`: the pack, its price, the referrer that counted ("0x0" for none) and the player's Cobbles after it. */
+export interface PackBought {
+  playerId: string;
+  packId: number;
+  cobbles: number;
+  price: bigint;
+  referrer: string;
+  balance: number;
+}
+
+/** The `PackBought` of a receipt's decoded events, or null. */
+export function packBoughtOf(events: readonly DecodedEvent[]): PackBought | null {
+  const event = events.find((e) => e.name === "PackBought");
+  if (!event) return null;
+  const f = event.fields;
+  return {
+    playerId: `0x${BigInt(f.playerId as bigint | string).toString(16)}`,
+    packId: Number(f.packId),
+    cobbles: Number(f.cobbles),
+    price: BigInt(f.price as bigint | string),
+    referrer: `0x${BigInt(f.referrer as bigint | string).toString(16)}`,
+    balance: Number(f.balance),
+  };
+}
+
+/** A pack's revert as its typed error; a send whose receipt was not read as an unknown outcome; any other error unchanged. */
+function packRevert(error: unknown): never {
+  if (error instanceof WriteError) {
+    const known = PACK_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new PackRefusedError(known[1], error.transactionHash);
+    if (error.transactionHash && !error.reverted) throw new PackOutcomeUnknownError(error.transactionHash);
+  }
+  throw error;
+}
+
 const NO_CREDIT = "Setup: no credit";
 const SPAWN_PAUSED = "Challenge: spawn paused";
 /** What the player reads when Play free is refused for want of a credit. */
@@ -325,6 +422,33 @@ export class PavedWriter {
           : this.call("Setup", c.credit === "daily" ? "claim_daily_credit" : "claim_weekly_credit", [c.period]),
     );
     return this.send("Setup", calls).catch(claimRevert);
+  }
+
+  /**
+   * Buys a pack of Cobbles for the account (cobbles v1, part 2): approves `Setup` on `usdc` for exactly `price`, then
+   * `Setup.buy_pack(pack_id, referrer, min_out)` (`buyPackArgs`), in one multicall. `Setup` moves the price to `Economy`,
+   * which runs the game's split (`Economy.sell`) with the referrer and `min_out`. `usdc` is the economy's USDC
+   * (`EconomyDeployment.addresses.USDC`), the token `Setup` pulls. Sends what it is given: `PackBuyer` (`packs.ts`) reads
+   * the pack, the router and the pool again first and refuses an amount the player did not confirm. Its receipt holds the
+   * `PackBought` (`bought`). Without a Setup address nothing is sent.
+   */
+  async buyPack(request: BuyPackRequest, usdc: string): Promise<WriteResult & { bought: PackBought }> {
+    const setup = this.options.deployment.addresses.Setup;
+    if (!setup) throw new WriteError("No Setup contract in this deployment: no pack can be bought");
+    if (!Number.isInteger(request.packId) || request.packId < 1 || request.packId > 255) throw new WriteError(`Not a pack id: ${String(request.packId)}`);
+    if (request.price <= 0n) throw new WriteError("A pack's price must be above 0");
+    if (request.minOut <= 0n) throw new WriteError("No minimum PAVED: confirm again");
+    if (!usdc) throw new WriteError("No USDC in this deployment: no pack can be bought");
+    const approve: Call = { contractAddress: usdc, entrypoint: "approve", calldata: new Codec(FAUCET_ABI).encodeCall("approve", [setup, request.price]) };
+    let result: WriteResult;
+    try {
+      result = await this.send("Setup", [approve, this.call("Setup", "buy_pack", buyPackArgs(request))]);
+    } catch (error) {
+      packRevert(error);
+    }
+    const bought = packBoughtOf(result.events);
+    if (!bought) throw new PackOutcomeUnknownError(result.transactionHash);
+    return { ...result, bought };
   }
 
   /**

@@ -1,5 +1,5 @@
-import type { IndexerClient, PavedClient } from "@paved/chain";
-import type { DataSources } from "../data/sources";
+import type { EconomyClient, IndexerClient, PavedClient } from "@paved/chain";
+import type { DataSources, Purchases } from "../data/sources";
 
 /** Why an indexer read fails in a build without one. */
 const NO_INDEXER = "No indexer: VITE_INDEXER_URL is not set in this build";
@@ -42,17 +42,49 @@ function lazyChain<T extends object>(part: (client: PavedClient) => T): T {
   });
 }
 
+/** Why an economy read fails in a deployment without the economy's contracts. */
+const NO_ECONOMY = "Economy not deployed on this network";
+
+/**
+ * A part of the economy client (P7b: `data/economy-client.ts`, loaded with the chain's chunk) whose reads load it on the
+ * first call. A deployment without the economy refuses each read with `NO_ECONOMY`.
+ */
+function lazyEconomy<T extends object>(part: (client: EconomyClient) => T | null): T {
+  return new Proxy({} as T, {
+    get: (_target, key) =>
+      key === "then"
+        ? undefined
+        : async (...args: unknown[]) => {
+            const { economyClient } = await import("../data/economy-client");
+            const client = economyClient();
+            const target = client ? (part(client) as Record<PropertyKey, (...a: unknown[]) => unknown> | null) : null;
+            if (!target) throw new Error(NO_ECONOMY);
+            return target[key]!(...args);
+          },
+  });
+}
+
+/** The purchases of a signer (P7b), built on the economy client at the first purchase. */
+const lazyPurchases = (signer: Parameters<NonNullable<DataSources["purchases"]>>[0]): Purchases => ({
+  purchase: async (request) => (await import("../data/economy-client")).purchasesOf(signer).purchase(request),
+  buyPack: async (request) => (await import("../data/economy-client")).purchasesOf(signer).buyPack(request),
+  referrer: async (kind, referrer) => (await import("../data/economy-client")).purchasesOf(signer).referrer(kind, referrer),
+  receipt: async (hash) => (await import("../data/economy-client")).purchasesOf(signer).receipt(hash),
+});
+
 /**
  * The sources the app's `DataProvider` gives. Training needs only its save, `localStorage` (`store` left out:
  * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
  * loaded with the first read. The signer is `WalletProvider`'s (P6): null here, filled while a wallet is connected. The
- * indexer is the client on `VITE_INDEXER_URL` (P6); no economy deployment yet, so the economy's hooks answer null.
+ * indexer is the client on `VITE_INDEXER_URL` (P6). The economy's views, its pool quote and the purchases are
+ * `EconomyClient`'s on the same deployment (P7b), loaded with the first read.
  */
 export const APP_SOURCES: DataSources = {
   views: lazyChain((c) => c.views),
   events: lazyChain((c) => c.events),
-  economy: null,
-  pool: null,
+  economy: lazyEconomy((c) => c.views),
+  pool: lazyEconomy((c) => c.poolQuoter),
   indexer: lazyIndexer(),
   signer: null,
+  purchases: lazyPurchases,
 };
