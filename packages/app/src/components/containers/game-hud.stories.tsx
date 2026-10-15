@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MOCK_NOW } from "../../mocks/clock";
 import { GameHud } from "./game-hud";
+import { BIG_SCORE, LONG_LABEL } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/GameHud",
@@ -19,3 +20,5 @@ export const LastHour: Story = { args: { expiresAt: MOCK_NOW + 25 * 60 } };
 export const Expired: Story = { args: { expiresAt: MOCK_NOW - 60 } };
 /** Training: no deadline. */
 export const Training: Story = { args: { title: "Training", expiresAt: null } };
+/** WRAP360: a long title (cut, whole in its title), the widest score and gain, tiles left, and a game's longest time left (24 h). */
+export const Stress: Story = { args: { title: LONG_LABEL, score: BIG_SCORE, delta: 9_999, remaining: 99, expiresAt: MOCK_NOW + 23 * 3600 + 59 * 60 + 59 } };

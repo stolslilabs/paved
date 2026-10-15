@@ -63,11 +63,11 @@ export function ProgressCard(props: ProgressCardProps) {
         >
           <Icon name={locked ? "lock" : icon} size="md" />
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 wrap-anywhere">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 className="font-display text-sm font-semibold">{title}</h3>
             {points != null && (
-              <span className="numeric text-xs text-muted-foreground">
+              <span className="numeric text-xs whitespace-nowrap text-muted-foreground">
                 {points} pts
               </span>
             )}

@@ -15,7 +15,7 @@
  *   it, and text leaves the box. Only the innermost such box is listed.
  * - `clip`: text cut by an ancestor with `overflow: hidden` or `clip` (either axis), without an ellipsis.
  * - `truncate`: an ellipsis (`text-overflow: ellipsis`) whose full text is not reachable: no `title` or
- *   `aria-label` on the element or an ancestor. An ellipsis with one of them is fine and not listed.
+ *   on the element or an ancestor. An ellipsis with one of them is fine and not listed.
  * - `scroll`: a box that scrolls horizontally. Only deliberate scrollers are fine, and they are in ALLOWED.
  * - `page`: the page itself scrolls horizontally.
  * - `error`: the story failed to render.
@@ -127,7 +127,7 @@ function inspect(): { kind: string; element: string }[] {
   const hidden = (el: Element, r: DOMRect, cs: CSSStyleDeclaration) =>
     cs.display === "none" || cs.visibility === "hidden" || (r.width <= 1 && r.height <= 1) || (cs.position === "absolute" && cs.clip !== "auto" && cs.clip !== "");
 
-  /** Text rects of an element's text nodes, the descendants' included. */
+  /** Text rects of an element's text nodes, the descendants' included, but not those inside a scroller below it (they scroll, they are not cut). */
   const textRects = (el: Element) => {
     const rects: DOMRect[] = [];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -137,6 +137,12 @@ function inspect(): { kind: string; element: string }[] {
       if (!parent || parent.closest("svg")) continue;
       const pcs = getComputedStyle(parent);
       if (pcs.visibility === "hidden" || pcs.display === "none") continue;
+      let scrolled = false;
+      for (let a: Element | null = parent; a && a !== el; a = a.parentElement) {
+        const acs = getComputedStyle(a);
+        if (scrolls(acs.overflowX) || scrolls(acs.overflowY)) scrolled = true;
+      }
+      if (scrolled) continue;
       const range = document.createRange();
       range.selectNodeContents(n);
       for (const r of range.getClientRects()) if (r.width > 0) rects.push(r);
@@ -174,15 +180,18 @@ function inspect(): { kind: string; element: string }[] {
     if (scrolls(cs.overflowX)) {
       if (wide) out.push({ kind: "scroll", element: describe(el), el });
     } else if (cs.textOverflow === "ellipsis" && wide) {
-      const reachable = el.closest("[title], [aria-label]");
+      const reachable = el.closest("[title]");
       if (!reachable) out.push({ kind: "truncate", element: describe(el), el });
     } else if (clips(cs.overflowX) || clips(cs.overflowY)) {
       if (cs.webkitLineClamp && cs.webkitLineClamp !== "none") {
         // A line clamp ends in an ellipsis: the same rule as text-overflow.
-        if (el.scrollHeight > el.clientHeight + 1 && !el.closest("[title], [aria-label]")) out.push({ kind: "truncate", element: describe(el), el });
+        if (el.scrollHeight > el.clientHeight + 1 && !el.closest("[title]")) out.push({ kind: "truncate", element: describe(el), el });
       } else {
+        // Each axis counts only where it clips: a vertical scroller with `overflow-x: hidden` cuts nothing vertically.
         const box = el.getBoundingClientRect();
-        const cut = textRects(el).some((t) => t.right > box.right + 1 || t.left < box.left - 1 || t.bottom > box.bottom + 1 || t.top < box.top - 1);
+        const x = clips(cs.overflowX);
+        const y = clips(cs.overflowY);
+        const cut = textRects(el).some((t) => (x && (t.right > box.right + 1 || t.left < box.left - 1)) || (y && (t.bottom > box.bottom + 1 || t.top < box.top - 1)));
         if (cut) out.push({ kind: "clip", element: describe(el), el });
       }
     } else if (wide) {
@@ -268,7 +277,14 @@ async function main() {
         }
         await page.setViewportSize({ width, height: 740 });
         await settle(page);
-        for (const f of await page.evaluate(inspect)) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
+        let found = await page.evaluate(inspect);
+        if (found.length) {
+          // A canvas resized by script (the board's renderer) catches up a few frames after the width changes: look again
+          // once, after a second, before reporting.
+          await page.waitForTimeout(1000);
+          found = await page.evaluate(inspect);
+        }
+        for (const f of found) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
       }
     }
     await context.close();

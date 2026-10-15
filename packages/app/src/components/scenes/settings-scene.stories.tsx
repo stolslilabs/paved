@@ -13,3 +13,5 @@ export const Connected: Story = { args: SETTINGS.connected };
 
 /** No wallet: Connect. */
 export const Guest: Story = { args: SETTINGS.guest };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: SETTINGS.stress };

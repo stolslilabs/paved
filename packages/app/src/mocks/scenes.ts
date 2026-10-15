@@ -35,6 +35,7 @@ import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, 
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEKLY_DONE } from "./quests";
 import { REFERRAL_LINK, REFERRED_PURCHASES } from "./referral";
 import { THEME_TILES } from "./settings";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
@@ -46,6 +47,8 @@ export const WELCOME = {
   firstVisit: {},
   connecting: { connecting: true },
   failed: { error: "The controller window was closed before the account connected." },
+  /** WRAP360: an error with a long sentence, an unbroken address and compound. */
+  stress: { error: `${LONG_SENTENCE} ${LONG_ADDRESS} ${LONG_WORD}` },
 } satisfies Record<string, Data<WelcomeSceneProps>>;
 
 // Loading
@@ -53,6 +56,8 @@ export const WELCOME = {
 export const LOADING = {
   booting: { progress: null, message: "Starting" },
   assets: { progress: 64, message: "Loading the board", tip: "Closing a city scores more the bigger it gets." },
+  /** WRAP360: a long message and tip. */
+  stress: { progress: 99, message: `${LONG_SENTENCE} ${LONG_WORD}`, tip: LONG_SENTENCE },
 } satisfies Record<string, Data<LoadingSceneProps>>;
 
 // Home
@@ -73,6 +78,15 @@ export const HOME = {
     now: MOCK_NOW,
   },
   paused: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame, training: null, spawnPaused: true, now: MOCK_NOW },
+  /** WRAP360: the longest username, the widest balances and scores, a podium of long names and a full address. */
+  stress: {
+    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3], usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18 },
+    leaderboard: { ...LEADERBOARD_TODAY, entries: STRESS_ENTRIES.slice(0, 3) },
+    activeGame: { ...activeGame, id: BIG_NUMBER, score: BIG_SCORE },
+    training: { score: BIG_SCORE, remaining: 99 },
+    spawnPaused: false,
+    now: MOCK_NOW,
+  },
 } satisfies Record<string, Data<HomeSceneProps>>;
 
 // Play
@@ -139,6 +153,15 @@ export const OVER = {
   expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, reward: { state: "expired", stake: 3, threshold } },
   training: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, previousBest: 1_420, reward: { state: "free" } },
   noClosing: { mode: "training", game: { ...GAME_OVER, score: 0, placedCount: 3 }, closings: [], reward: { state: "free" } },
+  /** WRAP360: the widest score, rank, reward and closings. */
+  stress: {
+    mode: "challenge",
+    game: { ...GAME_OVER, id: BIG_NUMBER, score: BIG_SCORE },
+    closings: CLOSINGS_38.map((c) => ({ ...c, size: 999, points: BIG_SCORE })),
+    previousBest: BIG_SCORE - 1,
+    rank: 99_999,
+    reward: { state: "rewarded", amount: BIG_AMOUNT_18, stake: 999, threshold: BIG_SCORE - 1 },
+  },
 } satisfies Record<string, Data<OverSceneProps>>;
 
 // Purchase
@@ -155,6 +178,8 @@ export const PURCHASE = {
   short: { ...purchaseBase, ...at(5), balance: BALANCE_LOW },
   paused: { ...purchaseBase, ...at(1), spawnPaused: true },
   buying: { ...purchaseBase, ...at(3), buying: true },
+  /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
+  stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
 
 // Leaderboard
@@ -169,6 +194,8 @@ export const LEADERBOARD = {
   guest: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY, viewerId: null },
   loading: { ...ranks, day: TODAY, leaderboard: null },
   error: { ...ranks, day: TODAY, leaderboard: null, error: "The indexer did not answer (unreachable). The ranking will show once it is back." },
+  /** WRAP360: the longest usernames, a full address, the widest ranks and scores. */
+  stress: { ...ranks, day: TODAY, leaderboard: { ...BOARD_TODAY, total: 99_999, entries: STRESS_ENTRIES.slice(0, 3) }, viewer: STRESS_ENTRIES[3], viewerId: STRESS_ENTRIES[3].playerId },
 } satisfies Record<string, Data<LeaderboardSceneProps>>;
 
 export const PLAYER_PAGE = {
@@ -176,6 +203,14 @@ export const PLAYER_PAGE = {
   self: { playerId: PLAYER_ID, profile: SELF_PROFILE, today: VIEWER_TODAY, games: PLAYER_GAMES, self: true },
   unknown: { playerId: "0x07a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f", profile: UNKNOWN_PROFILE, games: [] },
   loading: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null },
+  /** WRAP360: the longest username beside "You", the widest rank, stats and games. */
+  stress: {
+    playerId: LONG_ADDRESS,
+    profile: { ...SELF_PROFILE, player: { ...SELF_PROFILE.player!, playerId: LONG_ADDRESS, name: LONG_NAME } },
+    today: STRESS_ENTRIES[3],
+    games: STRESS_GAMES,
+    self: true,
+  },
 } satisfies Record<string, Data<PlayerSceneProps>>;
 
 // Vault
@@ -190,6 +225,8 @@ export const VAULT = {
   overMax: { ...vaultBase, mode: "withdraw", amount: "1300" },
   noPaved: { ...vaultBase, position: VAULT_NONE, balance: 0n },
   notDeployed: { ...vaultBase, deployed: false, position: null, balance: 0n, split: null },
+  /** WRAP360: the largest position, balance, amount and preview; every description wraps. */
+  stress: { ...vaultBase, position: STRESS_VAULT, balance: BIG_AMOUNT_18, amount: "123456789012.99", preview: BIG_AMOUNT_18 },
 } satisfies Record<string, Data<VaultSceneProps>>;
 
 // Settings and theme
@@ -199,6 +236,8 @@ export const PREFERENCES: Preferences = { quality: "high", sound: true, music: f
 export const SETTINGS = {
   connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "default", version: "0.1.0" },
   guest: { preferences: { ...PREFERENCES, quality: "medium", sound: false }, account: null, theme: "forest", version: "0.1.0" },
+  /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
+  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
 export const THEME = {
@@ -243,4 +282,11 @@ export const REFERRAL = {
   loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
   guest: { link: null, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
   notDeployed: { link: REFERRAL_LINK, split: null, earnings: null, now: MOCK_NOW },
+  /** WRAP360: a link with a full address, the largest earnings and purchases. */
+  stress: {
+    link: `${REFERRAL_LINK.split("?")[0]}?ref=${LONG_ADDRESS}`,
+    split: SPLIT_BPS,
+    earnings: { total: BIG_AMOUNT_6, count: BIG_NUMBER, recent: REFERRED_PURCHASES.map((p) => ({ ...p, stake: 999, price: String(BIG_AMOUNT_6), referral: String(BIG_AMOUNT_6) })) },
+    now: MOCK_NOW,
+  },
 } satisfies Record<string, Data<ReferralSceneProps>>;

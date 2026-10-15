@@ -30,7 +30,7 @@ function Figure({ label, children }: { label: string; children: React.ReactNode 
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className="truncate text-sm">{children}</span>
+      <span className="text-sm">{children}</span>
     </div>
   );
 }

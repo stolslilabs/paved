@@ -300,7 +300,10 @@ describe("Purchase", () => {
     expect(screen.getByTestId("stake-value")).toHaveTextContent("3");
     expect(screen.getByTestId("stake-price")).toHaveTextContent("6.00");
     expect(screen.getByText("+3%")).toBeInTheDocument();
-    expect(screen.getByText(/To 0x0456…beef/)).toBeInTheDocument();
+    // The referrer's address is cut in the middle, whole in its title (WRAP360).
+    const referrer = screen.getByText("0x0456…beef");
+    expect(referrer.parentElement).toHaveTextContent("To 0x0456…beef");
+    expect(referrer).toHaveAttribute("title", "0x0456bb00000000000000000000000000000000000000000000000000000beef");
     // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part, and the parts shown add up
     // to the price shown (4.42 + 1.28 + 0.30 = 6.00).
     const price = screen.getByRole("region", { name: "Price" });

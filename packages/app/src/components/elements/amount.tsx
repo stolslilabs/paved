@@ -26,13 +26,16 @@ export interface AmountProps {
   className?: string;
 }
 
-/** A token amount in the mono font, its symbol after it in the body font. */
+/**
+ * A token amount in the mono font, its symbol after it in the body font. The figure never breaks; in a column too narrow
+ * for both, the symbol goes under it (WRAP360).
+ */
 export function Amount({ value, token, className }: AmountProps) {
   const t = TOKENS[token];
   return (
-    <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap", className)}>
-      <span className="numeric font-semibold">{formatUnits(value, t.decimals, t.fraction)}</span>
-      <span className="text-[0.85em] text-muted-foreground">{t.symbol}</span>
+    <span className={cn("inline-flex flex-wrap items-baseline gap-x-1", className)}>
+      <span className="numeric font-semibold whitespace-nowrap">{formatUnits(value, t.decimals, t.fraction)}</span>
+      <span className="text-[0.85em] whitespace-nowrap text-muted-foreground">{t.symbol}</span>
     </span>
   );
 }

@@ -19,3 +19,5 @@ export const FirstOfDay: Story = { args: HOME.firstOfDay };
 
 /** `spawn_paused`: the Challenge card is disabled, the running game still resumes. */
 export const PurchasesPaused: Story = { args: HOME.paused };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: HOME.stress };

@@ -11,7 +11,7 @@ export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; sel
   const podium = entry.rank <= 3;
   return (
     <>
-      <span className={cn("numeric grid w-6 shrink-0 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
+      <span className={cn("numeric grid min-w-6 shrink-0 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
         {podium ? (
           <>
             <Icon name="crown" size="sm" />
@@ -21,16 +21,17 @@ export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; sel
           entry.rank
         )}
       </span>
-      <span className="min-w-0 flex-1 truncate text-left text-sm">
-        <PlayerName name={entry.name} address={entry.playerId} />
-        {self && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
+      {/* The name is cut (its title holds it whole); "(you)" always shows. */}
+      <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-left text-sm">
+        <PlayerName name={entry.name} address={entry.playerId} className="min-w-0" />
+        {self && <span className="shrink-0 text-xs text-muted-foreground">(you)</span>}
       </span>
       {games && (
-        <span className="numeric hidden w-16 shrink-0 text-right text-xs text-muted-foreground mobile:inline">
+        <span className="numeric hidden min-w-16 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground mobile:inline">
           {entry.gamesPlayed} {entry.gamesPlayed === 1 ? "game" : "games"}
         </span>
       )}
-      <span className="numeric w-14 shrink-0 text-right text-sm font-semibold">{formatPoints(entry.bestScore)}</span>
+      <span className="numeric min-w-14 shrink-0 text-right text-sm font-semibold">{formatPoints(entry.bestScore)}</span>
     </>
   );
 }

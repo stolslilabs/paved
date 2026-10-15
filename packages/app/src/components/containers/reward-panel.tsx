@@ -39,12 +39,12 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, settl
   const above = threshold != null && score >= threshold;
   return (
     <section aria-label="Reward" data-state={state} className={cn("flex flex-col gap-3 rounded-xl border p-4", copy.tone, className)}>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Icon name={copy.icon} className={state === "below" || state === "expired" ? "text-destructive-text" : "text-primary"} size="md" />
         <span className="font-semibold">{copy.title}</span>
-        {stake ? <span className="ml-auto text-xs text-muted-foreground">Stake {stake}</span> : null}
+        {stake ? <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground">Stake {stake}</span> : null}
       </div>
-      {state === "rewarded" && <Amount value={reward} token="paved" className="text-3xl text-primary" />}
+      {state === "rewarded" && <Amount value={reward} token="paved" className="text-2xl text-primary mobile:text-3xl" />}
       {threshold != null && state !== "free" && (
         <p className="text-sm text-muted-foreground">
           Threshold <span className="numeric text-foreground">{formatPoints(threshold)}</span>

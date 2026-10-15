@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { NumberTicker } from "./number-ticker";
+import { BIG_NUMBER } from "../../mocks/stress";
 
 const meta = { title: "Elements/Number Ticker", component: NumberTicker, parameters: { layout: "padded" }, args: { value: 4596 } } satisfies Meta<typeof NumberTicker>;
 export default meta;
@@ -36,3 +37,5 @@ export const MotionOff: Story = { name: "Counters, reduced motion off", paramete
 
 /** Reduced motion on: the value is written at once, no count. */
 export const MotionOn: Story = { name: "Counters, reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Counters /> };
+/** WRAP360: a nine-digit figure at a heading size. */
+export const Stress: Story = { args: { value: BIG_NUMBER, className: "font-display text-3xl text-foreground" }, parameters: { reducedMotion: "always" } };

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { VAULT_HELD, VAULT_NONE } from "../../mocks/vault";
 import { VaultPosition } from "./vault-position";
+import { STRESS_VAULT } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/VaultPosition",
@@ -15,3 +16,5 @@ type Story = StoryObj<typeof meta>;
 /** 1,250.40 vPAVED at a rate of 1.0842. */
 export const Held: Story = {};
 export const NoShares: Story = { args: { position: VAULT_NONE } };
+/** WRAP360: the largest share, value and totals; labels and hints wrap. */
+export const Stress: Story = { args: { position: STRESS_VAULT } };
