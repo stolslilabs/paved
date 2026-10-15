@@ -1,15 +1,13 @@
 // What the screens say about quests and achievements, from app-web's `utils/quests-view.ts` (the accepted list,
-// docs/architecture/quests.md, P-22, and its v2a section). The titles and texts of quests 5 to 16 and achievements 10 to 16 are
-// copied from there (app-web is not a dependency of this package), with an icon each: keep the two in step.
+// docs/architecture/quests.md, P-22, and its v2a section). The titles and texts of quests 1 and 5 to 16 and achievements 1 to 16
+// are copied from there (app-web is not a dependency of this package), with an icon each: keep the two in step. Quests 2 to 4
+// are not here: v1's, never defined at the fresh deployment, which is the only one this app knows.
 // Titles, descriptions and icons are not on chain: they are keyed by id. Targets are
 // not written here: the screens show the totals the indexer serves. An id the list does not know shows its number.
 
 export const QUEST_TEXT: Record<number, { title: string; description: string; icon: string }> = {
   1: { title: "Daily Run", description: "Finish today's Challenge.", icon: "flag-checkered" },
-  2: { title: "Master Builder", description: "Score roads and cities in a day.", icon: "city" },
-  3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities.", icon: "tree" },
-  4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Challenge games, not a single game.", icon: "star" },
-  // v2a (quests.md "As built: v2a", CORE's proposals): the rotating dailies, three sets of three, and the weeklies.
+  // The rotating dailies (quests.md "As built: v2a"), three sets of three: one of each family is live a day, beside Daily Run.
   5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate.", icon: "city" },
   6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate.", icon: "city" },
   7: { title: "Great Works", description: "Score roads and cities in a day: the large target of the three that rotate.", icon: "city" },
@@ -19,6 +17,7 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   11: { title: "Warm-Up Score", description: "Collect points in a day: the small target of the three that rotate.", icon: "star" },
   12: { title: "Strong Day", description: "Collect points in a day: the middle target of the three that rotate.", icon: "star" },
   13: { title: "Grand Day", description: "Collect points in a day: the large target of the three that rotate.", icon: "star" },
+  // The weeklies: the games finished from Monday to Sunday UTC.
   14: { title: "Weekly Forester", description: "Score forests over the week, Monday to Sunday UTC.", icon: "tree" },
   15: { title: "Weekly Builder", description: "Score roads and cities over the week, Monday to Sunday UTC.", icon: "city" },
   16: { title: "Weekly Points", description: "Collect points over the week's finished Challenge games, Monday to Sunday UTC.", icon: "trophy" },

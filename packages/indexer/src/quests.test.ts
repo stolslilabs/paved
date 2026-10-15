@@ -258,45 +258,63 @@ describe("quests", () => {
     expect(queries.playerAchievements(head, padded(B)).achievements.find((a) => a.achievement_id === 1)).toMatchObject({ completed: false });
   });
 
-  // v2a: Daily Run stays live every day; three structure quests rotate (offsets 0, 1, 2 days of a 3-day interval, as quests 5
-  // to 7) and one weekly (start 345,600, a Monday, as quest 15) sums the week. Day 100 is a Saturday (mod 3 = 1), day 102
-  // the Monday after it.
-  test("playerQuests lists the day's rotating quest of a family, and a weekly quest on all 7 days of its week (v2a)", async () => {
-    const rotating = (id: number, offsetDays: number, total: number) =>
-      ev.questDefined(id, { start: offsetDays * 86400, duration: 86400, interval: 259200, tasks: [[2, total]] });
+  // The fresh deployment's schedule (FRESH_QUESTS of scripts/deploy.sh, quests.md "Four dailies a day"): Daily Run (1) is live
+  // every day; quests 5 to 13 rotate in three families (structures 2, forests 4, points 3), each lasting one day in a 3-day
+  // interval from an offset of 0, 1 or 2 days, so the day number mod 3 picks one per family; the weeklies 14 to 16 start on a
+  // Monday (345,600) and last a week. Quests 2 to 4 are not defined. Day 100 is a Saturday (mod 3 = 1), day 102 the Monday after.
+  test("playerQuests lists Daily Run and one quest of each family a day, and a weekly on all 7 days of its week (final schedule)", async () => {
+    const STRUCTURE = 2;
+    const POINTS = 3;
+    const FOREST = 4;
+    const rotating = (id: number, offsetDays: number, task: number, total: number) =>
+      ev.questDefined(id, { start: offsetDays * 86400, duration: 86400, interval: 259200, tasks: [[task, total]] });
     const WEEK = 604800;
+    const weekly = (id: number, task: number, total: number) => ev.questDefined(id, { start: 345600, duration: WEEK, interval: WEEK, tasks: [[task, total]] });
     const { queries, head } = await open((node) => {
       node.mine(
         [ev.questDefined(1, { tasks: [[DAILY_RUN, 1]] })],
-        [rotating(5, 0, 4), rotating(6, 1, 8), rotating(7, 2, 12)],
-        [ev.questDefined(15, { start: 345600, duration: WEEK, interval: WEEK, tasks: [[2, 30]] })],
+        [rotating(5, 0, STRUCTURE, 4), rotating(6, 1, STRUCTURE, 8), rotating(7, 2, STRUCTURE, 12)],
+        [rotating(8, 0, FOREST, 2), rotating(9, 1, FOREST, 3), rotating(10, 2, FOREST, 4)],
+        [rotating(11, 0, POINTS, 2000), rotating(12, 1, POINTS, 5000), rotating(13, 2, POINTS, 8000)],
+        [weekly(14, FOREST, 5), weekly(15, STRUCTURE, 30), weekly(16, POINTS, 20000)],
       );
-      node.mine([ev.questProgressed(A, 2, 3)]); // Saturday, day 100: quest 6 and the weekly's interval 13
-      node.time = (DAY + 2) * 86400 + 10; // Monday, day 102: quest 5 and the weekly's interval 14
-      node.mine([ev.questProgressed(A, 2, 5)]);
-      node.time = (DAY + 4) * 86400 + 10; // Wednesday, day 104: quest 7
-      node.mine([ev.questProgressed(A, 2, 7)]);
+      // Saturday, day 100: quests 6, 9 and 12, and the weeklies' interval 13
+      node.mine([ev.questProgressed(A, STRUCTURE, 3), ev.questProgressed(A, FOREST, 1), ev.questProgressed(A, POINTS, 1000)]);
+      node.time = (DAY + 2) * 86400 + 10; // Monday, day 102: quests 5, 8 and 11, and the weeklies' interval 14
+      node.mine([ev.questProgressed(A, STRUCTURE, 5), ev.questProgressed(A, FOREST, 2), ev.questProgressed(A, POINTS, 2500)]);
+      node.time = (DAY + 4) * 86400 + 10; // Wednesday, day 104: quests 7, 10 and 13
+      node.mine([ev.questProgressed(A, STRUCTURE, 7)]);
     });
     const ids = (day: number) => queries.playerQuests(head, padded(A), day).map((q) => q.quest_id);
-    // one quest of the family (structures) a day, rotating with the day number mod 3, plus Daily Run and the weekly
-    expect(ids(DAY)).toEqual([1, 6, 15]);
-    expect(ids(DAY + 1)).toEqual([1, 7, 15]);
-    expect(ids(DAY + 2)).toEqual([1, 5, 15]);
-    expect(ids(DAY + 3)).toEqual([1, 6, 15]);
-    const rotatingOf = (day: number) => queries.playerQuests(head, padded(A), day).find((q) => q.quest_id >= 5 && q.quest_id <= 7)!;
-    expect(rotatingOf(DAY)).toMatchObject({ quest_id: 6, interval_id: 33, completed: false, tasks: [{ total: 8, count: 3 }] });
-    expect(rotatingOf(DAY + 1)).toMatchObject({ quest_id: 7, tasks: [{ total: 12, count: 0 }] }); // nothing reported that day
-    expect(rotatingOf(DAY + 2)).toMatchObject({ quest_id: 5, completed: true, tasks: [{ total: 4, count: 4 }] }); // 5 saturates at 4
-    expect(rotatingOf(DAY + 4)).toMatchObject({ quest_id: 7, tasks: [{ total: 12, count: 7 }] });
-    // the weekly: interval 13 ends on Sunday, day 101; interval 14 is days 102 to 108 (Monday to Sunday)
-    const weekly = (day: number) => queries.playerQuests(head, padded(A), day).find((q) => q.quest_id === 15)!;
-    expect(weekly(DAY)).toMatchObject({ interval_id: 13, tasks: [{ total: 30, count: 3 }] });
-    expect(weekly(DAY + 1)).toMatchObject({ interval_id: 13, tasks: [{ count: 3 }] });
+    // four dailies a day, the day number mod 3 picking one per family, then the three weeklies; 2 to 4 are never listed
+    expect(ids(DAY)).toEqual([1, 6, 9, 12, 14, 15, 16]); // 100 mod 3 = 1
+    expect(ids(DAY + 1)).toEqual([1, 7, 10, 13, 14, 15, 16]); // 2
+    expect(ids(DAY + 2)).toEqual([1, 5, 8, 11, 14, 15, 16]); // 0
+    expect(ids(DAY + 3)).toEqual([1, 6, 9, 12, 14, 15, 16]);
+    for (let day = DAY; day < DAY + 12; day++) {
+      const dailies = ids(day).filter((id) => id < 14);
+      expect(dailies, `day ${day}`).toHaveLength(4);
+      expect(dailies.slice(1).map((id) => (id - 5) % 3), `day ${day}`).toEqual([day % 3, day % 3, day % 3]);
+    }
+    const quest = (day: number, id: number) => queries.playerQuests(head, padded(A), day).find((q) => q.quest_id === id)!;
+    expect(quest(DAY, 6)).toMatchObject({ interval_id: 33, completed: false, tasks: [{ total: 8, count: 3 }] });
+    expect(quest(DAY, 9)).toMatchObject({ tasks: [{ task_id: FOREST, total: 3, count: 1 }] });
+    expect(quest(DAY, 12)).toMatchObject({ tasks: [{ task_id: POINTS, total: 5000, count: 1000 }] });
+    expect(quest(DAY + 1, 7)).toMatchObject({ tasks: [{ total: 12, count: 0 }] }); // nothing reported that day
+    expect(quest(DAY + 2, 5)).toMatchObject({ completed: true, tasks: [{ total: 4, count: 4 }] }); // 5 saturates at 4
+    expect(quest(DAY + 2, 8)).toMatchObject({ completed: true, tasks: [{ total: 2, count: 2 }] });
+    expect(quest(DAY + 2, 11)).toMatchObject({ completed: true, tasks: [{ total: 2000, count: 2000 }] });
+    expect(quest(DAY + 4, 7)).toMatchObject({ interval_id: 34, tasks: [{ total: 12, count: 7 }] });
+    // the weeklies: interval 13 ends on Sunday, day 101; interval 14 is days 102 to 108 (Monday to Sunday)
+    expect(quest(DAY, 15)).toMatchObject({ interval_id: 13, tasks: [{ total: 30, count: 3 }] });
+    expect(quest(DAY + 1, 15)).toMatchObject({ interval_id: 13, tasks: [{ count: 3 }] });
     for (let day = DAY + 2; day <= DAY + 8; day++) {
-      expect(weekly(day), `day ${day}`).toMatchObject({ interval_id: 14, completed: false, tasks: [{ total: 30, count: 12 }] });
+      expect(quest(day, 14), `day ${day}`).toMatchObject({ interval_id: 14, completed: false, tasks: [{ total: 5, count: 2 }] });
+      expect(quest(day, 15), `day ${day}`).toMatchObject({ interval_id: 14, completed: false, tasks: [{ total: 30, count: 12 }] });
+      expect(quest(day, 16), `day ${day}`).toMatchObject({ interval_id: 14, completed: false, tasks: [{ total: 20000, count: 2500 }] });
     }
     // the next Monday opens interval 15 with nothing counted
-    expect(weekly(DAY + 9)).toMatchObject({ interval_id: 15, tasks: [{ count: 0 }] });
+    for (const id of [14, 15, 16]) expect(quest(DAY + 9, id)).toMatchObject({ interval_id: 15, tasks: [{ count: 0 }] });
   });
 
   test("an unknown player has zero progress (200, not 404), and the head limits what is read", async () => {

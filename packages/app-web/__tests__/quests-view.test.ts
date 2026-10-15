@@ -26,6 +26,21 @@ describe("the texts of quests and achievements", () => {
     ]);
   });
 
+  it("keeps quests 2 to 4 as dead entries: v1 only, not defined at the fresh deployment, but old games name them", () => {
+    expect([2, 3, 4].map(questTitle)).toEqual(["Master Builder", "Into the Woods", "Point Chaser"]);
+  });
+
+  it("describes the final families: quests 5 to 7 and 15 roads and cities, 8 to 10 and 14 forests, 11 to 13 and 16 points", () => {
+    const about = (ids: number[], word: RegExp) => ids.forEach((id) => expect(QUEST_TEXT[id]!.description, `quest ${id}`).toMatch(word));
+    about([5, 6, 7, 15], /roads and cities/);
+    about([8, 9, 10, 14], /forests/);
+    about([11, 12, 13, 16], /points/);
+    about([14, 15, 16], /week/);
+    about([5, 8, 11], /small target/);
+    about([6, 9, 12], /middle target/);
+    about([7, 10, 13], /large target/);
+  });
+
   it("shows an id the list does not know by its number", () => {
     expect(questTitle(99)).toBe("Quest #99");
     expect(achievementTitle(99)).toBe("Achievement #99");

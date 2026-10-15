@@ -1,15 +1,18 @@
 // What the screens say about quests and achievements. Titles and descriptions are not on chain: they are keyed by id,
-// from the accepted list (docs/architecture/quests.md, P-22) and its v2a section (quests 5 to 16, achievements 10 to 16). Targets are NOT written here (they are first guesses, to be
+// from the accepted list (docs/architecture/quests.md, P-22) and its v2a section (quests 5 to 16, achievements 10 to 16), as the
+// fresh deployment defines them: quests 1 and 5 to 16 (2 to 4 are not defined there). Targets are NOT written here (they are first guesses, to be
 // calibrated): the screens show the numbers the indexer serves, from the chain's definitions. An id the list does not know
 // is shown by its number, with no description. No reward is shown anywhere: v1 has none.
 import type { AchievementDefinition, QuestDefinition, TaskTarget } from "@paved/chain";
 
 export const QUEST_TEXT: Record<number, { title: string; description: string }> = {
   1: { title: "Daily Run", description: "Finish today's Challenge." },
+  // v1 only: not defined at the fresh deployment (quests 2 to 4 stay unused). Kept because games recorded under the old
+  // deployment still name them.
   2: { title: "Master Builder", description: "Score roads and cities in a day." },
   3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities." },
   4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Challenge games, not a single game." },
-  // v2a rotating dailies: one of each family is live a day, the target changing with the day (every third UTC day each).
+  // v2a rotating dailies: Daily Run and one of each family are live a day (four in all), the target changing with the day (every third UTC day each).
   5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate." },
   6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate." },
   7: { title: "Great Works", description: "Score roads and cities in a day: the large target of the three that rotate." },

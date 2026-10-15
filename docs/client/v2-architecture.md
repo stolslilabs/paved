@@ -1248,8 +1248,10 @@ with the hook that reads the same shape, and changes the scene only where the re
 
 **P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
 `lib/quest-window.ts`, provisional until P9: `@paved/chain`'s `PlayerQuest` does not carry them yet). **v2a is on main** (CORE's
-#423, bc486b1f: nine rotating dailies, ids 5 to 13, in a 3-day interval; three Monday-start weeklies, 14 to 16; achievements 10 to 16;
-v1's four dailies stay live every day), and the mocks follow it (`mocks/quests.ts`, `containers/quest-text.ts`).
+#423, bc486b1f: nine rotating dailies, ids 5 to 13, in a 3-day interval; three Monday-start weeklies, 14 to 16; achievements 10 to 16),
+and CORE's #426 (448f48bf) fixes the daily count at **four a day**: Daily Run (quest 1) always live plus one rotating quest of each
+family (the day number mod 3 picks it); quests 2 to 4 are not defined at the fresh deployment. The mocks follow it
+(`mocks/quests.ts`, `containers/quest-text.ts`, which no longer knows 2 to 4).
 `questWindow` there is the rule of `quests-v2.md` 1.2 (active when `(now - start) % interval < duration`, interval id
 `floor((now - start) / interval)`, window end `start + id * interval + duration`): the scene derives the Daily and Weekly
 countdowns from it, a weekly's week from its definition (not from a Monday), and a quest is a daily or a weekly by its
