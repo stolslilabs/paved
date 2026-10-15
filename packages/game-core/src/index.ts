@@ -93,3 +93,8 @@ export type {
   PlacedTile as EnginePlacedTile,
   Counters as EngineCounters,
 } from "./engine";
+// The starter's coordinates on chain (the contracts' `CENTER`)
+export { CENTER } from "./engine";
+
+// Game sessions (P2): Training, the tutorial run, the page session's shape
+export * from "./sessions";

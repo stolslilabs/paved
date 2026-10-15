@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { fileURLToPath } from "node:url";
-import { TRAINING_KEY, type SavedMove } from "../src/training/storage";
+import { TRAINING_KEY, type SavedMove } from "@paved/game-core";
 import {
   ORIENTATIONS,
   cellPoint,
