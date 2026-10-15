@@ -1,6 +1,6 @@
 /**
  * Which quests (or achievements) just completed, between two reads of the player's progress: the function a toast hangs
- * on. Pure, so P9 can call it on each indexer refresh with the list it had and the list it got.
+ * on. Pure: called on each indexer refresh with the list it had and the list it got (`useCompletionToasts`).
  */
 
 /** What the function reads of a quest or an achievement. A quest repeats per interval; an achievement has no interval (0). */
@@ -22,7 +22,7 @@ export const completionKey = (kind: "quest" | "achievement", t: Trackable): stri
  */
 export function newlyCompleted<T extends Trackable>(
   kind: "quest" | "achievement",
-  prev: readonly T[] | null,
+  prev: readonly Trackable[] | null,
   next: readonly T[],
   announced: ReadonlySet<string> = new Set(),
 ): T[] {

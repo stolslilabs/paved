@@ -37,14 +37,14 @@ describe("Cobbles amounts (gems-v1.md)", () => {
 
   it("gives quests 5, 10 or 15 by their family's target, Daily Run 5 and a weekly 15 (3.1)", () => {
     expect(QUEST_COBBLES.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
-    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.gems]))).toEqual({ 1: 5, 5: 5, 6: 10, 7: 15, 8: 5, 9: 10, 10: 15, 11: 5, 12: 10, 13: 15, 14: 15, 15: 15, 16: 15 });
-    expect(QUEST_COBBLES.filter((q) => q.kind === 2).map((q) => q.questId)).toEqual([14, 15, 16]);
+    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.cobbles]))).toEqual({ 1: 5, 5: 5, 6: 10, 7: 15, 8: 5, 9: 10, 10: 15, 11: 5, 12: 10, 13: 15, 14: 15, 15: 15, 16: 15 });
+    expect(QUEST_COBBLES.filter((q) => q.kind === "weekly").map((q) => q.questId)).toEqual([14, 15, 16]);
   });
 
   it("gives an achievement its points, On the Podium none: 580 for the fifteen (3.1)", () => {
     expect(ACHIEVEMENT_COBBLES.map((a) => a.achievementId)).not.toContain(9);
     expect(ACHIEVEMENT_COBBLES).toHaveLength(15);
-    expect(ACHIEVEMENT_COBBLES.reduce((sum, a) => sum + a.gems, 0)).toBe(580);
+    expect(ACHIEVEMENT_COBBLES.reduce((sum, a) => sum + a.cobbles, 0)).toBe(580);
   });
 
   it("prices the 19 plans by rarity, 50 to 100, 1,580 for a theme (5.2)", () => {

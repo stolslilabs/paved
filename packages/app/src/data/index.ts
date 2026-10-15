@@ -37,5 +37,6 @@ export {
 export { boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
 export { useChallengeSession } from "./challenge";
 export { claimOutcome, tutorialBoard, useTutorialClaim, useTutorialClaimed, useTutorialRun } from "./tutorial";
+export * from "./rewards";
 export type { ChallengeSession } from "./challenge";
 export type { SessionBoard } from "./training";
