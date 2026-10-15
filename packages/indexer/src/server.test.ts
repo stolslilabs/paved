@@ -88,7 +88,7 @@ describe("routes", () => {
     });
     // No name on chain since D-25 (E); `name` is the off-chain username of the names cache (N1), null without one.
     expect(Object.keys((answer.body.entries as object[])[0]!).sort()).toEqual(
-      ["best_game_id", "best_score", "finished_at", "games_finished", "games_played", "name", "player_id", "rank"],
+      ["best_game_id", "best_score", "finished_at", "free", "games_finished", "games_played", "name", "player_id", "rank"],
     );
     const last = get(indexer, "/v1/tournaments/100/leaderboard?limit=1&offset=1");
     expect((last.body as { next_offset: number | null }).next_offset).toBeNull();

@@ -409,6 +409,8 @@ describe("the definitions", () => {
         defined_at: indexer.store.block(head - 1)!.timestamp,
         retired: false,
         retired_at: null,
+        cobbles: 0,
+        cobbles_kind: null,
       },
     ]);
     expect(achievements[0]).toMatchObject({ achievement_id: 5, points: 20, start_time: 0, end_time: 0, retired: false });

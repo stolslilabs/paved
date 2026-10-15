@@ -364,6 +364,321 @@
   },
   {
     "type": "impl",
+    "name": "SetupCobblesImpl",
+    "interface_name": "paved::systems::setup::ISetupCobbles"
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::Account",
+    "members": [
+      {
+        "name": "cobbles",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "credits",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "games",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "forests",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "wonders",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "big",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "achievements_claimed",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::Progress",
+    "members": [
+      {
+        "name": "games",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "structures",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "forests",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "claimed",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "credit",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::QuestCobbles",
+    "members": [
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "kind",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "task",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "total",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "start",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "interval",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::AchievementCobbles",
+    "members": [
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "task",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "total",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupCobbles",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_quest_cobbles",
+        "inputs": [
+          {
+            "name": "quest_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_achievement_cobbles",
+        "inputs": [
+          {
+            "name": "achievement_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_quest",
+        "inputs": [
+          {
+            "name": "quest_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "period",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_achievement",
+        "inputs": [
+          {
+            "name": "achievement_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_daily_credit",
+        "inputs": [
+          {
+            "name": "day",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_weekly_credit",
+        "inputs": [
+          {
+            "name": "week",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "spend_credit",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "account",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::Account"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "day_progress",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "day",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::Progress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "week_progress",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "week",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::Progress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "quest_cobbles",
+        "inputs": [
+          {
+            "name": "quest_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::QuestCobbles"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "achievement_cobbles",
+        "inputs": [
+          {
+            "name": "achievement_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::AchievementCobbles"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "UpgradeableImpl",
     "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
   },
@@ -812,6 +1127,131 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::QuestCobblesSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "quest_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "kind",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::AchievementCobblesSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "achievement_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CobblesClaimed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "kind",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "period",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "balance",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CreditClaimed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "kind",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "period",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "credits",
+        "type": "core::integer::u16",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CreditSpent",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "credits",
+        "type": "core::integer::u16",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -843,6 +1283,31 @@
       {
         "name": "CollectionSet",
         "type": "paved::systems::setup::Setup::CollectionSet",
+        "kind": "nested"
+      },
+      {
+        "name": "QuestCobblesSet",
+        "type": "paved::systems::setup::Setup::QuestCobblesSet",
+        "kind": "nested"
+      },
+      {
+        "name": "AchievementCobblesSet",
+        "type": "paved::systems::setup::Setup::AchievementCobblesSet",
+        "kind": "nested"
+      },
+      {
+        "name": "CobblesClaimed",
+        "type": "paved::systems::setup::Setup::CobblesClaimed",
+        "kind": "nested"
+      },
+      {
+        "name": "CreditClaimed",
+        "type": "paved::systems::setup::Setup::CreditClaimed",
+        "kind": "nested"
+      },
+      {
+        "name": "CreditSpent",
+        "type": "paved::systems::setup::Setup::CreditSpent",
         "kind": "nested"
       }
     ]

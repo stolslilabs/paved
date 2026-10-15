@@ -12,7 +12,7 @@ pub mod HostableComponent {
     use paved::day::day_id;
     use paved::events::{Event as PavedEvent, GameSpawned};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
-    use paved::models::game::{Game, GameAssert, GameImpl};
+    use paved::models::game::{FREE_GAME, Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
     use paved::seed::{SeedSource, TokenSeed};
     use paved::store::{Store, StoreImpl};
@@ -61,11 +61,14 @@ pub mod HostableComponent {
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn spawn(self: @ComponentState<TContractState>, mode: Mode) -> (u32, u256) {
-            self.spawn_with(mode, @TokenSeed { contract: get_contract_address() })
+            self.spawn_with(mode, @TokenSeed { contract: get_contract_address() }, false)
         }
 
+        /// A game of `mode` for the caller, its seed from `source`. A `free` game (cobbles v1, 4.1)
+        /// carries the free mark (`GameImpl::is_free`) and is spawned with `GameSpawned.price` 0,
+        /// the indexer's mark of a free game.
         fn spawn_with<S, +SeedSource<S>>(
-            self: @ComponentState<TContractState>, mode: Mode, source: @S,
+            self: @ComponentState<TContractState>, mode: Mode, source: @S, free: bool,
         ) -> (u32, u256) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
@@ -77,6 +80,9 @@ pub mod HostableComponent {
             let game_id = store.uuid();
             let time = get_block_timestamp();
             let mut game = GameImpl::new(game_id, time, mode, player_id);
+            if free {
+                game.counts = FREE_GAME;
+            }
 
             // [Effect] Start game
             let seed = source.seed(mode, time, game.id, game.seed);
@@ -109,7 +115,11 @@ pub mod HostableComponent {
                             mode: game.mode,
                             day_id: day,
                             start_time: time,
-                            price: game.price(),
+                            price: if free {
+                                0
+                            } else {
+                                game.price()
+                            },
                         },
                     ),
                 );
