@@ -54,11 +54,11 @@ with `docs/`, `scripts/` or `packages/`.
   (`openingTilePixels`, about 60 px in a 900 px high window): fully on at S (`fadeFullFactor` 1), off at 0.85 S
   (`fadeOffFactor`), linear between. S follows the viewport's height, so a resize moves the fade
   (`packages/renderer/__tests__/game-scene-settings.test.ts`, "follows a resize"). The defaults and the fade are pinned in
-  `outlines.test.ts` ("defaults: fully on at the opening tile size S").
+  `packages/renderer/__tests__/outlines.test.ts` ("defaults: fully on at the opening tile size S").
 - Software WebGL (`detectSoftwareWebGL`, found at `init`): `force` "auto" (the default) turns the outlines off there,
   "on" and "off" override the detection. The path taken is logged once with `console.info`, again only if it changes.
-  `game-scene-settings.test.ts` ("draws no outlines on software WebGL unless forced on, and logs the path once") and
-  `outlines.test.ts` ("software WebGL") cover it.
+  `packages/renderer/__tests__/game-scene-settings.test.ts` ("draws no outlines on software WebGL unless forced on, and logs the path once") and
+  `packages/renderer/__tests__/outlines.test.ts` ("software WebGL") cover it.
 - Camera limits (`camera.minDistance` 5, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web controller only;
   `NativeCameraController` ignores them.
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
@@ -79,16 +79,16 @@ devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). A new 
   (`packages/renderer/__tests__/web-surface-adapter-resize.test.ts`), and `GameScene` sizes only the drawing buffer
   (`setSize(w, h, false)`). `WebSurfaceAdapter.onResize` fires on a `ResizeObserver` of the container, a window resize,
   and a change of the device pixel ratio (`matchMedia`, re-armed on each ratio; same test file and
-  `surface-device.test.ts`). `GameScene.resize()` then refits the drawing buffer, the camera and the post-processing
-  targets (`surface-adapter.test.ts`, "uses surface resize callback"). A hidden 0 x 0 container keeps the last size.
+  `packages/renderer/__tests__/surface-device.test.ts`). `GameScene.resize()` then refits the drawing buffer, the camera and the post-processing
+  targets (`packages/renderer/__tests__/surface-adapter.test.ts`, "uses surface resize callback"). A hidden 0 x 0 container keeps the last size (`GameScene.resize()`; `packages/renderer/__tests__/surface-adapter.test.ts`, "keeps the last size while the container is hidden").
 - The pixel ratio is `min(devicePixelRatio, maxPixelRatio)` (`capPixelRatio`, `core/settings.ts`). `maxPixelRatio`
   defaults to `"auto"`, which gives 2 on a coarse pointer or when the window's shorter side is at most 600 CSS px
   (`SMALL_SCREEN_PX`), and 1 elsewhere (`resolveMaxPixelRatio`, `PIXEL_RATIO_CAPS`); a number is used as is.
-  `outlines.test.ts` ("renderer settings") pins the cap, and `surface-adapter.test.ts` the ratio `GameScene` passes to
+  `packages/renderer/__tests__/outlines.test.ts` ("renderer settings") pins the cap, and `packages/renderer/__tests__/surface-adapter.test.ts` the ratio `GameScene` passes to
   `setPixelRatio`. A new cap through `setSettings` refits at once. The figures behind the caps are DPR's, in
   `docs/client/v2-architecture.md` 5.3.
 - Shadows (`core/GameScene.ts`): `PCFShadowMap`, normal bias 0.1 (about 1.3 voxels), depth bias -0.001. They remove the
-  shadow acne; half these values leave bands (R-VIS). `game-scene-shadow-map.test.ts` checks the type, the signs and the
+  shadow acne; half these values leave bands (R-VIS). `packages/renderer/__tests__/game-scene-shadow-map.test.ts` checks the type, the signs and the
   normal bias at most 0.1.
 
 ## Disposal
