@@ -10,6 +10,7 @@ import {
   confirmDisabled,
   openTraining,
   panelRects,
+  parkPointer,
   readSave,
   readUi,
   ready,
@@ -128,7 +129,7 @@ interface PlayResult {
   closed: number;
   zeroClosures: number;
   discards: number;
-  /** Moves at which at least one legal cell would close a structure (the engine's word, not the page's). */
+  /** With `seekClosure`: moves at which at least one legal cell would close a structure (the engine's word, not the page's). */
   closable: number;
 }
 
@@ -166,18 +167,23 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
       continue;
     }
 
-    const closing = legal.filter((p) => model.clone().build(p).scored.length > 0);
+    const closing = seekClosure ? legal.filter((p) => model.clone().build(p).scored.length > 0) : [];
     if (closing.length > 0) out.closable += 1;
-    const pool = seekClosure && closing.length > 0 ? closing : legal;
-    // A cell the camera cannot bring clear of the panels is skipped, as a player would pick another one.
-    let placement = pool[Math.floor(random() * pool.length)];
+    // A cell the camera cannot bring clear of the panels is skipped, as a player would pick another one; when no closing
+    // cell can be brought on screen, any legal cell will do.
+    let placement = legal[0];
     let point: { x: number; y: number } | null = null;
-    for (let tries = 0; tries < 6 && !point; tries++) {
-      placement = pool[Math.floor(random() * pool.length)];
-      await rotateTo(page, ORIENTATIONS.indexOf(placement.orientation));
-      point = await cellPoint(page, placement.x, -placement.y).catch(() => null);
+    for (const pool of closing.length > 0 ? [closing, legal] : [legal]) {
+      for (let tries = 0; tries < 6 && !point; tries++) {
+        placement = pool[Math.floor(random() * pool.length)];
+        await rotateTo(page, ORIENTATIONS.indexOf(placement.orientation));
+        point = await cellPoint(page, placement.x, -placement.y).catch(() => null);
+      }
+      if (point) break;
     }
     if (!point) throw new Error(`${at}: no legal cell could be brought on screen`);
+    // The camera moves above left the pointer over the board: with it there, a cell that fits the tile lights Confirm.
+    await parkPointer(page);
     expect(await confirmDisabled(page), `${at}: Confirm is disabled until a slot is picked`).toBe(true);
     await page.mouse.move(point.x, point.y);
     await page.mouse.click(point.x, point.y);
@@ -247,8 +253,10 @@ describe("Training, played by a bot in a headless browser", () => {
       await expectMirror(page, replaySave((await readSave(page))!), "new game");
     }
     console.log(`[e2e] ${GAMES} complete games: ${closed} closures seen, ${zero} of them for 0 points, ${closable} moves with a closing cell`);
-    // The bot goes for a closing cell in the first game: if the engine offered one, the page must have shown a closure.
-    // A seed that never offers one has nothing to show (the line above says so); it is not a failure of the page.
+    // The page's closure check is the per-move comparison in `play` (the closing lines it shows against the engine's, at every
+    // move). This assertion only guards that the comparison ran: the bot went for a closing cell when the engine offered one.
+    // A seed whose first game never offers one has nothing to show: it is flagged above, not a failure of the page.
+    if (closable === 0) console.log(`[e2e] warning: the first game offered no closing cell, so no closure was checked (seed ${[...seeds][0]})`);
     if (closable > 0) expect(closed, "the bot closed a structure it was offered").toBeGreaterThan(0);
     expect(errors).toEqual([]);
     await context.close();
@@ -380,6 +388,25 @@ describe("Training, played by a bot in a headless browser", () => {
     const save = await readSave(a);
     expect(() => replaySave(save!), "whatever the interleaving, the save replays").not.toThrow();
     expect(errors).toEqual([]);
+    await context.close();
+  }, 120_000);
+
+  it("lights Confirm for a hovered slot, and not once the pointer leaves the board (X6)", async () => {
+    const { context, page } = await freshPage();
+    await openTraining(page, base);
+    let slots = await shownSlots(page);
+    for (let o = 2; slots.length === 0 && o <= 4; o++) {
+      await rotateTo(page, o);
+      slots = await shownSlots(page);
+    }
+    expect(slots.length).toBeGreaterThan(0);
+    await parkPointer(page);
+    expect(await confirmDisabled(page), "no pointer on the board: Confirm is off").toBe(true);
+    const point = await cellPoint(page, slots[0].x, slots[0].y);
+    await page.mouse.move(point.x, point.y);
+    await expect.poll(() => confirmDisabled(page), { message: "a hovered slot lights Confirm without a click", timeout: 20_000 }).toBe(false);
+    await parkPointer(page);
+    await expect.poll(() => confirmDisabled(page), { message: "the pointer left the board", timeout: 20_000 }).toBe(true);
     await context.close();
   }, 120_000);
 
