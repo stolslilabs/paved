@@ -1,8 +1,10 @@
 # Gems v1 (P-61, design)
 
-Documents only: no contract, script or package change, nothing deployed. Track CORE writes the design; the PM rules on
-it; CORE then implements it with a review and an audit (value and access); CLIENT follows with the pack, theme, quest
-and achievement pages and the indexer (P-61 ruling 8).
+Track CORE wrote the design; the PM ruled on it; CORE implements it in three pull requests, each with a review and an
+audit (value and access); CLIENT follows with the pack, theme, quest and achievement pages and the indexer (P-61 ruling 8).
+**Part 1 (the ledger, the gem claims, the free-game credits and the free spawn) is built in #440**: see "As built: part
+1" below, which gives the measured figures and every choice the design left to the implementation. Parts 2 (packs) and 3
+(skins) are not built yet.
 
 The owner's feature (2026-10-15) and the PM's rulings B1 to B8 (P-61) are the input. In short: gems are an on-chain,
 non-transferable balance per account (B2), earned only by quest and achievement claims and pack purchases, spent only
@@ -16,10 +18,70 @@ theme, with at most one active skin per tile type (B6, B7).
 The owner's answers (2026-10-15, P-61 section C) and the PM's rulings on the open items (2026-10-15) are folded in:
 section 2 (packs and their split) and section 8 ("Decided").
 
-Every gas figure below is an **estimate** unless it says "measured". No Cairo build or test was run for this document.
+Every gas figure below is an **estimate** unless it says "measured". No Cairo build or test was run for the design; part 1's
+figures are measured in "As built: part 1".
 Each estimate is derived from measured unit costs: a storage read of 76,840 L2 gas, a write of 118,210, an event of about
 32,800 (`docs/architecture/g7-gas-plan.md`, 1.4, `test_profile_g7_units`), and the measured scenarios of
 `docs/measures/baseline.md`. The implementation task measures each one (section 7.3).
+
+## As built: part 1 (#440)
+
+Sections 1.2, 1.3, 3, 4, 6.1 (part 1's rows), 6.2 (part 1's events), 6.4 (part 1's calls) and 7 (part 1's rows) are built.
+The interface is in `docs/architecture/public-interface.md`, "Gems v1, part 1: `Setup` and `Challenge`".
+
+**Measured gas** (VPS, `contracts/tests/gas.cairo`, `docs/measures/baseline.md`, "After gems v1, part 1"):
+
+| What | Estimate | Measured |
+|---|---:|---:|
+| The ledger, per paid game over, two slots (day and account: before week 0) | | +645,916 (g, i, l, s); +722,746 (k) |
+| The ledger, per paid game over, three slots (day, week and account) | +585,150 | **+940,298** (x); +1,033,718 for k's tally (y, derived) |
+| `claim_quest` | 499,740 | 904,611 |
+| `claim_achievement` | about 0.38M | 550,863 |
+| `claim_daily_credit` (10 dailies) | about 1.27M | 2,322,515 |
+| `claim_weekly_credit` (3 weeklies) | about 0.73M | 1,471,730 |
+| `spawn_free` | about 7.0M | 6,563,616 (the paid spawn m: 15,695,888) |
+| A free game's game over | | 1,760,224 (g: 3,820,384) |
+
+**Against P-22's guard (+1.5M on the closing move): within it.** The largest rise measured is +940,298 (+1,033,718 derived for
+the largest tally), so decision 2 (the weekly slot) stands. The estimate was low by about 0.36M for three slots: the first
+write of an empty slot costs more than the estimate's unit write, and `report` now reads the block time and unpacks and packs
+each slot.
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile, VPS): `Setup` 13,846 Sierra and **31,216 CASM felts, 38.1 % of
+the 81,920 cap** (14,499 before: +16,717), under the 50 % that would move the shop to its own system (decision 1); parts 2 and 3
+add to it, so each measures it again. `Challenge` 29,831 Sierra and 64,826 CASM (64,089 after G7a: +737), 8,121 under the P-44
+cap of 72,947 (`class-headroom.md`).
+
+**Choices the design left open, and the small departures:**
+
+- **The free mark in the game** (4.2): bit 23 of the game's counters word (`FREE_GAME`, `models/game.cairo`), above the four
+  counters (23 bits, each clamped to its width), set at the free spawn, and carried into the game-over tally as bit 126
+  (`paved::quests::encode`, `is_free`). The game over reads nothing more: no `free_games` map.
+- **The day and the week of a report** are those of its block time. Before week 0 (block times below 345,600, only in tests)
+  there is no week, so the week slot is not written.
+- **`set_quest_gems` also refuses a quest with an end** (`'Setup: invalid schedule'`): the copy keeps no end, so it could not
+  stop a claim after it. The fresh quests have none.
+- **`set_achievement_gems` also refuses an achievement with a window** (`'Setup: achievement windowed'`): the lifetime
+  counts are for all time. The fresh achievements have none.
+- **The credit claims' errors**: `'Setup: credit claimed'` for a second claim of a period's credit (the gem claims keep
+  `'Setup: claimed'`), `'Setup: no live quest'` when no quest of the kind is live in the period.
+- **The view types** are `Account`, `Progress`, `QuestGems` and `AchievementGems` (the design's `AccountView`): the slots'
+  own structs, returned whole.
+- **The packing as built** (each slot one `felt252`, the low then the high `u128`): `accounts`: `gems` [0, 64), `credits`
+  [64, 80), `games` [80, 96), `forests` [96, 112), `wonders` [112, 128), `big` [128, 144), `high` [144, 160),
+  `achievements_claimed` [160, 224). `days` and `weeks`: `games` [0, 16), `structures` [16, 32), `forests` [32, 48), `points`
+  [48, 80), `credit` [80], `claimed` [128, 192). `quest_gems`: `gems` [0, 8), `kind` [8, 16), `task` [16, 48), `total`
+  [48, 80), `interval` [80, 112), `start` [128, 192). `quest_lists`: 15 ids of 16 bits (8 in the low half, 7 in the high).
+  `achievement_gems`: `gems` [0, 8), `task` [8, 40), `total` [40, 72).
+- **`scripts/deploy.sh`** sends the 28 gem calls in the definitions' multicall, after the definitions (its hash is the
+  record's `definitions_tx`), reads each back through `quest_gems` and `achievement_gems`, and lists them under
+  `--check-only`. A gem amount other than the table's stops a run, but is kept on a complete record (the owner's calibration
+  since).
+
+**Tests.** `contracts/src/tests/e2e/gems_ledger.cairo` (`Setup` alone: packing, calendar, setters, claims, credits, the audit
+properties A1, A2, A3, A5 and A6, the ledger fuzz) and `contracts/src/tests/e2e/gems.cairo` (through the real contracts: the
+report, the day's credit end to end, A7, A8, the pause, no credit, and a free game's `GameOver` on each way it ends). A4, A9 and
+A10 are parts 2 and 3's.
 
 ## Sources
 
@@ -125,7 +187,7 @@ Calendar of the periods:
 
 | Write | Who | Entry point | Gas (estimate unless measured) |
 |---|---|---|---|
-| Progress: `days`, `weeks`, `accounts` counts | an allowlisted reporter, today `Challenge` only (`set_reporter`, owner) | `report` (exists; new writes) | **+0.59M per paid game over, an estimate; the implementation PR measures it and states it against P-22's guard (section 7.3)**: three slots read and written, 3 x (76,840 + 118,210) = 585,150. A free game over writes `accounts` only: +0.20M. Today's report is about 0.61M of a surrender's 3.17M (`g7-gas-plan.md`, 1.1: 19.2 % of g). Against the P-22 guard of +1.5M on the closing move: within it. The worst build game over, l, measured 6,581,227 (`baseline.md`, "After G7a"), becomes about 7.17M |
+| Progress: `days`, `weeks`, `accounts` counts | an allowlisted reporter, today `Challenge` only (`set_reporter`, owner) | `report` (exists; new writes) | **Measured (part 1): +645,916 with two slots, +940,298 with three (see "As built: part 1"); the estimate was +0.59M**: three slots read and written, 3 x (76,840 + 118,210) = 585,150. A free game over writes `accounts` only: +0.20M. Today's report is about 0.61M of a surrender's 3.17M (`g7-gas-plan.md`, 1.1: 19.2 % of g). Against the P-22 guard of +1.5M on the closing move: within it. The worst build game over, l, measured 6,581,227 (`baseline.md`, "After G7a"), becomes about 7.17M |
 | Gems, by a quest claim | the player, for itself | `claim_quest` | about 0.50M: `quest_gems`, `days` (or `weeks`) and `accounts` read, two writes, one event (3 x 76,840 + 2 x 118,210 + 32,800 = 499,740) |
 | Gems, by an achievement claim | the player, for itself | `claim_achievement` | about 0.38M: `achievement_gems` and `accounts` read (and `tutorial_claims` for First Stone), one write, one event |
 | A credit, by the dailies | the player, for itself | `claim_daily_credit` | about 1.27M: the list, ten `quest_gems` entries, `days` and `accounts` read, two writes, one event (13 reads) |
@@ -440,7 +502,7 @@ never lower what a player earned; a claim already made stands.
 - There is no stake argument.
 - The game is marked free.
 
-Estimate: about 7.0M L2 gas, against the paid spawn m at 16,066,315 (`baseline.md`, "After G7a"). That is m less
+Estimate: about 7.0M L2 gas (**measured: 6,563,616**, against m at 15,695,888 on the same build), against the paid spawn m at 16,066,315 (`baseline.md`, "After G7a"). That is m less
 `Economy.purchase` (about 8.4M) and the USDC `transferFrom` (about 1.0M), plus `spend_credit` (about 0.38M).
 
 **Why the reporter allowlist spends credits:** the only caller that should spend a credit is the game contract that
@@ -450,7 +512,7 @@ always be equal to the first.
 
 ### 4.2 The free game's game over
 
-**Marking the game:** a bit of the game's state word, carried in the game-over tally (`paved::quests::encode`,
+**Marking the game** (as built: bit 23 of the counters word and bit 126 of the tally, no map): a bit of the game's state word, carried in the game-over tally (`paved::quests::encode`,
 `contracts/src/quests.cairo:36`), so the game over reads nothing more. If no bit is free, a `Challenge` map
 `free_games: Map<u32, bool>`, appended, costs one read on every game over (about +77k, estimate). The implementation
 chooses by measuring.
@@ -831,7 +893,8 @@ An auditor checks these properties, each against the code and the tests above:
    market value, and there is one claim per account.
 5. **Free games rank in the daily leaderboard** like any Challenge game. The indexer marks them free from
    `GameSpawned.price == 0`, so the client can show it. Recorded for CLIENT.
-6. **The +0.59M L2 gas per paid game over is an estimate.** The implementation PR measures it and states it against
+6. **The +0.59M L2 gas per paid game over was an estimate**; part 1 measured +940,298 with three slots (#440), within the
+   guard. The implementation PR measures it and states it against
    P-22's guard (section 7.3).
 
 ### Open
