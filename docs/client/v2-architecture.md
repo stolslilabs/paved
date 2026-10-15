@@ -738,6 +738,22 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
 - Storybook is public, like the client. It holds no secret: fixtures only, no RPC URL beyond the public
   ones, no controller.
 
+- **The app's own build serves the board's 3D assets too (ASSETS, 2026-10-15).** Until P12 moves them into the app, they
+  stay in `packages/app-web/public`, and `packages/app/vite/renderer-assets.ts` maps what the renderer's `AssetLoader`
+  requests to `/renderer-assets/` (under Vite's `base`): served in `vite` (dev), copied into
+  `dist/renderer-assets/` by `vite build` (`vite preview` then serves `dist`, as a static host does; the plugin stays out of Storybook builds); nothing is committed twice and Storybook's own mapping is unchanged. Paths:
+  `models/<plan>.glb` (19), `assets/tiles/<plan>.png` (19), `draco/{draco_decoder.js,draco_decoder.wasm,draco_wasm_wrapper.js}`
+  (loaded only for a Draco-compressed model; none of the base ones is, so the first view never asks for them). Not copied,
+  because the loader never requests them (`getPlanKey` in `@paved/game-core`'s `asset-keys.ts` and `AssetLoader`): `models/extended/`
+  (146 files, Storybook's tile browser only), `assets/tiles/00.png` (the empty plan, `AssetLoader` skips `None`),
+  `THIRD_PARTY_NOTICES.txt`, `draco/README.md`. **Caching:** the file names are not content-hashed (they are the source
+  names, unchanged), so the host must not mark them `immutable`: send `Cache-Control: no-cache` (revalidate with the
+  ETag, a 304 costs no body), or a short `max-age` if the host prefers; the host config is not changed here. **Size,
+  measured on the built app (Chromium headless, `vite preview` serving `dist`, 360 and 1280 px, `/training`):** `dist/renderer-assets` is
+  41 files, 16,037,648 B (models 14,954,492, tiles 319,815, decoder 763,341); the largest are `wfffffffr.glb` 933,876 B,
+  `ffffcccff.glb` 912,848, `cfffcfffc.glb` 905,572; the board's first view loads 38 files, 15,274,307 B (19 models and 19 tile
+  images, once each), and no request leaves the app's origin. The source folder holds 207 files, 19.6 MB.
+
 ### 4.3 What is reused
 
 The stories import the same components and the same `theme.css` as the app; the scene stories use the
