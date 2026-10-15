@@ -9,7 +9,7 @@ import { Countdown } from "../elements/countdown";
 import { DayPicker } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
-import { useCompletionToasts } from "../containers/completion-toasts";
+import { useCompletionToasts, type CompletionMemory } from "../containers/completion-toasts";
 import { FreeGames } from "../containers/free-games";
 import { isClaimed, type PeriodClaims, type QuestCobbles } from "../containers/cobble-types";
 import { ProgressCard, type ProgressReward } from "../containers/progress-card";
@@ -21,18 +21,22 @@ import { TabPage } from "../containers/tab-page";
 export type QuestClaim = number | "all" | "daily" | "weekly";
 
 /**
- * The quests' Cobbles and free games (P-61, gems-v1.md 3.1, 3.3, 3.4): provisional until CORE's gems PR 1. The claims of
- * the day shown and of its week, read from `day_progress` and `week_progress`.
+ * The quests' Cobbles and free games (P-61, cobbles-v1.md 3.1, 3.3, 3.4), as `useQuestRewards` reads them: each quest's
+ * Cobbles from its definition, the claims of the day shown and of its week (`day_progress`, `week_progress`), the account.
  */
-export interface QuestRewards {
-  /** `quest_gems` of the live quests. */
+export interface QuestRewardsData {
+  /** The quests with Cobbles, from the definitions. */
   cobbles: readonly QuestCobbles[];
   day: PeriodClaims;
+  /** The week of the day shown; nothing claimed for a day before week 0. */
   week: PeriodClaims;
-  /** `AccountView.gems`. */
+  /** `CobbleAccount.cobbles`. */
   balance: number;
-  /** `AccountView.credits`. */
+  /** `CobbleAccount.credits`. */
   credits: number;
+}
+
+export interface QuestRewards extends QuestRewardsData {
   claiming?: QuestClaim | null;
 }
 
@@ -50,6 +54,10 @@ export interface QuestsSceneProps {
   now: number;
   /** The Cobbles and free games; omitted before Cobbles. */
   rewards?: QuestRewards | null;
+  /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each claim says "Connect to claim". */
+  canClaim?: boolean;
+  /** Where the completion toasts remember what they announced, above the scene (`CompletionMemory`). */
+  toasts?: CompletionMemory;
   onDayChange?: (day: number) => void;
   /** `claim_quest(quest_id, period)` of the day shown (or its week). */
   onClaim?: (questId: number) => void;
@@ -71,7 +79,7 @@ export interface QuestsSceneProps {
  * A quest that completes while the page is open raises a toast.
  */
 export function QuestsScene(props: QuestsSceneProps) {
-  const { day, today, quests, connected, error, now, rewards } = props;
+  const { day, today, quests, connected, error, now, rewards, canClaim = true } = props;
   const open = day === today;
   const entries = quests?.quests ?? [];
   const done = entries.filter((q) => q.completed).length;
@@ -85,10 +93,16 @@ export function QuestsScene(props: QuestsSceneProps) {
   const claiming = rewards?.claiming ?? null;
   const rewardOf = (q: ScheduledQuest): ProgressReward | undefined => {
     const entry = rewards?.cobbles.find((g) => g.questId === q.questId);
-    if (!rewards || !entry || entry.gems === 0) return undefined;
-    const claimed = isClaimed(entry.kind === 2 ? rewards.week.claimed : rewards.day.claimed, q.questId);
+    if (!rewards || !entry || entry.cobbles === 0) return undefined;
+    const claimed = isClaimed(entry.kind === "weekly" ? rewards.week.claimed : rewards.day.claimed, q.questId);
     const mine = claiming === q.questId || (claiming === "all" && q.completed && !claimed);
-    return { cobbles: entry.gems, claimed, claiming: mine, disabled: claiming !== null && !mine };
+    return { cobbles: entry.cobbles, claimed, claiming: mine, disabled: !canClaim || (claiming !== null && !mine) };
+  };
+  // A free game needs every quest of its kind with Cobbles live in the period done (`claim_daily_credit`): those count.
+  const credited = (list: ScheduledQuest[]) => list.filter((q) => rewardOf(q) !== undefined);
+  const freeGame = (list: ScheduledQuest[], claimed: boolean, kind: "daily" | "weekly") => {
+    const counted = credited(list);
+    return counted.length > 0 ? { done: counted.filter((q) => q.completed).length, total: counted.length, claimed, claiming: claiming === kind } : null;
   };
   const claimable = entries.map((q) => ({ q, r: rewardOf(q) })).filter(({ q, r }) => q.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
@@ -97,7 +111,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   useCompletionToasts("quest", tracked, ({ id }) => {
     const { title, icon } = questText(id);
     return { title, icon };
-  }, { scope: day, live: open });
+  }, { scope: day, live: open, memory: props.toasts });
 
   return (
     <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
@@ -144,7 +158,7 @@ export function QuestsScene(props: QuestsSceneProps) {
             </span>
             <span className="flex flex-wrap items-center gap-2">
               {!open && <span className="text-xs text-muted-foreground">Closed day</span>}
-              {claimable.length > 0 && (
+              {claimable.length > 0 && canClaim && (
                 <Button size="sm" onClick={props.onClaimAll} loading={claiming === "all"} disabled={claiming !== null && claiming !== "all"}>
                   {claiming === "all" ? "Claiming…" : (
                     <>
@@ -155,12 +169,24 @@ export function QuestsScene(props: QuestsSceneProps) {
               )}
             </span>
           </div>
+          {rewards && !canClaim && (
+            <Notice
+              title="Connect to claim"
+              action={
+                <Button size="sm" onClick={props.onConnect}>
+                  Connect
+                </Button>
+              }
+            >
+              Your progress shows; claiming Cobbles and free games needs your wallet to sign.
+            </Notice>
+          )}
           {rewards && (
             <FreeGames
               credits={rewards.credits}
-              daily={daily.length > 0 ? { done: daily.filter((q) => q.completed).length, total: daily.length, claimed: rewards.day.credit, claiming: claiming === "daily" } : null}
-              weekly={weekly.length > 0 ? { done: weekly.filter((q) => q.completed).length, total: weekly.length, claimed: rewards.week.credit, claiming: claiming === "weekly" } : null}
-              busy={claiming !== null}
+              daily={freeGame(daily, rewards.day.credit, "daily")}
+              weekly={freeGame(weekly, rewards.week.credit, "weekly")}
+              busy={!canClaim || claiming !== null}
               onClaim={props.onClaimCredit}
               onPlayFree={props.onPlayFree}
             />
