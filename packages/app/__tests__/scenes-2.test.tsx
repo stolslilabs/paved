@@ -326,13 +326,14 @@ describe("Quests", () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
     const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Into the Woods", "Point Chaser", "Public Works", "Deep Woods", "Strong Day"]);
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Public Works", "Deep Woods", "Strong Day"]);
     expect(daily.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
-    expect(daily.getByRole("article", { name: "Master Builder" })).toHaveAttribute("data-state", "progress");
-    // v2a: day 20,740 is offset 1 of the 3-day rotation, so one quest of each family is live: Public Works, Deep Woods, Strong Day.
+    expect(daily.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
+    for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(daily.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
+    // Day 20,740 is offset 1 of the 3-day rotation, so Daily Run and one quest of each family are live: Public Works, Deep Woods, Strong Day.
     expect(daily.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
     expect(daily.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
-    expect(daily.getByRole("progressbar", { name: "points: 2,710 of 3,000" })).toBeInTheDocument();
+    expect(daily.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
     // 00:00 UTC is 9 hours after the mocks' 15:00.
     expect(daily.getByRole("timer", { name: "Daily ends in 9:00:00" })).toBeInTheDocument();
     const weekly = within(screen.getByRole("region", { name: "Weekly" }));
@@ -347,8 +348,8 @@ describe("Quests", () => {
   it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
     const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Master Builder", "Into the Woods", "Point Chaser", "Small Works", "Woodland Walk", "Warm-Up Score"]);
-    expect(screen.getAllByText("Complete")).toHaveLength(7);
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
+    expect(screen.getAllByText("Complete")).toHaveLength(4);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
@@ -364,7 +365,7 @@ describe("Quests", () => {
 
   it("shows a day not played at zero, and a day with no quest", () => {
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.idle} />));
-    expect(screen.getAllByText("To do")).toHaveLength(10); // seven dailies and the three weeklies
+    expect(screen.getAllByText("To do")).toHaveLength(7); // four dailies and the three weeklies
     unmount();
     render(wrap(<QuestsScene {...QUESTS.none} />));
     expect(screen.getByText("No quest this day")).toBeInTheDocument();
@@ -391,11 +392,11 @@ describe("Quests", () => {
     const success = vi.spyOn(toast, "success");
     const scene = (quests: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} quests={quests} /></>);
     const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
-    // Daily Run and Into the Woods were already complete at the first read: no toast for them.
+    // Daily Run was already complete at the first read: no toast for it.
     await Promise.resolve();
     expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
     rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(await screen.findByText("Quest completed: Master Builder")).toBeInTheDocument();
+    expect(await screen.findByText("Quest completed: Public Works")).toBeInTheDocument();
     // A refresh of the same data, and a copy of it, add nothing.
     rerender(scene({ ...QUESTS_TODAY_COMPLETED }));
     rerender(scene(QUESTS_TODAY_COMPLETED));

@@ -15,7 +15,7 @@ const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChan
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Today (Wednesday): v1's four dailies and the three of the rotation (offset 1), Daily Run and Into the Woods done, and the week's three. Daily counts down to 00:00 UTC, Weekly to Monday 00:00 UTC. */
+/** Today (Wednesday): Daily Run and the three of the rotation (offset 1), Daily Run done, and the week's three. Daily counts down to 00:00 UTC, Weekly to Monday 00:00 UTC. */
 export const Today: Story = { args: QUESTS.today };
 
 /** Yesterday, closed: the rotation's offset 0 (Small Works, Woodland Walk, Warm-Up Score), all seven dailies done; the weeklies are where they stood that day. No countdown on a closed day. */
@@ -63,5 +63,5 @@ function CompletingScene(args: SceneProps) {
   );
 }
 
-/** Master Builder is one structure short; two seconds in (or on the button) the read comes back at 6 of 6 and the toast shows, once: undo and score again, and it stays quiet. */
+/** Public Works is one structure short; two seconds in (or on the button) the read comes back at 8 of 8 and the toast shows, once: undo and score again, and it stays quiet. */
 export const Completing: Story = { args: QUESTS.today, render: (args) => <CompletingScene {...args} /> };
