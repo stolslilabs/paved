@@ -15,6 +15,18 @@ import beforePan60 from "./captures/before-pan60.webp";
 import beforeTop from "./captures/before-top.webp";
 import beforeZoomedIn from "./captures/before-zoomed-in.webp";
 import beforeZoomedOut from "./captures/before-zoomed-out.webp";
+import visBeforeDeskOut from "./captures/vis-before-desk-out.webp";
+import visBeforeDeskDefault from "./captures/vis-before-desk-default.webp";
+import visBeforeDeskIn from "./captures/vis-before-desk-in.webp";
+import visBeforeM360Out from "./captures/vis-before-m360-out.webp";
+import visBeforeM360Default from "./captures/vis-before-m360-default.webp";
+import visBeforeM360In from "./captures/vis-before-m360-in.webp";
+import visAfterDeskOut from "./captures/vis-after-desk-out.webp";
+import visAfterDeskDefault from "./captures/vis-after-desk-default.webp";
+import visAfterDeskIn from "./captures/vis-after-desk-in.webp";
+import visAfterM360Out from "./captures/vis-after-m360-out.webp";
+import visAfterM360Default from "./captures/vis-after-m360-default.webp";
+import visAfterM360In from "./captures/vis-after-m360-in.webp";
 import { VIEW_LABELS } from "./outlines-tour";
 
 interface Capture {
@@ -120,6 +132,76 @@ const ROWS: Row[] = [
   },
 ];
 
+/** R-VIS: the same views before and after the shadow bias and the new outlines, desktop and 360 px wide. */
+const VIS_ROWS: Row[] = [
+  {
+    key: "desk-default",
+    title: "Desktop, the opening view (a tile about 60 px)",
+    note: "1440 x 900 at DPR 2, distance 240 straight down; the centre 800 x 500 CSS px at 1:1. Before: diagonal shadow-acne bands in every lit face and 1 px black lines at 16 %. After: a flat tint per face, and dark grey hairlines at 69 % (off at 52 px a tile, fully on at 64).",
+    captures: [
+      { label: "Before (main)", src: visBeforeDeskDefault },
+      { label: "After (R-VIS)", src: visAfterDeskDefault },
+    ],
+    width: 800,
+    height: 500,
+  },
+  {
+    key: "desk-in",
+    title: "Desktop, zoomed in (a tile 724 px)",
+    note: "Distance 20 straight down. Before: the acne bands, with the dithered edges of three's PCF filter, and aliased black lines 2 px wide. After: flat faces, the trees' real cast shadows, antialiased dark grey hairlines.",
+    captures: [
+      { label: "Before (main)", src: visBeforeDeskIn },
+      { label: "After (R-VIS)", src: visAfterDeskIn },
+    ],
+    width: 800,
+    height: 500,
+  },
+  {
+    key: "desk-out",
+    title: "Desktop, zoomed out: the outlines vanish (a tile 48 px)",
+    note: "Distance 300, tilted: under the 52 px off size, so no outlines either side; only the shading changes.",
+    captures: [
+      { label: "Before (main)", src: visBeforeDeskOut },
+      { label: "After (R-VIS)", src: visAfterDeskOut },
+    ],
+    width: 800,
+    height: 500,
+  },
+  {
+    key: "m360-default",
+    title: "360 px wide, the opening view (a tile about 52 px)",
+    note: "360 x 780 at DPR 3, distance 240; the centre 360 x 450 CSS px at 1:1. A phone's shorter viewport makes a tile 52 px wide here: the outlines are at the off size (2 %), so in effect none.",
+    captures: [
+      { label: "Before (main)", src: visBeforeM360Default },
+      { label: "After (R-VIS)", src: visAfterM360Default },
+    ],
+    width: 360,
+    height: 450,
+  },
+  {
+    key: "m360-in",
+    title: "360 px wide, zoomed in (a tile 627 px)",
+    note: "Distance 20 straight down.",
+    captures: [
+      { label: "Before (main)", src: visBeforeM360In },
+      { label: "After (R-VIS)", src: visAfterM360In },
+    ],
+    width: 360,
+    height: 450,
+  },
+  {
+    key: "m360-out",
+    title: "360 px wide, zoomed out (a tile 42 px)",
+    note: "Distance 300, tilted: no outlines either side.",
+    captures: [
+      { label: "Before (main)", src: visBeforeM360Out },
+      { label: "After (R-VIS)", src: visAfterM360Out },
+    ],
+    width: 360,
+    height: 450,
+  },
+];
+
 function Figure({ capture, row }: { capture: Capture; row: Row }) {
   return (
     <figure className="flex flex-col gap-1">
@@ -130,10 +212,10 @@ function Figure({ capture, row }: { capture: Capture; row: Row }) {
 }
 
 /** Each camera position, before and after, side by side. */
-function OutlinesComparison() {
+function OutlinesComparison({ rows = ROWS }: { rows?: Row[] }) {
   return (
     <div className="flex flex-col gap-8 p-4 text-foreground sm:p-6">
-      {ROWS.map((row) => (
+      {rows.map((row) => (
         <section key={row.key} className="flex flex-col gap-2">
           <h2 className="text-lg">{row.title}</h2>
           <p className="text-sm text-muted-foreground">{row.note}</p>
@@ -148,7 +230,7 @@ function OutlinesComparison() {
   );
 }
 
-/** The before and after captures of R-OUT, at the same camera positions as the live "Renderer/Outlines" story. */
+/** The before and after captures of R-OUT and R-VIS, at the camera positions of the live "Renderer/Outlines" story. */
 const meta = {
   title: "Renderer/Outlines comparison",
   component: OutlinesComparison,
@@ -157,4 +239,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** R-OUT: the outlines that scale with zoom and do not flicker. */
 export const BeforeAndAfter: Story = {};
+
+/**
+ * R-VIS (headless Chrome on the Mac's GPU, ANGLE Metal): the shading's acne removed by the shadow map's biases, and the
+ * outlines as voxel-width, antialiased, dark grey strokes fading between 52 and 64 px a tile.
+ */
+export const ShadingAndOutlines: Story = { args: { rows: VIS_ROWS } };
