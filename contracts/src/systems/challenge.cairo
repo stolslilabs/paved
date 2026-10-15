@@ -13,7 +13,7 @@ pub trait IChallenge<TContractState> {
     fn spawn(
         ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
     ) -> u32;
-    /// A free game (gems v1, 4.1), on one of the caller's credits: no payment, no stake, no
+    /// A free game (cobbles v1, 4.1), on one of the caller's credits: no payment, no stake, no
     /// `Economy` call. `'Setup: no credit'` without a credit; paused with `spawn`. Its
     /// `GameSpawned.price` is 0, and its game over reports achievement progress only.
     fn spawn_free(ref self: TContractState) -> u32;
@@ -98,8 +98,8 @@ pub mod Challenge {
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
     use paved::systems::setup::{
-        ISetupDispatcher, ISetupDispatcherTrait, ISetupGemsDispatcher, ISetupGemsDispatcherTrait,
-        Wiring,
+        ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher,
+        ISetupDispatcherTrait, Wiring,
     };
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
@@ -252,7 +252,7 @@ pub mod Challenge {
                 .hostable
                 .spawn_with(Mode::Challenge, @TokenSeed { contract: get_contract_address() }, true);
             // [Interaction] One credit of the caller spent for it (reverts without one)
-            ISetupGemsDispatcher { contract_address: setup.contract_address }
+            ISetupCobblesDispatcher { contract_address: setup.contract_address }
                 .spend_credit(get_caller_address().into(), game_id);
             // [Interaction] The game is minted to its player
             self.mint(collection, game_id);
@@ -527,7 +527,7 @@ pub mod Challenge {
         /// recorded by `Economy` (P-34), whose address is read from `Setup`'s wiring (D-25 E). With
         /// no `Setup` (a zero slot) the move reverts (`setup`): the economy is out of reach.
         ///
-        /// A free game's game over (gems v1, 4.2) reports its achievement entries only, so no
+        /// A free game's game over (cobbles v1, 4.2) reports its achievement entries only, so no
         /// quest progress and no day or week of the ledger, and is not recorded by `Economy`,
         /// which never sold it.
         fn finish(ref self: ContractState, game_id: u32, over: u128) {

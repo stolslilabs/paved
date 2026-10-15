@@ -14,13 +14,13 @@
 //! and collection addresses that `Account` held, set by the owner and read by `Challenge` through
 //! one view per call (`wiring`). They are new storage members: none of the earlier members moves.
 //!
-//! Since gems v1 (P-61, `docs/architecture/gems-v1.md`, part 1) it also keeps the ledger that
+//! Since cobbles v1 (P-61, `docs/architecture/cobbles-v1.md`, part 1) it also keeps the ledger that
 //! proves the claims: each paid game over adds its sums to the player's day and week (`days`,
 //! `weeks`), and every game over to the player's lifetime counts (`accounts`). The player claims
-//! the gems of a quest or an achievement, and the free-game credit of a day's or a week's quests,
-//! from that ledger; `Challenge` spends a credit through `spend_credit` for a free game. Gems and
-//! credits are a balance per account with no transfer: they grow only by a claim and fall only by a
-//! spend.
+//! the cobbles of a quest or an achievement, and the free-game credit of a day's or a week's
+//! quests, from that ledger; `Challenge` spends a credit through `spend_credit` for a free game.
+//! Cobbles and credits are a balance per account with no transfer: they grow only by a claim and
+//! fall only by a spend.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -38,40 +38,40 @@ pub struct Wiring {
     pub collection: ContractAddress,
 }
 
-/// The calendar of the ledger (gems v1, 1.2): a day is Paved's day id, `t / DAY`; a week runs
+/// The calendar of the ledger (cobbles v1, 1.2): a day is Paved's day id, `t / DAY`; a week runs
 /// Monday to Sunday UTC, week 0 from `WEEK_START` (Monday 1970-01-05, where the weekly quests
 /// start). `t` is the block time of the report: a game counts for the day and week it ends in.
 pub const DAY: u64 = 86400;
 pub const WEEK: u64 = 604800;
 pub const WEEK_START: u64 = 345600;
-/// The kinds of a quest with gems, and of a credit: daily and weekly.
+/// The kinds of a quest with cobbles, and of a credit: daily and weekly.
 pub const DAILY: u8 = 1;
 pub const WEEKLY: u8 = 2;
-/// The kinds of a gem claim (`GemsClaimed.kind`).
+/// The kinds of a cobble claim (`CobblesClaimed.kind`).
 pub const CLAIM_QUEST: u8 = 1;
 pub const CLAIM_ACHIEVEMENT: u8 = 2;
-/// The ids that can carry gems: 1 to 63, one bit each in the claim bitmaps (`u64`).
-pub const MAX_GEM_ID: u32 = 63;
-/// The most quests of one kind with gems: the ids of a list are 15 `u16` in one slot.
+/// The ids that can carry cobbles: 1 to 63, one bit each in the claim bitmaps (`u64`).
+pub const MAX_COBBLE_ID: u32 = 63;
+/// The most quests of one kind with cobbles: the ids of a list are 15 `u16` in one slot.
 pub const MAX_LISTED: u32 = 15;
-/// The gems of a quest, and of an achievement, when set (0 removes them).
-pub const QUEST_GEMS_MIN: u8 = 5;
-pub const QUEST_GEMS_MAX: u8 = 15;
-pub const ACHIEVEMENT_GEMS_MIN: u8 = 10;
-pub const ACHIEVEMENT_GEMS_MAX: u8 = 90;
-/// The highest total an achievement with gems may have: its lifetime count saturates at `u16`.
+/// The cobbles of a quest, and of an achievement, when set (0 removes them).
+pub const QUEST_COBBLES_MIN: u8 = 5;
+pub const QUEST_COBBLES_MAX: u8 = 15;
+pub const ACHIEVEMENT_COBBLES_MIN: u8 = 10;
+pub const ACHIEVEMENT_COBBLES_MAX: u8 = 90;
+/// The highest total an achievement with cobbles may have: its lifetime count saturates at `u16`.
 pub const MAX_ACHIEVEMENT_TOTAL: u32 = 65535;
 
-/// A player's account (one slot, key `player_id`): the gems, the free-game credits, the lifetime
+/// A player's account (one slot, key `player_id`): the cobbles, the free-game credits, the lifetime
 /// counts of every reported game over (each saturating at `u16::MAX`) and the claimed
-/// achievements (bit `i` = achievement `i`). Layout: `gems` [0, 64) · `credits` [64, 80) ·
+/// achievements (bit `i` = achievement `i`). Layout: `cobbles` [0, 64) · `credits` [64, 80) ·
 /// `games`
 /// [80, 96) · `forests` [96, 112) · `wonders` [112, 128) · `big` [128, 144) · `high` [144, 160)
 /// ·
 /// `achievements_claimed` [160, 224).
 #[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
 pub struct Account {
-    pub gems: u64,
+    pub cobbles: u64,
     pub credits: u16,
     pub games: u16,
     pub forests: u16,
@@ -95,15 +95,15 @@ pub struct Progress {
     pub credit: bool,
 }
 
-/// The gems of a quest (one slot, key `quest_id`), with the copy of its quiver definition's
-/// schedule and single task taken when they were set: a claim reads this slot alone. `gems` 0: no
-/// gems. Layout: `gems` [0, 8) · `kind` [8, 16) · `task` [16, 48) · `total` [48, 80) ·
+/// The cobbles of a quest (one slot, key `quest_id`), with the copy of its quiver definition's
+/// schedule and single task taken when they were set: a claim reads this slot alone. `cobbles` 0:
+/// no cobbles. Layout: `cobbles` [0, 8) · `kind` [8, 16) · `task` [16, 48) · `total` [48, 80) ·
 /// `interval`
 /// [80, 112) · `start` [128, 192). The quest's `duration` is its kind's (a day or a week) and its
-/// `end` is 0 (`set_quest_gems` accepts no other).
+/// `end` is 0 (`set_quest_cobbles` accepts no other).
 #[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
-pub struct QuestGems {
-    pub gems: u8,
+pub struct QuestCobbles {
+    pub cobbles: u8,
     pub kind: u8,
     pub task: u32,
     pub total: u32,
@@ -111,11 +111,12 @@ pub struct QuestGems {
     pub interval: u32,
 }
 
-/// The gems of an achievement (one slot, key `achievement_id`), with its single task copied from
-/// its definition. `gems` 0: no gems. Layout: `gems` [0, 8) · `task` [8, 40) · `total` [40, 72).
+/// The cobbles of an achievement (one slot, key `achievement_id`), with its single task copied from
+/// its definition. `cobbles` 0: no cobbles. Layout: `cobbles` [0, 8) · `task` [8, 40) · `total`
+/// [40, 72).
 #[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
-pub struct AchievementGems {
-    pub gems: u8,
+pub struct AchievementCobbles {
+    pub cobbles: u8,
     pub task: u32,
     pub total: u32,
 }
@@ -153,7 +154,7 @@ fn field(half: u128, unit: u128, mask: u128) -> u128 {
 
 pub impl AccountPacking of starknet::storage_access::StorePacking<Account, felt252> {
     fn pack(value: Account) -> felt252 {
-        let low: u128 = value.gems.into()
+        let low: u128 = value.cobbles.into()
             + value.credits.into() * TWO_POW_64
             + value.games.into() * TWO_POW_80
             + value.forests.into() * TWO_POW_96
@@ -167,7 +168,7 @@ pub impl AccountPacking of starknet::storage_access::StorePacking<Account, felt2
     fn unpack(value: felt252) -> Account {
         let (low, high) = halves(value);
         Account {
-            gems: (low & MASK_64).try_into().unwrap(),
+            cobbles: (low & MASK_64).try_into().unwrap(),
             credits: field(low, TWO_POW_64, MASK_16).try_into().unwrap(),
             games: field(low, TWO_POW_80, MASK_16).try_into().unwrap(),
             forests: field(low, TWO_POW_96, MASK_16).try_into().unwrap(),
@@ -207,9 +208,9 @@ pub impl ProgressPacking of starknet::storage_access::StorePacking<Progress, fel
     }
 }
 
-pub impl QuestGemsPacking of starknet::storage_access::StorePacking<QuestGems, felt252> {
-    fn pack(value: QuestGems) -> felt252 {
-        let low: u128 = value.gems.into()
+pub impl QuestCobblesPacking of starknet::storage_access::StorePacking<QuestCobbles, felt252> {
+    fn pack(value: QuestCobbles) -> felt252 {
+        let low: u128 = value.cobbles.into()
             + value.kind.into() * TWO_POW_8
             + value.task.into() * TWO_POW_16
             + value.total.into() * TWO_POW_48
@@ -217,10 +218,10 @@ pub impl QuestGemsPacking of starknet::storage_access::StorePacking<QuestGems, f
         word(low, value.start.into())
     }
 
-    fn unpack(value: felt252) -> QuestGems {
+    fn unpack(value: felt252) -> QuestCobbles {
         let (low, high) = halves(value);
-        QuestGems {
-            gems: (low & MASK_8).try_into().unwrap(),
+        QuestCobbles {
+            cobbles: (low & MASK_8).try_into().unwrap(),
             kind: field(low, TWO_POW_8, MASK_8).try_into().unwrap(),
             task: field(low, TWO_POW_16, MASK_32).try_into().unwrap(),
             total: field(low, TWO_POW_48, MASK_32).try_into().unwrap(),
@@ -230,20 +231,20 @@ pub impl QuestGemsPacking of starknet::storage_access::StorePacking<QuestGems, f
     }
 }
 
-pub impl AchievementGemsPacking of starknet::storage_access::StorePacking<
-    AchievementGems, felt252,
+pub impl AchievementCobblesPacking of starknet::storage_access::StorePacking<
+    AchievementCobbles, felt252,
 > {
-    fn pack(value: AchievementGems) -> felt252 {
-        let low: u128 = value.gems.into()
+    fn pack(value: AchievementCobbles) -> felt252 {
+        let low: u128 = value.cobbles.into()
             + value.task.into() * TWO_POW_8
             + value.total.into() * TWO_POW_40;
         low.into()
     }
 
-    fn unpack(value: felt252) -> AchievementGems {
+    fn unpack(value: felt252) -> AchievementCobbles {
         let (low, _) = halves(value);
-        AchievementGems {
-            gems: (low & MASK_8).try_into().unwrap(),
+        AchievementCobbles {
+            cobbles: (low & MASK_8).try_into().unwrap(),
             task: field(low, TWO_POW_8, MASK_32).try_into().unwrap(),
             total: field(low, TWO_POW_40, MASK_32).try_into().unwrap(),
         }
@@ -274,7 +275,7 @@ pub fn list_ids(value: felt252) -> Array<u32> {
     ids
 }
 
-/// A quest list from its ids (at most `MAX_LISTED`, each at most `MAX_GEM_ID`).
+/// A quest list from its ids (at most `MAX_LISTED`, each at most `MAX_COBBLE_ID`).
 pub fn list_word(ids: Span<u32>) -> felt252 {
     assert(ids.len() <= MAX_LISTED, 'Setup: list full');
     let mut low: u128 = 0;
@@ -320,7 +321,7 @@ fn add_u32(count: u32, by: u32) -> u32 {
     }
 }
 
-/// Bit `id` of a claim bitmap (`id` 1 to `MAX_GEM_ID`).
+/// Bit `id` of a claim bitmap (`id` 1 to `MAX_COBBLE_ID`).
 pub fn bit(id: u32) -> u64 {
     let mut bit: u64 = 1;
     let mut i: u32 = 0;
@@ -397,10 +398,10 @@ pub impl AccountImpl of AccountTrait {
 }
 
 #[generate_trait]
-pub impl QuestGemsImpl of QuestGemsTrait {
+pub impl QuestCobblesImpl of QuestCobblesTrait {
     /// The first second of `period` for a quest of this kind: the day `period` (daily) or the week
     /// `period` (weekly).
-    fn period_start(self: @QuestGems, period: u64) -> u64 {
+    fn period_start(self: @QuestCobbles, period: u64) -> u64 {
         if *self.kind == WEEKLY {
             WEEK_START + period * WEEK
         } else {
@@ -410,7 +411,7 @@ pub impl QuestGemsImpl of QuestGemsTrait {
 
     /// Whether the copied schedule is active at `time`: quiver's `ScheduleTrait::is_active` with
     /// the kind's duration and no end.
-    fn is_active(self: @QuestGems, time: u64) -> bool {
+    fn is_active(self: @QuestCobbles, time: u64) -> bool {
         let start = *self.start;
         if time < start || *self.interval == 0 {
             return false;
@@ -424,8 +425,8 @@ pub impl QuestGemsImpl of QuestGemsTrait {
     }
 }
 
-/// The kind of a quest's schedule that can carry gems, or 0 when it is neither shape (gems v1,
-/// 3.2): daily, a day in every whole number of days from 00:00 UTC; weekly, every week from a
+/// The kind of a quest's schedule that can carry cobbles, or 0 when it is neither shape (cobbles
+/// v1, 3.2): daily, a day in every whole number of days from 00:00 UTC; weekly, every week from a
 /// Monday 00:00 UTC. A quest with an end is neither.
 pub fn schedule_kind(schedule: QuestSchedule) -> u8 {
     if schedule.end != 0 {
@@ -500,28 +501,29 @@ pub trait ISetup<TContractState> {
     fn wiring(self: @TContractState) -> Wiring;
 }
 
-/// Gems v1, part 1 (P-61, `docs/architecture/gems-v1.md`): the owner sets the gems of a quest or an
-/// achievement; the player claims them, and the free-game credit of a day's or a week's quests,
-/// for itself, from the ledger the reports write; `Challenge` spends a credit for a free game.
+/// Cobbles v1, part 1 (P-61, `docs/architecture/cobbles-v1.md`): the owner sets the cobbles of a
+/// quest or an achievement; the player claims them, and the free-game credit of a day's or a week's
+/// quests, for itself, from the ledger the reports write; `Challenge` spends a credit for a free
+/// game.
 #[starknet::interface]
-pub trait ISetupGems<TContractState> {
-    /// Sets the gems of a defined, live quest, owner only: 5 to 15, or 0 to remove them. The quest
-    /// must have one task, of task 1 to 4, and a daily or weekly schedule (`schedule_kind`); its
-    /// schedule and task are copied, and the id joins its kind's list (at most 15). Emits
-    /// `QuestGemsSet`.
-    fn set_quest_gems(ref self: TContractState, quest_id: u32, gems: u8);
-    /// Sets the gems of a defined, live achievement, owner only: 10 to 90, or 0 to remove them.
+pub trait ISetupCobbles<TContractState> {
+    /// Sets the cobbles of a defined, live quest, owner only: 5 to 15, or 0 to remove them. The
+    /// quest must have one task, of task 1 to 4, and a daily or weekly schedule (`schedule_kind`);
+    /// its schedule and task are copied, and the id joins its kind's list (at most 15). Emits
+    /// `QuestCobblesSet`.
+    fn set_quest_cobbles(ref self: TContractState, quest_id: u32, cobbles: u8);
+    /// Sets the cobbles of a defined, live achievement, owner only: 10 to 90, or 0 to remove them.
     /// The achievement must have one task, of task 1, 4, 5, 6, 7 or 10, a total of at most 65,535
-    /// and no window. Emits `AchievementGemsSet`.
-    fn set_achievement_gems(ref self: TContractState, achievement_id: u32, gems: u8);
-    /// The caller claims the gems of a quest for `period`, its day number (daily) or week number
+    /// and no window. Emits `AchievementCobblesSet`.
+    fn set_achievement_cobbles(ref self: TContractState, achievement_id: u32, cobbles: u8);
+    /// The caller claims the cobbles of a quest for `period`, its day number (daily) or week number
     /// (weekly), once: the quest is live in that period and the period's sum of its task reaches
-    /// its total. Emits `GemsClaimed`.
+    /// its total. Emits `CobblesClaimed`.
     fn claim_quest(ref self: TContractState, quest_id: u32, period: u64);
-    /// The caller claims the gems of an achievement, once: its lifetime count reaches the total
-    /// (task 10: the tutorial is claimed). Emits `GemsClaimed`.
+    /// The caller claims the cobbles of an achievement, once: its lifetime count reaches the total
+    /// (task 10: the tutorial is claimed). Emits `CobblesClaimed`.
     fn claim_achievement(ref self: TContractState, achievement_id: u32);
-    /// The caller claims the free-game credit of `day`, once: every daily quest with gems live
+    /// The caller claims the free-game credit of `day`, once: every daily quest with cobbles live
     /// that day is completed, and at least one is live. Emits `CreditClaimed`.
     fn claim_daily_credit(ref self: TContractState, day: u64);
     /// The same for the weekly quests and `week`.
@@ -532,8 +534,8 @@ pub trait ISetupGems<TContractState> {
     fn account(self: @TContractState, player_id: felt252) -> Account;
     fn day_progress(self: @TContractState, player_id: felt252, day: u64) -> Progress;
     fn week_progress(self: @TContractState, player_id: felt252, week: u64) -> Progress;
-    fn quest_gems(self: @TContractState, quest_id: u32) -> QuestGems;
-    fn achievement_gems(self: @TContractState, achievement_id: u32) -> AchievementGems;
+    fn quest_cobbles(self: @TContractState, quest_id: u32) -> QuestCobbles;
+    fn achievement_cobbles(self: @TContractState, achievement_id: u32) -> AchievementCobbles;
 }
 
 #[starknet::contract]
@@ -557,11 +559,12 @@ pub mod Setup {
     // Local imports
 
     use super::{
-        ACHIEVEMENT_GEMS_MAX, ACHIEVEMENT_GEMS_MIN, Account, AccountTrait, AchievementGems,
+        ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        DAILY, DAY, ISetup, ISetupGems, MAX_ACHIEVEMENT_TOTAL, MAX_GEM_ID, Progress, ProgressTrait,
-        QUEST_GEMS_MAX, QUEST_GEMS_MIN, QuestGems, QuestGemsTrait, QuestProgress, QuestSchedule,
-        QuestTask, WEEKLY, Wiring, bit, list_ids, list_word, schedule_kind, week_of,
+        DAILY, DAY, ISetup, ISetupCobbles, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, Progress,
+        ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
+        QuestProgress, QuestSchedule, QuestTask, WEEKLY, Wiring, bit, list_ids, list_word,
+        schedule_kind, week_of,
     };
 
     // Errors
@@ -575,14 +578,14 @@ pub mod Setup {
         pub const COLLECTION_SET: felt252 = 'Setup: collection already set';
         pub const ZERO_COLLECTION: felt252 = 'Setup: collection is zero';
         pub const INVALID_ID: felt252 = 'Setup: invalid id';
-        pub const INVALID_GEMS: felt252 = 'Setup: invalid gems';
+        pub const INVALID_COBBLES: felt252 = 'Setup: invalid cobbles';
         pub const RETIRED: felt252 = 'Setup: retired';
         pub const ONE_TASK: felt252 = 'Setup: not one task';
         pub const TASK_NOT_COUNTED: felt252 = 'Setup: task not counted';
         pub const INVALID_SCHEDULE: felt252 = 'Setup: invalid schedule';
         pub const TOTAL_TOO_HIGH: felt252 = 'Setup: total too high';
         pub const WINDOWED: felt252 = 'Setup: achievement windowed';
-        pub const NO_GEMS: felt252 = 'Setup: no gems';
+        pub const NO_COBBLES: felt252 = 'Setup: no cobbles';
         pub const NOT_LIVE: felt252 = 'Setup: not live';
         pub const NOT_COMPLETED: felt252 = 'Setup: not completed';
         pub const CLAIMED: felt252 = 'Setup: claimed';
@@ -665,8 +668,9 @@ pub mod Setup {
         economy: ContractAddress,
         /// The `Collection` of the game NFTs; written once by the owner (step E).
         collection: ContractAddress,
-        /// Gems v1 (P-61, appended, P-42). A player's gems, credits, lifetime counts and claimed
-        /// achievements (`super::Account`); written by `report`, the claims and `spend_credit`.
+        /// Cobbles v1 (P-61, appended, P-42). A player's cobbles, credits, lifetime counts and
+        /// claimed achievements (`super::Account`); written by `report`, the claims and
+        /// `spend_credit`.
         accounts: Map<felt252, Account>,
         /// The sums of a player's paid game overs per day number, its claimed quests and credit
         /// (`super::Progress`); written by `report`, `claim_quest` and `claim_daily_credit`.
@@ -674,15 +678,15 @@ pub mod Setup {
         /// The same per week number (`super::week_of`); written by `report`, `claim_quest` and
         /// `claim_weekly_credit`.
         weeks: Map<(felt252, u64), Progress>,
-        /// The gems of a quest, with its schedule and task copied (`super::QuestGems`); written by
-        /// `set_quest_gems` and `retire_quest`.
-        quest_gems: Map<u32, QuestGems>,
-        /// The quests with gems of each kind (`DAILY`, `WEEKLY`): up to 15 ids in one slot
-        /// (`super::list_ids`); written by `set_quest_gems` and `retire_quest`.
+        /// The cobbles of a quest, with its schedule and task copied (`super::QuestCobbles`);
+        /// written by `set_quest_cobbles` and `retire_quest`.
+        quest_cobbles: Map<u32, QuestCobbles>,
+        /// The quests with cobbles of each kind (`DAILY`, `WEEKLY`): up to 15 ids in one slot
+        /// (`super::list_ids`); written by `set_quest_cobbles` and `retire_quest`.
         quest_lists: Map<u8, felt252>,
-        /// The gems of an achievement, with its task copied (`super::AchievementGems`); written by
-        /// `set_achievement_gems` and `retire_achievement`.
-        achievement_gems: Map<u32, AchievementGems>,
+        /// The cobbles of an achievement, with its task copied (`super::AchievementCobbles`);
+        /// written by `set_achievement_cobbles` and `retire_achievement`.
+        achievement_cobbles: Map<u32, AchievementCobbles>,
     }
 
     // Events
@@ -700,9 +704,9 @@ pub mod Setup {
         AchievementEvent: AchievementComponent::Event,
         EconomySet: EconomySet,
         CollectionSet: CollectionSet,
-        QuestGemsSet: QuestGemsSet,
-        AchievementGemsSet: AchievementGemsSet,
-        GemsClaimed: GemsClaimed,
+        QuestCobblesSet: QuestCobblesSet,
+        AchievementCobblesSet: AchievementCobblesSet,
+        CobblesClaimed: CobblesClaimed,
         CreditClaimed: CreditClaimed,
         CreditSpent: CreditSpent,
     }
@@ -718,35 +722,36 @@ pub mod Setup {
         pub collection: ContractAddress,
     }
 
-    /// The gems of a quest set by the owner, or removed (`gems` 0, also on `retire_quest`); `kind`
+    /// The cobbles of a quest set by the owner, or removed (`cobbles` 0, also on `retire_quest`);
+    /// `kind`
     /// 1 daily, 2 weekly (0 when removed from a quest that had none).
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct QuestGemsSet {
+    pub struct QuestCobblesSet {
         #[key]
         pub quest_id: u32,
-        pub gems: u8,
+        pub cobbles: u8,
         pub kind: u8,
     }
 
-    /// The gems of an achievement set by the owner, or removed (`gems` 0, also on
+    /// The cobbles of an achievement set by the owner, or removed (`cobbles` 0, also on
     /// `retire_achievement`).
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct AchievementGemsSet {
+    pub struct AchievementCobblesSet {
         #[key]
         pub achievement_id: u32,
-        pub gems: u8,
+        pub cobbles: u8,
     }
 
-    /// A player's claim of gems: `kind` 1 a quest (`period`: its day or week number), 2 an
-    /// achievement (`period` 0); `balance`, the player's gems after it.
+    /// A player's claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an
+    /// achievement (`period` 0); `balance`, the player's cobbles after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct GemsClaimed {
+    pub struct CobblesClaimed {
         #[key]
         pub player_id: felt252,
         pub kind: u8,
         pub id: u32,
         pub period: u64,
-        pub gems: u8,
+        pub cobbles: u8,
         pub balance: u64,
     }
 
@@ -807,9 +812,9 @@ pub mod Setup {
         fn retire_quest(ref self: ContractState, quest_id: u32) {
             self.ownable.assert_only_owner();
             self.quest.retire(quest_id);
-            // [Effect] A retired quest has no gems (gems v1, 3.2)
-            if self.quest_gems.read(quest_id).gems != 0 {
-                self.clear_quest_gems(quest_id);
+            // [Effect] A retired quest has no cobbles (cobbles v1, 3.2)
+            if self.quest_cobbles.read(quest_id).cobbles != 0 {
+                self.clear_quest_cobbles(quest_id);
             }
         }
 
@@ -833,10 +838,10 @@ pub mod Setup {
         fn retire_achievement(ref self: ContractState, achievement_id: u32) {
             self.ownable.assert_only_owner();
             self.achievement.retire(achievement_id);
-            // [Effect] A retired achievement has no gems (gems v1, 3.2)
-            if self.achievement_gems.read(achievement_id).gems != 0 {
-                self.achievement_gems.write(achievement_id, Default::default());
-                self.emit(AchievementGemsSet { achievement_id, gems: 0 });
+            // [Effect] A retired achievement has no cobbles (cobbles v1, 3.2)
+            if self.achievement_cobbles.read(achievement_id).cobbles != 0 {
+                self.achievement_cobbles.write(achievement_id, Default::default());
+                self.emit(AchievementCobblesSet { achievement_id, cobbles: 0 });
             }
         }
 
@@ -860,7 +865,7 @@ pub mod Setup {
             // [Effect] The progress, for the player the reporter names
             self.quest.progress_many(player_id, quests, QuestMode::Event);
             self.achievement.progress_many(player_id, achievements);
-            // [Effect] The ledger (gems v1, 1.2): the quest entries, which a free game does not
+            // [Effect] The ledger (cobbles v1, 1.2): the quest entries, which a free game does not
             // report, to the day and the week the report is made in; the achievement entries to
             // the lifetime counts. Before week 0 there is no week to write.
             let time = get_block_timestamp();
@@ -928,17 +933,20 @@ pub mod Setup {
     }
 
     #[abi(embed_v0)]
-    impl SetupGemsImpl of ISetupGems<ContractState> {
-        fn set_quest_gems(ref self: ContractState, quest_id: u32, gems: u8) {
+    impl SetupCobblesImpl of ISetupCobbles<ContractState> {
+        fn set_quest_cobbles(ref self: ContractState, quest_id: u32, cobbles: u8) {
             // [Check] The owner, an id of the claim bitmaps
             self.ownable.assert_only_owner();
-            assert(quest_id != 0 && quest_id <= MAX_GEM_ID, errors::INVALID_ID);
-            // [Effect] 0 removes the gems
-            if gems == 0 {
-                self.clear_quest_gems(quest_id);
+            assert(quest_id != 0 && quest_id <= MAX_COBBLE_ID, errors::INVALID_ID);
+            // [Effect] 0 removes the cobbles
+            if cobbles == 0 {
+                self.clear_quest_cobbles(quest_id);
                 return;
             }
-            assert(gems >= QUEST_GEMS_MIN && gems <= QUEST_GEMS_MAX, errors::INVALID_GEMS);
+            assert(
+                cobbles >= QUEST_COBBLES_MIN && cobbles <= QUEST_COBBLES_MAX,
+                errors::INVALID_COBBLES,
+            );
             // [Check] A defined, live quest of one task the ledger sums, daily or weekly
             let (head, tasks, _) = self.quest.definition(quest_id);
             assert(!head.retired, errors::RETIRED);
@@ -948,15 +956,15 @@ pub mod Setup {
             let kind = schedule_kind(head.schedule);
             assert(kind != 0, errors::INVALID_SCHEDULE);
             // [Effect] The copy, and the id in its kind's list
-            let entry = QuestGems {
-                gems,
+            let entry = QuestCobbles {
+                cobbles,
                 kind,
                 task: task.task_id,
                 total: task.total,
                 start: head.schedule.start,
                 interval: head.schedule.interval,
             };
-            self.quest_gems.write(quest_id, entry);
+            self.quest_cobbles.write(quest_id, entry);
             let mut ids = list_ids(self.quest_lists.read(kind));
             let mut listed = false;
             for id in ids.span() {
@@ -968,21 +976,22 @@ pub mod Setup {
                 ids.append(quest_id);
                 self.quest_lists.write(kind, list_word(ids.span()));
             }
-            self.emit(QuestGemsSet { quest_id, gems, kind });
+            self.emit(QuestCobblesSet { quest_id, cobbles, kind });
         }
 
-        fn set_achievement_gems(ref self: ContractState, achievement_id: u32, gems: u8) {
+        fn set_achievement_cobbles(ref self: ContractState, achievement_id: u32, cobbles: u8) {
             // [Check] The owner, an id of the claim bitmap
             self.ownable.assert_only_owner();
-            assert(achievement_id != 0 && achievement_id <= MAX_GEM_ID, errors::INVALID_ID);
-            // [Effect] 0 removes the gems
-            if gems == 0 {
-                self.achievement_gems.write(achievement_id, Default::default());
-                self.emit(AchievementGemsSet { achievement_id, gems: 0 });
+            assert(achievement_id != 0 && achievement_id <= MAX_COBBLE_ID, errors::INVALID_ID);
+            // [Effect] 0 removes the cobbles
+            if cobbles == 0 {
+                self.achievement_cobbles.write(achievement_id, Default::default());
+                self.emit(AchievementCobblesSet { achievement_id, cobbles: 0 });
                 return;
             }
             assert(
-                gems >= ACHIEVEMENT_GEMS_MIN && gems <= ACHIEVEMENT_GEMS_MAX, errors::INVALID_GEMS,
+                cobbles >= ACHIEVEMENT_COBBLES_MIN && cobbles <= ACHIEVEMENT_COBBLES_MAX,
+                errors::INVALID_COBBLES,
             );
             // [Check] A defined, live achievement of one task counted on chain, reachable by a
             // saturated count, with no window (the ledger counts for all time)
@@ -1001,18 +1010,19 @@ pub mod Setup {
             assert(head.window.start == 0 && head.window.end == 0, errors::WINDOWED);
             // [Effect] The copy
             self
-                .achievement_gems
+                .achievement_cobbles
                 .write(
-                    achievement_id, AchievementGems { gems, task: task.task_id, total: task.total },
+                    achievement_id,
+                    AchievementCobbles { cobbles, task: task.task_id, total: task.total },
                 );
-            self.emit(AchievementGemsSet { achievement_id, gems });
+            self.emit(AchievementCobblesSet { achievement_id, cobbles });
         }
 
         fn claim_quest(ref self: ContractState, quest_id: u32, period: u64) {
             let player_id: felt252 = get_caller_address().into();
-            // [Check] The quest has gems, and is live in that period
-            let entry = self.quest_gems.read(quest_id);
-            assert(entry.gems != 0, errors::NO_GEMS);
+            // [Check] The quest has cobbles, and is live in that period
+            let entry = self.quest_cobbles.read(quest_id);
+            assert(entry.cobbles != 0, errors::NO_COBBLES);
             assert(entry.is_active(entry.period_start(period)), errors::NOT_LIVE);
             // [Check] Completed in that period, and not claimed yet
             let key = (player_id, period);
@@ -1024,7 +1034,7 @@ pub mod Setup {
             assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
             let flag = bit(quest_id);
             assert(progress.claimed & flag == 0, errors::CLAIMED);
-            // [Effect] Claimed in the same write, then the gems
+            // [Effect] Claimed in the same write, then the cobbles
             progress.claimed = progress.claimed | flag;
             if entry.kind == WEEKLY {
                 self.weeks.write(key, progress);
@@ -1032,26 +1042,26 @@ pub mod Setup {
                 self.days.write(key, progress);
             }
             let mut account = self.accounts.read(player_id);
-            account.gems += entry.gems.into();
+            account.cobbles += entry.cobbles.into();
             self.accounts.write(player_id, account);
             self
                 .emit(
-                    GemsClaimed {
+                    CobblesClaimed {
                         player_id,
                         kind: CLAIM_QUEST,
                         id: quest_id,
                         period,
-                        gems: entry.gems,
-                        balance: account.gems,
+                        cobbles: entry.cobbles,
+                        balance: account.cobbles,
                     },
                 );
         }
 
         fn claim_achievement(ref self: ContractState, achievement_id: u32) {
             let player_id: felt252 = get_caller_address().into();
-            // [Check] The achievement has gems
-            let entry = self.achievement_gems.read(achievement_id);
-            assert(entry.gems != 0, errors::NO_GEMS);
+            // [Check] The achievement has cobbles
+            let entry = self.achievement_cobbles.read(achievement_id);
+            assert(entry.cobbles != 0, errors::NO_COBBLES);
             // [Check] Its count reaches the total, and it is not claimed yet
             let mut account = self.accounts.read(player_id);
             let count: u32 = if entry.task == constants::TASK_TUTORIAL_FINISHED {
@@ -1068,17 +1078,17 @@ pub mod Setup {
             assert(account.achievements_claimed & flag == 0, errors::CLAIMED);
             // [Effect] Claimed and credited in one write
             account.achievements_claimed = account.achievements_claimed | flag;
-            account.gems += entry.gems.into();
+            account.cobbles += entry.cobbles.into();
             self.accounts.write(player_id, account);
             self
                 .emit(
-                    GemsClaimed {
+                    CobblesClaimed {
                         player_id,
                         kind: CLAIM_ACHIEVEMENT,
                         id: achievement_id,
                         period: 0,
-                        gems: entry.gems,
-                        balance: account.gems,
+                        cobbles: entry.cobbles,
+                        balance: account.cobbles,
                     },
                 );
         }
@@ -1115,21 +1125,21 @@ pub mod Setup {
             self.weeks.read((player_id, week))
         }
 
-        fn quest_gems(self: @ContractState, quest_id: u32) -> QuestGems {
-            self.quest_gems.read(quest_id)
+        fn quest_cobbles(self: @ContractState, quest_id: u32) -> QuestCobbles {
+            self.quest_cobbles.read(quest_id)
         }
 
-        fn achievement_gems(self: @ContractState, achievement_id: u32) -> AchievementGems {
-            self.achievement_gems.read(achievement_id)
+        fn achievement_cobbles(self: @ContractState, achievement_id: u32) -> AchievementCobbles {
+            self.achievement_cobbles.read(achievement_id)
         }
     }
 
     #[generate_trait]
-    impl GemsInternalImpl of GemsInternalTrait {
-        /// Removes the gems of a quest: its copy, and its id from its kind's list.
-        fn clear_quest_gems(ref self: ContractState, quest_id: u32) {
-            let entry = self.quest_gems.read(quest_id);
-            if entry.gems != 0 {
+    impl CobblesInternalImpl of CobblesInternalTrait {
+        /// Removes the cobbles of a quest: its copy, and its id from its kind's list.
+        fn clear_quest_cobbles(ref self: ContractState, quest_id: u32) {
+            let entry = self.quest_cobbles.read(quest_id);
+            if entry.cobbles != 0 {
                 let mut kept: Array<u32> = array![];
                 for id in list_ids(self.quest_lists.read(entry.kind)) {
                     if id != quest_id {
@@ -1137,9 +1147,9 @@ pub mod Setup {
                     }
                 }
                 self.quest_lists.write(entry.kind, list_word(kept.span()));
-                self.quest_gems.write(quest_id, Default::default());
+                self.quest_cobbles.write(quest_id, Default::default());
             }
-            self.emit(QuestGemsSet { quest_id, gems: 0, kind: entry.kind });
+            self.emit(QuestCobblesSet { quest_id, cobbles: 0, kind: entry.kind });
         }
 
         /// The caller's credit of a day (`DAILY`) or a week (`WEEKLY`): every quest of that kind's
@@ -1158,7 +1168,7 @@ pub mod Setup {
             // [Check] Every live quest of the list completed, at least one live
             let mut live: u32 = 0;
             for id in list_ids(self.quest_lists.read(kind)) {
-                let entry = self.quest_gems.read(id);
+                let entry = self.quest_cobbles.read(id);
                 if entry.is_active(entry.period_start(period)) {
                     assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
                     live += 1;

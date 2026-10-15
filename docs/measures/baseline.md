@@ -1481,12 +1481,12 @@ C2 and C3 cut storage reads, which cost the same in release. C1 and C5 cut compu
 | `scripts/abis.sh` (under `prlimit --as=12884901888`) | no diff | 3,634,396 kB |
 | `scripts/class-sizes.sh` (under `prlimit --as=12884901888`; also on main and on each variant) | ok | 3,782,500 kB at most |
 
-## After gems v1, part 1 (the ledger, the claims, the free spawn; P-61)
+## After cobbles v1, part 1 (the ledger, the claims, the free spawn; P-61)
 
 Measured on the VPS, 2026-10-15, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`, the L2 gas of one external call
 (`get_available_gas()` right before and after it). **Before**: main `91233c19` with the new scenario x added and nothing else
 changed (`snforge test test_gas_`, 18 passed); its figures equal "After G7a" to the unit (l 6,581,227). **After**: this branch.
-The design's +0.59M per paid game over (`gems-v1.md`, 1.3) was an estimate; these are the measures.
+The design's +0.59M per paid game over (`cobbles-v1.md`, 1.3) was an estimate; these are the measures.
 
 **What a paid game over now writes** (`Setup.report`): the player's day slot and account slot, and from week 0 on (Monday
 1970-01-05) the week slot, each read and written whole. g, i, k, l and s run at time 0, before week 0, so they write two slots;
@@ -1509,7 +1509,7 @@ unit at another time and seed, so y's before is k's. That gives +1,033,718, stil
 slots was low: three slots measure 940,298, because the first write of an empty slot in a period costs more than the estimate's
 unit write, and `report` now reads the block time and unpacks and packs each slot.
 
-**The new calls** (each one call, on the fresh deployment's definitions and gems):
+**The new calls** (each one call, on the fresh deployment's definitions and cobbles):
 
 | Scenario | L2 gas | Design's estimate |
 |---|---:|---:|
@@ -1531,7 +1531,7 @@ under their ceilings, which are kept. The Vault's t to w are identical to the un
 
 **Ceilings.** g, i, k, l and s are reset to measured + 5 %; x, y and z1 to z6 get measured + 5 %. Every other ceiling is kept.
 Test budgets: `e2e::setup_system::test_setup_reporter_reports_every_entry` rose above its budget (the report now writes the ledger)
-and is reset to measured + 5 % (7,182,725); the 40 new tests of `e2e::gems` and `e2e::gems_ledger` get measured + 5 % (the fuzz
+and is reset to measured + 5 % (7,182,725); the 40 new tests of `e2e::cobbles` and `e2e::cobbles_ledger` get measured + 5 % (the fuzz
 test, whose figure is the largest of its runs, + 10 %). Every other budget of the suite holds (whole run below).
 
 **Commands and peaks (VPS):**
@@ -1540,5 +1540,5 @@ test, whose figure is the largest of its runs, + 10 %). Every other budget of th
 |---|---|
 | `snforge test test_gas_` on main `91233c19` with scenario x | 18 passed |
 | `snforge test test_gas_` (final) | 25 passed |
-| `snforge test paved::tests::e2e::gems` | 40 passed |
+| `snforge test paved::tests::e2e::cobbles` | 40 passed |
 | `snforge test` (the whole suite) | see the pull request |

@@ -51,7 +51,7 @@ pub mod errors {
 const FOREST_UNIT: u32 = 0x80;
 const WONDER_UNIT: u32 = 0x2000;
 const BIG_UNIT: u32 = 0x20000;
-/// The free-game mark (gems v1, 4.2): bit 23 of `Game.counts`, above the four counters (23 bits,
+/// The free-game mark (cobbles v1, 4.2): bit 23 of `Game.counts`, above the four counters (23 bits,
 /// each clamped to its width, so never carried into it). Set at a free spawn, never cleared.
 pub const FREE_GAME: u32 = 0x800000;
 
@@ -268,7 +268,7 @@ pub impl GameImpl of GameTrait {
             + min_u32(big.into(), 0x3f) * BIG_UNIT
     }
 
-    /// Whether the game was spawned free, on a credit (gems v1).
+    /// Whether the game was spawned free, on a credit (cobbles v1).
     fn is_free(self: Game) -> bool {
         self.counts & FREE_GAME != 0
     }

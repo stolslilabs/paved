@@ -364,15 +364,15 @@
   },
   {
     "type": "impl",
-    "name": "SetupGemsImpl",
-    "interface_name": "paved::systems::setup::ISetupGems"
+    "name": "SetupCobblesImpl",
+    "interface_name": "paved::systems::setup::ISetupCobbles"
   },
   {
     "type": "struct",
     "name": "paved::systems::setup::Account",
     "members": [
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u64"
       },
       {
@@ -437,10 +437,10 @@
   },
   {
     "type": "struct",
-    "name": "paved::systems::setup::QuestGems",
+    "name": "paved::systems::setup::QuestCobbles",
     "members": [
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u8"
       },
       {
@@ -467,10 +467,10 @@
   },
   {
     "type": "struct",
-    "name": "paved::systems::setup::AchievementGems",
+    "name": "paved::systems::setup::AchievementCobbles",
     "members": [
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u8"
       },
       {
@@ -485,18 +485,18 @@
   },
   {
     "type": "interface",
-    "name": "paved::systems::setup::ISetupGems",
+    "name": "paved::systems::setup::ISetupCobbles",
     "items": [
       {
         "type": "function",
-        "name": "set_quest_gems",
+        "name": "set_quest_cobbles",
         "inputs": [
           {
             "name": "quest_id",
             "type": "core::integer::u32"
           },
           {
-            "name": "gems",
+            "name": "cobbles",
             "type": "core::integer::u8"
           }
         ],
@@ -505,14 +505,14 @@
       },
       {
         "type": "function",
-        "name": "set_achievement_gems",
+        "name": "set_achievement_cobbles",
         "inputs": [
           {
             "name": "achievement_id",
             "type": "core::integer::u32"
           },
           {
-            "name": "gems",
+            "name": "cobbles",
             "type": "core::integer::u8"
           }
         ],
@@ -645,7 +645,7 @@
       },
       {
         "type": "function",
-        "name": "quest_gems",
+        "name": "quest_cobbles",
         "inputs": [
           {
             "name": "quest_id",
@@ -654,14 +654,14 @@
         ],
         "outputs": [
           {
-            "type": "paved::systems::setup::QuestGems"
+            "type": "paved::systems::setup::QuestCobbles"
           }
         ],
         "state_mutability": "view"
       },
       {
         "type": "function",
-        "name": "achievement_gems",
+        "name": "achievement_cobbles",
         "inputs": [
           {
             "name": "achievement_id",
@@ -670,7 +670,7 @@
         ],
         "outputs": [
           {
-            "type": "paved::systems::setup::AchievementGems"
+            "type": "paved::systems::setup::AchievementCobbles"
           }
         ],
         "state_mutability": "view"
@@ -1127,7 +1127,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::setup::Setup::QuestGemsSet",
+    "name": "paved::systems::setup::Setup::QuestCobblesSet",
     "kind": "struct",
     "members": [
       {
@@ -1136,7 +1136,7 @@
         "kind": "key"
       },
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u8",
         "kind": "data"
       },
@@ -1149,7 +1149,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::setup::Setup::AchievementGemsSet",
+    "name": "paved::systems::setup::Setup::AchievementCobblesSet",
     "kind": "struct",
     "members": [
       {
@@ -1158,7 +1158,7 @@
         "kind": "key"
       },
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u8",
         "kind": "data"
       }
@@ -1166,7 +1166,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::setup::Setup::GemsClaimed",
+    "name": "paved::systems::setup::Setup::CobblesClaimed",
     "kind": "struct",
     "members": [
       {
@@ -1190,7 +1190,7 @@
         "kind": "data"
       },
       {
-        "name": "gems",
+        "name": "cobbles",
         "type": "core::integer::u8",
         "kind": "data"
       },
@@ -1286,18 +1286,18 @@
         "kind": "nested"
       },
       {
-        "name": "QuestGemsSet",
-        "type": "paved::systems::setup::Setup::QuestGemsSet",
+        "name": "QuestCobblesSet",
+        "type": "paved::systems::setup::Setup::QuestCobblesSet",
         "kind": "nested"
       },
       {
-        "name": "AchievementGemsSet",
-        "type": "paved::systems::setup::Setup::AchievementGemsSet",
+        "name": "AchievementCobblesSet",
+        "type": "paved::systems::setup::Setup::AchievementCobblesSet",
         "kind": "nested"
       },
       {
-        "name": "GemsClaimed",
-        "type": "paved::systems::setup::Setup::GemsClaimed",
+        "name": "CobblesClaimed",
+        "type": "paved::systems::setup::Setup::CobblesClaimed",
         "kind": "nested"
       },
       {

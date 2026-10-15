@@ -1,8 +1,8 @@
-//! Gems v1, part 1 (P-61, `docs/architecture/gems-v1.md`, 7.2) through the real contracts: a paid
-//! game over writes `Setup`'s ledger; the day's credit end to end, from paid games to a free game
-//! and its game over; the free spawn's guards; the audit properties A7 and A8; and the PM's check
-//! of 2026-10-15: a free game's game over emits `GameOver`, with the fields of a paid one's, on
-//! every way it ends (the indexer ranks it from that event, as it has no `Recorded`).
+//! Cobbles v1, part 1 (P-61, `docs/architecture/cobbles-v1.md`, 7.2) through the real contracts: a
+//! paid game over writes `Setup`'s ledger; the day's credit end to end, from paid games to a free
+//! game and its game over; the free spawn's guards; the audit properties A7 and A8; and the PM's
+//! check of 2026-10-15: a free game's game over emits `GameOver`, with the fields of a paid one's,
+//! on every way it ends (the indexer ranks it from that event, as it has no `Recorded`).
 
 use openzeppelin_interfaces::erc20::IERC20DispatcherTrait as OzERC20Trait;
 use paved::constants::{self, CENTER};
@@ -15,10 +15,10 @@ use paved::systems::challenge::{
 use paved::systems::collection::{IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait};
 use paved::systems::economy::{IEconomySafeDispatcher, IEconomySafeDispatcherTrait};
 use paved::systems::setup::{
-    DAY, ISetupGemsDispatcher, ISetupGemsDispatcherTrait, ISetupGemsSafeDispatcherTrait, Progress,
-    Setup,
+    DAY, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupCobblesSafeDispatcherTrait,
+    Progress, Setup,
 };
-use paved::tests::e2e::gems_ledger::{define_fresh, set_fresh_gems};
+use paved::tests::e2e::cobbles_ledger::{define_fresh, set_fresh_cobbles};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IChallengeDispatcherTrait, IERC20DispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
@@ -38,12 +38,12 @@ const DAY_14: u64 = 14 * 86400 + 100;
 /// Day 15, 50 s in: a game spawned at `DAY_14` has not expired yet (24 h).
 const DAY_15: u64 = 15 * 86400 + 50;
 
-/// The systems on `DAY_14` with the fresh definitions and gems, and `PLAYER`'s paid game (id 1).
-fn gems_game() -> (TestStore, setup::Systems, setup::Context) {
+/// The systems on `DAY_14` with the fresh definitions and cobbles, and `PLAYER`'s paid game (id 1).
+fn cobbles_game() -> (TestStore, setup::Systems, setup::Context) {
     start_cheat_block_timestamp_global(DAY_14);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     define_fresh(systems.setup.contract_address);
-    set_fresh_gems(systems.setup.contract_address);
+    set_fresh_cobbles(systems.setup.contract_address);
     (store, systems, context)
 }
 
@@ -61,7 +61,7 @@ fn end_with(store: TestStore, systems: @setup::Systems, game_id: u32, score: u32
     game.tile_limit = game.tile_count.try_into().unwrap();
     store.set_game(game);
     systems.challenge.discard(game_id);
-    assert(store.game(game_id).is_over(), 'Gems: not over');
+    assert(store.game(game_id).is_over(), 'Cobbles: not over');
 }
 
 /// Ends the paid game with every daily of any day met (12 structures, 4 forests, 8,000 points
@@ -70,22 +70,22 @@ fn complete_the_day(store: TestStore, systems: @setup::Systems, game_id: u32) {
     end_with(store, systems, game_id, 8050, GameImpl::counts_of(12, 4, 0, 0));
 }
 
-fn gems(systems: @setup::Systems) -> ISetupGemsDispatcher {
-    ISetupGemsDispatcher { contract_address: *systems.setup.contract_address }
+fn cobbles(systems: @setup::Systems) -> ISetupCobblesDispatcher {
+    ISetupCobblesDispatcher { contract_address: *systems.setup.contract_address }
 }
 
 /// `PLAYER` claims the credit of `day` from `Setup`.
 fn claim_credit(systems: @setup::Systems, day: u64) {
     let setup_address = *systems.setup.contract_address;
     start_cheat_caller_address(setup_address, PLAYER());
-    gems(systems).claim_daily_credit(day);
+    cobbles(systems).claim_daily_credit(day);
     stop_cheat_caller_address(setup_address);
 }
 
 /// The systems with `PLAYER`'s free game spawned on `DAY_14` from the credit of its paid game:
 /// returns the free game's id.
 fn free_game() -> (TestStore, setup::Systems, setup::Context, u32) {
-    let (store, systems, context) = gems_game();
+    let (store, systems, context) = cobbles_game();
     complete_the_day(store, @systems, context.game_id);
     claim_credit(@systems, 14);
     let game_id = systems.challenge.spawn_free();
@@ -95,11 +95,11 @@ fn free_game() -> (TestStore, setup::Systems, setup::Context, u32) {
 /// A paid game over writes the day, the week and the account from its tally (7.2).
 #[test]
 #[available_gas(l2_gas: 177898958)]
-fn test_gems_e2e_paid_game_over_writes_the_ledger() {
-    let (store, systems, context) = gems_game();
+fn test_cobbles_e2e_paid_game_over_writes_the_ledger() {
+    let (store, systems, context) = cobbles_game();
     end_with(store, @systems, context.game_id, 4500, GameImpl::counts_of(2, 1, 1, 1));
     let p = context.player_id;
-    let day = gems(@systems).day_progress(p, 14);
+    let day = cobbles(@systems).day_progress(p, 14);
     // [Info] The last discard cost 50 points
     assert_eq!(store.game(context.game_id).score, 4450);
     assert_eq!(
@@ -107,8 +107,8 @@ fn test_gems_e2e_paid_game_over_writes_the_ledger() {
         Progress { games: 1, structures: 2, forests: 1, points: 4450, claimed: 0, credit: false },
     );
     // [Info] Day 14 is in week 1 (Monday 1970-01-12 is day 11)
-    assert_eq!(gems(@systems).week_progress(p, 1), day);
-    let account = gems(@systems).account(p);
+    assert_eq!(cobbles(@systems).week_progress(p, 1), day);
+    let account = cobbles(@systems).account(p);
     assert_eq!(account.games, 1);
     assert_eq!(account.forests, 1);
     assert_eq!(account.wonders, 1);
@@ -119,8 +119,8 @@ fn test_gems_e2e_paid_game_over_writes_the_ledger() {
 /// A move that does not end the game writes nothing.
 #[test]
 #[available_gas(l2_gas: 175863450)]
-fn test_gems_e2e_a_move_that_does_not_end_writes_nothing() {
-    let (store, systems, context) = gems_game();
+fn test_cobbles_e2e_a_move_that_does_not_end_writes_nothing() {
+    let (store, systems, context) = cobbles_game();
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
@@ -128,32 +128,32 @@ fn test_gems_e2e_a_move_that_does_not_end_writes_nothing() {
     store.set_tile(tile);
     systems.challenge.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     assert!(!store.game(context.game_id).is_over());
-    assert_eq!(gems(@systems).day_progress(context.player_id, 14), Default::default());
-    assert_eq!(gems(@systems).account(context.player_id), Default::default());
+    assert_eq!(cobbles(@systems).day_progress(context.player_id, 14), Default::default());
+    assert_eq!(cobbles(@systems).account(context.player_id), Default::default());
 }
 
 /// The day's credit end to end (7.2): a paid game meets the four dailies of day 14; the player
-/// claims their gems and the credit, spawns free, and ends the free game. The credit is spent, the
-/// day's sums are those of the paid game, and the free game reported its achievements only.
+/// claims their cobbles and the credit, spawns free, and ends the free game. The credit is spent,
+/// the day's sums are those of the paid game, and the free game reported its achievements only.
 #[test]
 #[available_gas(l2_gas: 204698562)]
-fn test_gems_e2e_day_credit_end_to_end() {
-    let (store, systems, context) = gems_game();
+fn test_cobbles_e2e_day_credit_end_to_end() {
+    let (store, systems, context) = cobbles_game();
     let setup_address = systems.setup.contract_address;
     let challenge = systems.challenge.contract_address;
     let p = context.player_id;
     complete_the_day(store, @systems, context.game_id);
     start_cheat_caller_address(setup_address, PLAYER());
     for id in array![1_u32, 7, 10, 13] {
-        gems(@systems).claim_quest(id, 14);
+        cobbles(@systems).claim_quest(id, 14);
     }
-    gems(@systems).claim_daily_credit(14);
+    cobbles(@systems).claim_daily_credit(14);
     stop_cheat_caller_address(setup_address);
-    let account = gems(@systems).account(p);
-    assert_eq!(account.gems, 5 + 15 + 15 + 15);
+    let account = cobbles(@systems).account(p);
+    assert_eq!(account.cobbles, 5 + 15 + 15 + 15);
     assert_eq!(account.credits, 1);
-    let day = gems(@systems).day_progress(p, 14);
-    let week = gems(@systems).week_progress(p, 1);
+    let day = cobbles(@systems).day_progress(p, 14);
+    let week = cobbles(@systems).week_progress(p, 1);
 
     // [Free] The spawn: price 0, the credit spent
     let mut spy = spy_events();
@@ -191,7 +191,7 @@ fn test_gems_e2e_day_credit_end_to_end() {
                 ),
             ],
         );
-    assert_eq!(gems(@systems).account(p).credits, 0);
+    assert_eq!(cobbles(@systems).account(p).credits, 0);
 
     // [Free] The game over: achievements only
     let mut spy = spy_events();
@@ -217,9 +217,9 @@ fn test_gems_e2e_day_credit_end_to_end() {
                 ),
             ],
         );
-    assert_eq!(gems(@systems).day_progress(p, 14), day);
-    assert_eq!(gems(@systems).week_progress(p, 1), week);
-    let account = gems(@systems).account(p);
+    assert_eq!(cobbles(@systems).day_progress(p, 14), day);
+    assert_eq!(cobbles(@systems).week_progress(p, 1), week);
+    let account = cobbles(@systems).account(p);
     assert_eq!(account.games, 2);
     assert_eq!(account.forests, 8);
     assert_eq!(account.wonders, 1);
@@ -233,8 +233,8 @@ fn test_gems_e2e_day_credit_end_to_end() {
 #[test]
 #[available_gas(l2_gas: 200895211)]
 #[feature("safe_dispatcher")]
-fn test_gems_A7_free_game_brings_nothing_into_the_vault() {
-    let (store, systems, context) = gems_game();
+fn test_cobbles_A7_free_game_brings_nothing_into_the_vault() {
+    let (store, systems, context) = cobbles_game();
     complete_the_day(store, @systems, context.game_id);
     claim_credit(@systems, 14);
     let economy = systems.economy.contract_address;
@@ -280,16 +280,18 @@ fn test_gems_A7_free_game_brings_nothing_into_the_vault() {
 #[test]
 #[available_gas(l2_gas: 197321664)]
 #[feature("safe_dispatcher")]
-fn test_gems_A8_free_game_cannot_earn_a_credit() {
+fn test_cobbles_A8_free_game_cannot_earn_a_credit() {
     let (store, systems, context, game_id) = free_game();
     // [Info] The free game ends on day 15
     start_cheat_block_timestamp_global(DAY_15);
     end_with(store, @systems, game_id, 9000, GameImpl::counts_of(30, 10, 2, 2));
     let p = context.player_id;
-    assert_eq!(gems(@systems).day_progress(p, 15), Default::default());
+    assert_eq!(cobbles(@systems).day_progress(p, 15), Default::default());
     let setup_address = systems.setup.contract_address;
     start_cheat_caller_address(setup_address, PLAYER());
-    let safe = paved::systems::setup::ISetupGemsSafeDispatcher { contract_address: setup_address };
+    let safe = paved::systems::setup::ISetupCobblesSafeDispatcher {
+        contract_address: setup_address,
+    };
     match safe.claim_daily_credit(15) {
         Result::Ok(_) => panic!("a free game earned a credit"),
         Result::Err(e) => assert_eq!(*e.at(0), 'Setup: not completed'),
@@ -300,7 +302,7 @@ fn test_gems_A8_free_game_cannot_earn_a_credit() {
 #[test]
 #[available_gas(l2_gas: 235233210)]
 #[feature("safe_dispatcher")]
-fn test_gems_spawn_free_obeys_the_pause() {
+fn test_cobbles_spawn_free_obeys_the_pause() {
     let (store, systems, _, game_id) = free_game();
     let challenge = systems.challenge.contract_address;
     // [Setup] A second credit, from day 15
@@ -316,7 +318,7 @@ fn test_gems_spawn_free_obeys_the_pause() {
         Result::Ok(_) => panic!("a paused spawn_free spawned"),
         Result::Err(e) => assert_eq!(*e.at(0), 'Challenge: spawn paused'),
     }
-    assert_eq!(gems(@systems).account(PLAYER().into()).credits, 1);
+    assert_eq!(cobbles(@systems).account(PLAYER().into()).credits, 1);
     end_with(store, @systems, game_id, 10, 0);
 }
 
@@ -324,8 +326,8 @@ fn test_gems_spawn_free_obeys_the_pause() {
 #[test]
 #[available_gas(l2_gas: 194710590)]
 #[feature("safe_dispatcher")]
-fn test_gems_spawn_free_without_a_credit() {
-    let (store, systems, _) = gems_game();
+fn test_cobbles_spawn_free_without_a_credit() {
+    let (store, systems, _) = cobbles_game();
     let challenge = systems.challenge.contract_address;
     let safe = IChallengeSafeDispatcher { contract_address: challenge };
     match safe.spawn_free() {
@@ -363,7 +365,7 @@ fn assert_game_over(
 /// On the last `build`, in its day: `GameOver` with its day id, score and end time.
 #[test]
 #[available_gas(l2_gas: 202439895)]
-fn test_gems_free_game_over_on_the_last_build_emits_game_over() {
+fn test_cobbles_free_game_over_on_the_last_build_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let mut game = store.game(game_id);
     game.score = 300;
@@ -385,7 +387,7 @@ fn test_gems_free_game_over_on_the_last_build_emits_game_over() {
 /// On the last `discard`, in its day.
 #[test]
 #[available_gas(l2_gas: 197618300)]
-fn test_gems_free_game_over_on_the_last_discard_emits_game_over() {
+fn test_cobbles_free_game_over_on_the_last_discard_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
     end_with(store, @systems, game_id, 2500, GameImpl::counts_of(3, 1, 0, 0));
@@ -398,7 +400,7 @@ fn test_gems_free_game_over_on_the_last_discard_emits_game_over() {
 /// On a `surrender`, in its day.
 #[test]
 #[available_gas(l2_gas: 194253791)]
-fn test_gems_free_game_over_on_surrender_emits_game_over() {
+fn test_cobbles_free_game_over_on_surrender_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
     systems.challenge.surrender(game_id);
@@ -413,7 +415,7 @@ fn test_gems_free_game_over_on_surrender_emits_game_over() {
 #[test]
 #[available_gas(l2_gas: 198147405)]
 #[feature("safe_dispatcher")]
-fn test_gems_free_game_over_after_expiry_emits_game_over() {
+fn test_cobbles_free_game_over_after_expiry_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     start_cheat_block_timestamp_global(DAY_14 + constants::GAME_VALIDITY + 1);
     let safe = IChallengeSafeDispatcher { contract_address: systems.challenge.contract_address };
@@ -428,5 +430,5 @@ fn test_gems_free_game_over_after_expiry_emits_game_over() {
     assert_eq!(game.end_time, 0);
     assert_game_over(store, @systems, spy, game_id);
     // [Info] Its achievements count, at the time it ends
-    assert_eq!(gems(@systems).account(PLAYER().into()).games, 2);
+    assert_eq!(cobbles(@systems).account(PLAYER().into()).games, 2);
 }
