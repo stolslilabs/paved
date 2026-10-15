@@ -496,19 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("P-56: schema 12 (purchases.vault_paved; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("12");
-    for (const old of ["11", "10", "9", "8", "7"]) {
+  test("IX-GEMS1: schema 13 (the gems ledger; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("13");
+    for (const old of ["12", "11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 12: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 12.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 13: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 13.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("12");
+      expect(rebuilt.meta("schema")).toBe("13");
       rebuilt.close();
     }
   });

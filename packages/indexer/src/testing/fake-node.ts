@@ -114,6 +114,19 @@ export const ev = {
   economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("setup", "EconomySet", [], [economy]),
   collectionSet: (collection: bigint | number = BigInt(COLLECTION)) =>
     raw("setup", "CollectionSet", [], [collection]),
+  /** Gems v1 (Setup): `QuestGemsSet { quest_id; gems, kind }`, `AchievementGemsSet { achievement_id; gems }`. */
+  questGemsSet: (questId: number, gems: number, kind = gems === 0 ? 0 : 1) =>
+    raw("setup", "QuestGemsSet", [questId], [gems, kind]),
+  achievementGemsSet: (achievementId: number, gems: number) =>
+    raw("setup", "AchievementGemsSet", [achievementId], [gems]),
+  /** `GemsClaimed { player_id; kind (1 quest, 2 achievement), id, period, gems, balance }`. */
+  gemsClaimed: (player: bigint | number, kind: 1 | 2, id: number, period: number, gems: number, balance: number) =>
+    raw("setup", "GemsClaimed", [player], [kind, id, period, gems, balance]),
+  /** `CreditClaimed { player_id; kind (1 day, 2 week), period, credits }`, `CreditSpent { player_id; game_id, credits }`. */
+  creditClaimed: (player: bigint | number, kind: 1 | 2, period: number, credits: number) =>
+    raw("setup", "CreditClaimed", [player], [kind, period, credits]),
+  creditSpent: (player: bigint | number, gameId: number, credits: number) =>
+    raw("setup", "CreditSpent", [player], [gameId, credits]),
   /** `QuestDefined`: key quest_id; data schedule (start, end, duration, interval), tasks span, conditions span. */
   questDefined: (
     questId: number,

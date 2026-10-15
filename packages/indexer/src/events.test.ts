@@ -568,3 +568,83 @@ describe("felts", () => {
     expect(padded(0n)).toHaveLength(66);
   });
 });
+
+describe("Gems v1 events (Setup, gems-v1.md 6.2)", () => {
+  const NAMES = ["QuestGemsSet", "AchievementGemsSet", "GemsClaimed", "CreditClaimed", "CreditSpent"] as const;
+
+  test("Setup declares all five, with the keys and data the decoder reads, and is their only emitter", () => {
+    const shapes = {
+      QuestGemsSet: { keys: ["quest_id"], data: ["gems", "kind"] },
+      AchievementGemsSet: { keys: ["achievement_id"], data: ["gems"] },
+      GemsClaimed: { keys: ["player_id"], data: ["kind", "id", "period", "gems", "balance"] },
+      CreditClaimed: { keys: ["player_id"], data: ["kind", "period", "credits"] },
+      CreditSpent: { keys: ["player_id"], data: ["game_id", "credits"] },
+    };
+    const items = abi("Setup").filter((item) => item.type === "event" && item.kind === "struct");
+    for (const name of NAMES) {
+      const item = items.find((found) => shortOf(found) === name);
+      expect(item, name).toBeDefined();
+      expect(item!.members!.filter((m) => m.kind === "key").map((m) => m.name), name).toEqual(shapes[name].keys);
+      expect(item!.members!.filter((m) => m.kind === "data").map((m) => m.name), name).toEqual(shapes[name].data);
+      expect(EMITTERS[name], name).toEqual(["setup"]);
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(false);
+    }
+  });
+
+  test("QuestGemsSet and AchievementGemsSet are indexed: the quests page needs their amounts", () => {
+    const q = ev.questGemsSet(7, 15, 2);
+    expect(decode("setup", q.keys, q.data)).toEqual({ name: "QuestGemsSet", questId: 7, gems: 15, kind: 2 });
+    const removed = ev.questGemsSet(7, 0);
+    expect(decode("setup", removed.keys, removed.data)).toEqual({ name: "QuestGemsSet", questId: 7, gems: 0, kind: 0 });
+    const a = ev.achievementGemsSet(3, 90);
+    expect(decode("setup", a.keys, a.data)).toEqual({ name: "AchievementGemsSet", achievementId: 3, gems: 90 });
+    // a kind other than 0, 1, 2 is not the contract's
+    const bad = ev.questGemsSet(7, 5, 3);
+    expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+  });
+
+  test("GemsClaimed", () => {
+    const e = ev.gemsClaimed(0x1234, 1, 5, 20_000, 15, 2n ** 40n as unknown as number);
+    expect(decode("setup", e.keys, e.data)).toEqual({
+      name: "GemsClaimed",
+      playerId: 0x1234n,
+      kind: 1,
+      id: 5,
+      period: 20_000n,
+      gems: 15,
+      balance: 2n ** 40n,
+    });
+    const claim = ev.gemsClaimed(0x1234, 2, 9, 0, 50, 50);
+    expect(decode("setup", claim.keys, claim.data)).toMatchObject({ kind: 2, id: 9, period: 0n });
+    // a kind of neither, a gems value wider than u8, a balance above 2^53, a missing member
+    for (const [kind, gems, balance] of [
+      [0, 5, 5],
+      [3, 5, 5],
+      [1, 256, 256],
+      [1, 5, 2 ** 60],
+    ] as const) {
+      const bad = ev.gemsClaimed(0x1234, kind as 1, 5, 1, gems, balance);
+      expect(() => decode("setup", bad.keys, bad.data), `${kind} ${gems} ${balance}`).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, e.data.slice(0, 4))).toThrow(DecodeError);
+    expect(() => decode("challenge", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
+  test("CreditClaimed and CreditSpent", () => {
+    const c = ev.creditClaimed(0x1234, 2, 2_500, 3);
+    expect(decode("setup", c.keys, c.data)).toEqual({
+      name: "CreditClaimed",
+      playerId: 0x1234n,
+      kind: 2,
+      period: 2_500n,
+      credits: 3,
+    });
+    const s = ev.creditSpent(0x1234, 42, 2);
+    expect(decode("setup", s.keys, s.data)).toEqual({ name: "CreditSpent", playerId: 0x1234n, gameId: 42, credits: 2 });
+    const wide = ev.creditClaimed(0x1234, 1, 1, 65_536);
+    expect(() => decode("setup", wide.keys, wide.data)).toThrow(DecodeError);
+    const kind = ev.creditClaimed(0x1234, 3 as 1, 1, 1);
+    expect(() => decode("setup", kind.keys, kind.data)).toThrow(DecodeError);
+    expect(() => decode("setup", s.keys, s.data.slice(0, 1))).toThrow(DecodeError);
+  });
+});

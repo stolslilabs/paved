@@ -235,6 +235,19 @@ function route(url: URL): Read | null {
           };
         };
       }
+      if (b === "gems" && parts.length === 5) {
+        const player = playerId(a);
+        parameters(url, []);
+        return (queries, served) => queries.playerGems(served.number, player);
+      }
+      if (b === "claims" && parts.length === 5) {
+        const player = playerId(a);
+        const p = parameters(url, [], ["day"]);
+        const day = p.day === undefined ? undefined : integer(p.day, "day", 0, MAX_TOURNAMENT_ID);
+        // Without `day`: the UTC day of the served block, as for the quests
+        return (queries, served) =>
+          queries.playerClaims(served.number, player, day ?? Math.floor(served.timestamp / TOURNAMENT_DURATION));
+      }
       if (b === "achievements" && parts.length === 5) {
         const player = playerId(a);
         parameters(url, []);

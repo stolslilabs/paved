@@ -130,6 +130,39 @@ export type Decoded =
       name: "CollectionSet";
       collection: bigint;
     }
+  | {
+      /** The owner's gems for a quest (0: removed). `kind` 1 daily, 2 weekly, 0 when removed from a quest that had none. */
+      name: "QuestGemsSet";
+      questId: number;
+      gems: number;
+      kind: number;
+    }
+  | { name: "AchievementGemsSet"; achievementId: number; gems: number }
+  | {
+      /** A claim of gems: `kind` 1 a quest (`period`: its day or week number), 2 an achievement (`period` 0). `balance`: the player's gems after it. */
+      name: "GemsClaimed";
+      playerId: bigint;
+      kind: number;
+      id: number;
+      period: bigint;
+      gems: number;
+      balance: bigint;
+    }
+  | {
+      /** A claim of a free-game credit: `kind` 1 a day, 2 a week. `credits`: the player's credits after it. */
+      name: "CreditClaimed";
+      playerId: bigint;
+      kind: number;
+      period: bigint;
+      credits: number;
+    }
+  | {
+      /** A credit spent on the free game `gameId`. `credits`: the player's credits after it. */
+      name: "CreditSpent";
+      playerId: bigint;
+      gameId: number;
+      credits: number;
+    }
   | { name: "Recorded"; gameId: number; score: number; expired: boolean }
   | {
       name: "DayClosed";
@@ -177,6 +210,12 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   AchievementDefined: ["setup"],
   AchievementProgressed: ["setup"],
   AchievementRetired: ["setup"],
+  // Gems v1 (gems-v1.md, 6.2): Setup's gem amounts, claims and free-game credits.
+  QuestGemsSet: ["setup"],
+  AchievementGemsSet: ["setup"],
+  GemsClaimed: ["setup"],
+  CreditClaimed: ["setup"],
+  CreditSpent: ["setup"],
   Purchased: ["economy"],
   Recorded: ["economy"],
   DayClosed: ["economy"],
@@ -257,6 +296,11 @@ const INDEXED: readonly EventName[] = [
   "AchievementDefined",
   "AchievementProgressed",
   "AchievementRetired",
+  "QuestGemsSet",
+  "AchievementGemsSet",
+  "GemsClaimed",
+  "CreditClaimed",
+  "CreditSpent",
   "Purchased",
   "Recorded",
   "DayClosed",
@@ -504,6 +548,51 @@ export function decode(
     case "AchievementRetired":
       shape(name, keys, data, 1, 0);
       return { name, achievementId: small(keys[1], 32, "achievement_id") };
+    case "QuestGemsSet": {
+      shape(name, keys, data, 1, 2);
+      const kind = small(data[1], 8, "kind");
+      if (kind > 2) throw new DecodeError(`${name}: kind ${kind}, expected 0 to 2`);
+      return { name, questId: small(keys[1], 32, "quest_id"), gems: small(data[0], 8, "gems"), kind };
+    }
+    case "AchievementGemsSet":
+      shape(name, keys, data, 1, 1);
+      return { name, achievementId: small(keys[1], 32, "achievement_id"), gems: small(data[0], 8, "gems") };
+    case "GemsClaimed": {
+      // key player_id; data kind, id, period, gems, balance
+      shape(name, keys, data, 1, 5);
+      const kind = small(data[0], 8, "kind");
+      if (kind !== 1 && kind !== 2) throw new DecodeError(`${name}: kind ${kind}, expected 1 or 2`);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        kind,
+        id: small(data[1], 32, "id"),
+        period: u64(data[2], "period"),
+        gems: small(data[3], 8, "gems"),
+        balance: u64(data[4], "balance"),
+      };
+    }
+    case "CreditClaimed": {
+      // key player_id; data kind, period, credits
+      shape(name, keys, data, 1, 3);
+      const kind = small(data[0], 8, "kind");
+      if (kind !== 1 && kind !== 2) throw new DecodeError(`${name}: kind ${kind}, expected 1 or 2`);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        kind,
+        period: u64(data[1], "period"),
+        credits: small(data[2], 16, "credits"),
+      };
+    }
+    case "CreditSpent":
+      shape(name, keys, data, 1, 2);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        gameId: small(data[0], 32, "game_id"),
+        credits: small(data[1], 16, "credits"),
+      };
     case "Purchased":
       // keys game_id, player_id; data day, stake, price (u256), referrer, referral, burned_quote, burned, margin,
       // supply (u256 each), factor, reference, vault_paved (u256, P-56)
