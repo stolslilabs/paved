@@ -213,12 +213,17 @@ describe("the PackBought and Sold pairing", () => {
     });
     expect(indexer.status).toBe("ok");
     expect(indexer.store.dump().sales).toHaveLength(40);
-    const plan = (indexer.store.statement(`EXPLAIN QUERY PLAN ${PENDING_SALE}`).all() as { detail: string }[]).map((row) => row.detail);
-    // no full scan of sales: its rows are read through the primary key's index, in order, and the LIMIT 1 stops at the latest;
-    // each pairing probes pack_purchases by its unique key
-    expect(plan.filter((detail) => /SCAN (sales|pack_purchases|p)\b/.test(detail) && !/USING (COVERING )?INDEX/.test(detail)), plan.join(" | ")).toEqual([]);
-    expect(plan.join(" | ")).toMatch(/INDEX|PRIMARY KEY/);
     expect(indexer.store.statement(PENDING_SALE).get()).toBeUndefined(); // all paired: nothing pending
+    // An unpaired sale at a position before the latest one: only the latest sale is read, so it is not found. A lookup that scans
+    // every sale (the first version) returns this row.
+    indexer.store
+      .statement(
+        `INSERT INTO sales (block, tx, idx, player_id, price, referrer, referral, burned_quote, burned, margin, supply, vault_paved, time)
+         VALUES (1, 5, 0, :p, '1', :p, '0', '0', '0', '0', '0', '0', 0)`,
+      )
+      .run({ p: PA });
+    expect(indexer.store.dump().sales).toHaveLength(41);
+    expect(indexer.store.statement(PENDING_SALE).get()).toBeUndefined();
   });
 
   test("a pack never set, not on sale, or not as the pack is set, halts", async () => {
