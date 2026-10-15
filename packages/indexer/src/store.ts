@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "14";
+export const SCHEMA_VERSION = "15";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -197,6 +197,31 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS credit_spends_player ON credit_spends (player_id, block, tx, idx);
+  -- Cobbles v1 part 2 (cobbles-v1.md, 2). PackSet: the owner's packs, one row per event; the last row of a pack_id is the pack.
+  CREATE TABLE IF NOT EXISTS packs (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    pack_id INTEGER NOT NULL, cobbles INTEGER NOT NULL, price TEXT NOT NULL, active INTEGER NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS packs_id ON packs (pack_id, block, tx, idx);
+  -- Sold: Economy's split of a pack's USDC (amounts are decimal text), emitted before the PackBought of the same transaction.
+  CREATE TABLE IF NOT EXISTS sales (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, price TEXT NOT NULL, referrer TEXT NOT NULL, referral TEXT NOT NULL, burned_quote TEXT NOT NULL,
+    burned TEXT NOT NULL, margin TEXT NOT NULL, supply TEXT NOT NULL, vault_paved TEXT NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS sales_referrer ON sales (referrer, block);
+  -- PackBought (position: block, tx, idx), joined to its Sold (sale_idx: the Sold's idx in the same block and transaction, once
+  -- per Sold); balance is the player's cobbles after it, in the same running ledger as cobble_claims.
+  CREATE TABLE IF NOT EXISTS pack_purchases (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, pack_id INTEGER NOT NULL, cobbles INTEGER NOT NULL, price TEXT NOT NULL, referrer TEXT NOT NULL,
+    balance INTEGER NOT NULL, sale_idx INTEGER NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx),
+    UNIQUE (block, tx, sale_idx)
+  );
+  CREATE INDEX IF NOT EXISTS pack_purchases_player ON pack_purchases (player_id, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -710,6 +735,83 @@ export class Store {
             });
             break;
           }
+          case "PackSet": {
+            // Owner configuration: the last row of a pack id is the pack (a pack is never deleted, `active` stops its sales).
+            this.sql.insertPack.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              pack_id: event.packId,
+              cobbles: event.cobbles,
+              price: String(event.price),
+              active: event.active ? 1 : 0,
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "Sold": {
+            const player = padded(event.playerId);
+            const what = `Sold of ${player} ${where}`;
+            // Every Sold is followed by its PackBought in the same transaction (Setup.buy_pack): one still waiting is a pack the indexer did not see.
+            if (this.sql.unpairedSale.get()) throw new Halt(`${what}: an earlier Sold has no PackBought`);
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertSale.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              price: String(event.price),
+              referrer: padded(event.referrer),
+              referral: String(event.referral),
+              burned_quote: String(event.burnedQuote),
+              burned: String(event.burned),
+              margin: String(event.margin),
+              supply: String(event.supply),
+              vault_paved: String(event.vaultPaved),
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "PackBought": {
+            const player = padded(event.playerId);
+            const what = `PackBought of ${player} (pack ${event.packId}) ${where}`;
+            const pack = this.sql.pack.get(event.packId, at) as Row | undefined;
+            if (!pack) throw new Halt(`${what}: the pack was never set`);
+            if (!pack.active) throw new Halt(`${what}: the pack is not on sale`);
+            if (Number(pack.cobbles) !== event.cobbles || pack.price !== String(event.price)) {
+              throw new Halt(`${what}: cobbles ${event.cobbles} for ${event.price}, the pack is ${pack.cobbles} for ${pack.price}`);
+            }
+            // Its Sold: emitted just before, in the same transaction, for the same player and price.
+            const sale = this.sql.unpairedSale.get() as Row | undefined;
+            if (!sale) throw new Halt(`${what}: no Sold before it`);
+            if (sale.block !== at || sale.tx !== raw.transactionIndex || Number(sale.idx) > raw.eventIndex) {
+              throw new Halt(`${what}: its Sold is not in the same transaction`);
+            }
+            if (sale.player_id !== player) throw new Halt(`${what}: its Sold is another player's`);
+            if (sale.price !== String(event.price)) throw new Halt(`${what}: its Sold is for ${sale.price}`);
+            if (sale.referrer !== padded(event.referrer)) {
+              throw new Halt(`${what}: referrer ${padded(event.referrer)}, its Sold has ${sale.referrer}`);
+            }
+            // The running balance is the chain's own: claims and purchases both move it.
+            const expected = this.sql.cobbleBalance(player) + BigInt(event.cobbles);
+            if (expected !== event.balance) {
+              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
+            }
+            this.sql.insertPackPurchase.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              pack_id: event.packId,
+              cobbles: event.cobbles,
+              price: String(event.price),
+              referrer: padded(event.referrer),
+              balance: Number(event.balance),
+              sale_idx: Number(sale.idx),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "Purchased": {
             if (this.sql.purchase.get(event.gameId)) {
               throw new Halt(`Purchased of game ${event.gameId} ${where}: the game is already purchased`);
@@ -852,6 +954,9 @@ export class Store {
       this.sql.rewindCobbleClaims.run(to);
       this.sql.rewindCreditClaims.run(to);
       this.sql.rewindCreditSpends.run(to);
+      this.sql.rewindPackPurchases.run(to);
+      this.sql.rewindSales.run(to);
+      this.sql.rewindPacks.run(to);
       this.sql.rewindPodium.run(to);
       this.sql.rewindCloses.run(to);
       this.sql.rewindEvents.run(to);
@@ -887,6 +992,9 @@ export class Store {
     | "cobble_claims"
     | "credit_claims"
     | "credit_spends"
+    | "packs"
+    | "sales"
+    | "pack_purchases"
     | "events"
     | "blocks",
     Row[]
@@ -906,6 +1014,9 @@ export class Store {
       cobble_claims: all("SELECT * FROM cobble_claims ORDER BY block, tx, idx"),
       credit_claims: all("SELECT * FROM credit_claims ORDER BY block, tx, idx"),
       credit_spends: all("SELECT * FROM credit_spends ORDER BY block, tx, idx"),
+      packs: all("SELECT * FROM packs ORDER BY block, tx, idx"),
+      sales: all("SELECT * FROM sales ORDER BY block, tx, idx"),
+      pack_purchases: all("SELECT * FROM pack_purchases ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1059,17 +1170,44 @@ function statements(db: DatabaseSync) {
       `INSERT INTO credit_spends (block, tx, idx, player_id, game_id, credits, time)
        VALUES (:block, :tx, :idx, :player_id, :game_id, :credits, :time)`,
     ),
+    insertPack: db.prepare(
+      `INSERT INTO packs (block, tx, idx, pack_id, cobbles, price, active, time)
+       VALUES (:block, :tx, :idx, :pack_id, :cobbles, :price, :active, :time)`,
+    ),
+    insertSale: db.prepare(
+      `INSERT INTO sales (block, tx, idx, player_id, price, referrer, referral, burned_quote, burned, margin, supply, vault_paved, time)
+       VALUES (:block, :tx, :idx, :player_id, :price, :referrer, :referral, :burned_quote, :burned, :margin, :supply, :vault_paved, :time)`,
+    ),
+    insertPackPurchase: db.prepare(
+      `INSERT INTO pack_purchases (block, tx, idx, player_id, pack_id, cobbles, price, referrer, balance, sale_idx, time)
+       VALUES (:block, :tx, :idx, :player_id, :pack_id, :cobbles, :price, :referrer, :balance, :sale_idx, :time)`,
+    ),
+    // The pack as set at block `?` (the last PackSet of the id), and the oldest Sold that no PackBought has taken.
+    pack: db.prepare(
+      "SELECT cobbles, price, active FROM packs WHERE pack_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+    ),
+    unpairedSale: db.prepare(
+      `SELECT s.* FROM sales s
+       WHERE NOT EXISTS (SELECT 1 FROM pack_purchases p WHERE p.block = s.block AND p.tx = s.tx AND p.sale_idx = s.idx)
+       ORDER BY s.block, s.tx, s.idx LIMIT 1`,
+    ),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger, 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims and pack purchases), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
-        .prepare("SELECT balance FROM cobble_claims WHERE player_id = ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
-        .get(player) as { balance: number } | undefined;
+        .prepare(
+          `SELECT balance FROM (
+             SELECT block, tx, idx, balance FROM cobble_claims WHERE player_id = :p
+             UNION ALL
+             SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p
+           ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
+        )
+        .get({ p: player }) as { balance: number } | undefined;
       return BigInt(row?.balance ?? 0);
     },
     creditBalance: (player: string): number => {
@@ -1088,6 +1226,9 @@ function statements(db: DatabaseSync) {
     rewindCobbleClaims: db.prepare("DELETE FROM cobble_claims WHERE block > ?"),
     rewindCreditClaims: db.prepare("DELETE FROM credit_claims WHERE block > ?"),
     rewindCreditSpends: db.prepare("DELETE FROM credit_spends WHERE block > ?"),
+    rewindPackPurchases: db.prepare("DELETE FROM pack_purchases WHERE block > ?"),
+    rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
+    rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),
     insertEconomyDay: db.prepare(
       `INSERT INTO economy_days (day, mean, weight, prior, ema_after, closed_block, closed_time)

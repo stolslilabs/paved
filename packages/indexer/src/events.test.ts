@@ -12,7 +12,7 @@ import {
   padded,
 } from "./events.ts";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
-import { ev } from "./testing/fake-node.ts";
+import { ev, raw } from "./testing/fake-node.ts";
 
 type AbiItem = {
   type: string;
@@ -368,7 +368,7 @@ describe("Economy's events", () => {
       expect(variant.type.split("::").at(-1)).toBe(variant.name);
     }
     expect(own.map((v) => v.name).sort()).toEqual(
-      ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "RouterSet", "Settled"],
+      ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "RouterSet", "SellerSet", "Settled", "Sold"],
     );
     for (const name of ["Purchased", "Recorded", "DayClosed", "Settled"] as const) expect(EMITTERS[name]).toEqual(["economy"]);
     // The components (P-42): flat, so their events keep their own names as selectors, and every one is ignored.
@@ -646,5 +646,119 @@ describe("Cobbles v1 events (Setup, cobbles-v1.md 6.2)", () => {
     const kind = ev.creditClaimed(0x1234, 3 as 1, 1, 1);
     expect(() => decode("setup", kind.keys, kind.data)).toThrow(DecodeError);
     expect(() => decode("setup", s.keys, s.data.slice(0, 1))).toThrow(DecodeError);
+  });
+});
+
+describe("Cobbles v1 part 2 events (the packs and their sales, cobbles-v1.md section 2)", () => {
+  const declared = (contract: string, name: string) => {
+    const item = abi(contract).find((found) => found.type === "event" && found.kind === "struct" && shortOf(found) === name);
+    expect(item, `${contract}.${name}`).toBeDefined();
+    const members = (kind: string) => item!.members!.filter((m) => m.kind === kind).map((m) => `${m.name}: ${m.type.split("::").at(-1)}`);
+    return { keys: members("key"), data: members("data") };
+  };
+
+  test("the ABIs declare the four events, with the keys and data the decoders read, and one emitter each", () => {
+    expect(declared("Setup", "PackSet")).toEqual({
+      keys: ["pack_id: u8"],
+      data: ["cobbles: u32", "price: u128", "active: bool"],
+    });
+    expect(declared("Setup", "PackBought")).toEqual({
+      keys: ["player_id: felt252"],
+      data: ["pack_id: u8", "cobbles: u32", "price: u128", "referrer: ContractAddress", "balance: u64"],
+    });
+    expect(declared("Economy", "Sold")).toEqual({
+      keys: ["player_id: felt252"],
+      data: [
+        "price: u256",
+        "referrer: ContractAddress",
+        "referral: u256",
+        "burned_quote: u256",
+        "burned: u256",
+        "margin: u256",
+        "supply: u256",
+        "vault_paved: u256",
+      ],
+    });
+    expect(declared("Economy", "SellerSet")).toEqual({ keys: [], data: ["seller: ContractAddress"] });
+    expect(EMITTERS.PackSet).toEqual(["setup"]);
+    expect(EMITTERS.PackBought).toEqual(["setup"]);
+    expect(EMITTERS.Sold).toEqual(["economy"]);
+    for (const name of ["PackSet", "PackBought", "Sold"]) expect((IGNORED as readonly string[]).includes(name), name).toBe(false);
+  });
+
+  test("SellerSet is owner configuration no screen needs: known by name and skipped", () => {
+    expect((IGNORED as readonly string[]).includes("SellerSet")).toBe(true);
+    expect(decode("economy", [SELECTORS.SellerSet], ["0x1234"])).toBeNull();
+    expect(Object.keys(EMITTERS)).not.toContain("SellerSet");
+  });
+
+  test("PackSet", () => {
+    const e = ev.packSet(3, 500, 40_000_000n);
+    expect(decode("setup", e.keys, e.data)).toEqual({ name: "PackSet", packId: 3, cobbles: 500, price: 40_000_000n, active: true });
+    const off = ev.packSet(8, 1, 1n, false);
+    expect(decode("setup", off.keys, off.data)).toMatchObject({ packId: 8, active: false });
+    // a pack id of 0 or above 8, a cobbles value wider than u32, a price wider than u128, an active that is no bool, a missing member
+    for (const bad of [
+      ev.packSet(0, 50, 5n),
+      ev.packSet(9, 50, 5n),
+      ev.packSet(1, 2 ** 32, 5n),
+      ev.packSet(1, 50, 2n ** 128n),
+      raw("setup", "PackSet", [1], [50, 5, 2]),
+    ]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, e.data.slice(0, 2))).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
+  test("PackBought", () => {
+    const e = ev.packBought(0x1234, 2, 100, 9_000_000n, 0xe5, 2 ** 40);
+    expect(decode("setup", e.keys, e.data)).toEqual({
+      name: "PackBought",
+      playerId: 0x1234n,
+      packId: 2,
+      cobbles: 100,
+      price: 9_000_000n,
+      referrer: 0xe5n,
+      balance: 2n ** 40n,
+    });
+    const none = ev.packBought(0x1234, 1, 50, 5_000_000n, 0, 50);
+    expect(decode("setup", none.keys, none.data)).toMatchObject({ referrer: 0n, balance: 50n });
+    // a pack id of 0 or above 8, a balance above 2^53, a missing member
+    for (const bad of [ev.packBought(0x1234, 0, 50, 5n, 0, 50), ev.packBought(0x1234, 9, 50, 5n, 0, 50), ev.packBought(0x1234, 1, 50, 5n, 0, 2 ** 60)]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, e.data.slice(0, 4))).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
+  test("Sold", () => {
+    const e = ev.sold(0x1234, {
+      price: 2n ** 130n,
+      referrer: 0xe5,
+      referral: 450_000n,
+      burnedQuote: 1n,
+      burned: 2n,
+      margin: 3n,
+      supply: 4n,
+      vaultPaved: 2n ** 129n,
+    });
+    expect(decode("economy", e.keys, e.data)).toEqual({
+      name: "Sold",
+      playerId: 0x1234n,
+      price: 2n ** 130n,
+      referrer: 0xe5n,
+      referral: 450_000n,
+      burnedQuote: 1n,
+      burned: 2n,
+      margin: 3n,
+      supply: 4n,
+      vaultPaved: 2n ** 129n,
+    });
+    expect(() => decode("economy", e.keys, e.data.slice(0, 14))).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys, [...e.data, "0x0"])).toThrow(DecodeError);
+    const wide = raw("economy", "Sold", [0x1234], [2n ** 128n, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(() => decode("economy", wide.keys, wide.data)).toThrow(DecodeError);
+    expect(() => decode("setup", e.keys, e.data)).toThrow(/does not emit it/);
   });
 });

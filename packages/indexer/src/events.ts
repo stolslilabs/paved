@@ -163,6 +163,40 @@ export type Decoded =
       gameId: number;
       credits: number;
     }
+  | {
+      /** The owner's pack (`Setup.set_pack`, cobbles-v1.md 2.2); `active` false stops its sales. */
+      name: "PackSet";
+      packId: number;
+      cobbles: number;
+      /** USDC base units (u128). */
+      price: bigint;
+      active: boolean;
+    }
+  | {
+      /** A pack bought, after its `Sold` in the same transaction. `balance`: the player's cobbles after it. */
+      name: "PackBought";
+      playerId: bigint;
+      packId: number;
+      cobbles: number;
+      /** USDC base units (u128). */
+      price: bigint;
+      /** The referrer that counted; 0 when none. */
+      referrer: bigint;
+      balance: bigint;
+    }
+  | {
+      /** Economy's split of a pack's USDC (`Economy.sell`), emitted before `PackBought` in the same transaction. */
+      name: "Sold";
+      playerId: bigint;
+      price: bigint;
+      referrer: bigint;
+      referral: bigint;
+      burnedQuote: bigint;
+      burned: bigint;
+      margin: bigint;
+      supply: bigint;
+      vaultPaved: bigint;
+    }
   | { name: "Recorded"; gameId: number; score: number; expired: boolean }
   | {
       name: "DayClosed";
@@ -191,6 +225,8 @@ export type TaskTarget = { taskId: number; total: number };
 /** quiver 0.2.0 (`MAX_TASKS`, `MAX_CONDITIONS`): a definition holds 1 to 3 tasks and at most 7 prerequisites. */
 export const MAX_TASKS = 3;
 export const MAX_CONDITIONS = 7;
+/** The highest pack id `Setup.set_pack` takes (cobbles-v1.md 2.2: 1 to 8). */
+export const MAX_PACK_ID = 8;
 
 export type EventName = Decoded["name"];
 
@@ -216,6 +252,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   CobblesClaimed: ["setup"],
   CreditClaimed: ["setup"],
   CreditSpent: ["setup"],
+  // Cobbles v1 part 2 (cobbles-v1.md, 2): the packs and their sales. SellerSet is owner configuration, skipped by name.
+  PackSet: ["setup"],
+  PackBought: ["setup"],
+  Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
   DayClosed: ["economy"],
@@ -241,6 +281,8 @@ export const IGNORED = [
   "EconomyConfigured",
   "PoolSet",
   "GameSet",
+  // The owner's choice of the one account that may call `Economy.sell` (`set_seller`, cobbles-v1.md 2.3): Setup. No screen shows it.
+  "SellerSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
   // The owner's one-time wiring of Collection's minters (`Collection.set_minters`, G7a): data `[challenge, tutorial]`, no keys. No screen shows the minters.
@@ -301,6 +343,9 @@ const INDEXED: readonly EventName[] = [
   "CobblesClaimed",
   "CreditClaimed",
   "CreditSpent",
+  "PackSet",
+  "PackBought",
+  "Sold",
   "Purchased",
   "Recorded",
   "DayClosed",
@@ -592,6 +637,53 @@ export function decode(
         playerId: felt(keys[1]),
         gameId: small(data[0], 32, "game_id"),
         credits: small(data[1], 16, "credits"),
+      };
+    case "PackSet": {
+      // key pack_id; data cobbles (u32), price (u128), active
+      shape(name, keys, data, 1, 3);
+      const packId = small(keys[1], 8, "pack_id");
+      if (packId === 0 || packId > MAX_PACK_ID) {
+        throw new DecodeError(`${name}: pack id ${packId}, expected 1 to ${MAX_PACK_ID}`);
+      }
+      return {
+        name,
+        packId,
+        cobbles: small(data[0], 32, "cobbles"),
+        price: uint(data[1], 128, "price"),
+        active: bool(data[2], "active"),
+      };
+    }
+    case "PackBought": {
+      // key player_id; data pack_id (u8), cobbles (u32), price (u128), referrer, balance (u64)
+      shape(name, keys, data, 1, 5);
+      const packId = small(data[0], 8, "pack_id");
+      if (packId === 0 || packId > MAX_PACK_ID) {
+        throw new DecodeError(`${name}: pack id ${packId}, expected 1 to ${MAX_PACK_ID}`);
+      }
+      return {
+        name,
+        playerId: felt(keys[1]),
+        packId,
+        cobbles: small(data[1], 32, "cobbles"),
+        price: uint(data[2], 128, "price"),
+        referrer: felt(data[3]),
+        balance: u64(data[4], "balance"),
+      };
+    }
+    case "Sold":
+      // key player_id; data price, referrer, referral, burned_quote, burned, margin, supply, vault_paved (u256 each, but the referrer)
+      shape(name, keys, data, 1, 15);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        price: u256(data, 0, "price"),
+        referrer: felt(data[2]),
+        referral: u256(data, 3, "referral"),
+        burnedQuote: u256(data, 5, "burned_quote"),
+        burned: u256(data, 7, "burned"),
+        margin: u256(data, 9, "margin"),
+        supply: u256(data, 11, "supply"),
+        vaultPaved: u256(data, 13, "vault_paved"),
       };
     case "Purchased":
       // keys game_id, player_id; data day, stake, price (u256), referrer, referral, burned_quote, burned, margin,
