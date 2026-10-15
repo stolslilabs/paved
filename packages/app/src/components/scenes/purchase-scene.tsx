@@ -19,11 +19,11 @@ import { TopBar } from "../containers/top-bar";
  * Why the last purchase did not go through, as the page reads it from the writer's typed error: `moved`, the price changed
  * since the confirm; `quote-moved`, the pool's quote moved (the swap's `min_out`; the price did not); `low-quote`, a quote far
  * below the guard rate (Buy anyway sends it); `paused`, new games paused; `unknown`, sent but the receipt could not tell (Pay
- * waits for the reconciling reads, then offers Buy again); `busy`, another write of the account is on its way; `refused`,
- * anything else.
+ * is held while it is checked, then offers Buy again only); `landed`, the receipt of an unknown purchase read since: it went
+ * through; `busy`, another write of the account is on its way; `refused`, anything else.
  */
 export interface PurchaseRefusal {
-  kind: "moved" | "quote-moved" | "low-quote" | "paused" | "unknown" | "busy" | "refused";
+  kind: "moved" | "quote-moved" | "low-quote" | "paused" | "unknown" | "landed" | "busy" | "refused";
   message: string;
 }
 
@@ -33,25 +33,43 @@ const REFUSAL_TITLE: Record<PurchaseRefusal["kind"], string> = {
   "low-quote": "Low pool quote",
   paused: "Purchases paused",
   unknown: "Outcome unknown",
+  landed: "Purchase went through",
   busy: "Another transaction",
   refused: "Purchase refused",
 };
 
-function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: { label: string; onCheck?: () => void } }) {
-  const tone = refusal.kind === "refused" ? "danger" : refusal.kind === "busy" ? "info" : "warning";
+/** How an unknown purchase is checked: where the player looks, and whether the check's reads failed (Retry). */
+interface Check {
+  label: string;
+  onCheck?: () => void;
+  failed?: boolean;
+  onRetry?: () => void;
+}
+
+function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
+  const tone = refusal.kind === "refused" ? "danger" : refusal.kind === "busy" || refusal.kind === "landed" ? "info" : "warning";
+  const checkable = (refusal.kind === "unknown" || refusal.kind === "landed") && check;
   return (
     <Notice
       tone={tone}
       title={REFUSAL_TITLE[refusal.kind]}
       action={
-        refusal.kind === "unknown" && check ? (
-          <Button size="sm" variant="outline" onClick={check.onCheck}>
-            {check.label}
-          </Button>
+        checkable ? (
+          <span className="flex flex-col gap-1.5">
+            {refusal.kind === "unknown" && check.failed && (
+              <Button size="sm" onClick={check.onRetry}>
+                Retry
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={check.onCheck}>
+              {check.label}
+            </Button>
+          </span>
         ) : undefined
       }
     >
       {refusal.message}
+      {refusal.kind === "unknown" && check?.failed && " It could not be checked: Retry."}
     </Notice>
   );
 }
@@ -91,8 +109,10 @@ export interface CobbleShop {
   quoting?: boolean;
   /** Why the last pack's purchase did not go through. */
   refusal?: PurchaseRefusal | null;
-  /** After an unknown outcome, the Cobbles and the USDC are being read again: Pay waits. */
+  /** After an unknown outcome, the receipt, the Cobbles and the USDC are being read again: Pay waits. */
   checking?: boolean;
+  /** That check failed: Pay stays held, and Retry checks again. */
+  checkFailed?: boolean;
   /** The packs are being read (`Setup.pack`). */
   loading?: boolean;
   /** The packs could not be read: why (Retry reads them again). */
@@ -126,8 +146,10 @@ export interface PurchaseSceneProps {
   quoting?: boolean;
   /** Why the last game's purchase did not go through. */
   refusal?: PurchaseRefusal | null;
-  /** After an unknown outcome, the player's games and USDC are being read again: Pay waits. */
+  /** After an unknown outcome, the receipt, the player's games and USDC are being read again: Pay waits. */
   checking?: boolean;
+  /** That check failed: Pay stays held, and Retry checks again. */
+  checkFailed?: boolean;
   /** A wallet is connected; a guest's Pay is "Connect to buy". Connected when omitted (the stories). */
   connected?: boolean;
   now: number;
@@ -145,6 +167,8 @@ export interface PurchaseSceneProps {
   onConnect?: () => void;
   onRetryBalance?: () => void;
   onRetryPacks?: () => void;
+  /** Check an unknown purchase again after a failed check. */
+  onRetryCheck?: () => void;
   /** After an unknown outcome: where the player sees whether the game was bought. */
   onCheckGames?: () => void;
   /** After an unknown outcome: read the Cobbles again. */
@@ -207,7 +231,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
 function GameTab(props: PurchaseSceneProps) {
   const { stake, quote, balance, spawnPaused, buying, now, refusal, connected = true } = props;
   const short = connected && balance !== null && balance < quote.price;
-  const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking;
+  const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking || props.checkFailed;
   const label = retryLabel(refusal);
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
@@ -264,7 +288,7 @@ function GameTab(props: PurchaseSceneProps) {
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames }} />
+          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, onRetry: props.onRetryCheck }} />
         )}
 
         {!connected ? (
@@ -275,6 +299,8 @@ function GameTab(props: PurchaseSceneProps) {
               "Confirm in your wallet…"
             ) : props.checking ? (
               "Checking your games…"
+            ) : props.checkFailed ? (
+              "Could not check your games"
             ) : label ? (
               label
             ) : (
@@ -342,7 +368,9 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
         )}
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
-        {refusal && !cobbles.buying && <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles }} />}
+        {refusal && !cobbles.buying && (
+          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, onRetry: props.onRetryCheck }} />
+        )}
         {bought && !refusal && !cobbles.buying && (
           <Notice tone="info" title="Pack bought">
             <Cobbles value={bought.cobbles} size="sm" /> added: your balance is <Cobbles value={cobbles.balance} size="sm" />.
@@ -355,7 +383,7 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
             size="lg"
             className="h-14 text-base"
             onClick={onBuyPack}
-            disabled={!pack || short || cobbles.quoting || balance === null || cobbles.checking}
+            disabled={!pack || short || cobbles.quoting || balance === null || cobbles.checking || cobbles.checkFailed}
             loading={cobbles.buying}
           >
             {cobbles.buying ? (
@@ -364,6 +392,8 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
               "Pick a pack"
             ) : cobbles.checking ? (
               "Checking your Cobbles…"
+            ) : cobbles.checkFailed ? (
+              "Could not check your Cobbles"
             ) : label ? (
               label
             ) : (

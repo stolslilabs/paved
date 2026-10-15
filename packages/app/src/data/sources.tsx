@@ -37,10 +37,15 @@ export interface Purchases {
   buyPack: PackBuyer["buy"];
   /**
    * The referrer a purchase of `kind` sends for the link's `referrer`, or null when it would send none: one the writers
-   * refuse (the payer, the Challenge, the Economy) is dropped rather than refusing the purchase, and for a pack one
-   * `Economy.pay` ignores (`Setup`, the Vault, the router) too (`packReferrer`).
+   * refuse (the payer, the Challenge, the Economy) is dropped rather than refusing the purchase, and so is one
+   * `Economy.pay` ignores (`Setup`, the Vault, the router read now; `packReferrer`, the same rule for a game and a pack).
    */
   referrer(kind: "game" | "pack", referrer: string): Promise<string | null>;
+  /**
+   * The outcome of a sent transaction from its receipt: `unknown` while the node does not know the hash. A failed read
+   * (not a missing hash) rejects, and the page keeps its hold.
+   */
+  receipt(transactionHash: string): Promise<"succeeded" | "reverted" | "unknown">;
 }
 
 /**

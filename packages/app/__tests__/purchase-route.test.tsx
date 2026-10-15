@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,6 +27,7 @@ import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import type { GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
 import { purchaseRefusal, referrerParam } from "../src/data/purchase";
+import { unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
 import { createTestRouter } from "../src/routes/router";
@@ -69,19 +70,37 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   /**
    * `gate`: while set, the account waits for it before answering (the page's pending state). `noEvents`: the receipt carries
    * no event (an unknown outcome). `balanceGate`, `balanceFail`, `packsGate`: the USDC balance's and the packs' reads wait,
-   * or the balance's fails.
+   * or the balance's fails. `balanceGateAt`: only that call of `usdcBalance` (1-based) waits for `balanceGate`.
+   * `receipts`: what `getTransactionReceipt` answers by hash (a hash not listed is unknown to the node, error 29);
+   * `receiptGate`: the receipt's read waits for it.
    */
-  const state: { gate: Promise<void> | null; revert: string | null; noEvents: boolean; balanceGate: Promise<void> | null; balanceFail: string | null; packsGate: Promise<void> | null } = {
+  const state: {
+    gate: Promise<void> | null;
+    revert: string | null;
+    noEvents: boolean;
+    balanceGate: Promise<void> | null;
+    balanceGateAt: number | null;
+    balanceCalls: number;
+    balanceFail: string | null;
+    packsGate: Promise<void> | null;
+    receipts: Map<string, "SUCCEEDED" | "REVERTED">;
+    receiptGate: Promise<void> | null;
+  } = {
     gate: null,
     revert: options.revert ?? null,
     noEvents: false,
     balanceGate: null,
+    balanceGateAt: null,
+    balanceCalls: 0,
     balanceFail: null,
     packsGate: null,
+    receipts: new Map(),
+    receiptGate: null,
   };
   const usdcBalance = economy.usdcBalance.bind(economy);
   economy.usdcBalance = async (account) => {
-    if (state.balanceGate) await state.balanceGate;
+    const call = ++state.balanceCalls;
+    if (state.balanceGate && (state.balanceGateAt === null || state.balanceGateAt === call)) await state.balanceGate;
     if (state.balanceFail) throw new Error(state.balanceFail);
     return usdcBalance(account);
   };
@@ -118,7 +137,19 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     }
     return { execution_status: "SUCCEEDED", events: [] };
   };
-  const rpc = { callContract: async () => [], getChainId: async () => FAKE_CHAIN_ID, getEvents: async () => ({ events: [] }), waitForTransaction: receipt } as unknown as PavedRpc;
+  const getTransactionReceipt = async (hash: string) => {
+    if (state.receiptGate) await state.receiptGate;
+    const status = state.receipts.get(hash);
+    if (!status) throw Object.assign(new Error("RPC: starknet_getTransactionReceipt: 29: Transaction hash not found"), { code: 29 });
+    return { execution_status: status };
+  };
+  const rpc = {
+    callContract: async () => [],
+    getChainId: async () => FAKE_CHAIN_ID,
+    getEvents: async () => ({ events: [] }),
+    waitForTransaction: receipt,
+    getTransactionReceipt,
+  } as unknown as PavedRpc;
   const base = resolveDeployment({ network: "devnet", file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } });
   const client = new PavedClient({ ...base, chainId: FAKE_CHAIN_ID }, rpc, createCodecs(), views);
   const econ = createEconomyClient(resolveEconomyDeployment({ base: { ...base, chainId: FAKE_CHAIN_ID }, file: FAKE_ROUTER_FILE, env: ECON }), client, economy, pool)!;
@@ -147,9 +178,27 @@ const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n)
 
 beforeEach(() => {
   queryClient.clear();
+  localStorage.clear();
   resetWelcomedForTests();
   markWelcomed();
 });
+
+/** Pays a stake whose receipt shows no event: the outcome is unknown, recorded under the send's hash (0x1). */
+async function unknownGame(s: ReturnType<typeof setup>) {
+  const opened = open("/play/challenge", s);
+  const button = await enabledPay();
+  s.state.noEvents = true;
+  await userEvent.click(button);
+  expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+  return opened;
+}
+
+/** A reload: the page and the app's cache gone, the browser's storage kept. */
+function reload(s: ReturnType<typeof setup>, path = "/play/challenge") {
+  document.body.innerHTML = "";
+  queryClient.clear();
+  return open(path, s);
+}
 afterEach(() => resetWelcomedForTests());
 
 describe("/play/challenge: the game's stake", () => {
@@ -485,5 +534,135 @@ describe("purchaseRefusal and referrerParam", () => {
     expect(referrerParam("bob", PLAYER)).toBeNull();
     expect(referrerParam("0x05f1", PLAYER)).toBeNull();
     expect(referrerParam("0x5f1", null)).toBe("0x5f1");
+  });
+});
+
+describe("an unknown outcome survives a remount, a reload and a failed check (review loop 2)", () => {
+  it("Check my games, then back: still held, then Buy again only; nothing sent on a click while held", async () => {
+    const s = setup();
+    const { router } = await unknownGame(s);
+    expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"');
+    let release = () => {};
+    s.state.receiptGate = new Promise<void>((r) => (release = r));
+    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: 3000 }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    // Home is shown: the purchase page has unmounted (a navigation keeps the old page until the new one has loaded).
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
+    await act(() => router.navigate(-1));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    const held = await screen.findByRole("button", { name: "Checking your games…" });
+    expect(held).toBeDisabled();
+    await userEvent.click(held);
+    expect(s.sent).toHaveLength(1);
+    release();
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(s.sent).toHaveLength(1);
+  });
+
+  it("after a reload the stored record holds Pay: Outcome unknown and Buy again, no plain Pay", async () => {
+    const s = setup();
+    await unknownGame(s);
+    reload(s);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(s.sent).toHaveLength(1);
+    // Buy again is deliberate: it clears the record and sends.
+    s.state.noEvents = false;
+    await userEvent.click(again);
+    await waitFor(() => expect(s.sent).toHaveLength(2));
+    expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull();
+  });
+
+  it("the record is cleared once the receipt reads: it went through, and Pay is back", async () => {
+    const s = setup();
+    await unknownGame(s);
+    s.state.receipts.set("0x1", "SUCCEEDED");
+    reload(s);
+    expect(await screen.findByText("Purchase went through", undefined, { timeout: 3000 })).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
+    expect(await enabledPay()).toBeInTheDocument();
+    expect(screen.queryByText("Outcome unknown")).toBeNull();
+  });
+
+  it("a reverted receipt clears the record too: nothing was spent", async () => {
+    const s = setup();
+    await unknownGame(s);
+    s.state.receipts.set("0x1", "REVERTED");
+    reload(s);
+    expect(await screen.findByText(/did not go through: your USDC was not spent/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
+  });
+
+  it("a failed check keeps the hold, with Retry", async () => {
+    const s = setup();
+    const opened = open("/play/challenge", s);
+    void opened;
+    const button = await enabledPay();
+    s.state.noEvents = true;
+    s.state.balanceFail = "node down";
+    await userEvent.click(button);
+    const held = await screen.findByRole("button", { name: "Could not check your games" }, { timeout: 5000 });
+    expect(held).toBeDisabled();
+    expect(screen.getByText(/It could not be checked: Retry/)).toBeInTheDocument();
+    await userEvent.click(held);
+    expect(s.sent).toHaveLength(1);
+    s.state.balanceFail = null;
+    s.state.noEvents = false;
+    // The outcome's own Retry (the balance's notice has one too).
+    const outcome = screen.getByText("Outcome unknown").closest("[role=alert]") as HTMLElement;
+    await userEvent.click(within(outcome).getByRole("button", { name: "Retry" }));
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+  });
+
+  it("the hold waits for the check's own USDC read: only that call gated, no early release", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    const button = await enabledPay();
+    s.state.noEvents = true;
+    let release = () => {};
+    s.state.balanceGate = new Promise<void>((r) => (release = r));
+    // The next usdcBalance call after the send is the check's; only it waits.
+    s.state.balanceGateAt = s.state.balanceCalls + 1;
+    await userEvent.click(button);
+    const held = await screen.findByRole("button", { name: "Checking your games…" }, { timeout: 3000 });
+    // Other reads come and go meanwhile; the hold stays until the gated read answers.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(held).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Buy again" })).toBeNull();
+    release();
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+  });
+
+  it("a pack's unknown outcome survives a reload too", async () => {
+    const s = setup();
+    open("/play/challenge?tab=cobbles", s);
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    const button = await enabledPay(/Pay \$5 for/);
+    s.state.noEvents = true;
+    await userEvent.click(button);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    reload(s, "/play/challenge?tab=cobbles");
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    expect(await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(s.sent).toHaveLength(1);
+  });
+
+  it("a ?ref= the game's split ignores (the Vault) is dropped with a notice, and the game is bought with 0x0", async () => {
+    const s = setup();
+    open(`/play/challenge?ref=${ECON.vault}`, s);
+    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    await userEvent.click(await enabledPay());
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
+    expect(s.pool.calls).not.toContain(1_900_000n);
   });
 });

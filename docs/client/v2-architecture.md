@@ -1776,10 +1776,15 @@ purchase, and the split shown is the one the contract pays. The states: guest ("
 being read, unreadable (Retry) or none on sale, a price that changed (`PurchasePriceChangedError`,
 `PackPriceChangedError`), the pool's quote that moved (`PoolPriceMovedError`, the swap's `min_out` revert: "The pool's
 quote moved: confirm again"), a quote far below the guard rate ("Buy anyway"), another transaction on its way (a neutral
-wait), pending, refused (the writer's message), an unknown outcome, and success (the board; a pack's Cobbles added). After
-an unknown outcome Pay and Buy are held until the reconciling reads settle (a game: the player's games, active game and
-USDC; a pack: the Cobbles and USDC), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends,
-since a game's second purchase would be signed without a prompt. The app's
+wait), pending, refused (the writer's message), an unknown outcome, and success (the board; a pack's Cobbles added). An
+unknown outcome is recorded per player and kind (its transaction hash, in `localStorage`, the query cache when storage is
+off: `data/unknown-purchase.ts`), so it survives a remount ("Check my games" and back), a reload and a second tab. While
+it is recorded, each mount checks its receipt and the reads that tell whether it landed (a game: the player's games, active
+game and USDC; a pack: the Cobbles and USDC), each with `fetchQuery`. Pay and Buy are held during that check and while it
+fails ("could not check", Retry), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends
+(and clears the record), since a game's second purchase would be signed without a prompt. A receipt that reads (it went
+through, or reverted) clears the record. The game's referrer follows the same rule as a pack's (`packReferrer`: `Setup`,
+the Vault and the router read at the time are dropped too), since both go through `Economy.pay`. The app's
 sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
 `data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).
 

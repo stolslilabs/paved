@@ -4,7 +4,6 @@ import {
   createEconomyClient,
   packBuyerOf,
   packReferrer,
-  referrerOf,
   resolveEconomyDeployment,
   type EconomyClient,
   type EconomyDeploymentFile,
@@ -51,12 +50,10 @@ export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purcha
   return {
     purchase: (request) => economy.writer(signer).purchase(request),
     buyPack: (request) => packBuyerOf(economy, signer).buy(request),
-    referrer: async (kind, referrer) => {
+    // A game's purchase and a pack's go through the same `Economy.pay`, which ignores the same addresses: one rule for both.
+    referrer: async (_kind, referrer) => {
       try {
-        const sent =
-          kind === "pack"
-            ? packReferrer(referrer, signer.address, deployment, await economy.views.router())
-            : referrerOf(referrer, signer.address, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
+        const sent = packReferrer(referrer, signer.address, deployment, await economy.views.router());
         return sent === "0x0" ? null : sent;
       } catch (error) {
         // A referrer the contract would not pay: dropped, never a refused purchase.
@@ -64,5 +61,28 @@ export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purcha
         throw error;
       }
     },
+    receipt: (hash) => receiptOutcome(economy.base.provider, hash),
   };
+}
+
+/** What `receiptOutcome` reads: starknet.js's `getTransactionReceipt` (its receipt keeps the node's `execution_status`). */
+interface ReceiptReader {
+  getTransactionReceipt?: (hash: string) => Promise<{ execution_status?: string }>;
+}
+
+/** The node does not know the hash (JSON-RPC error 29, `TXN_HASH_NOT_FOUND`): not a failed read. */
+const hashNotFound = (error: unknown): boolean =>
+  (error as { code?: unknown }).code === 29 || /TXN_HASH_NOT_FOUND|Transaction hash not found/i.test(error instanceof Error ? error.message : String(error));
+
+/** A sent transaction's outcome from its receipt: `unknown` until the node knows it; any other failed read rejects. */
+export async function receiptOutcome(provider: unknown, hash: string): Promise<"succeeded" | "reverted" | "unknown"> {
+  const reader = provider as ReceiptReader;
+  if (!reader.getTransactionReceipt) throw new Error("This network cannot read a receipt");
+  try {
+    const receipt = await reader.getTransactionReceipt(hash);
+    return receipt.execution_status === "SUCCEEDED" ? "succeeded" : receipt.execution_status === "REVERTED" ? "reverted" : "unknown";
+  } catch (error) {
+    if (hashNotFound(error)) return "unknown";
+    throw error;
+  }
 }

@@ -17,6 +17,17 @@ import { useConnectError } from "../connect-error";
 import { useNow } from "../now";
 import { useAppNavigate, useBack } from "../ref";
 
+/**
+ * What the scene shows of a purchase whose outcome was unknown (`usePurchaseHold`): while recorded, the unknown outcome (Pay
+ * held, then Buy again only); once its receipt read, that it went through or reverted; null otherwise.
+ */
+function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles"): PurchaseRefusal | null {
+  if (hold.unknown) return { kind: "unknown", message: `Purchase sent (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.` };
+  if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
+  if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
+  return null;
+}
+
 /** The pool quote of a confirm could not be used: why, as a refusal the scene shows before any send. */
 function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error: Error | null }, asked: boolean): PurchaseRefusal | null {
   if (!asked || quote.isPending || quote.minOut !== null) return null;
@@ -30,8 +41,9 @@ function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error:
  * reads them all again, with the router and the rate) and opens the new game on its board. The Cobbles tab (`?tab=cobbles`)
  * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
  * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said) when
- * the contracts would not pay it. A guest's Pay connects. After an unknown outcome Pay waits for the reconciling reads, then
- * offers Buy again; an unread USDC balance is unknown, not 0: Pay waits for it.
+ * the contracts would not pay it. A guest's Pay connects. An unknown outcome is recorded per player (it survives a remount,
+ * a reload and a second tab): Pay is held while its receipt and the reconciling reads are checked, and while that check
+ * fails (Retry), then only a deliberate Buy again sends. An unread USDC balance is unknown, not 0: Pay waits for it.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -70,12 +82,19 @@ export default function Page() {
   }
   if (quote.data === undefined || split.data === undefined) return <PurchaseStatus error={null} onBack={onBack} />;
 
-  const gameRefusal = purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected);
-  const packRefusal = buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null);
+  const gameHold = purchase.hold;
+  const packHold = buyPack.hold;
+  const gameRefusal =
+    heldRefusal(gameHold, "games") ?? (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
+  const packRefusal =
+    heldRefusal(packHold, "Cobbles") ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const confirm = () => {
     if (!purchase.buyer) return void wallet.connect();
-    if (stakeQuote.minOut === null || purchase.checking || gameReferrer.isPending) return;
+    if (stakeQuote.minOut === null || gameHold.held || gameReferrer.isPending) return;
+    // A deliberate Buy again: the earlier purchase is left to the player's check.
+    if (gameHold.unknown) gameHold.clear();
+    gameHold.dismiss();
     purchase.mutation.mutate(
       { stake, confirmedPrice: quote.data!.price, confirmedMinOut: stakeQuote.minOut, referrer: gameReferrer.referrer, acceptedLowQuote: gameRefusal?.kind === "low-quote" },
       { onSuccess: ({ gameId }) => go(`/game/${gameId}`) },
@@ -83,7 +102,9 @@ export default function Page() {
   };
   const buy = () => {
     if (!buyPack.buyer) return void wallet.connect();
-    if (!pack || packQuote.minOut === null || buyPack.checking || packReferrer.isPending) return;
+    if (!pack || packQuote.minOut === null || packHold.held || packReferrer.isPending) return;
+    if (packHold.unknown) packHold.clear();
+    packHold.dismiss();
     buyPack.mutation.mutate({
       packId: pack.packId,
       confirmedPrice: pack.price,
@@ -115,7 +136,8 @@ export default function Page() {
       buying={purchase.mutation.isPending}
       quoting={stakeQuote.isPending || gameReferrer.isPending}
       refusal={purchase.mutation.isPending ? null : gameRefusal}
-      checking={purchase.checking}
+      checking={gameHold.checking}
+      checkFailed={gameHold.failed}
       connected={connected}
       now={now}
       tab={tab}
@@ -131,7 +153,8 @@ export default function Page() {
               buying: buyPack.mutation.isPending,
               quoting: packQuote.isPending || packReferrer.isPending,
               refusal: buyPack.mutation.isPending ? null : packRefusal,
-              checking: buyPack.checking,
+              checking: packHold.checking,
+              checkFailed: packHold.failed,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
             }
       }
@@ -149,6 +172,7 @@ export default function Page() {
       onConnect={() => void wallet.connect()}
       onRetryBalance={() => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) })}
       onRetryPacks={() => void client.invalidateQueries({ queryKey: packKeys.packs() })}
+      onRetryCheck={() => (tab === "cobbles" ? packHold : gameHold).retry()}
       onCheckGames={() => go("/")}
       onCheckCobbles={() => playerId && void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) })}
       onBack={onBack}

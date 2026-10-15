@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey, type UseQueryResult } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
   PackPriceChangedError,
@@ -28,9 +28,10 @@ import {
 } from "@paved/chain";
 import type { PurchaseRefusal } from "../components/scenes/purchase-scene";
 import { usePoolQuote } from "./chain";
-import { cobbleKeys } from "./cobbles";
+import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type Purchases } from "./sources";
+import { useUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
 
 // The purchase page's data and writes (P7b, section 6.4): the game's stake (`EconomyWriter.purchase`: the approve and
 // `Challenge.spawn(stake, referrer, min_out)`) and the packs of Cobbles (`PackBuyer.buy`: the approve and `Setup.buy_pack`).
@@ -128,64 +129,118 @@ export function useEffectiveReferrer(kind: "game" | "pack", ref: string | null):
     enabled: buyer !== null && ref !== null,
   });
   if (!buyer || ref === null) return { referrer: ref, dropped: false, isPending: false };
-  // A failed check keeps the link's referrer: the writers check it again and refuse it with their message.
+  // An answer read once is kept over a later failed refetch.
+  if (query.data !== undefined) return { referrer: query.data, dropped: query.data === null, isPending: false };
+  // A failed first check keeps the link's referrer: the writers check it again and refuse it with their message.
   if (query.error) return { referrer: ref, dropped: false, isPending: false };
-  if (query.data === undefined) return { referrer: ref, dropped: false, isPending: true };
-  return { referrer: query.data, dropped: query.data === null, isPending: false };
+  return { referrer: ref, dropped: false, isPending: true };
 }
 
 /** The outcome of a send is unknown: the player must see the reconciling reads before buying again. */
-const outcomeUnknown = (error: Error | null): boolean => error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError;
+const outcomeUnknown = (error: Error | null): error is WriteError =>
+  (error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError) && !!error.transactionHash;
+
+/** The receipt of an unknown purchase, once read: it landed, or it reverted (nothing moved). */
+export type PurchaseResolution = "succeeded" | "reverted";
 
 /**
- * After an unknown outcome, the reads that tell whether the purchase landed, held until they have settled: `checking` is
- * true meanwhile, and the page keeps Pay disabled. `reconcile` refetches the keys (cached or not); `read` fetches one the
- * page does not read itself (the player's games).
+ * The hold of a purchase whose outcome is unknown (`unknown-purchase.ts`: recorded per player and kind, so it survives a
+ * remount, a reload and a second tab). While a record exists the check reads the transaction's receipt and the reads that
+ * tell whether it landed (a game: the player's games, the active game and the USDC; a pack: the Cobbles and the USDC), each
+ * with `fetchQuery`, so a key not in the cache is read too. `held` while the record is read, while the check runs, and while
+ * it has failed (`failed`, Retry with `retry`); then only a deliberate Buy again sends (`clear` first). A receipt that reads
+ * (`resolved`) clears the record.
  */
-function useReconcile() {
+export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
+  const { unknown, isPending, record, clear } = useUnknownPurchase(playerId, kind);
+  const buyer = usePurchases();
+  const { economy, events, views } = useDataSources();
   const client = useQueryClient();
-  const [checking, setChecking] = useState(false);
-  const reconcile = (keys: QueryKey[], reads: Array<() => Promise<unknown>> = []) => {
-    setChecking(true);
-    const all = [...keys.map((queryKey) => client.refetchQueries({ queryKey, type: "all" })), ...reads.map((read) => read())];
-    void Promise.allSettled(all).then(() => setChecking(false));
+  const [resolved, setResolved] = useState<PurchaseResolution | null>(null);
+  const hash = unknown?.hash ?? null;
+  const check = useQuery({
+    queryKey: ["chain", "purchaseCheck", kind, hash ?? ""],
+    queryFn: async () => {
+      const id = playerId as string;
+      const usdc = client.fetchQuery({ queryKey: queryKeys.chain.usdcBalance(id), queryFn: () => (economy ? economy.usdcBalance(id) : null), staleTime: 0 });
+      const reads: Array<Promise<unknown>> =
+        kind === "game"
+          ? [
+              usdc,
+              client.fetchQuery({
+                queryKey: queryKeys.chain.playerGames(id),
+                queryFn: async () => [...(await events.playerGames(id, ["challenge"]))].sort((a, b) => b.startTime - a.startTime),
+                staleTime: 0,
+              }),
+              client.fetchQuery({
+                queryKey: queryKeys.chain.activeGame(id),
+                queryFn: async () => {
+                  const open = (await events.playerGames(id, ["challenge"])).filter((g) => !g.over);
+                  const newest = open.sort((a, b) => b.startTime - a.startTime)[0];
+                  return newest ? views.game({ mode: newest.mode, gameId: newest.gameId }) : null;
+                },
+                staleTime: 0,
+              }),
+            ]
+          : [usdc, client.fetchQuery({ queryKey: cobbleKeys.account(id), queryFn: () => cobbleViews(views)?.account(id) ?? null, staleTime: 0 })];
+      const [outcome] = await Promise.all([buyer!.receipt(hash as string), ...reads]);
+      return outcome;
+    },
+    enabled: hash !== null && buyer !== null && playerId !== null,
+    retry: false,
+    // Every mount checks again (a remount, a reload): the hold never rests on an earlier answer.
+    refetchOnMount: "always",
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const outcome = check.data;
+  useEffect(() => {
+    if (outcome !== "succeeded" && outcome !== "reverted") return;
+    setResolved(outcome);
+    clear();
+  }, [outcome, clear]);
+  const checking = isPending || (hash !== null && (check.isPending || check.isFetching) && !check.isError);
+  const failed = hash !== null && check.isError;
+  return {
+    unknown,
+    held: checking || failed || (hash !== null && buyer === null),
+    checking,
+    failed,
+    retry: () => void check.refetch(),
+    resolved,
+    dismiss: () => setResolved(null),
+    record,
+    clear,
   };
-  return { checking, reconcile };
 }
 
 /**
  * Buys a Challenge game. On its receipt the player's USDC, games and active game are read again; the page opens the new
- * game (`gameId`). `buyer` is null without a signer or an economy: the page asks to connect.
+ * game (`gameId`). An unknown outcome is recorded (`usePurchaseHold`), and its reads are left to the hold's check rather
+ * than invalidated here, so an invalidation never cancels the check's own read. `buyer` is null without a signer or an
+ * economy: the page asks to connect.
  */
 export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
-  const { events } = useDataSources();
-  const { checking, reconcile } = useReconcile();
+  const hold = usePurchaseHold("game", playerId);
+  const { record } = hold;
   const mutation = useMutation<WriteResult & { gameId: number }, Error, PurchaseRequest>({
     mutationFn: (request) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
     onError: (error) => {
-      // Sent, outcome unknown: the player's games and USDC are read again before Pay is offered (as Buy again).
-      if (!outcomeUnknown(error) || !playerId) return;
-      const games = () =>
-        client.fetchQuery({
-          queryKey: queryKeys.chain.playerGames(playerId),
-          queryFn: async () => [...(await events.playerGames(playerId, ["challenge"]))].sort((a, b) => b.startTime - a.startTime),
-          staleTime: 0,
-        });
-      reconcile([queryKeys.chain.usdcBalance(playerId), queryKeys.chain.activeGame(playerId)], [games]);
+      if (outcomeUnknown(error)) record(error.transactionHash!);
     },
-    onSettled: () => {
+    onSettled: (_data, error) => {
       // A refusal may come from a moved price or a pause: those reads are stale too.
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
       void client.invalidateQueries({ queryKey: queryKeys.chain.spawnPaused() });
-      if (!playerId) return;
+      if (!playerId || outcomeUnknown(error)) return;
       void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) });
       void client.invalidateQueries({ queryKey: queryKeys.chain.playerGames(playerId) });
       void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(playerId) });
     },
   });
-  return { buyer, mutation, checking };
+  return { buyer, mutation, hold };
 }
 
 /** A pack's receipt into the cache: the Cobbles balance `PackBought` carries. */
@@ -196,30 +251,31 @@ export function applyPackBought(client: ReturnType<typeof useQueryClient>, playe
 
 /**
  * Buys a pack of Cobbles. Its receipt's `PackBought` sets the balance in the cache, then the account and the USDC are read
- * again (the reconciling read). `buyer` is null without a signer or an economy.
+ * again (the reconciling read). An unknown outcome is recorded and held, as a game's (`usePurchaseHold`). `buyer` is null
+ * without a signer or an economy.
  */
 export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
-  const { checking, reconcile } = useReconcile();
+  const hold = usePurchaseHold("pack", playerId);
+  const { record } = hold;
   const mutation = useMutation<WriteResult & { bought: PackBought }, Error, PackPurchaseRequest>({
     mutationFn: (request) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
     onSuccess: ({ bought }) => {
       if (playerId) applyPackBought(client, playerId, bought);
     },
     onError: (error) => {
-      // Sent, outcome unknown: the Cobbles and the USDC are read again before Buy is offered (as Buy again).
-      if (outcomeUnknown(error) && playerId) reconcile([cobbleKeys.account(playerId), queryKeys.chain.usdcBalance(playerId)]);
+      if (outcomeUnknown(error)) record(error.transactionHash!);
     },
-    onSettled: () => {
+    onSettled: (_data, error) => {
       void client.invalidateQueries({ queryKey: packKeys.packs() });
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-      if (!playerId) return;
+      if (!playerId || outcomeUnknown(error)) return;
       void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
       void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) });
     },
   });
-  return { buyer, mutation, checking };
+  return { buyer, mutation, hold };
 }
 
 /**

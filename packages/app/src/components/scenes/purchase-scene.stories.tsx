@@ -78,6 +78,12 @@ const UNKNOWN = { kind: "unknown", message: "Purchase sent (0x5f1e), outcome unk
 export const OutcomeUnknown: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, checking: true, onCheckGames: fn() } };
 /** The reads have settled: only a deliberate Buy again. */
 export const OutcomeUnknownChecked: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, onCheckGames: fn() } };
+/** The check failed (a read down): Pay stays held, Retry checks again. */
+export const OutcomeUnknownCheckFailed: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn() } };
+/** The receipt of the unknown purchase read since: it went through. */
+export const EarlierPurchaseLanded: Story = {
+  args: { ...PURCHASE.stake1, refusal: { kind: "landed", message: "Your earlier purchase went through: check your games before buying again." }, onCheckGames: fn() },
+};
 /** The USDC balance could not be read: unknown, not 0; Pay waits, Retry reads it again. */
 export const BalanceUnread: Story = { args: { ...PURCHASE.stake1, balance: null, balanceError: "Cannot reach the node.", onRetryBalance: fn() } };
 /** A `?ref=` the contracts would not pay: dropped, said, and the purchase goes on without it. */
