@@ -39,7 +39,8 @@ export function PackCard({ pack, selected, disabled, onSelect, className }: Pack
         className,
       )}
     >
-      <span className="flex items-start justify-between gap-2">
+      {/* In a 360 px column the larger counts and the badge do not fit on one line: the badge wraps under (WRAP360). */}
+      <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <Gems value={pack.gems} size="lg" />
         {selected ? <Icon name="circle-check" size="md" className="text-primary" /> : <Badge variant="success">-{discount}%</Badge>}
       </span>

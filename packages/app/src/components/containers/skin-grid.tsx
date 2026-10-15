@@ -63,8 +63,9 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
           {forSale && !buying && short > 0 && <span className="text-[11px] text-warning">Need {short} more</span>}
         </div>
       ) : (
-        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-xs">
-          <span className="flex min-w-0 flex-col wrap-anywhere">
+        // Stacked: in a 360 px row of three, the switch beside its label would leave the label too narrow (WRAP360).
+        <label className="flex min-h-11 cursor-pointer flex-col items-start gap-1.5 text-xs">
+          <span className="flex min-w-0 flex-col">
             <span className={state === "active" ? "text-primary" : "text-muted-foreground"}>{state === "active" ? "Active" : "Owned"}</span>
             {replaces && state !== "active" && <span className="text-[11px] text-muted-foreground">Replaces {THEMES.find((t) => t.id === replaces)?.name}</span>}
           </span>
