@@ -96,7 +96,7 @@ describe("face antialiasing", () => {
     const scene = new GameScene();
     let size = { width: 1440, height: 900 };
     const setAntialiasing = vi.fn();
-    (scene as any).effects = { setAntialiasing, resize: vi.fn() };
+    (scene as any).effects = { setLook: vi.fn(), setAntialiasing, resize: vi.fn() };
     (scene as any).renderer = { capabilities: { maxSamples: 4 }, setPixelRatio: vi.fn(), setSize: vi.fn() };
     (scene as any).webgl = { renderer: "Apple GPU", software: false, reason: "GPU renderer" };
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2 };

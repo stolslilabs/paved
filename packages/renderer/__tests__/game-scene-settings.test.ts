@@ -37,7 +37,7 @@ describe("GameScene settings", () => {
     const { scene } = sceneWithCamera();
     const setAntialiasing = vi.fn();
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    (scene as any).effects = { setAntialiasing };
+    (scene as any).effects = { setLook: vi.fn(), setAntialiasing };
     (scene as any).renderer = { capabilities: { maxSamples: 4 } };
     (scene as any).webgl = { renderer: "ANGLE (Apple, Metal)", software: false, reason: "GPU renderer" };
     scene.setSettings({ multisampling: true });
@@ -77,9 +77,9 @@ describe("GameScene settings", () => {
   it("sets the outlines' stroke on every frame it draws", () => {
     const { scene } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke };
+    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
-    (scene as any).effects = { render: vi.fn() };
+    (scene as any).effects = { setLook: vi.fn(), render: vi.fn() };
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledWith(scene.getZoom().outline, DEFAULT_RENDERER_SETTINGS.outlines.color);
   });
@@ -87,9 +87,9 @@ describe("GameScene settings", () => {
   it("sets the stroke again only when the zoom or the settings change", () => {
     const { scene, camera } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke };
+    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
-    (scene as any).effects = { render: vi.fn(), setAntialiasing: vi.fn() };
+    (scene as any).effects = { setLook: vi.fn(), render: vi.fn(), setAntialiasing: vi.fn() };
     scene.render();
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(1);
@@ -110,9 +110,9 @@ describe("GameScene settings", () => {
   it("follows a resize: the opening tile size S is recomputed from the new height, and the stroke with it", () => {
     const { scene, camera } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke };
+    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
-    (scene as any).effects = { render: vi.fn() };
+    (scene as any).effects = { setLook: vi.fn(), render: vi.fn() };
     camera.position.set(0, 240, 0); // the opening view
     const desktop = scene.getZoom();
     expect(desktop.openingTilePx).toBeCloseTo(openingTilePixels(camera, 900), 9);

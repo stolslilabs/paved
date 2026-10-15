@@ -44,7 +44,7 @@ async function createScene() {
   });
   (scene as any).assets.preloadAll = vi.fn().mockResolvedValue(undefined);
   const shadowDrawn: boolean[] = [];
-  (scene as any).effects = {
+  (scene as any).effects = { setLook: vi.fn(),
     init: vi.fn(),
     setCapabilities: vi.fn(),
     setProfile: vi.fn(),
@@ -56,7 +56,7 @@ async function createScene() {
     }),
     dispose: vi.fn(),
   };
-  (scene as any).tiles = { updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn(), setOutlineStroke: vi.fn() };
+  (scene as any).tiles = { setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn(), setOutlineStroke: vi.fn() };
   await scene.init({ surface: adapter });
   return { scene, renderer, shadowDrawn, moveCamera: () => onCameraChange() };
 }

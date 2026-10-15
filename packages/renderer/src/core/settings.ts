@@ -1,5 +1,16 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
+import {
+  DEFAULT_LOOK_PRESET,
+  LOOK_PRESETS,
+  LOOK_PRESET_NAMES,
+  QUALITY_TIERS,
+  mergeLookSettings,
+  type LookPreset,
+  type LookSettings,
+  type LookSettingsInput,
+  type QualityTier,
+} from "./look";
 
 /**
  * The renderer's settings: one object with defaults, given to `GameScene` (`RendererConfig.settings`,
@@ -33,6 +44,16 @@ export interface RendererSettings {
    * small screen, 1.5 elsewhere (DPR, then OUT-LOD, `docs/client/v2-architecture.md` 5.3).
    */
   maxPixelRatio: number | "auto";
+  /** The preset the look starts from (`LOOK_PRESETS`): "mockup" (the default), "soft" or "off". */
+  lookPreset: LookPreset;
+  /** The lighting and post-processing (`look.ts`): the preset's, with any field overridden. */
+  look: LookSettings;
+  /**
+   * The graphics quality (P11a's settings row): which costly effects run (`TIER_EFFECTS`). `"auto"` (the default) takes
+   * the device's (`resolveQuality`, `AUTO_QUALITY`): high on a coarse pointer or a small screen, medium elsewhere, low
+   * on a low-power device. Provisional until measured on the GPU.
+   */
+  quality: QualityTier | "auto";
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -55,6 +76,10 @@ export interface RendererSettingsInput {
   camera?: Partial<CameraZoomSettings>;
   multisampling?: boolean | "auto";
   maxPixelRatio?: number | "auto";
+  /** A preset: the look starts from it, then `look` overrides its fields. Unset, the base's look. */
+  lookPreset?: LookPreset;
+  look?: LookSettingsInput;
+  quality?: QualityTier | "auto";
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -72,6 +97,9 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
   multisampling: "auto",
   maxPixelRatio: "auto",
+  lookPreset: DEFAULT_LOOK_PRESET,
+  look: LOOK_PRESETS[DEFAULT_LOOK_PRESET],
+  quality: "auto",
 };
 
 /**
@@ -96,7 +124,7 @@ export interface PixelRatioDevice {
 }
 
 /** A coarse pointer, or a window or screen whose shorter side is at most `SMALL_SCREEN_PX`: a phone or a tablet. */
-function coarseOrSmall(device: PixelRatioDevice): boolean {
+export function coarseOrSmall(device: PixelRatioDevice): boolean {
   const shorter = Math.min(device.width, device.height);
   return device.coarsePointer || (shorter > 0 && shorter <= SMALL_SCREEN_PX);
 }
@@ -124,11 +152,16 @@ export function resolveRendererSettings(
   // A spread copies `force: undefined` over the default: an unset or unknown value is "auto", not a forced path.
   if (!OUTLINE_FORCES.includes(outlines.force)) outlines.force = "auto";
   const maxPixelRatio = input.maxPixelRatio ?? base.maxPixelRatio;
+  const preset = LOOK_PRESET_NAMES.includes(input.lookPreset!) ? input.lookPreset! : null;
+  const quality = input.quality === "auto" || QUALITY_TIERS.includes(input.quality!) ? input.quality! : base.quality;
   return {
     outlines,
     camera: { ...base.camera, ...input.camera },
     multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
+    lookPreset: preset ?? base.lookPreset,
+    look: mergeLookSettings(preset ? LOOK_PRESETS[preset] : base.look, input.look),
+    quality,
   };
 }
 

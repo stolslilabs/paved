@@ -30,9 +30,11 @@ import {
   type OutlineStroke,
   type WebGLDetection,
 } from "./outlines";
+import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
   capPixelRatio,
+  coarseOrSmall,
   resolveMaxPixelRatio,
   resolveMultisampling,
   resolveRendererSettings,
@@ -43,8 +45,12 @@ import {
 
 const CLICK_THRESHOLD = 5;
 
-const DIRECTIONAL_POSITION: [number, number, number] = [35, 50, 65];
 const DIRECTIONAL_TARGET: [number, number, number] = [0, 0, 0];
+/**
+ * The key light's distance from its target: that of the former fixed position (35, 50, 65), so the shadow camera's
+ * 1 to 100 depth range and its biases below hold at every direction of the look.
+ */
+const KEY_DISTANCE = Math.hypot(35, 50, 65);
 const SHADOW_MAP_SIZE = 2048;
 const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
@@ -122,6 +128,8 @@ export class GameScene {
   private ambientLight: THREE.AmbientLight | null = null;
   private hemisphereLight: THREE.HemisphereLight | null = null;
   private directionalLight: THREE.DirectionalLight | null = null;
+  /** The cooler fill (`LookSettings.fill`): no shadow. */
+  private fillLight: THREE.DirectionalLight | null = null;
   private directionalTargetObject: THREE.Object3D | null = null;
   private settings: RendererSettings = resolveRendererSettings();
   /** The tile size the outlines' stroke was last set for (NaN: set it on the next frame). */
@@ -206,7 +214,8 @@ export class GameScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.webgl = detectSoftwareWebGL(this.renderer.getContext?.());
     this.logOutlinePath();
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // The composer's last pass tone-maps (`FinishPass`); three's own tone mapping only reaches `screenshot()`.
+    this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1;
 
     if (shadows) {
@@ -237,6 +246,7 @@ export class GameScene {
     this.effectsCapabilities = effectsCapabilities;
     this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing());
     this.effects.setCapabilities(effectsCapabilities);
+    this.applyLook();
     this.logAntialiasingPath();
 
     // Follow the container's size and the screen's pixel ratio, from now on: a change while the models load counts too.
@@ -297,6 +307,8 @@ export class GameScene {
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
     this.effects.setAntialiasing(this.faceAntialiasing());
     this.logAntialiasingPath();
+    // `quality: "auto"` follows the window too.
+    this.applyLook();
     this.requestRender();
   }
 
@@ -308,7 +320,6 @@ export class GameScene {
     this.scene.add(this.hemisphereLight);
 
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    this.directionalLight.position.set(...DIRECTIONAL_POSITION);
     this.directionalLight.castShadow = true;
     this.directionalLight.shadow.mapSize.width = SHADOW_MAP_SIZE;
     this.directionalLight.shadow.mapSize.height = SHADOW_MAP_SIZE;
@@ -327,31 +338,63 @@ export class GameScene {
     this.directionalLight.target = this.directionalTargetObject;
     this.scene.add(this.directionalLight);
 
-    this.applyLightingProfile(this.renderProfile);
+    this.fillLight = new THREE.DirectionalLight(0xffffff, 0);
+    this.fillLight.target = this.directionalTargetObject;
+    this.scene.add(this.fillLight);
   }
 
-  private applyLightingProfile(profileName: RenderProfile): void {
-    const profile = getLightingProfile(profileName);
-    if (this.renderer) {
-      this.renderer.toneMappingExposure = profile.exposure;
-    }
-    this.scene.background = new THREE.Color(profile.backgroundColor);
-    this.scene.fog = new THREE.FogExp2(profile.fogColor, profile.fogDensity);
+  /** The quality tier in effect: `RendererSettings.quality`, or for "auto" the device's (`resolveQuality`). */
+  getQuality(): QualityTier {
+    return resolveQuality(this.settings.quality, coarseOrSmall(this.device()), this.effectsCapabilities);
+  }
 
-    if (this.ambientLight) {
-      this.ambientLight.intensity = profile.ambientIntensity;
-    }
+  /** The look as drawn: the settings' look at the tier in effect, what the capabilities forbid turned off. */
+  getLook(): LookSettings {
+    return resolveLook(this.settings.look, this.getQuality(), this.effectsCapabilities);
+  }
+
+  /**
+   * Apply the settings' look (`look.ts`): the chain of effects at the tier in effect, the lights, the background and
+   * fog, the slots' and ghost's highlights and the water. A new key-light direction redraws the shadow map.
+   */
+  private applyLook(): void {
+    this.effects.setLook(this.settings.look, this.getQuality());
+    const look = this.getLook();
+    const profile = getLightingProfile(this.renderProfile);
+    const play = getLightingProfile("play");
+
+    if (this.renderer) this.renderer.toneMappingExposure = look.toneMapping.exposure;
+    this.scene.background = new THREE.Color(look.background);
+    this.scene.fog = look.fog.enabled
+      ? new THREE.FogExp2(look.background, (look.fog.density * profile.fogDensity) / play.fogDensity)
+      : null;
+
+    if (this.ambientLight) this.ambientLight.intensity = look.sky.enabled ? look.sky.ambient : 0;
     if (this.hemisphereLight) {
-      this.hemisphereLight.intensity = profile.hemisphereSkyIntensity;
-      this.hemisphereLight.groundColor.setRGB(
-        0.16 * profile.hemisphereGroundIntensity,
-        0.24 * profile.hemisphereGroundIntensity,
-        0.13 * profile.hemisphereGroundIntensity,
-      );
+      this.hemisphereLight.color.set(look.sky.skyColor);
+      this.hemisphereLight.groundColor.set(look.sky.groundColor);
+      this.hemisphereLight.intensity = look.sky.enabled ? look.sky.intensity : 0;
     }
-    if (this.directionalLight) {
-      this.directionalLight.intensity = profile.directionalIntensity;
+    if (this.fillLight) {
+      this.fillLight.color.set(look.fill.color);
+      this.fillLight.intensity = look.fill.enabled ? look.fill.intensity : 0;
+      this.fillLight.position.set(...lightDirection(look.fill.azimuth, look.fill.elevation)).multiplyScalar(KEY_DISTANCE);
+      this.fillLight.visible = look.fill.enabled;
     }
+    const key = this.directionalLight;
+    if (key) {
+      key.color.set(look.key.color);
+      key.intensity = look.key.enabled ? look.key.intensity : 0;
+      key.visible = look.key.enabled;
+      const position = new THREE.Vector3(...lightDirection(look.key.azimuth, look.key.elevation))
+        .multiplyScalar(KEY_DISTANCE)
+        .add(new THREE.Vector3(...DIRECTIONAL_TARGET));
+      if (!position.equals(key.position) || key.shadow.radius !== look.key.shadowSoftness) this.requestShadowUpdate();
+      key.position.copy(position);
+      key.shadow.radius = look.key.shadowSoftness;
+    }
+    this.tiles.setLook(look.highlights, look.water);
+    this.requestRender();
   }
 
   private setupInteraction(surface: RenderSurfaceAdapter): void {
@@ -483,8 +526,9 @@ export class GameScene {
 
   setRenderProfile(profile: RenderProfile): void {
     this.renderProfile = profile;
-    this.applyLightingProfile(profile);
+    // The profile scales the look's exposure (`Effects`) and its fog density against the play profile's.
     this.effects.setProfile(profile);
+    this.applyLook();
     this.requestRender();
   }
 
@@ -499,6 +543,7 @@ export class GameScene {
     this.applyCameraLimits();
     this.effects.setAntialiasing(this.faceAntialiasing());
     this.logAntialiasingPath();
+    this.applyLook();
     // A new cap refits the drawing buffer and the composer's targets at once.
     if (this.surface && this.renderer && this.cappedPixelRatio() !== this.pixelRatio) this.resize();
     this.requestRender();
@@ -745,6 +790,7 @@ export class GameScene {
     this.ambientLight = null;
     this.hemisphereLight = null;
     this.directionalLight = null;
+    this.fillLight = null;
     this.directionalTargetObject = null;
 
     if (this.renderer) {

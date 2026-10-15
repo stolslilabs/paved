@@ -59,7 +59,7 @@ function createScene(adapter: RenderSurfaceAdapter) {
     createCameraController: vi.fn(() => controller as any),
   });
   (scene as any).assets.preloadAll = vi.fn().mockResolvedValue(undefined);
-  (scene as any).effects = {
+  (scene as any).effects = { setLook: vi.fn(),
     init: vi.fn(),
     setCapabilities: vi.fn(),
     setProfile: vi.fn(),

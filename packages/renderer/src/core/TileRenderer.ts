@@ -5,6 +5,7 @@ import { buildEdgesGeometry } from "./edges";
 import { applyOutlineStroke, createOutline, createOutlineMaterial, isOutline, type OutlineStroke } from "./outlines";
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
+import { LOOK_PRESETS, type LookSettings } from "./look";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -22,6 +23,30 @@ const INVALID_COLOR = 0xffa500; // orange
 const INVALID_OPACITY = 0.4;
 const HOVER_COLOR = 0xadd8e6; // light blue
 const HOVER_OPACITY = 0.004;
+const INVALID_GHOST_COLOR = 0xff3b30;
+
+/**
+ * The empty slot's outline: a square band just inside the tile's edge (a tile is `TILE_SIZE`, half 1.5), from 1.30 to
+ * 1.42 of half-width. `RingGeometry` with 4 segments is a square standing on a corner: its radius is the half-width
+ * times the square root of 2.
+ */
+const SLOT_INNER = 1.3 * Math.SQRT2;
+const SLOT_OUTER = 1.42 * Math.SQRT2;
+
+/**
+ * The water of the tile palettes: its texels are cyan-blue (blue above green above red, in linear colour: (0, 130, 167)
+ * and (90, 157, 194) in sRGB, among others), the palette's roofs and banners are violet (green under red) and its
+ * stone grey. The mask picks the first by hue and nothing else; `uWater` x 0 turns it off.
+ */
+export const WATER_MASK_GLSL = /* glsl */ `
+  float waterMask = uWaterOn
+    * smoothstep(1.1, 1.2, diffuseColor.b / max(diffuseColor.g, 1e-4))
+    * smoothstep(1.5, 1.7, diffuseColor.g / max(diffuseColor.r, 1e-4));
+  diffuseColor.rgb *= mix(1.0, uWaterBrightness, waterMask);
+`;
+
+/** The look's parts the tiles draw: the slots' and ghost's highlights, and the water. */
+export type TileLook = Pick<LookSettings, "highlights" | "water">;
 
 export class TileRenderer {
   private group: THREE.Group;
@@ -34,6 +59,7 @@ export class TileRenderer {
   private squareSize = TILE_SIZE;
   private previewContainer: THREE.Group | null = null;
   private previewKey: string | null = null;
+  private previewValid = false;
 
   // Shared by every tile and owned here: tiles hold no geometry or material of their own.
   // The model of each plan type, with its tuned materials (its geometry is the loader's).
@@ -45,7 +71,14 @@ export class TileRenderer {
   private strategySideMaterial: THREE.Material | null = null;
   private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
   private slotGeometry: THREE.BufferGeometry | null = null;
-  private slotMaterial: THREE.Material | null = null;
+  private slotMaterial: THREE.MeshBasicMaterial | null = null;
+  private look: TileLook = LOOK_PRESETS.mockup;
+  /** The water's uniforms, shared by every patched tile material (`patchWater`): a look change sets them, no recompile. */
+  private waterUniforms = {
+    uWaterOn: { value: 1 },
+    uWaterBrightness: { value: 1 },
+    uWaterRoughness: { value: 1 },
+  };
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -166,6 +199,7 @@ export class TileRenderer {
           TILE_MAX_METALNESS,
         );
         child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
+        this.patchWater(child.material);
       }
       child.castShadow = true;
       child.receiveShadow = true;
@@ -175,6 +209,44 @@ export class TileRenderer {
     }
     this.tileTypes.set(key, model);
     return model;
+  }
+
+  /**
+   * The water texels of a tile material brighter and glossier (`LookSettings.water`): the mask (`WATER_MASK_GLSL`) after
+   * the palette is read, the roughness after it is set. Every patched material compiles to one program.
+   */
+  private patchWater(material: THREE.MeshStandardMaterial): void {
+    const uniforms = this.waterUniforms;
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, uniforms);
+      shader.fragmentShader = shader.fragmentShader
+        .replace("void main() {", "uniform float uWaterOn;\nuniform float uWaterBrightness;\nuniform float uWaterRoughness;\nvoid main() {")
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}`)
+        .replace(
+          "#include <roughnessmap_fragment>",
+          "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
+        );
+    };
+    material.customProgramCacheKey = () => "paved-tile-water";
+  }
+
+  /** The highlights' colours and the water (`LookSettings`): shared materials and uniforms, nothing rebuilt. */
+  setLook(highlights: LookSettings["highlights"], water: LookSettings["water"]): void {
+    this.look = { highlights, water };
+    this.waterUniforms.uWaterOn.value = water.enabled ? 1 : 0;
+    this.waterUniforms.uWaterBrightness.value = water.brightness;
+    this.waterUniforms.uWaterRoughness.value = water.roughness;
+    this.slotMaterial?.color.copy(slotColor(highlights));
+    if (this.previewContainer && this.previewKey) {
+      // The ghost's tint is set when it is made: make it again with the new one.
+      const container = this.previewContainer;
+      container.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial && this.previewValid) {
+          child.material.emissive.set(highlights.ghostColor);
+          child.material.emissiveIntensity = highlights.ghostIntensity;
+        }
+      });
+    }
   }
 
   private createVoxelTile(tile: TileRenderData): THREE.Object3D | null {
@@ -313,8 +385,10 @@ export class TileRenderer {
       };
       model.rotation.y = rotationMap[orientation.value] ?? 0;
 
-      // Tint preview: keep original materials visible with a green/red emissive glow
-      const tintColor = new THREE.Color(state.valid ? 0x00ff00 : 0xff0000);
+      // Tint the ghost: its own materials, with the look's gold glow where it fits (red where it does not)
+      const { ghostColor, ghostIntensity } = this.look.highlights;
+      const tintColor = new THREE.Color(state.valid ? ghostColor : INVALID_GHOST_COLOR);
+      this.previewValid = state.valid;
       // The model's materials are its own copies (its geometry is shared, see AssetLoader)
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
@@ -322,7 +396,7 @@ export class TileRenderer {
             child.material.transparent = true;
             child.material.opacity = 0.75;
             child.material.emissive = tintColor;
-            child.material.emissiveIntensity = 0.4;
+            child.material.emissiveIntensity = ghostIntensity;
           } else {
             disposeMaterials(child.material);
             child.material = new THREE.MeshStandardMaterial({
@@ -330,7 +404,7 @@ export class TileRenderer {
               transparent: true,
               opacity: 0.75,
               emissive: tintColor,
-              emissiveIntensity: 0.4,
+              emissiveIntensity: ghostIntensity,
             });
           }
         }
@@ -375,16 +449,17 @@ export class TileRenderer {
 
     // Shared geometry and material for all indicators
     if (!this.slotGeometry) {
-      this.slotGeometry = new THREE.RingGeometry(0.8, 1.2, 4);
+      this.slotGeometry = new THREE.RingGeometry(SLOT_INNER, SLOT_OUTER, 4);
       this.slotGeometry.rotateX(-Math.PI / 2); // lay flat on ground
-      this.slotGeometry.rotateY(Math.PI / 4); // rotate 45° so corners point N/S/E/W
+      this.slotGeometry.rotateY(Math.PI / 4); // rotate 45° so the sides follow the tile's
     }
+    // Emissive gold, brighter than 1 in linear colour so the bloom picks it out; no fog, so it glows at every distance.
     this.slotMaterial ??= new THREE.MeshBasicMaterial({
-      color: 0x44cc66,
-      transparent: true,
-      opacity: 0.45,
+      color: slotColor(this.look.highlights),
       side: THREE.DoubleSide,
       depthWrite: false,
+      fog: false,
+      toneMapped: false,
     });
 
     for (const slot of slots) {
@@ -462,6 +537,11 @@ export class TileRenderer {
     this.slotMaterial?.dispose();
     this.slotMaterial = null;
   }
+}
+
+/** The slots' colour: the look's gold at its intensity (above 1 in linear colour: it blooms). */
+function slotColor(highlights: LookSettings["highlights"]): THREE.Color {
+  return new THREE.Color(highlights.slotColor).multiplyScalar(highlights.slotIntensity);
 }
 
 function disposeMaterials(material: THREE.Material | THREE.Material[]): void {
