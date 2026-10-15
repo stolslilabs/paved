@@ -36,8 +36,8 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
                 <Icon name="chevron-left" />
               </Button>
             )}
-            <div className="flex min-w-0 flex-col">
-              <h1 className="truncate font-display text-2xl font-semibold">{title}</h1>
+            <div className="flex min-w-0 flex-col wrap-anywhere">
+              <h1 className="font-display text-2xl font-semibold">{title}</h1>
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>
           </div>

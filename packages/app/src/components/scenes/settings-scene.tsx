@@ -3,7 +3,8 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
-import { PlayerName, shortAddress } from "../elements/player-name";
+import { PlayerName } from "../elements/player-name";
+import { ShortAddress } from "../elements/short-address";
 import { SettingSwitch } from "../elements/setting-switch";
 import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
@@ -111,9 +112,14 @@ export function SettingsScene(props: SettingsSceneProps) {
                 </Avatar>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <PlayerName name={account.name} address={account.address} className="text-sm font-semibold" />
-                  <span className="flex items-center gap-1.5 text-xs text-success">
-                    <span aria-hidden className="size-1.5 rounded-full bg-success" />
-                    Connected <span className="font-mono text-muted-foreground">{shortAddress(account.address)}</span>
+                  {/* The status and the address are two pieces that never break inside: in a narrow column the address goes
+                      to the next line whole (WRAP360), never "0x05f1…" over "6e7f". */}
+                  <span className="flex flex-wrap items-center gap-x-1.5 text-xs">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-success">
+                      <span aria-hidden className="size-1.5 rounded-full bg-success" />
+                      Connected
+                    </span>{" "}
+                    <ShortAddress address={account.address} className="text-muted-foreground" />
                   </span>
                 </span>
                 <Button size="sm" variant="outline" onClick={props.onDisconnect}>
@@ -125,7 +131,7 @@ export function SettingsScene(props: SettingsSceneProps) {
                 <Icon name="user" className="text-muted-foreground" size="md" fixedWidth />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-sm font-semibold">Guest</span>
-                  <span className="text-xs text-muted-foreground">Training is saved on this device only.</span>
+                  <span className="text-xs wrap-anywhere text-muted-foreground">Training is saved on this device only.</span>
                 </span>
                 <Button size="sm" onClick={props.onConnect} loading={props.connecting}>
                   Connect

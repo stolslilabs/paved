@@ -690,3 +690,66 @@ D-23 (`public-interface.md`, "Breaking change D-23") renames the contract `Daily
 - **`PlayerCreated`** left `paved::events::Event`, so it is no longer in `Challenge.json`; it stays a past event (above).
 - **Not yet in the package**: `packages/indexer` still reads `contracts.Daily` (`src/deployment.ts`) and `Daily.json`, and
   its source and API `contract` value are `daily`; the rename is META's own D-23 PR.
+
+## As built (IX-GEMS1, cobbles v1 part 1: the ledger, the claims, the credits and the free games)
+
+`cobbles-v1.md` (6.2, 6.3) adds five `Setup` events and a free spawn on `Challenge`. Schema version 14 (`rebuild` on an older
+database). `Setup`'s events are flat variants: the selector is the variant's name.
+
+**Events**
+
+| Event | Keys, then data | Indexed as |
+|---|---|---|
+| `QuestCobblesSet` | `quest_id`; `cobbles`, `kind` | `cobble_amounts` (the quests page needs the amount of each quest) |
+| `AchievementCobblesSet` | `achievement_id`; `cobbles` | `cobble_amounts` |
+| `CobblesClaimed` | `player_id`; `kind` (1 quest, 2 achievement), `id`, `period`, `cobbles`, `balance` | `cobble_claims` |
+| `CreditClaimed` | `player_id`; `kind` (1 day, 2 week), `period`, `credits` | `credit_claims` |
+| `CreditSpent` | `player_id`; `game_id`, `credits` | `credit_spends` |
+
+The two `*CobblesSet` events are owner configuration, indexed (not skipped by name like the other owner events) because the API
+serves the amount of each quest and achievement. The part-2 events (`PackSet`, `PackBought`, `Sold`, skins) are not known
+yet: the indexer halts on them until their part lands.
+
+**Tables.** One row per event, at its chain position `(block, tx, idx)`, so a rewind is a delete by block; the balance
+and the credits are the last row of the ledger, never a stored sum.
+
+- `cobble_amounts (subject, id, cobbles, kind)`: the last row of an id is its amount (0 removes it). Kept for an id not defined
+  yet.
+- `cobble_claims (player_id, kind, id, period, cobbles, balance)`: unique per `(player, kind, id, period)`.
+- `credit_claims (player_id, kind, period, credits)`: unique per `(player, kind, period)`.
+- `credit_spends (player_id, game_id, credits)`: unique per game.
+- A claimant is a player from the claim (`players`).
+
+**Halts.** The chain's own running values are checked, not trusted: a second claim of the same key, a `CobblesClaimed.balance`
+that is not the previous balance plus its cobbles, a `CreditClaimed.credits` that is not the previous credits plus one, a
+`CreditSpent.credits` that is not the previous credits less one, and a `CreditSpent` for a game that is not a free game of
+that player (`GameSpawned.price` 0, emitted before it in the same transaction) or that already has its credit spent.
+
+**Free games.** A free game is a `games` row with `price` 0 (`GameSpawned.price == 0`, no new column). It has no
+`Purchased`, `Recorded` or `Settled`, and its `GameOver` (`game_id`, `player_id`, `day_id`, `mode`, `score`, `start_time`,
+`end_time`) is handled as a paid game's: the leaderboard, the podium, the games lists and the tournament counts are built on
+`games` alone. Every join and count on `purchases` was read for it:
+
+| Query | Reads | A free game |
+|---|---|---|
+| Leaderboard (`BOARD`), entry | `games` | ranked like any game; `free` is the best game's mark |
+| Podium (`insertPodium`) | `games` | takes a place like any game |
+| `tournament`, `tournaments` | `games` | counted in `games_spawned`, `games_finished`, `players`, `best_score` |
+| Player `games`, `game` (`GAME_FROM`) | `games LEFT JOIN purchases` | kept (a LEFT JOIN); `economy: null`, `free: true` |
+| Player `stats` | `games` and `purchases` | in `challenge_games`, `challenge_finished`, `best_score`; not in `paid_games`, `settled_games`, `rewards` |
+| Player `unsettled`, `unsettled_count` | `purchases` | never (no `Recorded`) |
+| `dayEconomy` (`games_purchased`, `games_recorded`, `games_settled`, `unsettled`, `rewards`) | `purchases` | never counted |
+
+**API** (the envelopes and the `head` semantics are unchanged; every field is appended).
+
+- `GET /v1/players/{player_id}/cobbles`: `cobbles`, `credits` (claimed less spent), `credits_claimed`, `credits_spent`,
+  `achievements_claimed` (ids). Zeros for a player with none.
+- `GET /v1/players/{player_id}/claims?day=<UTC day>` (default: the day of the served block): the claims for that day and
+  its week. `claims`: `{ kind: "quest" | "achievement", id, period, cobbles, claimed_at }` for the quests claimed with `period`
+  the day (daily) or `week` (weekly) and for every achievement; `credits`: `{ kind: "daily" | "weekly", period,
+  claimed_at }`. `week` is `floor((day x 86,400 - 345,600) / 604,800)`, null for the four days before week 0 (cobbles-v1.md,
+  1.2). A client shows claimed against claimable from these and the definitions.
+- `GET /v1/definitions`: `QuestDefinition.cobbles` and `cobbles_kind` (`"daily"`, `"weekly"`, null without cobbles), and
+  `AchievementDefinition.cobbles`; 0 when none are set.
+- `LeaderboardEntry.free` and `GameRow.free` (booleans). `GameRow.economy` is null for a free game as for any game not
+  bought: `free` tells them apart.

@@ -7,7 +7,11 @@ export interface PlaySceneProps {
   connected: boolean;
   /** `Challenge.spawn_paused`. */
   spawnPaused: boolean;
+  /** Free Challenge games from the quests (P-61, `AccountView.credits`); none when omitted. */
+  credits?: number;
   onBack?: () => void;
+  /** Spends a free game (`Challenge.spawn_free`). */
+  onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
   onTutorial?: () => void;
@@ -15,7 +19,7 @@ export interface PlaySceneProps {
 }
 
 /** The mode choice (`/play`): Challenge, Training, Tutorial, and Multiplayer disabled ("coming soon", owner D-4). */
-export function PlayScene({ connected, spawnPaused, onBack, onChallenge, onTraining, onTutorial, onConnect }: PlaySceneProps) {
+export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onTutorial, onConnect, onPlayFree }: PlaySceneProps) {
   // A guest's tap on the Challenge connects first; a pause disables it.
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
@@ -34,6 +38,18 @@ export function PlayScene({ connected, spawnPaused, onBack, onChallenge, onTrain
         >
           {!connected && !spawnPaused && <p className="text-xs text-primary">Connect a wallet to enter: tap to connect.</p>}
         </ModeCard>
+        {connected && credits > 0 && (
+          <ModeCard
+            icon="ticket"
+            title="Free Challenge"
+            description={`${credits} free ${credits === 1 ? "game" : "games"} from your quests: ranked, no $TILE at stake.`}
+            badge="Free"
+            disabled={spawnPaused}
+            reason="New games are paused for now."
+            onSelect={onPlayFree}
+            className="tablet:col-span-2"
+          />
+        )}
         <ModeCard icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
         <ModeCard icon="book-open" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />
         <ModeCard

@@ -108,7 +108,7 @@ export function VaultForm(props: VaultFormProps) {
           {busy === "deposit" ? "Confirm in your wallet…" : "Deposit"}
         </Button>
       ) : (
-        <div className="grid gap-2 tablet:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 tablet:grid-cols-2">
           <Button size="lg" onClick={props.onWithdraw} disabled={empty || over || working} loading={busy === "withdraw"}>
             {busy === "withdraw" ? "Confirm in your wallet…" : "Withdraw"}
           </Button>

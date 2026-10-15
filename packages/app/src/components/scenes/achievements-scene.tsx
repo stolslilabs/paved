@@ -4,19 +4,39 @@ import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { Skeleton } from "../ui/skeleton";
+import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
+import { isClaimed, type AchievementCobbles } from "../containers/cobble-types";
 import { useCompletionToasts } from "../containers/completion-toasts";
-import { ProgressCard, progressState } from "../containers/progress-card";
+import { ProgressCard, progressState, type ProgressReward } from "../containers/progress-card";
 import { achievementText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
 import { TabPage } from "../containers/tab-page";
+
+/** The achievements' Cobbles (P-61, gems-v1.md 3.1, 3.3): provisional until CORE's gems PR 1. */
+export interface AchievementRewards {
+  /** `achievement_gems`: the points; On the Podium (9) has none in v1, so it is absent. */
+  cobbles: readonly AchievementCobbles[];
+  /** `AccountView.achievements_claimed`. */
+  claimed: bigint;
+  /** `AccountView.gems`. */
+  balance: number;
+  /** An achievement's claim, or all of them, on its way. */
+  claiming?: number | "all" | null;
+}
 
 export interface AchievementsSceneProps {
   /** `/v1/players/:id/achievements`; null while it loads. */
   achievements: PlayerAchievements | null;
   connected: boolean;
   error?: string | null;
+  /** The Cobbles; omitted before Cobbles. */
+  rewards?: AchievementRewards | null;
   onTab?: (tab: QuestsTab) => void;
+  /** `claim_achievement(achievement_id)`. */
+  onClaim?: (achievementId: number) => void;
+  /** Every claimable achievement, in one multicall. */
+  onClaimAll?: () => void;
   onConnect?: () => void;
   onRetry?: () => void;
   onNavigate?: (tab: Tab) => void;
@@ -29,7 +49,7 @@ const ORDER = { complete: 0, progress: 1, none: 2 } as const;
  * earned ones, display only.
  */
 export function AchievementsScene(props: AchievementsSceneProps) {
-  const { achievements, connected, error } = props;
+  const { achievements, connected, error, rewards } = props;
   const list = achievements ? [...achievements.achievements].sort((a, b) => ORDER[progressState(a)] - ORDER[progressState(b)]) : [];
   const tracked = useMemo(() => achievements?.achievements.map((a) => ({ id: a.achievementId, completed: a.completed, points: a.points })) ?? null, [achievements]);
   useCompletionToasts("achievement", tracked, ({ id, points }) => {
@@ -38,8 +58,18 @@ export function AchievementsScene(props: AchievementsSceneProps) {
   });
   const earned = list.filter((a) => a.completed).length;
   const possible = list.reduce((sum, a) => sum + a.points, 0);
+  const claiming = rewards?.claiming ?? null;
+  const rewardOf = (a: { achievementId: number; completed: boolean }): ProgressReward | undefined => {
+    const entry = rewards?.cobbles.find((g) => g.achievementId === a.achievementId);
+    if (!rewards || !entry || entry.gems === 0) return undefined;
+    const claimed = isClaimed(rewards.claimed, a.achievementId);
+    const mine = claiming === a.achievementId || (claiming === "all" && a.completed && !claimed);
+    return { cobbles: entry.gems, claimed, claiming: mine, disabled: claiming !== null && !mine };
+  };
+  const claimable = list.map((a) => ({ a, r: rewardOf(a) })).filter(({ a, r }) => a.completed && r && !r.claimed);
+  const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
   return (
-    <TabPage tab="quests" title="Achievements" onNavigate={props.onNavigate}>
+    <TabPage tab="quests" title="Achievements" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
       <QuestsTabs active="achievements" onSelect={props.onTab} />
 
       {!connected ? (
@@ -51,7 +81,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
           {error}
         </Notice>
       ) : achievements === null ? (
-        <div role="status" aria-label="Loading the achievements" className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+        <div role="status" aria-label="Loading the achievements" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -74,8 +104,23 @@ export function AchievementsScene(props: AchievementsSceneProps) {
               </span>
             </div>
             <Progress value={possible > 0 ? (achievements.points / possible) * 100 : 0} aria-label={`${achievements.points} of ${possible} points`} />
+            {claimable.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-900 pt-3">
+                <span className="text-xs text-muted-foreground">
+                  <span className="numeric">{claimable.length}</span> to claim
+                </span>
+                <Button size="sm" onClick={props.onClaimAll} loading={claiming === "all"} disabled={claiming !== null && claiming !== "all"}>
+                  {claiming === "all" ? "Claiming…" : (
+                    <>
+                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </section>
-          <div className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+          {rewards && <p className="text-xs text-muted-foreground">An achievement gives as many Cobbles as its points, claimed once. On the Podium gives none in this version.</p>}
+          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
             {list.map((a) => (
               <ProgressCard
                 key={a.achievementId}
@@ -86,6 +131,8 @@ export function AchievementsScene(props: AchievementsSceneProps) {
                 completedAt={a.completedAt}
                 points={a.points}
                 retired={a.retired}
+                reward={rewardOf(a)}
+                onClaim={() => props.onClaim?.(a.achievementId)}
               />
             ))}
           </div>

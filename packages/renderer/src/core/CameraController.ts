@@ -84,6 +84,11 @@ function normalizeViewport(input: CameraViewport | HTMLCanvasElement): CameraVie
   return input;
 }
 
+/** The camera opens at this share of its farthest distance (`DEFAULT_CONFIG.maxDistance`): 240 of 300. */
+export const OPENING_DISTANCE_FACTOR = 0.8;
+/** The distance the camera opens at, straight down. */
+export const OPENING_DISTANCE = DEFAULT_CONFIG.maxDistance * OPENING_DISTANCE_FACTOR;
+
 export class CameraController {
   private static readonly BOARD_MARGIN = 6;
 
@@ -108,7 +113,7 @@ export class CameraController {
       cfg.far
     );
     // Start straight top-down (tiny Z offset avoids gimbal lock)
-    this.camera.position.set(0, cfg.maxDistance * 0.8, 0.001);
+    this.camera.position.set(0, cfg.maxDistance * OPENING_DISTANCE_FACTOR, 0.001);
     this.camera.zoom = cfg.zoom;
     this.camera.updateProjectionMatrix();
 

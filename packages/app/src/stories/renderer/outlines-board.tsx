@@ -18,36 +18,55 @@ export interface OutlinesBoardProps {
   redraw?: boolean;
   /** Show the current zoom and the outlines' stroke on the board. */
   readout?: boolean;
-  /** The renderer's settings (`RendererSettings`), flat: the outlines' fade and width, the camera's zoom limits. */
-  fadeThresholdTilePx?: number;
-  fadeRangeTilePx?: number;
+  /**
+   * The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits,
+   * the pixel-ratio cap.
+   */
+  /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
+  force?: "auto" | "on" | "off";
+  fadeOffFactor?: number;
+  fadeFullFactor?: number;
+  widthVoxels?: number;
+  minWidthDevicePx?: number;
   maxWidthPx?: number;
-  maxWidthTilePx?: number;
+  color?: string;
+  /** The screen-size cut of the outline segments, in device px: not drawn below the first, fully from the second. */
+  segmentOffDevicePx?: number;
+  segmentFullDevicePx?: number;
   minDistance?: number;
   maxDistance?: number;
   capZoomOut?: boolean;
   zoomOutCapDistance?: number;
   multisampling?: boolean;
+  /** The pixel-ratio cap: "auto" (the device's) or a number. */
+  maxPixelRatio?: number | "auto";
 }
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
-  fadeThresholdTilePx: OUTLINES.fadeThresholdTilePx,
-  fadeRangeTilePx: OUTLINES.fadeRangeTilePx,
+  force: OUTLINES.force,
+  fadeOffFactor: OUTLINES.fadeOffFactor,
+  fadeFullFactor: OUTLINES.fadeFullFactor,
+  widthVoxels: OUTLINES.widthVoxels,
+  minWidthDevicePx: OUTLINES.minWidthDevicePx,
   maxWidthPx: OUTLINES.maxWidthPx,
-  maxWidthTilePx: OUTLINES.maxWidthTilePx,
+  color: OUTLINES.color,
+  segmentOffDevicePx: OUTLINES.segmentOffDevicePx,
+  segmentFullDevicePx: OUTLINES.segmentFullDevicePx,
   minDistance: CAMERA.minDistance,
   maxDistance: CAMERA.maxDistance,
   capZoomOut: CAMERA.capZoomOut,
   zoomOutCapDistance: CAMERA.zoomOutCapDistance,
   multisampling: DEFAULT_RENDERER_SETTINGS.multisampling,
+  maxPixelRatio: DEFAULT_RENDERER_SETTINGS.maxPixelRatio,
 };
 
 interface Zoom {
   distance: number;
   tilePx: number;
+  openingTilePx: number;
   width: number;
   opacity: number;
 }
@@ -55,10 +74,11 @@ interface Zoom {
 const round = (z: Zoom): Zoom => ({
   distance: Math.round(z.distance),
   tilePx: Math.round(z.tilePx),
+  openingTilePx: Math.round(z.openingTilePx),
   width: Math.round(z.width * 100) / 100,
   opacity: Math.round(z.opacity * 100) / 100,
 });
-const same = (a: Zoom | null, b: Zoom) => !!a && a.distance === b.distance && a.tilePx === b.tilePx && a.width === b.width && a.opacity === b.opacity;
+const same = (a: Zoom | null, b: Zoom) => !!a && a.distance === b.distance && a.tilePx === b.tilePx && a.openingTilePx === b.openingTilePx && a.width === b.width && a.opacity === b.opacity;
 
 function boundsOf(tiles: { worldX: number; worldZ: number }[]): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -93,11 +113,22 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const o = { ...SETTINGS_DEFAULTS, ...rest };
   const settings = useMemo<RendererSettingsInput>(
     () => ({
-      outlines: { fadeThresholdTilePx: o.fadeThresholdTilePx, fadeRangeTilePx: o.fadeRangeTilePx, maxWidthPx: o.maxWidthPx, maxWidthTilePx: o.maxWidthTilePx },
+      outlines: {
+        force: o.force,
+        fadeOffFactor: o.fadeOffFactor,
+        fadeFullFactor: o.fadeFullFactor,
+        widthVoxels: o.widthVoxels,
+        minWidthDevicePx: o.minWidthDevicePx,
+        maxWidthPx: o.maxWidthPx,
+        color: o.color,
+        segmentOffDevicePx: o.segmentOffDevicePx,
+        segmentFullDevicePx: o.segmentFullDevicePx,
+      },
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
+      maxPixelRatio: o.maxPixelRatio,
     }),
-    [o.fadeThresholdTilePx, o.fadeRangeTilePx, o.maxWidthPx, o.maxWidthTilePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
+    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.segmentOffDevicePx, o.segmentFullDevicePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
@@ -107,7 +138,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
     let last: Zoom | null = null;
     const step = () => {
       const z = scene.getZoom();
-      const next = round({ distance: z.distance, tilePx: z.tilePx, width: z.outline.width, opacity: z.outline.opacity });
+      const next = round({ distance: z.distance, tilePx: z.tilePx, openingTilePx: z.openingTilePx, width: z.outline.width, opacity: z.outline.opacity });
       if (!same(last, next)) setZoom((last = next));
       id = requestAnimationFrame(step);
     };
@@ -149,7 +180,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       <GameCanvas tiles={tiles} basePath={RENDERER_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && zoom && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
-          distance {zoom.distance} · tile {zoom.tilePx} px · outline {zoom.opacity > 0 ? `${zoom.width} px at ${Math.round(zoom.opacity * 100)}%` : "off"}
+          distance {zoom.distance} · tile {zoom.tilePx} px (opens at {zoom.openingTilePx}) · outline {zoom.opacity > 0 ? `${zoom.width} device px at ${Math.round(zoom.opacity * 100)}%` : "off"}
         </output>
       )}
     </div>

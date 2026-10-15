@@ -28,3 +28,5 @@ export const NoPaved: Story = { args: VAULT.noPaved };
 
 /** No economy on this network. */
 export const NotDeployed: Story = { args: VAULT.notDeployed };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: VAULT.stress };

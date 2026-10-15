@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PlayerStatus } from "./player-status";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, LONG_NAME, STRESS_ENTRIES } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/PlayerStatus",
@@ -19,3 +20,16 @@ export const NoRankToday: Story = { args: { data: { ...PLAYER_STATUS, today: nul
 export const NoUsername: Story = { args: { data: { ...PLAYER_STATUS, player: { ...PLAYER_STATUS.player, name: null } } } };
 export const Guest: Story = { args: { data: null } };
 export const Connecting: Story = { args: { data: null, connecting: true } };
+/** WRAP360: the longest username, the widest rank, best and balances. */
+export const Stress: Story = {
+  args: {
+    data: {
+      ...PLAYER_STATUS,
+      player: { ...PLAYER_STATUS.player, name: LONG_NAME },
+      stats: { ...PLAYER_STATUS.stats, challengeFinished: BIG_NUMBER, bestScore: BIG_NUMBER },
+      today: { ...STRESS_ENTRIES[3] },
+      usdc: BIG_AMOUNT_6,
+      paved: BIG_AMOUNT_18,
+    },
+  },
+};

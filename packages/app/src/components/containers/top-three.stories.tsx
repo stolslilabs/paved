@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LEADERBOARD_TODAY, VIEWER_TODAY } from "../../mocks/players";
 import { TopThree, TopThreeRow } from "./top-three";
+import { STRESS_ENTRIES } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/TopThree",
@@ -28,3 +29,5 @@ export const Row: Story = {
     </ol>
   ),
 };
+/** WRAP360: the longest usernames and a full address, cut with their titles; the viewer's "(you)" stays. */
+export const Stress: Story = { args: { entries: STRESS_ENTRIES.slice(0, 3), viewer: STRESS_ENTRIES[3] } };

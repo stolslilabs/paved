@@ -75,7 +75,7 @@ export function deploy(url: string): string {
     cwd: ROOT,
     env: { ...process.env, RPC_URL: url },
     encoding: "utf8",
-    timeout: 900_000,
+    timeout: Number(process.env.PAVED_DEPLOY_TIMEOUT_MS || 900_000),
   });
   if (result.status !== 0) throw new Error(`deploy.sh failed (${result.status}): ${result.stdout}\n${result.stderr}`);
   return result.stdout;

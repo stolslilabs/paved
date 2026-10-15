@@ -34,14 +34,16 @@ export function SplitBar({ split, highlight, className }: SplitBarProps) {
       <dl className="grid grid-cols-3 gap-2 text-xs">
         {parts.map((p) => (
           <div key={p.key} className="flex min-w-0 flex-col gap-0.5">
-            <dt className="flex items-center gap-1.5 text-muted-foreground">
-              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", fill(p.key))} />
-              <span className="truncate">{p.label}</span>
+            <dt className="flex items-start gap-1.5 text-muted-foreground">
+              {/* On the label's first line (16 px, text-xs), not centred on a label that wraps. */}
+              <span aria-hidden className={cn("mt-1 size-2 shrink-0 rounded-full", fill(p.key))} />
+              <span className="wrap-anywhere">{p.label}</span>
             </dt>
             <dd className={cn("numeric text-sm font-semibold", highlight === p.key && "text-primary")}>
               {formatBps(p.key === "vault" ? split.vault : p.bps)}
             </dd>
-            <dd className="truncate text-[11px] text-muted-foreground">{p.hint}</dd>
+            {/* The description wraps (WRAP360): a third of a phone is too narrow for one line, and a cut sentence says nothing. */}
+            <dd className="text-[11px] leading-snug wrap-anywhere text-muted-foreground">{p.hint}</dd>
           </div>
         ))}
       </dl>
