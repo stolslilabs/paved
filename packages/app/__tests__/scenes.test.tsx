@@ -368,9 +368,19 @@ describe("no wiring (SC1, SC2)", () => {
     expect(calls).toEqual([]);
   });
 
-  it("leaves the routes without the scenes, so the app bundle is unchanged", () => {
-    const routes = files(join(src, "routes")).concat(join(src, "App.tsx"), join(src, "main.tsx"));
-    for (const f of routes) expect(readFileSync(f, "utf8")).not.toMatch(/components\/(scenes|containers|elements)|mocks\//);
+  // P1 put the shell on the routes: the pages import their scenes, lazily (routes/pages/*). The first bundle's own files
+  // (the entry, the app, the router table) hold no scene and no mock; the lazy modules are checked by the built chunk list.
+  it("keeps the entry, the app and the router table free of scenes and mocks", () => {
+    for (const f of ["main.tsx", "App.tsx", "routes/router.tsx"]) expect(readFileSync(join(src, f), "utf8")).not.toMatch(/components\/scenes|mocks\//);
+  });
+
+  it("reaches the page modules only through import(), never statically", () => {
+    const outside = files(join(src, "routes")).filter((f) => !f.includes(join("routes", "pages")) && !f.endsWith("pages.ts"));
+    for (const f of outside) expect(readFileSync(f, "utf8")).not.toMatch(/^\s*(import|export)\b[^;]*from\s+["']\.\/pages\//m);
+    const router = readFileSync(join(src, "routes/router.tsx"), "utf8");
+    const dynamic = [...router.matchAll(/import\("\.\/pages\/[\w-]+"\)/g)].length;
+    expect(dynamic).toBeGreaterThanOrEqual(14);
+    expect(router.match(/\.\/pages\//g)).toHaveLength(dynamic);
   });
 });
 
