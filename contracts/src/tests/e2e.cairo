@@ -4,6 +4,7 @@ pub mod challenge_advanced;
 pub mod cobbles;
 pub mod cobbles_ledger;
 pub mod cobbles_packs;
+pub mod cobbles_skins;
 pub mod cold_paths;
 pub mod cold_paths_audit;
 pub mod economy;

@@ -22,6 +22,8 @@ import {
   type Pack,
   type PackPurchase,
   type PlayerCobblesAnswer,
+  type PlayerSkinsAnswer,
+  type SkinPrice,
   type PlayerReferralsAnswer,
   type PlayerInfo,
   type PlayerQuest,
@@ -31,7 +33,7 @@ import {
   type TournamentSummary,
   type UnsettledGame,
 } from "./api.ts";
-import type { TaskTarget } from "./events.ts";
+import { unpackSkins, type TaskTarget } from "./events.ts";
 import {
   PODIUM_TASK,
   consistent,
@@ -419,13 +421,15 @@ export class Queries {
   /** A player's cobbles and credits at `head`; zeros for a player with none. */
   playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
     const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
-    // The running balance is the last row of the claims and the pack purchases together.
+    // The running balance is the last row of the claims, the pack purchases and the skin purchases together.
     const balance = this.store
       .statement(
         `SELECT balance FROM (
            SELECT block, tx, idx, balance FROM cobble_claims WHERE player_id = :p AND block <= :h
            UNION ALL
            SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p AND block <= :h
+           UNION ALL
+           SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p AND block <= :h
          ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
       )
       .get({ p: playerId, h: head }) as Row | undefined;
@@ -438,6 +442,9 @@ export class Queries {
         )
         .all(playerId, head) as Row[]
     ).map((row) => Number(row.id));
+    const skins = this.store
+      .statement("SELECT count(*) AS n, coalesce(sum(cobbles), 0) AS spent FROM skin_purchases WHERE player_id = ? AND block <= ?")
+      .get(playerId, head) as Row;
     return {
       player_id: playerId,
       cobbles: Number(balance?.balance ?? 0),
@@ -445,6 +452,46 @@ export class Queries {
       credits_claimed: claimed,
       credits_spent: spent,
       achievements_claimed: achievements,
+      skins_bought: Number(skins.n),
+      skins_spent: Number(skins.spent),
+    };
+  }
+
+  /** The skin prices at `head` (the last `SkinPriced` of each (theme, plan)), ascending; one theme if given. */
+  skinPrices(head: number, theme?: number): SkinPrice[] {
+    return (
+      this.store
+        .statement(
+          `SELECT k.theme, k.plan, k.cobbles FROM skin_prices k
+           WHERE k.block <= :h AND (:t IS NULL OR k.theme = :t) AND NOT EXISTS (
+             SELECT 1 FROM skin_prices n WHERE n.theme = k.theme AND n.plan = k.plan AND n.block <= :h
+               AND (n.block, n.tx, n.idx) > (k.block, k.tx, k.idx))
+           ORDER BY k.theme, k.plan`,
+        )
+        .all({ h: head, t: theme ?? null }) as Row[]
+    ).map((row) => ({ theme: Number(row.theme), plan: Number(row.plan), cobbles: Number(row.cobbles) }));
+  }
+
+  /** A player's owned skins per theme and its active set at `head`. */
+  playerSkins(head: number, playerId: string): Omit<PlayerSkinsAnswer, keyof Envelope> {
+    const rows = this.store
+      .statement("SELECT theme, plan FROM skin_purchases WHERE player_id = ? AND block <= ? ORDER BY theme, plan")
+      .all(playerId, head) as Row[];
+    const owned: PlayerSkinsAnswer["owned"] = [];
+    for (const row of rows) {
+      const theme = Number(row.theme);
+      if (owned.at(-1)?.theme !== theme) owned.push({ theme, plans: [] });
+      owned.at(-1)!.plans.push(Number(row.plan));
+    }
+    const last = this.store
+      .statement(
+        "SELECT active FROM skin_actives WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+      )
+      .get(playerId, head) as Row | undefined;
+    return {
+      player_id: playerId,
+      owned,
+      active: unpackSkins(last === undefined ? 0n : BigInt(String(last.active))),
     };
   }
 

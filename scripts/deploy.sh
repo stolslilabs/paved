@@ -61,9 +61,10 @@
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
 #   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the shop
-#   (cobbles v1, part 2: Economy.set_seller(Setup) and Setup.set_pack x 4, FRESH_PACKS) and the cobbles (set_quest_cobbles x 13,
+#   (cobbles v1, part 2: Economy.set_seller(Setup) and Setup.set_pack x 4, FRESH_PACKS), the skin prices (part 3:
+#   Setup.set_skin_price for the 19 plans of each theme of FRESH_SKIN_THEMES, today theme 1, Forest) and the cobbles (set_quest_cobbles x 13,
 #   set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) that are not there yet, read back through
-#   the views seller, pack, quest_cobbles and achievement_cobbles;
+#   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles;
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection and Vault, the Vault's exit fee, Setup.wiring(), every definition
@@ -2268,6 +2269,14 @@ FRESH_ACHIEVEMENT_COBBLES=(10 10 20 40 20 20 30 30 0 40 50 40 50 80 60 80)
 # decimals), all active: 50 cobbles for $5, 100 for $9, 500 for $40, 1,000 for $70. Set by Setup's owner (set_pack) in the
 # definitions' multicall, after Economy.set_seller(Setup), and read back through the views pack and seller.
 FRESH_PACKS=("1 50 5000000" "2 100 9000000" "3 500 40000000" "4 1000 70000000")
+# Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
+# table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
+# stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.
+FRESH_SKIN_THEMES=(1)
+# The price in cobbles of the skin of each plan, by Plan code 1 to 19: 50 + 50 x (9 - c) / 8 rounded to 5, c the plan's
+# count among the 72 tiles (cobbles-v1.md 5.2: a whole theme is 1,580). Set by Setup's owner (set_skin_price), read back
+# through the view skin_price.
+FRESH_SKIN_PRICES=(100 80 90 90 90 95 75 75 80 55 75 90 50 90 90 80 100 80 95)
 # Slots A and B of each definition in Setup's storage (quiver 0.2.0: `Quest_definitions`, `Quest_tasks` and
 # `Achievement_definitions`, maps of u32 to a packed felt, flat in Setup): pedersen(sn_keccak(name), id) mod 2^251 - 256,
 # as starknet.js's hash.starknetKeccak and hash.computePedersenHash compute it. A quest's slot A holds its schedule, its
@@ -2382,10 +2391,13 @@ fresh_slot_matches() {
 # The shop (cobbles v1, part 2), before the cobbles: Economy's seller none -> Economy.set_seller(Setup); Setup -> nothing;
 # another address -> a stop (set once). Each pack of FRESH_PACKS: never set (0 cobbles) -> its set_pack call, but on a
 # complete record; the table's, active -> nothing; anything else (another amount or price, or stopped) -> the owner's
-# setting since on a complete record (kept), a stop otherwise.
+# setting since on a complete record (kept), a stop otherwise. The skin prices (part 3), after the packs: each plan of each theme
+# of FRESH_SKIN_THEMES, never priced (0) -> its set_skin_price call, but on a complete record (0 is then the owner's withdrawal,
+# kept); the table's -> nothing; another price -> the owner's setting since on a complete record (kept), a stop otherwise.
+# The seller (part 2's review note p3) is sent like the packs: never on a complete record.
 fresh_definition_calls() {
-  local i id task total start duration interval points slot want entry cobbles have retired price raw
-  local cobble_calls=() shop_calls=() held=()
+  local i id task total start duration interval points slot want entry cobbles have retired price raw theme plan
+  local cobble_calls=() shop_calls=() held=() skin_calls=()
   # Quests 2 to 4 stay undefined (four dailies a day): one that is defined and not retired makes seven dailies live.
   for entry in "${FRESH_UNDEFINED_QUEST_SLOTS[@]}"; do
     read -r id slot <<<"$entry"
@@ -2436,7 +2448,7 @@ fresh_definition_calls() {
   done
   raw="$(call "$ECONOMY" seller)" || return 1
   if [[ "$(hex_int "$raw")" == 0 ]]; then
-    shop_calls+=("$ECONOMY set_seller $SETUP")
+    ((FRESH_COMPLETE)) || shop_calls+=("$ECONOMY set_seller $SETUP")
   elif ! felt_eq "$raw" "$SETUP"; then
     echo "deploy.sh: Economy.seller() is another address than Setup: the seller is set once, not sent over; nothing more was sent" >&2
     return 1
@@ -2454,7 +2466,20 @@ fresh_definition_calls() {
       return 1
     fi
   done
+  for theme in "${FRESH_SKIN_THEMES[@]}"; do
+    for plan in $(seq 1 19); do
+      cobbles="${FRESH_SKIN_PRICES[plan - 1]}"
+      raw="$(call "$SETUP" skin_price "$theme" "$plan")" || return 1
+      have="$(hex_int "$raw")"
+      if [[ "$have" == 0 ]]; then
+        ((FRESH_COMPLETE)) || skin_calls+=("$SETUP set_skin_price $theme $plan $cobbles")
+      else
+        fresh_cobbles_match "the skin of plan $plan in theme $theme" "$have" "$cobbles" || return 1
+      fi
+    done
+  done
   [[ "${#shop_calls[@]}" == 0 ]] || printf '%s\n' "${shop_calls[@]}"
+  [[ "${#skin_calls[@]}" == 0 ]] || printf '%s\n' "${skin_calls[@]}"
   [[ "${#cobble_calls[@]}" == 0 ]] || printf '%s\n' "${cobble_calls[@]}"
 }
 
@@ -2540,7 +2565,7 @@ fresh_definitions_step() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "after the definitions, Setup still lacks: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
   echo "   Setup holds quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage), with their cobbles (13 quests, 15 achievements; views quest_cobbles and achievement_cobbles)"
-  echo "   the shop: Economy.seller() is Setup; Setup holds packs 1 to ${#FRESH_PACKS[@]} (50 for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70; view pack)"
+  echo "   the shop: Economy.seller() is Setup; Setup holds packs 1 to ${#FRESH_PACKS[@]} (50 for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70; view pack); skins: theme(s) ${FRESH_SKIN_THEMES[*]} priced for the 19 plans by the rarity table (view skin_price)"
 }
 
 # fresh_definitions_smoke: the smoke reads every definition back from Setup's storage and fails on one that is missing or
@@ -2548,7 +2573,7 @@ fresh_definitions_step() {
 fresh_definitions_smoke() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "Setup lacks a definition: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their cobbles; Economy's seller is Setup, packs 1 to ${#FRESH_PACKS[@]} as specified"
+  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their cobbles; Economy's seller is Setup, packs 1 to ${#FRESH_PACKS[@]} and the skin prices of theme(s) ${FRESH_SKIN_THEMES[*]} as specified"
 }
 
 # fresh_deployed_address <tx> <class>: the contract of that class a deploy transaction created, from its receipt (the
@@ -2682,13 +2707,13 @@ fresh_check_only() {
   if [[ ! -e "$OUT" ]]; then
     echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
     echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
-    echo "   (Economy.set_seller(Setup), set_pack x 4) and their cobbles, write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a"
-    echo "   surrender reported to Setup, claim_tutorial once, pack 1 bought)"
+    echo "   (Economy.set_seller(Setup), set_pack x 4), the skin prices of theme(s) ${FRESH_SKIN_THEMES[*]} (set_skin_price x 19 each) and their cobbles, write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a"
+    echo "   surrender reported to Setup, claim_tutorial once, pack 1 bought, a skin bought)"
   else
-    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
+    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
-        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.settle_tx; do
+        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
     done
@@ -3511,6 +3536,31 @@ print(sum(1 for e in d["events"] if int(e["from_address"], 16) == setup), sum(1 
   [[ "$SETUP_EVENTS" -ge 1 && "$ECONOMY_EVENTS" -ge 1 ]] || die "buy_pack emitted $SETUP_EVENTS events from Setup and $ECONOMY_EVENTS from Economy, expected 1 or more of each"
   echo "   pack 1 bought (min_out $MIN_OUT), tx $PACK_TX: $PACK_PRICE USDC base units through Economy's split, $PACK_COBBLES cobbles"
   echo "   credited ($COBBLES_BEFORE -> $COBBLES_AFTER), the Vault's PAVED grew by $((VAULT_AFTER - VAULT_BEFORE)) base units; Setup holds no USDC, Economy no PAVED"
+fi
+
+# A skin (cobbles v1, part 3, cobbles-v1.md 5.3): the plan of theme 1 priced 50 (plan 13, the commonest) bought with the pack's
+# cobbles, which are exactly its price, so the balance falls to what it was before the pack. Buying does not activate it.
+# Recorded as smoke.skin_tx; a rerun cites it. A complete record without one sends nothing.
+SKIN_THEME="${FRESH_SKIN_THEMES[0]}"
+SKIN_PLAN=13
+fr_settled smoke.skin_tx || true
+if [[ -n "$(fr_get smoke.skin_tx)" ]]; then
+  echo "   skin bought already, tx $(fr_get smoke.skin_tx); not sent again"
+elif ((FRESH_COMPLETE)); then
+  echo "   no skin bought in this record (complete: a rerun sends nothing)"
+else
+  SKIN_PRICE="$(hex_int "$(call "$SETUP" skin_price "$SKIN_THEME" "$SKIN_PLAN")")"
+  [[ "$SKIN_PRICE" == "${FRESH_SKIN_PRICES[SKIN_PLAN - 1]}" ]] || die "Setup.skin_price($SKIN_THEME, $SKIN_PLAN) is $SKIN_PRICE, not the table's ${FRESH_SKIN_PRICES[SKIN_PLAN - 1]}"
+  COBBLES_BEFORE="$(hex_int "$(call "$SETUP" account "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ "$COBBLES_BEFORE" -ge "$SKIN_PRICE" ]] || die "the deployer holds $COBBLES_BEFORE cobbles, under the skin's $SKIN_PRICE"
+  RECORD_SENDING=smoke.skin_tx
+  SKIN_TX="$(invoke "$SETUP" buy_skin "$SKIN_THEME" "$SKIN_PLAN")"
+  RECORD_SENDING=""
+  fr_set "smoke.skin_tx=$SKIN_TX"
+  COBBLES_AFTER="$(hex_int "$(call "$SETUP" account "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ $((COBBLES_BEFORE - COBBLES_AFTER)) == "$SKIN_PRICE" ]] || die "buy_skin spent $((COBBLES_BEFORE - COBBLES_AFTER)) cobbles, expected $SKIN_PRICE"
+  [[ "$(hex_int "$(call "$SETUP" skins "$DEPLOYER_ARG" "$SKIN_THEME")")" == $((1 << SKIN_PLAN)) ]] || die "Setup.skins(deployer, $SKIN_THEME) is not the bit of plan $SKIN_PLAN"
+  echo "   skin of plan $SKIN_PLAN in theme $SKIN_THEME bought, tx $SKIN_TX: $SKIN_PRICE cobbles ($COBBLES_BEFORE -> $COBBLES_AFTER), not activated"
 fi
 
 # Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README). Only a local

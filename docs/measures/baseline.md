@@ -1594,3 +1594,77 @@ L2 gas was not isolated. **So it is not explained beyond that.**
 **Class sizes** (`scripts/class-sizes.sh`, release profile): `Setup` 14,960 Sierra, 34,002 CASM felts, 41.5 % of the 81,920
 cap (31,216 after part 1: +2,786); `Economy` 10,774 Sierra, 30,432 CASM, 37.1 %; `Challenge` 29,831 Sierra, 64,826 CASM,
 unchanged.
+
+## After cobbles v1, part 3 (tile skins and the active set; P-61)
+
+Measured on the VPS, 2026-10-15, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`, `RAYON_NUM_THREADS=1`. **Before**: the
+figures of "After cobbles v1, part 2" above (main `db6c6bc4`, the same code); no separate run of main was made for this part.
+**After**: this branch, the whole `snforge test`: 892 passed, 0 failed, 38 ignored. Every ceiling holds.
+
+**The new calls.** Theme 1 priced 50 for the 19 plans, `PLAYER` holding the 1,000 cobbles of pack 4.
+
+| Scenario | L2 gas | Design's estimate | Ceiling (measured + 5 %) |
+|---|---:|---:|---:|
+| z11, `buy_skin` | 664,724 | about 0.50M | 697,961 |
+| z12, `set_skins`, 1 change | 456,713 | about 0.30M | 479,549 |
+| z13, `set_skins`, 19 changes (one theme, all owned) | 2,656,847 | about 0.30M "for any number of changes" | 2,789,690 |
+| z14, `set_skin_price` (a new price) | 302,510 | 0.3M to 0.6M | 317,636 |
+| z10, `buy_pack` as the first sale of a block | 9,775,271 | | 10,264,035 |
+
+`buy_skin` is +165k over the estimate: the call itself, the price read, the owned word and the account read, two writes and one
+event; the plan's bit is a table lookup. `set_skins` costs 456,713 with one change (one read of the owned word and of the active
+word, one write, one event) and **+122,230 per further change** ((2,656,847 - 456,713) / 18): each change checks its plan,
+looks its theme up in the list of owned words already read, and rewrites its byte of the active word with `u128` divisions. The
+design's "about 0.30M for any number of changes" holds for the storage (one read of the active word, one write) and not for the
+per-change arithmetic, which the estimate left out. A first version unpacked the 19 themes into an array and packed them again,
+and cost 2,497,653 for one change and 8,202,027 for 19; the byte arithmetic on the two `u128` halves took that to the figures
+above. A client sends the plans it changes, so a full 19-change batch is the rare case.
+
+**The part 2 notes (p4).**
+
+- **`buy_pack` as the first sale of a block.** z7 and z8 were measured in the block of the spawn, whose guard write had already
+  happened, so `Economy.pay` skipped the guard's rate. z10 moves the time one second on after the spawn: **9,775,271, +300,190
+  over z7 (9,475,081)**. That is the rate write the pack pays once per block: one read of the guard (76,840) and one write
+  (118,210) are 195,050, and `next_rate` (two 256-bit divisions and a multiplication on `u256`) and the surrounding checks account for
+  the remaining 105,000 (not isolated). A pack that is the first sale of its block costs 9.78M, not 9.48M.
+- **z5, `spawn_free`.** Part 2 reported +41,543 (6,481,530 to 6,523,073) for a call that makes no `Economy` call. Measured here:
+  **6,423,149, that is -99,924 against part 2's figure**, and m and n moved by the same amount (below). Across the builds of
+  this branch, z5 read 6,470,405, 6,383,089 and 6,423,149 for builds that differed only in `Setup.set_skins`, which z5 never
+  calls. So z5 is not a function of the code on its path alone: it moves by ±100k with the build, and part 2's +41,543 is inside
+  that range. **The cause is not isolated** (the likely one is that the spawn's deck draw depends on the addresses the tests
+  deploy, which depend on the class hashes; unverified).
+- **m and n.** m is 15,562,591 and n 16,457,461: **-100,524 each against part 2** (15,663,115; 16,557,985), the same shift on
+  both and on z5. The part 2 explanation of n - m (+41,850, "one read of `seller`") does not survive the measure: n - m is now
+  894,870, as part 2's 894,870 (16,557,985 - 15,663,115), so the difference is stable, and a storage read costs 76,840, not
+  41,850. **n - m is not explained by one read of the seller**; it is stable across the builds (same value to the unit).
+- **The game overs and the claims** call `Setup`, whose dispatch gained six entry points: g, i, k, l, s +1,800 each, x, y +2,400, z1
+  to z4 +1,500, +930, +4,500, +2,400, z6 +600; z9 `set_pack` +300. The Vault's t (3,717,820) is identical to the unit.
+
+| Scenario | Part 2, after | Part 3, after | Change |
+|---|---:|---:|---:|
+| m, a paid spawn at stake 1 | 15,663,115 | 15,562,591 | -100,524 |
+| n, a paid spawn at stake 10, referred | 16,557,985 | 16,457,461 | -100,524 |
+| g, closing move in its day | 3,821,784 | 3,823,584 | +1,800 |
+| i | 3,363,974 | 3,365,774 | +1,800 |
+| k | 4,332,794 | 4,334,594 | +1,800 |
+| l | 7,228,543 | 7,230,343 | +1,800 |
+| s | 4,042,969 | 4,044,769 | +1,800 |
+| x | 4,116,366 | 4,118,766 | +2,400 |
+| y | 4,643,966 | 4,646,366 | +2,400 |
+| z5, `spawn_free` | 6,523,073 | 6,423,149 | -99,924 |
+| z6, a free game's game over | 1,760,424 | 1,761,024 | +600 |
+| z7, `buy_pack` | 9,426,341 | 9,475,081 | +48,740 |
+| z8, `buy_pack`, referred | 10,299,801 | 10,348,541 | +48,740 |
+
+A game's spawn and game over are unchanged by the skins beyond these figures: the game overs rise by dispatch only (+1,800 or
++2,400), and the spawns fall by the same ~100k as `spawn_free`. z7 and z8 rise +48,740 both, the new check in `Economy.sell`
+(`price * burn_bps / 10,000` against zero, a `u256` product and division) and the larger dispatch; a game's `purchase` does not run it.
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile): `Setup` 17,534 Sierra, 38,722 CASM felts, 47.3 % of the 81,920 cap
+(34,002 after part 2: +4,720); `Economy` 10,813 Sierra, 30,570 CASM, 37.3 % (+138); `Challenge` unchanged (64,826).
+
+**Memory.** The test build of this branch peaked at **8,379,984 kB (8.0 GiB) resident** for the first filtered run, with
+`RAYON_NUM_THREADS=1` and a 12 GiB scope (`/usr/bin/time -v`); the shim's default 8 GiB scope killed it three times before
+(`oom-kill`, exit 143). The whole `snforge test --max-threads 2` that followed, on the warm build, peaked at 5,705,536 kB (5.4 GiB)
+and took 13 min 21 s.
+
