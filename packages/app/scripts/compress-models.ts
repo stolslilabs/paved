@@ -1,11 +1,14 @@
 /**
- * ASSET-WEIGHT: the app's copy of the board's 19 base models, compressed and content-hashed, from app-web's originals.
+ * ASSET-WEIGHT: the app's copy of the board's 19 base models, compressed and content-hashed, from app-web's originals; and
+ * (P11b) the Forest theme's, the high-forest set.
  *
  *   node scripts/compress-models.ts [--check]
  *
- * Reads `../app-web/public/models/<plan>.glb` (left untouched) and writes `public/renderer-assets/models/<plan>.<hash>.glb`,
- * removing the copies of an earlier run. `--check` writes nothing and fails when the committed copies are not exactly what
- * this run would write. Node 24 runs it as is (type stripping): the syntax stays erasable.
+ * Reads `../app-web/public/models/<plan>.glb` (left untouched) and writes `public/renderer-assets/models/<plan>.<hash>.glb`;
+ * reads the high-forest variants `../app-web/public/models/extended/<plan>_HF_<n>.glb` (theme 1, Forest, on chain) and writes
+ * `public/renderer-assets/models/forest/<plan>_HF_<n>.<hash>.glb`. Each run removes the copies of an earlier one. The
+ * low-forest set (`_LF_`) is kept for a later theme and not written. `--check` writes nothing and fails when the committed
+ * copies are not exactly what this run would write. Node 24 runs it as is (type stripping): the syntax stays erasable.
  *
  * Per model (positions lossless on the grid; normals and UVs within 0.001 degree / 8e-6):
  * - Vertices renumbered in the order the triangles first use them (the triangles and their order are kept, so the
@@ -26,25 +29,46 @@
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeIO, type Document, type Primitive } from "@gltf-transform/core";
-import { EXTMeshoptCompression, KHRMeshQuantization } from "@gltf-transform/extensions";
+import { EXTMeshoptCompression, KHRDracoMeshCompression, KHRMeshQuantization } from "@gltf-transform/extensions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SOURCE = resolve(HERE, "../../app-web/public/models");
 const OUT = resolve(HERE, "../public/renderer-assets/models");
-/** A base model's source name, as `vite/renderer-assets.ts` matches it. */
-const MODEL = /^([a-z]{9})\.glb$/;
+
+/**
+ * The sets written: the base models, and each theme's in its own folder (named as `vite/renderer-assets.ts`'s
+ * `THEME_FOLDERS`). `match` takes a source name to the output's stem (the name before the hash), or null.
+ */
+const SETS: Array<{ label: string; source: string; out: string; match: (file: string) => string | null }> = [
+  { label: "base", source: SOURCE, out: OUT, match: (file) => /^([a-z]{9})\.glb$/.exec(file)?.[1] ?? null },
+  // Forest (theme 1): the high-forest variants, every plan has at least one.
+  { label: "forest", source: join(SOURCE, "extended"), out: join(OUT, "forest"), match: (file) => /^([a-z]{9}_HF_\d+)\.glb$/.exec(file)?.[1] ?? null },
+];
 /** The voxel grid: every tile model is a 4-unit grid of 0.1-unit voxels (`outlines.ts`, `TILE_VOXELS`). */
 const GRID = 0.1;
+
+/**
+ * The Draco decoder the high-forest sources need (they are `KHR_draco_mesh_compression`): app-web's self-hosted copy,
+ * Google's glTF build as three ships it (`public/draco/README.md`), the one the renderer loads. Its JavaScript build (no
+ * WebAssembly file to fetch) is a CommonJS factory: it runs here with a `module` of its own, so no package is added.
+ */
+async function dracoDecoder(): Promise<unknown> {
+  const file = resolve(SOURCE, "../draco/draco_decoder.js");
+  const module = { exports: {} as unknown };
+  new Function("module", "exports", "require", "__filename", "__dirname", readFileSync(file, "utf8"))(module, module.exports, createRequire(file), file, dirname(file));
+  return (module.exports as () => Promise<unknown>)();
+}
 
 await MeshoptEncoder.ready;
 await MeshoptDecoder.ready;
 const io = new NodeIO()
-  .registerExtensions([EXTMeshoptCompression, KHRMeshQuantization])
-  .registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
+  .registerExtensions([EXTMeshoptCompression, KHRMeshQuantization, KHRDracoMeshCompression])
+  .registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder, "draco3d.decoder": await dracoDecoder() });
 
 const hashOf = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex").slice(0, 10);
 
@@ -82,7 +106,76 @@ function positionQuantum(positions: ArrayLike<number>): { quantum: number; grid:
   return { quantum: (max || 1) / 32767, grid: false, top: 32767 };
 }
 
-function compressPrimitive(doc: Document, prim: Primitive): { quantum: number; grid: boolean } {
+/**
+ * The grid a Draco source was quantized on, or null: Draco stores each position as an integer `q` of `bits` bits, read back
+ * as `min[axis] + q * step`, with `step` the largest axis extent over `2^bits - 1`. Found by trying 8 to 15 bits (16 would not fit a normalized signed
+ * 16-bit, which reads -32768 as -32767); every
+ * coordinate must sit on the grid (within 1% of a step, float32's rounding of the decoded value), so storing `q` keeps the
+ * source's positions exactly. The high-forest models are such sources, off the 0.1 grid and away from the origin.
+ */
+function dracoGrid(positions: ArrayLike<number>): { min: [number, number, number]; step: number; centre: number } | null {
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i++) {
+    min[i % 3] = Math.min(min[i % 3]!, positions[i]!);
+    max[i % 3] = Math.max(max[i % 3]!, positions[i]!);
+  }
+  const range = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+  if (!(range > 0)) return null;
+  for (let bits = 8; bits <= 15; bits++) {
+    const step = range / (2 ** bits - 1);
+    let on = true;
+    for (let i = 0; i < positions.length && on; i++) {
+      const q = (positions[i]! - min[i % 3]!) / step;
+      if (Math.abs(q - Math.round(q)) > 0.05) on = false;
+    }
+    // Stored less half the range (0 to 2^bits - 1 becomes -2^(bits - 1) to 2^(bits - 1) - 1), within a signed 16-bit's ±32767.
+    if (on) return { min, step, centre: 2 ** (bits - 1) };
+  }
+  return null;
+}
+
+/**
+ * For a Draco source, the voxel grid its art was made on: every coordinate within `tolerance` (Draco's half step) of a
+ * multiple of 0.1, in absolute model units, and each axis spanning at most 254 grid steps. Returns each axis's centre (in
+ * grid steps), which the stored 8-bit integers are taken from; null when the source is not such a grid. The voxel points
+ * are the art's own positions, which Draco's quantization had moved by less than half its step.
+ */
+function voxelGrid(positions: ArrayLike<number>, tolerance: number): [number, number, number] | null {
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i++) {
+    const k = Math.round(positions[i]! / GRID);
+    if (Math.abs(positions[i]! - k * GRID) > tolerance) return null;
+    lo[i % 3] = Math.min(lo[i % 3]!, k);
+    hi[i % 3] = Math.max(hi[i % 3]!, k);
+  }
+  if (hi.some((h, a) => h - lo[a]! > 254)) return null;
+  return lo.map((l, a) => Math.round((l + hi[a]!) / 2)) as [number, number, number];
+}
+
+/** `v` turned by the unit quaternion `q` (`[x, y, z, w]`, glTF's order); its inverse with `inverse`. */
+function rotate(q: ArrayLike<number>, v: ArrayLike<number>, inverse = false): [number, number, number] {
+  const [x, y, z] = inverse ? [-q[0]!, -q[1]!, -q[2]!] : [q[0]!, q[1]!, q[2]!];
+  const w = q[3]!;
+  // v + 2w (u x v) + 2 u x (u x v), u the vector part
+  const c = [y * v[2]! - z * v[1]!, z * v[0]! - x * v[2]!, x * v[1]! - y * v[0]!];
+  const d = [y * c[2]! - z * c[1]!, z * c[0]! - x * c[2]!, x * c[1]! - y * c[0]!];
+  return [v[0]! + 2 * (w * c[0]! + d[0]!), v[1]! + 2 * (w * c[1]! + d[1]!), v[2]! + 2 * (w * c[2]! + d[2]!)];
+}
+
+/** How the positions were stored: the model units of one integer, the 0.1 grid or not, the offset taken out, the tolerance checked. */
+interface Stored {
+  quantum: number;
+  grid: boolean;
+  top: 127 | 32767;
+  /** Taken out of every position and put on the node (a Draco source away from the origin). */
+  offset?: [number, number, number];
+  /** A Draco source snapped to its voxel grid: the largest move allowed, Draco's half step. */
+  snapped?: number;
+}
+
+function compressPrimitive(doc: Document, prim: Primitive): Stored {
   const indices = prim.getIndices()!;
   const order = indices.getArray()!;
   const count = prim.getAttribute("POSITION")!.getCount();
@@ -104,12 +197,46 @@ function compressPrimitive(doc: Document, prim: Primitive): { quantum: number; g
   };
 
   const position = prim.getAttribute("POSITION")!;
-  const step = positionQuantum(position.getArray()!);
-  const stored = step.top === 127 ? new Int8Array(used * 3) : new Int16Array(used * 3);
-  position.setArray(permute(position.getArray()!, 3, stored, (v) => Math.round(v / step.quantum))).setNormalized(true);
+  const source = position.getArray()!;
+  let step: Stored = positionQuantum(source);
+  // A Draco source (the high-forest set) is on its own quantization grid, near but off the voxel grid and away from the
+  // origin: snapped back to the voxels when within Draco's half step (8 bits, exact for the art), else kept on Draco's grid
+  // (16 bits, exact for the source). The base models are on the voxel grid around the origin and never come here.
+  const draco = step.grid ? null : dracoGrid(source);
+  const voxels = draco ? voxelGrid(source, draco.step / 2 + 1e-5) : null;
+  if (draco && voxels) {
+    const stored = new Int8Array(used * 3);
+    for (let v = 0; v < count; v++) {
+      const n = remap[v]!;
+      if (n < 0) continue;
+      for (let k = 0; k < 3; k++) stored[n * 3 + k] = Math.round(source[v * 3 + k]! / GRID) - voxels[k]!;
+    }
+    position.setArray(stored).setNormalized(true);
+    step = { quantum: GRID, grid: true, top: 127, offset: voxels.map((c) => c * GRID) as [number, number, number], snapped: draco.step / 2 + 1e-5 };
+  } else if (draco) {
+    // On the source's own Draco grid: its integers, recentred; the offset goes on the node with the scale.
+    const offset = draco.min.map((m) => m + draco.centre * draco.step) as [number, number, number];
+    const stored = new Int16Array(used * 3);
+    for (let v = 0; v < count; v++) {
+      const n = remap[v]!;
+      if (n < 0) continue;
+      for (let k = 0; k < 3; k++) stored[n * 3 + k] = Math.round((source[v * 3 + k]! - draco.min[k]!) / draco.step) - draco.centre;
+    }
+    position.setArray(stored).setNormalized(true);
+    step = { quantum: draco.step, grid: false, top: 32767, offset };
+  } else {
+    const stored = step.top === 127 ? new Int8Array(used * 3) : new Int16Array(used * 3);
+    position.setArray(permute(source, 3, stored, (v) => Math.round(v / step.quantum))).setNormalized(true);
+  }
 
   const normal = prim.getAttribute("NORMAL");
-  normal?.setArray(permute(normal.getArray()!, 3, new Int16Array(used * 3), (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767))).setNormalized(true);
+  if (normal) {
+    const n = normal.getArray()!;
+    // A Draco source's normals all along an axis (voxel faces) are exact in 8 bits; the base set keeps its 16.
+    const axial = draco !== null && Array.from(n).every((v) => v === 0 || Math.abs(v) === 1);
+    const out = axial ? new Int8Array(used * 3) : new Int16Array(used * 3);
+    normal.setArray(permute(n, 3, out, (v) => Math.round(Math.max(-1, Math.min(1, v)) * (axial ? 127 : 32767)))).setNormalized(true);
+  }
 
   for (const semantic of prim.listSemantics()) {
     if (semantic === "POSITION" || semantic === "NORMAL") continue;
@@ -127,13 +254,17 @@ function compressPrimitive(doc: Document, prim: Primitive): { quantum: number; g
  * index codec may rotate a triangle (abc as bca, the same winding and edges), so each triangle is matched in its best
  * rotation.
  */
-function verify(name: string, source: Document, copy: Document, quantum: number): string {
+function verify(name: string, source: Document, copy: Document, tolerance: number): string {
   const a = onlyPrimitive(source, name);
   const b = onlyPrimitive(copy, name);
   const ai = a.getIndices()!.getArray()!;
   const bi = b.getIndices()!.getArray()!;
   if (ai.length !== bi.length) throw new Error(`${name}: ${ai.length} indices became ${bi.length}`);
-  const scale = copy.getRoot().listNodes()[0]!.getScale()[0] / source.getRoot().listNodes()[0]!.getScale()[0];
+  // Positions compared in the source's frame: the copy's scale, and its translation's change turned back (same rotation).
+  const [sn, cn] = [source.getRoot().listNodes()[0]!, copy.getRoot().listNodes()[0]!];
+  const [ss, cs] = [sn.getScale()[0], cn.getScale()[0]];
+  const [st, ct] = [sn.getTranslation(), cn.getTranslation()];
+  const shift = rotate(sn.getRotation(), [ct[0] - st[0], ct[1] - st[1], ct[2] - st[2]], true);
   const read = (p: Primitive, s: string) => {
     const acc = p.getAttribute(s)!;
     const el = new Array<number>(acc.getElementSize());
@@ -147,7 +278,7 @@ function verify(name: string, source: Document, copy: Document, quantum: number)
     const p = ap(x);
     const q = bp(y);
     let pos = 0;
-    for (let k = 0; k < 3; k++) pos = Math.max(pos, Math.abs(p[k]! - q[k]! * scale));
+    for (let k = 0; k < 3; k++) pos = Math.max(pos, Math.abs(p[k]! - (q[k]! * cs + shift[k]!) / ss));
     let nor = 0;
     if (normals) {
       const n = normals[0]!(x);
@@ -177,8 +308,8 @@ function verify(name: string, source: Document, copy: Document, quantum: number)
     for (let j = 0; j < 3; j++) worst[j] = Math.max(worst[j]!, best![j]!);
   }
   const [pos, nor, uv] = worst;
-  // Half a quantum, and float32's rounding of a dequantized value.
-  if (pos > quantum / 2 + 1e-6) throw new Error(`${name}: a position moved ${pos}`);
+  // Half a quantum (or Draco's half step, for a source snapped to its voxels), and float32's rounding of a dequantized value.
+  if (pos > tolerance) throw new Error(`${name}: a position moved ${pos}`);
   if (nor > 0.01) throw new Error(`${name}: a normal turned ${nor} degrees`);
   if (uv > 1e-5) throw new Error(`${name}: a UV moved ${uv}`);
   return `position ${pos.toExponential(1)}, normal ${nor.toFixed(4)} deg, uv ${uv.toExponential(1)}`;
@@ -186,50 +317,62 @@ function verify(name: string, source: Document, copy: Document, quantum: number)
 
 async function compress(name: string, bytes: Uint8Array): Promise<{ out: Uint8Array; note: string }> {
   const doc = await io.readBinary(bytes);
+  // A Draco source is decoded on read; its extension goes, so the copy is written with meshopt only.
+  doc.getRoot().listExtensionsUsed().find((e) => e.extensionName === KHRDracoMeshCompression.EXTENSION_NAME)?.dispose();
   const node = doc.getRoot().listNodes()[0]!;
   const step = compressPrimitive(doc, onlyPrimitive(doc, name));
   // Normalized: three reads an integer q as q / 127 (8 bits) or q / 32767 (16 bits), so the node scales by that many quanta.
-  const s = node.getScale()[0] * step.quantum * step.top;
+  const scale = node.getScale()[0];
+  const s = scale * step.quantum * step.top;
   node.setScale([s, s, s]);
+  if (step.offset) {
+    // world = T + R (S (offset + quantum * stored)): the offset, scaled and turned, joins the translation.
+    const t = node.getTranslation();
+    const o = rotate(node.getRotation(), step.offset.map((v) => v * scale));
+    node.setTranslation([t[0] + o[0], t[1] + o[1], t[2] + o[2]]);
+  }
   doc.createExtension(KHRMeshQuantization).setRequired(true);
   doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
   const out = await io.writeBinary(doc);
-  const note = verify(name, await io.readBinary(bytes), await io.readBinary(out), step.quantum);
-  return { out, note: `${step.grid ? `grid 0.1, ${step.top === 127 ? 8 : 16} bits` : `step ${step.quantum.toExponential(3)}`}; ${note}` };
+  const note = verify(name, await io.readBinary(bytes), await io.readBinary(out), step.snapped ?? step.quantum / 2 + 1e-6);
+  return { out, note: `${step.snapped ? "voxel grid 0.1, 8 bits, from Draco" : step.grid ? `grid 0.1, ${step.top === 127 ? 8 : 16} bits` : step.offset ? `Draco grid ${step.quantum.toExponential(3)}` : `step ${step.quantum.toExponential(3)}`}; ${note}` };
 }
 
 const check = process.argv.includes("--check");
-const sources = readdirSync(SOURCE).filter((f) => MODEL.test(f)).sort();
-const written = new Set<string>();
-let before = 0;
-let after = 0;
 let stale = false;
-mkdirSync(OUT, { recursive: true });
-for (const file of sources) {
-  const key = MODEL.exec(file)![1]!;
-  const src = readFileSync(join(SOURCE, file));
-  const { out, note } = await compress(key, src);
-  const target = `${key}.${hashOf(out)}.glb`;
-  written.add(target);
-  before += src.length;
-  after += out.length;
-  console.log(`${key}: ${src.length} -> ${out.length} B (${target}; ${note})`);
-  if (check) {
-    let current: Uint8Array | null = null;
-    try {
-      current = readFileSync(join(OUT, target));
-    } catch {}
-    if (!current || Buffer.compare(current, out) !== 0) stale = true;
-  } else {
-    writeFileSync(join(OUT, target), out);
+for (const set of SETS) {
+  const sources = readdirSync(set.source).filter((f) => set.match(f) !== null).sort();
+  const written = new Set<string>();
+  let before = 0;
+  let after = 0;
+  mkdirSync(set.out, { recursive: true });
+  for (const file of sources) {
+    const key = set.match(file)!;
+    const src = readFileSync(join(set.source, file));
+    const { out, note } = await compress(key, src);
+    const target = `${key}.${hashOf(out)}.glb`;
+    written.add(target);
+    before += src.length;
+    after += out.length;
+    console.log(`${key}: ${src.length} -> ${out.length} B (${target}; ${note})`);
+    if (check) {
+      let current: Uint8Array | null = null;
+      try {
+        current = readFileSync(join(set.out, target));
+      } catch {}
+      if (!current || Buffer.compare(current, out) !== 0) stale = true;
+    } else {
+      writeFileSync(join(set.out, target), out);
+    }
   }
+  // A theme's folder is another set's: only files are this set's.
+  for (const file of readdirSync(set.out, { withFileTypes: true })) {
+    if (!file.isFile() || written.has(file.name)) continue;
+    if (check) stale = true;
+    else unlinkSync(join(set.out, file.name));
+  }
+  console.log(`${set.label}: ${sources.length} models: ${before} -> ${after} B`);
 }
-for (const file of readdirSync(OUT)) {
-  if (written.has(file)) continue;
-  if (check) stale = true;
-  else unlinkSync(join(OUT, file));
-}
-console.log(`${sources.length} models: ${before} -> ${after} B`);
 if (check && stale) {
   console.error("public/renderer-assets/models is not what this script writes: run node scripts/compress-models.ts");
   process.exit(1);
