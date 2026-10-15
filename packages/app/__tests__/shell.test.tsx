@@ -13,7 +13,8 @@ import { hasWelcomed, markWelcomed, resetWelcomedForTests } from "../src/routes/
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 
-const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:(\w+)/g, "1");
+// A player id is an address (P8): the page of anything else is not found.
+const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:(\w+)/g, "1");
 
 /** The app on the chain's and indexer's fakes, with a wallet in memory that connects (P6). */
 function open(path: string, wallet = fakeWallet()) {
