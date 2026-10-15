@@ -144,6 +144,14 @@ function gamesCursor(value: string | undefined) {
   };
 }
 
+/** The `before` of a player's pack purchases: `<block>:<tx>:<idx>`, the position of the last one served. */
+function packsCursor(value: string | undefined) {
+  if (value === undefined) return undefined;
+  const match = /^(0|[1-9]\d{0,15}):(0|[1-9]\d{0,9}):(0|[1-9]\d{0,9})$/.exec(value);
+  if (!match) throw new BadRequest("before must be <block>:<tx>:<idx>");
+  return { block: Number(match[1]), tx: Number(match[2]), idx: Number(match[3]) };
+}
+
 // --- routes --------------------------------------------------------------------------------------
 
 export type Read = (queries: Queries, served: Header) => Record<string, unknown>;
@@ -199,6 +207,11 @@ function route(url: URL): Read | null {
       }
       return null;
     }
+    case "packs": {
+      if (parts.length !== 3) return null;
+      parameters(url, []);
+      return (queries, served) => ({ packs: queries.packs(served.number) });
+    }
     case "definitions": {
       if (parts.length !== 3) return null;
       parameters(url, []);
@@ -239,6 +252,21 @@ function route(url: URL): Read | null {
         const player = playerId(a);
         parameters(url, []);
         return (queries, served) => queries.playerCobbles(served.number, player);
+      }
+      if (b === "packs" && parts.length === 5) {
+        const player = playerId(a);
+        const p = parameters(url, [], ["limit", "before"]);
+        const limit = limitOf(p.limit);
+        const before = packsCursor(p.before);
+        return (queries, served) => ({
+          player_id: player,
+          ...queries.playerPacks(served.number, player, limit, before),
+        });
+      }
+      if (b === "referrals" && parts.length === 5) {
+        const player = playerId(a);
+        parameters(url, []);
+        return (queries, served) => queries.playerReferrals(served.number, player);
       }
       if (b === "claims" && parts.length === 5) {
         const player = playerId(a);

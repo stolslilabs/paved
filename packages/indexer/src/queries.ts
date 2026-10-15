@@ -19,7 +19,10 @@ import {
   type LeaderboardEntry,
   type PlayerAchievement,
   type PlayerClaimsAnswer,
+  type Pack,
+  type PackPurchase,
   type PlayerCobblesAnswer,
+  type PlayerReferralsAnswer,
   type PlayerInfo,
   type PlayerQuest,
   type PlayerStats,
@@ -416,9 +419,16 @@ export class Queries {
   /** A player's cobbles and credits at `head`; zeros for a player with none. */
   playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
     const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
-    const balance = one(
-      "SELECT balance FROM cobble_claims WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
-    );
+    // The running balance is the last row of the claims and the pack purchases together.
+    const balance = this.store
+      .statement(
+        `SELECT balance FROM (
+           SELECT block, tx, idx, balance FROM cobble_claims WHERE player_id = :p AND block <= :h
+           UNION ALL
+           SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p AND block <= :h
+         ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
+      )
+      .get({ p: playerId, h: head }) as Row | undefined;
     const claimed = Number(one("SELECT count(*) AS n FROM credit_claims WHERE player_id = ? AND block <= ?")!.n);
     const spent = Number(one("SELECT count(*) AS n FROM credit_spends WHERE player_id = ? AND block <= ?")!.n);
     const achievements = (
@@ -435,6 +445,93 @@ export class Queries {
       credits_claimed: claimed,
       credits_spent: spent,
       achievements_claimed: achievements,
+    };
+  }
+
+  /** The packs at `head`: the last `PackSet` of each id, ascending. */
+  packs(head: number): Pack[] {
+    return (
+      this.store
+        .statement(
+          `SELECT k.pack_id, k.cobbles, k.price, k.active FROM packs k
+           WHERE k.block <= :h AND NOT EXISTS (
+             SELECT 1 FROM packs n WHERE n.pack_id = k.pack_id AND n.block <= :h
+               AND (n.block, n.tx, n.idx) > (k.block, k.tx, k.idx))
+           ORDER BY k.pack_id`,
+        )
+        .all({ h: head }) as Row[]
+    ).map((row) => ({
+      pack_id: Number(row.pack_id),
+      cobbles: Number(row.cobbles),
+      price: String(row.price),
+      active: row.active === 1,
+    }));
+  }
+
+  /** A player's pack purchases, newest first, strictly before the cursor `(block, tx, idx)`. */
+  playerPacks(
+    head: number,
+    playerId: string,
+    limit: number,
+    before: { block: number; tx: number; idx: number } | undefined,
+  ): { purchases: PackPurchase[]; next: string | null } {
+    const rows = this.store
+      .statement(
+        `SELECT p.block, p.tx, p.idx, p.pack_id, p.cobbles, p.price, p.balance, p.time, s.referrer, s.referral
+         FROM pack_purchases p JOIN sales s ON s.block = p.block AND s.tx = p.tx AND s.idx = p.sale_idx
+         WHERE p.player_id = :p AND p.block <= :h
+           AND (:cursor = 0 OR (p.block, p.tx, p.idx) < (:cb, :ct, :ci))
+         ORDER BY p.block DESC, p.tx DESC, p.idx DESC LIMIT :n`,
+      )
+      .all({
+        p: playerId,
+        h: head,
+        cursor: before ? 1 : 0,
+        cb: before?.block ?? 0,
+        ct: before?.tx ?? 0,
+        ci: before?.idx ?? 0,
+        n: limit + 1,
+      }) as Row[];
+    const purchases = rows.slice(0, limit).map((row): PackPurchase => {
+      const referrer = String(row.referrer);
+      return {
+        pack_id: Number(row.pack_id),
+        cobbles: Number(row.cobbles),
+        price: String(row.price),
+        balance: Number(row.balance),
+        referrer: BigInt(referrer) === 0n ? null : referrer,
+        referral: String(row.referral),
+        block: Number(row.block),
+        tx: Number(row.tx),
+        idx: Number(row.idx),
+        purchased_at: Number(row.time),
+      };
+    });
+    const last = purchases[purchases.length - 1];
+    return {
+      purchases,
+      next: rows.length > limit && last ? `${last.block}:${last.tx}:${last.idx}` : null,
+    };
+  }
+
+  /**
+   * What `referrer` earned at `head`: the referral of every game it was the referrer of (`Purchased`) and of every pack
+   * (`Sold`). The sums are exact (u256 text added as BigInt).
+   */
+  playerReferrals(head: number, referrer: string): Omit<PlayerReferralsAnswer, keyof Envelope> {
+    const sum = (sql: string) => {
+      let total = 0n;
+      const rows = this.store.statement(sql).all(referrer, head) as Row[];
+      for (const row of rows) total += BigInt(String(row.referral));
+      return { count: rows.length, total };
+    };
+    const games = sum("SELECT referral FROM purchases WHERE referrer = ? AND purchased_block <= ? AND referral <> '0'");
+    const packs = sum("SELECT referral FROM sales WHERE referrer = ? AND block <= ? AND referral <> '0'");
+    return {
+      player_id: referrer,
+      total: String(games.total + packs.total),
+      games: { count: games.count, total: String(games.total) },
+      packs: { count: packs.count, total: String(packs.total) },
     };
   }
 
