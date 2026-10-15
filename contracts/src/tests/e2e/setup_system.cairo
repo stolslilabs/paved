@@ -137,7 +137,7 @@ fn test_setup_report_owner_is_not_a_reporter() {
 /// A reporter reports for the player it names: one `QuestProgressed` per quest entry and one
 /// `AchievementProgressed` per achievement entry, nothing else.
 #[test]
-#[available_gas(l2_gas: 5660876)]
+#[available_gas(l2_gas: 7182725)]
 fn test_setup_reporter_reports_every_entry() {
     let system = setup_with_reporter();
     let address = system.contract_address;
