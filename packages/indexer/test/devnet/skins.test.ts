@@ -89,12 +89,10 @@ describe.skipIf(!enabled)("devnet skins", () => {
     const aliceAddress = padded(alice.address);
     const plans = Array.from({ length: 19 }, (_, i) => i + 1);
 
-    // The owner prices Forest (theme 1) plans 1, 2 and 19 and theme 2's plan 1; whatever the deploy priced stays as it is.
-    await send(owner, setup(), "set_skin_price", [1, 1, 50]);
-    await send(owner, setup(), "set_skin_price", [1, 2, 60]);
-    await send(owner, setup(), "set_skin_price", [1, 19, 100]);
+    // The deploy priced Forest (theme 1) for the 19 plans by the rarity table: the API equals the contract's view for every plan.
+    // The owner then prices theme 2's plan 1 and reprices Forest's plan 2 (80 to 65), the price in force being the last.
     await send(owner, setup(), "set_skin_price", [2, 1, 70]);
-    await send(owner, setup(), "set_skin_price", [1, 2, 65]); // repriced: 65 is the price in force
+    await send(owner, setup(), "set_skin_price", [1, 2, 65]);
     await caught();
     for (const theme of [1, 2]) {
       const prices = await get<SkinsAnswer>(`/v1/skins?theme=${theme}`);
@@ -104,7 +102,14 @@ describe.skipIf(!enabled)("devnet skins", () => {
         expect(served.get(plan) ?? 0, `theme ${theme} plan ${plan}`).toBe(view);
       }
     }
-    expect((await get<SkinsAnswer>("/v1/skins?theme=1")).prices.find((p) => p.plan === 2)?.cobbles).toBe(65);
+    const forest = (await get<SkinsAnswer>("/v1/skins?theme=1")).prices;
+    expect(forest).toHaveLength(19);
+    expect(forest.find((p) => p.plan === 2)?.cobbles).toBe(65);
+    const priceOf = (plan: number) => forest.find((p) => p.plan === plan)!.cobbles;
+    const cheap = 13; // 50 cobbles in the rarity table: within one 100-pack
+    const dear = 1; // 100 cobbles
+    expect(priceOf(cheap)).toBe(50);
+    expect(priceOf(dear)).toBe(100);
 
     // Alice buys the 100-pack (no referrer): 100 cobbles.
     const [token] = await alice.call(deployment.contracts.Challenge.address, "entry_price");
@@ -114,22 +119,23 @@ describe.skipIf(!enabled)("devnet skins", () => {
     const minOut = (u256(swap[0]!, swap[1]!) * 99n) / 100n;
     await send(alice, setup(), "buy_pack", [2, 0, minOut & (2n ** 128n - 1n), minOut >> 128n]);
 
-    // She buys Forest plan 1 (50) and shows it; plan 19 (100) comes after a second pack.
-    await send(alice, setup(), "buy_skin", [1, 1]);
+    // She buys Forest's cheap plan (50) and shows it; the dear plan (100) comes after a second pack.
+    await send(alice, setup(), "buy_skin", [1, cheap]);
     await caught();
     const afterOne = await get<PlayerCobblesAnswer>(`/v1/players/${aliceAddress}/cobbles`);
     expect(afterOne).toMatchObject({ cobbles: 50, skins_bought: 1, skins_spent: 50 });
     expect(afterOne.cobbles).toBe(Number((await alice.call(setup(), "account", [alice.address]))[0]));
 
-    await send(alice, setup(), "set_skins", [1, 1, 1]);
+    await send(alice, setup(), "set_skins", [1, cheap, 1]);
     await caught();
-    expect((await get<PlayerSkinsAnswer>(`/v1/players/${aliceAddress}/skins`)).active.slice(0, 2)).toEqual([1, 0]);
+    const shown = (await get<PlayerSkinsAnswer>(`/v1/players/${aliceAddress}/skins`)).active;
+    expect(shown.map((theme, i) => (theme ? i + 1 : 0)).filter(Boolean)).toEqual([cheap]);
 
-    // A second pack, then plan 19 (100) and a batch: plan 1 back to the default, plan 19 shown.
+    // A second pack, then the dear plan and a batch: the cheap plan back to the default, the dear one shown.
     await send(alice, `0x${token!.toString(16)}`, "approve", [setup(), price, 0]);
     await send(alice, setup(), "buy_pack", [2, 0, minOut & (2n ** 128n - 1n), minOut >> 128n]);
-    await send(alice, setup(), "buy_skin", [1, 19]);
-    await send(alice, setup(), "set_skins", [2, 1, 0, 19, 1]);
+    await send(alice, setup(), "buy_skin", [1, dear]);
+    await send(alice, setup(), "set_skins", [2, cheap, 0, dear, 1]);
     await caught();
 
     // The balance, the owned skins and the active set equal the contract's views.
@@ -144,12 +150,12 @@ describe.skipIf(!enabled)("devnet skins", () => {
       const served = skins.owned.find((o) => o.theme === theme)?.plans ?? [];
       expect(served, `theme ${theme}`).toEqual(plans.filter((plan) => (word >> plan) & 1));
     }
-    expect(skins.owned).toEqual([{ theme: 1, plans: [1, 19] }]);
+    expect(skins.owned).toEqual([{ theme: 1, plans: [dear, cheap] }]);
     const view = (await alice.call(setup(), "active_skins", [alice.address])).slice(1).map(Number); // the array's length first
     expect(view).toHaveLength(19);
     expect(skins.active).toEqual(view);
-    expect(skins.active[0]).toBe(0);
-    expect(skins.active[18]).toBe(1);
+    expect(skins.active[cheap - 1]).toBe(0);
+    expect(skins.active[dear - 1]).toBe(1);
 
     // Nobody else owns or shows a skin.
     expect(await get<PlayerSkinsAnswer>(`/v1/players/${padded(owner.address)}/skins`)).toMatchObject({ owned: [], active: new Array(19).fill(0) });
