@@ -261,6 +261,38 @@ function packRevert(error: unknown): never {
   throw error;
 }
 
+const NO_CREDIT = "Setup: no credit";
+const SPAWN_PAUSED = "Challenge: spawn paused";
+/** What the player reads when Play free is refused for want of a credit. */
+export const NO_CREDIT_TEXT = "You have no free game left: earn one on the quests page.";
+/** What the player reads when new games are paused (the pause stops free games too, G4). */
+export const FREE_SPAWN_PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
+
+/** `Challenge.spawn_free` found no credit to spend (`'Setup: no credit'`). Nothing moved. */
+export class NoCreditError extends WriteError {
+  constructor(transactionHash?: string) {
+    super(NO_CREDIT_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "NoCreditError";
+  }
+}
+
+/** `Challenge.spawn_free` refused because spawn is paused (`'Challenge: spawn paused'`, G4). Nothing moved. */
+export class FreeSpawnPausedError extends WriteError {
+  constructor(transactionHash?: string) {
+    super(FREE_SPAWN_PAUSED_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "FreeSpawnPausedError";
+  }
+}
+
+/** The known reverts of `spawn_free` as their typed errors; any other error unchanged. */
+function spawnFreeRevert(error: unknown): never {
+  if (error instanceof WriteError) {
+    if (revertNames(error.message, NO_CREDIT)) throw new NoCreditError(error.transactionHash);
+    if (revertNames(error.message, SPAWN_PAUSED)) throw new FreeSpawnPausedError(error.transactionHash);
+  }
+  throw error;
+}
+
 interface Receipt {
   execution_status?: string;
   revert_reason?: string;
@@ -375,6 +407,19 @@ export class PavedWriter {
     const bought = packBoughtOf(result.events);
     if (!bought) throw new PackOutcomeUnknownError(result.transactionHash);
     return { ...result, bought };
+  }
+
+  /**
+   * "Play free": `Challenge.spawn_free()`, which spends one free-game credit of the caller and spawns a Challenge game with
+   * `GameSpawned.price` 0 (a free game), minted to the caller. Returns the new game's id from the receipt. A refusal is a
+   * `NoCreditError` or a `FreeSpawnPausedError`: nothing moved. A receipt without `GameSpawned` is a `WriteError` that names the
+   * transaction (sent, outcome unknown): the credit may be spent, the player's games list shows the game if it exists.
+   */
+  async spawnFree(): Promise<WriteResult & { gameId: number }> {
+    const result = await this.send("Challenge", [this.call("Challenge", "spawn_free", [])]).catch(spawnFreeRevert);
+    const spawned = result.events.find((e) => e.name === "GameSpawned");
+    if (!spawned) throw new WriteError("The free game was sent but its receipt shows no game: check your games list.", result.transactionHash);
+    return { ...result, gameId: Number(spawned.fields.gameId) };
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */
