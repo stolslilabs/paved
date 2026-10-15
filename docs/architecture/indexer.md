@@ -707,8 +707,7 @@ database). `Setup`'s events are flat variants: the selector is the variant's nam
 | `CreditSpent` | `player_id`; `game_id`, `credits` | `credit_spends` |
 
 The two `*CobblesSet` events are owner configuration, indexed (not skipped by name like the other owner events) because the API
-serves the amount of each quest and achievement. The part-2 events are decoded since IX-COBBLES2 (below); the skins' are not known
-yet: the indexer halts on them until their part lands.
+serves the amount of each quest and achievement. The part-2 events are decoded since IX-COBBLES2 and the skins' since IX-COBBLES3 (both below).
 
 **Tables.** One row per event, at its chain position `(block, tx, idx)`, so a rewind is a delete by block; the balance
 and the credits are the last row of the ledger, never a stored sum.
@@ -817,3 +816,69 @@ A buyer is a player from its `Sold`. A referrer is not (as for `Purchased`).
 variants), `packs.test.ts` (the packs; a purchase moves the balance and the claim halt still holds; the `PackBought` and `Sold`
 pairing and its halts; the referral sum of `Purchased` and `Sold`; a reorg), `indexer.test.ts` (schema 15). The tests that read
 `contracts/abis/` need part 2's `Setup.json` and `Economy.json`.
+
+## As built (IX-COBBLES3, cobbles v1 part 3: the skins)
+
+`cobbles-v1.md` (5) adds `Setup.set_skin_price`, `Setup.buy_skin` and `Setup.set_skins`, and the views `skin_price`, `skins` and
+`active_skins`. Schema version 16 (`rebuild` on an older database). Three events are new; the indexer decodes them strictly like the
+others, and no longer halts on them.
+
+**Events** (all from `Setup`)
+
+| Event | Keys, then data | Indexed as |
+|---|---|---|
+| `SkinPriced` | `theme`, `plan`; `cobbles` | `skin_prices` (the theme page needs the prices) |
+| `SkinBought` | `player_id`; `theme`, `plan`, `cobbles`, `balance` | `skin_purchases` |
+| `SkinsActivated` | `player_id`; `active` | `skin_actives` |
+
+The decoder refuses what the contract refuses, so a value outside these is a `DecodeError` and a halt: a theme of 0 (the default has
+no skin), a plan outside 1 to 19, a price outside 50 to 100 (0 is allowed in `SkinPriced` only: it withdraws the skin from sale;
+a `SkinBought` is always at a price of 50 to 100). `active` is `Setup`'s `active_word`: 19 bytes, the theme of plan `p` in byte
+`p - 1` (bits `[8 (p - 1), 8 p)`), plan 1 in the lowest byte, 0 the default theme. The decoder unpacks it into `themes`, 19 values,
+plan 1 first (`unpackSkins`); a word above 152 bits is none the contract writes and is a `DecodeError`. The ABI check in
+`events.test.ts` reads the members from `contracts/abis/Setup.json` when it declares the events and, always, from the event
+structs in `contracts/src/systems/setup.cairo`.
+
+**Tables.** One row per event at its chain position `(block, tx, idx)`; a rewind is a delete by block.
+
+- `skin_prices (theme, plan, cobbles)`: the last row of a `(theme, plan)` is the price in force (0: not for sale). Every earlier row
+  stays, so the price at a given block is the last row at or before it.
+- `skin_purchases (player_id, theme, plan, cobbles, balance)`: every `SkinBought`, unique per `(player_id, theme, plan)`: a skin is
+  bought once and never lost, even when its price is withdrawn.
+- `skin_actives (player_id, active)`: every `SkinsActivated`; the last row of a player is its active set (the word, 0x felt).
+- The balance is one ledger of three tables: the last row of `cobble_claims`, `pack_purchases` and `skin_purchases` together. A skin
+  moves it down by its `cobbles`; a claim or a pack after a skin is checked against the skin's `balance`.
+
+A buyer is a player from its `SkinBought` and from its `SkinsActivated`.
+
+**Halts.** All of IX-COBBLES2's remain (the balance check reads the three tables). New, each one a refusal of the contract
+(`buy_skin`: not for sale, owned, not enough cobbles; `set_skins`: skin not owned):
+
+- a `SkinBought` for a skin the player already owns;
+- a `SkinBought` for a skin with no price in force, or a price of 0 (the `SkinPriced` read is the last one at or before the block, in
+  order, so a skin priced in the block of its purchase is on sale);
+- a `SkinBought` whose `cobbles` is not the price in force;
+- a `SkinBought` whose `balance` is not the ledger's before it less its `cobbles` (a player that could not pay is the same halt:
+  the balance cannot follow);
+- a `SkinsActivated` whose word names, for any plan, a theme other than 0 that the player does not own for that plan. The check is
+  on the whole word, not on the batch: the contract validates the plans of the batch, and the other plans keep a theme it
+  validated before, which stays owned, so a plan that fails here is a skin the indexer did not see bought.
+
+Nothing halts on a `SkinPriced` (owner configuration) beyond its decoding, and a repricing or a withdrawal never takes an owned or
+an active skin away.
+
+**API** (the envelopes and the `head` semantics are unchanged; everything is appended).
+
+- `GET /v1/skins?theme=`: `theme` (the one asked for, null for all) and `prices`, ascending by theme then plan: `{ theme, plan,
+  cobbles }`, the last `SkinPriced` of each pair; a withdrawn skin is listed with 0. `theme` is 1 to 255; a pair never priced is
+  absent.
+- `GET /v1/players/{player_id}/skins`: `owned`, ascending by theme: `{ theme, plans }` (plans ascending; only themes with a skin), and
+  `active`, the 19 themes with plan 1 first, 0 the default (all 0 for a player that never activated): the shape of
+  `Setup.active_skins`.
+- `GET /v1/players/{player_id}/cobbles`: `cobbles` is now the last balance of the claims, the pack purchases and the skin purchases;
+  `skins_bought` and `skins_spent` (cobbles) are appended.
+
+**Tests.** `events.test.ts` (the members of the three events, a decode test for each: the packed word with all 19 plans, theme 0,
+the top plan id and the widest word, the values the contract refuses), `skins.test.ts` (the prices; a buy moves the balance in
+the one ledger; the owned and active sets; activate, then re-activate in a batch; the halts; a reorg), `indexer.test.ts` (schema 16).
+The devnet scenario is `test/devnet/skins.test.ts` (`bun run test:devnet`, one Cairo build).

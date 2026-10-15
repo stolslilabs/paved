@@ -372,7 +372,7 @@ export interface PlayerAchievementsAnswer extends Envelope {
 /** A player's cobbles and free-game credits at the served block (cobbles v1): the running values of the chain's own events. */
 export interface PlayerCobblesAnswer extends Envelope {
   player_id: string;
-  /** The cobble balance, the `balance` of the last `CobblesClaimed` or `PackBought`; 0 for a player with none. */
+  /** The cobble balance, the `balance` of the last `CobblesClaimed`, `PackBought` or `SkinBought`; 0 for a player with none. */
   cobbles: number;
   /** The free-game credits left: claimed (`CreditClaimed`) less spent (`CreditSpent`). */
   credits: number;
@@ -380,6 +380,9 @@ export interface PlayerCobblesAnswer extends Envelope {
   credits_spent: number;
   /** Ids of the achievements claimed, ascending. */
   achievements_claimed: number[];
+  /** The skins the player bought (`SkinBought`) and the cobbles they cost, already out of `cobbles`. Appended in schema 16. */
+  skins_bought: number;
+  skins_spent: number;
 }
 
 /** A pack of Cobbles on sale (`PackSet`, the last one of its id) at the served block (cobbles v1 part 2, schema 15). */
@@ -423,6 +426,38 @@ export interface PlayerPacksAnswer extends Envelope {
   purchases: PackPurchase[];
   /** Pass as `before` for the next page: `<block>:<tx>:<idx>`; null on the last. */
   next: string | null;
+}
+
+/** The price of the skin of one plan in one theme (`SkinPriced`, the last of the pair) at the served block (cobbles v1 part 3, schema 16). */
+export interface SkinPrice {
+  theme: number;
+  /** The tile plan, 1 to 19. */
+  plan: number;
+  /** Cobbles, 50 to 100; 0: not for sale (never priced, or withdrawn; what is owned stays owned). */
+  cobbles: number;
+}
+
+/** The skin prices, ascending by theme then plan: the pairs the owner has priced, the withdrawn ones (0) included. */
+export interface SkinsAnswer extends Envelope {
+  /** The theme asked for; null for all of them. */
+  theme: number | null;
+  prices: SkinPrice[];
+}
+
+/** The skins a player owns in one theme. */
+export interface OwnedSkins {
+  theme: number;
+  /** The plans owned, ascending. */
+  plans: number[];
+}
+
+/** A player's skins at the served block: what it owns per theme (`SkinBought`) and what it shows (`SkinsActivated`, the last one). */
+export interface PlayerSkinsAnswer extends Envelope {
+  player_id: string;
+  /** Ascending by theme; only the themes with a skin owned. */
+  owned: OwnedSkins[];
+  /** The 19 active themes, plan 1 first; 0 the default theme, and all zeros for a player that never activated. */
+  active: number[];
 }
 
 /** What a player earned as a referrer, from the games (`Purchased`) and the packs (`Sold`), at the served block. USDC base units, decimal strings. */
