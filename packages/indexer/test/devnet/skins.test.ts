@@ -157,7 +157,11 @@ describe.skipIf(!enabled)("devnet skins", () => {
     expect(skins.active[cheap - 1]).toBe(0);
     expect(skins.active[dear - 1]).toBe(1);
 
-    // Nobody else owns or shows a skin.
-    expect(await get<PlayerSkinsAnswer>(`/v1/players/${padded(owner.address)}/skins`)).toMatchObject({ owned: [], active: new Array(19).fill(0) });
+    // The deployer's smoke test bought a skin of its own: the API says what the contract's views say for it too, and Alice's skins
+    // are not its.
+    const theirs = await get<PlayerSkinsAnswer>(`/v1/players/${padded(owner.address)}/skins`);
+    const word = Number((await owner.call(setup(), "skins", [owner.address, 1]))[0]);
+    expect(theirs.owned.find((o) => o.theme === 1)?.plans ?? []).toEqual(plans.filter((plan) => (word >> plan) & 1));
+    expect(theirs.active).toEqual((await owner.call(setup(), "active_skins", [owner.address])).slice(1).map(Number));
   });
 });
