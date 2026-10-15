@@ -24,6 +24,8 @@ export interface LeaderboardSceneProps {
   viewer?: LeaderboardEntry | null;
   /** The read failed: what the indexer said. */
   error?: string | null;
+  /** The players whose best game of the day was free (P-61: ranked like any other, marked "Free", PM ruling). */
+  free?: readonly string[];
   now: number;
   onDayChange?: (day: number) => void;
   onSelectPlayer?: (playerId: string) => void;
@@ -111,6 +113,7 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
               total={leaderboard.total}
               viewerId={viewerId}
               viewer={props.viewer}
+              free={props.free}
               onSelectPlayer={props.onSelectPlayer}
             />
           )}
