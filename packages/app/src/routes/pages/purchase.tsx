@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { MAX_STAKE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, boostBps } from "@paved/chain";
-import { LoadingScene } from "../../components/scenes/loading-scene";
 import { PurchaseScene, type PurchaseRefusal, type PurchaseTab } from "../../components/scenes/purchase-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { Notice } from "../../components/elements/notice";
@@ -61,9 +60,9 @@ export default function Page() {
   const error = quote.error ?? split.error;
   if (error || quote.data === null || split.data === null) {
     const retry = () => void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-    return <PurchaseUnavailable message={error?.message ?? "Purchases are off: the economy is not deployed on this network."} onBack={onBack} onRetry={retry} />;
+    return <PurchaseStatus error={error?.message ?? "Purchases are off: the economy is not deployed on this network."} onBack={onBack} onRetry={retry} />;
   }
-  if (quote.data === undefined || split.data === undefined) return <LoadingScene progress={null} message="Reading the price" />;
+  if (quote.data === undefined || split.data === undefined) return <PurchaseStatus error={null} onBack={onBack} />;
 
   const gameRefusal = purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected);
   const packRefusal = buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null);
@@ -134,16 +133,25 @@ export default function Page() {
   );
 }
 
-/** The economy cannot be read (not deployed, or a failed read): why, with Retry. */
-function PurchaseUnavailable({ message, onBack, onRetry }: { message: string; onBack: () => void; onRetry: () => void }) {
+/**
+ * The page before its scene: the price being read (`error` null), or why it cannot be read (the economy not deployed, a
+ * failed read), with Retry. The top bar keeps Back, as on every full-screen flow.
+ */
+function PurchaseStatus({ error, onBack, onRetry }: { error: string | null; onBack: () => void; onRetry?: () => void }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Challenge" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
-        <Notice tone="danger" title="The price cannot be read">
-          {message}
-        </Notice>
-        <Button onClick={onRetry}>Retry</Button>
+      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+        {error === null ? (
+          <Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>
+        ) : (
+          <>
+            <Notice tone="danger" title="The price cannot be read">
+              {error}
+            </Notice>
+            <Button onClick={onRetry}>Retry</Button>
+          </>
+        )}
       </main>
     </div>
   );

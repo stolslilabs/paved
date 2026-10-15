@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
   PackPriceChangedError,
@@ -25,7 +25,7 @@ import {
   type WriteResult,
 } from "@paved/chain";
 import type { PurchaseRefusal } from "../components/scenes/purchase-scene";
-import { usePoolQuote, useQuote } from "./chain";
+import { usePoolQuote } from "./chain";
 import { cobbleKeys } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type Purchases } from "./sources";
@@ -84,11 +84,21 @@ function useMinOut(swapIn: bigint | null): Confirmable {
   };
 }
 
-/** A stake's quote (`Economy.quote`) and its `min_out`: the swap of the price, less the referral when `referred`. */
+/**
+ * A stake's quote (`Economy.quote`, `useQuote`'s key) and its `min_out`: the swap of the price, less the referral when
+ * `referred`. While a new stake's quote is read the last one stays shown (the page keeps its scene) and the confirm waits:
+ * `isPending` until the stake's own quote and its `min_out` are read.
+ */
 export function useStakeQuote(stake: number, referred: boolean): { quote: UseQueryResult<QuoteView | null> } & Confirmable {
-  const quote = useQuote(stake);
-  const swapIn = quote.data ? swapInputOf(quote.data, referred) : null;
-  return { quote, ...useMinOut(swapIn) };
+  const { economy } = useDataSources();
+  const quote = useQuery({
+    queryKey: queryKeys.chain.quote(stake),
+    queryFn: () => (economy ? economy.quote(stake) : null),
+    placeholderData: keepPreviousData,
+  });
+  const current = quote.isPlaceholderData ? null : (quote.data ?? null);
+  const confirmable = useMinOut(current ? swapInputOf(current, referred) : null);
+  return { quote, ...confirmable, minOut: current ? confirmable.minOut : null, isPending: quote.isPlaceholderData || confirmable.isPending };
 }
 
 /** A pack's `min_out`: the swap of its price, less the referral (`split.referral`) when `referred`. */

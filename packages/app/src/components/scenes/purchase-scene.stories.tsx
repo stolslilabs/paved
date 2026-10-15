@@ -21,7 +21,7 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   );
 }
 
-const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() } } satisfies Meta<typeof PurchaseScene>;
+const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() } } satisfies Meta<typeof PurchaseScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -53,3 +53,31 @@ export const CobblePackBuying: Story = { args: PURCHASE.cobblePackBuying };
 export const CobblePackShort: Story = { args: PURCHASE.cobblePackShort };
 /** WRAP360: the largest balances and a full referrer address. */
 export const CobbleStress: Story = { args: PURCHASE.cobbleStress };
+
+// P7b: the states of the purchase on the chain's data.
+/** A guest: Pay is "Connect to buy", whatever the balance. */
+export const Guest: Story = { args: { ...PURCHASE.stake1, connected: false } };
+/** The pool is being quoted for the stake's `min_out`: Pay waits. */
+export const Quoting: Story = { args: { ...PURCHASE.stake1, quoting: true } };
+/** The price or the pool's quote moved since the confirm: nothing was spent, confirm again at the new figures. */
+export const PriceMoved: Story = {
+  args: { ...PURCHASE.stake3Referred, refusal: { kind: "moved", message: "The price moved since you confirmed: check the new figures and confirm again. Your USDC was not spent." } },
+};
+/** A pool quote far below the guard rate: Pay becomes Buy anyway. */
+export const LowQuote: Story = {
+  args: { ...PURCHASE.stake1, refusal: { kind: "low-quote", message: "The pool quotes far less PAVED than the guard rate for this purchase. Buy anyway, or try later." } },
+};
+/** The writer refused the purchase: its message. */
+export const Refused: Story = { args: { ...PURCHASE.stake1, refusal: { kind: "refused", message: "This address cannot be your referrer. Nothing was sent." } } };
+/** Sent, but the receipt could not be read. */
+export const OutcomeUnknown: Story = {
+  args: { ...PURCHASE.stake1, refusal: { kind: "unknown", message: "Purchase sent (0x5f1e), outcome unknown: check your games before buying again" } },
+};
+/** A guest on the Cobbles tab. */
+export const CobbleGuest: Story = { args: { ...PURCHASE.cobblePackPicked, connected: false } };
+/** A pack bought: its Cobbles added, the balance from its `PackBought`. */
+export const CobblePackBought: Story = { args: { ...PURCHASE.cobblePackPicked, cobbles: { ...PURCHASE.cobblePackPicked.cobbles, balance: 340, bought: { cobbles: 100 } } } };
+/** The pack's purchase refused: the pack went off sale. */
+export const CobblePackRefused: Story = {
+  args: { ...PURCHASE.cobblePackPicked, cobbles: { ...PURCHASE.cobblePackPicked.cobbles, refusal: { kind: "refused", message: "This pack is not on sale any more. Nothing was sent." } } },
+};
