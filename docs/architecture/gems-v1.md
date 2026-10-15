@@ -6,10 +6,15 @@ and achievement pages and the indexer (P-61 ruling 8).
 
 The owner's feature (2026-10-15) and the PM's rulings B1 to B8 (P-61) are the input. In short: gems are an on-chain,
 non-transferable balance per account (B2), earned only by quest and achievement claims and pack purchases, spent only
-on tile skins; four packs at 50 for $5, 100 for $10, 500 for $45 and 1,000 for $90 (B1); completing every daily quest of
+on tile skins; four packs at 50 for $5, 100 for $9, 500 for $40 and 1,000 for $70 (the owner's tiers of 2026-10-15,
+replacing B1's list); completing every daily quest of
 a day, or every weekly quest of a week, credits one free Challenge game (B4); packs are paid on chain after Glitchbomb's
-purchase component, priced in USD through the game price's source (B5); skins are owned per account, tile type and
+purchase component, priced in USD through the game price's source, and their revenue takes the game's split with its
+referral (B5 and the owner's answer of 2026-10-15); skins are owned per account, tile type and
 theme, with at most one active skin per tile type (B6, B7).
+
+The owner's answers (2026-10-15, P-61 section C) and the PM's rulings on the open items (2026-10-15) are folded in:
+section 2 (packs and their split) and section 8 ("Decided").
 
 Every gas figure below is an **estimate** unless it says "measured". No Cairo build or test was run for this document.
 Each estimate is derived from measured unit costs: a storage read of 76,840 L2 gas, a write of 118,210, an event of about
@@ -34,7 +39,7 @@ Each estimate is derived from measured unit costs: a storage read of 76,840 L2 g
 | Where the purchase lives | in `Setup`, beside the quest and achievement components (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:59-95`); public `quote` and `issue` (`:258-304`) | the same pattern: `Setup` exposes `issue` and `quote` (`nums@4f8f405:contracts/src/systems/setup.cairo:226-270`) | **in `Setup`**, beside quiver's quests and achievements (section 1) |
 | The purchase component | a thin layer over Cartridge's `bundle` package, which is not in the export: empty storage and events, internal functions only (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:35-42`, `:44-265`). The buyer's transfer happens inside the package's `issue` | the same layer over the same package (`nums@4f8f405:contracts/src/components/purchase.cairo:4-7`, `:35-42`) | Paved's own code in `Setup`: no `bundle` package, no Dojo |
 | Price | fixed amounts of a quote token, no oracle: bundle `i` costs `(i + 1) x base_price` (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:82-97`) | fixed amounts of a quote token, 1 % discount per step (`nums@4f8f405:contracts/src/components/purchase.cairo:82-99`); no oracle | fixed USDC amounts, the source of the game price (section 2.1) |
-| Split | burn share swapped and burned, then a vault share, then the rest to the team; whole percentages set by the admin (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:178-238`) | burn, vault, team, in the same order (`nums@4f8f405:contracts/src/components/purchase.cairo:130-193`) | the game's split by default (burn, Vault, LP fee in the swap), a configurable share to a treasury address (section 2.3) |
+| Split | burn share swapped and burned, then a vault share, then the rest to the team; whole percentages set by the admin (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:178-238`) | burn, vault, team, in the same order (`nums@4f8f405:contracts/src/components/purchase.cairo:130-193`) | the game's split itself, through the game's own code in `Economy`: burn, Vault, LP fee in the swap, and the game's referral (section 2.3) |
 | Who sets bundles | `ADMIN_ROLE`, granted to the deployer (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:251-255`, `:307-502`) | `ADMIN_ROLE` (`nums@4f8f405:contracts/src/systems/setup.cairo:275-409`) | `Setup`'s owner (section 2.2) |
 | What a purchase credits | game NFTs (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:161-169`) | game NFTs (`nums@4f8f405:contracts/src/systems/setup.cairo:107-121`) | gems |
 | A free game's quest progress | skipped: `create(..., false)`, for a reentrancy reason ("the quest component is never re-entered", `glitchbomb@5efcbce:contracts/src/systems/play.cairo:209-213`) | not visible in the export | **skipped**, to close the credit loop (section 4.3) |
@@ -69,7 +74,7 @@ Why:
 Two other systems change:
 
 - **`Challenge`** gains the free spawn (section 4).
-- **`Economy`** gains one entry point, which splits a sale's USDC the way a game's is split (section 2.3).
+- **`Economy`** gains `sell`, which runs the game purchase's own split and referral on a pack's USDC (section 2.3).
 
 `Collection`, `Vault`, `PavedToken` and `Faucet` do not change.
 
@@ -90,7 +95,6 @@ so no earlier address moves (P-42). Sepolia is deployed fresh anyway (section 6.
 | `quest_gems` | `quest_id: u32` | `gems: u8`, `kind: u8` (1 daily, 2 weekly), `task: u32`, `total: u32`, `start: u64`, `interval: u32`. A copy of the quiver definition's schedule and single task, taken when the gems are set (section 3.2) | `set_quest_gems`, `retire_quest` |
 | `quest_lists` | `kind: u8` | up to 15 quest ids (`u16` each): the quests of that kind that have gems | `set_quest_gems`, `retire_quest` |
 | `achievement_gems` | `achievement_id: u32` | `gems: u8`, `task: u32`, `total: u32`, copied from the definition | `set_achievement_gems`, `retire_achievement` |
-| `shop` | (single) | `token: ContractAddress` (USDC, set once), `treasury: ContractAddress`, `economy_bps: u16` | `configure_shop` |
 | `packs` | `pack_id: u8` | `gems: u32`, `price: u128` (USDC base units, 6 decimals), `active: bool` | `set_pack` |
 | `skin_prices` | `(theme: u8, plan: u8)` | `gems: u8`; 0 = not for sale | `set_skin_price` |
 | `skins` | `(player_id, theme: u8)` | `owned: u32`: bit `p` = the skin of plan `p` (1 to 19) of that theme is owned | `buy_skin` |
@@ -121,16 +125,16 @@ Calendar of the periods:
 
 | Write | Who | Entry point | Gas (estimate unless measured) |
 |---|---|---|---|
-| Progress: `days`, `weeks`, `accounts` counts | an allowlisted reporter, today `Challenge` only (`set_reporter`, owner) | `report` (exists; new writes) | **+0.59M per paid game over**: three slots read and written, 3 x (76,840 + 118,210) = 585,150. A free game over writes `accounts` only: +0.20M. Today's report is about 0.61M of a surrender's 3.17M (`g7-gas-plan.md`, 1.1: 19.2 % of g). Against the P-22 guard of +1.5M on the closing move: within it. The worst build game over, l, measured 6,581,227 (`baseline.md`, "After G7a"), becomes about 7.17M |
+| Progress: `days`, `weeks`, `accounts` counts | an allowlisted reporter, today `Challenge` only (`set_reporter`, owner) | `report` (exists; new writes) | **+0.59M per paid game over, an estimate; the implementation PR measures it and states it against P-22's guard (section 7.3)**: three slots read and written, 3 x (76,840 + 118,210) = 585,150. A free game over writes `accounts` only: +0.20M. Today's report is about 0.61M of a surrender's 3.17M (`g7-gas-plan.md`, 1.1: 19.2 % of g). Against the P-22 guard of +1.5M on the closing move: within it. The worst build game over, l, measured 6,581,227 (`baseline.md`, "After G7a"), becomes about 7.17M |
 | Gems, by a quest claim | the player, for itself | `claim_quest` | about 0.50M: `quest_gems`, `days` (or `weeks`) and `accounts` read, two writes, one event (3 x 76,840 + 2 x 118,210 + 32,800 = 499,740) |
 | Gems, by an achievement claim | the player, for itself | `claim_achievement` | about 0.38M: `achievement_gems` and `accounts` read (and `tutorial_claims` for First Stone), one write, one event |
 | A credit, by the dailies | the player, for itself | `claim_daily_credit` | about 1.27M: the list, ten `quest_gems` entries, `days` and `accounts` read, two writes, one event (13 reads) |
 | A credit, by the weeklies | the player, for itself | `claim_weekly_credit` | about 0.73M: the list, three entries, `weeks` and `accounts` |
-| Gems, by a pack | the player, for itself | `buy_pack` | about 9.5M. One or two USDC `transferFrom` (about 1.0M each: 5.7 % of the spawn m, 17.64M, `g7-gas-plan.md`, 1.1), `Economy.split_sale` (the swap and burn of `Economy.purchase`, about 8.4M: 47.7 % of m, less the terms it does not write), `accounts` read and written |
+| Gems, by a pack | the player, for itself | `buy_pack` | about 9.8M with no referrer. One USDC `transferFrom` (about 1.0M: 5.7 % of the spawn m, 17.64M, `g7-gas-plan.md`, 1.1), the `Economy.addresses()` view (about 0.2M), `Economy.sell` (the swap and burn of `Economy.purchase`, about 8.4M: 47.7 % of m, less the terms it does not write), `accounts` read and written. A referred purchase adds the referrer checks (+137,030 measured on n, `baseline.md`, "After the Economy hardening") and the referral's USDC transfer |
 | A credit spent | `Challenge` (the reporter allowlist), for the caller of `spawn_free` | `spend_credit` | about 0.38M: the external call (about 0.18M, the step D figure of a `Setup` call, `baseline.md`, "After D-21/24") and `accounts` read and written |
 | Gems spent, a skin owned | the player, for itself | `buy_skin` | about 0.50M: `skin_prices`, `skins`, `accounts` read, two writes, one event |
 | The active set | the player, for itself | `set_skins` | about 0.30M for any number of changes: `skins` read once per theme named, `active_skins` read and written once, one event |
-| Gems per quest and per achievement, packs, skin prices, the shop | `Setup`'s owner | `set_quest_gems`, `set_achievement_gems`, `set_pack`, `set_skin_price`, `configure_shop` | one-off admin calls; about 0.3M to 0.6M each (two definition reads, one or two writes, one event) |
+| Gems per quest and per achievement, packs, skin prices | `Setup`'s owner | `set_quest_gems`, `set_achievement_gems`, `set_pack`, `set_skin_price` | one-off admin calls; about 0.3M to 0.6M each (two definition reads, one or two writes, one event) |
 
 **Decided: the player is always the caller.** No entry point credits, spends or activates for another address. A
 purchase cannot be a gift, so no path moves value between accounts (reversal: a gift is a later ruling, with its own
@@ -145,17 +149,19 @@ audit).
 `Economy::BASE_PRICE` (`contracts/src/systems/economy.cairo:40`). USDC is the USD unit. Glitchbomb and Nums price their
 bundles the same way: fixed amounts of a quote token, no oracle (see Sources).
 
-**Decided:** a pack's price is a USDC amount in base units (6 decimals), paid in the token `Challenge` takes. The four
-packs of B1:
+**Decided:** a pack's price is a USDC amount in base units (6 decimals), paid in the token `Challenge` takes.
+
+**The owner's tiers (2026-10-15, P-61 section C, replacing B1's list):** progressive discounts from the reference of
+100 gems for $20 ($0.20 a gem). These are the defaults the fresh deployment sets:
 
 | Pack | Gems | Price (USD) | `price` (USDC base units) | Per gem | Against the $0.20 reference |
 |---|---:|---:|---:|---:|---:|
 | 1 | 50 | 5 | 5,000,000 | $0.100 | -50 % |
-| 2 | 100 | 10 | 10,000,000 | $0.100 | -50 % |
-| 3 | 500 | 45 | 45,000,000 | $0.090 | -55 % |
-| 4 | 1,000 | 90 | 90,000,000 | $0.090 | -55 % |
+| 2 | 100 | 9 | 9,000,000 | $0.090 | -55 % |
+| 3 | 500 | 40 | 40,000,000 | $0.080 | -60 % |
+| 4 | 1,000 | 70 | 70,000,000 | $0.070 | -65 % |
 
-Packs 1 and 2 have the same price per gem (B1 flags it to the owner; section 8).
+Each larger pack is a better price per gem than the one before.
 
 ### 2.2 Who sets the packs
 
@@ -167,71 +173,86 @@ Packs 1 and 2 have the same price per gem (B1 flags it to the owner; section 8).
 
 Each call emits `PackSet`. The owner is `OwnableComponent`'s two-step owner (`contracts/src/components/ownable.cairo`),
 as for every `Setup` setting. The owner is trusted to set prices: no bound beyond non-zero. The fresh deployment sets
-the four packs above (section 6.4).
+the four tiers above (section 6.4).
 
-### 2.3 The payment flow and the split
+### 2.3 The payment flow: the game's path
 
-`configure_shop(token, treasury, economy_bps)`, owner only:
+**The owner's answer (2026-10-15, P-61 section C): a pack's revenue takes the same split as a game.** It is swapped to
+PAVED, 70 % burned, 25 % to the Vault and 5 % to the LP, with a referral as for games. This is fixed, not a
+configurable default. So there is no treasury share and no split setting of the shop: a pack runs **the game's own
+purchase path** in `Economy`, less what belongs to a game.
 
-- `token` is written once and never zero; it must be the token `Challenge` pulls.
-- `treasury` is a plain address. There is no on-chain Treasury (D-26).
-- `economy_bps` is 0 to 10,000. It may be called again to change `treasury` and `economy_bps`.
-- It emits `ShopConfigured`.
+**`Setup.buy_pack(pack_id, referrer, min_out)`**, the caller for itself:
 
-`buy_pack(pack_id, min_out)`, the caller for itself:
-
-1. **[Check]** The shop is configured, the pack is active, and `economy` is set in the wiring.
+1. **[Check]** The pack is active, and `economy` is set in the wiring.
 2. **[Effect]** `accounts[caller].gems += pack.gems`. It reverts if the sum passes `u64`; it cannot in practice.
 3. **[Interaction]**
-   - `to_economy = price x economy_bps / 10,000`, rounded down; `to_treasury = price - to_economy`.
-   - If `to_economy > 0`: `token.transferFrom(caller, economy, to_economy)`, then
-     `Economy.split_sale(to_economy, min_out)`.
-   - If `to_treasury > 0`: `token.transferFrom(caller, treasury, to_treasury)`.
-   - Every `transferFrom` must return true.
-4. **[Event]** `PackBought { player_id, pack_id, gems, price, to_economy, to_treasury, balance }`.
+   - It reads the USDC address from `Economy.addresses().usdc` (`contracts/src/systems/economy.cairo:177-183`), so
+     `Setup` keeps no token setting that could differ from `Economy`'s.
+   - `token.transferFrom(caller, economy, pack.price)`, which must return true. This is the transfer `Challenge` makes
+     for a game (`contracts/src/systems/challenge.cairo:489`).
+   - `Economy.sell(caller, pack.price, referrer, min_out)`.
+4. **[Event]** `PackBought { player_id, pack_id, gems, price, referrer, balance }`. `referrer` is the one that counted,
+   or zero.
 
 The player approves `Setup` on USDC for `price` first, as it approves `Challenge` for a game.
 
-**`Economy.split_sale(amount, min_out)`, new, seller only:**
+**`Economy.sell(player, price, referrer, min_out)`, new, seller only:**
 
 - **Who:** the `seller` is set once by `Economy`'s owner (`set_seller`). Any other caller gets `'Economy: not the
   seller'`.
-- **What it does:** the split of a game purchase, with no game.
-  - It checks that `amount` USDC is on `Economy`.
-  - It splits the amount by the configured `burn_bps` (`contracts/src/systems/economy.cairo:90-98`: 73.68 % swapped
-    for the burn, the rest for the Vault).
-  - It swaps the whole USDC balance in one swap that must fill whole and buy at least `min_out` PAVED.
-  - It pays the margin's PAVED to the Vault, with no share minted, and burns the rest. This is the sequence of
-    `purchase` (`contracts/src/systems/economy.cairo:684-698`).
-- **What it does not do:**
-  - It pays no referral. Packs have no referrer.
-  - It writes no terms and no player, and does not touch a day's accumulator or the mean.
-  - It does not move the guard's rate. That rate prices the games' `R`, and a pack purchase must not be a lever on it.
-- **Event:** `SaleSplit { amount, burned_quote, burned, margin, vault_paved, supply }`.
+- **The same code as `purchase`.** `purchase` (`contracts/src/systems/economy.cairo:636-752`) is split in two. One part
+  is an internal function holding everything that moves money; `purchase` and `sell` both call it, so the two cannot
+  drift apart. That function does the following:
+  1. It checks that `price` USDC is on `Economy`.
+  2. It applies the referral rule (below) and pays the referral, `curve::split` with the configured `burn_bps` and
+     `referral_bps` (`contracts/src/economy/curve.cairo:29`, `contracts/src/systems/economy.cairo:666-682`).
+  3. It swaps the whole USDC balance in one swap, which must fill whole and buy at least `min_out` PAVED.
+  4. It pays the margin's PAVED to the Vault, with no share minted, and burns the rest
+     (`contracts/src/systems/economy.cairo:684-698`).
+  5. It updates the guard's rate, at most once per block, as a game's purchase does.
+- **What only `purchase` keeps:** the stake and price checks against `BASE_PRICE`, the day, the player per game, the
+  day's prior, `R` and the game's terms. A pack has no game, so `sell` writes no terms, no player per game, nothing in a
+  day's accumulator, and never touches the mean.
+- **Event:** `Sold { player_id, price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }`. These
+  are `Purchased`'s fields (`contracts/src/systems/economy.cairo:517-535`) less the game's (`game_id`, `day`, `stake`,
+  `factor`, `reference`).
 
-The client takes `min_out` from `Economy.quote_swap(to_economy)` less 1 %, as it does for a game.
+With the decided configuration (`contracts/src/systems/economy.cairo:84-98`), 73.68 % of the price is swapped for the
+burn, so that 70 % is burned after the pool's 5 % fee, and 26.32 % is swapped for the Vault. With a referral, 5 % of the
+price goes to the referrer out of the Vault's part, so the split is 70 / 20 / 5 / 5 and the LP gets 4.75 %. That is the
+game's split to the basis point, because it is the game's code. A change of `Economy.configure` moves both together.
 
-**Default: `economy_bps = 10,000`.** The whole price takes the game's split: about 70 % burned, 25 % to the Vault and
-5 % to the LP through the pool fee (`contracts/src/systems/economy.cairo:84-89`). This holds until the owner answers
-where the USD revenue goes (B5). Any answer is one owner call; no class change is needed:
+**The referral on a pack, as for a game.**
 
-- all to the team: `economy_bps = 0` and the team's `treasury`;
-- a mix: any value in between.
+- **Who can refer:** any non-zero address except these:
+  - the buyer;
+  - the Vault, the router, `Economy` and the game (`Challenge`), which `Economy` already ignores
+    (`contracts/src/systems/economy.cairo:666-682`);
+  - **the seller (`Setup`)**, which `Economy` adds to that list;
+  - `Economy` and `Setup` itself, which `Setup` filters before the call, as `Challenge` filters `Economy` and itself
+    (`contracts/src/systems/challenge.cairo:478-486`).
 
-**What the default does to the economy.** A pack burns PAVED and raises the Vault's rate, exactly as a game's margin
-does. A lower supply raises the supply factor `F = 2 - S / T` (`docs/architecture/economy.md:74`), so every later game's `R` is a
-little higher: revenue from cosmetics then feeds the players' rewards. This is a property of the default, not a
-decision of this document; the owner's answer settles it.
+  An ignored referrer does not revert: there is simply no referral, and its share stays in the Vault's part.
+- **The share:** `referral_bps` of the price, 5 % (500 bps) today, out of the Vault's part, never out of the burn
+  (P-56). It is paid in USDC to the referrer, in the same call.
+- **No registration** (D-25): the same rule as a game.
 
-**Why not Glitchbomb's sweep of the contract's balance:** `Setup` holds no USDC between calls. Each amount goes straight
-from the player to its recipient, so no balance is left to sweep, and a stray transfer to `Setup` is not someone
-else's revenue. (`Economy` keeps its own rule: any USDC on it joins the next swap.)
+The client takes `min_out` from `Economy.quote_swap(amount)` less 1 %, where `amount` is the price less the referral
+when a referrer counts. This is the game's rule (`Quote.min_out_hint`, `contracts/src/systems/economy.cairo:134-137`).
+
+**What this does to the economy.** A pack burns PAVED and raises the Vault's rate, as a game's purchase does. A lower
+supply raises the supply factor `F = 2 - S / T` (`docs/architecture/economy.md:74`), so every later game's `R` is a
+little higher: revenue from cosmetics feeds the players' rewards. This is the owner's answer, applied.
+
+**Why not Glitchbomb's sweep of the contract's balance:** `Setup` holds no USDC between calls. The price goes straight
+from the player to `Economy`, so no balance is left on `Setup` to sweep. (`Economy` keeps its own rule: any USDC on it
+joins the next swap.)
 
 ### 2.4 Events of the shop
 
-`ShopConfigured { token, treasury, economy_bps }`, `PackSet { pack_id, gems, price, active }`,
-`PackBought { player_id, pack_id, gems, price, to_economy, to_treasury, balance }`, and on `Economy`
-`SellerSet { seller }` and `SaleSplit { ... }`.
+`PackSet { pack_id, gems, price, active }` and `PackBought { player_id, pack_id, gems, price, referrer, balance }` on
+`Setup`; `SellerSet { seller }` and `Sold { ... }` on `Economy`.
 
 ## 3. Claims
 
@@ -266,8 +287,11 @@ What a player can earn from quests at most:
 - **A day:** 20 when the day number mod 3 is 0 (5 + 5 + 5 + 5), 35 when it is 1, 50 when it is 2. That is 35 a day on
   average.
 - **A week:** 45 from the weekly quests.
-- **About 30 days:** about 1,240 gems (35 x 30 + 45 x 30 / 7). That is more than the 1,000-gem pack ($90), plus up to
-  30 daily and 4 weekly free games (section 8, open item 4).
+- **About 30 days:** about 1,240 gems (35 x 30 + 45 x 30 / 7). That is more than the 1,000-gem pack ($70), plus up to
+  30 daily and 4 weekly free games.
+
+**Accepted as designed (PM ruling, 2026-10-15).** The amounts are calibrated on Sepolia with measured figures, and stay
+configurable by `Setup`'s owner (`set_quest_gems`, `set_achievement_gems`).
 
 **Achievements (16 defined).** Rule: **gems = the achievement's display points**. The points were already set by
 difficulty (P-22 and v2a), so there is one difficulty scale and no second table to keep in step. Every value is within
@@ -297,7 +321,10 @@ All 15 claimable achievements add up to 580 gems.
 **On the Podium has no gems in v1.** Its task (8) is credited by the indexer from its daily leaderboard after a day
 closes (`quests.md`, "On the Podium"). Nothing on chain ranks players since D-20, so no claim can prove it, and a claim
 signed by the indexer would make it a trusted minter (rejected in `quests-v2.md` 2.3). `set_achievement_gems` refuses a
-task not counted on chain: only 1, 4, 5, 6, 7 and 10 are accepted. Open item 5 (section 8).
+task not counted on chain: only 1, 4, 5, 6, 7 and 10 are accepted. **Ruled by the PM (2026-10-15): no gems in v1.**
+
+**First Stone keeps its 10 gems (PM ruling, 2026-10-15)**, although its claim is unchecked: gems cannot be moved, so a
+farmed 10 has no market value, and there is one claim per account.
 
 ### 3.2 Setting the gems
 
@@ -444,8 +471,16 @@ where `R` is frozen from the PAVED its purchase burned, times its stake boost (`
 `contracts/src/economy/mean.cairo:97-104`). A free game burned nothing and stakes nothing, so under the normal rules its
 `R` is 0, its weight 0 and its reward 0. Leaving it out of `Economy` gives exactly that result, and leaves the
 accumulator, the mean, the guard and the Vault untouched: "nothing comes in" (B4). A free game is a game played for the
-quests' achievements, the leaderboard and the skins, with no PAVED at stake. Section 8, open item 2, asks whether the
-owner meant a $2 game that pays like a paid one; that would be a mint with no burn.
+quests' achievements, the leaderboard and the skins, with no PAVED at stake.
+
+**The v1 rule (PM ruling, 2026-10-15): a free game pays 0 PAVED under the normal rules** (no burn, so no mint). The PM
+tells the owner, since it touches supply (D-10). A free game that pays like a $2 game would be a mint with no burn
+(`quests-v2.md`'s R3a): a later change, with a cap, a simulation and the owner's reading of D-10.
+
+**A free game ranks in the daily leaderboard like any Challenge game (PM ruling, 2026-10-15).** The leaderboard is the
+indexer's (D-20), so nothing on chain changes for it. The mark that says "free" is `GameSpawned.price == 0`, an
+existing field of an existing event (section 6.2): no new event field and no flag. A paid game's `price` is never 0
+(`stake >= 1`, `contracts/src/systems/economy.cairo:648-649`).
 
 ### 4.3 Abuse cases
 
@@ -455,7 +490,7 @@ owner meant a $2 game that pays like a paid one; that would be a mint with no bu
 | **Credit farming by free games** | A free game reports no quest progress, so it can never complete a day's or a week's quests. Without this, a player who completes the four dailies in one game would play for free forever after one paid game. Glitchbomb skips a reward game's quest progress too, for a reentrancy reason (Sources) |
 | **Credit farming by paid games** | A daily credit needs every live daily completed by paid games of that day, so at least one paid entry ($2). The credit it buys has no PAVED value (4.2). Credits and gems are bound to the account, so many accounts gain nothing that can be moved |
 | **Training** | Off chain, with no on-chain gain (D-22). It never reports, so it earns no gems, no credit and no achievement |
-| **The tutorial claim** | `claim_tutorial` is unchecked (D-21, P-49 (2)), so any account can claim First Stone and its 10 gems. They cannot be moved, and they are a fifth of the cheapest skin. Accepted; open item 6 |
+| **The tutorial claim** | `claim_tutorial` is unchecked (D-21, P-49 (2)), so any account can claim First Stone and its 10 gems. They cannot be moved, and they are a fifth of the cheapest skin. Kept (PM ruling, 2026-10-15) |
 | **Surrender** (P-28's note: "if a reward ever attaches to Daily Run or Settler, revisit whether a surrender counts") | Revisited: a paid surrender still counts. It cost a full entry ($2), and Daily Run's 5 gems (at most $0.50 at pack prices) do not pay for it. A free game's surrender counts for the achievements only, and a credit is earned by paid play first |
 | **A reporter that lies** | A reporter can credit any player any progress, so any gems and credits. Today the only reporter is `Challenge`, which reports for the caller of the move that ended its own game (`contracts/src/systems/setup.cairo:5-8`). The owner must never allowlist an account or an untrusted contract (audit A6) |
 | **Slippage on a pack** | `min_out`, as for a game; the swap must fill whole |
@@ -501,7 +536,7 @@ falls linearly with the count. A game keeps a uniform 38 of the 72, so the rarit
 | `RFFFRFFFR` (10) | 8 | 11.1 % | 55 |
 | `RFRFFFFFR` (13) | 9 | 12.5 % | 50 |
 
-The counts add up to 72. A whole theme of 19 skins costs 1,580 gems: about $142 at the 1,000 pack's price, or about
+The counts add up to 72. A whole theme of 19 skins costs 1,580 gems: about $111 at the 1,000 pack's price, or about
 $316 at the $0.20 reference.
 
 **Decided:** the owner sets each price with `set_skin_price(theme, plan, gems)`, bounded 50 to 100 (0 withdraws it from
@@ -538,17 +573,16 @@ At most one theme per plan holds by construction: one `u8` per plan. "Inactive" 
 |---|---|---|
 | `set_quest_gems(quest_id: u32, gems: u8)` | owner | 3.2 |
 | `set_achievement_gems(achievement_id: u32, gems: u8)` | owner | 3.2 |
-| `configure_shop(token: ContractAddress, treasury: ContractAddress, economy_bps: u16)` | owner | 2.3 |
 | `set_pack(pack_id: u8, gems: u32, price: u128, active: bool)` | owner | 2.2 |
 | `set_skin_price(theme: u8, plan: u8, gems: u8)` | owner | 5.2 |
-| `buy_pack(pack_id: u8, min_out: u256)` | player | 2.3 |
+| `buy_pack(pack_id: u8, referrer: ContractAddress, min_out: u256)` | player | 2.3 |
 | `claim_quest(quest_id: u32, period: u64)` | player | 3.3 |
 | `claim_achievement(achievement_id: u32)` | player | 3.3 |
 | `claim_daily_credit(day: u64)`, `claim_weekly_credit(week: u64)` | player | 3.4 |
 | `buy_skin(theme: u8, plan: u8)` | player | 5.3 |
 | `set_skins(changes: Span<(u8, u8)>)` | player | 5.3 |
 | `spend_credit(player_id: felt252, game_id: u32)` | reporter | 4.1 |
-| views: `account(player_id) -> AccountView` (gems, credits, counts, claimed bits), `day_progress(player_id, day)`, `week_progress(player_id, week)`, `quest_gems(quest_id)`, `achievement_gems(achievement_id)`, `pack(pack_id)`, `shop()`, `skin_price(theme, plan)`, `skins(player_id, theme) -> u32`, `active_skins(player_id) -> Array<u8>` | anyone | |
+| views: `account(player_id) -> AccountView` (gems, credits, counts, claimed bits), `day_progress(player_id, day)`, `week_progress(player_id, week)`, `quest_gems(quest_id)`, `achievement_gems(achievement_id)`, `pack(pack_id)`, `skin_price(theme, plan)`, `skins(player_id, theme) -> u32`, `active_skins(player_id) -> Array<u8>` | anyone | |
 
 **`Setup`, changed in behaviour, same ABI:**
 
@@ -560,8 +594,11 @@ At most one theme per plan holds by construction: one `u8` per plan. "Inactive" 
 **`Challenge`, changed in behaviour, same ABI:** `finish` (internal) for a free game: no quest entries, no
 `Economy.record`.
 
-**`Economy`, new:** `set_seller(seller)` (owner, once, never zero), `split_sale(amount: u256, min_out: u256)` (the
-seller only), and the view `seller()`.
+**`Economy`, new:** `set_seller(seller)` (owner, once, never zero), `sell(player: ContractAddress, price: u256,
+referrer: ContractAddress, min_out: u256)` (the seller only), and the view `seller()`.
+
+**`Economy`, changed in behaviour, same ABI:** `purchase` calls the money-moving part it now shares with `sell`
+(section 2.3); its referral rule also ignores the seller. Its effects on a game are unchanged.
 
 **No entry point changes signature, and none is removed.**
 
@@ -575,9 +612,8 @@ The names avoid every name of quiver's events, which are flat in `Setup`'s enum 
 |---|---|---|
 | `Setup` | `QuestGemsSet` | `quest_id`; `gems`, `kind` |
 | `Setup` | `AchievementGemsSet` | `achievement_id`; `gems` |
-| `Setup` | `ShopConfigured` | `token`, `treasury`, `economy_bps` |
 | `Setup` | `PackSet` | `pack_id`; `gems`, `price`, `active` |
-| `Setup` | `PackBought` | `player_id`; `pack_id`, `gems`, `price`, `to_economy`, `to_treasury`, `balance` |
+| `Setup` | `PackBought` | `player_id`; `pack_id`, `gems`, `price`, `referrer`, `balance` |
 | `Setup` | `GemsClaimed` | `player_id`; `kind` (1 quest, 2 achievement), `id`, `period`, `gems`, `balance` |
 | `Setup` | `CreditClaimed` | `player_id`; `kind` (1 daily, 2 weekly), `period`, `credits` |
 | `Setup` | `CreditSpent` | `player_id`; `game_id`, `credits` |
@@ -585,11 +621,12 @@ The names avoid every name of quiver's events, which are flat in `Setup`'s enum 
 | `Setup` | `SkinBought` | `player_id`; `theme`, `plan`, `gems`, `balance` |
 | `Setup` | `SkinsActivated` | `player_id`; `active` (the packed word) |
 | `Economy` | `SellerSet` | `seller` |
-| `Economy` | `SaleSplit` | `amount`, `burned_quote`, `burned`, `margin`, `vault_paved`, `supply` |
+| `Economy` | `Sold` | `player_id`; `price`, `referrer`, `referral`, `burned_quote`, `burned`, `margin`, `supply`, `vault_paved` |
 
 Every balance-moving event carries the new `balance` or `credits`, so the indexer can check its sums against the chain.
 
-`GameSpawned` keeps its fields; a free game has `price = 0`, which is how the indexer tells it apart. Its `game_id`
+`GameSpawned` keeps its fields; a free game has `price = 0`. **This is the free mark** (PM ruling 7: the design picks
+an event field or a flag): the indexer stores it and the client shows it. Its `game_id`
 also appears in `CreditSpent`.
 
 ### 6.3 The indexer's impact (for CLIENT)
@@ -603,8 +640,11 @@ are flat variants, so their selector is the variant's name; `Economy`'s variants
 It must also learn:
 
 - **Free games:** a free game (`GameSpawned.price == 0`) has no `Purchased`, `Recorded` or `Settled`. Joins on those
-  must not drop it. Whether it ranks in the daily leaderboard is CLIENT's and META's call. It does not affect any value
-  on chain, and since On the Podium has no gems (3.1), the leaderboard credits none.
+  must not drop it. **It ranks in the daily leaderboard like any Challenge game, marked free** (PM ruling, 2026-10-15;
+  recorded for CLIENT). No value on chain depends on the leaderboard, and since On the Podium has no gems (3.1), it
+  credits none.
+- **Packs:** `PackBought` on `Setup` and `Sold` on `Economy`, in the same transaction. `Sold` carries the referral as
+  `Purchased` does, so referral totals sum both events.
 - **Quest progress:** the per-day progress the indexer derives from `QuestProgressed` is unchanged, since a free game
   emits none. For a claim button, the authority is the views `day_progress`, `week_progress` and `account`, or the
   ledger rebuilt from the same reports. Both give the same sums.
@@ -622,12 +662,11 @@ the views exist). Each goes in the same multicall as the definitions, after them
 
 1. The new `Setup`, `Challenge` and `Economy` classes.
 2. `Economy.set_seller(Setup)`.
-3. `Setup.configure_shop(USDC, treasury, 10,000)`. The treasury is the deployer until the owner names one; the address
-   is unused while `economy_bps` is 10,000.
-4. `Setup.set_pack` x 4 (2.1).
-5. `Setup.set_quest_gems` x 13 (3.1).
-6. `Setup.set_achievement_gems` x 15: every achievement but 9.
-7. No skin prices until a theme's art exists. A theme without prices sells nothing. When theme 1 ships,
+3. `Setup.set_pack` x 4, the owner's tiers (2.1): `(1, 50, 5,000,000, true)`, `(2, 100, 9,000,000, true)`,
+   `(3, 500, 40,000,000, true)`, `(4, 1,000, 70,000,000, true)`.
+4. `Setup.set_quest_gems` x 13 (3.1).
+5. `Setup.set_achievement_gems` x 15: every achievement but 9.
+6. No skin prices until a theme's art exists. A theme without prices sells nothing. When theme 1 ships,
    `set_skin_price(1, p, price)` for the 19 plans of 5.2.
 
 The reporter allowlist (`set_reporter(Challenge, true)`) already exists and now also allows `spend_credit`. Nothing
@@ -637,7 +676,7 @@ new is deployed beyond the three classes, and no role is added: the owner of eac
 
 ### 7.1 Unit tests (`Setup`, `Economy`, `Challenge`)
 
-- **Packing:** every packed slot (`accounts`, `days`, `weeks`, `quest_gems`, `achievement_gems`, `packs`, `shop`,
+- **Packing:** every packed slot (`accounts`, `days`, `weeks`, `quest_gems`, `achievement_gems`, `packs`,
   `active_skins`) round-trips at zero, at one, and at every field's maximum. The saturating counters stop at their
   maximum and never wrap.
 - **Calendar:**
@@ -646,7 +685,7 @@ new is deployed beyond the three classes, and no role is added: the owner of eac
   - `is_active` on the copied schedules for every fresh quest, for 9 consecutive days and 3 weeks.
 - **Setters:** each owner setter refuses a non-owner, every bound (gems out of 5 to 15 or 10 to 90, a shape that is
   neither daily nor weekly, a task the ledger does not sum, a total above 65,535, an id above 63, a pack with zero gems
-  or price, `economy_bps` above 10,000, a second `token`), and emits its event.
+  or price), and emits its event.
 - **Claims:**
   - success;
   - the second claim reverts `'Setup: claimed'`;
@@ -663,12 +702,15 @@ new is deployed beyond the three classes, and no role is added: the owner of eac
   - activate an unowned skin; theme 0 is always allowed;
   - a batch of 19 changes is one write;
   - two changes of the same plan in one batch: the last wins, as specified, and is tested.
-- **`split_sale`:**
+- **`sell`:**
   - the seller only;
-  - an amount not on `Economy`;
-  - the burn and Vault parts against `burn_bps`;
+  - a price not on `Economy`;
+  - **the split equals the game's:** for the same price, referrer and pool state, `sell` and `purchase` (stake-1
+    price, or a price set equal) give the same referral, burn quote, margin, PAVED burned and PAVED to the Vault;
+  - the referral rule: a zero referrer, the buyer, the Vault, the router, `Economy`, `Challenge` and `Setup` are each
+    ignored with no revert; any other address gets `referral_bps` of the price;
   - `min_out` and a partial fill revert;
-  - no terms, no day, no mean and no guard written.
+  - no terms, no player per game, no day and no mean written.
 
 ### 7.2 Integration (`tests::e2e`, through the real contracts)
 
@@ -680,7 +722,7 @@ new is deployed beyond the three classes, and no role is added: the owner of eac
   - `Economy` holds nothing after the call;
   - the Vault's PAVED rises by the margin's part;
   - the supply falls by the burn;
-  - the treasury gets its share at `economy_bps` of 0, 5,000 and 10,000;
+  - the referrer gets 5 % of the price in USDC, or nothing for an ignored referrer;
   - gems are credited;
   - with no approval, the call reverts and nothing changes.
 - **The day's credit, end to end:** play paid games on a rotating day until the four dailies are met, claim the four
@@ -695,12 +737,14 @@ new is deployed beyond the three classes, and no role is added: the owner of eac
 New scenarios, measured on Linux (VPS or CI), with figures recorded in `docs/measures/baseline.md`:
 
 - `claim_quest`, `claim_achievement`, `claim_daily_credit`, `claim_weekly_credit`;
-- `buy_pack` at `economy_bps` 10,000 and at 0;
+- `buy_pack` with no referrer and with one;
 - `buy_skin`, `set_skins` with 1 and 19 changes;
 - `spawn_free`, and a free game's game over.
 
-The paid game overs g, i, k, l and s get new ceilings. The +0.59M estimate is checked against the P-22 guard (+1.5M);
-above it, the change goes back to the PM before merging. The spawns m and n must not move beyond the deck noise G7a
+The paid game overs g, i, k, l and s get new ceilings. **The +0.59M per paid game over is an estimate**: the
+implementation PR measures it (the PM's ruling of 2026-10-15 names the tool G6; the repository's gas bench is this
+file) and states the figure against P-22's guard (+1.5M). Above the guard, the change goes back to the PM before
+merging. The spawns m and n must not move beyond the deck noise G7a
 describes.
 
 ### 7.4 Fuzz, where value moves
@@ -708,8 +752,8 @@ describes.
 - **The ledger:** random reports (random tallies, random block times across days and weeks), each followed by every
   claim the ledger allows. The gems credited must equal the sum of the gems of exactly the (quest, period) and
   achievement pairs whose targets the reports met, and no claim may succeed twice.
-- **The split:** random prices and `economy_bps`. `to_economy + to_treasury == price` always, and the burn and Vault
-  parts add up to `to_economy`.
+- **The split:** random prices and referrers. `sell` and `purchase` split a price the same way, and the referral, the
+  burn quote and the margin add up to the price.
 - **Skins:** random sequences of buys and activations. `gems` never goes negative, and the active theme of every plan
   is 0 or an owned theme.
 
@@ -733,59 +777,64 @@ An auditor checks these properties, each against the code and the tests above:
 - **A6 Access.**
   - Every setter is owner only.
   - `report` and `spend_credit` are reporter only, and the reporter list is owner only.
-  - `split_sale` is seller only, and the seller is set once.
+  - `sell` is seller only, and the seller is set once.
   - The auditor states the residual trust: a reporter can credit arbitrary progress, so arbitrary gems and credits.
 - **A7 A free game brings nothing into the Vault, and takes nothing out.** `spawn_free` makes no token transfer and no
   `Economy` call. Its game over makes no `Economy.record`. No `settle` can pay it (`'Economy: unknown game'`).
 - **A8 A free game cannot earn a credit.** Its game over reports no quest entries.
-- **A9 Revenue is conserved.** `to_economy + to_treasury == price`. `Setup` holds no USDC after `buy_pack`, and
-  `Economy` holds none after `split_sale`, beyond what its existing rule keeps for the next swap.
+- **A9 A pack's split is the game's.** `sell` and `purchase` run the same money-moving code, with the same
+  `burn_bps`, `referral_bps` and referral rule. The referral, the burn quote and the margin add up to the price. `Setup`
+  holds no USDC after `buy_pack`, and `Economy` holds none after `sell`, beyond what its existing rule keeps for the next
+  swap.
 - **A10 The pack price is the owner's.** The client cannot pass a price: `buy_pack` reads it from storage.
 
 ## 8. Decided and open
 
 ### Decided within the rulings (each with what reverses it)
 
-1. **Everything in `Setup`**, after Glitchbomb's layout; `Challenge` gains `spawn_free`; `Economy` gains `split_sale`.
+1. **Everything in `Setup`**, after Glitchbomb's layout; `Challenge` gains `spawn_free`; `Economy` gains `sell`.
    Reversal: a separate `Shop` system if `Setup`'s CASM passes 50 % of the cap.
 2. **The proof of claims is `Setup`'s own ledger**: one slot per (player, day), one per (player, week), and one per
    player, written by the report. It is not quiver's storage mode, which is above the P-22 guard, and not the indexer,
    which would be a trusted minter. Reversal: the measured report cost passes the guard; then the weekly slot goes, and a
    weekly claim sums seven day slots.
 3. **Packs are priced in USDC base units**, the game price's source (a constant, no oracle), set by `Setup`'s owner.
-4. **The default split is the game's** (`economy_bps = 10,000`, through `Economy.split_sale`), with a configurable share
-   to a treasury address. A pack pays no referral, and its swap does not move the guard's rate. Reversal: the owner's
-   answer on revenue (open item 1), by one call.
+   `Setup` reads the USDC address from `Economy`.
+4. **A pack's swap moves the guard's rate**, at most once per block, as a game's purchase does, because it runs the
+   same code. Reversal: the audit finds the guard needs game purchases only; then `sell` skips that one step.
 5. **Gems per quest:** 5, 10 or 15 by the family's target; Daily Run 5; weeklies 15. **Gems per achievement: its
-   points.** Reversal: calibration (Q-4), by owner calls.
-6. **On the Podium has no gems in v1** (not provable on chain). Reversal: an on-chain proof of rank.
-7. **Claims are by the player, for itself, never automatic**; past periods have no deadline.
-8. **A free game:**
-   - it is not in `Economy`, so it pays 0 PAVED, by the normal rules;
-   - it reports no quest progress, but does report achievement progress;
-   - it obeys the spawn pause;
-   - its credit is spent through the reporter allowlist.
+   points.**
+6. **Claims are by the player, for itself, never automatic**; past periods have no deadline.
+7. **A free game** is not in `Economy`, reports no quest progress but does report achievement progress, obeys the spawn
+   pause, and spends its credit through the reporter allowlist.
+8. **X = 19**, from the code. The default skin price is `50 + 50 x (9 - c) / 8`, rounded to 5.
+9. **A paid surrender still counts** for Daily Run and Settler (P-28's note revisited).
+10. **The free mark is `GameSpawned.price == 0`**, an existing field, not a new flag.
 
-   Reversal: open item 2 (a paying free game).
-9. **X = 19**, from the code. The default skin price is `50 + 50 x (9 - c) / 8`, rounded to 5.
-10. **A paid surrender still counts** for Daily Run and Settler (P-28's note revisited).
+### Decided by the owner (2026-10-15, P-61 section C)
 
-### Open for the PM (and, through the PM, the owner)
+1. **Pack revenue takes the game's split**, swapped to PAVED: 70 % burned, 25 % to the Vault, 5 % to the LP, with the
+   game's referral (5 % of the price out of the Vault's part, the same addresses ignored, plus the seller). Fixed, not a
+   default: a pack runs the game's own code in `Economy` (section 2.3). There is no treasury share.
+2. **Progressive tiers** replace B1's list: 50 gems for $5 (-50 %), 100 for $9 (-55 %), 500 for $40 (-60 %) and 1,000
+   for $70 (-65 %), from the reference of 100 for $20. These are the fresh deployment's defaults, configurable by
+   `Setup`'s owner (`set_pack`). The same price per gem for two packs no longer holds.
 
-1. **Where the USD revenue of packs goes** (the owner's, asked; B5). **Recommendation:** keep the game split as the
-   default only if the owner wants cosmetics to feed the burn and the Vault. If cosmetic revenue is meant to fund the
-   team, set `economy_bps = 0` with a team treasury. Either is one call.
-2. **Whether a free game pays PAVED** (the owner's: it touches supply and D-10). Under the normal rules it pays 0,
-   because nothing was burned. A free game that pays "like a $2 game" needs a nominal `R` (a stake-1 burn quote) minted
-   with no burn: `quests-v2.md`'s R3a, a mint, which needs a cap, a simulation and the owner's reading of D-10.
-   **Recommendation:** pay 0 in v1 (R3b); the credit is a free play, not free money.
-3. **Packs 1 and 2 at the same price per gem** (B1, flagged). **Recommendation:** make pack 2 slightly better, for
-   example 110 gems for $10, so that the larger pack is never the worse deal. Otherwise keep the owner's numbers.
-4. **The earn rate.** Quests can give about 1,240 gems a month, plus 580 once from achievements. A month of dailies
-   buys most of a theme (1,580). **Recommendation:** keep the bounds' middle as decided, and calibrate after a week of
-   Sepolia data; owner calls only.
-5. **On the Podium's gems.** **Recommendation:** none until an on-chain rank exists; the client shows it without gems.
-6. **First Stone's gems from an unchecked claim.** **Recommendation:** keep 10. They cannot leave the account, and a
-   fresh player sees gems at once.
-7. **Whether free games rank in the daily leaderboard** (CLIENT and META). No on-chain value depends on it.
-   **Recommendation:** rank them, marked free.
+### Decided (PM ruling, 2026-10-15)
+
+1. **A free game pays 0 PAVED under the normal rules** (no burn, so no mint): the v1 rule. The PM tells the owner,
+   since it touches supply (D-10). A paying free game would be a later change.
+2. **The earn rate is accepted as designed**, about 1,240 gems a month from quests and 580 once from achievements. It
+   is calibrated on Sepolia with measured figures, and the amounts stay configurable by `Setup`'s owner.
+3. **On the Podium has no gems in v1.**
+4. **First Stone's 10 gems are kept**, from the unchecked tutorial claim. Gems cannot be moved, so a farmed 10 has no
+   market value, and there is one claim per account.
+5. **Free games rank in the daily leaderboard** like any Challenge game. The indexer marks them free from
+   `GameSpawned.price == 0`, so the client can show it. Recorded for CLIENT.
+6. **The +0.59M L2 gas per paid game over is an estimate.** The implementation PR measures it and states it against
+   P-22's guard (section 7.3).
+
+### Open
+
+Nothing is open in this design. The implementation's measures (section 7.3) may send the report's cost back to the PM
+under P-22's guard.
