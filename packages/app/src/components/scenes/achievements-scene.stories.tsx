@@ -28,3 +28,5 @@ export const Cobbles: Story = { args: ACHIEVEMENTS.cobbles };
 export const CobblesClaiming: Story = { args: ACHIEVEMENTS.cobblesClaiming };
 /** Every one earned and its Cobbles claimed. */
 export const CobblesAllClaimed: Story = { args: ACHIEVEMENTS.cobblesAllClaimed };
+/** P9: no wallet to sign yet (P6): the rewards show, the claims ask to connect. */
+export const CobblesReadOnly: Story = { args: { ...ACHIEVEMENTS.cobbles, canClaim: false } };

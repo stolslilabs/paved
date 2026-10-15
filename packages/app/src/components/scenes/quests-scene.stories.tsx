@@ -60,6 +60,9 @@ export const CobblesFreeGame: Story = { args: QUESTS.cobblesFreeGame };
 /** The three weeklies done: their Cobbles and the week's free game to claim. */
 export const CobblesWeekDone: Story = { args: QUESTS.cobblesWeekDone };
 
+/** P9: the player is known but has no wallet to sign yet (P6): the rewards show, the claims ask to connect. */
+export const CobblesReadOnly: Story = { args: { ...QUESTS.cobblesPastDay, canClaim: false } };
+
 type SceneProps = React.ComponentProps<typeof QuestsScene>;
 
 function CompletingScene(args: SceneProps) {
