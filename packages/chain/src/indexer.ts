@@ -251,6 +251,10 @@ export interface QuestDefinition {
   definedAt: number;
   retired: boolean;
   retiredAt: number | null;
+  /** The Cobbles a claim of it gives (`QuestCobblesSet`, cobbles v1), 0 for none. */
+  cobbles: number;
+  /** Its claim's period, a day or a week number (`QuestCobbles.kind`); null without Cobbles. */
+  cobblesKind: "daily" | "weekly" | null;
 }
 
 export interface AchievementDefinition {
@@ -264,6 +268,8 @@ export interface AchievementDefinition {
   definedAt: number;
   retired: boolean;
   retiredAt: number | null;
+  /** The Cobbles a claim of it gives (`AchievementCobblesSet`, cobbles v1), 0 for none. */
+  cobbles: number;
 }
 
 export interface Definitions {
@@ -510,7 +516,17 @@ function parseQuestDefinition(v: unknown, what: string): QuestDefinition {
     definedAt: num(o, "defined_at", what),
     retired,
     retiredAt,
+    ...questCobbles(o, what),
   };
+}
+
+/** A quest's Cobbles and their kind go together: a kind with Cobbles, null without. */
+function questCobbles(o: Obj, what: string): { cobbles: number; cobblesKind: "daily" | "weekly" | null } {
+  const cobbles = num(o, "cobbles", what);
+  const kind = o.cobbles_kind;
+  if (kind !== null && kind !== "daily" && kind !== "weekly") bad(`${what}.cobbles_kind is not daily, weekly or null`);
+  if ((cobbles === 0) !== (kind === null)) bad(`${what}.cobbles and cobbles_kind disagree`);
+  return { cobbles, cobblesKind: kind as "daily" | "weekly" | null };
 }
 
 function parseAchievementDefinition(v: unknown, what: string): AchievementDefinition {
@@ -527,6 +543,7 @@ function parseAchievementDefinition(v: unknown, what: string): AchievementDefini
     definedAt: num(o, "defined_at", what),
     retired,
     retiredAt,
+    cobbles: num(o, "cobbles", what),
   };
 }
 

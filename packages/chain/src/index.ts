@@ -49,8 +49,20 @@ export type { PlayerGame } from "./events";
 export { placementOutcome } from "./placement";
 export type { PlacementOutcome } from "./placement";
 export {
+  COBBLE_DAY,
+  COBBLE_VIEW_FIELDS,
+  COBBLE_WEEK,
+  COBBLE_WEEK_START,
+  NO_ACCOUNT,
+  NO_PROGRESS,
+  weekOfDay,
+} from "./cobbles";
+export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, CobbleViews, PeriodProgress, QuestCobbles } from "./cobbles";
+export {
   RECEIPT_POLL_MS,
   PavedWriter,
+  CLAIM_REFUSAL_TEXT,
+  ClaimRefusedError,
   FaucetCapError,
   GameExpiredError,
   GAME_EXPIRED_TEXT,
@@ -58,7 +70,7 @@ export {
   InvalidPositionError,
   WriteError,
 } from "./writer";
-export type { BuildMove, WriteAccount, WriteResult } from "./writer";
+export type { BuildMove, ClaimRefusal, WriteAccount, WriteResult } from "./writer";
 export { PavedClient, createPavedClient } from "./paved-client";
 export type { PavedRpc } from "./paved-client";
 export {

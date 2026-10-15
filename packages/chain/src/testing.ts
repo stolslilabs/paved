@@ -4,3 +4,5 @@ export { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_CY, FIXTURE_TOURNAMENT, 
 export type { FixtureState } from "./indexer-fixture";
 // The economy's doubles (P8): in-memory views and a pool quoter.
 export { FAKE_CHAIN_ID, FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "./economy/fake";
+// The Cobbles claims of `Setup` in memory (cobbles v1), on a `FakeGameViews` ledger.
+export { FakeClaimer } from "./cobbles-fake";

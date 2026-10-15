@@ -1,6 +1,21 @@
 import { shortString } from "starknet";
 import type { Codecs, ContractName } from "./abis";
 import { AbiMismatchError, type Encodable } from "./codec";
+import {
+  NO_ACCOUNT,
+  NO_PROGRESS,
+  achievementCobbles,
+  cobbleAccount,
+  periodProgress,
+  questCobbles,
+  type AchievementCobbles,
+  type CobbleAccount,
+  type CobbleViews,
+  type FakeCobblePlayer,
+  type PeriodProgress,
+  type QuestCobbles,
+  type Struct,
+} from "./cobbles";
 import type { Deployment } from "./deployment";
 
 /**
@@ -143,7 +158,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-export class RpcGameViews implements GameViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`). */
+export class RpcGameViews implements GameViews, CobbleViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -191,6 +207,26 @@ export class RpcGameViews implements GameViews {
     return (await this.call("Setup", "tutorial_claimed", [playerId])) as boolean;
   }
 
+  async account(playerId: string): Promise<CobbleAccount> {
+    return cobbleAccount((await this.call("Setup", "account", [playerId])) as Struct);
+  }
+
+  async dayProgress(playerId: string, day: number): Promise<PeriodProgress> {
+    return periodProgress((await this.call("Setup", "day_progress", [playerId, day])) as Struct);
+  }
+
+  async weekProgress(playerId: string, week: number): Promise<PeriodProgress> {
+    return periodProgress((await this.call("Setup", "week_progress", [playerId, week])) as Struct);
+  }
+
+  async questCobbles(questId: number): Promise<QuestCobbles> {
+    return questCobbles(questId, (await this.call("Setup", "quest_cobbles", [questId])) as Struct);
+  }
+
+  async achievementCobbles(achievementId: number): Promise<AchievementCobbles> {
+    return achievementCobbles(achievementId, (await this.call("Setup", "achievement_cobbles", [achievementId])) as Struct);
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -221,8 +257,8 @@ function gameKeyId(key: GameKey): string {
   return `${key.mode}:${key.gameId}`;
 }
 
-/** In-memory views with the contracts' error rules, for unit tests of the app. */
-export class FakeGameViews implements GameViews {
+/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views too. */
+export class FakeGameViews implements GameViews, CobbleViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -232,6 +268,24 @@ export class FakeGameViews implements GameViews {
   /** The players whose tutorial claim is made (`tutorial_claimed`), as BigInt. */
   readonly tutorialClaims = new Set<bigint>();
   calls: string[] = [];
+  /** The Cobbles ledger by player (`BigInt` of the id as a string); a player not listed reads zeros. */
+  readonly cobblePlayers = new Map<string, FakeCobblePlayer>();
+  /** `quest_cobbles` and `achievement_cobbles` by id; an id not listed reads 0 Cobbles. */
+  readonly questRates = new Map<number, QuestCobbles>();
+  readonly achievementRates = new Map<number, AchievementCobbles>();
+  /** Set to an Error to make every Cobbles read fail. */
+  cobblesFail: Error | null = null;
+
+  /** The player's ledger, created empty on first use: a test edits it in place. */
+  cobblePlayer(playerId: string): FakeCobblePlayer {
+    const key = BigInt(playerId).toString();
+    let player = this.cobblePlayers.get(key);
+    if (!player) {
+      player = { account: { ...NO_ACCOUNT }, days: new Map(), weeks: new Map() };
+      this.cobblePlayers.set(key, player);
+    }
+    return player;
+  }
 
   setGame(key: GameKey, game: FakeGame): void {
     this.games.set(gameKeyId(key), game);
@@ -283,6 +337,36 @@ export class FakeGameViews implements GameViews {
   async tutorialClaimed(playerId: string): Promise<boolean> {
     this.calls.push("tutorial_claimed");
     return this.tutorialClaims.has(BigInt(playerId));
+  }
+
+  async account(playerId: string): Promise<CobbleAccount> {
+    this.cobbleCall(`account ${BigInt(playerId)}`);
+    return { ...(this.cobblePlayers.get(BigInt(playerId).toString())?.account ?? NO_ACCOUNT) };
+  }
+
+  async dayProgress(playerId: string, day: number): Promise<PeriodProgress> {
+    this.cobbleCall(`day_progress ${BigInt(playerId)} ${day}`);
+    return { ...(this.cobblePlayers.get(BigInt(playerId).toString())?.days.get(day) ?? NO_PROGRESS) };
+  }
+
+  async weekProgress(playerId: string, week: number): Promise<PeriodProgress> {
+    this.cobbleCall(`week_progress ${BigInt(playerId)} ${week}`);
+    return { ...(this.cobblePlayers.get(BigInt(playerId).toString())?.weeks.get(week) ?? NO_PROGRESS) };
+  }
+
+  async questCobbles(questId: number): Promise<QuestCobbles> {
+    this.cobbleCall(`quest_cobbles ${questId}`);
+    return { ...(this.questRates.get(questId) ?? { questId, cobbles: 0, kind: null, task: 0, total: 0, start: 0, interval: 0 }) };
+  }
+
+  async achievementCobbles(achievementId: number): Promise<AchievementCobbles> {
+    this.cobbleCall(`achievement_cobbles ${achievementId}`);
+    return { ...(this.achievementRates.get(achievementId) ?? { achievementId, cobbles: 0, task: 0, total: 0 }) };
+  }
+
+  private cobbleCall(call: string): void {
+    this.calls.push(call);
+    if (this.cobblesFail) throw this.cobblesFail;
   }
 
   private get(key: GameKey): FakeGame {

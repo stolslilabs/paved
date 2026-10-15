@@ -7,20 +7,23 @@ import { Skeleton } from "../ui/skeleton";
 import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
 import { isClaimed, type AchievementCobbles } from "../containers/cobble-types";
-import { useCompletionToasts } from "../containers/completion-toasts";
+import { useCompletionToasts, type CompletionMemory } from "../containers/completion-toasts";
 import { ProgressCard, progressState, type ProgressReward } from "../containers/progress-card";
 import { achievementText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
 import { TabPage } from "../containers/tab-page";
 
-/** The achievements' Cobbles (P-61, gems-v1.md 3.1, 3.3): provisional until CORE's gems PR 1. */
-export interface AchievementRewards {
-  /** `achievement_gems`: the points; On the Podium (9) has none in v1, so it is absent. */
+/** The achievements' Cobbles (P-61, cobbles-v1.md 3.1, 3.3), as `useAchievementRewards` reads them. */
+export interface AchievementRewardsData {
+  /** The achievements with Cobbles, from the definitions: their points; On the Podium (9) has none in v1, so it is absent. */
   cobbles: readonly AchievementCobbles[];
-  /** `AccountView.achievements_claimed`. */
+  /** `CobbleAccount.achievementsClaimed`. */
   claimed: bigint;
-  /** `AccountView.gems`. */
+  /** `CobbleAccount.cobbles`. */
   balance: number;
+}
+
+export interface AchievementRewards extends AchievementRewardsData {
   /** An achievement's claim, or all of them, on its way. */
   claiming?: number | "all" | null;
 }
@@ -32,6 +35,10 @@ export interface AchievementsSceneProps {
   error?: string | null;
   /** The Cobbles; omitted before Cobbles. */
   rewards?: AchievementRewards | null;
+  /** False: the player is known but cannot sign (P6): the rewards show, each claim says "Connect to claim". */
+  canClaim?: boolean;
+  /** Where the completion toasts remember what they announced, above the scene (`CompletionMemory`). */
+  toasts?: CompletionMemory;
   onTab?: (tab: QuestsTab) => void;
   /** `claim_achievement(achievement_id)`. */
   onClaim?: (achievementId: number) => void;
@@ -49,22 +56,22 @@ const ORDER = { complete: 0, progress: 1, none: 2 } as const;
  * earned ones, display only.
  */
 export function AchievementsScene(props: AchievementsSceneProps) {
-  const { achievements, connected, error, rewards } = props;
+  const { achievements, connected, error, rewards, canClaim = true } = props;
   const list = achievements ? [...achievements.achievements].sort((a, b) => ORDER[progressState(a)] - ORDER[progressState(b)]) : [];
   const tracked = useMemo(() => achievements?.achievements.map((a) => ({ id: a.achievementId, completed: a.completed, points: a.points })) ?? null, [achievements]);
   useCompletionToasts("achievement", tracked, ({ id, points }) => {
     const { title, icon } = achievementText(id);
     return { title, icon, description: `+${points} pts` };
-  });
+  }, { memory: props.toasts });
   const earned = list.filter((a) => a.completed).length;
   const possible = list.reduce((sum, a) => sum + a.points, 0);
   const claiming = rewards?.claiming ?? null;
   const rewardOf = (a: { achievementId: number; completed: boolean }): ProgressReward | undefined => {
     const entry = rewards?.cobbles.find((g) => g.achievementId === a.achievementId);
-    if (!rewards || !entry || entry.gems === 0) return undefined;
+    if (!rewards || !entry || entry.cobbles === 0) return undefined;
     const claimed = isClaimed(rewards.claimed, a.achievementId);
     const mine = claiming === a.achievementId || (claiming === "all" && a.completed && !claimed);
-    return { cobbles: entry.gems, claimed, claiming: mine, disabled: claiming !== null && !mine };
+    return { cobbles: entry.cobbles, claimed, claiming: mine, disabled: !canClaim || (claiming !== null && !mine) };
   };
   const claimable = list.map((a) => ({ a, r: rewardOf(a) })).filter(({ a, r }) => a.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
@@ -104,7 +111,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
               </span>
             </div>
             <Progress value={possible > 0 ? (achievements.points / possible) * 100 : 0} aria-label={`${achievements.points} of ${possible} points`} />
-            {claimable.length > 0 && (
+            {claimable.length > 0 && canClaim && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-900 pt-3">
                 <span className="text-xs text-muted-foreground">
                   <span className="numeric">{claimable.length}</span> to claim
@@ -119,6 +126,11 @@ export function AchievementsScene(props: AchievementsSceneProps) {
               </div>
             )}
           </section>
+          {rewards && !canClaim && (
+            <Notice title="Connect to claim" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
+              Your achievements show; claiming their Cobbles needs your wallet to sign.
+            </Notice>
+          )}
           {rewards && <p className="text-xs text-muted-foreground">An achievement gives as many Cobbles as its points, claimed once. On the Podium gives none in this version.</p>}
           <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
             {list.map((a) => (

@@ -1321,8 +1321,8 @@ to Home).
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
 | over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
 | leaderboard | — | tournaments, leaderboard, player, player games | — | — |
-| quests | — | `definitions`, `playerQuests` | — | — |
-| achievements | — | `definitions`, `playerAchievements` | — | — |
+| quests | `Setup.account`, `day_progress`, `week_progress`; writes `claim_quest`, `claim_daily_credit`, `claim_weekly_credit` (P9) | `definitions` (with `cobbles`, `cobbles_kind`), `playerQuests`, `/v1/head` (the clock) | — | — |
+| achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault.staked`, `pending`, `total_staked`, PAVED `balance_of`; writes `stake`, `unstake`, `claim` | — | — | — |
 | referral | — | the referral earnings: the indexer already stores each purchase's `referrer` and `referral` amount (`packages/indexer/src/api.ts:233-236`); a route listing them by referrer is to add (CLIENT) | — | — |
 | theme | — | — | — | the chosen theme |
@@ -1342,8 +1342,9 @@ claimable, and the free games: every daily of a day, or weekly of a week, done e
 Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
 (`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
 ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
-`components/containers/cobble-types.ts`, provisional until CORE's ABI, and keep CORE's `gems` field names where they
-mirror an ABI shape until the rename PR. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
+`components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
+achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
+until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
 `cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
 `src/data/scene-types.ts` holds: the scenes' Cobbles props are optional, and the leaderboard's free mark is a list of
 player ids (`free`), not a field of `LeaderboardEntry`.
@@ -1722,7 +1723,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |
 | P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game | 2 d |
 | P8 | The leaderboard and player scenes on the indexer | 0.5 d |
-| P9 | The quests and achievements scenes on the indexer | 0.5 d |
+| P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below) | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
 | P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
@@ -1744,7 +1745,29 @@ drops its last list when it changes). P9 must keep: (1) `announced` (the keys al
 store, so a cached-then-fresh read after a remount does not toast again; the scene's hook keeps it in a ref today. (2) Whether completions made while the scene
 was unmounted are announced on return is P9's to decide; recommended yes, by keeping the last list per player in the store and giving it to the
 hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
-To do: P1 or P9 mounts the `Toaster` once above the pages; the app mounts none yet (the stories mount their own).
+The `Toaster` is mounted once above the pages (`App.tsx`).
+
+**As built (P9).** `/quests/:day?` and `/achievements` read the quests and achievements from the indexer (`usePlayerQuests`,
+`usePlayerAchievements`) and their Cobbles from two sources: each quest's and achievement's amount from the indexer's
+definitions (`cobbles`, `cobbles_kind`), and the player's ledger from `Setup`'s views (`account`, `day_progress`,
+`week_progress`: `useQuestRewards`, `useAchievementRewards`, `useCobbleAccount`, `useFreeCredits` in `src/data/cobbles.ts`). The
+ledger is read from the chain, not from the indexer's `/cobbles` and `/claims`, because after a claim's receipt the chain has it
+and the indexer may not. `@paved/chain` has the views (`CobbleViews`, on `RpcGameViews` and `FakeGameViews`; `GameViews` does not
+require them), the claims on `PavedWriter` (`claimQuest`, `claimAchievement`, `claimDailyCredit`, `claimWeeklyCredit`, and `claim`
+for several in one multicall), each revert of `Setup` as a `ClaimRefusedError` with its `reason`, and `FakeClaimer`
+(`@paved/chain/testing`), which applies the contract's checks on the fake ledger. A claim's receipt goes into the cache
+(`applyClaimEvents`: `CobblesClaimed` sets the balance and the claimed bit, `CreditClaimed` the credits), then one invalidation of
+the ledger's keys reconciles it; nothing polls. Claim all is one multicall of the page's completed, unclaimed quests (or
+achievements); a past day's claim names that day (a weekly's, the week of the day shown, `weekOfDay`: Monday to Sunday from
+1970-01-05, the ledger's week). `now` is the indexer's served block time, ticking locally from its read (`useIndexerNow`); today
+is its day. A quest is a daily or a weekly by its `duration`; its claim's period is its `cobbles_kind`, and a quest on which the
+two disagree shows no reward. The free-game rows count the quests with Cobbles, as `claim_daily_credit` does. The player is the
+signer's address: no signer, the guest's notice; a signer without the claims (the board's `GameSigner`), read only with "Connect
+to claim". The toasts' memory (`announced`, and the last list per player and kind) lives in a store above the route
+(`src/data/completion-memory.ts`) and reaches the scenes as `toasts`; a completion made while the page was closed is announced on
+return. Left for others: the indexer in the app's sources (`routes/sources.ts` still refuses its reads), the signer with the claims
+(P6), Play free on home and play (after P6; `useFreeCredits` is its hook), the leaderboard's free mark (P8). The new query keys
+(`cobbleKeys`, `clockKey`) are in their data files until P6's change to `keys.ts` lands.
 
 Every session (Training, Tutorial, Challenge) keeps its engine state between moves and replays the moves only on
 resume (the PM, 2026-10-14).

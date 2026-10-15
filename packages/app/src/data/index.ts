@@ -35,5 +35,6 @@ export {
 } from "./indexer";
 export { boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
 export { useChallengeSession } from "./challenge";
+export * from "./rewards";
 export type { ChallengeSession } from "./challenge";
 export type { SessionBoard } from "./training";

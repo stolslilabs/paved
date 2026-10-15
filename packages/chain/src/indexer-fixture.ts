@@ -68,19 +68,21 @@ export const RUNNING_GAME: Row = { contract: "challenge", game_id: 913, player_i
 
 const DEFINED_AT = 1791000000;
 
-/** The accepted daily quests (docs/architecture/quests.md, P-22): `[quest_id, task_id, total]`. */
-const QUESTS: Array<[number, number, number]> = [[1, 1, 1], [2, 2, 6], [3, 4, 1], [4, 3, 3000]];
+/** The accepted daily quests (docs/architecture/quests.md, P-22): `[quest_id, task_id, total, cobbles]` (cobbles v1, all daily). */
+const QUESTS: Array<[number, number, number, number]> = [[1, 1, 1, 5], [2, 2, 6, 10], [3, 4, 1, 5], [4, 3, 3000, 15]];
 
-/** The accepted achievements: `[achievement_id, task_id, total, points]`. */
+/** The accepted achievements: `[achievement_id, task_id, total, points]`; each gives its points in Cobbles but On the Podium (9). */
 const ACHIEVEMENTS: Array<[number, number, number, number]> = [
   [1, 10, 1, 10], [2, 1, 1, 10], [3, 1, 10, 20], [4, 1, 50, 40], [5, 6, 1, 20], [6, 4, 10, 20], [7, 5, 1, 30], [8, 7, 1, 30], [9, 8, 1, 50],
 ];
 
-const questDefinition = ([id, task, total]: [number, number, number]): Row => ({
+const questDefinition = ([id, task, total, cobbles]: [number, number, number, number]): Row => ({
   quest_id: id, start_time: 0, end_time: 0, duration: 86400, interval: 86400, tasks: [{ task_id: task, total }], conditions: [], defined_at: DEFINED_AT, retired: false, retired_at: null,
+  cobbles, cobbles_kind: "daily",
 });
 const achievementDefinition = ([id, task, total, points]: [number, number, number, number]): Row => ({
   achievement_id: id, start_time: 0, end_time: 0, tasks: [{ task_id: task, total }], points, defined_at: DEFINED_AT, retired: false, retired_at: null,
+  cobbles: id === 9 ? 0 : points,
 });
 
 /** What the fixture's player Ada has done: quest 1 done and quest 4 at 2,700 of 3,000 on `FIXTURE_TOURNAMENT`, as in the doc's examples. */
