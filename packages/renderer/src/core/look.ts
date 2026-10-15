@@ -107,7 +107,7 @@ const MOCKUP: LookSettings = {
   // ACES crushes the darks: this lands on the mockups' dark navy on screen.
   background: "#30363f",
   bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 1.0 },
-  highlights: { slotColor: "#ffc23d", slotIntensity: 1.6, ghostColor: "#ffc23d", ghostIntensity: 0.6 },
+  highlights: { slotColor: "#ffc23d", slotIntensity: 1.6, ghostColor: "#ffc23d", ghostIntensity: 0.25 },
   water: { enabled: true, brightness: 1.25, roughness: 0.15 },
 };
 
@@ -138,7 +138,7 @@ export const LOOK_PRESETS: Record<LookPreset, LookSettings> = {
     fog: { ...MOCKUP.fog, enabled: false },
     background: "#141b26",
     bloom: { ...MOCKUP.bloom, enabled: false },
-    highlights: { slotColor: "#ffc23d", slotIntensity: 1, ghostColor: "#ffc23d", ghostIntensity: 0.4 },
+    highlights: { slotColor: "#ffc23d", slotIntensity: 1, ghostColor: "#ffc23d", ghostIntensity: 0.2 },
     water: { ...MOCKUP.water, enabled: false },
   },
 };

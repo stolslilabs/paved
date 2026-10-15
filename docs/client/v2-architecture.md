@@ -1307,7 +1307,7 @@ rebuilds the chain.
 | `fog` | distance fog | density 0.0018 | 0.001 | off |
 | `background` | what the board fades into | `#30363f` (dark navy on screen after ACES) | `#1a2330` | `#141b26` |
 | `bloom` | glow above the threshold | strength 0.15, radius 0.2, threshold 1 | strength 0.1 | off |
-| `highlights` | slots and ghost | gold `#ffc23d`, slots 1.6, ghost 0.6 | as Mockup | slots 1, ghost 0.4 |
+| `highlights` | slots and ghost | gold `#ffc23d`, slots 1.6, ghost 0.25 | as Mockup | slots 1, ghost 0.2 |
 | `water` | brighter, glossier water | brightness 1.25, roughness 0.15 | as Mockup | off |
 
 **AgX or ACES** (compared on software WebGL, the "Renderer/Lighting" story zoomed in): ACES keeps the greens and the
