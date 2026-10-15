@@ -78,3 +78,17 @@ export const OwnedUnpriced: Story = { args: THEME.ownedUnpriced };
 
 /** WRAP360: the largest Cobble balance. */
 export const SkinsStress: Story = { args: THEME.skinsStress };
+
+/** P11b, a guest: the skins ask to Connect. */
+export const SkinsGuest: Story = { args: { ...THEME.forestSelected, skinsStatus: { kind: "guest" } } };
+
+/** P11b: the skins on their way from the chain. */
+export const SkinsLoading: Story = { args: { ...THEME.forestSelected, skinsStatus: { kind: "loading" } } };
+
+/** P11b: a failed read, with Retry. */
+export const SkinsError: Story = { args: { ...THEME.forestSelected, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } } };
+
+/** P11b: a save refused by the chain (a skin in the batch is not owned), the batch kept to try again. */
+export const SkinsRefused: Story = {
+  args: { ...THEME.skinsChanged, skins: { ...THEME.skinsChanged.skins, refusal: "A skin in this change is not yours: buy it before switching it on. Nothing was saved." } },
+};
