@@ -840,19 +840,22 @@ cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target 
 little visible gain once the lines are biased. Measures and captures: PR #411 and the stories
 "Renderer/Outlines" and "Renderer/Outlines comparison".
 
-**Changed by R-VIS (t-0304, 2026-10-15; the PM's rulings on the owner's review, P-62).** Where this differs
+**Changed by R-VIS (2026-10-15).** Where this differs
 from the paragraph above, R-VIS holds. The outlines keep the same segments, one shared material and the
 depth bias, but are drawn by the renderer's own shader on three's instanced `LineSegmentsGeometry`
 (`createOutlineMaterial`): each pixel's exact distance to its segment on screen gives the share of the pixel
 the stroke covers, so the edge is antialiased by construction, with no MSAA and no post pass, and a stroke
 under a device pixel is drawn one pixel wide at that share of its opacity. Segment ends are square and exact,
 so a straight edge split into many segments covers each pixel once. The width is set in the world:
-`widthVoxels` (0.015, the owner's 1 to 2 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
+`widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
-zoomed in). The opacity is linear from off at `fadeOffTilePx` (44) to fully on at `fadeFullTilePx` (60), and
-the material is hidden below 1/255 (the PM's ruling: outlines show at a phone's opening view). The game's
-opening view shows them fully in a 900 px high window (about 60 px a tile) and half on a 360 x 780 phone
-(about 52 px); a 900 px window's farthest zoom (distance 300, 48 px) keeps them at a quarter. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
+zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: fully on at
+`fadeFullFactor` (1.0) x S, off at `fadeOffFactor` (0.85) x S, linear between, and the material is hidden
+below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
+about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
+height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
+(about 282): they vanish at the farthest zoom (300). The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
 target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 

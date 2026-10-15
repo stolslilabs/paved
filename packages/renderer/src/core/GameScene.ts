@@ -19,7 +19,7 @@ import {
   getLightingProfile,
   getRenderProfileForCameraMode,
 } from "./render-profiles";
-import { outlineStroke, tilePixels, type OutlineStroke } from "./outlines";
+import { openingTilePixels, outlineStroke, tilePixels, type OutlineStroke } from "./outlines";
 import {
   cameraDistanceLimits,
   resolveRendererSettings,
@@ -39,7 +39,7 @@ const SHADOW_FRUSTUM = 50;
  * The shadow map's biases (R-VIS). Without them every lit face shadows itself in diagonal bands ("shadow acne"): a
  * 2048 map over the 100-unit frustum is about 0.05 world units a texel, the light meets the tops at about 56 degrees
  * and the sides at up to 67, so the stored depth of a texel misses the face it covers by up to about 0.1 unit. The
- * normal bias moves the lookup 0.1 unit out of the face (two texels, about one voxel: a tile is 40 voxels a side,
+ * normal bias moves the lookup 0.1 unit out of the face (two texels, about 1.3 voxels: a tile is 40 voxels a side,
  * 0.075 unit each), and the depth bias, in the shadow camera's 1 to 100 depth range, adds about 0.1 unit along the
  * light. Measured on the 72-tile board (R-VIS captures): half these values leave faint bands.
  */
@@ -112,8 +112,9 @@ export class GameScene {
   private settings: RendererSettings = resolveRendererSettings();
   /** The tile size the outlines' stroke was last set for (NaN: set it on the next frame). */
   private outlineTilePx = Number.NaN;
-  /** The pixel ratio the outlines' stroke was last set for. */
+  /** The pixel ratio and the opening tile size the outlines' stroke was last set for. */
   private outlinePixelRatio = Number.NaN;
+  private outlineOpeningTilePx = Number.NaN;
   /** Bounds of the renderer's pixel ratio (`RendererConfig.pixelRatio`): the device's is clamped to them. */
   private pixelRatioRange: [number, number] = [0.5, 1];
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer. */
@@ -221,12 +222,8 @@ export class GameScene {
 
     // Preload assets
     await this.assets.preloadAll();
-    // Disposed while the models were loading: bind nothing on a dead scene.
-    if (this.disposed) {
-      this.unbindResize?.();
-      this.unbindResize = null;
-      return;
-    }
+    // Disposed while the models were loading: bind nothing on a dead scene (`dispose` released the resize subscription).
+    if (this.disposed) return;
 
     this.setupInteraction(surface);
 
@@ -465,14 +462,21 @@ export class GameScene {
    * The zoom as the outlines see it: the camera's distance to its target, the on-screen size of a tile there in CSS px,
    * and the outlines' stroke at that size (its width in device px).
    */
-  getZoom(): { distance: number; tilePx: number; outline: OutlineStroke } {
+  getZoom(): { distance: number; tilePx: number; openingTilePx: number; outline: OutlineStroke } {
     const distance = this.cameraDistance();
     const tilePx = this.tilePx(distance);
-    return { distance, tilePx, outline: outlineStroke(tilePx, this.settings.outlines, this.pixelRatio) };
+    const openingTilePx = this.openingTilePx();
+    return { distance, tilePx, openingTilePx, outline: outlineStroke(tilePx, this.settings.outlines, this.pixelRatio, openingTilePx) };
   }
 
   private cameraDistance(): number {
     return this.camera && this.controls ? this.camera.position.distanceTo(this.controls.controls.target) : 0;
+  }
+
+  /** The tile size the board opens at on this viewport (S): it follows the viewport's height. */
+  private openingTilePx(): number {
+    const height = this.surface?.getSize().height ?? 0;
+    return this.camera ? openingTilePixels(this.camera, height) : 0;
   }
 
   private tilePx(distance: number): number {
@@ -527,14 +531,16 @@ export class GameScene {
   }
 
   private renderFrame(): void {
-    // The stroke changes only with the tile's on-screen size, the pixel ratio or the settings: a still camera does no
-    // outline work.
+    // The stroke changes only with the tile's on-screen size, the opening tile size (a resize), the pixel ratio or the
+    // settings: a still camera does no outline work.
     const tilePx = this.tilePx(this.cameraDistance());
-    if (tilePx !== this.outlineTilePx || this.pixelRatio !== this.outlinePixelRatio) {
+    const openingTilePx = this.openingTilePx();
+    if (tilePx !== this.outlineTilePx || this.pixelRatio !== this.outlinePixelRatio || openingTilePx !== this.outlineOpeningTilePx) {
       this.outlineTilePx = tilePx;
       this.outlinePixelRatio = this.pixelRatio;
+      this.outlineOpeningTilePx = openingTilePx;
       const { outlines } = this.settings;
-      this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio), outlines.color);
+      this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio, openingTilePx), outlines.color);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;

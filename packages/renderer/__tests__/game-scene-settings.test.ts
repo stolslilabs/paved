@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
 import { DEFAULT_RENDERER_SETTINGS } from "../src/core/settings";
-import { tilePixels } from "../src/core/outlines";
+import { openingTilePixels, tilePixels } from "../src/core/outlines";
 
 function sceneWithCamera() {
   const scene = new GameScene();
@@ -49,7 +49,7 @@ describe("GameScene settings", () => {
     expect(zoom.distance).toBeCloseTo(120, 6);
     expect(zoom.tilePx).toBeCloseTo(tilePixels(camera, 120, 900), 6);
     expect(zoom.outline.opacity).toBeGreaterThan(0);
-    scene.setSettings({ outlines: { fadeOffTilePx: 1000, fadeFullTilePx: 1100 } });
+    scene.setSettings({ outlines: { fadeOffFactor: 10, fadeFullFactor: 11 } });
     expect(scene.getZoom().outline).toEqual({ width: 0, opacity: 0 });
   });
 
@@ -84,5 +84,26 @@ describe("GameScene settings", () => {
     (scene as any).pixelRatio = 2;
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(4);
+  });
+
+  it("follows a resize: the opening tile size S is recomputed from the new height, and the stroke with it", () => {
+    const { scene, camera } = sceneWithCamera();
+    const setOutlineStroke = vi.fn();
+    (scene as any).tiles = { setOutlineStroke };
+    (scene as any).renderer = { shadowMap: {} };
+    (scene as any).effects = { render: vi.fn() };
+    camera.position.set(0, 240, 0); // the opening view
+    const desktop = scene.getZoom();
+    expect(desktop.openingTilePx).toBeCloseTo(openingTilePixels(camera, 900), 9);
+    expect(desktop.openingTilePx).toBeCloseTo(60.3, 1);
+    expect(desktop.outline.opacity).toBe(1);
+    scene.render();
+    (scene as any).surface = { getSize: () => ({ width: 360, height: 780 }) };
+    const phone = scene.getZoom();
+    expect(phone.openingTilePx).toBeCloseTo(52.3, 1);
+    // The opening view stays fully on: the tile and S shrink together.
+    expect(phone.outline.opacity).toBe(1);
+    scene.render();
+    expect(setOutlineStroke).toHaveBeenCalledTimes(2);
   });
 });

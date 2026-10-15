@@ -42,8 +42,17 @@ function fakeScreen(initial: number) {
 }
 
 function canvasIn(container: object | null) {
-  return { parentElement: container, clientWidth: 300, clientHeight: 200 } as unknown as HTMLCanvasElement;
+  return { parentElement: container, clientWidth: 300, clientHeight: 200, style: {} } as unknown as HTMLCanvasElement;
 }
+
+describe("WebSurfaceAdapter", () => {
+  it("makes the canvas fill its container, for every consumer: the renderer sizes only the drawing buffer", () => {
+    const canvas = canvasIn({});
+    new WebSurfaceAdapter(canvas);
+    expect(canvas.style.width).toBe("100%");
+    expect(canvas.style.height).toBe("100%");
+  });
+});
 
 describe("WebSurfaceAdapter.onResize", () => {
   beforeEach(() => {

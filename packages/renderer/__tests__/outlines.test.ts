@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
   DEFAULT_OUTLINE_SETTINGS,
+  DEFAULT_OPENING_TILE_PX,
   MIN_OUTLINE_OPACITY,
   OUTLINE_DEPTH_BIAS,
   TILE_VOXELS,
@@ -11,6 +12,7 @@ import {
   createOutlineMaterial,
   distanceForTilePixels,
   isOutline,
+  openingTilePixels,
   outlineStroke,
   tilePixels,
   type OutlineSettings,
@@ -18,11 +20,13 @@ import {
 import { cameraDistanceLimits, resolveRendererSettings, DEFAULT_CAMERA_ZOOM_SETTINGS } from "../src/core/settings";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { TILE_SIZE } from "../src/core/types";
+import { OPENING_DISTANCE } from "../src/core/CameraController";
 
 const S: OutlineSettings = {
   enabled: true,
-  fadeOffTilePx: 60,
-  fadeFullTilePx: 90,
+  // With the default opening tile size (60 px): off at 60 px, fully on at 90.
+  fadeOffFactor: 1,
+  fadeFullFactor: 1.5,
   widthVoxels: 0.02,
   minWidthDevicePx: 1,
   maxWidthPx: 2.5,
@@ -91,35 +95,53 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
 
   it("is off when disabled, and handles equal sizes as a step", () => {
     expect(outlineStroke(400, { ...S, enabled: false })).toEqual({ width: 0, opacity: 0 });
-    const step = { ...S, fadeFullTilePx: 60 };
+    const step = { ...S, fadeFullFactor: 1 };
     expect(outlineStroke(60, step).opacity).toBe(0);
     expect(outlineStroke(60.5, step)).toEqual({ width: 1, opacity: 1 });
   });
 
-  it("defaults: off at 44 px a tile, half on at a phone's opening view, fully on at 60 px (a 900 px window's), a hairline, dark grey", () => {
-    const camera = new THREE.PerspectiveCamera(50, 1.6, 1, 2000);
-    camera.zoom = 5;
+  it("defaults: fully on at the opening tile size S, off at 0.85 S, a hairline, dark grey", () => {
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
-      fadeOffTilePx: 44,
-      fadeFullTilePx: 60,
+      fadeOffFactor: 0.85,
+      fadeFullFactor: 1,
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
       color: "#1f1f1f",
     });
-    expect(outlineStroke(44).opacity).toBe(0);
-    // The opening view (distance 240) on a 360 x 780 phone: a tile about 52 px, half on.
-    const phone = outlineStroke(tilePixels(camera, 240, 780));
-    expect(phone.opacity).toBeGreaterThan(0.4);
-    expect(phone.opacity).toBeLessThan(0.6);
-    // In a 900 px high window: a tile about 60 px, fully on.
-    expect(outlineStroke(tilePixels(camera, 240, 900))).toEqual({ width: 1, opacity: 1 });
+    for (const s of [52, 60, 75]) {
+      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toEqual({ width: 1, opacity: 1 });
+      expect(outlineStroke(0.85 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBe(0);
+      expect(outlineStroke(0.925 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.5, 9);
+    }
+    // Without an opening size, a 900 px high window's (60 px).
+    expect(DEFAULT_OPENING_TILE_PX).toBe(60);
     expect(outlineStroke(60)).toEqual({ width: 1, opacity: 1 });
-    // Fully zoomed in (distance 5) at DPR 2 the world width (about 2.2 device px) is past the hairline, under the cap.
-    const zoomedIn = outlineStroke(tilePixels(camera, 5, 900), DEFAULT_OUTLINE_SETTINGS, 2);
-    expect(zoomedIn.width).toBeGreaterThan(1);
-    expect(zoomedIn.width).toBeLessThan(4);
+    expect(outlineStroke(51).opacity).toBe(0);
+  });
+});
+
+describe("the opening tile size S", () => {
+  const camera = new THREE.PerspectiveCamera(50, 1.6, 1, 2000);
+  camera.zoom = 5;
+
+  it("is a tile's size at the camera's opening distance (0.8 of the farthest, 240): about 52 px on a 360 x 780 phone, 60 in a 900 px window", () => {
+    expect(OPENING_DISTANCE).toBe(240);
+    expect(openingTilePixels(camera, 780)).toBeCloseTo(52.3, 1);
+    expect(openingTilePixels(camera, 900)).toBeCloseTo(60.3, 1);
+  });
+
+  it("puts the fade at the same distances on every screen: on at the opening view, off past 240 / 0.85", () => {
+    for (const height of [780, 900, 1300]) {
+      const s = openingTilePixels(camera, height);
+      const at = (distance: number) => outlineStroke(tilePixels(camera, distance, height), DEFAULT_OUTLINE_SETTINGS, 1, s);
+      expect(at(240)).toEqual({ width: 1, opacity: 1 });
+      expect(at(240 / 0.85 + 0.01).opacity).toBe(0);
+      // The farthest zoom (300) is past the off distance (about 282): the outlines vanish zoomed out.
+      expect(at(300).opacity).toBe(0);
+      expect(at(260).opacity).toBeGreaterThan(0);
+    }
   });
 });
 

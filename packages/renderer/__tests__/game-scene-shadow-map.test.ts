@@ -100,7 +100,7 @@ describe("GameScene shadow map", () => {
     expect(light.castShadow).toBe(true);
     expect(light.shadow.bias).toBeLessThan(0);
     expect(light.shadow.normalBias).toBeGreaterThan(0);
-    // The normal bias stays within about one voxel (0.075 world units), so a voxel still shadows its neighbour.
+    // The normal bias stays within about 1.3 voxels (a voxel is 0.075 world units), so a voxel still shadows the next.
     expect(light.shadow.normalBias).toBeLessThanOrEqual(0.1);
   });
 });

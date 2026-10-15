@@ -15,6 +15,11 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    // The canvas fills its container: `GameScene` sizes only the drawing buffer (`setSize(w, h, false)`), so the CSS
+    // size is set here, for every consumer (`GameCanvas`, `useScene`), and the container's size is what `onResize`
+    // observes.
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
   }
 
   getSize(): SurfaceSize {

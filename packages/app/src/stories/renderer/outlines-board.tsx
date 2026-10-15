@@ -19,8 +19,8 @@ export interface OutlinesBoardProps {
   /** Show the current zoom and the outlines' stroke on the board. */
   readout?: boolean;
   /** The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits. */
-  fadeOffTilePx?: number;
-  fadeFullTilePx?: number;
+  fadeOffFactor?: number;
+  fadeFullFactor?: number;
   widthVoxels?: number;
   minWidthDevicePx?: number;
   maxWidthPx?: number;
@@ -36,8 +36,8 @@ const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
-  fadeOffTilePx: OUTLINES.fadeOffTilePx,
-  fadeFullTilePx: OUTLINES.fadeFullTilePx,
+  fadeOffFactor: OUTLINES.fadeOffFactor,
+  fadeFullFactor: OUTLINES.fadeFullFactor,
   widthVoxels: OUTLINES.widthVoxels,
   minWidthDevicePx: OUTLINES.minWidthDevicePx,
   maxWidthPx: OUTLINES.maxWidthPx,
@@ -52,6 +52,7 @@ export const SETTINGS_DEFAULTS = {
 interface Zoom {
   distance: number;
   tilePx: number;
+  openingTilePx: number;
   width: number;
   opacity: number;
 }
@@ -59,10 +60,11 @@ interface Zoom {
 const round = (z: Zoom): Zoom => ({
   distance: Math.round(z.distance),
   tilePx: Math.round(z.tilePx),
+  openingTilePx: Math.round(z.openingTilePx),
   width: Math.round(z.width * 100) / 100,
   opacity: Math.round(z.opacity * 100) / 100,
 });
-const same = (a: Zoom | null, b: Zoom) => !!a && a.distance === b.distance && a.tilePx === b.tilePx && a.width === b.width && a.opacity === b.opacity;
+const same = (a: Zoom | null, b: Zoom) => !!a && a.distance === b.distance && a.tilePx === b.tilePx && a.openingTilePx === b.openingTilePx && a.width === b.width && a.opacity === b.opacity;
 
 function boundsOf(tiles: { worldX: number; worldZ: number }[]): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -98,8 +100,8 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       outlines: {
-        fadeOffTilePx: o.fadeOffTilePx,
-        fadeFullTilePx: o.fadeFullTilePx,
+        fadeOffFactor: o.fadeOffFactor,
+        fadeFullFactor: o.fadeFullFactor,
         widthVoxels: o.widthVoxels,
         minWidthDevicePx: o.minWidthDevicePx,
         maxWidthPx: o.maxWidthPx,
@@ -108,7 +110,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
     }),
-    [o.fadeOffTilePx, o.fadeFullTilePx, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
+    [o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
@@ -118,7 +120,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
     let last: Zoom | null = null;
     const step = () => {
       const z = scene.getZoom();
-      const next = round({ distance: z.distance, tilePx: z.tilePx, width: z.outline.width, opacity: z.outline.opacity });
+      const next = round({ distance: z.distance, tilePx: z.tilePx, openingTilePx: z.openingTilePx, width: z.outline.width, opacity: z.outline.opacity });
       if (!same(last, next)) setZoom((last = next));
       id = requestAnimationFrame(step);
     };
@@ -160,7 +162,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       <GameCanvas tiles={tiles} basePath={RENDERER_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && zoom && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
-          distance {zoom.distance} · tile {zoom.tilePx} px · outline {zoom.opacity > 0 ? `${zoom.width} device px at ${Math.round(zoom.opacity * 100)}%` : "off"}
+          distance {zoom.distance} · tile {zoom.tilePx} px (opens at {zoom.openingTilePx}) · outline {zoom.opacity > 0 ? `${zoom.width} device px at ${Math.round(zoom.opacity * 100)}%` : "off"}
         </output>
       )}
     </div>

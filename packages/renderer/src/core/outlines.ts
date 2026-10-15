@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
+import { OPENING_DISTANCE } from "./CameraController";
 import { TILE_SIZE } from "./types";
 
 /**
@@ -13,9 +14,10 @@ import { TILE_SIZE } from "./types";
  *
  * The width is set in the world, as a fraction of a voxel (`widthVoxels`), converted to device pixels at the camera's
  * target, kept to at least `minWidthDevicePx` (a hairline) and capped at `maxWidthPx` CSS px when zoomed in. Zoomed out
- * the outlines fade linearly from fully on at `fadeFullTilePx` to off at `fadeOffTilePx`. They are drawn after the faces
- * with a depth bias towards the camera: an outline lies exactly on the faces it borders, and without the bias it wins
- * or loses the depth test by rounding (the flicker R-OUT removed).
+ * the outlines fade linearly from fully on at `fadeFullFactor` of the tile size the board opens at on this viewport to
+ * off at `fadeOffFactor` of it. They are drawn after the faces with a depth bias towards the camera: an outline lies
+ * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
+ * removed).
  *
  * The zoom is measured as the on-screen size of one tile, in CSS pixels, at the camera's target ("tile px"): it folds in
  * the distance, the field of view, the camera's zoom and the viewport's height, so a phone and a desktop window get the
@@ -24,10 +26,10 @@ import { TILE_SIZE } from "./types";
 export interface OutlineSettings {
   /** Draw outlines at all. */
   enabled: boolean;
-  /** At or below this tile size (CSS px) the outlines are off. */
-  fadeOffTilePx: number;
-  /** At or above this tile size (CSS px) the outlines are fully on; between the two the opacity is linear. */
-  fadeFullTilePx: number;
+  /** At or below this share of the opening tile size (`openingTilePx`) the outlines are off. */
+  fadeOffFactor: number;
+  /** At or above this share of the opening tile size the outlines are fully on; between the two the opacity is linear. */
+  fadeFullFactor: number;
   /** The stroke's width in the world, as a fraction of a voxel's width (`VOXEL_SIZE`). */
   widthVoxels: number;
   /** The thinnest stroke, in device px: the world width never draws thinner than this. */
@@ -48,17 +50,17 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
-  // The PM's ruling (2026-10-15, R-VIS): off at 44 px a tile, fully on at 60, so the outlines show at the game's
-  // opening view on a phone too (about 52 px a tile at 360 x 780, half on) and are fully on in a 900 px high window
-  // (about 60 px a tile).
-  fadeOffTilePx: 44,
-  fadeFullTilePx: 60,
-  // The owner's proposal, 1 to 2 % of a voxel: 1.5 %. That is under a device pixel until a voxel is about 33 CSS px wide
+  // Outlines show at every screen's opening view: the fade follows the opening tile size S, fully on at S, off at
+  // 0.85 S. A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
+  // under the farthest zoom's 48 px: the outlines vanish zoomed out).
+  fadeOffFactor: 0.85,
+  fadeFullFactor: 1,
+  // 1.5 % of a voxel, in the 1 to 2 % that keeps the stroke thin. That is under a device pixel until a voxel is about 33 CSS px wide
   // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
   widthVoxels: 0.015,
   minWidthDevicePx: 1,
   maxWidthPx: 2,
-  // About 88 % black: the owner asked for dark grey, not black.
+  // Dark grey, not black: about 88 % black.
   color: "#1f1f1f",
 };
 
@@ -77,8 +79,9 @@ export interface OutlineStroke {
 const OFF: OutlineStroke = { width: 0, opacity: 0 };
 
 /**
- * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px. The opacity is 0 at
- * or below `fadeOffTilePx`, 1 at or above `fadeFullTilePx`, linear between, and 0 below `MIN_OUTLINE_OPACITY`. The width
+ * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px, where the board
+ * opens at `openingTilePx` (S, `openingTilePixels`). The opacity is 0 at or below `fadeOffFactor` x S, 1 at or above
+ * `fadeFullFactor` x S, linear between, and 0 below `MIN_OUTLINE_OPACITY`. The width
  * is `widthVoxels` of a voxel at that zoom, in device px, at least `minWidthDevicePx` and at most `maxWidthPx` CSS px.
  * Width and opacity never decrease as the camera zooms in.
  */
@@ -86,14 +89,27 @@ export function outlineStroke(
   tilePx: number,
   settings: OutlineSettings = DEFAULT_OUTLINE_SETTINGS,
   pixelRatio = 1,
+  openingTilePx = DEFAULT_OPENING_TILE_PX,
 ): OutlineStroke {
-  const { fadeOffTilePx: off, fadeFullTilePx: full } = settings;
+  const off = settings.fadeOffFactor * openingTilePx;
+  const full = settings.fadeFullFactor * openingTilePx;
   if (!settings.enabled || !(tilePx > off) || !(pixelRatio > 0)) return OFF;
   const opacity = tilePx >= full ? 1 : (tilePx - off) / (full - off);
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
   return width > 0 ? { width, opacity } : OFF;
+}
+
+/** The opening tile size `outlineStroke` assumes when it is not given one: a 900 px high window's, about 60 px. */
+export const DEFAULT_OPENING_TILE_PX = 60;
+
+/**
+ * The opening tile size S of a viewport `heightPx` high: the on-screen size of a tile at the distance the camera opens
+ * at (`OPENING_DISTANCE`). It follows the viewport's height, so it changes with a resize.
+ */
+export function openingTilePixels(camera: THREE.PerspectiveCamera, heightPx: number): number {
+  return tilePixels(camera, OPENING_DISTANCE, heightPx);
 }
 
 /** On-screen size of one tile, in CSS px, at `distance` from a perspective camera in a viewport `heightPx` high. */

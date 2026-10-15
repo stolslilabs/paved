@@ -4,9 +4,10 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
  * The voxel tiles' outlines on the recorded 72-tile board (R-OUT, R-VIS): dark grey antialiased strokes whose width is a
- * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out between two tile sizes as the
- * camera zooms out, and never flickering while it pans. The tour goes through the views where the old 1-pixel lines
- * failed; stop it to hold one view and set its distance. Under reduced motion nothing moves by itself.
+ * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (fully
+ * on at the tile size the board opens at on this screen, off at 0.85 of it), and never flickering while it pans. The
+ * tour goes through the views where the old 1-pixel lines failed; stop it to hold one view and set its distance. Under
+ * reduced motion nothing moves by itself.
  */
 const meta = {
   title: "Renderer/Outlines",
@@ -21,14 +22,14 @@ const meta = {
     },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the zoom (camera distance, tile size on screen) and the outlines' stroke" },
-    fadeOffTilePx: {
-      control: { type: "range", min: 0, max: 300, step: 1 },
-      description: "Outlines off at or below this tile size on screen (CSS px): read it off the readout",
+    fadeFullFactor: {
+      control: { type: "range", min: 0.5, max: 2, step: 0.01 },
+      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\")",
       table: { category: "Outlines" },
     },
-    fadeFullTilePx: {
-      control: { type: "range", min: 0, max: 300, step: 1 },
-      description: "Outlines fully on from this tile size (CSS px); linear fade below it, down to the off size",
+    fadeOffFactor: {
+      control: { type: "range", min: 0.3, max: 2, step: 0.01 },
+      description: "Outlines off at or below this share of the opening tile size; linear fade up to the fully-on share",
       table: { category: "Outlines" },
     },
     widthVoxels: {

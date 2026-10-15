@@ -137,7 +137,7 @@ const VIS_ROWS: Row[] = [
   {
     key: "desk-default",
     title: "Desktop, the opening view (a tile about 60 px)",
-    note: "1440 x 900 at DPR 2, distance 240 straight down; the centre 800 x 500 CSS px at 1:1. Before: diagonal shadow-acne bands in every lit face and 1 px black lines at 16 %. After: a flat tint per face, and dark grey hairlines, fully on (off at 44 px a tile, fully on at 60).",
+    note: "1440 x 900 at DPR 2, distance 240 straight down; the centre 800 x 500 CSS px at 1:1. Before: diagonal shadow-acne bands in every lit face and 1 px black lines at 16 %. After: a flat tint per face, and dark grey hairlines, fully on (fully on at the opening tile size S, here 60 px, off at 0.85 S).",
     captures: [
       { label: "Before (main)", src: visBeforeDeskDefault },
       { label: "After (R-VIS)", src: visAfterDeskDefault },
@@ -158,8 +158,8 @@ const VIS_ROWS: Row[] = [
   },
   {
     key: "desk-out",
-    title: "Desktop, fully zoomed out (a tile 48 px)",
-    note: "Distance 300, tilted, the farthest: the outlines are at 27 % here (off at 44 px, which a 900 px high window never reaches).",
+    title: "Desktop, zoomed out: the outlines vanish (a tile 48 px)",
+    note: "Distance 300, tilted, the farthest: under 0.85 S (51 px), so no outlines either side; only the shading changes.",
     captures: [
       { label: "Before (main)", src: visBeforeDeskOut },
       { label: "After (R-VIS)", src: visAfterDeskOut },
@@ -170,7 +170,7 @@ const VIS_ROWS: Row[] = [
   {
     key: "m360-default",
     title: "360 px wide, the opening view (a tile about 52 px)",
-    note: "360 x 780 at DPR 3, distance 240; the centre 360 x 450 CSS px at 1:1. A phone's shorter viewport makes a tile 52 px wide here: the outlines show at 52 % (off at 44 px a tile, fully on at 60).",
+    note: "360 x 780 at DPR 3, distance 240; the centre 360 x 450 CSS px at 1:1. A phone's shorter viewport opens at S = 52 px a tile: the outlines are fully on at the opening view (off at 0.85 S, 44 px).",
     captures: [
       { label: "Before (main)", src: visBeforeM360Default },
       { label: "After (R-VIS)", src: visAfterM360Default },
@@ -192,7 +192,7 @@ const VIS_ROWS: Row[] = [
   {
     key: "m360-out",
     title: "360 px wide, zoomed out: the outlines vanish (a tile 42 px)",
-    note: "Distance 300, tilted: under the 44 px off size, so no outlines either side.",
+    note: "Distance 300, tilted: under 0.85 S (44 px), so no outlines either side.",
     captures: [
       { label: "Before (main)", src: visBeforeM360Out },
       { label: "After (R-VIS)", src: visAfterM360Out },
@@ -244,6 +244,6 @@ export const BeforeAndAfter: Story = {};
 
 /**
  * R-VIS (headless Chrome on the Mac's GPU, ANGLE Metal): the shading's acne removed by the shadow map's biases, and the
- * outlines as voxel-width, antialiased, dark grey strokes fading between 44 and 60 px a tile.
+ * outlines as voxel-width, antialiased, dark grey strokes fully on at the tile size the board opens at (S) and off at 0.85 S.
  */
 export const ShadingAndOutlines: Story = { args: { rows: VIS_ROWS } };

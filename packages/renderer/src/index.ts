@@ -18,6 +18,8 @@ export {
   TILE_VOXELS,
   VOXEL_SIZE,
   outlineStroke,
+  openingTilePixels,
+  DEFAULT_OPENING_TILE_PX,
   tilePixels,
   distanceForTilePixels,
 } from "./core/outlines";
