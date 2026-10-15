@@ -18,7 +18,7 @@
  *   on the element or an ancestor. An ellipsis with one of them is fine and not listed.
  * - `scroll`: a box that scrolls horizontally. Only deliberate scrollers are fine, and they are in ALLOWED.
  * - `page`: the page itself scrolls horizontally.
- * - `split`: an address (`0x…`, short or full) or a monospace word broken over two lines although it would fit on one
+ * - `split`: an address (`0x…`, short or full) or a monospace word (between spaces and hyphens) broken over two lines although it would fit on one
  *   line: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
  * - `error`: the story failed to render.
  *
@@ -232,7 +232,8 @@ function inspect(): { kind: string; element: string }[] {
   }
 
   // Runs that must not break: each address (`0x` and hex, an ellipsis inside when shortened), and each word of monospace
-  // text (an id, a figure, a hash: a sentence set in mono may wrap at its spaces, a word may not).
+  // text (an id, a figure, a hash: a sentence set in mono may wrap at its spaces and hyphens, as "tabular-nums" does in a
+  // narrow cell; a word may not).
   // A shortened address is split as soon as its rects sit on two lines. A full address is split when they do while its
   // width fits the line it sits in: the content width of its nearest block that is not itself a flex or grid item, since a
   // squeezed item ("0x05f1…" over "6e7f" beside a button) is the very defect. A monospace word is split when its width
@@ -246,7 +247,7 @@ function inspect(): { kind: string; element: string }[] {
     const pcs = getComputedStyle(parent);
     if (pcs.display === "none" || pcs.visibility === "hidden") continue;
     const runs: [number, number, boolean][] = [];
-    if (/mono/i.test(pcs.fontFamily)) for (const m of text.matchAll(/[^ \t\n]+/g)) runs.push([m.index ?? 0, (m.index ?? 0) + m[0].length, false]);
+    if (/mono/i.test(pcs.fontFamily)) for (const m of text.matchAll(/[^ \t\n-]+/g)) runs.push([m.index ?? 0, (m.index ?? 0) + m[0].length, false]);
     for (const m of text.matchAll(ADDRESS)) {
       const at = m.index ?? 0;
       const same = runs.findIndex(([s, e]) => s === at && e === at + m[0].length);
