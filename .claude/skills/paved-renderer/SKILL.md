@@ -17,12 +17,12 @@ with `docs/`, `scripts/` or `packages/`.
   is set (`core/GameScene.ts`). The tick still runs, cheaply: it calls `controls.update()`, which is true while the camera
   damps.
 - A frame is requested by `requestRender()`, which every setter calls (`updateTiles`, `setHoveredTile`,
-  `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize, and by camera
+  `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize (`resize()`), and by camera
   damping. A new change to scene state ends with `requestRender()`; never add a loop or a timer that draws.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
-- `renderFrame()` recomputes the outline stroke only when the tile's on-screen size changed, so a still camera does no
-  outline work. Keep per-frame work out of it.
+- `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
+  ratio or the settings changed, so a still camera does no outline work. Keep per-frame work out of it.
 - `packages/renderer/__tests__/game-scene-redraw.test.ts` checks that `init` redraws the tiles given while the models loaded;
   `packages/renderer/__tests__/game-scene-frame-observer.test.ts` covers the read-only `setFrameObserver` hook the bench uses.
 
@@ -42,12 +42,23 @@ with `docs/`, `scripts/` or `packages/`.
 `core/outlines.ts`, set by `RendererSettings` (`core/settings.ts`), given as `settings` to `GameCanvas` or in
 `GameScene.init` / `setSettings`; a partial object overrides only the fields it names; the rest take the defaults (`setSettings` replaces, it does not merge).
 
-- Outlines are `LineSegments2` + one shared `LineMaterial`, built from `buildEdgesGeometry` (`core/edges.ts`), drawn after the
-  faces (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
-  faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the bias, order and depth.
-- Width and opacity follow the tile's on-screen size in CSS px (`tilePixels`, `outlineStroke`): off at or under
-  `fadeThresholdTilePx` (default **48**), fading in over `fadeRangeTilePx` (48), then `minWidthPx` 1 to `maxWidthPx` 2 at
-  `maxWidthTilePx` 800. The tests of the same file pin the defaults and the continuity of the fade.
+- Outlines are drawn by the renderer's own antialiased shader (`createOutlineMaterial`, a shared `ShaderMaterial`), on
+  three's instanced `LineSegmentsGeometry`, built from `buildEdgesGeometry` (`core/edges.ts`). The fragment shader covers
+  each pixel by the part of it the stroke covers: no multisampling and no post pass. They are drawn after the faces
+  (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
+  faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
+  bias, order, depth, the dark grey and the viewport each draw is told.
+- The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
+  `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
+  on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport
+  (`openingTilePixels`, about 60 px in a 900 px high window): fully on at S (`fadeFullFactor` 1), off at 0.85 S
+  (`fadeOffFactor`), linear between. S follows the viewport's height, so a resize moves the fade
+  (`packages/renderer/__tests__/game-scene-settings.test.ts`, "follows a resize"). The defaults and the fade are pinned in
+  `packages/renderer/__tests__/outlines.test.ts` ("defaults: fully on at the opening tile size S").
+- Software WebGL (`detectSoftwareWebGL`, found at `init`): `force` "auto" (the default) turns the outlines off there,
+  "on" and "off" override the detection. The path taken is logged once with `console.info`, again only if it changes.
+  `packages/renderer/__tests__/game-scene-settings.test.ts` ("draws no outlines on software WebGL unless forced on, and logs the path once") and
+  `packages/renderer/__tests__/outlines.test.ts` ("software WebGL") cover it.
 - Camera limits (`camera.minDistance` 5, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web controller only;
   `NativeCameraController` ignores them.
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
@@ -60,8 +71,25 @@ with `docs/`, `scripts/` or `packages/`.
 `UnrealBloomPass`, then a vignette `ShaderPass`. The scene is drawn into a half-float target, not the canvas, so the
 canvas's `antialias` does not reach it. `multisampling` (off by default, 4 samples when on) is the only anti-aliasing; there
 is no FXAA, SMAA or edge pass. `resolveEffectsProfile` lowers bloom, vignette and SSAO for capabilities and low-power
-devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). `GameScene` caps the pixel ratio to
-`[0.5, 1]`. A new pass is a measured cost: see the bench.
+devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). A new pass is a measured cost: see the bench.
+
+## Size, pixel ratio and shadows
+
+- The canvas follows its container. `WebSurfaceAdapter` sets the canvas to 100 % width and height by CSS
+  (`packages/renderer/__tests__/web-surface-adapter-resize.test.ts`), and `GameScene` sizes only the drawing buffer
+  (`setSize(w, h, false)`). `WebSurfaceAdapter.onResize` fires on a `ResizeObserver` of the container, a window resize,
+  and a change of the device pixel ratio (`matchMedia`, re-armed on each ratio; same test file and
+  `packages/renderer/__tests__/surface-device.test.ts`). `GameScene.resize()` then refits the drawing buffer, the camera and the post-processing
+  targets (`packages/renderer/__tests__/surface-adapter.test.ts`, "uses surface resize callback"). A hidden 0 x 0 container keeps the last size (`GameScene.resize()`; `packages/renderer/__tests__/surface-adapter.test.ts`, "keeps the last size while the container is hidden").
+- The pixel ratio is `min(devicePixelRatio, maxPixelRatio)` (`capPixelRatio`, `core/settings.ts`). `maxPixelRatio`
+  defaults to `"auto"`, which gives 2 on a coarse pointer or when the window's shorter side is at most 600 CSS px
+  (`SMALL_SCREEN_PX`), and 1 elsewhere (`resolveMaxPixelRatio`, `PIXEL_RATIO_CAPS`); a number is used as is.
+  `packages/renderer/__tests__/outlines.test.ts` ("renderer settings") pins the cap, and `packages/renderer/__tests__/surface-adapter.test.ts` the ratio `GameScene` passes to
+  `setPixelRatio`. A new cap through `setSettings` refits at once. The figures behind the caps are DPR's, in
+  `docs/client/v2-architecture.md` 5.3.
+- Shadows (`core/GameScene.ts`): `PCFShadowMap`, normal bias 0.1 (about 1.3 voxels), depth bias -0.001. They remove the
+  shadow acne; half these values leave bands (R-VIS). `packages/renderer/__tests__/game-scene-shadow-map.test.ts` checks the type, the signs and the
+  normal bias at most 0.1.
 
 ## Disposal
 
