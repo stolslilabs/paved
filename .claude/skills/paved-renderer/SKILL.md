@@ -23,8 +23,8 @@ with `docs/`, `scripts/` or `packages/`.
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size changed, so a still camera does no
   outline work. Keep per-frame work out of it.
-- `__tests__/game-scene-redraw.test.ts` checks that `init` redraws the tiles given while the models loaded;
-  `game-scene-frame-observer.test.ts` covers the read-only `setFrameObserver` hook the bench uses.
+- `packages/renderer/__tests__/game-scene-redraw.test.ts` checks that `init` redraws the tiles given while the models loaded;
+  `packages/renderer/__tests__/game-scene-frame-observer.test.ts` covers the read-only `setFrameObserver` hook the bench uses.
 
 ## Tiles: no per-tile geometry
 
@@ -32,7 +32,7 @@ with `docs/`, `scripts/` or `packages/`.
   shared by every tile of that type; a tile is `model.clone()`, which shares them. Pending tiles use one cloned material per
   source material; tops one material per type and orientation.
 - Do not create a geometry, material or texture per tile, and do not dispose a shared one when a tile goes: dispose what
-  `TileRenderer.dispose()` owns. `__tests__/tile-renderer-resource-ownership.test.ts` checks that tiles of a type share
+  `TileRenderer.dispose()` owns. `packages/renderer/__tests__/tile-renderer-resource-ownership.test.ts` checks that tiles of a type share
   geometry and materials, and that removing a tile keeps the shared geometry and outlines.
 - Instancing was tried (P-7b) and dropped: it did not pay with the current models (`docs/measures/client-renderer.md`).
   Measure before proposing it again.
@@ -40,11 +40,11 @@ with `docs/`, `scripts/` or `packages/`.
 ## Outlines
 
 `core/outlines.ts`, set by `RendererSettings` (`core/settings.ts`), given as `settings` to `GameCanvas` or in
-`GameScene.init` / `setSettings`; a partial object overrides only the fields it names.
+`GameScene.init` / `setSettings`; a partial object overrides only the fields it names; the rest take the defaults (`setSettings` replaces, it does not merge).
 
 - Outlines are `LineSegments2` + one shared `LineMaterial`, built from `buildEdgesGeometry` (`core/edges.ts`), drawn after the
   faces (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
-  faces they lie on. They write no depth. `__tests__/outlines.test.ts` ("outline material") checks the bias, order and depth.
+  faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the bias, order and depth.
 - Width and opacity follow the tile's on-screen size in CSS px (`tilePixels`, `outlineStroke`): off at or under
   `fadeThresholdTilePx` (default **48**), fading in over `fadeRangeTilePx` (48), then `minWidthPx` 1 to `maxWidthPx` 2 at
   `maxWidthTilePx` 800. The tests of the same file pin the defaults and the continuity of the fade.
@@ -56,11 +56,11 @@ with `docs/`, `scripts/` or `packages/`.
 ## Post-processing, as it stands
 
 `core/Effects.ts` builds an `EffectComposer` from the profile in `core/render-profiles.ts` (`play`, `showcase`,
-`showcaseCinematic`): `RenderPass`, then `SSAOPass` (only where the profile enables it: `showcaseCinematic`), then
+`showcaseCinematic`): `RenderPass`, then `SSAOPass` (only where the profile enables it: `showcaseCinematic`, checked by `packages/renderer/__tests__/render-profiles.test.ts`), then
 `UnrealBloomPass`, then a vignette `ShaderPass`. The scene is drawn into a half-float target, not the canvas, so the
 canvas's `antialias` does not reach it. `multisampling` (off by default, 4 samples when on) is the only anti-aliasing; there
 is no FXAA, SMAA or edge pass. `resolveEffectsProfile` lowers bloom, vignette and SSAO for capabilities and low-power
-devices (`__tests__/render-profiles.test.ts`, `effects-profile-fallback.test.ts`). `GameScene` caps the pixel ratio to
+devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). `GameScene` caps the pixel ratio to
 `[0.5, 1]`. A new pass is a measured cost: see the bench.
 
 ## Disposal
@@ -68,12 +68,12 @@ devices (`__tests__/render-profiles.test.ts`, `effects-profile-fallback.test.ts`
 - `GameScene.dispose()` is idempotent. It unbinds input and resize, stops the loop, disposes tiles, effects, controls and
   assets, clears the scene, then `renderer.dispose()` and, by default, `forceContextLoss()`: Chrome keeps about 16 WebGL
   contexts per page. Pass `{ releaseContext: false }` only when the surface's owner frees the context.
-  `__tests__/game-scene-dispose.test.ts` covers the release, the second call, `releaseContext: false`, a dispose while models
+  `packages/renderer/__tests__/game-scene-dispose.test.ts` covers the release, the second call, `releaseContext: false`, a dispose while models
   load, and `init` after `dispose`.
 - A scene owns its surface. `GameCanvas` creates a canvas per scene, so a StrictMode remount or a `basePath` change gets a
   fresh context, never the lost one of the previous scene. Its init is cancellable: the cleanup sets `cancelled`, disposes
   the scene, and the pending `init(...).then` starts nothing and calls neither `onReady` nor `onError` (R-dispose, #397).
-  `__tests__/game-canvas-lifecycle.test.ts` covers unmount before and after init, a failed init, StrictMode and `basePath`.
+  `packages/renderer/__tests__/game-canvas-lifecycle.test.ts` covers unmount before and after init, a failed init, StrictMode and `basePath`.
   Keep that shape; do not move the canvas out of the effect.
 - Nothing listens for `webglcontextlost` or `webglcontextrestored`: a context lost behind the scene's back is not handled.
   Adding that is a task of its own, with a test.
@@ -83,7 +83,7 @@ devices (`__tests__/render-profiles.test.ts`, `effects-profile-fallback.test.ts`
 Models (`models/<key>.glb`), tile images (`assets/tiles/<key>.png`) and the Draco decoder (`draco/`) load from
 `<basePath>` (`core/AssetLoader.ts`); they live in `packages/app-web/public/`, which Storybook serves at `/renderer-assets`
 (`packages/app/.storybook/main.ts`, `src/mocks/assets.ts`). The decoder is created only when a model needs it, from
-`<basePath>/draco/`: `__tests__/asset-loader-draco.test.ts` checks that path and that plain models never create it. Add no
+`<basePath>/draco/`: `packages/renderer/__tests__/asset-loader-draco.test.ts` checks that path and that plain models never create it. Add no
 remote URL for a model, texture, decoder or font, in code or stories.
 
 ## The bench
@@ -97,8 +97,8 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
   and the commit. Frame time is **CPU + GPU per frame, p95**, from the raw runs, beside draw calls and triangles.
 - `--headless` is software rendering: a smoke run on Linux or any machine with no GPU. Its figures are not measures, and the
   driver refuses `--out` under `docs/measures/`. A figure needs a GPU run on the Mac.
-- On the Mac a run opens no visible window while the owner uses the machine. `client-baseline.md` names `--offscreen` for
-  it, but do not take that as proof the window stays hidden; arrange the run through your coordinator.
+- On the Mac a run opens no visible window while the owner uses the machine, and the driver has no hidden GPU mode
+  (`--offscreen` still opens windows; `--headless` is software rendering): do not start a Mac run yourself; report the need.
 - No figure that was not measured: write "estimate" for the rest. A committed measure goes under `docs/measures/` with its
   method.
 
