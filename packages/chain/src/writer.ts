@@ -4,6 +4,7 @@ import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type 
 import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
+import { SKIN_PLANS, isSkinPlan, type SkinChange } from "./skins";
 import { gameContract, type GameKey } from "./views";
 
 export interface Call {
@@ -160,6 +161,47 @@ function claimRevert(error: unknown): never {
   if (error instanceof WriteError) {
     const known = CLAIM_REVERTS.find(([reason]) => revertNames(error.message, reason));
     if (known) throw new ClaimRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
+/** Why `Setup` refused a skin's purchase or a `set_skins` batch, by its revert (`setup.cairo`, `errors`). */
+export type SkinRefusal = "owned" | "not-for-sale" | "not-enough-cobbles" | "not-owned" | "invalid-skin";
+
+/** Each refusal's revert reason; `skin not owned` before `skin owned`, so the one is never read as the other. */
+const SKIN_REVERTS: Array<[string, SkinRefusal]> = [
+  ["Setup: skin not owned", "not-owned"],
+  ["Setup: skin owned", "owned"],
+  ["Setup: skin not for sale", "not-for-sale"],
+  ["Setup: not enough cobbles", "not-enough-cobbles"],
+  ["Setup: invalid skin", "invalid-skin"],
+];
+
+/** What the player reads for each refusal. */
+export const SKIN_REFUSAL_TEXT: Record<SkinRefusal, string> = {
+  owned: "You already own this skin.",
+  "not-for-sale": "This skin is not for sale.",
+  "not-enough-cobbles": "Not enough Cobbles for this skin: earn them from quests and achievements, or buy a pack.",
+  "not-owned": "A skin in this change is not yours: buy it before switching it on. Nothing was saved.",
+  "invalid-skin": "This tile has no skin.",
+};
+
+/**
+ * `Setup` refused `buy_skin` or `set_skins`: no Cobbles were spent and nothing changed (`set_skins` reverts the whole
+ * batch). `owned` means an earlier purchase landed: the page reads the skins again.
+ */
+export class SkinRefusedError extends WriteError {
+  constructor(readonly reason: SkinRefusal, transactionHash?: string) {
+    super(SKIN_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "SkinRefusedError";
+  }
+}
+
+/** A known revert of a skin write as its `SkinRefusedError`; any other error unchanged. */
+function skinRevert(error: unknown): never {
+  if (error instanceof WriteError) {
+    const known = SKIN_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new SkinRefusedError(known[1], error.transactionHash);
   }
   throw error;
 }
@@ -420,6 +462,38 @@ export class PavedWriter {
     const spawned = result.events.find((e) => e.name === "GameSpawned");
     if (!spawned) throw new WriteError("The free game was sent but its receipt shows no game: check your games list.", result.transactionHash);
     return { ...result, gameId: Number(spawned.fields.gameId) };
+  }
+
+  /**
+   * `Setup.buy_skin(theme, plan)`: the caller buys the skin of `plan` (1 to 19) in `theme` (1 to 255) for its price in
+   * Cobbles, once; buying does not activate it. The receipt's `SkinBought` carries the price and the balance after. A
+   * refusal is a `SkinRefusedError` (owned, not for sale, not enough Cobbles): nothing moved. Theme 0 (the default, free)
+   * and a plan outside 1 to 19 are refused before anything is sent, as is a deployment without Setup.
+   */
+  buySkin(theme: number, plan: number): Promise<WriteResult> {
+    if (!this.options.deployment.addresses.Setup) return Promise.reject(new WriteError("No Setup contract in this deployment: no skin is for sale"));
+    if (!Number.isInteger(theme) || theme < 1 || theme > 255 || !isSkinPlan(plan)) return Promise.reject(new SkinRefusedError("invalid-skin"));
+    return this.send("Setup", [this.call("Setup", "buy_skin", [theme, plan])]).catch(skinRevert);
+  }
+
+  /**
+   * `Setup.set_skins(changes)`: the active theme of each plan named, one write for the batch (about 0.12M gas per changed
+   * plan, so the page sends only the plans that changed). Theme 0 always passes; any other only if the caller owns that
+   * skin, else the whole batch reverts (`SkinRefusedError`, `not-owned`). The receipt's `SkinsActivated` carries the whole
+   * active set (`activeThemes`). An empty batch, a plan outside 1 to 19, a theme outside 0 to 255 or a plan named twice is
+   * refused before anything is sent.
+   */
+  setSkins(changes: readonly SkinChange[]): Promise<WriteResult> {
+    if (!this.options.deployment.addresses.Setup) return Promise.reject(new WriteError("No Setup contract in this deployment: no skin can be set"));
+    if (changes.length === 0) return Promise.reject(new WriteError("No skin changed"));
+    const plans = new Set(changes.map((c) => c.plan));
+    if (plans.size !== changes.length || changes.length > SKIN_PLANS) return Promise.reject(new WriteError("A plan is named twice"));
+    if (changes.some((c) => !isSkinPlan(c.plan) || !Number.isInteger(c.theme) || c.theme < 0 || c.theme > 255)) return Promise.reject(new SkinRefusedError("invalid-skin"));
+    // `Span<(u8, u8)>` by hand: its length, then each tuple's members in order. The codec encodes neither arrays nor
+    // tuples; a test checks the input's type against `contracts/abis/Setup.json`.
+    const calldata = [changes.length, ...changes.flatMap((c) => [c.plan, c.theme])].map((n) => `0x${n.toString(16)}`);
+    const call: Call = { contractAddress: this.options.deployment.addresses.Setup, entrypoint: "set_skins", calldata };
+    return this.send("Setup", [call]).catch(skinRevert);
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */

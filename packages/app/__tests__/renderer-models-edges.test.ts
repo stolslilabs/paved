@@ -76,7 +76,8 @@ beforeAll(async () => {
 });
 
 describe("the compressed models draw the same outlines as the originals", () => {
-  const names = readdirSync(COMPRESSED).sort();
+  // The base models; a theme's folder (`forest/`, Draco sources) is checked by `renderer-manifest.test.ts`.
+  const names = readdirSync(COMPRESSED).filter((n) => n.endsWith(".glb")).sort();
 
   it.each(names)("%s", (name) => {
     const original = readGlb(join(ORIGINALS, `${name.slice(0, 9)}.glb`));

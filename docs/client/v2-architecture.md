@@ -764,7 +764,24 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     app-web's folder whole), loads `models/<plan>.glb`. A network or server error is tried twice more (after 250 and
     1000 ms), then the scene does not start and the page shows its plan view. Dev still answers those plain names from app-web; the build ships no original model and no Draco
     decoder.
-  - **Tile images** `assets/tiles/<plan>.png` (19, the plan view's and the tile chips'), from app-web's `public/` under their
+  - **The Forest models (P11b, 2026-10-16),** theme 1 on chain (`Setup`'s skins, cobbles v1, part 3): the 72 high-forest
+    variants of `packages/app-web/public/models/extended/<plan>_HF_<n>.glb` (every plan has one to nine), written by the same
+    script into `packages/app/public/renderer-assets/models/forest/<plan>_HF_<n>.<hash>.glb`. The low-forest set (`_LF_`) is
+    kept for a later theme and not written. Those sources are Draco-compressed: the script decodes them with app-web's
+    self-hosted Draco decoder (`public/draco/draco_decoder.js`, the renderer's own copy, run in Node: no package added). They
+    sit on Draco's 14-bit grid, off the origin (a tile spans x -54.9 to -50.9); every coordinate is within Draco's half step
+    (1.2e-4) of the 0.1 voxel grid, so each is snapped back to it and stored as an 8-bit integer about the model's centre,
+    the offset joining the node's translation: the art's positions exactly, each within 1.3e-4 of the decoded source, which
+    the script checks. Normals are all along an axis there, so 8-bit and exact; UVs unsigned 16-bit (7.6e-6); meshopt as the
+    base set. 72 files, 7,493,028 B (the Draco sources: 1,869,644 B); one tile loads one variant. Vite copies them into
+    `dist/` with the rest of `public/`. Kept on Draco's own grid instead (16-bit, exact to the decoded source): 13,131,712 B.
+    **The manifest** gains `themes`, keyed by theme id on chain, then plan key, the variants in order:
+    `{ "models": {...}, "themes": { "1": { "<plan>": ["models/forest/<plan>_HF_1.<hash>.glb", ...] } } }`, built from the file
+    names (`THEME_FOLDERS` in `vite/renderer-assets.ts`; a wrong hash fails the build); `AssetLoader` reads `models` only, so
+    the board is unchanged until the skins task reads `themes`. The tests list all 19 plans of Forest and keep `--check` exact
+    for both sets. The theme page's tile chips use the base images (the plan view's art, PM ruling): showing the 3D Forest tile
+    there would need `TileView` to load a model by path, a renderer change.
+ (19, the plan view's and the tile chips'), from app-web's `public/` under their
     plain names, served in dev and copied at build.
   - **Load order** (`packages/renderer/src/core/load-order.ts`, `AssetLoader`): a scene's init waits only for the models of
     the tiles it is handed before its first frame (the board's tiles; the hand's own scene, its one tile), or for every
@@ -1823,7 +1840,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
-| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art) | 0.5 d |
+| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **Next: the board draws the active skins** (the renderer picks each tile's model from its player's active set and a variant per tile, as origin/dev's `getVarietyModelPath`; the manifest's `themes` is its input), a separate task after LIGHT | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
 
 **P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
@@ -1904,6 +1921,22 @@ to claim". The toasts' memory (`announced`, and the last list per player and kin
 return. Left for others: the indexer in the app's sources (`routes/sources.ts` still refuses its reads), the signer with the claims
 (P6, done), Play free on home and play (done, PLAYFREE), the leaderboard's free mark (P8). The new query keys
 (`cobbleKeys`, `clockKey`) are in their data files until P6's change to `keys.ts` lands.
+
+**As built (P11b).** `/settings/theme` reads a theme's skins from `Setup` (cobbles v1, part 3, CORE #463): its 19
+`skin_price`, the player's `skins(player, theme)` and `active_skins(player)`, with the balance from `account` (`useThemeSkins`,
+`data/skins.ts`, keys `["chain", "skins", ...]` beside the ledger's). Forest is theme 1, priced by the fresh deployment for all
+19 plans; theme 0 (the default) is free and never priced; Snow, Desert and Volcano stay "coming soon" and are not read. Buy is one
+`buy_skin` (`PavedWriter.buySkin`); its receipt's `SkinBought` sets the balance and the owned bit in the cache, then the owned
+word and the account are read again. The switches are a batch on the page (`toggleSkin`: a switch back to the saved value leaves
+it); Save sends only the plans that changed in one `set_skins` (`PavedWriter.setSkins`, about 0.12M gas per plan), whose
+`SkinsActivated` word replaces the active set in the cache before the reconciling read. At most one theme per plan holds by the
+active set's shape. A theme withdrawn from sale keeps the skins the player owns, switchable. The states: a guest's Connect, the
+loading skeleton, a failed read with Retry, Buy disabled with "Need N more" when the Cobbles are short, a purchase or a save on
+its way (the other writes wait), a refusal (`SkinRefusedError`: owned, not for sale, not enough Cobbles, not owned) shown with
+its reason and the batch kept, "Skins saved". The two writes are session policies (`CONTROLLER_ENTRY_POINTS`): they spend
+Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
+the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
+the top of the page is kept on this device (`paved.theme.v1`); the board does not read it yet.
 
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
