@@ -231,3 +231,57 @@ describe("the toaster", () => {
     expect(document.querySelectorAll("[data-sonner-toaster]")).toHaveLength(1);
   });
 });
+
+describe("Back", () => {
+  it("from an old link opened directly lands Home, not back in the redirect", async () => {
+    const router = open("/game?mode=challenge&id=7");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+  });
+
+  it("from /welcome through 'Play Training' (a replace) lands Home", async () => {
+    resetWelcomedForTests();
+    localStorage.clear();
+    const router = open("/welcome");
+    await userEvent.click(await screen.findByRole("button", { name: /Play Training/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+  });
+
+  it("goes to the previous in-app entry when there is one", async () => {
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    await act(() => router.navigate("/game/7"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/vault"));
+  });
+});
+
+describe("?ref= on the error and not-found pages", () => {
+  it("is kept by the error page's way home", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function Boom(): never {
+      throw new Error("boom");
+    }
+    const router = createTestRouter("/vault?ref=0xabc", (rs) => {
+      rs[0]!.children!.find((r) => r.path === "vault")!.element = <Boom />;
+      return rs;
+    });
+    render(<App router={router} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Back home" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.location.search).toBe("?ref=0xabc");
+  });
+
+  it("is kept by the not-found page's way home", async () => {
+    const router = open("/nowhere?ref=0xabc");
+    await userEvent.click(await screen.findByRole("button", { name: "Back home" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.location.search).toBe("?ref=0xabc");
+  });
+});

@@ -1,5 +1,5 @@
 import { lazy, type ComponentType } from "react";
-import { createBrowserRouter, createMemoryRouter, redirect, type LoaderFunctionArgs, type RouteObject } from "react-router";
+import { createBrowserRouter, createMemoryRouter, replace, type LoaderFunctionArgs, type RouteObject } from "react-router";
 import { PAGES } from "./pages";
 import { withRef } from "./ref";
 import { RouteError } from "./RouteError";
@@ -35,9 +35,9 @@ const PAGE_MODULES: Record<string, ComponentType> = {
 };
 const NotFound = lazy(() => import("./pages/not-found"));
 
-/** A redirect that keeps the request's `?ref=`. */
+/** A redirect that keeps the request's `?ref=`. It replaces the entry, so Back never lands on the old link. */
 function to(path: string, request: Request) {
-  return redirect(withRef(path, new URL(request.url).search));
+  return replace(withRef(path, new URL(request.url).search));
 }
 
 /** `/` is the entry of a first visit: it sends the visitor to the welcome. The flag is read here, at navigation. */

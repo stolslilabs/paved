@@ -373,6 +373,15 @@ describe("no wiring (SC1, SC2)", () => {
   it("keeps the entry, the app and the router table free of scenes and mocks", () => {
     for (const f of ["main.tsx", "App.tsx", "routes/router.tsx"]) expect(readFileSync(join(src, f), "utf8")).not.toMatch(/components\/scenes|mocks\//);
   });
+
+  it("reaches the page modules only through import(), never statically", () => {
+    const outside = files(join(src, "routes")).filter((f) => !f.includes(join("routes", "pages")) && !f.endsWith("pages.ts"));
+    for (const f of outside) expect(readFileSync(f, "utf8")).not.toMatch(/^\s*(import|export)\b[^;]*from\s+["']\.\/pages\//m);
+    const router = readFileSync(join(src, "routes/router.tsx"), "utf8");
+    const dynamic = [...router.matchAll(/import\("\.\/pages\/[\w-]+"\)/g)].length;
+    expect(dynamic).toBeGreaterThanOrEqual(14);
+    expect(router.match(/\.\/pages\//g)).toHaveLength(dynamic);
+  });
 });
 
 describe("Element feedback (EL)", () => {

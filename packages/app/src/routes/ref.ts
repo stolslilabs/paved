@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, type NavigateOptions } from "react-router";
+import { useCanGoBack } from "./history";
 import { TABS, type Tab } from "./pages";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
@@ -30,10 +31,10 @@ export function useTabNavigate() {
   return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/"), [go]);
 }
 
-/** Back (a scene's `onBack`): the previous entry, or Home when the page was opened directly (a deep link). */
+/** Back (a scene's `onBack`): the previous in-app entry, or Home when there is none (a deep link, an old link, a redirect). */
 export function useBack() {
   const navigate = useNavigate();
   const go = useAppNavigate();
-  const { key } = useLocation();
-  return useCallback(() => (key === "default" ? go("/", { replace: true }) : navigate(-1)), [key, go, navigate]);
+  const canGoBack = useCanGoBack();
+  return useCallback(() => (canGoBack() ? navigate(-1) : go("/", { replace: true })), [canGoBack, go, navigate]);
 }

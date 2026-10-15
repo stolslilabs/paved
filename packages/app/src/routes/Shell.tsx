@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router";
 import { LoadingScene } from "../components/scenes/loading-scene";
+import { HistoryTracker } from "./history";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
@@ -12,8 +13,10 @@ export const bootScreen = <LoadingScene progress={null} />;
  */
 export function RootLayout() {
   return (
-    <Suspense fallback={bootScreen}>
-      <Outlet />
-    </Suspense>
+    <HistoryTracker>
+      <Suspense fallback={bootScreen}>
+        <Outlet />
+      </Suspense>
+    </HistoryTracker>
   );
 }
