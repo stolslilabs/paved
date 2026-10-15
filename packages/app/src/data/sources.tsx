@@ -8,7 +8,7 @@ import { browserStore, type KeyValueStore } from "@paved/game-core";
  * one from its account (`PavedClient.writer`, `wallet/`). A test gives its own, or only part of it: the claims' pages read
  * them through `claimSigner`, which answers null ("Connect to claim") for a signer without `claim`. The purchases (P7b) are
  * built on it by the sources' `purchases`: `sendCalls` serialises the economy's writes with the game's, `buyPack` is a
- * pack's approve and `Setup.buy_pack`.
+ * pack's approve and `Setup.buy_pack`. The skins (P11b) are `buySkin` and `setSkins`, read through `skinSigner`.
  */
 export type GameSigner = Pick<
   PavedWriter,
@@ -25,6 +25,8 @@ export type GameSigner = Pick<
   | "buyPack"
   | "sendCalls"
   | "spawnFree"
+  | "buySkin"
+  | "setSkins"
 >;
 
 /**

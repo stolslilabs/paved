@@ -5,8 +5,8 @@ import type { AchievementCobbles as AchievementCobblesView, CobbleKind, PackView
  * CORE #440: `CobbleAccount`, `PeriodProgress`, `QuestCobbles`, `AchievementCobbles`); the scenes take the part they show.
  * Types and pure helpers only; nothing here reads the chain.
  *
- * `Pack` is `Setup.pack`'s (part 2, CORE #453; P7b). Still provisional: the skins (P11b, part 3), written from
- * `docs/architecture/cobbles-v1.md` until that ABI lands.
+ * `Pack` is `Setup.pack`'s (part 2, CORE #453; P7b). The skins are `Setup`'s
+ * (part 3, CORE #463; P11b): `skin_price`, `skins` and `active_skins`, read by `data/skins.ts`.
  */
 
 export type { CobbleAccount, CobbleKind } from "@paved/chain";
