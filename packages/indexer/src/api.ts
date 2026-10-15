@@ -144,7 +144,7 @@ export interface LeaderboardEntry {
   finished_at: number;
   /**
    * The best game is a free game (`GameSpawned.price` 0, bought with a credit): it ranks like any game, marked. Appended with
-   * gems v1 (schema 13).
+   * cobbles v1 (schema 14).
    */
   free: boolean;
   /**
@@ -229,7 +229,7 @@ export interface GameRow {
   token_id: number | null;
   /**
    * A free game (`GameSpawned.price` 0, a credit spent): it has no `economy` (no `Purchased`, `Recorded` or `Settled`) and
-   * pays no reward, and `economy: null` does not mean "not bought yet". Appended with gems v1 (schema 13).
+   * pays no reward, and `economy: null` does not mean "not bought yet". Appended with cobbles v1 (schema 14).
    */
   free: boolean;
 }
@@ -300,10 +300,10 @@ export interface QuestDefinition {
   retired: boolean;
   /** Time of the block that retired it, null while it is live. */
   retired_at: number | null;
-  /** The gems a claim of this quest gives (`QuestGemsSet`), 0 when none are set. Appended with gems v1 (schema 13). */
-  gems: number;
-  /** The kind of the gems' schedule: "daily" or "weekly" (its claim's period is a day or a week number); null without gems. */
-  gems_kind: "daily" | "weekly" | null;
+  /** The cobbles a claim of this quest gives (`QuestCobblesSet`), 0 when none are set. Appended with cobbles v1 (schema 14). */
+  cobbles: number;
+  /** The kind of the cobbles' schedule: "daily" or "weekly" (its claim's period is a day or a week number); null without cobbles. */
+  cobbles_kind: "daily" | "weekly" | null;
 }
 
 export interface AchievementDefinition {
@@ -317,8 +317,8 @@ export interface AchievementDefinition {
   defined_at: number;
   retired: boolean;
   retired_at: number | null;
-  /** The gems a claim of this achievement gives (`AchievementGemsSet`), 0 when none are set. Appended with gems v1 (schema 13). */
-  gems: number;
+  /** The cobbles a claim of this achievement gives (`AchievementCobblesSet`), 0 when none are set. Appended with cobbles v1 (schema 14). */
+  cobbles: number;
 }
 
 export interface DefinitionsAnswer extends Envelope {
@@ -369,11 +369,11 @@ export interface PlayerAchievementsAnswer extends Envelope {
   achievements: PlayerAchievement[];
 }
 
-/** A player's gems and free-game credits at the served block (gems v1): the running values of the chain's own events. */
-export interface PlayerGemsAnswer extends Envelope {
+/** A player's cobbles and free-game credits at the served block (cobbles v1): the running values of the chain's own events. */
+export interface PlayerCobblesAnswer extends Envelope {
   player_id: string;
-  /** The gem balance, the `balance` of the last `GemsClaimed`; 0 for a player with none. */
-  gems: number;
+  /** The cobble balance, the `balance` of the last `CobblesClaimed`; 0 for a player with none. */
+  cobbles: number;
   /** The free-game credits left: claimed (`CreditClaimed`) less spent (`CreditSpent`). */
   credits: number;
   credits_claimed: number;
@@ -382,14 +382,14 @@ export interface PlayerGemsAnswer extends Envelope {
   achievements_claimed: number[];
 }
 
-/** A claim of gems (`GemsClaimed`). */
-export interface GemClaim {
+/** A claim of cobbles (`CobblesClaimed`). */
+export interface CobbleClaim {
   kind: "quest" | "achievement";
   /** The quest or achievement id. */
   id: number;
-  /** A quest's day or week number (by its definition's `gems_kind`); 0 for an achievement. */
+  /** A quest's day or week number (by its definition's `cobbles_kind`); 0 for an achievement. */
   period: number;
-  gems: number;
+  cobbles: number;
   /** Time of the block of the claim. */
   claimed_at: number;
 }
@@ -411,6 +411,6 @@ export interface PlayerClaimsAnswer extends Envelope {
   day: number;
   /** The week number the day falls in; null for a day before the first week (1970-01-01 to 1970-01-04). */
   week: number | null;
-  claims: GemClaim[];
+  claims: CobbleClaim[];
   credits: CreditClaim[];
 }

@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "13";
+export const SCHEMA_VERSION = "14";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -162,25 +162,25 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS purchases_player ON purchases (player_id, game_id);
   CREATE INDEX IF NOT EXISTS purchases_day ON purchases (day, game_id);
   CREATE INDEX IF NOT EXISTS purchases_purchased ON purchases (purchased_block);
-  -- Gems v1 (gems-v1.md, 6.2), one row per event as the chain emitted it (a position: block, tx, idx), so that a rewind is a
-  -- delete by block. A player's gems and credits are the running values of the last row, never a stored sum.
-  -- The owner's gems of a quest or an achievement (QuestGemsSet, AchievementGemsSet); the last row of an id is its amount (0: none).
-  CREATE TABLE IF NOT EXISTS gem_amounts (
+  -- Cobbles v1 (gems-v1.md, 6.2), one row per event as the chain emitted it (a position: block, tx, idx), so that a rewind is a
+  -- delete by block. A player's cobbles and credits are the running values of the last row, never a stored sum.
+  -- The owner's cobbles of a quest or an achievement (QuestCobblesSet, AchievementCobblesSet); the last row of an id is its amount (0: none).
+  CREATE TABLE IF NOT EXISTS cobble_amounts (
     block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
-    subject TEXT NOT NULL, id INTEGER NOT NULL, gems INTEGER NOT NULL, kind INTEGER NOT NULL, time INTEGER NOT NULL,
+    subject TEXT NOT NULL, id INTEGER NOT NULL, cobbles INTEGER NOT NULL, kind INTEGER NOT NULL, time INTEGER NOT NULL,
     PRIMARY KEY (block, tx, idx)
   );
-  CREATE INDEX IF NOT EXISTS gem_amounts_id ON gem_amounts (subject, id, block, tx, idx);
-  -- GemsClaimed: a claim of a quest (kind 1: period is its day or week) or an achievement (kind 2, period 0), once per
-  -- (player, kind, id, period); balance is the player's gems after it.
-  CREATE TABLE IF NOT EXISTS gem_claims (
+  CREATE INDEX IF NOT EXISTS cobble_amounts_id ON cobble_amounts (subject, id, block, tx, idx);
+  -- CobblesClaimed: a claim of a quest (kind 1: period is its day or week) or an achievement (kind 2, period 0), once per
+  -- (player, kind, id, period); balance is the player's cobbles after it.
+  CREATE TABLE IF NOT EXISTS cobble_claims (
     block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
     player_id TEXT NOT NULL, kind INTEGER NOT NULL, id INTEGER NOT NULL, period INTEGER NOT NULL,
-    gems INTEGER NOT NULL, balance INTEGER NOT NULL, time INTEGER NOT NULL,
+    cobbles INTEGER NOT NULL, balance INTEGER NOT NULL, time INTEGER NOT NULL,
     PRIMARY KEY (block, tx, idx),
     UNIQUE (player_id, kind, id, period)
   );
-  CREATE INDEX IF NOT EXISTS gem_claims_player ON gem_claims (player_id, block, tx, idx);
+  CREATE INDEX IF NOT EXISTS cobble_claims_player ON cobble_claims (player_id, block, tx, idx);
   -- CreditClaimed: a free-game credit of a day (kind 1) or a week (kind 2), once per (player, kind, period); credits is the
   -- player's credits after it.
   CREATE TABLE IF NOT EXISTS credit_claims (
@@ -622,35 +622,35 @@ export class Store {
             });
             break;
           }
-          case "QuestGemsSet":
-          case "AchievementGemsSet": {
+          case "QuestCobblesSet":
+          case "AchievementCobblesSet": {
             // Owner configuration: the amount a claim gives. Set again, the last row wins; 0 removes it.
-            const quest = event.name === "QuestGemsSet";
-            this.sql.insertGemAmount.run({
+            const quest = event.name === "QuestCobblesSet";
+            this.sql.insertCobbleAmount.run({
               block: at,
               tx: raw.transactionIndex,
               idx: raw.eventIndex,
               subject: quest ? "quest" : "achievement",
               id: quest ? event.questId : event.achievementId,
-              gems: event.gems,
+              cobbles: event.cobbles,
               kind: quest ? event.kind : 0,
               time: block.timestamp,
             });
             break;
           }
-          case "GemsClaimed": {
-            const what = `GemsClaimed of ${padded(event.playerId)} (${event.kind === 1 ? "quest" : "achievement"} ${event.id}, period ${event.period}) ${where}`;
+          case "CobblesClaimed": {
+            const what = `CobblesClaimed of ${padded(event.playerId)} (${event.kind === 1 ? "quest" : "achievement"} ${event.id}, period ${event.period}) ${where}`;
             const player = padded(event.playerId);
-            if (this.sql.gemClaim.get(player, event.kind, event.id, Number(event.period))) {
+            if (this.sql.cobbleClaim.get(player, event.kind, event.id, Number(event.period))) {
               throw new Halt(`${what}: already claimed`);
             }
             // The running balance is the chain's own: a sum that differs is a claim the indexer did not see.
-            const expected = this.sql.gemBalance(player) + BigInt(event.gems);
+            const expected = this.sql.cobbleBalance(player) + BigInt(event.cobbles);
             if (expected !== event.balance) {
               throw new Halt(`${what}: balance ${event.balance}, the claims before it sum to ${expected}`);
             }
             this.sql.insertPlayer.run(player, at, block.timestamp);
-            this.sql.insertGemClaim.run({
+            this.sql.insertCobbleClaim.run({
               block: at,
               tx: raw.transactionIndex,
               idx: raw.eventIndex,
@@ -658,7 +658,7 @@ export class Store {
               kind: event.kind,
               id: event.id,
               period: Number(event.period),
-              gems: event.gems,
+              cobbles: event.cobbles,
               balance: Number(event.balance),
               time: block.timestamp,
             });
@@ -848,8 +848,8 @@ export class Store {
       this.sql.unrecordPurchases.run(to);
       this.sql.unsettlePurchases.run(to);
       this.sql.rewindEconomyDays.run(to);
-      this.sql.rewindGemAmounts.run(to);
-      this.sql.rewindGemClaims.run(to);
+      this.sql.rewindCobbleAmounts.run(to);
+      this.sql.rewindCobbleClaims.run(to);
       this.sql.rewindCreditClaims.run(to);
       this.sql.rewindCreditSpends.run(to);
       this.sql.rewindPodium.run(to);
@@ -883,8 +883,8 @@ export class Store {
     | "day_closes"
     | "purchases"
     | "economy_days"
-    | "gem_amounts"
-    | "gem_claims"
+    | "cobble_amounts"
+    | "cobble_claims"
     | "credit_claims"
     | "credit_spends"
     | "events"
@@ -902,8 +902,8 @@ export class Store {
       day_closes: all("SELECT * FROM day_closes ORDER BY block"),
       purchases: all("SELECT * FROM purchases ORDER BY game_id"),
       economy_days: all("SELECT * FROM economy_days ORDER BY day"),
-      gem_amounts: all("SELECT * FROM gem_amounts ORDER BY block, tx, idx"),
-      gem_claims: all("SELECT * FROM gem_claims ORDER BY block, tx, idx"),
+      cobble_amounts: all("SELECT * FROM cobble_amounts ORDER BY block, tx, idx"),
+      cobble_claims: all("SELECT * FROM cobble_claims ORDER BY block, tx, idx"),
       credit_claims: all("SELECT * FROM credit_claims ORDER BY block, tx, idx"),
       credit_spends: all("SELECT * FROM credit_spends ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
@@ -1043,13 +1043,13 @@ function statements(db: DatabaseSync) {
     settlePurchase: db.prepare(
       "UPDATE purchases SET threshold = :threshold, reward = :reward, settled_block = :block WHERE game_id = :game_id",
     ),
-    insertGemAmount: db.prepare(
-      `INSERT INTO gem_amounts (block, tx, idx, subject, id, gems, kind, time)
-       VALUES (:block, :tx, :idx, :subject, :id, :gems, :kind, :time)`,
+    insertCobbleAmount: db.prepare(
+      `INSERT INTO cobble_amounts (block, tx, idx, subject, id, cobbles, kind, time)
+       VALUES (:block, :tx, :idx, :subject, :id, :cobbles, :kind, :time)`,
     ),
-    insertGemClaim: db.prepare(
-      `INSERT INTO gem_claims (block, tx, idx, player_id, kind, id, period, gems, balance, time)
-       VALUES (:block, :tx, :idx, :player_id, :kind, :id, :period, :gems, :balance, :time)`,
+    insertCobbleClaim: db.prepare(
+      `INSERT INTO cobble_claims (block, tx, idx, player_id, kind, id, period, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :kind, :id, :period, :cobbles, :balance, :time)`,
     ),
     insertCreditClaim: db.prepare(
       `INSERT INTO credit_claims (block, tx, idx, player_id, kind, period, credits, time)
@@ -1059,16 +1059,16 @@ function statements(db: DatabaseSync) {
       `INSERT INTO credit_spends (block, tx, idx, player_id, game_id, credits, time)
        VALUES (:block, :tx, :idx, :player_id, :game_id, :credits, :time)`,
     ),
-    gemClaim: db.prepare("SELECT 1 FROM gem_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
+    cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (gems) and credits: the last row of the ledger, 0 / 0 before any.
-    gemBalance: (player: string): bigint => {
+    // The player's last running balance (cobbles) and credits: the last row of the ledger, 0 / 0 before any.
+    cobbleBalance: (player: string): bigint => {
       const row = db
-        .prepare("SELECT balance FROM gem_claims WHERE player_id = ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
+        .prepare("SELECT balance FROM cobble_claims WHERE player_id = ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
         .get(player) as { balance: number } | undefined;
       return BigInt(row?.balance ?? 0);
     },
@@ -1084,8 +1084,8 @@ function statements(db: DatabaseSync) {
         .get({ p: player }) as { credits: number } | undefined;
       return row?.credits ?? 0;
     },
-    rewindGemAmounts: db.prepare("DELETE FROM gem_amounts WHERE block > ?"),
-    rewindGemClaims: db.prepare("DELETE FROM gem_claims WHERE block > ?"),
+    rewindCobbleAmounts: db.prepare("DELETE FROM cobble_amounts WHERE block > ?"),
+    rewindCobbleClaims: db.prepare("DELETE FROM cobble_claims WHERE block > ?"),
     rewindCreditClaims: db.prepare("DELETE FROM credit_claims WHERE block > ?"),
     rewindCreditSpends: db.prepare("DELETE FROM credit_spends WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

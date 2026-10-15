@@ -1,10 +1,10 @@
 /**
- * Gems v1 part 1 on a local starknet-devnet 0.10 (IX-GEMS1): `scripts/deploy.sh devnet` deploys the working tree, the owner
- * gives gems to Daily Run (quest 1) and to Settler I (achievement 2), one account plays a paid game, claims the quest, the
+ * Cobbles v1 part 1 on a local starknet-devnet 0.10 (IX-GEMS1): `scripts/deploy.sh devnet` deploys the working tree, the owner
+ * gives cobbles to Daily Run (quest 1) and to Settler I (achievement 2), one account plays a paid game, claims the quest, the
  * achievement and the day's credit, then spends the credit on a free game; a second account plays a paid game. The real
- * indexer (`src/main.ts`) follows live. The API must rank both players with the free game marked, and its gems, credits and
- * claims must equal the contract's own views (`Setup.account`, `Setup.day_progress`, `Setup.quest_gems`,
- * `Setup.achievement_gems`).
+ * indexer (`src/main.ts`) follows live. The API must rank both players with the free game marked, and its cobbles, credits and
+ * claims must equal the contract's own views (`Setup.account`, `Setup.day_progress`, `Setup.quest_cobbles`,
+ * `Setup.achievement_cobbles`).
  *
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`), as the scenario does; the same prerequisites, and one Cairo build at a
  * time (the deploy builds the contracts through the `scarb` shim).
@@ -21,19 +21,19 @@ import type {
   LeaderboardAnswer,
   PlayerClaimsAnswer,
   PlayerGamesAnswer,
-  PlayerGemsAnswer,
+  PlayerCobblesAnswer,
 } from "../../src/api.ts";
 import { padded } from "../../src/events.ts";
 import { deploy, Game, type Node, type Player, players, ROOT, rpc, startNode, writtenFile } from "./devnet.ts";
 
 const enabled = process.env.PAVED_DEVNET === "1";
-const NODE_PORT = Number(process.env.DEVNET_GEMS_PORT || 5073);
+const NODE_PORT = Number(process.env.DEVNET_COBBLES_PORT || 5073);
 const API_PORT = 8790;
 const MAIN = resolve(import.meta.dirname, "../../src/main.ts");
 const COMMITTED = resolve(ROOT, "contracts/deployments/devnet.json");
 const DAY = 86400;
 
-describe.skipIf(!enabled)("devnet gems and free games", () => {
+describe.skipIf(!enabled)("devnet cobbles and free games", () => {
   let node: Node;
   let work: string;
   let committed: string;
@@ -98,7 +98,7 @@ describe.skipIf(!enabled)("devnet gems and free games", () => {
   };
 
   beforeAll(async () => {
-    work = mkdtempSync(join(tmpdir(), "paved-devnet-gems-"));
+    work = mkdtempSync(join(tmpdir(), "paved-devnet-cobbles-"));
     committed = readFileSync(COMMITTED, "utf8");
     node = await startNode(NODE_PORT, 42);
     let written: string | null = null;
@@ -131,11 +131,11 @@ describe.skipIf(!enabled)("devnet gems and free games", () => {
   test("a paid game, the claims, a credit, a free game: the API equals the contract's views", async () => {
     const aliceAddress = padded(alice.address);
     const boAddress = padded(bo.address);
-    // The owner (the deployer) gives gems to Daily Run (the only daily with gems, so one paid game completes the day) and to Settler I.
-    // deploy.sh sets the gems of every fresh quest; the rotating dailies (5 to 13) are cleared so the day's credit needs Daily Run alone.
-    for (let id = 5; id <= 13; id++) await send(owner, setup(), "set_quest_gems", [id, 0]);
-    await send(owner, setup(), "set_quest_gems", [1, 5]);
-    await send(owner, setup(), "set_achievement_gems", [2, 10]);
+    // The owner (the deployer) gives cobbles to Daily Run (the only daily with cobbles, so one paid game completes the day) and to Settler I.
+    // deploy.sh sets the cobbles of every fresh quest; the rotating dailies (5 to 13) are cleared so the day's credit needs Daily Run alone.
+    for (let id = 5; id <= 13; id++) await send(owner, setup(), "set_quest_cobbles", [id, 0]);
+    await send(owner, setup(), "set_quest_cobbles", [1, 5]);
+    await send(owner, setup(), "set_achievement_cobbles", [2, 10]);
 
     // Alice (not the deployer, whose smoke game would be in her lists): a paid game she gives up, then her claims.
     const paid = await spawnPaid(alice);
@@ -183,18 +183,18 @@ describe.skipIf(!enabled)("devnet gems and free games", () => {
     const dayEconomy = await get<{ economy: { games_purchased: number; games_recorded: number } }>(`/v1/tournaments/${day}`);
     expect(dayEconomy.economy).toMatchObject({ games_purchased: 2, games_recorded: 2 });
 
-    // Gems, credits and claims against the contract's views. Account: gems, credits, games, forests, wonders, big, high, achievements_claimed.
+    // Cobbles, credits and claims against the contract's views. Account: cobbles, credits, games, forests, wonders, big, high, achievements_claimed.
     const account = await alice.call(setup(), "account", [alice.address]);
-    const gems = await get<PlayerGemsAnswer>(`/v1/players/${aliceAddress}/gems`);
-    expect(gems.gems).toBe(Number(account[0]));
-    expect(gems.gems).toBe(15);
-    expect(gems.credits).toBe(Number(account[1]));
-    expect(gems.credits).toBe(0);
-    expect(gems.credits_claimed).toBe(1);
-    expect(gems.credits_spent).toBe(1);
+    const cobbles = await get<PlayerCobblesAnswer>(`/v1/players/${aliceAddress}/cobbles`);
+    expect(cobbles.cobbles).toBe(Number(account[0]));
+    expect(cobbles.cobbles).toBe(15);
+    expect(cobbles.credits).toBe(Number(account[1]));
+    expect(cobbles.credits).toBe(0);
+    expect(cobbles.credits_claimed).toBe(1);
+    expect(cobbles.credits_spent).toBe(1);
     const claimedBits = account[account.length - 1]!;
-    expect(gems.achievements_claimed).toEqual([2].filter((id) => ((claimedBits >> BigInt(id)) & 1n) === 1n));
-    expect(gems.achievements_claimed).toEqual([2]);
+    expect(cobbles.achievements_claimed).toEqual([2].filter((id) => ((claimedBits >> BigInt(id)) & 1n) === 1n));
+    expect(cobbles.achievements_claimed).toEqual([2]);
     // Progress: games, structures, forests, points, claimed, credit. Quest 1 is bit 1; the credit bit is set.
     const progress = await alice.call(setup(), "day_progress", [alice.address, day]);
     const claims = await get<PlayerClaimsAnswer>(`/v1/players/${aliceAddress}/claims?day=${day}`);
@@ -205,15 +205,15 @@ describe.skipIf(!enabled)("devnet gems and free games", () => {
     expect(claims.credits.some((c) => c.kind === "daily" && c.period === day)).toBe(true);
     // Bo claimed nothing.
     const boAccount = await bo.call(setup(), "account", [bo.address]);
-    expect(await get<PlayerGemsAnswer>(`/v1/players/${boAddress}/gems`)).toMatchObject({
-      gems: Number(boAccount[0]),
+    expect(await get<PlayerCobblesAnswer>(`/v1/players/${boAddress}/cobbles`)).toMatchObject({
+      cobbles: Number(boAccount[0]),
       credits: Number(boAccount[1]),
     });
-    // The amounts per quest and per achievement against `quest_gems` and `achievement_gems`.
+    // The amounts per quest and per achievement against `quest_cobbles` and `achievement_cobbles`.
     const definitions = await get<DefinitionsAnswer>("/v1/definitions");
-    const questGems = await owner.call(setup(), "quest_gems", [1]);
-    const achievementGems = await owner.call(setup(), "achievement_gems", [2]);
-    expect(definitions.quests.find((q) => q.quest_id === 1)).toMatchObject({ gems: Number(questGems[0]), gems_kind: "daily" });
-    expect(definitions.achievements.find((a) => a.achievement_id === 2)!.gems).toBe(Number(achievementGems[0]));
+    const questCobbles = await owner.call(setup(), "quest_cobbles", [1]);
+    const achievementCobbles = await owner.call(setup(), "achievement_cobbles", [2]);
+    expect(definitions.quests.find((q) => q.quest_id === 1)).toMatchObject({ cobbles: Number(questCobbles[0]), cobbles_kind: "daily" });
+    expect(definitions.achievements.find((a) => a.achievement_id === 2)!.cobbles).toBe(Number(achievementCobbles[0]));
   });
 });

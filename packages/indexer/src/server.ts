@@ -235,10 +235,10 @@ function route(url: URL): Read | null {
           };
         };
       }
-      if (b === "gems" && parts.length === 5) {
+      if (b === "cobbles" && parts.length === 5) {
         const player = playerId(a);
         parameters(url, []);
-        return (queries, served) => queries.playerGems(served.number, player);
+        return (queries, served) => queries.playerCobbles(served.number, player);
       }
       if (b === "claims" && parts.length === 5) {
         const player = playerId(a);

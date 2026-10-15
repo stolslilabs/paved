@@ -131,21 +131,21 @@ export type Decoded =
       collection: bigint;
     }
   | {
-      /** The owner's gems for a quest (0: removed). `kind` 1 daily, 2 weekly, 0 when removed from a quest that had none. */
-      name: "QuestGemsSet";
+      /** The owner's cobbles for a quest (0: removed). `kind` 1 daily, 2 weekly, 0 when removed from a quest that had none. */
+      name: "QuestCobblesSet";
       questId: number;
-      gems: number;
+      cobbles: number;
       kind: number;
     }
-  | { name: "AchievementGemsSet"; achievementId: number; gems: number }
+  | { name: "AchievementCobblesSet"; achievementId: number; cobbles: number }
   | {
-      /** A claim of gems: `kind` 1 a quest (`period`: its day or week number), 2 an achievement (`period` 0). `balance`: the player's gems after it. */
-      name: "GemsClaimed";
+      /** A claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an achievement (`period` 0). `balance`: the player's cobbles after it. */
+      name: "CobblesClaimed";
       playerId: bigint;
       kind: number;
       id: number;
       period: bigint;
-      gems: number;
+      cobbles: number;
       balance: bigint;
     }
   | {
@@ -210,10 +210,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   AchievementDefined: ["setup"],
   AchievementProgressed: ["setup"],
   AchievementRetired: ["setup"],
-  // Gems v1 (gems-v1.md, 6.2): Setup's gem amounts, claims and free-game credits.
-  QuestGemsSet: ["setup"],
-  AchievementGemsSet: ["setup"],
-  GemsClaimed: ["setup"],
+  // Cobbles v1 (gems-v1.md, 6.2): Setup's cobble amounts, claims and free-game credits.
+  QuestCobblesSet: ["setup"],
+  AchievementCobblesSet: ["setup"],
+  CobblesClaimed: ["setup"],
   CreditClaimed: ["setup"],
   CreditSpent: ["setup"],
   Purchased: ["economy"],
@@ -296,9 +296,9 @@ const INDEXED: readonly EventName[] = [
   "AchievementDefined",
   "AchievementProgressed",
   "AchievementRetired",
-  "QuestGemsSet",
-  "AchievementGemsSet",
-  "GemsClaimed",
+  "QuestCobblesSet",
+  "AchievementCobblesSet",
+  "CobblesClaimed",
   "CreditClaimed",
   "CreditSpent",
   "Purchased",
@@ -548,17 +548,17 @@ export function decode(
     case "AchievementRetired":
       shape(name, keys, data, 1, 0);
       return { name, achievementId: small(keys[1], 32, "achievement_id") };
-    case "QuestGemsSet": {
+    case "QuestCobblesSet": {
       shape(name, keys, data, 1, 2);
       const kind = small(data[1], 8, "kind");
       if (kind > 2) throw new DecodeError(`${name}: kind ${kind}, expected 0 to 2`);
-      return { name, questId: small(keys[1], 32, "quest_id"), gems: small(data[0], 8, "gems"), kind };
+      return { name, questId: small(keys[1], 32, "quest_id"), cobbles: small(data[0], 8, "cobbles"), kind };
     }
-    case "AchievementGemsSet":
+    case "AchievementCobblesSet":
       shape(name, keys, data, 1, 1);
-      return { name, achievementId: small(keys[1], 32, "achievement_id"), gems: small(data[0], 8, "gems") };
-    case "GemsClaimed": {
-      // key player_id; data kind, id, period, gems, balance
+      return { name, achievementId: small(keys[1], 32, "achievement_id"), cobbles: small(data[0], 8, "cobbles") };
+    case "CobblesClaimed": {
+      // key player_id; data kind, id, period, cobbles, balance
       shape(name, keys, data, 1, 5);
       const kind = small(data[0], 8, "kind");
       if (kind !== 1 && kind !== 2) throw new DecodeError(`${name}: kind ${kind}, expected 1 or 2`);
@@ -568,7 +568,7 @@ export function decode(
         kind,
         id: small(data[1], 32, "id"),
         period: u64(data[2], "period"),
-        gems: small(data[3], 8, "gems"),
+        cobbles: small(data[3], 8, "cobbles"),
         balance: u64(data[4], "balance"),
       };
     }

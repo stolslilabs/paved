@@ -15,11 +15,11 @@ import {
   type GameContract,
   type GameEconomy,
   type GameRow,
-  type GemClaim,
+  type CobbleClaim,
   type LeaderboardEntry,
   type PlayerAchievement,
   type PlayerClaimsAnswer,
-  type PlayerGemsAnswer,
+  type PlayerCobblesAnswer,
   type PlayerInfo,
   type PlayerQuest,
   type PlayerStats,
@@ -394,43 +394,43 @@ export class Queries {
   /** The definitions defined at `head`, by id; a retirement above `head` has not happened yet. */
   definitions(head: number): { quests: QuestDefinition[]; achievements: AchievementDefinition[] } {
     return {
-      quests: this.questRows(head).map((row) => questDefinition(row, head, this.gemAmount(head, "quest", Number(row.quest_id)))),
+      quests: this.questRows(head).map((row) => questDefinition(row, head, this.cobbleAmount(head, "quest", Number(row.quest_id)))),
       achievements: this.achievementRows(head).map((row) =>
-        achievementDefinition(row, head, this.gemAmount(head, "achievement", Number(row.achievement_id)).gems),
+        achievementDefinition(row, head, this.cobbleAmount(head, "achievement", Number(row.achievement_id)).cobbles),
       ),
     };
   }
 
-  /** The last `QuestGemsSet` or `AchievementGemsSet` of an id at `head`: `gems` 0 and `kind` 0 when none. */
-  private gemAmount(head: number, subject: "quest" | "achievement", id: number): { gems: number; kind: number } {
+  /** The last `QuestCobblesSet` or `AchievementCobblesSet` of an id at `head`: `cobbles` 0 and `kind` 0 when none. */
+  private cobbleAmount(head: number, subject: "quest" | "achievement", id: number): { cobbles: number; kind: number } {
     const row = this.store
       .statement(
-        "SELECT gems, kind FROM gem_amounts WHERE subject = ? AND id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+        "SELECT cobbles, kind FROM cobble_amounts WHERE subject = ? AND id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
       )
-      .get(subject, id, head) as { gems: number; kind: number } | undefined;
-    return { gems: Number(row?.gems ?? 0), kind: Number(row?.kind ?? 0) };
+      .get(subject, id, head) as { cobbles: number; kind: number } | undefined;
+    return { cobbles: Number(row?.cobbles ?? 0), kind: Number(row?.kind ?? 0) };
   }
 
-  // --- gems and credits (gems v1) ------------------------------------------------------------------
+  // --- cobbles and credits (cobbles v1) ------------------------------------------------------------------
 
-  /** A player's gems and credits at `head`; zeros for a player with none. */
-  playerGems(head: number, playerId: string): Omit<PlayerGemsAnswer, keyof Envelope> {
+  /** A player's cobbles and credits at `head`; zeros for a player with none. */
+  playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
     const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
     const balance = one(
-      "SELECT balance FROM gem_claims WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+      "SELECT balance FROM cobble_claims WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
     );
     const claimed = Number(one("SELECT count(*) AS n FROM credit_claims WHERE player_id = ? AND block <= ?")!.n);
     const spent = Number(one("SELECT count(*) AS n FROM credit_spends WHERE player_id = ? AND block <= ?")!.n);
     const achievements = (
       this.store
         .statement(
-          "SELECT id FROM gem_claims WHERE player_id = ? AND kind = 2 AND block <= ? ORDER BY id",
+          "SELECT id FROM cobble_claims WHERE player_id = ? AND kind = 2 AND block <= ? ORDER BY id",
         )
         .all(playerId, head) as Row[]
     ).map((row) => Number(row.id));
     return {
       player_id: playerId,
-      gems: Number(balance?.balance ?? 0),
+      cobbles: Number(balance?.balance ?? 0),
       credits: claimed - spent,
       credits_claimed: claimed,
       credits_spent: spent,
@@ -444,7 +444,7 @@ export class Queries {
     const claims = (
       this.store
         .statement(
-          `SELECT kind, id, period, gems, time FROM gem_claims
+          `SELECT kind, id, period, cobbles, time FROM cobble_claims
            WHERE player_id = :p AND block <= :h
              AND (kind = 2 OR (kind = 1 AND (period = :d OR period = :w)))
            ORDER BY block, tx, idx`,
@@ -454,9 +454,9 @@ export class Queries {
       kind: Number(row.kind) === 1 ? "quest" : "achievement",
       id: Number(row.id),
       period: Number(row.period),
-      gems: Number(row.gems),
+      cobbles: Number(row.cobbles),
       claimed_at: Number(row.time),
-    })) as GemClaim[];
+    })) as CobbleClaim[];
     const credits = (
       this.store
         .statement(
@@ -623,7 +623,7 @@ const scheduleOf = (row: Row): Schedule => ({
 const taskTargets = (row: Row) =>
   (JSON.parse(String(row.tasks)) as TaskTarget[]).map((task) => ({ task_id: task.taskId, total: task.total }));
 
-function questDefinition(row: Row, head: number, amount: { gems: number; kind: number }): QuestDefinition {
+function questDefinition(row: Row, head: number, amount: { cobbles: number; kind: number }): QuestDefinition {
   const retired = retiredAt(row, head);
   return {
     quest_id: Number(row.quest_id),
@@ -636,12 +636,12 @@ function questDefinition(row: Row, head: number, amount: { gems: number; kind: n
     defined_at: Number(row.def_time),
     retired: retired !== null,
     retired_at: retired,
-    gems: amount.gems,
-    gems_kind: amount.gems === 0 ? null : amount.kind === 2 ? "weekly" : "daily",
+    cobbles: amount.cobbles,
+    cobbles_kind: amount.cobbles === 0 ? null : amount.kind === 2 ? "weekly" : "daily",
   };
 }
 
-function achievementDefinition(row: Row, head: number, gems: number): AchievementDefinition {
+function achievementDefinition(row: Row, head: number, cobbles: number): AchievementDefinition {
   const retired = retiredAt(row, head);
   return {
     achievement_id: Number(row.achievement_id),
@@ -652,7 +652,7 @@ function achievementDefinition(row: Row, head: number, gems: number): Achievemen
     defined_at: Number(row.def_time),
     retired: retired !== null,
     retired_at: retired,
-    gems,
+    cobbles,
   };
 }
 

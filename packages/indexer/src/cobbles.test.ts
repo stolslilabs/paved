@@ -1,4 +1,4 @@
-// Gems v1 (docs/architecture/gems-v1.md): the ledger, the claims, the credits and the free games, from the events to the API.
+// Cobbles v1 (docs/architecture/gems-v1.md): the ledger, the claims, the credits and the free games, from the events to the API.
 import { describe, expect, test } from "vitest";
 import { padded } from "./events.ts";
 import { Queries } from "./queries.ts";
@@ -26,56 +26,56 @@ const halts = async (build: (node: FakeNode) => void, reason: RegExp) => {
   expect(indexer.reason).toMatch(reason);
 };
 
-describe("the gem amounts", () => {
+describe("the cobble amounts", () => {
   test("the last set wins and a removal is 0; they ride on the definitions", async () => {
     const { queries, head } = await open((node) => {
       node.mine([ev.questDefined(1), ev.questDefined(2, { duration: 604800, interval: 604800 }), ev.achievementDefined(3)]);
-      node.mine([ev.questGemsSet(1, 5), ev.questGemsSet(2, 15, 2), ev.achievementGemsSet(3, 20)]);
-      node.mine([ev.questGemsSet(1, 10), ev.achievementGemsSet(3, 0)]);
+      node.mine([ev.questCobblesSet(1, 5), ev.questCobblesSet(2, 15, 2), ev.achievementCobblesSet(3, 20)]);
+      node.mine([ev.questCobblesSet(1, 10), ev.achievementCobblesSet(3, 0)]);
     });
     const { quests, achievements } = queries.definitions(head);
-    expect(quests.map((q) => [q.quest_id, q.gems, q.gems_kind])).toEqual([[1, 10, "daily"], [2, 15, "weekly"]]);
-    expect(achievements.map((a) => [a.achievement_id, a.gems])).toEqual([[3, 0]]);
+    expect(quests.map((q) => [q.quest_id, q.cobbles, q.cobbles_kind])).toEqual([[1, 10, "daily"], [2, 15, "weekly"]]);
+    expect(achievements.map((a) => [a.achievement_id, a.cobbles])).toEqual([[3, 0]]);
     // read at the block before the last set: the earlier amounts
     const before = queries.definitions(head - 1);
-    expect(before.quests.map((q) => q.gems)).toEqual([5, 15]);
-    expect(before.achievements[0]!.gems).toBe(20);
+    expect(before.quests.map((q) => q.cobbles)).toEqual([5, 15]);
+    expect(before.achievements[0]!.cobbles).toBe(20);
   });
 
-  test("gems set for a quest not defined (owner configuration) are kept and served once it is", async () => {
+  test("cobbles set for a quest not defined (owner configuration) are kept and served once it is", async () => {
     const { queries, head } = await open((node) => {
-      node.mine([ev.questGemsSet(9, 5)]);
+      node.mine([ev.questCobblesSet(9, 5)]);
       node.mine([ev.questDefined(9)]);
     });
-    expect(queries.definitions(head).quests[0]).toMatchObject({ quest_id: 9, gems: 5, gems_kind: "daily" });
+    expect(queries.definitions(head).quests[0]).toMatchObject({ quest_id: 9, cobbles: 5, cobbles_kind: "daily" });
   });
 });
 
-describe("gems, claims and credits", () => {
+describe("cobbles, claims and credits", () => {
   const scenario = (node: FakeNode) => {
     node.mine([ev.questDefined(1), ev.questDefined(14, { duration: 604800, interval: 604800, start: 345600 })]);
-    node.mine([ev.questGemsSet(1, 5), ev.questGemsSet(14, 15, 2), ev.achievementDefined(2), ev.achievementGemsSet(2, 10)]);
+    node.mine([ev.questCobblesSet(1, 5), ev.questCobblesSet(14, 15, 2), ev.achievementDefined(2), ev.achievementCobblesSet(2, 10)]);
     // Day 100 (a Saturday-ish number): daily quest 1, weekly quest 14 of week floor((100*86400-345600)/604800) = 13.
-    node.mine([ev.gemsClaimed(A, 1, 1, DAY, 5, 5)]);
-    node.mine([ev.gemsClaimed(A, 1, 14, 13, 15, 20), ev.gemsClaimed(A, 2, 2, 0, 10, 30)]);
+    node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)]);
+    node.mine([ev.cobblesClaimed(A, 1, 14, 13, 15, 20), ev.cobblesClaimed(A, 2, 2, 0, 10, 30)]);
     node.mine([ev.creditClaimed(A, 1, DAY, 1)], [ev.creditClaimed(A, 2, 13, 2)]);
-    node.mine([ev.gemsClaimed(B, 1, 1, DAY - 1, 5, 5)]);
+    node.mine([ev.cobblesClaimed(B, 1, 1, DAY - 1, 5, 5)]);
   };
 
   test("the balance and the credits are the running values of the last events", async () => {
     const { queries, head, indexer } = await open(scenario);
     expect(indexer.status).toBe("ok");
-    expect(queries.playerGems(head, PA)).toEqual({
+    expect(queries.playerCobbles(head, PA)).toEqual({
       player_id: PA,
-      gems: 30,
+      cobbles: 30,
       credits: 2,
       credits_claimed: 2,
       credits_spent: 0,
       achievements_claimed: [2],
     });
-    expect(queries.playerGems(head, padded(B))).toMatchObject({ gems: 5, credits: 0, achievements_claimed: [] });
+    expect(queries.playerCobbles(head, padded(B))).toMatchObject({ cobbles: 5, credits: 0, achievements_claimed: [] });
     // A player with no event: zeros, as the other player routes answer a known address
-    expect(queries.playerGems(head, padded(C))).toMatchObject({ gems: 0, credits: 0, credits_claimed: 0 });
+    expect(queries.playerCobbles(head, padded(C))).toMatchObject({ cobbles: 0, credits: 0, credits_claimed: 0 });
   });
 
   test("a claimant is a player from the claim", async () => {
@@ -87,7 +87,7 @@ describe("gems, claims and credits", () => {
     const { queries, head } = await open(scenario);
     const day = queries.playerClaims(head, PA, DAY);
     expect(day.week).toBe(13);
-    expect(day.claims.map((c) => [c.kind, c.id, c.period, c.gems])).toEqual([
+    expect(day.claims.map((c) => [c.kind, c.id, c.period, c.cobbles])).toEqual([
       ["quest", 1, DAY, 5],
       ["quest", 14, 13, 15],
       ["achievement", 2, 0, 10],
@@ -105,8 +105,8 @@ describe("gems, claims and credits", () => {
 
   test("everything is read as of the served block", async () => {
     const { queries, head } = await open(scenario);
-    expect(queries.playerGems(head - 3, PA)).toMatchObject({ gems: 5, credits: 0 });
-    expect(queries.playerGems(head - 2, PA)).toMatchObject({ gems: 30, credits: 0 });
+    expect(queries.playerCobbles(head - 3, PA)).toMatchObject({ cobbles: 5, credits: 0 });
+    expect(queries.playerCobbles(head - 2, PA)).toMatchObject({ cobbles: 30, credits: 0 });
     expect(queries.playerClaims(head - 3, PA, DAY).claims).toHaveLength(1);
   });
 
@@ -115,15 +115,15 @@ describe("gems, claims and credits", () => {
       scenario(node);
       node.mine([ev.spawned("challenge", 1, A, { day: DAY, price: 0 }), ev.creditSpent(A, 1, 1)]);
     });
-    expect(queries.playerGems(head, PA)).toMatchObject({ credits: 1, credits_claimed: 2, credits_spent: 1 });
-    expect(queries.playerGems(head - 1, PA)).toMatchObject({ credits: 2, credits_spent: 0 });
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ credits: 1, credits_claimed: 2, credits_spent: 1 });
+    expect(queries.playerCobbles(head - 1, PA)).toMatchObject({ credits: 2, credits_spent: 0 });
   });
 
   test("the routes", async () => {
     const { indexer } = await open(scenario);
-    const gems = respond(indexer, "GET", `/v1/players/${PA}/gems`);
-    expect(gems.code).toBe(200);
-    expect(gems.body).toMatchObject({ version: 1, status: "ok", player_id: PA, gems: 30, credits: 2 });
+    const cobbles = respond(indexer, "GET", `/v1/players/${PA}/cobbles`);
+    expect(cobbles.code).toBe(200);
+    expect(cobbles.body).toMatchObject({ version: 1, status: "ok", player_id: PA, cobbles: 30, credits: 2 });
     const claims = respond(indexer, "GET", `/v1/players/${PA}/claims?day=${DAY}`);
     expect(claims.code).toBe(200);
     expect(claims.body).toMatchObject({ day: DAY, week: 13 });
@@ -132,44 +132,44 @@ describe("gems, claims and credits", () => {
     expect(respond(indexer, "GET", `/v1/players/${PA}/claims`).body.day).toBe(Math.floor(1_000_000 / 86400));
     expect(respond(indexer, "GET", `/v1/players/${PA}/claims?day=x`).code).toBe(400);
     expect(respond(indexer, "GET", `/v1/players/${PA}/claims?week=1`).code).toBe(400);
-    expect(respond(indexer, "GET", `/v1/players/0x12/gems`).code).toBe(400);
-    expect(respond(indexer, "GET", `/v1/players/${PA}/gems/more`).code).toBe(404);
-    expect(respond(indexer, "GET", "/v1/definitions").body.quests).toMatchObject([{ gems: 5, gems_kind: "daily" }, { gems: 15, gems_kind: "weekly" }]);
+    expect(respond(indexer, "GET", `/v1/players/0x12/cobbles`).code).toBe(400);
+    expect(respond(indexer, "GET", `/v1/players/${PA}/cobbles/more`).code).toBe(404);
+    expect(respond(indexer, "GET", "/v1/definitions").body.quests).toMatchObject([{ cobbles: 5, cobbles_kind: "daily" }, { cobbles: 15, cobbles_kind: "weekly" }]);
   });
 
   test("a reorg takes back the claims, the credits and the amounts, as a fresh index of the new chain", async () => {
     const { node, indexer } = await open(scenario);
     expect(indexer.status).toBe("ok");
-    node.reorg(2, [[[ev.gemsClaimed(B, 1, 1, DAY, 5, 5)]], [[ev.questGemsSet(1, 9)]]]);
+    node.reorg(2, [[[ev.cobblesClaimed(B, 1, 1, DAY, 5, 5)]], [[ev.questCobblesSet(1, 9)]]]);
     await settle(indexer);
     const fresh = indexerOf(node);
     await settle(fresh);
     expect(indexer.status).toBe("ok");
     expect(indexer.rewindCount).toBe(1);
     expect(indexer.store.dump()).toEqual(fresh.store.dump());
-    expect(new Queries(indexer.store).playerGems(node.tip, PA)).toMatchObject({ gems: 30, credits: 0 });
+    expect(new Queries(indexer.store).playerCobbles(node.tip, PA)).toMatchObject({ cobbles: 30, credits: 0 });
   });
 
-  test("the schema keeps every gems table in the dump", async () => {
+  test("the schema keeps every cobbles table in the dump", async () => {
     const { indexer } = await open(scenario);
     const dump = indexer.store.dump();
-    expect(dump.gem_claims).toHaveLength(4);
+    expect(dump.cobble_claims).toHaveLength(4);
     expect(dump.credit_claims).toHaveLength(2);
-    expect(dump.gem_amounts).toHaveLength(3);
+    expect(dump.cobble_amounts).toHaveLength(3);
     expect(dump.credit_spends).toEqual([]);
   });
 });
 
 describe("the ledger halts on what the chain would not do", () => {
   test("a second claim of the same quest and period, or achievement", async () => {
-    await halts((node) => node.mine([ev.gemsClaimed(A, 1, 1, DAY, 5, 5)], [ev.gemsClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);
-    await halts((node) => node.mine([ev.gemsClaimed(A, 2, 2, 0, 10, 10)], [ev.gemsClaimed(A, 2, 2, 0, 10, 20)]), /already claimed/);
+    await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);
+    await halts((node) => node.mine([ev.cobblesClaimed(A, 2, 2, 0, 10, 10)], [ev.cobblesClaimed(A, 2, 2, 0, 10, 20)]), /already claimed/);
   });
 
   test("a balance that is not the sum of the claims before it", async () => {
-    await halts((node) => node.mine([ev.gemsClaimed(A, 1, 1, DAY, 5, 7)]), /balance 7, the claims before it sum to 5/);
+    await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 7)]), /balance 7, the claims before it sum to 5/);
     await halts(
-      (node) => node.mine([ev.gemsClaimed(A, 1, 1, DAY, 5, 5)], [ev.gemsClaimed(A, 1, 1, DAY + 1, 5, 5)]),
+      (node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY + 1, 5, 5)]),
       /balance 5, the claims before it sum to 10/,
     );
   });

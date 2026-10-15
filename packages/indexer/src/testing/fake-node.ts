@@ -114,14 +114,14 @@ export const ev = {
   economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("setup", "EconomySet", [], [economy]),
   collectionSet: (collection: bigint | number = BigInt(COLLECTION)) =>
     raw("setup", "CollectionSet", [], [collection]),
-  /** Gems v1 (Setup): `QuestGemsSet { quest_id; gems, kind }`, `AchievementGemsSet { achievement_id; gems }`. */
-  questGemsSet: (questId: number, gems: number, kind = gems === 0 ? 0 : 1) =>
-    raw("setup", "QuestGemsSet", [questId], [gems, kind]),
-  achievementGemsSet: (achievementId: number, gems: number) =>
-    raw("setup", "AchievementGemsSet", [achievementId], [gems]),
-  /** `GemsClaimed { player_id; kind (1 quest, 2 achievement), id, period, gems, balance }`. */
-  gemsClaimed: (player: bigint | number, kind: 1 | 2, id: number, period: number, gems: number, balance: number) =>
-    raw("setup", "GemsClaimed", [player], [kind, id, period, gems, balance]),
+  /** Cobbles v1 (Setup): `QuestCobblesSet { quest_id; cobbles, kind }`, `AchievementCobblesSet { achievement_id; cobbles }`. */
+  questCobblesSet: (questId: number, cobbles: number, kind = cobbles === 0 ? 0 : 1) =>
+    raw("setup", "QuestCobblesSet", [questId], [cobbles, kind]),
+  achievementCobblesSet: (achievementId: number, cobbles: number) =>
+    raw("setup", "AchievementCobblesSet", [achievementId], [cobbles]),
+  /** `CobblesClaimed { player_id; kind (1 quest, 2 achievement), id, period, cobbles, balance }`. */
+  cobblesClaimed: (player: bigint | number, kind: 1 | 2, id: number, period: number, cobbles: number, balance: number) =>
+    raw("setup", "CobblesClaimed", [player], [kind, id, period, cobbles, balance]),
   /** `CreditClaimed { player_id; kind (1 day, 2 week), period, credits }`, `CreditSpent { player_id; game_id, credits }`. */
   creditClaimed: (player: bigint | number, kind: 1 | 2, period: number, credits: number) =>
     raw("setup", "CreditClaimed", [player], [kind, period, credits]),

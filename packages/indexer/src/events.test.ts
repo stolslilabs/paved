@@ -569,14 +569,14 @@ describe("felts", () => {
   });
 });
 
-describe("Gems v1 events (Setup, gems-v1.md 6.2)", () => {
-  const NAMES = ["QuestGemsSet", "AchievementGemsSet", "GemsClaimed", "CreditClaimed", "CreditSpent"] as const;
+describe("Cobbles v1 events (Setup, gems-v1.md 6.2)", () => {
+  const NAMES = ["QuestCobblesSet", "AchievementCobblesSet", "CobblesClaimed", "CreditClaimed", "CreditSpent"] as const;
 
   test("Setup declares all five, with the keys and data the decoder reads, and is their only emitter", () => {
     const shapes = {
-      QuestGemsSet: { keys: ["quest_id"], data: ["gems", "kind"] },
-      AchievementGemsSet: { keys: ["achievement_id"], data: ["gems"] },
-      GemsClaimed: { keys: ["player_id"], data: ["kind", "id", "period", "gems", "balance"] },
+      QuestCobblesSet: { keys: ["quest_id"], data: ["cobbles", "kind"] },
+      AchievementCobblesSet: { keys: ["achievement_id"], data: ["cobbles"] },
+      CobblesClaimed: { keys: ["player_id"], data: ["kind", "id", "period", "cobbles", "balance"] },
       CreditClaimed: { keys: ["player_id"], data: ["kind", "period", "credits"] },
       CreditSpent: { keys: ["player_id"], data: ["game_id", "credits"] },
     };
@@ -591,40 +591,40 @@ describe("Gems v1 events (Setup, gems-v1.md 6.2)", () => {
     }
   });
 
-  test("QuestGemsSet and AchievementGemsSet are indexed: the quests page needs their amounts", () => {
-    const q = ev.questGemsSet(7, 15, 2);
-    expect(decode("setup", q.keys, q.data)).toEqual({ name: "QuestGemsSet", questId: 7, gems: 15, kind: 2 });
-    const removed = ev.questGemsSet(7, 0);
-    expect(decode("setup", removed.keys, removed.data)).toEqual({ name: "QuestGemsSet", questId: 7, gems: 0, kind: 0 });
-    const a = ev.achievementGemsSet(3, 90);
-    expect(decode("setup", a.keys, a.data)).toEqual({ name: "AchievementGemsSet", achievementId: 3, gems: 90 });
+  test("QuestCobblesSet and AchievementCobblesSet are indexed: the quests page needs their amounts", () => {
+    const q = ev.questCobblesSet(7, 15, 2);
+    expect(decode("setup", q.keys, q.data)).toEqual({ name: "QuestCobblesSet", questId: 7, cobbles: 15, kind: 2 });
+    const removed = ev.questCobblesSet(7, 0);
+    expect(decode("setup", removed.keys, removed.data)).toEqual({ name: "QuestCobblesSet", questId: 7, cobbles: 0, kind: 0 });
+    const a = ev.achievementCobblesSet(3, 90);
+    expect(decode("setup", a.keys, a.data)).toEqual({ name: "AchievementCobblesSet", achievementId: 3, cobbles: 90 });
     // a kind other than 0, 1, 2 is not the contract's
-    const bad = ev.questGemsSet(7, 5, 3);
+    const bad = ev.questCobblesSet(7, 5, 3);
     expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
   });
 
-  test("GemsClaimed", () => {
-    const e = ev.gemsClaimed(0x1234, 1, 5, 20_000, 15, 2n ** 40n as unknown as number);
+  test("CobblesClaimed", () => {
+    const e = ev.cobblesClaimed(0x1234, 1, 5, 20_000, 15, 2n ** 40n as unknown as number);
     expect(decode("setup", e.keys, e.data)).toEqual({
-      name: "GemsClaimed",
+      name: "CobblesClaimed",
       playerId: 0x1234n,
       kind: 1,
       id: 5,
       period: 20_000n,
-      gems: 15,
+      cobbles: 15,
       balance: 2n ** 40n,
     });
-    const claim = ev.gemsClaimed(0x1234, 2, 9, 0, 50, 50);
+    const claim = ev.cobblesClaimed(0x1234, 2, 9, 0, 50, 50);
     expect(decode("setup", claim.keys, claim.data)).toMatchObject({ kind: 2, id: 9, period: 0n });
-    // a kind of neither, a gems value wider than u8, a balance above 2^53, a missing member
-    for (const [kind, gems, balance] of [
+    // a kind of neither, a cobbles value wider than u8, a balance above 2^53, a missing member
+    for (const [kind, cobbles, balance] of [
       [0, 5, 5],
       [3, 5, 5],
       [1, 256, 256],
       [1, 5, 2 ** 60],
     ] as const) {
-      const bad = ev.gemsClaimed(0x1234, kind as 1, 5, 1, gems, balance);
-      expect(() => decode("setup", bad.keys, bad.data), `${kind} ${gems} ${balance}`).toThrow(DecodeError);
+      const bad = ev.cobblesClaimed(0x1234, kind as 1, 5, 1, cobbles, balance);
+      expect(() => decode("setup", bad.keys, bad.data), `${kind} ${cobbles} ${balance}`).toThrow(DecodeError);
     }
     expect(() => decode("setup", e.keys, e.data.slice(0, 4))).toThrow(DecodeError);
     expect(() => decode("challenge", e.keys, e.data)).toThrow(/does not emit it/);
