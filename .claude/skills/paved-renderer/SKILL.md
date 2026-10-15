@@ -60,7 +60,7 @@ with `docs/`, `scripts/` or `packages/`.
   `packages/renderer/__tests__/game-scene-settings.test.ts` ("draws no outlines on software WebGL unless forced on, and logs the path once") and
   `packages/renderer/__tests__/outlines.test.ts` ("software WebGL") cover it.
 - **The segment cut (OUT-LOD)**: a crease segment is drawn by its length on screen, in device px, not only by the tile's
-  size. `segmentOffDevicePx` 0.5 and `segmentFullDevicePx` 1 (`OutlineSettings`, `core/settings.ts`): the vertex shader
+  size. `segmentOffDevicePx` 0.5 and `segmentFullDevicePx` 1 (`OutlineSettings`, `core/outlines.ts`): the vertex shader
   fades a segment in linearly between the two, and collapses it below 0.5 so it costs no fragment. `segmentFade` is the same
   function in TypeScript; `packages/renderer/__tests__/outline-segment-cut.test.ts` ("the screen-size cut") pins it, its
   continuity, and that the stroke carries both settings to the material. Three more cuts, same file:
