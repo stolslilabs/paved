@@ -884,6 +884,12 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   when it draws to the screen), so the scene lands in each in turn. A first build gave only the first target the
   samples: every other frame lost the MSAA, and the pan check below caught it as a flicker of about 1 point of the
   outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`).
+- **Memory of MSAA** (estimate from the targets' formats, not measured). Each of the two targets holds a 4-sample
+  RGBA half-float colour renderbuffer (32 B/px), a 4-sample 24-bit depth renderbuffer (16 B/px) and its single-sample
+  resolve texture (8 B/px): about 56 B/px, so 112 B/px for the two, against 24 B/px for the two without MSAA (colour
+  8 and depth 4 each). At a 720 x 1560 buffer (360 x 780 at DPR 2, or the phone-like DPR 3 capped at 2): about 126 MB,
+  99 MB more than without. At 2160 x 1350 (1440 x 900 at cap 1.5, MSAA forced on, since `"auto"` leaves it off there):
+  about 327 MB, 257 MB more.
 - **Near 5.** The camera's near plane goes from 1 to 5 (`CAMERA_NEAR`, `core/CameraController.ts`): about five times the
   depth precision at every distance. "The camera never comes closer than 5" was the distance to its target, on the
   ground; the tallest tile (`wfffffffr`) stands 2.625 units, so at 5 the near plane would cut its top. The closest zoom
@@ -927,16 +933,18 @@ round at 19.57 (the others 13.27 and 13.57): a loaded round. Off and main are wi
 **The rule applied** (the PM's: the desktop cap stays 1.5 only if the Mac p95 stays under 12 ms at both views; if MSAA
 breaks it, keep the faster option as the default; on phones, the phone-like profile at cap 2 under 16.6 ms):
 
-- **Mac profile: MSAA breaks the rule.** At cap 1.5 it adds about 4 ms of p95 (15.24 and 16.56 against 11.11 and
-  11.87). The faster option is no face antialiasing: SMAA costs little at cap 1.5 (11.78 and 12.71 against 11.72 and
-  12.64 for off in the same run) but more at cap 2, and changes more of the image than MSAA does (below). So desktops keep the faces
-  unantialiased: `"auto"` is off on a fine pointer and a large screen, and the cap stays 1.5 (no change from main: off
-  measures as main does).
+- **Mac profile: MSAA breaks the rule.** At cap 1.5 it adds about 4 ms of p95 (15.24 and 16.56 against 11.11 and 11.87
+  in run A). Run B's MSAA, from the first build that multisampled only every other frame, already cost 2.9 and 3.5 ms
+  (14.64 and 16.16 against 11.72 and 12.64). So no MSAA on desktops follows in both runs. The pass of 12 ms without
+  face antialiasing does not hold firmly: it holds in run A (11.11 and 11.87) but not in run B, taken in turn, where
+  off is 11.72 and 12.64 and main 12.35 and 12.53. The desktop pass at cap 1.5 is within the noise, and the cap is
+  re-measured on a quiet Mac in Q3. The faster option is no face antialiasing: SMAA costs little at cap 1.5 (11.78 and
+  12.71 against 11.72 and 12.64 for off in the same run) but more at cap 2, and changes more of the image than MSAA
+  does (below). So desktops keep the faces unantialiased: `"auto"` is off on a fine pointer and a large screen, and
+  the cap stays 1.5 (no change from main: off measures as main does).
 - **Phone-like profile: MSAA passes.** At cap 2, 7.90 and 8.48, under 16.6 ms with room. So `"auto"` turns MSAA on on
   coarse pointers and small screens. The profile runs on the Mac's GPU, not a phone's (tile-based phone GPUs resolve
   MSAA on chip, often cheaper; estimate).
-- The 12 ms line is tight for the busiest view even without MSAA (main 12.53 in run B, off 11.87 in run A). The cap is
-  not P4's to move; re-measuring it on a quiet machine fits Q3 (proposed).
 
 **Zero flicker** (OUT-LOD's checks; headless Chrome on ANGLE Metal; the outline share is 1 minus the luma with the
 outlines on over the luma with them off, at the same pose, over the centre crop: 800 x 500 CSS px on the Mac, 300 x 400

@@ -19,7 +19,11 @@ export interface RendererSettings {
    * (`resolveFaceAntialiasing`, `Effects.ts`). `"auto"` (the default) takes the device's (`resolveMultisampling`): on on
    * a coarse pointer or a small screen, off elsewhere. MSAA costs about 3.5 ms of p95 on the Mac profile, which breaks
    * the 12 ms rule at cap 1.5; the phone-like profile stays far under 16.6 ms with it (P4, `docs/client/v2-architecture.md`
-   * 5.2). The outlines antialias themselves and are stable without it.
+   * 5.2). The outlines antialias themselves and are stable without it. Memory (estimate, not measured): the composer's two
+   * targets both multisample, each a 4-sample RGBA half-float colour buffer (32 B/px), a 4-sample 24-bit depth buffer
+   * (16 B/px) and its resolve texture (8 B/px): about 112 B/px for the two, against 24 B/px without MSAA. About 126 MB
+   * (99 MB more) at a 720 x 1560 buffer (360 x 780 at DPR 2, or DPR 3 capped at 2); about 327 MB (257 MB more) at
+   * 2160 x 1350 (1440 x 900 at cap 1.5) when MSAA is forced on.
    */
   multisampling: boolean | "auto";
   /**
