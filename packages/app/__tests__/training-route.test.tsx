@@ -47,7 +47,8 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/training (P3)", () => {
+// Each test drives the real game through userEvent on a lazy route: more than vitest's 5 s default under a full run.
+describe("/training (P3)", { timeout: 15_000 }, () => {
   it("renders the board scene on the saved game, and resumes it after a reload", async () => {
     const store = memoryStore({ [TRAINING_KEY]: save([firstMove([])]) });
     const first = open("/training", store);
@@ -90,6 +91,27 @@ describe("/training (P3)", () => {
     expect(loadGame(() => store)!.moves.map((m) => m.k)).toEqual(["b", "d"]);
     expect(await tilesOnBoard()).toBe(2);
   });
+
+  it("plays a whole game through the hand, to the over scene", async () => {
+    const store = memoryStore();
+    const { router } = open("/training", store);
+    await tilesOnBoard();
+    // Place where a slot is lit, discard otherwise, until the deck runs out.
+    while (router.state.location.pathname === "/training") {
+      const slots = screen.queryAllByRole("button", { name: /^Slot / });
+      if (slots.length) {
+        await userEvent.click(slots[0]!);
+        await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+      } else {
+        await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+      }
+    }
+    expect(router.state.location.pathname).toBe("/training/over");
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    const saved = loadGame(() => store)!;
+    expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
+    expect(saved.moves.some((m) => m.k === "b")).toBe(true);
+  }, 30_000);
 
   it("counts a discard as spent in the tiles left", async () => {
     open("/training", memoryStore());
@@ -163,7 +185,7 @@ describe("/training (P3)", () => {
   });
 });
 
-describe("/training/over (P3)", () => {
+describe("/training/over (P3)", { timeout: 15_000 }, () => {
   it("shows the finished game's counters and closings; Play again starts a new game", async () => {
     // Every first legal move until the deck runs out: a game that ends by its last tile.
     const moves: SavedMove[] = [];
