@@ -170,6 +170,18 @@ export async function cellPoint(page: Page, x: number, z: number): Promise<{ x: 
   throw new Error(covered ? `cell ${x},${z} covered by ${covered}` : `cell ${x},${z} stays off screen`);
 }
 
+/**
+ * Parks the pointer over a panel, off the board, and waits out the renderer's hover throttle (50 ms). The page enables
+ * Confirm for the cell under the pointer (the ghost tile) as well as for a clicked one, and the camera moves of `cellPoint`
+ * leave the pointer over the board centre: with the board centred on a cell that fits the tile, Confirm is on before any click.
+ */
+export async function parkPointer(page: Page): Promise<void> {
+  const [panel] = (await panelRects(page)).sort((a, b) => b.width * b.height - a.width * a.height);
+  const at = panel ? { x: panel.x + panel.width / 2, y: panel.y + panel.height / 2 } : { x: 2, y: 2 };
+  await page.mouse.move(at.x, at.y);
+  await page.waitForTimeout(150);
+}
+
 export interface MoveReport {
   kind: "place" | "discard" | "surrender";
   /** From the click on Confirm / Discard to the page showing the new state, milliseconds. */
