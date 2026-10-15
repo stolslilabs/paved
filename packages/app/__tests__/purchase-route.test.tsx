@@ -790,3 +790,41 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
 });
+
+describe("a pending send holds its sender's Pay across a change of player (arbitration, fix loop 4)", () => {
+  /** The app on `s`, re-rendered on the same router with the signer given (null: a guest). */
+  function openSwitchable(s: ReturnType<typeof setup>) {
+    const router = createTestRouter("/play/challenge");
+    const wallet = fakeWallet({ address: PLAYER });
+    const view = render(<App router={router} sources={s.sources} connector={wallet.load} />);
+    const as = (signer: GameSigner | null) => view.rerender(<App router={router} sources={{ ...s.sources, signer }} connector={wallet.load} />);
+    return { router, as };
+  }
+
+  for (const via of ["a guest", "another account"] as const) {
+    it(`switch away (${via}) and back while the send is pending: Pay stays disabled, nothing more is sent`, async () => {
+      const s = setup();
+      const other = s.client.writer({ address: "0xb0b", execute: async () => ({ transaction_hash: "0x99" }) });
+      const { router, as } = openSwitchable(s);
+      let release = () => {};
+      s.state.gate = new Promise<void>((r) => (release = r));
+      await userEvent.click(await enabledPay());
+      await waitFor(() => expect(s.sent).toHaveLength(1));
+      as(via === "a guest" ? null : (other as unknown as GameSigner));
+      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: 3000 })).toBeInTheDocument();
+      as(s.writer as unknown as GameSigner);
+      // Back to the sender, the send still pending: Pay is held.
+      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: 3000 });
+      expect(held).toBeDisabled();
+      expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+      await userEvent.click(held);
+      expect(s.sent).toHaveLength(1);
+      // The send lands: the hold lifts and Pay is offered again. (The page left by the switch no longer opens the board:
+      // that per-send step went with the reset; the game is on Home.)
+      release();
+      await enabledPay();
+      expect(router.state.location.pathname).toBe("/play/challenge");
+      expect(s.sent).toHaveLength(1);
+    });
+  }
+});

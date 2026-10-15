@@ -103,7 +103,7 @@ export default function Page() {
 
   const confirm = () => {
     if (!purchase.buyer || !playerId) return void wallet.connect();
-    if (stakeQuote.minOut === null || gameHold.held || gameReferrer.isPending) return;
+    if (stakeQuote.minOut === null || gameHold.held || purchase.sending || gameReferrer.isPending) return;
     // A deliberate Buy again: the earlier purchase is left to the player's check.
     if (gameHold.unknown) gameHold.clear();
     gameHold.dismiss();
@@ -121,7 +121,7 @@ export default function Page() {
   };
   const buy = () => {
     if (!buyPack.buyer || !playerId) return void wallet.connect();
-    if (!pack || packQuote.minOut === null || packHold.held || packReferrer.isPending) return;
+    if (!pack || packQuote.minOut === null || packHold.held || buyPack.sending || packReferrer.isPending) return;
     if (packHold.unknown) packHold.clear();
     packHold.dismiss();
     buyPack.mutation.mutate({
@@ -153,9 +153,9 @@ export default function Page() {
       balance={connected ? (balance.data ?? null) : null}
       balanceError={balance.error?.message ?? null}
       spawnPaused={paused.data ?? false}
-      buying={purchase.mutation.isPending}
+      buying={purchase.mutation.isPending || purchase.sending}
       quoting={stakeQuote.isPending || gameReferrer.isPending}
-      refusal={purchase.mutation.isPending ? null : gameRefusal}
+      refusal={purchase.mutation.isPending || purchase.sending ? null : gameRefusal}
       checking={gameHold.checking}
       checkFailed={gameHold.failed}
       connected={connected}
@@ -170,9 +170,9 @@ export default function Page() {
               selected,
               loading: packs.isPending,
               error: packs.error?.message ?? null,
-              buying: buyPack.mutation.isPending,
+              buying: buyPack.mutation.isPending || buyPack.sending,
               quoting: packQuote.isPending || packReferrer.isPending,
-              refusal: buyPack.mutation.isPending ? null : packRefusal,
+              refusal: buyPack.mutation.isPending || buyPack.sending ? null : packRefusal,
               checking: packHold.checking,
               checkFailed: packHold.failed,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,

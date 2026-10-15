@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
   PackPriceChangedError,
@@ -223,6 +223,21 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
 /** A send's request with the player who sent it: an unknown outcome is recorded under the sender, whoever is connected by then. */
 type Sent<R> = R & { playerId: string };
 
+/** The key of a kind's purchases in the mutation cache: what `useSending` looks for. */
+const purchaseMutationKey = (kind: PurchaseKind) => ["purchase", kind] as const;
+
+/**
+ * Whether a purchase of `kind` sent by `playerId` is still pending, from the mutation cache: a change of player resets the
+ * page's mutation, which never ends the send itself, so a player who switches away and back must still find Pay held.
+ */
+function useSending(kind: PurchaseKind, playerId: string | null): boolean {
+  const senders = useMutationState({
+    filters: { mutationKey: purchaseMutationKey(kind), status: "pending" },
+    select: (mutation) => (mutation.state.variables as { playerId?: string } | undefined)?.playerId ?? null,
+  });
+  return playerId !== null && senders.some((sender) => sender !== null && addressKey(sender) === addressKey(playerId));
+}
+
 /** Records an unknown outcome under the player who sent it. */
 function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string): void {
   if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: Math.floor(Date.now() / 1000) });
@@ -239,6 +254,7 @@ export function usePurchase(playerId: string | null) {
   const client = useQueryClient();
   const hold = usePurchaseHold("game", playerId);
   const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>>({
+    mutationKey: purchaseMutationKey("game"),
     mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
     onError: (error, { playerId: sender }) => recordUnknown(client, "game", error, sender),
     onSettled: (_data, error, variables) => {
@@ -252,10 +268,12 @@ export function usePurchase(playerId: string | null) {
       void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(sender) });
     },
   });
-  // Another player: the last one's refusal or success is not theirs.
+  // Another player: the last one's refusal or success is not theirs. The send itself stays pending in the mutation
+  // cache, and `sending` keeps the sender's Pay held when they come back.
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
-  return { buyer, mutation, hold };
+  const sending = useSending("game", playerId);
+  return { buyer, mutation, hold, sending };
 }
 
 /** A pack's receipt into the cache: the Cobbles balance `PackBought` carries. */
@@ -274,6 +292,7 @@ export function useBuyPack(playerId: string | null) {
   const client = useQueryClient();
   const hold = usePurchaseHold("pack", playerId);
   const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>>({
+    mutationKey: purchaseMutationKey("pack"),
     mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
     onSuccess: ({ bought }, { playerId: sender }) => applyPackBought(client, sender, bought),
     onError: (error, { playerId: sender }) => recordUnknown(client, "pack", error, sender),
@@ -288,7 +307,8 @@ export function useBuyPack(playerId: string | null) {
   });
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
-  return { buyer, mutation, hold };
+  const sending = useSending("pack", playerId);
+  return { buyer, mutation, hold, sending };
 }
 
 /**
