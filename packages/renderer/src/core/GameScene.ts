@@ -31,6 +31,8 @@ import {
 } from "./outlines";
 import {
   cameraDistanceLimits,
+  capPixelRatio,
+  resolveMaxPixelRatio,
   resolveRendererSettings,
   type RendererSettings,
   type RendererSettingsInput,
@@ -128,9 +130,7 @@ export class GameScene {
   private webgl: WebGLDetection = { renderer: null, software: false, reason: "not initialised" };
   /** The outline path last logged, so it is logged once, and again only when it changes. */
   private loggedOutlinePath: string | null = null;
-  /** Bounds of the renderer's pixel ratio (`RendererConfig.pixelRatio`): the device's is clamped to them. */
-  private pixelRatioRange: [number, number] = [0.5, 1];
-  /** The renderer's pixel ratio: device px per CSS px of the drawing buffer. */
+  /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
   private pointerDownPos: { x: number; y: number } | null = null;
@@ -158,7 +158,6 @@ export class GameScene {
     const {
       surface,
       basePath,
-      pixelRatio = [0.5, 1],
       shadows = true,
       effectsCapabilities = {},
       settings,
@@ -192,8 +191,7 @@ export class GameScene {
     this.renderer = rendererFactory(surface);
 
     const size = surface.getSize();
-    this.pixelRatioRange = pixelRatio;
-    this.pixelRatio = this.clampPixelRatio(surface.getDevicePixelRatio());
+    this.pixelRatio = this.cappedPixelRatio();
     this.renderer.setPixelRatio(this.pixelRatio);
     // The canvas's CSS size is its container's (`GameCanvas` sets it to 100 %): `false` keeps three from pinning it in
     // px, which would stop it from following the container (R-VIS).
@@ -247,9 +245,15 @@ export class GameScene {
     this.updateTiles(this.latestTiles);
   }
 
-  private clampPixelRatio(devicePixelRatio: number): number {
-    const [min, max] = this.pixelRatioRange;
-    return Math.min(Math.max(devicePixelRatio, min), max);
+  /**
+   * The surface's pixel ratio, capped at `maxPixelRatio` (for `"auto"`, the cap of this device and of the window or
+   * screen it is shown in, not of the surface's own size).
+   */
+  private cappedPixelRatio(): number {
+    const surface = this.surface!;
+    const { width, height } = surface.getViewportSize?.() ?? surface.getSize();
+    const cap = resolveMaxPixelRatio(this.settings.maxPixelRatio, { coarsePointer: surface.hasCoarsePointer?.() ?? false, width, height });
+    return capPixelRatio(surface.getDevicePixelRatio(), cap);
   }
 
   /**
@@ -261,7 +265,7 @@ export class GameScene {
     const { width, height } = this.surface.getSize();
     // A hidden container (0 x 0) keeps the last size: a zero aspect would break the camera.
     if (!(width > 0) || !(height > 0)) return;
-    this.pixelRatio = this.clampPixelRatio(this.surface.getDevicePixelRatio());
+    this.pixelRatio = this.cappedPixelRatio();
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
@@ -467,6 +471,8 @@ export class GameScene {
     this.logOutlinePath();
     this.applyCameraLimits();
     this.effects.setMultisampling(this.settings.multisampling);
+    // A new cap refits the drawing buffer and the composer's targets at once.
+    if (this.surface && this.renderer && this.cappedPixelRatio() !== this.pixelRatio) this.resize();
     this.requestRender();
   }
 

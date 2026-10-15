@@ -761,7 +761,7 @@ workflow is a shared file: the foundations PR that adds the step lists it in its
 `packages/renderer` (three 0.186, no react-three-fiber):
 
 - `GameScene.ts:54-58` creates `WebGLRenderer({ antialias: true })`; `:150-158` caps the pixel ratio at
-  `[0.5, 1]` (so 1 on a retina screen); ACES tone mapping; PCF soft shadows redrawn only when tiles change;
+  `[0.5, 1]` (so 1 on a retina screen; replaced by `maxPixelRatio`, 5.3 "Pixel ratio"); ACES tone mapping; PCF soft shadows redrawn only when tiles change;
   render on demand (`:438-461`).
 - `Effects.ts:100-145`: an `EffectComposer` with `RenderPass`, `UnrealBloomPass`, a vignette pass, and
   SSAO only in the cinematic profile. **The composer's render targets set no `samples`, and there is no
@@ -887,6 +887,78 @@ container); `WebSurfaceAdapter.onResize` observes the canvas's container and the
 (`matchMedia` on the current `resolution`), and `GameScene.resize` refits the pixel ratio, the drawing
 buffer, the camera's aspect and the composer's targets. Measures and captures: PR #437 and the story
 "Renderer/Outlines comparison", "Shading and outlines".
+
+**Pixel ratio (DPR, 2026-10-15).** The fixed `[0.5, 1]` range of `RendererConfig.pixelRatio` (5.1) is gone. The
+renderer draws at `min(devicePixelRatio, maxPixelRatio)`, a `RendererSettings` field. Its default, `"auto"`, is 2 on
+a coarse pointer or a small screen (the shorter side of the window, or of the screen on native, at most 600 CSS px:
+not the board's own size, so a short board panel or docked devtools on a desktop stay at 1) and 1 elsewhere.
+`GameScene` re-reads it on every resize of the board or the window and on `setSettings`. Item 4 of 5.2 proposed `min(devicePixelRatio, 2)` on a High quality
+setting; DPR replaces that with this rule, set by the PM in advance:
+
+- take the highest cap whose CPU + GPU p95 stays under 12 ms on the Mac profile at both views;
+- if the phone-like profile is measurable, the cap must also stay under 16.6 ms there;
+- if the two profiles point to different caps, choose by device.
+
+Method:
+
+- Machine: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen. The "Renderer/Outlines" story, Held,
+  with `redraw` on, on the recorded 72-tile board.
+- Per frame: the CPU time of every rAF callback of the frame, plus the GPU time from `EXT_disjoint_timer_query_webgl2`
+  around them. Each configuration runs in a fresh browser context: 120 warm-up frames, then 600 measured frames.
+- Three rounds, with the caps alternated within each round and the cap order changed between rounds (the phone
+  profile in rounds 1 and 2 only). Percentiles are nearest-rank over the pooled frames.
+- **Mac profile**: 1440 x 900 at DPR 2. **Phone-like profile**: 360 x 780 at DPR 3, with Chrome's CPU throttled 4x.
+  The phone-like profile is an approximation: it runs on the Mac's GPU, not on a phone's.
+- **Default view**: distance 240, the game's opening view. **Busiest view**: distance 170 on the Mac profile, the
+  closest view with all 72 tiles on screen. On the phone-like profile no distance where the outlines still draw (up to
+  about 282) holds every tile, so its busiest view is 280, the farthest where the outlines still draw.
+- Outlines **on** is `force: "on"`; **off** is `force: "off"`.
+- Load: other agents ran on the machine. The load average was 4.9 to 6.3 over the three rounds, near the "about 6"
+  limit, and the p95 figures carry that load.
+
+CPU + GPU per frame, ms, p50 / p95 (the outlines' share is on minus off, p50 / p95):
+
+| Profile | View | Cap | Buffer (device px) | Outlines on | Outlines off | Outlines' share |
+|---|---|---|---|---|---|---|
+| Mac | default (240) | 1 | 1440 x 900 | 8.66 / **13.33** | 5.53 / 8.25 | 3.1 / 5.1 |
+| Mac | default (240) | 1.5 | 2160 x 1350 | 8.96 / **13.49** | 6.93 / 10.49 | 2.0 / 3.0 |
+| Mac | default (240) | 2 | 2880 x 1800 | 9.33 / **14.59** | 7.62 / 12.63 | 1.7 / 2.0 |
+| Mac | busiest (170) | 1 | 1440 x 900 | 8.96 / **13.68** | 5.84 / 8.78 | 3.1 / 4.9 |
+| Mac | busiest (170) | 1.5 | 2160 x 1350 | 9.21 / **13.42** | 7.37 / 11.75 | 1.8 / 1.7 |
+| Mac | busiest (170) | 2 | 2880 x 1800 | 8.78 / **13.70** | 8.69 / 13.87 | 0.1 / -0.2 |
+| Phone-like | default (240) | 1 | 360 x 780 | 6.27 / **8.40** | 3.08 / 4.06 | 3.2 / 4.3 |
+| Phone-like | default (240) | 1.5 | 540 x 1170 | 6.89 / **9.37** | 3.66 / 4.76 | 3.2 / 4.6 |
+| Phone-like | default (240) | 2 | 720 x 1560 | 6.75 / **9.01** | 4.00 / 5.33 | 2.8 / 3.7 |
+| Phone-like | busiest (280) | 1 | 360 x 780 | 6.84 / **8.87** | 3.25 / 4.17 | 3.6 / 4.7 |
+| Phone-like | busiest (280) | 1.5 | 540 x 1170 | 7.09 / **9.36** | 3.72 / 4.89 | 3.4 / 4.5 |
+| Phone-like | busiest (280) | 2 | 720 x 1560 | 6.72 / **9.24** | 4.04 / 5.58 | 2.7 / 3.7 |
+
+**The rule applied:**
+
+- **Phone-like profile:** every cap stays under 16.6 ms (p95 at most 9.37), so the highest measured cap, 2, passes.
+- **Mac profile:** with the outlines on, no cap stays under 12 ms at both views. Cap 1, today's, is at 13.33 and
+  13.68. This is a result on a loaded machine: the load average was 4.9 to 6.3, and the per-round p95s with the
+  outlines on ranged from 11.4 to 15.2 ms. OUT-LOD re-measures it.
+- **Choice:** the two profiles point to different caps, and choosing by device costs a few lines, so `"auto"` takes
+  2 on coarse pointers and small screens, and 1 elsewhere: the lowest cap measured, since none passes.
+
+The cap in effect on a Mac is therefore unchanged, and a Retina desktop still draws the board at half resolution.
+Captures at the default view, Mac profile: `packages/app/src/stories/renderer/captures/dpr-cap-1.webp`, `-1_5`, `-2`.
+
+**Why the Mac misses, and what would fix it** (proposed, not done here):
+
+- With the outlines on, the GPU time is nearly flat across caps (p50 6.8 to 7.6 ms): the outlines are bound by their
+  vertices (about 130k crease segments, an 8-vertex instanced quad each), not by their pixels. Their share is
+  largest at cap 1 (5.1 ms of p95 at the default view).
+- With the outlines off, the Mac passes at cap 1.5 (10.49 and 11.75) and misses at cap 2 (12.63 and 13.87).
+- **Collinear merging**, which R-VIS measured at 1.47x fewer segments, would cut the outlines' vertex work by about a
+  third (estimate). At cap 1 their 5.1 ms of p95 would become about 3.5, putting cap 1 near 11.7 ms: just under 12,
+  within the noise. That is not enough for 1.5.
+- **A screen-size cut** goes further. At the opening view a tile is about 60 CSS px, against about 1,800 segments a
+  tile, so most segments are under a device pixel. Dropping the segments shorter than a device pixel, or keeping only
+  each tile's border and its major creases under a tile size, would bring the outlines toward their pixel cost
+  (estimate: most of their share). It would make cap 1.5 pass on the Mac profile on the outlines-off figures.
+- Either is a renderer change of its own, with a capture and a figure, not a few lines.
 
 ### 5.4 The mockups' isometric voxel look: the cost
 

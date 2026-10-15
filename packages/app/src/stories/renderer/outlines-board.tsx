@@ -18,7 +18,10 @@ export interface OutlinesBoardProps {
   redraw?: boolean;
   /** Show the current zoom and the outlines' stroke on the board. */
   readout?: boolean;
-  /** The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits. */
+  /**
+   * The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits,
+   * the pixel-ratio cap.
+   */
   /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
   force?: "auto" | "on" | "off";
   fadeOffFactor?: number;
@@ -32,6 +35,8 @@ export interface OutlinesBoardProps {
   capZoomOut?: boolean;
   zoomOutCapDistance?: number;
   multisampling?: boolean;
+  /** The pixel-ratio cap: "auto" (the device's) or a number. */
+  maxPixelRatio?: number | "auto";
 }
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
@@ -50,6 +55,7 @@ export const SETTINGS_DEFAULTS = {
   capZoomOut: CAMERA.capZoomOut,
   zoomOutCapDistance: CAMERA.zoomOutCapDistance,
   multisampling: DEFAULT_RENDERER_SETTINGS.multisampling,
+  maxPixelRatio: DEFAULT_RENDERER_SETTINGS.maxPixelRatio,
 };
 
 interface Zoom {
@@ -113,8 +119,9 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       },
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
+      maxPixelRatio: o.maxPixelRatio,
     }),
-    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
+    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
