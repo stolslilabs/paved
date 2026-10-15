@@ -11,13 +11,18 @@
 //!   supply factor read after the burn) and the curve in force. `Economy` holds nothing of its own
 //!   after the call; USDC that the router held before (returned by `clear`) waits on `Economy` and
 //!   joins the next purchase's margin.
+//! - `sell` (the seller only, `Setup` for a cobble pack, cobbles v1 part 2): the same money path
+//!   as `purchase` on a price already on `Economy` (the referral, the one swap, the Vault's PAVED,
+//!   the burn, the guard's rate), with no game: no terms, no player per game, no day, no mean.
+//!   Both run `pay`, so a pack takes the game's split to the basis point (the owner's answer of
+//!   2026-10-15, P-61).
 //! - `record` (the game only): the game's score; a game that ended within its day with a score of
 //!   at least 100 enters the day's accumulator.
 //! - `settle` (anyone, after the day): the day's mean is fixed on its first settlement (option B)
 //!   and pushed once into the EMA; each recorded game is paid `R x h(score / mean)`, minted to its
 //!   player, once.
-//! - `configure`, `set_pool`, `set_router` (the owner, bounded and evented), `set_game` (the
-//!   owner, once). The mean has no setter.
+//! - `configure`, `set_pool`, `set_router` (the owner, bounded and evented), `set_game` and
+//!   `set_seller` (the owner, once). The mean has no setter.
 //! - `upgrade` (the owner): replaces the class, keeping the storage (P-42,
 //!   `docs/architecture/upgrades.md`). The owner is two-step (`OwnableComponent`).
 //!
@@ -232,6 +237,20 @@ pub trait IEconomy<TContractState> {
     fn pool(self: @TContractState) -> (PoolKey, u256);
     fn router(self: @TContractState) -> ContractAddress;
     fn addresses(self: @TContractState) -> Addresses;
+    /// Splits a price already on `Economy` as `purchase` does, through the same code (the referral,
+    /// the one swap, the Vault's PAVED, the burn, the guard's rate), with no game: no terms, no
+    /// player per game, nothing in a day, no mean. Returns the referrer that counted, or zero. The
+    /// seller only (cobbles v1, 2.3: `Setup.buy_pack`).
+    fn sell(
+        ref self: TContractState,
+        player: ContractAddress,
+        price: u256,
+        referrer: ContractAddress,
+        min_out: u256,
+    ) -> ContractAddress;
+    /// Sets the seller allowed to `sell`, once, never zero. The owner only.
+    fn set_seller(ref self: TContractState, seller: ContractAddress);
+    fn seller(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::contract]
@@ -297,6 +316,8 @@ pub mod Economy {
         pub const WRONG_DELTA: felt252 = 'Economy: wrong delta';
         pub const BELOW_MIN_OUT: felt252 = 'Economy: swap below min_out';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
+        pub const NOT_SELLER: felt252 = 'Economy: not the seller';
+        pub const SELLER_SET: felt252 = 'Economy: seller already set';
     }
 
     // Packed records
@@ -343,6 +364,24 @@ pub mod Economy {
             let packed: u256 = value.into();
             Guard { rate: packed.low, updated: packed.high.try_into().unwrap() }
         }
+    }
+
+    /// What the money-moving part of a sale did (`pay`, shared by `purchase` and `sell`).
+    #[derive(Copy, Drop)]
+    struct Paid {
+        /// Whether the referrer counted.
+        referred: bool,
+        referral: u256,
+        quote: u256,
+        margin: u256,
+        /// The PAVED the burn quote bought (the swap's PAVED less the Vault's).
+        bought_burn: u256,
+        vault_paved: u256,
+        burned: u256,
+        /// The PAVED supply after the burn.
+        supply: u256,
+        /// The guard's rate before this sale moved it.
+        rate: u256,
     }
 
     /// What the game's end and its settlement write (one slot).
@@ -492,6 +531,9 @@ pub mod Economy {
         days: Map<u64, Day>,
         /// A closed day's mean (zero: open).
         means: Map<u64, u64>,
+        /// The seller allowed to `sell` (cobbles v1, part 2: `Setup`); appended (P-42), written
+        /// once.
+        seller: ContractAddress,
     }
 
     // Events
@@ -507,6 +549,8 @@ pub mod Economy {
         PoolSet: PoolSet,
         GameSet: GameSet,
         RouterSet: RouterSet,
+        SellerSet: SellerSet,
+        Sold: Sold,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -531,6 +575,22 @@ pub mod Economy {
         pub factor: u32,
         pub reference: u128,
         /// The PAVED the margin bought, sent to the Vault (P-56).
+        pub vault_paved: u256,
+    }
+
+    /// A sale by the seller (cobbles v1, 2.3): `Purchased`'s fields less the game's (`game_id`,
+    /// `day`, `stake`, `factor`, `reference`). `referrer` is the one that counted, or zero.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct Sold {
+        #[key]
+        pub player_id: felt252,
+        pub price: u256,
+        pub referrer: ContractAddress,
+        pub referral: u256,
+        pub burned_quote: u256,
+        pub burned: u256,
+        pub margin: u256,
+        pub supply: u256,
         pub vault_paved: u256,
     }
 
@@ -589,6 +649,11 @@ pub mod Economy {
     pub struct RouterSet {
         pub previous: ContractAddress,
         pub router: ContractAddress,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SellerSet {
+        pub seller: ContractAddress,
     }
 
     // Constructor
@@ -650,9 +715,6 @@ pub mod Economy {
             assert(day == get_block_timestamp() / DAY, errors::WRONG_DAY);
             assert(player.is_non_zero(), errors::ZERO_ADDRESS);
             assert(self.players.read(game_id).is_zero(), errors::PURCHASED);
-            let this = get_contract_address();
-            let usdc = IERC20Dispatcher { contract_address: self.usdc.read() };
-            assert(usdc.balance_of(this) >= price, errors::NOT_PAID);
 
             // [Effect] The game is purchased; the day gets its prior on its first purchase
             self.players.write(game_id, player);
@@ -662,60 +724,18 @@ pub mod Economy {
                 self.days.write(day, today);
             }
 
-            // [Interaction] The referral, out of the margin
+            // [Interaction] The money path, shared with `sell`: the price on Economy, the
+            // referral, one swap, the Vault's PAVED, the burn, the guard's rate
             let config = self.config.read();
-            // No referral to the payer, the Vault, the router (read now: `set_router` moves it),
-            // `Economy` itself or the game: it is ignored and its share stays in the Vault's part,
-            // as for a self-referral. `Challenge` filters `Economy` and itself first.
-            let referred = referrer.is_non_zero()
-                && referrer != player
-                && referrer != self.vault.read()
-                && referrer != self.router.read()
-                && referrer != this
-                && referrer != self.game.read();
-            let (referral, quote, _) = curve::split(
-                price, config.burn_bps, config.referral_bps, referred,
-            );
-            if referral != 0 {
-                assert(usdc.transfer(referrer, referral), errors::TRANSFER_FAILED);
-            }
+            let paid = self.pay(player, price, referrer, min_out, config);
 
-            // [Interaction] One swap of the burn quote and the margin (the whole USDC balance: any
-            // USDC sent to Economy before joins the margin), filled whole
-            let amount = usdc.balance_of(this);
-            let margin = amount - quote;
-            let bought = self.swap(usdc, amount, min_out);
-            let (bought_burn, vault_paved) = curve::vault_split(bought, quote, margin);
-
-            // [Interaction] The margin's PAVED to the Vault, without shares (its rate rises); then
-            // burn the whole PAVED balance (the burn's part, and anything sent to the router or to
-            // Economy before)
-            let paved = IERC20Dispatcher { contract_address: self.paved.read() };
-            if vault_paved != 0 {
-                assert(paved.transfer(self.vault.read(), vault_paved), errors::TRANSFER_FAILED);
-            }
-            let burned = paved.balance_of(this);
-            IPavedTokenDispatcher { contract_address: paved.contract_address }.burn(burned);
-
-            // [Compute] R: the guarded PAVED the burn quote bought, the stake boost, the supply
-            // after the burn
-            let supply = paved.total_supply();
-            let factor = curve::supply_factor(supply, config.target.into());
-            let guard = self.guard.read();
-            let rate: u256 = guard.rate.into();
-            let counted = curve::guarded(bought_burn, quote, rate);
+            // [Compute] R: the guarded PAVED the burn quote bought (at the rate before this
+            // purchase), the stake boost, the supply after the burn
+            let factor = curve::supply_factor(paid.supply, config.target.into());
+            let counted = curve::guarded(paid.bought_burn, paid.quote, paid.rate);
             let reference = curve::reference(counted, stake, factor);
 
-            // [Effect] The rate, at most once per block, and the terms
-            let now = get_block_timestamp();
-            if now != guard.updated {
-                let next = curve::next_rate(rate, bought_burn, quote);
-                self
-                    .guard
-                    .write(
-                        Guard { rate: next.try_into().expect(errors::RATE_OVERFLOW), updated: now },
-                    );
-            }
+            // [Effect] The terms
             let terms = Terms {
                 reference,
                 time: get_block_timestamp(),
@@ -733,19 +753,19 @@ pub mod Economy {
                         day,
                         stake,
                         price,
-                        referrer: if referred {
+                        referrer: if paid.referred {
                             referrer
                         } else {
                             Zero::zero()
                         },
-                        referral,
-                        burned_quote: quote,
-                        burned,
-                        margin,
-                        supply,
+                        referral: paid.referral,
+                        burned_quote: paid.quote,
+                        burned: paid.burned,
+                        margin: paid.margin,
+                        supply: paid.supply,
                         factor,
                         reference,
-                        vault_paved,
+                        vault_paved: paid.vault_paved,
                     },
                 );
             reference
@@ -970,6 +990,57 @@ pub mod Economy {
                 game: self.game.read(),
             }
         }
+
+        fn sell(
+            ref self: ContractState,
+            player: ContractAddress,
+            price: u256,
+            referrer: ContractAddress,
+            min_out: u256,
+        ) -> ContractAddress {
+            // [Check] The seller, a player, a price
+            let seller = self.seller.read();
+            assert(seller.is_non_zero() && get_caller_address() == seller, errors::NOT_SELLER);
+            assert(player.is_non_zero(), errors::ZERO_ADDRESS);
+            assert(price != 0, errors::WRONG_PRICE);
+
+            // [Interaction] The game's money path (`pay`), with no game
+            let paid = self.pay(player, price, referrer, min_out, self.config.read());
+            let counted = if paid.referred {
+                referrer
+            } else {
+                Zero::zero()
+            };
+            self
+                .emit(
+                    Sold {
+                        player_id: player.into(),
+                        price,
+                        referrer: counted,
+                        referral: paid.referral,
+                        burned_quote: paid.quote,
+                        burned: paid.burned,
+                        margin: paid.margin,
+                        supply: paid.supply,
+                        vault_paved: paid.vault_paved,
+                    },
+                );
+            counted
+        }
+
+        fn set_seller(ref self: ContractState, seller: ContractAddress) {
+            // [Check] The owner, once, a real address
+            self.ownable.assert_only_owner();
+            assert(self.seller.read().is_zero(), errors::SELLER_SET);
+            assert(seller.is_non_zero(), errors::ZERO_ADDRESS);
+            // [Effect] Set it for good
+            self.seller.write(seller);
+            self.emit(SellerSet { seller });
+        }
+
+        fn seller(self: @ContractState) -> ContractAddress {
+            self.seller.read()
+        }
     }
 
     #[abi(embed_v0)]
@@ -1003,6 +1074,77 @@ pub mod Economy {
                         referral_bps: config.referral_bps,
                     },
                 );
+        }
+
+        /// The money path of `purchase` and `sell`, one code for both (cobbles v1, 2.3): the price
+        /// is on `Economy`; the referral, out of the Vault's part, paid in USDC; one swap of the
+        /// whole USDC balance (any USDC sent to Economy before joins the margin), filled whole and
+        /// at least `min_out`; the margin's PAVED to the Vault, with no share minted; the rest
+        /// burned; the guard's rate, at most once per block.
+        fn pay(
+            ref self: ContractState,
+            player: ContractAddress,
+            price: u256,
+            referrer: ContractAddress,
+            min_out: u256,
+            config: Config,
+        ) -> Paid {
+            // [Check] The price is on Economy
+            let this = get_contract_address();
+            let usdc = IERC20Dispatcher { contract_address: self.usdc.read() };
+            assert(usdc.balance_of(this) >= price, errors::NOT_PAID);
+
+            // [Interaction] The referral, out of the margin. No referral to the payer, the Vault,
+            // the router (read now: `set_router` moves it), `Economy` itself, the game or the
+            // seller: it is ignored and its share stays in the Vault's part, as for a
+            // self-referral. `Challenge` and `Setup` filter `Economy` and themselves first.
+            let referred = referrer.is_non_zero()
+                && referrer != player
+                && referrer != self.vault.read()
+                && referrer != self.router.read()
+                && referrer != this
+                && referrer != self.game.read()
+                && referrer != self.seller.read();
+            let (referral, quote, _) = curve::split(
+                price, config.burn_bps, config.referral_bps, referred,
+            );
+            if referral != 0 {
+                assert(usdc.transfer(referrer, referral), errors::TRANSFER_FAILED);
+            }
+
+            // [Interaction] One swap of the burn quote and the margin, filled whole
+            let amount = usdc.balance_of(this);
+            let margin = amount - quote;
+            let bought = self.swap(usdc, amount, min_out);
+            let (bought_burn, vault_paved) = curve::vault_split(bought, quote, margin);
+
+            // [Interaction] The margin's PAVED to the Vault, without shares (its rate rises); then
+            // burn the whole PAVED balance (the burn's part, and anything sent to the router or to
+            // Economy before)
+            let paved = IERC20Dispatcher { contract_address: self.paved.read() };
+            if vault_paved != 0 {
+                assert(paved.transfer(self.vault.read(), vault_paved), errors::TRANSFER_FAILED);
+            }
+            let burned = paved.balance_of(this);
+            IPavedTokenDispatcher { contract_address: paved.contract_address }.burn(burned);
+            let supply = paved.total_supply();
+
+            // [Effect] The guard's rate, at most once per block (decision 4: a sale moves it as a
+            // game's purchase does)
+            let guard = self.guard.read();
+            let rate: u256 = guard.rate.into();
+            let now = get_block_timestamp();
+            if now != guard.updated {
+                let next = curve::next_rate(rate, bought_burn, quote);
+                self
+                    .guard
+                    .write(
+                        Guard { rate: next.try_into().expect(errors::RATE_OVERFLOW), updated: now },
+                    );
+            }
+            Paid {
+                referred, referral, quote, margin, bought_burn, vault_paved, burned, supply, rate,
+            }
         }
 
         /// PAVED and USDC in Ekubo's token order.
