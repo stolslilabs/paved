@@ -13,6 +13,9 @@ const KEYS = Object.values(PlanType)
   .map(getPlanKey);
 const APP = resolve(__dirname, "..");
 const MODELS = join(APP, "public/renderer-assets/models");
+const FOREST = join(MODELS, "forest");
+/** The base models' files (the theme folders aside). */
+const baseFiles = () => readdirSync(MODELS).filter((n) => n.endsWith(".glb"));
 
 describe("the app's compressed, content-hashed models (scripts/compress-models.ts)", () => {
   it("lists one hashed model per plan, each file present, and nothing else", () => {
@@ -22,12 +25,28 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
       expect(models[key]).toMatch(new RegExp(`^models/${key}\\.[0-9a-f]{10}\\.glb$`));
       expect(existsSync(join(APP, "public/renderer-assets", models[key]!))).toBe(true);
     }
-    expect(readdirSync(MODELS)).toHaveLength(KEYS.length);
+    expect(baseFiles()).toHaveLength(KEYS.length);
+    expect(readdirSync(MODELS).filter((n) => !n.endsWith(".glb"))).toEqual(["forest"]);
+  });
+
+  it("lists all 19 plans of Forest (theme 1), each a high-forest variant present, in variant order, and nothing else", () => {
+    const { themes } = rendererManifest();
+    expect(Object.keys(themes)).toEqual(["1"]);
+    const forest = themes["1"]!;
+    expect(Object.keys(forest).sort()).toEqual([...KEYS].sort());
+    const listed = Object.entries(forest).flatMap(([key, files]) => {
+      expect(files.length, key).toBeGreaterThan(0);
+      files.forEach((file, i) => expect(file).toMatch(new RegExp(`^models/forest/${key}_HF_${i + 1}\\.[0-9a-f]{10}\\.glb$`)));
+      return files;
+    });
+    expect(listed).toHaveLength(72);
+    for (const file of listed) expect(existsSync(join(APP, "public/renderer-assets", file))).toBe(true);
+    expect(readdirSync(FOREST).sort()).toEqual(listed.map((f) => f.slice("models/forest/".length)).sort());
   });
 
   it("are meshopt-compressed and quantized glTF binaries", () => {
-    for (const name of readdirSync(MODELS)) {
-      const glb = readFileSync(join(MODELS, name));
+    for (const path of [...baseFiles().map((n) => join(MODELS, n)), ...readdirSync(FOREST).map((n) => join(FOREST, n))]) {
+      const glb = readFileSync(path);
       expect(glb.subarray(0, 4).toString()).toBe("glTF");
       const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString()) as { extensionsRequired?: string[] };
       expect(json.extensionsRequired?.sort()).toEqual(["EXT_meshopt_compression", "KHR_mesh_quantization"]);
@@ -36,8 +55,9 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
 
   it("are exactly what the script writes from app-web's originals", () => {
     const out = execFileSync(process.execPath, [join(APP, "scripts/compress-models.ts"), "--check"], { encoding: "utf8" });
-    expect(out).toContain("19 models");
-  }, 30_000);
+    expect(out).toContain("base: 19 models");
+    expect(out).toContain("forest: 72 models");
+  }, 120_000);
 });
 
 describe("rendererManifest", () => {
@@ -46,20 +66,20 @@ describe("rendererManifest", () => {
     for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body);
     return dir;
   };
-  const one = readdirSync(MODELS)[0]!;
+  const one = baseFiles()[0]!;
 
   it("keeps the hashed names only", () => {
     const dir = mkdtempSync(join(tmpdir(), "renderer-manifest-"));
     copyFileSync(join(MODELS, one), join(dir, one));
     writeFileSync(join(dir, "ccccccccc.glb"), "plain");
     writeFileSync(join(dir, "notes.txt"), "x");
-    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` } });
+    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, themes: {} });
   });
 
   it("fails when a name's hash is not its file's, or a plan has two files", () => {
     expect(() => rendererManifest(dirWith({ "ccccccccc.0123456789.glb": "edited" }))).toThrow(/hashes to/);
     // Another plan's file under this plan's key: its hash is right, the plan has two models.
-    const other = readdirSync(MODELS)[1]!;
+    const other = baseFiles()[1]!;
     const dir = dirWith({ [one]: readFileSync(join(MODELS, one)), [`${one.slice(0, 9)}${other.slice(9)}`]: readFileSync(join(MODELS, other)) });
     expect(() => rendererManifest(dir)).toThrow(/two models/);
   });

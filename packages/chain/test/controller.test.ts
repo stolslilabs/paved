@@ -90,6 +90,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
         { kind: "credit", credit: "daily", period: DAY },
         { kind: "credit", credit: "weekly", period: 2_857 },
       ]),
+    // The skins (cobbles v1, part 3): a purchase and a batch of switches, Cobbles only, no token.
+    "skin purchase": () => writer.buySkin(1, 7),
+    "skins saved": () => writer.setSkins([{ plan: 7, theme: 1 }, { plan: 13, theme: 0 }]),
     // Play free: `Challenge.spawn_free()`, no token moves; the empty receipt makes the write throw after sending.
     "play free": () => writer.spawnFree(),
     "challenge build": () => writer.build({ mode: "challenge", gameId: 1 }, move),
@@ -131,7 +134,7 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
+  "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "skin purchase", "skins saved", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
 /** A pack's purchase: `buy_pack` is in the session, its approve to Setup prompts (P-56). */
@@ -147,6 +150,15 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     }
     expect(sent["play free"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[2n, "spawn_free", []]]);
     expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
+  });
+
+  test("the skins' purchase and save are signed in the session without any approve: they spend Cobbles, not a token (P-56)", async () => {
+    const sent = await sentByEveryWrite();
+    expect(sent["skin purchase"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata.map(Number)])).toEqual([[3n, "buy_skin", [1, 7]]]);
+    expect(sent["skins saved"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata.map(Number)])).toEqual([[3n, "set_skins", [2, 7, 1, 13, 0]]]);
+    for (const label of ["skin purchase", "skins saved"]) {
+      for (const call of sent[label]) expect(inSession(call, policies), `${label}: ${call.entrypoint} without the approve`).toBe(true);
+    }
   });
 
   test("the Cobbles claims are signed in the session, Claim all's multicall too: one prompt-free transaction of five calls", async () => {
@@ -313,7 +325,7 @@ describe("toControllerSessionPolicies", () => {
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "spawn_free", "build", "discard", "surrender"]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
-      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack",
+      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins",
     ]);
   });
 

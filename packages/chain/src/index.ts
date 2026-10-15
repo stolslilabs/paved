@@ -62,6 +62,8 @@ export {
   weekOfDay,
 } from "./cobbles";
 export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, CobbleViews, PeriodProgress, QuestCobbles } from "./cobbles";
+export { DEFAULT_THEME, FOREST_THEME, SKIN_PLANS, activeThemes, isSkinPlan, ownsSkin } from "./skins";
+export type { SkinChange, SkinViews } from "./skins";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
@@ -75,6 +77,8 @@ export {
   NO_CREDIT_TEXT,
   NoCreditError,
   FreeSpawnPausedError,
+  SKIN_REFUSAL_TEXT,
+  SkinRefusedError,
   FREE_SPAWN_PAUSED_TEXT,
   PACK_REFUSAL_TEXT,
   PackOutcomeUnknownError,
@@ -83,7 +87,7 @@ export {
   buyPackArgs,
   packBoughtOf,
 } from "./writer";
-export type { BuildMove, BuyPackRequest, ClaimRefusal, PackBought, PackRefusal, WriteAccount, WriteResult } from "./writer";
+export type { BuildMove, BuyPackRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
 export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";

@@ -9,8 +9,9 @@ import { PLANS, ownsSkin, type SkinState } from "./cobble-types";
 import { THEME_TINT, THEMES, type ThemeId } from "./theme-card";
 
 /**
- * The `u8` theme ids of `skins` and `active_skins` (gems-v1.md 1.2: 0 is the default theme). Provisional: CORE's
- * deployment names theme 1 when its art ships (6.4); the client's order of the five themes is used meanwhile.
+ * The `u8` theme ids of `skins` and `active_skins` (cobbles-v1.md 5: 0 is the default theme). Forest is theme 1, the
+ * high-forest set the fresh deployment prices (CORE #463). Snow, Desert and Volcano have no id on chain yet: the client's
+ * order is used meanwhile, and none of them is read (coming soon).
  */
 export const THEME_CODES: Record<ThemeId, number> = { default: 0, forest: 1, snow: 2, desert: 3, volcano: 4 };
 

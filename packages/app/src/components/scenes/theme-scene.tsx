@@ -1,6 +1,7 @@
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
@@ -9,14 +10,17 @@ import { SkinGrid, THEME_CODES } from "../containers/skin-grid";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, ThemeCard, type ThemeId } from "../containers/theme-card";
 
+/** What the chain says of one theme's skins (`useThemeSkins`): the balance, the prices, the owned word, the active set. */
+export type ThemeSkinsData = Pick<ThemeSkins, "balance" | "prices" | "owned" | "active">;
+
 /**
- * The tile skins of one theme (gems-v1.md 5): what the player owns and has active, the batch of switches not saved yet,
- * and what is on its way. Provisional until CORE's skins PR (gems PR 3).
+ * The tile skins of one theme (cobbles-v1.md 5; `Setup`'s views, CORE #463): what the player owns and has active, the
+ * batch of switches not saved yet, and what is on its way.
  */
 export interface ThemeSkins {
   /** The theme browsed: any but Default (Default is the base art, theme 0). */
   theme: Exclude<ThemeId, "default">;
-  /** `AccountView.gems`. */
+  /** `Setup.account(player_id).cobbles`. */
   balance: number;
   /** `skin_price(theme, p)` at index p - 1; all 0: the theme sells nothing yet. */
   prices: readonly number[];
@@ -30,7 +34,12 @@ export interface ThemeSkins {
   buying?: number | null;
   /** `set_skins`: on its way, or just done. */
   save?: "idle" | "saving" | "saved";
+  /** The last write refused or failed (`SkinRefusedError`'s text): shown until dismissed or the next write. */
+  refusal?: string | null;
 }
+
+/** Why the skins are not shown: a guest (Connect), the reads on their way, or a failed read (Retry). */
+export type SkinsStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string };
 
 export interface ThemeSceneProps {
   /** The theme in use, kept on this device. */
@@ -39,8 +48,10 @@ export interface ThemeSceneProps {
   tiles: readonly { plan: number; orientation: number }[];
   /** Where the tile art is served. */
   tileArt?: string;
-  /** The skins of the theme browsed (P-61); omitted: the board's look only. */
+  /** The skins of the theme browsed (P-61); omitted: the board's look only, or `skinsStatus`. */
   skins?: ThemeSkins | null;
+  /** Shown in the skins' place when `skins` is not given. */
+  skinsStatus?: SkinsStatus | null;
   onSelect?: (id: ThemeId) => void;
   onBrowse?: (id: Exclude<ThemeId, "default">) => void;
   onBuySkin?: (plan: number) => void;
@@ -49,6 +60,11 @@ export interface ThemeSceneProps {
   onDiscardSkins?: () => void;
   /** To the Cobble packs. */
   onBuyCobbles?: () => void;
+  onDismissRefusal?: () => void;
+  /** A guest's Connect. */
+  onConnect?: () => void;
+  /** Reads the skins again after a failed read. */
+  onRetry?: () => void;
   onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
@@ -61,7 +77,7 @@ const SKINNED = THEMES.filter((t) => t.id !== "default");
  * tile skins (P-61): a theme's 19 plans, each bought with Cobbles and switched on one by one, at most one theme per plan;
  * the switches are saved together, in one write.
  */
-export function ThemeScene({ selected, tiles, tileArt, skins, onSelect, onBack, onNavigate, ...props }: ThemeSceneProps) {
+export function ThemeScene({ selected, tiles, tileArt, skins, skinsStatus, onSelect, onBack, onNavigate, onConnect, onRetry, ...props }: ThemeSceneProps) {
   return (
     <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate} end={skins ? <Cobbles value={skins.balance} /> : undefined}>
       <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
@@ -73,14 +89,65 @@ export function ThemeScene({ selected, tiles, tileArt, skins, onSelect, onBack, 
         A theme changes the board's look only: the tiles, their rules and the scores stay the same. Previews beyond Default are tinted sketches until their art
         is in.
       </p>
-      {skins && <SkinsSection skins={skins} tileArt={tileArt} {...props} />}
+      {skins ? <SkinsSection skins={skins} tileArt={tileArt} {...props} /> : skinsStatus ? <SkinsStatusSection status={skinsStatus} onConnect={onConnect} onRetry={onRetry} /> : null}
     </TabPage>
   );
 }
 
-type SkinsSectionProps = Pick<ThemeSceneProps, "tileArt" | "onBrowse" | "onBuySkin" | "onToggleSkin" | "onSaveSkins" | "onDiscardSkins" | "onBuyCobbles"> & { skins: ThemeSkins };
+/** The skins' title and line, above the grid or its status. */
+function SkinsHeading() {
+  return (
+    <div className="flex flex-col gap-1">
+      <h2 id="skins-title" className="font-display text-base font-semibold">
+        Tile skins
+      </h2>
+      <p className="text-xs text-muted-foreground">Buy a tile's skin with Cobbles, then switch it on. One skin per tile: switching one on replaces another theme's.</p>
+    </div>
+  );
+}
 
-function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSaveSkins, onDiscardSkins, onBuyCobbles }: SkinsSectionProps) {
+/** The skins' place for a guest (Connect), while they load, or after a failed read (Retry). */
+function SkinsStatusSection({ status, onConnect, onRetry }: { status: SkinsStatus; onConnect?: () => void; onRetry?: () => void }) {
+  return (
+    <section aria-labelledby="skins-title" aria-busy={status.kind === "loading"} className="flex flex-col gap-3">
+      <SkinsHeading />
+      {status.kind === "guest" ? (
+        <Notice
+          title="Connect to buy skins"
+          action={
+            <Button size="sm" onClick={onConnect}>
+              Connect
+            </Button>
+          }
+        >
+          Skins are bought with the Cobbles of your account and kept on it.
+        </Notice>
+      ) : status.kind === "error" ? (
+        <Notice
+          tone="danger"
+          title="The skins could not be read"
+          action={
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              Retry
+            </Button>
+          }
+        >
+          {status.message}
+        </Notice>
+      ) : (
+        <div role="status" aria-label="Loading the skins" className="grid grid-cols-3 gap-2 tablet:grid-cols-4 desktop:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+type SkinsSectionProps = Pick<ThemeSceneProps, "tileArt" | "onBrowse" | "onBuySkin" | "onToggleSkin" | "onSaveSkins" | "onDiscardSkins" | "onBuyCobbles" | "onDismissRefusal"> & { skins: ThemeSkins };
+
+function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSaveSkins, onDiscardSkins, onBuyCobbles, onDismissRefusal }: SkinsSectionProps) {
   const theme = THEMES.find((t) => t.id === skins.theme)!;
   const code = THEME_CODES[skins.theme];
   const active = applySkinChanges(skins.active, skins.changes);
@@ -91,12 +158,7 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
   const cheapest = Math.min(...skins.prices.filter((p) => p > 0));
   return (
     <section aria-labelledby="skins-title" className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 id="skins-title" className="font-display text-base font-semibold">
-          Tile skins
-        </h2>
-        <p className="text-xs text-muted-foreground">Buy a tile's skin with Cobbles, then switch it on. One skin per tile: switching one on replaces another theme's.</p>
-      </div>
+      <SkinsHeading />
       <Tabs value={skins.theme} onValueChange={(v) => onBrowse?.(v as ThemeSkins["theme"])}>
         <TabsList className="w-full">
           {SKINNED.map((t) => (
@@ -140,6 +202,21 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
               }
             >
               A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from quests and achievements, or buy a pack.
+            </Notice>
+          )}
+          {skins.refusal && (
+            <Notice
+              tone="danger"
+              title="Not done"
+              action={
+                onDismissRefusal && (
+                  <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                    Dismiss
+                  </Button>
+                )
+              }
+            >
+              {skins.refusal}
             </Notice>
           )}
           <SkinGrid

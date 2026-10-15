@@ -13,6 +13,14 @@ const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../app-web/p
 const MODELS = resolve(dirname(fileURLToPath(import.meta.url)), "../public/renderer-assets/models");
 /** A compressed model's name: its plan key, then the first 10 hex digits of the file's SHA-256. */
 const HASHED = /^([a-z]{9})\.([0-9a-f]{10})\.glb$/;
+/** A theme's compressed variant: the plan key, the set and the variant number, then the hash (`forest/rfrfffffr_HF_3.<hash>.glb`). */
+const VARIANT = /^([a-z]{9})_[A-Z]{2}_(\d+)\.([0-9a-f]{10})\.glb$/;
+
+/**
+ * Each theme's folder under `models/`, by its `u8` id on chain (`Setup`'s skins, cobbles v1, part 3): Forest is theme 1, the
+ * high-forest set (`scripts/compress-models.ts`). Theme 0, the default, is the base models.
+ */
+export const THEME_FOLDERS: Record<string, number> = { forest: 1 };
 
 /**
  * What the renderer requests (`AssetLoader`): a base model, a tile image, the Draco decoder. Anything else in the folder
@@ -37,22 +45,58 @@ export function rendererAssetFiles(source = SOURCE): string[] {
   return [...walk(source)].map((f) => relative(source, f).split(sep).join("/")).filter(isRendererAsset).sort();
 }
 
+/** The manifest's shape: the base models by plan key, and each theme's variants by theme id, then plan key, variant order. */
+export interface RendererManifest {
+  models: Record<string, string>;
+  themes: Record<string, Record<string, string[]>>;
+}
+
+/** The hash of `dir/name` against the one in its name: a mismatch fails the build. */
+function checkHash(dir: string, name: string, hash: string): void {
+  const actual = createHash("sha256").update(readFileSync(join(dir, name))).digest("hex").slice(0, 10);
+  if (actual !== hash) throw new Error(`renderer-assets: ${name} hashes to ${actual}: run node scripts/compress-models.ts`);
+}
+
 /**
  * The manifest the renderer's `AssetLoader` reads at `<base>renderer-assets/manifest.json`: each plan key to its hashed
- * model, from the names in `dir`. Fails when a name's hash is not its file's, or a plan has two files.
+ * model, from the names in `dir`; and `themes`, each theme's variants (`THEME_FOLDERS`) by its id on chain and plan key, in
+ * variant order (`{ "1": { "rfrfffffr": ["models/forest/rfrfffffr_HF_1.<hash>.glb", ...] } }`), the input of the board's
+ * skins (a later task: the renderer reads `models` only today). Fails when a name's hash is not its file's, or a plan has
+ * two base files.
  */
-export function rendererManifest(dir = MODELS): { models: Record<string, string> } {
+export function rendererManifest(dir = MODELS): RendererManifest {
   const models: Record<string, string> = {};
   for (const name of readdirSync(dir).sort()) {
     const match = HASHED.exec(name);
     if (!match) continue;
     const [, key, hash] = match as unknown as [string, string, string];
-    const actual = createHash("sha256").update(readFileSync(join(dir, name))).digest("hex").slice(0, 10);
-    if (actual !== hash) throw new Error(`renderer-assets: ${name} hashes to ${actual}: run node scripts/compress-models.ts`);
+    checkHash(dir, name, hash);
     if (models[key]) throw new Error(`renderer-assets: two models for ${key} (${models[key]}, models/${name})`);
     models[key] = `models/${name}`;
   }
-  return { models };
+  const themes: RendererManifest["themes"] = {};
+  for (const [folder, theme] of Object.entries(THEME_FOLDERS)) {
+    const path = join(dir, folder);
+    if (!existsSync(path)) continue;
+    const plans: Record<string, Array<[number, string]>> = {};
+    for (const name of readdirSync(path)) {
+      const match = VARIANT.exec(name);
+      if (!match) continue;
+      const [, key, n, hash] = match as unknown as [string, string, string, string];
+      checkHash(path, name, hash);
+      (plans[key] ??= []).push([Number(n), `models/${folder}/${name}`]);
+    }
+    themes[String(theme)] = Object.fromEntries(
+      Object.keys(plans)
+        .sort()
+        .map((key) => {
+          const variants = plans[key]!.sort((a, b) => a[0] - b[0]);
+          if (new Set(variants.map(([n]) => n)).size !== variants.length) throw new Error(`renderer-assets: two files for ${folder}/${key} variant`);
+          return [key, variants.map(([, file]) => file)];
+        }),
+    );
+  }
+  return { models, themes };
 }
 
 /**

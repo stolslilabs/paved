@@ -17,6 +17,7 @@ import {
   type Struct,
 } from "./cobbles";
 import type { Deployment } from "./deployment";
+import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
 
 /**
  * The game contract the client plays: Challenge (D-23, Daily before). The on-chain Tutorial left the contracts (D-21): the
@@ -190,8 +191,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`) and packs. */
-export class RpcGameViews implements GameViews, CobbleViews, PackViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`). */
+export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -263,6 +264,24 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews {
     return packView(packId, (await this.call("Setup", "pack", [packId])) as Struct);
   }
 
+  async skinPrice(theme: number, plan: number): Promise<number> {
+    return Number(await this.call("Setup", "skin_price", [theme, plan]));
+  }
+
+  async skinPrices(theme: number): Promise<number[]> {
+    return Promise.all(Array.from({ length: SKIN_PLANS }, (_, i) => this.skinPrice(theme, i + 1)));
+  }
+
+  async ownedSkins(playerId: string, theme: number): Promise<number> {
+    return Number(await this.call("Setup", "skins", [playerId, theme]));
+  }
+
+  async activeSkins(playerId: string): Promise<number[]> {
+    const themes = (await this.call("Setup", "active_skins", [playerId])) as number[];
+    if (themes.length !== SKIN_PLANS) throw new ViewError("abi-mismatch", `active_skins: ${themes.length} themes, not ${SKIN_PLANS}`);
+    return themes.map(Number);
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -293,8 +312,8 @@ function gameKeyId(key: GameKey): string {
   return `${key.mode}:${key.gameId}`;
 }
 
-/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views and the packs too. */
-export class FakeGameViews implements GameViews, CobbleViews, PackViews {
+/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins too. */
+export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -313,6 +332,28 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews {
   cobblesFail: Error | null = null;
   /** `pack(id)` by id; an id not listed reads a pack never set (0 Cobbles, inactive). */
   readonly packs = new Map<number, PackView>();
+  /** `skin_price` by `theme:plan`; a skin not listed reads 0 (not for sale). */
+  readonly skinPriceTable = new Map<string, number>();
+  /** The skins by player (`BigInt` of the id as a string); a player not listed owns none, all on the default theme. */
+  readonly skinPlayers = new Map<string, FakeSkinPlayer>();
+  /** Set to an Error to make every skins read fail. */
+  skinsFail: Error | null = null;
+
+  /** Prices every plan of `theme` from `prices` (plan 1 first); 0 withdraws one from sale. */
+  priceSkins(theme: number, prices: readonly number[]): void {
+    prices.forEach((price, i) => this.skinPriceTable.set(`${theme}:${i + 1}`, price));
+  }
+
+  /** The player's skins, created empty on first use: a test edits them in place. */
+  skinPlayer(playerId: string): FakeSkinPlayer {
+    const key = BigInt(playerId).toString();
+    let player = this.skinPlayers.get(key);
+    if (!player) {
+      player = { owned: new Map(), active: new Array<number>(SKIN_PLANS).fill(0) };
+      this.skinPlayers.set(key, player);
+    }
+    return player;
+  }
 
   /** The player's ledger, created empty on first use: a test edits it in place. */
   cobblePlayer(playerId: string): FakeCobblePlayer {
@@ -405,6 +446,30 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews {
   async pack(packId: number): Promise<PackView> {
     this.cobbleCall(`pack ${packId}`);
     return { ...(this.packs.get(packId) ?? { packId, cobbles: 0, price: 0n, active: false }) };
+  }
+
+  async skinPrice(theme: number, plan: number): Promise<number> {
+    this.skinCall(`skin_price ${theme} ${plan}`);
+    return this.skinPriceTable.get(`${theme}:${plan}`) ?? 0;
+  }
+
+  async skinPrices(theme: number): Promise<number[]> {
+    return Promise.all(Array.from({ length: SKIN_PLANS }, (_, i) => this.skinPrice(theme, i + 1)));
+  }
+
+  async ownedSkins(playerId: string, theme: number): Promise<number> {
+    this.skinCall(`skins ${BigInt(playerId)} ${theme}`);
+    return this.skinPlayers.get(BigInt(playerId).toString())?.owned.get(theme) ?? 0;
+  }
+
+  async activeSkins(playerId: string): Promise<number[]> {
+    this.skinCall(`active_skins ${BigInt(playerId)}`);
+    return [...(this.skinPlayers.get(BigInt(playerId).toString())?.active ?? new Array<number>(SKIN_PLANS).fill(0))];
+  }
+
+  private skinCall(call: string): void {
+    this.calls.push(call);
+    if (this.skinsFail) throw this.skinsFail;
   }
 
   private cobbleCall(call: string): void {
