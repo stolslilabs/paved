@@ -38,6 +38,9 @@ export const CONTROLLER_ENTRY_POINTS = {
   Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins"],
 } as const;
 
+/** The Economy's only entry point in the session (P7a): anyone may settle, and it pays the game's player. */
+export const ECONOMY_ENTRY_POINT = "settle";
+
 /**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
  * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
@@ -45,10 +48,15 @@ export const CONTROLLER_ENTRY_POINTS = {
  * purchase; above the cap, or on another token or spender, it prompts: a pack's approve to `Setup` too (P-56). Without
  * `approve`, every approve prompts. `Setup.claim_tutorial`, the four Cobbles claims, `buy_pack` and the two skin writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
  * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
+ *
+ * `economy` is the Economy's address (the economy deployment's, not the game's): with it, `Economy.settle` is a policy, the
+ * one entry point of the Economy in the session (P7a). It moves no token from the player and takes no approve (P-56:
+ * the session's only approve is the entry's); it mints the reward to the game's player whoever sends it. The Vault, the
+ * purchase and every other Economy write still prompt.
  */
 export function controllerPolicies(
   deployment: Deployment,
-  options: { approve?: { token: string; cap: bigint } | null } = {},
+  options: { approve?: { token: string; cap: bigint } | null; economy?: string | null } = {},
 ): ControllerPolicy[] {
   // No policy on an empty target: the deployment must be complete.
   if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
@@ -58,6 +66,7 @@ export function controllerPolicies(
   if (isAddress(deployment.faucet)) {
     policies.push({ target: deployment.faucet, method: "mint", description: "Test USDC faucet" });
   }
+  if (options.economy && isAddress(options.economy)) policies.push({ target: options.economy, method: ECONOMY_ENTRY_POINT });
   const approve = options.approve;
   if (approve && approve.cap > 0n && isAddress(approve.token)) {
     policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Challenge, amount: approve.cap });
