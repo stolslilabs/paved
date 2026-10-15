@@ -63,7 +63,7 @@ export interface BoardSceneProps {
   onSurrender?: () => void;
   /** No hand: the board of a game the viewer cannot play (no account, another player's game). */
   readOnly?: boolean;
-  /** Lines under the header: "Connect to play", the dev-only prediction notice. */
+  /** Lines under the header: "Connect to play", the dev-only prediction notice, the tutorial's stage and its end. */
   notices?: ReactNode;
   /** Opens the Surrender dialog when it turns true: an expired Challenge game closes only by a surrender (P5). */
   promptSurrender?: boolean;
@@ -121,6 +121,7 @@ export function BoardScene(props: BoardSceneProps) {
             onConfirm={props.onConfirm}
             onDiscard={props.onDiscard}
             onSurrender={() => setSurrendering(true)}
+            canSurrender={mode !== "tutorial"}
           />
         </div>
       )}

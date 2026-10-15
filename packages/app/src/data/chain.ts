@@ -13,6 +13,12 @@ export function useSpawnPaused(): UseQueryResult<boolean> {
   return useQuery({ queryKey: queryKeys.chain.spawnPaused(), queryFn: () => views.spawnPaused() });
 }
 
+/** `currentDay()`: today's Challenge day (home's top 3). */
+export function useCurrentDay(): UseQueryResult<number> {
+  const { views } = useDataSources();
+  return useQuery({ queryKey: queryKeys.chain.currentDay(), queryFn: () => views.currentDay() });
+}
+
 /** `Challenge.entry_price()`: the token and the price of stake 1. */
 export function useEntryPrice(): UseQueryResult<PriceView> {
   const { views } = useDataSources();

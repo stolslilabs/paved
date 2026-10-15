@@ -3,10 +3,10 @@ import type { EconomyViews, EventReader, GameViews, IndexerClient, PavedWriter, 
 import { browserStore, type KeyValueStore } from "@paved/game-core";
 
 /**
- * Who plays: the writes of a game for the connected account. `PavedWriter` satisfies it; P6 builds one from the wallet's
- * account (`PavedClient.writer`). A test gives its own.
+ * Who plays: the writes of the connected account, a game's moves and the tutorial's claim. `PavedWriter` satisfies it;
+ * the wallet builds one from its account (`PavedClient.writer`, `wallet/`). A test gives its own.
  */
-export type GameSigner = Pick<PavedWriter, "address" | "build" | "discard" | "surrender">;
+export type GameSigner = Pick<PavedWriter, "address" | "build" | "discard" | "surrender" | "claimTutorial">;
 
 /**
  * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the Training
@@ -22,7 +22,7 @@ export interface DataSources {
   /** The pool's quoter (`quote_swap`); null without one. */
   pool: PoolQuoter | null;
   indexer: IndexerClient;
-  /** The connected account's writes; null or left out without one (P6 connects the wallet): Challenge boards are read only. */
+  /** The connected account's writes (`WalletProvider` fills it); null or left out without one: Challenge boards are read only. */
   signer?: GameSigner | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;

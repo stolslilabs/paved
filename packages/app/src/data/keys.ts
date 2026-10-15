@@ -14,6 +14,10 @@ export const queryKeys = {
   chain: {
     all: ["chain"] as const,
     spawnPaused: () => ["chain", "spawnPaused"] as const,
+    /** `currentDay()`: the day the Challenge is on (home's top 3). */
+    currentDay: () => ["chain", "currentDay"] as const,
+    /** `Setup.tutorial_claimed(player)`. */
+    tutorialClaimed: (playerId: string) => ["chain", "tutorialClaimed", addressKey(playerId)] as const,
     entryPrice: () => ["chain", "entryPrice"] as const,
     /** `Challenge.game(id)`. */
     game: (gameId: number) => ["chain", "game", "challenge", gameId] as const,
