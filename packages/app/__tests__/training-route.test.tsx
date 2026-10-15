@@ -25,7 +25,8 @@ function open(path: string, store: KeyValueStore | null) {
 }
 
 // The board's page module brings the renderer (three.js): its first import can take longer than findBy's 1 s in jsdom.
-const tilesOnBoard = async () => Number((await screen.findByRole("group", { name: /^Board of \d+ tiles$/ }, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
+// A group when slots are lit, an image when none is (the hand fits nowhere at this orientation): found by its label.
+const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
 
@@ -107,7 +108,7 @@ describe("/training (P3)", { timeout: 15_000 }, () => {
       }
     }
     expect(router.state.location.pathname).toBe("/training/over");
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
     expect(saved.moves.some((m) => m.k === "b")).toBe(true);
@@ -149,6 +150,55 @@ describe("/training (P3)", { timeout: 15_000 }, () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Last move not saved");
   });
 
+  it("a dropped save never rewinds the game: the last moves unsaved, the game still ends on its over scene", async () => {
+    const store = memoryStore();
+    let full = false;
+    const quota: KeyValueStore = {
+      getItem: (k) => store.getItem(k),
+      setItem: (k, v) => {
+        if (full) throw new DOMException("quota", "QuotaExceededError");
+        store.setItem(k, v);
+      },
+      removeItem: (k) => store.removeItem(k),
+    };
+    const { router } = open("/training", quota);
+    await tilesOnBoard();
+    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    // Every save from here on is refused: the save stays one move in, behind the game.
+    full = true;
+    while (router.state.location.pathname === "/training") await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    expect(router.state.location.pathname).toBe("/training/over");
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed1");
+    expect(router.state.location.pathname).toBe("/training/over");
+    expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
+  });
+
+  it("two tabs at the same length with different moves: the tab that hears the other's save follows it, its choice cleared", async () => {
+    const store = memoryStore({ [TRAINING_KEY]: save([]) });
+    open("/training", store);
+    expect(await tilesOnBoard()).toBe(1);
+    // This tab discards; it then chooses a slot for its next tile, unsent.
+    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
+    await chooseSlot();
+    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeEnabled();
+
+    // The other tab, one move in too, placed a tile instead: its save is written last, so it wins.
+    const other = [firstMove([])];
+    act(() => {
+      store.setItem(TRAINING_KEY, save(other));
+      window.dispatchEvent(new StorageEvent("storage", { key: TRAINING_KEY, newValue: save(other) }));
+    });
+    expect(await tilesOnBoard()).toBe(2);
+    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    expect(loadGame(() => store)!.moves).toEqual([...other, { k: "d" }]);
+  });
+
   it("two tabs on one save: a tab follows the other's moves, and its next move extends them", async () => {
     const store = memoryStore({ [TRAINING_KEY]: save([]) });
     open("/training", store);
@@ -180,7 +230,7 @@ describe("/training (P3)", { timeout: 15_000 }, () => {
     await userEvent.click(within(hand()).getByRole("button", { name: /Surrender/ }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Surrender" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"));
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     expect(loadGame(() => store)!.moves).toEqual([{ k: "s" }]);
   });
 });
@@ -198,7 +248,7 @@ describe("/training/over (P3)", { timeout: 15_000 }, () => {
     }
     const store = memoryStore({ [TRAINING_KEY]: save(moves) });
     const { router } = open("/training/over", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     const metrics = screen.getByRole("region", { name: "Game metrics" });
     expect(metrics).toHaveTextContent(`Tiles placed${game.built + 1}`);
 

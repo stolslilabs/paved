@@ -47,6 +47,12 @@ function TrainingBoard() {
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const ghost = move && hand && preview !== null ? { ...move, plan: hand.plan } : null;
 
+  // Another game (another tab's save followed, a new game): the slot and orientation chosen for the old hand go.
+  useEffect(() => {
+    setChosen(null);
+    setOrientation(1);
+  }, [game]);
+
   useEffect(() => {
     if (board.over) go("/training/over", { replace: true });
   }, [board.over, go]);

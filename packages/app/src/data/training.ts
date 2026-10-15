@@ -130,7 +130,17 @@ export class TrainingGame {
 
   /** Whether `saved` is this game as it stands (same seed, same moves): a save another tab wrote is not. */
   matches(saved: SavedGame): boolean {
-    return saved.seed === hex(this.seed) && saved.moves.length === this.moves.length;
+    return this.relation(saved) === "same";
+  }
+
+  /**
+   * How `saved` stands to this game: `same` (same seed, same moves), `behind` (same seed, its moves a strict prefix of
+   * this game's: a save that was dropped after them), or `other` (another seed, or moves this game lacks: another tab's).
+   */
+  relation(saved: SavedGame): "same" | "behind" | "other" {
+    if (saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
+    if (!saved.moves.every((m, i) => sameMove(m, this.moves[i]!))) return "other";
+    return saved.moves.length === this.moves.length ? "same" : "behind";
   }
 
   /** Every legal slot of the tile in hand at `orientation` (1 North to 4 West), in the chain's coordinates. */
@@ -203,6 +213,11 @@ export class TrainingGame {
   }
 }
 
+function sameMove(a: SavedMove, b: SavedMove): boolean {
+  if (a.k !== b.k) return false;
+  return a.k !== "b" || (b.k === "b" && a.o === b.o && a.x === b.x && a.y === b.y);
+}
+
 function toPlacement(move: PlaceMove) {
   const orientation = ORIENTATIONS[move.orientation];
   if (!orientation || orientation === OrientationType.None) return null;
@@ -231,12 +246,15 @@ function apply(game: EngineGame, move: SavedMove): Closing[] {
  */
 const games = new WeakMap<() => KeyValueStore | null, TrainingGame>();
 
-/** The game of `store`: the one this tab holds, unless the save says another tab moved on; else the save, or a new game. */
+/**
+ * The game of `store`: the one this tab holds, unless the save holds another game (another tab's moves or seed); else
+ * the save, or a new game. A save behind the held game (a dropped save) never rewinds it: the held game is ahead.
+ */
 function gameOf(store: () => KeyValueStore | null): TrainingGame {
   const held = games.get(store);
   if (held) {
     const saved = loadGame(store);
-    if (!saved || held.matches(saved)) return held;
+    if (!saved || held.relation(saved) !== "other") return held;
   }
   const game = TrainingGame.open(store);
   games.set(store, game);
@@ -247,9 +265,10 @@ function gameOf(store: () => KeyValueStore | null): TrainingGame {
  * The board's session in Training: the saved game of this browser resumed (replayed once), or a new one; each move is
  * applied to the session's engine, never replayed (`LocalSession`). `newGame` starts another seed.
  *
- * Two tabs on one save: a tab follows the save another tab wrote (the `storage` event, which fires only in the other
- * tabs). It re-opens the game from that save, so the next move of either tab extends the latest game and neither
- * overwrites the other's moves with an older game.
+ * Two tabs on one save: the last save written wins. A tab follows the save another tab wrote (the `storage` event, which
+ * fires only in the other tabs) whenever it holds moves this tab lacks, even at the same length (each tab played a
+ * different move): it re-opens the game from the save as it now stands, and the board clears its unsent choice. So the
+ * next move of either tab extends the latest game, and neither overwrites the other's moves with its own older game.
  */
 export function useTrainingSession(): {
   game: TrainingGame;
