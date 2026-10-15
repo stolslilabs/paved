@@ -9,10 +9,10 @@ export type { AchievementCobbles, CobbleAccount, Pack, PeriodClaims, QuestCobble
 
 /** The owner's tiers (2.1, `set_pack` of the fresh deployment, 6.4): 50 for $5, 100 for $9, 500 for $40, 1,000 for $70. */
 export const PACKS: readonly Pack[] = [
-  { packId: 1, gems: 50, price: 5_000_000n, active: true },
-  { packId: 2, gems: 100, price: 9_000_000n, active: true },
-  { packId: 3, gems: 500, price: 40_000_000n, active: true },
-  { packId: 4, gems: 1_000, price: 70_000_000n, active: true },
+  { packId: 1, cobbles: 50, price: 5_000_000n, active: true },
+  { packId: 2, cobbles: 100, price: 9_000_000n, active: true },
+  { packId: 3, cobbles: 500, price: 40_000_000n, active: true },
+  { packId: 4, cobbles: 1_000, price: 70_000_000n, active: true },
 ];
 
 /**

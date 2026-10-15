@@ -1,12 +1,12 @@
-import type { AchievementCobbles as AchievementCobblesView, CobbleKind, PeriodProgress, QuestCobbles as QuestCobblesView } from "@paved/chain";
+import type { AchievementCobbles as AchievementCobblesView, CobbleKind, PackView, PeriodProgress, QuestCobbles as QuestCobblesView } from "@paved/chain";
 
 /**
  * The Cobbles of P-61 as the scenes read them. The ledger's types are `@paved/chain`'s (`Setup`'s views of cobbles v1, part 1,
  * CORE #440: `CobbleAccount`, `PeriodProgress`, `QuestCobbles`, `AchievementCobbles`); the scenes take the part they show.
  * Types and pure helpers only; nothing here reads the chain.
  *
- * Still provisional: `Pack` (P7b, CORE's part 2) and the skins (P11b, part 3), written from `docs/architecture/cobbles-v1.md`
- * until those ABIs land; `Pack.gems` keeps the design's old name until P7b.
+ * `Pack` is `Setup.pack`'s (part 2, CORE #453; P7b). Still provisional: the skins (P11b, part 3), written from
+ * `docs/architecture/cobbles-v1.md` until that ABI lands.
  */
 
 export type { CobbleAccount, CobbleKind } from "@paved/chain";
@@ -23,13 +23,11 @@ export type QuestCobbles = Pick<QuestCobblesView, "questId" | "cobbles"> & { kin
 /** The Cobbles an achievement gives (its points; On the Podium none in v1); one without Cobbles is not listed. */
 export type AchievementCobbles = Pick<AchievementCobblesView, "achievementId" | "cobbles">;
 
-/** `Setup.pack(pack_id)` (2.1): `price` in USDC base units (6 decimals). */
-export interface Pack {
-  packId: number;
-  gems: number;
-  price: bigint;
-  active: boolean;
-}
+/** `Setup.pack(pack_id)` (2.1): `price` in USDC base units (6 decimals); `cobbles` 0 is an id never set. */
+export type Pack = PackView;
+
+/** The packs that can be bought: on sale, with Cobbles and a price (a pack's price per Cobble and its discount divide by them). */
+export const packsOnSale = (packs: readonly Pack[]): Pack[] => packs.filter((p) => p.active && p.cobbles > 0 && p.price > 0n);
 
 /** A skin's state for the player: not owned, owned and inactive, owned and active (5.3). */
 export type SkinState = "none" | "owned" | "active";
@@ -43,8 +41,9 @@ export const REFERENCE_PER_COBBLE = 200_000n;
 /** A pack's price at the reference, struck through on its card. */
 export const referencePrice = (cobbles: number): bigint => BigInt(cobbles) * REFERENCE_PER_COBBLE;
 
-/** A pack's discount against the reference, a whole percent: 50 for 50 Cobbles at $5. */
-export const packDiscount = (pack: Pick<Pack, "gems" | "price">): number => Number(100n - (pack.price * 100n) / referencePrice(pack.gems));
+/** A pack's discount against the reference, a whole percent: 50 for 50 Cobbles at $5; 0 for a pack without Cobbles. */
+export const packDiscount = (pack: Pick<Pack, "cobbles" | "price">): number =>
+  pack.cobbles > 0 ? Number(100n - (pack.price * 100n) / referencePrice(pack.cobbles)) : 0;
 
 /** Bit `id` of a claim word (`claimed`, `achievements_claimed`). */
 export const isClaimed = (bits: bigint, id: number): boolean => ((bits >> BigInt(id)) & 1n) === 1n;

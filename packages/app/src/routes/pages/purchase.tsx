@@ -1,6 +1,150 @@
-import { Placeholder } from "../Placeholder";
+import { useState } from "react";
+import { useSearchParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { MAX_STAKE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, boostBps } from "@paved/chain";
+import { LoadingScene } from "../../components/scenes/loading-scene";
+import { PurchaseScene, type PurchaseRefusal, type PurchaseTab } from "../../components/scenes/purchase-scene";
+import { TopBar } from "../../components/containers/top-bar";
+import { Notice } from "../../components/elements/notice";
+import { Button } from "../../components/ui/button";
+import { useSpawnPaused, useSplit, useUsdcBalance } from "../../data/chain";
+import { useCobbleAccount } from "../../data/cobbles";
+import { purchaseRefusal, referrerParam, useBuyPack, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
+import { useDataSources } from "../../data/sources";
+import { useAccount } from "../../wallet/wallet";
+import { useConnectError } from "../connect-error";
+import { useNow } from "../now";
+import { useAppNavigate, useBack } from "../ref";
 
-/** Not wired yet (section 12): the placeholder, until this page's scene is put on its route. */
+/** The pool quote of a confirm could not be used: why, as a refusal the scene shows before any send. */
+function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error: Error | null }, asked: boolean): PurchaseRefusal | null {
+  if (!asked || quote.isPending || quote.minOut !== null) return null;
+  return { kind: "refused", message: quote.error ? POOL_QUOTE_UNAVAILABLE : POOL_CANNOT_FILL };
+}
+
+/**
+ * `/play/challenge` (P7b): the Challenge purchase and the Cobble packs, on the chain's data (section 6.4). The Game tab reads
+ * `entry_price` through `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out`, the USDC balance and
+ * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` (`EconomyWriter.purchase`, which
+ * reads them all again, with the router and the rate) and opens the new game on its board. The Cobbles tab (`?tab=cobbles`)
+ * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
+ * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`. A guest's Pay connects.
+ */
 export default function Page() {
-  return <Placeholder />;
+  const go = useAppNavigate();
+  const onBack = useBack();
+  const [params, setParams] = useSearchParams();
+  const wallet = useAccount();
+  useConnectError(wallet.error);
+  const sources = useDataSources();
+  const playerId = sources.signer?.address ?? null;
+  const connected = playerId !== null;
+  const referrer = referrerParam(params.get("ref"), playerId);
+  const tab: PurchaseTab = params.get("tab") === "cobbles" ? "cobbles" : "game";
+  const now = useNow();
+  const client = useQueryClient();
+
+  const [stake, setStake] = useState(1);
+  const [selected, setSelected] = useState<number | null>(null);
+  const paused = useSpawnPaused();
+  const split = useSplit();
+  const balance = useUsdcBalance(playerId);
+  const stakeQuote = useStakeQuote(stake, referrer !== null);
+  const packs = usePacks();
+  const account = useCobbleAccount(playerId);
+  const pack = packs.data?.find((p) => p.packId === selected) ?? null;
+  const packQuote = usePackQuote(pack, split.data ?? null, referrer !== null);
+  const purchase = usePurchase(playerId);
+  const buyPack = useBuyPack(playerId);
+
+  const quote = stakeQuote.quote;
+  const error = quote.error ?? split.error;
+  if (error || quote.data === null || split.data === null) {
+    const retry = () => void client.invalidateQueries({ queryKey: ["chain", "economy"] });
+    return <PurchaseUnavailable message={error?.message ?? "Purchases are off: the economy is not deployed on this network."} onBack={onBack} onRetry={retry} />;
+  }
+  if (quote.data === undefined || split.data === undefined) return <LoadingScene progress={null} message="Reading the price" />;
+
+  const gameRefusal = purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected);
+  const packRefusal = buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null);
+
+  const confirm = () => {
+    if (!purchase.buyer) return void wallet.connect();
+    if (stakeQuote.minOut === null) return;
+    purchase.mutation.mutate(
+      { stake, confirmedPrice: quote.data!.price, confirmedMinOut: stakeQuote.minOut, referrer, acceptedLowQuote: gameRefusal?.kind === "low-quote" },
+      { onSuccess: ({ gameId }) => go(`/game/${gameId}`) },
+    );
+  };
+  const buy = () => {
+    if (!buyPack.buyer) return void wallet.connect();
+    if (!pack || packQuote.minOut === null) return;
+    buyPack.mutation.mutate({ packId: pack.packId, confirmedPrice: pack.price, confirmedMinOut: packQuote.minOut, referrer, acceptedLowQuote: packRefusal?.kind === "low-quote" });
+  };
+  const onTab = (next: PurchaseTab) => {
+    const search = new URLSearchParams(params);
+    if (next === "cobbles") search.set("tab", "cobbles");
+    else search.delete("tab");
+    setParams(search, { replace: true });
+  };
+
+  return (
+    <PurchaseScene
+      stake={stake}
+      maxStake={MAX_STAKE}
+      quote={quote.data}
+      boostBps={Number(boostBps(stake))}
+      split={split.data}
+      referrer={referrer}
+      balance={balance.data ?? 0n}
+      spawnPaused={paused.data ?? false}
+      buying={purchase.mutation.isPending}
+      quoting={stakeQuote.isPending}
+      refusal={purchase.mutation.isPending ? null : gameRefusal}
+      connected={connected}
+      now={now}
+      tab={tab}
+      cobbles={
+        packs.data === null
+          ? null
+          : {
+              balance: account.data?.cobbles ?? 0,
+              packs: packs.data ?? [],
+              selected,
+              buying: buyPack.mutation.isPending,
+              quoting: packQuote.isPending,
+              refusal: buyPack.mutation.isPending ? null : packRefusal,
+              bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
+            }
+      }
+      onTab={onTab}
+      onStakeChange={(next) => {
+        purchase.mutation.reset();
+        setStake(next);
+      }}
+      onSelectPack={(id) => {
+        buyPack.mutation.reset();
+        setSelected(id);
+      }}
+      onConfirm={confirm}
+      onBuyPack={buy}
+      onConnect={() => void wallet.connect()}
+      onBack={onBack}
+    />
+  );
+}
+
+/** The economy cannot be read (not deployed, or a failed read): why, with Retry. */
+function PurchaseUnavailable({ message, onBack, onRetry }: { message: string; onBack: () => void; onRetry: () => void }) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <TopBar title="Challenge" onBack={onBack} />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+        <Notice tone="danger" title="The price cannot be read">
+          {message}
+        </Notice>
+        <Button onClick={onRetry}>Retry</Button>
+      </main>
+    </div>
+  );
 }

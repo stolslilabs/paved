@@ -8,22 +8,54 @@ import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { Cobbles } from "../elements/cobbles";
 import { formatPoints } from "../elements/score";
-import { CobblePacks, formatUsd } from "../containers/cobble-packs";
+import { CobblePacks, formatUsd, packsOnSale } from "../containers/cobble-packs";
 import { formatBps } from "../containers/split-bar";
 import type { Pack } from "../containers/cobble-types";
 import { PriceBreakdown } from "../containers/price-breakdown";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
-/** The Cobble packs (P-61, gems-v1.md 2): provisional until CORE's packs PR (gems PR 2). */
+/**
+ * Why the last purchase did not go through, as the page reads it from the writer's typed error: `moved`, the price or the
+ * pool's quote moved since the confirm (confirm again at the new figures); `low-quote`, a quote far below the guard rate
+ * (Buy anyway sends it); `paused`, new games paused; `unknown`, sent but the receipt could not tell; `refused`, anything else.
+ */
+export interface PurchaseRefusal {
+  kind: "moved" | "low-quote" | "paused" | "unknown" | "refused";
+  message: string;
+}
+
+const REFUSAL_TITLE: Record<PurchaseRefusal["kind"], string> = {
+  moved: "The price moved",
+  "low-quote": "Low pool quote",
+  paused: "Purchases paused",
+  unknown: "Outcome unknown",
+  refused: "Purchase refused",
+};
+
+function RefusalNotice({ refusal }: { refusal: PurchaseRefusal }) {
+  return (
+    <Notice tone={refusal.kind === "refused" ? "danger" : "warning"} title={REFUSAL_TITLE[refusal.kind]}>
+      {refusal.message}
+    </Notice>
+  );
+}
+
+/** The Cobble packs (P-61, cobbles v1, part 2: `Setup.pack`, `buy_pack`). */
 export interface CobbleShop {
-  /** `AccountView.gems`. */
+  /** `Setup.account(player).cobbles`. */
   balance: number;
-  /** `pack(1..4)`. */
+  /** The packs on sale (`Setup.pack` of ids 1 to 8); the scene keeps only those with Cobbles and a price. */
   packs: readonly Pack[];
   selected: number | null;
   /** The approve + `buy_pack` is on its way. */
   buying?: boolean;
+  /** The pack's `min_out` is being quoted: Pay waits for it. */
+  quoting?: boolean;
+  /** Why the last pack's purchase did not go through. */
+  refusal?: PurchaseRefusal | null;
+  /** The last pack bought (its receipt's `PackBought`): its Cobbles. */
+  bought?: { cobbles: number } | null;
 }
 
 export type PurchaseTab = "game" | "cobbles";
@@ -43,6 +75,12 @@ export interface PurchaseSceneProps {
   spawnPaused: boolean;
   /** The approve + spawn is on its way. */
   buying?: boolean;
+  /** The stake's `min_out` is being quoted: Pay waits for it. */
+  quoting?: boolean;
+  /** Why the last game's purchase did not go through. */
+  refusal?: PurchaseRefusal | null;
+  /** A wallet is connected; a guest's Pay is "Connect to buy". Connected when omitted (the stories). */
+  connected?: boolean;
   now: number;
   /** The player's time zone for the deadline; their own when omitted (stories fix it). */
   timeZone?: string;
@@ -55,7 +93,18 @@ export interface PurchaseSceneProps {
   onBuyPack?: () => void;
   onStakeChange?: (stake: number) => void;
   onConfirm?: () => void;
+  onConnect?: () => void;
   onBack?: () => void;
+}
+
+/** A guest's Pay: connect first, whatever the balance. */
+function ConnectButton({ onConnect }: { onConnect?: () => void }) {
+  return (
+    <Button size="lg" className="h-14 text-base" onClick={onConnect}>
+      <Icon name="wallet" size="sm" />
+      Connect to buy
+    </Button>
+  );
 }
 
 /**
@@ -97,9 +146,9 @@ export function PurchaseScene(props: PurchaseSceneProps) {
 }
 
 function GameTab(props: PurchaseSceneProps) {
-  const { stake, quote, balance, spawnPaused, buying, now } = props;
-  const short = balance < quote.price;
-  const blocked = spawnPaused || short;
+  const { stake, quote, balance, spawnPaused, buying, now, refusal, connected = true } = props;
+  const short = connected && balance < quote.price;
+  const blocked = spawnPaused || short || props.quoting;
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <div className="flex flex-col gap-4">
@@ -152,25 +201,34 @@ function GameTab(props: PurchaseSceneProps) {
             This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance} token="usdc" />.
           </Notice>
         )}
+        {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && <RefusalNotice refusal={refusal} />}
 
-        <Button size="lg" className="h-14 text-base" onClick={props.onConfirm} disabled={blocked} loading={buying}>
-          {buying ? (
-            "Confirm in your wallet…"
-          ) : (
-            <>
-              Pay <Amount value={quote.price} token="usdc" className="[&>span:last-child]:text-primary-foreground/70" /> and play
-            </>
-          )}
-        </Button>
+        {!connected ? (
+          <ConnectButton onConnect={props.onConnect} />
+        ) : (
+          <Button size="lg" className="h-14 text-base" onClick={props.onConfirm} disabled={blocked} loading={buying}>
+            {buying ? (
+              "Confirm in your wallet…"
+            ) : refusal?.kind === "low-quote" ? (
+              "Buy anyway"
+            ) : (
+              <>
+                Pay <Amount value={quote.price} token="usdc" className="[&>span:last-child]:text-primary-foreground/70" /> and play
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </main>
   );
 }
 
 /** The Cobble packs: pick one, then pay its USDC (approve + `buy_pack`), as a game's purchase; its USDC takes a game's split. */
-function CobblesTab({ cobbles, balance, referrer, split, onSelectPack, onBuyPack }: PurchaseSceneProps & { cobbles: CobbleShop }) {
-  const pack = cobbles.packs.find((p) => p.packId === cobbles.selected) ?? null;
-  const short = pack != null && balance < pack.price;
+function CobblesTab({ cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect }: PurchaseSceneProps & { cobbles: CobbleShop }) {
+  // The selected pack among those shown: a pack without Cobbles or a price is never offered, so nothing divides by zero.
+  const pack = packsOnSale(cobbles.packs).find((p) => p.packId === cobbles.selected) ?? null;
+  const short = connected && pack != null && balance < pack.price;
+  const { refusal, bought } = cobbles;
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <section aria-labelledby="packs-title" className="flex flex-col gap-3">
@@ -195,17 +253,29 @@ function CobblesTab({ cobbles, balance, referrer, split, onSelectPack, onBuyPack
             This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance} token="usdc" />.
           </Notice>
         )}
-        <Button size="lg" className="h-14 text-base" onClick={onBuyPack} disabled={!pack || short} loading={cobbles.buying}>
-          {cobbles.buying ? (
-            "Confirm in your wallet…"
-          ) : pack ? (
-            <>
-              Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.gems} className="text-primary-foreground" iconClassName="text-primary-foreground" />
-            </>
-          ) : (
-            "Pick a pack"
-          )}
-        </Button>
+        {refusal && !cobbles.buying && <RefusalNotice refusal={refusal} />}
+        {bought && !refusal && !cobbles.buying && (
+          <Notice tone="info" title="Pack bought">
+            <Cobbles value={bought.cobbles} size="sm" /> added: your balance is <Cobbles value={cobbles.balance} size="sm" />.
+          </Notice>
+        )}
+        {!connected ? (
+          <ConnectButton onConnect={onConnect} />
+        ) : (
+          <Button size="lg" className="h-14 text-base" onClick={onBuyPack} disabled={!pack || short || cobbles.quoting} loading={cobbles.buying}>
+            {cobbles.buying ? (
+              "Confirm in your wallet…"
+            ) : !pack ? (
+              "Pick a pack"
+            ) : refusal?.kind === "low-quote" ? (
+              "Buy anyway"
+            ) : (
+              <>
+                Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" iconClassName="text-primary-foreground" />
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </main>
   );
