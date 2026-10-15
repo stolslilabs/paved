@@ -3,14 +3,14 @@ import type { EconomyViews, EventReader, GameViews, IndexerClient, PavedWriter, 
 import { browserStore, type KeyValueStore } from "@paved/game-core";
 
 /**
- * Who plays: the writes of the connected account, a game's moves, the tutorial's claim and the Cobbles' claims (P9:
+ * Who plays: the writes of the connected account, a game's moves, the tutorial's claim, Play free (`spawnFree`) and the Cobbles' claims (P9:
  * quests, achievements, the free-game credits, and `claim`, their multicall). `PavedWriter` satisfies it; the wallet builds
  * one from its account (`PavedClient.writer`, `wallet/`). A test gives its own, or only part of it: the claims' pages read
  * them through `claimSigner`, which answers null ("Connect to claim") for a signer without `claim`.
  */
 export type GameSigner = Pick<
   PavedWriter,
-  "address" | "build" | "discard" | "surrender" | "claimTutorial" | "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit"
+  "address" | "build" | "discard" | "surrender" | "claimTutorial" | "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "spawnFree"
 >;
 
 /**

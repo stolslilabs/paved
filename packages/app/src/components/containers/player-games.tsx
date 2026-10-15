@@ -1,6 +1,7 @@
 import type { IndexedGame } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
+import { isFree } from "../../data/free";
 import { Amount } from "../elements/amount";
 import { formatDay } from "../elements/day-picker";
 import { formatPoints } from "../elements/score";
@@ -25,7 +26,7 @@ function Outcome({ game }: { game: IndexedGame }) {
   );
 }
 
-/** A player's last Challenge games: the day, the stake, the score, and what it paid. */
+/** A player's last Challenge games: the day, the stake, the score, and what it paid; a free game says "Free" (the indexer's `free`). */
 export function PlayerGames({ games, className }: PlayerGamesProps) {
   if (games.length === 0) {
     return <p className={cn("rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground", className)}>No Challenge game yet.</p>;
@@ -37,6 +38,11 @@ export function PlayerGames({ games, className }: PlayerGamesProps) {
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-sm">
               Challenge <span className="numeric text-muted-foreground">#{g.gameId}</span>
+              {isFree(g) && (
+                <Badge variant="outline" className="ml-2 align-middle" title="Played with a free game">
+                  Free
+                </Badge>
+              )}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatDay(g.dayId)}

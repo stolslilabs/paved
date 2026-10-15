@@ -677,7 +677,7 @@ pub mod Setup {
         MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress, ProgressTrait,
         QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress,
         QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, WEEKLY, Wiring, active_themes,
-        active_word, bit, list_ids, list_word, schedule_kind, week_of,
+        bit, list_ids, list_word, schedule_kind, week_of,
     };
 
     // Errors
@@ -1435,49 +1435,45 @@ pub mod Setup {
 
         fn set_skins(ref self: ContractState, changes: Span<(u8, u8)>) {
             let player_id: felt252 = get_caller_address().into();
-            let mut themes = active_themes(self.active_skins.read(player_id));
-            // [Check] Each plan 1 to 19, each theme the default or owned. The owned word of a
-            // theme is read once per theme named.
+            // The active word in halves: plans 1 to 16 in the low `u128`, 17 to 19 in the high one
+            let word: u256 = self.active_skins.read(player_id).into();
+            let mut low = word.low;
+            let mut high = word.high;
+            // The owned word of a theme is read once per theme named.
             let mut known: Array<(u8, u32)> = array![];
-            let mut next: Array<u8> = array![];
-            let mut set: Array<(u8, u8)> = array![];
             for (plan, theme) in changes {
                 let plan = *plan;
                 let theme = *theme;
+                // [Check] A plan 1 to 19, the theme the default or owned
                 assert(plan != 0 && plan <= PLANS, errors::INVALID_SKIN);
                 if theme != 0 {
                     let mut owned: Option<u32> = None;
-                    for (seen, word) in known.span() {
+                    for (seen, held) in known.span() {
                         if *seen == theme {
-                            owned = Some(*word);
+                            owned = Some(*held);
                         }
                     }
                     let owned = match owned {
-                        Some(word) => word,
+                        Some(held) => held,
                         None => {
-                            let word = self.skins.read((player_id, theme));
-                            known.append((theme, word));
-                            word
+                            let held = self.skins.read((player_id, theme));
+                            known.append((theme, held));
+                            held
                         },
                     };
                     assert(owned & skin_bit(plan) != 0, errors::SKIN_NOT_OWNED);
                 }
-                set.append((plan, theme));
-            }
-            // [Effect] The batch in order (the last change of a plan wins), one write
-            let mut index: u8 = 0;
-            for theme in themes.span() {
-                let mut chosen = *theme;
-                for (plan, to) in set.span() {
-                    if *plan == index + 1 {
-                        chosen = *to;
-                    }
+                // [Effect] The plan's byte, in order (the last change of a plan wins)
+                let unit = byte_unit(plan);
+                let theme: u128 = theme.into();
+                if plan <= 16 {
+                    low = low - (low / unit % 256) * unit + theme * unit;
+                } else {
+                    high = high - (high / unit % 256) * unit + theme * unit;
                 }
-                next.append(chosen);
-                index += 1;
             }
-            themes = next;
-            let active = active_word(themes.span());
+            // [Effect] One write for the batch
+            let active: felt252 = u256 { low, high }.try_into().unwrap();
             self.active_skins.write(player_id, active);
             self.emit(SkinsActivated { player_id, active });
         }
@@ -1572,13 +1568,57 @@ pub mod Setup {
         }
     }
 
-    /// The bit of the skin of `plan` (1 to 19) in an owned word.
+    /// The bit of the skin of `plan` (1 to 19) in an owned word, `1 << plan`.
     fn skin_bit(plan: u8) -> u32 {
-        let mut flag: u32 = 1;
-        for _ in 0..plan {
-            flag *= 2;
+        match plan {
+            1 => 0x2,
+            2 => 0x4,
+            3 => 0x8,
+            4 => 0x10,
+            5 => 0x20,
+            6 => 0x40,
+            7 => 0x80,
+            8 => 0x100,
+            9 => 0x200,
+            10 => 0x400,
+            11 => 0x800,
+            12 => 0x1000,
+            13 => 0x2000,
+            14 => 0x4000,
+            15 => 0x8000,
+            16 => 0x10000,
+            17 => 0x20000,
+            18 => 0x40000,
+            19 => 0x80000,
+            _ => 0,
         }
-        flag
+    }
+
+    /// The unit of the plan's byte in its half of the active word: 256 to the power of
+    /// `(plan - 1) mod 16`.
+    fn byte_unit(plan: u8) -> u128 {
+        match plan {
+            1 => 0x1,
+            2 => 0x100,
+            3 => 0x10000,
+            4 => 0x1000000,
+            5 => 0x100000000,
+            6 => 0x10000000000,
+            7 => 0x1000000000000,
+            8 => 0x100000000000000,
+            9 => 0x10000000000000000,
+            10 => 0x1000000000000000000,
+            11 => 0x100000000000000000000,
+            12 => 0x10000000000000000000000,
+            13 => 0x1000000000000000000000000,
+            14 => 0x100000000000000000000000000,
+            15 => 0x10000000000000000000000000000,
+            16 => 0x1000000000000000000000000000000,
+            17 => 0x1,
+            18 => 0x100,
+            19 => 0x10000,
+            _ => 1,
+        }
     }
 
     /// A definition the indexer can serve: no task total of 0 (complete before any report) and no

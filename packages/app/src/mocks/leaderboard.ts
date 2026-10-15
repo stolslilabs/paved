@@ -35,6 +35,7 @@ function rows(count: number, end: number, top: number, options: { viewer?: Leade
       gamesPlayed: 1 + ((rank * 5) % 7),
       gamesFinished: 1 + ((rank * 5) % 7),
       finishedAt: end - DAY + ((rank * 37) % 23) * HOUR,
+      free: false,
       name: NAMES[i % NAMES.length],
     };
   });
@@ -98,6 +99,7 @@ const game = (gameId: number, daysAgo: number, score: number, over = true): Inde
     score: over ? score : 0,
     countedDayId: over ? day : 0,
     endTime: over ? startTime + 40 * 60 : 0,
+    free: false,
     tokenId: gameId,
     economy: {
       day,

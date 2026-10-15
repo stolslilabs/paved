@@ -632,6 +632,11 @@ case "$cmd:$fn" in
     [[ -e "$dir/shop" ]] && while read -r kk id c p a; do
       [[ "$kk" == pack && "$id" == "${cd[0]}" ]] && r="[\"$(printf '0x%x' "$c")\",\"$(printf '0x%x' "$p")\",\"$(printf '0x%x' "$a")\"]"
     done <"$dir/shop" ;;
+  # Cobbles v1, part 3: the skin prices a multicall set (`skins`: `skin <theme> <plan> <cobbles>` lines, the last one counts); 0 otherwise.
+  call:skin_price) r='["0x0"]'
+    [[ -e "$dir/skins" ]] && while read -r kk th pl c; do
+      [[ "$kk" == skin && "$th" == "${cd[0]}" && "$pl" == "${cd[1]}" ]] && r="[\"$(printf '0x%x' "$c")\"]"
+    done <"$dir/skins" ;;
   # --upgrade-challenge (invoke_ok only): an invoke is accepted and logged with its calldata; upgrade moves the
   # contract's class on the node, set_guardian sets the guardian.
   invoke:*)
@@ -703,7 +708,7 @@ def slots(name):
 quest_a, quest_b, achievement_a = slots("FRESH_QUEST_SLOTS"), slots("FRESH_QUEST_TASK_SLOTS"), slots("FRESH_ACHIEVEMENT_SLOTS")
 # The slot tables follow FRESH_QUESTS, whose ids are 1 and 5 to 16 (2 to 4 are never defined): a quest id is a position there.
 quest_ids = [int(m) for m in re.findall(r"\x22(\d+) \d+ \d+ \d+ \d+ \d+\x22", re.search(r"FRESH_QUESTS=\((.*?)\n\)", src, re.S).group(1))]
-with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage, open(sys.argv[5], "a") as cobbles, open(sys.argv[6], "a") as shop:
+with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage, open(sys.argv[5], "a") as cobbles, open(sys.argv[6], "a") as shop, open(sys.argv[7], "a") as skins:
     for c in calls:
         log.write(c["function"] + " " + " ".join(c["calldata"]) + "\n")
         d = [int(x, 0) for x in c["calldata"]]
@@ -711,6 +716,8 @@ with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage, open(sys.
             shop.write("seller %s\n" % c["calldata"][0])
         elif c["function"] == "set_pack":
             shop.write("pack %d %d %d %d\n" % tuple(d))
+        elif c["function"] == "set_skin_price":
+            skins.write("skin %d %d %d\n" % tuple(d))
         elif c["function"] in ("set_quest_cobbles", "set_achievement_cobbles"):
             cobbles.write("%s %d %d\n" % (c["function"][4], d[0], d[1]))
         elif c["function"] == "define_quest":
@@ -722,7 +729,7 @@ with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage, open(sys.
             aid, start, end, n, task, total, points = d
             assert (start, end, n) == (0, 0, 1), d
             storage.write("%s 0x%x\n" % (achievement_a[aid - 1], n << 128 | 1 << 130 | task << 132 | total << 164 | points << 196))
-' "$calls" "$dir/calls.log" "$dir/storage" "$dir/../root/scripts/deploy.sh" "$dir/cobbles" "$dir/shop"
+' "$calls" "$dir/calls.log" "$dir/storage" "$dir/../root/scripts/deploy.sh" "$dir/cobbles" "$dir/shop" "$dir/skins"
     # The new pool's reserves after an add_liquidity: its calldata.
     python3 -I -c '
 import json, sys
@@ -1568,7 +1575,7 @@ import json, sys
 keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
         "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
         "wiring_tx", "guardian_tx", "definitions_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
-        "smoke.pack_tx", "smoke.settle_tx"]
+        "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx"]
 fresh = {"salt": "0x1", "at": "unmerged-test"}
 for i, key in enumerate(keys):
     node = fresh
@@ -1582,16 +1589,16 @@ PY2
   : >"$log"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
-  if [[ $rc -ne 0 || "$listed" != 21 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+  if [[ $rc -ne 0 || "$listed" != 22 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
       ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
       grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
-    echo "FAIL: sepolia --check-only over a record of 21 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    echo "FAIL: sepolia --check-only over a record of 22 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia --check-only over a record of 21 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+    echo "ok: sepolia --check-only over a record of 22 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
   fi
-  # guardian_tx (PM, 2026-10-14) is one of the 20: its status line is listed, between wiring_tx and definitions_tx.
+  # guardian_tx (PM, 2026-10-14) is one of the 22: its status line is listed, between wiring_tx and definitions_tx.
   if [[ "$(grep -n '^   [A-Za-z.]*_tx ' <<<"$out" | sed -n '/wiring_tx/,/definitions_tx/p' | grep -o '[a-z.A-Z]*_tx ' | tr -d '\n')" == "wiring_tx guardian_tx definitions_tx " ]] &&
       grep -q '^   guardian_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out"; then
     echo "ok: sepolia --check-only lists guardian_tx between wiring_tx and definitions_tx"
@@ -1600,8 +1607,8 @@ PY2
   fi
   # The definitions (v1 and v2a) are listed with the record's keys: quests 1 and 5 to 16, achievements 1 to 16, then the shop
   # (cobbles v1, part 2) and their cobbles (cobbles v1), in the same multicall.
-  if grep -q '^   definitions (definitions_tx): quests 1 and 5 to 16 and achievements 1 to 16 on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
-    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, then the shop (set_seller, set_pack x 4), then their cobbles"
+  if grep -q '^   definitions (definitions_tx): quests 1 and 5 to 16 and achievements 1 to 16 on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) 1, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
+    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, then the shop (set_seller, set_pack x 4), then the skin prices of theme 1 (set_skin_price x 19), then their cobbles"
   else
     echo "FAIL: sepolia --check-only over a record does not list the v1 and v2a definitions:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
@@ -1800,7 +1807,7 @@ open(path, "w").write("".join(" ".join(l) + "\n" for l in lines))
 PY
 }
 # An empty `storage` file: the fake node answers 0x0 for every slot (without it, every slot answers a Lobby class hash).
-dd_case() { fg_case "$@"; : >"$rp/bin/storage"; : >"$rp/bin/cobbles"; : >"$rp/bin/shop"; }
+dd_case() { fg_case "$@"; : >"$rp/bin/storage"; : >"$rp/bin/cobbles"; : >"$rp/bin/shop"; : >"$rp/bin/skins"; }
 dd_complete() { python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["fresh"]["complete"]="yes";json.dump(d,open(sys.argv[1],"w"))' "$rp/fresh.json"; }
 dd_sent_v1() { grep -q -e '^define_quest 1 ' -e '^define_achievement [1-9] ' "$rp/bin/calls.log"; }
 # The hook is refused on real sepolia (no --rehearse) before anything is read or sent.
@@ -1813,13 +1820,15 @@ else
   echo "ok: sepolia --check-fresh-definitions step without --rehearse is refused before anything is read or sent"
 fi
 # Setup holds nothing: one multicall of the 29 definitions (13 quests, 16 achievements), the shop (cobbles v1, part 2:
-# Economy.set_seller(Setup), set_pack x 4) and the cobbles (cobbles v1: 13 quests, 15 achievements, none for On the Podium), the
-# hash recorded, every one read back.
+# Economy.set_seller(Setup), set_pack x 4) and the cobbles (cobbles v1: 13 quests, 15 achievements, none for On the Podium) and the
+# 19 skin prices of theme 1 (part 3), the hash recorded, every one read back.
 dd_case
 out="$(dd_run step)"; rc=$?
 if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$(dd_calls define_quest)" != 13 || "$(dd_calls define_achievement)" != 16 ||
     "$(dd_calls set_quest_cobbles)" != 13 || "$(dd_calls set_achievement_cobbles)" != 15 || "$(dd_calls set_seller)" != 1 || "$(dd_calls set_pack)" != 4 ||
-    "$out" != *"62 definition, shop and cobbles call(s) to send"* || "$out" != *"the shop: Economy.seller() is Setup; Setup holds packs 1 to 4"* ||
+    "$(dd_calls set_skin_price)" != 19 ||
+    "$out" != *"81 definition, shop and cobbles call(s) to send"* || "$out" != *"the shop: Economy.seller() is Setup; Setup holds packs 1 to 4"* ||
+    "$out" != *"skins: theme(s) 1 priced for the 19 plans by the rarity table (view skin_price)"* ||
     "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, each as specified"* || "$(dd_tx)" != 0x5eed0001 ]] || ! fg_clean "$out"; then
   dd_fail "an empty Setup: expected exit 0, one multicall of 13 define_quest, 16 define_achievement, set_seller, 4 set_pack and the cobbles, its hash recorded, each read back, got $rc" "$out"
 else
@@ -1838,6 +1847,18 @@ if [[ "$(grep -F -x -c -f <(printf '%s\n' "$want_shop") "$rp/bin/calls.log")" !=
   dd_fail "the shop of the multicall: expected set_seller(Setup) and the four packs, after the definitions and before the cobbles" "$(cat "$rp/bin/calls.log")"
 else
   echo "ok: the multicall sets Economy's seller to Setup and the four packs (50 for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70, active), after the definitions and before the cobbles"
+fi
+# The skin prices (cobbles-v1.md 5.2 and 6.4, the PM's ruling of 2026-10-15): theme 1 (Forest) only, the 19 plans by the rarity table
+# (1,580 in all), after the packs and before the cobbles; no other theme gets a price.
+want_skins="$(python3 -I -c 'print("\n".join("set_skin_price 1 %d %d" % (i + 1, p) for i, p in enumerate([100, 80, 90, 90, 90, 95, 75, 75, 80, 55, 75, 90, 50, 90, 90, 80, 100, 80, 95])))')"
+if [[ "$(grep -F -x -c -f <(printf '%s\n' "$want_skins") "$rp/bin/calls.log")" != 19 || "$(grep -c '^set_skin_price ' "$rp/bin/calls.log")" != 19 ||
+    "$(grep -c '^set_skin_price [^1]' "$rp/bin/calls.log")" != 0 ||
+    "$(grep -n '^set_pack ' "$rp/bin/calls.log" | tail -1 | cut -d: -f1)" -gt "$(grep -n '^set_skin_price ' "$rp/bin/calls.log" | head -1 | cut -d: -f1)" ||
+    "$(grep -n '^set_skin_price ' "$rp/bin/calls.log" | tail -1 | cut -d: -f1)" -gt "$(grep -n '^set_quest_cobbles ' "$rp/bin/calls.log" | head -1 | cut -d: -f1)" ||
+    "$(grep '^set_skin_price ' "$rp/bin/calls.log" | awk '{ t += $4 } END { print t }')" != 1580 ]]; then
+  dd_fail "the skin prices of the multicall: expected theme 1's 19 plans by the table (1,580), after the packs and before the cobbles, no other theme" "$(cat "$rp/bin/calls.log")"
+else
+  echo "ok: the multicall prices the 19 skins of theme 1 (Forest) by the rarity table (1,580 cobbles in all), after the packs and before the cobbles, no other theme"
 fi
 # What the v2a calls are: the rotating dailies (a day in a 3-day interval, offsets of 0, 1, 2 days), the weekly quests
 # (a week from Monday 1970-01-05), the higher tiers; no reward, no prerequisite (the calldata ends with 0 conditions).
@@ -1983,6 +2004,56 @@ if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"5 definiti
 else
   echo "ok: the fresh path's definitions step on a Setup with no shop sends set_seller and the four set_pack alone"
 fi
+# Part 2's review note p3: a complete record whose Economy has no seller sends no set_seller (as no pack), in the step and the smoke.
+for mode in step smoke; do
+  dd_case; dd_run step >/dev/null; dd_complete; : >"$rp/bin/shop"; : >"$rp/bin/sent.log"
+  out="$(dd_run "$mode")"; rc=$?
+  if [[ $rc -ne 0 || -s "$rp/bin/sent.log" ]] || ! fg_clean "$out"; then
+    dd_fail "a complete record with no seller, $mode: expected exit 0 and nothing sent, got $rc" "$out"
+  else
+    echo "ok: the fresh path's definitions $mode sends no set_seller on a complete record whose Economy has none"
+  fi
+done
+# The skin prices on a Setup that has everything else but no skin price (a record from before part 3): the smoke fails naming
+# set_skin_price, nothing sent; the step sends the 19 alone; on a complete record it sends nothing.
+dd_case; dd_run step >/dev/null; : >"$rp/bin/skins"
+out="$(dd_run smoke)"; rc=$?
+if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Setup lacks a definition: "*"set_skin_price"* ]] || ! fg_clean "$out"; then
+  dd_fail "the smoke without skin prices: expected a non-zero exit, set_skin_price named, nothing sent, got $rc" "$out"
+else
+  echo "ok: the fresh smoke fails when Setup has no skin price, naming set_skin_price"
+fi
+out="$(dd_run step)"; rc=$?
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"19 definition, shop and cobbles call(s) to send"* ||
+    "$(dd_calls set_skin_price)" != 19 || "$(wc -l <"$rp/bin/calls.log")" != 19 ]] || ! fg_clean "$out"; then
+  dd_fail "a Setup with no skin price: expected exit 0 and one multicall of the 19 set_skin_price, got $rc" "$out"
+else
+  echo "ok: the fresh path's definitions step on a Setup with no skin price sends the 19 set_skin_price alone"
+fi
+dd_case; dd_run step >/dev/null; : >"$rp/bin/skins"; dd_complete; : >"$rp/bin/sent.log"
+out="$(dd_run step)"; rc=$?
+if [[ $rc -ne 0 || -s "$rp/bin/sent.log" ]] || ! fg_clean "$out"; then
+  dd_fail "no skin price on a complete record: expected exit 0 and nothing sent, got $rc" "$out"
+else
+  echo "ok: the fresh path's definitions step keeps a complete record's withdrawn skin prices (0 is the owner's setting), nothing sent"
+fi
+# A skin price other than the table's (plan 5 of theme 1 at 60): a stop on a record that is not complete, kept on a complete one.
+for mode in step smoke; do
+  dd_case; dd_run step >/dev/null; echo "skin 1 5 60" >>"$rp/bin/skins"
+  out="$(dd_run "$mode")"; rc=$?
+  if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"the skin of plan 5 in theme 1 has 60 cobbles, not the table's 90: not sent over; nothing more was sent"* ]] || ! fg_clean "$out"; then
+    dd_fail "a skin price of 60, $mode: expected a non-zero exit, nothing sent, the message, got $rc" "$out"
+  else
+    echo "ok: the fresh path's definitions $mode stops on a skin price other than the table's, nothing sent"
+  fi
+  dd_complete
+  out="$(dd_run "$mode")"; rc=$?
+  if [[ $rc -ne 0 || -s "$rp/bin/sent.log" ]] || ! fg_clean "$out"; then
+    dd_fail "a skin price of 60 on a complete record, $mode: expected exit 0 and nothing sent, got $rc" "$out"
+  else
+    echo "ok: the fresh path's definitions $mode keeps a skin price other than the table's on a complete record (the owner's setting since), nothing sent"
+  fi
+done
 # A pack other than the table's (pack 2 at 120 cobbles), or stopped (pack 3 inactive): on a record that is not complete the step
 # and the smoke stop, nothing sent; on a complete record it is the owner's setting since, kept, nothing sent.
 for pack in "pack 2 120 9000000 1:pack 2 is 120 cobbles for 9000000 (active 1), not the table's 100 for 9000000, active" \
