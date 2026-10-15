@@ -753,7 +753,7 @@ export class Store {
             const player = padded(event.playerId);
             const what = `Sold of ${player} ${where}`;
             // Every Sold is followed by its PackBought in the same transaction (Setup.buy_pack): one still waiting is a pack the indexer did not see.
-            if (this.sql.unpairedSale.get()) throw new Halt(`${what}: an earlier Sold has no PackBought`);
+            if (this.sql.pendingSale.get()) throw new Halt(`${what}: an earlier Sold has no PackBought`);
             this.sql.insertPlayer.run(player, at, block.timestamp);
             this.sql.insertSale.run({
               block: at,
@@ -782,7 +782,7 @@ export class Store {
               throw new Halt(`${what}: cobbles ${event.cobbles} for ${event.price}, the pack is ${pack.cobbles} for ${pack.price}`);
             }
             // Its Sold: emitted just before, in the same transaction, for the same player and price.
-            const sale = this.sql.unpairedSale.get() as Row | undefined;
+            const sale = this.sql.pendingSale.get() as Row | undefined;
             if (!sale) throw new Halt(`${what}: no Sold before it`);
             if (sale.block !== at || sale.tx !== raw.transactionIndex || Number(sale.idx) > raw.eventIndex) {
               throw new Halt(`${what}: its Sold is not in the same transaction`);
@@ -904,6 +904,12 @@ export class Store {
             break;
           }
         }
+      }
+      // Sold and PackBought share a transaction (Setup.buy_pack), so a Sold of this block without its PackBought is a sale the
+      // contract does not make: Economy.sell is the seller's alone, and the seller is Setup.
+      const unpaired = this.sql.unpairedSaleIn.get(at) as { tx: number; idx: number } | undefined;
+      if (unpaired) {
+        throw new Halt(`Sold in block ${at} (transaction ${unpaired.tx}, event ${unpaired.idx}) has no PackBought in its transaction`);
       }
       const stored = this.block(block.number);
       if (stored) {
@@ -1034,6 +1040,10 @@ function gameContract(
   }
   return source;
 }
+
+/** The latest sale if no PackBought has taken it (see `pendingSale`); exported for the test of its plan. */
+export const PENDING_SALE = `SELECT s.* FROM (SELECT * FROM sales ORDER BY block DESC, tx DESC, idx DESC LIMIT 1) s
+       WHERE NOT EXISTS (SELECT 1 FROM pack_purchases p WHERE p.block = s.block AND p.tx = s.tx AND p.sale_idx = s.idx)`;
 
 function statements(db: DatabaseSync) {
   return {
@@ -1186,10 +1196,14 @@ function statements(db: DatabaseSync) {
     pack: db.prepare(
       "SELECT cobbles, price, active FROM packs WHERE pack_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
     ),
-    unpairedSale: db.prepare(
-      `SELECT s.* FROM sales s
-       WHERE NOT EXISTS (SELECT 1 FROM pack_purchases p WHERE p.block = s.block AND p.tx = s.tx AND p.sale_idx = s.idx)
-       ORDER BY s.block, s.tx, s.idx LIMIT 1`,
+    // The Sold that no PackBought has taken yet. Only the latest sale can be one (a Sold is paired in its own transaction, and a
+    // second Sold while one waits halts), so the lookup reads that one row by the primary key, however many sales there are.
+    pendingSale: db.prepare(PENDING_SALE),
+    // A Sold of block ? that its transaction left without a PackBought (the end-of-block check).
+    unpairedSaleIn: db.prepare(
+      `SELECT s.tx, s.idx FROM sales s
+       WHERE s.block = ? AND NOT EXISTS (SELECT 1 FROM pack_purchases p WHERE p.block = s.block AND p.tx = s.tx AND p.sale_idx = s.idx)
+       ORDER BY s.tx, s.idx LIMIT 1`,
     ),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),

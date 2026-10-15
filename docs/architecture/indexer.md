@@ -790,9 +790,13 @@ checked against the purchase's balance. New:
 - a `PackBought` whose `balance` is not the ledger's before it plus its `cobbles`;
 - a `PackBought` with no `Sold` before it that is unpaired, one in another transaction, for another player, another price or
   another referrer;
-- a `Sold` while an earlier `Sold` has no `PackBought` (a pack the indexer did not see). A last `Sold` still waiting at the tip
-  is detected by the next one, or by the `PackBought` that never comes; it counts for nothing in the answers, which join on
-  `PackBought`, but the referral totals read `sales` and would count it.
+- a `Sold` while an earlier `Sold` has no `PackBought` (a pack the indexer did not see);
+- a block that ends with a `Sold` whose transaction holds no `PackBought`. `Sold` and `PackBought` share a transaction, so the
+  check at the end of `Store.apply` is exact; it refuses an owner's direct `Economy.sell` (the seller is Setup) before its
+  referral can be served by the totals, which read `sales`.
+
+The lookup of the `Sold` waiting for its `PackBought` reads one row: only the latest sale can be waiting, so it is read by the
+primary key (`ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`), not by a scan of `sales`; a rebuild is linear in the sales.
 
 A buyer is a player from its `Sold`. A referrer is not (as for `Purchased`).
 

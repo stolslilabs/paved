@@ -2,6 +2,7 @@
 // events to the API.
 import { describe, expect, test } from "vitest";
 import { padded } from "./events.ts";
+import { PENDING_SALE } from "./store.ts";
 import { Queries } from "./queries.ts";
 import { respond } from "./server.ts";
 import { FakeNode, ev } from "./testing/fake-node.ts";
@@ -188,6 +189,36 @@ describe("the PackBought and Sold pairing", () => {
       (node) => node.mine([...PACKS], [ev.sold(A, { price: 5_000_000n })], [...buy(B, 1, 50, 5_000_000n, 0n, 0n, 50)]),
       /an earlier Sold has no PackBought/,
     );
+  });
+
+  test("a Sold whose transaction has no PackBought halts at the end of its block (a direct Economy.sell)", async () => {
+    await halts((node) => node.mine([...PACKS], [ev.sold(A, { price: 5_000_000n, referrer: R, referral: 250_000n })]), /Sold in block \d+ \(transaction 1, event 0\) has no PackBought/);
+    // the same block holding its PackBought in another transaction is the other halt, reached first
+    await halts(
+      (node) => node.mine([...PACKS], [ev.sold(A, { price: 5_000_000n })], [ev.packBought(A, 1, 50, 5_000_000n, 0n, 50)]),
+      /its Sold is not in the same transaction/,
+    );
+    // and no referral of a lone Sold is ever served: the indexer stopped at the block
+    const { queries, head } = await open((node) => {
+      node.mine([...PACKS], buy(A, 1, 50, 5_000_000n, R, 250_000n, 50));
+      node.mine([ev.sold(A, { price: 5_000_000n, referrer: R, referral: 999n })]);
+    });
+    expect(queries.playerReferrals(head - 1, PR).packs).toEqual({ count: 1, total: "250000" });
+  });
+
+  test("the pending-sale lookup reads one row however many sales are paired", async () => {
+    const { indexer } = await open((node) => {
+      node.mine([...PACKS]);
+      for (let i = 0; i < 40; i++) node.mine(buy(A, 1, 50, 5_000_000n, 0n, 0n, 50 * (i + 1)));
+    });
+    expect(indexer.status).toBe("ok");
+    expect(indexer.store.dump().sales).toHaveLength(40);
+    const plan = (indexer.store.statement(`EXPLAIN QUERY PLAN ${PENDING_SALE}`).all() as { detail: string }[]).map((row) => row.detail);
+    // no full scan of sales: its rows are read through the primary key's index, in order, and the LIMIT 1 stops at the latest;
+    // each pairing probes pack_purchases by its unique key
+    expect(plan.filter((detail) => /SCAN (sales|pack_purchases|p)\b/.test(detail) && !/USING (COVERING )?INDEX/.test(detail)), plan.join(" | ")).toEqual([]);
+    expect(plan.join(" | ")).toMatch(/INDEX|PRIMARY KEY/);
+    expect(indexer.store.statement(PENDING_SALE).get()).toBeUndefined(); // all paired: nothing pending
   });
 
   test("a pack never set, not on sale, or not as the pack is set, halts", async () => {
