@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_CY, FIXTURE_TOURNAMENT } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { queryClient } from "../src/lib/query-client";
@@ -16,8 +17,9 @@ const PAST = DAY - 1;
 /** Rank 38 of the fixture's 41 players: not on the first page of 20. */
 const FAR = `0x${(0x1000 + 34).toString(16).padStart(64, "0")}`;
 
-function open(path: string, options: { address?: string | null } = {}) {
+function open(path: string, options: { address?: string | null; down?: boolean } = {}) {
   const f = fakeSources();
+  f.fixture.state.down = options.down ?? false;
   f.views.today = DAY;
   const address = options.address === undefined ? FIXTURE_ADA : options.address;
   f.fixture.names[FIXTURE_ADA] = "Ada";
@@ -154,6 +156,41 @@ describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
     expect(await ranked("20 of 41 players ranked")).toBeInTheDocument();
   });
 
+  it("a page after the first fails: the rows stay, a notice with Retry follows them", async () => {
+    const f = fakeSources();
+    f.views.today = DAY;
+    let failing = true;
+    const indexer = new IndexerClient({
+      url: "http://indexer.test/",
+      fetch: (async (input: RequestInfo | URL) => {
+        if (failing && String(input).includes("offset=20")) throw new TypeError("fetch failed");
+        return f.fixture.fetch(input);
+      }) as typeof fetch,
+    });
+    render(<App router={createTestRouter("/leaderboard")} sources={{ ...f.sources, indexer }} connector={fakeWallet({ restored: false }).load} />);
+    const list = await ranking();
+    await userEvent.click(await screen.findByRole("button", { name: "Show more" }));
+    expect(await screen.findByText("Could not load more of the ranking", {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(list.getAllByRole("button")).toHaveLength(20);
+    failing = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await ranked("40 of 41 players ranked", 8000)).toBeInTheDocument();
+    expect(screen.queryByText("Could not load more of the ranking")).toBeNull();
+  });
+
+  it("the head read failing after a first answer: the lag line says Stale and the rows stay", async () => {
+    const { fixture } = open("/leaderboard", { address: null });
+    expect(await screen.findByText("Up to date", {}, { timeout: 5000 })).toBeInTheDocument();
+    await ranking();
+    fixture.state.down = true;
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ["indexer", "lag"] });
+    });
+    expect(await screen.findByText(/Stale:/, {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.getByText("Showing the last answer")).toBeInTheDocument();
+    expect(await ranking()).toBeDefined();
+  });
+
   it("an indexer that is down: the error with Retry", async () => {
     const f = fakeSources();
     f.views.today = DAY;
@@ -212,7 +249,16 @@ describe("/player/:id (P8)", { timeout: 15_000 }, () => {
     expect(await screen.findByText("Page not found", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
-  it("the lag notice, and a failed read with Retry", async () => {
+  it("a failed read: the error, then Retry brings the player", async () => {
+    const { fixture } = open(`/player/${FIXTURE_ADA}`, { address: null, down: true });
+    expect(await screen.findByText("Could not load the player", {}, { timeout: 8000 })).toBeInTheDocument();
+    fixture.state.down = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Challenge games", {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.queryByText("Could not load the player")).toBeNull();
+  });
+
+  it("the lag notice", async () => {
     const f = fakeSources();
     f.views.today = DAY;
     f.fixture.state.behind = 9;

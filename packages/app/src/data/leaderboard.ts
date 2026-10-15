@@ -41,6 +41,8 @@ export interface LeaderboardPages {
   hasMore: boolean;
   /** The next page is being read. */
   loadingMore: boolean;
+  /** A page after the first failed: the rows read stay, and the scene says the list stops there. */
+  moreError: Error | null;
   /** Pending only while nothing could be shown. */
   isPending: boolean;
   error: Error | null;
@@ -65,6 +67,7 @@ export function useLeaderboardPages(day: number | null, pages: number, limit = B
         loadingMore: results.length > 1 && last?.data === undefined && !last?.error,
         isPending: day !== null && first === undefined && !error,
         error: first ? null : error,
+        moreError: first ? error : null,
       };
     },
   });
@@ -82,7 +85,8 @@ export function useFirstDay() {
       for (;;) {
         const { data } = await indexer.tournaments({ limit: 100, before });
         for (const t of data.tournaments) first = first === null ? t.id : Math.min(first, t.id);
-        if (data.next === null) return first;
+        // The cursor must move back; an indexer that repeats it would loop for ever.
+        if (data.next === null || (before !== undefined && data.next >= before)) return first;
         before = data.next;
       }
     },

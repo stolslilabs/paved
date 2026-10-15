@@ -65,19 +65,21 @@ describe("useLeaderboard: when a day is final", () => {
     expect(await readTwice(OPEN_DAY, FIXTURE_HEAD.timestamp)).toBe(2);
   });
 
-  it("a day is final from the read that saw the indexer past its end", async () => {
-    const { sources, reads } = indexerAt(1791849599);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>
-        <DataProvider sources={sources}>{children}</DataProvider>
-      </QueryClientProvider>
-    );
-    const behind = renderHook(() => useLeaderboard(CLOSED_DAY, 20), { wrapper });
-    await waitFor(() => expect(behind.result.current.data).toBeDefined());
-    // The cached read was made before the indexer reached the day's end: stale at once.
-    expect(client.getQueryState(["indexer", "leaderboard", CLOSED_DAY, 20, 0])?.dataUpdatedAt).toBeGreaterThan(0);
-    expect(client.isFetching()).toBe(0);
-    expect(reads()).toBe(1);
+  it("the cache entry is stale at once when the read was made before the indexer reached the day's end, and final after", async () => {
+    const stale = async (timestamp: number) => {
+      const { sources } = indexerAt(timestamp);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>
+          <DataProvider sources={sources}>{children}</DataProvider>
+        </QueryClientProvider>
+      );
+      const view = renderHook(() => useLeaderboard(CLOSED_DAY, 20), { wrapper });
+      await waitFor(() => expect(view.result.current.data).toBeDefined());
+      await waitFor(() => expect(view.result.current.isFetching).toBe(false));
+      return view.result.current.isStale;
+    };
+    expect(await stale(1791849599)).toBe(true);
+    expect(await stale(FIXTURE_HEAD.timestamp)).toBe(false);
   });
 });

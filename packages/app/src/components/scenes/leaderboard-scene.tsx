@@ -63,6 +63,8 @@ export interface LeaderboardSceneProps {
   /** More rows after the page: "Show more" reads the next page. */
   hasMore?: boolean;
   loadingMore?: boolean;
+  /** A page after the first failed: the rows read stay, a notice with Retry follows them. */
+  moreError?: string | null;
   onMore?: () => void;
   onDayChange?: (day: number) => void;
   onSelectPlayer?: (playerId: string) => void;
@@ -154,6 +156,19 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
                 free={props.free}
                 onSelectPlayer={props.onSelectPlayer}
               />
+              {props.moreError && (
+                <Notice
+                  tone="danger"
+                  title="Could not load more of the ranking"
+                  action={
+                    <Button size="sm" variant="outline" onClick={props.onRetry}>
+                      Retry
+                    </Button>
+                  }
+                >
+                  {props.moreError}
+                </Notice>
+              )}
               {props.hasMore && (
                 <div className="flex justify-center">
                   <Button variant="outline" size="sm" disabled={props.loadingMore} onClick={props.onMore}>

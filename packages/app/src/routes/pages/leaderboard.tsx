@@ -53,6 +53,7 @@ export default function Page() {
       viewer={viewer.data ?? null}
       free={[...freePlayers(board.entries ?? []), ...(viewer.data ? freePlayers([viewer.data]) : [])]}
       error={board.error?.message ?? null}
+      moreError={board.moreError?.message ?? null}
       now={now}
       lag={lagInfo(lag)}
       hasMore={board.hasMore}
