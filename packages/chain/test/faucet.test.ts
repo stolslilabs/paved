@@ -5,7 +5,7 @@ import { AbiCodec } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews } from "../src/views";
-import { FaucetCapError, GameExpiredError, WriteError } from "../src/writer";
+import { FaucetCapError, GameExpiredError, INVALID_POSITION_TEXT, InvalidPositionError, WriteError } from "../src/writer";
 
 const FAUCET_ADDR = "0x77";
 const PLAYER = "0x5";
@@ -160,5 +160,24 @@ describe("an expired game (S1): build and discard revert with GameExpiredError, 
     const error = await writer.discard(key).catch((e) => e);
     expect(error).not.toBeInstanceOf(GameExpiredError);
     expect(error).toBeInstanceOf(WriteError);
+  });
+});
+
+describe("a build at a square off the board (CORE #391): 'Challenge: invalid position' is InvalidPositionError", () => {
+  const key = { mode: "challenge", gameId: 4 } as const;
+  const hexReason = shortString.encodeShortString("Challenge: invalid position");
+
+  test("from the receipt, as text or as hex, and from the fee estimation", async () => {
+    for (const revert_reason of ["Error in contract: 'Challenge: invalid position'", `Error: ${hexReason}`]) {
+      const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason } });
+      const error = await writer.build(key, { orientation: 1, x: 0, y: 0 }).catch((e) => e);
+      expect(error).toBeInstanceOf(InvalidPositionError);
+      expect(error).toMatchObject({ message: INVALID_POSITION_TEXT, transactionHash: "0x1", reverted: true });
+    }
+    const { writer, execute } = writerWith();
+    execute.mockRejectedValueOnce(new Error(`Execution failed: ${hexReason}`));
+    const error = await writer.build(key, { orientation: 1, x: 0, y: 0 }).catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidPositionError);
+    expect(error.transactionHash).toBeUndefined();
   });
 });
