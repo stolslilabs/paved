@@ -1,6 +1,7 @@
 import { shortString } from "starknet";
 import { FAUCET_USDC_AMOUNT, FAUCET_ABI, type Codecs, type ContractName } from "./abis";
 import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
+import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
 import { gameContract, type GameKey } from "./views";
@@ -119,6 +120,50 @@ function faucetRevert(error: unknown): unknown {
   return error;
 }
 
+/** Why `Setup` refused a Cobbles claim, by its revert (`setup.cairo`, `errors`). */
+export type ClaimRefusal = "no-cobbles" | "not-live" | "not-completed" | "claimed" | "no-live-quest" | "credit-claimed";
+
+/** Each refusal's revert reason; `credit claimed` first, so it is never read as `claimed`. */
+const CLAIM_REVERTS: Array<[string, ClaimRefusal]> = [
+  ["Setup: credit claimed", "credit-claimed"],
+  ["Setup: no live quest", "no-live-quest"],
+  ["Setup: no cobbles", "no-cobbles"],
+  ["Setup: not live", "not-live"],
+  ["Setup: not completed", "not-completed"],
+  ["Setup: claimed", "claimed"],
+];
+
+/** What the player reads for each refusal. */
+export const CLAIM_REFUSAL_TEXT: Record<ClaimRefusal, string> = {
+  "no-cobbles": "This quest or achievement gives no Cobbles.",
+  "not-live": "This quest was not live in that period: there is nothing to claim for it.",
+  "not-completed": "Not completed yet: the chain has not counted every game it needs.",
+  claimed: "Already claimed.",
+  "no-live-quest": "No quest with Cobbles was live in that period: there is no free game to claim.",
+  "credit-claimed": "This free game is already claimed.",
+};
+
+/**
+ * `Setup` refused a claim (`claim_quest`, `claim_achievement`, `claim_daily_credit`, `claim_weekly_credit`): nothing was
+ * credited. In a multicall (`PavedWriter.claim`) one refusal reverts every claim of the transaction. `claimed` and
+ * `credit-claimed` mean an earlier claim landed: the page reads the ledger again.
+ */
+export class ClaimRefusedError extends WriteError {
+  constructor(readonly reason: ClaimRefusal, transactionHash?: string) {
+    super(CLAIM_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "ClaimRefusedError";
+  }
+}
+
+/** A known revert of a claim as its `ClaimRefusedError`; any other error unchanged. */
+function claimRevert(error: unknown): never {
+  if (error instanceof WriteError) {
+    const known = CLAIM_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new ClaimRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
 interface Receipt {
   execution_status?: string;
   revert_reason?: string;
@@ -166,6 +211,46 @@ export class PavedWriter {
       return Promise.reject(new WriteError("No Setup contract in this deployment: the tutorial cannot be claimed"));
     }
     return this.send("Setup", [this.call("Setup", "claim_tutorial", [])]);
+  }
+
+  /** `Setup.claim_quest(quest_id, period)`: a quest's Cobbles for its day (daily) or week (weekly) number. */
+  claimQuest(questId: number, period: number): Promise<WriteResult> {
+    return this.claim([{ kind: "quest", questId, period }]);
+  }
+
+  /** `Setup.claim_achievement(achievement_id)`. */
+  claimAchievement(achievementId: number): Promise<WriteResult> {
+    return this.claim([{ kind: "achievement", achievementId }]);
+  }
+
+  /** `Setup.claim_daily_credit(day)`: the day's free game, once every daily with Cobbles live that day is done. */
+  claimDailyCredit(day: number): Promise<WriteResult> {
+    return this.claim([{ kind: "credit", credit: "daily", period: day }]);
+  }
+
+  /** `Setup.claim_weekly_credit(week)`: the same for the weeklies and a week number (`weekOfDay`). */
+  claimWeeklyCredit(week: number): Promise<WriteResult> {
+    return this.claim([{ kind: "credit", credit: "weekly", period: week }]);
+  }
+
+  /**
+   * Several claims in one transaction (Claim all): one call each to `Setup`, in the order given, so one signature and one
+   * receipt. The multicall is atomic: one refusal (`ClaimRefusedError`) reverts all of them. Its receipt holds one
+   * `CobblesClaimed` or `CreditClaimed` per claim. Without a Setup address, or with no claim, nothing is sent.
+   */
+  claim(claims: readonly CobbleClaim[]): Promise<WriteResult> {
+    if (!this.options.deployment.addresses.Setup) {
+      return Promise.reject(new WriteError("No Setup contract in this deployment: nothing can be claimed"));
+    }
+    if (claims.length === 0) return Promise.reject(new WriteError("Nothing to claim"));
+    const calls = claims.map((c) =>
+      c.kind === "quest"
+        ? this.call("Setup", "claim_quest", [c.questId, c.period])
+        : c.kind === "achievement"
+          ? this.call("Setup", "claim_achievement", [c.achievementId])
+          : this.call("Setup", c.credit === "daily" ? "claim_daily_credit" : "claim_weekly_credit", [c.period]),
+    );
+    return this.send("Setup", calls).catch(claimRevert);
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */

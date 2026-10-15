@@ -4,7 +4,7 @@ import type { PlayerQuest, PlayerQuests } from "@paved/chain";
  * The window rule of a quest (docs/architecture/quests-v2.md 1.2, the rule Nums and Glitchbomb mirror in their clients and
  * the indexer applies to each event's block time): a quest with a `start`, an `interval` and a `duration` is active at `now`
  * when `(now - start) % interval < duration`; its interval id is `floor((now - start) / interval)`; its window ends at
- * `start + id * interval + duration`. Pure: the scenes take `now` as a prop, P9 passes the indexer's clock.
+ * `start + id * interval + duration`. Pure: the scenes take `now` as a prop, the route passes the indexer's clock (P9).
  */
 
 export const DAY_S = 86_400;
@@ -15,8 +15,8 @@ export const WEEK_S = 7 * DAY_S;
  * `interval` 3 x 86,400 for a rotating daily, 7 x 86,400 for a weekly: v2a, on main since #423, defines them so, the weeklies
  * from Monday 1970-01-05, `start` 345,600).
  *
- * Provisional until P9: `@paved/chain`'s parsed `PlayerQuest` does not carry these three fields yet; the field names are those
- * of quests-v2.md.
+ * `@paved/chain`'s `PlayerQuest` does not carry them: `usePlayerQuests` joins them from the quest's definition (`startTime`,
+ * `interval`, `duration`). The field names are those of quests-v2.md.
  */
 export interface QuestSchedule {
   start: number;
@@ -24,10 +24,10 @@ export interface QuestSchedule {
   duration: number;
 }
 
-/** A quest as the scenes read it once v2a's definitions are served: the indexer's `PlayerQuest` and its schedule. Provisional until P9 (see `QuestSchedule`). */
+/** A quest as the scenes read it: the indexer's `PlayerQuest` and its definition's schedule (see `QuestSchedule`). */
 export type ScheduledQuest = PlayerQuest & QuestSchedule;
 
-/** A player's quests of one UTC day, each with its schedule. Provisional until P9 (see `QuestSchedule`). */
+/** A player's quests of one UTC day, each with its schedule. */
 export type ScheduledQuests = Omit<PlayerQuests, "quests"> & { quests: ScheduledQuest[] };
 
 export interface QuestWindow {
@@ -69,6 +69,19 @@ export function isLiveOnDay(schedule: QuestSchedule, day: number): boolean {
   if (w.active) return true;
   const next = schedule.interval > 0 ? w.opensAt + schedule.interval : Infinity;
   return next < to;
+}
+
+/** Monday 1970-01-05, where week 0 of the Cobbles ledger opens (`setup.cairo` `WEEK_START`). */
+export const WEEK_START_S = 345_600;
+
+/**
+ * The week number of a UTC day as `Setup`'s ledger counts it (Monday to Sunday, week 0 from 1970-01-05): a weekly quest's
+ * claim period and its free game's. Null before week 0. `@paved/chain`'s `weekOfDay`, repeated here so the quests' route
+ * brings no starknet.js (a test checks they agree).
+ */
+export function weekOfDay(day: number): number | null {
+  const time = day * DAY_S;
+  return time < WEEK_START_S ? null : Math.floor((time - WEEK_START_S) / WEEK_S);
 }
 
 export type QuestPeriod = "daily" | "weekly";

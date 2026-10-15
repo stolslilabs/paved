@@ -25,9 +25,23 @@ describe("/v1/definitions", () => {
     expect(data.quests.map((q) => q.questId)).toEqual([1, 2, 3, 4]);
     expect(data.quests[3]).toEqual({
       questId: 4, startTime: 0, endTime: 0, duration: 86400, interval: 86400, tasks: [{ taskId: 3, total: 3000 }], conditions: [], definedAt: 1791000000, retired: false, retiredAt: null,
+      cobbles: 15, cobblesKind: "daily",
     });
     expect(data.achievements.map((a) => a.achievementId)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(data.achievements[8]).toEqual({ achievementId: 9, startTime: 0, endTime: 0, tasks: [{ taskId: 8, total: 1 }], points: 50, definedAt: 1791000000, retired: false, retiredAt: null });
+    expect(data.achievements[8]).toEqual({ achievementId: 9, startTime: 0, endTime: 0, tasks: [{ taskId: 8, total: 1 }], points: 50, definedAt: 1791000000, retired: false, retiredAt: null, cobbles: 0 });
+    expect(data.achievements[3]).toMatchObject({ achievementId: 4, points: 40, cobbles: 40 });
+  });
+
+  test("the Cobbles of a definition (cobbles v1): a quest's kind goes with its Cobbles, an achievement's are a count", async () => {
+    fixture.quests = [{ ...fixture.quests[0], cobbles: 15, cobbles_kind: "weekly" }, { ...fixture.quests[1], cobbles: 0, cobbles_kind: null }];
+    const { data } = await client.definitions();
+    expect(data.quests.map((q) => [q.cobbles, q.cobblesKind])).toEqual([[15, "weekly"], [0, null]]);
+    for (const bad of [{ cobbles: 5, cobbles_kind: null }, { cobbles: 0, cobbles_kind: "daily" }, { cobbles: 5, cobbles_kind: "monthly" }, { cobbles: -1, cobbles_kind: "daily" }]) {
+      raw({ quests: [{ ...fixture.quests[0], ...bad }], achievements: [] });
+      expect(await kindOf(client.definitions()), JSON.stringify(bad)).toBe("bad-response");
+    }
+    raw({ quests: [], achievements: [{ ...fixture.achievements[0], cobbles: "10" }] });
+    expect(await kindOf(client.definitions())).toBe("bad-response");
   });
 
   test("a retired definition carries its time; retired without a time (or a time without retired) is refused", async () => {

@@ -43,6 +43,7 @@ export type SceneTypes = [
   // quests and achievements
   Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<QuestsSceneProps["quests"]>>>,
   Expect<Equal<Data<typeof indexer.usePlayerAchievements>, NonNullable<AchievementsSceneProps["achievements"]>>>,
+  ...import("./rewards").RewardSceneTypes,
   // vault
   Expect<Equal<Data<typeof chain.useVaultPosition>, VaultSceneProps["position"]>>,
   Expect<Equal<Data<typeof chain.usePavedBalance>, OrNull<VaultSceneProps["balance"]>>>,

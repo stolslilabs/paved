@@ -71,6 +71,19 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "faucet on mainnet": () => mainnetWriter.mint(),
     // The tutorial claim (D-21): `Setup.claim_tutorial()`, signed in the session where the deployment has a Setup.
     "tutorial claim": () => writer.claimTutorial(),
+    // The Cobbles claims (cobbles v1, part 1), one by one and as Claim all's multicall.
+    "quest claim": () => writer.claimQuest(5, DAY),
+    "achievement claim": () => writer.claimAchievement(4),
+    "daily credit": () => writer.claimDailyCredit(DAY),
+    "weekly credit": () => writer.claimWeeklyCredit(2_857),
+    "claim all": () =>
+      writer.claim([
+        { kind: "quest", questId: 1, period: DAY },
+        { kind: "quest", questId: 14, period: 2_857 },
+        { kind: "achievement", achievementId: 2 },
+        { kind: "credit", credit: "daily", period: DAY },
+        { kind: "credit", credit: "weekly", period: 2_857 },
+      ]),
     "challenge build": () => writer.build({ mode: "challenge", gameId: 1 }, move),
     "challenge discard": () => writer.discard({ mode: "challenge", gameId: 1 }),
     "challenge surrender": () => writer.surrender({ mode: "challenge", gameId: 1 }),
@@ -107,7 +120,7 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "tutorial claim", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
+  "tutorial claim", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
@@ -120,6 +133,22 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(true);
     }
     expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
+  });
+
+  test("the Cobbles claims are signed in the session, Claim all's multicall too: one prompt-free transaction of five calls", async () => {
+    const sent = await sentByEveryWrite();
+    expect(sent["claim all"].map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([
+      [3n, "claim_quest"], [3n, "claim_quest"], [3n, "claim_achievement"], [3n, "claim_daily_credit"], [3n, "claim_weekly_credit"],
+    ]);
+    for (const label of ["quest claim", "achievement claim", "daily credit", "weekly credit", "claim all"]) {
+      for (const call of sent[label]) {
+        expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(true);
+        expect(inSession(call, policies), `${label}: ${call.entrypoint} without the approve`).toBe(true);
+      }
+    }
+    // A deployment without Setup has no claim policy at all.
+    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2" } } });
+    expect(controllerPolicies(none).map((p) => p.method).filter((m) => m.startsWith("claim"))).toEqual([]);
   });
 
   test("the policies hold exactly those calls and the faucet's mint, nothing else", async () => {
@@ -252,7 +281,9 @@ describe("toControllerSessionPolicies", () => {
     const token = session.contracts[getChecksumAddress("0x4")];
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
-    expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual(["claim_tutorial"]);
+    expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
+      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit",
+    ]);
   });
 
   test("refuses an approve without a spender or a cap", () => {
