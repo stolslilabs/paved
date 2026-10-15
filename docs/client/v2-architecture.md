@@ -865,6 +865,98 @@ The pmndrs `postprocessing` library (MIT) merges compatible effects into one ful
 SMAA and a normal pass; it is the proposed engine for this chain (one package added, in the renderer
 PR). Three's own `EffectComposer` stays the fallback.
 
+**Done (P4, 2026-10-15).** The PM reduced 5.2 to two items: the faces' antialiasing (item 1) and the near plane (item
+5). The rest moved: the Graphics quality setting (item 4) to **P11a**; the order of bloom, vignette and tone mapping
+(item 3) to **Q-polish**. Item 2 is moot: the outlines are R-OUT's own antialiased shader (5.3), drawn in the scene
+pass, not a screen-space pass reading the target's depth and normals. No package was added: three's
+`EffectComposer` carries the chain, and three ships `SMAAPass` with its lookup textures inline (nothing fetched).
+
+- **The switch.** `RendererSettings.multisampling` (`core/settings.ts`): `true`, `false`, or `"auto"`, the default.
+  When on, `resolveFaceAntialiasing` (`core/Effects.ts`) takes **MSAA**, a 4-sample scene target, where the WebGL 2
+  context multisamples at least 4 (`renderer.capabilities.maxSamples`) on a GPU; it takes **SMAA**, a pass at the end of
+  the chain, on software WebGL (`detectSoftwareWebGL`, as for the outlines: there MSAA is rasterised on the CPU), where
+  the context has fewer samples, or where `EffectsCapabilities.supportsMultisampling` is false. On React Native, which
+  has no `Image` to load SMAA's textures, SMAA is left out. The path is logged once, like the outlines'
+  (`[renderer] face antialiasing msaa: 4 samples available on GPU renderer "…"`). `"auto"` is on on a coarse pointer or a
+  small screen (the test of `maxPixelRatio: "auto"`), off elsewhere, and follows the window on resize: the rule below.
+  The story "Renderer/Outlines" has the control (auto, on, off).
+- **Both composer targets multisample.** `EffectComposer` swaps its two targets every frame (the vignette swaps even
+  when it draws to the screen), so the scene lands in each in turn. A first build gave only the first target the
+  samples: every other frame lost the MSAA, and the pan check below caught it as a flicker of about 1 point of the
+  outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`).
+- **Near 5.** The camera's near plane goes from 1 to 5 (`CAMERA_NEAR`, `core/CameraController.ts`): about five times the
+  depth precision at every distance. "The camera never comes closer than 5" was the distance to its target, on the
+  ground; the tallest tile (`wfffffffr`) stands 2.625 units, so at 5 the near plane would cut its top. The closest zoom
+  (`minDistance`, `CLOSEST_DISTANCE`) goes from 5 to **8**: 5 + 2.625 / cos 27 degrees (the play camera's steepest tilt)
+  = 7.95, rounded up. A test reads every tile model's height and checks it. The shadow camera is the light's own
+  orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
+  units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
+
+**Frame time** (DPR's and OUT-LOD's method: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen; the
+"Renderer/Outlines" story Held with `redraw` and the outlines forced on, on the recorded 72-tile board; per frame the
+CPU time of every rAF callback plus the GPU time of `EXT_disjoint_timer_query_webgl2` around each; a fresh context per
+configuration, 120 warm-up and 600 measured frames; nearest-rank percentiles over the pooled frames). Mac profile:
+1440 x 900 at DPR 2, three rounds; phone-like: 360 x 780 at DPR 3, CPU throttled 4x, two rounds. Caps and modes
+alternated within each round, the orders rotated between rounds. SMAA is measured by reporting 0 samples to three
+(`MAX_SAMPLES`), so it is SMAA's real fallback path on this GPU. An iOS simulator ran beside the runs (the GPU was
+shared); the load average (`uptime`, 1 minute) before and after each round:
+
+| Run | Mac rounds | Phone-like rounds |
+|---|---|---|
+| A: off and MSAA | 2.85 to 4.31, 4.31 to 3.15, 3.15 to 3.69 | 3.69 to 3.64, 3.64 to 5.30 |
+| B: main, off, SMAA | 4.44 to 3.49, 3.49 to 4.57, 4.68 to 4.29 | 4.13 to 2.60, 2.60 to 2.95 |
+
+CPU + GPU per frame, ms, p50 / p95. Off is this branch with `multisampling: false`; the same pose, the same chain.
+
+| Profile | View | Cap | Off (A) | MSAA (A) | Main (B) | Off (B) | SMAA (B) |
+|---|---|---|---|---|---|---|---|
+| Mac | default (240) | 1.5 | 7.35 / **11.11** | 9.89 / **15.24** | 8.42 / 12.35 | 7.29 / 11.72 | 8.04 / 11.78 |
+| Mac | busiest (170) | 1.5 | 8.27 / **11.87** | 10.38 / **16.56** | 8.23 / 12.53 | 8.57 / 12.64 | 8.64 / 12.71 |
+| Mac | default (240) | 2 | 8.71 / 12.56 | 10.64 / 17.16 | 8.43 / 12.51 | 8.86 / 13.18 | 9.43 / 13.38 |
+| Mac | busiest (170) | 2 | 10.71 / 17.85 | 11.99 / 19.47 | 9.71 / 15.18 | 9.18 / 13.82 | 11.55 / 16.55 |
+| Phone-like | default (240) | 1.5 | 4.42 / 6.38 | 5.95 / 8.25 | 3.63 / 5.28 | 3.77 / 5.66 | 3.73 / 5.92 |
+| Phone-like | busiest (280) | 1.5 | 5.17 / 6.91 | 8.15 / 11.45 | 3.61 / 5.68 | 3.59 / 5.60 | 3.80 / 5.64 |
+| Phone-like | default (240) | 2 | 4.60 / 6.00 | 5.61 / **7.90** | 3.69 / 5.64 | 3.92 / 5.75 | 3.86 / 5.91 |
+| Phone-like | busiest (280) | 2 | 4.87 / 6.21 | 5.51 / **8.48** | 4.22 / 5.71 | 4.06 / 5.72 | 4.18 / 6.40 |
+
+Notes: run B is the four-way run that found the alternating-target bug (its MSAA column is left out); its main, off
+and SMAA used single-sampled targets and stand. The per-round p95s at Mac cap 1.5 are 10.51 to 11.53 (default) and
+11.63 to 12.24 (busiest) for off in run A, 15.10 to 15.67 and 16.40 to 16.64 for MSAA. Mac cap 2, busiest, off, has one
+round at 19.57 (the others 13.27 and 13.57): a loaded round. Off and main are within the rounds' noise of each other.
+
+**The rule applied** (the PM's: the desktop cap stays 1.5 only if the Mac p95 stays under 12 ms at both views; if MSAA
+breaks it, keep the faster option as the default; on phones, the phone-like profile at cap 2 under 16.6 ms):
+
+- **Mac profile: MSAA breaks the rule.** At cap 1.5 it adds about 4 ms of p95 (15.24 and 16.56 against 11.11 and
+  11.87). The faster option is no face antialiasing: SMAA costs little at cap 1.5 (11.78 and 12.71 against 11.72 and
+  12.64 for off in the same run) but more at cap 2, and changes more of the image than MSAA does (below). So desktops keep the faces
+  unantialiased: `"auto"` is off on a fine pointer and a large screen, and the cap stays 1.5 (no change from main: off
+  measures as main does).
+- **Phone-like profile: MSAA passes.** At cap 2, 7.90 and 8.48, under 16.6 ms with room. So `"auto"` turns MSAA on on
+  coarse pointers and small screens. The profile runs on the Mac's GPU, not a phone's (tile-based phone GPUs resolve
+  MSAA on chip, often cheaper; estimate).
+- The 12 ms line is tight for the busiest view even without MSAA (main 12.53 in run B, off 11.87 in run A). The cap is
+  not P4's to move; re-measuring it on a quiet machine fits Q3 (proposed).
+
+**Zero flicker** (OUT-LOD's checks; headless Chrome on ANGLE Metal; the outline share is 1 minus the luma with the
+outlines on over the luma with them off, at the same pose, over the centre crop: 800 x 500 CSS px on the Mac, 300 x 400
+on the phone-like):
+
+- **Pan**, 12 mouse drags of 2 CSS px with a settle after each, Mac profile at cap 1.5, distances 240, 170, 100, 50.
+  Largest change of the share between two steps: main 0.171, 0.142, 0.109, 0.098 points; off 0.170, 0.153, 0.108,
+  0.103; MSAA 0.055, 0.071, 0.037, 0.045; SMAA 0.175, 0.132, 0.137, 0.099.
+- **Zoom sweep**, 300 to 30 in 1 % steps, Mac at cap 1.5 and phone-like at cap 2. Largest frame-to-frame change in the
+  stroke's fade (282 to 240): main 1.722 / 1.514 (Mac / phone-like), off 1.717 / 1.513, MSAA 1.719 / 1.524, SMAA
+  1.810 / 1.612. Below 238: main 1.117 / 0.711, off 1.114 / 0.708, MSAA 0.886 / 0.419, SMAA 1.073 / 0.701.
+- So the default paths (off on desktops, MSAA on phones) flicker no more than main, and MSAA less. SMAA's fade step is
+  about 0.1 point higher than main's: it is not a default.
+
+**Captures** at the default view (240), `"auto"` cap (1.5 at 1280 x 800, DPR 2; 2 at 360 x 780, DPR 3), the centre 120 x
+80 CSS px upscaled 4x with nearest-neighbour, in `packages/app/src/stories/renderer/captures/`: `p4-1280-before.webp`
+and `p4-360-before.webp` (main), `p4-*-msaa.webp`, `p4-*-smaa.webp`. Whole frames against main: off changes 0.13 to
+0.17 % of the pixels (the near plane), by 3 levels on average; MSAA 17 to 24 %, by 3 levels (the faces' edges); SMAA 9
+to 15 %, by 5 levels (it also smooths edges inside the voxel textures).
+
 ### 5.3 Proposed: outlines that follow the zoom
 
 **Replace the per-mesh line geometry by a screen-space edge pass.** One full-screen shader finds edges
