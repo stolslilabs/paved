@@ -11,6 +11,7 @@ import { queryKeys } from "../../data/keys";
 import { useCompletionMemory } from "../../data/completion-memory";
 import { firstQuestDay, useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
+import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useTabNavigate } from "../ref";
 
 /** `/quests/:day?` with a day number; anything else is today. */
@@ -22,12 +23,13 @@ const dayParam = (raw: string | undefined): number | null => (raw !== undefined 
  * Claim all (one multicall) and the day's and the week's free game go through the signer; after a receipt the cache follows
  * its events (`useClaims`). A past day's Cobbles stay claimable. The player is the signer's address: without a signer the
  * page is a guest's; with one that cannot claim, it is read only ("Connect to claim"). The toasts remember, per player,
- * what they announced (`useCompletionMemory`).
+ * what they announced (`useCompletionMemory`). * A wallet approved earlier is looked for here too (`useAccount`), so a returning player can claim at once.
  */
 export default function Page() {
   const params = useParams();
   const go = useAppNavigate();
   const onNavigate = useTabNavigate();
+  useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
   const clock = useIndexerNow();

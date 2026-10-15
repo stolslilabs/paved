@@ -40,8 +40,8 @@ describe("app", () => {
 
   // The wired pages bring their own scene (welcome: P1; training and its end: P3, `training-route.test.tsx`; the
   // Challenge board: P5, `challenge-route.test.tsx`; home, play and the tutorial: P6, `home-play.test.tsx`,
-  // `tutorial-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "training", "tutorial", "training/over", "game/:gameId", "quests/:day?", "achievements"];
+  // `tutorial-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8, `leaderboard-route.test.tsx`).
+  const WIRED = ["welcome", "", "play", "training", "tutorial", "training/over", "game/:gameId", "quests/:day?", "achievements", "leaderboard/:day?", "player/:id"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

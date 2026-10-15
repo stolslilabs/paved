@@ -3,6 +3,7 @@ import type { Definitions, IndexedGame, Leaderboard, LeaderboardEntry, PlayerAch
 import type { PlayerStatusData } from "../components/containers/player-status";
 import type { ScheduledQuests } from "../lib/quest-window";
 import { queryKeys } from "./keys";
+import { leaderboardQuery } from "./leaderboard";
 import { useDataSources } from "./sources";
 
 // The indexer's reads (section 6.4), one hook each, returning the type the scene's prop takes. The cache holds the
@@ -11,13 +12,8 @@ import { useDataSources } from "./sources";
 /** A leaderboard page as the scenes read it: the home's top 3 (`limit` 3), the leaderboard scene's page of 20. */
 export function useLeaderboard(day: number | null, limit: number, offset = 0): UseQueryResult<Leaderboard> {
   const { indexer } = useDataSources();
-  return useQuery({
-    queryKey: queryKeys.indexer.leaderboard(day ?? 0, limit, offset),
-    queryFn: async () => (await indexer.leaderboard(day as number, { limit, offset })).data,
-    enabled: day !== null,
-    // A closed day's ranking is final.
-    staleTime: (query) => (query.state.data && query.state.data.endTime * 1000 <= Date.now() ? Infinity : 0),
-  });
+  // A closed day's ranking is final once the indexer has ingested the day's end (`leaderboardQuery`); before that it is read again.
+  return useQuery({ ...leaderboardQuery(indexer, day, limit, offset), select: (read) => read.board });
 }
 
 /** The home scene's podium: the first three rows of the day. */

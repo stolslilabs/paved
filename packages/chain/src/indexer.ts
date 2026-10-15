@@ -132,6 +132,8 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   gamesFinished: number;
   finishedAt: number;
+  /** The best game was a free one (cobbles v1: `GameSpawned.price` 0, a credit spent): it ranks like any game, marked. False from an indexer that predates it. */
+  free: boolean;
   /** The Cartridge username the indexer has cached (N1), or null: not looked up yet, none, or an indexer that predates it. Display only. */
   name: string | null;
 }
@@ -187,6 +189,8 @@ export interface IndexedGame {
   countedDayId: number;
   /** 0 while the game runs (`over` is false). */
   endTime: number;
+  /** A free game (cobbles v1: `GameSpawned.price` 0, bought with a credit; it has no `economy`). False from an indexer that predates it. */
+  free: boolean;
   /** The game's NFT id in the Collection (E5b, schema 5); null when it has none (minted before the Collection existed), undefined from an indexer that predates it: no NFT is shown then. */
   tokenId?: number | null;
   /** The terms of a bought game (E3); null for a game not bought, undefined from an indexer that predates E3. */
@@ -439,6 +443,9 @@ function parseTournament(v: unknown, what: string): TournamentDetail {
   return { ...parseSummary(v, what), gamesFinished: num(obj(v, what), "games_finished", what) };
 }
 
+/** Cobbles v1's `free`: absent (an indexer before it) is false; present, it must be a boolean. */
+const freeOf = (o: Obj, what: string): boolean => (present(o, "free") ? bool(o, "free", what) : false);
+
 function parseEntry(v: unknown, what: string): LeaderboardEntry {
   const o = obj(v, what);
   return {
@@ -449,6 +456,7 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
     gamesPlayed: num(o, "games_played", what),
     gamesFinished: num(o, "games_finished", what),
     finishedAt: num(o, "finished_at", what),
+    free: freeOf(o, what),
     name: nameOf(o, what),
   };
 }
@@ -469,6 +477,7 @@ function parseGame(v: unknown, what: string): IndexedGame {
     score: numUnlessRunning(o, "score", what, over),
     countedDayId: numUnlessRunning(o, "counted_day_id", what, over),
     endTime: numUnlessRunning(o, "end_time", what, over),
+    free: freeOf(o, what),
   };
   // Schema 5: `token_id` is a safe integer or null. Absent (an older answer) stays undefined; a wrong type is a bad answer.
   if (present(o, "token_id")) game.tokenId = orNull(o, "token_id", num, what);
