@@ -12,6 +12,8 @@ export {
   MODE_CODE,
   TILE_STATUS,
   FakeGameViews,
+  MAX_PACK_ID,
+  PACK_VIEW_FIELDS,
   RpcGameViews,
   ViewError,
   gameContract,
@@ -25,6 +27,8 @@ export type {
   GameMode,
   GameView,
   GameViews,
+  PackView,
+  PackViews,
   PriceView,
   TileView,
   ViewErrorKind,
@@ -72,9 +76,16 @@ export {
   NoCreditError,
   FreeSpawnPausedError,
   FREE_SPAWN_PAUSED_TEXT,
+  PACK_REFUSAL_TEXT,
+  PackOutcomeUnknownError,
+  PackRefusedError,
   WriteError,
+  buyPackArgs,
+  packBoughtOf,
 } from "./writer";
-export type { BuildMove, ClaimRefusal, WriteAccount, WriteResult } from "./writer";
+export type { BuildMove, BuyPackRequest, ClaimRefusal, PackBought, PackRefusal, WriteAccount, WriteResult } from "./writer";
+export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
+export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";
 export type { PavedRpc } from "./paved-client";
 export {
@@ -125,7 +136,7 @@ export type { ConnectionStatus, PavedContextValue, ReadState } from "./react";
 export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 
 // Auth
-export { controllerPolicies, createControllerConnector } from "./auth/controller";
+export { CONTROLLER_ENTRY_POINTS, controllerPolicies, createControllerConnector } from "./auth/controller";
 export type { ControllerConfig } from "./auth/controller";
 
 // Economy (P8, E1 to E3: the committed ABIs)

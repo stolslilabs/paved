@@ -223,6 +223,32 @@ fn test_sell_refuses_a_partial_fill() {
     sell(s, PLAYER(), 5 * USDC, Zero::zero(), 0);
 }
 
+/// Part 2's note p1: a price whose burn quote rounds to 0 would divide by zero in `next_rate` at
+/// the first sale of a block. `sell` refuses it with a named error, in a fresh block (the guard
+/// not yet moved in it), and sells the smallest price whose quote is 1.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_p1_sell_refuses_a_price_whose_burn_quote_is_zero_at_the_first_sale_of_a_block() {
+    let s = seller_setup();
+    let economy = s.economy.contract_address;
+    start_cheat_block_timestamp_global(starknet::get_block_timestamp() + 1);
+    let rate = s.economy.rate();
+    // 1 base unit: 1 x 7,368 / 10,000 = 0
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }.mint(economy, 1);
+    start_cheat_caller_address(economy, SELLER());
+    assert_eq!(error_of(safe(s).sell(PLAYER(), 1, Zero::zero(), 0)), 'Economy: price too small');
+    stop_cheat_caller_address(economy);
+    assert_eq!(s.economy.rate(), rate);
+}
+
+#[test]
+fn test_p1_sell_sells_the_smallest_price_whose_burn_quote_is_one() {
+    let s = seller_setup();
+    start_cheat_block_timestamp_global(starknet::get_block_timestamp() + 1);
+    // 2 base units: 2 x 7,368 / 10,000 = 1
+    sell(s, PLAYER(), 2, Zero::zero(), 0);
+}
+
 // The split: the game's (A9)
 
 /// One price, one referrer and one pool state: `sell` and `purchase` split it identically (the

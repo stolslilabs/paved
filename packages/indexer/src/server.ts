@@ -212,6 +212,12 @@ function route(url: URL): Read | null {
       parameters(url, []);
       return (queries, served) => ({ packs: queries.packs(served.number) });
     }
+    case "skins": {
+      if (parts.length !== 3) return null;
+      const p = parameters(url, [], ["theme"]);
+      const theme = p.theme === undefined ? undefined : integer(p.theme, "theme", 1, 255);
+      return (queries, served) => ({ theme: theme ?? null, prices: queries.skinPrices(served.number, theme) });
+    }
     case "definitions": {
       if (parts.length !== 3) return null;
       parameters(url, []);
@@ -252,6 +258,11 @@ function route(url: URL): Read | null {
         const player = playerId(a);
         parameters(url, []);
         return (queries, served) => queries.playerCobbles(served.number, player);
+      }
+      if (b === "skins" && parts.length === 5) {
+        const player = playerId(a);
+        parameters(url, []);
+        return (queries, served) => queries.playerSkins(served.number, player);
       }
       if (b === "packs" && parts.length === 5) {
         const player = playerId(a);

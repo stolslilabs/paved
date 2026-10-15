@@ -138,6 +138,14 @@ export const ev = {
     referrer: bigint | number,
     balance: number,
   ) => raw("setup", "PackBought", [player], [packId, cobbles, price, referrer, balance]),
+  /**
+   * Cobbles v1 part 3. `SkinPriced { theme, plan; cobbles }`, `SkinBought { player_id; theme, plan, cobbles, balance }`,
+   * `SkinsActivated { player_id; active }` (`active`: the packed word, the theme of plan p in byte p - 1; `skinWord` builds it).
+   */
+  skinPriced: (theme: number, plan: number, cobbles: number) => raw("setup", "SkinPriced", [theme, plan], [cobbles]),
+  skinBought: (player: bigint | number, theme: number, plan: number, cobbles: number, balance: number) =>
+    raw("setup", "SkinBought", [player], [theme, plan, cobbles, balance]),
+  skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
   /** Economy's `Sold { player_id; price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }` (u256 but the referrer). */
   sold: (
     player: bigint | number,
@@ -496,4 +504,11 @@ export class FakeNode {
         });
     }
   }
+}
+
+/** The `active` word of a `SkinsActivated` from `[plan, theme]` pairs (the last of a plan wins; the other plans stay 0, the default). */
+export function skinWord(pairs: readonly (readonly [number, number])[]): bigint {
+  const themes = new Array<number>(19).fill(0);
+  for (const [plan, theme] of pairs) themes[plan - 1] = theme;
+  return themes.reduceRight((word, theme) => (word << 8n) | BigInt(theme), 0n);
 }

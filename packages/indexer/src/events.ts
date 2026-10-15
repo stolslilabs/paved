@@ -185,6 +185,29 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /** The owner's price of the skin of `plan` in `theme` (`Setup.set_skin_price`, cobbles-v1.md 5.2); 0 withdraws it from sale. */
+      name: "SkinPriced";
+      theme: number;
+      plan: number;
+      cobbles: number;
+    }
+  | {
+      /** A skin bought for the player itself, once. `cobbles`: its price. `balance`: the player's cobbles after it. */
+      name: "SkinBought";
+      playerId: bigint;
+      theme: number;
+      plan: number;
+      cobbles: number;
+      balance: bigint;
+    }
+  | {
+      /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
+      name: "SkinsActivated";
+      playerId: bigint;
+      active: bigint;
+      themes: number[];
+    }
+  | {
       /** Economy's split of a pack's USDC (`Economy.sell`), emitted before `PackBought` in the same transaction. */
       name: "Sold";
       playerId: bigint;
@@ -227,6 +250,31 @@ export const MAX_TASKS = 3;
 export const MAX_CONDITIONS = 7;
 /** The highest pack id `Setup.set_pack` takes (cobbles-v1.md 2.2: 1 to 8). */
 export const MAX_PACK_ID = 8;
+/** The tile plans that have a skin: the `Plan` codes 1 to 19 (`Setup`'s `PLANS`, cobbles-v1.md 5.1). */
+export const SKIN_PLANS = 19;
+/** The price of a skin when set, in cobbles (`SKIN_PRICE_MIN` and `SKIN_PRICE_MAX` of `Setup`); 0 withdraws it. */
+export const SKIN_PRICE_MIN = 50;
+export const SKIN_PRICE_MAX = 100;
+
+/**
+ * The themes of a `SkinsActivated` word (`Setup`'s `active_word`): the theme of plan `p` in byte `p - 1`, 19 bytes, plan 1
+ * first. A word wider than 152 bits is not one the contract writes.
+ */
+export function unpackSkins(word: bigint): number[] {
+  if (word < 0n || word >= 1n << BigInt(8 * SKIN_PLANS)) {
+    throw new DecodeError(`active word ${word} is wider than ${SKIN_PLANS} bytes`);
+  }
+  return Array.from({ length: SKIN_PLANS }, (_, i) => Number((word >> BigInt(8 * i)) & 0xffn));
+}
+
+/** A theme (1 to 255) and a plan (1 to `SKIN_PLANS`) as `set_skin_price` and `buy_skin` take them. */
+function skin(name: EventName, theme: string | undefined, plan: string | undefined) {
+  const t = small(theme, 8, "theme");
+  const p = small(plan, 8, "plan");
+  if (t === 0) throw new DecodeError(`${name}: theme 0 is the default, it has no skin`);
+  if (p === 0 || p > SKIN_PLANS) throw new DecodeError(`${name}: plan ${p}, expected 1 to ${SKIN_PLANS}`);
+  return { theme: t, plan: p };
+}
 
 export type EventName = Decoded["name"];
 
@@ -255,6 +303,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   // Cobbles v1 part 2 (cobbles-v1.md, 2): the packs and their sales. SellerSet is owner configuration, skipped by name.
   PackSet: ["setup"],
   PackBought: ["setup"],
+  // Cobbles v1 part 3 (cobbles-v1.md, 5): the skins, priced, bought and activated.
+  SkinPriced: ["setup"],
+  SkinBought: ["setup"],
+  SkinsActivated: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -345,6 +397,9 @@ const INDEXED: readonly EventName[] = [
   "CreditSpent",
   "PackSet",
   "PackBought",
+  "SkinPriced",
+  "SkinBought",
+  "SkinsActivated",
   "Sold",
   "Purchased",
   "Recorded",
@@ -669,6 +724,36 @@ export function decode(
         referrer: felt(data[3]),
         balance: u64(data[4], "balance"),
       };
+    }
+    case "SkinPriced": {
+      // keys theme, plan; data cobbles (u8): 0 or 50 to 100
+      shape(name, keys, data, 2, 1);
+      const cobbles = small(data[0], 8, "cobbles");
+      if (cobbles !== 0 && (cobbles < SKIN_PRICE_MIN || cobbles > SKIN_PRICE_MAX)) {
+        throw new DecodeError(`${name}: price ${cobbles}, expected 0 or ${SKIN_PRICE_MIN} to ${SKIN_PRICE_MAX}`);
+      }
+      return { name, ...skin(name, keys[1], keys[2]), cobbles };
+    }
+    case "SkinBought": {
+      // key player_id; data theme (u8), plan (u8), cobbles (u8), balance (u64). A skin sold has a price of 50 to 100.
+      shape(name, keys, data, 1, 4);
+      const cobbles = small(data[2], 8, "cobbles");
+      if (cobbles < SKIN_PRICE_MIN || cobbles > SKIN_PRICE_MAX) {
+        throw new DecodeError(`${name}: price ${cobbles}, expected ${SKIN_PRICE_MIN} to ${SKIN_PRICE_MAX}`);
+      }
+      return {
+        name,
+        playerId: felt(keys[1]),
+        ...skin(name, data[0], data[1]),
+        cobbles,
+        balance: u64(data[3], "balance"),
+      };
+    }
+    case "SkinsActivated": {
+      // key player_id; data active (felt252): 19 bytes, the theme of plan p in byte p - 1
+      shape(name, keys, data, 1, 1);
+      const active = felt(data[0]);
+      return { name, playerId: felt(keys[1]), active, themes: unpackSkins(active) };
     }
     case "Sold":
       // key player_id; data price, referrer, referral, burned_quote, burned, margin, supply, vault_paved (u256 each, but the referrer)

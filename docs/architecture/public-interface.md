@@ -372,6 +372,12 @@ working.
     removed. `set_quest_cobbles` refuses two more cases (below).
   - An indexer that refuses unknown selectors must know `PackSet`, `PackBought`, `SellerSet` and `Sold` before the contracts
     that emit them are indexed.
+- **Cobbles v1, part 3** (P-61, `docs/architecture/cobbles-v1.md`; below, "Cobbles v1, part 3: skins (`Setup`)").
+  - `Setup` gains the interface `ISetupSkins`: `set_skin_price`, `buy_skin`, `set_skins` and the views `skin_price`, `skins`
+    and `active_skins`, and the events `SkinPriced`, `SkinBought` and `SkinsActivated`. `contracts/abis/Setup.json` is regenerated;
+    `Economy.json` is unchanged (`Economy.sell` gains an error, which is not in the ABI). No entry point changes signature and none is removed.
+  - An indexer that refuses unknown selectors must know `SkinPriced`, `SkinBought` and `SkinsActivated` before the contracts
+    that emit them are indexed.
 
 ## Breaking change D-18
 
@@ -1146,7 +1152,7 @@ Events of `Setup` (flat variants: the selector is the name):
 
 | Entry point | Who | What | Errors |
 |---|---|---|---|
-| `sell(player: ContractAddress, price: u256, referrer: ContractAddress, min_out: u256) -> ContractAddress` | the seller (`Setup`) | splits a price already on `Economy` as `purchase` does, through the same code, with no game; returns the referrer that counted, or zero | `'Economy: not the seller'`, `'Economy: zero address'`, `'Economy: wrong price'` (zero), `'Economy: price not paid'`, `'Economy: swap below min_out'`, `'Economy: partial fill'` |
+| `sell(player: ContractAddress, price: u256, referrer: ContractAddress, min_out: u256) -> ContractAddress` | the seller (`Setup`) | splits a price already on `Economy` as `purchase` does, through the same code, with no game; returns the referrer that counted, or zero | `'Economy: not the seller'`, `'Economy: zero address'`, `'Economy: wrong price'` (zero), `'Economy: price too small'` (a price whose burn quote rounds to 0: under 2 base units at the decided split), `'Economy: price not paid'`, `'Economy: swap below min_out'`, `'Economy: partial fill'` |
 | `set_seller(seller: ContractAddress)` | owner, once | the seller | `'Economy: seller already set'`, `'Economy: zero address'` |
 | `seller() -> ContractAddress` (view) | anyone | the seller, zero until set | |
 
@@ -1162,3 +1168,39 @@ Events of `Economy` (each variant named as its struct, whose name is the selecto
 **For the indexer.** `PackBought` (on `Setup`) and `Sold` (on `Economy`) come in the same transaction, `Sold` first: join them on
 the transaction hash (and `player_id`). `Sold` carries the referral as `Purchased` does, so a referrer's totals sum `Purchased`
 and `Sold`.
+
+## Cobbles v1, part 3: skins (`Setup`)
+
+Built from `docs/architecture/cobbles-v1.md` (P-61), part 3. A skin is a tile plan (the `Plan` codes 1 to 19) in a theme (1 to
+255; theme 0 is the default, free and owned by everyone). The owner prices it in cobbles, the player buys it once for itself,
+and sets which owned skin is active for each plan. Cobbles are spent here and nowhere else.
+
+### `Setup` (`paved::systems::setup::ISetupSkins`, impl `SetupSkinsImpl`)
+
+| Entry point | Who | What | Errors |
+|---|---|---|---|
+| `set_skin_price(theme: u8, plan: u8, cobbles: u8)` | owner | prices a skin: `theme` 1 to 255, `plan` 1 to 19, `cobbles` 50 to 100, or 0 to withdraw it from sale (what is owned stays owned) | `'Setup: invalid skin'` (theme 0, plan 0 or above 19), `'Setup: invalid cobbles'`, `'Ownable: caller is not owner'` |
+| `buy_skin(theme: u8, plan: u8)` | the player, for itself | spends the skin's price and sets its bit in the caller's skins of the theme, in one transaction; does not activate it | `'Setup: skin not for sale'` (price 0: never set, withdrawn, or an id out of range), `'Setup: skin owned'`, `'Setup: not enough cobbles'` |
+| `set_skins(changes: Span<(u8, u8)>)` | the player, for itself | sets the active theme of each `(plan, theme)`: theme 0 always, any other only if the caller owns that skin; one write for the batch, the last change of a plan wins | `'Setup: invalid skin'` (a plan outside 1 to 19), `'Setup: skin not owned'` (the whole batch reverts) |
+| `skin_price(theme: u8, plan: u8) -> u8` (view) | anyone | the price in cobbles; 0: not for sale | |
+| `skins(player_id: felt252, theme: u8) -> u32` (view) | anyone | the skins a player owns in a theme: bit `p` is the skin of plan `p` (bit 0 is unused) | |
+| `active_skins(player_id: felt252) -> Array<u8>` (view) | anyone | 19 theme ids, plan 1 first; 0 the default theme | |
+
+Events of `Setup` (flat variants: the selector is the name):
+
+| Event | Keys | Data |
+|---|---|---|
+| `SkinPriced` | `theme: u8`, `plan: u8` | `cobbles: u8` |
+| `SkinBought` | `player_id: felt252` | `theme: u8`, `plan: u8`, `cobbles: u8` (the price), `balance: u64` (the cobbles after) |
+| `SkinsActivated` | `player_id: felt252` | `active: felt252` (the packed word: the theme of plan `p` in byte `p - 1`, 152 bits) |
+
+**For the indexer and the client.**
+
+- Store `SkinPriced` as the price of `(theme, plan)` (0: not for sale), `SkinBought` as the bit `plan` of the player's owned word of
+  `theme` (and `balance` as the player's cobbles), and `SkinsActivated` as the player's whole active set: it replaces the
+  previous word, so the stored set is the last event's. Unpack it as 19 bytes, plan `p` at bits `[8 (p - 1), 8 p)`; byte 0 is
+  the default theme. The views `skin_price`, `skins` and `active_skins` give the same values.
+- The board renders each player's tiles with that player's active skin of the tile's plan (theme 0: the default art). Which
+  variant of a plan's art a tile shows is the client's choice, deterministic per tile, with nothing on chain.
+- Theme 1 is Forest; the fresh deployment prices its 19 plans (`FRESH_SKIN_THEMES` in `deploy.sh`). A theme with no `SkinPriced`
+  sells nothing.

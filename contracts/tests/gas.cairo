@@ -38,7 +38,8 @@ use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
-    ISetupPacksDispatcher, ISetupPacksDispatcherTrait,
+    ISetupPacksDispatcher, ISetupPacksDispatcherTrait, ISetupSkinsDispatcher,
+    ISetupSkinsDispatcherTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -113,6 +114,14 @@ pub const CEILING_FREE_GAME_OVER: u128 = 1848236;
 pub const CEILING_BUY_PACK: u128 = 9897659;
 pub const CEILING_BUY_PACK_REFERRED: u128 = 10814792;
 pub const CEILING_SET_PACK: u128 = 327873;
+// Cobbles v1, part 3 (P-61): z10, `buy_pack` as the first sale of a block; z11 `buy_skin`, z12 and
+// z13 `set_skins` (1 and 19 changes), z14 `set_skin_price` (measured + 5 %,
+// `docs/measures/baseline.md`, "After cobbles v1, part 3").
+pub const CEILING_BUY_PACK_FIRST_OF_BLOCK: u128 = 10264035;
+pub const CEILING_BUY_SKIN: u128 = 697961;
+pub const CEILING_SET_SKINS_1: u128 = 479549;
+pub const CEILING_SET_SKINS_19: u128 = 2789690;
+pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -738,4 +747,80 @@ fn test_gas_z9_set_pack() {
     packs.set_pack(5, 2000, 130_000_000, true);
     let after = get_available_gas();
     report("z9_set_pack", before - after, CEILING_SET_PACK);
+}
+
+/// z10. z7 as the first sale of a block (part 2's note p4): the block's time moves on by one second
+/// after the spawn, so `Economy` writes the guard's rate, which z7 (the spawn's own block) does
+/// not.
+#[test]
+fn test_gas_z10_buy_pack_first_sale_of_a_block() {
+    let (_, packs) = packs_scenario();
+    start_cheat_block_timestamp_global(starknet::get_block_timestamp() + 1);
+    let before = get_available_gas();
+    packs.buy_pack(4, Zero::zero(), 0);
+    let after = get_available_gas();
+    report("z10_buy_pack_first_of_block", before - after, CEILING_BUY_PACK_FIRST_OF_BLOCK);
+}
+
+/// `PLAYER` holds the 1,000 cobbles of pack 4, theme 1 is priced 50 for the 19 plans, and `Setup`
+/// is called by `PLAYER`.
+fn skins_scenario() -> (Systems, ISetupSkinsDispatcher) {
+    let (systems, packs) = packs_scenario();
+    packs.buy_pack(4, Zero::zero(), 0);
+    let skins = ISetupSkinsDispatcher { contract_address: systems.setup.contract_address };
+    start_cheat_caller_address(systems.setup.contract_address, OWNER());
+    for plan in 1..20_u8 {
+        skins.set_skin_price(1, plan, 50);
+    }
+    start_cheat_caller_address(systems.setup.contract_address, PLAYER());
+    (systems, skins)
+}
+
+/// z11. `buy_skin`: the price, the owned word and the account read, two writes, one event.
+#[test]
+fn test_gas_z11_buy_skin() {
+    let (_, skins) = skins_scenario();
+    let before = get_available_gas();
+    skins.buy_skin(1, 7);
+    let after = get_available_gas();
+    report("z11_buy_skin", before - after, CEILING_BUY_SKIN);
+}
+
+/// z12. `set_skins` with 1 change: the owned word of the theme and the active word read, the
+/// active word written, one event.
+#[test]
+fn test_gas_z12_set_skins_1() {
+    let (_, skins) = skins_scenario();
+    skins.buy_skin(1, 7);
+    let before = get_available_gas();
+    skins.set_skins(array![(7, 1)].span());
+    let after = get_available_gas();
+    report("z12_set_skins_1", before - after, CEILING_SET_SKINS_1);
+}
+
+/// z13. `set_skins` with 19 changes of one theme (the 19 plans owned): still one read of the
+/// theme's owned word and one write of the active word.
+#[test]
+fn test_gas_z13_set_skins_19() {
+    let (_, skins) = skins_scenario();
+    let mut changes: Array<(u8, u8)> = array![];
+    for plan in 1..20_u8 {
+        skins.buy_skin(1, plan);
+        changes.append((plan, 1));
+    }
+    let before = get_available_gas();
+    skins.set_skins(changes.span());
+    let after = get_available_gas();
+    report("z13_set_skins_19", before - after, CEILING_SET_SKINS_19);
+}
+
+/// z14. `set_skin_price` by the owner, a new price: one write, one event.
+#[test]
+fn test_gas_z14_set_skin_price() {
+    let (systems, skins) = skins_scenario();
+    start_cheat_caller_address(systems.setup.contract_address, OWNER());
+    let before = get_available_gas();
+    skins.set_skin_price(2, 7, 75);
+    let after = get_available_gas();
+    report("z14_set_skin_price", before - after, CEILING_SET_SKIN_PRICE);
 }

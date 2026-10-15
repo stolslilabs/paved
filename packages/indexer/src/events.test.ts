@@ -10,9 +10,11 @@ import {
   canonical,
   decode,
   padded,
+  SKIN_PLANS,
+  unpackSkins,
 } from "./events.ts";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
-import { ev, raw } from "./testing/fake-node.ts";
+import { ev, raw, skinWord } from "./testing/fake-node.ts";
 
 type AbiItem = {
   type: string;
@@ -760,5 +762,131 @@ describe("Cobbles v1 part 2 events (the packs and their sales, cobbles-v1.md sec
     const wide = raw("economy", "Sold", [0x1234], [2n ** 128n, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(() => decode("economy", wide.keys, wide.data)).toThrow(DecodeError);
     expect(() => decode("setup", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+});
+
+describe("Cobbles v1 part 3 events (the skins, cobbles-v1.md section 5)", () => {
+  const SETUP_SOURCE = resolve(import.meta.dirname, "../../../contracts/src/systems/setup.cairo");
+  /** The members of an event struct of `setup.cairo`, `name: type` each, split into keys and data in declared order. */
+  const inSource = (name: string) => {
+    const match = new RegExp(`pub struct ${name} \\{([^}]*)\\}`).exec(readFileSync(SETUP_SOURCE, "utf8"));
+    expect(match, `${name} in setup.cairo`).not.toBeNull();
+    const keys: string[] = [];
+    const data: string[] = [];
+    let key = false;
+    for (const line of match![1]!.split("\n").map((l) => l.trim())) {
+      if (line === "#[key]") key = true;
+      else if (line.startsWith("pub ")) {
+        (key ? keys : data).push(line.replace(/^pub /, "").replace(/,$/, ""));
+        key = false;
+      }
+    }
+    return { keys, data };
+  };
+  const abiHas = (name: string) =>
+    abi("Setup").some((found) => found.type === "event" && found.kind === "struct" && shortOf(found) === name);
+
+  test("the contract declares the three events with the keys and data the decoders read, and one emitter each", () => {
+    const expected = {
+      SkinPriced: { keys: ["theme: u8", "plan: u8"], data: ["cobbles: u8"] },
+      SkinBought: { keys: ["player_id: felt252"], data: ["theme: u8", "plan: u8", "cobbles: u8", "balance: u64"] },
+      SkinsActivated: { keys: ["player_id: felt252"], data: ["active: felt252"] },
+    };
+    for (const [name, shape] of Object.entries(expected)) {
+      expect(inSource(name), name).toEqual(shape);
+      // The committed ABI follows the source once CORE regenerates it (scripts/abis.sh): when it declares the event, it says the same.
+      if (abiHas(name)) {
+        const item = abi("Setup").find((found) => found.type === "event" && shortOf(found) === name)!;
+        const members = (kind: string) => item.members!.filter((m) => m.kind === kind).map((m) => `${m.name}: ${m.type.split("::").at(-1)}`);
+        expect({ keys: members("key"), data: members("data") }, `${name} in the ABI`).toEqual(shape);
+      }
+      expect(EMITTERS[name as keyof typeof EMITTERS]).toEqual(["setup"]);
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(false);
+      expect(SELECTORS[name as keyof typeof SELECTORS]).toBe(canonical(hash.getSelectorFromName(name)));
+    }
+  });
+
+  test("SkinPriced", () => {
+    const e = ev.skinPriced(1, 19, 100);
+    expect(decode("setup", e.keys, e.data)).toEqual({ name: "SkinPriced", theme: 1, plan: 19, cobbles: 100 });
+    const top = ev.skinPriced(255, 1, 50);
+    expect(decode("setup", top.keys, top.data)).toMatchObject({ theme: 255, plan: 1, cobbles: 50 });
+    // 0 withdraws a skin from sale
+    const off = ev.skinPriced(2, 7, 0);
+    expect(decode("setup", off.keys, off.data)).toMatchObject({ theme: 2, plan: 7, cobbles: 0 });
+    // theme 0 (the default has no skin), plan 0 or 20, a price the contract refuses (1 to 49, 101 and up), a wider theme, a missing member
+    for (const bad of [
+      ev.skinPriced(0, 1, 50),
+      ev.skinPriced(1, 0, 50),
+      ev.skinPriced(1, 20, 50),
+      ev.skinPriced(1, 1, 49),
+      ev.skinPriced(1, 1, 101),
+      ev.skinPriced(256, 1, 50),
+      ev.skinPriced(1, 1, 256),
+    ]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, [])).toThrow(DecodeError);
+    expect(() => decode("setup", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
+  test("SkinBought", () => {
+    const e = ev.skinBought(0x1234, 1, 19, 100, 2 ** 40);
+    expect(decode("setup", e.keys, e.data)).toEqual({
+      name: "SkinBought",
+      playerId: 0x1234n,
+      theme: 1,
+      plan: 19,
+      cobbles: 100,
+      balance: 2n ** 40n,
+    });
+    // the balance can be 0: the skin took the last cobbles
+    const last = ev.skinBought(0x1234, 255, 1, 50, 0);
+    expect(decode("setup", last.keys, last.data)).toMatchObject({ theme: 255, plan: 1, balance: 0n });
+    // theme 0, plan 0 or 20, a price of 0 (not for sale) or out of 50 to 100, a balance above 2^53, a missing member
+    for (const bad of [
+      ev.skinBought(0x1234, 0, 1, 50, 5),
+      ev.skinBought(0x1234, 1, 0, 50, 5),
+      ev.skinBought(0x1234, 1, 20, 50, 5),
+      ev.skinBought(0x1234, 1, 1, 0, 5),
+      ev.skinBought(0x1234, 1, 1, 49, 5),
+      ev.skinBought(0x1234, 1, 1, 101, 5),
+      ev.skinBought(0x1234, 1, 1, 50, 2 ** 60),
+    ]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, e.data.slice(0, 3))).toThrow(DecodeError);
+    expect(() => decode("setup", e.keys, [...e.data, "0x0"])).toThrow(DecodeError);
+    expect(() => decode("challenge", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
+  test("SkinsActivated: the packed word, theme of plan p in byte p - 1", () => {
+    // all 19 plans, each with its own theme (plan p shows theme p + 100), plan 1 in the lowest byte
+    const all = Array.from({ length: SKIN_PLANS }, (_, i) => [i + 1, i + 101] as const);
+    const e = ev.skinsActivated(0x1234, skinWord(all));
+    const decoded = decode("setup", e.keys, e.data);
+    expect(decoded).toMatchObject({ name: "SkinsActivated", playerId: 0x1234n });
+    expect(decoded && "themes" in decoded && decoded.themes).toEqual(all.map(([, theme]) => theme));
+    expect(skinWord(all) & 0xffn).toBe(101n); // plan 1 in byte 0
+    expect(skinWord(all) >> 144n).toBe(119n); // plan 19 in byte 18, the top byte
+    // theme 0 is the default: the all-default word is 0, and a plan set back to 0 reads 0
+    const none = ev.skinsActivated(0x1234, 0);
+    expect(decode("setup", none.keys, none.data)).toMatchObject({ active: 0n, themes: new Array(19).fill(0) });
+    const mixed = ev.skinsActivated(0x1234, skinWord([[1, 0], [2, 3], [19, 255]]));
+    expect(decode("setup", mixed.keys, mixed.data)).toMatchObject({
+      themes: [0, 3, ...new Array(16).fill(0), 255],
+    });
+    // the top plan id alone, theme 255: the widest word the contract writes, 2^152 - 2^144
+    const top = ev.skinsActivated(0x1234, skinWord([[19, 255]]));
+    expect(decode("setup", top.keys, top.data)).toMatchObject({ active: 255n << 144n });
+    expect(unpackSkins(2n ** 152n - 1n)).toEqual(new Array(19).fill(255));
+    // a word wider than 19 bytes is no word of the contract; a missing member or an extra one
+    const wide = ev.skinsActivated(0x1234, 2n ** 152n);
+    expect(() => decode("setup", wide.keys, wide.data)).toThrow(DecodeError);
+    expect(() => unpackSkins(2n ** 152n)).toThrow(DecodeError);
+    expect(() => decode("setup", e.keys, [])).toThrow(DecodeError);
+    expect(() => decode("setup", e.keys, [...e.data, "0x0"])).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys, e.data)).toThrow(/does not emit it/);
   });
 });
