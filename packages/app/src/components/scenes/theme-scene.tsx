@@ -107,7 +107,8 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
         </TabsList>
       </Tabs>
 
-      {!theme.available || !onSale ? (
+      {/* Price 0 withdraws a skin from sale, not from its owner (gems-v1.md 5.2): an unpriced theme with owned skins keeps its grid. */}
+      {!theme.available || (!onSale && skins.owned === 0) ? (
         <div data-slot="card" className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-10 text-center">
           <Icon name="lock" size="xl" className="text-muted-foreground" />
           <p className="text-sm font-semibold">{theme.name} skins: coming soon</p>

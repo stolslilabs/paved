@@ -73,5 +73,8 @@ export const AllActive: Story = { args: THEME.allActive };
 /** Snow: not priced yet, coming soon. */
 export const ComingSoon: Story = { args: THEME.comingSoon };
 
+/** Forest withdrawn from sale with four skins owned: the owned ones stay and switch, the others are not for sale. */
+export const OwnedUnpriced: Story = { args: THEME.ownedUnpriced };
+
 /** WRAP360: the largest Cobble balance. */
 export const SkinsStress: Story = { args: THEME.skinsStress };

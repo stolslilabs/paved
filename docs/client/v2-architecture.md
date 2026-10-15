@@ -992,7 +992,7 @@ them as scenes on typed mocks, no wiring:
 claimable, and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
 `claim_weekly_credit`), then a credit counter and Play free; **achievements** show their Cobbles (their points; On the
 Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
-(`spawn_free`); the **leaderboard** marks a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+(`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
 ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
 `components/containers/cobble-types.ts`, provisional until CORE's ABI, and keep CORE's `gems` field names where they
 mirror an ABI shape until the rename PR. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's

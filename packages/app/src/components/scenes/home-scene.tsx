@@ -37,7 +37,9 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
-  /** The Cobble balance and free games; omitted for a guest or before Cobbles. */
+  /** The players of today's top 3 whose best game was free (P-61), marked as on the Leaderboard. */
+  free?: readonly string[];
+  /** The Cobbles balance and free games; omitted for a guest or before Cobbles. */
   cobbles?: HomeCobbles | null;
   onPlay?: () => void;
   /** Spends a free game (`Challenge.spawn_free`). */
@@ -133,7 +135,7 @@ export function HomeScene(props: HomeSceneProps) {
                 <span>Today's top 3</span>
                 <Countdown expiresAt={leaderboard.endTime} now={now} label="Ends in" />
               </div>
-              <TopThree entries={leaderboard.entries} viewer={player?.today} />
+              <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
             </div>
           </ModeCard>
         </div>

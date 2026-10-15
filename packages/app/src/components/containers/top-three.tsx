@@ -53,14 +53,16 @@ export interface TopThreeRowProps {
   entry: LeaderboardEntry;
   /** The viewer's own row: outlined in gold. */
   self?: boolean;
+  /** Its best game was a free one: marked "Free" (`RankCells`). */
+  free?: boolean;
   className?: string;
 }
 
 /** One ranked player of the podium list. */
-export function TopThreeRow({ entry, self, className }: TopThreeRowProps) {
+export function TopThreeRow({ entry, self, free, className }: TopThreeRowProps) {
   return (
     <li className={cn(rankRowClass(self), className)}>
-      <RankCells entry={entry} self={self} />
+      <RankCells entry={entry} self={self} free={free} />
     </li>
   );
 }
@@ -69,11 +71,13 @@ export interface TopThreeProps {
   entries: LeaderboardEntry[];
   /** The viewer's row when they are not on the podium. */
   viewer?: LeaderboardEntry | null;
+  /** The players whose best game of the day was free (P-61), as the Leaderboard's `free`. */
+  free?: readonly string[];
   className?: string;
 }
 
 /** Today's Challenge top 3 (`/v1/tournaments/:day/leaderboard`), then the viewer's own rank if lower. */
-export function TopThree({ entries, viewer, className }: TopThreeProps) {
+export function TopThree({ entries, viewer, free, className }: TopThreeProps) {
   const podium = entries.slice(0, 3);
   if (podium.length === 0) {
     return <p className={cn("rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground", className)}>No finished game today yet. The first score takes the crown.</p>;
@@ -82,9 +86,9 @@ export function TopThree({ entries, viewer, className }: TopThreeProps) {
   return (
     <ol className={cn("flex flex-col gap-1.5", className)} aria-label="Today's top 3">
       {podium.map((e) => (
-        <TopThreeRow key={e.playerId} entry={e} self={viewer?.playerId === e.playerId} />
+        <TopThreeRow key={e.playerId} entry={e} self={viewer?.playerId === e.playerId} free={free?.includes(e.playerId)} />
       ))}
-      {showViewer && <TopThreeRow entry={viewer} self className="mt-1" />}
+      {showViewer && <TopThreeRow entry={viewer} self free={free?.includes(viewer.playerId)} className="mt-1" />}
     </ol>
   );
 }

@@ -82,7 +82,7 @@ export const HOME = {
   /** P-61: the Cobble balance in the header, no free game. */
   cobbles: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
   /** P-61: two free games from the quests: Free game spends one. */
-  freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
+  freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 }, free: [LEADERBOARD_TODAY.entries[1].playerId] },
   /** WRAP360: the longest username, the widest balances and scores, a podium of long names and a full address. */
   stress: {
     player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3], usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18 },
@@ -296,6 +296,8 @@ export const THEME = {
   allActive: { ...themeBase, skins: { ...forestSkins, owned: ownedPlans(...ALL_PLANS), active: activeOn(FOREST, ...ALL_PLANS) } },
   /** Snow: its art is not in, so nothing is priced: coming soon. */
   comingSoon: { ...themeBase, skins: { ...forestSkins, theme: "snow", prices: NO_PRICES, owned: 0 } },
+  /** Forest withdrawn from sale (every price 0) with four skins owned: they stay, switchable; the others say "Not for sale". */
+  ownedUnpriced: { ...themeBase, skins: { ...forestSkins, prices: NO_PRICES } },
   /** WRAP360: the largest Cobble balance. */
   skinsStress: { ...themeBase, skins: { ...forestSkins, balance: BIG_NUMBER, changes: { 1: FOREST } } },
 } satisfies Record<string, Data<ThemeSceneProps>>;

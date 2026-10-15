@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
-import { formatUsd } from "../src/components/containers/cobble-packs";
+import { CobblePacks, formatUsd } from "../src/components/containers/cobble-packs";
 import { PLANS, applySkinChanges, isClaimed, packDiscount, referencePrice, toggleSkin } from "../src/components/containers/cobble-types";
 import { SkinGrid } from "../src/components/containers/skin-grid";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
@@ -137,6 +137,12 @@ describe("Purchase: Cobbles", () => {
     expect(onTab).toHaveBeenCalledWith("cobbles");
   });
 
+  it("skips a pack of 0 Cobbles or at 0 USDC", () => {
+    const packs = [...PACKS, { packId: 5, gems: 0, price: 1_000_000n, active: true }, { packId: 6, gems: 10, price: 0n, active: true }];
+    render(wrap(<CobblePacks packs={packs} selected={null} />));
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+  });
+
   it("shows no tab without Cobbles", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
@@ -208,12 +214,26 @@ describe("Theme: skins", () => {
     expect(within(cell("rfffrfffr")).getByRole("button", { name: /^Buy/ })).toBeEnabled();
     expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toBeDisabled();
     expect(cell("ccccccccc")).toHaveTextContent("Need 40 more");
+    expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toHaveAccessibleDescription("Need 40 more");
+    expect(within(cell("rfrfffffr")).getByRole("button", { name: /^Buy/ })).not.toHaveAttribute("aria-describedby");
   });
 
   it("shows a purchase on its way, the other skins waiting", () => {
     render(wrap(<ThemeScene {...THEME.buying} />));
     expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toHaveAttribute("aria-busy", "true");
     expect(within(cell("cccccfffc")).getByRole("button", { name: /^Buy/ })).toBeDisabled();
+  });
+
+  it("keeps owned skins on a theme withdrawn from sale, the others not for sale", async () => {
+    const onToggleSkin = vi.fn();
+    render(wrap(<ThemeScene {...THEME.ownedUnpriced} onToggleSkin={onToggleSkin} />));
+    expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Skins" })).getAllByRole("listitem")).toHaveLength(19);
+    expect(cell("rfrfffffr")).toHaveAttribute("data-state", "active");
+    expect(cell("ccccccccc")).toHaveTextContent("Not for sale");
+    expect(screen.queryByRole("button", { name: /^Buy/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "Tile ffffcccff skin active" }));
+    expect(onToggleSkin).toHaveBeenCalledWith(7);
   });
 
   it("counts the whole set", () => {
@@ -328,6 +348,13 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
     render(wrap(<PlayScene {...PLAY.freeGame} onPlayFree={onPlayFree} />));
     await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));
     expect(onPlayFree).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks a free game in Home's top 3, as the Leaderboard does", () => {
+    render(wrap(<HomeScene {...HOME.freeGame} />));
+    const podium = within(screen.getByRole("list", { name: "Today's top 3" })).getAllByRole("listitem");
+    expect(podium[1]).toHaveTextContent("Free");
+    expect(podium.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
   });
 
   it("marks a free game's row Free, ranked like any other", () => {

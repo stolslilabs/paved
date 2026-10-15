@@ -23,5 +23,5 @@ export const PurchasesPaused: Story = { args: HOME.paused };
 export const Stress: Story = { args: HOME.stress };
 /** P-61: the Cobble balance in the header. */
 export const Cobbles: Story = { args: HOME.cobbles };
-/** P-61: two free games from the quests: Free game spends one. */
+/** P-61: two free games from the quests: Free game spends one. The second of the top 3 played a free game: marked Free, as on the Leaderboard. */
 export const FreeGame: Story = { args: HOME.freeGame };

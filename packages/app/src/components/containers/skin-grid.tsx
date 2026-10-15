@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -40,6 +41,8 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
   const name = `Tile ${planCode(plan).toLowerCase()}`;
   const short = price - balance;
   const forSale = price > 0;
+  const reasonId = useId();
+  const reason = forSale && !buying && short > 0;
   return (
     <li
       data-state={state}
@@ -56,12 +59,16 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
         <div className="flex flex-col gap-1.5">
           {forSale ? <Cobbles value={price} size="sm" /> : <span className="text-xs text-muted-foreground">Not for sale</span>}
           {forSale && (
-            <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} Cobbles`}>
+            <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} Cobbles`} aria-describedby={reason ? reasonId : undefined}>
               {/* The spinner says it is on its way; a longer label would not fit a 320 px row of three (WRAP360). */}
               Buy
             </Button>
           )}
-          {forSale && !buying && short > 0 && <span className="text-[11px] text-warning">Need {short} more</span>}
+          {reason && (
+            <span id={reasonId} className="text-[11px] text-warning">
+              Need {short} more
+            </span>
+          )}
         </div>
       ) : (
         // Stacked: in a 360 px row of three, the switch beside its label would leave the label too narrow (WRAP360).

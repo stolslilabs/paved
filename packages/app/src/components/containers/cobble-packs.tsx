@@ -66,12 +66,13 @@ export interface CobblePacksProps {
   className?: string;
 }
 
-/** The packs on sale (`active`), smallest first: two columns from the phone, four from `desktop`. */
+/** The packs on sale (`active`, with Cobbles and a price), smallest first: two columns from the phone, four from `desktop`. */
 export function CobblePacks({ packs, selected, disabled, onSelect, className }: CobblePacksProps) {
   return (
     <div role="radiogroup" aria-label="Cobble packs" className={cn("grid grid-cols-1 gap-3 mobile:grid-cols-2", className)}>
       {packs
-        .filter((p) => p.active)
+        // A pack of 0 Cobbles or at 0 USDC is no pack: its price per Cobble and its discount would divide by zero.
+        .filter((p) => p.active && p.gems > 0 && p.price > 0n)
         .map((p) => (
           <PackCard key={p.packId} pack={p} selected={p.packId === selected} disabled={disabled} onSelect={onSelect} />
         ))}
