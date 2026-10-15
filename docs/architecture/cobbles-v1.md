@@ -277,7 +277,7 @@ Two other systems change:
 `Collection`, `Vault`, `PavedToken` and `Faucet` do not change.
 
 **Reversal:** a `Shop` system holding the packs and the skins, if `Setup`'s CASM passes 50 % of the cap. That costs a
-trusted `Setup` call per cobble spend.
+trusted `Setup` call per cobble spend. P-64 (`docs/programme/DECISIONS.md`) replaced that 50 % trigger by a review point: a design that adds to `Setup` states its projected CASM share, and the split is part of the design if it crosses 50 %.
 
 ### 1.2 New storage of `Setup`
 
@@ -1026,7 +1026,7 @@ An auditor checks these properties, each against the code and the tests above:
 ### Decided within the rulings (each with what reverses it)
 
 1. **Everything in `Setup`**, after Glitchbomb's layout; `Challenge` gains `spawn_free`; `Economy` gains `sell`.
-   Reversal: a separate `Shop` system if `Setup`'s CASM passes 50 % of the cap.
+   Reversal: a separate `Shop` system if `Setup`'s CASM passes 50 % of the cap. P-64 replaced that trigger by a review point: a design that adds to `Setup` states its projected CASM share, and the split is part of the design if it crosses 50 %.
 2. **The proof of claims is `Setup`'s own ledger**: one slot per (player, day), one per (player, week), and one per
    player, written by the report. It is not quiver's storage mode, which is above the P-22 guard, and not the indexer,
    which would be a trusted minter. Reversal: the measured report cost passes the guard; then the weekly slot goes, and a
