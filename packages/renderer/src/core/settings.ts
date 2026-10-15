@@ -73,10 +73,13 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
  */
 export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1 } as const;
 
-/** A viewport whose shorter side is at most this many CSS px is a small screen (a phone, held either way). */
+/**
+ * A window or screen whose shorter side is at most this many CSS px is a small screen (a phone, held either way). The
+ * window's, not the board's: a short board panel in a large window is not a small screen.
+ */
 export const SMALL_SCREEN_PX = 600;
 
-/** What `"auto"` reads of the device: a coarse (touch) pointer, and the viewport's size in CSS px. */
+/** What `"auto"` reads of the device: a coarse (touch) pointer, and the window's or screen's size in CSS px. */
 export interface PixelRatioDevice {
   coarsePointer: boolean;
   width: number;

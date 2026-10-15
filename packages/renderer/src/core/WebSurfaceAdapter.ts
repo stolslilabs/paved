@@ -33,13 +33,19 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
     return window.devicePixelRatio;
   }
 
+  /** The window's layout viewport: a docked board panel or devtools do not make the screen small. */
+  getViewportSize(): SurfaceSize {
+    return { width: window.innerWidth, height: window.innerHeight };
+  }
+
   hasCoarsePointer(): boolean {
     return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
   }
 
   /**
-   * Calls `cb` when the canvas's container changes size, and when the device pixel ratio changes (the window moved to
-   * another screen, the page zoomed). The container is observed, not the canvas: the canvas fills it (CSS 100 %), and a
+   * Calls `cb` when the canvas's container changes size, when the window does (the small-screen test of
+   * `maxPixelRatio: "auto"` reads the window), and when the device pixel ratio changes (the window moved to another
+   * screen, the page zoomed). The container is observed, not the canvas: the canvas fills it (CSS 100 %), and a
    * canvas whose CSS size was ever pinned in px would never report a change. Returns the unsubscribe.
    */
   onResize(cb: () => void): () => void {
@@ -59,9 +65,12 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
       query?.addEventListener("change", onRatio);
     };
     armRatio();
+    const onWindow = () => cb();
+    window.addEventListener?.("resize", onWindow);
 
     const stop = () => {
       observer.disconnect();
+      window.removeEventListener?.("resize", onWindow);
       query?.removeEventListener("change", onRatio);
       query = null;
       if (this.stopResize === stop) this.stopResize = null;

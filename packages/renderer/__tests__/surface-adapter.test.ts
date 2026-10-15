@@ -187,6 +187,19 @@ describe("RenderSurfaceAdapter integration", () => {
     }
   });
 
+  it("reads the window's size for \"auto\", not the board's: a short panel in a large window is no small screen", async () => {
+    for (const [size, viewport, expected] of [
+      [{ width: 1440, height: 300 }, { width: 1440, height: 900 }, 1], // a short board panel (docked devtools) on a desktop
+      [{ width: 1440, height: 900 }, { width: 390, height: 844 }, 2], // the window is a phone's, whatever the surface says
+    ] as const) {
+      const { surface } = createSurfaceAdapter(size, 2);
+      surface.getViewportSize = () => viewport;
+      const { scene, renderer } = createSceneHarness();
+      await scene.init({ surface, shadows: false });
+      expect(renderer.setPixelRatio, `surface ${size.width}x${size.height}, window ${viewport.width}x${viewport.height}`).toHaveBeenLastCalledWith(expected);
+    }
+  });
+
   it("re-reads the \"auto\" cap on a resize: a window narrowed to a phone's width gets the small screen's cap", async () => {
     const adapter = createSurfaceAdapter({ width: 1440, height: 900 }, 2);
     const { scene, renderer } = createSceneHarness();

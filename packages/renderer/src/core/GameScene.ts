@@ -245,10 +245,13 @@ export class GameScene {
     this.updateTiles(this.latestTiles);
   }
 
-  /** The surface's pixel ratio, capped at `maxPixelRatio` (for `"auto"`, the cap of this device and viewport). */
+  /**
+   * The surface's pixel ratio, capped at `maxPixelRatio` (for `"auto"`, the cap of this device and of the window or
+   * screen it is shown in, not of the surface's own size).
+   */
   private cappedPixelRatio(): number {
     const surface = this.surface!;
-    const { width, height } = surface.getSize();
+    const { width, height } = surface.getViewportSize?.() ?? surface.getSize();
     const cap = resolveMaxPixelRatio(this.settings.maxPixelRatio, { coarsePointer: surface.hasCoarsePointer?.() ?? false, width, height });
     return capPixelRatio(surface.getDevicePixelRatio(), cap);
   }

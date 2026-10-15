@@ -7,6 +7,8 @@ import type {
 export interface NativeSurfaceHost {
   getSize(): SurfaceSize;
   getDevicePixelRatio(): number;
+  /** The screen's size in CSS px (dp), for the small-screen test of `maxPixelRatio: "auto"`; unset, `getSize()`. */
+  getViewportSize?(): SurfaceSize;
   onResize(cb: () => void): () => void;
   setInputHandler(handler: ((event: SurfaceInputEvent) => void) | null): void;
   getRenderTarget?(): unknown;
@@ -25,6 +27,10 @@ export class NativeSurfaceAdapter implements RenderSurfaceAdapter {
 
   getDevicePixelRatio(): number {
     return this.host.getDevicePixelRatio();
+  }
+
+  getViewportSize(): SurfaceSize {
+    return this.host.getViewportSize?.() ?? this.host.getSize();
   }
 
   /** React Native runs on touch screens. */

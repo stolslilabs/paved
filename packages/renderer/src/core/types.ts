@@ -46,6 +46,11 @@ export interface RenderSurfaceAdapter {
   getDevicePixelRatio(): number;
   /** Whether the main pointer is coarse (touch). Unset: not coarse. `maxPixelRatio: "auto"` reads it. */
   hasCoarsePointer?(): boolean;
+  /**
+   * The size, in CSS px, of the window or screen the surface is shown in (not the surface's own: a board panel can be
+   * much smaller than its window). `maxPixelRatio: "auto"` reads it for the small-screen test; unset, `getSize()`.
+   */
+  getViewportSize?(): SurfaceSize;
   onResize(cb: () => void): () => void;
   bindInput(handler: (event: SurfaceInputEvent) => void): void;
   unbindInput(): void;

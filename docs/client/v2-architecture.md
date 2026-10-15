@@ -890,8 +890,9 @@ buffer, the camera's aspect and the composer's targets. Measures and captures: P
 
 **Pixel ratio (DPR, 2026-10-15).** The fixed `[0.5, 1]` range of `RendererConfig.pixelRatio` (5.1) is gone. The
 renderer draws at `min(devicePixelRatio, maxPixelRatio)`, a `RendererSettings` field. Its default, `"auto"`, is 2 on
-a coarse pointer or a small screen (the viewport's shorter side at most 600 CSS px) and 1 elsewhere. `GameScene`
-re-reads it on every resize and on `setSettings`. Item 4 of 5.2 proposed `min(devicePixelRatio, 2)` on a High quality
+a coarse pointer or a small screen (the shorter side of the window, or of the screen on native, at most 600 CSS px:
+not the board's own size, so a short board panel or docked devtools on a desktop stay at 1) and 1 elsewhere.
+`GameScene` re-reads it on every resize of the board or the window and on `setSettings`. Item 4 of 5.2 proposed `min(devicePixelRatio, 2)` on a High quality
 setting; DPR replaces that with this rule, set by the PM in advance:
 
 - take the highest cap whose CPU + GPU p95 stays under 12 ms on the Mac profile at both views;
@@ -936,7 +937,8 @@ CPU + GPU per frame, ms, p50 / p95 (the outlines' share is on minus off, p50 / p
 
 - **Phone-like profile:** every cap stays under 16.6 ms (p95 at most 9.37), so the highest measured cap, 2, passes.
 - **Mac profile:** with the outlines on, no cap stays under 12 ms at both views. Cap 1, today's, is at 13.33 and
-  13.68.
+  13.68. This is a result on a loaded machine: the load average was 4.9 to 6.3, and the per-round p95s with the
+  outlines on ranged from 11.4 to 15.2 ms. OUT-LOD re-measures it.
 - **Choice:** the two profiles point to different caps, and choosing by device costs a few lines, so `"auto"` takes
   2 on coarse pointers and small screens, and 1 elsewhere: the lowest cap measured, since none passes.
 
