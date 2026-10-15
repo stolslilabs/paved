@@ -58,6 +58,8 @@ export {
   weekOfDay,
 } from "./cobbles";
 export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, CobbleViews, PeriodProgress, QuestCobbles } from "./cobbles";
+export { DEFAULT_THEME, FOREST_THEME, SKIN_PLANS, activeThemes, isSkinPlan, ownsSkin } from "./skins";
+export type { SkinChange, SkinViews } from "./skins";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
@@ -71,10 +73,12 @@ export {
   NO_CREDIT_TEXT,
   NoCreditError,
   FreeSpawnPausedError,
+  SKIN_REFUSAL_TEXT,
+  SkinRefusedError,
   FREE_SPAWN_PAUSED_TEXT,
   WriteError,
 } from "./writer";
-export type { BuildMove, ClaimRefusal, WriteAccount, WriteResult } from "./writer";
+export type { BuildMove, ClaimRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
 export { PavedClient, createPavedClient } from "./paved-client";
 export type { PavedRpc } from "./paved-client";
 export {
