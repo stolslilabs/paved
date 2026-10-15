@@ -22,7 +22,8 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
 ## Hooks
 
 - A hook gets its sources from `useDataSources()` (`src/data/sources.tsx`): `views`, `events`, `economy`, `pool`,
-  `indexer`, `store`. It never builds a client itself; the app's `DataProvider` supplies the real ones.
+  `indexer`, `store`. It never builds a client itself. The app does not mount `DataProvider` yet (only the tests do, through `renderData`):
+  the page wiring adds it with the real `PavedClient`, `EconomyClient` and indexer client, so do not assume it is mounted.
 - **Each hook returns the type its scene's prop takes**; where the indexer's type differs, the hook maps it
   (`usePlayerQuests` joins the definitions' schedule). `src/data/scene-types.ts` has the compile-time check
   (`Expect<Equal<...>>`, no runtime code): a new hook gets a line there, and `tsc -b` fails on a drift. A scene still
@@ -44,23 +45,23 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
 
 ## No polling
 
-- No hook sets `refetchInterval`, and none polls on a timer. Refetch triggers are the receipt of a write, window focus
-  and the user's action. `__tests__/data-chain.test.tsx` ("does not poll") checks one read per key and none after the
-  first answer, for `useGame`.
+- No hook sets `refetchInterval`, and none polls on a timer; that holds by grep today, not by a test. Refetch triggers
+  are window focus and the user's action (and, once writes land, a write's receipt). `__tests__/data-chain.test.tsx`
+  ("does not poll") checks, for `useGame` only, one read per key within 50 ms of the first answer.
 - How a write will update data (design, section 3.3): its receipt events go into the cache by key with `setQueryData`, then
   one `invalidateQueries` on the key for the reconciling read. Main has no write yet, so nothing calls them today.
 
 ## Sessions in game-core
 
 - A session **keeps its engine between moves** and replays only to resume (and the tutorial on Back, the engine having no
-  undo). Do not rebuild the engine per move. `__tests__/sessions.test.ts` ("sessions keep their engine between moves")
+  undo). Do not rebuild the engine per move. `packages/game-core/__tests__/sessions.test.ts` ("sessions keep their engine between moves")
   checks `LocalSession` and `TutorialRun`; `data-training.test.tsx` checks `useTrainingSession` resumes once, then applies
-  moves without a replay.
-- **The save formats stay byte for byte**: `paved:training:v1` (`training-storage.ts`) and `paved.tutorial.v1`
-  (`tutorial-storage.ts`). A save written by an older build must resume. `sessions.test.ts` ("saves written before the
+  a move without a replay.
+- **The save formats stay byte for byte**: `paved:training:v1` (`packages/game-core/src/sessions/training-storage.ts`) and `paved.tutorial.v1`
+  (`packages/game-core/src/sessions/tutorial-storage.ts`). A save written by an older build must resume. `packages/game-core/__tests__/sessions.test.ts` ("saves written before the
   move") resumes a Training game and a tutorial and checks the bytes written next. A format change is a new key and a
   migration, never an edit in place.
-- **game-core imports nothing from `@paved/chain`**: the chain depends on game-core. `sessions/types.ts` holds structural
+- **game-core imports nothing from `@paved/chain`**: the chain depends on game-core. `packages/game-core/src/sessions/types.ts` holds structural
   copies (`BoardTile`, `PlaceMove`, `ScoredStructure`, `PageState`, `PageSession`); the chain's `GameSession` satisfies
   `PageSession` unchanged. A drift is caught by `tsc` where a `GameSession` is passed as a `PageSession`
   (app-web's `pages/Game.tsx`), through the state and the senders: change a copy when the chain's shape changes.
@@ -73,7 +74,7 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
   the Training save in a `memoryStore()`. A read that must fail wraps the fixture's `fetch` (see the "stop pending" test).
 - Use the mocks of `src/mocks/` for values (`GAME_PLAYING`, `PLAYER_ID`), not a new ad hoc shape.
 - Test a new hook the same way: its values on the fakes, and a failing read when it joins several queries.
-- Test commands, caps from `AGENTS.md` ("Node test peaks") and the package README:
+- Test commands. The `@paved/app` cap is from `packages/app/README.md`; game-core and chain are from `AGENTS.md` ("Node test peaks"):
   - `NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app`
   - `NODE_OPTIONS=--max-old-space-size=384 bun run test --filter @paved/game-core`
   - `NODE_OPTIONS=--max-old-space-size=448 bun run test --filter @paved/chain`
