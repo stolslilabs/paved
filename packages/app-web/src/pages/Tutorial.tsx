@@ -13,16 +13,17 @@ import {
   attempt,
   back,
   closuresOf,
+  followTutorial as replay,
   initialOrientation,
+  loadMoves,
   orientationCode,
   orientationName,
   planCode,
-  replay,
   rotate,
+  saveMoves,
   tutorialSteps,
   type TutorialMove,
-} from "../tutorial/tutorial-run";
-import { loadMoves, saveMoves } from "../tutorial/tutorial-storage";
+} from "@paved/game-core";
 
 const panel: CSSProperties = {
   background: "rgba(0,0,0,0.75)",

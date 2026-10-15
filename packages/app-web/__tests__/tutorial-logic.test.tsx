@@ -10,13 +10,15 @@ import {
   WRONG_SQUARE,
   attempt,
   back,
+  TUTORIAL_STORAGE_KEY,
   finalScore,
-  replay,
+  loadMoves,
+  replayTutorial as replay,
+  saveMoves,
   scriptedMoves,
   tutorialSteps,
   type TutorialMove,
-} from "../src/tutorial/tutorial-run";
-import { TUTORIAL_STORAGE_KEY, loadMoves, saveMoves } from "../src/tutorial/tutorial-storage";
+} from "@paved/game-core";
 
 interface Golden {
   name: string;

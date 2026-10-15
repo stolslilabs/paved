@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TutorialPage } from "../src/pages/Tutorial";
-import { TUTORIAL_STORAGE_KEY } from "../src/tutorial/tutorial-storage";
-import { WRONG_ORIENTATION, WRONG_SQUARE, orientationCode, scriptedMoves, tutorialSteps, type TutorialMove } from "../src/tutorial/tutorial-run";
+import { TUTORIAL_STORAGE_KEY, WRONG_ORIENTATION, WRONG_SQUARE, orientationCode, scriptedMoves, tutorialSteps, type TutorialMove } from "@paved/game-core";
 
 // Nothing of the chain may be touched: any use of the package throws.
 const chainTouched = vi.hoisted(() => ({ count: 0 }));

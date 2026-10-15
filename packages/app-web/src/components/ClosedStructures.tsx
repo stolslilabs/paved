@@ -1,11 +1,7 @@
-import { Category, CategoryType } from "@paved/game-core";
+import { Category, CategoryType, type Closure } from "@paved/game-core";
 
-/** One `Scored` event of a move: a structure that closed (D-18). */
-export interface Closure {
-  category: number;
-  size: number;
-  points: number;
-}
+/** One `Scored` event of a move: a structure that closed (D-18). The type lives in `@paved/game-core` (P2). */
+export type { Closure };
 
 /** "Road closed: size 3, +6 points"; a closure for 0 points still says it closed. */
 export function closureLine({ category, size, points }: Closure): string {

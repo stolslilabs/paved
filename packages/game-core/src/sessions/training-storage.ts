@@ -1,3 +1,5 @@
+import { browserStore, type KeyValueStore } from "./storage";
+
 /** One move of a saved game: the placement of the tile in hand, or a discard, or the surrender. */
 export type SavedMove = { k: "b"; o: number; x: number; y: number } | { k: "d" } | { k: "s" };
 
@@ -10,18 +12,6 @@ export interface SavedGame {
 }
 
 export const TRAINING_KEY = "paved:training:v1";
-
-/** The part of `Storage` this module uses. */
-export type KeyValueStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-
-/** `localStorage`, or null when the browser refuses it (private mode, blocked site data, no window). */
-export function browserStore(): KeyValueStore | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
 
 function isMove(m: unknown): m is SavedMove {
   if (typeof m !== "object" || m === null) return false;

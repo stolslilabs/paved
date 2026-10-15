@@ -1,8 +1,7 @@
 import type { Page } from "playwright-core";
 import { CategoryType, OrientationType, type EngineGame } from "@paved/game-core";
 import { CENTER } from "../src/utils/game-helpers";
-import { replay } from "../src/training/local-session";
-import { TRAINING_KEY, type SavedGame } from "../src/training/storage";
+import { TRAINING_KEY, replayTraining as replay, type SavedGame } from "@paved/game-core";
 
 /** The window of the test: small, because the software GL of a headless VPS draws every frame on the CPU. */
 export const VIEWPORT = { width: 1024, height: 640 };
