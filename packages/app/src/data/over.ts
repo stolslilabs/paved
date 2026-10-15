@@ -257,6 +257,8 @@ export function settleProps(
   if (!settleReady(terms, now)) return { state: "after", at: settlesAfter(terms.day) };
   if (viewer === null) return { state: "connect", onConnect: actions.connect };
   if (!isPlayer(viewer, playerId)) return { state: "viewing" };
+  // A signer with no settlement (no economy to send it through): nothing to press.
+  if (!control.available) return null;
   if (control.pending) return { state: "pending" };
   if (control.error) return { state: "refused", message: control.error.message, onSettle: () => void control.settle() };
   return { state: "ready", onSettle: () => void control.settle() };

@@ -196,7 +196,7 @@ function SettleArea({ state, at, message, onSettle, onConnect, timeZone }: Settl
       {state === "viewing" && <p className="px-1 text-sm text-muted-foreground">This game can be settled now. The player settles it from their own account.</p>}
       {state === "connect" && <Button onClick={onConnect}>Connect to settle</Button>}
       {(state === "ready" || state === "pending" || state === "refused") && (
-        <Button onClick={onSettle} loading={state === "pending"} disabled={state === "pending"}>
+        <Button onClick={onSettle} loading={state === "pending"}>
           {state === "pending" ? "Settling…" : "Settle and claim"}
         </Button>
       )}

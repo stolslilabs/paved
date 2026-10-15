@@ -63,4 +63,20 @@ describe("the app's connector (P6)", () => {
     expect(controller.configs).toHaveLength(0);
     expect(() => connectorFor(client("devnet"), null, controller.create)).toThrow(/no devnet account/);
   });
+
+  it("the session holds Economy.settle (P7a) when the build has an economy, and no other Economy entry point", async () => {
+    const policiesOf = async (economy: string | null) => {
+      const controller = fakeController();
+      connectorFor(client("sepolia"), null, controller.create, economy);
+      const policies = controller.configs[0]!.policies;
+      return typeof policies === "function" ? await policies() : (policies ?? []);
+    };
+    const economy = "0x10";
+    const withEconomy = await policiesOf(economy);
+    expect(withEconomy.filter((p) => BigInt(p.target) === BigInt(economy))).toEqual([{ target: economy, method: "settle" }]);
+    // Settle takes no approve: the session's only approve stays the entry's, which this deployment's unread price leaves out.
+    expect(withEconomy.filter((p) => p.method === "approve")).toEqual([]);
+    // Without an economy there is no policy on it.
+    expect((await policiesOf(null)).some((p) => p.method === "settle")).toBe(false);
+  });
 });

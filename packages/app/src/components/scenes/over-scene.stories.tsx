@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { DAY, MOCK_NOW } from "../../mocks/clock";
 import { OVER } from "../../mocks/scenes";
 import { OverScene } from "./over-scene";
 
@@ -21,6 +22,42 @@ export const BelowThreshold: Story = { args: OVER.below };
 
 /** Not finished within 24 h of the purchase. */
 export const Expired: Story = { args: OVER.expired };
+
+// The Challenge's settle area (P7a): the dates are fixed to UTC so a story reads the same everywhere.
+const settling = { ...OVER.awaiting, timeZone: "UTC" } as const;
+
+/** The day cannot be settled yet: "Settles after <date>". */
+export const SettlesAfter: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + DAY } } };
+
+/** A guest: connect first. */
+export const ConnectToSettle: Story = { args: { ...settling, settle: { state: "connect" } } };
+
+/** The player's button, the day closed. */
+export const SettleButton: Story = { args: { ...settling, settle: { state: "ready" } } };
+
+/** Someone else's game: it can be settled, and the button is the player's. */
+export const SettleForAnotherPlayer: Story = { args: { ...settling, settle: { state: "viewing" } } };
+
+/** Sent: the wallet and the chain. */
+export const SettlePending: Story = { args: { ...settling, settle: { state: "pending" } } };
+
+/** The chain refused it: why, and the button again. */
+export const SettleRefused: Story = { args: { ...settling, settle: { state: "refused", message: "This day cannot be settled yet: try again after the next day ends." } } };
+
+/** Settled from this page: the reward, then the label. */
+export const JustSettled: Story = { args: { ...OVER.rewarded, timeZone: "UTC", settle: { state: "settled" } } };
+
+/** Settled earlier. */
+export const AlreadySettled: Story = { args: { ...OVER.rewarded, timeZone: "UTC", settle: { state: "done" } } };
+
+/** Not finished within 24 h: the deadline it missed. */
+export const ExpiredWithDeadline: Story = { args: { ...OVER.expired, timeZone: "UTC", deadline: MOCK_NOW - 3_600 } };
+
+/** A free Challenge game (PLAYFREE): the label, no reward, nothing to settle. */
+export const FreeGame: Story = { args: { ...OVER.awaiting, freeGame: true, reward: { state: "free" } } };
+
+/** The closings could not be read: the rest of the page stands. */
+export const ClosingsUnavailable: Story = { args: { ...OVER.awaiting, closings: [], closingsNote: "The closings of this game could not be read." } };
 
 /** Training: no stake, no reward. */
 export const Training: Story = { args: OVER.training };
