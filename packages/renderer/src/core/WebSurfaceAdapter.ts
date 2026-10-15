@@ -6,7 +6,7 @@ import type {
 
 export class WebSurfaceAdapter implements RenderSurfaceAdapter {
   private readonly canvas: HTMLCanvasElement;
-  private resizeObserver: ResizeObserver | null = null;
+  private stopResize: (() => void) | null = null;
   private inputHandler: ((event: SurfaceInputEvent) => void) | null = null;
   private boundPointerDown: ((event: PointerEvent) => void) | null = null;
   private boundPointerUp: ((event: PointerEvent) => void) | null = null;
@@ -15,6 +15,11 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    // The canvas fills its container: `GameScene` sizes only the drawing buffer (`setSize(w, h, false)`), so the CSS
+    // size is set here, for every consumer (`GameCanvas`, `useScene`), and the container's size is what `onResize`
+    // observes.
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
   }
 
   getSize(): SurfaceSize {
@@ -28,16 +33,37 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
     return window.devicePixelRatio;
   }
 
+  /**
+   * Calls `cb` when the canvas's container changes size, and when the device pixel ratio changes (the window moved to
+   * another screen, the page zoomed). The container is observed, not the canvas: the canvas fills it (CSS 100 %), and a
+   * canvas whose CSS size was ever pinned in px would never report a change. Returns the unsubscribe.
+   */
   onResize(cb: () => void): () => void {
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = new ResizeObserver(cb);
-    this.resizeObserver.observe(this.canvas);
+    this.stopResize?.();
+    const observer = new ResizeObserver(() => cb());
+    observer.observe(this.canvas.parentElement ?? this.canvas);
 
-    return () => {
-      if (!this.resizeObserver) return;
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
+    // `(resolution: <dpr>dppx)` stops matching when the ratio changes: re-arm on the new ratio each time.
+    let query: MediaQueryList | null = null;
+    const onRatio = () => {
+      armRatio();
+      cb();
     };
+    const armRatio = () => {
+      query?.removeEventListener("change", onRatio);
+      query = typeof window.matchMedia === "function" ? window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`) : null;
+      query?.addEventListener("change", onRatio);
+    };
+    armRatio();
+
+    const stop = () => {
+      observer.disconnect();
+      query?.removeEventListener("change", onRatio);
+      query = null;
+      if (this.stopResize === stop) this.stopResize = null;
+    };
+    this.stopResize = stop;
+    return stop;
   }
 
   bindInput(handler: (event: SurfaceInputEvent) => void): void {

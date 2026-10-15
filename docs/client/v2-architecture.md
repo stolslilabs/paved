@@ -851,6 +851,43 @@ cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target 
 little visible gain once the lines are biased. Measures and captures: PR #411 and the stories
 "Renderer/Outlines" and "Renderer/Outlines comparison".
 
+**Changed by R-VIS (2026-10-15).** Where this differs
+from the paragraph above, R-VIS holds. The outlines keep the same segments, one shared material and the
+depth bias, but are drawn by the renderer's own shader on three's instanced `LineSegmentsGeometry`
+(`createOutlineMaterial`): each pixel's exact distance to its segment on screen gives the share of the pixel
+the stroke covers, so the edge is antialiased by construction, with no MSAA and no post pass, and a stroke
+under a device pixel is drawn one pixel wide at that share of its opacity. Segment ends are square and exact,
+so a straight edge split into many segments covers each pixel once. The width is set in the world:
+`widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
+camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
+zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: fully on at
+`fadeFullFactor` (1.0) x S, off at `fadeOffFactor` (0.85) x S, linear between, and the material is hidden
+below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
+about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
+height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
+(about 282): they vanish at the farthest zoom (300). On software WebGL (a renderer string of SwiftShader,
+llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
+the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
+274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
+target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
+`fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
+
+**Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,
+and a 2048 map over the 100-unit shadow frustum (about 0.05 unit a texel) at the light's 56 to 67 degrees
+on the faces misses the depth of the face it covers by up to about 0.1 unit. three 0.186 also removed
+`PCFSoftShadowMap` (it falls back to `PCFShadowMap`: five taps turned by a per-pixel noise), whose dither
+drew the bands' edges. The light now has `normalBias` 0.1 and `bias` -0.001 (5.2, item 5); the shadow
+type is `PCFShadowMap`, named. Half these biases leave faint bands.
+
+**Resize (R-VIS).** `GameScene` sizes the drawing buffer with `setSize(w, h, false)`, so the canvas keeps the
+100 % CSS size `GameCanvas` gives it (three's default wrote it in px, and the canvas then never followed its
+container); `WebSurfaceAdapter.onResize` observes the canvas's container and the device pixel ratio
+(`matchMedia` on the current `resolution`), and `GameScene.resize` refits the pixel ratio, the drawing
+buffer, the camera's aspect and the composer's targets. Measures and captures: PR #437 and the story
+"Renderer/Outlines comparison", "Shading and outlines".
+
 ### 5.4 The mockups' isometric voxel look: the cost
 
 Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:

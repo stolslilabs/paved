@@ -114,7 +114,8 @@ describe("RenderSurfaceAdapter integration", () => {
     await scene.init({ surface, pixelRatio: [0.5, 1.5], shadows: false });
 
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(1.5);
-    expect(renderer.setSize).toHaveBeenCalledWith(320, 180);
+    // `false`: three must not pin the canvas's CSS size in px, or it would stop following its container.
+    expect(renderer.setSize).toHaveBeenCalledWith(320, 180, false);
   });
 
   it("uses surface resize callback to update renderer and camera", async () => {
@@ -126,9 +127,67 @@ describe("RenderSurfaceAdapter integration", () => {
     (adapter.surface.getSize as any) = () => ({ width: 640, height: 360 });
     adapter.emitResize();
 
-    expect(renderer.setSize).toHaveBeenLastCalledWith(640, 360);
+    expect(renderer.setSize).toHaveBeenLastCalledWith(640, 360, false);
     expect(controller.resize).toHaveBeenCalledWith(640, 360);
-    expect((scene as any).effects.resize).toHaveBeenCalledWith(640, 360);
+    expect((scene as any).effects.resize).toHaveBeenCalledWith(640, 360, 1);
+  });
+
+  it("follows a change of the device pixel ratio, within the configured range", async () => {
+    let dpr = 1;
+    const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 1);
+    (adapter.surface.getDevicePixelRatio as any) = () => dpr;
+    const { scene, controller, renderer } = createSceneHarness();
+    await scene.init({ surface: adapter.surface, pixelRatio: [0.5, 2] });
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1);
+
+    dpr = 2; // the window moved to a Retina screen
+    adapter.emitResize();
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+    expect(renderer.setSize).toHaveBeenLastCalledWith(300, 200, false);
+    expect(controller.resize).toHaveBeenLastCalledWith(300, 200);
+    expect((scene as any).effects.resize).toHaveBeenLastCalledWith(300, 200, 2);
+
+    dpr = 3;
+    adapter.emitResize();
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+  });
+
+  it("keeps the last size while the container is hidden (0 x 0)", async () => {
+    const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 1);
+    const { scene, controller, renderer } = createSceneHarness();
+    await scene.init({ surface: adapter.surface });
+    const calls = renderer.setSize.mock.calls.length;
+    (adapter.surface.getSize as any) = () => ({ width: 0, height: 0 });
+    adapter.emitResize();
+    expect(renderer.setSize).toHaveBeenCalledTimes(calls);
+    expect(controller.resize).not.toHaveBeenCalled();
+  });
+
+  it("follows a resize that happens while the models are loading", async () => {
+    const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 1);
+    const { scene, renderer } = createSceneHarness();
+    let loaded!: () => void;
+    (scene as any).assets.preloadAll = vi.fn(() => new Promise<void>((resolve) => (loaded = resolve)));
+    const init = scene.init({ surface: adapter.surface });
+    await Promise.resolve();
+    (adapter.surface.getSize as any) = () => ({ width: 500, height: 400 });
+    adapter.emitResize();
+    expect(renderer.setSize).toHaveBeenLastCalledWith(500, 400, false);
+    loaded();
+    await init;
+  });
+
+  it("drops the resize subscription when disposed while the models load", async () => {
+    const adapter = createSurfaceAdapter();
+    const { scene } = createSceneHarness();
+    let loaded!: () => void;
+    (scene as any).assets.preloadAll = vi.fn(() => new Promise<void>((resolve) => (loaded = resolve)));
+    const init = scene.init({ surface: adapter.surface });
+    await Promise.resolve();
+    scene.dispose();
+    loaded();
+    await init;
+    expect(adapter.onResizeUnsubscribe).toHaveBeenCalledTimes(1);
   });
 
   it("unbinds adapter listeners during dispose", async () => {
