@@ -855,7 +855,11 @@ the camera's opening distance, 0.8 of its farthest, 240), recomputed when the vi
 below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
 about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
 height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
-(about 282): they vanish at the farthest zoom (300). The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
+(about 282): they vanish at the farthest zoom (300). On software WebGL (a renderer string of SwiftShader,
+llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
+the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
+274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
 target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 

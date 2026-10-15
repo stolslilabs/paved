@@ -106,4 +106,25 @@ describe("GameScene settings", () => {
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(2);
   });
+
+  it("draws no outlines on software WebGL unless forced on, and logs the path once", () => {
+    const { scene } = sceneWithCamera();
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    (scene as any).renderer = { shadowMap: {} };
+    (scene as any).webgl = { renderer: "Google SwiftShader", software: true, reason: 'software renderer "Google SwiftShader"' };
+    expect(scene.getWebGL().software).toBe(true);
+    expect(scene.getZoom().outline).toEqual({ width: 0, opacity: 0 });
+    scene.setSettings({ outlines: { force: "on" } });
+    expect(scene.getZoom().outline.opacity).toBeGreaterThan(0);
+    expect(info).toHaveBeenLastCalledWith("[renderer] outlines on: forced on");
+    scene.setSettings({ outlines: { force: "on" } });
+    expect(info).toHaveBeenCalledTimes(1);
+    scene.setSettings({});
+    expect(info).toHaveBeenLastCalledWith('[renderer] outlines off: software renderer "Google SwiftShader"');
+    (scene as any).webgl = { renderer: "Apple GPU", software: false, reason: 'GPU renderer "Apple GPU"' };
+    expect(scene.getZoom().outline.opacity).toBeGreaterThan(0);
+    scene.setSettings({ outlines: { force: "off" } });
+    expect(scene.getZoom().outline).toEqual({ width: 0, opacity: 0 });
+    info.mockRestore();
+  });
 });

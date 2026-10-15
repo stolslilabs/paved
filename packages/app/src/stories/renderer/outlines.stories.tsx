@@ -22,6 +22,12 @@ const meta = {
     },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the zoom (camera distance, tile size on screen) and the outlines' stroke" },
+    force: {
+      control: "inline-radio",
+      options: ["auto", "on", "off"],
+      description: "Outlines on software WebGL (SwiftShader, llvmpipe...): auto turns them off there; on and off force them whatever the detection says. The console logs the path taken",
+      table: { category: "Outlines" },
+    },
     fadeFullFactor: {
       control: { type: "range", min: 0.5, max: 2, step: 0.01 },
       description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\")",

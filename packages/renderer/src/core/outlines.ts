@@ -26,6 +26,11 @@ import { TILE_SIZE } from "./types";
 export interface OutlineSettings {
   /** Draw outlines at all. */
   enabled: boolean;
+  /**
+   * Software WebGL (`detectSoftwareWebGL`): `"auto"` turns the outlines off there (they cost about 11 times the frame on
+   * a CPU rasterizer), `"on"` and `"off"` force them whatever the detection says.
+   */
+  force: "auto" | "on" | "off";
   /** At or below this share of the opening tile size (`openingTilePx`) the outlines are off. */
   fadeOffFactor: number;
   /** At or above this share of the opening tile size the outlines are fully on; between the two the opacity is linear. */
@@ -50,6 +55,7 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
+  force: "auto",
   // Outlines show at every screen's opening view: the fade follows the opening tile size S, fully on at S, off at
   // 0.85 S. A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
   // under the farthest zoom's 48 px: the outlines vanish zoomed out).
@@ -110,6 +116,64 @@ export const DEFAULT_OPENING_TILE_PX = 60;
  */
 export function openingTilePixels(camera: THREE.PerspectiveCamera, heightPx: number): number {
   return tilePixels(camera, OPENING_DISTANCE, heightPx);
+}
+
+/** Renderer strings of software WebGL: Chrome's SwiftShader, Mesa's llvmpipe and softpipe, Windows' Basic Render Driver. */
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+
+/** Whether a WebGL renderer string names a software rasterizer. */
+export function isSoftwareRenderer(renderer: string | null | undefined): boolean {
+  return !!renderer && SOFTWARE_RENDERER.test(renderer);
+}
+
+/** What the renderer found about the WebGL it draws with. */
+export interface WebGLDetection {
+  /** The unmasked renderer string (`WEBGL_debug_renderer_info`), or the plain `RENDERER` when that is hidden. */
+  renderer: string | null;
+  /** Software WebGL, and why: the renderer string, or a major performance caveat. */
+  software: boolean;
+  reason: string;
+}
+
+/**
+ * Detects software WebGL: from the renderer string, and, when the browser exposes it, from a probe context created with
+ * `failIfMajorPerformanceCaveat` (`caveatProbe`: true when that context is refused).
+ */
+export function detectSoftwareWebGL(
+  gl: Pick<WebGLRenderingContext, "getExtension" | "getParameter" | "RENDERER"> | null | undefined,
+  caveatProbe: () => boolean | undefined = probeMajorPerformanceCaveat,
+): WebGLDetection {
+  let renderer: string | null = null;
+  try {
+    const info = gl?.getExtension("WEBGL_debug_renderer_info");
+    renderer = (info ? gl?.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl?.getParameter(gl.RENDERER)) ?? null;
+  } catch {
+    renderer = null;
+  }
+  if (isSoftwareRenderer(renderer)) return { renderer, software: true, reason: `software renderer "${renderer}"` };
+  if (caveatProbe() === true) return { renderer, software: true, reason: "major performance caveat" };
+  return { renderer, software: false, reason: renderer ? `GPU renderer "${renderer}"` : "no software renderer found" };
+}
+
+/**
+ * Whether the browser refuses a WebGL 2 context without a major performance caveat (a software fallback): a throwaway
+ * canvas asks with `failIfMajorPerformanceCaveat`, and its context, if any, is released at once. Undefined where there
+ * is no DOM (React Native, tests) or the probe fails.
+ */
+function probeMajorPerformanceCaveat(): boolean | undefined {
+  if (typeof document === "undefined") return undefined;
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true });
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return gl === null;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether the outlines are drawn on this WebGL, given the `force` setting. */
+export function outlinesAllowed(force: OutlineSettings["force"], detection: Pick<WebGLDetection, "software">): boolean {
+  return force === "on" || (force === "auto" && !detection.software);
 }
 
 /** On-screen size of one tile, in CSS px, at `distance` from a perspective camera in a viewport `heightPx` high. */

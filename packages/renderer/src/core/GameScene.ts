@@ -19,7 +19,16 @@ import {
   getLightingProfile,
   getRenderProfileForCameraMode,
 } from "./render-profiles";
-import { openingTilePixels, outlineStroke, tilePixels, type OutlineStroke } from "./outlines";
+import {
+  detectSoftwareWebGL,
+  openingTilePixels,
+  outlinesAllowed,
+  outlineStroke,
+  tilePixels,
+  type OutlineSettings,
+  type OutlineStroke,
+  type WebGLDetection,
+} from "./outlines";
 import {
   cameraDistanceLimits,
   resolveRendererSettings,
@@ -115,6 +124,10 @@ export class GameScene {
   /** The pixel ratio and the opening tile size the outlines' stroke was last set for. */
   private outlinePixelRatio = Number.NaN;
   private outlineOpeningTilePx = Number.NaN;
+  /** Software WebGL or not, found at `init`: outlines are off on software WebGL unless forced (`OutlineSettings.force`). */
+  private webgl: WebGLDetection = { renderer: null, software: false, reason: "not initialised" };
+  /** The outline path last logged, so it is logged once, and again only when it changes. */
+  private loggedOutlinePath: string | null = null;
   /** Bounds of the renderer's pixel ratio (`RendererConfig.pixelRatio`): the device's is clamped to them. */
   private pixelRatioRange: [number, number] = [0.5, 1];
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer. */
@@ -186,6 +199,8 @@ export class GameScene {
     // px, which would stop it from following the container (R-VIS).
     this.renderer.setSize(size.width, size.height, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.webgl = detectSoftwareWebGL(this.renderer.getContext?.());
+    this.logOutlinePath();
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
 
@@ -449,6 +464,7 @@ export class GameScene {
   setSettings(input: RendererSettingsInput): void {
     this.settings = resolveRendererSettings(input);
     this.outlineTilePx = Number.NaN;
+    this.logOutlinePath();
     this.applyCameraLimits();
     this.effects.setMultisampling(this.settings.multisampling);
     this.requestRender();
@@ -466,7 +482,31 @@ export class GameScene {
     const distance = this.cameraDistance();
     const tilePx = this.tilePx(distance);
     const openingTilePx = this.openingTilePx();
-    return { distance, tilePx, openingTilePx, outline: outlineStroke(tilePx, this.settings.outlines, this.pixelRatio, openingTilePx) };
+    return { distance, tilePx, openingTilePx, outline: outlineStroke(tilePx, this.outlineSettings(), this.pixelRatio, openingTilePx) };
+  }
+
+  /** What `init` found about the WebGL the scene draws with. */
+  getWebGL(): WebGLDetection {
+    return this.webgl;
+  }
+
+  /** The outline settings in effect: off on software WebGL unless forced on (`OutlineSettings.force`). */
+  private outlineSettings(): OutlineSettings {
+    const { outlines } = this.settings;
+    return outlinesAllowed(outlines.force, this.webgl) ? outlines : { ...outlines, enabled: false };
+  }
+
+  /** Logs which outline path is taken, once, and again only when it changes. */
+  private logOutlinePath(): void {
+    // Before `init` the WebGL is not known yet: `init` logs it.
+    if (!this.renderer) return;
+    const { force, enabled } = this.settings.outlines;
+    const on = enabled && outlinesAllowed(force, this.webgl);
+    const why = !enabled ? "disabled by the settings" : force !== "auto" ? `forced ${force}` : this.webgl.reason;
+    const path = `[renderer] outlines ${on ? "on" : "off"}: ${why}`;
+    if (path === this.loggedOutlinePath) return;
+    this.loggedOutlinePath = path;
+    console.info(path);
   }
 
   private cameraDistance(): number {
@@ -539,7 +579,7 @@ export class GameScene {
       this.outlineTilePx = tilePx;
       this.outlinePixelRatio = this.pixelRatio;
       this.outlineOpeningTilePx = openingTilePx;
-      const { outlines } = this.settings;
+      const outlines = this.outlineSettings();
       this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio, openingTilePx), outlines.color);
     }
     if (this.shadowsDirty) {

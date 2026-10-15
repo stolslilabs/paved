@@ -11,8 +11,11 @@ import {
   createOutline,
   createOutlineMaterial,
   distanceForTilePixels,
+  detectSoftwareWebGL,
   isOutline,
+  isSoftwareRenderer,
   openingTilePixels,
+  outlinesAllowed,
   outlineStroke,
   tilePixels,
   type OutlineSettings,
@@ -24,6 +27,7 @@ import { OPENING_DISTANCE } from "../src/core/CameraController";
 
 const S: OutlineSettings = {
   enabled: true,
+  force: "auto",
   // With the default opening tile size (60 px): off at 60 px, fully on at 90.
   fadeOffFactor: 1,
   fadeFullFactor: 1.5,
@@ -103,6 +107,7 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
   it("defaults: fully on at the opening tile size S, off at 0.85 S, a hairline, dark grey", () => {
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
+      force: "auto",
       fadeOffFactor: 0.85,
       fadeFullFactor: 1,
       widthVoxels: 0.015,
@@ -230,5 +235,54 @@ describe("renderer settings", () => {
 
   it("keeps the fallback cap off by default", () => {
     expect(DEFAULT_CAMERA_ZOOM_SETTINGS.capZoomOut).toBe(false);
+  });
+});
+
+describe("software WebGL: the outlines are off there unless forced", () => {
+  /** A WebGL context whose unmasked renderer string is `renderer` (null: the debug extension is hidden). */
+  const gl = (renderer: string | null, plain = "WebKit WebGL") => ({
+    RENDERER: 0x1f01,
+    getExtension: (name: string) => (name === "WEBGL_debug_renderer_info" && renderer !== null ? { UNMASKED_RENDERER_WEBGL: 0x9246 } : null),
+    getParameter: (p: number) => (p === 0x9246 ? renderer : p === 0x1f01 ? plain : null),
+  });
+  const noCaveat = () => false;
+
+  it("knows software renderer strings, and not GPU ones", () => {
+    for (const s of [
+      "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "Google SwiftShader",
+      "llvmpipe (LLVM 15.0.7, 256 bits)",
+      "Mesa softpipe",
+      "Microsoft Basic Render Driver",
+      "ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)",
+      "Software Rasterizer",
+    ]) expect(isSoftwareRenderer(s), s).toBe(true);
+    for (const s of ["ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)", "Adreno (TM) 740", "NVIDIA GeForce RTX 4070/PCIe/SSE2", "Apple GPU", "", null])
+      expect(isSoftwareRenderer(s), String(s)).toBe(false);
+  });
+
+  it("turns the outlines off for a software renderer string, keeps them on for a GPU", () => {
+    const soft = detectSoftwareWebGL(gl("Google SwiftShader") as any, noCaveat);
+    expect(soft).toMatchObject({ software: true, renderer: "Google SwiftShader" });
+    expect(soft.reason).toContain("SwiftShader");
+    expect(outlinesAllowed("auto", soft)).toBe(false);
+    const gpu = detectSoftwareWebGL(gl("ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)") as any, noCaveat);
+    expect(gpu.software).toBe(false);
+    expect(outlinesAllowed("auto", gpu)).toBe(true);
+  });
+
+  it("reads the plain RENDERER when the debug extension is hidden, and takes a major performance caveat as software", () => {
+    expect(detectSoftwareWebGL(gl(null, "llvmpipe") as any, noCaveat).software).toBe(true);
+    const caveat = detectSoftwareWebGL(gl("Apple GPU") as any, () => true);
+    expect(caveat).toMatchObject({ software: true, reason: "major performance caveat" });
+    // No context and no DOM to probe (React Native, tests): nothing says software.
+    expect(detectSoftwareWebGL(undefined).software).toBe(false);
+  });
+
+  it("lets the force setting win over the detection", () => {
+    expect(outlinesAllowed("on", { software: true })).toBe(true);
+    expect(outlinesAllowed("off", { software: false })).toBe(false);
+    expect(outlinesAllowed("auto", { software: true })).toBe(false);
+    expect(outlinesAllowed("auto", { software: false })).toBe(true);
   });
 });

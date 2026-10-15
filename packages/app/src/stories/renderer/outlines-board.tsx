@@ -19,6 +19,8 @@ export interface OutlinesBoardProps {
   /** Show the current zoom and the outlines' stroke on the board. */
   readout?: boolean;
   /** The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits. */
+  /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
+  force?: "auto" | "on" | "off";
   fadeOffFactor?: number;
   fadeFullFactor?: number;
   widthVoxels?: number;
@@ -36,6 +38,7 @@ const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
+  force: OUTLINES.force,
   fadeOffFactor: OUTLINES.fadeOffFactor,
   fadeFullFactor: OUTLINES.fadeFullFactor,
   widthVoxels: OUTLINES.widthVoxels,
@@ -100,6 +103,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       outlines: {
+        force: o.force,
         fadeOffFactor: o.fadeOffFactor,
         fadeFullFactor: o.fadeFullFactor,
         widthVoxels: o.widthVoxels,
@@ -110,7 +114,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
     }),
-    [o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
+    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
