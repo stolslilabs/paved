@@ -115,6 +115,11 @@ interface PlayOptions {
   keyboard?: boolean;
   /** Check the highlighted slots against the engine at every orientation, at every move. */
   checkSlots?: boolean;
+  /**
+   * Among the legal cells, pick one that closes a structure whenever there is one (asked of the engine on a clone of the
+   * game), so that a game shows closing lines whatever its seed.
+   */
+  seekClosure?: boolean;
 }
 
 interface PlayResult {
@@ -123,6 +128,8 @@ interface PlayResult {
   closed: number;
   zeroClosures: number;
   discards: number;
+  /** Moves at which at least one legal cell would close a structure (the engine's word, not the page's). */
+  closable: number;
 }
 
 /** Plays from the saved state of the page, in lockstep with an engine model, until the game is over or `stopAfter` moves. */
@@ -130,8 +137,8 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
   const save = await readSave(page);
   if (!save) throw new Error("no saved game to play");
   const model = replaySave(save);
-  const out: PlayResult = { model, moves: 0, closed: 0, zeroClosures: 0, discards: 0 };
-  const { discardRate = 0, stopAfter = Infinity, keyboard = false, checkSlots = true } = options;
+  const out: PlayResult = { model, moves: 0, closed: 0, zeroClosures: 0, discards: 0, closable: 0 };
+  const { discardRate = 0, stopAfter = Infinity, keyboard = false, checkSlots = true, seekClosure = false } = options;
   while (!model.over && out.moves < stopAfter) {
     const legal = model.legalPlacements();
     const at = `seed ${save.seed}, move ${model.built + model.discarded + 1}`;
@@ -159,11 +166,14 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
       continue;
     }
 
+    const closing = legal.filter((p) => model.clone().build(p).scored.length > 0);
+    if (closing.length > 0) out.closable += 1;
+    const pool = seekClosure && closing.length > 0 ? closing : legal;
     // A cell the camera cannot bring clear of the panels is skipped, as a player would pick another one.
-    let placement = legal[Math.floor(random() * legal.length)];
+    let placement = pool[Math.floor(random() * pool.length)];
     let point: { x: number; y: number } | null = null;
     for (let tries = 0; tries < 6 && !point; tries++) {
-      placement = legal[Math.floor(random() * legal.length)];
+      placement = pool[Math.floor(random() * pool.length)];
       await rotateTo(page, ORIENTATIONS.indexOf(placement.orientation));
       point = await cellPoint(page, placement.x, -placement.y).catch(() => null);
     }
@@ -214,15 +224,18 @@ describe("Training, played by a bot in a headless browser", () => {
     const seeds = new Set<string>();
     let closed = 0;
     let zero = 0;
+    let closable = 0;
     for (let g = 0; g < GAMES; g++) {
       const first = await readSave(page);
       expect(first?.moves, "a new game starts empty").toEqual([]);
       if (g === 0 && FIRST_SEED) expect(first!.seed, "PAVED_E2E_SEED is the first game's seed").toBe(FIRST_SEED);
       expect(seeds.has(first!.seed), "a new game has a new seed").toBe(false);
       seeds.add(first!.seed);
-      // Even games place and discard only when stuck, odd ones also discard at will and use the keyboard.
-      const result = await play(page, rng(1000 + g), g % 2 ? { discardRate: 0.25, keyboard: true } : {});
+      // Even games place and discard only when stuck (and go for a closing cell when there is one, so that the closing
+      // lines are checked whatever the seed), odd ones also discard at will and use the keyboard.
+      const result = await play(page, rng(1000 + g), g % 2 ? { discardRate: 0.25, keyboard: true } : { seekClosure: true });
       closed += result.closed;
+      closable += result.closable;
       zero += result.zeroClosures;
       expect(result.model.over).toBe(true);
       expect(result.model.tileCount, "the game ends once 38 tiles were drawn").toBe(38);
@@ -233,8 +246,10 @@ describe("Training, played by a bot in a headless browser", () => {
       await expect.poll(async () => (await readUi(page)).complete, { message: "the dialog goes with the finished game", timeout: 60_000 }).toBeNull();
       await expectMirror(page, replaySave((await readSave(page))!), "new game");
     }
-    console.log(`[e2e] ${GAMES} complete games: ${closed} closures seen, ${zero} of them for 0 points`);
-    expect(closed, "the bot closed structures").toBeGreaterThan(0);
+    console.log(`[e2e] ${GAMES} complete games: ${closed} closures seen, ${zero} of them for 0 points, ${closable} moves with a closing cell`);
+    // The bot goes for a closing cell in the first game: if the engine offered one, the page must have shown a closure.
+    // A seed that never offers one has nothing to show (the line above says so); it is not a failure of the page.
+    if (closable > 0) expect(closed, "the bot closed a structure it was offered").toBeGreaterThan(0);
     expect(errors).toEqual([]);
     await context.close();
   }, 900_000);
