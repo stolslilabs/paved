@@ -10,9 +10,12 @@
  * Per model, lossless where the renderer can tell:
  * - Vertices renumbered in the order the triangles first use them (the triangles and their order are kept, so the
  *   renderer's outlines, which pair triangles in index order, find the same edges).
- * - `KHR_mesh_quantization`: positions as 16-bit integers, normals as normalized 16-bit, UVs as normalized unsigned 16-bit.
- *   A model on the voxel grid (every coordinate a multiple of 0.1, as the tiles are) stores the grid step exactly; any
- *   other stores the largest coordinate at 32767. The scale goes on the model's node.
+ * - `KHR_mesh_quantization`, every attribute normalized: positions as 8-bit integers on the voxel grid (every coordinate a
+ *   multiple of 0.1 within 127 steps, as the tiles are: one grid step per integer, exact), else as 16-bit (a power of two
+ *   of integers per grid step on a larger grid, or the largest coordinate at 32767 off the grid); normals as 16-bit; UVs
+ *   as unsigned 16-bit. The scale goes on the model's node. Normalized, the positions three reads stay within [-1, 1],
+ *   where the renderer's outline builder (`edges.ts`) keys vertices by number: integers read raw (up to 40) sent it to
+ *   its string keys, which made the busy board's first frame slower than with the originals.
  * - `EXT_meshopt_compression` (required), mode `quantize`: meshopt's vertex and index codecs, no lossy filter.
  * Each output is decoded again and checked against its source before it is written: same triangles, positions within
  * half a quantization step, normals within 0.01 degree, UVs within 1e-5.
@@ -57,8 +60,11 @@ function onlyPrimitive(doc: Document, name: string): Primitive {
   return prims[0]!;
 }
 
-/** The step positions are stored at: the voxel grid when every coordinate is on it, else the largest coordinate at 32767. */
-function positionStep(positions: ArrayLike<number>): number {
+/**
+ * The model units of one stored integer step: on the voxel grid, the grid step over the largest power of two that keeps
+ * the largest coordinate within 32767 (so a grid point is stored exactly); else the largest coordinate over 32767.
+ */
+function positionQuantum(positions: ArrayLike<number>): { quantum: number; grid: boolean; top: 127 | 32767 } {
   let max = 0;
   let onGrid = true;
   for (let i = 0; i < positions.length; i++) {
@@ -66,10 +72,17 @@ function positionStep(positions: ArrayLike<number>): number {
     max = Math.max(max, Math.abs(v));
     if (Math.abs(v / GRID - Math.round(v / GRID)) > 1e-3) onGrid = false;
   }
-  return onGrid && max / GRID <= 32767 ? GRID : max / 32767 || 1;
+  const steps = Math.round(max / GRID);
+  // A power of two: its multiples leave the low bits zero, which meshopt's codec stores in almost nothing.
+  // A grid of at most 127 steps fits 8 bits, one step per integer (1/127 apart as three reads them, far above the outline
+  // builder's 1e-4 weld). A larger one takes 16 bits, at a power of two of integers per step, so that grid points stay
+  // apart there too and the low bits stay zero (which meshopt's codec stores in almost nothing).
+  if (onGrid && steps > 0 && steps <= 127) return { quantum: GRID, grid: true, top: 127 };
+  if (onGrid && steps > 0 && steps <= 32767) return { quantum: GRID / 2 ** Math.floor(Math.log2(32767 / steps)), grid: true, top: 32767 };
+  return { quantum: (max || 1) / 32767, grid: false, top: 32767 };
 }
 
-function compressPrimitive(doc: Document, prim: Primitive): number {
+function compressPrimitive(doc: Document, prim: Primitive): { quantum: number; grid: boolean } {
   const indices = prim.getIndices()!;
   const order = indices.getArray()!;
   const count = prim.getAttribute("POSITION")!.getCount();
@@ -81,7 +94,7 @@ function compressPrimitive(doc: Document, prim: Primitive): number {
   for (let i = 0; i < order.length; i++) newIndices[i] = remap[order[i]!]!;
   indices.setArray(newIndices);
 
-  const permute = <T extends Float32Array | Int16Array | Uint16Array>(src: ArrayLike<number>, size: number, out: T, map: (v: number) => number): T => {
+  const permute = <T extends Int8Array | Int16Array | Uint16Array>(src: ArrayLike<number>, size: number, out: T, map: (v: number) => number): T => {
     for (let v = 0; v < count; v++) {
       const n = remap[v]!;
       if (n < 0) continue;
@@ -91,8 +104,9 @@ function compressPrimitive(doc: Document, prim: Primitive): number {
   };
 
   const position = prim.getAttribute("POSITION")!;
-  const step = positionStep(position.getArray()!);
-  position.setArray(permute(position.getArray()!, 3, new Int16Array(used * 3), (v) => Math.round(v / step))).setNormalized(false);
+  const step = positionQuantum(position.getArray()!);
+  const stored = step.top === 127 ? new Int8Array(used * 3) : new Int16Array(used * 3);
+  position.setArray(permute(position.getArray()!, 3, stored, (v) => Math.round(v / step.quantum))).setNormalized(true);
 
   const normal = prim.getAttribute("NORMAL");
   normal?.setArray(permute(normal.getArray()!, 3, new Int16Array(used * 3), (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767))).setNormalized(true);
@@ -113,7 +127,7 @@ function compressPrimitive(doc: Document, prim: Primitive): number {
  * index codec may rotate a triangle (abc as bca, the same winding and edges), so each triangle is matched in its best
  * rotation.
  */
-function verify(name: string, source: Document, copy: Document): string {
+function verify(name: string, source: Document, copy: Document, quantum: number): string {
   const a = onlyPrimitive(source, name);
   const b = onlyPrimitive(copy, name);
   const ai = a.getIndices()!.getArray()!;
@@ -163,7 +177,8 @@ function verify(name: string, source: Document, copy: Document): string {
     for (let j = 0; j < 3; j++) worst[j] = Math.max(worst[j]!, best![j]!);
   }
   const [pos, nor, uv] = worst;
-  if (pos > scale / 2 + 1e-6) throw new Error(`${name}: a position moved ${pos}`);
+  // Half a quantum, and float32's rounding of a dequantized value.
+  if (pos > quantum / 2 + 1e-6) throw new Error(`${name}: a position moved ${pos}`);
   if (nor > 0.01) throw new Error(`${name}: a normal turned ${nor} degrees`);
   if (uv > 1e-5) throw new Error(`${name}: a UV moved ${uv}`);
   return `position ${pos.toExponential(1)}, normal ${nor.toFixed(4)} deg, uv ${uv.toExponential(1)}`;
@@ -173,13 +188,14 @@ async function compress(name: string, bytes: Uint8Array): Promise<{ out: Uint8Ar
   const doc = await io.readBinary(bytes);
   const node = doc.getRoot().listNodes()[0]!;
   const step = compressPrimitive(doc, onlyPrimitive(doc, name));
-  const s = node.getScale()[0] * step;
+  // Normalized: three reads an integer q as q / 127 (8 bits) or q / 32767 (16 bits), so the node scales by that many quanta.
+  const s = node.getScale()[0] * step.quantum * step.top;
   node.setScale([s, s, s]);
   doc.createExtension(KHRMeshQuantization).setRequired(true);
   doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
   const out = await io.writeBinary(doc);
-  const note = verify(name, await io.readBinary(bytes), await io.readBinary(out));
-  return { out, note: `step ${step === GRID ? "grid 0.1" : step.toExponential(3)}; ${note}` };
+  const note = verify(name, await io.readBinary(bytes), await io.readBinary(out), step.quantum);
+  return { out, note: `${step.grid ? `grid 0.1, ${step.top === 127 ? 8 : 16} bits` : `step ${step.quantum.toExponential(3)}`}; ${note}` };
 }
 
 const check = process.argv.includes("--check");

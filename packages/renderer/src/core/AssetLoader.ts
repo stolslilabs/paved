@@ -19,6 +19,9 @@ const PLAN_KEYS = Object.values(PlanType)
   .filter((v) => v !== PlanType.None)
   .map(getPlanKey);
 
+// meshopt decodes off the main thread where the browser gives workers (they start from an inline script, no fetch).
+if (typeof Worker !== "undefined") MeshoptDecoder.useWorkers(2);
+
 /** One manifest request per base path for the page's life (a failed one is asked again by the next loader). */
 const manifests = new Map<string, Promise<AssetManifest | null>>();
 

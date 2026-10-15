@@ -48,8 +48,11 @@ function readGlb(file: string) {
   };
   const node = json.nodes.find((n) => n.mesh !== undefined)!;
   const prim = json.meshes[node.mesh!]!.primitives[0]!;
-  const position = accessor(prim.attributes.POSITION!);
-  if (position.normalized) throw new Error(`${file}: normalized positions are not read here`);
+  const raw = accessor(prim.attributes.POSITION!);
+  // A normalized integer as three's BufferAttribute reads it (`MathUtils.denormalize`): q / 127 or q / 32767, at least -1.
+  const top = raw.array instanceof Int8Array ? 127 : raw.array instanceof Int16Array ? 32767 : null;
+  if (raw.normalized && top === null) throw new Error(`${file}: normalized positions of this type are not read here`);
+  const position = { array: raw.normalized ? Float64Array.from(raw.array, (q) => Math.max(q / top!, -1)) : raw.array };
   const index = accessor(prim.indices).array;
   // What `buildEdgesGeometry` reads of three's BufferGeometry: the raw values, as GLTFLoader keeps a quantized attribute.
   const geometry = {
