@@ -29,7 +29,9 @@ import {
   POOL_QUOTE_CONFIRMED,
   PoolCannotFillError,
   EconomyPoolQuoter,
+  SettleNotRecordedError,
   SettleTooEarlyError,
+  SettleUnknownGameError,
   SpawnPausedError,
   SwapBelowMinOutError,
   expiresAt,
@@ -766,6 +768,37 @@ describe("errors of the Economy as clear states", () => {
     const error = await s.econWriter.settle([7]).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(SettleTooEarlyError);
     expect((error as Error).message).toBe("This day cannot be settled yet: try again after the next day ends.");
+  });
+
+  test("settle: each refusal is typed (P7a), before a send and from a revert after a race", async () => {
+    // Before a send, from the terms read.
+    const typed: Array<[string, (s: ReturnType<typeof setup>) => void, unknown, number?]> = [
+      ["not bought", (s) => s.economy.terms_.delete(7), SettleUnknownGameError],
+      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), SettleNotRecordedError, DAY * 86_400 + 3_600],
+      ["never recorded, past its 24 h", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), SettleNotRecordedError],
+      ["day running", () => {}, SettleTooEarlyError, settlesAfter(DAY) - 1],
+    ];
+    for (const [, arrange, kind, now] of typed) {
+      const s = setup({ now });
+      s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
+      arrange(s);
+      const error = await s.econWriter.settle([7]).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(kind);
+      expect(error).toBeInstanceOf(WriteError);
+      expect(s.execute).not.toHaveBeenCalled();
+    }
+    expect(await setup({}).econWriter.settle([9]).catch((e: unknown) => e)).toBeInstanceOf(SettleUnknownGameError);
+    // From the revert of the one game asked for, with the hash.
+    for (const [reason, kind, text] of [
+      ["Economy: unknown game", SettleUnknownGameError, "Game 7 was not bought: nothing to settle"],
+      ["Economy: not recorded", SettleNotRecordedError, "Game 7 is not over yet"],
+    ] as const) {
+      const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: reason }) });
+      s.economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
+      const error = await s.econWriter.settle([7]).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(kind);
+      expect(error).toMatchObject({ message: text, reverted: true, transactionHash: "0x1" });
+    }
   });
 
   test("the node refusing at fee estimation, before anything is sent, maps the same way (no hash, not reverted)", async () => {
