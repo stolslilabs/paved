@@ -136,7 +136,7 @@ export type { ConnectionStatus, PavedContextValue, ReadState } from "./react";
 export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 
 // Auth
-export { CONTROLLER_ENTRY_POINTS, PACK_APPROVE_CAP, controllerPolicies, createControllerConnector } from "./auth/controller";
+export { CONTROLLER_ENTRY_POINTS, controllerPolicies, createControllerConnector } from "./auth/controller";
 export type { ControllerConfig } from "./auth/controller";
 
 // Economy (P8, E1 to E3: the committed ABIs)

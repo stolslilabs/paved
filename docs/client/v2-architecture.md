@@ -1767,8 +1767,8 @@ chain id, the pack on sale at the confirmed price, the router pin, the rate, the
 the price less the referral when one counts), then `PavedWriter.buyPack`: the approve of exactly the price to `Setup` on the
 economy's USDC and `Setup.buy_pack(pack_id, referrer, min_out)`. Its arguments are listed once (`buyPackArgs`), so a
 `max_price` is a one-line change. The receipt's `PackBought` sets the Cobbles balance in the cache, then the account is read
-again. `buy_pack` and an approve to `Setup` capped at `PACK_APPROVE_CAP` (70 USDC, the largest default pack) are session
-policies; a dearer pack prompts for its approve. The referrer is the link's `?ref=` (an address, not the player's own);
+again. `buy_pack` is a session policy; the pack's approve to `Setup` is not (PM ruling P-56: the session's only approve is the
+entry's, to Challenge), so a pack prompts once for its approve. The referrer is the link's `?ref=` (an address, not the player's own);
 `Setup`, the Vault and the router, which `Economy.pay` ignores, are sent as `0x0` for a pack. The states: guest ("Connect
 to buy"), paused, not enough USDC (Buy disabled with the reason), a price or quote that moved (`PoolPriceMovedError`,
 `PackPriceChangedError`, the swap's `min_out` revert: confirm again), a quote far below the guard rate ("Buy anyway"),

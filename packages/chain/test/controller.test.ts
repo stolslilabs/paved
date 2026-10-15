@@ -3,7 +3,6 @@ import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
 import {
   CONTROLLER_ENTRY_POINTS,
-  PACK_APPROVE_CAP,
   controllerPolicies,
   createControllerConnector,
   toControllerSessionPolicies,
@@ -56,10 +55,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   } as unknown as PavedRpc;
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  // The default packs' ends (CORE #453), and one above the session's cap.
+  // The default packs' ends (CORE #453).
   gameViews.packs.set(1, { packId: 1, cobbles: 50, price: 5_000_000n, active: true });
-  gameViews.packs.set(4, { packId: 4, cobbles: 1_000, price: PACK_APPROVE_CAP, active: true });
-  gameViews.packs.set(5, { packId: 5, cobbles: 2_000, price: PACK_APPROVE_CAP + 1n, active: true });
+  gameViews.packs.set(4, { packId: 4, cobbles: 1_000, price: 70_000_000n, active: true });
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
   // Mainnet never resolves a Faucet, whatever the env says: its writer has no faucet.
@@ -101,8 +99,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), confirmedMinOut: 1n, referrer: null }),
     // A pack of Cobbles (cobbles v1, part 2): approve Setup on USDC, then Setup.buy_pack.
     "pack, 50 for $5": () => pack(1, 5_000_000n),
-    "pack, 1,000 for $70": () => pack(4, PACK_APPROVE_CAP),
-    "pack above the cap": () => pack(5, PACK_APPROVE_CAP + 1n),
+    "pack, 1,000 for $70": () => pack(4, 70_000_000n),
     settle: () => econWriter.settle([7]),
     "vault deposit": () => econWriter.deposit(P, { confirmedAmount: P }),
     "vault withdraw": () => econWriter.withdraw(P, { confirmedAmount: P }),
@@ -135,8 +132,10 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 
 const GAME_AND_PURCHASE = [
   "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
-  "purchase, stake 10", "pack, 50 for $5", "pack, 1,000 for $70",
+  "purchase, stake 10",
 ];
+/** A pack's purchase: `buy_pack` is in the session, its approve to Setup prompts (P-56). */
+const PACKS = ["pack, 50 for $5", "pack, 1,000 for $70"];
 const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
 
 describe("controllerPolicies against what the writers send (E3)", () => {
@@ -170,7 +169,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     const sent = await sentByEveryWrite();
     const faucet = key("0x14", "mint");
     const keys = new Set(GAME_AND_PURCHASE.flatMap((label) => sent[label].map((c) => key(c.contractAddress, c.entrypoint))));
-    const withFaucet = new Set([...keys, faucet]);
+    const withFaucet = new Set([...keys, faucet, key("0x3", "buy_pack")]);
     expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(withFaucet);
     // Without the entry's approve, the session is the same minus approve.
     expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...withFaucet].filter((k) => !k.endsWith(":approve"))));
@@ -258,16 +257,20 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     }
   });
 
-  test("a pack's approve is to Setup, for exactly its price; above PACK_APPROVE_CAP it prompts, buy_pack does not", async () => {
+  test("a pack's approve is to Setup, for exactly its price, and prompts (P-56); buy_pack is in the session", async () => {
     const sent = await sentByEveryWrite();
-    const [approve, buy] = sent["pack, 1,000 for $70"];
-    expect([BigInt(approve.contractAddress), approve.entrypoint, BigInt((approve.calldata as string[])[0])]).toEqual([BigInt(ECON.usdc), "approve", 3n]);
-    expect(u256((approve.calldata as string[])[1], (approve.calldata as string[])[2])).toBe(PACK_APPROVE_CAP);
-    expect([BigInt(buy.contractAddress), buy.entrypoint]).toEqual([3n, "buy_pack"]);
-    const [dear, dearBuy] = sent["pack above the cap"];
-    expect(inSession(dear, session)).toBe(false);
-    expect(inSession(dearBuy, session)).toBe(true);
-    expect(session.filter((p) => p.method === "approve").map((p) => [p.spender, p.amount])).toEqual([["0x2", USDC_APPROVE.cap], ["0x3", PACK_APPROVE_CAP]]);
+    for (const label of PACKS) {
+      const [approve, buy] = sent[label];
+      expect([BigInt(approve.contractAddress), approve.entrypoint, BigInt((approve.calldata as string[])[0])]).toEqual([BigInt(ECON.usdc), "approve", 3n]);
+      expect([BigInt(buy.contractAddress), buy.entrypoint]).toEqual([3n, "buy_pack"]);
+      for (const ps of [policies, session, onEveryNetwork()]) {
+        expect(inSession(approve, ps), `${label}: approve`).toBe(false);
+        expect(inSession(buy, ps), `${label}: buy_pack`).toBe(true);
+      }
+    }
+    expect(u256((sent["pack, 1,000 for $70"][0].calldata as string[])[1], (sent["pack, 1,000 for $70"][0].calldata as string[])[2])).toBe(70_000_000n);
+    // The session's only approve is the entry's, to Challenge.
+    expect(session.filter((p) => p.method === "approve").map((p) => p.spender)).toEqual(["0x2"]);
   });
 
   test("with no approve in the session (entry unreadable), the purchase's approve prompts", async () => {
@@ -288,20 +291,11 @@ describe("controllerPolicies", () => {
     const usdc = "0x5";
     const unit = 2_000_000n; // 2 USDC, 6 decimals
     const after = controllerPolicies(deployment, { approve: { token: usdc, cap: 10n * unit } });
-    expect(after.filter((p) => p.method === "approve")).toEqual([
-      { target: usdc, method: "approve", spender: "0x2", amount: 20_000_000n },
-      // A pack's approve, to Setup, up to the largest default pack.
-      { target: usdc, method: "approve", spender: "0x3", amount: PACK_APPROVE_CAP, description: "Cobble packs" },
-    ]);
+    // The only approve: the entry's, to Challenge (P-56; a pack's approve to Setup prompts).
+    expect(after.filter((p) => p.method === "approve")).toEqual([{ target: usdc, method: "approve", spender: "0x2", amount: 20_000_000n }]);
     expect(after.filter((p) => p.method !== "approve")).toEqual(policies);
     const session = toControllerSessionPolicies(after);
-    expect(session.contracts[getChecksumAddress(usdc)].methods).toEqual([
-      { entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" },
-      { entrypoint: "approve", description: "Cobble packs", spender: getChecksumAddress("0x3"), amount: "0x42c1d80" },
-    ]);
-    // Without a Setup, no pack approve.
-    const noSetup = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Challenge: "0x2" } } });
-    expect(controllerPolicies(noSetup, { approve: { token: usdc, cap: 10n * unit } }).filter((p) => p.method === "approve").map((p) => p.spender)).toEqual(["0x2"]);
+    expect(session.contracts[getChecksumAddress(usdc)].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
     expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
   });
 
@@ -316,10 +310,7 @@ describe("toControllerSessionPolicies", () => {
   test("keeps an approve's spender and cap, which the package's own conversion drops", () => {
     const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: 25n } }));
     const token = session.contracts[getChecksumAddress("0x4")];
-    expect(token.methods).toEqual([
-      { entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" },
-      { entrypoint: "approve", description: "Cobble packs", spender: getChecksumAddress("0x3"), amount: "0x42c1d80" },
-    ]);
+    expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "spawn_free", "build", "discard", "surrender"]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
       "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack",
