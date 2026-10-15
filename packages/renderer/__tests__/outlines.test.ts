@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import {
   DEFAULT_OUTLINE_SETTINGS,
@@ -17,10 +17,20 @@ import {
   openingTilePixels,
   outlinesAllowed,
   outlineStroke,
+  probeMajorPerformanceCaveat,
   tilePixels,
   type OutlineSettings,
 } from "../src/core/outlines";
-import { cameraDistanceLimits, resolveRendererSettings, DEFAULT_CAMERA_ZOOM_SETTINGS } from "../src/core/settings";
+import {
+  cameraDistanceLimits,
+  capPixelRatio,
+  resolveRendererSettings,
+  DEFAULT_CAMERA_ZOOM_SETTINGS,
+  DEFAULT_RENDERER_SETTINGS,
+  PIXEL_RATIO_CAPS,
+  SMALL_SCREEN_PX,
+  resolveMaxPixelRatio,
+} from "../src/core/settings";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { TILE_SIZE } from "../src/core/types";
 import { OPENING_DISTANCE } from "../src/core/CameraController";
@@ -225,6 +235,42 @@ describe("renderer settings", () => {
     expect(s.camera).toEqual({ ...DEFAULT_CAMERA_ZOOM_SETTINGS, capZoomOut: true });
   });
 
+  it("takes an unset or unknown force as auto, never as a forced path", () => {
+    expect(resolveRendererSettings({ outlines: { force: undefined } }).outlines.force).toBe("auto");
+    expect(resolveRendererSettings({ outlines: { force: "sometimes" as never } }).outlines.force).toBe("auto");
+    expect(resolveRendererSettings({ outlines: { force: "on" } }).outlines.force).toBe("on");
+    expect(resolveRendererSettings({ outlines: { force: "off" } }).outlines.force).toBe("off");
+  });
+
+  it("keeps the default pixel-ratio cap for a missing, zero or negative one", () => {
+    const cap = DEFAULT_RENDERER_SETTINGS.maxPixelRatio;
+    expect(resolveRendererSettings({}).maxPixelRatio).toBe(cap);
+    expect(resolveRendererSettings({ maxPixelRatio: 0 }).maxPixelRatio).toBe(cap);
+    expect(resolveRendererSettings({ maxPixelRatio: -1 }).maxPixelRatio).toBe(cap);
+    expect(resolveRendererSettings({ maxPixelRatio: 1.5 }).maxPixelRatio).toBe(1.5);
+    expect(resolveRendererSettings({ maxPixelRatio: "auto" }, { ...DEFAULT_RENDERER_SETTINGS, maxPixelRatio: 2 }).maxPixelRatio).toBe("auto");
+  });
+
+  it("resolves the \"auto\" cap by device: 2 on a coarse pointer or a small screen, 1 elsewhere; a number as is", () => {
+    const desk = { coarsePointer: false, width: 1440, height: 900 };
+    expect(PIXEL_RATIO_CAPS).toEqual({ coarse: 2, fine: 1 });
+    expect(resolveMaxPixelRatio("auto", desk)).toBe(1);
+    expect(resolveMaxPixelRatio("auto", { ...desk, coarsePointer: true })).toBe(2);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 360, height: 780 })).toBe(2);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 844, height: 390 })).toBe(2); // a phone held sideways
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: SMALL_SCREEN_PX + 1, height: 900 })).toBe(1);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 0, height: 0 })).toBe(1); // a hidden container is not small
+    expect(resolveMaxPixelRatio(1.5, { ...desk, coarsePointer: true })).toBe(1.5);
+  });
+
+  it("caps the pixel ratio: min(devicePixelRatio, cap), 1 for a screen that reports none", () => {
+    expect(capPixelRatio(3, 2)).toBe(2);
+    expect(capPixelRatio(2, 1.5)).toBe(1.5);
+    expect(capPixelRatio(1, 2)).toBe(1);
+    expect(capPixelRatio(0, 2)).toBe(1);
+    expect(capPixelRatio(Number.NaN, 2)).toBe(1);
+  });
+
   it("caps the zoom-out only when the cap is on, never below the closest distance", () => {
     const camera = { minDistance: 5, maxDistance: 300, capZoomOut: false, zoomOutCapDistance: 150 };
     expect(cameraDistanceLimits(camera)).toEqual({ min: 5, max: 300 });
@@ -284,5 +330,41 @@ describe("software WebGL: the outlines are off there unless forced", () => {
     expect(outlinesAllowed("off", { software: false })).toBe(false);
     expect(outlinesAllowed("auto", { software: true })).toBe(false);
     expect(outlinesAllowed("auto", { software: false })).toBe(true);
+  });
+});
+
+describe("probeMajorPerformanceCaveat", () => {
+  /** Stubs `document.createElement("canvas")` with a canvas whose `getContext(type, options)` is `getContext`. */
+  function stubCanvas(getContext: (type: string, options: unknown) => unknown) {
+    const createElement = vi.fn(() => ({ getContext: vi.fn(getContext) }));
+    vi.stubGlobal("document", { createElement });
+    return createElement;
+  }
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is true when the browser refuses a context without a major performance caveat", () => {
+    const createElement = stubCanvas(() => null);
+    expect(probeMajorPerformanceCaveat()).toBe(true);
+    expect(createElement).toHaveBeenCalledWith("canvas");
+  });
+
+  it("is false when the context is made, and releases it at once", () => {
+    const loseContext = vi.fn();
+    const getExtension = vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null));
+    let asked: unknown[] = [];
+    stubCanvas((type, options) => ((asked = [type, options]), { getExtension }));
+    expect(probeMajorPerformanceCaveat()).toBe(false);
+    expect(asked).toEqual(["webgl2", { failIfMajorPerformanceCaveat: true }]);
+    expect(loseContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("is undefined when the probe throws, or when there is no DOM", () => {
+    stubCanvas(() => {
+      throw new Error("no WebGL");
+    });
+    expect(probeMajorPerformanceCaveat()).toBeUndefined();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("document", undefined);
+    expect(probeMajorPerformanceCaveat()).toBeUndefined();
   });
 });

@@ -12,7 +12,7 @@ function sceneWithCamera() {
   const controls = { target: new THREE.Vector3(), minDistance: 0, maxDistance: Infinity };
   (scene as any).camera = camera;
   (scene as any).controls = { camera, controls };
-  (scene as any).surface = { getSize: () => ({ width: 1440, height: 900 }) };
+  (scene as any).surface = { getSize: () => ({ width: 1440, height: 900 }), getDevicePixelRatio: () => 1 };
   return { scene, camera, controls };
 }
 

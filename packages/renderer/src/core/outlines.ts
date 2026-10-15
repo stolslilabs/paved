@@ -160,7 +160,7 @@ export function detectSoftwareWebGL(
  * canvas asks with `failIfMajorPerformanceCaveat`, and its context, if any, is released at once. Undefined where there
  * is no DOM (React Native, tests) or the probe fails.
  */
-function probeMajorPerformanceCaveat(): boolean | undefined {
+export function probeMajorPerformanceCaveat(): boolean | undefined {
   if (typeof document === "undefined") return undefined;
   try {
     const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true });
