@@ -5,8 +5,8 @@ Renamed from gems to Cobbles by the owner's decision of 2026-10-15; the design i
 Track CORE wrote the design; the PM ruled on it; CORE implements it in three pull requests, each with a review and an
 audit (value and access); CLIENT follows with the pack, theme, quest and achievement pages and the indexer (P-61 ruling 8).
 **Part 1 (the ledger, the cobble claims, the free-game credits and the free spawn) is built in #440**: see "As built: part
-1" below, which gives the measured figures and every choice the design left to the implementation. Parts 2 (packs) and 3
-(skins) are not built yet.
+1" below, which gives the measured figures and every choice the design left to the implementation. **Part 2 (the packs, on the
+game's money path) is built in #453**: see "As built: part 2". Part 3 (skins) is not built yet.
 
 The owner's feature (2026-10-15) and the PM's rulings B1 to B8 (P-61) are the input. In short: cobbles are an on-chain,
 non-transferable balance per account (B2), earned only by quest and achievement claims and pack purchases, spent only
@@ -84,6 +84,69 @@ cap of 72,947 (`class-headroom.md`).
 properties A1, A2, A3, A5 and A6, the ledger fuzz) and `contracts/src/tests/e2e/cobbles.cairo` (through the real contracts: the
 report, the day's credit end to end, A7, A8, the pause, no credit, and a free game's `GameOver` on each way it ends). A4, A9 and
 A10 are parts 2 and 3's.
+
+## As built: part 2 (#453)
+
+Sections 1.2 (`packs`), 2, 6.1 (part 2's rows), 6.2 (part 2's events), 6.4 (the seller and the packs) and 7 (part 2's rows) are
+built. The interface is in `docs/architecture/public-interface.md`, "Cobbles v1, part 2: packs (`Setup`) and `sell`
+(`Economy`)"; the shared money path in `docs/architecture/economy.md`, "The money path of a purchase and a sale".
+
+**The shared money path.** `Economy.purchase` is split as 2.3 says: everything that moves money is the internal `pay` (the price
+on `Economy`, the referral rule and its USDC payment, the one swap of the whole USDC balance filled whole and at least `min_out`,
+the margin's PAVED to the Vault with no share minted, the burn of the rest, the guard's rate at most once per block). `purchase`
+keeps its checks (game, stake, price, day, player, a new game), its effects (the player per game, the day's prior) before
+`pay`, and after it `R` (at the guard's rate before this purchase, as before) and the terms. `sell` checks the seller, a
+non-zero player and a non-zero price, and calls `pay` with the same configuration. So a pack takes the game's split to the
+basis point, with no setting of its own (the owner's answer). The referral rule of both now also ignores the seller.
+
+**Measured gas** (VPS, `contracts/tests/gas.cairo`, `docs/measures/baseline.md`, "After cobbles v1, part 2"):
+
+| What | Estimate | Measured |
+|---|---:|---:|
+| z7, `buy_pack` (the 1,000-cobble pack), no referrer | about 9.8M | 9,426,341 |
+| z8, `buy_pack` with a referrer that counts | about 9.9M | 10,299,801 |
+| z9, `set_pack` (a new pack) | 0.3M to 0.6M | 312,260 |
+| m, a paid spawn (stake 1), through the shared path | unchanged | +49,313 (15,613,802 to 15,663,115) |
+| n, a referred paid spawn (stake 10) | unchanged | +91,163 (16,466,822 to 16,557,985) |
+| g, i, k, l, s, x, y (game overs) | unchanged | +1,130 to +1,600 |
+| z5, `spawn_free` | unchanged | +41,543 |
+
+m's +49,313 is the split itself (`pay` returns its figures in one struct that `purchase` reads) and `Economy`'s larger
+dispatch; n's further +41,850 is the seller read in the referral rule, made only when a referrer is named (the checks
+short-circuit). The game overs and `spawn_free` call `Setup`, whose dispatch grew (three entry points more); the build moves
+(a0 to f) and the Vault's calls (t to w) are identical to the unit.
+
+**Class sizes**: see `docs/measures/baseline.md`, "After cobbles v1, part 2".
+
+**Choices the design left open, and the small departures:**
+
+- **`sell` returns the referrer that counted** (or zero), so `Setup` emits it in `PackBought` without repeating `Economy`'s
+  rule. The design's signature had no return value.
+- **`sell` refuses a zero price and a zero player** (`'Economy: wrong price'`, `'Economy: zero address'`), as `purchase` refuses a
+  zero player; neither can come from `Setup`, which sells only a pack with a non-zero price, to its caller.
+- **`Setup` pays with the `transferFrom` `Challenge` uses** (`paved::components::payable`), to `Economy` straight: `Setup` never
+  holds the USDC.
+- **The errors**: `'Setup: invalid pack'` (an id outside 1 to 8, zero cobbles or a zero price), `'Setup: pack not on sale'` (never
+  set, or stopped), `'Setup: economy not set'`, `'Setup: payment failed'` (a `transferFrom` that returns false; one that reverts,
+  for want of an allowance or a balance, reverts the purchase), `'Economy: not the seller'`, `'Economy: seller already set'`.
+- **A price too small to swap** (measured: 1 USDC base unit) reverts in the swap (`MockRouter: zero output`), so such a pack
+  sells nothing. The owner is trusted to set prices (2.2); the fresh packs are 5 to 70 USDC.
+- **`set_quest_cobbles` also refuses** a total above 65,535 on tasks 1, 2 and 4 (`'Setup: total too high'`: their day and week
+  sums are `u16`, so a saturated sum could never reach it; task 3, the points, sums in `u32` and passes) and a quest with
+  prerequisite conditions (`'Setup: quest has conditions'`: the claim reads the ledger only and cannot check them). The fresh
+  quests have neither. These are part 1's review notes (1), carried here.
+- **`scripts/deploy.sh`** sends `Economy.set_seller(Setup)` and the four `set_pack` calls in the definitions' multicall, after
+  the definitions and before the cobble calls (6.4's order), reads them back through `seller` and `pack`, and lists them under
+  `--check-only`; the smoke buys pack 1 (`smoke.pack_tx`). A seller other than `Setup` stops a run. A pack other than the table's
+  (amount, price, or stopped) stops a run, but is kept on a complete record (the owner's setting since), as the cobbles are.
+  Part 1's review note (2): a quest or achievement whose cobbles the owner set to 0 stays 0 on a complete record's rerun.
+
+**Tests.** `contracts/src/tests/economy/sell.cairo` (`Economy` alone: the seller, the refusals, `min_out` and a partial fill, A9
+in a test that splits one price by `sell` and by `purchase` from the same pool and finds every figure equal, the referral rule
+with every ignored address, no terms, day or mean, decision 4's guard, and the split's fuzz) and
+`contracts/src/tests/e2e/cobbles_packs.cairo` (through the real contracts: the packing, `set_pack`, `buy_pack` end to end, its
+referral and refusals, A1, A3, A4 (part 2's share: no entry point of parts 1 and 2 lowers cobbles), A6, A9 against a stake-1
+spawn, A10, and the fuzz of the split through `buy_pack`). `contracts/src/tests/e2e/cobbles_ledger.cairo` tests note (1).
 
 ## Sources
 
@@ -397,7 +460,9 @@ farmed 10 has no market value, and there is one claim per account.
 
 - the quest is defined and not retired;
 - `cobbles` is 5 to 15, or 0, which removes the cobbles;
-- the quest has exactly one task, of task 1, 2, 3 or 4 (the tasks the ledger sums);
+- the quest has exactly one task, of task 1, 2, 3 or 4 (the tasks the ledger sums), with a total of at most 65,535 for tasks
+  1, 2 and 4 (their day and week sums are `u16`; as built in part 2);
+- the quest has no prerequisite condition (the claim cannot check one; as built in part 2);
 - its schedule is one of two shapes:
   - **daily:** `duration` 86,400, `interval` a non-zero multiple of 86,400, `start` a multiple of 86,400;
   - **weekly:** `duration = interval = 604,800`, `start % 604,800 == 345,600`.
@@ -843,6 +908,9 @@ An auditor checks these properties, each against the code and the tests above:
   - `report` and `spend_credit` are reporter only, and the reporter list is owner only.
   - `sell` is seller only, and the seller is set once.
   - The auditor states the residual trust: a reporter can credit arbitrary progress, so arbitrary cobbles and credits.
+    Any allowlisted reporter can credit progress, and `spend_credit` does not check `game_id`. CLIENT's note: the indexer
+    halts if `spend_credit` is called by a reporter other than `Challenge.spawn_free` (its `CreditSpent` then has no free
+    `GameSpawned` beside it); only an owner act, allowlisting another reporter, could cause it.
 - **A7 A free game brings nothing into the Vault, and takes nothing out.** `spawn_free` makes no token transfer and no
   `Economy` call. Its game over makes no `Economy.record`. No `settle` can pay it (`'Economy: unknown game'`).
 - **A8 A free game cannot earn a credit.** Its game over reports no quest entries.

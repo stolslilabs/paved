@@ -1914,7 +1914,7 @@ fi
 # Setup holds v1 only (a record of the earlier set): the step sends the 19 v2a ones and no v1 one.
 dd_edit v1only
 out="$(dd_run step)"; rc=$?
-if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"38 definition and cobbles call(s) to send"* || "$(dd_calls define_quest)" != 12 ||
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"38 definition, shop and cobbles call(s) to send"* || "$(dd_calls define_quest)" != 12 ||
     "$(dd_calls define_achievement)" != 7 || "$(dd_sent_v1 && echo sent)" == sent ||
     "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16"* ]]; then
   dd_fail "Setup holding v1 only: expected exit 0, one multicall of the 12 quests and 7 achievements of v2a, got $rc" "$out"
@@ -1931,7 +1931,7 @@ else
   echo "ok: the fresh smoke fails when Setup holds no cobbles, naming the set_*_cobbles calls"
 fi
 out="$(dd_run step)"; rc=$?
-if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"28 definition and cobbles call(s) to send"* ||
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"28 definition, shop and cobbles call(s) to send"* ||
     "$(dd_calls define_quest)" != 0 || "$(dd_calls define_achievement)" != 0 || "$(dd_calls set_quest_cobbles)" != 13 ||
     "$(dd_calls set_achievement_cobbles)" != 15 ]] || ! fg_clean "$out"; then
   dd_fail "a Setup with its definitions and no cobbles: expected exit 0 and one multicall of the 28 cobbles calls, got $rc" "$out"

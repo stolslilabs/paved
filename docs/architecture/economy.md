@@ -290,6 +290,28 @@ states (section 1, `Economy.set_router`). Tests: `test_purchase_refuses_a_paved_
 Taking the referral from the burn would make self-referral pointless and keep the stakers whole, but it changes the
 burn rate D-10 fixed. **DECIDED (P-31, 2026-10-09): the margin.**
 
+### The money path of a purchase and a sale (cobbles v1, part 2, P-61)
+
+Since cobbles v1, part 2 (`docs/architecture/cobbles-v1.md`, 2.3), `Economy` has a second caller of the same money path: the
+seller, `Setup`, which sells cobble packs. The owner's answer (2026-10-15) is that a pack's revenue takes exactly a game's split,
+with its referral, as the game path itself and not a configurable default. So everything of `purchase` that moves money is one
+internal function, `pay`, which `purchase` and `sell` both call:
+
+1. the price is on `Economy` (`'Economy: price not paid'` otherwise);
+2. the referral rule above, which now also ignores the seller; the referral (`referral_bps` of the price, out of the Vault's
+   part) paid in USDC;
+3. one swap of the whole USDC balance, filled whole and at least `min_out`;
+4. the margin's PAVED to the Vault, with no share minted, and the burn of the rest;
+5. the guard's rate, at most once per block (decision 4 of the design: a sale moves it as a game's purchase does).
+
+`purchase` keeps what belongs to a game: its checks (the game, the stake and its price, the day, the player, a new game), the
+player per game and the day's prior before `pay`, then `R` (the burn's PAVED at the guard's rate before this purchase, the stake
+boost, the supply factor after the burn) and the terms after it. `sell(player, price, referrer, min_out)`, the seller only
+(`set_seller`, the owner, once), writes none of these: no terms, no player per game, nothing in a day, no move of the mean. It
+emits `Sold` (`Purchased`'s fields less the game's) and returns the referrer that counted. A change of `configure` moves both
+splits together. Tested in `contracts/src/tests/economy/sell.cairo` (A9: one price split identically by both) and
+`contracts/src/tests/e2e/cobbles_packs.cairo`.
+
 ## 2. The reward curve, the supply factor, the stake and the mean
 
 ### The curve with its cliff
