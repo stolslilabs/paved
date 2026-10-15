@@ -1,7 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { IndexedGame, IndexerAnswer, IndexerClient, Leaderboard, LeaderboardEntry } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_CY, FIXTURE_TOURNAMENT } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { queryClient } from "../src/lib/query-client";
@@ -17,45 +16,14 @@ const PAST = DAY - 1;
 /** Rank 38 of the fixture's 41 players: not on the first page of 20. */
 const FAR = `0x${(0x1000 + 34).toString(16).padStart(64, "0")}`;
 
-/**
- * The indexer with the `free` field of cobbles v1 added to the rows it answers: `@paved/chain` does not carry the field
- * yet, so the tests put it where the wire would (`freeFor` players' leaderboard rows; `freeGames`' ids on the games).
- */
-function withFree(indexer: IndexerClient, freeFor: string[], freeGames: number[] = []): IndexerClient {
-  const mark = <T,>(answer: IndexerAnswer<T>, data: T): IndexerAnswer<T> => ({ ...answer, data });
-  const entry = (e: LeaderboardEntry) => ({ ...e, free: freeFor.includes(e.playerId) });
-  return new Proxy(indexer, {
-    get(target, key) {
-      if (key === "leaderboard")
-        return async (...a: Parameters<IndexerClient["leaderboard"]>) => {
-          const r = await target.leaderboard(...a);
-          return mark<Leaderboard>(r, { ...r.data, entries: r.data.entries.map(entry) });
-        };
-      if (key === "playerTournament")
-        return async (...a: Parameters<IndexerClient["playerTournament"]>) => {
-          const r = await target.playerTournament(...a);
-          return mark(r, r.data && entry(r.data));
-        };
-      if (key === "playerGames")
-        return async (...a: Parameters<IndexerClient["playerGames"]>) => {
-          const r = await target.playerGames(...a);
-          return mark(r, { ...r.data, games: r.data.games.map((g): IndexedGame => ({ ...g, free: freeGames.includes(g.gameId) }) as IndexedGame) });
-        };
-      const value = Reflect.get(target, key) as unknown;
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-}
-
-function open(path: string, options: { address?: string | null; free?: string[]; freeGames?: number[] } = {}) {
+function open(path: string, options: { address?: string | null } = {}) {
   const f = fakeSources();
   f.views.today = DAY;
   const address = options.address === undefined ? FIXTURE_ADA : options.address;
   f.fixture.names[FIXTURE_ADA] = "Ada";
-  const sources = options.free || options.freeGames ? { ...f.sources, indexer: withFree(f.indexer, options.free ?? [], options.freeGames) } : f.sources;
   const wallet = fakeWallet({ address: address ?? undefined, restored: address !== null });
   const router = createTestRouter(path);
-  render(<App router={router} sources={sources} connector={wallet.load} />);
+  render(<App router={router} sources={f.sources} connector={wallet.load} />);
   return { router, ...f };
 }
 
@@ -153,8 +121,8 @@ describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/player/${FIXTURE_ADA}`));
   });
 
-  it("the Free mark follows the indexer's `free` on a row, and only there", async () => {
-    open("/leaderboard", { address: null, free: [FIXTURE_CY] });
+  it("the Free mark follows the fixture indexer's `free` on a row (Cy's best game), and only there", async () => {
+    open("/leaderboard", { address: null });
     const list = await ranking();
     const marks = list.getAllByText("Free");
     expect(marks).toHaveLength(1);
@@ -162,8 +130,9 @@ describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
     expect(list.getByText("Ada").closest("button")).not.toHaveTextContent("Free");
   });
 
-  it("no mark without the field", async () => {
-    open("/leaderboard", { address: null });
+  it("no mark on a day of paid games", async () => {
+    const { fixture } = open(`/leaderboard/${PAST}`, { address: null });
+    fixture.entries.set(PAST, [{ rank: 1, player_id: FIXTURE_CY, best_score: 150, best_game_id: 5, games_played: 1, games_finished: 1, finished_at: 1791840000, free: false, name: null }]);
     await ranking();
     expect(screen.queryByText("Free")).toBeNull();
   });
@@ -219,12 +188,12 @@ describe("/player/:id (P8)", { timeout: 15_000 }, () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/leaderboard/${PAST}`));
   });
 
-  it("the Free mark on a free game of the list, and not on the others", async () => {
-    open(`/player/${FIXTURE_ADA}`, { freeGames: [912] });
+  it("the Free mark on a free game of the list (the fixture's #55), and not on the others", async () => {
+    open(`/player/${FIXTURE_ADA}`);
     const games = within(await screen.findByRole("list", { name: "Games" }, { timeout: 5000 }));
     const items = games.getAllByRole("listitem");
-    expect(within(items[0]).getByText("Free")).toBeInTheDocument();
-    expect(within(items[1]).queryByText("Free")).toBeNull();
+    expect(within(items[0]).queryByText("Free")).toBeNull();
+    expect(within(items[1]).getByText("Free")).toBeInTheDocument();
   });
 
   it("another player's page is not marked as the viewer's", async () => {
