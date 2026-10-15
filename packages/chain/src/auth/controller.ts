@@ -29,8 +29,9 @@ export interface ControllerConfig {
  */
 export const CONTROLLER_ENTRY_POINTS = {
   Challenge: ["spawn", "build", "discard", "surrender"],
-  // The tutorial claim (D-21): a policy only where the deployment has a Setup (`controllerPolicies`).
-  Setup: ["claim_tutorial"],
+  // The tutorial claim (D-21) and the Cobbles claims (cobbles v1, part 1: a quest's, an achievement's, a day's and a week's
+  // free game; Claim all is a multicall of them): policies only where the deployment has a Setup (`controllerPolicies`).
+  Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit"],
 } as const;
 
 /**
@@ -38,7 +39,7 @@ export const CONTROLLER_ENTRY_POINTS = {
  * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
  * purchase; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
+ * `approve`, every approve prompts. `Setup.claim_tutorial` and the four Cobbles claims are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
  * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(

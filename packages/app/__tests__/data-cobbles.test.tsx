@@ -1,9 +1,11 @@
 import { act, waitFor } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { weekOfDay as chainWeekOfDay, type Definitions, type GameViews, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
 import type { GameSigner } from "../src/data";
 import {
+  applyClaimEvents,
   cobbleKeys,
   completionMemory,
   firstQuestDay,
@@ -15,6 +17,7 @@ import {
   useIndexerNow,
   useQuestRewards,
 } from "../src/data";
+import { queryKeys } from "../src/data/keys";
 import { weekOfDay } from "../src/lib/quest-window";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 
@@ -127,6 +130,61 @@ describe("useAchievementRewards, useCobbleAccount, useFreeCredits", () => {
     const { sources } = ledger();
     expect((await dataOf(renderData(() => useCobbleAccount(FIXTURE_ADA), sources).result))?.cobbles).toBe(240);
     expect(await dataOf(renderData(() => useFreeCredits(FIXTURE_ADA), sources).result)).toBe(1);
+  });
+});
+
+describe("applyClaimEvents: the receipt into the cache, apart from the refetch", () => {
+  const SETUP = "0x3";
+  /** A client holding Ada's account (240 Cobbles, 1 credit), today's and this week's claims, and the definitions (quest 1 daily, 14 weekly). */
+  function seeded() {
+    const client = new QueryClient();
+    client.setQueryData(cobbleKeys.account(FIXTURE_ADA), { cobbles: 240, credits: 1, games: 1, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: 0n });
+    client.setQueryData(cobbleKeys.day(FIXTURE_ADA, TODAY), { games: 1, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
+    client.setQueryData(cobbleKeys.week(FIXTURE_ADA, WEEK), { games: 3, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
+    const def = (questId: number, duration: number, cobblesKind: "daily" | "weekly") =>
+      ({ questId, startTime: 0, endTime: 0, duration, interval: duration, tasks: [], conditions: [], definedAt: 0, retired: false, retiredAt: null, cobbles: 5, cobblesKind });
+    client.setQueryData(queryKeys.indexer.definitions(), { quests: [def(1, 86_400, "daily"), def(14, 604_800, "weekly")], achievements: [] });
+    return client;
+  }
+  /** Claim all's receipt: quest 1 for today (+5), quest 14 for the week (+15), achievement 2 (+10), the day's credit. */
+  const EVENTS = [
+    { name: "CobblesClaimed", fields: { playerId: FIXTURE_ADA, kind: 1, id: 1, period: TODAY, cobbles: 5, balance: 245 }, fromAddress: SETUP },
+    { name: "CobblesClaimed", fields: { playerId: FIXTURE_ADA, kind: 1, id: 14, period: WEEK, cobbles: 15, balance: 260 }, fromAddress: SETUP },
+    { name: "CobblesClaimed", fields: { playerId: FIXTURE_ADA, kind: 2, id: 2, period: 0, cobbles: 10, balance: 270 }, fromAddress: SETUP },
+    { name: "CreditClaimed", fields: { playerId: FIXTURE_ADA, kind: 1, period: TODAY, credits: 2 }, fromAddress: SETUP },
+  ];
+  const read = (client: QueryClient) => ({
+    account: client.getQueryData(cobbleKeys.account(FIXTURE_ADA)),
+    day: client.getQueryData(cobbleKeys.day(FIXTURE_ADA, TODAY)),
+    week: client.getQueryData(cobbleKeys.week(FIXTURE_ADA, WEEK)),
+  });
+
+  it("sets the balance and the credits the events carry, and each claimed bit in its own period", () => {
+    const client = seeded();
+    applyClaimEvents(client, FIXTURE_ADA, EVENTS);
+    expect(read(client)).toEqual({
+      account: { cobbles: 270, credits: 2, games: 1, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: 1n << 2n },
+      day: { games: 1, structures: 0, forests: 0, points: 0, claimed: 1n << 1n, credit: true },
+      week: { games: 3, structures: 0, forests: 0, points: 0, claimed: 1n << 14n, credit: false },
+    });
+  });
+
+  it("never counts twice: the balance and the credits are the chain's totals, not increments, so a second application (or a refetch that already has them) changes nothing", () => {
+    const client = seeded();
+    applyClaimEvents(client, FIXTURE_ADA, EVENTS);
+    const once = read(client);
+    applyClaimEvents(client, FIXTURE_ADA, EVENTS);
+    expect(read(client)).toEqual(once);
+    // The reconciling read answers the chain's state, the same totals: writing it over the cache leaves the figures as they are.
+    client.setQueryData(cobbleKeys.account(FIXTURE_ADA), { ...(once.account as object) });
+    applyClaimEvents(client, FIXTURE_ADA, EVENTS);
+    expect(read(client)).toEqual(once);
+  });
+
+  it("leaves alone what is not in the cache and the events of other reads", () => {
+    const client = new QueryClient();
+    applyClaimEvents(client, FIXTURE_ADA, [...EVENTS, { name: "GameOver", fields: { gameId: 1, score: 3 }, fromAddress: "0x2" }]);
+    expect(read(client)).toEqual({ account: undefined, day: undefined, week: undefined });
   });
 });
 
