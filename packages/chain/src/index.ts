@@ -68,6 +68,10 @@ export {
   GAME_EXPIRED_TEXT,
   INVALID_POSITION_TEXT,
   InvalidPositionError,
+  NO_CREDIT_TEXT,
+  NoCreditError,
+  SPAWN_PAUSED_TEXT,
+  SpawnPausedError,
   WriteError,
 } from "./writer";
 export type { BuildMove, ClaimRefusal, WriteAccount, WriteResult } from "./writer";

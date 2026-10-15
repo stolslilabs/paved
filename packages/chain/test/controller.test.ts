@@ -84,6 +84,8 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
         { kind: "credit", credit: "daily", period: DAY },
         { kind: "credit", credit: "weekly", period: 2_857 },
       ]),
+    // Play free: `Challenge.spawn_free()`, no token moves; the empty receipt makes the write throw after sending.
+    "play free": () => writer.spawnFree(),
     "challenge build": () => writer.build({ mode: "challenge", gameId: 1 }, move),
     "challenge discard": () => writer.discard({ mode: "challenge", gameId: 1 }),
     "challenge surrender": () => writer.surrender({ mode: "challenge", gameId: 1 }),
@@ -120,7 +122,7 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "tutorial claim", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
+  "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
@@ -132,6 +134,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect(sent[label].length, label).toBeGreaterThan(0);
       for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(true);
     }
+    expect(sent["play free"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[2n, "spawn_free", []]]);
     expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
   });
 
@@ -280,7 +283,7 @@ describe("toControllerSessionPolicies", () => {
     const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: 25n } }));
     const token = session.contracts[getChecksumAddress("0x4")];
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
-    expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
+    expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "spawn_free", "build", "discard", "surrender"]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
       "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit",
     ]);
