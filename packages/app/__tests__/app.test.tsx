@@ -38,11 +38,14 @@ describe("app", () => {
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
-  it.each(PAGES.filter((p) => p.path !== "welcome").map((p) => [p.path || "/", p] as const))(
+  // The wired pages bring their own scene (welcome: P1; training and its end: P3, `training-route.test.tsx`).
+  const WIRED = ["welcome", "training", "training/over"];
+  it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {
       render(<App router={createTestRouter(concrete(page.path))} />);
-      expect(await screen.findByRole("heading", { level: 1, name: page.title })).toBeInTheDocument();
+      // The board's page module brings the renderer (three.js): its first import takes longer than findBy's 1 s in jsdom.
+      expect(await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.getByTestId("page")).toHaveAttribute("data-path", page.path || "/");
       // Tab pages carry the navigation, full-screen flows the top bar's Back: never both, never neither.
       expect(screen.queryByRole("navigation", { name: "Main" }) !== null).toBe(page.nav !== null);

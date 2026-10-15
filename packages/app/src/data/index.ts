@@ -32,5 +32,5 @@ export {
   usePlayerStatus,
   useTopThree,
 } from "./indexer";
-export { boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
-export type { SessionBoard } from "./training";
+export { TrainingGame, boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
+export type { Closing, SessionBoard, StorageStatus, TrainingSnapshot } from "./training";
