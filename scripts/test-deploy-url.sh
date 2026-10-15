@@ -1586,9 +1586,10 @@ PY2
   else
     echo "FAIL: sepolia --check-only does not list guardian_tx between wiring_tx and definitions_tx:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
-  # The definitions (v1 and v2a) are listed with the record's keys: quests 1 and 5 to 16, achievements 1 to 16.
-  if grep -q '^   definitions (definitions_tx): quests 1 and 5 to 16 and achievements 1 to 16 on Setup, v1 and v2a; a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
-    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a"
+  # The definitions (v1 and v2a) are listed with the record's keys: quests 1 and 5 to 16, achievements 1 to 16, then their
+  # gems (gems v1), in the same multicall.
+  if grep -q '^   definitions (definitions_tx): quests 1 and 5 to 16 and achievements 1 to 16 on Setup, v1 and v2a, then their gems (set_quest_gems x 13, set_achievement_gems x 15); a run sends the ones Setup lacks and reads each back as specified$' <<<"$out"; then
+    echo "ok: sepolia --check-only over a record lists the definitions: quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, then their gems"
   else
     echo "FAIL: sepolia --check-only over a record does not list the v1 and v2a definitions:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
