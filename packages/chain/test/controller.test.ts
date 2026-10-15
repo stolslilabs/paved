@@ -13,6 +13,7 @@ import { resolveDeployment } from "../src/deployment";
 import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import { packBuyerOf } from "../src/packs";
 import { FakeGameViews } from "../src/views";
 
 const deployment = resolveDeployment({
@@ -54,6 +55,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   } as unknown as PavedRpc;
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
+  // The default packs' ends (CORE #453).
+  gameViews.packs.set(1, { packId: 1, cobbles: 50, price: 5_000_000n, active: true });
+  gameViews.packs.set(4, { packId: 4, cobbles: 1_000, price: 70_000_000n, active: true });
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
   // Mainnet never resolves a Faucet, whatever the env says: its writer has no faucet.
@@ -64,6 +68,8 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   economy.setShares(PLAYER, 2n * P);
   const econ = createEconomyClient(resolveEconomyDeployment({ base: { ...deployment, chainId: FAKE_CHAIN_ID }, file: FAKE_ROUTER_FILE, env: ECON }), client, economy, new FakePoolQuoter())!;
   const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
+  const packs = packBuyerOf(econ, writer);
+  const pack = (packId: number, price: bigint) => packs.buy({ packId, confirmedPrice: price, confirmedMinOut: 1n, referrer: null });
   const move = { orientation: 1, x: 2, y: 3 };
   const writes: Record<string, () => Promise<unknown>> = {
     // The faucet (Faucet.mint): signed in the controller's session on Sepolia, where the deployment has a Faucet.
@@ -91,6 +97,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "challenge surrender": () => writer.surrender({ mode: "challenge", gameId: 1 }),
     "purchase, stake 1": () => econWriter.purchase({ stake: 1, confirmedPrice: priceOf(FAKE_UNIT, 1), confirmedMinOut: 1n, referrer: null }),
     "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), confirmedMinOut: 1n, referrer: null }),
+    // A pack of Cobbles (cobbles v1, part 2): approve Setup on USDC, then Setup.buy_pack.
+    "pack, 50 for $5": () => pack(1, 5_000_000n),
+    "pack, 1,000 for $70": () => pack(4, 70_000_000n),
     settle: () => econWriter.settle([7]),
     "vault deposit": () => econWriter.deposit(P, { confirmedAmount: P }),
     "vault withdraw": () => econWriter.withdraw(P, { confirmedAmount: P }),
@@ -125,6 +134,8 @@ const GAME_AND_PURCHASE = [
   "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "challenge build", "challenge discard", "challenge surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
+/** A pack's purchase: `buy_pack` is in the session, its approve to Setup prompts (P-56). */
+const PACKS = ["pack, 50 for $5", "pack, 1,000 for $70"];
 const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
 
 describe("controllerPolicies against what the writers send (E3)", () => {
@@ -158,7 +169,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     const sent = await sentByEveryWrite();
     const faucet = key("0x14", "mint");
     const keys = new Set(GAME_AND_PURCHASE.flatMap((label) => sent[label].map((c) => key(c.contractAddress, c.entrypoint))));
-    const withFaucet = new Set([...keys, faucet]);
+    const withFaucet = new Set([...keys, faucet, key("0x3", "buy_pack")]);
     expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(withFaucet);
     // Without the entry's approve, the session is the same minus approve.
     expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...withFaucet].filter((k) => !k.endsWith(":approve"))));
@@ -246,6 +257,22 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     }
   });
 
+  test("a pack's approve is to Setup, for exactly its price, and prompts (P-56); buy_pack is in the session", async () => {
+    const sent = await sentByEveryWrite();
+    for (const label of PACKS) {
+      const [approve, buy] = sent[label];
+      expect([BigInt(approve.contractAddress), approve.entrypoint, BigInt((approve.calldata as string[])[0])]).toEqual([BigInt(ECON.usdc), "approve", 3n]);
+      expect([BigInt(buy.contractAddress), buy.entrypoint]).toEqual([3n, "buy_pack"]);
+      for (const ps of [policies, session, onEveryNetwork()]) {
+        expect(inSession(approve, ps), `${label}: approve`).toBe(false);
+        expect(inSession(buy, ps), `${label}: buy_pack`).toBe(true);
+      }
+    }
+    expect(u256((sent["pack, 1,000 for $70"][0].calldata as string[])[1], (sent["pack, 1,000 for $70"][0].calldata as string[])[2])).toBe(70_000_000n);
+    // The session's only approve is the entry's, to Challenge.
+    expect(session.filter((p) => p.method === "approve").map((p) => p.spender)).toEqual(["0x2"]);
+  });
+
   test("with no approve in the session (entry unreadable), the purchase's approve prompts", async () => {
     const [approve, spawn] = (await sentByEveryWrite())["purchase, stake 1"];
     expect(inSession(approve, policies)).toBe(false);
@@ -264,6 +291,7 @@ describe("controllerPolicies", () => {
     const usdc = "0x5";
     const unit = 2_000_000n; // 2 USDC, 6 decimals
     const after = controllerPolicies(deployment, { approve: { token: usdc, cap: 10n * unit } });
+    // The only approve: the entry's, to Challenge (P-56; a pack's approve to Setup prompts).
     expect(after.filter((p) => p.method === "approve")).toEqual([{ target: usdc, method: "approve", spender: "0x2", amount: 20_000_000n }]);
     expect(after.filter((p) => p.method !== "approve")).toEqual(policies);
     const session = toControllerSessionPolicies(after);
@@ -285,7 +313,7 @@ describe("toControllerSessionPolicies", () => {
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "spawn_free", "build", "discard", "surrender"]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
-      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit",
+      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack",
     ]);
   });
 

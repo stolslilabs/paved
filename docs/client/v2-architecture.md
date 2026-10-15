@@ -1729,7 +1729,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction. **Done** (2026-10-15; section 9.5, "As built (P5)"): `/game/:gameId` on the predicted session, read only until P6 fills the sources' `signer` | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene. **Done** (2026-10-15): the wallet (`src/wallet/`): `WalletProvider` fills the sources' `signer` (`PavedClient.writer` of the account: the moves, the tutorial's claim and P9's Cobbles claims) while connected and clears it on Disconnect; the Cartridge controller with the game's session policies outside devnet, the env's burner (`VITE_PLAYER_ADDRESS`, `VITE_PLAYER_PRIVATE_KEY`) on devnet, loaded in its own chunk on the first connect or on a page that reads the account (home, play, the tutorial's end), never by the welcome or Training; the welcome's Connect connects; the D-15 notice and the connected account with Disconnect in the shell's footer; the board routes (`h-dvh`) have no footer and show the notice compact under the board's header. A devnet key is read only in a devnet build (static accesses behind a build-time test), and a production build without `VITE_NETWORK` names no network: the chain client refuses rather than falling back to devnet. Home and play on their data (section 6.4, "As wired (P6)"); `/tutorial` on the board scene with its own `TutorialRun` (`data/tutorial.ts`) and, at its end, the First Stone claim through the signer (D-21). "Play free" on home and play, and the wallet restored on quests and achievements: done (PLAYFREE; see the P9 row) | 1 d |
-| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game | 2 d |
+| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game. **P7b done** (2026-10-15; "As built (P7b)" below): the purchase half, with Cobbles part 2's packs; the over page is P7a | 2 d |
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
@@ -1754,6 +1754,44 @@ store, so a cached-then-fresh read after a remount does not toast again; the sce
 was unmounted are announced on return is P9's to decide; recommended yes, by keeping the last list per player in the store and giving it to the
 hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
 The `Toaster` is mounted once above the pages (`App.tsx`).
+
+**As built (P7b).** `/play/challenge` reads its Game tab from the chain: `Economy.quote(stake)` (the price from
+`entry_price`, the threshold), `split_bps`, the USDC `balance_of`, `spawn_paused`, and the pool's `quote_swap` of the stake's
+swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` through
+`EconomyWriter.purchase`, which reads the price, the quote, the router pin and the guard's rate again and sends nothing on a
+change, then opens `/game/:id` from the receipt's `GameSpawned`. While a new stake's quote is read the last one stays shown
+and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
+indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
+price before the indexer does. Buy is `PackBuyer.buy` (`@paved/chain`, `packs.ts`): the same fresh checks as a game (the
+chain id, the pack on sale at the confirmed price, the router pin, the rate, the split, a fresh quote of the pack's swap,
+the price less the referral when one counts), then `PavedWriter.buyPack`: the approve of exactly the price to `Setup` on the
+economy's USDC and `Setup.buy_pack(pack_id, referrer, min_out)`. Its arguments are listed once (`buyPackArgs`), so a
+`max_price` is a one-line change. The receipt's `PackBought` sets the Cobbles balance in the cache, then the account is read
+again. `buy_pack` is a session policy; the pack's approve to `Setup` is not (PM ruling P-56: the session's only approve is the
+entry's, to Challenge), so a pack prompts once for its approve. The referrer is the link's `?ref=` (an address, not the player's own),
+as each purchase would send it (`Purchases.referrer`): one the contracts would not pay (the Challenge, the Economy; for a
+pack also `Setup`, the Vault and the router, which `Economy.pay` ignores) is dropped with a notice, never a refused
+purchase, and the split shown is the one the contract pays. The states: guest ("Connect to buy"), paused, not enough USDC
+(Buy disabled with the reason), a USDC balance not read (unknown, not 0: Pay waits, a failed read has Retry), the packs
+being read, unreadable (Retry) or none on sale, a price that changed (`PurchasePriceChangedError`,
+`PackPriceChangedError`), the pool's quote that moved (`PoolPriceMovedError`, the swap's `min_out` revert: "The pool's
+quote moved: confirm again"), a quote far below the guard rate ("Buy anyway"), another transaction on its way (a neutral
+wait), pending, refused (the writer's message), an unknown outcome, and success (the board; a pack's Cobbles added). An
+unknown outcome is recorded per player and kind (its transaction hash, in `localStorage`, the query cache when storage is
+off: `data/unknown-purchase.ts`), so it survives a remount ("Check my games" and back), a reload and a second tab. While
+it is recorded, each mount checks its receipt and the reads that tell whether it landed (a game: the player's games, active
+game and USDC; a pack: the Cobbles and USDC), each with `fetchQuery`. Pay and Buy are held during that check and while it
+fails ("could not check", Retry), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends
+(and clears the record), since a game's second purchase would be signed without a prompt. A check that keeps failing (a
+node without receipts, an outage) offers Dismiss beside Retry, with the warning that buying again may pay twice. The
+notice says how long ago the purchase was sent (the record's `at`). The receipt decides on its own: one that reads (it
+went through, or reverted) clears the record even when a reconciling read failed. The record goes under the player who
+sent it (the request carries it), whoever is connected when the outcome comes back; a change of player resets the page's
+refusals and resolutions. A write that storage refuses (full) is remembered for the page's life, so the stale stored value
+is never read back over the cache's copy. The game's referrer follows the same rule as a pack's (`packReferrer`: `Setup`,
+the Vault and the router read at the time are dropped too), since both go through `Economy.pay`. The app's
+sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
+`data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).
 
 **As built (P9).** `/quests/:day?` and `/achievements` read the quests and achievements from the indexer (`usePlayerQuests`,
 `usePlayerAchievements`) and their Cobbles from two sources: each quest's and achievement's amount from the indexer's

@@ -151,6 +151,38 @@ export interface GameViews {
   tutorialClaimed(playerId: string): Promise<boolean>;
 }
 
+/** The highest pack id `Setup.set_pack` takes (`MAX_PACK_ID`, cobbles v1, part 2): packs are ids 1 to 8. */
+export const MAX_PACK_ID = 8;
+
+/**
+ * `Setup.pack(pack_id)` (cobbles v1, part 2, CORE #453): its Cobbles, its price in USDC base units (6 decimals) and whether
+ * it is on sale. `cobbles` 0 is an id never set.
+ */
+export interface PackView {
+  packId: number;
+  cobbles: number;
+  price: bigint;
+  active: boolean;
+}
+
+/** The struct fields of `pack`, in ABI order (camelCased); a test checks them against `contracts/abis/Setup.json`. */
+export const PACK_VIEW_FIELDS = ["cobbles", "price", "active"];
+
+export const packView = (packId: number, s: Struct): PackView => ({
+  packId,
+  cobbles: Number(s.cobbles ?? 0),
+  price: BigInt((s.price as number | bigint | string | undefined) ?? 0),
+  active: s.active === true,
+});
+
+/**
+ * The packs' view on `Setup`. `RpcGameViews` reads it (a `not-configured` `ViewError` without a Setup address) and
+ * `FakeGameViews` answers it in memory; `GameViews` does not require it, as the Cobbles views.
+ */
+export interface PackViews {
+  pack(packId: number): Promise<PackView>;
+}
+
 /** What the views need from starknet.js's `RpcProvider`. */
 export interface CallProvider {
   callContract(call: { contractAddress: string; entrypoint: string; calldata: string[] }): Promise<string[]>;
@@ -158,8 +190,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`). */
-export class RpcGameViews implements GameViews, CobbleViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`) and packs. */
+export class RpcGameViews implements GameViews, CobbleViews, PackViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -227,6 +259,10 @@ export class RpcGameViews implements GameViews, CobbleViews {
     return achievementCobbles(achievementId, (await this.call("Setup", "achievement_cobbles", [achievementId])) as Struct);
   }
 
+  async pack(packId: number): Promise<PackView> {
+    return packView(packId, (await this.call("Setup", "pack", [packId])) as Struct);
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -257,8 +293,8 @@ function gameKeyId(key: GameKey): string {
   return `${key.mode}:${key.gameId}`;
 }
 
-/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views too. */
-export class FakeGameViews implements GameViews, CobbleViews {
+/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views and the packs too. */
+export class FakeGameViews implements GameViews, CobbleViews, PackViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -273,8 +309,10 @@ export class FakeGameViews implements GameViews, CobbleViews {
   /** `quest_cobbles` and `achievement_cobbles` by id; an id not listed reads 0 Cobbles. */
   readonly questRates = new Map<number, QuestCobbles>();
   readonly achievementRates = new Map<number, AchievementCobbles>();
-  /** Set to an Error to make every Cobbles read fail. */
+  /** Set to an Error to make every Cobbles read fail (the packs' too). */
   cobblesFail: Error | null = null;
+  /** `pack(id)` by id; an id not listed reads a pack never set (0 Cobbles, inactive). */
+  readonly packs = new Map<number, PackView>();
 
   /** The player's ledger, created empty on first use: a test edits it in place. */
   cobblePlayer(playerId: string): FakeCobblePlayer {
@@ -362,6 +400,11 @@ export class FakeGameViews implements GameViews, CobbleViews {
   async achievementCobbles(achievementId: number): Promise<AchievementCobbles> {
     this.cobbleCall(`achievement_cobbles ${achievementId}`);
     return { ...(this.achievementRates.get(achievementId) ?? { achievementId, cobbles: 0, task: 0, total: 0 }) };
+  }
+
+  async pack(packId: number): Promise<PackView> {
+    this.cobbleCall(`pack ${packId}`);
+    return { ...(this.packs.get(packId) ?? { packId, cobbles: 0, price: 0n, active: false }) };
   }
 
   private cobbleCall(call: string): void {
