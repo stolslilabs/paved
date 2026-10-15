@@ -13,6 +13,14 @@
 //! Since step E (D-25) it is also the single registry of the wiring (P-53 ruling 2): the economy
 //! and collection addresses that `Account` held, set by the owner and read by `Challenge` through
 //! one view per call (`wiring`). They are new storage members: none of the earlier members moves.
+//!
+//! Since gems v1 (P-61, `docs/architecture/gems-v1.md`, part 1) it also keeps the ledger that
+//! proves the claims: each paid game over adds its sums to the player's day and week (`days`,
+//! `weeks`), and every game over to the player's lifetime counts (`accounts`). The player claims
+//! the gems of a quest or an achievement, and the free-game credit of a day's or a week's quests,
+//! from that ledger; `Challenge` spends a credit through `spend_credit` for a free game. Gems and
+//! credits are a balance per account with no transfer: they grow only by a claim and fall only by a
+//! spend.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -28,6 +36,419 @@ use starknet::ContractAddress;
 pub struct Wiring {
     pub economy: ContractAddress,
     pub collection: ContractAddress,
+}
+
+/// The calendar of the ledger (gems v1, 1.2): a day is Paved's day id, `t / DAY`; a week runs
+/// Monday to Sunday UTC, week 0 from `WEEK_START` (Monday 1970-01-05, where the weekly quests
+/// start). `t` is the block time of the report: a game counts for the day and week it ends in.
+pub const DAY: u64 = 86400;
+pub const WEEK: u64 = 604800;
+pub const WEEK_START: u64 = 345600;
+/// The kinds of a quest with gems, and of a credit: daily and weekly.
+pub const DAILY: u8 = 1;
+pub const WEEKLY: u8 = 2;
+/// The kinds of a gem claim (`GemsClaimed.kind`).
+pub const CLAIM_QUEST: u8 = 1;
+pub const CLAIM_ACHIEVEMENT: u8 = 2;
+/// The ids that can carry gems: 1 to 63, one bit each in the claim bitmaps (`u64`).
+pub const MAX_GEM_ID: u32 = 63;
+/// The most quests of one kind with gems: the ids of a list are 15 `u16` in one slot.
+pub const MAX_LISTED: u32 = 15;
+/// The gems of a quest, and of an achievement, when set (0 removes them).
+pub const QUEST_GEMS_MIN: u8 = 5;
+pub const QUEST_GEMS_MAX: u8 = 15;
+pub const ACHIEVEMENT_GEMS_MIN: u8 = 10;
+pub const ACHIEVEMENT_GEMS_MAX: u8 = 90;
+/// The highest total an achievement with gems may have: its lifetime count saturates at `u16`.
+pub const MAX_ACHIEVEMENT_TOTAL: u32 = 65535;
+
+/// A player's account (one slot, key `player_id`): the gems, the free-game credits, the lifetime
+/// counts of every reported game over (each saturating at `u16::MAX`) and the claimed
+/// achievements (bit `i` = achievement `i`). Layout: `gems` [0, 64) · `credits` [64, 80) ·
+/// `games`
+/// [80, 96) · `forests` [96, 112) · `wonders` [112, 128) · `big` [128, 144) · `high` [144, 160)
+/// ·
+/// `achievements_claimed` [160, 224).
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct Account {
+    pub gems: u64,
+    pub credits: u16,
+    pub games: u16,
+    pub forests: u16,
+    pub wonders: u16,
+    pub big: u16,
+    pub high: u16,
+    pub achievements_claimed: u64,
+}
+
+/// A player's day or week (one slot, key `(player_id, period)`): the sums of the paid game overs
+/// that ended in it (each saturating), the quests claimed for it (bit `i` = quest `i`), and whether
+/// its credit is claimed. Layout: `games` [0, 16) · `structures` [16, 32) · `forests` [32, 48) ·
+/// `points` [48, 80) · `credit` [80] · `claimed` [128, 192).
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct Progress {
+    pub games: u16,
+    pub structures: u16,
+    pub forests: u16,
+    pub points: u32,
+    pub claimed: u64,
+    pub credit: bool,
+}
+
+/// The gems of a quest (one slot, key `quest_id`), with the copy of its quiver definition's
+/// schedule and single task taken when they were set: a claim reads this slot alone. `gems` 0: no
+/// gems. Layout: `gems` [0, 8) · `kind` [8, 16) · `task` [16, 48) · `total` [48, 80) ·
+/// `interval`
+/// [80, 112) · `start` [128, 192). The quest's `duration` is its kind's (a day or a week) and its
+/// `end` is 0 (`set_quest_gems` accepts no other).
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct QuestGems {
+    pub gems: u8,
+    pub kind: u8,
+    pub task: u32,
+    pub total: u32,
+    pub start: u64,
+    pub interval: u32,
+}
+
+/// The gems of an achievement (one slot, key `achievement_id`), with its single task copied from
+/// its definition. `gems` 0: no gems. Layout: `gems` [0, 8) · `task` [8, 40) · `total` [40, 72).
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct AchievementGems {
+    pub gems: u8,
+    pub task: u32,
+    pub total: u32,
+}
+
+const TWO_POW_8: u128 = 0x100;
+const TWO_POW_16: u128 = 0x10000;
+const TWO_POW_32: u128 = 0x100000000;
+const TWO_POW_40: u128 = 0x10000000000;
+const TWO_POW_48: u128 = 0x1000000000000;
+const TWO_POW_64: u128 = 0x10000000000000000;
+const TWO_POW_80: u128 = 0x100000000000000000000;
+const TWO_POW_96: u128 = 0x1000000000000000000000000;
+const TWO_POW_112: u128 = 0x10000000000000000000000000000;
+const MASK_8: u128 = 0xff;
+const MASK_16: u128 = 0xffff;
+const MASK_32: u128 = 0xffffffff;
+const MASK_64: u128 = 0xffffffffffffffff;
+
+/// The two halves of a packed slot.
+fn halves(value: felt252) -> (u128, u128) {
+    let word: u256 = value.into();
+    (word.low, word.high)
+}
+
+/// A packed slot from its halves; every layout keeps `high` under 2^96, so it fits a felt.
+fn word(low: u128, high: u128) -> felt252 {
+    let word = u256 { low, high };
+    word.try_into().unwrap()
+}
+
+#[inline(always)]
+fn field(half: u128, unit: u128, mask: u128) -> u128 {
+    (half / unit) & mask
+}
+
+pub impl AccountPacking of starknet::storage_access::StorePacking<Account, felt252> {
+    fn pack(value: Account) -> felt252 {
+        let low: u128 = value.gems.into()
+            + value.credits.into() * TWO_POW_64
+            + value.games.into() * TWO_POW_80
+            + value.forests.into() * TWO_POW_96
+            + value.wonders.into() * TWO_POW_112;
+        let high: u128 = value.big.into()
+            + value.high.into() * TWO_POW_16
+            + value.achievements_claimed.into() * TWO_POW_32;
+        word(low, high)
+    }
+
+    fn unpack(value: felt252) -> Account {
+        let (low, high) = halves(value);
+        Account {
+            gems: (low & MASK_64).try_into().unwrap(),
+            credits: field(low, TWO_POW_64, MASK_16).try_into().unwrap(),
+            games: field(low, TWO_POW_80, MASK_16).try_into().unwrap(),
+            forests: field(low, TWO_POW_96, MASK_16).try_into().unwrap(),
+            wonders: (low / TWO_POW_112).try_into().unwrap(),
+            big: (high & MASK_16).try_into().unwrap(),
+            high: field(high, TWO_POW_16, MASK_16).try_into().unwrap(),
+            achievements_claimed: (high / TWO_POW_32).try_into().unwrap(),
+        }
+    }
+}
+
+pub impl ProgressPacking of starknet::storage_access::StorePacking<Progress, felt252> {
+    fn pack(value: Progress) -> felt252 {
+        let credit: u128 = if value.credit {
+            TWO_POW_80
+        } else {
+            0
+        };
+        let low: u128 = value.games.into()
+            + value.structures.into() * TWO_POW_16
+            + value.forests.into() * TWO_POW_32
+            + value.points.into() * TWO_POW_48
+            + credit;
+        word(low, value.claimed.into())
+    }
+
+    fn unpack(value: felt252) -> Progress {
+        let (low, high) = halves(value);
+        Progress {
+            games: (low & MASK_16).try_into().unwrap(),
+            structures: field(low, TWO_POW_16, MASK_16).try_into().unwrap(),
+            forests: field(low, TWO_POW_32, MASK_16).try_into().unwrap(),
+            points: field(low, TWO_POW_48, MASK_32).try_into().unwrap(),
+            claimed: high.try_into().unwrap(),
+            credit: low / TWO_POW_80 != 0,
+        }
+    }
+}
+
+pub impl QuestGemsPacking of starknet::storage_access::StorePacking<QuestGems, felt252> {
+    fn pack(value: QuestGems) -> felt252 {
+        let low: u128 = value.gems.into()
+            + value.kind.into() * TWO_POW_8
+            + value.task.into() * TWO_POW_16
+            + value.total.into() * TWO_POW_48
+            + value.interval.into() * TWO_POW_80;
+        word(low, value.start.into())
+    }
+
+    fn unpack(value: felt252) -> QuestGems {
+        let (low, high) = halves(value);
+        QuestGems {
+            gems: (low & MASK_8).try_into().unwrap(),
+            kind: field(low, TWO_POW_8, MASK_8).try_into().unwrap(),
+            task: field(low, TWO_POW_16, MASK_32).try_into().unwrap(),
+            total: field(low, TWO_POW_48, MASK_32).try_into().unwrap(),
+            start: high.try_into().unwrap(),
+            interval: field(low, TWO_POW_80, MASK_32).try_into().unwrap(),
+        }
+    }
+}
+
+pub impl AchievementGemsPacking of starknet::storage_access::StorePacking<
+    AchievementGems, felt252,
+> {
+    fn pack(value: AchievementGems) -> felt252 {
+        let low: u128 = value.gems.into()
+            + value.task.into() * TWO_POW_8
+            + value.total.into() * TWO_POW_40;
+        low.into()
+    }
+
+    fn unpack(value: felt252) -> AchievementGems {
+        let (low, _) = halves(value);
+        AchievementGems {
+            gems: (low & MASK_8).try_into().unwrap(),
+            task: field(low, TWO_POW_8, MASK_32).try_into().unwrap(),
+            total: field(low, TWO_POW_40, MASK_32).try_into().unwrap(),
+        }
+    }
+}
+
+/// The ids of a quest list (`quest_lists`, one slot per kind): up to `MAX_LISTED` non-zero ids,
+/// `u16` each, from bit 0 of the low half (8) then of the high half (7); 0 is an empty place.
+pub fn list_ids(value: felt252) -> Array<u32> {
+    let (mut low, mut high) = halves(value);
+    let mut ids: Array<u32> = array![];
+    let mut i: u32 = 0;
+    while i < MAX_LISTED {
+        let id: u32 = if i < 8 {
+            let id = low & MASK_16;
+            low = low / TWO_POW_16;
+            id.try_into().unwrap()
+        } else {
+            let id = high & MASK_16;
+            high = high / TWO_POW_16;
+            id.try_into().unwrap()
+        };
+        if id != 0 {
+            ids.append(id);
+        }
+        i += 1;
+    }
+    ids
+}
+
+/// A quest list from its ids (at most `MAX_LISTED`, each at most `MAX_GEM_ID`).
+pub fn list_word(ids: Span<u32>) -> felt252 {
+    assert(ids.len() <= MAX_LISTED, 'Setup: list full');
+    let mut low: u128 = 0;
+    let mut high: u128 = 0;
+    let mut unit_low: u128 = 1;
+    let mut unit_high: u128 = 1;
+    let mut i: u32 = 0;
+    for id in ids {
+        let id: u128 = (*id).into();
+        if i < 8 {
+            low += id * unit_low;
+            if i < 7 {
+                unit_low *= TWO_POW_16;
+            }
+        } else {
+            high += id * unit_high;
+            unit_high *= TWO_POW_16;
+        }
+        i += 1;
+    }
+    word(low, high)
+}
+
+/// `count + by`, saturating at `u16::MAX`.
+#[inline(always)]
+fn add_u16(count: u16, by: u32) -> u16 {
+    let sum: u64 = count.into() + by.into();
+    if sum > 0xffff {
+        0xffff
+    } else {
+        sum.try_into().unwrap()
+    }
+}
+
+/// `count + by`, saturating at `u32::MAX`.
+#[inline(always)]
+fn add_u32(count: u32, by: u32) -> u32 {
+    let sum: u64 = count.into() + by.into();
+    if sum > 0xffffffff {
+        0xffffffff
+    } else {
+        sum.try_into().unwrap()
+    }
+}
+
+/// Bit `id` of a claim bitmap (`id` 1 to `MAX_GEM_ID`).
+pub fn bit(id: u32) -> u64 {
+    let mut bit: u64 = 1;
+    let mut i: u32 = 0;
+    while i < id {
+        bit *= 2;
+        i += 1;
+    }
+    bit
+}
+
+#[generate_trait]
+pub impl ProgressImpl of ProgressTrait {
+    /// Adds the quest entries of a paid game over (tasks 1 to 4; any other is not summed).
+    fn add(ref self: Progress, entries: Span<QuestProgress>) {
+        for entry in entries {
+            let count = *entry.count;
+            match *entry.task_id {
+                0 => {},
+                1 => { self.games = add_u16(self.games, count); },
+                2 => { self.structures = add_u16(self.structures, count); },
+                3 => { self.points = add_u32(self.points, count); },
+                4 => { self.forests = add_u16(self.forests, count); },
+                _ => {},
+            }
+        }
+    }
+
+    /// The sum of a quest task (1 to 4) in this period; 0 for any other.
+    fn count(self: @Progress, task: u32) -> u32 {
+        match task {
+            0 => 0,
+            1 => (*self.games).into(),
+            2 => (*self.structures).into(),
+            3 => *self.points,
+            4 => (*self.forests).into(),
+            _ => 0,
+        }
+    }
+}
+
+#[generate_trait]
+pub impl AccountImpl of AccountTrait {
+    /// Adds the achievement entries of a game over to the lifetime counts (tasks 1, 4, 5, 6, 7).
+    fn add(ref self: Account, entries: Span<AchievementProgress>) {
+        for entry in entries {
+            let count = *entry.count;
+            match *entry.task_id {
+                0 => {},
+                1 => { self.games = add_u16(self.games, count); },
+                2 | 3 => {},
+                4 => { self.forests = add_u16(self.forests, count); },
+                5 => { self.wonders = add_u16(self.wonders, count); },
+                6 => { self.big = add_u16(self.big, count); },
+                7 => { self.high = add_u16(self.high, count); },
+                _ => {},
+            }
+        }
+    }
+
+    /// The lifetime count of an achievement task (1, 4, 5, 6 or 7); 0 for any other. Task 10 (the
+    /// tutorial) is read from `tutorial_claims` by the claim.
+    fn count(self: @Account, task: u32) -> u32 {
+        match task {
+            0 => 0,
+            1 => (*self.games).into(),
+            2 | 3 => 0,
+            4 => (*self.forests).into(),
+            5 => (*self.wonders).into(),
+            6 => (*self.big).into(),
+            7 => (*self.high).into(),
+            _ => 0,
+        }
+    }
+}
+
+#[generate_trait]
+pub impl QuestGemsImpl of QuestGemsTrait {
+    /// The first second of `period` for a quest of this kind: the day `period` (daily) or the week
+    /// `period` (weekly).
+    fn period_start(self: @QuestGems, period: u64) -> u64 {
+        if *self.kind == WEEKLY {
+            WEEK_START + period * WEEK
+        } else {
+            period * DAY
+        }
+    }
+
+    /// Whether the copied schedule is active at `time`: quiver's `ScheduleTrait::is_active` with
+    /// the kind's duration and no end.
+    fn is_active(self: @QuestGems, time: u64) -> bool {
+        let start = *self.start;
+        if time < start || *self.interval == 0 {
+            return false;
+        }
+        let duration = if *self.kind == WEEKLY {
+            WEEK
+        } else {
+            DAY
+        };
+        (time - start) % (*self.interval).into() < duration
+    }
+}
+
+/// The kind of a quest's schedule that can carry gems, or 0 when it is neither shape (gems v1,
+/// 3.2): daily, a day in every whole number of days from 00:00 UTC; weekly, every week from a
+/// Monday 00:00 UTC. A quest with an end is neither.
+pub fn schedule_kind(schedule: QuestSchedule) -> u8 {
+    if schedule.end != 0 {
+        return 0;
+    }
+    let duration: u64 = schedule.duration.into();
+    let interval: u64 = schedule.interval.into();
+    if duration == DAY && interval != 0 && interval % DAY == 0 && schedule.start % DAY == 0 {
+        return DAILY;
+    }
+    if duration == WEEK && interval == WEEK && schedule.start % WEEK == WEEK_START {
+        return WEEKLY;
+    }
+    0
+}
+
+/// The week of `time`, `None` before week 0.
+pub fn week_of(time: u64) -> Option<u64> {
+    if time < WEEK_START {
+        Option::None
+    } else {
+        Option::Some((time - WEEK_START) / WEEK)
+    }
 }
 
 #[starknet::interface]
@@ -79,6 +500,42 @@ pub trait ISetup<TContractState> {
     fn wiring(self: @TContractState) -> Wiring;
 }
 
+/// Gems v1, part 1 (P-61, `docs/architecture/gems-v1.md`): the owner sets the gems of a quest or an
+/// achievement; the player claims them, and the free-game credit of a day's or a week's quests,
+/// for itself, from the ledger the reports write; `Challenge` spends a credit for a free game.
+#[starknet::interface]
+pub trait ISetupGems<TContractState> {
+    /// Sets the gems of a defined, live quest, owner only: 5 to 15, or 0 to remove them. The quest
+    /// must have one task, of task 1 to 4, and a daily or weekly schedule (`schedule_kind`); its
+    /// schedule and task are copied, and the id joins its kind's list (at most 15). Emits
+    /// `QuestGemsSet`.
+    fn set_quest_gems(ref self: TContractState, quest_id: u32, gems: u8);
+    /// Sets the gems of a defined, live achievement, owner only: 10 to 90, or 0 to remove them.
+    /// The achievement must have one task, of task 1, 4, 5, 6, 7 or 10, a total of at most 65,535
+    /// and no window. Emits `AchievementGemsSet`.
+    fn set_achievement_gems(ref self: TContractState, achievement_id: u32, gems: u8);
+    /// The caller claims the gems of a quest for `period`, its day number (daily) or week number
+    /// (weekly), once: the quest is live in that period and the period's sum of its task reaches
+    /// its total. Emits `GemsClaimed`.
+    fn claim_quest(ref self: TContractState, quest_id: u32, period: u64);
+    /// The caller claims the gems of an achievement, once: its lifetime count reaches the total
+    /// (task 10: the tutorial is claimed). Emits `GemsClaimed`.
+    fn claim_achievement(ref self: TContractState, achievement_id: u32);
+    /// The caller claims the free-game credit of `day`, once: every daily quest with gems live
+    /// that day is completed, and at least one is live. Emits `CreditClaimed`.
+    fn claim_daily_credit(ref self: TContractState, day: u64);
+    /// The same for the weekly quests and `week`.
+    fn claim_weekly_credit(ref self: TContractState, week: u64);
+    /// Spends one credit of `player_id` for the free game `game_id`: an allowlisted reporter only
+    /// (`'Quest: not reporter'`), `'Setup: no credit'` without one. Emits `CreditSpent`.
+    fn spend_credit(ref self: TContractState, player_id: felt252, game_id: u32);
+    fn account(self: @TContractState, player_id: felt252) -> Account;
+    fn day_progress(self: @TContractState, player_id: felt252, day: u64) -> Progress;
+    fn week_progress(self: @TContractState, player_id: felt252, week: u64) -> Progress;
+    fn quest_gems(self: @TContractState, quest_id: u32) -> QuestGems;
+    fn achievement_gems(self: @TContractState, achievement_id: u32) -> AchievementGems;
+}
+
 #[starknet::contract]
 pub mod Setup {
     // Imports
@@ -95,13 +552,16 @@ pub mod Setup {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{ClassHash, ContractAddress, get_caller_address};
+    use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
 
     use super::{
-        AchievementProgress, AchievementTask, AchievementWindow, ISetup, QuestProgress,
-        QuestSchedule, QuestTask, Wiring,
+        ACHIEVEMENT_GEMS_MAX, ACHIEVEMENT_GEMS_MIN, Account, AccountTrait, AchievementGems,
+        AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
+        DAILY, DAY, ISetup, ISetupGems, MAX_ACHIEVEMENT_TOTAL, MAX_GEM_ID, Progress, ProgressTrait,
+        QUEST_GEMS_MAX, QUEST_GEMS_MIN, QuestGems, QuestGemsTrait, QuestProgress, QuestSchedule,
+        QuestTask, WEEKLY, Wiring, bit, list_ids, list_word, schedule_kind, week_of,
     };
 
     // Errors
@@ -114,6 +574,21 @@ pub mod Setup {
         pub const ZERO_ECONOMY: felt252 = 'Setup: economy is zero';
         pub const COLLECTION_SET: felt252 = 'Setup: collection already set';
         pub const ZERO_COLLECTION: felt252 = 'Setup: collection is zero';
+        pub const INVALID_ID: felt252 = 'Setup: invalid id';
+        pub const INVALID_GEMS: felt252 = 'Setup: invalid gems';
+        pub const RETIRED: felt252 = 'Setup: retired';
+        pub const ONE_TASK: felt252 = 'Setup: not one task';
+        pub const TASK_NOT_COUNTED: felt252 = 'Setup: task not counted';
+        pub const INVALID_SCHEDULE: felt252 = 'Setup: invalid schedule';
+        pub const TOTAL_TOO_HIGH: felt252 = 'Setup: total too high';
+        pub const WINDOWED: felt252 = 'Setup: achievement windowed';
+        pub const NO_GEMS: felt252 = 'Setup: no gems';
+        pub const NOT_LIVE: felt252 = 'Setup: not live';
+        pub const NOT_COMPLETED: felt252 = 'Setup: not completed';
+        pub const CLAIMED: felt252 = 'Setup: claimed';
+        pub const NO_LIVE_QUEST: felt252 = 'Setup: no live quest';
+        pub const CREDIT_CLAIMED: felt252 = 'Setup: credit claimed';
+        pub const NO_CREDIT: felt252 = 'Setup: no credit';
     }
 
     // Components
@@ -190,6 +665,24 @@ pub mod Setup {
         economy: ContractAddress,
         /// The `Collection` of the game NFTs; written once by the owner (step E).
         collection: ContractAddress,
+        /// Gems v1 (P-61, appended, P-42). A player's gems, credits, lifetime counts and claimed
+        /// achievements (`super::Account`); written by `report`, the claims and `spend_credit`.
+        accounts: Map<felt252, Account>,
+        /// The sums of a player's paid game overs per day number, its claimed quests and credit
+        /// (`super::Progress`); written by `report`, `claim_quest` and `claim_daily_credit`.
+        days: Map<(felt252, u64), Progress>,
+        /// The same per week number (`super::week_of`); written by `report`, `claim_quest` and
+        /// `claim_weekly_credit`.
+        weeks: Map<(felt252, u64), Progress>,
+        /// The gems of a quest, with its schedule and task copied (`super::QuestGems`); written by
+        /// `set_quest_gems` and `retire_quest`.
+        quest_gems: Map<u32, QuestGems>,
+        /// The quests with gems of each kind (`DAILY`, `WEEKLY`): up to 15 ids in one slot
+        /// (`super::list_ids`); written by `set_quest_gems` and `retire_quest`.
+        quest_lists: Map<u8, felt252>,
+        /// The gems of an achievement, with its task copied (`super::AchievementGems`); written by
+        /// `set_achievement_gems` and `retire_achievement`.
+        achievement_gems: Map<u32, AchievementGems>,
     }
 
     // Events
@@ -207,6 +700,11 @@ pub mod Setup {
         AchievementEvent: AchievementComponent::Event,
         EconomySet: EconomySet,
         CollectionSet: CollectionSet,
+        QuestGemsSet: QuestGemsSet,
+        AchievementGemsSet: AchievementGemsSet,
+        GemsClaimed: GemsClaimed,
+        CreditClaimed: CreditClaimed,
+        CreditSpent: CreditSpent,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -218,6 +716,58 @@ pub mod Setup {
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct CollectionSet {
         pub collection: ContractAddress,
+    }
+
+    /// The gems of a quest set by the owner, or removed (`gems` 0, also on `retire_quest`); `kind`
+    /// 1 daily, 2 weekly (0 when removed from a quest that had none).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct QuestGemsSet {
+        #[key]
+        pub quest_id: u32,
+        pub gems: u8,
+        pub kind: u8,
+    }
+
+    /// The gems of an achievement set by the owner, or removed (`gems` 0, also on
+    /// `retire_achievement`).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct AchievementGemsSet {
+        #[key]
+        pub achievement_id: u32,
+        pub gems: u8,
+    }
+
+    /// A player's claim of gems: `kind` 1 a quest (`period`: its day or week number), 2 an
+    /// achievement (`period` 0); `balance`, the player's gems after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct GemsClaimed {
+        #[key]
+        pub player_id: felt252,
+        pub kind: u8,
+        pub id: u32,
+        pub period: u64,
+        pub gems: u8,
+        pub balance: u64,
+    }
+
+    /// A player's claim of a free-game credit: `kind` 1 a day, 2 a week; `credits`, the player's
+    /// credits after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CreditClaimed {
+        #[key]
+        pub player_id: felt252,
+        pub kind: u8,
+        pub period: u64,
+        pub credits: u16,
+    }
+
+    /// A credit spent on the free game `game_id`; `credits`, the player's credits after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CreditSpent {
+        #[key]
+        pub player_id: felt252,
+        pub game_id: u32,
+        pub credits: u16,
     }
 
     // Constructor
@@ -257,6 +807,10 @@ pub mod Setup {
         fn retire_quest(ref self: ContractState, quest_id: u32) {
             self.ownable.assert_only_owner();
             self.quest.retire(quest_id);
+            // [Effect] A retired quest has no gems (gems v1, 3.2)
+            if self.quest_gems.read(quest_id).gems != 0 {
+                self.clear_quest_gems(quest_id);
+            }
         }
 
         fn define_achievement(
@@ -279,6 +833,11 @@ pub mod Setup {
         fn retire_achievement(ref self: ContractState, achievement_id: u32) {
             self.ownable.assert_only_owner();
             self.achievement.retire(achievement_id);
+            // [Effect] A retired achievement has no gems (gems v1, 3.2)
+            if self.achievement_gems.read(achievement_id).gems != 0 {
+                self.achievement_gems.write(achievement_id, Default::default());
+                self.emit(AchievementGemsSet { achievement_id, gems: 0 });
+            }
         }
 
         fn set_reporter(ref self: ContractState, reporter: ContractAddress, allowed: bool) {
@@ -301,6 +860,27 @@ pub mod Setup {
             // [Effect] The progress, for the player the reporter names
             self.quest.progress_many(player_id, quests, QuestMode::Event);
             self.achievement.progress_many(player_id, achievements);
+            // [Effect] The ledger (gems v1, 1.2): the quest entries, which a free game does not
+            // report, to the day and the week the report is made in; the achievement entries to
+            // the lifetime counts. Before week 0 there is no week to write.
+            let time = get_block_timestamp();
+            if quests.len() != 0 {
+                let key = (player_id, time / DAY);
+                let mut day = self.days.read(key);
+                day.add(quests);
+                self.days.write(key, day);
+                if let Option::Some(week) = week_of(time) {
+                    let key = (player_id, week);
+                    let mut week = self.weeks.read(key);
+                    week.add(quests);
+                    self.weeks.write(key, week);
+                }
+            }
+            if achievements.len() != 0 {
+                let mut account = self.accounts.read(player_id);
+                account.add(achievements);
+                self.accounts.write(player_id, account);
+            }
         }
 
         fn claim_tutorial(ref self: ContractState) {
@@ -344,6 +924,258 @@ pub mod Setup {
 
         fn wiring(self: @ContractState) -> Wiring {
             Wiring { economy: self.economy.read(), collection: self.collection.read() }
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupGemsImpl of ISetupGems<ContractState> {
+        fn set_quest_gems(ref self: ContractState, quest_id: u32, gems: u8) {
+            // [Check] The owner, an id of the claim bitmaps
+            self.ownable.assert_only_owner();
+            assert(quest_id != 0 && quest_id <= MAX_GEM_ID, errors::INVALID_ID);
+            // [Effect] 0 removes the gems
+            if gems == 0 {
+                self.clear_quest_gems(quest_id);
+                return;
+            }
+            assert(gems >= QUEST_GEMS_MIN && gems <= QUEST_GEMS_MAX, errors::INVALID_GEMS);
+            // [Check] A defined, live quest of one task the ledger sums, daily or weekly
+            let (head, tasks, _) = self.quest.definition(quest_id);
+            assert(!head.retired, errors::RETIRED);
+            assert(tasks.len() == 1, errors::ONE_TASK);
+            let task = *tasks.at(0);
+            assert(task.task_id >= 1 && task.task_id <= 4, errors::TASK_NOT_COUNTED);
+            let kind = schedule_kind(head.schedule);
+            assert(kind != 0, errors::INVALID_SCHEDULE);
+            // [Effect] The copy, and the id in its kind's list
+            let entry = QuestGems {
+                gems,
+                kind,
+                task: task.task_id,
+                total: task.total,
+                start: head.schedule.start,
+                interval: head.schedule.interval,
+            };
+            self.quest_gems.write(quest_id, entry);
+            let mut ids = list_ids(self.quest_lists.read(kind));
+            let mut listed = false;
+            for id in ids.span() {
+                if *id == quest_id {
+                    listed = true;
+                }
+            }
+            if !listed {
+                ids.append(quest_id);
+                self.quest_lists.write(kind, list_word(ids.span()));
+            }
+            self.emit(QuestGemsSet { quest_id, gems, kind });
+        }
+
+        fn set_achievement_gems(ref self: ContractState, achievement_id: u32, gems: u8) {
+            // [Check] The owner, an id of the claim bitmap
+            self.ownable.assert_only_owner();
+            assert(achievement_id != 0 && achievement_id <= MAX_GEM_ID, errors::INVALID_ID);
+            // [Effect] 0 removes the gems
+            if gems == 0 {
+                self.achievement_gems.write(achievement_id, Default::default());
+                self.emit(AchievementGemsSet { achievement_id, gems: 0 });
+                return;
+            }
+            assert(
+                gems >= ACHIEVEMENT_GEMS_MIN && gems <= ACHIEVEMENT_GEMS_MAX, errors::INVALID_GEMS,
+            );
+            // [Check] A defined, live achievement of one task counted on chain, reachable by a
+            // saturated count, with no window (the ledger counts for all time)
+            let (head, tasks) = self.achievement.definition(achievement_id);
+            assert(!head.retired, errors::RETIRED);
+            assert(tasks.len() == 1, errors::ONE_TASK);
+            let task = *tasks.at(0);
+            let counted = task.task_id == constants::TASK_GAME_FINISHED
+                || task.task_id == constants::TASK_FOREST_SCORED
+                || task.task_id == constants::TASK_WONDER_SCORED
+                || task.task_id == constants::TASK_BIG_STRUCTURE
+                || task.task_id == constants::TASK_HIGH_SCORE
+                || task.task_id == constants::TASK_TUTORIAL_FINISHED;
+            assert(counted, errors::TASK_NOT_COUNTED);
+            assert(task.total <= MAX_ACHIEVEMENT_TOTAL, errors::TOTAL_TOO_HIGH);
+            assert(head.window.start == 0 && head.window.end == 0, errors::WINDOWED);
+            // [Effect] The copy
+            self
+                .achievement_gems
+                .write(
+                    achievement_id, AchievementGems { gems, task: task.task_id, total: task.total },
+                );
+            self.emit(AchievementGemsSet { achievement_id, gems });
+        }
+
+        fn claim_quest(ref self: ContractState, quest_id: u32, period: u64) {
+            let player_id: felt252 = get_caller_address().into();
+            // [Check] The quest has gems, and is live in that period
+            let entry = self.quest_gems.read(quest_id);
+            assert(entry.gems != 0, errors::NO_GEMS);
+            assert(entry.is_active(entry.period_start(period)), errors::NOT_LIVE);
+            // [Check] Completed in that period, and not claimed yet
+            let key = (player_id, period);
+            let mut progress = if entry.kind == WEEKLY {
+                self.weeks.read(key)
+            } else {
+                self.days.read(key)
+            };
+            assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
+            let flag = bit(quest_id);
+            assert(progress.claimed & flag == 0, errors::CLAIMED);
+            // [Effect] Claimed in the same write, then the gems
+            progress.claimed = progress.claimed | flag;
+            if entry.kind == WEEKLY {
+                self.weeks.write(key, progress);
+            } else {
+                self.days.write(key, progress);
+            }
+            let mut account = self.accounts.read(player_id);
+            account.gems += entry.gems.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    GemsClaimed {
+                        player_id,
+                        kind: CLAIM_QUEST,
+                        id: quest_id,
+                        period,
+                        gems: entry.gems,
+                        balance: account.gems,
+                    },
+                );
+        }
+
+        fn claim_achievement(ref self: ContractState, achievement_id: u32) {
+            let player_id: felt252 = get_caller_address().into();
+            // [Check] The achievement has gems
+            let entry = self.achievement_gems.read(achievement_id);
+            assert(entry.gems != 0, errors::NO_GEMS);
+            // [Check] Its count reaches the total, and it is not claimed yet
+            let mut account = self.accounts.read(player_id);
+            let count: u32 = if entry.task == constants::TASK_TUTORIAL_FINISHED {
+                if self.tutorial_claims.read(player_id) {
+                    1
+                } else {
+                    0
+                }
+            } else {
+                account.count(entry.task)
+            };
+            assert(count >= entry.total, errors::NOT_COMPLETED);
+            let flag = bit(achievement_id);
+            assert(account.achievements_claimed & flag == 0, errors::CLAIMED);
+            // [Effect] Claimed and credited in one write
+            account.achievements_claimed = account.achievements_claimed | flag;
+            account.gems += entry.gems.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    GemsClaimed {
+                        player_id,
+                        kind: CLAIM_ACHIEVEMENT,
+                        id: achievement_id,
+                        period: 0,
+                        gems: entry.gems,
+                        balance: account.gems,
+                    },
+                );
+        }
+
+        fn claim_daily_credit(ref self: ContractState, day: u64) {
+            self.claim_credit(DAILY, day);
+        }
+
+        fn claim_weekly_credit(ref self: ContractState, week: u64) {
+            self.claim_credit(WEEKLY, week);
+        }
+
+        fn spend_credit(ref self: ContractState, player_id: felt252, game_id: u32) {
+            // [Check] Caller is a reporter (the game contract that spawns the free game)
+            self.quest.assert_reporter(get_caller_address());
+            // [Check] A credit to spend
+            let mut account = self.accounts.read(player_id);
+            assert(account.credits != 0, errors::NO_CREDIT);
+            // [Effect] One credit less
+            account.credits -= 1;
+            self.accounts.write(player_id, account);
+            self.emit(CreditSpent { player_id, game_id, credits: account.credits });
+        }
+
+        fn account(self: @ContractState, player_id: felt252) -> Account {
+            self.accounts.read(player_id)
+        }
+
+        fn day_progress(self: @ContractState, player_id: felt252, day: u64) -> Progress {
+            self.days.read((player_id, day))
+        }
+
+        fn week_progress(self: @ContractState, player_id: felt252, week: u64) -> Progress {
+            self.weeks.read((player_id, week))
+        }
+
+        fn quest_gems(self: @ContractState, quest_id: u32) -> QuestGems {
+            self.quest_gems.read(quest_id)
+        }
+
+        fn achievement_gems(self: @ContractState, achievement_id: u32) -> AchievementGems {
+            self.achievement_gems.read(achievement_id)
+        }
+    }
+
+    #[generate_trait]
+    impl GemsInternalImpl of GemsInternalTrait {
+        /// Removes the gems of a quest: its copy, and its id from its kind's list.
+        fn clear_quest_gems(ref self: ContractState, quest_id: u32) {
+            let entry = self.quest_gems.read(quest_id);
+            if entry.gems != 0 {
+                let mut kept: Array<u32> = array![];
+                for id in list_ids(self.quest_lists.read(entry.kind)) {
+                    if id != quest_id {
+                        kept.append(id);
+                    }
+                }
+                self.quest_lists.write(entry.kind, list_word(kept.span()));
+                self.quest_gems.write(quest_id, Default::default());
+            }
+            self.emit(QuestGemsSet { quest_id, gems: 0, kind: entry.kind });
+        }
+
+        /// The caller's credit of a day (`DAILY`) or a week (`WEEKLY`): every quest of that kind's
+        /// list live in the period is completed in it, at least one is live, and the credit is not
+        /// claimed yet.
+        fn claim_credit(ref self: ContractState, kind: u8, period: u64) {
+            let player_id: felt252 = get_caller_address().into();
+            let key = (player_id, period);
+            let mut progress = if kind == WEEKLY {
+                self.weeks.read(key)
+            } else {
+                self.days.read(key)
+            };
+            // [Check] Not claimed yet
+            assert(!progress.credit, errors::CREDIT_CLAIMED);
+            // [Check] Every live quest of the list completed, at least one live
+            let mut live: u32 = 0;
+            for id in list_ids(self.quest_lists.read(kind)) {
+                let entry = self.quest_gems.read(id);
+                if entry.is_active(entry.period_start(period)) {
+                    assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
+                    live += 1;
+                }
+            }
+            assert(live != 0, errors::NO_LIVE_QUEST);
+            // [Effect] Claimed, then the credit
+            progress.credit = true;
+            if kind == WEEKLY {
+                self.weeks.write(key, progress);
+            } else {
+                self.days.write(key, progress);
+            }
+            let mut account = self.accounts.read(player_id);
+            account.credits += 1;
+            self.accounts.write(player_id, account);
+            self.emit(CreditClaimed { player_id, kind, period, credits: account.credits });
         }
     }
 

@@ -88,6 +88,10 @@ pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
 pub const CEILING_VAULT_REDEEM: u128 = 3809165;
 pub const CEILING_VAULT_WITHDRAW: u128 = 5499165;
 pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
+// x: g's closing move in a week (gems v1): see the test.
+pub const CEILING_CLOSING_IN_A_WEEK: u128 = 100000000;
+/// Monday 1970-01-12 00:00 UTC: the start of week 1 of the gems' calendar.
+pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
@@ -348,6 +352,19 @@ fn test_gas_g_closing_move_in_its_day() {
     // [Info] The scenario runs on day 0 (time 0), so its day id is 0 here too
     assert(game.is_over() && game.score == 1379, 'Gas: not over');
     report("g_closing_move_in_its_day", gas, CEILING_CLOSING_IN_DAY);
+}
+
+/// x. g's closing move in a week (gems v1, P-61): the game spawned and ended on Monday 1970-01-12
+/// (`WEEK_1`, the start of week 1), so the report writes the day's, the week's and the account's
+/// slots of `Setup`'s ledger. g runs at time 0, before week 0 starts (345,600), so its report has
+/// no week to write.
+#[test]
+fn test_gas_x_closing_move_in_a_week() {
+    start_cheat_block_timestamp_global(WEEK_1);
+    let s = scored_game();
+    let gas = surrender(@s);
+    assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
+    report("x_closing_move_in_a_week", gas, CEILING_CLOSING_IN_A_WEEK);
 }
 
 /// i. Game over after its day closed: it gets no day id and no `GameEnd`.
