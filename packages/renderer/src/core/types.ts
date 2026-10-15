@@ -17,10 +17,9 @@ export interface BoardBounds {
 export interface RendererConfig {
   surface: RenderSurfaceAdapter;
   basePath?: string;
-  pixelRatio?: [number, number];
   shadows?: boolean;
   effectsCapabilities?: EffectsCapabilities;
-  /** Outlines and camera zoom limits (`settings.ts`); unnamed fields take the defaults. */
+  /** Outlines, camera zoom limits and the pixel-ratio cap (`settings.ts`); unnamed fields take the defaults. */
   settings?: RendererSettingsInput;
 }
 
@@ -45,6 +44,13 @@ export interface SurfaceInputEvent {
 export interface RenderSurfaceAdapter {
   getSize(): SurfaceSize;
   getDevicePixelRatio(): number;
+  /** Whether the main pointer is coarse (touch). Unset: not coarse. `maxPixelRatio: "auto"` reads it. */
+  hasCoarsePointer?(): boolean;
+  /**
+   * The size, in CSS px, of the window or screen the surface is shown in (not the surface's own: a board panel can be
+   * much smaller than its window). `maxPixelRatio: "auto"` reads it for the small-screen test; unset, `getSize()`.
+   */
+  getViewportSize?(): SurfaceSize;
   onResize(cb: () => void): () => void;
   bindInput(handler: (event: SurfaceInputEvent) => void): void;
   unbindInput(): void;

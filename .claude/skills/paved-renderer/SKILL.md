@@ -17,12 +17,12 @@ with `docs/`, `scripts/` or `packages/`.
   is set (`core/GameScene.ts`). The tick still runs, cheaply: it calls `controls.update()`, which is true while the camera
   damps.
 - A frame is requested by `requestRender()`, which every setter calls (`updateTiles`, `setHoveredTile`,
-  `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize, and by camera
+  `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize (`resize()`), and by camera
   damping. A new change to scene state ends with `requestRender()`; never add a loop or a timer that draws.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
-- `renderFrame()` recomputes the outline stroke only when the tile's on-screen size changed, so a still camera does no
-  outline work. Keep per-frame work out of it.
+- `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
+  ratio or the settings changed, so a still camera does no outline work. Keep per-frame work out of it.
 - `packages/renderer/__tests__/game-scene-redraw.test.ts` checks that `init` redraws the tiles given while the models loaded;
   `packages/renderer/__tests__/game-scene-frame-observer.test.ts` covers the read-only `setFrameObserver` hook the bench uses.
 
@@ -42,12 +42,37 @@ with `docs/`, `scripts/` or `packages/`.
 `core/outlines.ts`, set by `RendererSettings` (`core/settings.ts`), given as `settings` to `GameCanvas` or in
 `GameScene.init` / `setSettings`; a partial object overrides only the fields it names; the rest take the defaults (`setSettings` replaces, it does not merge).
 
-- Outlines are `LineSegments2` + one shared `LineMaterial`, built from `buildEdgesGeometry` (`core/edges.ts`), drawn after the
-  faces (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
-  faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the bias, order and depth.
-- Width and opacity follow the tile's on-screen size in CSS px (`tilePixels`, `outlineStroke`): off at or under
-  `fadeThresholdTilePx` (default **48**), fading in over `fadeRangeTilePx` (48), then `minWidthPx` 1 to `maxWidthPx` 2 at
-  `maxWidthTilePx` 800. The tests of the same file pin the defaults and the continuity of the fade.
+- Outlines are drawn by the renderer's own antialiased shader (`createOutlineMaterial`, a shared `ShaderMaterial`), on
+  three's instanced `LineSegmentsGeometry`, built from `buildEdgesGeometry` (`core/edges.ts`). The fragment shader covers
+  each pixel by the part of it the stroke covers: no multisampling and no post pass. They are drawn after the faces
+  (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
+  faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
+  bias, order, depth, the dark grey and the viewport each draw is told.
+- The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
+  `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
+  on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport
+  (`openingTilePixels`, about 60 px in a 900 px high window): fully on at S (`fadeFullFactor` 1), off at 0.85 S
+  (`fadeOffFactor`), linear between. S follows the viewport's height, so a resize moves the fade
+  (`packages/renderer/__tests__/game-scene-settings.test.ts`, "follows a resize"). The defaults and the fade are pinned in
+  `packages/renderer/__tests__/outlines.test.ts` ("defaults: fully on at the opening tile size S").
+- Software WebGL (`detectSoftwareWebGL`, found at `init`): `force` "auto" (the default) turns the outlines off there,
+  "on" and "off" override the detection. The path taken is logged once with `console.info`, again only if it changes.
+  `packages/renderer/__tests__/game-scene-settings.test.ts` ("draws no outlines on software WebGL unless forced on, and logs the path once") and
+  `packages/renderer/__tests__/outlines.test.ts` ("software WebGL") cover it.
+- **The segment cut (OUT-LOD)**: a crease segment is drawn by its length on screen, in device px, not only by the tile's
+  size. `segmentOffDevicePx` 0.5 and `segmentFullDevicePx` 1 (`OutlineSettings`, `core/outlines.ts`): the vertex shader
+  fades a segment in linearly between the two, and collapses it below 0.5 so it costs no fragment. `segmentFade` is the same
+  function in TypeScript; `packages/renderer/__tests__/outline-segment-cut.test.ts` ("the screen-size cut") pins it, its
+  continuity, and that the stroke carries both settings to the material. Three more cuts, same file:
+  - CPU range cut: `orderOutlineSegments` puts the segments along a tile's height (its vertical edges) last, longest
+    first, and the outline mesh (`Outline`) sets `instanceCount` from `outlineSegmentCount` before each draw, so the vertical edges that
+    are surely under 0.5 px are not sent ("the segments the draw skips": it skips only what the shader would drop, with
+    the camera tilted, at the screen's border and near the plane). The geometry is shared by every tile of the type.
+  - Collinear merge at load: `mergeCollinearSegments` (`core/edges.ts`) joins the pieces of one straight edge, so a short
+    piece is not cut out of a long line (`packages/renderer/__tests__/outline-segment-cut.test.ts`, "mergeCollinearSegments").
+  - Four-vertex quads: `createOutline` draws the four outer corners of `LineSegmentsGeometry`'s eight, two triangles a
+    segment (same file, "the outline's quad").
+  Do not change the two device-px defaults without a capture and a figure, as for the others below.
 - Camera limits (`camera.minDistance` 5, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web controller only;
   `NativeCameraController` ignores them.
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
@@ -60,8 +85,25 @@ with `docs/`, `scripts/` or `packages/`.
 `UnrealBloomPass`, then a vignette `ShaderPass`. The scene is drawn into a half-float target, not the canvas, so the
 canvas's `antialias` does not reach it. `multisampling` (off by default, 4 samples when on) is the only anti-aliasing; there
 is no FXAA, SMAA or edge pass. `resolveEffectsProfile` lowers bloom, vignette and SSAO for capabilities and low-power
-devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). `GameScene` caps the pixel ratio to
-`[0.5, 1]`. A new pass is a measured cost: see the bench.
+devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). A new pass is a measured cost: see the bench.
+
+## Size, pixel ratio and shadows
+
+- The canvas follows its container. `WebSurfaceAdapter` sets the canvas to 100 % width and height by CSS
+  (`packages/renderer/__tests__/web-surface-adapter-resize.test.ts`), and `GameScene` sizes only the drawing buffer
+  (`setSize(w, h, false)`). `WebSurfaceAdapter.onResize` fires on a `ResizeObserver` of the container, a window resize,
+  and a change of the device pixel ratio (`matchMedia`, re-armed on each ratio; same test file and
+  `packages/renderer/__tests__/surface-device.test.ts`). `GameScene.resize()` then refits the drawing buffer, the camera and the post-processing
+  targets (`packages/renderer/__tests__/surface-adapter.test.ts`, "uses surface resize callback"). A hidden 0 x 0 container keeps the last size (`GameScene.resize()`; `packages/renderer/__tests__/surface-adapter.test.ts`, "keeps the last size while the container is hidden").
+- The pixel ratio is `min(devicePixelRatio, maxPixelRatio)` (`capPixelRatio`, `core/settings.ts`). `maxPixelRatio`
+  defaults to `"auto"`, which gives 2 on a coarse pointer or when the window's shorter side is at most 600 CSS px
+  (`SMALL_SCREEN_PX`, `PIXEL_RATIO_CAPS.coarse`), and 1.5 elsewhere (`PIXEL_RATIO_CAPS.fine`; `resolveMaxPixelRatio`); a number is used as is.
+  `packages/renderer/__tests__/outlines.test.ts` ("resolves the \"auto\" cap by device") pins the caps, `packages/renderer/__tests__/surface-adapter.test.ts` the ratio `GameScene` passes to
+  `setPixelRatio`, and `packages/app/__tests__/board-pixel-ratio.test.tsx` that the app's board leaves the cap to "auto". A new cap through `setSettings` refits at once. The figures behind the caps are DPR's, in
+  `docs/client/v2-architecture.md` 5.3.
+- Shadows (`core/GameScene.ts`): `PCFShadowMap`, normal bias 0.1 (about 1.3 voxels), depth bias -0.001. They remove the
+  shadow acne; half these values leave bands (R-VIS). `packages/renderer/__tests__/game-scene-shadow-map.test.ts` checks the type, the signs and the
+  normal bias at most 0.1.
 
 ## Disposal
 
@@ -80,11 +122,28 @@ devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). `GameS
 
 ## Assets: self-hosted, no CDN
 
-Models (`models/<key>.glb`), tile images (`assets/tiles/<key>.png`) and the Draco decoder (`draco/`) load from
-`<basePath>` (`core/AssetLoader.ts`); they live in `packages/app-web/public/`, which Storybook serves at `/renderer-assets`
-(`packages/app/.storybook/main.ts`, `src/mocks/assets.ts`). The decoder is created only when a model needs it, from
-`<basePath>/draco/`: `packages/renderer/__tests__/asset-loader-draco.test.ts` checks that path and that plain models never create it. Add no
-remote URL for a model, texture, decoder or font, in code or stories.
+Models, tile images (`assets/tiles/<key>.png`) and the Draco decoder (`draco/`) load from `<basePath>`
+(`core/AssetLoader.ts`). Storybook serves `packages/app-web/public/` at `/renderer-assets` (`packages/app/.storybook/main.ts`,
+`src/mocks/assets.ts`): plain `models/<key>.glb`, no manifest. The decoder is created only when a model needs it, from
+`<basePath>/draco/`: `packages/renderer/__tests__/asset-loader-draco.test.ts` checks that path and that plain models never create it.
+
+The app (`packages/app`) serves its own models: meshopt-compressed (`packages/app/scripts/compress-models.ts`) under
+content-hashed names `models/<key>.<hash>.glb` in `packages/app/public/renderer-assets/models/`, with a `manifest.json`
+(`{ "models": { "<key>": "models/<key>.<hash>.glb" } }`) that `packages/app/vite/renderer-assets.ts` serves in dev and writes
+into `dist/` at build. `AssetLoader` reads it at `<basePath>/manifest.json` (`loadManifest`, `modelPath`); with none (a 404, or
+Storybook) it asks for the plain names, and when the manifest cannot be reached after its retries it rejects, so the app
+shows its plan view. Tests: `packages/renderer/__tests__/asset-loader-order.test.ts` ("the manifest"),
+`packages/app/__tests__/renderer-manifest.test.ts` (files, hashes, the manifest and the dev middleware) and
+`packages/app/__tests__/renderer-models-edges.test.ts` (the compressed models give the same outline segments as the
+originals).
+
+Load order (`core/load-order.ts`): the first frame waits only for the models of the tiles `GameScene` was handed (`want`;
+every model when it was handed none); the rest load after that frame (`afterFirstFrame`). A tile whose model arrives later
+is drawn then, with a new frame and shadows (`AssetLoader.onLoaded`, `GameScene`). `packages/renderer/__tests__/asset-loader-order.test.ts`
+("the load order", "GameScene with the load order") covers it. The meshopt decoder is set on the loader, and the first loader starts it in two
+workers where the browser has workers (`startDecoderWorkers`, `MeshoptDecoder.useWorkers(2)`); no test covers the workers.
+
+Add no remote URL for a model, texture, decoder or font, in code or stories.
 
 ## The bench
 

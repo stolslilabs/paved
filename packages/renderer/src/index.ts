@@ -32,8 +32,12 @@ export {
   DEFAULT_CAMERA_ZOOM_SETTINGS,
   resolveRendererSettings,
   cameraDistanceLimits,
+  capPixelRatio,
+  resolveMaxPixelRatio,
+  PIXEL_RATIO_CAPS,
+  SMALL_SCREEN_PX,
 } from "./core/settings";
-export type { RendererSettings, RendererSettingsInput, CameraZoomSettings } from "./core/settings";
+export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, PixelRatioDevice } from "./core/settings";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 

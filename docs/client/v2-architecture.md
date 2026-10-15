@@ -738,6 +738,74 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
 - Storybook is public, like the client. It holds no secret: fixtures only, no RPC URL beyond the public
   ones, no controller.
 
+- **The app's own build serves the board's 3D assets too (ASSETS, 2026-10-15; compressed, hashed and ordered by
+  ASSET-WEIGHT, 2026-10-15).** Under `<base>renderer-assets/` (Vite's `base`), no request leaving the app's origin:
+  - **Models, the app's own copy, compressed and content-hashed:** `packages/app/scripts/compress-models.ts`
+    (`node scripts/compress-models.ts`; `--check` fails when the committed copy is stale, and a test runs it) reads
+    app-web's 19 base models (`packages/app-web/public/models/<plan>.glb`, unchanged) and writes
+    `packages/app/public/renderer-assets/models/<plan>.<hash>.glb`, the hash being the first 10 hex digits of the file's
+    SHA-256. Per model: vertices renumbered by first use (triangles and their order kept); `KHR_mesh_quantization`, every
+    attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; `sfrfrfffr` has one vertex
+    off the grid and takes 16-bit positions, within 6.0e-5; normals 16-bit; UVs unsigned 16-bit); then
+    `EXT_meshopt_compression` (vertex and index codecs, no lossy filter). The script decodes each copy and checks it
+    against its source (largest moves on the grid: position 6.1e-6, normal 0.001 degree, UV 7.6e-6), and a test checks
+    that the renderer's outline builder finds the same segments in every copy as in its original. Positions are
+    normalized so that the outline builder (`edges.ts`) keys them by number: raw integers up to 40 sent it to its string
+    keys, and the 35-tile board's first frame was then no faster than with the originals. Tools, pinned devDependencies
+    of `@paved/app`: `@gltf-transform/core` and `@gltf-transform/extensions` 4.5.1, `meshoptimizer` 1.1.1 (`bun.lock`
+    adds those three and `property-graph` 4.1.0, `ktx-parse` 1.1.0). Vite serves the folder in dev and copies it into
+    `dist/`. The decoder is three's `meshopt_decoder.module.js`, in the bundle, decoding in two workers that the first
+    `AssetLoader` starts from an inline script (a `blob:` URL): a future Content-Security-Policy needs `worker-src blob:`.
+    Positions are lossless; normals and UVs within 0.001 degree / 8e-6.
+  - **The manifest,** `renderer-assets/manifest.json`, `{ "models": { "<plan>": "models/<plan>.<hash>.glb" } }`, built by
+    `packages/app/vite/renderer-assets.ts` from the file names (the build fails when a name's hash is not its file's, or a
+    plan has two files): served in dev, written into `dist/` at build. `AssetLoader` reads `<basePath>/manifest.json` once
+    per base path; a plan it does not list, or no manifest (a 404 or a body that is not one: Storybook, which still maps
+    app-web's folder whole), loads `models/<plan>.glb`. A network or server error is tried twice more (after 250 and
+    1000 ms), then the scene does not start and the page shows its plan view. Dev still answers those plain names from app-web; the build ships no original model and no Draco
+    decoder.
+  - **Tile images** `assets/tiles/<plan>.png` (19, the plan view's and the tile chips'), from app-web's `public/` under their
+    plain names, served in dev and copied at build.
+  - **Load order** (`packages/renderer/src/core/load-order.ts`, `AssetLoader`): a scene's init waits only for the models of
+    the tiles it is handed before its first frame (the board's tiles; the hand's own scene, its one tile), or for every
+    model when it is handed none; the other models and the tile images load after the first frame (the next animation
+    frame, then an idle callback). A failure among the first models stops the scene, so the page shows its plan view as
+    before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
+    model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
+    (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
+  - **Cache headers for the host step** (the host config is not changed here): hashed models
+    `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
+    (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.
+    Compressing `model/gltf-binary` too (gzip or brotli) would take the 19 models from 1,089,624 B to 665,212 B (gzip
+    level 6) or 618,540 B (brotli), measured on the files; `vite preview` compresses only text and JavaScript, so the
+    figures below are the files as they are.
+  - **Measured** (Mac, Chrome headless `--headless=new`, ANGLE Metal; `vite preview` serving `dist`, which sends
+    `Cache-Control: no-cache`, gzip on JavaScript only; a fresh context per run, no network throttling; 3 runs, median;
+    `/training` on a fresh game, 1 tile and the hand, and on a resumed 35-tile game of 18 plans; first frame: the later of
+    the board's and the hand's first draw call, from navigation; phone-like: 360 x 780, DPR 3, 4x CPU throttle; Mac: 1440 x
+    900, DPR 2; 1-minute load average 2.9 to 5.6 beside the runs). `dist/renderer-assets`: 39 files, 1,410,448 B (models
+    1,089,624, tiles 319,815, manifest 1,009), against 41 files, 16,037,648 B before.
+
+    | Profile | Board | First frame, before → after (ms) | Transferred before the first frame, before → after (its models) |
+    |---|---|---|---|
+    | Phone-like | fresh | 916 → 710 | 16,455,270 → 1,276,910 B (2 models, 97,748 B) |
+    | Phone-like | 35 tiles | 1,367 → 1,267 | 16,455,270 → 2,220,186 B (18 models, 1,041,024 B) |
+    | Mac | fresh | 544 → 468 | 16,455,270 → 1,276,910 B |
+    | Mac | 35 tiles | 597 → 559 | 16,455,270 → 2,220,186 B |
+
+    All transferred by 5 s after the first frame: 16,457,682 → 2,604,769 B (fresh). The rest of the first view is the app's
+    code and fonts, the largest Font Awesome's `solid.min.js` (669,527 B). Draco (gltf-transform's defaults, edgebreaker),
+    measured the same way (a hand-made build; its loader fetched each first model twice, about 20 KB each): 427,204 B for the 19 models and 250,876 B of decoder; first view 1,423,921 B fresh and
+    1,795,893 B at 35 tiles; first frame on the phone-like profile 739 ms fresh, 1,177 ms at 35 tiles. meshopt was chosen:
+    positions lossless and normals and UVs within 0.001 degree / 8e-6, where Draco quantizes (14-bit positions, 10-bit normals), the smaller and faster fresh first view,
+    and a 29 KB decoder in the bundle instead of 251 KB to host; Draco would save about 0.42 MB and 90 ms on the phone at
+    35 tiles, which is what would reverse the choice.
+  - **No visual change:** captures before and after at 360 (DPR 3) and 1280 (DPR 2) px, three zooms (opening, mid,
+    closest), 35-tile board: 0.05 to 0.23 % of the pixels differ, as scattered single pixels (largest channel difference
+    44 of 255 at 360 px; 11 at the closest zoom at 1280), where the same build against itself differs by 0 pixels. The
+    flicker check (12 drag steps of 2 CSS px, 4 zooms, 1280 px): each build's change from one step to the next is the
+    same before and after (ratio 1.000 to 1.001).
+
 ### 4.3 What is reused
 
 The stories import the same components and the same `theme.css` as the app; the scene stories use the
@@ -761,7 +829,7 @@ workflow is a shared file: the foundations PR that adds the step lists it in its
 `packages/renderer` (three 0.186, no react-three-fiber):
 
 - `GameScene.ts:54-58` creates `WebGLRenderer({ antialias: true })`; `:150-158` caps the pixel ratio at
-  `[0.5, 1]` (so 1 on a retina screen); ACES tone mapping; PCF soft shadows redrawn only when tiles change;
+  `[0.5, 1]` (so 1 on a retina screen; replaced by `maxPixelRatio`, 5.3 "Pixel ratio"); ACES tone mapping; PCF soft shadows redrawn only when tiles change;
   render on demand (`:438-461`).
 - `Effects.ts:100-145`: an `EffectComposer` with `RenderPass`, `UnrealBloomPass`, a vignette pass, and
   SSAO only in the cinematic profile. **The composer's render targets set no `samples`, and there is no
@@ -887,6 +955,186 @@ container); `WebSurfaceAdapter.onResize` observes the canvas's container and the
 (`matchMedia` on the current `resolution`), and `GameScene.resize` refits the pixel ratio, the drawing
 buffer, the camera's aspect and the composer's targets. Measures and captures: PR #437 and the story
 "Renderer/Outlines comparison", "Shading and outlines".
+
+**Pixel ratio (DPR, 2026-10-15).** The fixed `[0.5, 1]` range of `RendererConfig.pixelRatio` (5.1) is gone. The
+renderer draws at `min(devicePixelRatio, maxPixelRatio)`, a `RendererSettings` field. Its default, `"auto"`, is 2 on
+a coarse pointer or a small screen (the shorter side of the window, or of the screen on native, at most 600 CSS px:
+not the board's own size, so a short board panel or docked devtools on a desktop keep the desktop's cap) and 1
+elsewhere; OUT-LOD raised that 1 to 1.5 (below, "Outline segments cut by screen size").
+`GameScene` re-reads it on every resize of the board or the window and on `setSettings`. Item 4 of 5.2 proposed `min(devicePixelRatio, 2)` on a High quality
+setting; DPR replaces that with this rule, set by the PM in advance:
+
+- take the highest cap whose CPU + GPU p95 stays under 12 ms on the Mac profile at both views;
+- if the phone-like profile is measurable, the cap must also stay under 16.6 ms there;
+- if the two profiles point to different caps, choose by device.
+
+Method:
+
+- Machine: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen. The "Renderer/Outlines" story, Held,
+  with `redraw` on, on the recorded 72-tile board.
+- Per frame: the CPU time of every rAF callback of the frame, plus the GPU time from `EXT_disjoint_timer_query_webgl2`
+  around them. Each configuration runs in a fresh browser context: 120 warm-up frames, then 600 measured frames.
+- Three rounds, with the caps alternated within each round and the cap order changed between rounds (the phone
+  profile in rounds 1 and 2 only). Percentiles are nearest-rank over the pooled frames.
+- **Mac profile**: 1440 x 900 at DPR 2. **Phone-like profile**: 360 x 780 at DPR 3, with Chrome's CPU throttled 4x.
+  The phone-like profile is an approximation: it runs on the Mac's GPU, not on a phone's.
+- **Default view**: distance 240, the game's opening view. **Busiest view**: distance 170 on the Mac profile, the
+  closest view with all 72 tiles on screen. On the phone-like profile no distance where the outlines still draw (up to
+  about 282) holds every tile, so its busiest view is 280, the farthest where the outlines still draw.
+- Outlines **on** is `force: "on"`; **off** is `force: "off"`.
+- Load: other agents ran on the machine. The load average was 4.9 to 6.3 over the three rounds, near the "about 6"
+  limit, and the p95 figures carry that load.
+
+CPU + GPU per frame, ms, p50 / p95 (the outlines' share is on minus off, p50 / p95):
+
+| Profile | View | Cap | Buffer (device px) | Outlines on | Outlines off | Outlines' share |
+|---|---|---|---|---|---|---|
+| Mac | default (240) | 1 | 1440 x 900 | 8.66 / **13.33** | 5.53 / 8.25 | 3.1 / 5.1 |
+| Mac | default (240) | 1.5 | 2160 x 1350 | 8.96 / **13.49** | 6.93 / 10.49 | 2.0 / 3.0 |
+| Mac | default (240) | 2 | 2880 x 1800 | 9.33 / **14.59** | 7.62 / 12.63 | 1.7 / 2.0 |
+| Mac | busiest (170) | 1 | 1440 x 900 | 8.96 / **13.68** | 5.84 / 8.78 | 3.1 / 4.9 |
+| Mac | busiest (170) | 1.5 | 2160 x 1350 | 9.21 / **13.42** | 7.37 / 11.75 | 1.8 / 1.7 |
+| Mac | busiest (170) | 2 | 2880 x 1800 | 8.78 / **13.70** | 8.69 / 13.87 | 0.1 / -0.2 |
+| Phone-like | default (240) | 1 | 360 x 780 | 6.27 / **8.40** | 3.08 / 4.06 | 3.2 / 4.3 |
+| Phone-like | default (240) | 1.5 | 540 x 1170 | 6.89 / **9.37** | 3.66 / 4.76 | 3.2 / 4.6 |
+| Phone-like | default (240) | 2 | 720 x 1560 | 6.75 / **9.01** | 4.00 / 5.33 | 2.8 / 3.7 |
+| Phone-like | busiest (280) | 1 | 360 x 780 | 6.84 / **8.87** | 3.25 / 4.17 | 3.6 / 4.7 |
+| Phone-like | busiest (280) | 1.5 | 540 x 1170 | 7.09 / **9.36** | 3.72 / 4.89 | 3.4 / 4.5 |
+| Phone-like | busiest (280) | 2 | 720 x 1560 | 6.72 / **9.24** | 4.04 / 5.58 | 2.7 / 3.7 |
+
+**The rule applied:**
+
+- **Phone-like profile:** every cap stays under 16.6 ms (p95 at most 9.37), so the highest measured cap, 2, passes.
+- **Mac profile:** with the outlines on, no cap stays under 12 ms at both views. Cap 1, today's, is at 13.33 and
+  13.68. This is a result on a loaded machine: the load average was 4.9 to 6.3, and the per-round p95s with the
+  outlines on ranged from 11.4 to 15.2 ms. OUT-LOD re-measures it.
+- **Choice:** the two profiles point to different caps, and choosing by device costs a few lines, so `"auto"` takes
+  2 on coarse pointers and small screens, and 1 elsewhere: the lowest cap measured, since none passes.
+
+The cap in effect on a Mac is therefore unchanged, and a Retina desktop still draws the board at half resolution.
+Captures at the default view, Mac profile: `packages/app/src/stories/renderer/captures/dpr-cap-1.webp`, `-1_5`, `-2`.
+
+**Why the Mac misses, and what would fix it** (proposed, not done here):
+
+- With the outlines on, the GPU time is nearly flat across caps (p50 6.8 to 7.6 ms): the outlines are bound by their
+  vertices (about 130k crease segments, an 8-vertex instanced quad each), not by their pixels. Their share is
+  largest at cap 1 (5.1 ms of p95 at the default view).
+- With the outlines off, the Mac passes at cap 1.5 (10.49 and 11.75) and misses at cap 2 (12.63 and 13.87).
+- **Collinear merging**, which R-VIS measured at 1.47x fewer segments, would cut the outlines' vertex work by about a
+  third (estimate). At cap 1 their 5.1 ms of p95 would become about 3.5, putting cap 1 near 11.7 ms: just under 12,
+  within the noise. That is not enough for 1.5.
+- **A screen-size cut** goes further. At the opening view a tile is about 60 CSS px, against about 1,800 segments a
+  tile, so most segments are under a device pixel. Dropping the segments shorter than a device pixel, or keeping only
+  each tile's border and its major creases under a tile size, would bring the outlines toward their pixel cost
+  (estimate: most of their share). It would make cap 1.5 pass on the Mac profile on the outlines-off figures.
+- Either is a renderer change of its own, with a capture and a figure, not a few lines.
+
+**Outline segments cut by screen size (OUT-LOD, 2026-10-15).** Where this differs from DPR's paragraphs above,
+OUT-LOD holds. The outline segments are cut by their size on screen at the current zoom, re-measured on DPR's bench
+with the load stated, and the desktop cap is raised by DPR's rule: the highest cap whose Mac p95 stays under 12 ms at
+both views.
+
+The load first. DPR's "about 130k crease segments" is the sum over the 19 tile types. Each tile draws its type's
+segments, so on the 72-tile board, main draws **497,364 segment instances a frame** in 72 draws: 3.98M vertices and
+2.98M triangles (counted with an instrumented `drawElementsInstanced`, Mac profile, either view). Of the segments,
+90 % are one voxel long and 36 % are vertical (a voxel's riser), so under the game's top-down camera they project
+to a fraction of a pixel.
+
+What `core/outlines.ts` and `core/edges.ts` do now:
+
+- **Collinear pieces merged** at load (`mergeCollinearSegments`). A crease edge is split wherever another edge meets
+  it. Pieces end to end on one line are merged: 131,771 to 89,857 segments over the 19 models (1.466x fewer), in about
+  50 ms of load for all of them. A merged edge covers the same pixels, since the shader's ends are square and exact.
+  It also means the cut below never drops a short piece out of a long straight line.
+- **The cut, on the GPU.** The vertex shader projects each segment and fades it by its length on screen in device px:
+  - not drawn under `segmentOffDevicePx` (0.5);
+  - fully drawn from `segmentFullDevicePx` (1), linear between (`segmentFade`);
+  - a cut segment's quad collapses to one point outside the clip volume, so it reaches no pixel.
+
+  The length changes continuously with the zoom, so nothing pops. The thresholds keep the cut below visibility: a
+  segment under a device pixel only covers a pixel whose centre falls on its span, so it shows as a stray dot that
+  comes and goes as the camera moves. A one-voxel horizontal edge is at least about 1.1 device px wherever the
+  outlines are on (a tile at 0.85 x S or more: 1.1 on a 360 x 780 phone, 1.3 in a 900 px high window), so under the
+  top-down camera only the risers go. Both thresholds are `OutlineSettings` fields;
+  0 and 0 turn the cut off.
+- **The cut, before the draw.** The vertex shader still runs for a collapsed segment. So each outline's segments are
+  ordered with the ones along the tile's height last, longest first (`orderOutlineSegments`). Before each draw,
+  `outlineSegmentCount` bounds the screen length of those vertical segments over the outline's bounding sphere and
+  stops the instanced draw before the ones surely under 0.5 px. It skips only segments the shader would drop, so no
+  pixel changes (a test checks every skipped segment against its exact projection). It costs a few flops per outline
+  per drawn frame, and nothing when the camera is still.
+- **A quad of four vertices, tight to the stroke.** The shader covers the stroke by its distance to the segment, so
+  it needs only the outer rectangle of `LineSegmentsGeometry`'s eight-vertex, six-triangle quad: two triangles. The
+  rectangle is the stroke and its half pixel of antialiasing across, and the segment's span plus half a pixel along.
+  The old reach of a pixel and a half on every side drew fragments that were all discarded.
+
+Load after (Mac profile): 230k to 281k instances a frame (more as the cap or the zoom grows), 0.92M to 1.12M vertices,
+0.46M to 0.56M triangles.
+
+**Zero flicker, no popping.** Headless Chrome on ANGLE Metal, the recorded board, both builds at the same poses.
+The outline share of a frame is 1 minus the luma with the outlines on over the luma with them off, at the same pose,
+over the centre crop (800 x 500 CSS px on the Mac, 300 x 400 on the phone):
+
+- **Pan, 2 CSS px mouse drags** (12 steps, a settle after each), Mac profile at cap 1.5, at 4 zooms (distances 240,
+  170, 100, 50). The largest change of the share between two steps is 0.084, 0.136, 0.141 and 0.118 points (main:
+  0.087, 0.139, 0.139, 0.116). The share stays within 19.11 to 19.54 % at 240 (main 19.35 to 19.79).
+- **Zoom sweep**, the distance from 300 to 30 in 1 % steps (230 frames), Mac profile at cap 1.5 and phone-like at
+  cap 2. The largest frame-to-frame change is in the stroke's own fade between 282 and 240: 1.72 points (main 1.80) on
+  the Mac, 1.51 (main 1.56) on the phone-like. Below 238 it is 1.122 points at distance 217.5 (main 1.132, same place)
+  on the Mac, and 0.727 at 139.8 (main 0.731) on the phone-like. No step changes the share by more than main does.
+- At the default view, cap 2, 0.96 % of the pixels differ from main's, by 5.2 levels on average (the cut
+  risers, the merged pieces, and depth ties at the quads' new corners: 0.067 % of the pixels changed with the tighter
+  quad alone).
+
+**Frame time** (DPR's method: M2 Max, headless Chrome on ANGLE Metal, the "Renderer/Outlines" story Held with
+`redraw`, 120 warm-up and 600 measured frames per configuration in a fresh context, CPU + GPU per frame, nearest-rank
+percentiles over the pooled frames). Main and this branch were built side by side and alternated within each round,
+with the caps. Mac profile: three rounds, cap orders 1/1.5/2, 2/1.5/1 and 1.5/2/1. Phone-like: two rounds. Load average
+(`uptime`) before and after each round:
+
+| Round | Mac | Phone-like |
+|---|---|---|
+| 1 | 3.30 to 2.90 | 2.90 to 3.50 |
+| 2 | 3.50 to 4.32 | 4.32 to 3.67 |
+| 3 | 3.67 to 4.38 | (none) |
+
+CPU + GPU per frame, ms, p50 / p95, outlines on (`force: "on"`) unless off:
+
+| Profile | View | Cap | Main | OUT-LOD | Outlines off |
+|---|---|---|---|---|---|
+| Mac | default (240) | 1 | 7.32 / 12.26 | 5.74 / **8.83** | 4.43 / 6.67 |
+| Mac | default (240) | 1.5 | 9.10 / 13.79 | 7.09 / **10.66** | 5.51 / 9.25 |
+| Mac | default (240) | 2 | 9.31 / 14.61 | 7.65 / **12.40** | 6.81 / 10.96 |
+| Mac | busiest (170) | 1 | 7.88 / 12.43 | 6.35 / **9.70** | 3.57 / 6.21 |
+| Mac | busiest (170) | 1.5 | 8.66 / 13.02 | 8.05 / **11.76** | 5.43 / 9.05 |
+| Mac | busiest (170) | 2 | 9.21 / 13.99 | 8.56 / **13.35** | 6.51 / 11.42 |
+| Phone-like | default (240) | 1 | 5.18 / 7.85 | 3.50 / **5.35** | 2.46 / 3.44 |
+| Phone-like | default (240) | 1.5 | 5.52 / 8.67 | 3.93 / **5.92** | 2.79 / 4.05 |
+| Phone-like | default (240) | 2 | 5.59 / 8.42 | 4.11 / **6.12** | 3.33 / 4.53 |
+| Phone-like | busiest (280) | 1 | 5.09 / 8.38 | 3.60 / **5.51** | 2.52 / 3.66 |
+| Phone-like | busiest (280) | 1.5 | 5.42 / 8.31 | 3.65 / **5.59** | 3.00 / 4.05 |
+| Phone-like | busiest (280) | 2 | 5.37 / 8.46 | 4.38 / **6.32** | 3.30 / 4.84 |
+
+Notes on the table:
+
+- At cap 1.5 on the Mac, the per-round p95s are 10.53 to 10.85 ms at the default view and 11.55 to 11.87 ms at the
+  busiest: every round is under 12, the busiest by about 0.2 ms.
+- The same configurations with the cut off (both thresholds 0, Mac only) give 9.46, 10.63 and 13.44 ms p95 at the
+  default view, and 10.40, 11.64 and 13.36 at the busiest. They are within the rounds' noise of the cut's own figures.
+  At these views, the gain comes from the work removed as a whole: the merge, the vertical segments the draw skips,
+  and the tighter quad. The shader's fade alone adds little.
+- Main is about 1 ms under DPR's figures here, at a lower load (DPR: 4.9 to 6.3).
+
+**The cap, by DPR's rule:**
+
+- **Mac profile:** 1.5 is the highest cap under 12 ms at both views (10.66 and 11.76). Cap 2 misses (12.40 and
+  13.35). So `PIXEL_RATIO_CAPS.fine` is 1.5, and `"auto"` draws a Retina desktop at 1.5.
+- **Phone-like profile:** unchanged, 2, now at most 6.32 ms.
+
+Captures at the default view, Mac profile, the centre 120 x 80 CSS px upscaled 4x with nearest-neighbour:
+`packages/app/src/stories/renderer/captures/dpr-cap-1.webp` (before: main's `"auto"`, cap 1, byte for byte) and
+`out-lod-after.webp` (after: `"auto"`, cap 1.5). The outline is 1.5 device px of the screen's 2, sharper than 2 and
+soft; cap 2 stays out of reach on this machine.
 
 ### 5.4 The mockups' isometric voxel look: the cost
 
@@ -1249,7 +1497,7 @@ read of `SKILL.md` and a search of every file for `allowed-tools`, `npx`, `bunx`
 | 1 | `paved-ui` | **written by CLIENT**, trimmed from nums' `ui-architecture` (`cartridge-gg/nums@4f8f405`, `.agents/skills/ui-architecture/SKILL.md`, 366 lines, 13,555 B, MIT) | about 150 lines (estimate) | the tiers, a story per component, CVA + `cn()`, the tokens of section 2 (never a raw colour), Font Awesome (the owner's Pro files, section 8), Motion patterns, the breakpoints, the a11y floor | nums' original **fails as is** (`allowed-tools: Read, Write, Edit, Glob, Grep, Bash` grants permissions); the written one carries no such line. **Done (F7a):** `.claude/skills/paved-ui/SKILL.md`, 140 lines |
 | 2 | `paved-data` | **written by CLIENT** | about 100 lines (estimate) | the query keys, no polling, receipts into the cache, the three owners of state, the prediction session | written to pass. **Done (F7b):** `.claude/skills/paved-data/SKILL.md`, 86 lines |
 | 3 | `paved-renderer` | **written by CLIENT** | about 100 lines (estimate) | render on demand, no per-tile geometry, the outline pass and its settings, the bench method and the Mac's headless rule | written to pass. **Done (F7c):** `.claude/skills/paved-renderer/SKILL.md`, 125 lines |
-| 4 | `shadcn` | `shadcn-ui/ui@30a58d4498f270af1c1e981a7d78a15cf5740841` (2026-10-12), `skills/shadcn/` | 295 lines, 21,306 B; 21 files, 148,754 B | the shadcn conventions: composition, styling with tokens, forms, Radix vs Base UI | **fails as is**: `allowed-tools: Bash(npx shadcn@latest *)…` grants permissions; a `` !`npx shadcn@latest info --json` `` line runs the latest CLI at load; it tells the agent to run `shadcn@latest` and fetch the docs URLs. **Trim** to `rules/styling.md`, `composition.md`, `forms.md`, `base-vs-radix.md`, `icons.md` (23,336 B) and a rewritten `SKILL.md` that names the CLI version pinned in `package.json`; drop `mcp.md`, `registry.md`, `cli.md`, `design-system*.md`, `chat.md`, `evals/`, `assets/`, `agents/`, `scripts/` |
+| 4 | `shadcn` | `shadcn-ui/ui@30a58d4498f270af1c1e981a7d78a15cf5740841` (2026-10-12), `skills/shadcn/` | 295 lines, 21,306 B; 21 files, 148,754 B | the shadcn conventions: composition, styling with tokens, forms, Radix vs Base UI | **fails as is**: `allowed-tools: Bash(npx shadcn@latest *)…` grants permissions; a `` !`npx shadcn@latest info --json` `` line runs the latest CLI at load; it tells the agent to run `shadcn@latest` and fetch the docs URLs. **Trim** to `rules/styling.md`, `composition.md`, `forms.md`, `base-vs-radix.md`, `icons.md` (23,336 B) and a rewritten `SKILL.md` that names the CLI version pinned in `package.json`; drop `mcp.md`, `registry.md`, `cli.md`, `design-system*.md`, `chat.md`, `evals/`, `assets/`, `agents/`, `scripts/`. **Done (F7d):** `.claude/skills/shadcn/`, `SKILL.md` plus the 5 rule files, licence in `THIRD_PARTY_NOTICES` |
 | 5 | `react-best-practices` | `vercel-labs/agent-skills@063bee94c3f4df8453406c830b0a7df0f2860278` (2026-08-28), `skills/react-best-practices/`, MIT | 149 lines, 7,251 B; 76 files, 230,383 B | 70 rules on waterfalls, bundle size, re-renders, rendering, ranked by impact | **passes** on the search (no permission, no run, no fetch); **trim** for size: drop the 10 `server-*` rules and the Next.js items, and the compiled `AGENTS.md` (a duplicate of the rules); kept: 60 rule files + `SKILL.md`, 95,623 B |
 | 6 | `composition-patterns` | same commit, `skills/composition-patterns/`, MIT | 89 lines, 2,886 B; 14 files, 50,339 B | compound components, no boolean-prop sprawl, React 19 APIs: fits the tiers | **passes** on the search; trim the compiled `AGENTS.md` duplicate |
 | 7 | `web-design-guidelines` | same commit, `skills/web-design-guidelines/` | 39 lines, 1,231 B; 1 file | an accessibility and UX review against Vercel's Web Interface Guidelines | **fails as is**: it fetches its rules from `vercel-labs/web-interface-guidelines` at `main` before each review (remote text used as instructions). **Trim**: commit the guidelines file at a pinned commit beside `SKILL.md` and drop the fetch (the commit to pin is not read yet: the PR names it) |
