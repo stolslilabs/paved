@@ -25,6 +25,10 @@
 //! Since cobbles v1, part 2 (`cobbles-v1.md`, 2) it also sells the cobble packs the owner sets: the
 //! player pays a pack's USDC price into `Economy`, whose `sell` runs the game's own money path
 //! (the referral, the swap, the Vault's PAVED, the burn), and gets its cobbles in the same call.
+//!
+//! Since cobbles v1, part 3 (`cobbles-v1.md`, 5) cobbles are spent here, and only here: the owner
+//! prices the skin of a tile plan in a theme, the player buys it for itself (`buy_skin`), once, and
+//! sets which owned skin is active for each of the 19 plans (`set_skins`, one write).
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -70,6 +74,11 @@ pub const MAX_ACHIEVEMENT_TOTAL: u32 = 65535;
 pub const MAX_QUEST_TOTAL: u32 = 65535;
 /// The pack ids: 1 to 8 (cobbles v1, 2.2).
 pub const MAX_PACK_ID: u8 = 8;
+/// The tile plans that have a skin: the `Plan` codes 1 to 19 (cobbles v1, 5.1).
+pub const PLANS: u8 = 19;
+/// The price of a skin when set (0 withdraws it from sale), in cobbles (cobbles v1, 5.2).
+pub const SKIN_PRICE_MIN: u8 = 50;
+pub const SKIN_PRICE_MAX: u8 = 100;
 
 /// A player's account (one slot, key `player_id`): the cobbles, the free-game credits, the lifetime
 /// counts of every reported game over (each saturating at `u16::MAX`) and the claimed
@@ -138,6 +147,29 @@ pub struct Pack {
     pub cobbles: u32,
     pub price: u128,
     pub active: bool,
+}
+
+/// The active skins of a player (one `felt252`, key `player_id`): the theme active for plan `p`
+/// (1 to 19) in byte `p - 1` (bits [8 (p - 1), 8 p), 152 bits); 0 is the default theme.
+pub fn active_word(themes: Span<u8>) -> felt252 {
+    let mut word: u256 = 0;
+    let mut i = themes.len();
+    while i != 0 {
+        i -= 1;
+        word = word * 256 + (*themes.at(i)).into();
+    }
+    word.try_into().unwrap()
+}
+
+/// The 19 themes of an active word, plan 1 first.
+pub fn active_themes(value: felt252) -> Array<u8> {
+    let mut word: u256 = value.into();
+    let mut themes: Array<u8> = array![];
+    for _ in 0..PLANS {
+        themes.append((word % 256).try_into().unwrap());
+        word /= 256;
+    }
+    themes
 }
 
 const TWO_POW_8: u128 = 0x100;
@@ -592,6 +624,28 @@ pub trait ISetupPacks<TContractState> {
     fn pack(self: @TContractState, pack_id: u8) -> Pack;
 }
 
+/// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
+/// priced by the owner, bought with cobbles by the player for itself, and the set the player shows.
+#[starknet::interface]
+pub trait ISetupSkins<TContractState> {
+    /// Prices the skin of `plan` (1 to 19) in `theme` (1 to 255), owner only: 50 to 100 cobbles, or
+    /// 0 to withdraw it from sale (what is owned stays owned). Emits `SkinPriced`.
+    fn set_skin_price(ref self: TContractState, theme: u8, plan: u8, cobbles: u8);
+    /// The caller buys the skin of `plan` in `theme` for itself, once, for its price in cobbles.
+    /// Buying does not activate it. Emits `SkinBought`.
+    fn buy_skin(ref self: TContractState, theme: u8, plan: u8);
+    /// The caller sets the active theme of each `(plan, theme)` it names: theme 0 (the default)
+    /// always, any other only if it owns that skin. One write for the whole batch, the last
+    /// change of a plan winning. Emits `SkinsActivated`.
+    fn set_skins(ref self: TContractState, changes: Span<(u8, u8)>);
+    /// The price in cobbles of a skin; 0: not for sale.
+    fn skin_price(self: @TContractState, theme: u8, plan: u8) -> u8;
+    /// The skins a player owns in a theme: bit `p` is the skin of plan `p`.
+    fn skins(self: @TContractState, player_id: felt252, theme: u8) -> u32;
+    /// The theme active for each plan of a player: 19 ids, plan 1 first; 0 the default theme.
+    fn active_skins(self: @TContractState, player_id: felt252) -> Array<u8>;
+}
+
 #[starknet::contract]
 pub mod Setup {
     // Imports
@@ -619,10 +673,11 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID,
-        MAX_PACK_ID, MAX_QUEST_TOTAL, Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX,
-        QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
-        WEEKLY, Wiring, bit, list_ids, list_word, schedule_kind, week_of,
+        DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, MAX_ACHIEVEMENT_TOTAL,
+        MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress, ProgressTrait,
+        QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress,
+        QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, WEEKLY, Wiring, active_themes,
+        active_word, bit, list_ids, list_word, schedule_kind, week_of,
     };
 
     // Errors
@@ -655,6 +710,11 @@ pub mod Setup {
         pub const NOT_ON_SALE: felt252 = 'Setup: pack not on sale';
         pub const NO_ECONOMY: felt252 = 'Setup: economy not set';
         pub const PAY_FAILED: felt252 = 'Setup: payment failed';
+        pub const INVALID_SKIN: felt252 = 'Setup: invalid skin';
+        pub const SKIN_NOT_FOR_SALE: felt252 = 'Setup: skin not for sale';
+        pub const SKIN_OWNED: felt252 = 'Setup: skin owned';
+        pub const NOT_ENOUGH_COBBLES: felt252 = 'Setup: not enough cobbles';
+        pub const SKIN_NOT_OWNED: felt252 = 'Setup: skin not owned';
     }
 
     // Components
@@ -752,6 +812,15 @@ pub mod Setup {
         achievement_cobbles: Map<u32, AchievementCobbles>,
         /// Cobbles v1, part 2 (appended, P-42). The packs (`super::Pack`); written by `set_pack`.
         packs: Map<u8, Pack>,
+        /// Cobbles v1, part 3 (appended, P-42). The price in cobbles of the skin of a plan in a
+        /// theme, key `(theme, plan)`; 0: not for sale; written by `set_skin_price`.
+        skin_prices: Map<(u8, u8), u8>,
+        /// The skins a player owns in a theme, key `(player_id, theme)`: bit `p` is the skin of
+        /// plan `p` (1 to 19); written by `buy_skin`.
+        skins: Map<(felt252, u8), u32>,
+        /// The theme active for each plan of a player (`super::active_word`); written by
+        /// `set_skins`.
+        active_skins: Map<felt252, felt252>,
     }
 
     // Events
@@ -776,6 +845,9 @@ pub mod Setup {
         CreditSpent: CreditSpent,
         PackSet: PackSet,
         PackBought: PackBought,
+        SkinPriced: SkinPriced,
+        SkinBought: SkinBought,
+        SkinsActivated: SkinsActivated,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -865,6 +937,37 @@ pub mod Setup {
         pub price: u128,
         pub referrer: ContractAddress,
         pub balance: u64,
+    }
+
+    /// The price of a skin set by the owner (`cobbles` 0: withdrawn from sale).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SkinPriced {
+        #[key]
+        pub theme: u8,
+        #[key]
+        pub plan: u8,
+        pub cobbles: u8,
+    }
+
+    /// A skin bought by the player for itself: `cobbles` its price, `balance` the player's cobbles
+    /// after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SkinBought {
+        #[key]
+        pub player_id: felt252,
+        pub theme: u8,
+        pub plan: u8,
+        pub cobbles: u8,
+        pub balance: u64,
+    }
+
+    /// The player's active skins after a `set_skins`: the whole packed word
+    /// (`super::active_word`, the theme of plan `p` in byte `p - 1`).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SkinsActivated {
+        #[key]
+        pub player_id: felt252,
+        pub active: felt252,
     }
 
     // Constructor
@@ -1294,6 +1397,104 @@ pub mod Setup {
         }
     }
 
+    #[abi(embed_v0)]
+    impl SetupSkinsImpl of ISetupSkins<ContractState> {
+        fn set_skin_price(ref self: ContractState, theme: u8, plan: u8, cobbles: u8) {
+            // [Check] The owner, a theme, a plan, a price in bounds or 0
+            self.ownable.assert_only_owner();
+            assert(theme != 0 && plan != 0 && plan <= PLANS, errors::INVALID_SKIN);
+            assert(
+                cobbles == 0 || (cobbles >= SKIN_PRICE_MIN && cobbles <= SKIN_PRICE_MAX),
+                errors::INVALID_COBBLES,
+            );
+            // [Effect] The price
+            self.skin_prices.write((theme, plan), cobbles);
+            self.emit(SkinPriced { theme, plan, cobbles });
+        }
+
+        fn buy_skin(ref self: ContractState, theme: u8, plan: u8) {
+            let player_id: felt252 = get_caller_address().into();
+            // [Check] A skin on sale (an id never priced has price 0), not owned, affordable
+            let price = self.skin_prices.read((theme, plan));
+            assert(price != 0, errors::SKIN_NOT_FOR_SALE);
+            let owned = self.skins.read((player_id, theme));
+            let flag = skin_bit(plan);
+            assert(owned & flag == 0, errors::SKIN_OWNED);
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= price.into(), errors::NOT_ENOUGH_COBBLES);
+
+            // [Effect] The cobbles spent and the skin owned, in one transaction
+            account.cobbles -= price.into();
+            self.accounts.write(player_id, account);
+            self.skins.write((player_id, theme), owned | flag);
+            self
+                .emit(
+                    SkinBought { player_id, theme, plan, cobbles: price, balance: account.cobbles },
+                );
+        }
+
+        fn set_skins(ref self: ContractState, changes: Span<(u8, u8)>) {
+            let player_id: felt252 = get_caller_address().into();
+            let mut themes = active_themes(self.active_skins.read(player_id));
+            // [Check] Each plan 1 to 19, each theme the default or owned. The owned word of a
+            // theme is read once per theme named.
+            let mut known: Array<(u8, u32)> = array![];
+            let mut next: Array<u8> = array![];
+            let mut set: Array<(u8, u8)> = array![];
+            for (plan, theme) in changes {
+                let plan = *plan;
+                let theme = *theme;
+                assert(plan != 0 && plan <= PLANS, errors::INVALID_SKIN);
+                if theme != 0 {
+                    let mut owned: Option<u32> = None;
+                    for (seen, word) in known.span() {
+                        if *seen == theme {
+                            owned = Some(*word);
+                        }
+                    }
+                    let owned = match owned {
+                        Some(word) => word,
+                        None => {
+                            let word = self.skins.read((player_id, theme));
+                            known.append((theme, word));
+                            word
+                        },
+                    };
+                    assert(owned & skin_bit(plan) != 0, errors::SKIN_NOT_OWNED);
+                }
+                set.append((plan, theme));
+            }
+            // [Effect] The batch in order (the last change of a plan wins), one write
+            let mut index: u8 = 0;
+            for theme in themes.span() {
+                let mut chosen = *theme;
+                for (plan, to) in set.span() {
+                    if *plan == index + 1 {
+                        chosen = *to;
+                    }
+                }
+                next.append(chosen);
+                index += 1;
+            }
+            themes = next;
+            let active = active_word(themes.span());
+            self.active_skins.write(player_id, active);
+            self.emit(SkinsActivated { player_id, active });
+        }
+
+        fn skin_price(self: @ContractState, theme: u8, plan: u8) -> u8 {
+            self.skin_prices.read((theme, plan))
+        }
+
+        fn skins(self: @ContractState, player_id: felt252, theme: u8) -> u32 {
+            self.skins.read((player_id, theme))
+        }
+
+        fn active_skins(self: @ContractState, player_id: felt252) -> Array<u8> {
+            active_themes(self.active_skins.read(player_id))
+        }
+    }
+
     #[generate_trait]
     impl CobblesInternalImpl of CobblesInternalTrait {
         /// Removes the cobbles of a quest: its copy, and its id from its kind's list.
@@ -1369,6 +1570,15 @@ pub mod Setup {
         pub fn allowed(quest: @ComponentState<ContractState>, reporter: ContractAddress) -> bool {
             quest.get_reporter(reporter).allowed
         }
+    }
+
+    /// The bit of the skin of `plan` (1 to 19) in an owned word.
+    fn skin_bit(plan: u8) -> u32 {
+        let mut flag: u32 = 1;
+        for _ in 0..plan {
+            flag *= 2;
+        }
+        flag
     }
 
     /// A definition the indexer can serve: no task total of 0 (complete before any report) and no
