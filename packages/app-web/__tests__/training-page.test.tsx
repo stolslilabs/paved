@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { GamePage } from "../src/pages/Game";
-import { replay } from "../src/training/local-session";
-import { TRAINING_KEY } from "../src/training/storage";
+import { TRAINING_KEY, replayTraining as replay } from "@paved/game-core";
 
 // Everything that could reach a chain throws: the Training path must not call any of it.
 const { chainCall } = vi.hoisted(() => ({
