@@ -74,18 +74,19 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
   });
 
   it("never gets thinner or fainter as the camera zooms in, and is continuous", () => {
+    // Zoom steps of 0.1 %, 1 to 30,000 px a tile; violations are collected, not asserted one by one (CI's 5 s budget).
+    const bad: string[] = [];
     let prev = outlineStroke(0, S);
-    for (let px = 0; px <= 30000; px += 0.5) {
+    for (let px = 1; px <= 30000; px *= 1.001) {
       const s = outlineStroke(px, S);
-      expect(s.width * s.opacity).toBeGreaterThanOrEqual(prev.width * prev.opacity);
+      if (s.width * s.opacity < prev.width * prev.opacity) bad.push(`weaker at ${px}`);
       if (prev.opacity > 0) {
-        expect(s.width).toBeGreaterThanOrEqual(prev.width);
-        expect(s.opacity).toBeGreaterThanOrEqual(prev.opacity);
-        expect(s.width - prev.width).toBeLessThan(0.01);
-        expect(s.opacity - prev.opacity).toBeLessThan(0.05);
+        if (s.width < prev.width || s.opacity < prev.opacity) bad.push(`decreases at ${px}`);
+        if (s.width - prev.width >= 0.01 || s.opacity - prev.opacity >= 0.05) bad.push(`jumps at ${px}`);
       }
       prev = s;
     }
+    expect(bad).toEqual([]);
   });
 
   it("is off when disabled, and handles equal sizes as a step", () => {
