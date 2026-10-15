@@ -35,7 +35,8 @@ export interface OutlinesBoardProps {
   capZoomOut?: boolean;
   zoomOutCapDistance?: number;
   multisampling?: boolean;
-  maxPixelRatio?: number;
+  /** The pixel-ratio cap: "auto" (the device's) or a number. */
+  maxPixelRatio?: number | "auto";
 }
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;

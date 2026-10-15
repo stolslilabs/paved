@@ -44,6 +44,8 @@ export interface SurfaceInputEvent {
 export interface RenderSurfaceAdapter {
   getSize(): SurfaceSize;
   getDevicePixelRatio(): number;
+  /** Whether the main pointer is coarse (touch). Unset: not coarse. `maxPixelRatio: "auto"` reads it. */
+  hasCoarsePointer?(): boolean;
   onResize(cb: () => void): () => void;
   bindInput(handler: (event: SurfaceInputEvent) => void): void;
   unbindInput(): void;

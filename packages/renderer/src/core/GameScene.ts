@@ -32,6 +32,7 @@ import {
 import {
   cameraDistanceLimits,
   capPixelRatio,
+  resolveMaxPixelRatio,
   resolveRendererSettings,
   type RendererSettings,
   type RendererSettingsInput,
@@ -190,7 +191,7 @@ export class GameScene {
     this.renderer = rendererFactory(surface);
 
     const size = surface.getSize();
-    this.pixelRatio = capPixelRatio(surface.getDevicePixelRatio(), this.settings.maxPixelRatio);
+    this.pixelRatio = this.cappedPixelRatio();
     this.renderer.setPixelRatio(this.pixelRatio);
     // The canvas's CSS size is its container's (`GameCanvas` sets it to 100 %): `false` keeps three from pinning it in
     // px, which would stop it from following the container (R-VIS).
@@ -244,6 +245,14 @@ export class GameScene {
     this.updateTiles(this.latestTiles);
   }
 
+  /** The surface's pixel ratio, capped at `maxPixelRatio` (for `"auto"`, the cap of this device and viewport). */
+  private cappedPixelRatio(): number {
+    const surface = this.surface!;
+    const { width, height } = surface.getSize();
+    const cap = resolveMaxPixelRatio(this.settings.maxPixelRatio, { coarsePointer: surface.hasCoarsePointer?.() ?? false, width, height });
+    return capPixelRatio(surface.getDevicePixelRatio(), cap);
+  }
+
   /**
    * Fit the drawing buffer, the camera and the post-processing targets to the surface's size and pixel ratio now.
    * Called by the surface when its container is resized or the screen's pixel ratio changes (`onResize`).
@@ -253,7 +262,7 @@ export class GameScene {
     const { width, height } = this.surface.getSize();
     // A hidden container (0 x 0) keeps the last size: a zero aspect would break the camera.
     if (!(width > 0) || !(height > 0)) return;
-    this.pixelRatio = capPixelRatio(this.surface.getDevicePixelRatio(), this.settings.maxPixelRatio);
+    this.pixelRatio = this.cappedPixelRatio();
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
@@ -460,7 +469,7 @@ export class GameScene {
     this.applyCameraLimits();
     this.effects.setMultisampling(this.settings.multisampling);
     // A new cap refits the drawing buffer and the composer's targets at once.
-    if (this.surface && this.renderer && capPixelRatio(this.surface.getDevicePixelRatio(), this.settings.maxPixelRatio) !== this.pixelRatio) this.resize();
+    if (this.surface && this.renderer && this.cappedPixelRatio() !== this.pixelRatio) this.resize();
     this.requestRender();
   }
 

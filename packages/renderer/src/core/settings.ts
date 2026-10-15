@@ -21,8 +21,10 @@ export interface RendererSettings {
   /**
    * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
    * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
+   * `"auto"` (the default) takes the cap measured for the device (`resolveMaxPixelRatio`): 2 on a coarse pointer or a
+   * small screen, 1 elsewhere (DPR, `docs/client/v2-architecture.md` 5.3).
    */
-  maxPixelRatio: number;
+  maxPixelRatio: number | "auto";
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -44,7 +46,7 @@ export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
   multisampling?: boolean;
-  maxPixelRatio?: number;
+  maxPixelRatio?: number | "auto";
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -60,8 +62,34 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
   multisampling: false,
-  maxPixelRatio: 1,
+  maxPixelRatio: "auto",
 };
+
+/**
+ * The pixel-ratio caps of `"auto"`, set by the PM's rule from DPR's measures (M2 Max, headless Chrome, the 72-tile board):
+ * the highest cap whose CPU + GPU p95 stays under 16.6 ms on the phone-like profile (360 x 780 at DPR 3, CPU 4x) is 2,
+ * on coarse pointers and small screens; no cap stays under 12 ms on the Mac profile (1440 x 900 at DPR 2) with the
+ * outlines on, so elsewhere the cap stays at the lowest measured, 1.
+ */
+export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1 } as const;
+
+/** A viewport whose shorter side is at most this many CSS px is a small screen (a phone, held either way). */
+export const SMALL_SCREEN_PX = 600;
+
+/** What `"auto"` reads of the device: a coarse (touch) pointer, and the viewport's size in CSS px. */
+export interface PixelRatioDevice {
+  coarsePointer: boolean;
+  width: number;
+  height: number;
+}
+
+/** The cap in effect: `maxPixelRatio` itself, or for `"auto"` the device's (`PIXEL_RATIO_CAPS`). */
+export function resolveMaxPixelRatio(maxPixelRatio: number | "auto", device: PixelRatioDevice): number {
+  if (maxPixelRatio !== "auto") return maxPixelRatio;
+  const shorter = Math.min(device.width, device.height);
+  const small = shorter > 0 && shorter <= SMALL_SCREEN_PX;
+  return device.coarsePointer || small ? PIXEL_RATIO_CAPS.coarse : PIXEL_RATIO_CAPS.fine;
+}
 
 /** `input` over `base`, field by field. */
 export function resolveRendererSettings(
@@ -76,7 +104,7 @@ export function resolveRendererSettings(
     outlines,
     camera: { ...base.camera, ...input.camera },
     multisampling: input.multisampling ?? base.multisampling,
-    maxPixelRatio: maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
+    maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
   };
 }
 

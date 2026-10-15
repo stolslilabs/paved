@@ -123,7 +123,7 @@ describe("RenderSurfaceAdapter integration", () => {
     const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 2);
     const { scene, controller, renderer } = createSceneHarness();
 
-    await scene.init({ surface: adapter.surface });
+    await scene.init({ surface: adapter.surface, settings: { maxPixelRatio: 1 } });
 
     (adapter.surface.getSize as any) = () => ({ width: 640, height: 360 });
     adapter.emitResize();
@@ -170,11 +170,32 @@ describe("RenderSurfaceAdapter integration", () => {
     }
   });
 
-  it("takes the default cap when none is given", async () => {
-    const { surface } = createSurfaceAdapter({ width: 320, height: 180 }, 3);
+  it("by default (\"auto\") caps at 1 on a large screen with a fine pointer, at 2 on a coarse pointer or a small screen", async () => {
+    expect(DEFAULT_RENDERER_SETTINGS.maxPixelRatio).toBe("auto");
+    for (const [size, dpr, coarse, expected] of [
+      [{ width: 1440, height: 900 }, 2, false, 1], // the Mac profile
+      [{ width: 1440, height: 900 }, 2, true, 2], // a large touch screen
+      [{ width: 360, height: 780 }, 3, false, 2], // the phone-like profile, a narrow window
+      [{ width: 360, height: 780 }, 3, true, 2], // a phone
+      [{ width: 1024, height: 768 }, 1, true, 1], // never above the screen's own ratio
+    ] as const) {
+      const { surface } = createSurfaceAdapter(size, dpr);
+      surface.hasCoarsePointer = () => coarse;
+      const { scene, renderer } = createSceneHarness();
+      await scene.init({ surface, shadows: false });
+      expect(renderer.setPixelRatio, `${size.width}x${size.height} DPR ${dpr} coarse ${coarse}`).toHaveBeenLastCalledWith(expected);
+    }
+  });
+
+  it("re-reads the \"auto\" cap on a resize: a window narrowed to a phone's width gets the small screen's cap", async () => {
+    const adapter = createSurfaceAdapter({ width: 1440, height: 900 }, 2);
     const { scene, renderer } = createSceneHarness();
-    await scene.init({ surface, shadows: false });
-    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(Math.min(3, DEFAULT_RENDERER_SETTINGS.maxPixelRatio));
+    await scene.init({ surface: adapter.surface });
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1);
+    (adapter.surface.getSize as any) = () => ({ width: 390, height: 844 });
+    adapter.emitResize();
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+    expect((scene as any).effects.resize).toHaveBeenLastCalledWith(390, 844, 2);
   });
 
   it("refits the drawing buffer and the composer when the cap changes, and only then", async () => {

@@ -56,8 +56,11 @@ const meta = {
     zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
     multisampling: { control: "boolean", description: "Multisampled anti-aliasing (4x): smoother edges, about 3 to 4 ms of GPU a frame", table: { category: "Quality" } },
     maxPixelRatio: {
-      control: { type: "range", min: 0.5, max: 3, step: 0.25 },
-      description: "Highest pixel ratio the board is drawn at: min(screen's, this). Under the screen's, the board is upscaled and a hairline shows wider and soft",
+      // Keys without a dot, so a URL can name one (`args=maxPixelRatio:x1_5`); `mapping` gives the renderer the number.
+      control: { type: "select", labels: { auto: "auto", x1: "1", x1_5: "1.5", x2: "2", x3: "3" } },
+      options: ["auto", "x1", "x1_5", "x2", "x3"],
+      mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2, x3: 3 },
+      description: "Highest pixel ratio the board is drawn at: min(screen's, this). auto: 2 on a coarse pointer or a small screen, 1 elsewhere. Under the screen's, the board is upscaled and a hairline shows wider and soft",
       table: { category: "Quality" },
     },
   },

@@ -27,6 +27,9 @@ import {
   resolveRendererSettings,
   DEFAULT_CAMERA_ZOOM_SETTINGS,
   DEFAULT_RENDERER_SETTINGS,
+  PIXEL_RATIO_CAPS,
+  SMALL_SCREEN_PX,
+  resolveMaxPixelRatio,
 } from "../src/core/settings";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { TILE_SIZE } from "../src/core/types";
@@ -245,6 +248,19 @@ describe("renderer settings", () => {
     expect(resolveRendererSettings({ maxPixelRatio: 0 }).maxPixelRatio).toBe(cap);
     expect(resolveRendererSettings({ maxPixelRatio: -1 }).maxPixelRatio).toBe(cap);
     expect(resolveRendererSettings({ maxPixelRatio: 1.5 }).maxPixelRatio).toBe(1.5);
+    expect(resolveRendererSettings({ maxPixelRatio: "auto" }, { ...DEFAULT_RENDERER_SETTINGS, maxPixelRatio: 2 }).maxPixelRatio).toBe("auto");
+  });
+
+  it("resolves the \"auto\" cap by device: 2 on a coarse pointer or a small screen, 1 elsewhere; a number as is", () => {
+    const desk = { coarsePointer: false, width: 1440, height: 900 };
+    expect(PIXEL_RATIO_CAPS).toEqual({ coarse: 2, fine: 1 });
+    expect(resolveMaxPixelRatio("auto", desk)).toBe(1);
+    expect(resolveMaxPixelRatio("auto", { ...desk, coarsePointer: true })).toBe(2);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 360, height: 780 })).toBe(2);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 844, height: 390 })).toBe(2); // a phone held sideways
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: SMALL_SCREEN_PX + 1, height: 900 })).toBe(1);
+    expect(resolveMaxPixelRatio("auto", { ...desk, width: 0, height: 0 })).toBe(1); // a hidden container is not small
+    expect(resolveMaxPixelRatio(1.5, { ...desk, coarsePointer: true })).toBe(1.5);
   });
 
   it("caps the pixel ratio: min(devicePixelRatio, cap), 1 for a screen that reports none", () => {

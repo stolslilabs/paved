@@ -27,6 +27,11 @@ export class NativeSurfaceAdapter implements RenderSurfaceAdapter {
     return this.host.getDevicePixelRatio();
   }
 
+  /** React Native runs on touch screens. */
+  hasCoarsePointer(): boolean {
+    return true;
+  }
+
   onResize(cb: () => void): () => void {
     return this.host.onResize(cb);
   }

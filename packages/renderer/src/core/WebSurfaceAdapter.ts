@@ -33,6 +33,10 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
     return window.devicePixelRatio;
   }
 
+  hasCoarsePointer(): boolean {
+    return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  }
+
   /**
    * Calls `cb` when the canvas's container changes size, and when the device pixel ratio changes (the window moved to
    * another screen, the page zoomed). The container is observed, not the canvas: the canvas fills it (CSS 100 %), and a
