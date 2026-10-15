@@ -3,7 +3,7 @@ import { act, render, renderHook, screen, waitFor, within } from "@testing-libra
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "starknet";
 import {
   PackOutcomeUnknownError,
@@ -180,7 +180,19 @@ async function enabledPay(name?: RegExp) {
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n);
 
+// The lazy routes these tests reach, loaded once before the first test. A route's chunk is transformed on its first visit
+// (the board's pulls in the renderer and three): that was 1.1 to 1.4 s inside the first test on a loaded machine (several
+// times that under a load average of 15), and the first test hit its 5 s.
+beforeAll(async () => {
+  await Promise.all([import("../src/routes/pages/purchase"), import("../src/routes/pages/board"), import("../src/routes/pages/home")]);
+}, 60_000);
+
+// A failed read is retried once after the cache's default 1 s (`retry: 1`): every test of a failing read waited that second in
+// real time (1.1 to 1.4 s each, the retry's wait included). The retry stays, without the wait.
+const defaultOptions = queryClient.getDefaultOptions();
+
 beforeEach(() => {
+  queryClient.setDefaultOptions({ ...defaultOptions, queries: { ...defaultOptions.queries, retryDelay: 0 } });
   queryClient.clear();
   localStorage.clear();
   resetFailedWritesForTests();
@@ -205,6 +217,7 @@ function reload(s: ReturnType<typeof setup>, path = "/play/challenge") {
   return open(path, s);
 }
 afterEach(() => {
+  queryClient.setDefaultOptions(defaultOptions);
   vi.restoreAllMocks();
   resetWelcomedForTests();
 });
