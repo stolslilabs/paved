@@ -273,14 +273,17 @@ void main() {
     return;
   }
   dir = len > 0.0 ? dir / len : vec2( 1.0, 0.0 );
-  // The quad covers the stroke (at least a pixel wide) and one more pixel on every side, for the antialiased edge.
-  float reach = max( linewidth, 1.0 ) * 0.5 + 1.0;
+  // The quad covers exactly the pixels the fragment shader can draw: across, the stroke (at least a pixel wide) and the
+  // half pixel of its antialiased edge, where the coverage reaches 0; along, the segment's span (its ends are square)
+  // and half a pixel more at each end, so no pixel centre on the span is lost to the rasterizer's edge rule.
+  float reach = max( linewidth, 1.0 ) * 0.5 + 0.5;
+  float pad = 0.5;
   // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 at its start, 2 at its end (createOutline
   // draws only its four corners). This side of the normal keeps its triangles front-facing (the material culls back
   // faces).
   vec2 offset = vec2( dir.y, - dir.x ) * position.x * reach;
-  if ( position.y < 0.0 ) offset -= dir * reach;
-  else if ( position.y > 1.0 ) offset += dir * reach;
+  if ( position.y < 0.0 ) offset -= dir * pad;
+  else if ( position.y > 1.0 ) offset += dir * pad;
   vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
   clip.xy += offset * 2.0 / viewport.zw * clip.w;
   gl_Position = clip;
@@ -388,12 +391,118 @@ export function applyOutlineStroke(material: OutlineMaterial, stroke: OutlineStr
 }
 
 const viewport = new THREE.Vector4();
+const modelView = new THREE.Matrix4();
+const linearPart = new THREE.Matrix4();
+const axisView = new THREE.Vector3();
+const centreView = new THREE.Vector3();
 
-/** One mesh's outline: its crease edges as instanced quads, told the viewport it is drawn into before each draw. */
+/**
+ * How an outline's segments are ordered for the screen-size cut: first every segment that is not along the tile's
+ * height, then the ones along it (`axis`, in the outline's own space), longest first (`tail`, their lengths). Seen from
+ * above, the voxels' vertical edges are the segments the cut drops, so the draw can stop before the short ones.
+ */
+export interface OutlineSegmentOrder {
+  /** Segments before the vertical ones: always drawn. */
+  head: number;
+  /** The vertical segments' lengths, longest first, in the outline's own units. */
+  tail: Float32Array;
+  /** The vertical axis, in the outline's own space (unit). */
+  axis: THREE.Vector3;
+}
+
+/**
+ * Puts the segments along the shortest side of their bounding box (a tile's height) last, longest first. Segments are
+ * `[ax, ay, az, bx, by, bz]` sextuples; a segment is along the axis when its direction is within about 0.1 degree of it.
+ */
+export function orderOutlineSegments(positions: Float32Array): { positions: Float32Array; order: OutlineSegmentOrder } {
+  const count = Math.floor(positions.length / 6);
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < count * 6; i++) {
+    const k = i % 3;
+    if (positions[i] < min[k]) min[k] = positions[i];
+    if (positions[i] > max[k]) max[k] = positions[i];
+  }
+  const extents = [0, 1, 2].map((k) => max[k] - min[k]);
+  const up = count > 0 ? extents.indexOf(Math.min(...extents)) : 1;
+  const head: number[] = [];
+  const tail: { at: number; length: number }[] = [];
+  for (let s = 0; s < count; s++) {
+    const i = s * 6;
+    const d = [positions[i + 3] - positions[i], positions[i + 4] - positions[i + 1], positions[i + 5] - positions[i + 2]];
+    const length = Math.hypot(d[0], d[1], d[2]);
+    if (length > 0 && Math.abs(d[up]) / length > 0.999999) tail.push({ at: i, length });
+    else head.push(i);
+  }
+  tail.sort((a, b) => b.length - a.length);
+  const ordered = new Float32Array(count * 6);
+  let o = 0;
+  for (const i of [...head, ...tail.map((t) => t.at)]) {
+    ordered.set(positions.subarray(i, i + 6), o);
+    o += 6;
+  }
+  const axis = new THREE.Vector3().setComponent(up, 1);
+  return { positions: ordered, order: { head: head.length, tail: Float32Array.from(tail, (t) => t.length), axis } };
+}
+
+/**
+ * How many of an outline's segments to draw for this camera and viewport (device px): every segment but the vertical
+ * ones whose projected length is surely under `off` device px, the screen-size cut's lower end. The bound is taken over
+ * the outline's bounding sphere, so a segment it skips is one the vertex shader would drop anyway: skipping it changes
+ * no pixel, and it saves the segment's vertex work. Everything is drawn for a non-perspective camera, or when the sphere
+ * reaches the camera plane.
+ */
+export function outlineSegmentCount(
+  object: THREE.Object3D,
+  geometry: THREE.InstancedBufferGeometry,
+  order: OutlineSegmentOrder,
+  camera: THREE.Camera,
+  width: number,
+  height: number,
+  off: number,
+): number {
+  const all = order.head + order.tail.length;
+  const projection = camera.projectionMatrix.elements;
+  const sphere = geometry.boundingSphere;
+  if (!(off > 0) || order.tail.length === 0 || projection[11] !== -1 || !sphere) return all;
+  modelView.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
+  centreView.copy(sphere.center).applyMatrix4(modelView);
+  const radius = sphere.radius * modelView.getMaxScaleOnAxis();
+  const near = -centreView.z - radius;
+  if (!(near > 0)) return all;
+  // The axis in view space, with the outline's scale: per unit of the outline's own length.
+  axisView.copy(order.axis).applyMatrix4(linearPart.copy(modelView).setPosition(0, 0, 0));
+  // Screen motion of a point at view position p moved along the axis a, per unit: f (a_xy z - p_xy a_z) / z^2. Its
+  // largest value on the sphere is at most f (|a_xy| / near + max|p_xy| |a_z| / near^2).
+  const focal = Math.max((projection[0] * width) / 2, (projection[5] * height) / 2);
+  const reach = Math.hypot(Math.abs(centreView.x) + radius, Math.abs(centreView.y) + radius);
+  const perUnit = focal * (Math.hypot(axisView.x, axisView.y) / near + (reach * Math.abs(axisView.z)) / (near * near));
+  if (!(perUnit > 0)) return order.head;
+  // The tail is longest first: keep the segments of at least off / perUnit.
+  const shortest = off / perUnit;
+  let lo = 0;
+  let hi = order.tail.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (order.tail[mid] >= shortest) lo = mid + 1;
+    else hi = mid;
+  }
+  return order.head + lo;
+}
+
+/**
+ * One mesh's outline: its crease edges as instanced quads, told the viewport it is drawn into before each draw, and
+ * drawn up to the segments the screen-size cut keeps (`outlineSegmentCount`). The geometry is shared by every tile of
+ * the type: each draw sets its own count just before it.
+ */
 class Outline extends THREE.Mesh<LineSegmentsGeometry, OutlineMaterial> {
-  override onBeforeRender(renderer: THREE.WebGLRenderer): void {
+  override onBeforeRender(renderer: THREE.WebGLRenderer, _scene: THREE.Scene, camera: THREE.Camera): void {
     // The viewport of the target being drawn (the composer's, or the canvas), in device px: what gl_FragCoord counts.
-    this.material.uniforms.viewport.value.copy(renderer.getCurrentViewport(viewport));
+    const { uniforms } = this.material;
+    uniforms.viewport.value.copy(renderer.getCurrentViewport(viewport));
+    const order = this.geometry.userData.segmentOrder as OutlineSegmentOrder | undefined;
+    if (!order) return;
+    this.geometry.instanceCount = outlineSegmentCount(this, this.geometry, order, camera, viewport.z, viewport.w, uniforms.segmentCut.value.x);
   }
 }
 
@@ -406,12 +515,14 @@ const OUTLINE_QUAD_INDEX = [0, 6, 1, 6, 7, 1];
 
 /**
  * The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments), collinear pieces merged
- * (`mergeCollinearSegments`), one four-vertex quad each.
+ * (`mergeCollinearSegments`), ordered for the screen-size cut (`orderOutlineSegments`), one four-vertex quad each.
  */
 export function createOutline(edges: THREE.BufferGeometry, material: OutlineMaterial): THREE.Mesh {
   const geometry = new LineSegmentsGeometry();
-  geometry.setPositions(mergeCollinearSegments(edges.getAttribute("position").array));
+  const { positions, order } = orderOutlineSegments(mergeCollinearSegments(edges.getAttribute("position").array));
+  geometry.setPositions(positions);
   geometry.setIndex(OUTLINE_QUAD_INDEX);
+  geometry.userData.segmentOrder = order;
   edges.dispose();
   const outline = new Outline(geometry, material);
   outline.renderOrder = OUTLINE_RENDER_ORDER;

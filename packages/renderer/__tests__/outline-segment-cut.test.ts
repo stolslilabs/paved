@@ -6,8 +6,11 @@ import {
   applyOutlineStroke,
   createOutline,
   createOutlineMaterial,
+  orderOutlineSegments,
+  outlineSegmentCount,
   outlineStroke,
   segmentFade,
+  type OutlineSegmentOrder,
 } from "../src/core/outlines";
 import { buildEdgesGeometry, mergeCollinearSegments } from "../src/core/edges";
 
@@ -144,5 +147,96 @@ describe("the outline's quad", () => {
     expect([0, 1, 6, 7].map((i) => [position.getX(i), position.getY(i)])).toEqual([[-1, 2], [1, 2], [-1, -1], [1, -1]]);
     expect(outline.geometry.instanceCount).toBe(12);
     expect(outline.geometry.getAttribute("instanceStart").count).toBe(12);
+  });
+});
+
+describe("the segments the draw skips", () => {
+  /** An edges geometry of the given segments. */
+  const edgesOf = (segments: number[][]) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(segments.flat(), 3));
+    return geometry;
+  };
+  const V = VOXEL_SIZE;
+  // A tile-like outline 3 wide and 0.3 high (y up): its four 3-wide sides, and vertical edges 1, 2 and 4 voxels high.
+  const tile = () => [
+    [0, 0, 0, 3, 0, 0],
+    [3, 0, 0, 3, 0, 3],
+    [3, 0, 3, 0, 0, 3],
+    [0, 0, 3, 0, 0, 0],
+    [1, 0, 1, 1, V, 1],
+    [2, 0, 2, 2, 4 * V, 2],
+    [1, 0, 2, 1, 2 * V, 2],
+  ];
+
+  it("orders the segments along the shortest side (a tile's height) last, longest first", () => {
+    const { positions, order } = orderOutlineSegments(new Float32Array(tile().flat()));
+    expect(order.head).toBe(4);
+    expect(order.axis.toArray()).toEqual([0, 1, 0]);
+    expect(Array.from(order.tail)).toEqual([4 * V, 2 * V, V].map(Math.fround));
+    expect(Array.from(positions.subarray(24, 30))).toEqual([2, 0, 2, 2, 4 * V, 2].map(Math.fround));
+    expect(positions.length).toBe(tile().flat().length);
+  });
+
+  /** The outline of `tile()` placed at (x, z) on the board, and the count drawn from a camera straight down at `distance`. */
+  function drawn(x: number, z: number, distance: number, ratio = 1, off = OFF) {
+    const [width, height] = [1440 * ratio, 900 * ratio];
+    const outline = createOutline(edgesOf(tile()), createOutlineMaterial()) as THREE.Mesh<THREE.InstancedBufferGeometry>;
+    outline.position.set(x, 0, z);
+    outline.updateMatrixWorld();
+    const camera = topDown(distance, width, height);
+    const order = outline.geometry.userData.segmentOrder as OutlineSegmentOrder;
+    return { count: outlineSegmentCount(outline, outline.geometry, order, camera, width, height, off), camera, outline, width, height };
+  }
+
+  it("at the opening view, skips the short vertical edges and draws the rest", () => {
+    // Near the axis, every vertical edge is a fraction of a pixel; the four sides are always drawn.
+    expect(drawn(0, 0, 240).count).toBe(4);
+    // Zoomed in on a tile off the axis, the tallest edge comes back first, then the others.
+    const counts = [240, 60, 20, 8].map((d) => drawn(10, 6, d).count);
+    expect(counts[0]).toBe(4);
+    for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
+    expect(counts[counts.length - 1]).toBe(7);
+  });
+
+  it("skips only segments the shader would drop: each one is shorter on screen than the cut", () => {
+    for (const ratio of [1, 2]) {
+      for (const distance of [300, 240, 170, 100, 50, 20, 10]) {
+        for (const [x, z] of [[0, 0], [12, -7], [30, 18], [-40, 25]]) {
+          const { count, camera, outline, width, height } = drawn(x, z, distance, ratio);
+          const start = outline.geometry.getAttribute("instanceStart");
+          const end = outline.geometry.getAttribute("instanceEnd");
+          for (let i = count; i < start.count; i++) {
+            const a = new THREE.Vector3().fromBufferAttribute(start, i).applyMatrix4(outline.matrixWorld);
+            const b = new THREE.Vector3().fromBufferAttribute(end, i).applyMatrix4(outline.matrixWorld);
+            expect(screenLength(camera, a, b, width, height)).toBeLessThan(OFF);
+          }
+        }
+      }
+    }
+  });
+
+  it("draws everything with no cut, for a non-perspective camera, or with the camera inside the outline's bounds", () => {
+    expect(drawn(10, 6, 240, 1, 0).count).toBe(7);
+    const { outline } = drawn(0, 0, 240);
+    const order = outline.geometry.userData.segmentOrder as OutlineSegmentOrder;
+    const ortho = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 1000);
+    ortho.position.set(0, 100, 0);
+    ortho.lookAt(0, 0, 0);
+    ortho.updateMatrixWorld();
+    expect(outlineSegmentCount(outline, outline.geometry, order, ortho, 1440, 900, OFF)).toBe(7);
+    const inside = topDown(0.1, 1440, 900);
+    inside.position.set(1.5, 0.1, 1.5);
+    inside.updateMatrixWorld();
+    expect(outlineSegmentCount(outline, outline.geometry, order, inside, 1440, 900, OFF)).toBe(7);
+  });
+
+  it("sets the count on the shared geometry before each draw, from the camera drawn with", () => {
+    const { outline, camera } = drawn(0, 0, 240);
+    const renderer = { getCurrentViewport: (v: THREE.Vector4) => v.set(0, 0, 1440, 900) };
+    outline.onBeforeRender(renderer as any, new THREE.Scene(), camera, outline.geometry, outline.material as any, null as any);
+    expect(outline.geometry.instanceCount).toBe(4);
+    outline.onBeforeRender(renderer as any, new THREE.Scene(), new THREE.Camera(), outline.geometry, outline.material as any, null as any);
+    expect(outline.geometry.instanceCount).toBe(7);
   });
 });
