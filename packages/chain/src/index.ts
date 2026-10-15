@@ -70,8 +70,8 @@ export {
   InvalidPositionError,
   NO_CREDIT_TEXT,
   NoCreditError,
-  SPAWN_PAUSED_TEXT,
-  SpawnPausedError,
+  FreeSpawnPausedError,
+  FREE_SPAWN_PAUSED_TEXT,
   WriteError,
 } from "./writer";
 export type { BuildMove, ClaimRefusal, WriteAccount, WriteResult } from "./writer";

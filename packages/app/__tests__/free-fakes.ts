@@ -1,4 +1,4 @@
-import { NoCreditError, SpawnPausedError, type FakeGameViews, type WriteResult } from "@paved/chain";
+import { NoCreditError, FreeSpawnPausedError, type FakeGameViews, type WriteResult } from "@paved/chain";
 import type { FakeClaimer } from "@paved/chain/testing";
 import type { GameSigner } from "../src/data";
 import type { LoadConnector } from "../src/wallet/wallet";
@@ -32,7 +32,7 @@ export class FakeFreeSpawner {
       this.failNext = null;
       throw error;
     }
-    if (this.views.paused) throw new SpawnPausedError("0xfee");
+    if (this.views.paused) throw new FreeSpawnPausedError("0xfee");
     const player = this.views.cobblePlayer(this.address);
     if (player.account.credits === 0) throw new NoCreditError("0xfee");
     player.account = { ...player.account, credits: player.account.credits - 1 };

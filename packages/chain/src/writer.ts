@@ -169,7 +169,7 @@ const SPAWN_PAUSED = "Challenge: spawn paused";
 /** What the player reads when Play free is refused for want of a credit. */
 export const NO_CREDIT_TEXT = "You have no free game left: earn one on the quests page.";
 /** What the player reads when new games are paused (the pause stops free games too, G4). */
-export const SPAWN_PAUSED_TEXT = "New games are paused for now. Try again later.";
+export const FREE_SPAWN_PAUSED_TEXT = "New Challenge games are paused for now. Games already started can still be played.";
 
 /** `Challenge.spawn_free` found no credit to spend (`'Setup: no credit'`). Nothing moved. */
 export class NoCreditError extends WriteError {
@@ -180,10 +180,10 @@ export class NoCreditError extends WriteError {
 }
 
 /** `Challenge.spawn_free` refused because spawn is paused (`'Challenge: spawn paused'`, G4). Nothing moved. */
-export class SpawnPausedError extends WriteError {
+export class FreeSpawnPausedError extends WriteError {
   constructor(transactionHash?: string) {
-    super(SPAWN_PAUSED_TEXT, transactionHash, transactionHash !== undefined);
-    this.name = "SpawnPausedError";
+    super(FREE_SPAWN_PAUSED_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "FreeSpawnPausedError";
   }
 }
 
@@ -191,7 +191,7 @@ export class SpawnPausedError extends WriteError {
 function spawnFreeRevert(error: unknown): never {
   if (error instanceof WriteError) {
     if (revertNames(error.message, NO_CREDIT)) throw new NoCreditError(error.transactionHash);
-    if (revertNames(error.message, SPAWN_PAUSED)) throw new SpawnPausedError(error.transactionHash);
+    if (revertNames(error.message, SPAWN_PAUSED)) throw new FreeSpawnPausedError(error.transactionHash);
   }
   throw error;
 }
@@ -288,7 +288,7 @@ export class PavedWriter {
   /**
    * "Play free": `Challenge.spawn_free()`, which spends one free-game credit of the caller and spawns a Challenge game with
    * `GameSpawned.price` 0 (a free game), minted to the caller. Returns the new game's id from the receipt. A refusal is a
-   * `NoCreditError` or a `SpawnPausedError`: nothing moved. A receipt without `GameSpawned` is a `WriteError` that names the
+   * `NoCreditError` or a `FreeSpawnPausedError`: nothing moved. A receipt without `GameSpawned` is a `WriteError` that names the
    * transaction (sent, outcome unknown): the credit may be spent, the player's games list shows the game if it exists.
    */
   async spawnFree(): Promise<WriteResult & { gameId: number }> {

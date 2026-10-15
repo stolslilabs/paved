@@ -3,7 +3,7 @@ import { hash } from "starknet";
 import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
 import { resolveDeployment } from "../src/deployment";
-import { NO_CREDIT_TEXT, NoCreditError, SPAWN_PAUSED_TEXT, SpawnPausedError, WriteError } from "../src/index";
+import { NO_CREDIT_TEXT, NoCreditError, FREE_SPAWN_PAUSED_TEXT, FreeSpawnPausedError, WriteError } from "../src/index";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews } from "../src/views";
 
@@ -40,7 +40,7 @@ describe("spawnFree", () => {
 
   test.each([
     ["Setup: no credit", NoCreditError, NO_CREDIT_TEXT],
-    ["Challenge: spawn paused", SpawnPausedError, SPAWN_PAUSED_TEXT],
+    ["Challenge: spawn paused", FreeSpawnPausedError, FREE_SPAWN_PAUSED_TEXT],
   ])("a receipt that reverts with '%s' is a typed error", async (reason, type, text) => {
     const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason: `Error in the called contract: ${reason}` } });
     const error = await writer.spawnFree().catch((e: unknown) => e);
@@ -51,7 +51,7 @@ describe("spawnFree", () => {
 
   test.each([
     ["Setup: no credit", NoCreditError],
-    ["Challenge: spawn paused", SpawnPausedError],
+    ["Challenge: spawn paused", FreeSpawnPausedError],
   ])("'%s' found by the fee estimation, before anything is sent, is the same typed error", async (reason, type) => {
     const { writer } = writerWith({ execute: () => Promise.reject(new Error(`Execution failed: ${reason}`)) });
     const error = await writer.spawnFree().catch((e: unknown) => e);
@@ -69,7 +69,7 @@ describe("spawnFree", () => {
     const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason: "Challenge: collection not set" } });
     const error = await writer.spawnFree().catch((e: unknown) => e);
     expect(error).not.toBeInstanceOf(NoCreditError);
-    expect(error).not.toBeInstanceOf(SpawnPausedError);
+    expect(error).not.toBeInstanceOf(FreeSpawnPausedError);
     expect(error).toMatchObject({ name: "WriteError", message: "Challenge: collection not set", reverted: true });
   });
 
@@ -86,4 +86,12 @@ describe("spawnFree", () => {
     release();
     await first;
   });
+});
+
+test("the economy's own SpawnPausedError and text are still what the package exports", async () => {
+  const chain = await import("../src/index");
+  const economy = await import("../src/economy/index");
+  expect(chain.SpawnPausedError).toBe(economy.SpawnPausedError);
+  expect(chain.SPAWN_PAUSED_TEXT).toBe(economy.SPAWN_PAUSED_TEXT);
+  expect(chain.FREE_SPAWN_PAUSED_TEXT).toBe(chain.SPAWN_PAUSED_TEXT);
 });
