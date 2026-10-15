@@ -2,6 +2,8 @@
 
 Dated 2026-10-06. Track CLIENT of the programme Paved (the packages-based web client).
 
+Since 2026-10-15, PRs carry their STATUS line in the PR body (a line appended to this file conflicted on every merge); a docs PR collects them here.
+
 2026-10-06: throttled (CPU 4x, 60 Hz) at 72 tiles, the cadence holds (no missed frame) but time to
 interactive is 6.2 s against 0.5 s; a click shows its tile in 37 ms (p50) unthrottled, 86 ms
 throttled; in the real Game page each Torii poll costs 3 React commits and no long task (one
@@ -290,3 +292,7 @@ The controller notice (D-15) is shown at body size (1rem), in normal flow below 
 2026-10-15, ASSETS Client v2 (t-0334): the app serves the renderer's 3D assets at `/renderer-assets` (dev and `dist/renderer-assets`, mapped from `packages/app-web/public` by `packages/app/vite/renderer-assets.ts`, 41 files, 16.0 MB, nothing committed twice), so `/training` in the built app shows the 3D board with no request outside its origin; the plan view stays the fallback (no WebGL, or an asset that fails), tested. Paths, caching and sizes: `v2-architecture.md` 4.2.
 
 2026-10-15, DPR Client v2 (t-0322): the pixel-ratio cap is a setting, `maxPixelRatio` (the renderer draws at `min(devicePixelRatio, cap)`, re-read on resize and `setSettings`), default `"auto"`: 2 on a coarse pointer or a small screen (the window's shorter side at most 600 CSS px), 1 elsewhere, by the PM's rule on figures measured at caps 1, 1.5 and 2 (M2 Max, headless Chrome on ANGLE Metal): the phone-like profile (360 x 780, DPR 3, CPU 4x) stays under 9.4 ms p95 at every cap; the Mac profile (1440 x 900, DPR 2) misses 12 ms at every cap with the outlines on (13.3 to 14.6 ms p95, on a machine at load 4.9 to 6.3), the outlines' vertex load being the cause; an unset `force` is `"auto"`; table and proposal in `v2-architecture.md` 5.3.
+
+2026-10-15, Client v2 OUT-LOD: the outline segments are cut by their size on screen (a GPU fade from 1 to 0.5 device px, the risers skipped before the draw, collinear pieces merged, four-vertex quads). The outline load falls from 497k to about 240k instances a frame, with no flicker or popping against main. Mac p95 at cap 1.5 is 10.66 / 11.76 ms, so the desktop "auto" cap rises from 1 to 1.5; phones keep 2 (PR #447).
+
+2026-10-15, Client v2 ASSET-WEIGHT: the board's first view at 1.28 MB (fresh) / 2.22 MB (35 tiles), down from 16.5 MB: meshopt models under content-hashed names with a manifest, visible tiles first (PR #448).
