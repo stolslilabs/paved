@@ -10,6 +10,37 @@ import { formatPoints } from "../elements/score";
 import { RankingList, RankingSkeleton } from "../containers/ranking-list";
 import { TabPage } from "../containers/tab-page";
 
+/** How current the indexer is (`/v1/head`): `late` is more blocks behind than the client allows; `stale`, a failed refresh. */
+export interface IndexerLagInfo {
+  behind: number;
+  late: boolean;
+  /** Why the last refresh failed while the rows stay: shown as stale. */
+  stale?: string | null;
+}
+
+/** The lag line under a page of indexer rows: quiet when up to date, a warning once the rows may be late. */
+export function LagNotice({ lag }: { lag: IndexerLagInfo }) {
+  const label = lag.behind === 0 ? "Up to date" : `Updated ${lag.behind} ${lag.behind === 1 ? "block" : "blocks"} behind`;
+  return (
+    <>
+      {lag.late ? (
+        <Notice tone="warning" title="The indexer is behind">
+          {label}: scores may be late.
+        </Notice>
+      ) : (
+        <p role="status" className="text-center text-[11px] text-muted-foreground">
+          {label}
+        </p>
+      )}
+      {lag.stale && (
+        <Notice tone="danger" title="Showing the last answer">
+          Stale: {lag.stale}
+        </Notice>
+      )}
+    </>
+  );
+}
+
 export interface LeaderboardSceneProps {
   /** The day shown (`/leaderboard/:day?`; today when omitted). */
   day: number;
@@ -27,6 +58,12 @@ export interface LeaderboardSceneProps {
   /** The players whose best game of the day was free (P-61: ranked like any other, marked "Free", PM ruling). */
   free?: readonly string[];
   now: number;
+  /** How current the indexer is; left out until it answers. */
+  lag?: IndexerLagInfo | null;
+  /** More rows after the page: "Show more" reads the next page. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onMore?: () => void;
   onDayChange?: (day: number) => void;
   onSelectPlayer?: (playerId: string) => void;
   onRetry?: () => void;
@@ -107,18 +144,28 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
               <p className="text-xs text-muted-foreground">{open ? "The first score takes the crown." : "Pick another day."}</p>
             </div>
           ) : (
-            <RankingList
-              key={day}
-              entries={leaderboard.entries}
-              total={leaderboard.total}
-              viewerId={viewerId}
-              viewer={props.viewer}
-              free={props.free}
-              onSelectPlayer={props.onSelectPlayer}
-            />
+            <div className="flex flex-col gap-3">
+              <RankingList
+                key={day}
+                entries={leaderboard.entries}
+                total={leaderboard.total}
+                viewerId={viewerId}
+                viewer={props.viewer}
+                free={props.free}
+                onSelectPlayer={props.onSelectPlayer}
+              />
+              {props.hasMore && (
+                <div className="flex justify-center">
+                  <Button variant="outline" size="sm" disabled={props.loadingMore} onClick={props.onMore}>
+                    {props.loadingMore ? "Loading…" : "Show more"}
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
+      {props.lag && <LagNotice lag={props.lag} />}
     </TabPage>
   );
 }

@@ -2,6 +2,7 @@ import type { LeaderboardEntry } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Icon } from "../ui/icon";
+import { isFree } from "../../data/free";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
@@ -9,10 +10,12 @@ const MEDAL = ["text-gold-300", "text-ink-200", "text-amber-400"] as const;
 
 /**
  * The cells of one ranked player: the rank (a crown for the podium), the name or short address, the best score of the day.
- * `free`: that best game was a free one (P-61, `GameSpawned.price == 0`), marked "Free" and ranked like any other.
+ * `free`: that best game was a free one (P-61, `GameSpawned.price == 0`), marked "Free" and ranked like any other; left out,
+ * the row's own `free` (the indexer's mark) decides.
  */
 export function RankCells({ entry, self, games, free }: { entry: LeaderboardEntry; self?: boolean; games?: boolean; free?: boolean }) {
   const podium = entry.rank <= 3;
+  const marked = free ?? isFree(entry);
   return (
     <>
       <span className={cn("numeric grid min-w-6 shrink-0 place-items-center text-sm font-semibold", podium ? MEDAL[entry.rank - 1] : "text-muted-foreground")}>
@@ -30,7 +33,7 @@ export function RankCells({ entry, self, games, free }: { entry: LeaderboardEntr
       <span className="flex w-0 min-w-0 flex-1 items-baseline gap-1.5 text-left text-sm">
         <PlayerName name={entry.name} address={entry.playerId} className="min-w-0" />
         {self && <span className="shrink-0 text-xs text-muted-foreground">(you)</span>}
-        {free && (
+        {marked && (
           <Badge variant="outline" className="shrink-0 self-center" title="Best game played with a free game">
             Free
           </Badge>
