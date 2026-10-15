@@ -14,6 +14,9 @@ export type { EffectsConfig } from "./core/Effects";
 export {
   DEFAULT_OUTLINE_SETTINGS,
   OUTLINE_DEPTH_BIAS,
+  MIN_OUTLINE_OPACITY,
+  TILE_VOXELS,
+  VOXEL_SIZE,
   outlineStroke,
   tilePixels,
   distanceForTilePixels,

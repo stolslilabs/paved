@@ -49,7 +49,7 @@ describe("GameScene settings", () => {
     expect(zoom.distance).toBeCloseTo(120, 6);
     expect(zoom.tilePx).toBeCloseTo(tilePixels(camera, 120, 900), 6);
     expect(zoom.outline.opacity).toBeGreaterThan(0);
-    scene.setSettings({ outlines: { fadeThresholdTilePx: 1000 } });
+    scene.setSettings({ outlines: { fadeOffTilePx: 1000, fadeFullTilePx: 1100 } });
     expect(scene.getZoom().outline).toEqual({ width: 0, opacity: 0 });
   });
 
@@ -60,7 +60,7 @@ describe("GameScene settings", () => {
     (scene as any).renderer = { shadowMap: {} };
     (scene as any).effects = { render: vi.fn() };
     scene.render();
-    expect(setOutlineStroke).toHaveBeenCalledWith(scene.getZoom().outline);
+    expect(setOutlineStroke).toHaveBeenCalledWith(scene.getZoom().outline, DEFAULT_RENDERER_SETTINGS.outlines.color);
   });
 
   it("sets the stroke again only when the zoom or the settings change", () => {
@@ -75,9 +75,14 @@ describe("GameScene settings", () => {
     camera.position.set(0, 60, 0);
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(2);
-    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline);
-    scene.setSettings({ outlines: { maxWidthPx: 3 } });
+    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline, "#1f1f1f");
+    scene.setSettings({ outlines: { maxWidthPx: 3, color: "#2a2a2a" } });
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(3);
+    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline, "#2a2a2a");
+    // A new pixel ratio (the window moved to another screen) changes the stroke's device width.
+    (scene as any).pixelRatio = 2;
+    scene.render();
+    expect(setOutlineStroke).toHaveBeenCalledTimes(4);
   });
 });

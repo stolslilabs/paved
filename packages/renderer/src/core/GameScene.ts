@@ -112,6 +112,12 @@ export class GameScene {
   private settings: RendererSettings = resolveRendererSettings();
   /** The tile size the outlines' stroke was last set for (NaN: set it on the next frame). */
   private outlineTilePx = Number.NaN;
+  /** The pixel ratio the outlines' stroke was last set for. */
+  private outlinePixelRatio = Number.NaN;
+  /** Bounds of the renderer's pixel ratio (`RendererConfig.pixelRatio`): the device's is clamped to them. */
+  private pixelRatioRange: [number, number] = [0.5, 1];
+  /** The renderer's pixel ratio: device px per CSS px of the drawing buffer. */
+  private pixelRatio = 1;
 
   private pointerDownPos: { x: number; y: number } | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
@@ -172,12 +178,12 @@ export class GameScene {
     this.renderer = rendererFactory(surface);
 
     const size = surface.getSize();
-    const dpr = Math.min(
-      Math.max(surface.getDevicePixelRatio(), pixelRatio[0]),
-      pixelRatio[1]
-    );
-    this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(size.width, size.height);
+    this.pixelRatioRange = pixelRatio;
+    this.pixelRatio = this.clampPixelRatio(surface.getDevicePixelRatio());
+    this.renderer.setPixelRatio(this.pixelRatio);
+    // The canvas's CSS size is its container's (`GameCanvas` sets it to 100 %): `false` keeps three from pinning it in
+    // px, which would stop it from following the container (R-VIS).
+    this.renderer.setSize(size.width, size.height, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
@@ -210,25 +216,45 @@ export class GameScene {
     this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.settings.multisampling);
     this.effects.setCapabilities(effectsCapabilities);
 
+    // Follow the container's size and the screen's pixel ratio, from now on: a change while the models load counts too.
+    this.unbindResize = surface.onResize(() => this.resize());
+
     // Preload assets
     await this.assets.preloadAll();
     // Disposed while the models were loading: bind nothing on a dead scene.
-    if (this.disposed) return;
-
-    // Handle resize
-    this.unbindResize = surface.onResize(() => {
-      const nextSize = surface.getSize();
-      this.renderer.setSize(nextSize.width, nextSize.height);
-      this.controls.resize(nextSize.width, nextSize.height);
-      this.effects.resize(nextSize.width, nextSize.height);
-      this.requestRender();
-    });
+    if (this.disposed) {
+      this.unbindResize?.();
+      this.unbindResize = null;
+      return;
+    }
 
     this.setupInteraction(surface);
 
     // Tiles handed over while the models were loading were drawn from nothing:
     // draw the last ones given now that they can be.
     this.updateTiles(this.latestTiles);
+  }
+
+  private clampPixelRatio(devicePixelRatio: number): number {
+    const [min, max] = this.pixelRatioRange;
+    return Math.min(Math.max(devicePixelRatio, min), max);
+  }
+
+  /**
+   * Fit the drawing buffer, the camera and the post-processing targets to the surface's size and pixel ratio now.
+   * Called by the surface when its container is resized or the screen's pixel ratio changes (`onResize`).
+   */
+  resize(): void {
+    if (!this.surface || !this.renderer) return;
+    const { width, height } = this.surface.getSize();
+    // A hidden container (0 x 0) keeps the last size: a zero aspect would break the camera.
+    if (!(width > 0) || !(height > 0)) return;
+    this.pixelRatio = this.clampPixelRatio(this.surface.getDevicePixelRatio());
+    this.renderer.setPixelRatio(this.pixelRatio);
+    this.renderer.setSize(width, height, false);
+    this.controls?.resize(width, height);
+    this.effects.resize(width, height, this.pixelRatio);
+    this.requestRender();
   }
 
   private setupLighting(): void {
@@ -437,12 +463,12 @@ export class GameScene {
 
   /**
    * The zoom as the outlines see it: the camera's distance to its target, the on-screen size of a tile there in CSS px,
-   * and the outlines' stroke at that size.
+   * and the outlines' stroke at that size (its width in device px).
    */
   getZoom(): { distance: number; tilePx: number; outline: OutlineStroke } {
     const distance = this.cameraDistance();
     const tilePx = this.tilePx(distance);
-    return { distance, tilePx, outline: outlineStroke(tilePx, this.settings.outlines) };
+    return { distance, tilePx, outline: outlineStroke(tilePx, this.settings.outlines, this.pixelRatio) };
   }
 
   private cameraDistance(): number {
@@ -501,11 +527,14 @@ export class GameScene {
   }
 
   private renderFrame(): void {
-    // The stroke changes only with the tile's on-screen size (or the settings): a still camera does no outline work.
+    // The stroke changes only with the tile's on-screen size, the pixel ratio or the settings: a still camera does no
+    // outline work.
     const tilePx = this.tilePx(this.cameraDistance());
-    if (tilePx !== this.outlineTilePx) {
+    if (tilePx !== this.outlineTilePx || this.pixelRatio !== this.outlinePixelRatio) {
       this.outlineTilePx = tilePx;
-      this.tiles.setOutlineStroke(outlineStroke(tilePx, this.settings.outlines));
+      this.outlinePixelRatio = this.pixelRatio;
+      const { outlines } = this.settings;
+      this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio), outlines.color);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;

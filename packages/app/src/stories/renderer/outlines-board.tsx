@@ -18,11 +18,13 @@ export interface OutlinesBoardProps {
   redraw?: boolean;
   /** Show the current zoom and the outlines' stroke on the board. */
   readout?: boolean;
-  /** The renderer's settings (`RendererSettings`), flat: the outlines' fade and width, the camera's zoom limits. */
-  fadeThresholdTilePx?: number;
-  fadeRangeTilePx?: number;
+  /** The renderer's settings (`RendererSettings`), flat: the outlines' fade, width and colour, the camera's zoom limits. */
+  fadeOffTilePx?: number;
+  fadeFullTilePx?: number;
+  widthVoxels?: number;
+  minWidthDevicePx?: number;
   maxWidthPx?: number;
-  maxWidthTilePx?: number;
+  color?: string;
   minDistance?: number;
   maxDistance?: number;
   capZoomOut?: boolean;
@@ -34,10 +36,12 @@ const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
-  fadeThresholdTilePx: OUTLINES.fadeThresholdTilePx,
-  fadeRangeTilePx: OUTLINES.fadeRangeTilePx,
+  fadeOffTilePx: OUTLINES.fadeOffTilePx,
+  fadeFullTilePx: OUTLINES.fadeFullTilePx,
+  widthVoxels: OUTLINES.widthVoxels,
+  minWidthDevicePx: OUTLINES.minWidthDevicePx,
   maxWidthPx: OUTLINES.maxWidthPx,
-  maxWidthTilePx: OUTLINES.maxWidthTilePx,
+  color: OUTLINES.color,
   minDistance: CAMERA.minDistance,
   maxDistance: CAMERA.maxDistance,
   capZoomOut: CAMERA.capZoomOut,
@@ -93,11 +97,18 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const o = { ...SETTINGS_DEFAULTS, ...rest };
   const settings = useMemo<RendererSettingsInput>(
     () => ({
-      outlines: { fadeThresholdTilePx: o.fadeThresholdTilePx, fadeRangeTilePx: o.fadeRangeTilePx, maxWidthPx: o.maxWidthPx, maxWidthTilePx: o.maxWidthTilePx },
+      outlines: {
+        fadeOffTilePx: o.fadeOffTilePx,
+        fadeFullTilePx: o.fadeFullTilePx,
+        widthVoxels: o.widthVoxels,
+        minWidthDevicePx: o.minWidthDevicePx,
+        maxWidthPx: o.maxWidthPx,
+        color: o.color,
+      },
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
     }),
-    [o.fadeThresholdTilePx, o.fadeRangeTilePx, o.maxWidthPx, o.maxWidthTilePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
+    [o.fadeOffTilePx, o.fadeFullTilePx, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).
@@ -149,7 +160,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       <GameCanvas tiles={tiles} basePath={RENDERER_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && zoom && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
-          distance {zoom.distance} · tile {zoom.tilePx} px · outline {zoom.opacity > 0 ? `${zoom.width} px at ${Math.round(zoom.opacity * 100)}%` : "off"}
+          distance {zoom.distance} · tile {zoom.tilePx} px · outline {zoom.opacity > 0 ? `${zoom.width} device px at ${Math.round(zoom.opacity * 100)}%` : "off"}
         </output>
       )}
     </div>

@@ -1,18 +1,21 @@
 import * as THREE from "three";
-import { LineMaterial } from "three/addons/lines/LineMaterial.js";
-import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { TILE_SIZE } from "./types";
 
 /**
- * The voxel tiles' outlines (R-OUT).
+ * The voxel tiles' outlines (R-OUT, then R-VIS).
  *
- * Each tile type's crease edges (`buildEdgesGeometry`) are drawn as screen-space quads (three's `LineSegments2`), so
- * their width is set in pixels, unlike `THREE.LineSegments`, whose lines are always 1 px. The width follows the zoom
- * (`OutlineSettings`): zoomed out past a threshold the outlines are off, they fade in over a short range above it, then
- * widen with the zoom up to a maximum. They are drawn after the faces with a depth bias towards the camera: an outline
- * lies exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker
- * the owner saw).
+ * Each tile type's crease edges (`buildEdgesGeometry`) are drawn as one screen-space quad per segment, on three's
+ * instanced `LineSegmentsGeometry`, by this module's own shader (`createOutlineMaterial`). The fragment shader measures
+ * each pixel's exact distance to its segment on screen and covers the pixel by the part of it the stroke covers: the
+ * edge is antialiased by construction, at any width and off the pixel grid, with no multisampling and no post pass. A
+ * stroke thinner than a device pixel is drawn one device pixel wide at that fraction of its opacity.
+ *
+ * The width is set in the world, as a fraction of a voxel (`widthVoxels`), converted to device pixels at the camera's
+ * target, kept to at least `minWidthDevicePx` (a hairline) and capped at `maxWidthPx` CSS px when zoomed in. Zoomed out
+ * the outlines fade linearly from fully on at `fadeFullTilePx` to off at `fadeOffTilePx`. They are drawn after the faces
+ * with a depth bias towards the camera: an outline lies exactly on the faces it borders, and without the bias it wins
+ * or loses the depth test by rounding (the flicker R-OUT removed).
  *
  * The zoom is measured as the on-screen size of one tile, in CSS pixels, at the camera's target ("tile px"): it folds in
  * the distance, the field of view, the camera's zoom and the viewport's height, so a phone and a desktop window get the
@@ -22,59 +25,74 @@ export interface OutlineSettings {
   /** Draw outlines at all. */
   enabled: boolean;
   /** At or below this tile size (CSS px) the outlines are off. */
-  fadeThresholdTilePx: number;
-  /** Above the threshold the outlines fade in over this many tile px: no pop. */
-  fadeRangeTilePx: number;
-  /** Width at the end of the fade, in CSS px. */
-  minWidthPx: number;
-  /** Maximum width, in CSS px: the outlines stop widening there. */
+  fadeOffTilePx: number;
+  /** At or above this tile size (CSS px) the outlines are fully on; between the two the opacity is linear. */
+  fadeFullTilePx: number;
+  /** The stroke's width in the world, as a fraction of a voxel's width (`VOXEL_SIZE`). */
+  widthVoxels: number;
+  /** The thinnest stroke, in device px: the world width never draws thinner than this. */
+  minWidthDevicePx: number;
+  /** The widest stroke, in CSS px: the cap when zoomed in. */
   maxWidthPx: number;
-  /** Tile size (CSS px) from which the outlines are at their maximum width. */
-  maxWidthTilePx: number;
+  /** The stroke's colour on screen, a CSS hex colour. */
+  color: string;
 }
+
+/** Voxels along a tile's side: every tile model is a 4-unit grid of 0.1-unit voxels, scaled to `TILE_SIZE`. */
+export const TILE_VOXELS = 40;
+/** A voxel's width in world units. */
+export const VOXEL_SIZE = TILE_SIZE / TILE_VOXELS;
+
+/** Below this opacity (one step of an 8-bit channel) the outlines are not drawn at all. */
+export const MIN_OUTLINE_OPACITY = 1 / 255;
 
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
-  // Tuned on the 72-tile bench board (R-OUT captures, PM's ruling of 2026-10-14): a tile has 16 to 20 voxels a side,
-  // and its forests a crease on nearly every voxel. The game opens at 60 px a tile in a 900 px window, and the mockups
-  // show outlines there, so they start at 48 px and are fully on at 96 px. At 60 px they take a steady 19 % of the
-  // scene's brightness across a pan (main's 1 px lines: about 40 %), and the board is about 18 % darker than without.
-  fadeThresholdTilePx: 48,
-  fadeRangeTilePx: 48,
-  minWidthPx: 1,
+  // The PM's ruling (2026-10-15, R-VIS): off at 52 px a tile, fully on at 64. The game opens at about 60 px a tile in a
+  // 900 px high window, where they show at two thirds.
+  fadeOffTilePx: 52,
+  fadeFullTilePx: 64,
+  // The owner's proposal, 1 to 2 % of a voxel: 1.5 %. That is under a device pixel until a voxel is about 33 CSS px wide
+  // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
+  widthVoxels: 0.015,
+  minWidthDevicePx: 1,
   maxWidthPx: 2,
-  maxWidthTilePx: 800,
+  // About 88 % black: the owner asked for dark grey, not black.
+  color: "#1f1f1f",
 };
 
 /** The depth bias of the outlines (`polygonOffset`, negative: towards the camera). */
 export const OUTLINE_DEPTH_BIAS = { factor: -1, units: -4 } as const;
 
-const OUTLINE_COLOR = 0x000000;
 /** After the tile faces. */
 const OUTLINE_RENDER_ORDER = 1;
 
-/** How an outline is drawn at a zoom: its width in CSS px and its opacity; opacity 0 is not drawn. */
+/** How an outline is drawn at a zoom: its width in device px and its opacity; opacity 0 is not drawn. */
 export interface OutlineStroke {
   width: number;
   opacity: number;
 }
 
-const smoothstep = (u: number) => u * u * (3 - 2 * u);
+const OFF: OutlineStroke = { width: 0, opacity: 0 };
 
 /**
- * The stroke for a tile shown `tilePx` CSS px wide: off at or below the threshold; over the fade range the opacity
- * rises smoothly from 0 to 1 at `minWidthPx`; above it the width grows with the logarithm of the tile size (zooming is
- * multiplicative) to `maxWidthPx` at `maxWidthTilePx`, and stays there. Width and opacity never decrease with the zoom.
+ * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px. The opacity is 0 at
+ * or below `fadeOffTilePx`, 1 at or above `fadeFullTilePx`, linear between, and 0 below `MIN_OUTLINE_OPACITY`. The width
+ * is `widthVoxels` of a voxel at that zoom, in device px, at least `minWidthDevicePx` and at most `maxWidthPx` CSS px.
+ * Width and opacity never decrease as the camera zooms in.
  */
-export function outlineStroke(tilePx: number, settings: OutlineSettings = DEFAULT_OUTLINE_SETTINGS): OutlineStroke {
-  const { fadeThresholdTilePx: t0, fadeRangeTilePx: range, minWidthPx, maxWidthPx, maxWidthTilePx } = settings;
-  if (!settings.enabled || !(tilePx > t0)) return { width: 0, opacity: 0 };
-  const t1 = t0 + Math.max(range, 0);
-  const opacity = tilePx >= t1 ? 1 : smoothstep((tilePx - t0) / (t1 - t0));
-  const widest = Math.max(maxWidthPx, minWidthPx);
-  if (tilePx <= t1 || maxWidthTilePx <= t1) return { width: tilePx >= maxWidthTilePx ? widest : minWidthPx, opacity };
-  const u = Math.min(Math.log(tilePx / t1) / Math.log(maxWidthTilePx / t1), 1);
-  return { width: minWidthPx + (widest - minWidthPx) * u, opacity };
+export function outlineStroke(
+  tilePx: number,
+  settings: OutlineSettings = DEFAULT_OUTLINE_SETTINGS,
+  pixelRatio = 1,
+): OutlineStroke {
+  const { fadeOffTilePx: off, fadeFullTilePx: full } = settings;
+  if (!settings.enabled || !(tilePx > off) || !(pixelRatio > 0)) return OFF;
+  const opacity = tilePx >= full ? 1 : (tilePx - off) / (full - off);
+  if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
+  const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
+  const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
+  return width > 0 ? { width, opacity } : OFF;
 }
 
 /** On-screen size of one tile, in CSS px, at `distance` from a perspective camera in a viewport `heightPx` high. */
@@ -90,40 +108,171 @@ export function distanceForTilePixels(camera: THREE.PerspectiveCamera, tilePx: n
   return (heightPx * TILE_SIZE * camera.zoom) / (tilePx * 2 * Math.tan(THREE.MathUtils.DEG2RAD * camera.fov * 0.5));
 }
 
+const vertexShader = /* glsl */ `
+#include <common>
+#include <fog_pars_vertex>
+#include <logdepthbuf_pars_vertex>
+#include <clipping_planes_pars_vertex>
+
+uniform float linewidth;
+uniform vec4 viewport;
+
+attribute vec3 instanceStart;
+attribute vec3 instanceEnd;
+
+// The segment's two ends on screen, in device px (window coordinates): the same at every vertex of its quad.
+flat varying vec4 vSegment;
+
+// Where a segment crossing the camera plane must be cut, three's LineMaterial's estimate.
+float trimSegment( const in vec4 start, const in vec4 end ) {
+  float a = projectionMatrix[ 2 ][ 2 ];
+  float b = projectionMatrix[ 3 ][ 2 ];
+  float nearEstimate = ( a > 0.0 ) ? ( - b / ( a + 1.0 ) ) : ( - 0.5 * b / a );
+  return ( nearEstimate - start.z ) / ( end.z - start.z );
+}
+
+void main() {
+  vec4 start = modelViewMatrix * vec4( instanceStart, 1.0 );
+  vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
+  if ( projectionMatrix[ 2 ][ 3 ] == - 1.0 ) {
+    if ( start.z < 0.0 && end.z >= 0.0 ) end.xyz = mix( start.xyz, end.xyz, trimSegment( start, end ) );
+    else if ( end.z < 0.0 && start.z >= 0.0 ) start.xyz = mix( end.xyz, start.xyz, trimSegment( end, start ) );
+  }
+  vec4 clipStart = projectionMatrix * start;
+  vec4 clipEnd = projectionMatrix * end;
+  vec2 screenStart = ( clipStart.xy / clipStart.w * 0.5 + 0.5 ) * viewport.zw + viewport.xy;
+  vec2 screenEnd = ( clipEnd.xy / clipEnd.w * 0.5 + 0.5 ) * viewport.zw + viewport.xy;
+  vSegment = vec4( screenStart, screenEnd );
+
+  vec2 dir = screenEnd - screenStart;
+  float len = length( dir );
+  dir = len > 0.0 ? dir / len : vec2( 1.0, 0.0 );
+  // The quad covers the stroke (at least a pixel wide) and one more pixel on every side, for the antialiased edge.
+  float reach = max( linewidth, 1.0 ) * 0.5 + 1.0;
+  // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 or 0 at its start, 1 or 2 at its end. This
+  // side of the normal keeps its triangles front-facing (the material culls back faces).
+  vec2 offset = vec2( dir.y, - dir.x ) * position.x * reach;
+  if ( position.y < 0.0 ) offset -= dir * reach;
+  else if ( position.y > 1.0 ) offset += dir * reach;
+  vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
+  clip.xy += offset * 2.0 / viewport.zw * clip.w;
+  gl_Position = clip;
+
+  vec4 mvPosition = ( position.y < 0.5 ) ? start : end;
+  #include <logdepthbuf_vertex>
+  #include <clipping_planes_vertex>
+  #include <fog_vertex>
+}
+`;
+
+const fragmentShader = /* glsl */ `
+#include <common>
+#include <fog_pars_fragment>
+#include <logdepthbuf_pars_fragment>
+#include <clipping_planes_pars_fragment>
+
+uniform vec3 diffuse;
+uniform float opacity;
+uniform float linewidth;
+
+flat varying vec4 vSegment;
+
+void main() {
+  #include <clipping_planes_fragment>
+  vec2 a = vSegment.xy;
+  vec2 ab = vSegment.zw - a;
+  vec2 ap = gl_FragCoord.xy - a;
+  float len2 = dot( ab, ab );
+  // Square ends exactly at the segment's ends: a straight edge split into many segments is covered once at every
+  // pixel, never twice where two segments meet (twice would show as a darker dot while the outlines fade).
+  float along = len2 > 0.0 ? dot( ap, ab ) / len2 : 0.0;
+  if ( along < 0.0 || along >= 1.0 ) discard;
+  float across = len2 > 0.0 ? abs( ab.x * ap.y - ab.y * ap.x ) / sqrt( len2 ) : length( ap );
+  // The share of a one-pixel box filter centred on this pixel that the stroke covers.
+  float w = max( linewidth, 1.0 );
+  float coverage = clamp( w * 0.5 + 0.5 - across, 0.0, 1.0 ) * min( linewidth, 1.0 );
+  if ( coverage <= 0.0 ) discard;
+  #include <logdepthbuf_fragment>
+  gl_FragColor = vec4( diffuse, opacity * coverage );
+  #include <fog_fragment>
+}
+`;
+
+/**
+ * The colour the outline material is given for `css` to show on screen. The scene is drawn into the composer's linear
+ * target and its passes copy it to the canvas without an sRGB encoding or tone mapping (`Effects`), so the value the
+ * shader writes is the 8-bit value shown: the CSS channels go in as they are.
+ */
+function screenColor(css: string, target = new THREE.Color()): THREE.Color {
+  return target.setStyle(css, THREE.LinearSRGBColorSpace);
+}
+
+/** The outline material: `diffuse` its colour, `opacity`, `linewidth` in device px. */
+export type OutlineMaterial = THREE.ShaderMaterial & {
+  uniforms: {
+    diffuse: THREE.IUniform<THREE.Color>;
+    opacity: THREE.IUniform<number>;
+    linewidth: THREE.IUniform<number>;
+    viewport: THREE.IUniform<THREE.Vector4>;
+  };
+};
+
 /** The material every outline shares. */
-export function createOutlineMaterial(): LineMaterial {
-  const material = new LineMaterial({
-    color: OUTLINE_COLOR,
-    linewidth: 1,
+export function createOutlineMaterial(color = DEFAULT_OUTLINE_SETTINGS.color): OutlineMaterial {
+  const material = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {
+        diffuse: { value: new THREE.Color() },
+        opacity: { value: 1 },
+        linewidth: { value: 1 },
+        viewport: { value: new THREE.Vector4(0, 0, 1, 1) },
+      },
+    ]),
+    vertexShader,
+    fragmentShader,
+    fog: true,
     transparent: true,
     depthWrite: false,
-  });
+  }) as OutlineMaterial;
+  screenColor(color, material.uniforms.diffuse.value);
   material.polygonOffset = true;
   material.polygonOffsetFactor = OUTLINE_DEPTH_BIAS.factor;
   material.polygonOffsetUnits = OUTLINE_DEPTH_BIAS.units;
   return material;
 }
 
-/** Sets the shared material to a stroke; hidden at opacity 0, so no outline is drawn at all. */
-export function applyOutlineStroke(material: LineMaterial, stroke: OutlineStroke): void {
-  material.visible = stroke.opacity > 0 && stroke.width > 0;
+/** Sets the shared material to a stroke and a colour; hidden at opacity 0, so no outline is drawn at all. */
+export function applyOutlineStroke(material: OutlineMaterial, stroke: OutlineStroke, color?: string): void {
+  material.visible = stroke.opacity >= MIN_OUTLINE_OPACITY && stroke.width > 0;
+  if (color !== undefined) screenColor(color, material.uniforms.diffuse.value);
   if (!material.visible) return;
-  material.linewidth = stroke.width;
-  material.opacity = stroke.opacity;
+  material.uniforms.linewidth.value = stroke.width;
+  material.uniforms.opacity.value = stroke.opacity;
 }
 
-/** The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments) as screen-space quads. */
-export function createOutline(edges: THREE.BufferGeometry, material: LineMaterial): LineSegments2 {
+const viewport = new THREE.Vector4();
+
+/** One mesh's outline: its crease edges as instanced quads, told the viewport it is drawn into before each draw. */
+class Outline extends THREE.Mesh<LineSegmentsGeometry, OutlineMaterial> {
+  override onBeforeRender(renderer: THREE.WebGLRenderer): void {
+    // The viewport of the target being drawn (the composer's, or the canvas), in device px: what gl_FragCoord counts.
+    this.material.uniforms.viewport.value.copy(renderer.getCurrentViewport(viewport));
+  }
+}
+
+/** The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments). */
+export function createOutline(edges: THREE.BufferGeometry, material: OutlineMaterial): THREE.Mesh {
   const geometry = new LineSegmentsGeometry();
   geometry.setPositions(edges.getAttribute("position").array as Float32Array);
   edges.dispose();
-  const outline = new LineSegments2(geometry, material);
+  const outline = new Outline(geometry, material);
   outline.renderOrder = OUTLINE_RENDER_ORDER;
   outline.userData.outline = true;
   return outline;
 }
 
-/** Whether an object is an outline (a `LineSegments2` is a `THREE.Mesh`: traversals of the tiles' meshes skip it). */
+/** Whether an object is an outline (an outline is a `THREE.Mesh`: traversals of the tiles' meshes skip it). */
 export function isOutline(object: THREE.Object3D): boolean {
   return object.userData.outline === true;
 }

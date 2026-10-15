@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
   DEFAULT_OUTLINE_SETTINGS,
+  MIN_OUTLINE_OPACITY,
   OUTLINE_DEPTH_BIAS,
+  TILE_VOXELS,
+  VOXEL_SIZE,
   applyOutlineStroke,
   createOutline,
   createOutlineMaterial,
@@ -14,37 +17,65 @@ import {
 } from "../src/core/outlines";
 import { cameraDistanceLimits, resolveRendererSettings, DEFAULT_CAMERA_ZOOM_SETTINGS } from "../src/core/settings";
 import { buildEdgesGeometry } from "../src/core/edges";
+import { TILE_SIZE } from "../src/core/types";
 
 const S: OutlineSettings = {
   enabled: true,
-  fadeThresholdTilePx: 60,
-  fadeRangeTilePx: 30,
-  minWidthPx: 1,
+  fadeOffTilePx: 60,
+  fadeFullTilePx: 90,
+  widthVoxels: 0.02,
+  minWidthDevicePx: 1,
   maxWidthPx: 2.5,
-  maxWidthTilePx: 500,
+  color: "#1f1f1f",
 };
 
-describe("outlineStroke: the zoom-to-width function", () => {
-  it("is off at and below the fade threshold", () => {
+/** The tile size (CSS px) at which a world-width stroke is `devicePx` wide at pixel ratio `ratio`. */
+const tilePxForWidth = (settings: OutlineSettings, devicePx: number, ratio = 1) =>
+  (devicePx * TILE_SIZE) / (settings.widthVoxels * VOXEL_SIZE * ratio);
+
+describe("outlineStroke: the zoom-to-stroke function", () => {
+  it("is off at and below the off size", () => {
     for (const px of [0, 1, 30, 59.9, 60]) expect(outlineStroke(px, S)).toEqual({ width: 0, opacity: 0 });
     expect(outlineStroke(Number.NaN, S).opacity).toBe(0);
   });
 
-  it("fades in over the fade range, from nothing, without a pop", () => {
-    expect(outlineStroke(60.01, S).opacity).toBeLessThan(1e-4);
-    const mid = outlineStroke(75, S);
-    expect(mid.opacity).toBeCloseTo(0.5, 5);
-    expect(mid.width).toBe(1);
+  it("fades in linearly between the off and the full sizes, from nothing, without a pop", () => {
+    expect(outlineStroke(60.01, S).opacity).toBe(0); // under 1/255: not drawn
+    expect(outlineStroke(60 + 30.001 / 255, S).opacity).toBeCloseTo(1 / 255, 6);
+    expect(outlineStroke(70, S).opacity).toBeCloseTo(1 / 3, 9);
+    expect(outlineStroke(75, S)).toEqual({ width: 1, opacity: 0.5 });
     expect(outlineStroke(90, S)).toEqual({ width: 1, opacity: 1 });
   });
 
-  it("clamps at the maximum width zoomed in", () => {
-    for (const px of [500, 501, 2000, 1e6, Infinity]) expect(outlineStroke(px, S)).toEqual({ width: 2.5, opacity: 1 });
+  it("hides the stroke below an opacity of 1/255", () => {
+    expect(MIN_OUTLINE_OPACITY).toBe(1 / 255);
+    const justUnder = 60 + (30 / 255) * 0.99;
+    expect(outlineStroke(justUnder, S)).toEqual({ width: 0, opacity: 0 });
+  });
+
+  it("is the world width in device px: a share of a voxel at the zoom, times the pixel ratio", () => {
+    expect(VOXEL_SIZE).toBe(TILE_SIZE / TILE_VOXELS);
+    expect(TILE_VOXELS).toBe(40);
+    const tilePx = tilePxForWidth(S, 1.5);
+    expect(outlineStroke(tilePx, S).width).toBeCloseTo(1.5, 9);
+    expect(outlineStroke(tilePx, S, 1.5).width).toBeCloseTo(2.25, 9);
+    expect(outlineStroke(tilePx / 2, S, 2).width).toBeCloseTo(1.5, 9);
+  });
+
+  it("never draws thinner than the minimum, in device px, whatever the pixel ratio", () => {
+    expect(outlineStroke(100, S).width).toBe(1);
+    expect(outlineStroke(100, S, 2).width).toBe(1);
+    expect(outlineStroke(100, { ...S, minWidthDevicePx: 0.5 }).width).toBeCloseTo(0.5, 9);
+  });
+
+  it("caps the width at the maximum in CSS px when zoomed in", () => {
+    for (const px of [tilePxForWidth(S, 2.5), 1e5, 1e6, Infinity]) expect(outlineStroke(px, S)).toEqual({ width: 2.5, opacity: 1 });
+    expect(outlineStroke(1e6, S, 2)).toEqual({ width: 5, opacity: 1 });
   });
 
   it("never gets thinner or fainter as the camera zooms in, and is continuous", () => {
     let prev = outlineStroke(0, S);
-    for (let px = 0; px <= 1000; px += 0.25) {
+    for (let px = 0; px <= 30000; px += 0.5) {
       const s = outlineStroke(px, S);
       expect(s.width * s.opacity).toBeGreaterThanOrEqual(prev.width * prev.opacity);
       if (prev.opacity > 0) {
@@ -57,29 +88,34 @@ describe("outlineStroke: the zoom-to-width function", () => {
     }
   });
 
-  it("widens between the end of the fade and the maximum", () => {
-    const w = outlineStroke(200, S).width;
-    expect(w).toBeGreaterThan(1);
-    expect(w).toBeLessThan(2.5);
-  });
-
-  it("is off when disabled, and handles a zero fade range as a step at the threshold", () => {
+  it("is off when disabled, and handles equal sizes as a step", () => {
     expect(outlineStroke(400, { ...S, enabled: false })).toEqual({ width: 0, opacity: 0 });
-    const step = { ...S, fadeRangeTilePx: 0 };
+    const step = { ...S, fadeFullTilePx: 60 };
     expect(outlineStroke(60, step).opacity).toBe(0);
-    expect(outlineStroke(60.5, step)).toEqual({ width: 1 + (2.5 - 1) * (Math.log(60.5 / 60) / Math.log(500 / 60)), opacity: 1 });
+    expect(outlineStroke(60.5, step)).toEqual({ width: 1, opacity: 1 });
   });
 
-  it("defaults: off at 48 px a tile, fading in at the game's opening view of a 900 px window, on at 96 px, at full width zoomed in", () => {
+  it("defaults: off at 52 px a tile, about two thirds at the game's opening view of a 900 px window, on at 64 px, a hairline, dark grey", () => {
     const camera = new THREE.PerspectiveCamera(50, 1.6, 1, 2000);
     camera.zoom = 5;
-    expect(DEFAULT_OUTLINE_SETTINGS).toMatchObject({ fadeThresholdTilePx: 48, fadeRangeTilePx: 48, minWidthPx: 1, maxWidthPx: 2 });
-    expect(outlineStroke(48).opacity).toBe(0);
+    expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
+      enabled: true,
+      fadeOffTilePx: 52,
+      fadeFullTilePx: 64,
+      widthVoxels: 0.015,
+      minWidthDevicePx: 1,
+      maxWidthPx: 2,
+      color: "#1f1f1f",
+    });
+    expect(outlineStroke(52).opacity).toBe(0);
     const opening = outlineStroke(tilePixels(camera, 240, 900));
-    expect(opening.opacity).toBeGreaterThan(0);
-    expect(opening.opacity).toBeLessThan(1);
-    expect(outlineStroke(96)).toEqual({ width: DEFAULT_OUTLINE_SETTINGS.minWidthPx, opacity: 1 });
-    expect(outlineStroke(tilePixels(camera, 5, 900))).toEqual({ width: DEFAULT_OUTLINE_SETTINGS.maxWidthPx, opacity: 1 });
+    expect(opening.opacity).toBeGreaterThan(0.6);
+    expect(opening.opacity).toBeLessThan(0.75);
+    expect(outlineStroke(64)).toEqual({ width: 1, opacity: 1 });
+    // Fully zoomed in (distance 5) at DPR 2 the world width (about 2.2 device px) is past the hairline, under the cap.
+    const zoomedIn = outlineStroke(tilePixels(camera, 5, 900), DEFAULT_OUTLINE_SETTINGS, 2);
+    expect(zoomedIn.width).toBeGreaterThan(1);
+    expect(zoomedIn.width).toBeLessThan(4);
   });
 });
 
@@ -117,21 +153,44 @@ describe("outline material", () => {
     expect(outline.renderOrder).toBeGreaterThan(0);
   });
 
-  it("is hidden at opacity 0 and takes the stroke otherwise", () => {
+  it("is hidden below an opacity of 1/255 and takes the stroke and the colour otherwise", () => {
     const material = createOutlineMaterial();
     applyOutlineStroke(material, { width: 0, opacity: 0 });
     expect(material.visible).toBe(false);
-    applyOutlineStroke(material, { width: 1.5, opacity: 0.4 });
+    applyOutlineStroke(material, { width: 1, opacity: 0.5 / 255 });
+    expect(material.visible).toBe(false);
+    applyOutlineStroke(material, { width: 1.5, opacity: 0.4 }, "#336699");
     expect(material.visible).toBe(true);
-    expect(material.linewidth).toBe(1.5);
-    expect(material.opacity).toBe(0.4);
+    expect(material.uniforms.linewidth.value).toBe(1.5);
+    expect(material.uniforms.opacity.value).toBe(0.4);
+    // The CSS channels go to the shader as they are: the composer shows them without an sRGB encoding.
+    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x336699);
+  });
+
+  it("starts dark grey, #1f1f1f, and antialiases in its shader (no multisampling needed)", () => {
+    const material = createOutlineMaterial();
+    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x1f1f1f);
+    expect(material.fragmentShader).toContain("coverage");
+    expect(material.fog).toBe(true);
+  });
+
+  it("is told the viewport it is drawn into, in device px, before each draw", () => {
+    const material = createOutlineMaterial();
+    const outline = createOutline(buildEdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), material);
+    const renderer = { getCurrentViewport: (v: THREE.Vector4) => v.set(0, 0, 2880, 1800) };
+    outline.onBeforeRender(renderer as any, new THREE.Scene(), new THREE.Camera(), outline.geometry, material, null as any);
+    expect(material.uniforms.viewport.value.toArray()).toEqual([0, 0, 2880, 1800]);
+    // A tile's clone keeps it: outlines are cloned with their tile type's model.
+    const clone = outline.clone();
+    expect(clone.onBeforeRender).toBe(outline.onBeforeRender);
+    expect(isOutline(clone)).toBe(true);
   });
 });
 
 describe("renderer settings", () => {
   it("fills what an input leaves out with the defaults", () => {
-    const s = resolveRendererSettings({ outlines: { maxWidthPx: 3 }, camera: { capZoomOut: true } });
-    expect(s.outlines).toEqual({ ...DEFAULT_OUTLINE_SETTINGS, maxWidthPx: 3 });
+    const s = resolveRendererSettings({ outlines: { maxWidthPx: 3, color: "#333333" }, camera: { capZoomOut: true } });
+    expect(s.outlines).toEqual({ ...DEFAULT_OUTLINE_SETTINGS, maxWidthPx: 3, color: "#333333" });
     expect(s.camera).toEqual({ ...DEFAULT_CAMERA_ZOOM_SETTINGS, capZoomOut: true });
   });
 
