@@ -318,6 +318,7 @@ pub mod Economy {
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
         pub const NOT_SELLER: felt252 = 'Economy: not the seller';
         pub const SELLER_SET: felt252 = 'Economy: seller already set';
+        pub const ZERO_QUOTE: felt252 = 'Economy: price too small';
     }
 
     // Packed records
@@ -1003,9 +1004,14 @@ pub mod Economy {
             assert(seller.is_non_zero() && get_caller_address() == seller, errors::NOT_SELLER);
             assert(player.is_non_zero(), errors::ZERO_ADDRESS);
             assert(price != 0, errors::WRONG_PRICE);
+            // [Check] The burn quote is not 0 (P-61 part 2's note p1): `next_rate` divides by it,
+            // so a price under `10_000 / burn_bps` base units (2 at the default) would revert the
+            // first sale of a block. A game's price is 2 USDC at least and never comes here.
+            let config = self.config.read();
+            assert(price * config.burn_bps.into() / curve::BPS.into() != 0, errors::ZERO_QUOTE);
 
             // [Interaction] The game's money path (`pay`), with no game
-            let paid = self.pay(player, price, referrer, min_out, self.config.read());
+            let paid = self.pay(player, price, referrer, min_out, config);
             let counted = if paid.referred {
                 referrer
             } else {

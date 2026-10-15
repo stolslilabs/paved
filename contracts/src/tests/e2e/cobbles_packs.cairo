@@ -43,18 +43,18 @@ fn fresh_packs() -> Array<(u8, u32, u128)> {
 }
 
 #[derive(Drop)]
-struct Shop {
-    systems: setup::Systems,
-    packs: ISetupPacksDispatcher,
-    usdc: IERC20Dispatcher,
-    paved: IERC20Dispatcher,
-    vault: ContractAddress,
-    router: ContractAddress,
+pub struct Shop {
+    pub systems: setup::Systems,
+    pub packs: ISetupPacksDispatcher,
+    pub usdc: IERC20Dispatcher,
+    pub paved: IERC20Dispatcher,
+    pub vault: ContractAddress,
+    pub router: ContractAddress,
 }
 
 /// The systems on `DAY_14`, `Economy.set_seller(Setup)` and the four packs set, as `deploy.sh`
 /// does.
-fn shop() -> Shop {
+pub fn shop() -> Shop {
     start_cheat_block_timestamp_global(DAY_14);
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let setup_address = systems.setup.contract_address;
@@ -88,7 +88,7 @@ fn approve(s: @Shop, who: ContractAddress, amount: u256) {
 }
 
 /// `who` buys `pack_id` for itself, its price approved first.
-fn buy(s: @Shop, who: ContractAddress, pack_id: u8, referrer: ContractAddress) {
+pub fn buy(s: @Shop, who: ContractAddress, pack_id: u8, referrer: ContractAddress) {
     let pack = s.packs.pack(pack_id);
     approve(s, who, pack.price.into());
     let setup_address = *s.packs.contract_address;
@@ -97,7 +97,7 @@ fn buy(s: @Shop, who: ContractAddress, pack_id: u8, referrer: ContractAddress) {
     stop_cheat_caller_address(setup_address);
 }
 
-fn cobbles_of(s: @Shop, who: ContractAddress) -> u64 {
+pub fn cobbles_of(s: @Shop, who: ContractAddress) -> u64 {
     ISetupCobblesDispatcher { contract_address: *s.packs.contract_address }
         .account(who.into())
         .cobbles
@@ -107,7 +107,7 @@ fn safe(s: @Shop) -> ISetupPacksSafeDispatcher {
     ISetupPacksSafeDispatcher { contract_address: *s.packs.contract_address }
 }
 
-fn error_of<T, +Drop<T>>(result: Result<T, Array<felt252>>) -> felt252 {
+pub fn error_of<T, +Drop<T>>(result: Result<T, Array<felt252>>) -> felt252 {
     match result {
         Result::Ok(_) => 'no error',
         Result::Err(panic) => *panic.at(0),

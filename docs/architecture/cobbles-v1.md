@@ -304,6 +304,19 @@ Each call emits `PackSet`. The owner is `OwnableComponent`'s two-step owner (`co
 as for every `Setup` setting. The owner is trusted to set prices: no bound beyond non-zero. The fresh deployment sets
 the four tiers above (section 6.4).
 
+**The price is the owner's, and the buyer's approval caps it (part 2's review note p2; recommended, no ABI change).**
+`buy_pack` takes no `max_price`: a price the owner raises between a buyer's signature and its inclusion is read at
+inclusion. The buyer's USDC allowance to `Setup` is what caps it: a client that approves exactly the price it shows (the
+multicall `approve` then `buy_pack`) reverts at the transfer if the price rose, and pays less if it fell. A buyer who
+approved more, or an unlimited amount, accepts the price at inclusion. A `max_price` argument would change the ABI that
+CLIENT has already built on, to guard a price only the trusted owner moves; the owner may add it in a later version.
+
+**The floor under a pack's price (note p1).** A price whose burn quote rounds to 0 (`price x burn_bps / 10,000`, that is
+under 2 USDC base units at the decided 73.68 %) would revert the first sale of a block on a division by zero in
+`next_rate`. `Economy.sell` asserts the quote is not 0 with a named error, `'Economy: price too small'`, before any
+money moves, and a game's `purchase`, whose price is at least 2 USDC, is untouched. `set_pack` is not bound by it: a pack
+under the floor is a pack that sells nothing, the owner's to avoid (the fresh packs are 5 to 70 USDC).
+
 ### 2.3 The payment flow: the game's path
 
 **The owner's answer (2026-10-15, P-61 section C): a pack's revenue takes the same split as a game.** It is swapped to
@@ -329,7 +342,9 @@ The player approves `Setup` on USDC for `price` first, as it approves `Challenge
 **`Economy.sell(player, price, referrer, min_out)`, new, seller only:**
 
 - **Who:** the `seller` is set once by `Economy`'s owner (`set_seller`). Any other caller gets `'Economy: not the
-  seller'`.
+  seller'`. Only the seller, `Setup`, can call `sell` (CLIENT's note p6), and `Setup` calls it only from `buy_pack`, which
+  emits `PackBought` in the same call: the indexer halts on a `Sold` without its `PackBought` in the same block, which
+  only an owner act (a seller other than `Setup`) could cause.
 - **The same code as `purchase`.** `purchase` (`contracts/src/systems/economy.cairo:636-752`) is split in two. One part
   is an internal function holding everything that moves money; `purchase` and `sell` both call it, so the two cannot
   drift apart. That function does the following:
@@ -365,6 +380,10 @@ game's split to the basis point, because it is the game's code. A change of `Eco
   An ignored referrer does not revert: there is simply no referral, and its share stays in the Vault's part.
 - **The share:** `referral_bps` of the price, 5 % (500 bps) today, out of the Vault's part, never out of the burn
   (P-56). It is paid in USDC to the referrer, in the same call.
+- **A buyer can refer itself, as for a game (D-25; note p5).** The referrer is only not the buyer's own address, so a buyer
+  can take the 5 % on its own pack by naming a second address of its own; or send it to a contract that is not on the
+  ignored list, where it is lost. Either way it comes out of the Vault's part, never out of the burn or the price: the
+  buyer pays the price and the burn is the same.
 - **No registration** (D-25): the same rule as a game.
 
 The client takes `min_out` from `Economy.quote_swap(amount)` less 1 %, where `amount` is the price less the referral
@@ -674,6 +693,12 @@ $316 at the $0.20 reference.
 sale; `SkinPriced` event). The table is the default for every theme. A theme may price otherwise within the bounds, by
 the same calls.
 
+**The themes (PM and CLIENT, 2026-10-15).** Theme 0 is the default theme: all 19 plans, free and owned by everyone, never
+priced and not buyable; "inactive" means the default. **Theme 1 is Forest**, the only theme with art: all 19 plans, and
+the fresh deployment prices them by the table above (6.4). Snow, Desert and Volcano have no art and no id in the
+contracts or in `deploy.sh`; they are future themes (ids 2 and above stay free), each priced by the owner's
+`set_skin_price` when its art ships. A theme without prices sells nothing.
+
 ### 5.3 Buying and activating
 
 **`buy_skin(theme, plan)`:**
@@ -684,6 +709,9 @@ the same calls.
 - **[Event]** `SkinBought { player_id, theme, plan, cobbles, balance }`.
 
 Buying does not activate.
+
+A skin is `(plan, theme)` and nothing more. Which variant of a plan's art a given tile shows (a theme may draw several for
+one plan) is the client's choice, deterministic per tile, with nothing on chain.
 
 **`set_skins(changes: Span<(plan, theme)>)`:**
 
@@ -797,8 +825,10 @@ the views exist). Each goes in the same multicall as the definitions, after them
    `(3, 500, 40,000,000, true)`, `(4, 1,000, 70,000,000, true)`.
 4. `Setup.set_quest_cobbles` x 13 (3.1).
 5. `Setup.set_achievement_cobbles` x 15: every achievement but 9.
-6. No skin prices until a theme's art exists. A theme without prices sells nothing. When theme 1 ships,
-   `set_skin_price(1, p, price)` for the 19 plans of 5.2.
+6. **`Setup.set_skin_price(theme, plan, price)` for the 19 plans of 5.2, for each theme of `FRESH_SKIN_THEMES`** (the one
+   list in `deploy.sh`; today theme 1, Forest, the only theme with art: PM ruling, 2026-10-15), after the packs. Other
+   themes get no price until their art ships: a theme without prices sells nothing, and the owner prices it later with
+   `set_skin_price`. On a complete record a price the owner set since (0 included) is kept, as for the cobbles.
 
 The reporter allowlist (`set_reporter(Challenge, true)`) already exists and now also allows `spend_credit`. Nothing
 new is deployed beyond the three classes, and no role is added: the owner of each system is the deployer, as today.

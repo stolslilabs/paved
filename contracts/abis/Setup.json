@@ -782,6 +782,131 @@
   },
   {
     "type": "impl",
+    "name": "SetupSkinsImpl",
+    "interface_name": "paved::systems::setup::ISetupSkins"
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<(core::integer::u8, core::integer::u8)>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<(core::integer::u8, core::integer::u8)>"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupSkins",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_skin_price",
+        "inputs": [
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "buy_skin",
+        "inputs": [
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_skins",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "core::array::Span::<(core::integer::u8, core::integer::u8)>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "skin_price",
+        "inputs": [
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "skins",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "active_skins",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<core::integer::u8>"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "UpgradeableImpl",
     "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
   },
@@ -1419,6 +1544,77 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::SkinPriced",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "theme",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::SkinBought",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "theme",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "balance",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::SkinsActivated",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "active",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -1485,6 +1681,21 @@
       {
         "name": "PackBought",
         "type": "paved::systems::setup::Setup::PackBought",
+        "kind": "nested"
+      },
+      {
+        "name": "SkinPriced",
+        "type": "paved::systems::setup::Setup::SkinPriced",
+        "kind": "nested"
+      },
+      {
+        "name": "SkinBought",
+        "type": "paved::systems::setup::Setup::SkinBought",
+        "kind": "nested"
+      },
+      {
+        "name": "SkinsActivated",
+        "type": "paved::systems::setup::Setup::SkinsActivated",
         "kind": "nested"
       }
     ]
