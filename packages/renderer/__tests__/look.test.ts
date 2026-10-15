@@ -104,12 +104,16 @@ describe("quality tiers", () => {
     expect([look.ao.enabled, look.bloom.enabled, look.vignette.enabled]).toEqual([false, false, false]);
   });
 
-  it('"auto" picks by device: high on a coarse pointer or a small screen, medium elsewhere, low on a low-power device', () => {
+  it('"auto" picks conservatively: low on a coarse pointer, a small screen or a low-power device, medium elsewhere, never high', () => {
     expect(DEFAULT_RENDERER_SETTINGS.quality).toBe("auto");
-    expect(AUTO_QUALITY).toEqual({ coarse: "high", fine: "medium" });
-    expect(resolveQuality("auto", true)).toBe("high");
+    expect(AUTO_QUALITY).toEqual({ coarse: "low", fine: "medium" });
+    expect(resolveQuality("auto", true)).toBe("low");
     expect(resolveQuality("auto", false)).toBe("medium");
-    expect(resolveQuality("auto", true, { lowPowerDevice: true })).toBe("low");
+    expect(resolveQuality("auto", false, { lowPowerDevice: true })).toBe("low");
+    for (const coarse of [true, false]) expect(resolveQuality("auto", coarse)).not.toBe("high");
+    // Low on a phone: no AO and no bloom.
+    const phone = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", true));
+    expect([phone.ao.enabled, phone.bloom.enabled]).toEqual([false, false]);
     for (const tier of QUALITY_TIERS) expect(resolveQuality(tier, true)).toBe(tier);
     expect(resolveRendererSettings({ quality: "x" as never }).quality).toBe("auto");
   });
@@ -120,13 +124,15 @@ describe("quality tiers", () => {
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2, hasCoarsePointer: () => false };
     expect(scene.getQuality()).toBe("medium");
     size = { width: 360, height: 780 };
-    expect(scene.getQuality()).toBe("high");
+    expect(scene.getQuality()).toBe("low");
+    expect(scene.getLook().bloom.enabled).toBe(false);
     (scene as any).surface.hasCoarsePointer = () => true;
     size = { width: 1440, height: 900 };
-    expect(scene.getQuality()).toBe("high");
-    scene.setSettings({ quality: "low" });
     expect(scene.getQuality()).toBe("low");
-    expect(scene.getLook().ao.enabled).toBe(false);
+    // High only when chosen.
+    scene.setSettings({ quality: "high" });
+    expect(scene.getQuality()).toBe("high");
+    expect(scene.getLook().ao.enabled).toBe(true);
   });
 });
 

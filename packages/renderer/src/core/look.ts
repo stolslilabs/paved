@@ -90,10 +90,10 @@ export const TIER_EFFECTS: Record<QualityTier, TierEffects> = {
 };
 
 /**
- * The tiers of "auto". **Provisional until measured on the GPU**: the phone-like profile had 8 ms of room under 16.6 ms
- * at cap 2 (P4), the desktop profile none under 12 ms at cap 1.5, so the desktop gets the cheaper tier.
+ * The tiers of "auto": conservative (the PM's ruling, 2026-10-15). **Provisional until measured on the GPU** (LIGHT-GPU):
+ * phones get Low (no AO, no bloom), desktops Medium; High is only chosen by hand.
  */
-export const AUTO_QUALITY = { coarse: "high", fine: "medium" } as const satisfies Record<string, QualityTier>;
+export const AUTO_QUALITY = { coarse: "low", fine: "medium" } as const satisfies Record<string, QualityTier>;
 
 const MOCKUP: LookSettings = {
   key: { enabled: true, color: "#ffd8a0", intensity: 3.6, azimuth: -60, elevation: 34, shadowSoftness: 3 },

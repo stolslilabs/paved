@@ -1322,16 +1322,16 @@ land on the mockups' dark navy); AgX is more muted and keeps the darks. Mockup t
 | Medium | off | on | look's radius | render, bloom, finish |
 | High | on | on | look's radius | render, AO, bloom, finish |
 
-`quality: "auto"` (the default): High on a coarse pointer or a small screen (the test of `maxPixelRatio: "auto"`),
-Medium elsewhere, Low on `EffectsCapabilities.lowPowerDevice`; `supportsSSAO`, `supportsBloom` and `supportsVignette`
-false turn those effects off whatever the tier. **Provisional until measured on the GPU**: the phone-like profile had
-about 8 ms of room under 16.6 ms at cap 2 in P4, the desktop profile none under 12 ms at cap 1.5, so the desktop gets
-the cheaper tier until the per-effect costs below are measured. P11a adds the settings row (Low / Medium / High); the
+`quality: "auto"` (the default) picks conservatively (the PM's ruling, 2026-10-15): **Low** on a coarse pointer or a
+small screen (the test of `maxPixelRatio: "auto"`) and on `EffectsCapabilities.lowPowerDevice`, so no AO and no bloom on
+phones; **Medium** elsewhere; **High only when chosen by hand**. `supportsSSAO`, `supportsBloom` and `supportsVignette`
+false turn those effects off whatever the tier. **Provisional until measured on the GPU** (LIGHT-GPU, below). P11a adds the settings row (Low / Medium / High); the
 render profiles (`play`, `showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against
 `play`'s, and the cinematic profile's SSAO gave way to the look's AO.
 
 **The cost per effect** (on against off, both profiles, DPR's and OUT-LOD's bench, the load beside each round, the
-variants alternated within a round): **to be measured on the Mac's GPU in the follow-up run** of this branch. Software
+variants alternated within a round): **to be measured on the Mac's GPU in LIGHT-GPU**, a follow-up of its own (a
+release gate, `docs/client/f-release.md`), with the flicker re-check with the outlines on. Software
 WebGL figures are not measures (the bench refuses them). The tier defaults above are then set by the PM's rule: desktop
 p95 under 12 ms at cap 1.5, the phone-like profile under 16.6 ms at cap 2.
 
