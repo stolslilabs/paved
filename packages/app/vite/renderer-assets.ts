@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, createReadStream } from "node:fs";
+import { createReadStream, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin, PreviewServer, ViteDevServer } from "vite";
@@ -42,6 +42,7 @@ export function rendererAssets(source = SOURCE): Plugin {
       const rel = path.slice(prefix.length);
       if (!isRendererAsset(rel)) return next();
       res.setHeader("Content-Type", TYPES[extname(rel)] ?? "application/octet-stream");
+      res.setHeader("Content-Length", statSync(join(source, rel)).size);
       createReadStream(join(source, rel)).on("error", () => next()).pipe(res);
     });
   };
