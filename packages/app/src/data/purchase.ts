@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
   PackPriceChangedError,
@@ -9,6 +10,7 @@ import {
   PurchasePriceChangedError,
   SpawnPausedError,
   SwapBelowMinOutError,
+  WriteError,
   minOutFor,
   packSwapInput,
   readPacks,
@@ -113,14 +115,66 @@ function usePurchases(): Purchases | null {
 }
 
 /**
+ * The referrer a purchase of `kind` sends for the link's `ref` (`Purchases.referrer`): null for none. `dropped` is a link
+ * referrer the purchase will not send (the contracts would not pay it), which the page says. A guest's is the link's own,
+ * until a signer can tell; `isPending` while the signer's answer is read (Pay waits for it).
+ */
+export function useEffectiveReferrer(kind: "game" | "pack", ref: string | null): { referrer: string | null; dropped: boolean; isPending: boolean } {
+  const { signer = null } = useDataSources();
+  const buyer = usePurchases();
+  const query = useQuery({
+    queryKey: ["chain", "economy", "referrer", kind, ref ?? "", signer ? addressKey(signer.address) : ""],
+    queryFn: () => (buyer && ref ? buyer.referrer(kind, ref) : null),
+    enabled: buyer !== null && ref !== null,
+  });
+  if (!buyer || ref === null) return { referrer: ref, dropped: false, isPending: false };
+  // A failed check keeps the link's referrer: the writers check it again and refuse it with their message.
+  if (query.error) return { referrer: ref, dropped: false, isPending: false };
+  if (query.data === undefined) return { referrer: ref, dropped: false, isPending: true };
+  return { referrer: query.data, dropped: query.data === null, isPending: false };
+}
+
+/** The outcome of a send is unknown: the player must see the reconciling reads before buying again. */
+const outcomeUnknown = (error: Error | null): boolean => error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError;
+
+/**
+ * After an unknown outcome, the reads that tell whether the purchase landed, held until they have settled: `checking` is
+ * true meanwhile, and the page keeps Pay disabled. `reconcile` refetches the keys (cached or not); `read` fetches one the
+ * page does not read itself (the player's games).
+ */
+function useReconcile() {
+  const client = useQueryClient();
+  const [checking, setChecking] = useState(false);
+  const reconcile = (keys: QueryKey[], reads: Array<() => Promise<unknown>> = []) => {
+    setChecking(true);
+    const all = [...keys.map((queryKey) => client.refetchQueries({ queryKey, type: "all" })), ...reads.map((read) => read())];
+    void Promise.allSettled(all).then(() => setChecking(false));
+  };
+  return { checking, reconcile };
+}
+
+/**
  * Buys a Challenge game. On its receipt the player's USDC, games and active game are read again; the page opens the new
  * game (`gameId`). `buyer` is null without a signer or an economy: the page asks to connect.
  */
 export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
+  const { events } = useDataSources();
+  const { checking, reconcile } = useReconcile();
   const mutation = useMutation<WriteResult & { gameId: number }, Error, PurchaseRequest>({
     mutationFn: (request) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
+    onError: (error) => {
+      // Sent, outcome unknown: the player's games and USDC are read again before Pay is offered (as Buy again).
+      if (!outcomeUnknown(error) || !playerId) return;
+      const games = () =>
+        client.fetchQuery({
+          queryKey: queryKeys.chain.playerGames(playerId),
+          queryFn: async () => [...(await events.playerGames(playerId, ["challenge"]))].sort((a, b) => b.startTime - a.startTime),
+          staleTime: 0,
+        });
+      reconcile([queryKeys.chain.usdcBalance(playerId), queryKeys.chain.activeGame(playerId)], [games]);
+    },
     onSettled: () => {
       // A refusal may come from a moved price or a pause: those reads are stale too.
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
@@ -131,7 +185,7 @@ export function usePurchase(playerId: string | null) {
       void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(playerId) });
     },
   });
-  return { buyer, mutation };
+  return { buyer, mutation, checking };
 }
 
 /** A pack's receipt into the cache: the Cobbles balance `PackBought` carries. */
@@ -147,10 +201,15 @@ export function applyPackBought(client: ReturnType<typeof useQueryClient>, playe
 export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
+  const { checking, reconcile } = useReconcile();
   const mutation = useMutation<WriteResult & { bought: PackBought }, Error, PackPurchaseRequest>({
     mutationFn: (request) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
     onSuccess: ({ bought }) => {
       if (playerId) applyPackBought(client, playerId, bought);
+    },
+    onError: (error) => {
+      // Sent, outcome unknown: the Cobbles and the USDC are read again before Buy is offered (as Buy again).
+      if (outcomeUnknown(error) && playerId) reconcile([cobbleKeys.account(playerId), queryKeys.chain.usdcBalance(playerId)]);
     },
     onSettled: () => {
       void client.invalidateQueries({ queryKey: packKeys.packs() });
@@ -160,23 +219,25 @@ export function useBuyPack(playerId: string | null) {
       void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) });
     },
   });
-  return { buyer, mutation };
+  return { buyer, mutation, checking };
 }
 
 /**
- * A failed purchase as the scene shows it. A price or a quote that moved since the confirm (before sending, or the swap's
- * `min_out` revert) asks to confirm again at the new figures; a quote far below the guard rate asks to confirm it; a pause;
- * an outcome the receipt could not tell; anything else is a refusal with the writer's message.
+ * A failed purchase as the scene shows it. A price that changed since the confirm, or the pool's quote that moved (before
+ * sending, or the swap's `min_out` revert), asks to confirm again; a quote far below the guard rate asks to confirm it; a
+ * pause; another write on its way; an outcome the receipt could not tell; anything else is a refusal with the writer's message.
  */
 export function purchaseRefusal(error: Error): PurchaseRefusal {
-  if (
-    error instanceof PoolPriceMovedError ||
-    error instanceof SwapBelowMinOutError ||
-    error instanceof PurchasePriceChangedError ||
-    error instanceof PackPriceChangedError ||
-    (error instanceof PackRefusedError && (error.reason === "price-moved" || error.reason === "no-allowance"))
-  ) {
-    return { kind: "moved", message: "The price moved since you confirmed: check the new figures and confirm again. Your USDC was not spent." };
+  if (error instanceof PurchasePriceChangedError || error instanceof PackPriceChangedError || (error instanceof PackRefusedError && error.reason === "no-allowance")) {
+    return { kind: "moved", message: "The price changed since you confirmed: check the new price and confirm again. Your USDC was not spent." };
+  }
+  // The swap's `min_out`: the player's price did not move, the pool's quote did.
+  if (error instanceof PoolPriceMovedError || error instanceof SwapBelowMinOutError || (error instanceof PackRefusedError && error.reason === "price-moved")) {
+    return { kind: "quote-moved", message: "The pool's quote moved: confirm again. Your USDC was not spent." };
+  }
+  // The writer's serialisation: one write of the account at a time.
+  if (error instanceof WriteError && error.message === "Another write is pending") {
+    return { kind: "busy", message: "Wait for your other transaction, then confirm again." };
   }
   if (error instanceof PoolQuoteBelowFloorError) {
     return { kind: "low-quote", message: "The pool quotes far less PAVED than the guard rate for this purchase. Buy anyway, or try later." };

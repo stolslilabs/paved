@@ -202,7 +202,7 @@ export const PACK_REFUSAL_TEXT: Record<PackRefusal, string> = {
   "not-on-sale": "This pack is not on sale any more. Your USDC was not spent.",
   "no-economy": "Packs are not on sale on this deployment yet. Your USDC was not spent.",
   "payment-failed": "The payment did not go through. Your USDC was not spent.",
-  "price-moved": "The price moved before your purchase went through: your USDC was not spent. Try again.",
+  "price-moved": "The pool's quote moved before your purchase went through: your USDC was not spent. Confirm again.",
   "no-allowance": "The pack's price changed since you confirmed it: your USDC was not spent. Confirm again.",
   "no-balance": "Not enough USDC for this pack. Your USDC was not spent.",
 };

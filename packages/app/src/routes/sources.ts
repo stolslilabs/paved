@@ -68,6 +68,7 @@ function lazyEconomy<T extends object>(part: (client: EconomyClient) => T | null
 const lazyPurchases = (signer: Parameters<NonNullable<DataSources["purchases"]>>[0]): Purchases => ({
   purchase: async (request) => (await import("../data/economy-client")).purchasesOf(signer).purchase(request),
   buyPack: async (request) => (await import("../data/economy-client")).purchasesOf(signer).buyPack(request),
+  referrer: async (kind, referrer) => (await import("../data/economy-client")).purchasesOf(signer).referrer(kind, referrer),
 });
 
 /**

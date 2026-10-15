@@ -16,29 +16,66 @@ import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
 /**
- * Why the last purchase did not go through, as the page reads it from the writer's typed error: `moved`, the price or the
- * pool's quote moved since the confirm (confirm again at the new figures); `low-quote`, a quote far below the guard rate
- * (Buy anyway sends it); `paused`, new games paused; `unknown`, sent but the receipt could not tell; `refused`, anything else.
+ * Why the last purchase did not go through, as the page reads it from the writer's typed error: `moved`, the price changed
+ * since the confirm; `quote-moved`, the pool's quote moved (the swap's `min_out`; the price did not); `low-quote`, a quote far
+ * below the guard rate (Buy anyway sends it); `paused`, new games paused; `unknown`, sent but the receipt could not tell (Pay
+ * waits for the reconciling reads, then offers Buy again); `busy`, another write of the account is on its way; `refused`,
+ * anything else.
  */
 export interface PurchaseRefusal {
-  kind: "moved" | "low-quote" | "paused" | "unknown" | "refused";
+  kind: "moved" | "quote-moved" | "low-quote" | "paused" | "unknown" | "busy" | "refused";
   message: string;
 }
 
 const REFUSAL_TITLE: Record<PurchaseRefusal["kind"], string> = {
   moved: "The price moved",
+  "quote-moved": "The pool's quote moved",
   "low-quote": "Low pool quote",
   paused: "Purchases paused",
   unknown: "Outcome unknown",
+  busy: "Another transaction",
   refused: "Purchase refused",
 };
 
-function RefusalNotice({ refusal }: { refusal: PurchaseRefusal }) {
+function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: { label: string; onCheck?: () => void } }) {
+  const tone = refusal.kind === "refused" ? "danger" : refusal.kind === "busy" ? "info" : "warning";
   return (
-    <Notice tone={refusal.kind === "refused" ? "danger" : "warning"} title={REFUSAL_TITLE[refusal.kind]}>
+    <Notice
+      tone={tone}
+      title={REFUSAL_TITLE[refusal.kind]}
+      action={
+        refusal.kind === "unknown" && check ? (
+          <Button size="sm" variant="outline" onClick={check.onCheck}>
+            {check.label}
+          </Button>
+        ) : undefined
+      }
+    >
       {refusal.message}
     </Notice>
   );
+}
+
+/** The wallet's USDC could not be read: no "not enough" claim, Pay waits, and Retry reads it again. */
+function BalanceNotice({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  return (
+    <Notice
+      tone="warning"
+      title="Your USDC balance cannot be read"
+      action={
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      }
+    >
+      {error}
+    </Notice>
+  );
+}
+
+/** The `?ref=` address is one the contracts would not pay: the purchase goes on without a referrer. */
+function DroppedReferrerNotice() {
+  return <Notice title="Referral link not used">This referral link cannot be used; buying without a referrer.</Notice>;
 }
 
 /** The Cobble packs (P-61, cobbles v1, part 2: `Setup.pack`, `buy_pack`). */
@@ -54,6 +91,12 @@ export interface CobbleShop {
   quoting?: boolean;
   /** Why the last pack's purchase did not go through. */
   refusal?: PurchaseRefusal | null;
+  /** After an unknown outcome, the Cobbles and the USDC are being read again: Pay waits. */
+  checking?: boolean;
+  /** The packs are being read (`Setup.pack`). */
+  loading?: boolean;
+  /** The packs could not be read: why (Retry reads them again). */
+  error?: string | null;
   /** The last pack bought (its receipt's `PackBought`): its Cobbles. */
   bought?: { cobbles: number } | null;
 }
@@ -70,8 +113,12 @@ export interface PurchaseSceneProps {
   /** `Economy.split_bps()` (V1b). */
   split: SplitView;
   referrer: string | null;
-  /** USDC base units (`balance_of`). */
-  balance: bigint;
+  /** The link's `?ref=` is one the contracts would not pay: it is dropped, and the scene says so. */
+  referrerDropped?: boolean;
+  /** USDC base units (`balance_of`); null while unread or when the read failed: no "not enough" claim, and Pay waits. */
+  balance: bigint | null;
+  /** The balance's read failed: why (Retry reads it again). */
+  balanceError?: string | null;
   spawnPaused: boolean;
   /** The approve + spawn is on its way. */
   buying?: boolean;
@@ -79,6 +126,8 @@ export interface PurchaseSceneProps {
   quoting?: boolean;
   /** Why the last game's purchase did not go through. */
   refusal?: PurchaseRefusal | null;
+  /** After an unknown outcome, the player's games and USDC are being read again: Pay waits. */
+  checking?: boolean;
   /** A wallet is connected; a guest's Pay is "Connect to buy". Connected when omitted (the stories). */
   connected?: boolean;
   now: number;
@@ -94,8 +143,18 @@ export interface PurchaseSceneProps {
   onStakeChange?: (stake: number) => void;
   onConfirm?: () => void;
   onConnect?: () => void;
+  onRetryBalance?: () => void;
+  onRetryPacks?: () => void;
+  /** After an unknown outcome: where the player sees whether the game was bought. */
+  onCheckGames?: () => void;
+  /** After an unknown outcome: read the Cobbles again. */
+  onCheckCobbles?: () => void;
   onBack?: () => void;
 }
+
+/** Pay's label after a refusal: Buy anyway for a low quote, Buy again after an unknown outcome; null for the default. */
+const retryLabel = (refusal: PurchaseRefusal | null | undefined): string | null =>
+  refusal?.kind === "low-quote" ? "Buy anyway" : refusal?.kind === "unknown" ? "Buy again" : null;
 
 /** A guest's Pay: connect first, whatever the balance. */
 function ConnectButton({ onConnect }: { onConnect?: () => void }) {
@@ -121,7 +180,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
         onBack={props.onBack}
         end={
           <span className="flex flex-col items-end gap-0.5 pr-2 text-xs text-muted-foreground">
-            <Amount value={balance} token="usdc" />
+            {balance === null ? <span className="numeric">— USDC</span> : <Amount value={balance} token="usdc" />}
             {cobbles && <Cobbles value={cobbles.balance} size="sm" tone="muted" />}
           </span>
         }
@@ -147,8 +206,9 @@ export function PurchaseScene(props: PurchaseSceneProps) {
 
 function GameTab(props: PurchaseSceneProps) {
   const { stake, quote, balance, spawnPaused, buying, now, refusal, connected = true } = props;
-  const short = connected && balance < quote.price;
-  const blocked = spawnPaused || short || props.quoting;
+  const short = connected && balance !== null && balance < quote.price;
+  const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking;
+  const label = retryLabel(refusal);
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <div className="flex flex-col gap-4">
@@ -198,10 +258,14 @@ function GameTab(props: PurchaseSceneProps) {
         )}
         {!spawnPaused && short && (
           <Notice tone="danger" title="Not enough USDC">
-            This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance} token="usdc" />.
+            This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance!} token="usdc" />.
           </Notice>
         )}
-        {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && <RefusalNotice refusal={refusal} />}
+        {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
+        {props.referrerDropped && <DroppedReferrerNotice />}
+        {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
+          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames }} />
+        )}
 
         {!connected ? (
           <ConnectButton onConnect={props.onConnect} />
@@ -209,8 +273,10 @@ function GameTab(props: PurchaseSceneProps) {
           <Button size="lg" className="h-14 text-base" onClick={props.onConfirm} disabled={blocked} loading={buying}>
             {buying ? (
               "Confirm in your wallet…"
-            ) : refusal?.kind === "low-quote" ? (
-              "Buy anyway"
+            ) : props.checking ? (
+              "Checking your games…"
+            ) : label ? (
+              label
             ) : (
               <>
                 Pay <Amount value={quote.price} token="usdc" className="[&>span:last-child]:text-primary-foreground/70" /> and play
@@ -224,11 +290,14 @@ function GameTab(props: PurchaseSceneProps) {
 }
 
 /** The Cobble packs: pick one, then pay its USDC (approve + `buy_pack`), as a game's purchase; its USDC takes a game's split. */
-function CobblesTab({ cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect }: PurchaseSceneProps & { cobbles: CobbleShop }) {
+function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
+  const { cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect } = props;
   // The selected pack among those shown: a pack without Cobbles or a price is never offered, so nothing divides by zero.
-  const pack = packsOnSale(cobbles.packs).find((p) => p.packId === cobbles.selected) ?? null;
-  const short = connected && pack != null && balance < pack.price;
+  const onSale = packsOnSale(cobbles.packs);
+  const pack = onSale.find((p) => p.packId === cobbles.selected) ?? null;
+  const short = connected && pack != null && balance !== null && balance < pack.price;
   const { refusal, bought } = cobbles;
+  const label = retryLabel(refusal);
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <section aria-labelledby="packs-title" className="flex flex-col gap-3">
@@ -236,7 +305,25 @@ function CobblesTab({ cobbles, balance, referrer, split, connected = true, onSel
           <h2 id="packs-title" className="font-display text-sm font-semibold">Cobble packs</h2>
           <p className="text-xs text-muted-foreground">Cobbles buy tile skins. They stay on your account: they cannot be sent or sold.</p>
         </div>
-        <CobblePacks packs={cobbles.packs} selected={cobbles.selected} disabled={cobbles.buying} onSelect={onSelectPack} />
+        {cobbles.error ? (
+          <Notice
+            tone="danger"
+            title="The packs cannot be read"
+            action={
+              <Button size="sm" variant="outline" onClick={props.onRetryPacks}>
+                Retry
+              </Button>
+            }
+          >
+            {cobbles.error}
+          </Notice>
+        ) : cobbles.loading ? (
+          <Notice title="Reading the packs…">The packs on sale and their prices.</Notice>
+        ) : onSale.length === 0 ? (
+          <Notice title="No packs on sale">No pack of Cobbles is on sale right now. Come back later.</Notice>
+        ) : (
+          <CobblePacks packs={cobbles.packs} selected={cobbles.selected} disabled={cobbles.buying || cobbles.checking} onSelect={onSelectPack} />
+        )}
       </section>
 
       <div className="flex flex-col gap-4">
@@ -250,10 +337,12 @@ function CobblesTab({ cobbles, balance, referrer, split, connected = true, onSel
         </section>
         {short && pack && (
           <Notice tone="danger" title="Not enough USDC">
-            This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance} token="usdc" />.
+            This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance!} token="usdc" />.
           </Notice>
         )}
-        {refusal && !cobbles.buying && <RefusalNotice refusal={refusal} />}
+        {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
+        {props.referrerDropped && <DroppedReferrerNotice />}
+        {refusal && !cobbles.buying && <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles }} />}
         {bought && !refusal && !cobbles.buying && (
           <Notice tone="info" title="Pack bought">
             <Cobbles value={bought.cobbles} size="sm" /> added: your balance is <Cobbles value={cobbles.balance} size="sm" />.
@@ -262,13 +351,21 @@ function CobblesTab({ cobbles, balance, referrer, split, connected = true, onSel
         {!connected ? (
           <ConnectButton onConnect={onConnect} />
         ) : (
-          <Button size="lg" className="h-14 text-base" onClick={onBuyPack} disabled={!pack || short || cobbles.quoting} loading={cobbles.buying}>
+          <Button
+            size="lg"
+            className="h-14 text-base"
+            onClick={onBuyPack}
+            disabled={!pack || short || cobbles.quoting || balance === null || cobbles.checking}
+            loading={cobbles.buying}
+          >
             {cobbles.buying ? (
               "Confirm in your wallet…"
             ) : !pack ? (
               "Pick a pack"
-            ) : refusal?.kind === "low-quote" ? (
-              "Buy anyway"
+            ) : cobbles.checking ? (
+              "Checking your Cobbles…"
+            ) : label ? (
+              label
             ) : (
               <>
                 Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" iconClassName="text-primary-foreground" />

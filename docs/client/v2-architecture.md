@@ -1768,11 +1768,18 @@ the price less the referral when one counts), then `PavedWriter.buyPack`: the ap
 economy's USDC and `Setup.buy_pack(pack_id, referrer, min_out)`. Its arguments are listed once (`buyPackArgs`), so a
 `max_price` is a one-line change. The receipt's `PackBought` sets the Cobbles balance in the cache, then the account is read
 again. `buy_pack` is a session policy; the pack's approve to `Setup` is not (PM ruling P-56: the session's only approve is the
-entry's, to Challenge), so a pack prompts once for its approve. The referrer is the link's `?ref=` (an address, not the player's own);
-`Setup`, the Vault and the router, which `Economy.pay` ignores, are sent as `0x0` for a pack. The states: guest ("Connect
-to buy"), paused, not enough USDC (Buy disabled with the reason), a price or quote that moved (`PoolPriceMovedError`,
-`PackPriceChangedError`, the swap's `min_out` revert: confirm again), a quote far below the guard rate ("Buy anyway"),
-pending, refused (the writer's message), an unknown outcome, and success (the board; a pack's Cobbles added). The app's
+entry's, to Challenge), so a pack prompts once for its approve. The referrer is the link's `?ref=` (an address, not the player's own),
+as each purchase would send it (`Purchases.referrer`): one the contracts would not pay (the Challenge, the Economy; for a
+pack also `Setup`, the Vault and the router, which `Economy.pay` ignores) is dropped with a notice, never a refused
+purchase, and the split shown is the one the contract pays. The states: guest ("Connect to buy"), paused, not enough USDC
+(Buy disabled with the reason), a USDC balance not read (unknown, not 0: Pay waits, a failed read has Retry), the packs
+being read, unreadable (Retry) or none on sale, a price that changed (`PurchasePriceChangedError`,
+`PackPriceChangedError`), the pool's quote that moved (`PoolPriceMovedError`, the swap's `min_out` revert: "The pool's
+quote moved: confirm again"), a quote far below the guard rate ("Buy anyway"), another transaction on its way (a neutral
+wait), pending, refused (the writer's message), an unknown outcome, and success (the board; a pack's Cobbles added). After
+an unknown outcome Pay and Buy are held until the reconciling reads settle (a game: the player's games, active game and
+USDC; a pack: the Cobbles and USDC), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends,
+since a game's second purchase would be signed without a prompt. The app's
 sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
 `data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).
 

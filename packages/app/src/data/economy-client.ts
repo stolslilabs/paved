@@ -1,4 +1,14 @@
-import { PavedWriter, createEconomyClient, packBuyerOf, resolveEconomyDeployment, type EconomyClient, type EconomyDeploymentFile } from "@paved/chain";
+import {
+  PavedWriter,
+  RefusedReferrerError,
+  createEconomyClient,
+  packBuyerOf,
+  packReferrer,
+  referrerOf,
+  resolveEconomyDeployment,
+  type EconomyClient,
+  type EconomyDeploymentFile,
+} from "@paved/chain";
 import { chainClient } from "./chain-client";
 import type { GameSigner, Purchases } from "./sources";
 
@@ -31,6 +41,28 @@ export function economyClient(): EconomyClient | null {
 export function purchasesOf(signer: GameSigner): Purchases {
   const economy = economyClient();
   if (!economy) throw new Error("Purchases are off: the economy is not deployed on this network");
+  return purchasesFor(economy, signer);
+}
+
+/** The purchases of a signer on a given economy client (`purchasesOf`; a test gives its own client on the fakes). */
+export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purchases {
   if (!(signer instanceof PavedWriter)) throw new Error("Purchases are off: this wallet cannot buy");
-  return { purchase: (request) => economy.writer(signer).purchase(request), buyPack: (request) => packBuyerOf(economy, signer).buy(request) };
+  const { deployment } = economy;
+  return {
+    purchase: (request) => economy.writer(signer).purchase(request),
+    buyPack: (request) => packBuyerOf(economy, signer).buy(request),
+    referrer: async (kind, referrer) => {
+      try {
+        const sent =
+          kind === "pack"
+            ? packReferrer(referrer, signer.address, deployment, await economy.views.router())
+            : referrerOf(referrer, signer.address, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
+        return sent === "0x0" ? null : sent;
+      } catch (error) {
+        // A referrer the contract would not pay: dropped, never a refused purchase.
+        if (error instanceof RefusedReferrerError) return null;
+        throw error;
+      }
+    },
+  };
 }

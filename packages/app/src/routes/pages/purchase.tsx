@@ -8,7 +8,9 @@ import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { useSpawnPaused, useSplit, useUsdcBalance } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
-import { purchaseRefusal, referrerParam, useBuyPack, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
+import { packKeys, purchaseRefusal, referrerParam, useBuyPack, useEffectiveReferrer, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
+import { cobbleKeys } from "../../data/cobbles";
+import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
@@ -27,7 +29,9 @@ function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error:
  * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` (`EconomyWriter.purchase`, which
  * reads them all again, with the router and the rate) and opens the new game on its board. The Cobbles tab (`?tab=cobbles`)
  * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
- * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`. A guest's Pay connects.
+ * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said) when
+ * the contracts would not pay it. A guest's Pay connects. After an unknown outcome Pay waits for the reconciling reads, then
+ * offers Buy again; an unread USDC balance is unknown, not 0: Pay waits for it.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -38,7 +42,9 @@ export default function Page() {
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
   const connected = playerId !== null;
-  const referrer = referrerParam(params.get("ref"), playerId);
+  const link = referrerParam(params.get("ref"), playerId);
+  const gameReferrer = useEffectiveReferrer("game", link);
+  const packReferrer = useEffectiveReferrer("pack", link);
   const tab: PurchaseTab = params.get("tab") === "cobbles" ? "cobbles" : "game";
   const now = useNow();
   const client = useQueryClient();
@@ -48,11 +54,11 @@ export default function Page() {
   const paused = useSpawnPaused();
   const split = useSplit();
   const balance = useUsdcBalance(playerId);
-  const stakeQuote = useStakeQuote(stake, referrer !== null);
+  const stakeQuote = useStakeQuote(stake, gameReferrer.referrer !== null);
   const packs = usePacks();
   const account = useCobbleAccount(playerId);
   const pack = packs.data?.find((p) => p.packId === selected) ?? null;
-  const packQuote = usePackQuote(pack, split.data ?? null, referrer !== null);
+  const packQuote = usePackQuote(pack, split.data ?? null, packReferrer.referrer !== null);
   const purchase = usePurchase(playerId);
   const buyPack = useBuyPack(playerId);
 
@@ -69,17 +75,24 @@ export default function Page() {
 
   const confirm = () => {
     if (!purchase.buyer) return void wallet.connect();
-    if (stakeQuote.minOut === null) return;
+    if (stakeQuote.minOut === null || purchase.checking || gameReferrer.isPending) return;
     purchase.mutation.mutate(
-      { stake, confirmedPrice: quote.data!.price, confirmedMinOut: stakeQuote.minOut, referrer, acceptedLowQuote: gameRefusal?.kind === "low-quote" },
+      { stake, confirmedPrice: quote.data!.price, confirmedMinOut: stakeQuote.minOut, referrer: gameReferrer.referrer, acceptedLowQuote: gameRefusal?.kind === "low-quote" },
       { onSuccess: ({ gameId }) => go(`/game/${gameId}`) },
     );
   };
   const buy = () => {
     if (!buyPack.buyer) return void wallet.connect();
-    if (!pack || packQuote.minOut === null) return;
-    buyPack.mutation.mutate({ packId: pack.packId, confirmedPrice: pack.price, confirmedMinOut: packQuote.minOut, referrer, acceptedLowQuote: packRefusal?.kind === "low-quote" });
+    if (!pack || packQuote.minOut === null || buyPack.checking || packReferrer.isPending) return;
+    buyPack.mutation.mutate({
+      packId: pack.packId,
+      confirmedPrice: pack.price,
+      confirmedMinOut: packQuote.minOut,
+      referrer: packReferrer.referrer,
+      acceptedLowQuote: packRefusal?.kind === "low-quote",
+    });
   };
+  const shown = tab === "cobbles" ? packReferrer : gameReferrer;
   const onTab = (next: PurchaseTab) => {
     const search = new URLSearchParams(params);
     if (next === "cobbles") search.set("tab", "cobbles");
@@ -94,12 +107,15 @@ export default function Page() {
       quote={quote.data}
       boostBps={Number(boostBps(stake))}
       split={split.data}
-      referrer={referrer}
-      balance={balance.data ?? 0n}
+      referrer={shown.referrer}
+      referrerDropped={shown.dropped}
+      balance={connected ? (balance.data ?? null) : null}
+      balanceError={balance.error?.message ?? null}
       spawnPaused={paused.data ?? false}
       buying={purchase.mutation.isPending}
-      quoting={stakeQuote.isPending}
+      quoting={stakeQuote.isPending || gameReferrer.isPending}
       refusal={purchase.mutation.isPending ? null : gameRefusal}
+      checking={purchase.checking}
       connected={connected}
       now={now}
       tab={tab}
@@ -110,9 +126,12 @@ export default function Page() {
               balance: account.data?.cobbles ?? 0,
               packs: packs.data ?? [],
               selected,
+              loading: packs.isPending,
+              error: packs.error?.message ?? null,
               buying: buyPack.mutation.isPending,
-              quoting: packQuote.isPending,
+              quoting: packQuote.isPending || packReferrer.isPending,
               refusal: buyPack.mutation.isPending ? null : packRefusal,
+              checking: buyPack.checking,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
             }
       }
@@ -128,6 +147,10 @@ export default function Page() {
       onConfirm={confirm}
       onBuyPack={buy}
       onConnect={() => void wallet.connect()}
+      onRetryBalance={() => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) })}
+      onRetryPacks={() => void client.invalidateQueries({ queryKey: packKeys.packs() })}
+      onCheckGames={() => go("/")}
+      onCheckCobbles={() => playerId && void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) })}
       onBack={onBack}
     />
   );

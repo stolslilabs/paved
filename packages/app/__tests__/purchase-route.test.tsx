@@ -15,11 +15,17 @@ import {
   SwapBelowMinOutError,
   WriteError,
   PavedClient,
-  createCodecs, createEconomyClient, packBuyerOf, resolveDeployment, resolveEconomyDeployment, type PavedRpc, type PavedWriter } from "@paved/chain";
+  createCodecs,
+  createEconomyClient,
+  resolveDeployment,
+  resolveEconomyDeployment,
+  type PavedRpc,
+} from "@paved/chain";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import type { GameSigner } from "../src/data";
+import { purchasesFor } from "../src/data/economy-client";
 import { purchaseRefusal, referrerParam } from "../src/data/purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
@@ -60,8 +66,30 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   economy.setBalance("usdc", PLAYER, options.usdc ?? 100n * USDC_UNIT);
 
   const sent: Sent[] = [];
-  /** While set, the account waits for it before answering: the page's pending state. */
-  const state: { gate: Promise<void> | null; revert: string | null } = { gate: null, revert: options.revert ?? null };
+  /**
+   * `gate`: while set, the account waits for it before answering (the page's pending state). `noEvents`: the receipt carries
+   * no event (an unknown outcome). `balanceGate`, `balanceFail`, `packsGate`: the USDC balance's and the packs' reads wait,
+   * or the balance's fails.
+   */
+  const state: { gate: Promise<void> | null; revert: string | null; noEvents: boolean; balanceGate: Promise<void> | null; balanceFail: string | null; packsGate: Promise<void> | null } = {
+    gate: null,
+    revert: options.revert ?? null,
+    noEvents: false,
+    balanceGate: null,
+    balanceFail: null,
+    packsGate: null,
+  };
+  const usdcBalance = economy.usdcBalance.bind(economy);
+  economy.usdcBalance = async (account) => {
+    if (state.balanceGate) await state.balanceGate;
+    if (state.balanceFail) throw new Error(state.balanceFail);
+    return usdcBalance(account);
+  };
+  const pack = views.pack.bind(views);
+  views.pack = async (id) => {
+    if (state.packsGate) await state.packsGate;
+    return pack(id);
+  };
   const account = {
     address: PLAYER,
     execute: async (calls: Sent) => {
@@ -73,6 +101,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   /** The receipt of the last send: `GameSpawned` for a spawn, `PackBought` for a pack (the fake ledger follows it). */
   const receipt = async () => {
     if (state.revert) return { execution_status: "REVERTED", revert_reason: `Failure reason: '${state.revert}'.` };
+    if (state.noEvents) return { execution_status: "SUCCEEDED", events: [] };
     const calls = sent[sent.length - 1];
     const spawn = calls.find((c) => c.entrypoint === "spawn");
     if (spawn) {
@@ -95,10 +124,8 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   const econ = createEconomyClient(resolveEconomyDeployment({ base: { ...base, chainId: FAKE_CHAIN_ID }, file: FAKE_ROUTER_FILE, env: ECON }), client, economy, pool)!;
   const writer = client.writer(account);
   fakes.sources.signer = options.signer === false ? null : (writer as unknown as GameSigner);
-  fakes.sources.purchases = (signer) => ({
-    purchase: (request) => econ.writer(signer as unknown as PavedWriter).purchase(request),
-    buyPack: (request) => packBuyerOf(econ, signer as unknown as PavedWriter).buy(request),
-  });
+  // The app's own purchases (`data/economy-client.ts`), on this economy client.
+  fakes.sources.purchases = (signer) => purchasesFor(econ, signer);
   return { ...fakes, sent, state, writer };
 }
 
@@ -186,7 +213,9 @@ describe("/play/challenge: the game's stake", () => {
     // Down 2.5 %: below the confirmed min_out, still above the guard rate's floor (90 %).
     s.pool.rate = { paved: 78n * 10n ** 18n, usdc: USDC_UNIT };
     await userEvent.click(button);
-    expect(await screen.findByText("The price moved", undefined, { timeout: 3000 })).toBeInTheDocument();
+    // The player's price did not move: the pool's quote did.
+    expect(await screen.findByText("The pool's quote moved", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText("The price moved")).toBeNull();
     expect(s.sent).toEqual([]);
     // The quote is read again: the next Pay sends at the new min_out.
     await waitFor(() => expect(s.pool.calls.filter((c) => c === 2n * USDC_UNIT).length).toBeGreaterThanOrEqual(3));
@@ -213,13 +242,62 @@ describe("/play/challenge: the game's stake", () => {
     expect(router.state.location.pathname).toBe("/play/challenge");
   });
 
-  it("an unknown referrer address is refused by the writer: Purchase refused, nothing sent", async () => {
+  it("a ?ref= the contracts would not pay (the Challenge) is dropped with a notice, and the purchase goes on without it", async () => {
     const s = setup();
     open(`/play/challenge?ref=${ADDR.Challenge}`, s);
+    expect(await screen.findByText(/This referral link cannot be used; buying without a referrer/, undefined, { timeout: 3000 })).toBeInTheDocument();
     await userEvent.click(await enabledPay());
-    expect(await screen.findByText("Purchase refused", undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.getByText(/cannot be your referrer/)).toBeInTheDocument();
-    expect(s.sent).toEqual([]);
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
+    expect(screen.queryByText("Purchase refused")).toBeNull();
+  });
+
+  it("an unknown outcome holds Pay until the games and USDC are read again, then offers Buy again only", async () => {
+    const s = setup();
+    const { router } = open("/play/challenge", s);
+    const button = await enabledPay();
+    s.state.noEvents = true;
+    let release = () => {};
+    s.state.balanceGate = new Promise<void>((r) => (release = r));
+    await userEvent.click(button);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    const held = await screen.findByRole("button", { name: "Checking your games…" });
+    expect(held).toBeDisabled();
+    await userEvent.click(held);
+    expect(s.sent).toHaveLength(1);
+    expect(router.state.location.pathname).toBe("/play/challenge");
+    // The reads settle: a deliberate Buy again only.
+    s.state.noEvents = false;
+    s.state.balanceGate = null;
+    release();
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+    await userEvent.click(again);
+    await waitFor(() => expect(s.sent).toHaveLength(2));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}`));
+  });
+
+  it("Check my games opens the games after an unknown outcome", async () => {
+    const s = setup();
+    const { router } = open("/play/challenge", s);
+    const button = await enabledPay();
+    s.state.noEvents = true;
+    await userEvent.click(button);
+    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: 3000 }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+
+  it("an unread USDC balance is unknown, not 0: no Not enough USDC, Pay waits, Retry reads it again", async () => {
+    const s = setup();
+    s.state.balanceFail = "node down";
+    open("/play/challenge", s);
+    expect(await screen.findByText("Your USDC balance cannot be read", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText("Not enough USDC")).toBeNull();
+    expect(await pay()).toBeDisabled();
+    s.state.balanceFail = null;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await enabledPay();
+    expect(screen.queryByText("Your USDC balance cannot be read")).toBeNull();
   });
 
   it("without an economy, why and Retry, with Back", async () => {
@@ -294,6 +372,72 @@ describe("/play/challenge?tab=cobbles: the packs", () => {
     expect(s.sent).toEqual([]);
   });
 
+  it("an unknown outcome holds Buy until the Cobbles and USDC are read again, then offers Buy again only", async () => {
+    const s = setup();
+    open("/play/challenge?tab=cobbles", s);
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    const button = await enabledPay(/Pay \$9 for/);
+    s.state.noEvents = true;
+    let release = () => {};
+    s.state.balanceGate = new Promise<void>((r) => (release = r));
+    await userEvent.click(button);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check my Cobbles" })).toBeInTheDocument();
+    const held = await screen.findByRole("button", { name: "Checking your Cobbles…" });
+    expect(held).toBeDisabled();
+    await userEvent.click(held);
+    expect(s.sent).toHaveLength(1);
+    s.state.noEvents = false;
+    s.state.balanceGate = null;
+    release();
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    await waitFor(() => expect(again).toBeEnabled());
+    await userEvent.click(again);
+    await waitFor(() => expect(s.sent).toHaveLength(2));
+    expect(await screen.findByText("Pack bought", undefined, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("the packs' read: loading, then the packs", async () => {
+    const s = setup();
+    let release = () => {};
+    s.state.packsGate = new Promise<void>((r) => (release = r));
+    open("/play/challenge?tab=cobbles", s);
+    expect(await screen.findByText("Reading the packs…", undefined, { timeout: 3000 })).toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("a failed packs' read shows why, and Retry reads them again", async () => {
+    const s = setup();
+    s.views.cobblesFail = new Error("node down");
+    open("/play/challenge?tab=cobbles", s);
+    expect(await screen.findByText("The packs cannot be read", undefined, { timeout: 5000 })).toBeInTheDocument();
+    s.views.cobblesFail = null;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("no pack on sale: says so", async () => {
+    const s = setup();
+    s.views.packs.clear();
+    open("/play/challenge?tab=cobbles", s);
+    expect(await screen.findByText("No packs on sale", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+  });
+
+  it("a ?ref= the pack's split ignores (the Vault) is shown as no referrer, and sent as 0x0 with the whole price swapped", async () => {
+    const s = setup();
+    open(`/play/challenge?tab=cobbles&ref=${ECON.vault}`, s);
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    expect(await screen.findByText(/This referral link cannot be used/)).toBeInTheDocument();
+    expect(screen.queryByText(/Your referrer gets/)).toBeNull();
+    await userEvent.click(await enabledPay(/Pay \$5 for/));
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
+    expect(s.pool.calls).toContain(5_000_000n);
+    expect(s.pool.calls).not.toContain(4_750_000n);
+  });
+
   it("a guest connects first", async () => {
     const s = setup({ signer: false });
     open("/play/challenge?tab=cobbles", s);
@@ -315,20 +459,23 @@ describe("the scene's selected pack (SC3's review note)", () => {
 describe("purchaseRefusal and referrerParam", () => {
   it("maps each typed error of the writers to the scene's refusal", () => {
     const kinds = [
-      [new PoolPriceMovedError(10n, 9n), "moved"],
-      [new SwapBelowMinOutError("0x1"), "moved"],
+      [new PoolPriceMovedError(10n, 9n), "quote-moved"],
+      [new SwapBelowMinOutError("0x1"), "quote-moved"],
+      [new PackRefusedError("price-moved", "0x1"), "quote-moved"],
       [new PackPriceChangedError(5n, 6n), "moved"],
-      [new PackRefusedError("price-moved", "0x1"), "moved"],
       [new PackRefusedError("no-allowance", "0x1"), "moved"],
+      [new WriteError("Another write is pending"), "busy"],
       [new PoolQuoteBelowFloorError(1n, 2n), "low-quote"],
       [new SpawnPausedError(), "paused"],
       [new PurchaseOutcomeUnknownError("0x1"), "unknown"],
       [new PackOutcomeUnknownError("0x1"), "unknown"],
       [new PackRefusedError("not-on-sale", "0x1"), "refused"],
-      [new WriteError("Another write is pending"), "refused"],
+      [new WriteError("Cannot read the price: node down"), "refused"],
     ] as const;
-    for (const [error, kind] of kinds) expect(purchaseRefusal(error).kind, error.name).toBe(kind);
-    expect(purchaseRefusal(new WriteError("Another write is pending")).message).toBe("Another write is pending");
+    for (const [error, kind] of kinds) expect(purchaseRefusal(error).kind, error.message).toBe(kind);
+    expect(purchaseRefusal(new WriteError("Another write is pending")).message).toBe("Wait for your other transaction, then confirm again.");
+    expect(purchaseRefusal(new PoolPriceMovedError(10n, 9n)).message).toMatch(/^The pool's quote moved: confirm again/);
+    expect(purchaseRefusal(new WriteError("Cannot read the price: node down")).message).toBe("Cannot read the price: node down");
   });
 
   it("keeps an address that is not the player's own; drops anything else", () => {

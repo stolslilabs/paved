@@ -35,6 +35,12 @@ export type GameSigner = Pick<
 export interface Purchases {
   purchase: EconomyWriter["purchase"];
   buyPack: PackBuyer["buy"];
+  /**
+   * The referrer a purchase of `kind` sends for the link's `referrer`, or null when it would send none: one the writers
+   * refuse (the payer, the Challenge, the Economy) is dropped rather than refusing the purchase, and for a pack one
+   * `Economy.pay` ignores (`Setup`, the Vault, the router) too (`packReferrer`).
+   */
+  referrer(kind: "game" | "pack", referrer: string): Promise<string | null>;
 }
 
 /**
