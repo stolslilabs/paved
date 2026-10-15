@@ -6,7 +6,8 @@ Track CORE wrote the design; the PM ruled on it; CORE implements it in three pul
 audit (value and access); CLIENT follows with the pack, theme, quest and achievement pages and the indexer (P-61 ruling 8).
 **Part 1 (the ledger, the cobble claims, the free-game credits and the free spawn) is built in #440**: see "As built: part
 1" below, which gives the measured figures and every choice the design left to the implementation. **Part 2 (the packs, on the
-game's money path) is built in #453**: see "As built: part 2". Part 3 (skins) is not built yet.
+game's money path) is built in #453**: see "As built: part 2". **Part 3 (the skins and the active set) is built in the pull
+request that follows #453**: see "As built: part 3".
 
 The owner's feature (2026-10-15) and the PM's rulings B1 to B8 (P-61) are the input. In short: cobbles are an on-chain,
 non-transferable balance per account (B2), earned only by quest and achievement claims and pack purchases, spent only
@@ -149,6 +150,74 @@ with every ignored address, no terms, day or mean, decision 4's guard, and the s
 `contracts/src/tests/e2e/cobbles_packs.cairo` (through the real contracts: the packing, `set_pack`, `buy_pack` end to end, its
 referral and refusals, A1, A3, A4 (part 2's share: no entry point of parts 1 and 2 lowers cobbles), A6, A9 against a stake-1
 spawn, A10, and the fuzz of the split through `buy_pack`). `contracts/src/tests/e2e/cobbles_ledger.cairo` tests note (1).
+
+## As built: part 3 (tile skins and the active set)
+
+Sections 1.2 (`skin_prices`, `skins`, `active_skins`), 5, 6.1 (part 3's rows), 6.2 (part 3's events), 6.4 (item 6) and 7 (part 3's
+rows) are built, with part 2's review notes p1 to p6. The interface is in `docs/architecture/public-interface.md`, "Cobbles v1,
+part 3: skins (`Setup`)".
+
+**Measured gas** (VPS, `contracts/tests/gas.cairo`, `docs/measures/baseline.md`, "After cobbles v1, part 3"):
+
+| What | Estimate | Measured |
+|---|---:|---:|
+| `buy_skin` (z11) | about 0.50M | 664,724 |
+| `set_skins`, 1 change (z12) | about 0.30M | 456,713 |
+| `set_skins`, 19 changes of one theme (z13) | about 0.30M for any number | 2,656,847 (+122,230 per further change) |
+| `set_skin_price` (z14) | 0.3M to 0.6M | 302,510 |
+| `buy_pack` as the first sale of a block (z10) | | 9,775,271 (+300,190 over z7) |
+| g, i, k, l, s (game overs) | unchanged | +1,800 each; x, y +2,400 (dispatch) |
+| m, n (paid spawns), z5 (`spawn_free`) | unchanged | -100,524, -100,524, -99,924 (see baseline.md; not isolated) |
+
+The skins touch no game path: a game's spawn and game over differ from part 2's by dispatch (+1,800) and by a build-dependent
+shift of the spawns that baseline.md measures and does not explain. The estimate of `set_skins` held for its storage (one read of
+the active word, one write, one event) and missed the per-change arithmetic (+122k a change).
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile, VPS): `Setup` 17,534 Sierra and **38,722 CASM felts, 47.3 % of the
+81,920 cap** (34,002 after part 2: +4,720), **under the 50 % that would move the shop to its own system (decision 1), with 2.7
+points left**: a further feature in `Setup` takes that decision. `Economy` 10,813 Sierra and 30,570 CASM (37.3 %). `Challenge`
+unchanged.
+
+**The storage as built** (appended after `packs`, P-42): `skin_prices: Map<(u8, u8), u8>` (key `(theme, plan)`), `skins:
+Map<(felt252, u8), u32>` (key `(player_id, theme)`, bit `p` for plan `p`, 1 to 19), `active_skins: Map<felt252, felt252>` (key
+`player_id`; the theme of plan `p` in byte `p - 1`, 152 bits, plan 1 in the lowest byte; 0 the default theme). Each is one slot,
+read and written whole.
+
+**Choices the design left open, and the small departures:**
+
+- **The views** are named as the design names them: `skin_price(theme, plan) -> u8`, `skins(player_id, theme) -> u32` and
+  `active_skins(player_id) -> Array<u8>` (19 ids, plan 1 first).
+- **The errors**: `'Setup: invalid skin'` (a theme 0, or a plan outside 1 to 19, in `set_skin_price`; a plan outside 1 to 19
+  in `set_skins`), `'Setup: invalid cobbles'` (a price outside 50 to 100 and not 0), `'Setup: skin not for sale'` (price 0:
+  never set, withdrawn, or an id out of range), `'Setup: skin owned'`, `'Setup: not enough cobbles'`, `'Setup: skin not
+  owned'`. `set_skins` refuses the whole batch on the first unowned skin; nothing is written.
+- **A skin bought stays owned and activatable when its price is later withdrawn or changed** (price 0 only stops new sales).
+  What a player paid is not refunded.
+- **Two changes of a plan in one batch**: the last wins (each is checked, in order).
+- **The owned word of a theme** is read once per theme named in a batch, from a list kept in the call.
+- **`set_skins` arithmetic**: the active word is edited in two `u128` halves (plans 1 to 16, then 17 to 19) with a table of the
+  byte units; a first version that unpacked 19 `u8` into an array cost five times more.
+- **Theme 1 is Forest** and the only theme priced at the fresh deployment (5.2; 6.4, item 6). The skin is `(plan, theme)`; the
+  variant a tile shows is the client's (5.3).
+- **Part 2's notes.** (p1) `Economy.sell` asserts the burn quote is not 0, `'Economy: price too small'` (2.2). (p2) `buy_pack`
+  keeps its signature: the buyer's allowance caps the price (2.2); recommended, no ABI change. (p3) `deploy.sh` queues
+  `Economy.set_seller` only on a record that is not complete; a complete record whose Economy has no seller sends nothing. (p4)
+  baseline.md measures `buy_pack` as the first sale of a block (z10) and says what is and is not explained. (p5) 2.3, the buyer's
+  own second address as a referrer. (p6) 2.3, only the seller calls `sell` and the indexer halts on a `Sold` without its
+  `PackBought`.
+- **`scripts/deploy.sh`** sends `Setup.set_skin_price` for the 19 plans of each theme of `FRESH_SKIN_THEMES` (today `1`) in the
+  definitions' multicall, after the packs and before the cobbles, reads them back through `skin_price`, lists them under
+  `--check-only`, and its smoke buys the skin of plan 13 in theme 1 (50 cobbles, exactly the pack 1 the smoke bought just before)
+  as `smoke.skin_tx`. A price other than the table's stops a run, but is kept on a complete record (the owner's setting since, 0
+  included), as the cobbles and the packs are. Run on a local devnet (`deploy.sh devnet --unmerged`): 81 definition, shop and
+  cobbles calls, the 19 prices read back, the skin bought (50 to 0 cobbles). No other theme has a price and no helper sets one.
+
+**Tests.** `contracts/src/tests/e2e/cobbles_skins.cairo` (through the real contracts: the packing of the active word, the
+owner's prices and bounds, `buy_skin`, `set_skins`, the audit properties named after themselves: a skin bought once and never
+twice, cobbles never below zero, `set_skins` never activating a skin not owned, the 19 slots round-trip, a withdrawn price
+cannot be bought, theme 0 always allowed, A3 and A4, and a fuzz of random buys and activations),
+`contracts/src/tests/economy/sell.cairo` (p1), `scripts/test-deploy-url.sh` (the skin prices, p3). The whole `snforge test`:
+892 passed, 0 failed, 38 ignored.
 
 ## Sources
 
