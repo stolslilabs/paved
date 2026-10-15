@@ -6,7 +6,8 @@ import type { IndexerAnswer, IndexerClient, Leaderboard } from "@paved/chain";
 import { FIXTURE_HEAD, FIXTURE_TOURNAMENT } from "@paved/chain/testing";
 import { DataProvider } from "../src/data";
 import { useLeaderboard } from "../src/data/indexer";
-import { fakeSources } from "./data-fakes";
+import { useFirstDay } from "../src/data/leaderboard";
+import { fakeSources, renderData } from "./data-fakes";
 
 // P2's review note: a day is cached for good only once the indexer has ingested its end, not when the browser's clock
 // passes it.
@@ -81,5 +82,29 @@ describe("useLeaderboard: when a day is final", () => {
     };
     expect(await stale(1791849599)).toBe(true);
     expect(await stale(FIXTURE_HEAD.timestamp)).toBe(false);
+  });
+});
+
+describe("useFirstDay", () => {
+  it("settles on an indexer whose cursor does not move back", async () => {
+    const f = fakeSources();
+    let calls = 0;
+    const indexer = new Proxy(f.indexer, {
+      get(target, key) {
+        if (key === "tournaments")
+          return async (...a: Parameters<IndexerClient["tournaments"]>) => {
+            calls++;
+            const answer = await target.tournaments(...a);
+            return { ...answer, data: { ...answer.data, next: 5 } };
+          };
+        const value = Reflect.get(target, key) as unknown;
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const { result } = renderData(() => useFirstDay(), { ...f.sources, indexer });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBe(FIXTURE_TOURNAMENT - 2);
+    // The first page names the cursor 5; asked `before 5` it names 5 again: the loop stops there.
+    expect(calls).toBe(2);
   });
 });

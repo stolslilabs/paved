@@ -67,7 +67,8 @@ export function useLeaderboardPages(day: number | null, pages: number, limit = B
         loadingMore: results.length > 1 && last?.data === undefined && !last?.error,
         isPending: day !== null && first === undefined && !error,
         error: first ? null : error,
-        moreError: first ? error : null,
+        // Only a page that was asked for and has nothing: a refresh that fails on a page shown is the lag line's "Stale".
+        moreError: first ? (results.find((r) => r.error && !r.data)?.error ?? null) : null,
       };
     },
   });

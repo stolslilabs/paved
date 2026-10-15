@@ -191,6 +191,19 @@ describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
     expect(await ranking()).toBeDefined();
   });
 
+  it("a refresh that fails on a page already shown is not 'more' failing", async () => {
+    const { fixture } = open("/leaderboard", { address: null });
+    const list = await ranking();
+    fixture.state.down = true;
+    const key = ["indexer", "leaderboard", DAY, 20, 0];
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: key });
+    });
+    await waitFor(() => expect(queryClient.getQueryState(key)?.status).toBe("error"), { timeout: 8000 });
+    expect(screen.queryByText("Could not load more of the ranking")).toBeNull();
+    expect(list.getAllByRole("button")).toHaveLength(20);
+  });
+
   it("an indexer that is down: the error with Retry", async () => {
     const f = fakeSources();
     f.views.today = DAY;
