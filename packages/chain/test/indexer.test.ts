@@ -61,7 +61,7 @@ describe("endpoints", () => {
   test("a running game: the null score, tournament and end time read as 0, not as a bad answer", async () => {
     fixture.games = [RUNNING_GAME, ...fixture.games];
     const { data } = await client.playerGames(FIXTURE_ADA);
-    expect(data.games[0]).toEqual({ contract: "challenge", gameId: 913, mode: 1, startTime: 1791875000, dayId: 20733, over: false, score: 0, countedDayId: 0, endTime: 0 });
+    expect(data.games[0]).toEqual({ contract: "challenge", gameId: 913, mode: 1, startTime: 1791875000, dayId: 20733, over: false, score: 0, countedDayId: 0, endTime: 0, free: false });
     expect((await client.game("challenge", 913)).data.over).toBe(false);
   });
 
@@ -89,7 +89,7 @@ describe("endpoints", () => {
     expect(fixture.requests[0]).toBe(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
     expect(board.data).toMatchObject({ tournamentId: FIXTURE_TOURNAMENT, total: 41, nextOffset: 3 });
     expect(board.data.entries[0]).toEqual({
-      rank: 1, playerId: FIXTURE_ADA, bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203, name: "ada",
+      rank: 1, playerId: FIXTURE_ADA, bestScore: 187, bestGameId: 912, gamesPlayed: 3, gamesFinished: 2, finishedAt: 1791871203, free: false, name: "ada",
     });
     // D-25 (E): no name on chain; N1: the indexer's cache of Cartridge usernames, null where unresolved.
     expect(board.data.entries.map((e) => e.name)).toEqual(["ada", null, null]);
@@ -121,7 +121,7 @@ describe("endpoints", () => {
     const all = await client.playerGames(FIXTURE_ADA, { limit: 1 });
     expect(all.data.games).toHaveLength(1);
     expect(all.data.games[0]).toEqual({
-      contract: "challenge", gameId: 912, mode: 1, startTime: 1791869000, dayId: 20733, over: true, score: 187, countedDayId: 20733, endTime: 1791871203, tokenId: 912,
+      contract: "challenge", gameId: 912, mode: 1, startTime: 1791869000, dayId: 20733, over: true, score: 187, countedDayId: 20733, endTime: 1791871203, free: false, tokenId: 912,
     });
     expect(all.data.next).toBe("1791869000:challenge:912");
     const rest = await client.playerGames(FIXTURE_ADA, { limit: 1, before: all.data.next! });
@@ -403,5 +403,47 @@ describe("429: the indexer is busy (Retry-After)", () => {
     const { calls, client: c } = scripted();
     expect((await c.head()).head).toEqual(FIXTURE_HEAD);
     expect(calls.n).toBe(1);
+  });
+});
+
+describe("the free mark (cobbles v1)", () => {
+  const entryRow = { rank: 1, player_id: FIXTURE_ADA, best_score: 9, best_game_id: 1, games_played: 1, games_finished: 1, finished_at: 5, name: null };
+  const raw = (rows: object[]) => {
+    fixture.entries.set(FIXTURE_TOURNAMENT, rows as never);
+    return client.leaderboard(FIXTURE_TOURNAMENT).then((a) => a.data.entries.map((e) => e.free));
+  };
+
+  test("a leaderboard row: present true, present false, absent (an indexer before it) reads false", async () => {
+    expect(await raw([{ ...entryRow, free: true }, { ...entryRow, rank: 2, free: false }, { ...entryRow, rank: 3 }])).toEqual([true, false, false]);
+  });
+
+  test("a leaderboard row whose free is not a boolean is a bad answer", async () => {
+    expect(await kindOf(raw([{ ...entryRow, free: 1 }]))).toBe("bad-response");
+    expect(await kindOf(raw([{ ...entryRow, free: null }]))).toBe("bad-response");
+  });
+
+  test("the fixture serves a free best game (Cy) and a paid one (Ada), also on the player's own row", async () => {
+    const board = (await client.leaderboard(FIXTURE_TOURNAMENT)).data.entries;
+    expect(board.filter((e) => e.free).map((e) => e.playerId)).toEqual([FIXTURE_CY]);
+    expect((await client.playerTournament(FIXTURE_CY, FIXTURE_TOURNAMENT)).data?.free).toBe(true);
+  });
+
+  test("a game row: present true, present false, absent reads false; a non-boolean is a bad answer", async () => {
+    const game = fixture.games[0];
+    const read = async (extra: object) => {
+      fixture.games = [{ ...game, ...extra }];
+      return (await client.game("challenge", game.game_id as number)).data.free;
+    };
+    expect(await read({ free: true })).toBe(true);
+    expect(await read({ free: false })).toBe(false);
+    const { free: _free, ...old } = game;
+    fixture.games = [old];
+    expect((await client.game("challenge", game.game_id as number)).data.free).toBe(false);
+    expect(await kindOf(read({ free: "yes" }))).toBe("bad-response");
+  });
+
+  test("the player's games carry it: Ada's older game was free, her newest was not", async () => {
+    const games = (await client.playerGames(FIXTURE_ADA)).data.games;
+    expect(games.map((g) => [g.gameId, g.free])).toEqual([[912, false], [55, true]]);
   });
 });

@@ -143,7 +143,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const first = await client.leaderboard(DAY, { limit: 1 });
     expect(first.data).toMatchObject({ tournamentId: DAY, total: 2, nextOffset: 1 });
-    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77, name: null });
+    expect(first.data.entries[0]).toEqual({ rank: 1, playerId: ADA, bestScore: 50, bestGameId: 1, gamesPlayed: 2, gamesFinished: 1, finishedAt: 77, free: false, name: null });
     const second = await client.leaderboard(DAY, { limit: 1, offset: first.data.nextOffset! });
     expect(second.data.entries[0]).toMatchObject({ rank: 2, playerId: BO, bestScore: 40 });
     expect(second.data.entries[0]).toMatchObject({ name: null }); // no resolver in this indexer: null (N1)

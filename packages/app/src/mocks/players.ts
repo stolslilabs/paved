@@ -26,6 +26,7 @@ const entry = (rank: number, playerId: string, name: string | null, bestScore: n
   gamesPlayed,
   gamesFinished: gamesPlayed,
   finishedAt: MOCK_NOW - rank * HOUR,
+  free: false,
   name,
 });
 

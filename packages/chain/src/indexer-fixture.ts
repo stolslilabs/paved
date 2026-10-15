@@ -41,9 +41,9 @@ const tournament = (id: number, over: Partial<Row> = {}): Row => ({
 });
 
 const ENTRIES: Row[] = [
-  { rank: 1, player_id: FIXTURE_ADA, best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203, name: null },
-  { rank: 2, player_id: FIXTURE_CY, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650, name: null },
-  { rank: 3, player_id: FIXTURE_BO, best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011, name: null },
+  { rank: 1, player_id: FIXTURE_ADA, best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203, free: false, name: null },
+  { rank: 2, player_id: FIXTURE_CY, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650, free: true, name: null },
+  { rank: 3, player_id: FIXTURE_BO, best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011, free: false, name: null },
   // The rest of the 41 players of the example's `total`.
   ...Array.from({ length: 38 }, (_, i): Row => ({
     rank: i + 4,
@@ -53,18 +53,19 @@ const ENTRIES: Row[] = [
     games_played: 1,
     games_finished: 1,
     finished_at: 1791860000 + i,
+    free: false,
     name: null,
   })),
 ];
 
 const GAMES: Row[] = [
   // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_day_id` and `end_time` null (`RUNNING_GAME`).
-  { contract: "challenge", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, day_id: 20733, over: true, score: 187, counted_day_id: 20733, end_time: 1791871203, token_id: 912 },
-  { contract: "challenge", game_id: 55, player_id: FIXTURE_ADA, mode: 1, start_time: 1791760000, day_id: 20731, over: true, score: 64, counted_day_id: 20731, end_time: 1791761000, token_id: 55 },
+  { contract: "challenge", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, day_id: 20733, over: true, score: 187, counted_day_id: 20733, end_time: 1791871203, token_id: 912, free: false },
+  { contract: "challenge", game_id: 55, player_id: FIXTURE_ADA, mode: 1, start_time: 1791760000, day_id: 20731, over: true, score: 64, counted_day_id: 20731, end_time: 1791761000, token_id: 55, free: true },
 ];
 
 /** A game that has not ended, as the real indexer writes it. */
-export const RUNNING_GAME: Row = { contract: "challenge", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, day_id: 20733, over: false, score: null, counted_day_id: null, end_time: null };
+export const RUNNING_GAME: Row = { contract: "challenge", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, day_id: 20733, over: false, score: null, counted_day_id: null, end_time: null, free: false };
 
 const DEFINED_AT = 1791000000;
 
