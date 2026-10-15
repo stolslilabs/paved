@@ -51,12 +51,15 @@ const SLOTS = (() => {
   return [...slots.values()];
 })();
 
-/** The tile in hand (the recorded game's next plan) as a valid ghost on the empty slot nearest the board's centre. */
+/**
+ * A valid ghost on the empty slot nearest the board's centre, of a plan already on the board: the renderer draws a ghost
+ * only once its model is in, and a plan not on the board loads after the first frame.
+ */
 const GHOST: HoverState = (() => {
   const cx = (BOUNDS.minX + BOUNDS.maxX) / 2 / TILE_SIZE;
   const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
   const slot = [...SLOTS].sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0];
-  return { x: slot.x, y: slot.y, valid: true, idle: true, planIndex: BOARD_72.next.plan, orientation: BOARD_72.next.orientation };
+  return { x: slot.x, y: slot.y, valid: true, idle: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
 })();
 
 /**
