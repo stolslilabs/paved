@@ -43,3 +43,13 @@ export const Stress: Story = {
     retired: true,
   },
 };
+/** P-61: a complete quest's gems to claim. */
+export const QuestClaimable: Story = { args: { reward: { gems: 5, claimed: false } } };
+/** ... its claim on its way. */
+export const QuestClaiming: Story = { args: { reward: { gems: 5, claimed: false, claiming: true } } };
+/** ... claimed. */
+export const QuestClaimed: Story = { args: { reward: { gems: 5, claimed: true } } };
+/** A quest in progress shows what it gives, nothing to claim yet. */
+export const QuestRewardInProgress: Story = { args: { ...quest(3), reward: { gems: 10, claimed: false } } };
+/** An earned achievement's gems (its points) to claim. */
+export const AchievementClaimable: Story = { args: { ...achievement(0), reward: { gems: 10, claimed: false } } };

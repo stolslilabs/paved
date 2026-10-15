@@ -1,13 +1,17 @@
 import type { LeaderboardEntry } from "@paved/chain";
 import { cn } from "../../lib/utils";
+import { Badge } from "../ui/badge";
 import { Icon } from "../ui/icon";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
 const MEDAL = ["text-gold-300", "text-ink-200", "text-amber-400"] as const;
 
-/** The cells of one ranked player: the rank (a crown for the podium), the name or short address, the best score of the day. */
-export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; self?: boolean; games?: boolean }) {
+/**
+ * The cells of one ranked player: the rank (a crown for the podium), the name or short address, the best score of the day.
+ * `free`: that best game was a free one (P-61, `GameSpawned.price == 0`), marked "Free" and ranked like any other.
+ */
+export function RankCells({ entry, self, games, free }: { entry: LeaderboardEntry; self?: boolean; games?: boolean; free?: boolean }) {
   const podium = entry.rank <= 3;
   return (
     <>
@@ -26,6 +30,11 @@ export function RankCells({ entry, self, games }: { entry: LeaderboardEntry; sel
       <span className="flex w-0 min-w-0 flex-1 items-baseline gap-1.5 text-left text-sm">
         <PlayerName name={entry.name} address={entry.playerId} className="min-w-0" />
         {self && <span className="shrink-0 text-xs text-muted-foreground">(you)</span>}
+        {free && (
+          <Badge variant="outline" className="shrink-0 self-center" title="Best game played with a free game">
+            Free
+          </Badge>
+        )}
       </span>
       {games && (
         <span className="numeric hidden min-w-16 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground mobile:inline">

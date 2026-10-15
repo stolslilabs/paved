@@ -21,7 +21,7 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   );
 }
 
-const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onBack: fn() } } satisfies Meta<typeof PurchaseScene>;
+const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() } } satisfies Meta<typeof PurchaseScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -41,3 +41,15 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 export const Buying: Story = { args: PURCHASE.buying };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
+/** P-61, the Gems tab: the four packs (50 for $5 to 1,000 for $70), the $0.20 reference struck through; none picked. */
+export const GemPacks: Story = { args: PURCHASE.gemPacks };
+/** A pack picked: Pay confirms, as for a game. */
+export const GemPackPicked: Story = { args: PURCHASE.gemPackPicked };
+/** A referrer: their share of the pack, as for a game. */
+export const GemPackReferred: Story = { args: PURCHASE.gemPackReferred };
+/** The approve and `buy_pack` on their way. */
+export const GemPackBuying: Story = { args: PURCHASE.gemPackBuying };
+/** Not enough USDC for the pack picked. */
+export const GemPackShort: Story = { args: PURCHASE.gemPackShort };
+/** WRAP360: the largest balances and a full referrer address. */
+export const GemStress: Story = { args: PURCHASE.gemStress };

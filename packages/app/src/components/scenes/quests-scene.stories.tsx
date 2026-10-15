@@ -11,7 +11,7 @@ import { QuestsScene } from "./quests-scene";
  * The quests (`/quests/:day?`): the day's rotating Daily set and the Weekly ones, each with a countdown, a toast when a
  * quest completes, and the day picker. One story per state; the viewport is the toolbar's (VP).
  */
-const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn() } } satisfies Meta<typeof QuestsScene>;
+const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -41,6 +41,24 @@ export const Loading: Story = { args: QUESTS.loading };
 
 /** The indexer did not answer. */
 export const Failed: Story = { args: QUESTS.error };
+
+/** P-61: today with gems: Daily Run's 5 to claim, what each quest gives, the day's and the week's free game to earn. */
+export const GemsToday: Story = { args: QUESTS.gemsToday };
+
+/** Daily Run's gems claimed. */
+export const GemsClaimed: Story = { args: QUESTS.gemsClaimed };
+
+/** Yesterday, closed and still claimable (no deadline): the four dailies' 20 gems, Claim all, and the day's free game. */
+export const GemsPastDay: Story = { args: QUESTS.gemsPastDay };
+
+/** Claim all on its way. */
+export const GemsClaiming: Story = { args: QUESTS.gemsClaiming };
+
+/** Everything of yesterday claimed: a free game to play. */
+export const GemsFreeGame: Story = { args: QUESTS.gemsFreeGame };
+
+/** The three weeklies done: their gems and the week's free game to claim. */
+export const GemsWeekDone: Story = { args: QUESTS.gemsWeekDone };
 
 type SceneProps = React.ComponentProps<typeof QuestsScene>;
 

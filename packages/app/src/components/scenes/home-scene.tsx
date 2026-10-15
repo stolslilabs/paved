@@ -2,6 +2,7 @@ import type { GameView, Leaderboard } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
+import { Gems } from "../elements/gems";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
@@ -17,6 +18,13 @@ export interface TrainingSave {
   remaining: number;
 }
 
+/** The player's gems and free games (P-61, `AccountView`): provisional until CORE's gems PR 1. */
+export interface HomeGems {
+  balance: number;
+  /** Free Challenge games to spend (`credits`). */
+  credits: number;
+}
+
 export interface HomeSceneProps {
   /** Null: a guest (no wallet). */
   player: PlayerStatusData | null;
@@ -29,7 +37,11 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
+  /** The gem balance and free games; omitted for a guest or before gems. */
+  gems?: HomeGems | null;
   onPlay?: () => void;
+  /** Spends a free game (`Challenge.spawn_free`). */
+  onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
   onTutorial?: () => void;
@@ -40,14 +52,17 @@ export interface HomeSceneProps {
 
 /** Home (`/`): Play, the player's status, the game to resume, the mode cards with today's Challenge top 3; the five tabs. */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, leaderboard, activeGame, training, spawnPaused, now } = props;
+  const { player, leaderboard, activeGame, training, spawnPaused, now, gems } = props;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
       <AppNav active="home" onNavigate={props.onNavigate} className="desktop:min-h-dvh" />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
         <header className="flex items-center justify-between">
           <Wordmark size="md" />
-          <span className="text-xs text-muted-foreground">Day {leaderboard.tournamentId}</span>
+          <span className="flex items-center gap-3 text-xs text-muted-foreground">
+            {gems && <Gems value={gems.balance} />}
+            <span>Day {leaderboard.tournamentId}</span>
+          </span>
         </header>
 
         <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
@@ -72,6 +87,18 @@ export function HomeScene(props: HomeSceneProps) {
             <Button size="lg" className="h-14 text-lg" onClick={props.onPlay}>
               Play <Icon name="chevron-right" size="md" />
             </Button>
+
+            {gems && gems.credits > 0 && (
+              <ModeCard
+                icon="ticket"
+                title="Free game"
+                description={`${gems.credits} free Challenge ${gems.credits === 1 ? "game" : "games"} from your quests.`}
+                badge="Free"
+                disabled={spawnPaused}
+                reason="New games are paused"
+                onSelect={props.onPlayFree}
+              />
+            )}
 
             {spawnPaused && (
               <Notice tone="warning" title="Purchases paused">

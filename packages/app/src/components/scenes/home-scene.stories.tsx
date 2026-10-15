@@ -4,7 +4,7 @@ import { HOME } from "../../mocks/scenes";
 import { HomeScene } from "./home-scene";
 
 /** Home (`/`): the player's status, the game to resume, the modes, today's Challenge top 3, the five tabs. One story per state; the Viewport control reframes it. */
-const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onTutorial: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn() } } satisfies Meta<typeof HomeScene>;
+const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onTutorial: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() } } satisfies Meta<typeof HomeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -21,3 +21,7 @@ export const FirstOfDay: Story = { args: HOME.firstOfDay };
 export const PurchasesPaused: Story = { args: HOME.paused };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: HOME.stress };
+/** P-61: the gem balance in the header. */
+export const Gems: Story = { args: HOME.gems };
+/** P-61: two free games from the quests: Free game spends one. */
+export const FreeGame: Story = { args: HOME.freeGame };

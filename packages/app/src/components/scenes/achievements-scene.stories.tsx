@@ -4,7 +4,7 @@ import { ACHIEVEMENTS } from "../../mocks/scenes";
 import { AchievementsScene } from "./achievements-scene";
 
 /** The achievements (`/achievements`, a tab beside Quests): earned, in progress and locked. One story per state; the viewport is the toolbar's (VP). */
-const meta = { title: "Scenes/Achievements", component: AchievementsScene, args: { onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn() } } satisfies Meta<typeof AchievementsScene>;
+const meta = { title: "Scenes/Achievements", component: AchievementsScene, args: { onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn() } } satisfies Meta<typeof AchievementsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -22,3 +22,9 @@ export const Guest: Story = { args: ACHIEVEMENTS.guest };
 
 /** The achievements on their way. */
 export const Loading: Story = { args: ACHIEVEMENTS.loading };
+/** P-61: each achievement's gems (its points): two claimed, two to claim (Claim per row, Claim all); On the Podium gives none. */
+export const Gems: Story = { args: ACHIEVEMENTS.gems };
+/** Claim all on its way. */
+export const GemsClaiming: Story = { args: ACHIEVEMENTS.gemsClaiming };
+/** Every one earned and its gems claimed. */
+export const GemsAllClaimed: Story = { args: ACHIEVEMENTS.gemsAllClaimed };
