@@ -771,7 +771,8 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     model when it is handed none; the other models and the tile images load after the first frame (the next animation
     frame, then an idle callback). A failure among the first models stops the scene, so the page shows its plan view as
     before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
-    model is not in yet is drawn at the scene's next tile update.
+    model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
+    (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
   - **Cache headers for the host step** (the host config is not changed here): hashed models
     `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
     (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.

@@ -243,6 +243,15 @@ export class GameScene {
     // Tiles handed over while the models were loading were drawn from nothing:
     // draw the last ones given now that they can be.
     this.updateTiles(this.latestTiles);
+    // The models loaded after the first frame (`AssetLoader`): draw the tiles that waited for theirs as each comes in.
+    this.assets.onLoaded(() => this.drawLoadedTiles());
+  }
+
+  /** Draws the last tiles given whose model (or plan-view image) has just come in, and the frame and shadows with them. */
+  private drawLoadedTiles(): void {
+    if (this.disposed || !this.tiles.updateTiles(this.latestTiles)) return;
+    this.requestShadowUpdate();
+    this.requestRender();
   }
 
   /**

@@ -112,6 +112,8 @@ export class AssetLoader {
   /** Set once `preloadAll` has chosen what the first frame waits for: a later `want` loads at once. */
   private chosen = false;
   private disposed = false;
+  /** Told when a model or the plan view's images come in (`onLoaded`). */
+  private loadedListener: (() => void) | null = null;
 
   constructor(basePath = "") {
     startDecoderWorkers();
@@ -138,6 +140,14 @@ export class AssetLoader {
     }
   }
 
+  /**
+   * Calls `listener` each time a model, or the set of plan-view images, comes in: the scene draws then the tiles that
+   * waited for it (`GameScene` listens once its first frame is drawn). One listener; null removes it.
+   */
+  onLoaded(listener: (() => void) | null): void {
+    this.loadedListener = listener;
+  }
+
   /** Every model, awaited (a failure rejects). */
   async preloadModels(): Promise<void> {
     const manifest = await loadManifest(this.basePath);
@@ -152,7 +162,10 @@ export class AssetLoader {
         const paths = manifest === undefined ? await loadManifest(this.basePath) : manifest;
         const gltf = await this.loadModel(`${this.basePath}/${modelPath(paths, key)}`);
         if (this.disposed) disposeModel(gltf.scene);
-        else this.models.set(key, gltf.scene);
+        else {
+          this.models.set(key, gltf.scene);
+          this.loadedListener?.();
+        }
       })();
       this.modelLoads.set(key, load);
       // A failed load may be tried again (a later `want` or `preloadAll`).
@@ -190,7 +203,9 @@ export class AssetLoader {
           if (this.disposed) texture.dispose();
           else this.textures.set(`tile-${key}`, texture);
         })
-      ).then(() => {});
+      ).then(() => {
+        if (!this.disposed) this.loadedListener?.();
+      });
       this.texturesLoad = load;
       load.catch(() => {
         if (this.texturesLoad === load) this.texturesLoad = null;
@@ -255,6 +270,7 @@ export class AssetLoader {
 
   dispose(): void {
     this.disposed = true;
+    this.loadedListener = null;
     this.models.forEach(disposeModel);
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();

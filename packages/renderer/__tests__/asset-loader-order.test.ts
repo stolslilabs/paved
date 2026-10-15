@@ -282,6 +282,54 @@ describe("GameScene with the load order, as GameCanvas drives it", () => {
     s.dispose();
   });
 
+  it("draws a tile placed after the first frame once its model comes in, with a new frame and shadows", async () => {
+    const at = nextBase();
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    await init;
+    // The model of the new tile's plan answers only when the test says so.
+    let arrive!: () => void;
+    const late = `${at}/models/${keyOf(5)}.glb`;
+    net.loadAsync.mockImplementation(async (url: string) => {
+      if (url === late) await new Promise<void>((done) => (arrive = done));
+      return box();
+    });
+    s.updateTiles([tile(1, 9), tile(2, 5)]);
+    const placed = () => s.tiles.getGroup().children[0]!.children.length;
+    expect(placed()).toBe(1);
+    await settle();
+    expect(requested()).toContain(late);
+    (s as any).needsRender = false;
+    (s as any).shadowsDirty = false;
+    arrive();
+    await settle();
+    expect(placed()).toBe(2);
+    expect((s as any).needsRender).toBe(true);
+    expect((s as any).shadowsDirty).toBe(true);
+    // The rest, after the first frame, adds no tile: no frame asked for.
+    (s as any).needsRender = false;
+    nextFrame();
+    nextFrame();
+    await settle();
+    expect(placed()).toBe(2);
+    expect((s as any).needsRender).toBe(false);
+    s.dispose();
+  });
+
+  it("draws the plan view's tiles once its images come in", async () => {
+    const at = nextBase();
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    await init;
+    s.setStrategyMode(true);
+    expect(s.tiles.getGroup().children[0]!.children).toHaveLength(0);
+    await settle();
+    expect(s.tiles.getGroup().children[0]!.children).toHaveLength(1);
+    s.dispose();
+  });
+
   it("does not start when a handed tile's model fails", async () => {
     const at = nextBase();
     net.failing.add(`${at}/models/${keyOf(9)}.glb`);
