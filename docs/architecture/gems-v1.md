@@ -2,7 +2,7 @@
 
 Track CORE wrote the design; the PM ruled on it; CORE implements it in three pull requests, each with a review and an
 audit (value and access); CLIENT follows with the pack, theme, quest and achievement pages and the indexer (P-61 ruling 8).
-**Part 1 (the ledger, the gem claims, the free-game credits and the free spawn) is built in #PRNUM**: see "As built: part
+**Part 1 (the ledger, the gem claims, the free-game credits and the free spawn) is built in #440**: see "As built: part
 1" below, which gives the measured figures and every choice the design left to the implementation. Parts 2 (packs) and 3
 (skins) are not built yet.
 
@@ -24,7 +24,7 @@ Each estimate is derived from measured unit costs: a storage read of 76,840 L2 g
 32,800 (`docs/architecture/g7-gas-plan.md`, 1.4, `test_profile_g7_units`), and the measured scenarios of
 `docs/measures/baseline.md`. The implementation task measures each one (section 7.3).
 
-## As built: part 1 (#PRNUM)
+## As built: part 1 (#440)
 
 Sections 1.2, 1.3, 3, 4, 6.1 (part 1's rows), 6.2 (part 1's events), 6.4 (part 1's calls) and 7 (part 1's rows) are built.
 The interface is in `docs/architecture/public-interface.md`, "Gems v1, part 1: `Setup` and `Challenge`".
@@ -893,7 +893,7 @@ An auditor checks these properties, each against the code and the tests above:
    market value, and there is one claim per account.
 5. **Free games rank in the daily leaderboard** like any Challenge game. The indexer marks them free from
    `GameSpawned.price == 0`, so the client can show it. Recorded for CLIENT.
-6. **The +0.59M L2 gas per paid game over was an estimate**; part 1 measured +940,298 with three slots (#PRNUM), within the
+6. **The +0.59M L2 gas per paid game over was an estimate**; part 1 measured +940,298 with three slots (#440), within the
    guard. The implementation PR measures it and states it against
    P-22's guard (section 7.3).
 
