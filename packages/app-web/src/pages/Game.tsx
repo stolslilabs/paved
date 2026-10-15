@@ -12,7 +12,7 @@ import { toChainSlot, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute, isDailyParam, isTrainingParam, isTutorialParam, renamedModeSearch } from "../utils/mode-routing";
-import type { MoveSenders, PageSession, PageState } from "../training/page-session";
+import type { MoveSenders, PageSession, PageState } from "@paved/game-core";
 import { attachE2eProbe, publishE2eView } from "../training/e2e-probe";
 import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";

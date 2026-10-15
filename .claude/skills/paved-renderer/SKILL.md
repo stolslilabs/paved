@@ -99,6 +99,8 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
   driver refuses `--out` under `docs/measures/`. A figure needs a GPU run on the Mac.
 - On the Mac a run opens no visible window while the owner uses the machine, and the driver has no hidden GPU mode
   (`--offscreen` still opens windows; `--headless` is software rendering): do not start a Mac run yourself; report the need.
+  `docs/measures/client-baseline.md` and the bench driver's header still name `--offscreen` for the Mac, which is out of
+  date; fixing those files is a separate task.
 - No figure that was not measured: write "estimate" for the rest. A committed measure goes under `docs/measures/` with its
   method.
 
