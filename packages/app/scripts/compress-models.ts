@@ -34,8 +34,6 @@ const SOURCE = resolve(HERE, "../../app-web/public/models");
 const OUT = resolve(HERE, "../public/renderer-assets/models");
 /** A base model's source name, as `vite/renderer-assets.ts` matches it. */
 const MODEL = /^([a-z]{9})\.glb$/;
-/** A compressed copy's name: the plan, then the hash. */
-export const COMPRESSED = /^([a-z]{9})\.([0-9a-f]{10})\.glb$/;
 /** The voxel grid: every tile model is a 4-unit grid of 0.1-unit voxels (`outlines.ts`, `TILE_VOXELS`). */
 const GRID = 0.1;
 
@@ -45,7 +43,7 @@ const io = new NodeIO()
   .registerExtensions([EXTMeshoptCompression, KHRMeshQuantization])
   .registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
 
-export const hashOf = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex").slice(0, 10);
+const hashOf = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex").slice(0, 10);
 
 /** The one primitive of a tile model (one node, one mesh, one indexed triangle list), or an error naming what differs. */
 function onlyPrimitive(doc: Document, name: string): Primitive {
