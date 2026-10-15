@@ -2291,6 +2291,13 @@ FRESH_QUEST_TASK_SLOTS=(
   0x6254f8c26a90e19026cc006711c658f454133d21573c4afa30b7144a4ceecdf
   0x19bc7b582692c130d4e5272fb0af08c8c44a1ea1ba5fe1e6907e472341f8e11
 )
+# Slot A of quests 2, 3 and 4, which this set leaves undefined: "id slot". A Setup that holds one (a run started with the
+# earlier script, which defined them, and resumed with this one) would show seven dailies, so the read-back fails on it.
+FRESH_UNDEFINED_QUEST_SLOTS=(
+  "2 0x14f2ac8d624f3f4cfa315541e6dfc1a43598189563e8a70ad92709f431075c9"
+  "3 0x818fbcf87531854f5035d878d7b2217f6eaa1881f46994a791ea8e8ed9b4bf"
+  "4 0x936bc3bf3390e4e6c62b1c245b42a629837936fea3ce24488ffe1d0803c9e9"
+)
 FRESH_ACHIEVEMENT_SLOTS=(
   0x7a9f291f9177d1c0c517a1cd46595136ef9491d7b5463671e67e5d48a030ee7
   0x74243985a962d46eba5b34bb84cb2364765f9f48ea15a82696df560f5a8e58f
@@ -2354,7 +2361,16 @@ fresh_slot_matches() {
 # never reads as "defined") and when a defined slot is not the table's (quiver refuses to define an id twice, so a wrong
 # one stays: the run dies, never sends over it).
 fresh_definition_calls() {
-  local i id task total start duration interval points slot want
+  local i id task total start duration interval points slot want entry
+  # Quests 2 to 4 stay undefined (four dailies a day): one that is defined and not retired makes seven dailies live.
+  for entry in "${FRESH_UNDEFINED_QUEST_SLOTS[@]}"; do
+    read -r id slot <<<"$entry"
+    slot="$(fresh_storage "$SETUP" "$slot")" || return 1
+    if [[ "$(python3 -I -c 'import sys;n=int(sys.argv[1],16);print(1 if (n >> 197) & 1 and not (n >> 198) & 1 else 0)' "$slot")" == 1 ]]; then
+      echo "deploy.sh: quest $id is defined on Setup, but this set leaves quests 2 to 4 undefined (four dailies a day): it would show seven dailies; nothing more was sent" >&2
+      return 1
+    fi
+  done
   for i in "${!FRESH_QUESTS[@]}"; do
     read -r id task total start duration interval <<<"${FRESH_QUESTS[i]}"
     slot="$(fresh_storage "$SETUP" "${FRESH_QUEST_SLOTS[i]}")" || return 1

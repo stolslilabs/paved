@@ -83,7 +83,7 @@ Daily.
 
 ### Daily quests (4 in v1, 1 defined)
 
-**Four dailies a day, not seven (the PM's ruling of 2026-10-14, `docs/briefs/quests-four-per-day.md`).** With v2a's three rotating dailies
+**Four dailies a day, not seven (the PM's ruling of 2026-10-14).** With v2a's three rotating dailies
 beside these four, a day showed seven, against Nums' three and Glitchbomb's five. The fresh deployment defines **Daily Run (id 1)
 only** of the table below; quests 2 to 4 are **not defined** and their ids stay unused (see "Four dailies a day" under v2a). The
 table stays as the accepted v1 list (P-22) and the record of the three tasks and targets the rotation now carries.

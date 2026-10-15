@@ -1752,6 +1752,8 @@ def slots(name):
 quest_a, quest_b, achievement_a = slots("FRESH_QUEST_SLOTS"), slots("FRESH_QUEST_TASK_SLOTS"), slots("FRESH_ACHIEVEMENT_SLOTS")
 quest_ids = [int(m) for m in re.findall(r"\x22(\d+) \d+ \d+ \d+ \d+ \d+\x22", re.search(r"FRESH_QUESTS=\((.*?)\n\)", src, re.S).group(1))]
 assert quest_ids == [1] + list(range(5, 17)), quest_ids   # quests 2 to 4 are never defined (four dailies a day)
+undefined = {int(m[0]): m[1] for m in re.findall(r"\x22(\d+) (0x[0-9a-f]+)\x22", re.search(r"FRESH_UNDEFINED_QUEST_SLOTS=\((.*?)\n\)", src, re.S).group(1))}
+assert sorted(undefined) == [2, 3, 4], undefined
 qa, qb = (lambda q: quest_a[quest_ids.index(q)]), (lambda q: quest_b[quest_ids.index(q)])
 lines = [l.split() for l in open(path).read().splitlines()]
 v1 = set(quest_a[:1] + quest_b[:1] + achievement_a[:9])
@@ -1766,6 +1768,10 @@ elif op == "wrong-points":     # achievement 14 (High Roller III): 80 points sto
 elif op == "retired":          # quest 14 and achievement 16 retired: the owner's call after the launch
     lines = [[l[0], hex(int(l[1], 16) | (1 << 198))] if l[0] == qa(14) else
              [l[0], hex(int(l[1], 16) | (1 << 131))] if l[0] == achievement_a[15] else l for l in lines]
+elif op == "old-quest-3":      # quest 3 (Into the Woods) defined by an earlier run of the script: forest, total 1, a day
+    lines.append([undefined[3], hex(1 | (86400 << 128) | (86400 << 160) | (1 << 192) | (1 << 197))])
+elif op == "old-quest-3-retired":   # the same, retired by the owner: not live, so not a stop
+    lines.append([undefined[3], hex(1 | (86400 << 128) | (86400 << 160) | (1 << 192) | (1 << 197) | (1 << 198))])
 elif op == "drop-weekly":      # the weekly quests missing
     lines = [l for l in lines if l[0] not in [qa(q) for q in (14, 15, 16)] + [qb(q) for q in (14, 15, 16)]]
 open(path, "w").write("".join(" ".join(l) + "\n" for l in lines))
@@ -1791,7 +1797,7 @@ if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$(dd_calls define_que
     "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, each as specified"* || "$(dd_tx)" != 0x5eed0001 ]] || ! fg_clean "$out"; then
   dd_fail "an empty Setup: expected exit 0, one multicall of 13 define_quest and 16 define_achievement, its hash recorded, each read back, got $rc" "$out"
 else
-  echo "ok: the fresh path's definitions step on an empty Setup sends one multicall of 16 quests and 16 achievements, records definitions_tx and reads each back as specified"
+  echo "ok: the fresh path's definitions step on an empty Setup sends one multicall of 13 quests (1 and 5 to 16) and 16 achievements, records definitions_tx and reads each back as specified"
 fi
 # What the v2a calls are: the rotating dailies (a day in a 3-day interval, offsets of 0, 1, 2 days), the weekly quests
 # (a week from Monday 1970-01-05), the higher tiers; no reward, no prerequisite (the calldata ends with 0 conditions).
@@ -1854,6 +1860,24 @@ for bad in "wrong-total:quest 6 (its task) is defined, but not as specified" "wr
     fi
   done
 done
+# Quests 2 to 4 are not defined (four dailies a day): a Setup that holds one (a run started with the earlier script, resumed
+# with this one) stops the step and the smoke with a clear message, nothing sent; a retired one is not live and passes.
+for mode in step smoke; do
+  dd_case; dd_run step >/dev/null; dd_edit old-quest-3
+  out="$(dd_run "$mode")"; rc=$?
+  if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"quest 3 is defined on Setup, but this set leaves quests 2 to 4 undefined (four dailies a day): it would show seven dailies; nothing more was sent"* ]] || ! fg_clean "$out"; then
+    dd_fail "quest 3 defined on Setup, $mode: expected a non-zero exit, nothing sent, the message, got $rc" "$out"
+  else
+    echo "ok: the fresh path's definitions $mode dies when Setup holds quest 3 (seven dailies would be live), nothing sent"
+  fi
+done
+dd_case; dd_run step >/dev/null; dd_edit old-quest-3-retired
+out="$(dd_run smoke)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"Setup holds every definition, each as specified"* ]]; then
+  dd_fail "quest 3 defined and retired: expected exit 0, got $rc" "$out"
+else
+  echo "ok: the fresh smoke accepts a retired quest 3 (not live)"
+fi
 # The smoke: every definition as specified passes, also with a quest and an achievement retired since (live state).
 dd_case; dd_run step >/dev/null
 out="$(dd_run smoke)"; rc=$?
