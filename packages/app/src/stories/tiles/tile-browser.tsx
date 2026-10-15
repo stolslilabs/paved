@@ -46,9 +46,10 @@ export function TileBrowser({ plan, orientation, variant }: TileBrowserProps) {
         {/* Remounted when the model changes: the renderer loads its models once, at init. */}
         <TileView key={file} plan={planId(code)} orientation={side} basePath={RENDERER_ASSETS} />
       </div>
-      <div className="flex flex-col gap-3 text-foreground">
+      {/* The model's path wraps at 320 px rather than widen the page (WRAP360). */}
+      <div className="flex min-w-0 flex-col gap-3 text-foreground">
         <p className="font-mono text-lg">{code}</p>
-        <p className="font-mono text-sm text-muted-foreground">{model}</p>
+        <p className="font-mono text-sm wrap-anywhere text-muted-foreground">{model}</p>
         <Png src={`${RENDERER_ASSETS}/assets/tiles/${plan}.png`} />
         <div className="flex gap-1" role="group" aria-label="Orientation">
           {SIDES.map((name, i) => (

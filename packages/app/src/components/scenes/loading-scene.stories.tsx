@@ -12,3 +12,5 @@ export const Booting: Story = { args: LOADING.booting };
 
 /** The board's models loading, with a tip. */
 export const Assets: Story = { args: LOADING.assets };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: LOADING.stress };

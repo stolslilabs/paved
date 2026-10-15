@@ -48,9 +48,12 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
       )}
     >
       {state === "refused" && (
-        <p role="alert" className="flex items-center gap-2 text-xs text-destructive-text">
-          <Icon name="triangle-exclamation" size="sm" />
-          {error ?? "Move refused. Choose another slot."}
+        // The reason wraps (a chain error can carry an address); the icon stays on its first line (WRAP360).
+        <p role="alert" className="flex items-start gap-2 text-xs text-destructive-text">
+          <span className="inline-flex h-4 items-center">
+            <Icon name="triangle-exclamation" size="sm" />
+          </span>
+          <span className="min-w-0 wrap-anywhere">{error ?? "Move refused. Choose another slot."}</span>
         </p>
       )}
       {state === "expired" && (

@@ -27,3 +27,5 @@ export const Training: Story = { args: OVER.training };
 
 /** Nothing closed: the list says so. */
 export const NoClosing: Story = { args: OVER.noClosing };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: OVER.stress };

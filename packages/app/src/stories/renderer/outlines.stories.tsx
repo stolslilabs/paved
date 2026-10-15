@@ -3,9 +3,11 @@ import { OutlinesBoard, SETTINGS_DEFAULTS } from "./outlines-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
- * The voxel tiles' outlines on the recorded 72-tile board (R-OUT): they thin as the camera zooms out until they vanish,
- * stop at a maximum width zoomed in, and never flicker while the camera pans. The tour goes through the views where the
- * old 1-pixel lines failed; stop it to hold one view and set its distance. Under reduced motion nothing moves by itself.
+ * The voxel tiles' outlines on the recorded 72-tile board (R-OUT, R-VIS): dark grey antialiased strokes whose width is a
+ * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (fully
+ * on at the tile size the board opens at on this screen, off at 0.85 of it), and never flickering while it pans. The
+ * tour goes through the views where the old 1-pixel lines failed; stop it to hold one view and set its distance. Under
+ * reduced motion nothing moves by itself.
  */
 const meta = {
   title: "Renderer/Outlines",
@@ -20,14 +22,34 @@ const meta = {
     },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the zoom (camera distance, tile size on screen) and the outlines' stroke" },
-    fadeThresholdTilePx: {
-      control: { type: "range", min: 0, max: 300, step: 1 },
-      description: "Outlines off at or below this tile size on screen (CSS px): read it off the readout",
+    force: {
+      control: "inline-radio",
+      options: ["auto", "on", "off"],
+      description: "Outlines on software WebGL (SwiftShader, llvmpipe...): auto turns them off there; on and off force them whatever the detection says. The console logs the path taken",
       table: { category: "Outlines" },
     },
-    fadeRangeTilePx: { control: { type: "range", min: 0, max: 200, step: 1 }, description: "Fade-in range above the threshold (tile px)", table: { category: "Outlines" } },
-    maxWidthPx: { control: { type: "range", min: 1, max: 6, step: 0.25 }, description: "Maximum outline width (CSS px)", table: { category: "Outlines" } },
-    maxWidthTilePx: { control: { type: "range", min: 100, max: 2000, step: 10 }, description: "Tile size (px) at which the width reaches its maximum", table: { category: "Outlines" } },
+    fadeFullFactor: {
+      control: { type: "range", min: 0.5, max: 2, step: 0.01 },
+      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\")",
+      table: { category: "Outlines" },
+    },
+    fadeOffFactor: {
+      control: { type: "range", min: 0.3, max: 2, step: 0.01 },
+      description: "Outlines off at or below this share of the opening tile size; linear fade up to the fully-on share",
+      table: { category: "Outlines" },
+    },
+    widthVoxels: {
+      control: { type: "range", min: 0, max: 0.2, step: 0.005 },
+      description: "Width in the world, as a fraction of a voxel's width (0.015: 1.5 %); a tile is 40 voxels a side",
+      table: { category: "Outlines" },
+    },
+    minWidthDevicePx: {
+      control: { type: "range", min: 0.25, max: 3, step: 0.25 },
+      description: "Thinnest stroke (device px): the width never draws thinner. Under 1, a 1 px line at that share of its opacity",
+      table: { category: "Outlines" },
+    },
+    maxWidthPx: { control: { type: "range", min: 0.5, max: 6, step: 0.25 }, description: "Widest stroke (CSS px): the cap zoomed in", table: { category: "Outlines" } },
+    color: { control: "color", description: "Outline colour on screen", table: { category: "Outlines" } },
     minDistance: { control: { type: "range", min: 1, max: 60, step: 1 }, description: "Closest camera distance (fully zoomed in)", table: { category: "Camera" } },
     maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },

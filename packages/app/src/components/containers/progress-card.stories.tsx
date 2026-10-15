@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ACHIEVEMENTS_MIXED, QUESTS_TODAY } from "../../mocks/quests";
 import { ProgressCard, type ProgressCardProps } from "./progress-card";
 import { achievementText, questText } from "./quest-text";
+import { BIG_NUMBER, LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
 
 const quest = (i: number): ProgressCardProps => {
   const q = QUESTS_TODAY.quests[i];
@@ -31,3 +32,14 @@ export const AchievementInProgress: Story = { args: achievement(5) };
 export const AchievementLocked: Story = { args: achievement(8) };
 /** An id the accepted list does not know: its number, no description. */
 export const UnknownId: Story = { args: { ...quest(1), ...questText(42) } };
+/** WRAP360: a long title and rule with an unbroken compound, large points and counts. */
+export const Stress: Story = {
+  args: {
+    ...achievement(0),
+    title: LONG_LABEL,
+    description: `${LONG_SENTENCE} ${LONG_WORD}`,
+    points: BIG_NUMBER,
+    tasks: achievement(0).tasks.map((t) => ({ ...t, count: BIG_NUMBER - 1, total: BIG_NUMBER })),
+    retired: true,
+  },
+};

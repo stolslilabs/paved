@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Score } from "./score";
+import { BIG_SCORE } from "../../mocks/stress";
 
 const meta = { title: "Elements/Score", component: Score, parameters: { layout: "padded" }, args: { value: 1240, label: "Score" } } satisfies Meta<typeof Score>;
 export default meta;
@@ -18,6 +19,16 @@ export const Sizes: Story = {
     <div className="flex flex-col gap-4">
       {(["sm", "md", "lg", "xl"] as const).map((size) => (
         <Score key={size} size={size} value={size === "sm" ? 111 : 1888} label={size} />
+      ))}
+    </div>
+  ),
+};
+/** WRAP360: a score beyond any real game at each size, with a gain. */
+export const Stress: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      {(["sm", "hud", "md", "lg", "xl"] as const).map((size) => (
+        <Score key={size} value={BIG_SCORE} delta={9_999} size={size} label="Score" icon="star" />
       ))}
     </div>
   ),

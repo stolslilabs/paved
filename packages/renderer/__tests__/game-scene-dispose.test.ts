@@ -95,9 +95,11 @@ describe("GameScene.dispose, idempotence and ownership", () => {
     expect(renderer.forceContextLoss).not.toHaveBeenCalled();
   });
 
-  it("disposed while the models load: init binds no resize or input handler", async () => {
+  it("disposed while the models load: init binds no input handler and leaves no resize subscription", async () => {
     const { scene } = createScene();
     const surface = createSurface();
+    const unsubscribe = vi.fn();
+    surface.onResize = vi.fn(() => unsubscribe);
     let release!: () => void;
     (scene as any).assets.preloadAll = vi.fn(() => new Promise<void>((r) => (release = r)));
 
@@ -107,7 +109,9 @@ describe("GameScene.dispose, idempotence and ownership", () => {
     await pending;
 
     expect(surface.bindInput).not.toHaveBeenCalled();
-    expect(surface.onResize).not.toHaveBeenCalled();
+    // The resize subscription is taken before the load (a resize during it counts) and released by the dispose.
+    expect(surface.onResize).toHaveBeenCalledTimes(1);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 
   it("init after dispose works again on the same instance", async () => {

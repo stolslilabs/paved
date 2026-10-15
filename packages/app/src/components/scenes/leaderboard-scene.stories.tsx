@@ -28,3 +28,5 @@ export const Loading: Story = { args: LEADERBOARD.loading };
 
 /** The indexer did not answer: Retry. */
 export const Error: Story = { args: LEADERBOARD.error };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: LEADERBOARD.stress };

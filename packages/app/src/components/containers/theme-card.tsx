@@ -91,11 +91,11 @@ export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className
           </Badge>
         )}
       </span>
-      <span className="flex items-center gap-3 p-3">
+      <span className="flex items-start gap-3 p-3">
         <Icon name={theme.icon} size="md" className={selected ? "text-primary" : "text-muted-foreground"} fixedWidth />
-        <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
           <span className="text-sm font-semibold">{theme.name}</span>
-          <span className="truncate text-xs text-muted-foreground">{theme.tagline}</span>
+          <span className="text-xs text-muted-foreground">{theme.tagline}</span>
         </span>
         {selected ? <Icon name="circle-check" size="md" className="text-primary" label="Selected" /> : soon ? <Icon name="lock" size="sm" className="text-muted-foreground" /> : null}
       </span>

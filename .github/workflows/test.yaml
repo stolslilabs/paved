@@ -244,6 +244,25 @@ jobs:
       # A broken story fails the pull request (docs/client/v2-architecture.md, section 4.4).
       - name: Build Storybook
         run: bun run --filter @paved/app build-storybook
+      # WRAP360: every story at 360 and 320 px, headless; fails on text that overflows, is cut without its full value, or
+      # scrolls the page (packages/app/scripts/wrap-sweep.ts). The browser is the one the app's playwright-core 1.63.0
+      # names (chromium-headless-shell revision 1243), cached under that version like the e2e job's.
+      - name: Playwright version
+        id: playwright
+        working-directory: packages/app
+        run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
+        shell: bash
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+      - name: Install the browser
+        working-directory: packages/app
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+        shell: bash
+      - name: Wrap sweep (360 and 320 px)
+        run: bun run --filter @paved/app wrap-sweep
       - name: Test
         run: bun run test
 
