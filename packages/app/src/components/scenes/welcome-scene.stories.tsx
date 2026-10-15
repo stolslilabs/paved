@@ -14,3 +14,5 @@ export const FirstVisit: Story = { args: WELCOME.firstVisit };
 export const Connecting: Story = { args: WELCOME.connecting };
 
 export const ConnectFailed: Story = { args: WELCOME.failed };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: WELCOME.stress };

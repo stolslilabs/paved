@@ -5,7 +5,8 @@ import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
 import { formatDay, DAY_S } from "../elements/day-picker";
-import { PlayerName, shortAddress } from "../elements/player-name";
+import { PlayerName } from "../elements/player-name";
+import { ShortAddress } from "../elements/short-address";
 import { formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
 import { PlayerGames } from "../containers/player-games";
@@ -43,11 +44,11 @@ export function PlayerScene(props: PlayerSceneProps) {
             {profile === null ? (
               <Skeleton className="h-5 w-32" />
             ) : (
-              <PlayerName name={player?.name ?? null} address={playerId} className="font-display text-lg font-semibold" />
+              <PlayerName name={player?.name ?? null} address={playerId} className="min-w-0 font-display text-lg font-semibold" />
             )}
-            {self && <Badge variant="secondary">You</Badge>}
+            {self && <Badge variant="secondary" className="shrink-0">You</Badge>}
           </span>
-          <span className="truncate font-mono text-xs text-muted-foreground" title={playerId}>{shortAddress(playerId)}</span>
+          <ShortAddress address={playerId} className="text-xs text-muted-foreground" />
           {player?.created != null && <span className="text-xs text-muted-foreground">Playing since {formatDay(Math.floor(player.created / DAY_S))}</span>}
         </div>
         {today && (

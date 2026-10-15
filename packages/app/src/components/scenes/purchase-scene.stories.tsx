@@ -39,3 +39,5 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 
 /** The approve and spawn on their way. */
 export const Buying: Story = { args: PURCHASE.buying };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: PURCHASE.stress };

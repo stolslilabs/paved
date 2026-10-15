@@ -37,7 +37,7 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
         type="button"
         disabled={disabled}
         onClick={onSelect}
-        className="flex cursor-pointer items-center gap-4 text-left outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
+        className="flex cursor-pointer items-start gap-4 text-left outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
       >
         <span
           className={cn(
@@ -47,15 +47,16 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
         >
           <Icon name={disabled ? "lock" : icon} size="lg" />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-center gap-2">
+        {/* The text wraps (WRAP360); the icon tile stays at the top, the chevron at the card's middle. */}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 wrap-anywhere">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-display text-base font-semibold">{title}</span>
             {badge && <Badge variant={disabled ? "secondary" : featured ? "default" : "outline"}>{badge}</Badge>}
           </span>
           <span className="text-sm text-muted-foreground">{description}</span>
           {disabled && reason && <span className="text-xs text-warning">{reason}</span>}
         </span>
-        {!disabled && <Icon name="chevron-right" className="text-muted-foreground transition-transform group-hover:translate-x-0.5" size="md" />}
+        {!disabled && <Icon name="chevron-right" className="self-center text-muted-foreground transition-transform group-hover:translate-x-0.5" size="md" />}
       </button>
       {children && <div className="relative">{children}</div>}
     </div>

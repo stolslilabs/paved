@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { MOCK_NOW, MOCK_TIME_ZONE } from "../../mocks/clock";
 import { Deadline } from "./deadline";
 
+
 /** The clock and the time zone are fixed, so every viewer reads the same text. */
 const meta = {
   title: "Elements/Deadline",
@@ -24,3 +25,5 @@ export const UtcTooltip: Story = {
     await expect(within(canvasElement).getByText(/Oct/)).toHaveFocus();
   },
 };
+/** WRAP360: the widest relative time; the local time wraps to its own line when the line is full. */
+export const Stress: Story = { args: { expiresAt: MOCK_NOW + 999 * 3600 + 59 * 60 }, decorators: [(Story) => <div className="max-w-40 text-sm"><Story /></div>] };

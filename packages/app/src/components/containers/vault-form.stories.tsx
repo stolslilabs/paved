@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { PAVED_BALANCE } from "../../mocks/economy";
 import { EXIT_FEE_BPS, PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD } from "../../mocks/vault";
 import { VaultForm } from "./vault-form";
+import { BIG_AMOUNT_18 } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/VaultForm",
@@ -37,3 +38,5 @@ export const Withdraw: Story = { args: { mode: "withdraw", amount: "500", previe
 export const WithdrawOverMax: Story = { args: { mode: "withdraw", amount: "1300", preview: null } };
 export const Withdrawing: Story = { args: { mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500, busy: "withdraw" } };
 export const WithdrawingAll: Story = { args: { mode: "withdraw", amount: "", preview: null, busy: "withdrawAll" } };
+/** WRAP360: the largest balance, amount and preview. */
+export const Stress: Story = { args: { amount: "123456789012.99", balance: BIG_AMOUNT_18, preview: BIG_AMOUNT_18, shares: BIG_AMOUNT_18, maxWithdraw: BIG_AMOUNT_18 } };

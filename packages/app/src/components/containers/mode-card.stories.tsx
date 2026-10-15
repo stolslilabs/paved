@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { LEADERBOARD_TODAY } from "../../mocks/players";
 import { ModeCard } from "./mode-card";
 import { TopThree } from "./top-three";
+import { LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/ModeCard",
@@ -30,4 +31,8 @@ export const WithContent: Story = {
     description: "Today's ranked game.",
     children: <TopThree entries={LEADERBOARD_TODAY.entries} />,
   },
+};
+/** WRAP360: a long title and badge, a description with an unbroken compound, a long reason; the icon stays at the top. */
+export const Stress: Story = {
+  args: { featured: true, icon: "trophy", title: LONG_LABEL, badge: "Coming soon", description: `${LONG_SENTENCE} ${LONG_WORD}`, disabled: true, reason: LONG_SENTENCE },
 };

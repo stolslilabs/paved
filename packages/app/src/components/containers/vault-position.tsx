@@ -30,7 +30,7 @@ export function VaultPosition({ position, className }: VaultPositionProps) {
       <div className="flex flex-wrap items-end justify-between gap-3 pb-3">
         <span className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">Your share</span>
-          <Amount value={position.shares} token="vpaved" className="text-3xl text-foreground" />
+          <Amount value={position.shares} token="vpaved" className="text-2xl text-foreground mobile:text-3xl" />
         </span>
         <span className="flex flex-col items-end gap-1">
           <span className="text-xs text-muted-foreground">Worth</span>

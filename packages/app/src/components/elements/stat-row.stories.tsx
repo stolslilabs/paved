@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { BIG_AMOUNT_18, BIG_NUMBER, LONG_ADDRESS, LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
+import { Amount } from "./amount";
 import { StatRow } from "./stat-row";
 
 const meta = {
@@ -17,3 +19,12 @@ export const Gold: Story = { args: { label: "Score", value: "1 270", icon: "star
 export const Success: Story = { args: { label: "Burn boost", value: "+3%", icon: "arrow-trend-up", tone: "success" } };
 export const Danger: Story = { args: { label: "Missed by", value: "210", icon: "triangle-exclamation", tone: "danger" } };
 export const NoIcon: Story = { args: { icon: undefined } };
+/** WRAP360: a long label and hint wrap (the icon stays on the first line), a compound word breaks, a large figure keeps one line. */
+export const Stress: Story = {
+  render: (args) => (
+    <>
+      <StatRow {...args} label={LONG_LABEL} hint={LONG_SENTENCE} value={<Amount value={BIG_AMOUNT_18} token="paved" />} />
+      <StatRow {...args} label={LONG_WORD} hint={LONG_ADDRESS} value={BIG_NUMBER.toLocaleString("en-US")} />
+    </>
+  ),
+};
