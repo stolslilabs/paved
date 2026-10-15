@@ -1,5 +1,5 @@
 import { Account, RpcProvider } from "starknet";
-import { MAX_STAKE, controllerPolicies, createControllerConnector, type PavedClient, type WriteAccount } from "@paved/chain";
+import { MAX_STAKE, controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
 import { chainClient } from "../data/chain-client";
 import type { WalletConnector } from "./wallet";
 
@@ -20,28 +20,56 @@ export async function entryApprove(client: PavedClient): Promise<{ token: string
   }
 }
 
-/** The `VITE_*` variables of the burner; read from the build's env. */
-export interface BurnerEnv {
-  VITE_PLAYER_ADDRESS?: string;
-  VITE_PLAYER_PRIVATE_KEY?: string;
+/** `@paved/chain`'s controller connector (its type is not exported from the chain's entry). */
+type ControllerConnector = ReturnType<typeof createControllerConnector>;
+
+/** A devnet burner: a predeployed account and its key. */
+export interface Burner {
+  address: string;
+  key: string;
 }
 
 /**
- * The connector of this build's deployment. Rejects when the deployment is not configured (`createPavedClient`'s
- * `not-configured` error), or on devnet without the burner's two variables.
+ * Whether this build is a devnet build: `VITE_NETWORK=devnet`, or the dev server without a network (`chainClient`'s
+ * default). Vite replaces both sides with literals at build time, so in any other build this is the constant `false`.
  */
-export async function appConnector(env: BurnerEnv = import.meta.env as BurnerEnv): Promise<WalletConnector> {
-  const client = chainClient();
+const DEVNET_BUILD = import.meta.env.VITE_NETWORK === "devnet" || (import.meta.env.DEV && !import.meta.env.VITE_NETWORK);
+
+/**
+ * The burner of this build: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, read by static accesses behind
+ * `DEVNET_BUILD`. Outside a devnet build the branch folds away at build time and neither value is in the bundle, whatever
+ * the build's environment holds (checked on a Sepolia build: the PR's "build check").
+ */
+export const BUILD_BURNER: Burner | null = DEVNET_BUILD
+  ? import.meta.env.VITE_PLAYER_ADDRESS && import.meta.env.VITE_PLAYER_PRIVATE_KEY
+    ? { address: import.meta.env.VITE_PLAYER_ADDRESS, key: import.meta.env.VITE_PLAYER_PRIVATE_KEY }
+    : null
+  : null;
+
+/** The connector of this build's deployment (`chainClient`, `BUILD_BURNER`). Rejects when the deployment is not configured. */
+export async function appConnector(): Promise<WalletConnector> {
+  return connectorFor(chainClient(), BUILD_BURNER);
+}
+
+/**
+ * The connector of `client`'s deployment: on devnet the burner (refused without one), elsewhere the controller. The
+ * burner is never used outside devnet, even when given. `controller` builds the controller's connector (tests give a
+ * fake one).
+ */
+export function connectorFor(
+  client: PavedClient,
+  burner: Burner | null,
+  controller: (config: ControllerConfig) => ControllerConnector = createControllerConnector,
+): WalletConnector {
   const { deployment } = client;
   if (deployment.network === "devnet") {
     // starknet.js's tip estimate stalls on devnet: no tip there (as app-web).
     const signer = (account: WriteAccount) => client.writer(account, { tip: 0n });
-    const { VITE_PLAYER_ADDRESS: address, VITE_PLAYER_PRIVATE_KEY: key } = env;
-    if (!address || !key) throw new Error("no devnet account: set VITE_PLAYER_ADDRESS and VITE_PLAYER_PRIVATE_KEY");
+    if (!burner) throw new Error("no devnet account: set VITE_PLAYER_ADDRESS and VITE_PLAYER_PRIVATE_KEY");
     let account: WriteAccount | null = null;
     return {
       probe: async () => null,
-      connect: async () => (account ??= new Account({ provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }), address, signer: key })),
+      connect: async () => (account ??= new Account({ provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }), address: burner.address, signer: burner.key })),
       disconnect: async () => {},
       username: async () => null,
       signer,
@@ -49,17 +77,17 @@ export async function appConnector(env: BurnerEnv = import.meta.env as BurnerEnv
   }
   // Checked now: no controller on an incomplete deployment.
   controllerPolicies(deployment);
-  const controller = createControllerConnector({
+  const connector = controller({
     rpc: deployment.rpcUrl,
     chainId: deployment.chainId,
     // The price is read once, when the controller is first used.
     policies: async () => controllerPolicies(deployment, { approve: await entryApprove(client) }),
   });
   return {
-    probe: () => controller.probe(),
-    connect: () => controller.connect(),
-    disconnect: () => controller.disconnect(),
-    username: () => controller.username(),
+    probe: () => connector.probe(),
+    connect: () => connector.connect(),
+    disconnect: () => connector.disconnect(),
+    username: () => connector.username(),
     signer: (account) => client.writer(account),
   };
 }

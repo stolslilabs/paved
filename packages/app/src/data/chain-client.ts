@@ -1,4 +1,4 @@
-import { createPavedClient, resolveDeployment, type DeploymentFile, type PavedClient } from "@paved/chain";
+import { ViewError, createPavedClient, resolveDeployment, type DeploymentFile, type PavedClient } from "@paved/chain";
 
 // The chain client of the app (P5): `PavedClient` on the deployment the build names. Imported only through a dynamic
 // `import()` (`routes/sources.ts`), so starknet.js is fetched with the first page that reads the chain, never in the
@@ -7,8 +7,11 @@ import { createPavedClient, resolveDeployment, type DeploymentFile, type PavedCl
 /** `contracts/deployments/<network>.json`, keyed by path. */
 const FILES = import.meta.glob<{ default: DeploymentFile }>("../../../../contracts/deployments/*.json", { eager: true });
 
-/** The network of the build: `VITE_NETWORK`, devnet by default (as app-web). */
-export const network = (): string => import.meta.env.VITE_NETWORK || "devnet";
+/**
+ * The network of the build: `VITE_NETWORK`. The dev server defaults to devnet (as app-web); a production build without
+ * it has none, and the chain client refuses (`chainClient`) instead of falling back to devnet.
+ */
+export const network = (): string => import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : "");
 
 let client: PavedClient | null = null;
 
@@ -20,15 +23,17 @@ let client: PavedClient | null = null;
 export function chainClient(): PavedClient {
   if (client) return client;
   const name = network();
+  if (!name) throw new ViewError("not-configured", "Not connected: this build names no network (set VITE_NETWORK)");
   const file = Object.entries(FILES).find(([path]) => path.endsWith(`/${name}.json`))?.[1].default ?? null;
-  const env = import.meta.env;
+  // Each value by its own static access: `import.meta.env` as a whole is every `VITE_*` value of the build's environment
+  // in a literal, a devnet key included.
   const deployment = resolveDeployment({
     network: name,
     file,
     env: {
-      rpcUrl: env.VITE_RPC_URL,
-      deployedBlock: env.VITE_DEPLOYED_BLOCK,
-      addresses: { Challenge: env.VITE_CHALLENGE_ADDRESS, Setup: env.VITE_SETUP_ADDRESS },
+      rpcUrl: import.meta.env.VITE_RPC_URL,
+      deployedBlock: import.meta.env.VITE_DEPLOYED_BLOCK,
+      addresses: { Challenge: import.meta.env.VITE_CHALLENGE_ADDRESS, Setup: import.meta.env.VITE_SETUP_ADDRESS },
     },
   });
   client = createPavedClient(deployment);

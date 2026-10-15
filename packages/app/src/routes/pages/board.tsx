@@ -13,7 +13,8 @@ import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { useTutorialClaim, useTutorialClaimed, useTutorialRun } from "../../data/tutorial";
-import { useAccount } from "../../wallet/wallet";
+import { WalletNotice } from "../../wallet/notice";
+import { useAccount, type WalletState } from "../../wallet/wallet";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
@@ -137,6 +138,7 @@ function TrainingBoard() {
           />
         ) : undefined
       }
+      footnote={<WalletNotice />}
       onBack={onBack}
       onRotate={rotate}
       onConfirm={confirm}
@@ -254,6 +256,10 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
           )}
         </main>
+        {/* A board route has no footer (`Shell`): the D-15 notice is here, as on the board. */}
+        <p className="px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground">
+          <WalletNotice />
+        </p>
       </div>
     );
   }
@@ -326,6 +332,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
           />
         ) : undefined
       }
+      footnote={<WalletNotice />}
       onBack={onBack}
       onRotate={rotate}
       onConfirm={confirm}
@@ -461,6 +468,7 @@ function TutorialBoard() {
           />
         ) : undefined
       }
+      footnote={<WalletNotice />}
       onBack={onBack}
       onRotate={rotate}
       onConfirm={confirm}
@@ -475,8 +483,13 @@ function TutorialBoard() {
  * needs no transaction. Nothing checks on chain that the tutorial was played (P-49): the claim is the player's word.
  */
 function TutorialComplete({ score }: { score: number }) {
-  const go = useAppNavigate();
   const wallet = useAccount();
+  // One claim per account: another account (a disconnect, then another connect) starts from its own read.
+  return <TutorialClaim key={wallet.address ?? "guest"} wallet={wallet} score={score} />;
+}
+
+function TutorialClaim({ wallet, score }: { wallet: WalletState; score: number }) {
+  const go = useAppNavigate();
   const claimed = useTutorialClaimed(wallet.address);
   const claim = useTutorialClaim();
   const outcome = claim.data?.outcome ?? null;

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EngineGame, NOT_A_DISCARD, TUTORIAL_STORAGE_KEY, scriptedMoves, tutorialSteps, type TutorialMove } from "@paved/game-core";
@@ -82,6 +82,30 @@ describe("/tutorial (P6): the scripted game on the board scene", { timeout: 30_0
     await userEvent.click(screen.getByRole("button", { name: /Discard/ }));
     expect(hand()).toHaveTextContent(NOT_A_DISCARD);
     expect(stepLabel()).toBe(`Step 1 of ${scriptedMoves().length}`);
+  });
+
+  it("a claim belongs to its account: after a disconnect, another account claims its own", async () => {
+    const store = memoryStore({ [TUTORIAL_STORAGE_KEY]: JSON.stringify({ version: 1, moves: scriptedMoves() }) });
+    const wallet = fakeWallet({ addresses: [PLAYER, "0xb0b"], claimEvents: CREDITED });
+    render(<App router={createTestRouter("/tutorial")} sources={fakeSources({ store: () => store }).sources} connector={wallet.load} />);
+    await screen.findByRole("heading", { name: "Tutorial complete" }, { timeout: 5000 });
+    const complete = () => screen.getByTestId("tutorial-complete");
+    await userEvent.click(within(complete()).getByRole("button", { name: "Connect" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Claim First Stone" }));
+    expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
+
+    // Disconnect is in the footer, which the board routes do not have: Home, Disconnect, then back to the tutorial.
+    await userEvent.click(within(complete()).getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }, { timeout: 5000 }));
+    await userEvent.click(screen.getByText("Learn the rules, one stage at a time."));
+    await screen.findByRole("heading", { name: "Tutorial complete" }, { timeout: 5000 });
+    await userEvent.click(within(complete()).getByRole("button", { name: "Connect" }));
+    // The second account starts from its own read: offered the claim, not told the first account's.
+    expect(await screen.findByRole("button", { name: "Claim First Stone" })).toBeInTheDocument();
+    expect(screen.queryByText("Claimed: First Stone is yours.")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Claim First Stone" }));
+    expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
+    expect(wallet.calls.filter((c) => c === "claimTutorial")).toHaveLength(2);
   });
 
   it("an account that claimed before is told so without a transaction", async () => {

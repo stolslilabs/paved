@@ -41,7 +41,8 @@ describe("the active tab comes from the route's own entry", () => {
 
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
-    await screen.findByRole("heading", { level: 1, name: page.title });
+    // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
+    await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: 5000 });
     const active = screen.getAllByRole("button", { current: "page" });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });

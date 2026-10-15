@@ -7,10 +7,14 @@ import type { LoadConnector, WalletConnector } from "../src/wallet/wallet";
  * iframe on Cartridge's service), which jsdom cannot run: what is faked is the controller's window and its account;
  * the provider's state, the signer slot and the pages' use of them are real.
  */
-export function fakeWallet(options: { address?: string; refuse?: string; restored?: boolean; claimEvents?: WriteResult["events"] } = {}) {
+export function fakeWallet(
+  options: { address?: string; refuse?: string; restored?: boolean; claimEvents?: WriteResult["events"]; /** One account per connect, in turn. */ addresses?: string[] } = {},
+) {
   const address = options.address ?? "0x5f1";
   const calls: string[] = [];
-  const account: WriteAccount = { address, execute: async () => ({ transaction_hash: "0x1" }) };
+  const accountOf = (at: string): WriteAccount => ({ address: at, execute: async () => ({ transaction_hash: "0x1" }) });
+  const account = accountOf(address);
+  let connects = 0;
   const result = (events: WriteResult["events"] = []): WriteResult => ({ transactionHash: "0xabc", events });
   const signer = (from: WriteAccount): GameSigner =>
     ({
@@ -25,7 +29,8 @@ export function fakeWallet(options: { address?: string; refuse?: string; restore
     connect: async () => {
       calls.push("connect");
       if (options.refuse) throw new Error(options.refuse);
-      return account;
+      const next = options.addresses?.[connects++];
+      return next ? accountOf(next) : account;
     },
     disconnect: async () => void calls.push("disconnect"),
     username: async () => null,
