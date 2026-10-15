@@ -6,11 +6,12 @@ import { LONG_ADDRESS, LONG_NAME } from "../src/mocks/stress";
 
 // WRAP360: addresses are cut in the middle and never broken over two lines; the full value stays reachable.
 describe("ShortAddress", () => {
-  it("cuts a full address in the middle and keeps it whole in its title, on one line", () => {
+  it("cuts a full address in the middle, on one line, and keeps it whole for the pointer and a screen reader", () => {
     render(<ShortAddress address={LONG_ADDRESS} />);
-    const el = screen.getByText("0x07a1…7e8f");
-    expect(el).toHaveAttribute("title", LONG_ADDRESS);
+    const el = screen.getByTitle(LONG_ADDRESS);
     expect(el).toHaveClass("whitespace-nowrap");
+    expect(screen.getByText("0x07a1…7e8f")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText(LONG_ADDRESS)).toHaveClass("sr-only");
   });
 
   it("shows a short id whole", () => {

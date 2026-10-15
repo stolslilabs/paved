@@ -14,7 +14,7 @@ bun run build --filter @paved/app    # tsc, then vite build into dist/
 bun run test --filter @paved/app     # Vitest + Testing Library (jsdom)
 bun run --filter @paved/app storybook        # Storybook on http://localhost:6006
 bun run --filter @paved/app build-storybook  # a static site in storybook-static/ (git-ignored)
-bun run --filter @paved/app wrap-sweep       # every story at 360 and 320 px, headless: text that overflows or is cut
+bun run --filter @paved/app wrap-sweep       # every story at 360 and 320 px, headless: text that overflows, is cut or is split
 ```
 
 The wrap sweep (`scripts/wrap-sweep.ts`, WRAP360) reads `storybook-static/`, so build Storybook first; it needs the

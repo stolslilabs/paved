@@ -586,7 +586,8 @@ line; an amount's symbol may go under its figure. An icon beside wrapping text s
 a 20 px box). Every text-showing component has a `Stress` story (`src/mocks/stress.ts`: a long sentence, a 66-character
 address, a German compound, large figures). `bun run --filter @paved/app wrap-sweep`, after `build-storybook`, opens every
 story at 360 and 320 px in headless Chromium and fails on text that leaves its box, text cut without its full value,
-or a page that scrolls sideways; its allowlist names each deliberate exception. The CI `client` job runs it.
+an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
+exception. The CI `client` job runs it.
 
 ### 3.5 Animated components: chosen sources
 

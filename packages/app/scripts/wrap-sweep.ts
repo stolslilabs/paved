@@ -18,6 +18,8 @@
  *   on the element or an ancestor. An ellipsis with one of them is fine and not listed.
  * - `scroll`: a box that scrolls horizontally. Only deliberate scrollers are fine, and they are in ALLOWED.
  * - `page`: the page itself scrolls horizontally.
+ * - `split`: an address (`0x…`, short or full) or a run of monospace text broken over two lines although it would fit
+ *   on one line of its block: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
  * - `error`: the story failed to render.
  *
  * Exit code 1 when a finding is not in ALLOWED.
@@ -28,7 +30,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 
-type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "page" | "error";
+type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
 interface Finding {
   story: string;
@@ -59,21 +61,32 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: "ui-tooltip--sides", kind: "page", element: "html scrollWidth", why: "four triggers in a row" },
   { story: "ui-tooltip--sides", kind: "viewport", element: "tooltip-", why: "four triggers in a row" },
   { story: "ui-tooltip--sides", kind: "overflow", element: 'div "toprightbottomleft"', why: "four triggers in a row" },
-  { story: /^foundations-typography--/, kind: "page", element: "html scrollWidth", why: "type specimen lines" },
-  { story: /^foundations-typography--/, kind: "viewport", element: "", why: "type specimen lines" },
-  { story: /^foundations-typography--/, kind: "overflow", element: "", why: "type specimen lines" },
-  // The extended tiles' viewer prints each model's file path on one line; on Linux's font metrics it passes 320 px. The
-  // story is in `src/stories/tiles`, outside WRAP360's files: listed in the PR for a later fix.
-  { story: /^tiles-extended--/, kind: "page", element: "html scrollWidth", why: "model path label, outside WRAP360" },
-  { story: /^tiles-extended--/, kind: "viewport", element: ".glb", why: "model path label, outside WRAP360" },
-  { story: /^tiles-extended--/, kind: "overflow", element: ".glb", why: "model path label, outside WRAP360" },
+  // Foundations/Typography: each weight's line ("Place the tile, close the road", "1,240 · 0123456789") and each figure
+  // row is one specimen line, by design.
+  { story: "foundations-typography--weights", kind: "page", element: "html scrollWidth", why: "type specimen lines" },
+  { story: "foundations-typography--weights", kind: "viewport", element: 'span "Place the tile, close the road"', why: "type specimen line" },
+  { story: "foundations-typography--weights", kind: "viewport", element: 'span "1,240 · 0123456789"', why: "type specimen line" },
+  { story: "foundations-typography--weights", kind: "overflow", element: 'li "font-sans font-', why: "type specimen line" },
+  { story: "foundations-typography--weights", kind: "overflow", element: 'li "font-display font-', why: "type specimen line" },
+  { story: "foundations-typography--weights", kind: "overflow", element: 'li "numeric font-', why: "type specimen line" },
+  // The weight captions' notes ("200 (Rubik starts at 300)") wrap under the specimen in the narrow caption column.
+  { story: "foundations-typography--weights", kind: "split", element: 'run "200 (Rubik starts at 300)"', why: "caption note" },
+  { story: "foundations-typography--weights", kind: "split", element: 'run "600 (Space Mono has 700)"', why: "caption note" },
+  { story: "foundations-typography--tabular-numbers", kind: "page", element: "html scrollWidth", why: "figure specimen rows" },
+  { story: "foundations-typography--tabular-numbers", kind: "viewport", element: 'ul "1111111,2408,8880.0012,345"', why: "figure specimen row" },
+  { story: "foundations-typography--tabular-numbers", kind: "overflow", element: 'section "font-sans tabular-nums', why: "figure specimen row" },
+  { story: "foundations-typography--tabular-numbers", kind: "overflow", element: 'section "numeric (Space Mono', why: "figure specimen row" },
+  { story: "foundations-typography--tabular-numbers", kind: "overflow", element: 'code "font-sans proportional-nums"', why: "figure specimen row" },
   // The board's canvas keeps the width it mounted at when the window narrows (opened at 320 px it fits). The renderer's
-  // files belong to R-VIS (t-0304), not WRAP360: listed in the PR for a later fix.
+  // files belong to R-VIS, not WRAP360; R-VIS's canvas ResizeObserver should make these two entries unneeded.
   { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
   { story: /^renderer-outlines--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
+  // The outlines story's readout ("… outline 1.43 px at 100%") wraps at 360 px; `src/stories/renderer` is R-VIS's: for a
+  // later fix there.
+  { story: "renderer-outlines--held", kind: "split", element: 'output "distance', why: "readout, R-VIS" },
 ];
 
-const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "scroll"];
+const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "split", "scroll"];
 
 function args() {
   const argv = process.argv.slice(2);
@@ -221,6 +234,50 @@ function inspect(): { kind: string; element: string }[] {
       // Only text that leaves the box counts: a hover background bled into the parent's padding (`-mx-2`) does not.
       const box = el.getBoundingClientRect();
       if (textRects(el).some((t) => t.right > box.right + 1 || t.left < box.left - 1)) out.push({ kind: "overflow", element: describe(el), el });
+    }
+  }
+
+  // Runs that must not break: each address (`0x` and hex, an ellipsis inside when shortened), and each monospace text node.
+  // A shortened address is split as soon as its rects sit on two lines. A full address is split when they do while its
+  // width fits the line it sits in: the content width of its nearest block that is not itself a flex or grid item, since a
+  // squeezed item ("0x05f1…" over "6e7f" beside a button) is the very defect. Another monospace run is split when its
+  // width fits its own block (a label that wraps in a narrow grid cell is not).
+  const ADDRESS = /0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?/g;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const text = n.textContent ?? "";
+    const parent = n.parentElement;
+    if (!text.trim() || !parent || skip.has(parent) || parent.closest("svg, script, style, #storybook-docs, .sb-wrapper, .sb-errordisplay")) continue;
+    const pcs = getComputedStyle(parent);
+    if (pcs.display === "none" || pcs.visibility === "hidden") continue;
+    const runs: [number, number, boolean][] = [];
+    if (/mono/i.test(pcs.fontFamily)) {
+      const start = text.length - text.trimStart().length;
+      runs.push([start, start + text.trim().length, false]);
+    }
+    for (const m of text.matchAll(ADDRESS)) {
+      const at = m.index ?? 0;
+      const same = runs.findIndex(([s, e]) => s === at && e === at + m[0].length);
+      if (same >= 0) runs[same][2] = true;
+      else runs.push([at, at + m[0].length, true]);
+    }
+    const room = (el: Element | null, lineBox: boolean) => {
+      const item = (e: Element) => !!e.parentElement && /flex|grid/.test(getComputedStyle(e.parentElement).display);
+      while (el && (getComputedStyle(el).display.startsWith("inline") || (lineBox && item(el)))) el = el.parentElement;
+      if (!el) return 0;
+      const ecs = getComputedStyle(el);
+      return el.clientWidth - parseFloat(ecs.paddingLeft) - parseFloat(ecs.paddingRight);
+    };
+    for (const [start, end, address] of runs) {
+      const range = document.createRange();
+      range.setStart(n, start);
+      range.setEnd(n, end);
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+      const lines = new Set(rects.map((r) => Math.round(r.top / 4)));
+      if (lines.size < 2) continue;
+      const width = rects.reduce((sum, r) => sum + r.width, 0);
+      const run = text.slice(start, end);
+      if ((address && run.includes("…")) || width <= room(parent, address) + 1) out.push({ kind: "split", element: `${describe(parent)} run "${run.slice(0, 40)}"`, el: parent });
     }
   }
 
