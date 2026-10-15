@@ -1,0 +1,791 @@
+# Gems v1 (P-61, design)
+
+Documents only: no contract, script or package change, nothing deployed. Track CORE writes the design; the PM rules on
+it; CORE then implements it with a review and an audit (value and access); CLIENT follows with the pack, theme, quest
+and achievement pages and the indexer (P-61 ruling 8).
+
+The owner's feature (2026-10-15) and the PM's rulings B1 to B8 (P-61) are the input. In short: gems are an on-chain,
+non-transferable balance per account (B2), earned only by quest and achievement claims and pack purchases, spent only
+on tile skins; four packs at 50 for $5, 100 for $10, 500 for $45 and 1,000 for $90 (B1); completing every daily quest of
+a day, or every weekly quest of a week, credits one free Challenge game (B4); packs are paid on chain after Glitchbomb's
+purchase component, priced in USD through the game price's source (B5); skins are owned per account, tile type and
+theme, with at most one active skin per tile type (B6, B7).
+
+Every gas figure below is an **estimate** unless it says "measured". No Cairo build or test was run for this document.
+Each estimate is derived from measured unit costs: a storage read of 76,840 L2 gas, a write of 118,210, an event of about
+32,800 (`docs/architecture/g7-gas-plan.md`, 1.4, `test_profile_g7_units`), and the measured scenarios of
+`docs/measures/baseline.md`. The implementation task measures each one (section 7.3).
+
+## Sources
+
+- **Paved** at this branch's base (main `ca034af2`), cited by path from the repository root.
+- **Glitchbomb** at commit `5efcbce`, cited `glitchbomb@5efcbce:<path>:<line>`. Licence: the root `LICENSE` is the
+  MIT License, "Copyright (c) 2025 cartridge-gg" (`glitchbomb@5efcbce:LICENSE:1-3`). `contracts/package.json` says
+  `"license": "ISC"` (`glitchbomb@5efcbce:contracts/package.json:18`), which conflicts with the LICENSE file.
+- **Nums** at commit `4f8f405`, cited `nums@4f8f405:<path>:<line>`. Licence: the root `LICENSE` is the MIT License,
+  "Copyright (c) 2023 Dojo" (`nums@4f8f405:LICENSE:1-3`). `contracts/Scarb.toml` has no licence field.
+- Both benchmarks were read from exports at those commits (contracts, client sources, docs), without their agent
+  instruction files. **No code is copied from either.** Where this design follows one, the file is named.
+
+### What the benchmark does, and what Paved takes from it
+
+| | Glitchbomb | Nums | Paved gems v1 |
+|---|---|---|---|
+| Where the purchase lives | in `Setup`, beside the quest and achievement components (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:59-95`); public `quote` and `issue` (`:258-304`) | the same pattern: `Setup` exposes `issue` and `quote` (`nums@4f8f405:contracts/src/systems/setup.cairo:226-270`) | **in `Setup`**, beside quiver's quests and achievements (section 1) |
+| The purchase component | a thin layer over Cartridge's `bundle` package, which is not in the export: empty storage and events, internal functions only (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:35-42`, `:44-265`). The buyer's transfer happens inside the package's `issue` | the same layer over the same package (`nums@4f8f405:contracts/src/components/purchase.cairo:4-7`, `:35-42`) | Paved's own code in `Setup`: no `bundle` package, no Dojo |
+| Price | fixed amounts of a quote token, no oracle: bundle `i` costs `(i + 1) x base_price` (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:82-97`) | fixed amounts of a quote token, 1 % discount per step (`nums@4f8f405:contracts/src/components/purchase.cairo:82-99`); no oracle | fixed USDC amounts, the source of the game price (section 2.1) |
+| Split | burn share swapped and burned, then a vault share, then the rest to the team; whole percentages set by the admin (`glitchbomb@5efcbce:contracts/src/components/purchase.cairo:178-238`) | burn, vault, team, in the same order (`nums@4f8f405:contracts/src/components/purchase.cairo:130-193`) | the game's split by default (burn, Vault, LP fee in the swap), a configurable share to a treasury address (section 2.3) |
+| Who sets bundles | `ADMIN_ROLE`, granted to the deployer (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:251-255`, `:307-502`) | `ADMIN_ROLE` (`nums@4f8f405:contracts/src/systems/setup.cairo:275-409`) | `Setup`'s owner (section 2.2) |
+| What a purchase credits | game NFTs (`glitchbomb@5efcbce:contracts/src/systems/setup.cairo:161-169`) | game NFTs (`nums@4f8f405:contracts/src/systems/setup.cairo:107-121`) | gems |
+| A free game's quest progress | skipped: `create(..., false)`, for a reentrancy reason ("the quest component is never re-entered", `glitchbomb@5efcbce:contracts/src/systems/play.cairo:209-213`) | not visible in the export | **skipped**, to close the credit loop (section 4.3) |
+| A currency | none: "credits" is an icon only (`glitchbomb@5efcbce:client/src/components/icons/regulars/credits.tsx`) | none. The gem icons (`nums@4f8f405:client/src/components/icons/powers/gem.{regular,lock,used}.tsx`) are the art of an in-game power, `PowerType.Gem` (`nums@4f8f405:client/src/types/power.ts:35`, description "Gem power" at `:223-224`); **not related** to a balance | gems, a balance in `Setup` |
+
+Both benchmarks claim quest rewards automatically in a completion hook, which needs quest progress stored per player on
+chain (`docs/architecture/quests-v2.md`, 1.4). Paved runs quiver in event mode: nothing per player is stored
+(`contracts/src/systems/setup.cairo:302`, `quests.md`, "Quest mode"). Quiver's storage mode was measured at 3.24M to
+6.46M L2 gas per report (`quests.md:236`), above the P-22 guard of +1.5M on the closing move. So the proof a claim needs
+is Paved's own: the smaller own design that `quests-v2.md` 2.3 proposed, specified in section 3.
+
+## 1. Systems and storage
+
+### 1.1 Where each piece lives: `Setup`
+
+**Decided: everything lives in `Setup`.** The gem balance, the free-game credit, the progress ledger that proves the
+claims, the claims, the packs and their purchase, skin ownership and the active set.
+
+Why:
+
+- **It follows Glitchbomb's layout**, where the purchase sits in `Setup` beside the quests and achievements.
+- **The claims need the progress, and the progress is reported to `Setup`.** `Challenge` already reports every game
+  over to `Setup.report` (`contracts/src/systems/challenge.cairo:503`). With the ledger in the same contract, a claim
+  reads local storage, with no cross-contract trust.
+- **No external minter of gems.** Gems are written only by `Setup`'s own entry points. The audit property "no gem minted
+  outside a claim or a purchase" is then a property of one class.
+- **`Collection` is the ERC-721 of the game tokens**, the wrong place for an account balance. A new system would need
+  the ledger, or a trusted call into `Setup` for every claim.
+- **The class has room.** `Setup` is 14,499 CASM felts, 17.7 % of the 81,920 cap; the programme's limit is 90 %
+  (`docs/architecture/class-headroom.md`, "After D-25 E"). The implementation measures its new size.
+
+Two other systems change:
+
+- **`Challenge`** gains the free spawn (section 4).
+- **`Economy`** gains one entry point, which splits a sale's USDC the way a game's is split (section 2.3).
+
+`Collection`, `Vault`, `PavedToken` and `Faucet` do not change.
+
+**Reversal:** a `Shop` system holding the packs and the skins, if `Setup`'s CASM passes 50 % of the cap. That costs a
+trusted `Setup` call per gem spend.
+
+### 1.2 New storage of `Setup`
+
+Every member is **appended** after the existing ones (`economy`, `collection`, `contracts/src/systems/setup.cairo:187-192`),
+so no earlier address moves (P-42). Sepolia is deployed fresh anyway (section 6.4). Every packed slot is one
+`felt252`, read and written whole.
+
+| Member | Key | Value (packed) | Written by |
+|---|---|---|---|
+| `accounts` | `player_id: felt252` | `gems: u64`, `credits: u16`, lifetime counts `games`, `forests`, `wonders`, `big`, `high` (`u16` each, saturating), `achievements_claimed: u64` (bit `i` = achievement `i`). 224 bits | `report`, `claim_quest`, `claim_achievement`, `claim_daily_credit`, `claim_weekly_credit`, `buy_pack`, `buy_skin`, `spend_credit` |
+| `days` | `(player_id, day: u64)` | the sums of the day's paid game overs: `games: u16`, `structures: u16`, `forests: u16` (saturating), `points: u32` (saturating); `claimed: u64` (bit `i` = quest `i` claimed for that day); `credit: bool`. 145 bits | `report`, `claim_quest`, `claim_daily_credit` |
+| `weeks` | `(player_id, week: u64)` | the same layout, for the week | `report`, `claim_quest`, `claim_weekly_credit` |
+| `quest_gems` | `quest_id: u32` | `gems: u8`, `kind: u8` (1 daily, 2 weekly), `task: u32`, `total: u32`, `start: u64`, `interval: u32`. A copy of the quiver definition's schedule and single task, taken when the gems are set (section 3.2) | `set_quest_gems`, `retire_quest` |
+| `quest_lists` | `kind: u8` | up to 15 quest ids (`u16` each): the quests of that kind that have gems | `set_quest_gems`, `retire_quest` |
+| `achievement_gems` | `achievement_id: u32` | `gems: u8`, `task: u32`, `total: u32`, copied from the definition | `set_achievement_gems`, `retire_achievement` |
+| `shop` | (single) | `token: ContractAddress` (USDC, set once), `treasury: ContractAddress`, `economy_bps: u16` | `configure_shop` |
+| `packs` | `pack_id: u8` | `gems: u32`, `price: u128` (USDC base units, 6 decimals), `active: bool` | `set_pack` |
+| `skin_prices` | `(theme: u8, plan: u8)` | `gems: u8`; 0 = not for sale | `set_skin_price` |
+| `skins` | `(player_id, theme: u8)` | `owned: u32`: bit `p` = the skin of plan `p` (1 to 19) of that theme is owned | `buy_skin` |
+| `active_skins` | `player_id` | 19 theme ids (`u8` each, 152 bits): the theme active for plan `p`; 0 = the default theme | `set_skins` |
+
+Calendar of the periods:
+
+- **Day number:** `day = t / 86,400`, the same as Paved's day id (`contracts/src/systems/challenge.cairo:492`).
+- **Week number:** `week = (t - 345,600) / 604,800`. The weekly quests start at 345,600, Monday 1970-01-05 00:00 UTC
+  (`quests.md`, "Weekly quests"), so a week runs Monday to Sunday UTC.
+- `t` is the block time of the report: a game counts for the day and the week it **ends** in, the rule the indexer
+  already applies to quiver's events (`quests.md`, "Daily quests").
+
+**Why the layout:**
+
+- **One `accounts` slot carries the gems and the achievement counts**, so an achievement claim reads and writes one
+  slot, and a game over writes one slot for both.
+- **Gems and credits are not ERC-20 state.** There is no `transfer`, `approve` or `allowance`, so there is no transfer
+  path (B2).
+- **The lifetime counts are `u16`.** The highest target is Settler V's 1,000 games (`quests.md`, "Higher tiers").
+  `set_achievement_gems` refuses a total above 65,535, so a saturated count can never sit under a reachable target.
+- **Ids are bounded.** Quest and achievement ids must be 1 to 63, for the claim bitmaps. The fresh deployment uses
+  quests 1 to 16 and achievements 1 to 16.
+- **Skin ids are small.** Themes are 1 to 255 (`u8`, 0 is the default theme). Plans are the `u8` codes of `Plan`, 1 to
+  19 (`contracts/src/types/plan.cairo:94-118`).
+
+### 1.3 Who may write each, and what it costs
+
+| Write | Who | Entry point | Gas (estimate unless measured) |
+|---|---|---|---|
+| Progress: `days`, `weeks`, `accounts` counts | an allowlisted reporter, today `Challenge` only (`set_reporter`, owner) | `report` (exists; new writes) | **+0.59M per paid game over**: three slots read and written, 3 x (76,840 + 118,210) = 585,150. A free game over writes `accounts` only: +0.20M. Today's report is about 0.61M of a surrender's 3.17M (`g7-gas-plan.md`, 1.1: 19.2 % of g). Against the P-22 guard of +1.5M on the closing move: within it. The worst build game over, l, measured 6,581,227 (`baseline.md`, "After G7a"), becomes about 7.17M |
+| Gems, by a quest claim | the player, for itself | `claim_quest` | about 0.50M: `quest_gems`, `days` (or `weeks`) and `accounts` read, two writes, one event (3 x 76,840 + 2 x 118,210 + 32,800 = 499,740) |
+| Gems, by an achievement claim | the player, for itself | `claim_achievement` | about 0.38M: `achievement_gems` and `accounts` read (and `tutorial_claims` for First Stone), one write, one event |
+| A credit, by the dailies | the player, for itself | `claim_daily_credit` | about 1.27M: the list, ten `quest_gems` entries, `days` and `accounts` read, two writes, one event (13 reads) |
+| A credit, by the weeklies | the player, for itself | `claim_weekly_credit` | about 0.73M: the list, three entries, `weeks` and `accounts` |
+| Gems, by a pack | the player, for itself | `buy_pack` | about 9.5M. One or two USDC `transferFrom` (about 1.0M each: 5.7 % of the spawn m, 17.64M, `g7-gas-plan.md`, 1.1), `Economy.split_sale` (the swap and burn of `Economy.purchase`, about 8.4M: 47.7 % of m, less the terms it does not write), `accounts` read and written |
+| A credit spent | `Challenge` (the reporter allowlist), for the caller of `spawn_free` | `spend_credit` | about 0.38M: the external call (about 0.18M, the step D figure of a `Setup` call, `baseline.md`, "After D-21/24") and `accounts` read and written |
+| Gems spent, a skin owned | the player, for itself | `buy_skin` | about 0.50M: `skin_prices`, `skins`, `accounts` read, two writes, one event |
+| The active set | the player, for itself | `set_skins` | about 0.30M for any number of changes: `skins` read once per theme named, `active_skins` read and written once, one event |
+| Gems per quest and per achievement, packs, skin prices, the shop | `Setup`'s owner | `set_quest_gems`, `set_achievement_gems`, `set_pack`, `set_skin_price`, `configure_shop` | one-off admin calls; about 0.3M to 0.6M each (two definition reads, one or two writes, one event) |
+
+**Decided: the player is always the caller.** No entry point credits, spends or activates for another address. A
+purchase cannot be a gift, so no path moves value between accounts (reversal: a gift is a later ruling, with its own
+audit).
+
+## 2. Pack purchase on chain
+
+### 2.1 Price: USDC, the source of the game price
+
+**There is no oracle in Paved's game price.** A Challenge game costs `stake x CHALLENGE_PRICE`, a constant of 2 USDC
+(`contracts/src/constants.cairo:15`), read by `Mode::price` (`contracts/src/types/mode.cairo:30-35`) and by
+`Economy::BASE_PRICE` (`contracts/src/systems/economy.cairo:40`). USDC is the USD unit. Glitchbomb and Nums price their
+bundles the same way: fixed amounts of a quote token, no oracle (see Sources).
+
+**Decided:** a pack's price is a USDC amount in base units (6 decimals), paid in the token `Challenge` takes. The four
+packs of B1:
+
+| Pack | Gems | Price (USD) | `price` (USDC base units) | Per gem | Against the $0.20 reference |
+|---|---:|---:|---:|---:|---:|
+| 1 | 50 | 5 | 5,000,000 | $0.100 | -50 % |
+| 2 | 100 | 10 | 10,000,000 | $0.100 | -50 % |
+| 3 | 500 | 45 | 45,000,000 | $0.090 | -55 % |
+| 4 | 1,000 | 90 | 90,000,000 | $0.090 | -55 % |
+
+Packs 1 and 2 have the same price per gem (B1 flags it to the owner; section 8).
+
+### 2.2 Who sets the packs
+
+`Setup`'s owner calls `set_pack(pack_id, gems, price, active)`:
+
+- `pack_id` is 1 to 8.
+- `gems` and `price` are both non-zero.
+- `active = false` stops sales of that pack without deleting it.
+
+Each call emits `PackSet`. The owner is `OwnableComponent`'s two-step owner (`contracts/src/components/ownable.cairo`),
+as for every `Setup` setting. The owner is trusted to set prices: no bound beyond non-zero. The fresh deployment sets
+the four packs above (section 6.4).
+
+### 2.3 The payment flow and the split
+
+`configure_shop(token, treasury, economy_bps)`, owner only:
+
+- `token` is written once and never zero; it must be the token `Challenge` pulls.
+- `treasury` is a plain address. There is no on-chain Treasury (D-26).
+- `economy_bps` is 0 to 10,000. It may be called again to change `treasury` and `economy_bps`.
+- It emits `ShopConfigured`.
+
+`buy_pack(pack_id, min_out)`, the caller for itself:
+
+1. **[Check]** The shop is configured, the pack is active, and `economy` is set in the wiring.
+2. **[Effect]** `accounts[caller].gems += pack.gems`. It reverts if the sum passes `u64`; it cannot in practice.
+3. **[Interaction]**
+   - `to_economy = price x economy_bps / 10,000`, rounded down; `to_treasury = price - to_economy`.
+   - If `to_economy > 0`: `token.transferFrom(caller, economy, to_economy)`, then
+     `Economy.split_sale(to_economy, min_out)`.
+   - If `to_treasury > 0`: `token.transferFrom(caller, treasury, to_treasury)`.
+   - Every `transferFrom` must return true.
+4. **[Event]** `PackBought { player_id, pack_id, gems, price, to_economy, to_treasury, balance }`.
+
+The player approves `Setup` on USDC for `price` first, as it approves `Challenge` for a game.
+
+**`Economy.split_sale(amount, min_out)`, new, seller only:**
+
+- **Who:** the `seller` is set once by `Economy`'s owner (`set_seller`). Any other caller gets `'Economy: not the
+  seller'`.
+- **What it does:** the split of a game purchase, with no game.
+  - It checks that `amount` USDC is on `Economy`.
+  - It splits the amount by the configured `burn_bps` (`contracts/src/systems/economy.cairo:90-98`: 73.68 % swapped
+    for the burn, the rest for the Vault).
+  - It swaps the whole USDC balance in one swap that must fill whole and buy at least `min_out` PAVED.
+  - It pays the margin's PAVED to the Vault, with no share minted, and burns the rest. This is the sequence of
+    `purchase` (`contracts/src/systems/economy.cairo:684-698`).
+- **What it does not do:**
+  - It pays no referral. Packs have no referrer.
+  - It writes no terms and no player, and does not touch a day's accumulator or the mean.
+  - It does not move the guard's rate. That rate prices the games' `R`, and a pack purchase must not be a lever on it.
+- **Event:** `SaleSplit { amount, burned_quote, burned, margin, vault_paved, supply }`.
+
+The client takes `min_out` from `Economy.quote_swap(to_economy)` less 1 %, as it does for a game.
+
+**Default: `economy_bps = 10,000`.** The whole price takes the game's split: about 70 % burned, 25 % to the Vault and
+5 % to the LP through the pool fee (`contracts/src/systems/economy.cairo:84-89`). This holds until the owner answers
+where the USD revenue goes (B5). Any answer is one owner call; no class change is needed:
+
+- all to the team: `economy_bps = 0` and the team's `treasury`;
+- a mix: any value in between.
+
+**What the default does to the economy.** A pack burns PAVED and raises the Vault's rate, exactly as a game's margin
+does. A lower supply raises the supply factor `F = 2 - S / T` (`docs/architecture/economy.md:74`), so every later game's `R` is a
+little higher: revenue from cosmetics then feeds the players' rewards. This is a property of the default, not a
+decision of this document; the owner's answer settles it.
+
+**Why not Glitchbomb's sweep of the contract's balance:** `Setup` holds no USDC between calls. Each amount goes straight
+from the player to its recipient, so no balance is left to sweep, and a stray transfer to `Setup` is not someone
+else's revenue. (`Economy` keeps its own rule: any USDC on it joins the next swap.)
+
+### 2.4 Events of the shop
+
+`ShopConfigured { token, treasury, economy_bps }`, `PackSet { pack_id, gems, price, active }`,
+`PackBought { player_id, pack_id, gems, price, to_economy, to_treasury, balance }`, and on `Economy`
+`SellerSet { seller }` and `SaleSplit { ... }`.
+
+## 3. Claims
+
+### 3.1 Gems per quest and per achievement
+
+These are first guesses, within the owner's bounds: quests 5 to 15, "of the order of tens" by difficulty;
+achievements 10 to 90, "of the order of fifties". They are calibrated like the targets (Q-4). The ids, tasks, counts
+and windows are the ones `scripts/deploy.sh`'s fresh path defines today (`FRESH_QUESTS` and `FRESH_ACHIEVEMENTS`,
+`scripts/deploy.sh:2245-2256`; `quests.md`, "Every quest and achievement the fresh deployment defines").
+
+**Quests (13 defined; ids 2 to 4 are not defined).** Rule: the easy, middle and hard target of a family give 5, 10
+and 15; Daily Run, always live and the easiest, gives 5; a weekly quest gives 15, the top of the bound.
+
+| Quest | Kind | Task, count | Window | Difficulty | Gems |
+|---|---|---|---|---|---:|
+| 1 Daily Run | daily, every day | `GAME_FINISHED` 1 | 86,400 in 86,400, start 0 | easy | 5 |
+| 5 Small Works | rotating daily (day mod 3 = 0) | `STRUCTURE_SCORED` 4 | 86,400 in 259,200, start 0 | easy | 5 |
+| 6 Public Works | rotating daily (1) | `STRUCTURE_SCORED` 8 | start 86,400 | middle | 10 |
+| 7 Great Works | rotating daily (2) | `STRUCTURE_SCORED` 12 | start 172,800 | hard | 15 |
+| 8 Woodland Walk | rotating daily (0) | `FOREST_SCORED` 2 | start 0 | easy | 5 |
+| 9 Deep Woods | rotating daily (1) | `FOREST_SCORED` 3 | start 86,400 | middle | 10 |
+| 10 Old Growth | rotating daily (2) | `FOREST_SCORED` 4 | start 172,800 | hard | 15 |
+| 11 Warm-Up Score | rotating daily (0) | `POINTS` 2,000 | start 0 | easy | 5 |
+| 12 Strong Day | rotating daily (1) | `POINTS` 5,000 | start 86,400 | middle | 10 |
+| 13 Grand Day | rotating daily (2) | `POINTS` 8,000 | start 172,800 | hard | 15 |
+| 14 Weekly Forester | weekly | `FOREST_SCORED` 5 | 604,800 in 604,800, start 345,600 | weekly | 15 |
+| 15 Weekly Builder | weekly | `STRUCTURE_SCORED` 30 | the same | weekly | 15 |
+| 16 Weekly Points | weekly | `POINTS` 20,000 | the same | weekly | 15 |
+
+What a player can earn from quests at most:
+
+- **A day:** 20 when the day number mod 3 is 0 (5 + 5 + 5 + 5), 35 when it is 1, 50 when it is 2. That is 35 a day on
+  average.
+- **A week:** 45 from the weekly quests.
+- **About 30 days:** about 1,240 gems (35 x 30 + 45 x 30 / 7). That is more than the 1,000-gem pack ($90), plus up to
+  30 daily and 4 weekly free games (section 8, open item 4).
+
+**Achievements (16 defined).** Rule: **gems = the achievement's display points**. The points were already set by
+difficulty (P-22 and v2a), so there is one difficulty scale and no second table to keep in step. Every value is within
+10 to 90.
+
+| Achievement | Task, count | Points | Gems |
+|---|---|---:|---:|
+| 1 First Stone | `TUTORIAL_FINISHED` 1 (the unchecked claim, D-21) | 10 | 10 |
+| 2 Settler I | `GAME_FINISHED` 1 | 10 | 10 |
+| 3 Settler II | `GAME_FINISHED` 10 | 20 | 20 |
+| 4 Settler III | `GAME_FINISHED` 50 | 40 | 40 |
+| 5 Grand Builder | `BIG_STRUCTURE` 1 | 20 | 20 |
+| 6 Forester | `FOREST_SCORED` 10 | 20 | 20 |
+| 7 Pilgrimage | `WONDER_SCORED` 1 | 30 | 30 |
+| 8 High Roller | `HIGH_SCORE` 1 | 30 | 30 |
+| 9 On the Podium | `PODIUM` 1, credited by the indexer | 50 | **none in v1** |
+| 10 Forester II | `FOREST_SCORED` 50 | 40 | 40 |
+| 11 Pilgrimage II | `WONDER_SCORED` 10 | 50 | 50 |
+| 12 Grand Builder II | `BIG_STRUCTURE` 10 | 40 | 40 |
+| 13 High Roller II | `HIGH_SCORE` 10 | 50 | 50 |
+| 14 High Roller III | `HIGH_SCORE` 25 | 80 | 80 |
+| 15 Settler IV | `GAME_FINISHED` 250 | 60 | 60 |
+| 16 Settler V | `GAME_FINISHED` 1,000 | 80 | 80 |
+
+All 15 claimable achievements add up to 580 gems.
+
+**On the Podium has no gems in v1.** Its task (8) is credited by the indexer from its daily leaderboard after a day
+closes (`quests.md`, "On the Podium"). Nothing on chain ranks players since D-20, so no claim can prove it, and a claim
+signed by the indexer would make it a trusted minter (rejected in `quests-v2.md` 2.3). `set_achievement_gems` refuses a
+task not counted on chain: only 1, 4, 5, 6, 7 and 10 are accepted. Open item 5 (section 8).
+
+### 3.2 Setting the gems
+
+`set_quest_gems(quest_id, gems)`, owner only. It reads quiver's definition: `StoreTrait::get_definition`, two slots,
+`quiver_quest` 0.2.0 `store.cairo:97`. It refuses the call unless all of these hold:
+
+- the quest is defined and not retired;
+- `gems` is 5 to 15, or 0, which removes the gems;
+- the quest has exactly one task, of task 1, 2, 3 or 4 (the tasks the ledger sums);
+- its schedule is one of two shapes:
+  - **daily:** `duration` 86,400, `interval` a non-zero multiple of 86,400, `start` a multiple of 86,400;
+  - **weekly:** `duration = interval = 604,800`, `start % 604,800 == 345,600`.
+
+It copies the schedule and the task into `quest_gems`, and adds the id to its kind's list, or removes it when the gems
+are 0. It emits `QuestGemsSet { quest_id, gems, kind }`. A quiver definition can never be edited
+(`contracts/src/systems/setup.cairo:35-37`), so the copy cannot drift from it. `retire_quest` also clears the copy and
+the list entry, in the same call.
+
+`set_achievement_gems(achievement_id, gems)` works the same way:
+
+- `gems` is 10 to 90, or 0;
+- the definition has one task, one of 1, 4, 5, 6, 7 or 10;
+- its total is at most 65,535;
+- it emits `AchievementGemsSet`.
+
+**Why copy:** a claim reads one slot instead of two. The dailies' credit claim then reads 10 slots instead of 20,
+about -0.77M (estimate).
+
+### 3.3 How a claim is made, and made once
+
+**`claim_quest(quest_id, period)`**, where `period` is the day number for a daily quest and the week number for a
+weekly one:
+
+1. `entry = quest_gems[quest_id]`; it reverts `'Setup: no gems'` when the gems are 0.
+2. **Live in that period:** with `t0 = period x 86,400` (daily) or `345,600 + period x 604,800` (weekly), the copied
+   schedule is active at `t0`: `start <= t0` and `(t0 - start) % interval < duration`. This is quiver's
+   `ScheduleTrait::is_active` (`quiver_quest` 0.2.0, `types/schedule.cairo:32`). Otherwise it reverts `'Setup: not live'`.
+   Given the two shapes, the quest's window is then exactly that day or that week.
+3. **Completed:** the period's slot (`days[(caller, period)]` or `weeks[...]`) holds a sum for `entry.task` of at least
+   `entry.total`. Otherwise it reverts `'Setup: not completed'`.
+4. **Once:** bit `quest_id` of the slot's `claimed` is clear, or it reverts `'Setup: claimed'`.
+5. **[Effect]** Set the bit, `accounts[caller].gems += entry.gems`, then emit
+   `GemsClaimed { player_id, kind: 1 quest, id, period, gems, balance }`.
+
+A period still running can be claimed as soon as its target is met: the sums only grow. Past periods stay claimable
+with no deadline, since their slots persist. A future period has an empty slot, so its claim fails at step 3.
+
+**`claim_achievement(achievement_id)`:**
+
+1. `entry = achievement_gems[achievement_id]`, with non-zero gems.
+2. The count of its task:
+   - task 1, 4, 5, 6 or 7: the lifetime count in `accounts`;
+   - task 10: 1 if `tutorial_claims[caller]`, else 0.
+3. The count must be at least the total.
+4. Bit `achievement_id` of `achievements_claimed` must be clear.
+5. **[Effect]** Set the bit, add the gems, emit `GemsClaimed { kind: 2 achievement, period: 0, ... }`.
+
+**The double-claim guard** is one bit per (player, quest, period), or per (player, achievement), set in the same write
+that credits the gems. A second claim finds the bit set and reverts.
+
+**Claimed, not automatic** (B4: "Claimed, not automatic, like quests"). A claim in the report would add a gem write and
+the definitions' reads to every game over. It would also make a game over revert-prone if a claim could fail. The
+client multicalls several claims in one transaction.
+
+### 3.4 The free game of the dailies and the weeklies (B4)
+
+**Decided: proven on chain, from `Setup`'s own ledger, not from the indexer.** A credit has value (a game), so its proof
+must be the contract's. The indexer only shows it.
+
+**`claim_daily_credit(day)` proves:**
+
+- for the account `caller` and the day number `day`,
+- **every daily quest live on that day is completed**: every id in `quest_lists[daily]` whose copied schedule is active
+  at `day x 86,400` has a sum in `days[(caller, day)]` of at least its total;
+- at least one daily quest is live that day;
+- the slot's `credit` bit is clear.
+
+Then it sets the bit, adds `credits += 1`, and emits `CreditClaimed { player_id, kind: 1, period: day, credits }`. With
+the fresh definitions, the live set is Daily Run plus the three rotating quests of `day mod 3` (`quests.md`, "Four
+dailies a day").
+
+**`claim_weekly_credit(week)`** does the same with `quest_lists[weekly]`, `weeks[(caller, week)]` and the week's start.
+With the fresh definitions, the set is quests 14, 15 and 16.
+
+The credit does not need the gem claims, or the reverse: the bits are separate. A player can claim the gems of the four
+dailies and the day's credit in one multicall.
+
+**One limit, accepted:** "every daily quest of that day" is the list at the time of the claim, not at that day. Adding
+or removing a quest's gems changes which quests a past day's credit needs. Gems are changed rarely, by the owner, and
+never lower what a player earned; a claim already made stands.
+
+## 4. The free spawn
+
+### 4.1 Entry point and guard
+
+**`Challenge.spawn_free() -> u32`**, the caller for itself:
+
+1. **[Check]** `spawn` is not paused (G4, `contracts/src/systems/challenge.cairo:426`). The pause also stops free
+   games: it is the emergency stop of new games, and a free game consumes a credit.
+2. **[Interaction]** Read the wiring: the collection must be set; the economy is not used.
+3. **[Effect]** Spawn the game through `hostable.spawn_with`, as `spawn` does, with `GameSpawned.price = 0`. Today the
+   event carries `mode.price()`; the free path passes 0.
+4. **[Interaction]** `Setup.spend_credit(player_id, game_id)`:
+   - an allowlisted reporter only (`'Quest: not reporter'` otherwise);
+   - it reverts `'Setup: no credit'` when `credits == 0`;
+   - otherwise `credits -= 1` and it emits `CreditSpent { player_id, game_id, credits }`.
+5. **[Effect]** Mark the game free (section 4.2), then mint the game token to the caller as `spawn` does.
+
+**It differs from `spawn` in three ways:**
+
+- There is no USDC `transferFrom` and no `Economy.purchase`: nothing burned, nothing to the Vault, no LP fee, no
+  referral, no terms.
+- There is no stake argument.
+- The game is marked free.
+
+Estimate: about 7.0M L2 gas, against the paid spawn m at 16,066,315 (`baseline.md`, "After G7a"). That is m less
+`Economy.purchase` (about 8.4M) and the USDC `transferFrom` (about 1.0M), plus `spend_credit` (about 0.38M).
+
+**Why the reporter allowlist spends credits:** the only caller that should spend a credit is the game contract that
+spawns the game. The allowlist already names it, and a reporter is already trusted with every player's progress, so
+with gems and credits through the ledger (section 7.4, A6). A separate spender role would be a second list that must
+always be equal to the first.
+
+### 4.2 The free game's game over
+
+**Marking the game:** a bit of the game's state word, carried in the game-over tally (`paved::quests::encode`,
+`contracts/src/quests.cairo:36`), so the game over reads nothing more. If no bit is free, a `Challenge` map
+`free_games: Map<u32, bool>`, appended, costs one read on every game over (about +77k, estimate). The implementation
+chooses by measuring.
+
+`finish` (`contracts/src/systems/challenge.cairo:503`) changes for a free game:
+
+- **Quests:** it reports **no quest entries**, so there are no `QuestProgressed` events and no `days` or `weeks`
+  writes.
+- **Achievements:** it reports the achievement entries as for any game, and `Setup` adds them to the lifetime counts.
+- **`Economy`:** it does **not** call `Economy.record`. `record` would revert `'Economy: unknown game'`, since the game
+  was never purchased (`contracts/src/systems/economy.cairo:757`).
+
+A paid game's game over is unchanged, apart from the ledger writes in `Setup.report` (section 1.3).
+
+**Its rewards follow the normal rules, and they come to nothing in PAVED.** Paved's reward is `R x h(score / mean)`,
+where `R` is frozen from the PAVED its purchase burned, times its stake boost (`curve::reference`,
+`contracts/src/economy/curve.cairo:102-106`). A game's weight in the day's mean is its stake (`Day::add`,
+`contracts/src/economy/mean.cairo:97-104`). A free game burned nothing and stakes nothing, so under the normal rules its
+`R` is 0, its weight 0 and its reward 0. Leaving it out of `Economy` gives exactly that result, and leaves the
+accumulator, the mean, the guard and the Vault untouched: "nothing comes in" (B4). A free game is a game played for the
+quests' achievements, the leaderboard and the skins, with no PAVED at stake. Section 8, open item 2, asks whether the
+owner meant a $2 game that pays like a paid one; that would be a mint with no burn.
+
+### 4.3 Abuse cases
+
+| Case | What stops it |
+|---|---|
+| **A free game's rewards** | No PAVED: it is not in `Economy` (4.2). Its score does not move the mean, so it cannot push other players under the cliff. It earns the gems of the achievements it advances, once each, like any game |
+| **Credit farming by free games** | A free game reports no quest progress, so it can never complete a day's or a week's quests. Without this, a player who completes the four dailies in one game would play for free forever after one paid game. Glitchbomb skips a reward game's quest progress too, for a reentrancy reason (Sources) |
+| **Credit farming by paid games** | A daily credit needs every live daily completed by paid games of that day, so at least one paid entry ($2). The credit it buys has no PAVED value (4.2). Credits and gems are bound to the account, so many accounts gain nothing that can be moved |
+| **Training** | Off chain, with no on-chain gain (D-22). It never reports, so it earns no gems, no credit and no achievement |
+| **The tutorial claim** | `claim_tutorial` is unchecked (D-21, P-49 (2)), so any account can claim First Stone and its 10 gems. They cannot be moved, and they are a fifth of the cheapest skin. Accepted; open item 6 |
+| **Surrender** (P-28's note: "if a reward ever attaches to Daily Run or Settler, revisit whether a surrender counts") | Revisited: a paid surrender still counts. It cost a full entry ($2), and Daily Run's 5 gems (at most $0.50 at pack prices) do not pay for it. A free game's surrender counts for the achievements only, and a credit is earned by paid play first |
+| **A reporter that lies** | A reporter can credit any player any progress, so any gems and credits. Today the only reporter is `Challenge`, which reports for the caller of the move that ended its own game (`contracts/src/systems/setup.cairo:5-8`). The owner must never allowlist an account or an untrusted contract (audit A6) |
+| **Slippage on a pack** | `min_out`, as for a game; the swap must fill whole |
+
+## 5. X and the rarity of skins
+
+### 5.1 X = 19
+
+The Challenge deck is `Deck::Simple` (`contracts/src/types/mode.cairo:57-62`). It holds the 72 tiles of the base deck
+(`total_count`, `contracts/src/elements/decks/simple.cairo:29-31`, `base.cairo:32-34`) and keeps 38 of them for a game
+(`count`, `simple.cairo:34-36`), drawn uniformly (`contracts/src/types/deck.cairo:111-133`). The 72 tiles are of **19
+distinct plans**: every `Plan` but `None` (`contracts/src/types/plan.cairo:43-64`), each at least once in the base
+deck's table (`contracts/src/elements/decks/base.cairo:41-114`), with the counts its test asserts (`:167-186`).
+
+**X = 19.** At most 19 skins are active for a player, one per plan. The starter tile is always plan `RFFFRFCFR`
+(`contracts/src/models/game.cairo:159`), one of that plan's four copies.
+
+### 5.2 The rarity table
+
+**Formula:** `price(c) = 50 + 50 x (9 - c) / 8`, rounded to the nearest 5 (halves up). Here `c` is the plan's count
+among the 72 tiles, from 1 (rarest) to 9 (commonest). The rarest plan costs 100 gems, the commonest 50, and the price
+falls linearly with the count. A game keeps a uniform 38 of the 72, so the rarity of a plan in a game is the same ratio.
+
+| Plan (`u8` code) | Count in 72 | Share | Price (gems) |
+|---|---:|---:|---:|
+| `CCCCCCCCC` (1) | 1 | 1.4 % | 100 |
+| `SFRFRFRFR` (17) | 1 | 1.4 % | 100 |
+| `FFCFFFFFC` (6) | 2 | 2.8 % | 95 |
+| `WFFFFFFFR` (19) | 2 | 2.8 % | 95 |
+| `CCCCCFRFC` (3) | 3 | 4.2 % | 90 |
+| `CFFFCFFFC` (4) | 3 | 4.2 % | 90 |
+| `FFCFFFCFF` (5) | 3 | 4.2 % | 90 |
+| `RFRFFFCFR` (12) | 3 | 4.2 % | 90 |
+| `RFRFRFCFF` (14) | 3 | 4.2 % | 90 |
+| `SFRFRFCFR` (15) | 3 | 4.2 % | 90 |
+| `CCCCCFFFC` (2) | 4 | 5.6 % | 80 |
+| `RFFFRFCFR` (9) | 4 | 5.6 % | 80 |
+| `SFRFRFFFR` (16) | 4 | 5.6 % | 80 |
+| `WFFFFFFFF` (18) | 4 | 5.6 % | 80 |
+| `FFFFCCCFF` (7) | 5 | 6.9 % | 75 |
+| `FFFFFFCFF` (8) | 5 | 6.9 % | 75 |
+| `RFRFCCCFR` (11) | 5 | 6.9 % | 75 |
+| `RFFFRFFFR` (10) | 8 | 11.1 % | 55 |
+| `RFRFFFFFR` (13) | 9 | 12.5 % | 50 |
+
+The counts add up to 72. A whole theme of 19 skins costs 1,580 gems: about $142 at the 1,000 pack's price, or about
+$316 at the $0.20 reference.
+
+**Decided:** the owner sets each price with `set_skin_price(theme, plan, gems)`, bounded 50 to 100 (0 withdraws it from
+sale; `SkinPriced` event). The table is the default for every theme. A theme may price otherwise within the bounds, by
+the same calls.
+
+### 5.3 Buying and activating
+
+**`buy_skin(theme, plan)`:**
+
+- **[Check]** The price is non-zero, the skin is not owned (`'Setup: skin owned'`), and `gems >= price`
+  (`'Setup: not enough gems'`).
+- **[Effect]** `gems -= price`, set the plan's bit in `skins[(caller, theme)]`.
+- **[Event]** `SkinBought { player_id, theme, plan, gems, balance }`.
+
+Buying does not activate.
+
+**`set_skins(changes: Span<(plan, theme)>)`:**
+
+- For each change, the plan is 1 to 19. The theme is either 0 (the default theme, always allowed) or a theme whose skin
+  of that plan the caller owns (`'Setup: skin not owned'`).
+- **[Effect]** One write of `active_skins[caller]` (B6: "one write per change"; a batch of changes is still one write).
+- **[Event]** `SkinsActivated { player_id, active }`, with the packed word, so the indexer stores the whole set.
+
+At most one theme per plan holds by construction: one `u8` per plan. "Inactive" is theme 0.
+
+## 6. Events, ABI, indexer, deployment
+
+### 6.1 New and changed entry points
+
+**`Setup`, new:**
+
+| Entry point | Who | Section |
+|---|---|---|
+| `set_quest_gems(quest_id: u32, gems: u8)` | owner | 3.2 |
+| `set_achievement_gems(achievement_id: u32, gems: u8)` | owner | 3.2 |
+| `configure_shop(token: ContractAddress, treasury: ContractAddress, economy_bps: u16)` | owner | 2.3 |
+| `set_pack(pack_id: u8, gems: u32, price: u128, active: bool)` | owner | 2.2 |
+| `set_skin_price(theme: u8, plan: u8, gems: u8)` | owner | 5.2 |
+| `buy_pack(pack_id: u8, min_out: u256)` | player | 2.3 |
+| `claim_quest(quest_id: u32, period: u64)` | player | 3.3 |
+| `claim_achievement(achievement_id: u32)` | player | 3.3 |
+| `claim_daily_credit(day: u64)`, `claim_weekly_credit(week: u64)` | player | 3.4 |
+| `buy_skin(theme: u8, plan: u8)` | player | 5.3 |
+| `set_skins(changes: Span<(u8, u8)>)` | player | 5.3 |
+| `spend_credit(player_id: felt252, game_id: u32)` | reporter | 4.1 |
+| views: `account(player_id) -> AccountView` (gems, credits, counts, claimed bits), `day_progress(player_id, day)`, `week_progress(player_id, week)`, `quest_gems(quest_id)`, `achievement_gems(achievement_id)`, `pack(pack_id)`, `shop()`, `skin_price(theme, plan)`, `skins(player_id, theme) -> u32`, `active_skins(player_id) -> Array<u8>` | anyone | |
+
+**`Setup`, changed in behaviour, same ABI:**
+
+- `report` writes the ledger.
+- `retire_quest` and `retire_achievement` also clear the gems.
+
+**`Challenge`, new:** `spawn_free() -> u32`.
+
+**`Challenge`, changed in behaviour, same ABI:** `finish` (internal) for a free game: no quest entries, no
+`Economy.record`.
+
+**`Economy`, new:** `set_seller(seller)` (owner, once, never zero), `split_sale(amount: u256, min_out: u256)` (the
+seller only), and the view `seller()`.
+
+**No entry point changes signature, and none is removed.**
+
+### 6.2 New events
+
+The names avoid every name of quiver's events, which are flat in `Setup`'s enum (`QuestDefined`, `QuestProgressed`,
+`QuestCompleted`, `QuestClaimed`, `QuestRetired`, `QuestReporterSet`, `AchievementDefined`, `AchievementProgressed`,
+`AchievementRetired`, `AchievementReporterSet`).
+
+| Contract | Event | Keys, then data |
+|---|---|---|
+| `Setup` | `QuestGemsSet` | `quest_id`; `gems`, `kind` |
+| `Setup` | `AchievementGemsSet` | `achievement_id`; `gems` |
+| `Setup` | `ShopConfigured` | `token`, `treasury`, `economy_bps` |
+| `Setup` | `PackSet` | `pack_id`; `gems`, `price`, `active` |
+| `Setup` | `PackBought` | `player_id`; `pack_id`, `gems`, `price`, `to_economy`, `to_treasury`, `balance` |
+| `Setup` | `GemsClaimed` | `player_id`; `kind` (1 quest, 2 achievement), `id`, `period`, `gems`, `balance` |
+| `Setup` | `CreditClaimed` | `player_id`; `kind` (1 daily, 2 weekly), `period`, `credits` |
+| `Setup` | `CreditSpent` | `player_id`; `game_id`, `credits` |
+| `Setup` | `SkinPriced` | `theme`, `plan`; `gems` |
+| `Setup` | `SkinBought` | `player_id`; `theme`, `plan`, `gems`, `balance` |
+| `Setup` | `SkinsActivated` | `player_id`; `active` (the packed word) |
+| `Economy` | `SellerSet` | `seller` |
+| `Economy` | `SaleSplit` | `amount`, `burned_quote`, `burned`, `margin`, `vault_paved`, `supply` |
+
+Every balance-moving event carries the new `balance` or `credits`, so the indexer can check its sums against the chain.
+
+`GameSpawned` keeps its fields; a free game has `price = 0`, which is how the indexer tells it apart. Its `game_id`
+also appears in `CreditSpent`.
+
+### 6.3 The indexer's impact (for CLIENT)
+
+The indexer decodes strictly: an unknown selector is a `DecodeError` and halts it
+(`packages/indexer/src/events.ts:8-13`, `:401-413`). So **every event of 6.2 must be known to the indexer before the
+contracts that emit them are indexed**. These are the 11 `Setup` events and the 2 `Economy` events, by name: `Setup`'s
+are flat variants, so their selector is the variant's name; `Economy`'s variants are named as their structs
+(`events.ts:9-10`).
+
+It must also learn:
+
+- **Free games:** a free game (`GameSpawned.price == 0`) has no `Purchased`, `Recorded` or `Settled`. Joins on those
+  must not drop it. Whether it ranks in the daily leaderboard is CLIENT's and META's call. It does not affect any value
+  on chain, and since On the Podium has no gems (3.1), the leaderboard credits none.
+- **Quest progress:** the per-day progress the indexer derives from `QuestProgressed` is unchanged, since a free game
+  emits none. For a claim button, the authority is the views `day_progress`, `week_progress` and `account`, or the
+  ledger rebuilt from the same reports. Both give the same sums.
+- **New API rows** (CLIENT's names): gems and credits per player, claimed bits per period, packs, skin prices, owned
+  skins, active skins.
+
+New entry points for the client's ABI pattern: the `Setup` entry points of 6.1, `Challenge.spawn_free` and the
+`Economy` views. CLIENT regenerates its ABI from `contracts/abis/` (`scripts/abis.sh`) in the implementation's pull
+request.
+
+### 6.4 The fresh deployment (Sepolia is deployed fresh)
+
+`scripts/deploy.sh`'s fresh path adds the following, each read back by a view (no storage-slot reads are needed, since
+the views exist). Each goes in the same multicall as the definitions, after them:
+
+1. The new `Setup`, `Challenge` and `Economy` classes.
+2. `Economy.set_seller(Setup)`.
+3. `Setup.configure_shop(USDC, treasury, 10,000)`. The treasury is the deployer until the owner names one; the address
+   is unused while `economy_bps` is 10,000.
+4. `Setup.set_pack` x 4 (2.1).
+5. `Setup.set_quest_gems` x 13 (3.1).
+6. `Setup.set_achievement_gems` x 15: every achievement but 9.
+7. No skin prices until a theme's art exists. A theme without prices sells nothing. When theme 1 ships,
+   `set_skin_price(1, p, price)` for the 19 plans of 5.2.
+
+The reporter allowlist (`set_reporter(Challenge, true)`) already exists and now also allows `spend_credit`. Nothing
+new is deployed beyond the three classes, and no role is added: the owner of each system is the deployer, as today.
+
+## 7. Test plan and audit lens
+
+### 7.1 Unit tests (`Setup`, `Economy`, `Challenge`)
+
+- **Packing:** every packed slot (`accounts`, `days`, `weeks`, `quest_gems`, `achievement_gems`, `packs`, `shop`,
+  `active_skins`) round-trips at zero, at one, and at every field's maximum. The saturating counters stop at their
+  maximum and never wrap.
+- **Calendar:**
+  - day and week numbers at the boundaries: 00:00:00 and 23:59:59 UTC, Sunday 23:59:59 to Monday 00:00:00;
+  - the week of 1970-01-05 is week 0;
+  - `is_active` on the copied schedules for every fresh quest, for 9 consecutive days and 3 weeks.
+- **Setters:** each owner setter refuses a non-owner, every bound (gems out of 5 to 15 or 10 to 90, a shape that is
+  neither daily nor weekly, a task the ledger does not sum, a total above 65,535, an id above 63, a pack with zero gems
+  or price, `economy_bps` above 10,000, a second `token`), and emits its event.
+- **Claims:**
+  - success;
+  - the second claim reverts `'Setup: claimed'`;
+  - not completed, by one count under the total;
+  - not live: the wrong day of a rotating quest, a week before the start;
+  - no gems;
+  - a retired quest;
+  - First Stone before and after `claim_tutorial`;
+  - achievement 9 refused.
+- **Credits:** each daily missing one quest by one count; a day with no live daily; a second claim; the weekly
+  equivalent.
+- **Skins:**
+  - buy with too few gems, a second buy, a price of 0;
+  - activate an unowned skin; theme 0 is always allowed;
+  - a batch of 19 changes is one write;
+  - two changes of the same plan in one batch: the last wins, as specified, and is tested.
+- **`split_sale`:**
+  - the seller only;
+  - an amount not on `Economy`;
+  - the burn and Vault parts against `burn_bps`;
+  - `min_out` and a partial fill revert;
+  - no terms, no day, no mean and no guard written.
+
+### 7.2 Integration (`tests::e2e`, through the real contracts)
+
+- **The report:** a paid game over writes `days`, `weeks` and `accounts` with the tally's sums (every counter at 0 and
+  at its maximum, as `e2e::quests` does today). A free game over writes `accounts` only, emits no `QuestProgressed`, and
+  makes no `Economy` call. A move that does not end a game writes nothing.
+- **Pack purchase, end to end:**
+  - USDC leaves the player;
+  - `Economy` holds nothing after the call;
+  - the Vault's PAVED rises by the margin's part;
+  - the supply falls by the burn;
+  - the treasury gets its share at `economy_bps` of 0, 5,000 and 10,000;
+  - gems are credited;
+  - with no approval, the call reverts and nothing changes.
+- **The day's credit, end to end:** play paid games on a rotating day until the four dailies are met, claim the four
+  gems and the credit, spawn free, finish it, and check that the credit is gone and the day's sums are unchanged by the
+  free game.
+- **Pause:** `spawn_free` refuses while paused; a free game in flight still ends.
+- **`spawn_free` with no credit:** it reverts, and no game is created and no token minted.
+- **Goldens and parity unchanged:** a paid game's score and moves do not change. `git diff` of the goldens is empty.
+
+### 7.3 Gas (`contracts/tests/gas.cairo`)
+
+New scenarios, measured on Linux (VPS or CI), with figures recorded in `docs/measures/baseline.md`:
+
+- `claim_quest`, `claim_achievement`, `claim_daily_credit`, `claim_weekly_credit`;
+- `buy_pack` at `economy_bps` 10,000 and at 0;
+- `buy_skin`, `set_skins` with 1 and 19 changes;
+- `spawn_free`, and a free game's game over.
+
+The paid game overs g, i, k, l and s get new ceilings. The +0.59M estimate is checked against the P-22 guard (+1.5M);
+above it, the change goes back to the PM before merging. The spawns m and n must not move beyond the deck noise G7a
+describes.
+
+### 7.4 Fuzz, where value moves
+
+- **The ledger:** random reports (random tallies, random block times across days and weeks), each followed by every
+  claim the ledger allows. The gems credited must equal the sum of the gems of exactly the (quest, period) and
+  achievement pairs whose targets the reports met, and no claim may succeed twice.
+- **The split:** random prices and `economy_bps`. `to_economy + to_treasury == price` always, and the burn and Vault
+  parts add up to `to_economy`.
+- **Skins:** random sequences of buys and activations. `gems` never goes negative, and the active theme of every plan
+  is 0 or an owned theme.
+
+### 7.5 The audit lens: value and access
+
+An auditor checks these properties, each against the code and the tests above:
+
+- **A1 No gem minted outside a claim or a purchase.** `accounts.gems` grows only in `claim_quest`,
+  `claim_achievement` and `buy_pack`, each by an amount read from owner-set storage. `buy_pack` adds gems only after a
+  successful payment of exactly the pack's price, in the same transaction.
+- **A2 No double claim.** Each claim sets its bit in the same write that credits the gems: per (player, quest, period),
+  per (player, achievement), and the credit bit per (player, day) and (player, week). No path clears a bit.
+- **A3 No transfer path.** No entry point moves gems, credits or skins from one account to another, or acts for an
+  address other than the caller. The exceptions are `report` and `spend_credit`, reporter only, which name the player.
+  There is no ERC-20 or ERC-721 surface for gems or skins.
+- **A4 Gems are spent only on skins.** `gems` falls only in `buy_skin`, by the skin's price, and only for a skin not
+  yet owned.
+- **A5 A credit is spent once.** `credits` falls only in `spend_credit`, by one, for one spawned game, and only when
+  positive. A failed spawn reverts the decrement. A credit is earned only by `claim_daily_credit` or
+  `claim_weekly_credit`, once per period.
+- **A6 Access.**
+  - Every setter is owner only.
+  - `report` and `spend_credit` are reporter only, and the reporter list is owner only.
+  - `split_sale` is seller only, and the seller is set once.
+  - The auditor states the residual trust: a reporter can credit arbitrary progress, so arbitrary gems and credits.
+- **A7 A free game brings nothing into the Vault, and takes nothing out.** `spawn_free` makes no token transfer and no
+  `Economy` call. Its game over makes no `Economy.record`. No `settle` can pay it (`'Economy: unknown game'`).
+- **A8 A free game cannot earn a credit.** Its game over reports no quest entries.
+- **A9 Revenue is conserved.** `to_economy + to_treasury == price`. `Setup` holds no USDC after `buy_pack`, and
+  `Economy` holds none after `split_sale`, beyond what its existing rule keeps for the next swap.
+- **A10 The pack price is the owner's.** The client cannot pass a price: `buy_pack` reads it from storage.
+
+## 8. Decided and open
+
+### Decided within the rulings (each with what reverses it)
+
+1. **Everything in `Setup`**, after Glitchbomb's layout; `Challenge` gains `spawn_free`; `Economy` gains `split_sale`.
+   Reversal: a separate `Shop` system if `Setup`'s CASM passes 50 % of the cap.
+2. **The proof of claims is `Setup`'s own ledger**: one slot per (player, day), one per (player, week), and one per
+   player, written by the report. It is not quiver's storage mode, which is above the P-22 guard, and not the indexer,
+   which would be a trusted minter. Reversal: the measured report cost passes the guard; then the weekly slot goes, and a
+   weekly claim sums seven day slots.
+3. **Packs are priced in USDC base units**, the game price's source (a constant, no oracle), set by `Setup`'s owner.
+4. **The default split is the game's** (`economy_bps = 10,000`, through `Economy.split_sale`), with a configurable share
+   to a treasury address. A pack pays no referral, and its swap does not move the guard's rate. Reversal: the owner's
+   answer on revenue (open item 1), by one call.
+5. **Gems per quest:** 5, 10 or 15 by the family's target; Daily Run 5; weeklies 15. **Gems per achievement: its
+   points.** Reversal: calibration (Q-4), by owner calls.
+6. **On the Podium has no gems in v1** (not provable on chain). Reversal: an on-chain proof of rank.
+7. **Claims are by the player, for itself, never automatic**; past periods have no deadline.
+8. **A free game:**
+   - it is not in `Economy`, so it pays 0 PAVED, by the normal rules;
+   - it reports no quest progress, but does report achievement progress;
+   - it obeys the spawn pause;
+   - its credit is spent through the reporter allowlist.
+
+   Reversal: open item 2 (a paying free game).
+9. **X = 19**, from the code. The default skin price is `50 + 50 x (9 - c) / 8`, rounded to 5.
+10. **A paid surrender still counts** for Daily Run and Settler (P-28's note revisited).
+
+### Open for the PM (and, through the PM, the owner)
+
+1. **Where the USD revenue of packs goes** (the owner's, asked; B5). **Recommendation:** keep the game split as the
+   default only if the owner wants cosmetics to feed the burn and the Vault. If cosmetic revenue is meant to fund the
+   team, set `economy_bps = 0` with a team treasury. Either is one call.
+2. **Whether a free game pays PAVED** (the owner's: it touches supply and D-10). Under the normal rules it pays 0,
+   because nothing was burned. A free game that pays "like a $2 game" needs a nominal `R` (a stake-1 burn quote) minted
+   with no burn: `quests-v2.md`'s R3a, a mint, which needs a cap, a simulation and the owner's reading of D-10.
+   **Recommendation:** pay 0 in v1 (R3b); the credit is a free play, not free money.
+3. **Packs 1 and 2 at the same price per gem** (B1, flagged). **Recommendation:** make pack 2 slightly better, for
+   example 110 gems for $10, so that the larger pack is never the worse deal. Otherwise keep the owner's numbers.
+4. **The earn rate.** Quests can give about 1,240 gems a month, plus 580 once from achievements. A month of dailies
+   buys most of a theme (1,580). **Recommendation:** keep the bounds' middle as decided, and calibrate after a week of
+   Sepolia data; owner calls only.
+5. **On the Podium's gems.** **Recommendation:** none until an on-chain rank exists; the client shows it without gems.
+6. **First Stone's gems from an unchecked claim.** **Recommendation:** keep 10. They cannot leave the account, and a
+   fresh player sees gems at once.
+7. **Whether free games rank in the daily leaderboard** (CLIENT and META). No on-chain value depends on it.
+   **Recommendation:** rank them, marked free.
