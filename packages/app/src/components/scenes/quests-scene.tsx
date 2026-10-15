@@ -7,12 +7,34 @@ import { endOfUtcDay, questPeriod, windowEnd, type ScheduledQuest, type Schedule
 import type { Trackable } from "../../lib/quest-toasts";
 import { Countdown } from "../elements/countdown";
 import { DayPicker } from "../elements/day-picker";
+import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
 import { useCompletionToasts } from "../containers/completion-toasts";
-import { ProgressCard } from "../containers/progress-card";
+import { FreeGames } from "../containers/free-games";
+import { isClaimed, type PeriodClaims, type QuestCobbles } from "../containers/cobble-types";
+import { ProgressCard, type ProgressReward } from "../containers/progress-card";
 import { questText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
 import { TabPage } from "../containers/tab-page";
+
+/** What a claim is on its way for: one quest, all of them, or a period's free game. */
+export type QuestClaim = number | "all" | "daily" | "weekly";
+
+/**
+ * The quests' Cobbles and free games (P-61, gems-v1.md 3.1, 3.3, 3.4): provisional until CORE's gems PR 1. The claims of
+ * the day shown and of its week, read from `day_progress` and `week_progress`.
+ */
+export interface QuestRewards {
+  /** `quest_gems` of the live quests. */
+  cobbles: readonly QuestCobbles[];
+  day: PeriodClaims;
+  week: PeriodClaims;
+  /** `AccountView.gems`. */
+  balance: number;
+  /** `AccountView.credits`. */
+  credits: number;
+  claiming?: QuestClaim | null;
+}
 
 export interface QuestsSceneProps {
   /** The day shown (`/quests/:day?`). */
@@ -26,7 +48,16 @@ export interface QuestsSceneProps {
   connected: boolean;
   error?: string | null;
   now: number;
+  /** The Cobbles and free games; omitted before Cobbles. */
+  rewards?: QuestRewards | null;
   onDayChange?: (day: number) => void;
+  /** `claim_quest(quest_id, period)` of the day shown (or its week). */
+  onClaim?: (questId: number) => void;
+  /** Every claimable quest of the page, in one multicall. */
+  onClaimAll?: () => void;
+  /** `claim_daily_credit(day)` or `claim_weekly_credit(week)`. */
+  onClaimCredit?: (kind: "daily" | "weekly") => void;
+  onPlayFree?: () => void;
   onTab?: (tab: QuestsTab) => void;
   onConnect?: () => void;
   onRetry?: () => void;
@@ -40,7 +71,7 @@ export interface QuestsSceneProps {
  * A quest that completes while the page is open raises a toast.
  */
 export function QuestsScene(props: QuestsSceneProps) {
-  const { day, today, quests, connected, error, now } = props;
+  const { day, today, quests, connected, error, now, rewards } = props;
   const open = day === today;
   const entries = quests?.quests ?? [];
   const done = entries.filter((q) => q.completed).length;
@@ -50,6 +81,18 @@ export function QuestsScene(props: QuestsSceneProps) {
   const dailyEnd = open ? (windowEnd(daily, now) ?? endOfUtcDay(now)) : null;
   const weeklyEnd = open ? windowEnd(weekly, now) : null;
 
+  // A quest's Cobbles, claimed or not: a claim word per kind (the day's for a daily, the week's for a weekly).
+  const claiming = rewards?.claiming ?? null;
+  const rewardOf = (q: ScheduledQuest): ProgressReward | undefined => {
+    const entry = rewards?.cobbles.find((g) => g.questId === q.questId);
+    if (!rewards || !entry || entry.gems === 0) return undefined;
+    const claimed = isClaimed(entry.kind === 2 ? rewards.week.claimed : rewards.day.claimed, q.questId);
+    const mine = claiming === q.questId || (claiming === "all" && q.completed && !claimed);
+    return { cobbles: entry.gems, claimed, claiming: mine, disabled: claiming !== null && !mine };
+  };
+  const claimable = entries.map((q) => ({ q, r: rewardOf(q) })).filter(({ q, r }) => q.completed && r && !r.claimed);
+  const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
+
   const tracked = useMemo<Trackable[] | null>(() => quests?.quests.map((q) => ({ id: q.questId, intervalId: q.intervalId, completed: q.completed })) ?? null, [quests]);
   useCompletionToasts("quest", tracked, ({ id }) => {
     const { title, icon } = questText(id);
@@ -57,7 +100,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   }, { scope: day, live: open });
 
   return (
-    <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate}>
+    <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
       <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
         <QuestsTabs active="quests" onSelect={props.onTab} />
         <DayPicker day={day} today={today} first={props.firstDay} onChange={props.onDayChange} />
@@ -99,11 +142,36 @@ export function QuestsScene(props: QuestsSceneProps) {
               <span className="numeric font-semibold">{entries.length}</span>
               <span className="text-muted-foreground"> complete</span>
             </span>
-            {!open && <span className="text-xs text-muted-foreground">Closed day</span>}
+            <span className="flex flex-wrap items-center gap-2">
+              {!open && <span className="text-xs text-muted-foreground">Closed day</span>}
+              {claimable.length > 0 && (
+                <Button size="sm" onClick={props.onClaimAll} loading={claiming === "all"} disabled={claiming !== null && claiming !== "all"}>
+                  {claiming === "all" ? "Claiming…" : (
+                    <>
+                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </span>
           </div>
-          <QuestSection title="Daily" quests={daily} endsAt={dailyEnd} now={now} countdownLabel="Daily ends in" empty="No daily quest live today." />
-          {(weekly.length > 0) && <QuestSection title="Weekly" quests={weekly} endsAt={weeklyEnd} now={now} countdownLabel="Weekly ends in" empty="" />}
-          <p className="text-xs text-muted-foreground">Counted by the indexer from the games the chain reports. No reward in this version: a quest is for the record. A daily starts over at 00:00 UTC.</p>
+          {rewards && (
+            <FreeGames
+              credits={rewards.credits}
+              daily={daily.length > 0 ? { done: daily.filter((q) => q.completed).length, total: daily.length, claimed: rewards.day.credit, claiming: claiming === "daily" } : null}
+              weekly={weekly.length > 0 ? { done: weekly.filter((q) => q.completed).length, total: weekly.length, claimed: rewards.week.credit, claiming: claiming === "weekly" } : null}
+              busy={claiming !== null}
+              onClaim={props.onClaimCredit}
+              onPlayFree={props.onPlayFree}
+            />
+          )}
+          <QuestSection title="Daily" quests={daily} endsAt={dailyEnd} now={now} countdownLabel="Daily ends in" empty="No daily quest live today." rewardOf={rewardOf} onClaim={props.onClaim} />
+          {(weekly.length > 0) && <QuestSection title="Weekly" quests={weekly} endsAt={weeklyEnd} now={now} countdownLabel="Weekly ends in" empty="" rewardOf={rewardOf} onClaim={props.onClaim} />}
+          <p className="text-xs text-muted-foreground">
+            {rewards
+              ? "Counted by the indexer from the games the chain reports; only paid games count. A completed quest's Cobbles are claimed any time: past days stay claimable. A daily starts over at 00:00 UTC."
+              : "Counted by the indexer from the games the chain reports. No reward in this version: a quest is for the record. A daily starts over at 00:00 UTC."}
+          </p>
         </>
       )}
     </TabPage>
@@ -118,10 +186,12 @@ interface QuestSectionProps {
   now: number;
   countdownLabel: string;
   empty: string;
+  rewardOf?: (q: ScheduledQuest) => ProgressReward | undefined;
+  onClaim?: (questId: number) => void;
 }
 
 /** A heading with its countdown beside it (the label is the timer's accessible name only), and the quests under it. */
-function QuestSection({ title, quests, endsAt, now, countdownLabel, empty }: QuestSectionProps) {
+function QuestSection({ title, quests, endsAt, now, countdownLabel, empty, rewardOf, onClaim }: QuestSectionProps) {
   const id = useId();
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
@@ -136,7 +206,7 @@ function QuestSection({ title, quests, endsAt, now, countdownLabel, empty }: Que
       ) : (
         <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {quests.map((q) => (
-            <ProgressCard key={q.questId} kind="quest" {...questText(q.questId)} tasks={q.tasks} completed={q.completed} completedAt={q.completedAt} retired={q.retired} />
+            <ProgressCard key={q.questId} kind="quest" {...questText(q.questId)} tasks={q.tasks} completed={q.completed} completedAt={q.completedAt} retired={q.retired} reward={rewardOf?.(q)} onClaim={() => onClaim?.(q.questId)} />
           ))}
         </div>
       )}
