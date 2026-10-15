@@ -30,6 +30,9 @@ export interface OutlinesBoardProps {
   minWidthDevicePx?: number;
   maxWidthPx?: number;
   color?: string;
+  /** The screen-size cut of the outline segments, in device px: not drawn below the first, fully from the second. */
+  segmentOffDevicePx?: number;
+  segmentFullDevicePx?: number;
   minDistance?: number;
   maxDistance?: number;
   capZoomOut?: boolean;
@@ -50,6 +53,8 @@ export const SETTINGS_DEFAULTS = {
   minWidthDevicePx: OUTLINES.minWidthDevicePx,
   maxWidthPx: OUTLINES.maxWidthPx,
   color: OUTLINES.color,
+  segmentOffDevicePx: OUTLINES.segmentOffDevicePx,
+  segmentFullDevicePx: OUTLINES.segmentFullDevicePx,
   minDistance: CAMERA.minDistance,
   maxDistance: CAMERA.maxDistance,
   capZoomOut: CAMERA.capZoomOut,
@@ -116,12 +121,14 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
         minWidthDevicePx: o.minWidthDevicePx,
         maxWidthPx: o.maxWidthPx,
         color: o.color,
+        segmentOffDevicePx: o.segmentOffDevicePx,
+        segmentFullDevicePx: o.segmentFullDevicePx,
       },
       camera: { minDistance: o.minDistance, maxDistance: o.maxDistance, capZoomOut: o.capZoomOut, zoomOutCapDistance: o.zoomOutCapDistance },
       multisampling: o.multisampling,
       maxPixelRatio: o.maxPixelRatio,
     }),
-    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
+    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.segmentOffDevicePx, o.segmentFullDevicePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).

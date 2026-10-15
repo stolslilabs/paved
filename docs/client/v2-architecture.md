@@ -958,7 +958,8 @@ buffer, the camera's aspect and the composer's targets. Measures and captures: P
 **Pixel ratio (DPR, 2026-10-15).** The fixed `[0.5, 1]` range of `RendererConfig.pixelRatio` (5.1) is gone. The
 renderer draws at `min(devicePixelRatio, maxPixelRatio)`, a `RendererSettings` field. Its default, `"auto"`, is 2 on
 a coarse pointer or a small screen (the shorter side of the window, or of the screen on native, at most 600 CSS px:
-not the board's own size, so a short board panel or docked devtools on a desktop stay at 1) and 1 elsewhere.
+not the board's own size, so a short board panel or docked devtools on a desktop keep the desktop's cap) and 1
+elsewhere; OUT-LOD raised that 1 to 1.5 (below, "Outline segments cut by screen size").
 `GameScene` re-reads it on every resize of the board or the window and on `setSettings`. Item 4 of 5.2 proposed `min(devicePixelRatio, 2)` on a High quality
 setting; DPR replaces that with this rule, set by the PM in advance:
 
@@ -1026,6 +1027,113 @@ Captures at the default view, Mac profile: `packages/app/src/stories/renderer/ca
   each tile's border and its major creases under a tile size, would bring the outlines toward their pixel cost
   (estimate: most of their share). It would make cap 1.5 pass on the Mac profile on the outlines-off figures.
 - Either is a renderer change of its own, with a capture and a figure, not a few lines.
+
+**Outline segments cut by screen size (OUT-LOD, 2026-10-15).** Where this differs from DPR's paragraphs above,
+OUT-LOD holds. The outline segments are cut by their size on screen at the current zoom, re-measured on DPR's bench
+with the load stated, and the desktop cap is raised by DPR's rule: the highest cap whose Mac p95 stays under 12 ms at
+both views.
+
+The load first. DPR's "about 130k crease segments" is the sum over the 19 tile types. Each tile draws its type's
+segments, so on the 72-tile board, main draws **497,364 segment instances a frame** in 72 draws: 3.98M vertices and
+2.98M triangles (counted with an instrumented `drawElementsInstanced`, Mac profile, either view). Of the segments,
+90 % are one voxel long and 36 % are vertical (a voxel's riser), so under the game's top-down camera they project
+to a fraction of a pixel.
+
+What `core/outlines.ts` and `core/edges.ts` do now:
+
+- **Collinear pieces merged** at load (`mergeCollinearSegments`). A crease edge is split wherever another edge meets
+  it. Pieces end to end on one line are merged: 131,771 to 89,857 segments over the 19 models (1.466x fewer), in about
+  50 ms of load for all of them. A merged edge covers the same pixels, since the shader's ends are square and exact.
+  It also means the cut below never drops a short piece out of a long straight line.
+- **The cut, on the GPU.** The vertex shader projects each segment and fades it by its length on screen in device px:
+  - not drawn under `segmentOffDevicePx` (0.5);
+  - fully drawn from `segmentFullDevicePx` (1), linear between (`segmentFade`);
+  - a cut segment's quad collapses to one point outside the clip volume, so it reaches no pixel.
+
+  The length changes continuously with the zoom, so nothing pops. The thresholds keep the cut below visibility: a
+  segment under a device pixel only covers a pixel whose centre falls on its span, so it shows as a stray dot that
+  comes and goes as the camera moves. A one-voxel horizontal edge is at least about 1.1 device px wherever the
+  outlines are on (a tile at 0.85 x S or more: 1.1 on a 360 x 780 phone, 1.3 in a 900 px high window), so under the
+  top-down camera only the risers go. Both thresholds are `OutlineSettings` fields;
+  0 and 0 turn the cut off.
+- **The cut, before the draw.** The vertex shader still runs for a collapsed segment. So each outline's segments are
+  ordered with the ones along the tile's height last, longest first (`orderOutlineSegments`). Before each draw,
+  `outlineSegmentCount` bounds the screen length of those vertical segments over the outline's bounding sphere and
+  stops the instanced draw before the ones surely under 0.5 px. It skips only segments the shader would drop, so no
+  pixel changes (a test checks every skipped segment against its exact projection). It costs a few flops per outline
+  per drawn frame, and nothing when the camera is still.
+- **A quad of four vertices, tight to the stroke.** The shader covers the stroke by its distance to the segment, so
+  it needs only the outer rectangle of `LineSegmentsGeometry`'s eight-vertex, six-triangle quad: two triangles. The
+  rectangle is the stroke and its half pixel of antialiasing across, and the segment's span plus half a pixel along.
+  The old reach of a pixel and a half on every side drew fragments that were all discarded.
+
+Load after (Mac profile): 230k to 281k instances a frame (more as the cap or the zoom grows), 0.92M to 1.12M vertices,
+0.46M to 0.56M triangles.
+
+**Zero flicker, no popping.** Headless Chrome on ANGLE Metal, the recorded board, both builds at the same poses.
+The outline share of a frame is 1 minus the luma with the outlines on over the luma with them off, at the same pose,
+over the centre crop (800 x 500 CSS px on the Mac, 300 x 400 on the phone):
+
+- **Pan, 2 CSS px mouse drags** (12 steps, a settle after each), Mac profile at cap 1.5, at 4 zooms (distances 240,
+  170, 100, 50). The largest change of the share between two steps is 0.084, 0.136, 0.141 and 0.118 points (main:
+  0.087, 0.139, 0.139, 0.116). The share stays within 19.11 to 19.54 % at 240 (main 19.35 to 19.79).
+- **Zoom sweep**, the distance from 300 to 30 in 1 % steps (230 frames), Mac profile at cap 1.5 and phone-like at
+  cap 2. The largest frame-to-frame change is in the stroke's own fade between 282 and 240: 1.72 points (main 1.80) on
+  the Mac, 1.51 (main 1.56) on the phone-like. Below 238 it is 1.122 points at distance 217.5 (main 1.132, same place)
+  on the Mac, and 0.727 at 139.8 (main 0.731) on the phone-like. No step changes the share by more than main does.
+- At the default view, cap 2, 0.96 % of the pixels differ from main's, by 5.2 levels on average (the cut
+  risers, the merged pieces, and depth ties at the quads' new corners: 0.067 % of the pixels changed with the tighter
+  quad alone).
+
+**Frame time** (DPR's method: M2 Max, headless Chrome on ANGLE Metal, the "Renderer/Outlines" story Held with
+`redraw`, 120 warm-up and 600 measured frames per configuration in a fresh context, CPU + GPU per frame, nearest-rank
+percentiles over the pooled frames). Main and this branch were built side by side and alternated within each round,
+with the caps. Mac profile: three rounds, cap orders 1/1.5/2, 2/1.5/1 and 1.5/2/1. Phone-like: two rounds. Load average
+(`uptime`) before and after each round:
+
+| Round | Mac | Phone-like |
+|---|---|---|
+| 1 | 3.30 to 2.90 | 2.90 to 3.50 |
+| 2 | 3.50 to 4.32 | 4.32 to 3.67 |
+| 3 | 3.67 to 4.38 | (none) |
+
+CPU + GPU per frame, ms, p50 / p95, outlines on (`force: "on"`) unless off:
+
+| Profile | View | Cap | Main | OUT-LOD | Outlines off |
+|---|---|---|---|---|---|
+| Mac | default (240) | 1 | 7.32 / 12.26 | 5.74 / **8.83** | 4.43 / 6.67 |
+| Mac | default (240) | 1.5 | 9.10 / 13.79 | 7.09 / **10.66** | 5.51 / 9.25 |
+| Mac | default (240) | 2 | 9.31 / 14.61 | 7.65 / **12.40** | 6.81 / 10.96 |
+| Mac | busiest (170) | 1 | 7.88 / 12.43 | 6.35 / **9.70** | 3.57 / 6.21 |
+| Mac | busiest (170) | 1.5 | 8.66 / 13.02 | 8.05 / **11.76** | 5.43 / 9.05 |
+| Mac | busiest (170) | 2 | 9.21 / 13.99 | 8.56 / **13.35** | 6.51 / 11.42 |
+| Phone-like | default (240) | 1 | 5.18 / 7.85 | 3.50 / **5.35** | 2.46 / 3.44 |
+| Phone-like | default (240) | 1.5 | 5.52 / 8.67 | 3.93 / **5.92** | 2.79 / 4.05 |
+| Phone-like | default (240) | 2 | 5.59 / 8.42 | 4.11 / **6.12** | 3.33 / 4.53 |
+| Phone-like | busiest (280) | 1 | 5.09 / 8.38 | 3.60 / **5.51** | 2.52 / 3.66 |
+| Phone-like | busiest (280) | 1.5 | 5.42 / 8.31 | 3.65 / **5.59** | 3.00 / 4.05 |
+| Phone-like | busiest (280) | 2 | 5.37 / 8.46 | 4.38 / **6.32** | 3.30 / 4.84 |
+
+Notes on the table:
+
+- At cap 1.5 on the Mac, the per-round p95s are 10.53 to 10.85 ms at the default view and 11.55 to 11.87 ms at the
+  busiest: every round is under 12, the busiest by about 0.2 ms.
+- The same configurations with the cut off (both thresholds 0, Mac only) give 9.46, 10.63 and 13.44 ms p95 at the
+  default view, and 10.40, 11.64 and 13.36 at the busiest. They are within the rounds' noise of the cut's own figures.
+  At these views, the gain comes from the work removed as a whole: the merge, the vertical segments the draw skips,
+  and the tighter quad. The shader's fade alone adds little.
+- Main is about 1 ms under DPR's figures here, at a lower load (DPR: 4.9 to 6.3).
+
+**The cap, by DPR's rule:**
+
+- **Mac profile:** 1.5 is the highest cap under 12 ms at both views (10.66 and 11.76). Cap 2 misses (12.40 and
+  13.35). So `PIXEL_RATIO_CAPS.fine` is 1.5, and `"auto"` draws a Retina desktop at 1.5.
+- **Phone-like profile:** unchanged, 2, now at most 6.32 ms.
+
+Captures at the default view, Mac profile, the centre 120 x 80 CSS px upscaled 4x with nearest-neighbour:
+`packages/app/src/stories/renderer/captures/dpr-cap-1.webp` (before: main's `"auto"`, cap 1, byte for byte) and
+`out-lod-after.webp` (after: `"auto"`, cap 1.5). The outline is 1.5 device px of the screen's 2, sharper than 2 and
+soft; cap 2 stays out of reach on this machine.
 
 ### 5.4 The mockups' isometric voxel look: the cost
 
