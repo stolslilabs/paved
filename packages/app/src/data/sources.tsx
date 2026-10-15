@@ -51,6 +51,14 @@ export interface Purchases {
 }
 
 /**
+ * The settlement of one signer (P7a): `EconomyWriter.settle` on the signer's writer, which reads the game's terms and the
+ * chain's clock before sending and refuses, with a typed error, a game it cannot settle. Anyone may settle a game.
+ */
+export interface Settlements {
+  settle: EconomyWriter["settle"];
+}
+
+/**
  * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the Training
  * save. The app gives the real ones (`PavedClient.views`, `.events`, `EconomyClient`, `createIndexerClient`); a test gives
  * `@paved/chain`'s fakes (`FakeGameViews`, `FakeEconomy`, `FakePoolQuoter`, an `IndexerClient` on `FixtureIndexer`).
@@ -68,6 +76,8 @@ export interface DataSources {
   signer?: GameSigner | null;
   /** The purchases of a signer (the economy's client on the signer's writer); null or left out without an economy: nothing can be bought. */
   purchases?: ((signer: GameSigner) => Purchases) | null;
+  /** The settlement of a signer (the economy's writer on the signer's); null or left out without an economy: nothing can be settled. */
+  settlements?: ((signer: GameSigner) => Settlements) | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }
