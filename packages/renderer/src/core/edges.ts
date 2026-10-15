@@ -147,3 +147,69 @@ export function buildEdgesGeometry(geometry: THREE.BufferGeometry, thresholdAngl
   edges.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
   return edges;
 }
+
+/**
+ * Merges the segments that lie end to end on one straight line into one segment (OUT-LOD). The tile models' crease
+ * edges are split wherever another edge meets them, so a straight edge is often several collinear pieces. A merged
+ * edge covers the same pixels (the outline shader's ends are square and exact) with fewer instances, and the
+ * screen-size cut (`outlines.ts`) then never drops a short piece out of a long straight line.
+ *
+ * Segments are `[ax, ay, az, bx, by, bz]` sextuples. Two are on one line when their directions and their closest points
+ * to the origin match to `precision` (EdgesGeometry's 1e-4); they merge where their spans touch or overlap.
+ */
+export function mergeCollinearSegments(positions: ArrayLike<number>, precision = 1e-4): Float32Array {
+  const scale = 1 / precision;
+  const lines = new Map<string, number[]>();
+  const keys: string[] = [];
+  for (let i = 0; i + 5 < positions.length; i += 6) {
+    const ax = positions[i];
+    const ay = positions[i + 1];
+    const az = positions[i + 2];
+    let dx = positions[i + 3] - ax;
+    let dy = positions[i + 4] - ay;
+    let dz = positions[i + 5] - az;
+    const length = Math.hypot(dx, dy, dz);
+    if (!(length > 0)) continue;
+    dx /= length;
+    dy /= length;
+    dz /= length;
+    // One orientation per line: the first component that is not zero is positive.
+    const flip = Math.round(dx * scale) < 0 || (Math.round(dx * scale) === 0 && (Math.round(dy * scale) < 0 || (Math.round(dy * scale) === 0 && dz < 0)));
+    if (flip) {
+      dx = -dx;
+      dy = -dy;
+      dz = -dz;
+    }
+    const t = ax * dx + ay * dy + az * dz;
+    const tb = t + (flip ? -length : length);
+    const key = [dx, dy, dz, ax - t * dx, ay - t * dy, az - t * dz].map((v) => Math.round(v * scale) + 0).join(",");
+    let spans = lines.get(key);
+    if (!spans) {
+      spans = [dx, dy, dz, ax - t * dx, ay - t * dy, az - t * dz];
+      lines.set(key, spans);
+      keys.push(key);
+    }
+    spans.push(Math.min(t, tb), Math.max(t, tb));
+  }
+
+  const out: number[] = [];
+  for (const key of keys) {
+    const line = lines.get(key)!;
+    const [dx, dy, dz, ox, oy, oz] = line;
+    const spans: [number, number][] = [];
+    for (let s = 6; s < line.length; s += 2) spans.push([line[s], line[s + 1]]);
+    spans.sort((a, b) => a[0] - b[0]);
+    let [from, to] = spans[0];
+    const emit = () => out.push(ox + from * dx, oy + from * dy, oz + from * dz, ox + to * dx, oy + to * dy, oz + to * dz);
+    for (let s = 1; s < spans.length; s++) {
+      if (spans[s][0] <= to + precision) {
+        to = Math.max(to, spans[s][1]);
+      } else {
+        emit();
+        [from, to] = spans[s];
+      }
+    }
+    emit();
+  }
+  return new Float32Array(out);
+}

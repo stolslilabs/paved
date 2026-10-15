@@ -170,10 +170,10 @@ describe("RenderSurfaceAdapter integration", () => {
     }
   });
 
-  it("by default (\"auto\") caps at 1 on a large screen with a fine pointer, at 2 on a coarse pointer or a small screen", async () => {
+  it("by default (\"auto\") caps at 1.5 on a large screen with a fine pointer, at 2 on a coarse pointer or a small screen", async () => {
     expect(DEFAULT_RENDERER_SETTINGS.maxPixelRatio).toBe("auto");
     for (const [size, dpr, coarse, expected] of [
-      [{ width: 1440, height: 900 }, 2, false, 1], // the Mac profile
+      [{ width: 1440, height: 900 }, 2, false, 1.5], // the Mac profile
       [{ width: 1440, height: 900 }, 2, true, 2], // a large touch screen
       [{ width: 360, height: 780 }, 3, false, 2], // the phone-like profile, a narrow window
       [{ width: 360, height: 780 }, 3, true, 2], // a phone
@@ -189,7 +189,7 @@ describe("RenderSurfaceAdapter integration", () => {
 
   it("reads the window's size for \"auto\", not the board's: a short panel in a large window is no small screen", async () => {
     for (const [size, viewport, expected] of [
-      [{ width: 1440, height: 300 }, { width: 1440, height: 900 }, 1], // a short board panel (docked devtools) on a desktop
+      [{ width: 1440, height: 300 }, { width: 1440, height: 900 }, 1.5], // a short board panel (docked devtools) on a desktop
       [{ width: 1440, height: 900 }, { width: 390, height: 844 }, 2], // the window is a phone's, whatever the surface says
     ] as const) {
       const { surface } = createSurfaceAdapter(size, 2);
@@ -204,7 +204,7 @@ describe("RenderSurfaceAdapter integration", () => {
     const adapter = createSurfaceAdapter({ width: 1440, height: 900 }, 2);
     const { scene, renderer } = createSceneHarness();
     await scene.init({ surface: adapter.surface });
-    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1);
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1.5);
     (adapter.surface.getSize as any) = () => ({ width: 390, height: 844 });
     adapter.emitResize();
     expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
