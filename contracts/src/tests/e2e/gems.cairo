@@ -94,6 +94,7 @@ fn free_game() -> (TestStore, setup::Systems, setup::Context, u32) {
 
 /// A paid game over writes the day, the week and the account from its tally (7.2).
 #[test]
+#[available_gas(l2_gas: 177898958)]
 fn test_gems_e2e_paid_game_over_writes_the_ledger() {
     let (store, systems, context) = gems_game();
     end_with(store, @systems, context.game_id, 4500, GameImpl::counts_of(2, 1, 1, 1));
@@ -117,6 +118,7 @@ fn test_gems_e2e_paid_game_over_writes_the_ledger() {
 
 /// A move that does not end the game writes nothing.
 #[test]
+#[available_gas(l2_gas: 175863450)]
 fn test_gems_e2e_a_move_that_does_not_end_writes_nothing() {
     let (store, systems, context) = gems_game();
     let game = store.game(context.game_id);
@@ -134,6 +136,7 @@ fn test_gems_e2e_a_move_that_does_not_end_writes_nothing() {
 /// claims their gems and the credit, spawns free, and ends the free game. The credit is spent, the
 /// day's sums are those of the paid game, and the free game reported its achievements only.
 #[test]
+#[available_gas(l2_gas: 204698562)]
 fn test_gems_e2e_day_credit_end_to_end() {
     let (store, systems, context) = gems_game();
     let setup_address = systems.setup.contract_address;
@@ -228,6 +231,7 @@ fn test_gems_e2e_day_credit_end_to_end() {
 /// A7: a free game brings nothing into the Vault and takes nothing out. Its spawn makes no token
 /// transfer and no `Economy` call, its game over no `Economy.record`, and no `settle` can pay it.
 #[test]
+#[available_gas(l2_gas: 200895211)]
 #[feature("safe_dispatcher")]
 fn test_gems_A7_free_game_brings_nothing_into_the_vault() {
     let (store, systems, context) = gems_game();
@@ -274,6 +278,7 @@ fn test_gems_A7_free_game_brings_nothing_into_the_vault() {
 /// A8: a free game cannot earn a credit: its game over reports no quest entries, so a day played
 /// on free games alone stays empty, however high its tally.
 #[test]
+#[available_gas(l2_gas: 197321664)]
 #[feature("safe_dispatcher")]
 fn test_gems_A8_free_game_cannot_earn_a_credit() {
     let (store, systems, context, game_id) = free_game();
@@ -293,6 +298,7 @@ fn test_gems_A8_free_game_cannot_earn_a_credit() {
 
 /// The spawn pause stops free games too; a free game in flight still ends (7.2, G4).
 #[test]
+#[available_gas(l2_gas: 235233210)]
 #[feature("safe_dispatcher")]
 fn test_gems_spawn_free_obeys_the_pause() {
     let (store, systems, _, game_id) = free_game();
@@ -316,6 +322,7 @@ fn test_gems_spawn_free_obeys_the_pause() {
 
 /// Without a credit, `spawn_free` reverts: no game is created and no token minted.
 #[test]
+#[available_gas(l2_gas: 194710590)]
 #[feature("safe_dispatcher")]
 fn test_gems_spawn_free_without_a_credit() {
     let (store, systems, _) = gems_game();
@@ -355,6 +362,7 @@ fn assert_game_over(
 
 /// On the last `build`, in its day: `GameOver` with its day id, score and end time.
 #[test]
+#[available_gas(l2_gas: 202439895)]
 fn test_gems_free_game_over_on_the_last_build_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let mut game = store.game(game_id);
@@ -376,6 +384,7 @@ fn test_gems_free_game_over_on_the_last_build_emits_game_over() {
 
 /// On the last `discard`, in its day.
 #[test]
+#[available_gas(l2_gas: 197618300)]
 fn test_gems_free_game_over_on_the_last_discard_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
@@ -388,6 +397,7 @@ fn test_gems_free_game_over_on_the_last_discard_emits_game_over() {
 
 /// On a `surrender`, in its day.
 #[test]
+#[available_gas(l2_gas: 194253791)]
 fn test_gems_free_game_over_on_surrender_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
@@ -401,6 +411,7 @@ fn test_gems_free_game_over_on_surrender_emits_game_over() {
 /// On expiry: an expired game takes no move but a `surrender`, which ends it after its day:
 /// `GameOver` with day id 0 and end time 0, as a paid game's, and still no `Economy` call.
 #[test]
+#[available_gas(l2_gas: 198147405)]
 #[feature("safe_dispatcher")]
 fn test_gems_free_game_over_after_expiry_emits_game_over() {
     let (store, systems, _, game_id) = free_game();

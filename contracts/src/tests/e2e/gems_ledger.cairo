@@ -200,6 +200,7 @@ fn round_trip_achievement(value: AchievementGems) {
 }
 
 #[test]
+#[available_gas(l2_gas: 1921093)]
 fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
     let m16 = Bounded::<u16>::MAX;
     let m32 = Bounded::<u32>::MAX;
@@ -261,6 +262,7 @@ fn test_gems_packing_round_trips_at_zero_one_and_maximum() {
 }
 
 #[test]
+#[available_gas(l2_gas: 1990575)]
 fn test_gems_quest_list_round_trips() {
     // [Info] Empty, one, the bound of 15 with the highest id; a 16th is refused
     assert_eq!(list_ids(list_word(array![].span())).len(), 0);
@@ -270,6 +272,7 @@ fn test_gems_quest_list_round_trips() {
 }
 
 #[test]
+#[available_gas(l2_gas: 62465)]
 #[should_panic(expected: 'Setup: list full')]
 fn test_gems_quest_list_refuses_a_sixteenth() {
     list_word(array![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].span());
@@ -277,6 +280,7 @@ fn test_gems_quest_list_refuses_a_sixteenth() {
 
 /// The counters saturate at their maximum and never wrap (7.1).
 #[test]
+#[available_gas(l2_gas: 13179384)]
 fn test_gems_counters_saturate() {
     let setup = setup_alone();
     let time = WEEK_START;
@@ -306,6 +310,7 @@ fn test_gems_counters_saturate() {
 // Calendar (7.1)
 
 #[test]
+#[available_gas(l2_gas: 218453)]
 fn test_gems_calendar_boundaries() {
     // [Info] A day is 00:00:00 to 23:59:59 UTC
     assert_eq!(86399_u64 / DAY, 0);
@@ -325,6 +330,7 @@ fn test_gems_calendar_boundaries() {
 /// `is_active` on the copied schedules of every fresh quest, for 9 consecutive days and 3 weeks:
 /// Daily Run every day, one rotating quest of each family by day mod 3, the weeklies every week.
 #[test]
+#[available_gas(l2_gas: 128313728)]
 fn test_gems_fresh_schedules_are_live_as_specified() {
     let setup = fresh_setup();
     let gems = gems_of(setup);
@@ -362,6 +368,7 @@ fn test_gems_fresh_schedules_are_live_as_specified() {
 }
 
 #[test]
+#[available_gas(l2_gas: 307251)]
 fn test_gems_schedule_shapes() {
     let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
     assert_eq!(schedule_kind(daily), DAILY);
@@ -382,6 +389,7 @@ fn test_gems_schedule_shapes() {
 // The owner's settings (3.2, 7.1)
 
 #[test]
+#[available_gas(l2_gas: 56984282)]
 #[feature("safe_dispatcher")]
 fn test_gems_set_quest_gems_lists_and_emits() {
     let setup = setup_alone();
@@ -425,6 +433,7 @@ fn test_gems_set_quest_gems_lists_and_emits() {
 }
 
 #[test]
+#[available_gas(l2_gas: 66722124)]
 #[feature("safe_dispatcher")]
 fn test_gems_set_quest_gems_refuses_every_bound() {
     let setup = setup_alone();
@@ -488,6 +497,7 @@ fn test_gems_set_quest_gems_refuses_every_bound() {
 }
 
 #[test]
+#[available_gas(l2_gas: 59375525)]
 #[feature("safe_dispatcher")]
 fn test_gems_set_achievement_gems_refuses_every_bound() {
     let setup = setup_alone();
@@ -548,6 +558,7 @@ fn test_gems_set_achievement_gems_refuses_every_bound() {
 }
 
 #[test]
+#[available_gas(l2_gas: 45504048)]
 fn test_gems_set_achievement_gems_copies_and_emits() {
     let setup = setup_alone();
     define_fresh(setup);
@@ -575,6 +586,7 @@ fn test_gems_set_achievement_gems_copies_and_emits() {
 /// `retire_quest` and `retire_achievement` clear the gems in the same call (3.2): a retired quest
 /// or achievement cannot be claimed, and leaves its kind's list.
 #[test]
+#[available_gas(l2_gas: 93813716)]
 #[feature("safe_dispatcher")]
 fn test_gems_retire_clears_the_gems() {
     let setup = fresh_setup();
@@ -612,6 +624,7 @@ fn test_gems_retire_clears_the_gems() {
 // Claims (3.3, 7.1)
 
 #[test]
+#[available_gas(l2_gas: 93104396)]
 fn test_gems_claim_quest_credits_the_gems_once() {
     let setup = fresh_setup();
     // [Info] Day 13 (13 % 3 == 1): Public Works (6, 8 structures) is live
@@ -650,6 +663,7 @@ fn test_gems_claim_quest_credits_the_gems_once() {
 }
 
 #[test]
+#[available_gas(l2_gas: 94558912)]
 #[feature("safe_dispatcher")]
 fn test_gems_claim_quest_refusals() {
     let setup = fresh_setup();
@@ -673,6 +687,7 @@ fn test_gems_claim_quest_refusals() {
 
 /// A weekly quest is claimed for its week; a week before a quest's start is not live.
 #[test]
+#[available_gas(l2_gas: 102025894)]
 #[feature("safe_dispatcher")]
 fn test_gems_claim_weekly_quest() {
     let setup = fresh_setup();
@@ -707,6 +722,7 @@ fn test_gems_claim_weekly_quest() {
 
 /// Past periods have no deadline: day 13 is claimed on day 400.
 #[test]
+#[available_gas(l2_gas: 88631815)]
 fn test_gems_claim_past_period_has_no_deadline() {
     let setup = fresh_setup();
     paid_report(setup, PLAYER(), 13 * DAY, 0, 0, 0);
@@ -717,6 +733,7 @@ fn test_gems_claim_past_period_has_no_deadline() {
 }
 
 #[test]
+#[available_gas(l2_gas: 107766653)]
 #[feature("safe_dispatcher")]
 fn test_gems_claim_achievement() {
     let setup = fresh_setup();
@@ -765,6 +782,7 @@ fn test_gems_claim_achievement() {
 /// First Stone (task 10) through the tutorial claim (D-21): refused before `claim_tutorial`,
 /// credited once after it.
 #[test]
+#[available_gas(l2_gas: 86619244)]
 #[feature("safe_dispatcher")]
 fn test_gems_first_stone_through_the_tutorial_claim() {
     let setup = fresh_setup();
@@ -786,6 +804,7 @@ fn complete_day(setup: ContractAddress, player: ContractAddress, day: u64) {
 }
 
 #[test]
+#[available_gas(l2_gas: 108082474)]
 #[feature("safe_dispatcher")]
 fn test_gems_daily_credit_on_every_rotation() {
     let setup = fresh_setup();
@@ -826,6 +845,7 @@ fn test_gems_daily_credit_on_every_rotation() {
 /// Each live daily missing by one count fails the day's credit: Daily Run (no game cannot be),
 /// so the three rotating quests of day 14 (% 3 == 2: 7, 10, 13), one player each.
 #[test]
+#[available_gas(l2_gas: 104633455)]
 #[feature("safe_dispatcher")]
 fn test_gems_daily_credit_missing_one_quest_by_one() {
     let setup = fresh_setup();
@@ -846,6 +866,7 @@ fn test_gems_daily_credit_missing_one_quest_by_one() {
 
 /// A day with no live daily (no daily quest has gems) gives no credit.
 #[test]
+#[available_gas(l2_gas: 50312722)]
 #[feature("safe_dispatcher")]
 fn test_gems_daily_credit_needs_a_live_quest() {
     let setup = setup_alone();
@@ -857,6 +878,7 @@ fn test_gems_daily_credit_needs_a_live_quest() {
 }
 
 #[test]
+#[available_gas(l2_gas: 107216267)]
 #[feature("safe_dispatcher")]
 fn test_gems_weekly_credit() {
     let setup = fresh_setup();
@@ -900,6 +922,7 @@ fn test_gems_weekly_credit() {
 /// A1: gems grow only by a claim, by the amount the owner set, from a met target; a report adds
 /// none, whatever it reports.
 #[test]
+#[available_gas(l2_gas: 92386381)]
 fn test_gems_A1_no_gem_minted_outside_a_claim() {
     let setup = fresh_setup();
     complete_day(setup, PLAYER(), 14);
@@ -922,6 +945,7 @@ fn test_gems_A1_no_gem_minted_outside_a_claim() {
 /// (player, achievement), and the credit per (player, day) and (player, week); no path clears a
 /// bit. Another period, or another player, has its own bit.
 #[test]
+#[available_gas(l2_gas: 119187281)]
 #[feature("safe_dispatcher")]
 fn test_gems_A2_no_double_claim() {
     let setup = fresh_setup();
@@ -962,6 +986,7 @@ fn test_gems_A2_no_double_claim() {
 /// ledger: a player cannot claim from another's progress, and a claim moves nothing between
 /// accounts.
 #[test]
+#[available_gas(l2_gas: 94781702)]
 #[feature("safe_dispatcher")]
 fn test_gems_A3_no_transfer_path() {
     let setup = fresh_setup();
@@ -983,6 +1008,7 @@ fn test_gems_A3_no_transfer_path() {
 /// A5: a credit falls only in `spend_credit`, by one, when positive, from an allowlisted reporter;
 /// it is earned only by a credit claim, once per period.
 #[test]
+#[available_gas(l2_gas: 100870883)]
 #[feature("safe_dispatcher")]
 fn test_gems_A5_a_credit_is_spent_once() {
     let setup = fresh_setup();
@@ -1028,6 +1054,7 @@ fn test_gems_A5_a_credit_is_spent_once() {
 /// and the allowlist is the owner's. The residual trust: a reporter can report any progress for
 /// any player, so any claimable gems and credits (`report` below, for `ANYONE`).
 #[test]
+#[available_gas(l2_gas: 93003654)]
 #[feature("safe_dispatcher")]
 fn test_gems_A6_access() {
     let setup = fresh_setup();
@@ -1057,6 +1084,7 @@ fn test_gems_A6_access() {
 /// A paid report writes the day, the week and the account; a report with no quest entries (a free
 /// game's) writes the account only; before week 0 there is no week.
 #[test]
+#[available_gas(l2_gas: 14711156)]
 fn test_gems_report_writes_the_ledger() {
     let setup = setup_alone();
     let p: felt252 = PLAYER().into();
@@ -1122,6 +1150,7 @@ const WEEKS: u64 = 1000000;
 /// own sums meet the target in a live period, never twice, and the gems and credits credited are
 /// exactly the sum of those claims (A1, A2).
 #[test]
+#[available_gas(l2_gas: 383137644)]
 #[fuzzer(runs: 12, seed: 61)]
 #[feature("safe_dispatcher")]
 fn test_gems_fuzz_ledger(seed: u64) {
