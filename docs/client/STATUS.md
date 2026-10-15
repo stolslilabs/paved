@@ -262,3 +262,5 @@ The controller notice (D-15) is shown at body size (1rem), in normal flow below 
 2026-10-14, Client v2 SC2b (t-0282): the quests scene shows a rotating Daily set and a Weekly one, each with a `Countdown` (the UTC day, the definitions' week), and toasts a quest or an achievement once when it completes; `lib/quest-window.ts` (the window rule of quests-v2.md 1.2) and `lib/quest-toasts.ts` are pure and tested; the v2a-shaped mock catalogue carries `start`, `interval`, `duration` (provisional until CORE v2a and P9). App tests 211 pass; no wiring.
 
 2026-10-14, Q2a (t-0285): the client follows CORE's quests v2a (#423, bc486b1f): the indexer's tests cover a 3-day interval with start offsets and a Monday weekly; app-web names quests 5 to 16 and achievements 10 to 16 and labels the 3-day and weekly schedules; the v2 app's mocks, quest text, stories and tests follow v2a's definitions (seven dailies live a day, three weeklies, sixteen achievements).
+
+2026-10-15, X4 (t-0288): `docs/client/storybook-hosting.md` writes the clone and the deploy checkout as placeholders (`<clone>`, `<deploy-clone>`) instead of machine paths; docs only, the steps and commands are unchanged.
