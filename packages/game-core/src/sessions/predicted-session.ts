@@ -88,6 +88,11 @@ export interface PredictedState extends PageState {
   expiresAt: number;
   /** Points the last move added (a discard takes some: negative); null before the first move of this page. */
   delta: number | null;
+  /**
+   * The board may be behind the chain: a re-open (a resync) or the read after a receipt failed. The board stays as it
+   * was, `readError` says why, and the next move, or `retry()`, re-opens first.
+   */
+  stale: boolean;
 }
 
 type Kind = "build" | "discard" | "surrender";
@@ -226,6 +231,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   private readonly now: () => number;
   private readonly expiredError: () => Error;
   private readonly onMismatch: (mismatch: Mismatch) => void;
+  /** A re-open is reading: moves are refused until it ends. */
+  private reopening = false;
 
   constructor(
     private readonly views: PredictedViews<K>,
@@ -256,6 +263,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       resynced: 0,
       expiresAt: 0,
       delta: null,
+      stale: false,
     };
   }
 
@@ -270,13 +278,41 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
 
   /** Reads the game and replays it; on a failed check the session plays without prediction. */
   async open(): Promise<void> {
+    await this.load(false);
+  }
+
+  /**
+   * Re-opens from the chain (after a resync or a read that failed): moves are refused while it reads, and a failed read
+   * keeps the board as it was, stale. True once the board is the chain's again.
+   */
+  async retry(): Promise<boolean> {
+    if (this.reopening) return false;
+    this.reopening = true;
+    const kept = this.current;
+    // The hand waits while the game is read again.
+    this.set({ pending: true, hand: null });
+    try {
+      const ok = await this.load(true);
+      if (!ok) this.set({ pending: kept.pending && this.queue.length > 0, hand: kept.hand });
+      return ok;
+    } finally {
+      this.reopening = false;
+    }
+  }
+
+  /**
+   * Reads the game, replays it and checks the replay; the queued moves are dropped. A failed read is the page's error on
+   * the first open (`keep` false), and a stale board on a re-open (`keep` true). False when a read failed.
+   */
+  private async load(keep: boolean): Promise<boolean> {
     let game: ChainGame;
     let tiles: ChainTile[];
     try {
       [game, tiles] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key)]);
     } catch (error) {
-      this.set({ status: "error", error: errorKind(error), message: message(error) });
-      return;
+      if (keep) this.set({ stale: true, readError: message(error) });
+      else this.set({ status: "error", error: errorKind(error), message: message(error) });
+      return false;
     }
     const readonly = this.playerId === null || BigInt(game.playerId) !== BigInt(this.playerId);
     let fallback: string | null = null;
@@ -288,6 +324,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       fallback = message(error);
     }
     if (fallback) this.engine = this.boardOf(game, tiles);
+    for (const e of this.queue) e.dropped = true;
     this.queue = [];
     // `project` reads `readonly` for the hand.
     this.current = { ...this.current, readonly };
@@ -298,11 +335,14 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       message: null,
       predicting: fallback === null,
       fallback,
+      stale: false,
+      readError: null,
       expiresAt: game.expiresAt,
       // Without prediction the board and the hand are the chain's.
       ...(fallback ? this.chainProjection(game, tiles, readonly) : {}),
     });
     if (fallback) this.onMismatch({ gameId: this.key.gameId, move: null, reason: `open: ${fallback}` });
+    return true;
   }
 
   /** The game is past its 24 h (S1): only a surrender is accepted. */
@@ -355,6 +395,12 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   }
 
   private async move(kind: Kind, send: Send<R>, placement?: PlaceMove): Promise<boolean> {
+    if (this.reopening) return false;
+    // A stale board is re-read first; the player then plays on the chain's board.
+    if (this.current.stale) {
+      await this.retry();
+      return false;
+    }
     const s = this.current;
     if (s.status !== "ready" || s.readonly || !this.engine || this.engine.over || s.game?.over) return false;
     if (kind !== "surrender" && this.expired) {
@@ -432,6 +478,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       // The receipt confirmed the move; the seed and the hand cannot be checked until the next read.
       this.set({ readError: message(error) });
     }
+    if (entry.dropped) return true;
     const after = reason ?? (game && this.divergenceOf(entry.expected, game));
     if (after) {
       this.onMismatch({ gameId: this.key.gameId, move: { kind: entry.kind, placement: entry.expected.placement }, reason: after });
@@ -473,8 +520,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     this.queue = [];
     const resynced = this.current.resynced + (count ? 1 : 0);
     const writeError = this.current.writeError;
-    await this.open();
-    this.set({ resynced, writeError, lastScored: [], delta: null });
+    this.set({ ...this.project(), resynced });
+    if (await this.retry()) this.set({ writeError, lastScored: [], delta: null });
   }
 
   /** Without prediction (the check at open failed): the hand waits for the chain, one move at a time. */
@@ -497,7 +544,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       this.engine = this.boardOf(game, chainTiles);
       this.set({ ...this.chainProjection(game, chainTiles, s.readonly), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
     } catch (error) {
-      this.set({ pending: false, unconfirmed: 0, readError: message(error) });
+      // The move landed but the next tile is unknown: the next action re-reads the game (`stale`).
+      this.set({ pending: false, unconfirmed: 0, readError: message(error), stale: true });
     }
     const scored = receipt.events
       .filter((e) => e.name === "Scored" && Number(e.fields.gameId) === this.key.gameId)

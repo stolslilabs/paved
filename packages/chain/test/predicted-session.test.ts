@@ -85,6 +85,30 @@ describe("PredictedSession: open", () => {
     expect(session.state.game?.score).toBe(chain.game.score);
   });
 
+  test("without prediction, a failed read after a receipt leaves the hand empty; the next action re-reads it", async () => {
+    const { chain, session, send } = setup();
+    chain.views.initialSeed = async () => "0x1234";
+    await session.open();
+    expect(session.state.predicting).toBe(false);
+    const game = chain.views.game;
+    let fail = false;
+    chain.views.game = async (k) => {
+      if (fail) {
+        fail = false;
+        throw new Error("rpc: timeout");
+      }
+      return game(k);
+    };
+    fail = true;
+    expect(await session.discard(send.discard())).toBe(true);
+    expect(session.state).toMatchObject({ hand: null, stale: true, readError: "rpc: timeout" });
+    const writes = chain.calls.filter((c) => c === "write").length;
+    expect(await session.discard(send.discard())).toBe(false);
+    expect(chain.calls.filter((c) => c === "write")).toHaveLength(writes);
+    expect(session.state).toMatchObject({ stale: false, hand: chainHand(chain) });
+    expect(await session.discard(send.discard())).toBe(true);
+  });
+
   test("a missing game is a typed error", async () => {
     const { chain, session } = setup();
     chain.views.game = async () => {
@@ -232,6 +256,72 @@ describe("PredictedSession: moves", () => {
     chain.hold = false;
     expect(await session.discard(send.discard())).toBe(true);
     expect(session.state).toMatchObject({ resynced: 1, hand: chainHand(chain) });
+  });
+
+  test("a move made while a resync re-opens is refused and sends nothing; the hand waits", async () => {
+    const { chain, session, send } = setup();
+    await session.open();
+    await chain.outsideDiscard();
+    // Hold the re-open's tiles() read.
+    const tiles = chain.views.tiles;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    chain.views.tiles = async (k) => {
+      await gate;
+      return tiles(k);
+    };
+    const mismatched = session.discard(send.discard());
+    await settle();
+    await settle();
+    expect(session.state).toMatchObject({ pending: true, hand: null });
+    const writes = chain.calls.filter((c) => c === "write").length;
+    expect(await session.discard(send.discard())).toBe(false);
+    const move = legalMove(chain.game)!;
+    expect(await session.place(move, send.build(move))).toBe(false);
+    expect(chain.calls.filter((c) => c === "write")).toHaveLength(writes);
+    release();
+    expect(await mismatched).toBe(true);
+    expect(session.state).toMatchObject({ resynced: 1, pending: false, stale: false, hand: chainHand(chain) });
+    expect(chain.calls.filter((c) => c === "write")).toHaveLength(writes);
+  });
+
+  test("a resync whose re-open fails to read keeps the board, says why, and the next action re-opens", async () => {
+    const { chain, session, send } = setup();
+    await session.open();
+    await chain.outsideDiscard();
+    const tiles = chain.views.tiles;
+    chain.views.tiles = async () => {
+      chain.views.tiles = tiles;
+      throw new Error("rpc: timeout");
+    };
+    const board = session.state.tiles;
+    expect(await session.discard(send.discard())).toBe(true);
+    expect(session.state).toMatchObject({ status: "ready", stale: true, readError: "rpc: timeout", resynced: 1, pending: false });
+    expect(session.state.tiles).toEqual(board);
+
+    // The next action re-opens first, and sends nothing.
+    const writes = chain.calls.filter((c) => c === "write").length;
+    expect(await session.discard(send.discard())).toBe(false);
+    expect(chain.calls.filter((c) => c === "write")).toHaveLength(writes);
+    expect(session.state).toMatchObject({ stale: false, readError: null, predicting: true, hand: chainHand(chain) });
+    expect(await session.discard(send.discard())).toBe(true);
+    expect(session.state.hand).toEqual(chainHand(chain));
+  });
+
+  test("retry() re-opens a stale board", async () => {
+    const { chain, session, send } = setup();
+    await session.open();
+    await chain.outsideDiscard();
+    chain.views.tiles = async () => {
+      throw new Error("rpc: down");
+    };
+    await session.discard(send.discard());
+    expect(session.state.stale).toBe(true);
+    expect(await session.retry()).toBe(false);
+    expect(session.state).toMatchObject({ stale: true, readError: "rpc: down", status: "ready" });
+    chain.views.tiles = async () => chain.drawn.map((t) => ({ ...t }));
+    expect(await session.retry()).toBe(true);
+    expect(session.state).toMatchObject({ stale: false, hand: chainHand(chain) });
   });
 
   test("a receipt that could not be read (a hash, no known revert): rolled back, then re-opened from the chain", async () => {

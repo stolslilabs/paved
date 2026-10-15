@@ -6,6 +6,7 @@ import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import type { HandState } from "../../components/containers/hand-panel";
 import { Notice } from "../../components/elements/notice";
+import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useChallengeSession } from "../../data/challenge";
@@ -268,6 +269,20 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       {!playable && (
         <Notice title={senders ? "Another player's game" : "Connect to play"} className="pointer-events-auto w-full max-w-2xl">
           {senders ? "You are watching this game: only its player can move." : "This game is shown read only. Connect your wallet to play it."}
+        </Notice>
+      )}
+      {state.stale && (
+        <Notice
+          tone="warning"
+          title="The board may be out of date"
+          className="pointer-events-auto w-full max-w-2xl"
+          action={
+            <Button size="sm" variant="secondary" onClick={() => void session?.retry()}>
+              Retry
+            </Button>
+          }
+        >
+          The game could not be read again ({state.readError}). Your next move reads it first.
         </Notice>
       )}
       {import.meta.env.DEV && state.fallback && (

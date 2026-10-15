@@ -32,7 +32,7 @@ function freshGame(expiresAt: number) {
 }
 
 /** The sources on `FakeGameViews` holding the fresh game, and a signer whose discard moves it as the contract does. */
-function sources(options: { signer: boolean; expiresAt?: number }) {
+function sources(options: { signer: boolean; expiresAt?: number; address?: string }) {
   const { engine, game, tiles } = freshGame(options.expiresAt ?? 2 ** 40);
   const views = new FakeGameViews();
   views.setGame(key, { game, tiles, builder: { gameId: GAME_ID, playerId: PLAYER, tileId: game.tileId, plan: game.plan }, initialSeed: `0x${SEED.toString(16)}` });
@@ -51,7 +51,7 @@ function sources(options: { signer: boolean; expiresAt?: number }) {
     return { transactionHash: "0x1", events: [{ name: "Discarded", fields: { gameId: GAME_ID, tileId: hand.id, plan: PLANS.indexOf(hand.plan), points: result.points }, fromAddress: "0x2" }] };
   });
   const signer: GameSigner = {
-    address: PLAYER,
+    address: options.address ?? PLAYER,
     build: vi.fn(async () => ({ transactionHash: "0x2", events: [] })),
     discard,
     surrender: vi.fn(async (): Promise<WriteResult> => {
@@ -60,7 +60,7 @@ function sources(options: { signer: boolean; expiresAt?: number }) {
       return { transactionHash: "0x3", events: [{ name: "GameOver", fields: { gameId: GAME_ID, score: 0 }, fromAddress: "0x2" }] };
     }),
   } as unknown as GameSigner;
-  return { ...fakeSources({ views, signer: options.signer ? signer : null }), signer };
+  return { ...fakeSources({ views, signer: options.signer ? signer : null }), signer, views };
 }
 
 function open(path: string, s: ReturnType<typeof sources>) {
@@ -108,6 +108,34 @@ describe("/game/:gameId (P5)", { timeout: 15_000 }, () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Surrender" }));
     await waitFor(() => expect(s.signer.surrender).toHaveBeenCalledWith(key));
     expect(s.signer.discard).not.toHaveBeenCalled();
+  });
+
+  it("with a signer of another address: read only, with the Another player's game notice", async () => {
+    const s = sources({ signer: true, address: "0xdef" });
+    open(`/game/${GAME_ID}`, s);
+    expect(await screen.findByText("Another player's game", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(hand()).not.toBeInTheDocument();
+    expect(screen.queryByText("Connect to play")).not.toBeInTheDocument();
+  });
+
+  it("a resync whose re-read fails keeps the board with a Retry, which re-reads it", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = sources({ signer: true });
+    open(`/game/${GAME_ID}`, s);
+    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: 5000 })).toBeInTheDocument();
+    // Another tab discards: the board's next discard is predicted from a stale hand, and the chain's result differs.
+    await s.signer.discard(key);
+    const tiles = s.views.tiles.bind(s.views);
+    let failures = 1;
+    s.views.tiles = async (k) => {
+      if (failures-- > 0) throw new Error("rpc: timeout");
+      return tiles(k);
+    };
+    await userEvent.click(within(hand()!).getByRole("button", { name: /Discard/ }));
+    expect(await screen.findByText("The board may be out of date")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByText("The board may be out of date")).not.toBeInTheDocument());
+    expect(screen.getByText("Board resynced")).toBeInTheDocument();
   });
 
   it("a game id that is not digits is not a game", async () => {

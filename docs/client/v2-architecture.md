@@ -1500,9 +1500,12 @@ replaying; not needed at 72 moves.
   position'`, added to `writer.ts` in P5). A write whose receipt could not be read (a hash, no known revert) may have
   landed: after the rollback the session re-opens from the chain. An accepted move with another result re-opens the
   session, drops the queued moves, logs the game, the move and the reason (`onMismatch`, `console.warn` by default), and
-  counts `resynced`: the board toasts "Board resynced". A failed check at open plays without prediction: the hand waits
-  for the chain, each move re-reads `game()` and `tiles()`, and the board's slots and preview come from an engine holding
-  the chain's board; a dev-only notice gives the reason.
+  counts `resynced`: the board toasts "Board resynced". While a re-open reads, moves are refused and send nothing (the
+  hand waits), and the re-open drops whatever was queued. A re-open whose read fails keeps the board as it was, marks it
+  `stale` with the `readError`, and re-opens on the next move (which sends nothing) or on the board's Retry. A failed
+  check at open plays without prediction: the hand waits for the chain, each move re-reads `game()` and `tiles()` (a
+  failed read there marks the board stale too), and the board's slots and preview come from an engine holding the
+  chain's board; a dev-only notice gives the reason.
 - **Expiry.** Past `expiresAt` (the session's clock: the wall clock, block time in the e2e) a build or a discard shows
   `GameExpiredError`'s message and sends nothing; a surrender is accepted. The board's hand turns to `expired` and the
   Surrender dialog opens by itself (`BoardScene`'s `promptSurrender`); the countdown is in the header.
