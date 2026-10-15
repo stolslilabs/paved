@@ -1,6 +1,12 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { EconomyViews, EventReader, GameViews, IndexerClient, PoolQuoter } from "@paved/chain";
+import type { EconomyViews, EventReader, GameViews, IndexerClient, PavedWriter, PoolQuoter } from "@paved/chain";
 import { browserStore, type KeyValueStore } from "@paved/game-core";
+
+/**
+ * Who plays: the writes of a game for the connected account. `PavedWriter` satisfies it; P6 builds one from the wallet's
+ * account (`PavedClient.writer`). A test gives its own.
+ */
+export type GameSigner = Pick<PavedWriter, "address" | "build" | "discard" | "surrender">;
 
 /**
  * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the Training
@@ -16,6 +22,8 @@ export interface DataSources {
   /** The pool's quoter (`quote_swap`); null without one. */
   pool: PoolQuoter | null;
   indexer: IndexerClient;
+  /** The connected account's writes; null or left out without one (P6 connects the wallet): Challenge boards are read only. */
+  signer?: GameSigner | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }

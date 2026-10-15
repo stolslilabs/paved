@@ -89,9 +89,25 @@ export class GameExpiredError extends WriteError {
   }
 }
 
-/** `'Game: expired'` as its typed error, from the fee estimation or the receipt; any other error unchanged. */
+const INVALID_POSITION = "Challenge: invalid position";
+/** What the player reads when a build names a square that cannot be on the board (CORE #391). */
+export const INVALID_POSITION_TEXT = "This square is outside the board: choose a lit slot next to your tiles.";
+
+/**
+ * `Challenge.build` refused the position before any read (CORE #391): `x` or `y` is 0 or `u32::MAX`, a square no board
+ * reaches. The client sends only slots next to its tiles, so this means a client bug; nothing moved.
+ */
+export class InvalidPositionError extends WriteError {
+  constructor(transactionHash?: string) {
+    super(INVALID_POSITION_TEXT, transactionHash, transactionHash !== undefined);
+    this.name = "InvalidPositionError";
+  }
+}
+
+/** `'Game: expired'` and `'Challenge: invalid position'` as their typed errors, from the fee estimation or the receipt; any other error unchanged. */
 function expiredRevert(error: unknown): never {
   if (error instanceof WriteError && revertNames(error.message, GAME_EXPIRED)) throw new GameExpiredError(error.transactionHash);
+  if (error instanceof WriteError && revertNames(error.message, INVALID_POSITION)) throw new InvalidPositionError(error.transactionHash);
   throw error;
 }
 

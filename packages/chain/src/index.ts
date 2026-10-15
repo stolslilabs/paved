@@ -54,6 +54,8 @@ export {
   FaucetCapError,
   GameExpiredError,
   GAME_EXPIRED_TEXT,
+  INVALID_POSITION_TEXT,
+  InvalidPositionError,
   WriteError,
 } from "./writer";
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";
