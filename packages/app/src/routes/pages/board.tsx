@@ -374,13 +374,13 @@ function TutorialBoard() {
   const hand = board.hand;
   const target = chosen ?? (hovered && same(hovered, preset) ? hovered : null);
   const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
-  // The points of the placement on the run's engine (a copy): null where the tile cannot go in this orientation.
-  const preview = useMemo(() => {
-    if (!move) return null;
-    const placement = { orientation: orientationName(move.orientation), x: move.x - CENTER, y: move.y - CENTER };
-    return view.game.canPlace(placement) ? view.game.clone().build(placement).points : null;
-  }, [view, move]);
-  const ghost = move && hand && preview !== null ? { ...move, plan: hand.plan } : null;
+  // Where the tile may go in this orientation (the engine's rules), and its points when it is the step's own placement
+  // (the tutorial's engine builds only that one): a legal but wrong orientation is refused on Place, with its reason.
+  const placement = move && { orientation: orientationName(move.orientation), x: move.x - CENTER, y: move.y - CENTER };
+  const legal = useMemo(() => placement !== null && view.game.canPlace(placement), [view, placement?.orientation, placement?.x, placement?.y]);
+  const scripted = placement !== null && step?.placement?.orientation === placement.orientation;
+  const preview = useMemo(() => (legal && scripted ? view.game.clone().build(placement!).points : null), [view, legal, scripted]);
+  const ghost = move && hand && legal ? { ...move, plan: hand.plan } : null;
 
   const choose = useCallback(
     (cell: Slot) => {
@@ -435,7 +435,7 @@ function TutorialBoard() {
       hand={{
         tile: hand && { plan: hand.plan, orientation },
         state: !hand || view.over ? "empty" : refusal ? "refused" : "placing",
-        slotChosen: move !== null && preview !== null,
+        slotChosen: legal,
         preview,
         error: refusal,
       }}
