@@ -127,6 +127,48 @@ export const ev = {
     raw("setup", "CreditClaimed", [player], [kind, period, credits]),
   creditSpent: (player: bigint | number, gameId: number, credits: number) =>
     raw("setup", "CreditSpent", [player], [gameId, credits]),
+  /** Cobbles v1 part 2. `PackSet { pack_id; cobbles, price, active }`, `PackBought { player_id; pack_id, cobbles, price, referrer, balance }`. */
+  packSet: (packId: number, cobbles: number, price: bigint | number, active = true) =>
+    raw("setup", "PackSet", [packId], [cobbles, price, active ? 1 : 0]),
+  packBought: (
+    player: bigint | number,
+    packId: number,
+    cobbles: number,
+    price: bigint | number,
+    referrer: bigint | number,
+    balance: number,
+  ) => raw("setup", "PackBought", [player], [packId, cobbles, price, referrer, balance]),
+  /** Economy's `Sold { player_id; price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }` (u256 but the referrer). */
+  sold: (
+    player: bigint | number,
+    options: {
+      price?: bigint;
+      referrer?: bigint | number;
+      referral?: bigint;
+      burnedQuote?: bigint;
+      burned?: bigint;
+      margin?: bigint;
+      supply?: bigint;
+      vaultPaved?: bigint;
+    } = {},
+  ) => {
+    const u256 = (value: bigint) => [value & (2n ** 128n - 1n), value >> 128n];
+    return raw(
+      "economy",
+      "Sold",
+      [player],
+      [
+        ...u256(options.price ?? 5_000_000n),
+        options.referrer ?? 0,
+        ...u256(options.referral ?? 0n),
+        ...u256(options.burnedQuote ?? 3_500_000n),
+        ...u256(options.burned ?? 70_000n),
+        ...u256(options.margin ?? 1_000_000n),
+        ...u256(options.supply ?? 1_000_000_000n),
+        ...u256(options.vaultPaved ?? 25_000n),
+      ],
+    );
+  },
   /** `QuestDefined`: key quest_id; data schedule (start, end, duration, interval), tasks span, conditions span. */
   questDefined: (
     questId: number,
