@@ -372,7 +372,7 @@ export interface PlayerAchievementsAnswer extends Envelope {
 /** A player's cobbles and free-game credits at the served block (cobbles v1): the running values of the chain's own events. */
 export interface PlayerCobblesAnswer extends Envelope {
   player_id: string;
-  /** The cobble balance, the `balance` of the last `CobblesClaimed`; 0 for a player with none. */
+  /** The cobble balance, the `balance` of the last `CobblesClaimed` or `PackBought`; 0 for a player with none. */
   cobbles: number;
   /** The free-game credits left: claimed (`CreditClaimed`) less spent (`CreditSpent`). */
   credits: number;
@@ -380,6 +380,58 @@ export interface PlayerCobblesAnswer extends Envelope {
   credits_spent: number;
   /** Ids of the achievements claimed, ascending. */
   achievements_claimed: number[];
+}
+
+/** A pack of Cobbles on sale (`PackSet`, the last one of its id) at the served block (cobbles v1 part 2, schema 15). */
+export interface Pack {
+  pack_id: number;
+  cobbles: number;
+  /** USDC base units, a decimal string (u128). */
+  price: string;
+  /** false: the owner stopped its sales; it is kept. */
+  active: boolean;
+}
+
+/** The packs set by the owner, ascending by id, the inactive ones included. */
+export interface PacksAnswer extends Envelope {
+  packs: Pack[];
+}
+
+/** A pack a player bought (`PackBought` with its `Sold`, the same transaction). */
+export interface PackPurchase {
+  pack_id: number;
+  cobbles: number;
+  /** USDC base units paid, a decimal string. */
+  price: string;
+  /** The balance after it (the chain's own running value). */
+  balance: number;
+  /** The referrer that counted, `0x` and 64 hex digits; null when the purchase had no referral. */
+  referrer: string | null;
+  /** USDC base units paid to the referrer, a decimal string ("0" without one). */
+  referral: string;
+  /** The purchase's position: the block, the transaction's index in it and the event's index in it. */
+  block: number;
+  tx: number;
+  idx: number;
+  /** Time of the block of the purchase. */
+  purchased_at: number;
+}
+
+export interface PlayerPacksAnswer extends Envelope {
+  player_id: string;
+  /** Newest first. */
+  purchases: PackPurchase[];
+  /** Pass as `before` for the next page: `<block>:<tx>:<idx>`; null on the last. */
+  next: string | null;
+}
+
+/** What a player earned as a referrer, from the games (`Purchased`) and the packs (`Sold`), at the served block. USDC base units, decimal strings. */
+export interface PlayerReferralsAnswer extends Envelope {
+  player_id: string;
+  /** Games and packs together. */
+  total: string;
+  games: { count: number; total: string };
+  packs: { count: number; total: string };
 }
 
 /** A claim of cobbles (`CobblesClaimed`). */

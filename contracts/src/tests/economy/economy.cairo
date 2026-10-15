@@ -44,34 +44,34 @@ use snforge_std::{
 use starknet::ContractAddress;
 use super::token::{ADMIN, RECIPIENT, deploy_token};
 
-fn OWNER() -> ContractAddress {
+pub fn OWNER() -> ContractAddress {
     'OWNER'.try_into().unwrap()
 }
 
-fn DAILY() -> ContractAddress {
+pub fn DAILY() -> ContractAddress {
     'DAILY'.try_into().unwrap()
 }
 
-fn PLAYER() -> ContractAddress {
+pub fn PLAYER() -> ContractAddress {
     'PLAYER'.try_into().unwrap()
 }
 
-fn REFERRER() -> ContractAddress {
+pub fn REFERRER() -> ContractAddress {
     'REFERRER'.try_into().unwrap()
 }
 
-fn SOMEONE() -> ContractAddress {
+pub fn SOMEONE() -> ContractAddress {
     'SOMEONE'.try_into().unwrap()
 }
 
-const ONE_PAVED: u256 = 1_000_000_000_000_000_000;
-const USDC: u256 = 1_000_000;
+pub const ONE_PAVED: u256 = 1_000_000_000_000_000_000;
+pub const USDC: u256 = 1_000_000;
 /// The day of the tests, and an hour into it.
-const DAY0: u64 = 20_000;
+pub const DAY0: u64 = 20_000;
 const MEAN0: u64 = 3_980_000;
 /// The launch pool's rate after its 5 % fee (800,000 PAVED for 10,000 USDC, x 0.95), in base
 /// units per base unit x 1e18: what the deploy passes.
-const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
+pub const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
 
 /// A router at a fixed rate (`out = in x rate`, no price impact), for the burned PAVED with and
 /// without a referrer. Its `swap` hands the input USDC to `reserve` (the pool keeps it) and pulls
@@ -161,12 +161,12 @@ pub mod FixedRateRouter {
 }
 
 #[derive(Copy, Drop)]
-struct Setup {
-    economy: IEconomyDispatcher,
-    paved: IERC20Dispatcher,
-    usdc: IERC20Dispatcher,
-    router: ContractAddress,
-    vault: ContractAddress,
+pub struct Setup {
+    pub economy: IEconomyDispatcher,
+    pub paved: IERC20Dispatcher,
+    pub usdc: IERC20Dispatcher,
+    pub router: ContractAddress,
+    pub vault: ContractAddress,
 }
 
 fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
@@ -182,7 +182,7 @@ fn at(day: u64, seconds: u64) {
 /// The launch pool (800,000 PAVED and 10,000 USDC, from the initial supply), the Vault, and
 /// `Economy` with the decided configuration, `rate` as the guard's initial rate, `PavedToken`'s
 /// minter and `DAILY` as its game. An hour into `DAY0`.
-fn setup_with(rate: u256) -> Setup {
+pub fn setup_with(rate: u256) -> Setup {
     at(DAY0, 3600);
     let paved_address = deploy_token(RECIPIENT());
     let usdc_address = deploy("Faucet", array![]);
@@ -233,20 +233,20 @@ fn setup_with(rate: u256) -> Setup {
     Setup { economy, paved, usdc, router, vault }
 }
 
-fn setup() -> Setup {
+pub fn setup() -> Setup {
     setup_with(POOL_RATE)
 }
 
 /// The configuration these tests were written at: 70 % of the price swapped for the burn (the
 /// decided one before P-56's split, which `test_decided_split_*` covers), so their figures and
 /// sim.py's fixture (its `BURN`) keep their round numbers.
-fn tested() -> Config {
+pub fn tested() -> Config {
     Config { burn_bps: 7_000, ..decided() }
 }
 
 /// The PAVED that the router's own `quote_swap` answers for `usdc_in`, through `Economy`'s pool
 /// and limit.
-fn router_quote(s: Setup, usdc_in: u128) -> u256 {
+pub fn router_quote(s: Setup, usdc_in: u128) -> u256 {
     router_quote_at(s, s.router, usdc_in)
 }
 
@@ -266,12 +266,12 @@ fn router_quote_at(s: Setup, router: ContractAddress, usdc_in: u128) -> u256 {
     out.mag.into()
 }
 
-fn today() -> u64 {
+pub fn today() -> u64 {
     starknet::get_block_timestamp() / DAY
 }
 
 /// What `Daily` does: the price onto `Economy`, then `purchase`. Returns `R`.
-fn buy(
+pub fn buy(
     s: Setup, game_id: u32, player: ContractAddress, stake: u8, referrer: ContractAddress,
 ) -> u128 {
     let price = stake.into() * BASE_PRICE;
@@ -289,14 +289,14 @@ fn record(s: Setup, game_id: u32, score: u32) {
     stop_cheat_caller_address(s.economy.contract_address);
 }
 
-fn configure(s: Setup, config: Config) {
+pub fn configure(s: Setup, config: Config) {
     start_cheat_caller_address(s.economy.contract_address, OWNER());
     s.economy.configure(config);
     stop_cheat_caller_address(s.economy.contract_address);
 }
 
 /// Economy holds nothing, and the router holds exactly its reserves.
-fn assert_nothing_left(s: Setup) {
+pub fn assert_nothing_left(s: Setup) {
     let economy = s.economy.contract_address;
     assert_eq!(s.usdc.balance_of(economy), 0);
     assert_eq!(s.paved.balance_of(economy), 0);
@@ -310,7 +310,7 @@ fn assert_nothing_left(s: Setup) {
     assert_eq!(s.usdc.balance_of(s.router), usdc_reserve);
 }
 
-fn usdc_reserve(s: Setup) -> u256 {
+pub fn usdc_reserve(s: Setup) -> u256 {
     let (r0, r1) = IMockRouterDispatcher { contract_address: s.router }.reserves();
     if s.paved.contract_address < s.usdc.contract_address {
         r1
@@ -320,7 +320,7 @@ fn usdc_reserve(s: Setup) -> u256 {
 }
 
 /// The PAVED the purchases sent to the Vault: its balance beyond the dead shares' 1,000.
-fn vault_paved(s: Setup) -> u256 {
+pub fn vault_paved(s: Setup) -> u256 {
     s.paved.balance_of(s.vault) - DEAD_ASSETS
 }
 
@@ -644,7 +644,7 @@ fn test_purchase_above_the_whole_swap_reverts() {
 }
 
 /// The router's next `swap` answers these legs (a router that fills part of the input).
-fn mock_swap(s: Setup, usdc_leg: i129, paved_leg: i129) {
+pub fn mock_swap(s: Setup, usdc_leg: i129, paved_leg: i129) {
     let delta = if s.paved.contract_address < s.usdc.contract_address {
         Delta { amount0: paved_leg, amount1: usdc_leg }
     } else {

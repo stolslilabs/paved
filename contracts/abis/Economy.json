@@ -536,6 +536,57 @@
           }
         ],
         "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "sell",
+        "inputs": [
+          {
+            "name": "player",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "price",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "referrer",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "min_out",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_seller",
+        "inputs": [
+          {
+            "name": "seller",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "seller",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
       }
     ]
   },
@@ -913,6 +964,70 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::economy::Economy::SellerSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "seller",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::economy::Economy::Sold",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "referrer",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "referral",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "burned_quote",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "burned",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "margin",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "supply",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "vault_paved",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
     "kind": "struct",
     "members": [
@@ -1029,6 +1144,16 @@
       {
         "name": "RouterSet",
         "type": "paved::systems::economy::Economy::RouterSet",
+        "kind": "nested"
+      },
+      {
+        "name": "SellerSet",
+        "type": "paved::systems::economy::Economy::SellerSet",
+        "kind": "nested"
+      },
+      {
+        "name": "Sold",
+        "type": "paved::systems::economy::Economy::Sold",
         "kind": "nested"
       },
       {

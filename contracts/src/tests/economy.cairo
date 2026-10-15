@@ -5,5 +5,6 @@ pub mod fork;
 pub mod hardening;
 pub mod mean;
 pub mod router;
+pub mod sell;
 pub mod token;
 pub mod vault;

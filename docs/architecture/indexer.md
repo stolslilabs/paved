@@ -52,7 +52,7 @@ in Tutorial. Such a game is stored and listed under its player, but ranks in no 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
 `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
 `QuestClaimed`: quests are in event mode; the two `...ReporterSet`), and the configuration events of the economy
-(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`), and `MintersSet` of `Collection` (the owner's `set_minters`; no screen shows the minters). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
+(`EconomyConfigured`, `PoolSet`, `GameSet`, `SellerSet` of `Economy`), and `MintersSet` of `Collection` (the owner's `set_minters`; no screen shows the minters). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
 rebuild (below), never a migration.
 
@@ -707,7 +707,7 @@ database). `Setup`'s events are flat variants: the selector is the variant's nam
 | `CreditSpent` | `player_id`; `game_id`, `credits` | `credit_spends` |
 
 The two `*CobblesSet` events are owner configuration, indexed (not skipped by name like the other owner events) because the API
-serves the amount of each quest and achievement. The part-2 events (`PackSet`, `PackBought`, `Sold`, skins) are not known
+serves the amount of each quest and achievement. The part-2 events are decoded since IX-COBBLES2 (below); the skins' are not known
 yet: the indexer halts on them until their part lands.
 
 **Tables.** One row per event, at its chain position `(block, tx, idx)`, so a rewind is a delete by block; the balance
@@ -753,3 +753,67 @@ that player (`GameSpawned.price` 0, emitted before it in the same transaction) o
   `AchievementDefinition.cobbles`; 0 when none are set.
 - `LeaderboardEntry.free` and `GameRow.free` (booleans). `GameRow.economy` is null for a free game as for any game not
   bought: `free` tells them apart.
+
+## As built (IX-COBBLES2, cobbles v1 part 2: the packs)
+
+`cobbles-v1.md` (2, 6.3) adds `Setup.set_pack` and `Setup.buy_pack`, and `Economy.set_seller` and `Economy.sell`. Schema version 15
+(`rebuild` on an older database). Four events are new; the indexer decodes them strictly like the others, and no longer halts on
+them.
+
+**Events**
+
+| Event | Emitter | Keys, then data | Indexed as |
+|---|---|---|---|
+| `PackSet` | `Setup` | `pack_id`; `cobbles`, `price`, `active` | `packs` (the purchase page needs the pack list from the indexer) |
+| `PackBought` | `Setup` | `player_id`; `pack_id`, `cobbles`, `price`, `referrer`, `balance` | `pack_purchases` |
+| `Sold` | `Economy` | `player_id`; `price`, `referrer`, `referral`, `burned_quote`, `burned`, `margin`, `supply`, `vault_paved` | `sales` |
+| `SellerSet` | `Economy` | `seller` (data) | skipped by name (`IGNORED`): owner configuration, and nothing reads the seller |
+
+`PackSet` is indexed because the Cobbles tab lists the packs from the indexer; `SellerSet` is skipped, as the other owner
+events are (`GameSet`, `RouterSet`), because no screen or total needs it. `buy_pack` emits `Sold` (inside `Economy.sell`), then
+`PackBought`, in one transaction: the indexer relies on that order.
+
+**Tables.** One row per event at its chain position `(block, tx, idx)`; a rewind is a delete by block.
+
+- `packs (pack_id, cobbles, price, active)`: the last row of an id is the pack. An inactive pack stays.
+- `sales (player_id, price, referrer, referral, burned_quote, burned, margin, supply, vault_paved)`: every `Sold`.
+- `pack_purchases (player_id, pack_id, cobbles, price, referrer, balance, sale_idx)`: every `PackBought`, joined to its `Sold`
+  by `(block, tx, sale_idx)` (unique): the pack purchase is the pair. The split of the price is in `sales`, the pack and the
+  balance in `pack_purchases`.
+- The balance is one ledger: the last row of `cobble_claims` and `pack_purchases` together. Nothing is stored as a sum.
+
+**Halts.** All of IX-GEMS1's remain, and the balance check now reads the union of both tables, so a claim after a purchase is
+checked against the purchase's balance. New:
+
+- a `PackBought` whose pack was never set, is not active, or is not the `cobbles` for the `price` the pack is set to (the
+  `PackSet` read is the last one before the block's end, in order);
+- a `PackBought` whose `balance` is not the ledger's before it plus its `cobbles`;
+- a `PackBought` with no `Sold` before it that is unpaired, one in another transaction, for another player, another price or
+  another referrer;
+- a `Sold` while an earlier `Sold` has no `PackBought` (a pack the indexer did not see);
+- a block that ends with a `Sold` whose transaction holds no `PackBought`. `Sold` and `PackBought` share a transaction, so the
+  check at the end of `Store.apply` is exact; it refuses an owner's direct `Economy.sell` (the seller is Setup) before its
+  referral can be served by the totals, which read `sales`.
+
+The lookup of the `Sold` waiting for its `PackBought` reads one row: only the latest sale can be waiting, so it is read by the
+primary key (`ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`), not by a scan of `sales`; a rebuild is linear in the sales.
+
+A buyer is a player from its `Sold`. A referrer is not (as for `Purchased`).
+
+**API** (the envelopes and the `head` semantics are unchanged; everything is appended).
+
+- `GET /v1/packs`: `packs`, ascending by id: `{ pack_id, cobbles, price (USDC base units, decimal string), active }`; the
+  inactive ones are listed.
+- `GET /v1/players/{player_id}/packs?limit=&before=`: `purchases`, newest first: `{ pack_id, cobbles, price, balance, referrer
+  (null without one), referral (decimal string), block, tx, idx, purchased_at }`, and `next`, the `before` of the next page
+  (`<block>:<tx>:<idx>`), null on the last.
+- `GET /v1/players/{player_id}/referrals`: what the player earned as a referrer: `total`, `games` and `packs` (`{ count, total }`,
+  USDC base units, decimal strings). `games` sums `purchases.referral` (`Purchased`), `packs` sums `sales.referral` (`Sold`),
+  both of the rows whose `referrer` is the player; `total` is the sum. There was no referral total before this; `Purchased`'s
+  referral is also in the game rows.
+- `GET /v1/players/{player_id}/cobbles`: `cobbles` is now the last balance of the claims and the purchases.
+
+**Tests.** `events.test.ts` (the ABI members of the four events, a decode test for each, `SellerSet` skipped, `Economy`'s own
+variants), `packs.test.ts` (the packs; a purchase moves the balance and the claim halt still holds; the `PackBought` and `Sold`
+pairing and its halts; the referral sum of `Purchased` and `Sold`; a reorg), `indexer.test.ts` (schema 15). The tests that read
+`contracts/abis/` need part 2's `Setup.json` and `Economy.json`.

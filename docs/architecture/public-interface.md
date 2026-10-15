@@ -364,6 +364,15 @@ working.
   - An indexer that refuses unknown selectors must know the five new events of `Setup` before the contracts that emit them
     are indexed.
 
+- **Cobbles v1, part 2** (P-61, `docs/architecture/cobbles-v1.md`; below, "Cobbles v1, part 2: packs (`Setup`) and `sell`
+  (`Economy`)").
+  - `Setup` gains the interface `ISetupPacks`: `set_pack`, `buy_pack` and the view `pack`, and the events `PackSet` and
+    `PackBought`. `Economy` gains `sell`, `set_seller` and the view `seller` (in `IEconomy`), and the events `SellerSet` and
+    `Sold`. `contracts/abis/Setup.json` and `Economy.json` are regenerated. No entry point changes signature and none is
+    removed. `set_quest_cobbles` refuses two more cases (below).
+  - An indexer that refuses unknown selectors must know `PackSet`, `PackBought`, `SellerSet` and `Sold` before the contracts
+    that emit them are indexed.
+
 ## Breaking change D-18
 
 D-18 (`docs/programme/DECISIONS.md`) removes characters from the game; P-45 gives the details. **Built in
@@ -1048,7 +1057,7 @@ the free spawn. Packs (part 2) and skins (part 3) come in their own pull request
 
 | Entry point | Who | What | Errors |
 |---|---|---|---|
-| `set_quest_cobbles(quest_id: u32, cobbles: u8)` | owner | sets the cobbles of a defined, live quest, 5 to 15 (0 removes them); copies its schedule and task; the quest joins its kind's list (at most 15) | `'Setup: invalid id'` (not 1 to 63), `'Setup: invalid cobbles'`, `'Quest: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1 to 4), `'Setup: invalid schedule'` (neither daily nor weekly, or an end), `'Setup: list full'` |
+| `set_quest_cobbles(quest_id: u32, cobbles: u8)` | owner | sets the cobbles of a defined, live quest, 5 to 15 (0 removes them); copies its schedule and task; the quest joins its kind's list (at most 15) | `'Setup: invalid id'` (not 1 to 63), `'Setup: invalid cobbles'`, `'Quest: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1 to 4), `'Setup: total too high'` (above 65,535 on task 1, 2 or 4; since part 2), `'Setup: quest has conditions'` (a prerequisite; since part 2), `'Setup: invalid schedule'` (neither daily nor weekly, or an end), `'Setup: list full'` |
 | `set_achievement_cobbles(achievement_id: u32, cobbles: u8)` | owner | the same for an achievement, 10 to 90 (0 removes them) | `'Setup: invalid id'`, `'Setup: invalid cobbles'`, `'Achievement: does not exist'`, `'Setup: retired'`, `'Setup: not one task'`, `'Setup: task not counted'` (not task 1, 4, 5, 6, 7 or 10: On the Podium, task 8, has none), `'Setup: total too high'` (above 65,535), `'Setup: achievement windowed'` |
 | `claim_quest(quest_id: u32, period: u64)` | the player, for itself | credits the quest's cobbles once for `period`, its day number (daily) or week number (weekly), when the period's sum of its task reaches its total | `'Setup: no cobbles'`, `'Setup: not live'`, `'Setup: not completed'`, `'Setup: claimed'` |
 | `claim_achievement(achievement_id: u32)` | the player, for itself | credits the achievement's cobbles once, when its lifetime count reaches its total (First Stone: `claim_tutorial` done) | `'Setup: no cobbles'`, `'Setup: not completed'`, `'Setup: claimed'` |
@@ -1086,6 +1095,10 @@ Events of `Setup` (flat variants: the selector is the name):
 
 `balance` and `credits` are the player's after the event, so the indexer can check its sums against the chain.
 
+**The reporter's residual trust.** Any allowlisted reporter can credit progress, and `spend_credit` does not check `game_id`.
+The indexer halts if `spend_credit` is called by a reporter other than `Challenge.spawn_free` (CLIENT's note): only an owner
+act, allowlisting another reporter, could cause it.
+
 ### `Challenge.spawn_free() -> u32`
 
 The caller's free game, on one of its credits: no USDC, no stake, no `Economy` call. It reverts `'Challenge: spawn paused'`
@@ -1103,3 +1116,49 @@ final score and end come from `GameOver`, and the daily leaderboard, which ranks
 from `GameOver` (or join it) for free games. `Recorded.expired` has no free-game counterpart: an expired free game ends by a
 surrender, whose `GameOver` has `day_id` 0, and pays nothing, as every free game (no PAVED, no burn). Tested in
 `contracts/src/tests/e2e/cobbles.cairo` (`test_cobbles_free_game_over_*`, one per way it ends).
+
+## Cobbles v1, part 2: packs (`Setup`) and `sell` (`Economy`)
+
+Built from `docs/architecture/cobbles-v1.md` (P-61), part 2. A pack is a number of cobbles for a USDC price, set by `Setup`'s
+owner and bought by the player for itself. Its price takes the game's split through the game's own code in `Economy`: swapped to
+PAVED, 70 % burned, 25 % to the Vault, 5 % to the LP, with the game's referral (5 % of the price out of the Vault's part).
+
+### `Setup` (`paved::systems::setup::ISetupPacks`, impl `SetupPacksImpl`)
+
+| Entry point | Who | What | Errors |
+|---|---|---|---|
+| `set_pack(pack_id: u8, cobbles: u32, price: u128, active: bool)` | owner | sets a pack; `price` in USDC base units (6 decimals); `active` false stops its sales | `'Setup: invalid pack'` (an id outside 1 to 8, zero cobbles or a zero price), `'Ownable: caller is not owner'` |
+| `buy_pack(pack_id: u8, referrer: ContractAddress, min_out: u256)` | the player, for itself | credits the pack's cobbles, moves its price from the caller to `Economy` (`transferFrom`: approve `Setup` on USDC first), then `Economy.sell` | `'Setup: pack not on sale'`, `'Setup: economy not set'`, `'Setup: payment failed'`, the token's own error without allowance or balance, `Economy.sell`'s errors (`'Economy: swap below min_out'`, `'Economy: partial fill'`, `'Economy: not the seller'`) |
+| `pack(pack_id: u8) -> Pack` (view) | anyone | `cobbles: u32`, `price: u128`, `active: bool`; all 0 for a pack never set | |
+
+The USDC is the one `Economy.addresses().usdc` names. `min_out`: the client takes `Economy.quote_swap(amount)` less 1 %, where
+`amount` is the price less the referral when a referrer counts (the game's rule). The referrer is ignored, with no revert, when
+it is the buyer, `Setup`, `Economy`, `Challenge`, the Vault, the router or zero.
+
+Events of `Setup` (flat variants: the selector is the name):
+
+| Event | Keys | Data |
+|---|---|---|
+| `PackSet` | `pack_id: u8` | `cobbles: u32`, `price: u128`, `active: bool` |
+| `PackBought` | `player_id: felt252` | `pack_id: u8`, `cobbles: u32`, `price: u128`, `referrer: ContractAddress` (the one that counted, or zero), `balance: u64` |
+
+### `Economy` (`IEconomy`, new entry points)
+
+| Entry point | Who | What | Errors |
+|---|---|---|---|
+| `sell(player: ContractAddress, price: u256, referrer: ContractAddress, min_out: u256) -> ContractAddress` | the seller (`Setup`) | splits a price already on `Economy` as `purchase` does, through the same code, with no game; returns the referrer that counted, or zero | `'Economy: not the seller'`, `'Economy: zero address'`, `'Economy: wrong price'` (zero), `'Economy: price not paid'`, `'Economy: swap below min_out'`, `'Economy: partial fill'` |
+| `set_seller(seller: ContractAddress)` | owner, once | the seller | `'Economy: seller already set'`, `'Economy: zero address'` |
+| `seller() -> ContractAddress` (view) | anyone | the seller, zero until set | |
+
+`purchase` keeps its ABI and its effects on a game; its referral rule also ignores the seller.
+
+Events of `Economy` (each variant named as its struct, whose name is the selector):
+
+| Event | Keys | Data |
+|---|---|---|
+| `SellerSet` | | `seller: ContractAddress` |
+| `Sold` | `player_id: felt252` | `price: u256`, `referrer: ContractAddress`, `referral: u256`, `burned_quote: u256`, `burned: u256`, `margin: u256`, `supply: u256`, `vault_paved: u256` |
+
+**For the indexer.** `PackBought` (on `Setup`) and `Sold` (on `Economy`) come in the same transaction, `Sold` first: join them on
+the transaction hash (and `player_id`). `Sold` carries the referral as `Purchased` does, so a referrer's totals sum `Purchased`
+and `Sold`.

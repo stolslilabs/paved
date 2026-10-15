@@ -503,6 +503,43 @@ fn test_cobbles_set_quest_cobbles_refuses_every_bound() {
     assert_eq!(error_of(s.set_quest_cobbles(1, 5)), 'Ownable: caller is not owner');
 }
 
+/// Part 1's review, note 1: a quest whose total a saturated `u16` sum could never reach (tasks 1, 2
+/// and 4 above 65,535) is refused, as `set_achievement_cobbles` refuses one; the points (task 3)
+/// sum in `u32` and pass. A quest with a prerequisite condition is refused: the claim reads the
+/// ledger only and could not check it.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_cobbles_set_quest_cobbles_refuses_an_unreachable_total_and_conditions() {
+    let setup = setup_alone();
+    define_fresh(setup);
+    let admin = ISetupDispatcher { contract_address: setup };
+    as_caller(setup, OWNER());
+    let schedule = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
+    let mut id: u32 = 30;
+    for (task, total) in array![
+        (1_u32, 65536_u32), (2, 65536), (4, 65536), (1, 65535), (3, 65536),
+    ] {
+        admin
+            .define_quest(
+                id, schedule, array![QuestTask { task_id: task, total }].span(), array![].span(),
+            );
+        id += 1;
+    }
+    admin
+        .define_quest(
+            40, schedule, array![QuestTask { task_id: 1, total: 1 }].span(), array![1].span(),
+        );
+    let s = safe(setup);
+    assert_eq!(error_of(s.set_quest_cobbles(30, 5)), 'Setup: total too high');
+    assert_eq!(error_of(s.set_quest_cobbles(31, 5)), 'Setup: total too high');
+    assert_eq!(error_of(s.set_quest_cobbles(32, 5)), 'Setup: total too high');
+    assert_eq!(error_of(s.set_quest_cobbles(40, 5)), 'Setup: quest has conditions');
+    // [Info] 65,535 on a `u16` task and 65,536 points are accepted
+    s.set_quest_cobbles(33, 5).unwrap();
+    s.set_quest_cobbles(34, 5).unwrap();
+    stop_cheat_caller_address(setup);
+}
+
 #[test]
 #[available_gas(l2_gas: 59375525)]
 #[feature("safe_dispatcher")]
