@@ -81,8 +81,8 @@ afterEach(() => resetWelcomedForTests());
 describe("/game/:gameId (P5)", { timeout: 15_000 }, () => {
   it("with no signer: the game read only, with a Connect to play notice and no hand", async () => {
     open(`/game/${GAME_ID}`, sources({ signer: false }));
-    expect(await screen.findByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` }, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByText("Connect to play")).toBeInTheDocument();
+    expect(await screen.findByText("Connect to play", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
     expect(hand()).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Board of 1 tiles$/)).toBeInTheDocument();
   });

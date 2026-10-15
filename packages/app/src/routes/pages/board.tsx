@@ -7,7 +7,7 @@ import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import type { HandState } from "../../components/containers/hand-panel";
 import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
-import { LoadingScene } from "../../components/scenes/loading-scene";
+import { TopBar } from "../../components/containers/top-bar";
 import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useRoutePage } from "../handle";
@@ -242,13 +242,20 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     if (session && senders) void session.surrender(() => senders.surrender());
   }, [session, senders]);
 
-  if (!state || state.status === "loading") return <LoadingScene progress={null} message={`Loading Challenge #${gameId}`} />;
-  if (state.status === "error") {
+  if (!state || state.status !== "ready") {
+    // Back stays offered while the game is read, and when it cannot be.
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-board px-4 text-foreground">
-        <Notice tone="danger" title={state.error === "game-not-found" ? "No such game" : "This game cannot be read"} className="w-full max-w-md">
-          {state.error === "game-not-found" ? `There is no Challenge game #${gameId}.` : state.message}
-        </Notice>
+      <div className="flex min-h-dvh flex-col bg-board text-foreground">
+        <TopBar title={`Challenge #${gameId}`} onBack={onBack} />
+        <main aria-busy={state?.status !== "error"} className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4">
+          {state?.status === "error" ? (
+            <Notice tone="danger" title={state.error === "game-not-found" ? "No such game" : "This game cannot be read"}>
+              {state.error === "game-not-found" ? `There is no Challenge game #${gameId}.` : state.message}
+            </Notice>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
+          )}
+        </main>
       </div>
     );
   }

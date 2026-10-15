@@ -38,8 +38,9 @@ describe("app", () => {
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
-  // The wired pages bring their own scene (welcome: P1; training and its end: P3, `training-route.test.tsx`).
-  const WIRED = ["welcome", "training", "training/over"];
+  // The wired pages bring their own scene (welcome: P1; training and its end: P3, `training-route.test.tsx`; the
+  // Challenge board: P5, `challenge-route.test.tsx`).
+  const WIRED = ["welcome", "training", "training/over", "game/:gameId"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {
