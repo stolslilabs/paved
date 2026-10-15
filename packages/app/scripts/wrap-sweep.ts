@@ -18,8 +18,8 @@
  *   on the element or an ancestor. An ellipsis with one of them is fine and not listed.
  * - `scroll`: a box that scrolls horizontally. Only deliberate scrollers are fine, and they are in ALLOWED.
  * - `page`: the page itself scrolls horizontally.
- * - `split`: an address (`0x…`, short or full) or a run of monospace text broken over two lines although it would fit
- *   on one line of its block: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
+ * - `split`: an address (`0x…`, short or full) or a monospace word broken over two lines although it would fit on one
+ *   line: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
  * - `error`: the story failed to render.
  *
  * Exit code 1 when a finding is not in ALLOWED.
@@ -69,9 +69,6 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: "foundations-typography--weights", kind: "overflow", element: 'li "font-sans font-', why: "type specimen line" },
   { story: "foundations-typography--weights", kind: "overflow", element: 'li "font-display font-', why: "type specimen line" },
   { story: "foundations-typography--weights", kind: "overflow", element: 'li "numeric font-', why: "type specimen line" },
-  // The weight captions' notes ("200 (Rubik starts at 300)") wrap under the specimen in the narrow caption column.
-  { story: "foundations-typography--weights", kind: "split", element: 'run "200 (Rubik starts at 300)"', why: "caption note" },
-  { story: "foundations-typography--weights", kind: "split", element: 'run "600 (Space Mono has 700)"', why: "caption note" },
   { story: "foundations-typography--tabular-numbers", kind: "page", element: "html scrollWidth", why: "figure specimen rows" },
   { story: "foundations-typography--tabular-numbers", kind: "viewport", element: 'ul "1111111,2408,8880.0012,345"', why: "figure specimen row" },
   { story: "foundations-typography--tabular-numbers", kind: "overflow", element: 'section "font-sans tabular-nums', why: "figure specimen row" },
@@ -81,9 +78,6 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // files belong to R-VIS, not WRAP360; R-VIS's canvas ResizeObserver should make these two entries unneeded.
   { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
   { story: /^renderer-outlines--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
-  // The outlines story's readout ("… outline 1.43 px at 100%") wraps at 360 px; `src/stories/renderer` is R-VIS's: for a
-  // later fix there.
-  { story: "renderer-outlines--held", kind: "split", element: 'output "distance', why: "readout, R-VIS" },
 ];
 
 const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "split", "scroll"];
@@ -237,11 +231,12 @@ function inspect(): { kind: string; element: string }[] {
     }
   }
 
-  // Runs that must not break: each address (`0x` and hex, an ellipsis inside when shortened), and each monospace text node.
+  // Runs that must not break: each address (`0x` and hex, an ellipsis inside when shortened), and each word of monospace
+  // text (an id, a figure, a hash: a sentence set in mono may wrap at its spaces, a word may not).
   // A shortened address is split as soon as its rects sit on two lines. A full address is split when they do while its
   // width fits the line it sits in: the content width of its nearest block that is not itself a flex or grid item, since a
-  // squeezed item ("0x05f1…" over "6e7f" beside a button) is the very defect. Another monospace run is split when its
-  // width fits its own block (a label that wraps in a narrow grid cell is not).
+  // squeezed item ("0x05f1…" over "6e7f" beside a button) is the very defect. A monospace word is split when its width
+  // fits its own block.
   const ADDRESS = /0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?/g;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -251,10 +246,7 @@ function inspect(): { kind: string; element: string }[] {
     const pcs = getComputedStyle(parent);
     if (pcs.display === "none" || pcs.visibility === "hidden") continue;
     const runs: [number, number, boolean][] = [];
-    if (/mono/i.test(pcs.fontFamily)) {
-      const start = text.length - text.trimStart().length;
-      runs.push([start, start + text.trim().length, false]);
-    }
+    if (/mono/i.test(pcs.fontFamily)) for (const m of text.matchAll(/[^ \t\n]+/g)) runs.push([m.index ?? 0, (m.index ?? 0) + m[0].length, false]);
     for (const m of text.matchAll(ADDRESS)) {
       const at = m.index ?? 0;
       const same = runs.findIndex(([s, e]) => s === at && e === at + m[0].length);
