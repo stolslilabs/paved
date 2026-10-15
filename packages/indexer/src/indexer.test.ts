@@ -496,19 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("IX-COBBLES2: schema 15 (the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("15");
-    for (const old of ["14", "13", "12", "11", "10", "9", "8", "7"]) {
+  test("IX-COBBLES3: schema 16 (the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("16");
+    for (const old of ["15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 15: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 15.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 16: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 16.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("15");
+      expect(rebuilt.meta("schema")).toBe("16");
       rebuilt.close();
     }
   });

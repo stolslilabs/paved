@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "15";
+export const SCHEMA_VERSION = "16";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -222,6 +222,32 @@ const SCHEMA = `
     UNIQUE (block, tx, sale_idx)
   );
   CREATE INDEX IF NOT EXISTS pack_purchases_player ON pack_purchases (player_id, block, tx, idx);
+  -- Cobbles v1 part 3 (cobbles-v1.md, 5). SkinPriced: the owner's price of the skin of a plan in a theme, one row per event; the
+  -- last row of (theme, plan) is the price in force (0: not for sale).
+  CREATE TABLE IF NOT EXISTS skin_prices (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    theme INTEGER NOT NULL, plan INTEGER NOT NULL, cobbles INTEGER NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS skin_prices_skin ON skin_prices (theme, plan, block, tx, idx);
+  -- SkinBought: a skin owned, once per (player, theme, plan) and never lost; cobbles is the price paid, balance the player's cobbles
+  -- after it, in the same running ledger as cobble_claims and pack_purchases.
+  CREATE TABLE IF NOT EXISTS skin_purchases (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, theme INTEGER NOT NULL, plan INTEGER NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx),
+    UNIQUE (player_id, theme, plan)
+  );
+  CREATE INDEX IF NOT EXISTS skin_purchases_player ON skin_purchases (player_id, block, tx, idx);
+  -- SkinsActivated: the player's whole active word after a set_skins (a 0x felt, 66 characters); the last row of a player is its
+  -- active set (19 themes, plan 1 first, 0 the default).
+  CREATE TABLE IF NOT EXISTS skin_actives (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, active TEXT NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS skin_actives_player ON skin_actives (player_id, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -812,6 +838,69 @@ export class Store {
             });
             break;
           }
+          case "SkinPriced": {
+            // Owner configuration: the last row of (theme, plan) is the price in force.
+            this.sql.insertSkinPrice.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              theme: event.theme,
+              plan: event.plan,
+              cobbles: event.cobbles,
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "SkinBought": {
+            const player = padded(event.playerId);
+            const what = `SkinBought of ${player} (theme ${event.theme}, plan ${event.plan}) ${where}`;
+            if (this.sql.skinOwned.get(player, event.theme, event.plan)) throw new Halt(`${what}: already owned`);
+            // The contract sells a skin at the price in force, and only one on sale (an id never priced is 0).
+            const price = this.sql.skinPrice.get(event.theme, event.plan, at) as Row | undefined;
+            if (!price || Number(price.cobbles) === 0) throw new Halt(`${what}: the skin is not on sale`);
+            if (Number(price.cobbles) !== event.cobbles) {
+              throw new Halt(`${what}: price ${event.cobbles}, the price in force is ${price.cobbles}`);
+            }
+            // The running balance is the chain's own: claims, packs and skins all move it.
+            const expected = this.sql.cobbleBalance(player) - BigInt(event.cobbles);
+            if (expected !== event.balance) {
+              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertSkinPurchase.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              theme: event.theme,
+              plan: event.plan,
+              cobbles: event.cobbles,
+              balance: Number(event.balance),
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "SkinsActivated": {
+            const player = padded(event.playerId);
+            const what = `SkinsActivated of ${player} ${where}`;
+            // The word holds every plan, the ones the batch did not name too: each theme but the default is a skin the player owns
+            // (a skin owned is never lost), whichever batch set it.
+            event.themes.forEach((theme, i) => {
+              if (theme !== 0 && !this.sql.skinOwned.get(player, theme, i + 1)) {
+                throw new Halt(`${what}: theme ${theme} for plan ${i + 1}, which the player does not own`);
+              }
+            });
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertSkinActive.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              active: padded(event.active),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "Purchased": {
             if (this.sql.purchase.get(event.gameId)) {
               throw new Halt(`Purchased of game ${event.gameId} ${where}: the game is already purchased`);
@@ -960,6 +1049,9 @@ export class Store {
       this.sql.rewindCobbleClaims.run(to);
       this.sql.rewindCreditClaims.run(to);
       this.sql.rewindCreditSpends.run(to);
+      this.sql.rewindSkinActives.run(to);
+      this.sql.rewindSkinPurchases.run(to);
+      this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
       this.sql.rewindSales.run(to);
       this.sql.rewindPacks.run(to);
@@ -1001,6 +1093,9 @@ export class Store {
     | "packs"
     | "sales"
     | "pack_purchases"
+    | "skin_prices"
+    | "skin_purchases"
+    | "skin_actives"
     | "events"
     | "blocks",
     Row[]
@@ -1023,6 +1118,9 @@ export class Store {
       packs: all("SELECT * FROM packs ORDER BY block, tx, idx"),
       sales: all("SELECT * FROM sales ORDER BY block, tx, idx"),
       pack_purchases: all("SELECT * FROM pack_purchases ORDER BY block, tx, idx"),
+      skin_prices: all("SELECT * FROM skin_prices ORDER BY block, tx, idx"),
+      skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
+      skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1205,13 +1303,30 @@ function statements(db: DatabaseSync) {
        WHERE s.block = ? AND NOT EXISTS (SELECT 1 FROM pack_purchases p WHERE p.block = s.block AND p.tx = s.tx AND p.sale_idx = s.idx)
        ORDER BY s.tx, s.idx LIMIT 1`,
     ),
+    insertSkinPrice: db.prepare(
+      `INSERT INTO skin_prices (block, tx, idx, theme, plan, cobbles, time)
+       VALUES (:block, :tx, :idx, :theme, :plan, :cobbles, :time)`,
+    ),
+    insertSkinPurchase: db.prepare(
+      `INSERT INTO skin_purchases (block, tx, idx, player_id, theme, plan, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :theme, :plan, :cobbles, :balance, :time)`,
+    ),
+    insertSkinActive: db.prepare(
+      `INSERT INTO skin_actives (block, tx, idx, player_id, active, time)
+       VALUES (:block, :tx, :idx, :player_id, :active, :time)`,
+    ),
+    // The price of a skin in force at block `?` (the last SkinPriced of (theme, plan)), and whether a player owns it.
+    skinPrice: db.prepare(
+      "SELECT cobbles FROM skin_prices WHERE theme = ? AND plan = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+    ),
+    skinOwned: db.prepare("SELECT 1 FROM skin_purchases WHERE player_id = ? AND theme = ? AND plan = ?"),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims and pack purchases), 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack purchases and skin purchases), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
         .prepare(
@@ -1219,6 +1334,8 @@ function statements(db: DatabaseSync) {
              SELECT block, tx, idx, balance FROM cobble_claims WHERE player_id = :p
              UNION ALL
              SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p
+             UNION ALL
+             SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p
            ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
         )
         .get({ p: player }) as { balance: number } | undefined;
@@ -1241,6 +1358,9 @@ function statements(db: DatabaseSync) {
     rewindCreditClaims: db.prepare("DELETE FROM credit_claims WHERE block > ?"),
     rewindCreditSpends: db.prepare("DELETE FROM credit_spends WHERE block > ?"),
     rewindPackPurchases: db.prepare("DELETE FROM pack_purchases WHERE block > ?"),
+    rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
+    rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
+    rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

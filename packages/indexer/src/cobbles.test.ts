@@ -72,6 +72,8 @@ describe("cobbles, claims and credits", () => {
       credits_claimed: 2,
       credits_spent: 0,
       achievements_claimed: [2],
+      skins_bought: 0,
+      skins_spent: 0,
     });
     expect(queries.playerCobbles(head, padded(B))).toMatchObject({ cobbles: 5, credits: 0, achievements_claimed: [] });
     // A player with no event: zeros, as the other player routes answer a known address
