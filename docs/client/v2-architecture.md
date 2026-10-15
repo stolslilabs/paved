@@ -978,8 +978,9 @@ Captures at the default view, Mac profile: `packages/app/src/stories/renderer/ca
 - Either is a renderer change of its own, with a capture and a figure, not a few lines.
 
 **Outline segments cut by screen size (OUT-LOD, 2026-10-15).** Where this differs from DPR's paragraphs above,
-OUT-LOD holds. The PM's ruling: cut the outline segments by their size on screen at the current zoom, re-measure on
-DPR's bench with the load stated, and raise the desktop cap by DPR's rule.
+OUT-LOD holds. The outline segments are cut by their size on screen at the current zoom, re-measured on DPR's bench
+with the load stated, and the desktop cap is raised by DPR's rule: the highest cap whose Mac p95 stays under 12 ms at
+both views.
 
 The load first. DPR's "about 130k crease segments" is the sum over the 19 tile types. Each tile draws its type's
 segments, so on the 72-tile board, main draws **497,364 segment instances a frame** in 72 draws: 3.98M vertices and

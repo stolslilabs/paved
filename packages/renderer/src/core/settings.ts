@@ -66,7 +66,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
 };
 
 /**
- * The pixel-ratio caps of `"auto"`, set by the PM's rule from measures on an M2 Max (headless Chrome, the 72-tile board):
+ * The pixel-ratio caps of `"auto"`, set by a rule from measures on an M2 Max (headless Chrome, the 72-tile board):
  * on coarse pointers and small screens, the highest cap whose CPU + GPU p95 stays under 16.6 ms on the phone-like
  * profile (360 x 780 at DPR 3, CPU 4x): 2 (DPR); elsewhere, the highest cap under 12 ms on the Mac profile (1440 x 900
  * at DPR 2) at both views with the outlines on: 1.5 once the outline segments are cut by screen size (OUT-LOD; 2 misses).

@@ -9,6 +9,7 @@ import {
   orderOutlineSegments,
   outlineSegmentCount,
   outlineStroke,
+  AXIS_TOLERANCE,
   segmentFade,
   type OutlineSegmentOrder,
 } from "../src/core/outlines";
@@ -199,21 +200,120 @@ describe("the segments the draw skips", () => {
     expect(counts[counts.length - 1]).toBe(7);
   });
 
+  /** A perspective camera like the game's (fov 50, zoom 5, near 1) at `polar` degrees from vertical, looking at `target`. */
+  function tilted(polar: number, azimuth: number, distance: number, target: THREE.Vector3, width: number, height: number) {
+    const camera = new THREE.PerspectiveCamera(50, width / height, 1, 2000);
+    camera.zoom = 5;
+    const p = THREE.MathUtils.degToRad(polar);
+    const a = THREE.MathUtils.degToRad(azimuth);
+    camera.position.set(target.x + distance * Math.sin(p) * Math.sin(a), target.y + distance * Math.cos(p), target.z + distance * Math.sin(p) * Math.cos(a) + 0.001);
+    camera.lookAt(target);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    return camera;
+  }
+
+  /** Checks every segment `outlineSegmentCount` skips for `camera` against its exact projection; the number skipped. */
+  function expectSkippedUnderCut(x: number, z: number, camera: THREE.PerspectiveCamera, width: number, height: number): number {
+    const outline = createOutline(edgesOf(tile()), createOutlineMaterial()) as THREE.Mesh<THREE.InstancedBufferGeometry>;
+    outline.position.set(x, 0, z);
+    outline.updateMatrixWorld();
+    const order = outline.geometry.userData.segmentOrder as OutlineSegmentOrder;
+    const count = outlineSegmentCount(outline, outline.geometry, order, camera, width, height, OFF);
+    const start = outline.geometry.getAttribute("instanceStart");
+    const end = outline.geometry.getAttribute("instanceEnd");
+    for (let i = count; i < start.count; i++) {
+      const a = new THREE.Vector3().fromBufferAttribute(start, i).applyMatrix4(outline.matrixWorld);
+      const b = new THREE.Vector3().fromBufferAttribute(end, i).applyMatrix4(outline.matrixWorld);
+      // In front of the camera: the projection is exact, with no near-plane trim.
+      expect(a.clone().applyMatrix4(camera.matrixWorldInverse).z).toBeLessThan(-camera.near);
+      expect(b.clone().applyMatrix4(camera.matrixWorldInverse).z).toBeLessThan(-camera.near);
+      expect(screenLength(camera, a, b, width, height), `segment ${i}`).toBeLessThan(OFF);
+    }
+    return start.count - count;
+  }
+
   it("skips only segments the shader would drop: each one is shorter on screen than the cut", () => {
+    let skipped = 0;
     for (const ratio of [1, 2]) {
       for (const distance of [300, 240, 170, 100, 50, 20, 10]) {
         for (const [x, z] of [[0, 0], [12, -7], [30, 18], [-40, 25]]) {
-          const { count, camera, outline, width, height } = drawn(x, z, distance, ratio);
-          const start = outline.geometry.getAttribute("instanceStart");
-          const end = outline.geometry.getAttribute("instanceEnd");
-          for (let i = count; i < start.count; i++) {
-            const a = new THREE.Vector3().fromBufferAttribute(start, i).applyMatrix4(outline.matrixWorld);
-            const b = new THREE.Vector3().fromBufferAttribute(end, i).applyMatrix4(outline.matrixWorld);
-            expect(screenLength(camera, a, b, width, height)).toBeLessThan(OFF);
+          const { width, height } = drawn(x, z, distance, ratio);
+          skipped += expectSkippedUnderCut(x, z, topDown(distance, width, height), width, height);
+        }
+      }
+    }
+    expect(skipped).toBeGreaterThan(0);
+  });
+
+  it("skips only what the shader would drop with the camera tilted: 10, 30, 55 and 80 degrees from vertical", () => {
+    const skipped: Record<number, number> = { 10: 0, 30: 0, 55: 0, 80: 0 };
+    for (const ratio of [1, 2]) {
+      const [width, height] = [1440 * ratio, 900 * ratio];
+      for (const polar of [10, 30, 55, 80]) {
+        for (const azimuth of [0, 45, 160]) {
+          for (const distance of [300, 240, 100, 30, 10]) {
+            for (const [x, z] of [[0, 0], [2, -1], [-3, 4]]) {
+              const camera = tilted(polar, azimuth, distance, new THREE.Vector3(1.5, 0, 1.5), width, height);
+              skipped[polar] += expectSkippedUnderCut(x, z, camera, width, height);
+            }
           }
         }
       }
     }
+    // Tilted, the vertical edges grow on screen: fewer are skipped. At 10 degrees some still are; from 30, a one-voxel
+    // riser is over the cut at every distance the outlines draw at, so none is (the check above still runs on each pose).
+    expect(skipped[10]).toBeGreaterThan(0);
+    expect(skipped[10]).toBeGreaterThanOrEqual(skipped[30]);
+    expect(skipped[30]).toBeGreaterThanOrEqual(skipped[55]);
+    expect(skipped[55]).toBeGreaterThanOrEqual(skipped[80]);
+  });
+
+  it("skips only what the shader would drop with the board at the screen's border", () => {
+    let skipped = 0;
+    for (const ratio of [1, 2]) {
+      const [width, height] = [1440 * ratio, 900 * ratio];
+      for (const distance of [240, 100]) {
+        // Straight down, the view's half extents at the target: about 0.093 x distance high and 1.6 times that wide.
+        const half = (Math.tan(THREE.MathUtils.degToRad(25)) / 5) * distance;
+        const camera = topDown(distance, width, height);
+        for (const [x, z] of [[1.6 * half - 1.5, 0], [-1.6 * half - 1.5, half - 1.5], [0, -half - 1.5], [1.6 * half - 2, half - 2]]) {
+          skipped += expectSkippedUnderCut(x, z, camera, width, height);
+        }
+        // Tilted, the board's far side at the top border.
+        for (const polar of [30, 55]) {
+          const view = tilted(polar, 0, distance, new THREE.Vector3(0, 0, 0), width, height);
+          expectSkippedUnderCut(-1.5, -half * 1.3, view, width, height);
+          expectSkippedUnderCut(1.6 * half - 1.5, 0, view, width, height);
+        }
+      }
+    }
+    expect(skipped).toBeGreaterThan(0);
+  });
+
+  it("skips only what the shader would drop with the outline's bounding sphere just past the near plane", () => {
+    const [width, height] = [1440, 900];
+    const outline = createOutline(edgesOf(tile()), createOutlineMaterial()) as THREE.Mesh<THREE.InstancedBufferGeometry>;
+    const sphere = outline.geometry.boundingSphere!;
+    for (const gap of [0.01, 0.1, 0.5]) {
+      for (const polar of [0, 30, 55, 80]) {
+        // The camera at near + gap + radius from the sphere's centre, looking at it.
+        const camera = tilted(polar, 30, 1 + gap + sphere.radius, sphere.center.clone(), width, height);
+        expectSkippedUnderCut(0, 0, camera, width, height);
+        // A little farther off the axis too: the sphere seen near the view's edge.
+        const aside = tilted(polar, 30, 1 + gap + sphere.radius, sphere.center.clone().add(new THREE.Vector3(0.2, 0, 0.1)), width, height);
+        expectSkippedUnderCut(0, 0, aside, width, height);
+      }
+    }
+  });
+
+  it("puts last only the segments within 1e-9 of the axis in cosine", () => {
+    expect(AXIS_TOLERANCE).toBe(1e-9);
+    const off = (angle: number) => [5, 0, 5, 5 + 0.3 * Math.sin(angle), 0.3 * Math.cos(angle), 5];
+    const { order } = orderOutlineSegments(new Float32Array([[0, 0, 0, 10, 0, 0], [0, 0, 0, 0, 0, 10], off(0), off(1e-6), off(1e-3)].flat()));
+    // Exactly vertical: last. 1e-6 rad off (cosine 1 - 5e-13): last. 1e-3 rad off (cosine 1 - 5e-7): not.
+    expect(order.tail.length).toBe(2);
+    expect(order.head).toBe(3);
   });
 
   it("draws everything with no cut, for a non-perspective camera, or with the camera inside the outline's bounds", () => {
