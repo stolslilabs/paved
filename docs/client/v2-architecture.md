@@ -738,21 +738,70 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
 - Storybook is public, like the client. It holds no secret: fixtures only, no RPC URL beyond the public
   ones, no controller.
 
-- **The app's own build serves the board's 3D assets too (ASSETS, 2026-10-15).** Until P12 moves them into the app, they
-  stay in `packages/app-web/public`, and `packages/app/vite/renderer-assets.ts` maps what the renderer's `AssetLoader`
-  requests to `/renderer-assets/` (under Vite's `base`): served in `vite` (dev), copied into
-  `dist/renderer-assets/` by `vite build` (`vite preview` then serves `dist`, as a static host does; the plugin stays out of Storybook builds); nothing is committed twice and Storybook's own mapping is unchanged. Paths:
-  `models/<plan>.glb` (19), `assets/tiles/<plan>.png` (19), `draco/{draco_decoder.js,draco_decoder.wasm,draco_wasm_wrapper.js}`
-  (loaded only for a Draco-compressed model; none of the base ones is, so the first view never asks for them). Not copied,
-  because the loader never requests them (`getPlanKey` in `@paved/game-core`'s `asset-keys.ts` and `AssetLoader`): `models/extended/`
-  (146 files, Storybook's tile browser only), `assets/tiles/00.png` (the empty plan, `AssetLoader` skips `None`),
-  `THIRD_PARTY_NOTICES.txt`, `draco/README.md`. **Caching:** the file names are not content-hashed (they are the source
-  names, unchanged), so the host must not mark them `immutable`: send `Cache-Control: no-cache` (revalidate with the
-  ETag, a 304 costs no body), or a short `max-age` if the host prefers; the host config is not changed here. **Size,
-  measured on the built app (Chromium headless, `vite preview` serving `dist`, 360 and 1280 px, `/training`):** `dist/renderer-assets` is
-  41 files, 16,037,648 B (models 14,954,492, tiles 319,815, decoder 763,341); the largest are `wfffffffr.glb` 933,876 B,
-  `ffffcccff.glb` 912,848, `cfffcfffc.glb` 905,572; the board's first view loads 38 files, 15,274,307 B (19 models and 19 tile
-  images, once each), and no request leaves the app's origin. The source folder holds 207 files, 19.6 MB.
+- **The app's own build serves the board's 3D assets too (ASSETS, 2026-10-15; compressed, hashed and ordered by
+  ASSET-WEIGHT, 2026-10-15).** Under `<base>renderer-assets/` (Vite's `base`), no request leaving the app's origin:
+  - **Models, the app's own copy, compressed and content-hashed:** `packages/app/scripts/compress-models.ts`
+    (`node scripts/compress-models.ts`; `--check` fails when the committed copy is stale, and a test runs it) reads
+    app-web's 19 base models (`packages/app-web/public/models/<plan>.glb`, unchanged) and writes
+    `packages/app/public/renderer-assets/models/<plan>.<hash>.glb`, the hash being the first 10 hex digits of the file's
+    SHA-256. Per model: vertices renumbered by first use (triangles and their order kept); `KHR_mesh_quantization`, every
+    attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; `sfrfrfffr` has one vertex
+    off the grid and takes 16-bit positions, within 6.0e-5; normals 16-bit; UVs unsigned 16-bit); then
+    `EXT_meshopt_compression` (vertex and index codecs, no lossy filter). The script decodes each copy and checks it
+    against its source (largest moves on the grid: position 6.1e-6, normal 0.001 degree, UV 7.6e-6), and a test checks
+    that the renderer's outline builder finds the same segments in every copy as in its original. Positions are
+    normalized so that the outline builder (`edges.ts`) keys them by number: raw integers up to 40 sent it to its string
+    keys, and the 35-tile board's first frame was then no faster than with the originals. Tools, pinned devDependencies
+    of `@paved/app`: `@gltf-transform/core` and `@gltf-transform/extensions` 4.5.1, `meshoptimizer` 1.1.1 (`bun.lock`
+    adds those three and `property-graph` 4.1.0, `ktx-parse` 1.1.0). Vite serves the folder in dev and copies it into
+    `dist/`. The decoder is three's `meshopt_decoder.module.js`, in the bundle, decoding in two workers started from an
+    inline script.
+  - **The manifest,** `renderer-assets/manifest.json`, `{ "models": { "<plan>": "models/<plan>.<hash>.glb" } }`, built by
+    `packages/app/vite/renderer-assets.ts` from the file names (the build fails when a name's hash is not its file's, or a
+    plan has two files): served in dev, written into `dist/` at build. `AssetLoader` reads `<basePath>/manifest.json` once
+    per base path; a plan it does not list, or no manifest (Storybook, which still maps app-web's folder whole), loads
+    `models/<plan>.glb`. Dev still answers those plain names from app-web; the build ships no original model and no Draco
+    decoder.
+  - **Tile images** `assets/tiles/<plan>.png` (19, the plan view's and the tile chips'), from app-web's `public/` under their
+    plain names, served in dev and copied at build.
+  - **Load order** (`packages/renderer/src/core/load-order.ts`, `AssetLoader`): a scene's init waits only for the models of
+    the tiles it is handed before its first frame (the board's tiles; the hand's own scene, its one tile), or for every
+    model when it is handed none; the other models and the tile images load after the first frame (the next animation
+    frame, then an idle callback). A failure among the first models stops the scene, so the page shows its plan view as
+    before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
+    model is not in yet is drawn at the scene's next tile update.
+  - **Cache headers for the host step** (the host config is not changed here): hashed models
+    `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
+    (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.
+    Compressing `model/gltf-binary` too (gzip or brotli) would take the 19 models from 1,089,624 B to 665,212 B (gzip
+    level 6) or 618,540 B (brotli), measured on the files; `vite preview` compresses only text and JavaScript, so the
+    figures below are the files as they are.
+  - **Measured** (Mac, Chrome headless `--headless=new`, ANGLE Metal; `vite preview` serving `dist`, which sends
+    `Cache-Control: no-cache`, gzip on JavaScript only; a fresh context per run, no network throttling; 3 runs, median;
+    `/training` on a fresh game, 1 tile and the hand, and on a resumed 35-tile game of 18 plans; first frame: the later of
+    the board's and the hand's first draw call, from navigation; phone-like: 360 x 780, DPR 3, 4x CPU throttle; Mac: 1440 x
+    900, DPR 2; 1-minute load average 2.9 to 5.6 beside the runs). `dist/renderer-assets`: 39 files, 1,410,448 B (models
+    1,089,624, tiles 319,815, manifest 1,009), against 41 files, 16,037,648 B before.
+
+    | Profile | Board | First frame, before → after (ms) | Transferred before the first frame, before → after (its models) |
+    |---|---|---|---|
+    | Phone-like | fresh | 916 → 710 | 16,455,270 → 1,276,910 B (2 models, 97,748 B) |
+    | Phone-like | 35 tiles | 1,367 → 1,267 | 16,455,270 → 2,220,186 B (18 models, 1,041,024 B) |
+    | Mac | fresh | 544 → 468 | 16,455,270 → 1,276,910 B |
+    | Mac | 35 tiles | 597 → 559 | 16,455,270 → 2,220,186 B |
+
+    All transferred by 5 s after the first frame: 16,457,682 → 2,604,769 B (fresh). The rest of the first view is the app's
+    code and fonts, the largest Font Awesome's `solid.min.js` (669,527 B). Draco (gltf-transform's defaults, edgebreaker),
+    measured the same way (a hand-made build; its loader fetched each first model twice, about 20 KB each): 427,204 B for the 19 models and 250,876 B of decoder; first view 1,423,921 B fresh and
+    1,795,893 B at 35 tiles; first frame on the phone-like profile 739 ms fresh, 1,177 ms at 35 tiles. meshopt was chosen:
+    lossless on the grid where Draco quantizes (14-bit positions, 10-bit normals), the smaller and faster fresh first view,
+    and a 29 KB decoder in the bundle instead of 251 KB to host; Draco would save about 0.42 MB and 90 ms on the phone at
+    35 tiles, which is what would reverse the choice.
+  - **No visual change:** captures before and after at 360 (DPR 3) and 1280 (DPR 2) px, three zooms (opening, mid,
+    closest), 35-tile board: 0.05 to 0.23 % of the pixels differ, as scattered single pixels (largest channel difference
+    44 of 255 at 360 px; 11 at the closest zoom at 1280), where the same build against itself differs by 0 pixels. The
+    flicker check (12 drag steps of 2 CSS px, 4 zooms, 1280 px): each build's change from one step to the next is the
+    same before and after (ratio 1.000 to 1.001).
 
 ### 4.3 What is reused
 
