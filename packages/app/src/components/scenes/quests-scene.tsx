@@ -79,7 +79,7 @@ export function QuestsScene(props: QuestsSceneProps) {
           {error}
         </Notice>
       ) : quests === null ? (
-        <div role="status" aria-label="Loading the quests" className="grid gap-3 tablet:grid-cols-2">
+        <div role="status" aria-label="Loading the quests" className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
@@ -134,7 +134,7 @@ function QuestSection({ title, quests, endsAt, now, countdownLabel, empty }: Que
       {quests.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">{empty}</p>
       ) : (
-        <div className="grid gap-3 tablet:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {quests.map((q) => (
             <ProgressCard key={q.questId} kind="quest" {...questText(q.questId)} tasks={q.tasks} completed={q.completed} completedAt={q.completedAt} retired={q.retired} />
           ))}

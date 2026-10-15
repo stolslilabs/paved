@@ -578,6 +578,17 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 Also: `100dvh` with a `100vh` fallback for full-height screens (as t-0126 did), `env(safe-area-inset-*)`
 for notches and the home indicator, touch targets at least 44 px.
 
+Text at 360 and 320 px (WRAP360, 2026-10-15). Descriptions, labels, hints and titles wrap (`wrap-anywhere`, `min-w-0`
+on flex and grid children, no fixed heights); a page's grid states its column (`grid-cols-1`, `minmax(0,1fr)`), so one
+long word cannot widen it. Addresses are cut in the middle (`elements/short-address.tsx`, `0x05f1…6e7f`, never broken
+over two lines) and names with an end ellipsis, the full value in `title`. Figures (amounts, scores, times) keep one
+line; an amount's symbol may go under its figure. An icon beside wrapping text sits on its first line (`items-start`,
+a 20 px box). Every text-showing component has a `Stress` story (`src/mocks/stress.ts`: a long sentence, a 66-character
+address, a German compound, large figures). `bun run --filter @paved/app wrap-sweep`, after `build-storybook`, opens every
+story at 360 and 320 px in headless Chromium and fails on text that leaves its box, text cut without its full value,
+an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
+exception. The CI `client` job runs it.
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,

@@ -2,7 +2,7 @@ import type { SplitView } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { Separator } from "../ui/separator";
 import { Amount, TOKENS } from "../elements/amount";
-import { shortAddress } from "../elements/player-name";
+import { ShortAddress } from "../elements/short-address";
 import { StatRow } from "../elements/stat-row";
 
 export interface PriceBreakdownProps {
@@ -35,7 +35,7 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
   const vault = shown(price) - burn - referral;
   return (
     <div className={cn("flex flex-col", className)}>
-      <div className="flex items-end justify-between gap-3 pb-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 pb-2">
         <span className="flex flex-col">
           <span className="text-xs text-muted-foreground">Price for stake {stake}</span>
           <Amount value={price} token="usdc" className="text-3xl text-foreground" />
@@ -51,7 +51,7 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
       <StatRow
         icon="user-group"
         label="Referral"
-        hint={referrer ? `To ${shortAddress(referrer)}` : "No referrer: the Vault keeps it"}
+        hint={referrer ? <>To <ShortAddress address={referrer} /></> : "No referrer: the Vault keeps it"}
         value={<Amount value={referral} token="usdc" />}
       />
       <div className="flex flex-wrap justify-between gap-x-3 pt-1 text-[11px] text-muted-foreground">

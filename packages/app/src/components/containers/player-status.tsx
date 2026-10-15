@@ -26,11 +26,11 @@ export interface PlayerStatusProps {
   className?: string;
 }
 
-function Figure({ label, children }: { label: string; children: React.ReactNode }) {
+function Figure({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className="truncate text-sm">{children}</span>
+      <span className="text-sm">{children}</span>
     </div>
   );
 }
@@ -56,7 +56,8 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
         <Avatar className="size-10">
           <AvatarFallback className="bg-gold-900 font-semibold text-gold-200">{initial}</AvatarFallback>
         </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* `w-0`: a long username is cut, never widens the card (WRAP360). */}
+        <div className="flex w-0 min-w-0 flex-1 flex-col">
           <PlayerName name={player.name} address={player.playerId} className="text-sm font-semibold" />
           <span className="text-xs text-muted-foreground">
             {stats.challengeFinished} games · best {formatPoints(stats.bestScore)}
@@ -70,10 +71,11 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
         <Figure label="Today's best">
           <span className="numeric font-semibold">{today ? formatPoints(today.bestScore) : "–"}</span>
         </Figure>
-        <Figure label="USDC">
+        {/* Under 360 px a balance takes the whole row: half of a 320 px card is narrower than a large amount (WRAP360). */}
+        <Figure label="USDC" className="col-span-2 mobile:col-span-1">
           <Amount value={data.usdc} token="usdc" />
         </Figure>
-        <Figure label="$TILE">
+        <Figure label="$TILE" className="col-span-2 mobile:col-span-1">
           <Amount value={data.paved} token="paved" />
         </Figure>
       </div>

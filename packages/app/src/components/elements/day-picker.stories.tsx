@@ -19,3 +19,5 @@ export const Today: Story = {};
 export const PastDay: Story = { args: { day: TODAY - 3 } };
 /** The first day there is: no previous day. */
 export const FirstDay: Story = { args: { day: TODAY - 30 } };
+/** WRAP360: a closed day with a five-digit id (the year 2243): the widest figure. */
+export const Stress: Story = { args: { day: 99_999, today: 100_000, first: 0 } };

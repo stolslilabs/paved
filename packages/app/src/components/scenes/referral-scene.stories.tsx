@@ -25,3 +25,5 @@ export const Guest: Story = { args: REFERRAL.guest };
 
 /** No economy on this network: no share shown. */
 export const NotDeployed: Story = { args: REFERRAL.notDeployed };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: REFERRAL.stress };

@@ -49,7 +49,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
           </span>
         }
       />
-      <main className="mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[1fr_22rem] desktop:items-start">
+      <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
         <div className="flex flex-col gap-4">
           <section data-slot="card" aria-labelledby="stake-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
             <div className="flex items-baseline justify-between">

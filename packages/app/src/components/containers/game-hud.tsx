@@ -23,7 +23,7 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
   return (
     <header
       className={cn(
-        "flex items-center gap-2 rounded-xl tablet:gap-3 border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur tablet:px-3",
+        "flex items-center gap-1.5 rounded-xl mobile:gap-2 tablet:gap-3 border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur tablet:px-3",
         className,
       )}
     >
@@ -32,8 +32,10 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
           <Icon name="chevron-left" />
         </Button>
       )}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h1 className="truncate font-display text-sm font-semibold">{title}</h1>
+      {/* The countdown is the column's floor; the title, a name, is cut first and stays whole in its title (WRAP360):
+          `w-0 min-w-full` keeps its length out of the column's width. */}
+      <div className="flex flex-1 flex-col gap-1">
+        <h1 title={title} className="w-0 min-w-full truncate font-display text-sm font-semibold">{title}</h1>
         {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
       </div>
       <TilesLeft remaining={remaining} />

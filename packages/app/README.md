@@ -14,7 +14,13 @@ bun run build --filter @paved/app    # tsc, then vite build into dist/
 bun run test --filter @paved/app     # Vitest + Testing Library (jsdom)
 bun run --filter @paved/app storybook        # Storybook on http://localhost:6006
 bun run --filter @paved/app build-storybook  # a static site in storybook-static/ (git-ignored)
+bun run --filter @paved/app wrap-sweep       # every story at 360 and 320 px, headless: text that overflows, is cut or is split
 ```
+
+The wrap sweep (`scripts/wrap-sweep.ts`, WRAP360) reads `storybook-static/`, so build Storybook first; it needs the
+browser once (`bunx playwright-core install chromium-headless-shell`, from `packages/app`). Options: `--filter <story id
+part>`, `--widths 360,320`, `--workers 4`, `--json <file>`. It prints a table (story, width, kind, element) and exits 1
+on a finding that is not in its commented allowlist. The CI `client` job runs it after `build-storybook`.
 
 Cap the Node heap as `AGENTS.md` says: `NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app`.
 
