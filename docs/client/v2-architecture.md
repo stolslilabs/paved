@@ -539,6 +539,27 @@ Why this beats the references' hooks and contexts:
 - **Persistence.** Settings and the Training save stay in `localStorage`; the query cache is not persisted
   (chain data must be fresh).
 
+**As built (P2).** The sessions are in `@paved/game-core` (`src/sessions/`): `PageSession` and `PageState` (structural
+copies of the chain's shapes, since `@paved/chain` depends on game-core; `GameSession` satisfies them unchanged, and app-web's
+`tsc` catches a drift of the chain's shapes through the state and the senders),
+`LocalSession` with its save (`paved:training:v1`) and `randomSeed`, and the tutorial run with its save
+(`paved.tutorial.v1`), both formats unchanged. `LocalSession` and `TutorialRun` keep their `EngineGame` between moves and
+replay only to resume (and the tutorial on Back, the engine having no undo). App-web imports them from there.
+The v2 app's data layer is `packages/app/src/data/`:
+
+| Module | What it holds |
+|---|---|
+| `keys.ts` | `queryKeys`, every key of the app: `['chain', read, ...args]` for a view or event read, `['indexer', read, ...args]` for the indexer, `['local', 'trainingSave']`; addresses normalised by `addressKey`, no bigint in a key |
+| `sources.tsx` | `DataProvider` and `DataSources`: the game views, the event reader (`playerGames`), the economy views and the pool quoter (null without an economy), the indexer client, the Training store |
+| `chain.ts` | `useSpawnPaused`, `useEntryPrice`, `useGame`, `usePlayerGames`, `useActiveGame`, `useQuote`, `useSplit`, `usePoolQuote`, `useTerms`, `useEconomyDay`, `useVaultPosition`, `useUsdcBalance`, `usePavedBalance` |
+| `indexer.ts` | `useLeaderboard`, `useTopThree`, `useLeaderboardEntry`, `usePlayerProfile`, `useIndexedPlayerGames`, `useIndexedGame`, `useDefinitions`, `usePlayerQuests` (progress joined with each definition's schedule), `usePlayerAchievements`, `usePlayerStatus` |
+| `training.ts` | `useTrainingSession` (the board's session: `LocalSession` read with `useSyncExternalStore`, and `boardOf` for the scene), `useTrainingSave` (the home card) |
+| `scene-types.ts` | compile-time checks that each hook's data is its scene prop's type |
+
+Each hook returns the type its scene's prop takes; where the indexer's type differs, the hook maps it (the quests'
+schedule from the definitions; a new player's null profile as an empty one). A past day's leaderboard and a closed
+economy day have `staleTime: Infinity`. No hook polls; the writes (P5, P7, P10) update these keys from their receipts.
+
 **Decided for the owner:** React Router 7 (data mode, lazy routes) rather than TanStack Router: already in
 the repository and in both references. Reversed if typed search params become a pain point.
 
@@ -1159,8 +1180,8 @@ read of `SKILL.md` and a search of every file for `allowed-tools`, `npx`, `bunx`
 | # | Skill | Source | Size (`SKILL.md`; all files) | What it brings | The rule |
 |---|---|---|---|---|---|
 | 1 | `paved-ui` | **written by CLIENT**, trimmed from nums' `ui-architecture` (`cartridge-gg/nums@4f8f405`, `.agents/skills/ui-architecture/SKILL.md`, 366 lines, 13,555 B, MIT) | about 150 lines (estimate) | the tiers, a story per component, CVA + `cn()`, the tokens of section 2 (never a raw colour), Font Awesome (the owner's Pro files, section 8), Motion patterns, the breakpoints, the a11y floor | nums' original **fails as is** (`allowed-tools: Read, Write, Edit, Glob, Grep, Bash` grants permissions); the written one carries no such line. **Done (F7a):** `.claude/skills/paved-ui/SKILL.md`, 140 lines |
-| 2 | `paved-data` | **written by CLIENT** | about 100 lines (estimate) | the query keys, no polling, receipts into the cache, the three owners of state, the prediction session | written to pass |
-| 3 | `paved-renderer` | **written by CLIENT** | about 100 lines (estimate) | render on demand, no per-tile geometry, the outline pass and its settings, the bench method and the Mac's headless rule | written to pass |
+| 2 | `paved-data` | **written by CLIENT** | about 100 lines (estimate) | the query keys, no polling, receipts into the cache, the three owners of state, the prediction session | written to pass. **Done (F7b):** `.claude/skills/paved-data/SKILL.md`, 86 lines |
+| 3 | `paved-renderer` | **written by CLIENT** | about 100 lines (estimate) | render on demand, no per-tile geometry, the outline pass and its settings, the bench method and the Mac's headless rule | written to pass. **Done (F7c):** `.claude/skills/paved-renderer/SKILL.md`, 125 lines |
 | 4 | `shadcn` | `shadcn-ui/ui@30a58d4498f270af1c1e981a7d78a15cf5740841` (2026-10-12), `skills/shadcn/` | 295 lines, 21,306 B; 21 files, 148,754 B | the shadcn conventions: composition, styling with tokens, forms, Radix vs Base UI | **fails as is**: `allowed-tools: Bash(npx shadcn@latest *)…` grants permissions; a `` !`npx shadcn@latest info --json` `` line runs the latest CLI at load; it tells the agent to run `shadcn@latest` and fetch the docs URLs. **Trim** to `rules/styling.md`, `composition.md`, `forms.md`, `base-vs-radix.md`, `icons.md` (23,336 B) and a rewritten `SKILL.md` that names the CLI version pinned in `package.json`; drop `mcp.md`, `registry.md`, `cli.md`, `design-system*.md`, `chat.md`, `evals/`, `assets/`, `agents/`, `scripts/` |
 | 5 | `react-best-practices` | `vercel-labs/agent-skills@063bee94c3f4df8453406c830b0a7df0f2860278` (2026-08-28), `skills/react-best-practices/`, MIT | 149 lines, 7,251 B; 76 files, 230,383 B | 70 rules on waterfalls, bundle size, re-renders, rendering, ranked by impact | **passes** on the search (no permission, no run, no fetch); **trim** for size: drop the 10 `server-*` rules and the Next.js items, and the compiled `AGENTS.md` (a duplicate of the rules); kept: 60 rule files + `SKILL.md`, 95,623 B |
 | 6 | `composition-patterns` | same commit, `skills/composition-patterns/`, MIT | 89 lines, 2,886 B; 14 files, 50,339 B | compound components, no boolean-prop sprawl, React 19 APIs: fits the tiers | **passes** on the search; trim the compiled `AGENTS.md` duplicate |
@@ -1234,7 +1255,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | PR | Content | Estimate |
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
-| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes | 1.5 d |
+| P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
 | P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
