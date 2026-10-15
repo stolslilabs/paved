@@ -617,6 +617,13 @@ case "$cmd:$fn" in
   # (guardian_other), or none; spawn_paused() is true with `paused`.
   call:guardian) r='["0x0"]'; [[ -e "$dir/guardian_set" ]] && r="[\"$STARKNET_ACCOUNT_ADDRESS\"]"; [[ -e "$dir/guardian_other" ]] && r='["0x999"]' ;;
   call:spawn_paused) r='["0x0"]'; [[ -e "$dir/paused" ]] && r='["0x1"]' ;;
+  # Gems v1 (--check-fresh-definitions): the gems a multicall set (`gems`, `<q|a> <id> <gems>` per line, the last one
+  # counts), 0 for any other id; the rest of the view (kind, task, total, start, interval) zero.
+  call:quest_gems|call:achievement_gems)
+    g=0; k="${fn%%_*}"; k="${k:0:1}"
+    [[ -e "$dir/gems" ]] && while read -r kk id v; do [[ "$kk" == "$k" && "$id" == "${cd[0]}" ]] && g="$v"; done <"$dir/gems"
+    if [[ "$fn" == quest_gems ]]; then r="[\"$(printf '0x%x' "$g")\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"]"
+    else r="[\"$(printf '0x%x' "$g")\",\"0x0\",\"0x0\"]"; fi ;;
   # --upgrade-challenge (invoke_ok only): an invoke is accepted and logged with its calldata; upgrade moves the
   # contract's class on the node, set_guardian sets the guardian.
   invoke:*)
@@ -688,11 +695,13 @@ def slots(name):
 quest_a, quest_b, achievement_a = slots("FRESH_QUEST_SLOTS"), slots("FRESH_QUEST_TASK_SLOTS"), slots("FRESH_ACHIEVEMENT_SLOTS")
 # The slot tables follow FRESH_QUESTS, whose ids are 1 and 5 to 16 (2 to 4 are never defined): a quest id is a position there.
 quest_ids = [int(m) for m in re.findall(r"\x22(\d+) \d+ \d+ \d+ \d+ \d+\x22", re.search(r"FRESH_QUESTS=\((.*?)\n\)", src, re.S).group(1))]
-with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage:
+with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage, open(sys.argv[5], "a") as gems:
     for c in calls:
         log.write(c["function"] + " " + " ".join(c["calldata"]) + "\n")
         d = [int(x) for x in c["calldata"]]
-        if c["function"] == "define_quest":
+        if c["function"] in ("set_quest_gems", "set_achievement_gems"):
+            gems.write("%s %d %d\n" % (c["function"][4], d[0], d[1]))
+        elif c["function"] == "define_quest":
             qid, start, end, duration, interval, n, task, total, conditions = d
             assert (end, n, conditions) == (0, 1, 0), d
             storage.write("%s 0x%x\n" % (quest_a[quest_ids.index(qid)], start | end << 64 | duration << 128 | interval << 160 | n << 192 | 1 << 197))
@@ -701,7 +710,7 @@ with open(sys.argv[2], "a") as log, open(sys.argv[3], "a") as storage:
             aid, start, end, n, task, total, points = d
             assert (start, end, n) == (0, 0, 1), d
             storage.write("%s 0x%x\n" % (achievement_a[aid - 1], n << 128 | 1 << 130 | task << 132 | total << 164 | points << 196))
-' "$calls" "$dir/calls.log" "$dir/storage" "$dir/../root/scripts/deploy.sh"
+' "$calls" "$dir/calls.log" "$dir/storage" "$dir/../root/scripts/deploy.sh" "$dir/gems"
     # The new pool's reserves after an add_liquidity: its calldata.
     python3 -I -c '
 import json, sys
@@ -1778,7 +1787,7 @@ open(path, "w").write("".join(" ".join(l) + "\n" for l in lines))
 PY
 }
 # An empty `storage` file: the fake node answers 0x0 for every slot (without it, every slot answers a Lobby class hash).
-dd_case() { fg_case "$@"; : >"$rp/bin/storage"; }
+dd_case() { fg_case "$@"; : >"$rp/bin/storage"; : >"$rp/bin/gems"; }
 dd_sent_v1() { grep -q -e '^define_quest 1 ' -e '^define_achievement [1-9] ' "$rp/bin/calls.log"; }
 # The hook is refused on real sepolia (no --rehearse) before anything is read or sent.
 : >"$rp/curl.log"; dd_case
@@ -1789,11 +1798,12 @@ if [[ $rc -ne 2 || "$out" != *"--check-fresh-definitions is a test hook of the r
 else
   echo "ok: sepolia --check-fresh-definitions step without --rehearse is refused before anything is read or sent"
 fi
-# Setup holds nothing: one multicall of the 29 definitions (13 quests, 16 achievements), the hash recorded, every one read back.
+# Setup holds nothing: one multicall of the 29 definitions (13 quests, 16 achievements) and their gems (gems v1: 13 quests,
+# 15 achievements, none for On the Podium), the hash recorded, every one read back.
 dd_case
 out="$(dd_run step)"; rc=$?
 if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$(dd_calls define_quest)" != 13 || "$(dd_calls define_achievement)" != 16 ||
-    "$out" != *"29 definition(s) to send"* ||
+    "$(dd_calls set_quest_gems)" != 13 || "$(dd_calls set_achievement_gems)" != 15 || "$out" != *"57 definition and gems call(s) to send"* ||
     "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16, v1 and v2a, each as specified"* || "$(dd_tx)" != 0x5eed0001 ]] || ! fg_clean "$out"; then
   dd_fail "an empty Setup: expected exit 0, one multicall of 13 define_quest and 16 define_achievement, its hash recorded, each read back, got $rc" "$out"
 else
@@ -1829,6 +1839,41 @@ if [[ "$(grep -F -x -c -f <(printf '%s\n' "$want_calls") "$rp/bin/calls.log")" !
 else
   echo "ok: the multicall holds the 19 v2a definitions as specified (rotating dailies, weekly quests, higher tiers) beside Daily Run (quest 1) and the v1 achievements, none of quests 2 to 4, none with a reward or a prerequisite"
 fi
+# The gems (gems-v1.md 3.1 and 6.4): every quest's and every achievement's but On the Podium's, each after every definition.
+want_gems='set_quest_gems 1 5
+set_quest_gems 5 5
+set_quest_gems 6 10
+set_quest_gems 7 15
+set_quest_gems 8 5
+set_quest_gems 9 10
+set_quest_gems 10 15
+set_quest_gems 11 5
+set_quest_gems 12 10
+set_quest_gems 13 15
+set_quest_gems 14 15
+set_quest_gems 15 15
+set_quest_gems 16 15
+set_achievement_gems 1 10
+set_achievement_gems 2 10
+set_achievement_gems 3 20
+set_achievement_gems 4 40
+set_achievement_gems 5 20
+set_achievement_gems 6 20
+set_achievement_gems 7 30
+set_achievement_gems 8 30
+set_achievement_gems 10 40
+set_achievement_gems 11 50
+set_achievement_gems 12 40
+set_achievement_gems 13 50
+set_achievement_gems 14 80
+set_achievement_gems 15 60
+set_achievement_gems 16 80'
+if [[ "$(grep -F -x -c -f <(printf '%s\n' "$want_gems") "$rp/bin/calls.log")" != 28 || "$(grep -c '^set_achievement_gems 9 ' "$rp/bin/calls.log")" != 0 ||
+    "$(grep -n '^define_' "$rp/bin/calls.log" | tail -1 | cut -d: -f1)" -gt "$(grep -n '^set_' "$rp/bin/calls.log" | head -1 | cut -d: -f1)" ]]; then
+  dd_fail "the gems of the multicall: expected the 28 calls of the table, none for achievement 9, all after the definitions" "$(cat "$rp/bin/calls.log")"
+else
+  echo "ok: the multicall sets the gems of the 13 quests and 15 achievements (none for On the Podium), after every definition"
+fi
 # Setup holds them all: the rerun sends nothing, cites the record's hash.
 out="$(dd_run step)"; rc=$?
 if [[ $rc -ne 0 || -s "$rp/bin/sent.log" || "$out" != *"defined already: quests 1 and 5 to 16, achievements 1 to 16, tx 0x5eed0001"* ]]; then
@@ -1839,13 +1884,40 @@ fi
 # Setup holds v1 only (a record of the earlier set): the step sends the 19 v2a ones and no v1 one.
 dd_edit v1only
 out="$(dd_run step)"; rc=$?
-if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"19 definition(s) to send"* || "$(dd_calls define_quest)" != 12 ||
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"38 definition and gems call(s) to send"* || "$(dd_calls define_quest)" != 12 ||
     "$(dd_calls define_achievement)" != 7 || "$(dd_sent_v1 && echo sent)" == sent ||
     "$out" != *"Setup holds quests 1 and 5 to 16 and achievements 1 to 16"* ]]; then
   dd_fail "Setup holding v1 only: expected exit 0, one multicall of the 12 quests and 7 achievements of v2a, got $rc" "$out"
 else
   echo "ok: the fresh path's definitions step on a Setup holding v1 sends the 12 quests and 7 achievements of v2a, and no v1 one"
 fi
+# Setup holds every definition but no gems (a record from before gems v1): the step sends the 28 gems calls alone, and the
+# smoke fails naming them, sending nothing.
+dd_case; dd_run step >/dev/null; : >"$rp/bin/gems"
+out="$(dd_run smoke)"; rc=$?
+if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Setup lacks a definition: "*"set_quest_gems 1"*"set_achievement_gems 16"* ]] || ! fg_clean "$out"; then
+  dd_fail "the smoke without the gems: expected a non-zero exit, the gems calls named, nothing sent, got $rc" "$out"
+else
+  echo "ok: the fresh smoke fails when Setup holds no gems, naming the set_*_gems calls"
+fi
+out="$(dd_run step)"; rc=$?
+if [[ $rc -ne 0 || "$(wc -l <"$rp/bin/sent.log")" != 1 || "$out" != *"28 definition and gems call(s) to send"* ||
+    "$(dd_calls define_quest)" != 0 || "$(dd_calls define_achievement)" != 0 || "$(dd_calls set_quest_gems)" != 13 ||
+    "$(dd_calls set_achievement_gems)" != 15 ]] || ! fg_clean "$out"; then
+  dd_fail "a Setup with its definitions and no gems: expected exit 0 and one multicall of the 28 gems calls, got $rc" "$out"
+else
+  echo "ok: the fresh path's definitions step on a Setup with its definitions and no gems sends the 28 gems calls alone"
+fi
+# Gems other than the table's on a record that is not complete (quest 6 at 12): the step and the smoke stop, nothing sent.
+for mode in step smoke; do
+  dd_case; dd_run step >/dev/null; echo "q 6 12" >>"$rp/bin/gems"
+  out="$(dd_run "$mode")"; rc=$?
+  if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"quest 6 has 12 gems, not the table's 10: not sent over; nothing more was sent"* ]] || ! fg_clean "$out"; then
+    dd_fail "quest 6 at 12 gems, $mode: expected a non-zero exit, nothing sent, the message, got $rc" "$out"
+  else
+    echo "ok: the fresh path's definitions $mode stops on gems other than the table's (quest 6 at 12), nothing sent"
+  fi
+done
 # A definition that is there but is not the specified one stops the run, nothing sent, in the step and in the smoke:
 # a total, a start offset, a point count (a definition cannot be edited, so it is never sent over).
 for bad in "wrong-total:quest 6 (its task) is defined, but not as specified" "wrong-start:quest 7 is defined, but not as specified" \
@@ -1901,7 +1973,7 @@ if [[ $rc -eq 0 || -s "$rp/bin/sent.log" || "$out" != *"Setup lacks a definition
 else
   echo "ok: the fresh smoke fails when Setup lacks the weekly quests, naming quests 14, 15 and 16"
 fi
-rm -f "$rp/bin/storage" "$rp/bin/calls.log"
+rm -f "$rp/bin/storage" "$rp/bin/calls.log" "$rp/bin/gems"
 
 # S1 audit: no external entry point of Challenge or Setup takes a Mode (Challenge fixes it: Mode::Challenge; the Lobby class
 # that took one is gone since D-24). Read from the committed ABIs, which CI checks against the build.
