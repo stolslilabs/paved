@@ -32,6 +32,7 @@ export {
   DEFAULT_CAMERA_ZOOM_SETTINGS,
   resolveRendererSettings,
   cameraDistanceLimits,
+  capPixelRatio,
 } from "./core/settings";
 export type { RendererSettings, RendererSettingsInput, CameraZoomSettings } from "./core/settings";
 export { BoxRainScene } from "./core/BoxRainScene";

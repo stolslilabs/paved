@@ -17,10 +17,9 @@ export interface BoardBounds {
 export interface RendererConfig {
   surface: RenderSurfaceAdapter;
   basePath?: string;
-  pixelRatio?: [number, number];
   shadows?: boolean;
   effectsCapabilities?: EffectsCapabilities;
-  /** Outlines and camera zoom limits (`settings.ts`); unnamed fields take the defaults. */
+  /** Outlines, camera zoom limits and the pixel-ratio cap (`settings.ts`); unnamed fields take the defaults. */
   settings?: RendererSettingsInput;
 }
 

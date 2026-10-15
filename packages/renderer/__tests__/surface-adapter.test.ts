@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
+import { DEFAULT_RENDERER_SETTINGS } from "../src/core/settings";
 import type { RenderSurfaceAdapter, SurfaceInputEvent } from "../src/core/types";
 
 type ResizeCallback = () => void;
@@ -111,7 +112,7 @@ describe("RenderSurfaceAdapter integration", () => {
     const { surface } = createSurfaceAdapter({ width: 320, height: 180 }, 3);
     const { scene, renderer } = createSceneHarness();
 
-    await scene.init({ surface, pixelRatio: [0.5, 1.5], shadows: false });
+    await scene.init({ surface, settings: { maxPixelRatio: 1.5 }, shadows: false });
 
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(1.5);
     // `false`: three must not pin the canvas's CSS size in px, or it would stop following its container.
@@ -132,12 +133,12 @@ describe("RenderSurfaceAdapter integration", () => {
     expect((scene as any).effects.resize).toHaveBeenCalledWith(640, 360, 1);
   });
 
-  it("follows a change of the device pixel ratio, within the configured range", async () => {
+  it("follows a change of the device pixel ratio, up to the cap", async () => {
     let dpr = 1;
     const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 1);
     (adapter.surface.getDevicePixelRatio as any) = () => dpr;
     const { scene, controller, renderer } = createSceneHarness();
-    await scene.init({ surface: adapter.surface, pixelRatio: [0.5, 2] });
+    await scene.init({ surface: adapter.surface, settings: { maxPixelRatio: 2 } });
     expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1);
 
     dpr = 2; // the window moved to a Retina screen
@@ -150,6 +151,45 @@ describe("RenderSurfaceAdapter integration", () => {
     dpr = 3;
     adapter.emitResize();
     expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+  });
+
+  it("draws at the screen's pixel ratio, capped at maxPixelRatio: min(devicePixelRatio, cap)", async () => {
+    for (const [dpr, cap, expected] of [
+      [3, 2, 2],
+      [2, 2, 2],
+      [2, 1.5, 1.5],
+      [1, 2, 1],
+      [0.75, 2, 0.75],
+      [3, 1, 1],
+    ]) {
+      const { surface } = createSurfaceAdapter({ width: 320, height: 180 }, dpr);
+      const { scene, renderer } = createSceneHarness();
+      await scene.init({ surface, settings: { maxPixelRatio: cap }, shadows: false });
+      expect(renderer.setPixelRatio, `DPR ${dpr}, cap ${cap}`).toHaveBeenLastCalledWith(expected);
+      expect((scene as any).pixelRatio).toBe(expected);
+    }
+  });
+
+  it("takes the default cap when none is given", async () => {
+    const { surface } = createSurfaceAdapter({ width: 320, height: 180 }, 3);
+    const { scene, renderer } = createSceneHarness();
+    await scene.init({ surface, shadows: false });
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(Math.min(3, DEFAULT_RENDERER_SETTINGS.maxPixelRatio));
+  });
+
+  it("refits the drawing buffer and the composer when the cap changes, and only then", async () => {
+    const adapter = createSurfaceAdapter({ width: 300, height: 200 }, 3);
+    const { scene, renderer } = createSceneHarness();
+    await scene.init({ surface: adapter.surface, settings: { maxPixelRatio: 1 } });
+    const effects = (scene as any).effects;
+    effects.setMultisampling = vi.fn();
+    scene.setSettings({ maxPixelRatio: 2 });
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+    expect(renderer.setSize).toHaveBeenLastCalledWith(300, 200, false);
+    expect(effects.resize).toHaveBeenLastCalledWith(300, 200, 2);
+    const resizes = effects.resize.mock.calls.length;
+    scene.setSettings({ maxPixelRatio: 2, multisampling: true });
+    expect(effects.resize).toHaveBeenCalledTimes(resizes);
   });
 
   it("keeps the last size while the container is hidden (0 x 0)", async () => {

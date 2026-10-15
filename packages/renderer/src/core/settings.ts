@@ -18,6 +18,11 @@ export interface RendererSettings {
    * depth bias is what fixed the flicker), and it costs about 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max.
    */
   multisampling: boolean;
+  /**
+   * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
+   * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
+   */
+  maxPixelRatio: number;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -39,6 +44,7 @@ export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
   multisampling?: boolean;
+  maxPixelRatio?: number;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -54,6 +60,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
   multisampling: false,
+  maxPixelRatio: 1,
 };
 
 /** `input` over `base`, field by field. */
@@ -61,11 +68,23 @@ export function resolveRendererSettings(
   input: RendererSettingsInput = {},
   base: RendererSettings = DEFAULT_RENDERER_SETTINGS,
 ): RendererSettings {
+  const outlines = { ...base.outlines, ...input.outlines };
+  // A spread copies `force: undefined` over the default: an unset or unknown value is "auto", not a forced path.
+  if (!OUTLINE_FORCES.includes(outlines.force)) outlines.force = "auto";
+  const maxPixelRatio = input.maxPixelRatio ?? base.maxPixelRatio;
   return {
-    outlines: { ...base.outlines, ...input.outlines },
+    outlines,
     camera: { ...base.camera, ...input.camera },
     multisampling: input.multisampling ?? base.multisampling,
+    maxPixelRatio: maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
   };
+}
+
+const OUTLINE_FORCES: readonly OutlineSettings["force"][] = ["auto", "on", "off"];
+
+/** The renderer's pixel ratio on a screen of `devicePixelRatio`: the screen's, at most `maxPixelRatio`. */
+export function capPixelRatio(devicePixelRatio: number, maxPixelRatio: number): number {
+  return Math.min(devicePixelRatio > 0 ? devicePixelRatio : 1, maxPixelRatio);
 }
 
 /** The distance limits the camera's controls get: the zoom-out cap applied when it is on. */

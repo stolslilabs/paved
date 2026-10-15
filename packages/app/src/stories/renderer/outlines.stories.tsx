@@ -55,6 +55,11 @@ const meta = {
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
     zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
     multisampling: { control: "boolean", description: "Multisampled anti-aliasing (4x): smoother edges, about 3 to 4 ms of GPU a frame", table: { category: "Quality" } },
+    maxPixelRatio: {
+      control: { type: "range", min: 0.5, max: 3, step: 0.25 },
+      description: "Highest pixel ratio the board is drawn at: min(screen's, this). Under the screen's, the board is upscaled and a hairline shows wider and soft",
+      table: { category: "Quality" },
+    },
   },
   args: { tour: true, view: "default", redraw: false, readout: true, ...SETTINGS_DEFAULTS },
 } satisfies Meta<typeof OutlinesBoard>;
