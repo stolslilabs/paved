@@ -980,6 +980,26 @@ to Home).
 | theme | — | — | — | the chosen theme |
 | settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
 
+**What Cobbles change (P-61, SC3).** The owner's in-game currency is named **Cobbles** (singular Cobble; the owner,
+2026-10-15). The design (`docs/architecture/gems-v1.md`), the contracts and the indexer still say gems until CORE's
+rename PR. Cobbles are an account balance in `Setup`, earned by claims and packs and spent on tile skins. SC3 builds
+them as scenes on typed mocks, no wiring:
+**purchase** gains a Cobbles tab beside the game's stake, with the four packs (50 for $5, 100 for $9, 500 for $40,
+1,000 for $70, the $0.20 reference struck through, -50 % to -65 %), confirmed and pending as a game is (approve +
+`buy_pack`); **theme** gains a theme's 19 tile skins, each priced by the rarity table (50 to 100 Cobbles) and not owned
+(Buy), owned or active, at most one theme per plan, the switches batched and saved in one `set_skins` write;
+**quests** show each quest's Cobbles (5, 10, 15; weeklies 15), a Claim per row and Claim all, past days still
+claimable, and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
+`claim_weekly_credit`), then a credit counter and Play free; **achievements** show their Cobbles (their points; On the
+Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
+(`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
+`components/containers/cobble-types.ts`, provisional until CORE's ABI, and keep CORE's `gems` field names where they
+mirror an ABI shape until the rename PR. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
+`cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional, and the leaderboard's free mark is a list of
+player ids (`free`), not a field of `LeaderboardEntry`.
+
 ### 6.5 What waits for CORE (P-57 B9)
 
 - **The 24 h validity.** Read: today a game is never blocked; only its reward is. `economy.cairo:701`
@@ -1204,8 +1224,7 @@ replaying; not needed at 72 moves.
 
 ### 9.5 How it fits
 
-- `PageSession` (today in app-web's `training/page-session.ts`) moves into `@paved/game-core` with
-  `LocalSession`; `PredictedSession` joins them; `GameSession` (`@paved/chain`) remains the chain-only
+- `PageSession` lives in `@paved/game-core` (`src/sessions/`) with `LocalSession` since P2; `PredictedSession` joins them; `GameSession` (`@paved/chain`) remains the chain-only
   reader for other players' games (read-only boards, the player page).
 - The session is a zustand vanilla store: the board's React components select from it, and the renderer
   subscribes to it directly (section 3.3).
@@ -1296,6 +1315,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`Economy.split_bps`, V1b: burn and Vault, the referral out of the Vault's part), the 24 h validity and the threshold | 3 d |
 | SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers. **Done** (2026-10-14) | 2.5 d |
+| SC3 | The Cobbles scenes (P-61, section 6.3's note; the design's gems, renamed by the owner): the Cobbles balance, the packs on purchase, the tile skins on theme, the Cobbles claims and free games on quests and achievements, Play free on home and play, the free mark on the leaderboard, on `src/mocks/cobbles.ts` (provisional until CORE's ABI). **Done** (2026-10-15). P9 (quests, achievements), P7b (purchase's packs) and P11b (theme's skins) wire it once CORE's three gems PRs land: (1) ledger, claims, free credits, `spawn_free`; (2) packs; (3) skins; CORE's rename PR then renames the contracts' and the indexer's gems to Cobbles | 1.5 d |
 | SC2b | The quests scene with CORE v2a's rotation (a different daily subset live each day), weekly quests, a countdown to the end of the day and of the week, and a toast when a quest completes (`quests-v2.md` 1.2, 2.1, 1.5). **Done** (2026-10-14) | 1 d |
 
 **Wiring the scenes**
@@ -1304,7 +1324,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379). **Done** (2026-10-15): `/training` and `/training/over` on a `TrainingGame` (`src/data/training.ts`: the session and a rules engine of the same moves for the slots and the preview, both kept between moves); the plan view is playable where the renderer cannot start; a tab follows the save another tab writes (the `storage` event); `DataProvider` mounted in `App.tsx` (Training's store; the chain and indexer sources refuse until their pages) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |

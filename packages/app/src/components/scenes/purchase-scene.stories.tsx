@@ -21,7 +21,7 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   );
 }
 
-const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onBack: fn() } } satisfies Meta<typeof PurchaseScene>;
+const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() } } satisfies Meta<typeof PurchaseScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -41,3 +41,15 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 export const Buying: Story = { args: PURCHASE.buying };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
+/** P-61, the Cobbles tab: the four packs (50 for $5 to 1,000 for $70), the $0.20 reference struck through; none picked. */
+export const CobblePacks: Story = { args: PURCHASE.cobblePacks };
+/** A pack picked: Pay confirms, as for a game. */
+export const CobblePackPicked: Story = { args: PURCHASE.cobblePackPicked };
+/** A referrer: their share of the pack, as for a game. */
+export const CobblePackReferred: Story = { args: PURCHASE.cobblePackReferred };
+/** The approve and `buy_pack` on their way. */
+export const CobblePackBuying: Story = { args: PURCHASE.cobblePackBuying };
+/** Not enough USDC for the pack picked. */
+export const CobblePackShort: Story = { args: PURCHASE.cobblePackShort };
+/** WRAP360: the largest balances and a full referrer address. */
+export const CobbleStress: Story = { args: PURCHASE.cobbleStress };

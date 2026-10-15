@@ -30,3 +30,5 @@ export const Loading: Story = { args: LEADERBOARD.loading };
 export const Error: Story = { args: LEADERBOARD.error };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: LEADERBOARD.stress };
+/** P-61: the second player's best game was a free one: marked Free, ranked like any other. */
+export const FreeGame: Story = { args: LEADERBOARD.freeGame };
