@@ -62,6 +62,11 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^foundations-typography--/, kind: "page", element: "html scrollWidth", why: "type specimen lines" },
   { story: /^foundations-typography--/, kind: "viewport", element: "", why: "type specimen lines" },
   { story: /^foundations-typography--/, kind: "overflow", element: "", why: "type specimen lines" },
+  // The extended tiles' viewer prints each model's file path on one line; on Linux's font metrics it passes 320 px. The
+  // story is in `src/stories/tiles`, outside WRAP360's files: listed in the PR for a later fix.
+  { story: /^tiles-extended--/, kind: "page", element: "html scrollWidth", why: "model path label, outside WRAP360" },
+  { story: /^tiles-extended--/, kind: "viewport", element: ".glb", why: "model path label, outside WRAP360" },
+  { story: /^tiles-extended--/, kind: "overflow", element: ".glb", why: "model path label, outside WRAP360" },
   // The board's canvas keeps the width it mounted at when the window narrows (opened at 320 px it fits). The renderer's
   // files belong to R-VIS (t-0304), not WRAP360: listed in the PR for a later fix.
   { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
@@ -271,7 +276,6 @@ async function main() {
     .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)))
     .map((e) => e.id);
   const { server, origin } = await serve(opts.dir);
-  const browser = await chromium.launch({ headless: true });
   const started = performance.now();
   const findings: Finding[] = [];
   // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
@@ -283,6 +287,8 @@ async function main() {
     .map((s) => s.id);
 
   async function worker() {
+    // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
+    const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
     const page = await context.newPage();
     for (let id = queue.shift(); id; id = queue.shift()) {
@@ -305,13 +311,12 @@ async function main() {
         for (const f of found) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
       }
     }
-    await context.close();
+    await browser.close();
   }
 
   try {
     await Promise.all(Array.from({ length: Math.min(opts.workers, stories.length) }, worker));
   } finally {
-    await browser.close();
     server.close();
   }
 
