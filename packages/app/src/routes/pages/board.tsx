@@ -15,9 +15,11 @@ import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
 
 /**
- * Where the renderer finds its models and tile art (`models/<plan>.glb`, `assets/tiles/<plan>.png`, `draco/`): app-web's
- * `public/`, served at this path by `vite/renderer-assets.ts` in dev and preview, copied into `dist/` at build. If a model
- * does not load, or the browser has no WebGL, the board falls back to the plan view, which plays the same game.
+ * Where the renderer finds its assets, at this path in dev, preview and the build (`vite/renderer-assets.ts`): the app's own
+ * `public/renderer-assets/` holds the meshopt-compressed models under content-hashed names, and the plugin serves (dev) or
+ * writes (build) the `manifest.json` that lists them, which the renderer's `AssetLoader` reads; the tile art still comes
+ * from app-web's `public/`. If a model does not load, or the browser has no WebGL, the board falls back to the plan view,
+ * which plays the same game.
  */
 const RENDERER_ASSETS = `${import.meta.env.BASE_URL}renderer-assets`;
 
