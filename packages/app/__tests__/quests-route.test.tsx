@@ -144,6 +144,15 @@ describe("/quests/:day? (P9)", { timeout: 15_000 }, () => {
     expect(await balance(240)).toBeInTheDocument();
   });
 
+  it("a failed ledger read leaves the quests shown, without their Cobbles", async () => {
+    const s = setup();
+    s.views.cobblesFail = new Error("Setup address is not configured");
+    open("/quests", s);
+    expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
+  });
+
   it("with no signer: a guest, asked to connect, nothing to claim", async () => {
     open("/quests", setup({ signer: "none" }));
     expect(await screen.findByText("Connect to see your quests", {}, { timeout: 3000 })).toBeInTheDocument();

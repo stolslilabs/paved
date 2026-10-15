@@ -45,7 +45,8 @@ export default function Page() {
     void client.invalidateQueries({ queryKey: cobbleKeys.all });
   };
 
-  const error = clock.error ?? quests.error ?? rewards.error ?? definitions.error;
+  // The ledger's failure (a deployment without Setup, a dropped RPC) leaves the quests shown, without their Cobbles.
+  const error = clock.error ?? quests.error ?? definitions.error;
   const firstDay = definitions.data ? (firstQuestDay(definitions.data) ?? today) : today;
 
   const send = (target: ClaimTarget, batch: CobbleClaim[]) => {

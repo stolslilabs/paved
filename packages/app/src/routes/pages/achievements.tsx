@@ -44,7 +44,8 @@ export default function Page() {
     <AchievementsScene
       achievements={achievements.data ?? null}
       connected={playerId !== null}
-      error={(achievements.error ?? rewards.error)?.message ?? null}
+      // The ledger's failure leaves the achievements shown, without their Cobbles.
+      error={achievements.error?.message ?? null}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming === "daily" || claims.claiming === "weekly" ? null : claims.claiming } : null}
       canClaim={claims.claimer !== null}
       toasts={toasts}
