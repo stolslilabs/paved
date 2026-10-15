@@ -60,15 +60,17 @@
 #   missing: Setup.set_reporter(Challenge), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
-#   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the cobbles
-#   (cobbles v1: set_quest_cobbles x 13, set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) Setup does not
-#   hold, read back through its views quest_cobbles and achievement_cobbles;
+#   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the shop
+#   (cobbles v1, part 2: Economy.set_seller(Setup) and Setup.set_pack x 4, FRESH_PACKS) and the cobbles (set_quest_cobbles x 13,
+#   set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) that are not there yet, read back through
+#   the views seller, pack, quest_cobbles and achievement_cobbles;
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection and Vault, the Vault's exit fee, Setup.wiring(), every definition
 #   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
-#   claim_tutorial once; the rehearsal settles the game at (D + 2) x 86400 too.
+#   claim_tutorial once, pack 1 bought (buy_pack: its USDC through Economy's game split, its cobbles credited); the
+#   rehearsal settles the game at (D + 2) x 86400 too.
 # The guardian (PM, 2026-10-14): the fresh path sets the deployer as Challenge's guardian in the same run, by default
 # (devnet, sepolia and their rehearsal), right after the wiring and before the definitions: Challenge.set_guardian(@account),
 # the same call and checks as --upgrade-challenge's (guardian() none or the deployer, another address refused and never
@@ -415,13 +417,13 @@ elif [[ "$NETWORK" == "sepolia" && -n "${2:-}" ]]; then
         shift 3 ;;
       --check-fresh-definitions)
         # Test hook, the guardian one's twin: runs fresh_definitions_step or fresh_definitions_smoke (<step|smoke>) against
-        # the Setup <address>, then exits. `step` can send the definitions, so it is refused, before anything is read or
+        # the Setup <address> and the Economy <address> (its seller, cobbles v1 part 2), then exits. `step` can send the definitions, so it is refused, before anything is read or
         # sent, unless the run is a --rehearse one (a local node, the node's predeployed account).
         ((REHEARSE)) || { echo "deploy.sh: --check-fresh-definitions is a test hook of the rehearsal: it needs sepolia --rehearse (a local node) and is refused on sepolia; nothing was read or sent" >&2; exit 2; }
-        [[ "${2:-}" == step || "${2:-}" == smoke ]] && [[ "${3:-}" =~ ^0x[0-9a-fA-F]+$ ]] ||
-          { echo "deploy.sh: --check-fresh-definitions expects <step|smoke> <Setup address>" >&2; exit 2; }
-        FRESH_DEFINITIONS_HOOK="$2"; FRESH_DEFINITIONS_SETUP="$3"
-        shift 3 ;;
+        [[ "${2:-}" == step || "${2:-}" == smoke ]] && [[ "${3:-}" =~ ^0x[0-9a-fA-F]+$ ]] && [[ "${4:-}" =~ ^0x[0-9a-fA-F]+$ ]] ||
+          { echo "deploy.sh: --check-fresh-definitions expects <step|smoke> <Setup address> <Economy address>" >&2; exit 2; }
+        FRESH_DEFINITIONS_HOOK="$2"; FRESH_DEFINITIONS_SETUP="$3"; FRESH_DEFINITIONS_ECONOMY="$4"
+        shift 4 ;;
       *) echo "deploy.sh: unknown option '$1' for 'sepolia$( ((REHEARSE)) && echo ' --rehearse')'" >&2; echo "$USAGE" >&2; exit 2 ;;
     esac
   done
@@ -2262,6 +2264,10 @@ FRESH_ACHIEVEMENTS=(
 # definitions' multicall, after them, and read back through the views quest_cobbles and achievement_cobbles.
 FRESH_QUEST_COBBLES=(5 5 10 15 5 10 15 5 10 15 15 15 15)
 FRESH_ACHIEVEMENT_COBBLES=(10 10 20 40 20 20 30 30 0 40 50 40 50 80 60 80)
+# Cobbles v1, part 2 (P-61, cobbles-v1.md 2.1 and 6.4): the owner's four packs, `id cobbles price` (USDC base units, 6
+# decimals), all active: 50 cobbles for $5, 100 for $9, 500 for $40, 1,000 for $70. Set by Setup's owner (set_pack) in the
+# definitions' multicall, after Economy.set_seller(Setup), and read back through the views pack and seller.
+FRESH_PACKS=("1 50 5000000" "2 100 9000000" "3 500 40000000" "4 1000 70000000")
 # Slots A and B of each definition in Setup's storage (quiver 0.2.0: `Quest_definitions`, `Quest_tasks` and
 # `Achievement_definitions`, maps of u32 to a packed felt, flat in Setup): pedersen(sn_keccak(name), id) mod 2^251 - 256,
 # as starknet.js's hash.starknetKeccak and hash.computePedersenHash compute it. A quest's slot A holds its schedule, its
@@ -2369,12 +2375,17 @@ fresh_slot_matches() {
 # when a read fails (through `v`, so a lost read never reads as "defined") and when a defined slot is not the table's
 # (quiver refuses to define an id twice, so a wrong one stays: the run dies, never sends over it).
 # The cobbles of a quest or achievement (cobbles v1): none (0) -> its set_*_cobbles call, after the definitions (the same multicall,
-# so a quest defined in it has its cobbles set after it); the table's -> nothing; another non-zero amount -> the owner's
+# so a quest defined in it has its cobbles set after it), but on a complete record, where 0 is the owner's setting since
+# (set_*_cobbles(id, 0)) and is kept like any other; the table's -> nothing; another non-zero amount -> the owner's
 # setting since on a complete record (kept, never sent over: cobbles are calibrated by the owner, cobbles-v1.md 3.1), a stop
 # otherwise. A retired one has none and gets none (set_*_cobbles refuses a retired id; retire_* clears the cobbles).
+# The shop (cobbles v1, part 2), before the cobbles: Economy's seller none -> Economy.set_seller(Setup); Setup -> nothing;
+# another address -> a stop (set once). Each pack of FRESH_PACKS: never set (0 cobbles) -> its set_pack call, but on a
+# complete record; the table's, active -> nothing; anything else (another amount or price, or stopped) -> the owner's
+# setting since on a complete record (kept), a stop otherwise.
 fresh_definition_calls() {
-  local i id task total start duration interval points slot want entry cobbles have retired
-  local cobble_calls=()
+  local i id task total start duration interval points slot want entry cobbles have retired price raw
+  local cobble_calls=() shop_calls=() held=()
   # Quests 2 to 4 stay undefined (four dailies a day): one that is defined and not retired makes seven dailies live.
   for entry in "${FRESH_UNDEFINED_QUEST_SLOTS[@]}"; do
     read -r id slot <<<"$entry"
@@ -2403,7 +2414,7 @@ fresh_definition_calls() {
     have="$(call "$SETUP" quest_cobbles "$id")" || return 1
     have="$(hex_int "$(cut -d' ' -f1 <<<"$have")")"
     fresh_cobbles_match "quest $id" "$have" "$cobbles" || return 1
-    [[ "$have" != 0 ]] || cobble_calls+=("$SETUP set_quest_cobbles $id $cobbles")
+    [[ "$have" != 0 ]] || ((FRESH_COMPLETE)) || cobble_calls+=("$SETUP set_quest_cobbles $id $cobbles")
   done
   for i in "${!FRESH_ACHIEVEMENTS[@]}"; do
     read -r id task total points <<<"${FRESH_ACHIEVEMENTS[i]}"
@@ -2421,8 +2432,29 @@ fresh_definition_calls() {
     have="$(call "$SETUP" achievement_cobbles "$id")" || return 1
     have="$(hex_int "$(cut -d' ' -f1 <<<"$have")")"
     fresh_cobbles_match "achievement $id" "$have" "$cobbles" || return 1
-    [[ "$have" != 0 ]] || cobble_calls+=("$SETUP set_achievement_cobbles $id $cobbles")
+    [[ "$have" != 0 ]] || ((FRESH_COMPLETE)) || cobble_calls+=("$SETUP set_achievement_cobbles $id $cobbles")
   done
+  raw="$(call "$ECONOMY" seller)" || return 1
+  if [[ "$(hex_int "$raw")" == 0 ]]; then
+    shop_calls+=("$ECONOMY set_seller $SETUP")
+  elif ! felt_eq "$raw" "$SETUP"; then
+    echo "deploy.sh: Economy.seller() is another address than Setup: the seller is set once, not sent over; nothing more was sent" >&2
+    return 1
+  fi
+  for entry in "${FRESH_PACKS[@]}"; do
+    read -r id cobbles price <<<"$entry"
+    raw="$(call "$SETUP" pack "$id")" || return 1
+    read -r -a held <<<"$raw"
+    have="$(hex_int "${held[0]:-0x0}")"
+    if [[ "$have" == 0 ]]; then
+      ((FRESH_COMPLETE)) || shop_calls+=("$SETUP set_pack $id $cobbles $price 1")
+    elif [[ "$have" != "$cobbles" || "$(hex_int "${held[1]:-0x0}")" != "$price" || "$(hex_int "${held[2]:-0x0}")" != 1 ]]; then
+      ((FRESH_COMPLETE)) && continue
+      echo "deploy.sh: pack $id is $have cobbles for $(hex_int "${held[1]:-0x0}") (active $(hex_int "${held[2]:-0x0}")), not the table's $cobbles for $price, active: not sent over; nothing more was sent" >&2
+      return 1
+    fi
+  done
+  [[ "${#shop_calls[@]}" == 0 ]] || printf '%s\n' "${shop_calls[@]}"
   [[ "${#cobble_calls[@]}" == 0 ]] || printf '%s\n' "${cobble_calls[@]}"
 }
 
@@ -2500,7 +2532,7 @@ fresh_definitions_step() {
   if [[ "${#DEFINE_CALLS[@]}" == 0 ]]; then
     echo "   defined already: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}$( [[ -n "$(fr_get definitions_tx)" ]] && echo ", tx $(fr_get definitions_tx)")"
   else
-    echo "   ${#DEFINE_CALLS[@]} definition and cobbles call(s) to send"
+    echo "   ${#DEFINE_CALLS[@]} definition, shop and cobbles call(s) to send"
     RECORD_SENDING=definitions_tx
     invoke_all "${DEFINE_CALLS[@]}"
     RECORD_SENDING=""
@@ -2508,6 +2540,7 @@ fresh_definitions_step() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "after the definitions, Setup still lacks: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
   echo "   Setup holds quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]}, v1 and v2a, each as specified (slots read from its storage), with their cobbles (13 quests, 15 achievements; views quest_cobbles and achievement_cobbles)"
+  echo "   the shop: Economy.seller() is Setup; Setup holds packs 1 to ${#FRESH_PACKS[@]} (50 for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70; view pack)"
 }
 
 # fresh_definitions_smoke: the smoke reads every definition back from Setup's storage and fails on one that is missing or
@@ -2515,7 +2548,7 @@ fresh_definitions_step() {
 fresh_definitions_smoke() {
   v DEFINE_RAW fresh_definition_calls
   [[ -z "$DEFINE_RAW" ]] || die "Setup lacks a definition: $(cut -d' ' -f2,3 <<<"$DEFINE_RAW" | tr '\n' ' ')"
-  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their cobbles"
+  echo "   Setup holds every definition, each as specified: quests $FRESH_QUEST_IDS, achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} (v1 and v2a), and their cobbles; Economy's seller is Setup, packs 1 to ${#FRESH_PACKS[@]} as specified"
 }
 
 # fresh_deployed_address <tx> <class>: the contract of that class a deploy transaction created, from its receipt (the
@@ -2648,13 +2681,14 @@ fresh_check_only() {
   echo "== fresh: check only (nothing is sent, the file is not written)"
   if [[ ! -e "$OUT" ]]; then
     echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
-    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with their cobbles,"
-    echo "   write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a surrender reported to Setup, claim_tutorial once)"
+    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
+    echo "   (Economy.set_seller(Setup), set_pack x 4) and their cobbles, write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a"
+    echo "   surrender reported to Setup, claim_tutorial once, pack 1 bought)"
   else
-    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
+    echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
-        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.settle_tx; do
+        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
     done
@@ -2756,6 +2790,7 @@ if [[ -n "$FRESH_GUARDIAN_HOOK" ]]; then
 fi
 if [[ -n "$FRESH_DEFINITIONS_HOOK" ]]; then
   SETUP="$FRESH_DEFINITIONS_SETUP"
+  ECONOMY="$FRESH_DEFINITIONS_ECONOMY"
   "fresh_definitions_$FRESH_DEFINITIONS_HOOK"
   exit 0
 fi
@@ -3425,6 +3460,57 @@ else
   else
     echo "   tutorial claimed on Setup once, tx $CLAIM_TX"
   fi
+fi
+
+# A pack (cobbles v1, part 2, cobbles-v1.md 2.3): pack 1 bought by the player for itself, with the client's min_out (the
+# pool's quote of the whole price, less 1 %; no referrer). Setup pulls the price into Economy, whose `sell` runs the game's
+# split (Sold beside PackBought in the receipt), and credits the cobbles; Setup holds no USDC after it, Economy no PAVED.
+# The USDC comes from the faucet unless the deployer holds it. Recorded as smoke.pack_tx; a rerun cites it. A complete
+# record without one (a record from before part 2) sends nothing.
+fr_settled smoke.pack_tx || true
+if [[ -n "$(fr_get smoke.pack_tx)" ]]; then
+  echo "   pack 1 bought already, tx $(fr_get smoke.pack_tx); not sent again"
+elif ((FRESH_COMPLETE)); then
+  echo "   no pack bought in this record (complete: a rerun sends nothing)"
+else
+  read -r -a PACK <<<"$(call "$SETUP" pack 1)"
+  PACK_COBBLES="$(hex_int "${PACK[0]}")"
+  PACK_PRICE="$(hex_int "${PACK[1]}")"
+  [[ "$PACK_COBBLES" == 50 && "$PACK_PRICE" == 5000000 && "$(hex_int "${PACK[2]}")" == 1 ]] ||
+    die "Setup.pack(1) is $PACK_COBBLES cobbles for $PACK_PRICE, not the table's 50 for 5000000, active"
+  read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)<int(sys.argv[3]) else 1)' "$HELD_LOW" "$HELD_HIGH" "$PACK_PRICE"; then
+    invoke "$USDC" mint "$DEPLOYER_ARG" $(u256 "$PACK_PRICE") >/dev/null
+  fi
+  invoke "$USDC" approve "$SETUP" $(u256 "$PACK_PRICE") >/dev/null
+  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap $(u256 "$PACK_PRICE"))"
+  MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
+  COBBLES_BEFORE="$(hex_int "$(call "$SETUP" account "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  VAULT_BEFORE="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
+  RECORD_SENDING=smoke.pack_tx
+  PACK_TX="$(invoke "$SETUP" buy_pack 1 0 $(u256 "$MIN_OUT"))"
+  RECORD_SENDING=""
+  fr_set "smoke.pack_tx=$PACK_TX"
+  USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ $((USDC_BEFORE - USDC_AFTER)) == "$PACK_PRICE" ]] || die "buy_pack moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected $PACK_PRICE"
+  COBBLES_AFTER="$(hex_int "$(call "$SETUP" account "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ $((COBBLES_AFTER - COBBLES_BEFORE)) == "$PACK_COBBLES" ]] || die "buy_pack credited $((COBBLES_AFTER - COBBLES_BEFORE)) cobbles, expected $PACK_COBBLES"
+  [[ "$(hex_int "$(call "$USDC" balance_of "$SETUP" | cut -d' ' -f1)")" == 0 ]] || die "Setup holds USDC after buy_pack"
+  [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after buy_pack"
+  VAULT_AFTER="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
+  gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "buy_pack sent no PAVED to the Vault"
+  # PackBought from Setup and Sold from Economy, in the same receipt
+  SHOP_EVENTS="$(rpc starknet_getTransactionReceipt "[\"$PACK_TX\"]" | python3 -I -c '
+import sys, json
+d = json.load(sys.stdin)["result"]
+setup, economy = int(sys.argv[1], 16), int(sys.argv[2], 16)
+print(sum(1 for e in d["events"] if int(e["from_address"], 16) == setup), sum(1 for e in d["events"] if int(e["from_address"], 16) == economy))' "$SETUP" "$ECONOMY")" ||
+    die "no receipt for buy_pack"
+  read -r SETUP_EVENTS ECONOMY_EVENTS <<<"$SHOP_EVENTS"
+  [[ "$SETUP_EVENTS" -ge 1 && "$ECONOMY_EVENTS" -ge 1 ]] || die "buy_pack emitted $SETUP_EVENTS events from Setup and $ECONOMY_EVENTS from Economy, expected 1 or more of each"
+  echo "   pack 1 bought (min_out $MIN_OUT), tx $PACK_TX: $PACK_PRICE USDC base units through Economy's split, $PACK_COBBLES cobbles"
+  echo "   credited ($COBBLES_BEFORE -> $COBBLES_AFTER), the Vault's PAVED grew by $((VAULT_AFTER - VAULT_BEFORE)) base units; Setup holds no USDC, Economy no PAVED"
 fi
 
 # Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README). Only a local

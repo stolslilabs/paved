@@ -1542,3 +1542,55 @@ test, whose figure is the largest of its runs, + 10 %). Every other budget of th
 | `snforge test test_gas_` (final) | 25 passed |
 | `snforge test paved::tests::e2e::cobbles` | 40 passed |
 | `snforge test` (the whole suite) | see the pull request |
+
+## After cobbles v1, part 2 (packs on the game's money path; P-61)
+
+Measured on the VPS, 2026-10-15, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`. **Before**: part 1's head
+`292759dd` (the code merged as #440), `snforge test test_gas_`, 25 passed. **After**: this branch, 28 passed.
+
+**What changed on the paths measured before.** `Economy.purchase` now runs its money path through `pay`, shared with `sell`
+(`cobbles-v1.md`, "As built: part 2"), and its referral rule reads the seller when a referrer is named.
+
+| Scenario | Before | After | Change |
+|---|---:|---:|---:|
+| m, a paid spawn at stake 1, no referrer | 15,613,802 | 15,663,115 | +49,313 |
+| n, a paid spawn at stake 10, referred | 16,466,822 | 16,557,985 | +91,163 |
+| g, closing move in its day | 3,820,384 | 3,821,784 | +1,400 |
+| i, closing move after its day | 3,362,844 | 3,363,974 | +1,130 |
+| k, the largest report | 4,331,394 | 4,332,794 | +1,400 |
+| l, game over on the last build | 7,227,143 | 7,228,543 | +1,400 |
+| s, game over on the last discard | 4,041,569 | 4,042,969 | +1,400 |
+| x, g in a week | 4,114,766 | 4,116,366 | +1,600 |
+| y, k in a week | 4,642,366 | 4,643,966 | +1,600 |
+| z1 to z4, the claims | 904,611; 550,863; 2,322,515; 1,471,730 | 905,111; 551,173; 2,324,015; 1,472,530 | +500; +310; +1,500; +800 |
+| z5, `spawn_free` | 6,481,530 | 6,523,073 | +41,543 |
+| z6, a free game's game over | 1,760,224 | 1,760,424 | +200 |
+
+a0, a, c, d, e, f (the builds) and t, u, v, w (the Vault) are identical to the unit. m's +49,313 is the split into `pay` (its
+figures returned in one struct) and `Economy`'s larger dispatch; n adds +41,850 more, the seller's read in the referral rule,
+made only when a referrer is named. The game overs and the claims call `Setup`, whose dispatch has three entry points more.
+Every ceiling of these scenarios holds and is kept.
+
+**The new calls**:
+
+| Scenario | L2 gas | Design's estimate | Ceiling (measured + 5 %) |
+|---|---:|---:|---:|
+| z7, `buy_pack` (pack 4, 1,000 cobbles for 70 USDC), no referrer | 9,426,341 | about 9.8M | 9,897,659 |
+| z8, `buy_pack`, a referrer that counts | 10,299,801 | z7 + about 0.14M and a transfer | 10,814,792 |
+| z9, `set_pack` (a new pack) | 312,260 | 0.3M to 0.6M | 327,873 |
+
+`buy_pack` costs 60 % of the paid spawn m: no game is created, and `Economy.sell` writes no terms, no player and no day.
+
+**Part 1's test budget (part 1's review, note 5).** `e2e::setup_system::test_setup_reporter_reports_every_entry` rose by
+1.52M in part 1. Measured on main `3559aa5c` (before part 1) and on this branch, with a probe test that read
+`get_available_gas()` between each step (not committed): the whole test went from 5,391,310 to 6,841,090 L2 gas (+1,449,780).
+The declare of `Setup` (73,860 for a test that declares only), its deploy (858,200 for declare and deploy), `set_reporter`
+(258,790) and the read of the events (249,330) are identical to the unit on both, so the class's growth costs nothing there.
+The `report` call itself rose from 552,410 to 1,198,190 (+645,780: the day's and the account's slots, the ledger write). The
+remaining +804,000 is outside the Sierra gas of the test's calls, which `get_available_gas()` sees: it comes with the rise of
+the test's L1 data gas (384 to 576), that is the two new storage slots the report writes, but the fee term that converts it to
+L2 gas was not isolated. **So it is not explained beyond that.**
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile): `Setup` 14,960 Sierra, 34,002 CASM felts, 41.5 % of the 81,920
+cap (31,216 after part 1: +2,786); `Economy` 10,774 Sierra, 30,432 CASM, 37.1 %; `Challenge` 29,831 Sierra, 64,826 CASM,
+unchanged.

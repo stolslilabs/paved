@@ -38,6 +38,7 @@ use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
+    ISetupPacksDispatcher, ISetupPacksDispatcherTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -107,6 +108,11 @@ pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
 pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
 pub const CEILING_SPAWN_FREE: u128 = 6891797;
 pub const CEILING_FREE_GAME_OVER: u128 = 1848236;
+// Cobbles v1, part 2 (P-61): z7 and z8, `buy_pack` with no referrer and with one; z9, `set_pack`
+// (measured + 5 %, `docs/measures/baseline.md`, "After cobbles v1, part 2").
+pub const CEILING_BUY_PACK: u128 = 9897659;
+pub const CEILING_BUY_PACK_REFERRED: u128 = 10814792;
+pub const CEILING_SET_PACK: u128 = 327873;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -676,4 +682,60 @@ fn test_gas_z6_free_game_over() {
     systems.challenge.surrender(game_id);
     let after = get_available_gas();
     report("z6_free_game_over", before - after, CEILING_FREE_GAME_OVER);
+}
+
+/// `PLAYER`'s paid game spawned (the day's prior and the guard written, as for m), `Economy`'s
+/// seller `Setup`, the fresh deployment's four packs, and 70 USDC approved for `Setup` by `PLAYER`,
+/// the caller of `Setup`.
+fn packs_scenario() -> (Systems, ISetupPacksDispatcher) {
+    let (_, systems, context) = setup::spawn_game(Mode::Challenge);
+    let setup_address = systems.setup.contract_address;
+    start_cheat_caller_address(systems.economy.contract_address, OWNER());
+    systems.economy.set_seller(setup_address);
+    stop_cheat_caller_address(systems.economy.contract_address);
+    let packs = ISetupPacksDispatcher { contract_address: setup_address };
+    start_cheat_caller_address(setup_address, OWNER());
+    packs.set_pack(1, 50, 5_000_000, true);
+    packs.set_pack(2, 100, 9_000_000, true);
+    packs.set_pack(3, 500, 40_000_000, true);
+    packs.set_pack(4, 1000, 70_000_000, true);
+    let usdc = context.token.contract_address;
+    start_cheat_caller_address(usdc, PLAYER());
+    IERC20Dispatcher { contract_address: usdc }.approve(setup_address, 70_000_000);
+    stop_cheat_caller_address(usdc);
+    start_cheat_caller_address(setup_address, PLAYER());
+    (systems, packs)
+}
+
+/// z7. `buy_pack` of the 1,000-cobble pack with no referrer: the pack and the wiring read, the
+/// account read and written, `Economy.addresses()`, the USDC `transferFrom` to `Economy`, then
+/// `Economy.sell` (the shared money path: swap, Vault, burn, guard; `Sold`), `PackBought`.
+#[test]
+fn test_gas_z7_buy_pack() {
+    let (_, packs) = packs_scenario();
+    let before = get_available_gas();
+    packs.buy_pack(4, Zero::zero(), 0);
+    let after = get_available_gas();
+    report("z7_buy_pack", before - after, CEILING_BUY_PACK);
+}
+
+/// z8. z7 with a referrer that counts: the referrer checks and the referral's USDC transfer.
+#[test]
+fn test_gas_z8_buy_pack_referred() {
+    let (_, packs) = packs_scenario();
+    let before = get_available_gas();
+    packs.buy_pack(4, ANYONE(), 0);
+    let after = get_available_gas();
+    report("z8_buy_pack_referred", before - after, CEILING_BUY_PACK_REFERRED);
+}
+
+/// z9. `set_pack` by the owner, a new pack: one write, one event.
+#[test]
+fn test_gas_z9_set_pack() {
+    let (systems, packs) = packs_scenario();
+    start_cheat_caller_address(systems.setup.contract_address, OWNER());
+    let before = get_available_gas();
+    packs.set_pack(5, 2000, 130_000_000, true);
+    let after = get_available_gas();
+    report("z9_set_pack", before - after, CEILING_SET_PACK);
 }

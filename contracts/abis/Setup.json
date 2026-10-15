@@ -679,6 +679,109 @@
   },
   {
     "type": "impl",
+    "name": "SetupPacksImpl",
+    "interface_name": "paved::systems::setup::ISetupPacks"
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::Pack",
+    "members": [
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "active",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupPacks",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_pack",
+        "inputs": [
+          {
+            "name": "pack_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "price",
+            "type": "core::integer::u128"
+          },
+          {
+            "name": "active",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "buy_pack",
+        "inputs": [
+          {
+            "name": "pack_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "referrer",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "min_out",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "pack",
+        "inputs": [
+          {
+            "name": "pack_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::Pack"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "UpgradeableImpl",
     "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
   },
@@ -1252,6 +1355,70 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::PackSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "pack_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u128",
+        "kind": "data"
+      },
+      {
+        "name": "active",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::PackBought",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "pack_id",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u128",
+        "kind": "data"
+      },
+      {
+        "name": "referrer",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "balance",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -1308,6 +1475,16 @@
       {
         "name": "CreditSpent",
         "type": "paved::systems::setup::Setup::CreditSpent",
+        "kind": "nested"
+      },
+      {
+        "name": "PackSet",
+        "type": "paved::systems::setup::Setup::PackSet",
+        "kind": "nested"
+      },
+      {
+        "name": "PackBought",
+        "type": "paved::systems::setup::Setup::PackBought",
         "kind": "nested"
       }
     ]

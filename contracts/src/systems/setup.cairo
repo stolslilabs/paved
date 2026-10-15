@@ -21,6 +21,10 @@
 //! quests, from that ledger; `Challenge` spends a credit through `spend_credit` for a free game.
 //! Cobbles and credits are a balance per account with no transfer: they grow only by a claim and
 //! fall only by a spend.
+//!
+//! Since cobbles v1, part 2 (`cobbles-v1.md`, 2) it also sells the cobble packs the owner sets: the
+//! player pays a pack's USDC price into `Economy`, whose `sell` runs the game's own money path
+//! (the referral, the swap, the Vault's PAVED, the burn), and gets its cobbles in the same call.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -61,6 +65,11 @@ pub const ACHIEVEMENT_COBBLES_MIN: u8 = 10;
 pub const ACHIEVEMENT_COBBLES_MAX: u8 = 90;
 /// The highest total an achievement with cobbles may have: its lifetime count saturates at `u16`.
 pub const MAX_ACHIEVEMENT_TOTAL: u32 = 65535;
+/// The highest total a quest with cobbles may have on a task whose day and week sums are `u16`
+/// (tasks 1, 2 and 4; task 3, the points, sums in `u32`): a saturated sum can never sit under it.
+pub const MAX_QUEST_TOTAL: u32 = 65535;
+/// The pack ids: 1 to 8 (cobbles v1, 2.2).
+pub const MAX_PACK_ID: u8 = 8;
 
 /// A player's account (one slot, key `player_id`): the cobbles, the free-game credits, the lifetime
 /// counts of every reported game over (each saturating at `u16::MAX`) and the claimed
@@ -119,6 +128,16 @@ pub struct AchievementCobbles {
     pub cobbles: u8,
     pub task: u32,
     pub total: u32,
+}
+
+/// A cobble pack (one slot, key `pack_id`): its cobbles, its price in USDC base units (6
+/// decimals) and whether it is on sale. `cobbles` 0: never set. Layout: `price` [0, 128) ·
+/// `cobbles` [128, 160) · `active` [160].
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct Pack {
+    pub cobbles: u32,
+    pub price: u128,
+    pub active: bool,
 }
 
 const TWO_POW_8: u128 = 0x100;
@@ -247,6 +266,26 @@ pub impl AchievementCobblesPacking of starknet::storage_access::StorePacking<
             cobbles: (low & MASK_8).try_into().unwrap(),
             task: field(low, TWO_POW_8, MASK_32).try_into().unwrap(),
             total: field(low, TWO_POW_40, MASK_32).try_into().unwrap(),
+        }
+    }
+}
+
+pub impl PackPacking of starknet::storage_access::StorePacking<Pack, felt252> {
+    fn pack(value: Pack) -> felt252 {
+        let active: u128 = if value.active {
+            TWO_POW_32
+        } else {
+            0
+        };
+        word(value.price, value.cobbles.into() + active)
+    }
+
+    fn unpack(value: felt252) -> Pack {
+        let (low, high) = halves(value);
+        Pack {
+            cobbles: (high & MASK_32).try_into().unwrap(),
+            price: low,
+            active: high / TWO_POW_32 != 0,
         }
     }
 }
@@ -538,6 +577,21 @@ pub trait ISetupCobbles<TContractState> {
     fn achievement_cobbles(self: @TContractState, achievement_id: u32) -> AchievementCobbles;
 }
 
+/// Cobbles v1, part 2 (P-61, `docs/architecture/cobbles-v1.md`, 2): the packs of cobbles, set by
+/// the owner and bought by the player for itself at the game's split.
+#[starknet::interface]
+pub trait ISetupPacks<TContractState> {
+    /// Sets a pack, owner only: `pack_id` 1 to 8, `cobbles` and `price` (USDC base units) non-zero;
+    /// `active` false stops its sales. Emits `PackSet`.
+    fn set_pack(ref self: TContractState, pack_id: u8, cobbles: u32, price: u128, active: bool);
+    /// The caller buys an active pack for itself: its cobbles are credited, its price moves from
+    /// the caller to `Economy` (the caller approves `Setup` on USDC first), and `Economy.sell` runs
+    /// the game's split with `referrer` (ignored when it is `Economy`, `Setup` or any address the
+    /// game ignores) and `min_out`. Emits `PackBought`.
+    fn buy_pack(ref self: TContractState, pack_id: u8, referrer: ContractAddress, min_out: u256);
+    fn pack(self: @TContractState, pack_id: u8) -> Pack;
+}
+
 #[starknet::contract]
 pub mod Setup {
     // Imports
@@ -546,7 +600,9 @@ pub mod Setup {
     use openzeppelin_interfaces::upgrades::IUpgradeable;
     use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::ownable::OwnableComponent;
+    use paved::components::payable::{IERC20Dispatcher, IERC20DispatcherTrait};
     use paved::constants;
+    use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
     use quiver_quest::types::mode::Mode as QuestMode;
@@ -554,17 +610,19 @@ pub mod Setup {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::{
+        ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
+    };
 
     // Local imports
 
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        DAILY, DAY, ISetup, ISetupCobbles, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, Progress,
-        ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
-        QuestProgress, QuestSchedule, QuestTask, WEEKLY, Wiring, bit, list_ids, list_word,
-        schedule_kind, week_of,
+        DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID,
+        MAX_PACK_ID, MAX_QUEST_TOTAL, Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX,
+        QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
+        WEEKLY, Wiring, bit, list_ids, list_word, schedule_kind, week_of,
     };
 
     // Errors
@@ -592,6 +650,11 @@ pub mod Setup {
         pub const NO_LIVE_QUEST: felt252 = 'Setup: no live quest';
         pub const CREDIT_CLAIMED: felt252 = 'Setup: credit claimed';
         pub const NO_CREDIT: felt252 = 'Setup: no credit';
+        pub const CONDITIONED: felt252 = 'Setup: quest has conditions';
+        pub const INVALID_PACK: felt252 = 'Setup: invalid pack';
+        pub const NOT_ON_SALE: felt252 = 'Setup: pack not on sale';
+        pub const NO_ECONOMY: felt252 = 'Setup: economy not set';
+        pub const PAY_FAILED: felt252 = 'Setup: payment failed';
     }
 
     // Components
@@ -687,6 +750,8 @@ pub mod Setup {
         /// The cobbles of an achievement, with its task copied (`super::AchievementCobbles`);
         /// written by `set_achievement_cobbles` and `retire_achievement`.
         achievement_cobbles: Map<u32, AchievementCobbles>,
+        /// Cobbles v1, part 2 (appended, P-42). The packs (`super::Pack`); written by `set_pack`.
+        packs: Map<u8, Pack>,
     }
 
     // Events
@@ -709,6 +774,8 @@ pub mod Setup {
         CobblesClaimed: CobblesClaimed,
         CreditClaimed: CreditClaimed,
         CreditSpent: CreditSpent,
+        PackSet: PackSet,
+        PackBought: PackBought,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -773,6 +840,31 @@ pub mod Setup {
         pub player_id: felt252,
         pub game_id: u32,
         pub credits: u16,
+    }
+
+    /// A pack set by the owner (`active` false: not on sale).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct PackSet {
+        #[key]
+        pub pack_id: u8,
+        pub cobbles: u32,
+        pub price: u128,
+        pub active: bool,
+    }
+
+    /// A pack bought by the player for itself: `price` in USDC base units, `referrer` the one that
+    /// counted (zero when none did), `balance` the player's cobbles after it. `Economy` emits
+    /// `Sold`
+    /// in the same transaction.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct PackBought {
+        #[key]
+        pub player_id: felt252,
+        pub pack_id: u8,
+        pub cobbles: u32,
+        pub price: u128,
+        pub referrer: ContractAddress,
+        pub balance: u64,
     }
 
     // Constructor
@@ -948,11 +1040,19 @@ pub mod Setup {
                 errors::INVALID_COBBLES,
             );
             // [Check] A defined, live quest of one task the ledger sums, daily or weekly
-            let (head, tasks, _) = self.quest.definition(quest_id);
+            let (head, tasks, conditions) = self.quest.definition(quest_id);
             assert(!head.retired, errors::RETIRED);
             assert(tasks.len() == 1, errors::ONE_TASK);
             let task = *tasks.at(0);
             assert(task.task_id >= 1 && task.task_id <= 4, errors::TASK_NOT_COUNTED);
+            // [Check] Reachable by a saturated sum: the day and week sums of tasks 1, 2 and 4 are
+            // `u16`, the points' `u32`
+            assert(
+                task.task_id == constants::TASK_POINTS || task.total <= MAX_QUEST_TOTAL,
+                errors::TOTAL_TOO_HIGH,
+            );
+            // [Check] No prerequisite: the claim reads the ledger only and could not check one
+            assert(conditions.len() == 0, errors::CONDITIONED);
             let kind = schedule_kind(head.schedule);
             assert(kind != 0, errors::INVALID_SCHEDULE);
             // [Effect] The copy, and the id in its kind's list
@@ -1131,6 +1231,66 @@ pub mod Setup {
 
         fn achievement_cobbles(self: @ContractState, achievement_id: u32) -> AchievementCobbles {
             self.achievement_cobbles.read(achievement_id)
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupPacksImpl of ISetupPacks<ContractState> {
+        fn set_pack(ref self: ContractState, pack_id: u8, cobbles: u32, price: u128, active: bool) {
+            // [Check] The owner, a pack id, cobbles and a price
+            self.ownable.assert_only_owner();
+            assert(pack_id != 0 && pack_id <= MAX_PACK_ID, errors::INVALID_PACK);
+            assert(cobbles != 0 && price != 0, errors::INVALID_PACK);
+            // [Effect] The pack
+            self.packs.write(pack_id, Pack { cobbles, price, active });
+            self.emit(PackSet { pack_id, cobbles, price, active });
+        }
+
+        fn buy_pack(
+            ref self: ContractState, pack_id: u8, referrer: ContractAddress, min_out: u256,
+        ) {
+            let player = get_caller_address();
+            let player_id: felt252 = player.into();
+            // [Check] A pack on sale, the economy wired
+            let pack = self.packs.read(pack_id);
+            assert(pack.active, errors::NOT_ON_SALE);
+            let economy = self.economy.read();
+            assert(economy.is_non_zero(), errors::NO_ECONOMY);
+
+            // [Effect] The cobbles
+            let mut account = self.accounts.read(player_id);
+            account.cobbles += pack.cobbles.into();
+            self.accounts.write(player_id, account);
+
+            // [Interaction] The price, from the player straight to Economy (Setup holds no USDC),
+            // in the token Economy swaps; then the game's split. No referral to Economy or Setup
+            // itself, as `Challenge` filters Economy and itself; Economy ignores the rest.
+            let economy = IEconomyDispatcher { contract_address: economy };
+            let token = IERC20Dispatcher { contract_address: economy.addresses().usdc };
+            let price: u256 = pack.price.into();
+            assert(token.transferFrom(player, economy.contract_address, price), errors::PAY_FAILED);
+            let referrer = if referrer == economy.contract_address
+                || referrer == get_contract_address() {
+                Zero::zero()
+            } else {
+                referrer
+            };
+            let referrer = economy.sell(player, price, referrer, min_out);
+            self
+                .emit(
+                    PackBought {
+                        player_id,
+                        pack_id,
+                        cobbles: pack.cobbles,
+                        price: pack.price,
+                        referrer,
+                        balance: account.cobbles,
+                    },
+                );
+        }
+
+        fn pack(self: @ContractState, pack_id: u8) -> Pack {
+            self.packs.read(pack_id)
         }
     }
 

@@ -175,7 +175,8 @@ pub impl StoreImpl of StoreTrait {
             mode: (c.low & MASK_8).try_into().unwrap(),
             day_id: 0,
             tile_limit: ((c.low / TWO_POW_72) & MASK_16).try_into().unwrap(),
-            // [Info] Nothing is above the counters: the quotient is the 23 bits
+            // [Info] Nothing is above the counters and the free mark: the quotient is the 23
+            // counter bits and the free mark above them (bit 23, `FREE_GAME`)
             counts: (s.high / TWO_POW_88).try_into().unwrap(),
         }
     }
