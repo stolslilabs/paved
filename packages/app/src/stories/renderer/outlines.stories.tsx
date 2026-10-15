@@ -50,11 +50,29 @@ const meta = {
     },
     maxWidthPx: { control: { type: "range", min: 0.5, max: 6, step: 0.25 }, description: "Widest stroke (CSS px): the cap zoomed in", table: { category: "Outlines" } },
     color: { control: "color", description: "Outline colour on screen", table: { category: "Outlines" } },
+    segmentOffDevicePx: {
+      control: { type: "range", min: 0, max: 4, step: 0.25 },
+      description: "Screen-size cut: a segment shorter on screen than this (device px) is not drawn. 0 with the next at 0: no cut",
+      table: { category: "Outlines" },
+    },
+    segmentFullDevicePx: {
+      control: { type: "range", min: 0, max: 4, step: 0.25 },
+      description: "A segment at least this long on screen (device px) is drawn fully; it fades in from the cut",
+      table: { category: "Outlines" },
+    },
     minDistance: { control: { type: "range", min: 1, max: 60, step: 1 }, description: "Closest camera distance (fully zoomed in)", table: { category: "Camera" } },
     maxDistance: { control: { type: "range", min: 60, max: 600, step: 5 }, description: "Farthest camera distance (fully zoomed out)", table: { category: "Camera" } },
     capZoomOut: { control: "boolean", description: "Fallback: stop zooming out at the cap distance instead", table: { category: "Camera" } },
     zoomOutCapDistance: { control: { type: "range", min: 20, max: 600, step: 5 }, description: "Farthest distance while the cap is on", table: { category: "Camera" } },
     multisampling: { control: "boolean", description: "Multisampled anti-aliasing (4x): smoother edges, about 3 to 4 ms of GPU a frame", table: { category: "Quality" } },
+    maxPixelRatio: {
+      // Keys without a dot, so a URL can name one (`args=maxPixelRatio:x1_5`); `mapping` gives the renderer the number.
+      control: { type: "select", labels: { auto: "auto", x1: "1", x1_5: "1.5", x2: "2", x3: "3" } },
+      options: ["auto", "x1", "x1_5", "x2", "x3"],
+      mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2, x3: 3 },
+      description: "Highest pixel ratio the board is drawn at: min(screen's, this). auto: 2 on a coarse pointer or a small screen, 1 elsewhere. Under the screen's, the board is upscaled and a hairline shows wider and soft",
+      table: { category: "Quality" },
+    },
   },
   args: { tour: true, view: "default", redraw: false, readout: true, ...SETTINGS_DEFAULTS },
 } satisfies Meta<typeof OutlinesBoard>;

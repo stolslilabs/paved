@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { OPENING_DISTANCE } from "./CameraController";
+import { mergeCollinearSegments } from "./edges";
 import { TILE_SIZE } from "./types";
 
 /**
@@ -18,6 +19,11 @@ import { TILE_SIZE } from "./types";
  * off at `fadeOffFactor` of it. They are drawn after the faces with a depth bias towards the camera: an outline lies
  * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
  * removed).
+ *
+ * The segments are cut by their size on screen (OUT-LOD): collinear pieces are merged once, when the outline is built,
+ * and the vertex shader drops a segment shorter on screen than `segmentOffDevicePx`, fading it in up to
+ * `segmentFullDevicePx`. The cut follows each segment's own projected length, so it changes continuously with the zoom
+ * and costs no CPU.
  *
  * The zoom is measured as the on-screen size of one tile, in CSS pixels, at the camera's target ("tile px"): it folds in
  * the distance, the field of view, the camera's zoom and the viewport's height, so a phone and a desktop window get the
@@ -43,6 +49,13 @@ export interface OutlineSettings {
   maxWidthPx: number;
   /** The stroke's colour on screen, a CSS hex colour. */
   color: string;
+  /**
+   * The screen-size cut (OUT-LOD): a crease segment shorter on screen than this, in device px, is not drawn (its quad
+   * is collapsed in the vertex shader, so it costs no fragments and no CPU).
+   */
+  segmentOffDevicePx: number;
+  /** A segment at least this long on screen, in device px, is drawn fully; between the two its opacity is linear. */
+  segmentFullDevicePx: number;
 }
 
 /** Voxels along a tile's side: every tile model is a 4-unit grid of 0.1-unit voxels, scaled to `TILE_SIZE`. */
@@ -68,6 +81,11 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   maxWidthPx: 2,
   // Dark grey, not black: about 88 % black.
   color: "#1f1f1f",
+  // Under a device pixel a segment covers a pixel only where a pixel's centre falls within its span, so it shows as a
+  // stray dot that comes and goes as the camera moves; at 0.5 px it covers at most half a pixel's row. It fades out
+  // from one device pixel down to half of one, so nothing pops. Top-down, the voxels' vertical edges are all under it.
+  segmentOffDevicePx: 0.5,
+  segmentFullDevicePx: 1,
 };
 
 /** The depth bias of the outlines (`polygonOffset`, negative: towards the camera). */
@@ -76,10 +94,16 @@ export const OUTLINE_DEPTH_BIAS = { factor: -1, units: -4 } as const;
 /** After the tile faces. */
 const OUTLINE_RENDER_ORDER = 1;
 
-/** How an outline is drawn at a zoom: its width in device px and its opacity; opacity 0 is not drawn. */
+/**
+ * How an outline is drawn at a zoom: its width in device px and its opacity; opacity 0 is not drawn. `segmentOff` and
+ * `segmentFull` are the screen-size cut in device px (`OutlineSettings.segmentOffDevicePx`, `segmentFullDevicePx`);
+ * unset, the defaults'.
+ */
 export interface OutlineStroke {
   width: number;
   opacity: number;
+  segmentOff?: number;
+  segmentFull?: number;
 }
 
 const OFF: OutlineStroke = { width: 0, opacity: 0 };
@@ -104,7 +128,7 @@ export function outlineStroke(
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
-  return width > 0 ? { width, opacity } : OFF;
+  return width > 0 ? { width, opacity, segmentOff: settings.segmentOffDevicePx, segmentFull: settings.segmentFullDevicePx } : OFF;
 }
 
 /** The opening tile size `outlineStroke` assumes when it is not given one: a 900 px high window's, about 60 px. */
@@ -116,6 +140,16 @@ export const DEFAULT_OPENING_TILE_PX = 60;
  */
 export function openingTilePixels(camera: THREE.PerspectiveCamera, heightPx: number): number {
   return tilePixels(camera, OPENING_DISTANCE, heightPx);
+}
+
+/**
+ * The share of a segment `lengthPx` device px long on screen that is drawn, by the screen-size cut: 0 below
+ * `off`, 1 from `full`, linear between (a step at `full` when the two are equal). The vertex shader computes the same.
+ */
+export function segmentFade(lengthPx: number, off: number, full: number): number {
+  if (!(lengthPx >= off)) return 0;
+  if (lengthPx >= full) return 1;
+  return (lengthPx - off) / (full - off);
 }
 
 /** Renderer strings of software WebGL: Chrome's SwiftShader, Mesa's llvmpipe and softpipe, Windows' Basic Render Driver. */
@@ -160,7 +194,7 @@ export function detectSoftwareWebGL(
  * canvas asks with `failIfMajorPerformanceCaveat`, and its context, if any, is released at once. Undefined where there
  * is no DOM (React Native, tests) or the probe fails.
  */
-function probeMajorPerformanceCaveat(): boolean | undefined {
+export function probeMajorPerformanceCaveat(): boolean | undefined {
   if (typeof document === "undefined") return undefined;
   try {
     const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true });
@@ -197,12 +231,16 @@ const vertexShader = /* glsl */ `
 
 uniform float linewidth;
 uniform vec4 viewport;
+// The screen-size cut, in device px: off below x, fully drawn from y.
+uniform vec2 segmentCut;
 
 attribute vec3 instanceStart;
 attribute vec3 instanceEnd;
 
 // The segment's two ends on screen, in device px (window coordinates): the same at every vertex of its quad.
 flat varying vec4 vSegment;
+// The share of the segment the screen-size cut keeps.
+flat varying float vFade;
 
 // Where a segment crossing the camera plane must be cut, three's LineMaterial's estimate.
 float trimSegment( const in vec4 start, const in vec4 end ) {
@@ -227,14 +265,25 @@ void main() {
 
   vec2 dir = screenEnd - screenStart;
   float len = length( dir );
+  // The screen-size cut: a segment shorter on screen than segmentCut.x is not drawn. Its quad collapses to one point
+  // outside the clip volume, so the GPU discards its triangles before they reach a pixel.
+  vFade = segmentCut.y > segmentCut.x ? clamp( ( len - segmentCut.x ) / ( segmentCut.y - segmentCut.x ), 0.0, 1.0 ) : step( segmentCut.y, len );
+  if ( vFade <= 0.0 ) {
+    gl_Position = vec4( 0.0, 0.0, 2.0, 1.0 );
+    return;
+  }
   dir = len > 0.0 ? dir / len : vec2( 1.0, 0.0 );
-  // The quad covers the stroke (at least a pixel wide) and one more pixel on every side, for the antialiased edge.
-  float reach = max( linewidth, 1.0 ) * 0.5 + 1.0;
-  // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 or 0 at its start, 1 or 2 at its end. This
-  // side of the normal keeps its triangles front-facing (the material culls back faces).
+  // The quad covers exactly the pixels the fragment shader can draw: across, the stroke (at least a pixel wide) and the
+  // half pixel of its antialiased edge, where the coverage reaches 0; along, the segment's span (its ends are square)
+  // and half a pixel more at each end, so no pixel centre on the span is lost to the rasterizer's edge rule.
+  float reach = max( linewidth, 1.0 ) * 0.5 + 0.5;
+  float pad = 0.5;
+  // LineSegmentsGeometry's quad: x is -1 or 1 across the segment, y is -1 at its start, 2 at its end (createOutline
+  // draws only its four corners). This side of the normal keeps its triangles front-facing (the material culls back
+  // faces).
   vec2 offset = vec2( dir.y, - dir.x ) * position.x * reach;
-  if ( position.y < 0.0 ) offset -= dir * reach;
-  else if ( position.y > 1.0 ) offset += dir * reach;
+  if ( position.y < 0.0 ) offset -= dir * pad;
+  else if ( position.y > 1.0 ) offset += dir * pad;
   vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
   clip.xy += offset * 2.0 / viewport.zw * clip.w;
   gl_Position = clip;
@@ -257,6 +306,7 @@ uniform float opacity;
 uniform float linewidth;
 
 flat varying vec4 vSegment;
+flat varying float vFade;
 
 void main() {
   #include <clipping_planes_fragment>
@@ -274,7 +324,7 @@ void main() {
   float coverage = clamp( w * 0.5 + 0.5 - across, 0.0, 1.0 ) * min( linewidth, 1.0 );
   if ( coverage <= 0.0 ) discard;
   #include <logdepthbuf_fragment>
-  gl_FragColor = vec4( diffuse, opacity * coverage );
+  gl_FragColor = vec4( diffuse, opacity * coverage * vFade );
   #include <fog_fragment>
 }
 `;
@@ -295,6 +345,7 @@ export type OutlineMaterial = THREE.ShaderMaterial & {
     opacity: THREE.IUniform<number>;
     linewidth: THREE.IUniform<number>;
     viewport: THREE.IUniform<THREE.Vector4>;
+    segmentCut: THREE.IUniform<THREE.Vector2>;
   };
 };
 
@@ -308,6 +359,9 @@ export function createOutlineMaterial(color = DEFAULT_OUTLINE_SETTINGS.color): O
         opacity: { value: 1 },
         linewidth: { value: 1 },
         viewport: { value: new THREE.Vector4(0, 0, 1, 1) },
+        segmentCut: {
+          value: new THREE.Vector2(DEFAULT_OUTLINE_SETTINGS.segmentOffDevicePx, DEFAULT_OUTLINE_SETTINGS.segmentFullDevicePx),
+        },
       },
     ]),
     vertexShader,
@@ -330,22 +384,150 @@ export function applyOutlineStroke(material: OutlineMaterial, stroke: OutlineStr
   if (!material.visible) return;
   material.uniforms.linewidth.value = stroke.width;
   material.uniforms.opacity.value = stroke.opacity;
+  material.uniforms.segmentCut.value.set(
+    stroke.segmentOff ?? DEFAULT_OUTLINE_SETTINGS.segmentOffDevicePx,
+    stroke.segmentFull ?? DEFAULT_OUTLINE_SETTINGS.segmentFullDevicePx,
+  );
 }
 
 const viewport = new THREE.Vector4();
+const modelView = new THREE.Matrix4();
+const linearPart = new THREE.Matrix4();
+const axisView = new THREE.Vector3();
+const centreView = new THREE.Vector3();
 
-/** One mesh's outline: its crease edges as instanced quads, told the viewport it is drawn into before each draw. */
+/**
+ * How an outline's segments are ordered for the screen-size cut: first every segment that is not along the tile's
+ * height, then the ones along it (`axis`, in the outline's own space), longest first (`tail`, their lengths). Seen from
+ * above, the voxels' vertical edges are the segments the cut drops, so the draw can stop before the short ones.
+ */
+export interface OutlineSegmentOrder {
+  /** Segments before the vertical ones: always drawn. */
+  head: number;
+  /** The vertical segments' lengths, longest first, in the outline's own units. */
+  tail: Float32Array;
+  /** The vertical axis, in the outline's own space (unit). */
+  axis: THREE.Vector3;
+}
+
+/** How far from 1 the cosine of a segment's angle to the vertical axis may be for `orderOutlineSegments` to put it last. */
+export const AXIS_TOLERANCE = 1e-9;
+
+/**
+ * Puts the segments along the shortest side of their bounding box (a tile's height) last, longest first. Segments are
+ * `[ax, ay, az, bx, by, bz]` sextuples; a segment is along the axis when the cosine of its angle to it is within 1e-9
+ * of 1 (about 0.003 degree, a sideways part under 4.5e-5 of its length), so `outlineSegmentCount` may bound it as on the
+ * axis. Every vertical edge of the tile models is exactly on it (30,196 of the 89,857 merged segments).
+ */
+export function orderOutlineSegments(positions: Float32Array): { positions: Float32Array; order: OutlineSegmentOrder } {
+  const count = Math.floor(positions.length / 6);
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < count * 6; i++) {
+    const k = i % 3;
+    if (positions[i] < min[k]) min[k] = positions[i];
+    if (positions[i] > max[k]) max[k] = positions[i];
+  }
+  const extents = [0, 1, 2].map((k) => max[k] - min[k]);
+  const up = count > 0 ? extents.indexOf(Math.min(...extents)) : 1;
+  const head: number[] = [];
+  const tail: { at: number; length: number }[] = [];
+  for (let s = 0; s < count; s++) {
+    const i = s * 6;
+    const d = [positions[i + 3] - positions[i], positions[i + 4] - positions[i + 1], positions[i + 5] - positions[i + 2]];
+    const length = Math.hypot(d[0], d[1], d[2]);
+    if (length > 0 && Math.abs(d[up]) / length > 1 - AXIS_TOLERANCE) tail.push({ at: i, length });
+    else head.push(i);
+  }
+  tail.sort((a, b) => b.length - a.length);
+  const ordered = new Float32Array(count * 6);
+  let o = 0;
+  for (const i of [...head, ...tail.map((t) => t.at)]) {
+    ordered.set(positions.subarray(i, i + 6), o);
+    o += 6;
+  }
+  const axis = new THREE.Vector3().setComponent(up, 1);
+  return { positions: ordered, order: { head: head.length, tail: Float32Array.from(tail, (t) => t.length), axis } };
+}
+
+/**
+ * How many of an outline's segments to draw for this camera and viewport (device px): every segment but the vertical
+ * ones whose projected length is surely under `off` device px, the screen-size cut's lower end. The bound is taken over
+ * the outline's bounding sphere, so a segment it skips is one the vertex shader would drop anyway: skipping it changes
+ * no pixel, and it saves the segment's vertex work. Everything is drawn for a non-perspective camera, or when the sphere
+ * reaches the camera plane.
+ */
+export function outlineSegmentCount(
+  object: THREE.Object3D,
+  geometry: THREE.InstancedBufferGeometry,
+  order: OutlineSegmentOrder,
+  camera: THREE.Camera,
+  width: number,
+  height: number,
+  off: number,
+): number {
+  const all = order.head + order.tail.length;
+  const projection = camera.projectionMatrix.elements;
+  const sphere = geometry.boundingSphere;
+  if (!(off > 0) || order.tail.length === 0 || projection[11] !== -1 || !sphere) return all;
+  modelView.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
+  centreView.copy(sphere.center).applyMatrix4(modelView);
+  const radius = sphere.radius * modelView.getMaxScaleOnAxis();
+  const near = -centreView.z - radius;
+  if (!(near > 0)) return all;
+  // The axis in view space, with the outline's scale: per unit of the outline's own length.
+  axisView.copy(order.axis).applyMatrix4(linearPart.copy(modelView).setPosition(0, 0, 0));
+  // Screen motion of a point at view position p moved along the axis a, per unit: f (a_xy z - p_xy a_z) / z^2. Its
+  // largest value on the sphere is at most f (|a_xy| / near + max|p_xy| |a_z| / near^2).
+  const focal = Math.max((projection[0] * width) / 2, (projection[5] * height) / 2);
+  const reach = Math.hypot(Math.abs(centreView.x) + radius, Math.abs(centreView.y) + radius);
+  const perUnit = focal * (Math.hypot(axisView.x, axisView.y) / near + (reach * Math.abs(axisView.z)) / (near * near));
+  if (!(perUnit > 0)) return order.head;
+  // The tail is longest first: keep the segments of at least off / perUnit.
+  const shortest = off / perUnit;
+  let lo = 0;
+  let hi = order.tail.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (order.tail[mid] >= shortest) lo = mid + 1;
+    else hi = mid;
+  }
+  return order.head + lo;
+}
+
+/**
+ * One mesh's outline: its crease edges as instanced quads, told the viewport it is drawn into before each draw, and
+ * drawn up to the segments the screen-size cut keeps (`outlineSegmentCount`). The geometry is shared by every tile of
+ * the type: each draw sets its own count just before it.
+ */
 class Outline extends THREE.Mesh<LineSegmentsGeometry, OutlineMaterial> {
-  override onBeforeRender(renderer: THREE.WebGLRenderer): void {
+  override onBeforeRender(renderer: THREE.WebGLRenderer, _scene: THREE.Scene, camera: THREE.Camera): void {
     // The viewport of the target being drawn (the composer's, or the canvas), in device px: what gl_FragCoord counts.
-    this.material.uniforms.viewport.value.copy(renderer.getCurrentViewport(viewport));
+    const { uniforms } = this.material;
+    uniforms.viewport.value.copy(renderer.getCurrentViewport(viewport));
+    const order = this.geometry.userData.segmentOrder as OutlineSegmentOrder | undefined;
+    if (!order) return;
+    this.geometry.instanceCount = outlineSegmentCount(this, this.geometry, order, camera, viewport.z, viewport.w, uniforms.segmentCut.value.x);
   }
 }
 
-/** The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments). */
+/**
+ * LineSegmentsGeometry's eight vertices make a quad of three sections (start cap, body, end cap). The outline shader
+ * covers the stroke by distance, so it needs only the outer corners: 0 and 1 at the end side (y 2), 6 and 7 at the
+ * start side (y -1). Two triangles instead of six, four vertices instead of eight, over the same rectangle.
+ */
+const OUTLINE_QUAD_INDEX = [0, 6, 1, 6, 7, 1];
+
+/**
+ * The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments), collinear pieces merged
+ * (`mergeCollinearSegments`), ordered for the screen-size cut (`orderOutlineSegments`), one four-vertex quad each.
+ */
 export function createOutline(edges: THREE.BufferGeometry, material: OutlineMaterial): THREE.Mesh {
   const geometry = new LineSegmentsGeometry();
-  geometry.setPositions(edges.getAttribute("position").array as Float32Array);
+  const { positions, order } = orderOutlineSegments(mergeCollinearSegments(edges.getAttribute("position").array));
+  geometry.setPositions(positions);
+  geometry.setIndex(OUTLINE_QUAD_INDEX);
+  geometry.userData.segmentOrder = order;
   edges.dispose();
   const outline = new Outline(geometry, material);
   outline.renderOrder = OUTLINE_RENDER_ORDER;

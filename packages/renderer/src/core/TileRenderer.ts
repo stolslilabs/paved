@@ -60,8 +60,10 @@ export class TileRenderer {
     return this.group;
   }
 
-  updateTiles(tiles: TileRenderData[]): void {
+  /** Draws the tiles given; true when it added or removed one (a tile whose model is not in yet is added later). */
+  updateTiles(tiles: TileRenderData[]): boolean {
     const currentKeys = new Set<string>();
+    let changed = false;
 
     for (const tile of tiles) {
       const key = `${tile.game_id}-${tile.id}`;
@@ -100,6 +102,7 @@ export class TileRenderer {
         );
         this.tileGroup.add(mesh);
         this.tileMeshes.set(key, { mesh, pending });
+        changed = true;
       }
     }
 
@@ -108,8 +111,10 @@ export class TileRenderer {
       if (!currentKeys.has(key)) {
         this.tileGroup.remove(entry.mesh);
         this.tileMeshes.delete(key);
+        changed = true;
       }
     }
+    return changed;
   }
 
   /** The pending (translucent, blue glow) variant of a tile material, one per source material. */
