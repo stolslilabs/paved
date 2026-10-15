@@ -27,7 +27,10 @@ export function ShortAddress({ address, className }: ShortAddressProps) {
         address
       ) : (
         <>
-          <span aria-hidden>{short}</span>
+          {/* Not selectable: a copy takes the full address once, from the hidden text. */}
+          <span aria-hidden className="select-none">
+            {short}
+          </span>
           <span className="sr-only">{address}</span>
         </>
       )}
