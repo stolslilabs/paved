@@ -18,7 +18,7 @@ export const Areas: Story = { args: { view: "areas" } };
 /** The four orientations of one plan, a quarter turn each. */
 export const Orientations: Story = {
   render: (args) => (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-3">
       {[1, 2, 3, 4].map((o) => (
         <TileChip key={o} {...args} orientation={o} />
       ))}

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fn } from "storybook/test";
 import { Amount } from "../elements/amount";
 import { StakePicker } from "./stake-picker";
+import { BIG_AMOUNT_6 } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/StakePicker",
@@ -25,3 +26,5 @@ export const Interactive: Story = {
     return <StakePicker {...args} value={value} price={<Amount value={BigInt(value) * 2_000_000n} token="usdc" />} onChange={setValue} />;
   },
 };
+/** WRAP360: the largest price beside the stake. */
+export const Stress: Story = { args: { value: 10, price: <Amount value={BIG_AMOUNT_6} token="usdc" /> } };

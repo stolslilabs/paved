@@ -5,6 +5,7 @@ import { RENDERER_ASSETS } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { TileView } from "./tile-view";
 import { HandPanel } from "./hand-panel";
+import { LONG_ADDRESS, LONG_SENTENCE } from "../../mocks/stress";
 
 const tile = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation };
 
@@ -42,3 +43,5 @@ export const Interactive: Story = {
     return <HandPanel {...args} tile={{ plan: tile.plan, orientation }} slotChosen onRotate={() => setOrientation((o) => (o % 4) + 1)} />;
   },
 };
+/** WRAP360: a long refusal with an unbroken address wraps inside the panel. */
+export const Stress: Story = { args: { state: "refused", error: `${LONG_SENTENCE} ${LONG_ADDRESS}`, slotChosen: true, preview: 9_999 } };

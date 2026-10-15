@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { RENDERER_ASSETS } from "../../mocks/assets";
 import { THEME_TILES } from "../../mocks/settings";
 import { THEMES, ThemeCard } from "./theme-card";
+import { LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
 
 const meta = {
   title: "Containers/ThemeCard",
@@ -22,3 +23,5 @@ export const DesertComingSoon: Story = { args: { theme: THEMES[3], selected: fal
 export const VolcanoComingSoon: Story = { args: { theme: THEMES[4], selected: false } };
 /** Without the art: the plans' nine areas. */
 export const NoArt: Story = { args: { artBase: undefined } };
+/** WRAP360: a long name and tagline wrap under the preview. */
+export const Stress: Story = { args: { theme: { ...THEMES[1], name: LONG_WORD, tagline: LONG_SENTENCE }, selected: true } };

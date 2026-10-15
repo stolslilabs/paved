@@ -2,6 +2,7 @@ import type { GameView, Leaderboard } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
+import { Cobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
@@ -17,6 +18,13 @@ export interface TrainingSave {
   remaining: number;
 }
 
+/** The player's Cobbles and free games (P-61, `AccountView`): provisional until CORE's gems PR 1. */
+export interface HomeCobbles {
+  balance: number;
+  /** Free Challenge games to spend (`credits`). */
+  credits: number;
+}
+
 export interface HomeSceneProps {
   /** Null: a guest (no wallet). */
   player: PlayerStatusData | null;
@@ -29,7 +37,13 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
+  /** The players of today's top 3 whose best game was free (P-61), marked as on the Leaderboard. */
+  free?: readonly string[];
+  /** The Cobbles balance and free games; omitted for a guest or before Cobbles. */
+  cobbles?: HomeCobbles | null;
   onPlay?: () => void;
+  /** Spends a free game (`Challenge.spawn_free`). */
+  onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
   onTutorial?: () => void;
@@ -40,17 +54,20 @@ export interface HomeSceneProps {
 
 /** Home (`/`): Play, the player's status, the game to resume, the mode cards with today's Challenge top 3; the five tabs. */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, leaderboard, activeGame, training, spawnPaused, now } = props;
+  const { player, leaderboard, activeGame, training, spawnPaused, now, cobbles } = props;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
       <AppNav active="home" onNavigate={props.onNavigate} className="desktop:min-h-dvh" />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
         <header className="flex items-center justify-between">
           <Wordmark size="md" />
-          <span className="text-xs text-muted-foreground">Day {leaderboard.tournamentId}</span>
+          <span className="flex items-center gap-3 text-xs text-muted-foreground">
+            {cobbles && <Cobbles value={cobbles.balance} />}
+            <span>Day {leaderboard.tournamentId}</span>
+          </span>
         </header>
 
-        <div className="grid gap-4 wide:grid-cols-[1fr_24rem] wide:items-start">
+        <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
           <div className="flex flex-col gap-4">
             <PlayerStatus data={player} onConnect={props.onConnect} connecting={props.connecting} />
 
@@ -58,7 +75,7 @@ export function HomeScene(props: HomeSceneProps) {
               <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-gold-800 bg-gold-950/50 p-4">
                 <Icon name="play" className="text-primary" size="md" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-sm font-semibold">Challenge #{activeGame.id} in progress</span>
+                  <span className="text-sm font-semibold wrap-anywhere">Challenge #{activeGame.id} in progress</span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="numeric">{formatPoints(activeGame.score)} pts</span>
                     <span className="numeric">{activeGame.remainingCount} tiles left</span>
@@ -73,13 +90,25 @@ export function HomeScene(props: HomeSceneProps) {
               Play <Icon name="chevron-right" size="md" />
             </Button>
 
+            {cobbles && cobbles.credits > 0 && (
+              <ModeCard
+                icon="ticket"
+                title="Free game"
+                description={`${cobbles.credits} free Challenge ${cobbles.credits === 1 ? "game" : "games"} from your quests.`}
+                badge="Free"
+                disabled={spawnPaused}
+                reason="New games are paused"
+                onSelect={props.onPlayFree}
+              />
+            )}
+
             {spawnPaused && (
               <Notice tone="warning" title="Purchases paused">
                 New Challenge games are paused for now. A game already started still plays.
               </Notice>
             )}
 
-            <div className="grid gap-3 tablet:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
               <ModeCard
                 icon="play"
                 title="Training"
@@ -106,7 +135,7 @@ export function HomeScene(props: HomeSceneProps) {
                 <span>Today's top 3</span>
                 <Countdown expiresAt={leaderboard.endTime} now={now} label="Ends in" />
               </div>
-              <TopThree entries={leaderboard.entries} viewer={player?.today} />
+              <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
             </div>
           </ModeCard>
         </div>

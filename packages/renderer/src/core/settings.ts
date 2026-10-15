@@ -45,7 +45,8 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
   minDistance: 5,
   maxDistance: 300,
   capZoomOut: false,
-  // Where a tile is about 96 px wide (the outlines' fade is complete) in a 900 px high window, the bench's.
+  // Where a tile is about 96 px wide in a 900 px high window, the bench's (the outlines are fully on there: S, the
+  // opening tile size, is about 60 px in a 900 px high window).
   zoomOutCapDistance: 150,
 };
 

@@ -19,3 +19,5 @@ export const Unknown: Story = { args: PLAYER_PAGE.unknown };
 
 /** The profile and the games on their way. */
 export const Loading: Story = { args: PLAYER_PAGE.loading };
+/** WRAP360: long names and sentences, full addresses, large figures. */
+export const Stress: Story = { args: PLAYER_PAGE.stress };

@@ -37,7 +37,7 @@ export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, cla
       aria-label={state === "expired" ? "Expired" : `${label} ${formatRemaining(left)}`}
       data-state={state}
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs",
+        "inline-flex items-center gap-1.5 text-xs whitespace-nowrap",
         state === "ok" && "text-muted-foreground",
         state === "warning" && "text-warning",
         state === "expired" && "text-destructive-text",

@@ -46,5 +46,8 @@ export const Expired: Story = { args: BOARD.expired };
 /** Training with `localStorage` refused: the notice. */
 export const StorageDisabled: Story = { args: BOARD.storageDisabled };
 
+/** Training with storage on, but the last move's save refused (P3): the notice. */
+export const SaveDropped: Story = { args: { ...BOARD.storageDisabled, storageDisabled: false, saveDropped: true } };
+
 /** The 72-tile recorded board. */
 export const Board72: Story = { args: BOARD.large };

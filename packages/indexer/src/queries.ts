@@ -9,12 +9,17 @@ import {
   TOURNAMENT_DURATION,
   UNSETTLED_PAGE,
   type AchievementDefinition,
+  type CreditClaim,
   type DayEconomy,
+  type Envelope,
   type GameContract,
   type GameEconomy,
   type GameRow,
+  type CobbleClaim,
   type LeaderboardEntry,
   type PlayerAchievement,
+  type PlayerClaimsAnswer,
+  type PlayerCobblesAnswer,
   type PlayerInfo,
   type PlayerQuest,
   type PlayerStats,
@@ -58,8 +63,13 @@ function gameRow(row: Row, head: number): GameRow {
     end_time: over ? Number(row.end_time) : null,
     economy: gameEconomy(row, head),
     token_id: row.token_id === null || row.token_id === undefined ? null : Number(row.token_id),
+    free: isFree(row.price),
   };
 }
+
+/** The zero price of a game spawned by a credit (`padded`): a free game has `GameSpawned.price` 0. */
+const FREE_PRICE = `0x${"0".repeat(64)}`;
+const isFree = (price: SQLInputValue | undefined) => price === FREE_PRICE;
 
 /** The Economy terms of a game row joined with its purchase (`p_` columns), read at `head`; null when not bought. */
 function gameEconomy(row: Row, head: number): GameEconomy | null {
@@ -94,7 +104,7 @@ const GAME_FROM = `games g LEFT JOIN purchases p
   ON g.contract = 'challenge' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
 
 const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_day, g.start_time, g.over, g.score,
-  g.day_id, g.end_time, g.over_block, g.token_id,
+  g.day_id, g.end_time, g.over_block, g.token_id, g.price,
   p.day AS p_day, p.stake AS p_stake, p.price AS p_price, p.referrer AS p_referrer, p.referral AS p_referral,
   p.burned AS p_burned, p.factor AS p_factor, p.reference AS p_reference, p.purchased_time AS p_time,
   p.purchased_block AS p_block, p.expired AS p_expired, p.recorded_block AS p_recorded, p.threshold AS p_threshold,
@@ -114,6 +124,7 @@ const BOARD = `
   )
   SELECT ranked.rank AS rank, ranked.player_id AS player_id,
     ranked.score AS best_score, ranked.game_id AS best_game_id, ranked.end_time AS finished_at,
+    (SELECT price = '${FREE_PRICE}' FROM games b WHERE b.contract = 'challenge' AND b.game_id = ranked.game_id) AS best_free,
     (SELECT count(*) FROM counted c WHERE c.player_id = ranked.player_id) AS games_finished,
     (SELECT count(*) FROM games g WHERE g.contract = 'challenge' AND g.spawn_day = :t
        AND g.player_id = ranked.player_id AND g.spawned_block <= :h) AS games_played
@@ -210,6 +221,7 @@ export class Queries {
       games_played: Number(row.games_played),
       games_finished: Number(row.games_finished),
       finished_at: Number(row.finished_at),
+      free: Number(row.best_free) === 1,
     }));
   }
 
@@ -382,9 +394,83 @@ export class Queries {
   /** The definitions defined at `head`, by id; a retirement above `head` has not happened yet. */
   definitions(head: number): { quests: QuestDefinition[]; achievements: AchievementDefinition[] } {
     return {
-      quests: this.questRows(head).map((row) => questDefinition(row, head)),
-      achievements: this.achievementRows(head).map((row) => achievementDefinition(row, head)),
+      quests: this.questRows(head).map((row) => questDefinition(row, head, this.cobbleAmount(head, "quest", Number(row.quest_id)))),
+      achievements: this.achievementRows(head).map((row) =>
+        achievementDefinition(row, head, this.cobbleAmount(head, "achievement", Number(row.achievement_id)).cobbles),
+      ),
     };
+  }
+
+  /** The last `QuestCobblesSet` or `AchievementCobblesSet` of an id at `head`: `cobbles` 0 and `kind` 0 when none. */
+  private cobbleAmount(head: number, subject: "quest" | "achievement", id: number): { cobbles: number; kind: number } {
+    const row = this.store
+      .statement(
+        "SELECT cobbles, kind FROM cobble_amounts WHERE subject = ? AND id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+      )
+      .get(subject, id, head) as { cobbles: number; kind: number } | undefined;
+    return { cobbles: Number(row?.cobbles ?? 0), kind: Number(row?.kind ?? 0) };
+  }
+
+  // --- cobbles and credits (cobbles v1) ------------------------------------------------------------------
+
+  /** A player's cobbles and credits at `head`; zeros for a player with none. */
+  playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
+    const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
+    const balance = one(
+      "SELECT balance FROM cobble_claims WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+    );
+    const claimed = Number(one("SELECT count(*) AS n FROM credit_claims WHERE player_id = ? AND block <= ?")!.n);
+    const spent = Number(one("SELECT count(*) AS n FROM credit_spends WHERE player_id = ? AND block <= ?")!.n);
+    const achievements = (
+      this.store
+        .statement(
+          "SELECT id FROM cobble_claims WHERE player_id = ? AND kind = 2 AND block <= ? ORDER BY id",
+        )
+        .all(playerId, head) as Row[]
+    ).map((row) => Number(row.id));
+    return {
+      player_id: playerId,
+      cobbles: Number(balance?.balance ?? 0),
+      credits: claimed - spent,
+      credits_claimed: claimed,
+      credits_spent: spent,
+      achievements_claimed: achievements,
+    };
+  }
+
+  /** A player's claims for a UTC day (its quests and credits, and those of its week) and every achievement claim, at `head`. */
+  playerClaims(head: number, playerId: string, day: number): Omit<PlayerClaimsAnswer, keyof Envelope> {
+    const week = weekOf(day);
+    const claims = (
+      this.store
+        .statement(
+          `SELECT kind, id, period, cobbles, time FROM cobble_claims
+           WHERE player_id = :p AND block <= :h
+             AND (kind = 2 OR (kind = 1 AND (period = :d OR period = :w)))
+           ORDER BY block, tx, idx`,
+        )
+        .all({ p: playerId, h: head, d: day, w: week ?? -1 }) as Row[]
+    ).map((row) => ({
+      kind: Number(row.kind) === 1 ? "quest" : "achievement",
+      id: Number(row.id),
+      period: Number(row.period),
+      cobbles: Number(row.cobbles),
+      claimed_at: Number(row.time),
+    })) as CobbleClaim[];
+    const credits = (
+      this.store
+        .statement(
+          `SELECT kind, period, time FROM credit_claims
+           WHERE player_id = :p AND block <= :h AND ((kind = 1 AND period = :d) OR (kind = 2 AND period = :w))
+           ORDER BY block, tx, idx`,
+        )
+        .all({ p: playerId, h: head, d: day, w: week ?? -1 }) as Row[]
+    ).map((row) => ({
+      kind: Number(row.kind) === 1 ? "daily" : "weekly",
+      period: Number(row.period),
+      claimed_at: Number(row.time),
+    })) as CreditClaim[];
+    return { player_id: playerId, day, week, claims, credits };
   }
 
   /** The consistent quest definitions at `head` (see `consistent`); the others are served nowhere. */
@@ -537,7 +623,7 @@ const scheduleOf = (row: Row): Schedule => ({
 const taskTargets = (row: Row) =>
   (JSON.parse(String(row.tasks)) as TaskTarget[]).map((task) => ({ task_id: task.taskId, total: task.total }));
 
-function questDefinition(row: Row, head: number): QuestDefinition {
+function questDefinition(row: Row, head: number, amount: { cobbles: number; kind: number }): QuestDefinition {
   const retired = retiredAt(row, head);
   return {
     quest_id: Number(row.quest_id),
@@ -550,10 +636,12 @@ function questDefinition(row: Row, head: number): QuestDefinition {
     defined_at: Number(row.def_time),
     retired: retired !== null,
     retired_at: retired,
+    cobbles: amount.cobbles,
+    cobbles_kind: amount.cobbles === 0 ? null : amount.kind === 2 ? "weekly" : "daily",
   };
 }
 
-function achievementDefinition(row: Row, head: number): AchievementDefinition {
+function achievementDefinition(row: Row, head: number, cobbles: number): AchievementDefinition {
   const retired = retiredAt(row, head);
   return {
     achievement_id: Number(row.achievement_id),
@@ -564,5 +652,16 @@ function achievementDefinition(row: Row, head: number): AchievementDefinition {
     defined_at: Number(row.def_time),
     retired: retired !== null,
     retired_at: retired,
+    cobbles,
   };
+}
+
+/** The first Monday 00:00 UTC (1970-01-05) in seconds: week 0 of the weekly quests (cobbles-v1.md, 1.2). */
+const WEEK_ORIGIN = 345_600;
+const WEEK_SECONDS = 604_800;
+
+/** The week number a UTC day falls in; null for the four days before week 0. */
+function weekOf(day: number): number | null {
+  const seconds = day * TOURNAMENT_DURATION - WEEK_ORIGIN;
+  return seconds < 0 ? null : Math.floor(seconds / WEEK_SECONDS);
 }

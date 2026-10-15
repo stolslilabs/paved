@@ -33,7 +33,7 @@ export function Notice({ tone = "info", title, children, icon, action, className
   return (
     <div role={tone === "info" ? "status" : "alert"} className={cn(noticeVariants({ tone }), className)}>
       <Icon name={icon ?? ICON[tone ?? "info"]} className="mt-0.5" size="sm" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 wrap-anywhere">
         {title && <span className="font-semibold">{title}</span>}
         <span className="opacity-90">{children}</span>
       </div>

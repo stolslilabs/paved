@@ -31,12 +31,12 @@ export function LoadingScene({ progress, message = "Loading", tip }: LoadingScen
         ) : (
           <Progress value={progress} aria-label={message} />
         )}
-        <p className="flex w-full justify-between text-xs text-muted-foreground">
-          <span>{message}…</span>
-          {progress != null && <span className="numeric">{Math.round(progress)}%</span>}
+        <p className="flex w-full justify-between gap-3 text-xs text-muted-foreground">
+          <span className="min-w-0 wrap-anywhere">{message}…</span>
+          {progress != null && <span className="numeric shrink-0">{Math.round(progress)}%</span>}
         </p>
       </div>
-      {tip && <p className="max-w-xs text-center text-sm text-muted-foreground">{tip}</p>}
+      {tip && <p className="max-w-xs text-center text-sm wrap-anywhere text-muted-foreground">{tip}</p>}
     </main>
   );
 }

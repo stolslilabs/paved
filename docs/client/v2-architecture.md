@@ -578,6 +578,17 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 Also: `100dvh` with a `100vh` fallback for full-height screens (as t-0126 did), `env(safe-area-inset-*)`
 for notches and the home indicator, touch targets at least 44 px.
 
+Text at 360 and 320 px (WRAP360, 2026-10-15). Descriptions, labels, hints and titles wrap (`wrap-anywhere`, `min-w-0`
+on flex and grid children, no fixed heights); a page's grid states its column (`grid-cols-1`, `minmax(0,1fr)`), so one
+long word cannot widen it. Addresses are cut in the middle (`elements/short-address.tsx`, `0x05f1…6e7f`, never broken
+over two lines) and names with an end ellipsis, the full value in `title`. Figures (amounts, scores, times) keep one
+line; an amount's symbol may go under its figure. An icon beside wrapping text sits on its first line (`items-start`,
+a 20 px box). Every text-showing component has a `Stress` story (`src/mocks/stress.ts`: a long sentence, a 66-character
+address, a German compound, large figures). `bun run --filter @paved/app wrap-sweep`, after `build-storybook`, opens every
+story at 360 and 320 px in headless Chromium and fails on text that leaves its box, text cut without its full value,
+an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
+exception. The CI `client` job runs it.
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,
@@ -840,6 +851,43 @@ cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target 
 little visible gain once the lines are biased. Measures and captures: PR #411 and the stories
 "Renderer/Outlines" and "Renderer/Outlines comparison".
 
+**Changed by R-VIS (2026-10-15).** Where this differs
+from the paragraph above, R-VIS holds. The outlines keep the same segments, one shared material and the
+depth bias, but are drawn by the renderer's own shader on three's instanced `LineSegmentsGeometry`
+(`createOutlineMaterial`): each pixel's exact distance to its segment on screen gives the share of the pixel
+the stroke covers, so the edge is antialiased by construction, with no MSAA and no post pass, and a stroke
+under a device pixel is drawn one pixel wide at that share of its opacity. Segment ends are square and exact,
+so a straight edge split into many segments covers each pixel once. The width is set in the world:
+`widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
+camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
+zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: fully on at
+`fadeFullFactor` (1.0) x S, off at `fadeOffFactor` (0.85) x S, linear between, and the material is hidden
+below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
+about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
+height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
+(about 282): they vanish at the farthest zoom (300). On software WebGL (a renderer string of SwiftShader,
+llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
+the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
+274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
+target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
+`fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
+
+**Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,
+and a 2048 map over the 100-unit shadow frustum (about 0.05 unit a texel) at the light's 56 to 67 degrees
+on the faces misses the depth of the face it covers by up to about 0.1 unit. three 0.186 also removed
+`PCFSoftShadowMap` (it falls back to `PCFShadowMap`: five taps turned by a per-pixel noise), whose dither
+drew the bands' edges. The light now has `normalBias` 0.1 and `bias` -0.001 (5.2, item 5); the shadow
+type is `PCFShadowMap`, named. Half these biases leave faint bands.
+
+**Resize (R-VIS).** `GameScene` sizes the drawing buffer with `setSize(w, h, false)`, so the canvas keeps the
+100 % CSS size `GameCanvas` gives it (three's default wrote it in px, and the canvas then never followed its
+container); `WebSurfaceAdapter.onResize` observes the canvas's container and the device pixel ratio
+(`matchMedia` on the current `resolution`), and `GameScene.resize` refits the pixel ratio, the drawing
+buffer, the camera's aspect and the composer's targets. Measures and captures: PR #437 and the story
+"Renderer/Outlines comparison", "Shading and outlines".
+
 ### 5.4 The mockups' isometric voxel look: the cost
 
 Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:
@@ -931,6 +979,26 @@ to Home).
 | referral | — | the referral earnings: the indexer already stores each purchase's `referrer` and `referral` amount (`packages/indexer/src/api.ts:233-236`); a route listing them by referrer is to add (CLIENT) | — | — |
 | theme | — | — | — | the chosen theme |
 | settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
+
+**What Cobbles change (P-61, SC3).** The owner's in-game currency is named **Cobbles** (singular Cobble; the owner,
+2026-10-15). The design (`docs/architecture/gems-v1.md`), the contracts and the indexer still say gems until CORE's
+rename PR. Cobbles are an account balance in `Setup`, earned by claims and packs and spent on tile skins. SC3 builds
+them as scenes on typed mocks, no wiring:
+**purchase** gains a Cobbles tab beside the game's stake, with the four packs (50 for $5, 100 for $9, 500 for $40,
+1,000 for $70, the $0.20 reference struck through, -50 % to -65 %), confirmed and pending as a game is (approve +
+`buy_pack`); **theme** gains a theme's 19 tile skins, each priced by the rarity table (50 to 100 Cobbles) and not owned
+(Buy), owned or active, at most one theme per plan, the switches batched and saved in one `set_skins` write;
+**quests** show each quest's Cobbles (5, 10, 15; weeklies 15), a Claim per row and Claim all, past days still
+claimable, and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
+`claim_weekly_credit`), then a credit counter and Play free; **achievements** show their Cobbles (their points; On the
+Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
+(`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
+`components/containers/cobble-types.ts`, provisional until CORE's ABI, and keep CORE's `gems` field names where they
+mirror an ABI shape until the rename PR. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
+`cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional, and the leaderboard's free mark is a list of
+player ids (`free`), not a field of `LeaderboardEntry`.
 
 ### 6.5 What waits for CORE (P-57 B9)
 
@@ -1156,8 +1224,7 @@ replaying; not needed at 72 moves.
 
 ### 9.5 How it fits
 
-- `PageSession` (today in app-web's `training/page-session.ts`) moves into `@paved/game-core` with
-  `LocalSession`; `PredictedSession` joins them; `GameSession` (`@paved/chain`) remains the chain-only
+- `PageSession` lives in `@paved/game-core` (`src/sessions/`) with `LocalSession` since P2; `PredictedSession` joins them; `GameSession` (`@paved/chain`) remains the chain-only
   reader for other players' games (read-only boards, the player page).
 - The session is a zustand vanilla store: the board's React components select from it, and the renderer
   subscribes to it directly (section 3.3).
@@ -1248,6 +1315,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | SC1 | Scenes welcome, loading, home, play, board, over, purchase, with their elements and containers. The board draws the real renderer on the bench's recorded boards, with the hand (rotate, confirm, discard, surrender), the score, the tiles left counting discards (P3), the time before `expires_at`, the closing points as they appear, and the states placing, pending, refused, expired, storage off; over lists every closing of the game (P7); purchase shows the stake, price and boost, the split (`Economy.split_bps`, V1b: burn and Vault, the referral out of the Vault's part), the 24 h validity and the threshold | 3 d |
 | SC2 | Scenes leaderboard, vault, settings, theme, quests, achievements, referral, reusing SC1's elements and containers. **Done** (2026-10-14) | 2.5 d |
+| SC3 | The Cobbles scenes (P-61, section 6.3's note; the design's gems, renamed by the owner): the Cobbles balance, the packs on purchase, the tile skins on theme, the Cobbles claims and free games on quests and achievements, Play free on home and play, the free mark on the leaderboard, on `src/mocks/cobbles.ts` (provisional until CORE's ABI). **Done** (2026-10-15). P9 (quests, achievements), P7b (purchase's packs) and P11b (theme's skins) wire it once CORE's three gems PRs land: (1) ledger, claims, free credits, `spawn_free`; (2) packs; (3) skins; CORE's rename PR then renames the contracts' and the indexer's gems to Cobbles | 1.5 d |
 | SC2b | The quests scene with CORE v2a's rotation (a different daily subset live each day), weekly quests, a countdown to the end of the day and of the week, and a toast when a quest completes (`quests-v2.md` 1.2, 2.1, 1.5). **Done** (2026-10-14) | 1 d |
 
 **Wiring the scenes**
@@ -1256,7 +1324,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379) | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379). **Done** (2026-10-15): `/training` and `/training/over` on a `TrainingGame` (`src/data/training.ts`: the session and a rules engine of the same moves for the slots and the preview, both kept between moves); the plan view is playable where the renderer cannot start; a tab follows the save another tab writes (the `storage` event); `DataProvider` mounted in `App.tsx` (Training's store; the chain and indexer sources refuse until their pages) | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene | 1 d |
