@@ -36,7 +36,7 @@ const SLOT_OUTER = 1.42 * Math.SQRT2;
 /**
  * The water of the tile palettes: its texels are cyan-blue (blue above green above red, in linear colour: (0, 130, 167)
  * and (90, 157, 194) in sRGB, among others), the palette's roofs and banners are violet (green under red) and its
- * stone grey. The mask picks the first by hue and nothing else; `uWater` x 0 turns it off.
+ * stone grey. The mask picks the first by hue and nothing else; `uWaterOn` at 0 turns it off.
  */
 export const WATER_MASK_GLSL = /* glsl */ `
   float waterMask = uWaterOn
@@ -459,7 +459,6 @@ export class TileRenderer {
       side: THREE.DoubleSide,
       depthWrite: false,
       fog: false,
-      toneMapped: false,
     });
 
     for (const slot of slots) {

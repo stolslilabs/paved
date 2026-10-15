@@ -199,7 +199,7 @@ export class Effects {
       type: THREE.HalfFloatType,
       samples: multisample ? MSAA_SAMPLES : 0,
       // The AO reads the scene's depth: a texture instead of a renderbuffer, only then (the composer's clone gets its own).
-      depthTexture: look.ao.enabled ? new THREE.DepthTexture(size.x, size.y) : undefined,
+      ...(look.ao.enabled ? { depthTexture: new THREE.DepthTexture(size.x, size.y) } : {}),
     });
     target.texture.name = "EffectComposer.rt1";
     // The composer clones the first target into its second and swaps the two every frame (the final pass swaps even

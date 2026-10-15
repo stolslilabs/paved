@@ -10,7 +10,21 @@ export { NativeSurfaceAdapter } from "./core/NativeSurfaceAdapter";
 export type { NativeSurfaceHost } from "./core/NativeSurfaceAdapter";
 export { AssetLoader } from "./core/AssetLoader";
 export { Effects } from "./core/Effects";
-export type { EffectsConfig } from "./core/Effects";
+export type { EffectsConfig, EffectsPassName } from "./core/Effects";
+export {
+  LOOK_PRESETS,
+  LOOK_PRESET_NAMES,
+  DEFAULT_LOOK_PRESET,
+  QUALITY_TIERS,
+  TIER_EFFECTS,
+  AUTO_QUALITY,
+  TONE_MAPPING_MODES,
+  mergeLookSettings,
+  resolveLookSettings,
+  resolveLook,
+  resolveQuality,
+} from "./core/look";
+export type { LookSettings, LookSettingsInput, LookPreset, QualityTier, TierEffects, ToneMappingMode, LightSettings } from "./core/look";
 export {
   DEFAULT_OUTLINE_SETTINGS,
   OUTLINE_DEPTH_BIAS,
