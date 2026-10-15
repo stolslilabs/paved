@@ -42,23 +42,23 @@ export const Loading: Story = { args: QUESTS.loading };
 /** The indexer did not answer. */
 export const Failed: Story = { args: QUESTS.error };
 
-/** P-61: today with gems: Daily Run's 5 to claim, what each quest gives, the day's and the week's free game to earn. */
-export const GemsToday: Story = { args: QUESTS.gemsToday };
+/** P-61: today with Cobbles: Daily Run's 5 to claim, what each quest gives, the day's and the week's free game to earn. */
+export const CobblesToday: Story = { args: QUESTS.cobblesToday };
 
-/** Daily Run's gems claimed. */
-export const GemsClaimed: Story = { args: QUESTS.gemsClaimed };
+/** Daily Run's Cobbles claimed. */
+export const CobblesClaimed: Story = { args: QUESTS.cobblesClaimed };
 
-/** Yesterday, closed and still claimable (no deadline): the four dailies' 20 gems, Claim all, and the day's free game. */
-export const GemsPastDay: Story = { args: QUESTS.gemsPastDay };
+/** Yesterday, closed and still claimable (no deadline): the four dailies' 20 Cobbles, Claim all, and the day's free game. */
+export const CobblesPastDay: Story = { args: QUESTS.cobblesPastDay };
 
 /** Claim all on its way. */
-export const GemsClaiming: Story = { args: QUESTS.gemsClaiming };
+export const CobblesClaiming: Story = { args: QUESTS.cobblesClaiming };
 
 /** Everything of yesterday claimed: a free game to play. */
-export const GemsFreeGame: Story = { args: QUESTS.gemsFreeGame };
+export const CobblesFreeGame: Story = { args: QUESTS.cobblesFreeGame };
 
-/** The three weeklies done: their gems and the week's free game to claim. */
-export const GemsWeekDone: Story = { args: QUESTS.gemsWeekDone };
+/** The three weeklies done: their Cobbles and the week's free game to claim. */
+export const CobblesWeekDone: Story = { args: QUESTS.cobblesWeekDone };
 
 type SceneProps = React.ComponentProps<typeof QuestsScene>;
 

@@ -2,9 +2,9 @@ import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
-import { Gems } from "../elements/gems";
+import { Cobbles } from "../elements/cobbles";
 import { Notice } from "../elements/notice";
-import { PLANS, applySkinChanges } from "../containers/gem-types";
+import { PLANS, applySkinChanges } from "../containers/cobble-types";
 import { SkinGrid, THEME_CODES } from "../containers/skin-grid";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, ThemeCard, type ThemeId } from "../containers/theme-card";
@@ -47,8 +47,8 @@ export interface ThemeSceneProps {
   onToggleSkin?: (plan: number) => void;
   onSaveSkins?: () => void;
   onDiscardSkins?: () => void;
-  /** To the gem packs. */
-  onBuyGems?: () => void;
+  /** To the Cobble packs. */
+  onBuyCobbles?: () => void;
   onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
@@ -58,12 +58,12 @@ const SKINNED = THEMES.filter((t) => t.id !== "default");
 /**
  * The theme (`/settings/theme`, from Settings): Default (meadows) and Forest to choose, Snow, Desert and Volcano coming
  * soon; each a preview card. The previews of the themes beyond Default tint the base art until theirs exists. Below, the
- * tile skins (P-61): a theme's 19 plans, each bought with gems and switched on one by one, at most one theme per plan;
+ * tile skins (P-61): a theme's 19 plans, each bought with Cobbles and switched on one by one, at most one theme per plan;
  * the switches are saved together, in one write.
  */
 export function ThemeScene({ selected, tiles, tileArt, skins, onSelect, onBack, onNavigate, ...props }: ThemeSceneProps) {
   return (
-    <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate} end={skins ? <Gems value={skins.balance} /> : undefined}>
+    <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate} end={skins ? <Cobbles value={skins.balance} /> : undefined}>
       <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
         {THEMES.map((t) => (
           <ThemeCard key={t.id} theme={t} selected={t.id === selected} tiles={tiles} artBase={tileArt} onSelect={onSelect} />
@@ -78,9 +78,9 @@ export function ThemeScene({ selected, tiles, tileArt, skins, onSelect, onBack, 
   );
 }
 
-type SkinsSectionProps = Pick<ThemeSceneProps, "tileArt" | "onBrowse" | "onBuySkin" | "onToggleSkin" | "onSaveSkins" | "onDiscardSkins" | "onBuyGems"> & { skins: ThemeSkins };
+type SkinsSectionProps = Pick<ThemeSceneProps, "tileArt" | "onBrowse" | "onBuySkin" | "onToggleSkin" | "onSaveSkins" | "onDiscardSkins" | "onBuyCobbles"> & { skins: ThemeSkins };
 
-function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSaveSkins, onDiscardSkins, onBuyGems }: SkinsSectionProps) {
+function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSaveSkins, onDiscardSkins, onBuyCobbles }: SkinsSectionProps) {
   const theme = THEMES.find((t) => t.id === skins.theme)!;
   const code = THEME_CODES[skins.theme];
   const active = applySkinChanges(skins.active, skins.changes);
@@ -95,7 +95,7 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
         <h2 id="skins-title" className="font-display text-base font-semibold">
           Tile skins
         </h2>
-        <p className="text-xs text-muted-foreground">Buy a tile's skin with gems, then switch it on. One skin per tile: switching one on replaces another theme's.</p>
+        <p className="text-xs text-muted-foreground">Buy a tile's skin with Cobbles, then switch it on. One skin per tile: switching one on replaces another theme's.</p>
       </div>
       <Tabs value={skins.theme} onValueChange={(v) => onBrowse?.(v as ThemeSkins["theme"])}>
         <TabsList className="w-full">
@@ -131,14 +131,14 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
           </div>
           {skins.balance < cheapest && skins.owned === 0 && (
             <Notice
-              title={skins.balance === 0 ? "No gems yet" : "Not enough gems"}
+              title={skins.balance === 0 ? "No Cobbles yet" : "Not enough Cobbles"}
               action={
-                <Button size="sm" variant="outline" onClick={onBuyGems}>
-                  Get gems
+                <Button size="sm" variant="outline" onClick={onBuyCobbles}>
+                  Get Cobbles
                 </Button>
               }
             >
-              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> gems. Earn them from quests and achievements, or buy a pack.
+              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from quests and achievements, or buy a pack.
             </Notice>
           )}
           <SkinGrid

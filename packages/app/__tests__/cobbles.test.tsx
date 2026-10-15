@@ -5,9 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Gems, formatGems } from "../src/components/elements/gems";
-import { formatUsd } from "../src/components/containers/gem-packs";
-import { PLANS, applySkinChanges, isClaimed, packDiscount, referencePrice, toggleSkin } from "../src/components/containers/gem-types";
+import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
+import { formatUsd } from "../src/components/containers/cobble-packs";
+import { PLANS, applySkinChanges, isClaimed, packDiscount, referencePrice, toggleSkin } from "../src/components/containers/cobble-types";
 import { SkinGrid } from "../src/components/containers/skin-grid";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { HomeScene } from "../src/components/scenes/home-scene";
@@ -16,7 +16,7 @@ import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
-import { ACHIEVEMENT_GEMS, PACKS, PLAN_COUNTS, QUEST_GEMS, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/gems";
+import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
 import { ACHIEVEMENTS, HOME, LEADERBOARD, PLAY, PURCHASE, QUESTS, THEME } from "../src/mocks/scenes";
 
@@ -24,7 +24,7 @@ import { ACHIEVEMENTS, HOME, LEADERBOARD, PLAY, PURCHASE, QUESTS, THEME } from "
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 // The amounts are gems-v1.md's: a mismatch here is a mock that drifted from the design.
-describe("gems amounts (gems-v1.md)", () => {
+describe("Cobbles amounts (gems-v1.md)", () => {
   it("sells the owner's four tiers, each against the $0.20 reference (2.1)", () => {
     expect(PACKS.map((p) => [p.gems, formatUsd(p.price), formatUsd(referencePrice(p.gems)), packDiscount(p)])).toEqual([
       [50, "$5", "$10", 50],
@@ -36,15 +36,15 @@ describe("gems amounts (gems-v1.md)", () => {
   });
 
   it("gives quests 5, 10 or 15 by their family's target, Daily Run 5 and a weekly 15 (3.1)", () => {
-    expect(QUEST_GEMS.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
-    expect(Object.fromEntries(QUEST_GEMS.map((q) => [q.questId, q.gems]))).toEqual({ 1: 5, 5: 5, 6: 10, 7: 15, 8: 5, 9: 10, 10: 15, 11: 5, 12: 10, 13: 15, 14: 15, 15: 15, 16: 15 });
-    expect(QUEST_GEMS.filter((q) => q.kind === 2).map((q) => q.questId)).toEqual([14, 15, 16]);
+    expect(QUEST_COBBLES.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
+    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.gems]))).toEqual({ 1: 5, 5: 5, 6: 10, 7: 15, 8: 5, 9: 10, 10: 15, 11: 5, 12: 10, 13: 15, 14: 15, 15: 15, 16: 15 });
+    expect(QUEST_COBBLES.filter((q) => q.kind === 2).map((q) => q.questId)).toEqual([14, 15, 16]);
   });
 
   it("gives an achievement its points, On the Podium none: 580 for the fifteen (3.1)", () => {
-    expect(ACHIEVEMENT_GEMS.map((a) => a.achievementId)).not.toContain(9);
-    expect(ACHIEVEMENT_GEMS).toHaveLength(15);
-    expect(ACHIEVEMENT_GEMS.reduce((sum, a) => sum + a.gems, 0)).toBe(580);
+    expect(ACHIEVEMENT_COBBLES.map((a) => a.achievementId)).not.toContain(9);
+    expect(ACHIEVEMENT_COBBLES).toHaveLength(15);
+    expect(ACHIEVEMENT_COBBLES.reduce((sum, a) => sum + a.gems, 0)).toBe(580);
   });
 
   it("prices the 19 plans by rarity, 50 to 100, 1,580 for a theme (5.2)", () => {
@@ -60,10 +60,10 @@ describe("gems amounts (gems-v1.md)", () => {
     expect(isClaimed(bits(1, 5), 6)).toBe(false);
   });
 
-  it("writes a gem count with commas, its name for a screen reader", () => {
-    expect(formatGems(1_580)).toBe("1,580");
-    render(<Gems value={15} sign="+" />);
-    expect(screen.getByRole("img", { name: "+15 gems" })).toHaveTextContent("+15");
+  it("writes a Cobble count with commas, its name for a screen reader", () => {
+    expect(formatCobbles(1_580)).toBe("1,580");
+    render(<Cobbles value={15} sign="+" />);
+    expect(screen.getByRole("img", { name: "+15 Cobbles" })).toHaveTextContent("+15");
   });
 });
 
@@ -90,61 +90,61 @@ describe("skin switches (5.3)", () => {
   });
 });
 
-describe("Purchase: gems", () => {
+describe("Purchase: Cobbles", () => {
   it("shows the four packs, the reference struck through, and asks for a pick", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.gemPacks} />));
-    const packs = within(screen.getByRole("radiogroup", { name: "Gem packs" })).getAllByRole("radio");
-    expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual(["50 gems for $5, 50% off", "100 gems for $9, 55% off", "500 gems for $40, 60% off", "1000 gems for $70, 65% off"]);
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePacks} />));
+    const packs = within(screen.getByRole("radiogroup", { name: "Cobble packs" })).getAllByRole("radio");
+    expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual(["50 Cobbles for $5, 50% off", "100 Cobbles for $9, 55% off", "500 Cobbles for $40, 60% off", "1000 Cobbles for $70, 65% off"]);
     expect(packs[1]).toHaveTextContent("instead of $20");
     expect(screen.getByRole("button", { name: "Pick a pack" })).toBeDisabled();
-    expect(screen.getByRole("tab", { name: "Gems", selected: true })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "240 gems" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Cobbles", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
   });
 
   it("confirms the pack picked, and selects another", async () => {
     const onBuyPack = vi.fn();
     const onSelectPack = vi.fn();
-    render(wrap(<PurchaseScene {...PURCHASE.gemPackPicked} onBuyPack={onBuyPack} onSelectPack={onSelectPack} />));
-    expect(screen.getByRole("radio", { name: /^100 gems/ })).toHaveAttribute("aria-checked", "true");
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePackPicked} onBuyPack={onBuyPack} onSelectPack={onSelectPack} />));
+    expect(screen.getByRole("radio", { name: /^100 Cobbles/ })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("button", { name: /Pay \$9 for/ }));
     expect(onBuyPack).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole("radio", { name: /^500 gems/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /^500 Cobbles/ }));
     expect(onSelectPack).toHaveBeenCalledWith(3);
   });
 
   it("names the referrer's share", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.gemPackReferred} />));
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePackReferred} />));
     expect(screen.getByText(/Your referrer gets 5% of the price/)).toBeInTheDocument();
   });
 
   it("waits for the wallet while buying, the packs locked", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.gemPackBuying} />));
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePackBuying} />));
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toBeDisabled();
     expect(screen.getAllByRole("radio").every((r) => (r as HTMLButtonElement).disabled)).toBe(true);
   });
 
   it("refuses a pack the wallet cannot pay", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.gemPackShort} />));
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePackShort} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Not enough USDC");
     expect(screen.getByRole("button", { name: /Pay \$70/ })).toBeDisabled();
   });
 
   it("keeps the game's purchase on the Game tab", async () => {
     const onTab = vi.fn();
-    render(wrap(<PurchaseScene {...PURCHASE.gemPacks} tab="game" onTab={onTab} />));
+    render(wrap(<PurchaseScene {...PURCHASE.cobblePacks} tab="game" onTab={onTab} />));
     expect(screen.getByRole("heading", { name: "Stake" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Gems" }));
-    expect(onTab).toHaveBeenCalledWith("gems");
+    await userEvent.click(screen.getByRole("tab", { name: "Cobbles" }));
+    expect(onTab).toHaveBeenCalledWith("cobbles");
   });
 
-  it("shows no tab without gems", () => {
+  it("shows no tab without Cobbles", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
   it("renders its stress state", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.gemStress} />));
-    expect(screen.getByRole("img", { name: "987,654,321 gems" })).toBeInTheDocument();
+    render(wrap(<PurchaseScene {...PURCHASE.cobbleStress} />));
+    expect(screen.getByRole("img", { name: "987,654,321 Cobbles" })).toBeInTheDocument();
   });
 });
 
@@ -159,7 +159,7 @@ describe("Theme: skins", () => {
     expect(cell("rfrfffffr")).toHaveAttribute("data-state", "active");
     expect(cell("ffffcccff")).toHaveAttribute("data-state", "owned");
     expect(cell("ccccccccc")).toHaveAttribute("data-state", "none");
-    expect(within(cell("ccccccccc")).getByRole("img", { name: "100 gems" })).toBeInTheDocument();
+    expect(within(cell("ccccccccc")).getByRole("img", { name: "100 Cobbles" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 
@@ -167,7 +167,7 @@ describe("Theme: skins", () => {
     const onBuySkin = vi.fn();
     const onToggleSkin = vi.fn();
     render(wrap(<ThemeScene {...THEME.skins} onBuySkin={onBuySkin} onToggleSkin={onToggleSkin} />));
-    await userEvent.click(screen.getByRole("button", { name: "Buy Tile ccccccccc for 100 gems" }));
+    await userEvent.click(screen.getByRole("button", { name: "Buy Tile ccccccccc for 100 Cobbles" }));
     expect(onBuySkin).toHaveBeenCalledWith(1);
     await userEvent.click(screen.getByRole("switch", { name: "Tile ffffcccff skin active" }));
     expect(onToggleSkin).toHaveBeenCalledWith(7);
@@ -193,16 +193,16 @@ describe("Theme: skins", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Skins saved");
   });
 
-  it("asks a player with no gems to get some, every Buy disabled", async () => {
-    const onBuyGems = vi.fn();
-    render(wrap(<ThemeScene {...THEME.noGems} onBuyGems={onBuyGems} />));
-    expect(screen.getByText("No gems yet")).toBeInTheDocument();
+  it("asks a player with no Cobbles to get some, every Buy disabled", async () => {
+    const onBuyCobbles = vi.fn();
+    render(wrap(<ThemeScene {...THEME.noCobbles} onBuyCobbles={onBuyCobbles} />));
+    expect(screen.getByText("No Cobbles yet")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Buy / }).every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
-    await userEvent.click(screen.getByRole("button", { name: "Get gems" }));
-    expect(onBuyGems).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Get Cobbles" }));
+    expect(onBuyCobbles).toHaveBeenCalledOnce();
   });
 
-  it("disables what the player cannot afford, with the gems missing", () => {
+  it("disables what the player cannot afford, with the Cobbles missing", () => {
     render(wrap(<ThemeScene {...THEME.cantAfford} />));
     expect(within(cell("rfrfffffr")).getByRole("button", { name: /^Buy/ })).toBeEnabled();
     expect(within(cell("rfffrfffr")).getByRole("button", { name: /^Buy/ })).toBeEnabled();
@@ -233,32 +233,32 @@ describe("Theme: skins", () => {
 
   it("renders its stress state", () => {
     render(wrap(<ThemeScene {...THEME.skinsStress} />));
-    expect(screen.getByRole("img", { name: "987,654,321 gems" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "987,654,321 Cobbles" })).toBeInTheDocument();
   });
 });
 
-describe("Quests: gems and free games", () => {
-  it("shows each quest's gems, and the claimable one with Claim", async () => {
+describe("Quests: Cobbles and free games", () => {
+  it("shows each quest's cobbles, and the claimable one with Claim", async () => {
     const onClaim = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.gemsToday} onClaim={onClaim} />));
-    expect(within(screen.getByRole("article", { name: "Strong Day" })).getByRole("img", { name: "+10 gems" })).toBeInTheDocument();
+    render(wrap(<QuestsScene {...QUESTS.cobblesToday} onClaim={onClaim} />));
+    expect(within(screen.getByRole("article", { name: "Strong Day" })).getByRole("img", { name: "+10 Cobbles" })).toBeInTheDocument();
     expect(within(screen.getByRole("article", { name: "Strong Day" })).queryByRole("button")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Claim 5 gems: Daily Run" }));
+    await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
     expect(onClaim).toHaveBeenCalledWith(1);
     expect(screen.getByRole("region", { name: "Free games" })).toHaveTextContent("1 of 4 dailies done");
     expect(screen.getByRole("button", { name: "Claim the daily free game" })).toBeDisabled();
   });
 
   it("marks a claimed quest", () => {
-    render(wrap(<QuestsScene {...QUESTS.gemsClaimed} />));
-    expect(within(screen.getByRole("article", { name: "Daily Run" })).getByText("Gems claimed")).toBeInTheDocument();
+    render(wrap(<QuestsScene {...QUESTS.cobblesClaimed} />));
+    expect(within(screen.getByRole("article", { name: "Daily Run" })).getByText("Cobbles claimed")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim all/ })).not.toBeInTheDocument();
   });
 
   it("keeps a past day claimable: Claim all and the day's free game", async () => {
     const onClaimAll = vi.fn();
     const onClaimCredit = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.gemsPastDay} onClaimAll={onClaimAll} onClaimCredit={onClaimCredit} />));
+    render(wrap(<QuestsScene {...QUESTS.cobblesPastDay} onClaimAll={onClaimAll} onClaimCredit={onClaimCredit} />));
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Claim all/ }));
     expect(onClaimAll).toHaveBeenCalledOnce();
@@ -268,14 +268,14 @@ describe("Quests: gems and free games", () => {
   });
 
   it("shows Claim all on its way, the other claims waiting", () => {
-    render(wrap(<QuestsScene {...QUESTS.gemsClaiming} />));
+    render(wrap(<QuestsScene {...QUESTS.cobblesClaiming} />));
     expect(screen.getByRole("button", { name: /Claiming/ })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: "Claim the daily free game" })).toBeDisabled();
   });
 
   it("counts the free games and offers Play free", async () => {
     const onPlayFree = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.gemsFreeGame} onPlayFree={onPlayFree} />));
+    render(wrap(<QuestsScene {...QUESTS.cobblesFreeGame} onPlayFree={onPlayFree} />));
     expect(screen.getByLabelText("1 free game left")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Claimed" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Play free" }));
@@ -283,39 +283,39 @@ describe("Quests: gems and free games", () => {
   });
 
   it("offers the week's free game once its three are done", () => {
-    render(wrap(<QuestsScene {...QUESTS.gemsWeekDone} />));
+    render(wrap(<QuestsScene {...QUESTS.cobblesWeekDone} />));
     expect(screen.getByRole("button", { name: "Claim the weekly free game" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+45");
   });
 });
 
-describe("Achievements: gems", () => {
-  it("shows each one's gems, claimed and claimable, and none for On the Podium", async () => {
+describe("Achievements: Cobbles", () => {
+  it("shows each one's cobbles, claimed and claimable, and none for On the Podium", async () => {
     const onClaim = vi.fn();
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.gems} onClaim={onClaim} />));
-    expect(within(screen.getByRole("article", { name: "First Stone" })).getByText("Gems claimed")).toBeInTheDocument();
-    expect(within(screen.getByRole("article", { name: "On the Podium" })).queryByRole("img", { name: /gems/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Claim 20 gems: Settler II/ }));
+    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobbles} onClaim={onClaim} />));
+    expect(within(screen.getByRole("article", { name: "First Stone" })).getByText("Cobbles claimed")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "On the Podium" })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Claim 20 Cobbles: Settler II/ }));
     expect(onClaim).toHaveBeenCalledWith(3);
     expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+40");
   });
 
   it("shows Claim all on its way", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.gemsClaiming} />));
+    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobblesClaiming} />));
     expect(screen.getAllByRole("button", { name: /Claiming|Claim/ }).some((b) => b.getAttribute("aria-busy") === "true")).toBe(true);
   });
 
   it("has nothing left to claim when all are claimed", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.gemsAllClaimed} />));
+    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobblesAllClaimed} />));
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Gems claimed")).toHaveLength(15);
+    expect(screen.getAllByText("Cobbles claimed")).toHaveLength(15);
   });
 });
 
-describe("Home, Play and Leaderboard: gems", () => {
+describe("Home, Play and Leaderboard: Cobbles", () => {
   it("shows the balance on Home", () => {
-    render(wrap(<HomeScene {...HOME.gems} />));
-    expect(screen.getByRole("img", { name: "240 gems" })).toBeInTheDocument();
+    render(wrap(<HomeScene {...HOME.cobbles} />));
+    expect(screen.getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
     expect(screen.queryByText("Free game")).not.toBeInTheDocument();
   });
 

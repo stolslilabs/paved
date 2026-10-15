@@ -6,17 +6,17 @@ import { GAME_VALIDITY_S } from "../elements/countdown";
 import { Deadline } from "../elements/deadline";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
-import { Gems } from "../elements/gems";
+import { Cobbles } from "../elements/cobbles";
 import { formatPoints } from "../elements/score";
-import { GemPacks, formatUsd } from "../containers/gem-packs";
+import { CobblePacks, formatUsd } from "../containers/cobble-packs";
 import { formatBps } from "../containers/split-bar";
-import type { Pack } from "../containers/gem-types";
+import type { Pack } from "../containers/cobble-types";
 import { PriceBreakdown } from "../containers/price-breakdown";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
-/** The gem packs (P-61, gems-v1.md 2): provisional until CORE's packs PR (gems PR 2). */
-export interface GemShop {
+/** The Cobble packs (P-61, gems-v1.md 2): provisional until CORE's packs PR (gems PR 2). */
+export interface CobbleShop {
   /** `AccountView.gems`. */
   balance: number;
   /** `pack(1..4)`. */
@@ -26,7 +26,7 @@ export interface GemShop {
   buying?: boolean;
 }
 
-export type PurchaseTab = "game" | "gems";
+export type PurchaseTab = "game" | "cobbles";
 
 export interface PurchaseSceneProps {
   stake: number;
@@ -46,10 +46,10 @@ export interface PurchaseSceneProps {
   now: number;
   /** The player's time zone for the deadline; their own when omitted (stories fix it). */
   timeZone?: string;
-  /** The tab shown: the game's stake, or the gem packs; the game when omitted. */
+  /** The tab shown: the game's stake, or the Cobble packs; the game when omitted. */
   tab?: PurchaseTab;
-  /** The gem packs; omitted: the game alone, no tabs (before gems). */
-  gems?: GemShop | null;
+  /** The Cobble packs; omitted: the game alone, no tabs (before Cobbles). */
+  cobbles?: CobbleShop | null;
   onTab?: (tab: PurchaseTab) => void;
   onSelectPack?: (packId: number) => void;
   onBuyPack?: () => void;
@@ -60,38 +60,38 @@ export interface PurchaseSceneProps {
 
 /**
  * The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold, confirm.
- * With gems (P-61), a Gems tab beside it sells the four packs, confirmed and pending as a game is.
+ * With Cobbles (P-61), a Cobbles tab beside it sells the four packs, confirmed and pending as a game is.
  */
 export function PurchaseScene(props: PurchaseSceneProps) {
-  const { balance, gems } = props;
-  const tab = gems ? (props.tab ?? "game") : "game";
+  const { balance, cobbles } = props;
+  const tab = cobbles ? (props.tab ?? "game") : "game";
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar
-        title={tab === "gems" ? "Gems" : "Challenge"}
+        title={tab === "cobbles" ? "Cobbles" : "Challenge"}
         onBack={props.onBack}
         end={
           <span className="flex flex-col items-end gap-0.5 pr-2 text-xs text-muted-foreground">
             <Amount value={balance} token="usdc" />
-            {gems && <Gems value={gems.balance} size="sm" tone="muted" />}
+            {cobbles && <Cobbles value={cobbles.balance} size="sm" tone="muted" />}
           </span>
         }
       />
-      {gems && (
+      {cobbles && (
         <Tabs value={tab} onValueChange={(v) => props.onTab?.(v as PurchaseTab)} className="mx-auto w-full max-w-md px-4 tablet:max-w-2xl desktop:max-w-4xl">
           <TabsList className="w-full tablet:w-auto">
             <TabsTrigger value="game" className="flex-1 gap-2 px-4">
               <Icon name="trophy" size="sm" />
               Game
             </TabsTrigger>
-            <TabsTrigger value="gems" className="flex-1 gap-2 px-4">
-              <Icon name="gem" size="sm" />
-              Gems
+            <TabsTrigger value="cobbles" className="flex-1 gap-2 px-4">
+              <Icon name="cubes-stacked" size="sm" />
+              Cobbles
             </TabsTrigger>
           </TabsList>
         </Tabs>
       )}
-      {tab === "gems" && gems ? <GemsTab {...props} gems={gems} /> : <GameTab {...props} />}
+      {tab === "cobbles" && cobbles ? <CobblesTab {...props} cobbles={cobbles} /> : <GameTab {...props} />}
     </div>
   );
 }
@@ -167,18 +167,18 @@ function GameTab(props: PurchaseSceneProps) {
   );
 }
 
-/** The gem packs: pick one, then pay its USDC (approve + `buy_pack`), as a game's purchase; its USDC takes a game's split. */
-function GemsTab({ gems, balance, referrer, split, onSelectPack, onBuyPack }: PurchaseSceneProps & { gems: GemShop }) {
-  const pack = gems.packs.find((p) => p.packId === gems.selected) ?? null;
+/** The Cobble packs: pick one, then pay its USDC (approve + `buy_pack`), as a game's purchase; its USDC takes a game's split. */
+function CobblesTab({ cobbles, balance, referrer, split, onSelectPack, onBuyPack }: PurchaseSceneProps & { cobbles: CobbleShop }) {
+  const pack = cobbles.packs.find((p) => p.packId === cobbles.selected) ?? null;
   const short = pack != null && balance < pack.price;
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <section aria-labelledby="packs-title" className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
-          <h2 id="packs-title" className="font-display text-sm font-semibold">Gem packs</h2>
-          <p className="text-xs text-muted-foreground">Gems buy tile skins. They stay on your account: they cannot be sent or sold.</p>
+          <h2 id="packs-title" className="font-display text-sm font-semibold">Cobble packs</h2>
+          <p className="text-xs text-muted-foreground">Cobbles buy tile skins. They stay on your account: they cannot be sent or sold.</p>
         </div>
-        <GemPacks packs={gems.packs} selected={gems.selected} disabled={gems.buying} onSelect={onSelectPack} />
+        <CobblePacks packs={cobbles.packs} selected={cobbles.selected} disabled={cobbles.buying} onSelect={onSelectPack} />
       </section>
 
       <div className="flex flex-col gap-4">
@@ -195,12 +195,12 @@ function GemsTab({ gems, balance, referrer, split, onSelectPack, onBuyPack }: Pu
             This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance} token="usdc" />.
           </Notice>
         )}
-        <Button size="lg" className="h-14 text-base" onClick={onBuyPack} disabled={!pack || short} loading={gems.buying}>
-          {gems.buying ? (
+        <Button size="lg" className="h-14 text-base" onClick={onBuyPack} disabled={!pack || short} loading={cobbles.buying}>
+          {cobbles.buying ? (
             "Confirm in your wallet…"
           ) : pack ? (
             <>
-              Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Gems value={pack.gems} className="text-primary-foreground" iconClassName="text-primary-foreground" />
+              Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.gems} className="text-primary-foreground" iconClassName="text-primary-foreground" />
             </>
           ) : (
             "Pick a pack"

@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { PACKS } from "../../mocks/gems";
-import { GemPacks, PackCard } from "./gem-packs";
+import { PACKS } from "../../mocks/cobbles";
+import { CobblePacks, PackCard } from "./cobble-packs";
 
-const meta = { title: "Containers/GemPacks", component: GemPacks, parameters: { layout: "padded" }, args: { packs: PACKS, selected: null, onSelect: fn() } } satisfies Meta<typeof GemPacks>;
+const meta = { title: "Containers/CobblePacks", component: CobblePacks, parameters: { layout: "padded" }, args: { packs: PACKS, selected: null, onSelect: fn() } } satisfies Meta<typeof CobblePacks>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

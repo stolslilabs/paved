@@ -22,9 +22,9 @@ export const Guest: Story = { args: ACHIEVEMENTS.guest };
 
 /** The achievements on their way. */
 export const Loading: Story = { args: ACHIEVEMENTS.loading };
-/** P-61: each achievement's gems (its points): two claimed, two to claim (Claim per row, Claim all); On the Podium gives none. */
-export const Gems: Story = { args: ACHIEVEMENTS.gems };
+/** P-61: each achievement's Cobbles (its points): two claimed, two to claim (Claim per row, Claim all); On the Podium gives none. */
+export const Cobbles: Story = { args: ACHIEVEMENTS.cobbles };
 /** Claim all on its way. */
-export const GemsClaiming: Story = { args: ACHIEVEMENTS.gemsClaiming };
-/** Every one earned and its gems claimed. */
-export const GemsAllClaimed: Story = { args: ACHIEVEMENTS.gemsAllClaimed };
+export const CobblesClaiming: Story = { args: ACHIEVEMENTS.cobblesClaiming };
+/** Every one earned and its Cobbles claimed. */
+export const CobblesAllClaimed: Story = { args: ACHIEVEMENTS.cobblesAllClaimed };

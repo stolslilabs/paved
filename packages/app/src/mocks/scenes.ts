@@ -33,7 +33,7 @@ import {
 } from "./leaderboard";
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE } from "./quests";
-import { ACCOUNT, ACHIEVEMENT_GEMS, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_GEMS, SKIN_PRICES, activeOn, bits, ownedPlans } from "./gems";
+import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_LINK, REFERRED_PURCHASES } from "./referral";
 import { THEME_TILES } from "./settings";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
@@ -79,10 +79,10 @@ export const HOME = {
     now: MOCK_NOW,
   },
   paused: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame, training: null, spawnPaused: true, now: MOCK_NOW },
-  /** P-61: the gem balance in the header, no free game. */
-  gems: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, gems: { balance: ACCOUNT.gems, credits: 0 } },
+  /** P-61: the Cobble balance in the header, no free game. */
+  cobbles: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
   /** P-61: two free games from the quests: Free game spends one. */
-  freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, gems: { balance: ACCOUNT.gems, credits: 2 } },
+  freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
   /** WRAP360: the longest username, the widest balances and scores, a podium of long names and a full address. */
   stress: {
     player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3], usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18 },
@@ -91,7 +91,7 @@ export const HOME = {
     training: { score: BIG_SCORE, remaining: 99 },
     spawnPaused: false,
     now: MOCK_NOW,
-    gems: { balance: BIG_NUMBER, credits: 999 },
+    cobbles: { balance: BIG_NUMBER, credits: 999 },
   },
 } satisfies Record<string, Data<HomeSceneProps>>;
 
@@ -178,7 +178,7 @@ const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, ba
 /** The stake, its quote and its boost: a story that moves the slider calls it again. */
 export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
 const at = purchaseAt;
-const gemShop = { balance: ACCOUNT.gems, packs: PACKS, selected: null };
+const cobbleShop = { balance: ACCOUNT.gems, packs: PACKS, selected: null };
 
 export const PURCHASE = {
   stake1: { ...purchaseBase, ...at(1) },
@@ -189,18 +189,18 @@ export const PURCHASE = {
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
   stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
-  /** P-61, the Gems tab: the four packs, none picked yet. */
-  gemPacks: { ...purchaseBase, ...at(1), tab: "gems", gems: { ...gemShop, selected: null } },
+  /** P-61, the Cobbles tab: the four packs, none picked yet. */
+  cobblePacks: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: null } },
   /** A pack picked (100 for $9): Pay confirms. */
-  gemPackPicked: { ...purchaseBase, ...at(1), tab: "gems", gems: { ...gemShop, selected: 2 } },
+  cobblePackPicked: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2 } },
   /** A referrer from `?ref=`: their share, as for a game. */
-  gemPackReferred: { ...purchaseBase, ...at(1), tab: "gems", referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef", gems: { ...gemShop, selected: 3 } },
+  cobblePackReferred: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef", cobbles: { ...cobbleShop, selected: 3 } },
   /** The approve and `buy_pack` on their way. */
-  gemPackBuying: { ...purchaseBase, ...at(1), tab: "gems", gems: { ...gemShop, selected: 2, buying: true } },
+  cobblePackBuying: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2, buying: true } },
   /** 1,000 for $70 with $3.40 in the wallet. */
-  gemPackShort: { ...purchaseBase, ...at(1), tab: "gems", balance: BALANCE_LOW, gems: { ...gemShop, selected: 4 } },
-  /** WRAP360: the largest gem balance and USDC balance, a full referrer address. */
-  gemStress: { ...purchaseBase, ...at(1), tab: "gems", referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, gems: { ...gemShop, balance: BIG_NUMBER, selected: 4 } },
+  cobblePackShort: { ...purchaseBase, ...at(1), tab: "cobbles", balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
+  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
+  cobbleStress: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
 
 // Leaderboard
@@ -278,7 +278,7 @@ const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
 export const THEME = {
   defaultSelected: { selected: "default", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
   forestSelected: { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
-  /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 gems), two of them active; 240 gems. */
+  /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
   skins: { ...themeBase, skins: forestSkins },
   /** Two switches changed, not saved: Save sends them in one `set_skins` write. */
   skinsChanged: { ...themeBase, skins: { ...forestSkins, changes: { 7: FOREST, 13: 0 } } },
@@ -286,24 +286,24 @@ export const THEME = {
   skinsSaving: { ...themeBase, skins: { ...forestSkins, changes: { 7: FOREST, 13: 0 }, save: "saving" } },
   /** Saved: the switches are the chain's again. */
   skinsSaved: { ...themeBase, skins: { ...forestSkins, active: activeOn(FOREST, 7, 10), save: "saved" } },
-  /** No gems and nothing owned: every Buy disabled, Get gems. */
-  noGems: { ...themeBase, skins: { ...forestSkins, balance: 0, owned: 0, active: activeOn(FOREST) } },
-  /** 60 gems: the two commonest plans (50 and 55) can be bought, the others say how many more. */
+  /** No Cobbles and nothing owned: every Buy disabled, Get Cobbles. */
+  noCobbles: { ...themeBase, skins: { ...forestSkins, balance: 0, owned: 0, active: activeOn(FOREST) } },
+  /** 60 Cobbles: the two commonest plans (50 and 55) can be bought, the others say how many more. */
   cantAfford: { ...themeBase, skins: { ...forestSkins, balance: 60, owned: 0, active: activeOn(FOREST) } },
-  /** A skin's `buy_skin` on its way (Great Works' plan, 100 gems): the others wait. */
+  /** A skin's `buy_skin` on its way (Great Works' plan, 100 Cobbles): the others wait. */
   buying: { ...themeBase, skins: { ...forestSkins, buying: 1 } },
   /** The whole set: 19 of 19 owned and active. */
   allActive: { ...themeBase, skins: { ...forestSkins, owned: ownedPlans(...ALL_PLANS), active: activeOn(FOREST, ...ALL_PLANS) } },
   /** Snow: its art is not in, so nothing is priced: coming soon. */
   comingSoon: { ...themeBase, skins: { ...forestSkins, theme: "snow", prices: NO_PRICES, owned: 0 } },
-  /** WRAP360: the largest gem balance. */
+  /** WRAP360: the largest Cobble balance. */
   skinsStress: { ...themeBase, skins: { ...forestSkins, balance: BIG_NUMBER, changes: { 1: FOREST } } },
 } satisfies Record<string, Data<ThemeSceneProps>>;
 
 // Quests and achievements
 
 const questsBase = { today: TODAY, firstDay: QUESTS_FROM, connected: true, now: MOCK_NOW };
-const questRewards = { gems: QUEST_GEMS, day: NOTHING_CLAIMED, week: NOTHING_CLAIMED, balance: ACCOUNT.gems, credits: 0 };
+const questRewards = { cobbles: QUEST_COBBLES, day: NOTHING_CLAIMED, week: NOTHING_CLAIMED, balance: ACCOUNT.gems, credits: 0 };
 
 export const QUESTS = {
   today: { ...questsBase, day: TODAY, quests: QUESTS_TODAY },
@@ -316,26 +316,26 @@ export const QUESTS = {
   guest: { ...questsBase, day: TODAY, quests: null, connected: false },
   loading: { ...questsBase, day: TODAY, quests: null },
   error: { ...questsBase, day: TODAY, quests: null, error: "The indexer did not answer (HTTP 503)." },
-  /** P-61: today with gems: Daily Run done and its 5 gems to claim; the others show what they give. */
-  gemsToday: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: questRewards },
-  /** Daily Run's gems claimed. */
-  gemsClaimed: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: { ...questRewards, balance: ACCOUNT.gems + 5, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
-  /** Yesterday, closed but still claimable: the four dailies' 20 gems (Claim all) and the day's free game. */
-  gemsPastDay: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: questRewards },
+  /** P-61: today with Cobbles: Daily Run done and its 5 Cobbles to claim; the others show what they give. */
+  cobblesToday: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: questRewards },
+  /** Daily Run's Cobbles claimed. */
+  cobblesClaimed: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: { ...questRewards, balance: ACCOUNT.gems + 5, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
+  /** Yesterday, closed but still claimable: the four dailies' 20 Cobbles (Claim all) and the day's free game. */
+  cobblesPastDay: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: questRewards },
   /** Claim all on its way. */
-  gemsClaiming: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: { ...questRewards, claiming: "all" } },
+  cobblesClaiming: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: { ...questRewards, claiming: "all" } },
   /** Everything of yesterday claimed: one free game to play. */
-  gemsFreeGame: {
+  cobblesFreeGame: {
     ...questsBase,
     day: QUESTS_ALL_DONE.day,
     quests: QUESTS_ALL_DONE,
     rewards: { ...questRewards, balance: ACCOUNT.gems + 20, credits: 1, day: { claimed: bits(1, 5, 8, 11), credit: true } },
   },
-  /** The three weeklies done: their 45 gems and the week's free game to claim. */
-  gemsWeekDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEK_DONE, rewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
+  /** The three weeklies done: their 45 Cobbles and the week's free game to claim. */
+  cobblesWeekDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEK_DONE, rewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
 } satisfies Record<string, Data<QuestsSceneProps>>;
 
-const achievementRewards = { gems: ACHIEVEMENT_GEMS, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };
+const achievementRewards = { cobbles: ACHIEVEMENT_COBBLES, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };
 
 export const ACHIEVEMENTS = {
   mixed: { achievements: ACHIEVEMENTS_MIXED, connected: true },
@@ -343,15 +343,15 @@ export const ACHIEVEMENTS = {
   all: { achievements: ACHIEVEMENTS_ALL, connected: true },
   guest: { achievements: null, connected: false },
   loading: { achievements: null, connected: true },
-  /** P-61: each achievement's gems (its points); First Stone and Settler I claimed, Settler II and Grand Builder to claim. */
-  gems: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: achievementRewards },
+  /** P-61: each achievement's Cobbles (its points); First Stone and Settler I claimed, Settler II and Grand Builder to claim. */
+  cobbles: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: achievementRewards },
   /** Claim all on its way. */
-  gemsClaiming: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: { ...achievementRewards, claiming: "all" } },
-  /** Every one earned and claimed: 580 gems; On the Podium gives none. */
-  gemsAllClaimed: {
+  cobblesClaiming: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: { ...achievementRewards, claiming: "all" } },
+  /** Every one earned and claimed: 580 Cobbles; On the Podium gives none. */
+  cobblesAllClaimed: {
     achievements: ACHIEVEMENTS_ALL,
     connected: true,
-    rewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_GEMS.map((a) => a.achievementId)) },
+    rewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
   },
 } satisfies Record<string, Data<AchievementsSceneProps>>;
 

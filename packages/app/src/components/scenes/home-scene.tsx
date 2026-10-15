@@ -2,7 +2,7 @@ import type { GameView, Leaderboard } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
-import { Gems } from "../elements/gems";
+import { Cobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
@@ -18,8 +18,8 @@ export interface TrainingSave {
   remaining: number;
 }
 
-/** The player's gems and free games (P-61, `AccountView`): provisional until CORE's gems PR 1. */
-export interface HomeGems {
+/** The player's Cobbles and free games (P-61, `AccountView`): provisional until CORE's gems PR 1. */
+export interface HomeCobbles {
   balance: number;
   /** Free Challenge games to spend (`credits`). */
   credits: number;
@@ -37,8 +37,8 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
-  /** The gem balance and free games; omitted for a guest or before gems. */
-  gems?: HomeGems | null;
+  /** The Cobble balance and free games; omitted for a guest or before Cobbles. */
+  cobbles?: HomeCobbles | null;
   onPlay?: () => void;
   /** Spends a free game (`Challenge.spawn_free`). */
   onPlayFree?: () => void;
@@ -52,7 +52,7 @@ export interface HomeSceneProps {
 
 /** Home (`/`): Play, the player's status, the game to resume, the mode cards with today's Challenge top 3; the five tabs. */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, leaderboard, activeGame, training, spawnPaused, now, gems } = props;
+  const { player, leaderboard, activeGame, training, spawnPaused, now, cobbles } = props;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
       <AppNav active="home" onNavigate={props.onNavigate} className="desktop:min-h-dvh" />
@@ -60,7 +60,7 @@ export function HomeScene(props: HomeSceneProps) {
         <header className="flex items-center justify-between">
           <Wordmark size="md" />
           <span className="flex items-center gap-3 text-xs text-muted-foreground">
-            {gems && <Gems value={gems.balance} />}
+            {cobbles && <Cobbles value={cobbles.balance} />}
             <span>Day {leaderboard.tournamentId}</span>
           </span>
         </header>
@@ -88,11 +88,11 @@ export function HomeScene(props: HomeSceneProps) {
               Play <Icon name="chevron-right" size="md" />
             </Button>
 
-            {gems && gems.credits > 0 && (
+            {cobbles && cobbles.credits > 0 && (
               <ModeCard
                 icon="ticket"
                 title="Free game"
-                description={`${gems.credits} free Challenge ${gems.credits === 1 ? "game" : "games"} from your quests.`}
+                description={`${cobbles.credits} free Challenge ${cobbles.credits === 1 ? "game" : "games"} from your quests.`}
                 badge="Free"
                 disabled={spawnPaused}
                 reason="New games are paused"

@@ -1,12 +1,12 @@
-import type { AchievementGems, AccountView, Pack, PeriodClaims, QuestGems } from "../components/containers/gem-types";
-import { PLANS } from "../components/containers/gem-types";
+import type { AchievementCobbles, AccountView, Pack, PeriodClaims, QuestCobbles } from "../components/containers/cobble-types";
+import { PLANS } from "../components/containers/cobble-types";
 
 /**
- * The gems of P-61 for the stories, with the names and amounts of `docs/architecture/gems-v1.md`. **Provisional until
- * CORE's ABI (gems PRs 1 to 3)**: the types are `components/containers/gem-types.ts`, written from the design's views,
+ * The Cobbles of P-61 for the stories, with the names and amounts of `docs/architecture/gems-v1.md`. **Provisional until
+ * CORE's ABI (gems PRs 1 to 3)**: the types are `components/containers/cobble-types.ts`, written from the design's views,
  * and P9, P7b and P11b swap them for `@paved/chain`'s once the ABI is regenerated.
  */
-export type { AchievementGems, AccountView, Pack, PeriodClaims, QuestGems };
+export type { AchievementCobbles, AccountView, Pack, PeriodClaims, QuestCobbles };
 
 /** The owner's tiers (2.1, `set_pack` of the fresh deployment, 6.4): 50 for $5, 100 for $9, 500 for $40, 1,000 for $70. */
 export const PACKS: readonly Pack[] = [
@@ -17,10 +17,10 @@ export const PACKS: readonly Pack[] = [
 ];
 
 /**
- * The gems of the 13 fresh quests (3.1): a family's easy, middle and hard target give 5, 10 and 15; Daily Run 5; a
+ * The Cobbles of the 13 fresh quests (3.1): a family's easy, middle and hard target give 5, 10 and 15; Daily Run 5; a
  * weekly 15. Ids 2 to 4 are not defined.
  */
-export const QUEST_GEMS: readonly QuestGems[] = [
+export const QUEST_COBBLES: readonly QuestCobbles[] = [
   { questId: 1, gems: 5, kind: 1 },
   { questId: 5, gems: 5, kind: 1 },
   { questId: 6, gems: 10, kind: 1 },
@@ -36,8 +36,8 @@ export const QUEST_GEMS: readonly QuestGems[] = [
   { questId: 16, gems: 15, kind: 2 },
 ];
 
-/** The gems of the achievements (3.1): their display points; On the Podium (9) has none in v1, so it is not listed. */
-export const ACHIEVEMENT_GEMS: readonly AchievementGems[] = [
+/** The Cobbles of the achievements (3.1): their display points; On the Podium (9) has none in v1, so it is not listed. */
+export const ACHIEVEMENT_COBBLES: readonly AchievementCobbles[] = [
   [1, 10], [2, 10], [3, 20], [4, 40], [5, 20], [6, 20], [7, 30], [8, 30], [10, 40], [11, 50], [12, 40], [13, 50], [14, 80], [15, 60], [16, 80],
 ].map(([achievementId, gems]) => ({ achievementId, gems }));
 
@@ -62,7 +62,7 @@ export const ownedPlans = (...plans: number[]): number => plans.reduce((word, p)
 /** `active_skins` with `theme` on the plans given, the default theme (0) elsewhere. */
 export const activeOn = (theme: number, ...plans: number[]): number[] => Array.from({ length: PLANS }, (_, i) => (plans.includes(i + 1) ? theme : 0));
 
-/** The player's balance in the stories: 240 gems, no free game. */
+/** The player's balance in the stories: 240 Cobbles, no free game. */
 export const ACCOUNT: AccountView = { gems: 240, credits: 0, achievementsClaimed: bits(1, 2) };
 
 /** Every claim of a period open. */

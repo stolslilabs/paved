@@ -1,10 +1,15 @@
 /**
- * The gems of P-61, as the client will read them: the views and entry points of `docs/architecture/gems-v1.md` (sections
+ * The Cobbles of P-61, as the client will read them: the views and entry points of `docs/architecture/gems-v1.md` (sections
  * 1.2, 2, 3, 5, 6.1), with its names. **Provisional until CORE's ABI (gems PRs 1 to 3)**: P9, P7b and P11b replace these
  * with `@paved/chain`'s parsed types once the ABI is regenerated. Types and pure helpers only; nothing here reads the chain.
+ *
+ * The currency is **Cobbles** on screen (owner, 2026-10-15). The contracts and the indexer still say gems until CORE's
+ * Cobbles rename PR: the fields below that mirror an ABI shape keep CORE's names (`gems` of `AccountView`, `Pack` and the
+ * `quest_gems` and `achievement_gems` entries; events such as `GemsClaimed`, which becomes `CobblesClaimed`), and that PR
+ * renames them here too.
  */
 
-/** `Setup.account(player_id) -> AccountView` (1.2 `accounts`): the gems, the free-game credits, the claimed achievements. */
+/** `Setup.account(player_id) -> AccountView` (1.2 `accounts`): the Cobbles, the free-game credits, the claimed achievements. */
 export interface AccountView {
   /** `gems: u64`; a number here, far under 2^53 in practice. */
   gems: number;
@@ -22,15 +27,15 @@ export interface PeriodClaims {
   credit: boolean;
 }
 
-/** `Setup.quest_gems(quest_id)` (3.1): the gems a quest gives; `kind` 1 daily, 2 weekly. */
-export interface QuestGems {
+/** `Setup.quest_gems(quest_id)` (3.1): the Cobbles a quest gives; `kind` 1 daily, 2 weekly. */
+export interface QuestCobbles {
   questId: number;
   gems: number;
   kind: 1 | 2;
 }
 
-/** `Setup.achievement_gems(achievement_id)` (3.1): its gems, its display points. On the Podium (9) has none in v1. */
-export interface AchievementGems {
+/** `Setup.achievement_gems(achievement_id)` (3.1): its Cobbles, its display points. On the Podium (9) has none in v1. */
+export interface AchievementCobbles {
   achievementId: number;
   gems: number;
 }
@@ -49,13 +54,13 @@ export type SkinState = "none" | "owned" | "active";
 /** X (5.1): the Challenge deck's 19 plans, so at most 19 active skins. Plans are the `u8` codes 1 to 19. */
 export const PLANS = 19;
 
-/** The reference price of a gem (2.1): 100 gems for $20, in USDC base units. */
-export const REFERENCE_PER_GEM = 200_000n;
+/** The reference price of a Cobble (2.1): 100 Cobbles for $20, in USDC base units. */
+export const REFERENCE_PER_COBBLE = 200_000n;
 
 /** A pack's price at the reference, struck through on its card. */
-export const referencePrice = (gems: number): bigint => BigInt(gems) * REFERENCE_PER_GEM;
+export const referencePrice = (cobbles: number): bigint => BigInt(cobbles) * REFERENCE_PER_COBBLE;
 
-/** A pack's discount against the reference, a whole percent: 50 for 50 gems at $5. */
+/** A pack's discount against the reference, a whole percent: 50 for 50 Cobbles at $5. */
 export const packDiscount = (pack: Pick<Pack, "gems" | "price">): number => Number(100n - (pack.price * 100n) / referencePrice(pack.gems));
 
 /** Bit `id` of a claim word (`claimed`, `achievements_claimed`). */

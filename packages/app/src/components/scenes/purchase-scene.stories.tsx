@@ -41,15 +41,15 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 export const Buying: Story = { args: PURCHASE.buying };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
-/** P-61, the Gems tab: the four packs (50 for $5 to 1,000 for $70), the $0.20 reference struck through; none picked. */
-export const GemPacks: Story = { args: PURCHASE.gemPacks };
+/** P-61, the Cobbles tab: the four packs (50 for $5 to 1,000 for $70), the $0.20 reference struck through; none picked. */
+export const CobblePacks: Story = { args: PURCHASE.cobblePacks };
 /** A pack picked: Pay confirms, as for a game. */
-export const GemPackPicked: Story = { args: PURCHASE.gemPackPicked };
+export const CobblePackPicked: Story = { args: PURCHASE.cobblePackPicked };
 /** A referrer: their share of the pack, as for a game. */
-export const GemPackReferred: Story = { args: PURCHASE.gemPackReferred };
+export const CobblePackReferred: Story = { args: PURCHASE.cobblePackReferred };
 /** The approve and `buy_pack` on their way. */
-export const GemPackBuying: Story = { args: PURCHASE.gemPackBuying };
+export const CobblePackBuying: Story = { args: PURCHASE.cobblePackBuying };
 /** Not enough USDC for the pack picked. */
-export const GemPackShort: Story = { args: PURCHASE.gemPackShort };
+export const CobblePackShort: Story = { args: PURCHASE.cobblePackShort };
 /** WRAP360: the largest balances and a full referrer address. */
-export const GemStress: Story = { args: PURCHASE.gemStress };
+export const CobbleStress: Story = { args: PURCHASE.cobbleStress };

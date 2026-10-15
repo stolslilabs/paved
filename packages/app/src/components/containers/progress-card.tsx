@@ -4,15 +4,15 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { formatDay, DAY_S } from "../elements/day-picker";
-import { Gems } from "../elements/gems";
+import { Cobbles } from "../elements/cobbles";
 import { TaskProgress } from "../elements/task-progress";
 import { taskUnit } from "./quest-text";
 
 /**
  * Where a quest or an achievement stands, from the indexer's counts: `complete` (every task at its total), `progress`
  * (something counted), `none` (nothing yet: a quest to do, an achievement locked). Event mode: nothing is claimed on
- * chain and v1 has no reward (quests.md), so complete is the last state. With gems (P-61, gems-v1.md 3.3), a complete
- * entry's gems are then claimed by the player: `ProgressCardProps.reward`.
+ * chain and v1 has no reward (quests.md), so complete is the last state. With Cobbles (P-61, gems-v1.md 3.3), a complete
+ * entry's Cobbles are then claimed by the player: `ProgressCardProps.reward`.
  */
 export type ProgressState = "complete" | "progress" | "none";
 
@@ -32,14 +32,14 @@ export interface ProgressCardProps {
   /** An achievement's points, display only. */
   points?: number;
   retired?: boolean;
-  /** Its gems (gems-v1.md 3.1) and whether they were claimed; omitted: no gems (before gems, or On the Podium in v1). */
+  /** Its Cobbles (gems-v1.md 3.1) and whether they were claimed; omitted: no Cobbles (before Cobbles, or On the Podium in v1). */
   reward?: ProgressReward;
   onClaim?: () => void;
   className?: string;
 }
 
 export interface ProgressReward {
-  gems: number;
+  cobbles: number;
   claimed: boolean;
   /** The claim is on its way. */
   claiming?: boolean;
@@ -86,7 +86,7 @@ export function ProgressCard(props: ProgressCardProps) {
                 {points} pts
               </span>
             )}
-            {reward && <Gems value={reward.gems} sign="+" size="sm" tone="muted" />}
+            {reward && <Cobbles value={reward.cobbles} sign="+" size="sm" tone="muted" />}
           </div>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
@@ -113,13 +113,13 @@ export function ProgressCard(props: ProgressCardProps) {
           {reward.claimed ? (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Icon name="check" size="xs" />
-              Gems claimed
+              Cobbles claimed
             </span>
           ) : (
-            <Button size="sm" onClick={onClaim} loading={reward.claiming} disabled={reward.disabled} aria-label={`Claim ${reward.gems} gems: ${title}`}>
+            <Button size="sm" onClick={onClaim} loading={reward.claiming} disabled={reward.disabled} aria-label={`Claim ${reward.cobbles} Cobbles: ${title}`}>
               {reward.claiming ? "Claiming…" : (
                 <>
-                  Claim <Gems value={reward.gems} size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                  Claim <Cobbles value={reward.cobbles} size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
                 </>
               )}
             </Button>

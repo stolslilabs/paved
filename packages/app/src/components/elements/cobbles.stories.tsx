@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { BIG_NUMBER } from "../../mocks/stress";
-import { Gems } from "./gems";
+import { Cobbles } from "./cobbles";
 
-const meta = { title: "Elements/Gems", component: Gems, parameters: { layout: "padded" }, args: { value: 240 } } satisfies Meta<typeof Gems>;
+const meta = { title: "Elements/Cobbles", component: Cobbles, parameters: { layout: "padded" }, args: { value: 240 } } satisfies Meta<typeof Cobbles>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -18,7 +18,7 @@ export const Sizes: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
       {(["sm", "md", "lg"] as const).map((size) => (
-        <Gems key={size} size={size} value={1_580} />
+        <Cobbles key={size} size={size} value={1_580} />
       ))}
     </div>
   ),
@@ -28,7 +28,7 @@ export const Stress: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
       {(["sm", "md", "lg"] as const).map((size) => (
-        <Gems key={size} size={size} value={BIG_NUMBER} />
+        <Cobbles key={size} size={size} value={BIG_NUMBER} />
       ))}
     </div>
   ),

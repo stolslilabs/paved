@@ -21,7 +21,7 @@ export const FirstOfDay: Story = { args: HOME.firstOfDay };
 export const PurchasesPaused: Story = { args: HOME.paused };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: HOME.stress };
-/** P-61: the gem balance in the header. */
-export const Gems: Story = { args: HOME.gems };
+/** P-61: the Cobble balance in the header. */
+export const Cobbles: Story = { args: HOME.cobbles };
 /** P-61: two free games from the quests: Free game spends one. */
 export const FreeGame: Story = { args: HOME.freeGame };

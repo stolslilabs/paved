@@ -2,9 +2,9 @@ import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
-import { Gems } from "../elements/gems";
+import { Cobbles } from "../elements/cobbles";
 import { TileChip, planCode } from "../elements/tile-chip";
-import { PLANS, ownsSkin, type SkinState } from "./gem-types";
+import { PLANS, ownsSkin, type SkinState } from "./cobble-types";
 import { THEME_TINT, THEMES, type ThemeId } from "./theme-card";
 
 /**
@@ -19,12 +19,12 @@ export const themeOfCode = (code: number): ThemeId | undefined => (Object.keys(T
 export interface SkinCellProps {
   plan: number;
   theme: ThemeId;
-  /** `skin_price(theme, plan)`, 50 to 100 gems; 0: not for sale. */
+  /** `skin_price(theme, plan)`, 50 to 100 Cobbles; 0: not for sale. */
   price: number;
   state: SkinState;
   /** Another theme's skin of this plan is active (or will be once saved): activating this one replaces it. */
   replaces?: ThemeId;
-  /** The player's gems: Buy is disabled with the reason when the price is higher. */
+  /** The player's Cobbles: Buy is disabled with the reason when the price is higher. */
   balance: number;
   /** This skin's purchase is on its way. */
   buying?: boolean;
@@ -54,9 +54,9 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
       </span>
       {state === "none" ? (
         <div className="flex flex-col gap-1.5">
-          {forSale ? <Gems value={price} size="sm" /> : <span className="text-xs text-muted-foreground">Not for sale</span>}
+          {forSale ? <Cobbles value={price} size="sm" /> : <span className="text-xs text-muted-foreground">Not for sale</span>}
           {forSale && (
-            <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} gems`}>
+            <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} Cobbles`}>
               {/* The spinner says it is on its way; a longer label would not fit a 320 px row of three (WRAP360). */}
               Buy
             </Button>
