@@ -44,6 +44,8 @@ interface Check {
   onCheck?: () => void;
   failed?: boolean;
   onRetry?: () => void;
+  /** Forget the unknown purchase after a failed check: Pay is offered again, with the warning. */
+  onDismiss?: () => void;
 }
 
 function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
@@ -57,9 +59,14 @@ function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: C
         checkable ? (
           <span className="flex flex-col gap-1.5">
             {refusal.kind === "unknown" && check.failed && (
-              <Button size="sm" onClick={check.onRetry}>
-                Retry
-              </Button>
+              <>
+                <Button size="sm" onClick={check.onRetry}>
+                  Retry
+                </Button>
+                <Button size="sm" variant="ghost" onClick={check.onDismiss}>
+                  Dismiss
+                </Button>
+              </>
             )}
             <Button size="sm" variant="outline" onClick={check.onCheck}>
               {check.label}
@@ -69,7 +76,9 @@ function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: C
       }
     >
       {refusal.message}
-      {refusal.kind === "unknown" && check?.failed && " It could not be checked: Retry."}
+      {refusal.kind === "unknown" &&
+        check?.failed &&
+        " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice."}
     </Notice>
   );
 }
@@ -169,6 +178,8 @@ export interface PurchaseSceneProps {
   onRetryPacks?: () => void;
   /** Check an unknown purchase again after a failed check. */
   onRetryCheck?: () => void;
+  /** Forget an unknown purchase whose check keeps failing (the deliberate way out, with its warning). */
+  onDismissCheck?: () => void;
   /** After an unknown outcome: where the player sees whether the game was bought. */
   onCheckGames?: () => void;
   /** After an unknown outcome: read the Cobbles again. */
@@ -288,7 +299,7 @@ function GameTab(props: PurchaseSceneProps) {
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, onRetry: props.onRetryCheck }} />
+          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, onRetry: props.onRetryCheck, onDismiss: props.onDismissCheck }} />
         )}
 
         {!connected ? (
@@ -369,7 +380,7 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !cobbles.buying && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, onRetry: props.onRetryCheck }} />
+          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, onRetry: props.onRetryCheck, onDismiss: props.onDismissCheck }} />
         )}
         {bought && !refusal && !cobbles.buying && (
           <Notice tone="info" title="Pack bought">

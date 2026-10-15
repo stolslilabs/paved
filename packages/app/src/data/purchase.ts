@@ -31,7 +31,7 @@ import { usePoolQuote } from "./chain";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type Purchases } from "./sources";
-import { useUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
+import { useUnknownPurchase, writeUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
 
 // The purchase page's data and writes (P7b, section 6.4): the game's stake (`EconomyWriter.purchase`: the approve and
 // `Challenge.spawn(stake, referrer, min_out)`) and the packs of Cobbles (`PackBuyer.buy`: the approve and `Setup.buy_pack`).
@@ -152,7 +152,7 @@ export type PurchaseResolution = "succeeded" | "reverted";
  * (`resolved`) clears the record.
  */
 export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
-  const { unknown, isPending, record, clear } = useUnknownPurchase(playerId, kind);
+  const { unknown, isPending, clear } = useUnknownPurchase(playerId, kind);
   const buyer = usePurchases();
   const { economy, events, views } = useDataSources();
   const client = useQueryClient();
@@ -183,8 +183,13 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
               }),
             ]
           : [usdc, client.fetchQuery({ queryKey: cobbleKeys.account(id), queryFn: () => cobbleViews(views)?.account(id) ?? null, staleTime: 0 })];
-      const [outcome] = await Promise.all([buyer!.receipt(hash as string), ...reads]);
-      return outcome;
+      // The receipt decides on its own: a read that failed never hides a purchase that went through or reverted.
+      const [receipt, ...settled] = await Promise.allSettled([buyer!.receipt(hash as string), ...reads]);
+      if (receipt.status === "rejected") throw receipt.reason;
+      if (receipt.value !== "unknown") return receipt.value;
+      const failedRead = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failedRead) throw failedRead.reason;
+      return receipt.value;
     },
     enabled: hash !== null && buyer !== null && playerId !== null,
     retry: false,
@@ -193,6 +198,8 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
     staleTime: 0,
     gcTime: 0,
   });
+  // Another player: none of the last one's resolution is theirs.
+  useEffect(() => setResolved(null), [playerId]);
   const outcome = check.data;
   useEffect(() => {
     if (outcome !== "succeeded" && outcome !== "reverted") return;
@@ -209,9 +216,16 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
     retry: () => void check.refetch(),
     resolved,
     dismiss: () => setResolved(null),
-    record,
     clear,
   };
+}
+
+/** A send's request with the player who sent it: an unknown outcome is recorded under the sender, whoever is connected by then. */
+type Sent<R> = R & { playerId: string };
+
+/** Records an unknown outcome under the player who sent it. */
+function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string): void {
+  if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: Math.floor(Date.now() / 1000) });
 }
 
 /**
@@ -224,22 +238,23 @@ export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("game", playerId);
-  const { record } = hold;
-  const mutation = useMutation<WriteResult & { gameId: number }, Error, PurchaseRequest>({
-    mutationFn: (request) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
-    onError: (error) => {
-      if (outcomeUnknown(error)) record(error.transactionHash!);
-    },
-    onSettled: (_data, error) => {
+  const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>>({
+    mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
+    onError: (error, { playerId: sender }) => recordUnknown(client, "game", error, sender),
+    onSettled: (_data, error, variables) => {
       // A refusal may come from a moved price or a pause: those reads are stale too.
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
       void client.invalidateQueries({ queryKey: queryKeys.chain.spawnPaused() });
-      if (!playerId || outcomeUnknown(error)) return;
-      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.playerGames(playerId) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(playerId) });
+      const sender = variables?.playerId;
+      if (!sender || outcomeUnknown(error)) return;
+      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
+      void client.invalidateQueries({ queryKey: queryKeys.chain.playerGames(sender) });
+      void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(sender) });
     },
   });
+  // Another player: the last one's refusal or success is not theirs.
+  const { reset } = mutation;
+  useEffect(() => reset(), [playerId, reset]);
   return { buyer, mutation, hold };
 }
 
@@ -258,23 +273,21 @@ export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("pack", playerId);
-  const { record } = hold;
-  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, PackPurchaseRequest>({
-    mutationFn: (request) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
-    onSuccess: ({ bought }) => {
-      if (playerId) applyPackBought(client, playerId, bought);
-    },
-    onError: (error) => {
-      if (outcomeUnknown(error)) record(error.transactionHash!);
-    },
-    onSettled: (_data, error) => {
+  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>>({
+    mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
+    onSuccess: ({ bought }, { playerId: sender }) => applyPackBought(client, sender, bought),
+    onError: (error, { playerId: sender }) => recordUnknown(client, "pack", error, sender),
+    onSettled: (_data, error, variables) => {
       void client.invalidateQueries({ queryKey: packKeys.packs() });
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-      if (!playerId || outcomeUnknown(error)) return;
-      void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) });
+      const sender = variables?.playerId;
+      if (!sender || outcomeUnknown(error)) return;
+      void client.invalidateQueries({ queryKey: cobbleKeys.account(sender) });
+      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
     },
   });
+  const { reset } = mutation;
+  useEffect(() => reset(), [playerId, reset]);
   return { buyer, mutation, hold };
 }
 

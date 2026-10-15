@@ -23,6 +23,17 @@ export const unknownPurchaseStorageKey = (playerId: string, kind: PurchaseKind):
 /** The query key of the record (`local`: the browser's state, not the chain's). */
 export const unknownPurchaseKey = (playerId: string, kind: PurchaseKind) => ["local", "unknownPurchase", kind, addressKey(playerId)] as const;
 
+/**
+ * The keys whose last write failed (storage full, or refused) in this page's life: their stored value is stale, so they are
+ * read from the cache's copy instead (`readStored` answers `undefined` for them). A write or removal that succeeds drops it.
+ */
+const failedWrites = new Set<string>();
+
+/** Forgets the failed writes, between tests (a new page's life). */
+export function resetFailedWritesForTests(): void {
+  failedWrites.clear();
+}
+
 function storage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
@@ -34,9 +45,10 @@ function storage(): Storage | null {
 /** The stored record, `undefined` when storage cannot be read (the cache's copy is kept then), null when there is none. */
 function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | null | undefined {
   const store = storage();
-  if (!store) return undefined;
+  const name = unknownPurchaseStorageKey(playerId, kind);
+  if (!store || failedWrites.has(name)) return undefined;
   try {
-    const raw = store.getItem(unknownPurchaseStorageKey(playerId, kind));
+    const raw = store.getItem(name);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<UnknownPurchase>;
     return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0) } : null;
@@ -48,11 +60,15 @@ function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | nul
 /** Records (or clears, with null) a player's unknown purchase: in storage when it can be written, always in the cache. */
 export function writeUnknownPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, record: UnknownPurchase | null): void {
   const store = storage();
+  const name = unknownPurchaseStorageKey(playerId, kind);
   try {
-    if (record) store?.setItem(unknownPurchaseStorageKey(playerId, kind), JSON.stringify(record));
-    else store?.removeItem(unknownPurchaseStorageKey(playerId, kind));
+    if (!store) throw new Error("no storage");
+    if (record) store.setItem(name, JSON.stringify(record));
+    else store.removeItem(name);
+    failedWrites.delete(name);
   } catch {
-    // Storage off or full: the cache's copy holds it for the session.
+    // Storage off or full: the cache's copy holds it for the session, and the stale stored value is not read back.
+    failedWrites.add(name);
   }
   client.setQueryData(unknownPurchaseKey(playerId, kind), record);
 }

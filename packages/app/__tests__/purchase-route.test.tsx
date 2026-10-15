@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "starknet";
 import {
   PackOutcomeUnknownError,
@@ -24,10 +25,10 @@ import {
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
-import type { GameSigner } from "../src/data";
+import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
-import { purchaseRefusal, referrerParam } from "../src/data/purchase";
-import { unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
+import { purchaseRefusal, referrerParam, usePurchase } from "../src/data/purchase";
+import { resetFailedWritesForTests, unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
 import { createTestRouter } from "../src/routes/router";
@@ -85,6 +86,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     packsGate: Promise<void> | null;
     receipts: Map<string, "SUCCEEDED" | "REVERTED">;
     receiptGate: Promise<void> | null;
+    receiptFail: string | null;
   } = {
     gate: null,
     revert: options.revert ?? null,
@@ -96,6 +98,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     packsGate: null,
     receipts: new Map(),
     receiptGate: null,
+    receiptFail: null,
   };
   const usdcBalance = economy.usdcBalance.bind(economy);
   economy.usdcBalance = async (account) => {
@@ -139,6 +142,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   };
   const getTransactionReceipt = async (hash: string) => {
     if (state.receiptGate) await state.receiptGate;
+    if (state.receiptFail) throw new Error(state.receiptFail);
     const status = state.receipts.get(hash);
     if (!status) throw Object.assign(new Error("RPC: starknet_getTransactionReceipt: 29: Transaction hash not found"), { code: 29 });
     return { execution_status: status };
@@ -157,7 +161,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   fakes.sources.signer = options.signer === false ? null : (writer as unknown as GameSigner);
   // The app's own purchases (`data/economy-client.ts`), on this economy client.
   fakes.sources.purchases = (signer) => purchasesFor(econ, signer);
-  return { ...fakes, sent, state, writer };
+  return { ...fakes, sent, state, writer, client, econ };
 }
 
 function open(path: string, s: ReturnType<typeof setup>, wallet = fakeWallet({ address: PLAYER })) {
@@ -179,6 +183,7 @@ const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n)
 beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
+  resetFailedWritesForTests();
   resetWelcomedForTests();
   markWelcomed();
 });
@@ -199,7 +204,10 @@ function reload(s: ReturnType<typeof setup>, path = "/play/challenge") {
   queryClient.clear();
   return open(path, s);
 }
-afterEach(() => resetWelcomedForTests());
+afterEach(() => {
+  vi.restoreAllMocks();
+  resetWelcomedForTests();
+});
 
 describe("/play/challenge: the game's stake", () => {
   it("stake, then spawn, then the board: approve the price to Challenge and spawn(stake, referrer, min_out)", async () => {
@@ -664,5 +672,121 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
     expect(s.pool.calls).not.toContain(1_900_000n);
+  });
+});
+
+describe("an unknown outcome: the way out, the sender, the storage (review loop 3)", () => {
+  /** Storage refuses the records' keys: `write` (full) or both `read` and `write` (off). */
+  function refuseRecords(what: "write" | "read-write") {
+    const isRecord = (key: string) => key.startsWith("paved:purchase-unknown:");
+    const setItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (isRecord(key)) throw new DOMException("QuotaExceededError", "QuotaExceededError");
+      return setItem.call(this, key, value);
+    });
+    if (what === "read-write") {
+      const getItem = Storage.prototype.getItem;
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+        if (isRecord(key)) throw new DOMException("SecurityError", "SecurityError");
+        return getItem.call(this, key);
+      });
+    }
+  }
+
+  /** A remount in the same session: the page gone and opened again, the app's cache kept. */
+  function remount(s: ReturnType<typeof setup>) {
+    document.body.innerHTML = "";
+    return open("/play/challenge", s);
+  }
+
+  it("a check that keeps failing offers Dismiss, with its warning; Dismiss clears the record and Pay is back", async () => {
+    const s = setup();
+    s.state.receiptFail = "this node cannot read receipts";
+    await unknownGame(s);
+    expect(await screen.findByRole("button", { name: "Could not check your games" }, { timeout: 5000 })).toBeDisabled();
+    expect(screen.getByText(/Dismiss only if you are sure it did not go through: buying again may pay twice/)).toBeInTheDocument();
+    s.state.noEvents = false;
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
+    expect(await enabledPay()).toBeInTheDocument();
+    expect(s.sent).toHaveLength(1);
+  });
+
+  it("a receipt that reads decides on its own: a failed read does not hide that it went through", async () => {
+    const s = setup();
+    await unknownGame(s);
+    s.state.receipts.set("0x1", "SUCCEEDED");
+    s.state.balanceFail = "node down";
+    reload(s);
+    expect(await screen.findByText("Purchase went through", undefined, { timeout: 5000 })).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
+  });
+
+  it("says how long ago the purchase was sent, from the record's at", async () => {
+    const s = setup();
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) - 300 }));
+    open("/play/challenge", s);
+    expect(await screen.findByText(/Purchase sent 5 min ago \(0x1\)/, undefined, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("the record goes under the sender: switch the signer while pending, then back, and the hold is the sender's", async () => {
+    const s = setup();
+    const other = s.client.writer({ address: "0xb0b", execute: async () => ({ transaction_hash: "0x99" }) });
+    let current: DataSources = s.sources;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={current}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(({ player }: { player: string }) => usePurchase(player), { wrapper, initialProps: { player: PLAYER } });
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    s.state.noEvents = true;
+    act(() => result.current.mutation.mutate({ playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    // Another account connects while the send is pending.
+    current = { ...s.sources, signer: other as unknown as GameSigner };
+    rerender({ player: "0xb0b" });
+    release();
+    await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"'));
+    expect(localStorage.getItem(unknownPurchaseStorageKey("0xb0b", "game"))).toBeNull();
+    // The other account sees none of it.
+    expect(result.current.hold.unknown).toBeNull();
+    expect(result.current.mutation.status).toBe("idle");
+    // Back to the sender: the hold is there.
+    current = s.sources;
+    rerender({ player: PLAYER });
+    await waitFor(() => expect(result.current.hold.unknown?.hash).toBe("0x1"));
+  });
+
+  it("storage full: a failed write keeps the cache's copy, so a remount still holds", async () => {
+    const s = setup();
+    refuseRecords("write");
+    await unknownGame(s);
+    expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull();
+    remount(s);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+  });
+
+  it("storage off: the query cache keeps the record, so a remount still holds", async () => {
+    const s = setup();
+    refuseRecords("read-write");
+    await unknownGame(s);
+    remount(s);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+  });
+
+  it("a second tab's record (the storage event) holds this tab's Pay", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    await enabledPay();
+    const key = unknownPurchaseStorageKey(PLAYER, "game");
+    localStorage.setItem(key, JSON.stringify({ hash: "0x7", at: Math.floor(Date.now() / 1000) }));
+    act(() => void window.dispatchEvent(new StorageEvent("storage", { key })));
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText(/\(0x7\)/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
 });

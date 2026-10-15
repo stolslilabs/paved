@@ -1782,8 +1782,13 @@ off: `data/unknown-purchase.ts`), so it survives a remount ("Check my games" and
 it is recorded, each mount checks its receipt and the reads that tell whether it landed (a game: the player's games, active
 game and USDC; a pack: the Cobbles and USDC), each with `fetchQuery`. Pay and Buy are held during that check and while it
 fails ("could not check", Retry), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends
-(and clears the record), since a game's second purchase would be signed without a prompt. A receipt that reads (it went
-through, or reverted) clears the record. The game's referrer follows the same rule as a pack's (`packReferrer`: `Setup`,
+(and clears the record), since a game's second purchase would be signed without a prompt. A check that keeps failing (a
+node without receipts, an outage) offers Dismiss beside Retry, with the warning that buying again may pay twice. The
+notice says how long ago the purchase was sent (the record's `at`). The receipt decides on its own: one that reads (it
+went through, or reverted) clears the record even when a reconciling read failed. The record goes under the player who
+sent it (the request carries it), whoever is connected when the outcome comes back; a change of player resets the page's
+refusals and resolutions. A write that storage refuses (full) is remembered for the page's life, so the stale stored value
+is never read back over the cache's copy. The game's referrer follows the same rule as a pack's (`packReferrer`: `Setup`,
 the Vault and the router read at the time are dropped too), since both go through `Economy.pay`. The app's
 sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
 `data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).

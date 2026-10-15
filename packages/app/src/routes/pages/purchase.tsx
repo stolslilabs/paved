@@ -21,11 +21,23 @@ import { useAppNavigate, useBack } from "../ref";
  * What the scene shows of a purchase whose outcome was unknown (`usePurchaseHold`): while recorded, the unknown outcome (Pay
  * held, then Buy again only); once its receipt read, that it went through or reverted; null otherwise.
  */
-function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles"): PurchaseRefusal | null {
-  if (hold.unknown) return { kind: "unknown", message: `Purchase sent (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.` };
+function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles", now: number): PurchaseRefusal | null {
+  if (hold.unknown) {
+    const when = sentAgo(now - hold.unknown.at);
+    return { kind: "unknown", message: `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.` };
+  }
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
   return null;
+}
+
+/** How long ago a purchase was sent, from its record's `at`: "just now", "5 min ago", "3 h ago", "2 days ago". */
+export function sentAgo(seconds: number): string {
+  if (seconds < 60) return "just now";
+  if (seconds < 3_600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86_400) return `${Math.floor(seconds / 3_600)} h ago`;
+  const days = Math.floor(seconds / 86_400);
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
 /** The pool quote of a confirm could not be used: why, as a refusal the scene shows before any send. */
@@ -85,27 +97,35 @@ export default function Page() {
   const gameHold = purchase.hold;
   const packHold = buyPack.hold;
   const gameRefusal =
-    heldRefusal(gameHold, "games") ?? (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
+    heldRefusal(gameHold, "games", now) ?? (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
-    heldRefusal(packHold, "Cobbles") ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
+    heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const confirm = () => {
-    if (!purchase.buyer) return void wallet.connect();
+    if (!purchase.buyer || !playerId) return void wallet.connect();
     if (stakeQuote.minOut === null || gameHold.held || gameReferrer.isPending) return;
     // A deliberate Buy again: the earlier purchase is left to the player's check.
     if (gameHold.unknown) gameHold.clear();
     gameHold.dismiss();
     purchase.mutation.mutate(
-      { stake, confirmedPrice: quote.data!.price, confirmedMinOut: stakeQuote.minOut, referrer: gameReferrer.referrer, acceptedLowQuote: gameRefusal?.kind === "low-quote" },
+      {
+        playerId,
+        stake,
+        confirmedPrice: quote.data!.price,
+        confirmedMinOut: stakeQuote.minOut,
+        referrer: gameReferrer.referrer,
+        acceptedLowQuote: gameRefusal?.kind === "low-quote",
+      },
       { onSuccess: ({ gameId }) => go(`/game/${gameId}`) },
     );
   };
   const buy = () => {
-    if (!buyPack.buyer) return void wallet.connect();
+    if (!buyPack.buyer || !playerId) return void wallet.connect();
     if (!pack || packQuote.minOut === null || packHold.held || packReferrer.isPending) return;
     if (packHold.unknown) packHold.clear();
     packHold.dismiss();
     buyPack.mutation.mutate({
+      playerId,
       packId: pack.packId,
       confirmedPrice: pack.price,
       confirmedMinOut: packQuote.minOut,
@@ -173,6 +193,16 @@ export default function Page() {
       onRetryBalance={() => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) })}
       onRetryPacks={() => void client.invalidateQueries({ queryKey: packKeys.packs() })}
       onRetryCheck={() => (tab === "cobbles" ? packHold : gameHold).retry()}
+      onDismissCheck={() => {
+        // The player's deliberate way out of a check that keeps failing: the record and the unknown error both go.
+        if (tab === "cobbles") {
+          packHold.clear();
+          buyPack.mutation.reset();
+        } else {
+          gameHold.clear();
+          purchase.mutation.reset();
+        }
+      }}
       onCheckGames={() => go("/")}
       onCheckCobbles={() => playerId && void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) })}
       onBack={onBack}

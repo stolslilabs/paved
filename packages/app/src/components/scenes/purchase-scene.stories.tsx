@@ -73,13 +73,15 @@ export const LowQuote: Story = {
 };
 /** The writer refused the purchase: its message. */
 export const Refused: Story = { args: { ...PURCHASE.stake1, refusal: { kind: "refused", message: "This address cannot be your referrer. Nothing was sent." } } };
-const UNKNOWN = { kind: "unknown", message: "Purchase sent (0x5f1e), outcome unknown: check your games before buying again" } as const;
+const UNKNOWN = { kind: "unknown", message: "Purchase sent 5 min ago (0x5f1e), outcome unknown: check your games before buying again." } as const;
 /** Sent, but the receipt could not be read: Pay waits while the player's games and USDC are read again. */
 export const OutcomeUnknown: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, checking: true, onCheckGames: fn() } };
 /** The reads have settled: only a deliberate Buy again. */
 export const OutcomeUnknownChecked: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, onCheckGames: fn() } };
-/** The check failed (a read down): Pay stays held, Retry checks again. */
-export const OutcomeUnknownCheckFailed: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn() } };
+/** The check failed (a read down): Pay stays held; Retry checks again, Dismiss is the deliberate way out, with its warning. */
+export const OutcomeUnknownCheckFailed: Story = {
+  args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
+};
 /** The receipt of the unknown purchase read since: it went through. */
 export const EarlierPurchaseLanded: Story = {
   args: { ...PURCHASE.stake1, refusal: { kind: "landed", message: "Your earlier purchase went through: check your games before buying again." }, onCheckGames: fn() },
