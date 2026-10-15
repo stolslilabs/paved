@@ -60,6 +60,7 @@ export function HomeScene(props: HomeSceneProps) {
       <AppNav active="home" onNavigate={props.onNavigate} className="desktop:min-h-dvh" />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
         <header className="flex items-center justify-between">
+          <h1 className="sr-only">Home</h1>
           <Wordmark size="md" />
           <span className="flex items-center gap-3 text-xs text-muted-foreground">
             {cobbles && <Cobbles value={cobbles.balance} />}

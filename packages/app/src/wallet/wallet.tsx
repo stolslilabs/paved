@@ -1,0 +1,150 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { WriteAccount } from "@paved/chain";
+import { DataProvider, type DataSources, type GameSigner } from "../data/sources";
+
+/**
+ * Who connects (P6): the Cartridge controller outside devnet, the env's burner on devnet (`connector.ts`). The
+ * controller's `ControllerConnector` of `@paved/chain` has this shape; `signer` builds the account's writes
+ * (`PavedClient.writer`). A test gives a fake one: the real controller opens Cartridge's keychain, which needs a browser
+ * and Cartridge's service.
+ */
+export interface WalletConnector {
+  /** The account of a session approved earlier in this browser, without a prompt; null when there is none. */
+  probe(): Promise<WriteAccount | null>;
+  /** Opens the wallet; rejects when the player closes it without connecting. */
+  connect(): Promise<WriteAccount>;
+  disconnect(): Promise<void>;
+  /** The connected player's username (the controller's); null when there is none. */
+  username(): Promise<string | null>;
+  /** The writes of `account` (`PavedClient.writer(account)`). */
+  signer(account: WriteAccount): GameSigner;
+}
+
+/** Loads the connector of this build; rejects with the reason when there is none (a deployment not configured). */
+export type LoadConnector = () => Promise<WalletConnector>;
+
+export interface WalletState {
+  /** `restoring`: a session approved earlier is being looked for; `connecting`: the wallet's window is open. */
+  status: "disconnected" | "restoring" | "connecting" | "connected";
+  /** The connected account's address; null when none is connected. */
+  address: string | null;
+  username: string | null;
+  /** Why the last connect or disconnect failed. */
+  error: string | null;
+  /** Opens the wallet; resolves true once connected, false when it failed or was closed. */
+  connect(): Promise<boolean>;
+  /** Back to read only at once: no write starts with an account the player is leaving. */
+  disconnect(): void;
+  /** Looks once for a session approved earlier (no prompt). The pages that read the account call it (`useAccount`). */
+  restore(): void;
+}
+
+const WalletContext = createContext<WalletState | null>(null);
+
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** The real connector, in its own chunk: starknet.js and the controller are fetched when a page first needs the account. */
+const loadAppConnector: LoadConnector = () => import("./connector").then((m) => m.appConnector());
+
+/**
+ * Holds the wallet and gives the data hooks the connected account's writes: `sources` with `signer` filled while
+ * connected, null otherwise. Nothing is loaded until a connect, or a `restore` from a page that reads the account: the
+ * welcome and Training fetch no wallet code.
+ */
+export function WalletProvider({ sources, load = loadAppConnector, children }: { sources: DataSources; load?: LoadConnector; children: ReactNode }) {
+  const loaded = useRef<Promise<WalletConnector> | null>(null);
+  const restored = useRef(false);
+  // Each connect or disconnect bumps it: a probe or connect that answers after a newer action is dropped.
+  const generation = useRef(0);
+  const [status, setStatus] = useState<WalletState["status"]>("disconnected");
+  const [account, setAccount] = useState<{ address: string; signer: GameSigner } | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const connector = useCallback(() => {
+    loaded.current ??= load();
+    // A failed load is tried again at the next call.
+    loaded.current.catch(() => (loaded.current = null));
+    return loaded.current;
+  }, [load]);
+
+  const accept = useCallback((c: WalletConnector, from: WriteAccount) => {
+    setAccount({ address: from.address, signer: c.signer(from) });
+    setStatus("connected");
+    setUsername(null);
+    c.username().then(setUsername, () => {});
+  }, []);
+
+  const restore = useCallback(() => {
+    if (restored.current) return;
+    restored.current = true;
+    const at = generation.current;
+    setStatus((s) => (s === "disconnected" ? "restoring" : s));
+    connector()
+      .then(async (c) => {
+        const found = await c.probe();
+        if (at !== generation.current) return;
+        if (found) accept(c, found);
+        else setStatus("disconnected");
+      })
+      // No connector or no session: a guest, without an error (the player did not ask).
+      .catch(() => at === generation.current && setStatus("disconnected"));
+  }, [connector, accept]);
+
+  const connect = useCallback(async () => {
+    const at = ++generation.current;
+    setStatus("connecting");
+    setError(null);
+    try {
+      const c = await connector();
+      const connected = await c.connect();
+      if (at !== generation.current) return false;
+      accept(c, connected);
+      return true;
+    } catch (cause) {
+      if (at === generation.current) {
+        setError(`Not connected: ${message(cause)}`);
+        setStatus("disconnected");
+      }
+      return false;
+    }
+  }, [connector, accept]);
+
+  const disconnect = useCallback(() => {
+    generation.current += 1;
+    setAccount(null);
+    setUsername(null);
+    setError(null);
+    setStatus("disconnected");
+    const pending = loaded.current;
+    pending?.then((c) => c.disconnect()).catch((cause) => setError(`Disconnect failed: ${message(cause)}`));
+  }, []);
+
+  const wallet = useMemo<WalletState>(
+    () => ({ status, address: account?.address ?? null, username, error, connect, disconnect, restore }),
+    [status, account, username, error, connect, disconnect, restore],
+  );
+  // One signer per account: a new one would be a new writer, and the writer serialises the account's writes.
+  const withSigner = useMemo<DataSources>(() => ({ ...sources, signer: account?.signer ?? sources.signer ?? null }), [sources, account]);
+
+  return (
+    <WalletContext.Provider value={wallet}>
+      <DataProvider sources={withSigner}>{children}</DataProvider>
+    </WalletContext.Provider>
+  );
+}
+
+/** The wallet; inside `WalletProvider`. */
+export function useWallet(): WalletState {
+  const wallet = useContext(WalletContext);
+  if (!wallet) throw new Error("useWallet: no WalletProvider above this component");
+  return wallet;
+}
+
+/** The wallet, with a session approved earlier looked for once (home, play, the boards that write). */
+export function useAccount(): WalletState {
+  const wallet = useWallet();
+  const { restore } = wallet;
+  useEffect(() => restore(), [restore]);
+  return wallet;
+}

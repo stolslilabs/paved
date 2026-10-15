@@ -1,16 +1,27 @@
-import type { PavedClient } from "@paved/chain";
+import type { IndexerClient, PavedClient } from "@paved/chain";
 import type { DataSources } from "../data/sources";
 
-/** Why an indexer read fails in this build: no page reads it yet. */
-const NOT_CONNECTED = "Not connected: the indexer is wired with its pages (P8 to P10)";
+/** Why an indexer read fails in a build without one. */
+const NO_INDEXER = "No indexer: VITE_INDEXER_URL is not set in this build";
+
+let indexerClient: IndexerClient | null = null;
 
 /**
- * A source whose every read is refused with `NOT_CONNECTED`. It imports nothing from `@paved/chain`, so starknet.js
- * stays out of the first bundle until a page that reads the chain brings the real client in its own chunk.
+ * The indexer client on `VITE_INDEXER_URL` (P6: home's top 3), built at the first read from `@paved/chain`'s chunk, so
+ * starknet.js stays out of the first bundle. Without the variable every read is refused with `NO_INDEXER`.
  */
-function notConnected<T extends object>(): T {
-  return new Proxy({} as T, {
-    get: (_target, key) => (key === "then" ? undefined : () => Promise.reject(new Error(NOT_CONNECTED))),
+function lazyIndexer(): IndexerClient {
+  return new Proxy({} as IndexerClient, {
+    get: (_target, key) =>
+      key === "then"
+        ? undefined
+        : async (...args: unknown[]) => {
+            const { createIndexerClient } = await import("@paved/chain");
+            indexerClient ??= createIndexerClient(import.meta.env.VITE_INDEXER_URL);
+            if (!indexerClient) throw new Error(NO_INDEXER);
+            const target = indexerClient as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
+            return target[key]!(...args);
+          },
   });
 }
 
@@ -34,14 +45,14 @@ function lazyChain<T extends object>(part: (client: PavedClient) => T): T {
 /**
  * The sources the app's `DataProvider` gives. Training needs only its save, `localStorage` (`store` left out:
  * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
- * loaded with the first read. No signer until the wallet connects (P6): a Challenge board is read only. The indexer is
- * refused until its pages are wired (P8, P9); no economy deployment yet, so the economy's hooks answer null.
+ * loaded with the first read. The signer is `WalletProvider`'s (P6): null here, filled while a wallet is connected. The
+ * indexer is the client on `VITE_INDEXER_URL` (P6); no economy deployment yet, so the economy's hooks answer null.
  */
 export const APP_SOURCES: DataSources = {
   views: lazyChain((c) => c.views),
   events: lazyChain((c) => c.events),
   economy: null,
   pool: null,
-  indexer: notConnected(),
+  indexer: lazyIndexer(),
   signer: null,
 };

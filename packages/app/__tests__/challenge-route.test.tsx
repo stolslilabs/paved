@@ -85,6 +85,9 @@ describe("/game/:gameId (P5)", { timeout: 15_000 }, () => {
     expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
     expect(hand()).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Board of 1 tiles$/)).toBeInTheDocument();
+    // The board fills the viewport with nothing after it: no footer, the D-15 notice inside the board (P6 review).
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.getByRole("link", { name: "Third-party notices" }).closest(".h-dvh")).toHaveClass("overflow-hidden");
   });
 
   it("with a signer: playable; a discard shows the next tile from the engine and is sent through the signer", async () => {

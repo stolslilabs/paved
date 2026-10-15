@@ -28,11 +28,13 @@ export interface HandPanelProps {
   onConfirm?: () => void;
   onDiscard?: () => void;
   onSurrender?: () => void;
+  /** Surrender is offered: not in the tutorial, which has nothing to give up (P6). */
+  canSurrender?: boolean;
   className?: string;
 }
 
 /** The hand: the tile to place, rotate, confirm, discard, and surrender (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, className }: HandPanelProps) {
+export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -89,15 +91,17 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
           <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile}>
             <Icon name="trash" size="sm" /> Discard
           </Button>
-          <Button
-            variant={state === "expired" ? "destructive" : "ghost"}
-            size="sm"
-            onClick={onSurrender}
-            disabled={busy || state === "empty"}
-            className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
-          >
-            <Icon name="flag" size="sm" /> Surrender
-          </Button>
+          {canSurrender && (
+            <Button
+              variant={state === "expired" ? "destructive" : "ghost"}
+              size="sm"
+              onClick={onSurrender}
+              disabled={busy || state === "empty"}
+              className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
+            >
+              <Icon name="flag" size="sm" /> Surrender
+            </Button>
+          )}
         </div>
       </div>
       {state === "placing" && !slotChosen && <p className="text-center text-xs text-muted-foreground">Tap a lit slot on the board.</p>}

@@ -1,16 +1,21 @@
 import { WelcomeScene } from "../../components/scenes/welcome-scene";
+import { useWallet } from "../../wallet/wallet";
 import { useAppNavigate } from "../ref";
 import { markWelcomed } from "../welcomed";
 
 /**
- * `/welcome`, the first visit. The wallet connect is wired with the account (P6): until then Connect marks the
- * visit and goes Home, and Training is the way in without a wallet.
+ * `/welcome`, the first visit. Connect opens the wallet (P6): once connected the visit is marked and Home opens; a
+ * failed or closed connect stays here with its reason. Training is the way in without a wallet.
  */
 export default function Page() {
   const go = useAppNavigate();
+  const wallet = useWallet();
   return (
     <WelcomeScene
-      onConnect={() => {
+      connecting={wallet.status === "connecting"}
+      error={wallet.error}
+      onConnect={async () => {
+        if (!(await wallet.connect())) return;
         markWelcomed();
         go("/", { replace: true });
       }}

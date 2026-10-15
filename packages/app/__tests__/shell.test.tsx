@@ -10,12 +10,15 @@ import { PAGES } from "../src/routes/pages";
 import { withRef } from "../src/routes/ref";
 import { createTestRouter } from "../src/routes/router";
 import { hasWelcomed, markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
+import { fakeSources } from "./data-fakes";
+import { fakeWallet } from "./wallet-fakes";
 
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:(\w+)/g, "1");
 
-function open(path: string) {
+/** The app on the chain's and indexer's fakes, with a wallet in memory that connects (P6). */
+function open(path: string, wallet = fakeWallet()) {
   const router = createTestRouter(path);
-  render(<App router={router} />);
+  render(<App router={router} sources={fakeSources().sources} connector={wallet.load} />);
   return router;
 }
 
@@ -38,7 +41,8 @@ describe("the active tab comes from the route's own entry", () => {
 
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
-    await screen.findByRole("heading", { level: 1, name: page.title });
+    // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
+    await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: 5000 });
     const active = screen.getAllByRole("button", { current: "page" });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });
@@ -81,7 +85,7 @@ describe("the active tab comes from the route's own entry", () => {
 
   it("has no tab on a full-screen flow", async () => {
     open("/play");
-    await screen.findByRole("heading", { level: 1, name: "Play" });
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 });
@@ -184,7 +188,7 @@ describe("the welcome", () => {
     resetWelcomedForTests();
   });
 
-  it("shows on the first visit to Home, and Connect marks the visit and goes Home", async () => {
+  it("shows on the first visit to Home, and Connect connects, marks the visit and goes Home", async () => {
     const router = open("/");
     await screen.findByRole("heading", { name: "Welcome to Paved" });
     expect(router.state.location.pathname).toBe("/welcome");
@@ -192,6 +196,15 @@ describe("the welcome", () => {
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(localStorage.getItem("welcomed")).toBe("1");
     expect(router.state.location.pathname).toBe("/");
+  });
+
+  it("a refused connect stays on the welcome with its reason, the visit not marked", async () => {
+    const router = open("/", fakeWallet({ refuse: "closed by the player" }));
+    await screen.findByRole("heading", { name: "Welcome to Paved" });
+    await userEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    expect(await screen.findByText(/closed by the player/, { selector: "[data-slot=card] *" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/welcome");
+    expect(hasWelcomed()).toBe(false);
   });
 
   it("shows once: a returning visitor skips it, on Home and on /welcome", async () => {
@@ -211,7 +224,7 @@ describe("the welcome", () => {
     expect(hasWelcomed()).toBe(true);
   });
 
-  it("with storage off it shows and nothing breaks: Connect still goes Home, which does not loop back", async () => {
+  it("with storage off it shows and nothing breaks: a connect still goes Home, which does not loop back", async () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
     });
@@ -327,7 +340,7 @@ describe("Back after a reload (the browser history's index)", () => {
     await screen.findByRole("button", { name: "Back" });
     await act(() => router.navigate(-1));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
-    await screen.findByRole("heading", { level: 1, name: "Play" });
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     router.dispose();
