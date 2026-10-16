@@ -1430,8 +1430,8 @@ to Home).
 | leaderboard | — | tournaments, leaderboard, player, player games | — | — |
 | quests | `Setup.account`, `day_progress`, `week_progress`; writes `claim_quest`, `claim_daily_credit`, `claim_weekly_credit` (P9) | `definitions` (with `cobbles`, `cobbles_kind`), `playerQuests`, `/v1/head` (the clock) | — | — |
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
-| vault | `Vault.staked`, `pending`, `total_staked`, PAVED `balance_of`; writes `stake`, `unstake`, `claim` | — | — | — |
-| referral | — | the referral earnings: the indexer already stores each purchase's `referrer` and `referral` amount (`packages/indexer/src/api.ts:233-236`); a route listing them by referrer is to add (CLIENT) | — | — |
+| vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
+| referral | `Economy.split_bps()` (the share shown) | `/v1/players/:id/referrals` (IX-COBBLES2): the games' and the packs' referrals, summed by referrer; the id is the player's address | — | the referrer from `?ref=` (kept on every link) |
 | theme | — | — | — | the chosen theme |
 | settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
 
@@ -1839,7 +1839,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game. **P7b done** (2026-10-15; "As built (P7b)" below): the purchase half, with Cobbles part 2's packs. **P7a done** (2026-10-15; "As built (P7a)" below): the over page of a Challenge, with settle | 2 d |
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
-| P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
+| P10 | The vault and referral scenes on their data (and the indexer's referral route). **Done** (2026-10-16; "As built (P10)" below): `/vault` on the Vault as it is on main, an ERC4626 over PAVED (vPAVED), with deposit, withdraw and withdraw all; `/referral` on the indexer's `/v1/players/:id/referrals` (IX-COBBLES2, games and packs) | 1.5 d |
 | P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **Next: the board draws the active skins** (the renderer picks each tile's model from its player's active set and a variant per tile, as origin/dev's `getVarietyModelPath`; the manifest's `themes` is its input), a separate task after LIGHT | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
 
@@ -1969,6 +1969,46 @@ its reason and the batch kept, "Skins saved". The two writes are session policie
 Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
 the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
 the top of the page is kept on this device (`paved.theme.v1`); the board does not read it yet.
+
+**As built (P10).** The Vault on main is not the plain staking vault of 6.5's first read: `contracts/src/systems/vault.cairo`
+is an OpenZeppelin ERC4626 over PAVED (vPAVED, 18 decimals, offset 0) with an exit fee (`exit_fee` bps, 5 % at launch, at most
+10 %, kept for the holders who stay), 1,000 PAVED of dead shares and votes once delegated (`docs/architecture/vault-share.md`
+and its addendum). The page follows the contract, not this document's first row (no `stake`, `unstake`, `claim`, `pending`,
+no dividend: the rate is the reward). `@paved/chain` reads it behind `VaultViews` (`economy/vault.ts`), which `EconomyViews`
+extends and `RpcEconomyViews` and `FakeEconomy` implement, so a later share token swaps in behind it: the position (`vault`:
+`balance_of`, `convert_to_assets`, `max_withdraw`, `exit_fee`, `total_assets`, `total_supply`), `maxRedeem`, the three
+previews, `delegateOf` (`delegates`, null when not delegated) and PAVED's `balance_of`. The rate is `vaultRate`, OpenZeppelin's
+`(total_assets + 1) / (total_supply + 1)`; `withdrawFee` and `redeemFee` are the Vault's two exit fees, rounded up as it
+rounds them. `/vault` shows the vPAVED, its PAVED value, the share of the Vault (`shares / total_supply`, the dead shares in
+the supply), the rate, total assets, the exit fee, what leaves now (`max_withdraw`), the delegate (read only: no delegate
+write) and the wallet's PAVED. The field is PAVED, parsed exactly to a bigint of 18 decimals (digits, one point, at most 18
+decimals; anything else is no amount) and never a float; Max writes the exact base units back (`exactUnits`). Deposit shows
+`preview_deposit` and sends the approve of exactly the amount to the Vault and `deposit(amount, self)` in one multicall, so
+the wallet asks once for both. Withdraw shows the PAVED received, the exit fee on top (`withdrawFee`) and `preview_withdraw`'s
+vPAVED before it is sent, then `withdraw(amount, self, self)`: the player thinks in PAVED and gets exactly what they typed.
+Withdraw all is `redeem` of every vPAVED, its fee (the value less `max_withdraw`) shown first: it burns exactly the balance, so
+nothing is left behind by a rounding. Each exit is sent only at the exit fee the player saw (`VaultExitFeeChangedError`): the
+rate only rises between a confirm and a send, the owner's `set_exit_fee` is the one change that can turn against the holder.
+The writer reads the wallet or the position again at send and refuses, typed: `VaultZeroSharesError` (`'Vault: zero
+shares'`), `VaultOverMaxDepositError` (`'ERC4626: exceeds max deposit'`, out of reach while the Vault sets no limit),
+`VaultOverMaxWithdrawError` and `VaultOverMaxRedeemError` (`'ERC4626: exceeds max withdraw'`, `'... max redeem'`),
+`VaultAllowanceError` (`'ERC20: insufficient allowance'`), `VaultBalanceError` (`'ERC20: insufficient balance'`, and before
+sending), `VaultAmountChangedError`; the constructor's and the owner's reverts and `mint`'s are out of the client's reach. No
+Vault entry point and no PAVED approve is a session policy (P-56: the session's only approve is the entry's, to Challenge):
+the deposit needs the approve, and `withdraw` and `redeem` take a free `receiver`, so a session key could send a holder's
+PAVED anywhere; each prompts. The states: a guest's Connect, the loading shape, a failed read with Retry, nothing deposited,
+not enough PAVED and over `max_withdraw` (refused before any send), pending (the button waits; the line says what the wallet
+asks), refused (the writer's message, the amount kept), done (the receipt's `Deposit` or `Withdraw` moves the position and the
+wallet in the cache, then they and the previews are read once). The writes are the sources' `vault` (`data/vault-client.ts`,
+loaded at the first write); the route's chunk imports `@paved/chain` as types only.
+
+`/referral` shows the player's link, the app's origin with `?ref=` and their address (`0x`, no padding; `withRef` keeps it on
+every link, and the purchases send it as the referrer), with Copy and, where the browser has a share sheet, Share; the share
+of a price from `split_bps` (games and packs alike); and what the link earned from the indexer's `/v1/players/:id/referrals`
+(IX-COBBLES2), whose id is the player's address, the signer's (D-25 (E): a player is the wallet address). The answer is two
+sums, not a list: the games' (`Purchased`) and the packs' (`Sold`) count and referral in USDC, read as exact bigints, the
+total checked against them (`IndexerClient.playerReferrals`). The scene's list of each purchase became those two rows. A
+failed read shows Retry inside the earnings and never hides the link; a guest connects; nobody yet has its line.
 
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
