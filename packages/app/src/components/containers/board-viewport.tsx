@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { HoverState, TileRenderData, TileSkins } from "@paved/renderer";
+import type { HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
@@ -64,6 +64,15 @@ export interface BoardViewportProps {
   /** The legal slots of the tile in hand, lit on the board (the contracts' coordinates). */
   slots?: { x: number; y: number }[];
   ghost?: BoardGhost | null;
+  /**
+   * The renderer's settings (`RendererSettingsInput`: the graphics quality). Keep the object between renders while the
+   * settings do not change; a new one is applied to the open board at once (`GameScene.setSettings`), no reload.
+   */
+  settings?: RendererSettingsInput;
+  /** Draw the ghost (the tile on the slot before it is placed). Default true; off: the tile is not shown on the slot. */
+  tilePreview?: boolean;
+  /** Light the legal slots. Default true; off: no slot is outlined. */
+  placementHighlight?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
@@ -74,16 +83,16 @@ export interface BoardViewportProps {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, settings, tilePreview = true, placementHighlight = true, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
-  const gridSlots = useMemo(() => (slots ?? []).map((s) => toGridSlot(s.x, s.y)), [slots]);
+  const gridSlots = useMemo(() => (placementHighlight ? (slots ?? []).map((s) => toGridSlot(s.x, s.y)) : []), [slots, placementHighlight]);
   const hover = useMemo<HoverState | null>(
     // The ghost draws the variant the tile would have in the cell it hovers.
     () =>
-      ghost
+      ghost && tilePreview
         ? { ...toGridSlot(ghost.x, ghost.y), valid: true, idle: true, planIndex: ghost.plan, orientation: ghost.orientation, cell: { x: ghost.x, y: ghost.y, gameId } }
         : null,
-    [ghost, gameId],
+    [ghost, gameId, tilePreview],
   );
   return (
     <div className={cn("absolute inset-0 bg-board", className)}>
@@ -91,6 +100,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         tiles={renderTiles}
         basePath={basePath}
         skins={skins}
+        settings={settings}
         availableSlots={gridSlots}
         hover={hover}
         onError={onError}

@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
+import { useBoardSettings } from "../../data/settings";
 import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { trainingStore, useDataSources } from "../../data/sources";
@@ -51,6 +52,7 @@ function TrainingBoard() {
   const { game, snapshot, board } = useTrainingSession();
   // The connected player's skins; a guest's board draws the base models.
   const skins = useBoardSkins(useDataSources().signer?.address ?? null);
+  const boardSettings = useBoardSettings();
   const go = useAppNavigate();
   const onBack = useBack();
   const [orientation, setOrientation] = useState(1);
@@ -131,6 +133,9 @@ function TrainingBoard() {
       canvas={
         view === "3d" ? (
           <BoardViewport
+            settings={boardSettings.renderer}
+            tilePreview={boardSettings.tilePreview}
+            placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={board.tiles}
             basePath={RENDERER_ASSETS}
@@ -179,6 +184,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const { session, state, senders } = useChallengeSession(gameId);
   // The game's player's skins, for whoever views the game; the base models until the game and the read answer.
   const skins = useBoardSkins(state?.game?.playerId ?? null);
+  const boardSettings = useBoardSettings();
   const go = useAppNavigate();
   const onBack = useBack();
   const now = useNow();
@@ -328,6 +334,9 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       canvas={
         view === "3d" ? (
           <BoardViewport
+            settings={boardSettings.renderer}
+            tilePreview={boardSettings.tilePreview}
+            placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={state.tiles}
             gameId={gameId}
@@ -371,6 +380,7 @@ function TutorialBoard() {
   const sources = useDataSources();
   // The connected player's skins, as in Training.
   const skins = useBoardSkins(sources.signer?.address ?? null);
+  const boardSettings = useBoardSettings();
   const onBack = useBack();
   const step = view.step;
   const [orientation, setOrientation] = useState(() => initialOrientation(step));
@@ -468,6 +478,9 @@ function TutorialBoard() {
       canvas={
         view3d === "3d" ? (
           <BoardViewport
+            settings={boardSettings.renderer}
+            tilePreview={boardSettings.tilePreview}
+            placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={board.tiles}
             basePath={RENDERER_ASSETS}

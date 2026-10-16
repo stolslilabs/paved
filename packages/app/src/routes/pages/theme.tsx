@@ -6,7 +6,7 @@ import { THEME_CODES } from "../../components/containers/skin-grid";
 import { THEMES } from "../../components/containers/theme-card";
 import { ThemeScene, type SkinsStatus, type ThemeSkins } from "../../components/scenes/theme-scene";
 import { cobbleKeys } from "../../data/cobbles";
-import { skinChanges, skinKeys, useDeviceTheme, useSkinWrites, useThemeSkins } from "../../data/skins";
+import { skinChanges, skinKeys, useDeviceTheme, useShowSkins, useSkinWrites, useThemeSkins } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
@@ -34,6 +34,7 @@ export default function Page() {
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
   const [selected, select] = useDeviceTheme();
+  const [showSkins, setShowSkins] = useShowSkins();
   const [browsed, browse] = useState<ThemeSkins["theme"]>("forest");
   const [changes, setChanges] = useState<Record<number, number>>({});
   const available = THEMES.find((t) => t.id === browsed)?.available ?? false;
@@ -93,6 +94,8 @@ export default function Page() {
       tileArt={RENDERER_ASSETS}
       skins={skins}
       skinsStatus={status}
+      showSkins={showSkins}
+      onShowSkins={setShowSkins}
       onSelect={select}
       onBrowse={browse}
       onBuySkin={buy}
