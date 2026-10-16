@@ -27,7 +27,7 @@ export function createDeviceStore<T>(
   storage: () => Storage_ | null = () => globalThis.localStorage ?? null,
 ): DeviceStore<T> {
   const listeners = new Set<() => void>();
-  // The twin: set once a read or a write threw, then it is the truth for this visit.
+  // The twin: set once a read or a write threw, then it is the truth until a later write succeeds.
   let twin: { value: T } | null = null;
   let cache: { raw: string | null; value: T } | null = null;
 
@@ -55,6 +55,8 @@ export function createDeviceStore<T>(
         const store = storage();
         if (!store) throw new Error("no storage");
         store.setItem(key, serialize(value));
+        // Storage took the write: it is the truth again, not the twin an earlier failure left.
+        twin = null;
       } catch {
         twin = { value };
       }

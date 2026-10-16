@@ -258,7 +258,7 @@ export const VAULT = {
 export const PREFERENCES: Preferences = { quality: "high", sound: true, music: false, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
-  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "default", autoQuality: "medium", version: "0.1.0" },
+  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "forest", autoQuality: "medium", version: "0.1.0" },
   guest: { preferences: { ...PREFERENCES, quality: "auto", sound: false, showSkins: false }, account: null, theme: "forest", version: "0.1.0" },
   /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },

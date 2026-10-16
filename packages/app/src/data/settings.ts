@@ -1,9 +1,19 @@
 import { useMemo } from "react";
-import { resolveQuality, SMALL_SCREEN_PX, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
+import type { QualityTier, RendererSettingsInput } from "@paved/renderer";
 import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-store";
 
 // The device settings (P11a, section 6.4): graphics quality, sound, music, tile preview and placement highlight, kept on
 // this device under one versioned key. The theme choice (`paved.theme.v1`, the viewer's skins opt-out) is `skins.ts`'s.
+
+/**
+ * `@paved/renderer`'s `SMALL_SCREEN_PX`, repeated: the renderer's barrel is one module that pulls three.js, and the `/settings`
+ * chunk imports this one (measured at the build: it put three.js, 805 kB, in the settings data chunk). `device-settings.test.ts`
+ * checks that this and `autoTier` agree with the renderer's `resolveQuality`; the renderer is a type-only import here.
+ */
+export const SMALL_SCREEN_PX = 600;
+
+/** What "auto" resolves to: `resolveQuality("auto", coarseOrSmall)` of `@paved/renderer`, without `lowPowerDevice`. */
+export const autoTier = (coarseOrSmall: boolean): QualityTier => (coarseOrSmall ? "low" : "medium");
 
 /** Where this device keeps its settings: one key, one JSON object; a change of shape is a new key. */
 export const SETTINGS_KEY = "paved.settings.v1";
@@ -66,13 +76,13 @@ export function useDeviceSettings(): [DeviceSettings, <K extends keyof DeviceSet
 
 /**
  * The tier "auto" resolves to on this device, as the renderer does: Low on a coarse pointer or a small screen, else Medium
- * (`resolveQuality`). Read when the page draws; the renderer decides again by the board's own size.
+ * (`autoTier`, `resolveQuality`'s). Read when the page draws; the renderer decides again by the board's own size.
  */
 export function autoQuality(): QualityTier {
   const w = globalThis as { matchMedia?: (q: string) => { matches: boolean }; innerWidth?: number; innerHeight?: number };
   const coarse = w.matchMedia?.("(pointer: coarse)").matches ?? false;
   const shorter = Math.min(w.innerWidth ?? 0, w.innerHeight ?? 0);
-  return resolveQuality("auto", coarse || (shorter > 0 && shorter <= SMALL_SCREEN_PX));
+  return autoTier(coarse || (shorter > 0 && shorter <= SMALL_SCREEN_PX));
 }
 
 /** What the board takes of the settings: the renderer's settings (quality, memoised so a change applies and a render does not), and the two board switches. */

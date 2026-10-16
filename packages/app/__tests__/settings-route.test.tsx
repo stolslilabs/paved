@@ -173,14 +173,13 @@ describe("the board reads the settings", () => {
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
     expect(lastBoard()?.settings).toEqual({ quality: "auto" });
-    const first = lastBoard()?.settings;
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high" }));
-    // A render that changes nothing keeps the object, so the canvas does not call setSettings for nothing.
-    act(() => deviceSettings.set({ ...deviceSettings.get(), sound: false }));
-    expect(lastBoard()?.settings).not.toBe(first);
+    // A render that changes nothing the renderer reads keeps the object, so the canvas does not call setSettings for nothing.
     const high = lastBoard()?.settings;
-    act(() => deviceSettings.set({ ...deviceSettings.get(), music: true }));
+    act(() => deviceSettings.set({ ...deviceSettings.get(), sound: !deviceSettings.get().sound }));
+    expect(lastBoard()?.settings).toBe(high);
+    act(() => deviceSettings.set({ ...deviceSettings.get(), music: !deviceSettings.get().music }));
     expect(lastBoard()?.settings).toBe(high);
   });
 
