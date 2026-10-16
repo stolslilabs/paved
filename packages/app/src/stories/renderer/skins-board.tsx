@@ -3,7 +3,7 @@ import { GameCanvas } from "@paved/renderer/react";
 import { NO_SKINS, variantHash, variantIndex, type AssetManifest, type GameScene, type TileSkins } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { RENDERER_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 
 /** Which plans the story's player has Forest active on. */
@@ -23,10 +23,12 @@ export interface SkinsBoardProps {
 }
 
 /**
- * The Forest variants as the app's manifest lists them (`themes["1"]`): Storybook serves the app's `public/` (where the
- * compressed models are) but no `manifest.json`, so the story names the files from the folder, in variant order, and hands
- * the renderer that manifest (`GameCanvas`'s `manifest`). The glob reads the names only: no model is imported or bundled.
+ * The base models and the Forest variants as the app's manifest lists them (`models`, `themes["1"]`): Storybook serves the
+ * app's `public/` (where the compressed models are) at `APP_ASSETS` but no `manifest.json`, so the story names the files from
+ * the folder, in variant order, and hands the renderer that manifest (`GameCanvas`'s `manifest`). The globs read the names
+ * only: no model is imported or bundled.
  */
+const BASE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/*.glb", { query: "?url" }));
 const FOREST_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
 export const SKINS_MANIFEST: AssetManifest = (() => {
   const plans: Record<string, Array<[number, string]>> = {};
@@ -35,8 +37,12 @@ export const SKINS_MANIFEST: AssetManifest = (() => {
     if (match) (plans[match[1]!] ??= []).push([Number(match[2]), `models/forest/${file.slice(file.lastIndexOf("/") + 1)}`]);
   }
   const forest = Object.fromEntries(Object.entries(plans).map(([key, v]) => [key, v.sort((a, b) => a[0] - b[0]).map(([, path]) => path)]));
-  // No base model listed: Storybook serves the base models under their plain names (`models/<plan>.glb`).
-  return { models: {}, themes: { "1": forest } };
+  const models: Record<string, string> = {};
+  for (const file of BASE_FILES) {
+    const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
+    if (match) models[match[1]!] = `models/${file.slice(file.lastIndexOf("/") + 1)}`;
+  }
+  return { models, themes: { "1": forest } };
 })();
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
@@ -138,7 +144,7 @@ export function SkinsBoard({ forest, readout = true, delayModels = 0 }: SkinsBoa
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
-      <GameCanvas tiles={shown} hover={delayModels > 0 && placed ? GHOST : null} skins={skins} manifest={SKINS_MANIFEST} basePath={RENDERER_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas tiles={shown} hover={delayModels > 0 && placed ? GHOST : null} skins={skins} manifest={SKINS_MANIFEST} basePath={APP_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
           Forest variants fetched: {fetched} of {FOREST_FILES.length}

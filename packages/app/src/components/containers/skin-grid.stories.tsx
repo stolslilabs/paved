@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { RENDERER_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
 import { SKIN_PRICES, activeOn, ownedPlans } from "../../mocks/cobbles";
 import { SkinGrid } from "./skin-grid";
 
@@ -8,7 +8,7 @@ const meta = {
   title: "Containers/SkinGrid",
   component: SkinGrid,
   parameters: { layout: "padded" },
-  args: { theme: "forest", prices: SKIN_PRICES, owned: ownedPlans(7, 8, 10, 13), active: activeOn(1, 10, 13), balance: 240, tileArt: originalTileArt(RENDERER_ASSETS), onBuy: fn(), onToggle: fn() },
+  args: { theme: "forest", prices: SKIN_PRICES, owned: ownedPlans(7, 8, 10, 13), active: activeOn(1, 10, 13), balance: 240, tileArt: originalTileArt(APP_WEB_ASSETS), onBuy: fn(), onToggle: fn() },
 } satisfies Meta<typeof SkinGrid>;
 export default meta;
 type Story = StoryObj<typeof meta>;
