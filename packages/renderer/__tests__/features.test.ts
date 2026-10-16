@@ -30,10 +30,26 @@ const KEYS = readdirSync(MODELS)
   .map((f) => f.slice(0, -4));
 
 /**
+ * The timeout of a test that reads or labels every model, or samples their fragments: well under a second here, but CI
+ * runs every package's tests at once, about 12 times slower (8 s seen against vitest's 5 s default).
+ */
+const HEAVY_TEST_MS = 30_000;
+
+/** The base models read so far (`readTileModel`): each parsed once for the file, the tests use it or a clone of it. */
+const tileModels = new Map<string, THREE.Group>();
+
+/**
  * A base tile model (GLB) as the loader gives it, without a loader: its one mesh (position, normal, uv, index) under its
- * node's rotation (Z up in the file, Y up in the scene), in a group.
+ * node's rotation (Z up in the file, Y up in the scene), in a group. Read once and kept (`tileModels`): no test changes
+ * it, a renderer draws clones of it, and parsing the 19 files for every test made the file slow on a loaded CI.
  */
 function readTileModel(key: string): THREE.Group {
+  let model = tileModels.get(key);
+  if (!model) tileModels.set(key, (model = parseTileModel(key)));
+  return model;
+}
+
+function parseTileModel(key: string): THREE.Group {
   const glb = readFileSync(`${MODELS}/${key}.glb`);
   const jsonLength = glb.readUInt32LE(12);
   const gltf = JSON.parse(glb.subarray(20, 20 + jsonLength).toString());
@@ -188,21 +204,26 @@ function shaderRules() {
 /**
  * The label the tile shader reads for a fragment, replayed with its own rules (`shaderRules`): the fragment's place on
  * the grid (`uGridMatrix`), stepped inward along its face's normal, its column's byte in the label map, and none for a
- * road column's fragment above the ground (a bridge's deck).
+ * road column's fragment above the ground (a bridge's deck). Made once per model, so the rules, the matrices and the map
+ * are read once, not for each of the 200,000 fragments the tests sample.
  */
-function fragmentLabel(uniforms: Record<string, { value: any }>, point: THREE.Vector3, normal: THREE.Vector3): { feature: number; area: number } {
+function labelReader(uniforms: Record<string, { value: any }>): (point: THREE.Vector3, normal: THREE.Vector3) => { feature: number; area: number } {
   const rules = shaderRules();
   const grid = uniforms.uGridMatrix.value as THREE.Matrix4;
+  const normalOnGrid = new THREE.Matrix3().setFromMatrix4(grid);
   const { width, height, data } = (uniforms.uLabelMap.value as THREE.DataTexture).image as { width: number; height: number; data: Uint8Array };
-  const n = normal.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(grid)).normalize();
-  const onGrid = point.clone().applyMatrix4(grid);
-  const at = onGrid.clone().addScaledVector(n, -rules.step);
-  const i = Math.min(width - 1, Math.max(0, Math.floor(at[rules.axes[0]])));
-  const j = Math.min(height - 1, Math.max(0, Math.floor(at[rules.axes[1]])));
-  const label = data[j * width + i];
-  const [feature, area] = [Math.floor(label / rules.pack), label % rules.pack];
-  if (feature === rules.deck.road && onGrid[rules.deck.axis as "x" | "y" | "z"] > rules.deck.above) return { feature: 0, area: 0 };
-  return { feature, area };
+  const [n, onGrid, at] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  return (point, normal) => {
+    n.copy(normal).applyMatrix3(normalOnGrid).normalize();
+    onGrid.copy(point).applyMatrix4(grid);
+    at.copy(onGrid).addScaledVector(n, -rules.step);
+    const i = Math.min(width - 1, Math.max(0, Math.floor(at[rules.axes[0]])));
+    const j = Math.min(height - 1, Math.max(0, Math.floor(at[rules.axes[1]])));
+    const label = data[j * width + i];
+    const [feature, area] = [Math.floor(label / rules.pack), label % rules.pack];
+    if (feature === rules.deck.road && onGrid[rules.deck.axis as "x" | "y" | "z"] > rules.deck.above) return { feature: 0, area: 0 };
+    return { feature, area };
+  };
 }
 
 describe("the voxels' features (labelTileGeometry) over the 19 base models", () => {
@@ -318,7 +339,7 @@ describe("the voxels' features (labelTileGeometry) over the 19 base models", () 
         expect(centre.filter((k) => columns.feature[k] === FEATURE_CODE.forest), key).toEqual([]);
       }
     }
-  });
+  }, HEAVY_TEST_MS);
 
   it("gives each vertex the label of the column its triangles stand on", () => {
     for (const key of KEYS) {
@@ -370,7 +391,7 @@ describe("the Forest variants (their own palette)", () => {
     expect(FOREST_FILES).toHaveLength(72);
     expect(new Set(FOREST_FILES.map((file) => paletteHash(`${FOREST}/${file}`)))).toEqual(new Set(["8d6eebcf0b30f9f1"]));
     for (const file of FOREST_FILES) expect(paletteOfModel(`models/forest/${file}`)).toBe("forest");
-  });
+  }, HEAVY_TEST_MS);
 
   it("finds each variant's cities, roads, wonder and forests, with the Forest palette's classes", () => {
     const wrong = [...variants].flatMap(([file, { key, labels }]) => planMismatches(key, labels).map((m) => `${file.split(".")[0]}: ${m}`));
@@ -390,7 +411,7 @@ describe("the Forest variants (their own palette)", () => {
       return planAreas(key, CategoryType.Road).size > 0 && columnAreas(base, FEATURE_CODE.road).size < planAreas(key, CategoryType.Road).size;
     });
     expect(roadless.length).toBeGreaterThan(20);
-  });
+  }, HEAVY_TEST_MS);
 
   it("keeps the variants' forests apart", () => {
     expect([...variants].flatMap(([file, { labels }]) => forestLeaks(labels.columns).map((leak) => `${file}: ${leak}`))).toEqual([]);
@@ -523,7 +544,7 @@ describe("the feature highlight in the tile shader", () => {
     const [a, b, c, n, point] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
     for (const key of KEYS) {
       const mesh = typeMesh(tiles, key);
-      const { uniforms } = shaderOf(mesh.material as THREE.Material);
+      const labelOf = labelReader(shaderOf(mesh.material as THREE.Material).uniforms);
       // The classifier's own frame and columns (computed apart from the renderer), and its labels per vertex.
       const { columns, grid, feature: perVertex } = labelled.get(key)!;
       const toModel = mesh.matrixWorld;
@@ -552,7 +573,7 @@ describe("the feature highlight in the tile shader", () => {
             seen.add(expected);
             samples++;
             point.set(x, a.y, z).applyMatrix4(toGeometry);
-            if (fragmentLabel(uniforms, point, n).feature !== expected) wrong++;
+            if (labelOf(point, n).feature !== expected) wrong++;
             if (!deck && perVertex[index[t + 2]] !== expected) cut++;
           }
         }
@@ -566,7 +587,7 @@ describe("the feature highlight in the tile shader", () => {
     expect(cut).toBeGreaterThan(0);
     console.info(`[features] ${samples} top columns read per fragment, ${wrong} wrong; ${mixed} merged faces over two labels, ${cut} columns a label per vertex drew wrong`);
     tiles.dispose();
-  });
+  }, HEAVY_TEST_MS);
 });
 
 describe("the label read on the walls (vertical faces)", () => {
@@ -579,7 +600,7 @@ describe("the label read on the walls (vertical faces)", () => {
     const [a, b, c, n, centre, inward] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
     for (const key of KEYS) {
       const mesh = typeMesh(tiles, key);
-      const { uniforms } = shaderOf(mesh.material as THREE.Material);
+      const labelOf = labelReader(shaderOf(mesh.material as THREE.Material).uniforms);
       const { columns, grid } = labelled.get(key)!;
       const toModel = mesh.matrixWorld;
       const position = mesh.geometry.getAttribute("position");
@@ -605,7 +626,7 @@ describe("the label read on the walls (vertical faces)", () => {
         const deck = columns.feature[k] === FEATURE_CODE.road && (model.y - grid.minY) / grid.cell > GROUND_VOXELS + ABOVE_GROUND_VOXELS;
         const expected = deck ? 0 : columns.feature[k];
         samples++;
-        if (fragmentLabel(uniforms, centre, n).feature !== expected) wrong++;
+        if (labelOf(centre, n).feature !== expected) wrong++;
         // A step the wrong way reads the neighbour across the wall: the test would see it.
         if (columns.feature[column(model.clone().addScaledVector(world, grid.cell / 2))] !== columns.feature[k]) outward++;
       }
@@ -615,7 +636,7 @@ describe("the label read on the walls (vertical faces)", () => {
     expect(outward).toBeGreaterThan(1000);
     console.info(`[features] ${samples} wall fragments read, ${wrong} wrong; a step outward would read ${outward} of them in the neighbour's column`);
     tiles.dispose();
-  });
+  }, HEAVY_TEST_MS);
 });
 
 describe("one structure lit across its tiles (setLitAreas)", () => {
