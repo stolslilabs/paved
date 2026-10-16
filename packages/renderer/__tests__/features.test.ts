@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { CategoryType, Plan, PlanType, SpotType, StructureBoard } from "@paved/game-core";
-import { FEATURE_CODE, labelTileGeometry, planKeyOfModel, type TileLabels } from "../src/core/features";
+import { ABOVE_GROUND_VOXELS, BASE_PALETTE_CLASSES, FEATURE_CODE, GROUND_VOXELS, columnTops, labelTileGeometry, planKeyOfModel, type TileLabels } from "../src/core/features";
 import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { LOOK_PRESETS } from "../src/core/look";
 
@@ -110,10 +110,13 @@ function fragmentLabel(uniforms: Record<string, { value: any }>, point: THREE.Ve
   const grid = uniforms.uGridMatrix.value as THREE.Matrix4;
   const { width, height, data } = (uniforms.uLabelMap.value as THREE.DataTexture).image as { width: number; height: number; data: Uint8Array };
   const n = normal.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(grid)).normalize();
-  const at = point.clone().applyMatrix4(grid).addScaledVector(n, -0.5);
+  const onGrid = point.clone().applyMatrix4(grid);
+  const at = onGrid.clone().addScaledVector(n, -0.5);
   const i = Math.min(width - 1, Math.max(0, Math.floor(at.x)));
   const j = Math.min(height - 1, Math.max(0, Math.floor(at.z)));
   const label = data[j * width + i];
+  // A road column's fragment above the ground's top is a bridge's deck: none.
+  if (label >> 4 === FEATURE_CODE.road && onGrid.y > GROUND_VOXELS + ABOVE_GROUND_VOXELS) return { feature: 0, area: 0 };
   return { feature: label >> 4, area: label & 15 };
 }
 
@@ -193,24 +196,69 @@ describe("the voxels' features (labelTileGeometry) over the 19 base models", () 
         if (seen.size !== cells.length) failures.push(`${key}: road area ${area} in ${cells.length - seen.size} columns apart from the rest`);
       }
     }
-    // Breaks in the voxel art, there before the paths were filtered: a strip of stone (palette 192 to 199, 0.5 to 0.8
-    // high, a gate or a low wall) across the road, on two stop plans: sfrfrfcfr's north road (rows 9 and 10) and west
-    // road (columns 11 and 12), sfrfrfrfr's north road (row 12). Any other split fails.
-    expect(failures).toEqual([
-      "sfrfrfcfr: road area 3 in 44 columns apart from the rest",
-      "sfrfrfcfr: road area 8 in 41 columns apart from the rest",
-      "sfrfrfrfr: road area 3 in 69 columns apart from the rest",
-    ]);
+    // A break in the voxel art: on sfrfrfcfr's north road (rows 9 and 10) a solid strip of stone (palette 192 to 199, 0.5
+    // to 0.8 high) stands on the road, and a face under a solid voxel is not in the model, so no road shows there. The
+    // arches over sfrfrfcfr's west road and sfrfrfrfr's north road no longer cut them: a road is read from the ground.
+    // Any other split fails.
+    expect(failures).toEqual(["sfrfrfcfr: road area 3 in 41 columns apart from the rest"]);
   });
 
-  it("gives every forest column one of the plan's forest areas, and leaves no column of a full model unlabelled", () => {
+  it("gives every forest area of a plan its columns, and no forest column an area of another plan's category", () => {
     for (const key of KEYS) {
-      const labels = labelled.get(key)!;
-      for (const area of columnAreas(labels, FEATURE_CODE.forest)) expect(planAreas(key, CategoryType.Forest).has(area), key).toBe(true);
-      expect(Array.from(labels.columns.feature).filter((f) => f === FEATURE_CODE.none), key).toEqual([]);
+      expect(columnAreas(labelled.get(key)!, FEATURE_CODE.forest), key).toEqual(planAreas(key, CategoryType.Forest));
     }
     // The full city is all city.
     expect(new Set(labelled.get("ccccccccc")!.columns.feature)).toEqual(new Set([FEATURE_CODE.city]));
+  });
+
+  it("keeps the forests apart: no group of forest columns holds 15 or more of two forest areas", () => {
+    const N = 40;
+    const leaks: string[] = [];
+    for (const key of KEYS) {
+      const { columns } = labelled.get(key)!;
+      const forest = (k: number) => columns.feature[k] === FEATURE_CODE.forest;
+      const seen = new Uint8Array(N * N);
+      for (let k = 0; k < N * N; k++) {
+        if (seen[k] || !forest(k)) continue;
+        const counts = new Map<number, number>();
+        const stack = [k];
+        seen[k] = 1;
+        while (stack.length) {
+          const c = stack.pop()!;
+          counts.set(columns.area[c], (counts.get(columns.area[c]) ?? 0) + 1);
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const [x, y] = [(c % N) + dx, Math.floor(c / N) + dy];
+            const n = y * N + x;
+            if (x >= 0 && y >= 0 && x < N && y < N && !seen[n] && forest(n)) {
+              seen[n] = 1;
+              stack.push(n);
+            }
+          }
+        }
+        const big = [...counts].filter(([, n]) => n >= 15);
+        if (big.length > 1) leaks.push(`${key}: ${big.map(([a, n]) => `${" ABCDEFGHI"[a]} ${n}`).join(" + ")}`);
+      }
+    }
+    expect(leaks).toEqual([]);
+  });
+
+  it("leaves a stop's building, and what stands on the ground, out of the forests", () => {
+    const vegetation = new Set<number>(BASE_PALETTE_CLASSES.vegetation);
+    for (const key of KEYS) {
+      const mesh = meshOf(readTileModel(key));
+      const tops = columnTops(mesh.geometry, mesh.matrixWorld);
+      const { columns } = labelled.get(key)!;
+      const above = tops.groundTop + ABOVE_GROUND_VOXELS * tops.cell;
+      // A column topped above the ground by no vegetation is never forest (a stop, an arch, a house, a rock).
+      const standing = Array.from({ length: 1600 }, (_, k) => k).filter((k) => tops.height[k] > above && !vegetation.has(tops.entry[k]));
+      expect(standing.filter((k) => columns.feature[k] === FEATURE_CODE.forest), key).toEqual([]);
+      if (key.startsWith("s")) {
+        // The stop's building: the standing columns of the centre's cell, none of them forest, and there are some.
+        const centre = standing.filter((k) => Math.floor(((k % 40) * 3) / 40) === 1 && Math.floor((Math.floor(k / 40) * 3) / 40) === 1);
+        expect(centre.length, key).toBeGreaterThan(20);
+        expect(centre.filter((k) => columns.feature[k] === FEATURE_CODE.forest), key).toEqual([]);
+      }
+    }
   });
 
   it("gives each vertex the label of the column its triangles stand on", () => {
@@ -318,12 +366,14 @@ describe("the feature highlight in the tile shader", () => {
             const side = (p: THREE.Vector3, q: THREE.Vector3) => (q.x - p.x) * (z - p.z) - (q.z - p.z) * (x - p.x);
             const [d1, d2, d3] = [side(a, b), side(b, c), side(c, a)];
             if (!((d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0))) continue;
-            const expected = columns.feature[j * 40 + i];
+            // The column's label, or none on a bridge's deck over a road (above the ground's top).
+            const deck = columns.feature[j * 40 + i] === FEATURE_CODE.road && (a.y - grid.minY) / grid.cell > GROUND_VOXELS + ABOVE_GROUND_VOXELS;
+            const expected = deck ? 0 : columns.feature[j * 40 + i];
             seen.add(expected);
             samples++;
             point.set(x, a.y, z).applyMatrix4(toGeometry);
             if (fragmentLabel(uniforms, point, n).feature !== expected) wrong++;
-            if (perVertex[index[t + 2]] !== expected) cut++;
+            if (!deck && perVertex[index[t + 2]] !== expected) cut++;
           }
         }
         if (seen.size > 1) mixed++;

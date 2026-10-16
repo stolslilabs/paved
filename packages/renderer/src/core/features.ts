@@ -11,9 +11,10 @@ import { TILE_VOXELS } from "./outlines";
  *
  * The method (the feasibility prototype, 2026-10-16): a city is a group of city-coloured or stone columns that touches the
  * tile's border on a city edge, or lies mostly in city spots, with the gardens it encloses; a road is a road-coloured column
- * at least two voxels wide, on a road that reaches a road edge or the centre; a wonder, a wonder-coloured group over a
- * wonder spot; a forest, every other column, split by the roads and cities into the forest areas. The 3 x 3 grid of spots
- * is only a prior: the areas' shapes come from the voxels.
+ * at least two voxels wide on the ground (under a bridge too), on a road that reaches a road edge or the centre; a wonder,
+ * a wonder-coloured group over a wonder spot; a structure (a stop, a bridge, a house, a rock), a column topped above the
+ * ground by something else, labelled none; a forest, a free column reached from a forest spot's border, the nearest one's
+ * area. The 3 x 3 grid of spots is only a prior: the areas' shapes come from the voxels.
  */
 
 /** The features a column can show, by code: the code is the `feature` attribute's value. */
@@ -35,11 +36,24 @@ export const BASE_PALETTE_CLASSES = {
   stone: [192, 193, 195, 196, 197, 198, 199],
   road: [96, 97],
   wonder: [56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 249],
+  // Grass, leaves, trunks and earth: what a column of forest is topped with (a structure is topped with anything else).
+  vegetation: [3, 80, 81, 82, 83, 104, 105, 112, 113, 114, 115, 152, 153, 160, 161, 176, 177, 179, 180, 184, 185, 187, 188],
 } as const;
 export type PaletteClasses = { readonly [K in keyof typeof BASE_PALETTE_CLASSES]: readonly number[] };
 
 /** The palette's width in texels: an entry is `floor(u * PALETTE_SIZE)`. */
 const PALETTE_SIZE = 256;
+
+/** The ground's top, in voxels above the model's bottom: every base model's ground is 4 voxels high (0.4 of its 4 units). */
+export const GROUND_VOXELS = 4;
+/**
+ * How far above the ground's top a face stands on it, in voxels: a column topped higher by no vegetation, road or city is a
+ * structure, and a road column's fragment higher is a bridge's deck, not the road (`TileRenderer`). The sunk road is at
+ * about 3 voxels, the ground's top at 4.
+ */
+export const ABOVE_GROUND_VOXELS = 0.5;
+/** The ground layer of a column: its highest horizontal face at the ground's top or below (within a tenth of a voxel). */
+const GROUND_LAYER_VOXELS = 0.1;
 
 /** The plan key's spots in order (centre, then north-west clockwise to west), and each one's cell [row from north, column from west]. */
 const SPOTS = [
@@ -66,11 +80,18 @@ const EDGE_SPOTS: Record<number, (x: number, y: number, n: number) => boolean> =
   8: (x) => x === 0,
 };
 
-/** The colour of the highest horizontal face over each column of the grid (-1: no face), and its height. */
+/**
+ * The colour of the highest horizontal face over each column of the grid (-1: no face) and its height, the colour of its
+ * ground layer (the highest face at the ground's top or below: the road under a bridge), and where the ground's top and a
+ * voxel are in the model's frame.
+ */
 export interface ColumnTops {
   readonly size: number;
   readonly entry: Int16Array;
   readonly height: Float32Array;
+  readonly ground: Int16Array;
+  readonly groundTop: number;
+  readonly cell: number;
 }
 
 /** The feature and area of each column of the grid, row by row from the north-west corner. */
@@ -80,9 +101,10 @@ export interface ColumnLabels {
   readonly area: Uint8Array;
 }
 
-/** Where the grid lies in the model's frame: its north-west corner (x, z) and a column's width. */
+/** Where the grid lies in the model's frame: its north-west corner (x, z), the model's bottom (y) and a column's width. */
 export interface TileGrid {
   readonly minX: number;
+  readonly minY: number;
   readonly minZ: number;
   readonly cell: number;
 }
@@ -127,6 +149,7 @@ export function planKeyOfModel(id: string): string | null {
 interface ModelFrame {
   readonly positions: Float32Array;
   readonly minX: number;
+  readonly minY: number;
   readonly minZ: number;
   readonly cell: number;
 }
@@ -135,18 +158,19 @@ function modelFrame(geometry: THREE.BufferGeometry, toModel: THREE.Matrix4, size
   const source = geometry.getAttribute("position");
   const positions = new Float32Array(source.count * 3);
   const v = new THREE.Vector3();
-  let [minX, maxX, minZ, maxZ] = [Infinity, -Infinity, Infinity, -Infinity];
+  let [minX, maxX, minY, minZ, maxZ] = [Infinity, -Infinity, Infinity, Infinity, -Infinity];
   for (let i = 0; i < source.count; i++) {
     v.fromBufferAttribute(source, i).applyMatrix4(toModel);
     positions.set([v.x, v.y, v.z], i * 3);
     minX = Math.min(minX, v.x);
     maxX = Math.max(maxX, v.x);
+    minY = Math.min(minY, v.y);
     minZ = Math.min(minZ, v.z);
     maxZ = Math.max(maxZ, v.z);
   }
   // The footprint is the model's square, as the board scales it (`TileRenderer.createVoxelTile`: its larger side).
   const cell = Math.max(maxX - minX, maxZ - minZ) / size;
-  return { positions, minX, minZ, cell };
+  return { positions, minX, minY, minZ, cell };
 }
 
 /** The triangles of a geometry, as vertex indices. */
@@ -158,7 +182,7 @@ function triangles(geometry: THREE.BufferGeometry): ArrayLike<number> {
 
 /**
  * The top of each column: the palette entry (`floor(u * 256)`, the triangle's mean) and height of the highest horizontal
- * face whose projection covers the column's centre.
+ * face whose projection covers the column's centre, and the entry of its ground layer (`ColumnTops`).
  */
 export function columnTops(geometry: THREE.BufferGeometry, toModel = new THREE.Matrix4(), size = TILE_VOXELS): ColumnTops {
   const frame = modelFrame(geometry, toModel, size);
@@ -171,6 +195,10 @@ function topsOf(geometry: THREE.BufferGeometry, frame: ModelFrame, size: number)
   const tris = triangles(geometry);
   const entry = new Int16Array(size * size).fill(-1);
   const height = new Float32Array(size * size).fill(-Infinity);
+  const ground = new Int16Array(size * size).fill(-1);
+  const groundHeight = new Float32Array(size * size).fill(-Infinity);
+  const groundTop = frame.minY + GROUND_VOXELS * cell;
+  const groundLayer = groundTop + GROUND_LAYER_VOXELS * cell;
   const flat = cell * 1e-3;
   for (let t = 0; t + 2 < tris.length; t += 3) {
     const [a, b, c] = [tris[t], tris[t + 1], tris[t + 2]];
@@ -193,14 +221,19 @@ function topsOf(geometry: THREE.BufferGeometry, frame: ModelFrame, size: number)
         const d3 = (ax - cx) * (z - cz) - (az - cz) * (x - cx);
         const inside = (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
         const k = j * size + i;
-        if (inside && ay > height[k]) {
+        if (!inside) continue;
+        if (ay > height[k]) {
           height[k] = ay;
           entry[k] = value;
+        }
+        if (ay <= groundLayer && ay > groundHeight[k]) {
+          groundHeight[k] = ay;
+          ground[k] = value;
         }
       }
     }
   }
-  return { size, entry, height };
+  return { size, entry, height, ground, groundTop, cell };
 }
 
 const NEIGHBOURS_8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const;
@@ -313,7 +346,9 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
     const set = new Set(list);
     return (k: number) => set.has(entry[k]);
   };
-  const [isCity, isStone, isRoad, isWonder] = [is(classes.city), is(classes.stone), is(classes.road), is(classes.wonder)];
+  const [isCity, isStone, isWonder] = [is(classes.city), is(classes.stone), is(classes.wonder)];
+  const [roadEntries, vegetation] = [new Set(classes.road), new Set(classes.vegetation)];
+  const isRoad = (k: number) => roadEntries.has(tops.ground[k]);
 
   const feature = new Uint8Array(total);
   const area = new Uint8Array(total);
@@ -371,8 +406,8 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
     for (let k = 0; k < total; k++) if (inside[k] && !feature[k]) label(k, "wonder", code);
   }
 
-  // Roads: road-coloured columns, without the decoration that shares their colours (the paths by a house or a stop):
-  // first an opening by a 2 x 2 square (a column stays only in a 2 x 2 block of road columns: what is one voxel wide
+  // Roads: columns whose ground layer is road-coloured (so a road runs on under a bridge or an arch), without the
+  // decoration that shares their colours (the paths by a house or a stop): first an opening by a 2 x 2 square (a column stays only in a 2 x 2 block of road columns: what is one voxel wide
   // goes), then only the groups (8 neighbours) that reach the tile's border on a road edge, or the centre of a stop or a
   // crossing. Each column left takes the area of the nearest road spot's column along the road. A column dropped is left
   // to the forest.
@@ -397,20 +432,44 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   spread(roadArea, (k) => onRoad[k] === 1, size);
   for (let k = 0; k < total; k++) if (onRoad[k] && roadArea[k]) label(k, "road", roadArea[k]);
 
-  // Forests: every other column, split by the roads, cities and wonder into groups, each the forest area it covers most;
-  // a group in no forest spot takes the nearest forest area.
-  const rest = (k: number) => !feature[k];
+  // Structures: what stands on the ground outside a city and is no vegetation or road (a stop, a bridge or an arch, a
+  // house or a gate under a city-coloured roof, a rock): labelled none, and a forest does not cross them.
+  const above = tops.groundTop + ABOVE_GROUND_VOXELS * tops.cell;
+  const structure = (k: number) => tops.height[k] > above && !vegetation.has(entry[k]) && !roadEntries.has(entry[k]);
+  const free = Uint8Array.from({ length: total }, (_, k) => (!feature[k] && !structure(k) ? 1 : 0));
+
+  // Forests: each forest area grows from its own columns on the tile's border (an edge spot's middle third, a corner
+  // spot's outer thirds of both sides) and, for a forest centre, the centre's columns: one search from every seed at once
+  // over the free columns (4 neighbours), each column the area of the nearest seed. Two areas may meet where a road has a
+  // gap, never merge. A free column no seed reaches (a pocket shut in by structures: a courtyard) stays none.
   const forestArea = new Uint8Array(total);
-  for (const cells of groups(rest, size, NEIGHBOURS_4)) {
-    const code = majority(cells.filter((k) => categoryAt(k) === CategoryType.Forest).map(spotArea));
-    for (const k of cells) forestArea[k] = code;
+  const queue: number[] = [];
+  layout.category.forEach((category, spot) => {
+    if (category !== CategoryType.Forest) return;
+    for (let k = 0; k < total; k++) {
+      if (spots[k] !== spot || !free[k] || forestArea[k]) continue;
+      const [x, y] = [k % size, Math.floor(k / size)];
+      const border = x === 0 || y === 0 || x === size - 1 || y === size - 1;
+      if (spot === 0 || border) {
+        forestArea[k] = layout.area[spot];
+        queue.push(k);
+      }
+    }
+  });
+  for (let q = 0; q < queue.length; q++) {
+    const c = queue[q];
+    const [x, y] = [c % size, Math.floor(c / size)];
+    for (const [dx, dy] of NEIGHBOURS_4) {
+      const [nx, ny] = [x + dx, y + dy];
+      if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+      const n = ny * size + nx;
+      if (free[n] && !forestArea[n]) {
+        forestArea[n] = forestArea[c];
+        queue.push(n);
+      }
+    }
   }
-  spread(forestArea, rest, size);
-  for (let k = 0; k < total; k++) if (rest(k) && forestArea[k]) label(k, "forest", forestArea[k]);
-  // What is left (a few columns shut in by a road and a city, a column with no top face) takes its nearest column's label.
-  const packed = Uint8Array.from(feature, (f, k) => (f ? f * 16 + area[k] : 0));
-  spread(packed, () => true, size);
-  for (let k = 0; k < total; k++) if (!feature[k] && packed[k]) label(k, FEATURES[packed[k] >> 4], packed[k] & 15);
+  for (let k = 0; k < total; k++) if (forestArea[k]) label(k, "forest", forestArea[k]);
   return { size, feature, area };
 }
 
@@ -431,7 +490,7 @@ export function labelTileColumns(
 
 function columnsOf(frame: ModelFrame, geometry: THREE.BufferGeometry, planKey: string, classes: PaletteClasses, size: number): TileColumns {
   const columns = classifyColumns(topsOf(geometry, frame, size), planKey, classes);
-  return { columns, grid: { minX: frame.minX, minZ: frame.minZ, cell: frame.cell } };
+  return { columns, grid: { minX: frame.minX, minY: frame.minY, minZ: frame.minZ, cell: frame.cell } };
 }
 
 /**

@@ -7,7 +7,7 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
-import { FEATURE_CODE, labelTileColumns, packLabels, planKeyOfModel } from "./features";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS, labelTileColumns, packLabels, planKeyOfModel } from "./features";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -68,7 +68,9 @@ export const WATER_MASK_GLSL = /* glsl */ `
  * The feature highlight (`LookSettings.featureHighlight`, FEATURE-HL): the voxels of the lit feature are tinted and glow,
  * the others are dimmed; `uFeatureOn` at 0 leaves every voxel as is. A fragment's label is its voxel column's, read per
  * fragment from the model's label map (`features.ts`, `packLabels`) at its place on the model's grid (`vGrid`), half a
- * voxel inward along its face's normal: a merged face over columns of two labels shows each on its own columns. With a
+ * voxel inward along its face's normal: a merged face over columns of two labels shows each on its own columns. A road
+ * column is labelled from its ground (the road runs on under a bridge): its fragments above the ground's top
+ * (`GROUND_VOXELS` + `ABOVE_GROUND_VOXELS`, `vGrid.y` in voxels above the model's bottom) are the bridge's, none. With a
  * structure lit (`uStructureOn`, `TileRenderer.setLitAreas`) a voxel is lit instead when its area is in its tile's mask,
  * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
  */
@@ -78,6 +80,10 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   int label = int(texelFetch(uLabelMap, labelTexel, 0).r * 255.0 + 0.5);
   int labelFeature = label / 16;
   int labelArea = label - labelFeature * 16;
+  if (labelFeature == ${FEATURE_CODE.road} && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+    labelFeature = 0;
+    labelArea = 0;
+  }
   float featureLit = labelFeature == int(uFeature + 0.5) ? uFeatureOn : 0.0;
   if (uStructureOn > 0.5) {
     ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
@@ -99,7 +105,8 @@ export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighl
 
 /**
  * A model geometry's labels as its materials read them (`FEATURE_HIGHLIGHT_GLSL`): the label map, one byte a column
- * (`packLabels`), and the matrix from the geometry's positions to the grid (a column a unit, x and z the map's).
+ * (`packLabels`), and the matrix from the geometry's positions to the grid (a voxel a unit, x and z the map's, y up
+ * from the model's bottom).
  */
 interface LabelUniforms {
   uLabelMap: { value: THREE.DataTexture };
@@ -397,7 +404,7 @@ export class TileRenderer {
       uniforms.uLabelMap.value = labelMapTexture(packLabels(columns), columns.size);
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
-        .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, 0, -grid.minZ))
+        .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
         .multiply(toModel);
     });
   }

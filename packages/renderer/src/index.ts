@@ -4,9 +4,11 @@ export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
 export type { LitTile } from "./core/TileRenderer";
 export {
+  ABOVE_GROUND_VOXELS,
   BASE_PALETTE_CLASSES,
   FEATURES,
   FEATURE_CODE,
+  GROUND_VOXELS,
   classifyColumns,
   columnTops,
   labelTileColumns,
