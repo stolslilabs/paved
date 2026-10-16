@@ -4,14 +4,18 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { PlanType, getPlanKey } from "@paved/game-core";
 import { afterFirstFrame, firstModels } from "./load-order";
+import { variantIndex, type SkinRef } from "./skins";
 
 /**
  * Where a host lists its renderer assets under content-hashed names: `<basePath>/manifest.json`, a plan key to its model's
- * path relative to `basePath` (`{ "models": { "ccccccccc": "models/ccccccccc.2bb7ca783c.glb" } }`). The app's build
- * writes it (`packages/app/vite/renderer-assets.ts`); a host without one (Storybook) serves `models/<plan>.glb`.
+ * path relative to `basePath` (`{ "models": { "ccccccccc": "models/ccccccccc.2bb7ca783c.glb" } }`), and each theme's
+ * variants by its id on chain, then plan key, in variant order (`{ "themes": { "1": { "ccccccccc": ["models/forest/..."] } } }`).
+ * The app's build writes it (`packages/app/vite/renderer-assets.ts`); a host without one (Storybook) serves
+ * `models/<plan>.glb`, and draws no skin unless it hands the loader a manifest of its own.
  */
 export interface AssetManifest {
   models: Record<string, string>;
+  themes?: Record<string, Record<string, string[]>>;
 }
 
 /** The plan keys of the 19 base models (`None` has none). */
@@ -26,8 +30,14 @@ const manifests = new Map<string, Promise<AssetManifest | null>>();
 export const MANIFEST_RETRY_MS = [250, 1000];
 
 function isManifest(value: unknown): value is AssetManifest {
-  const models = (value as { models?: unknown } | null)?.models;
-  return typeof models === "object" && models !== null && Object.values(models).every((v) => typeof v === "string");
+  const { models, themes } = (value as { models?: unknown; themes?: unknown } | null) ?? {};
+  const record = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+  const paths = (v: unknown) => Array.isArray(v) && v.every((p) => typeof p === "string");
+  return (
+    record(models) &&
+    Object.values(models).every((v) => typeof v === "string") &&
+    (themes === undefined || (record(themes) && Object.values(themes).every((t) => record(t) && Object.values(t).every(paths))))
+  );
 }
 
 /**
@@ -80,9 +90,26 @@ async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
   }
 }
 
-/** A plan's model path relative to `basePath`: its hashed name when the manifest lists it, else `models/<plan>.glb`. */
+/**
+ * A model's path relative to `basePath`. A model id is a plan key (its base model: its hashed name when the manifest lists
+ * it, else `models/<plan>.glb`) or a variant's path from the manifest's `themes` (it has a `/`), loaded as is.
+ */
 export function modelPath(manifest: AssetManifest | null, key: string): string {
+  if (isVariant(key)) return key;
   return manifest?.models[key] ?? `models/${key}.glb`;
+}
+
+/** Whether a model id names a theme's variant (a path) rather than a plan's base model (a plan key). */
+const isVariant = (id: string) => id.includes("/");
+
+/**
+ * The model a tile of plan `key` draws with skin `skin`: the variant of the skin's theme its hash picks among those the
+ * manifest lists (`variantIndex`), or the plan's base model (`key`) when the manifest lists no variant of that theme
+ * and plan (a theme not out yet, a host with no manifest).
+ */
+export function skinModelPath(manifest: AssetManifest | null, key: string, skin: SkinRef | null): string {
+  const variants = skin ? manifest?.themes?.[String(skin.theme)]?.[key] : undefined;
+  return variants?.length ? variants[variantIndex(skin!.hash, variants.length)]! : key;
 }
 
 let workersStarted = false;
@@ -114,14 +141,61 @@ export class AssetLoader {
   private disposed = false;
   /** Told when a model or the plan view's images come in (`onLoaded`). */
   private loadedListener: (() => void) | null = null;
+  /** The manifest once read (null: the host has none); undefined until then. */
+  private manifest: AssetManifest | null | undefined;
+  /** Given by the host (`RendererConfig.manifest`): read instead of `<basePath>/manifest.json`. */
+  private hostManifest: AssetManifest | undefined;
+  /** The skins asked for before the manifest was in (`skinModel`): `preloadAll` resolves and waits for them. */
+  private wantedSkins: Array<{ key: string; skin: SkinRef }> = [];
+  /** The variants that failed to load: their tiles draw the base model from then on. */
+  private failedVariants: Set<string> = new Set();
+  /** The plan key of each variant resolved (`resolveSkin`): the base model its tiles fall back to. */
+  private variantPlans: Map<string, string> = new Map();
 
-  constructor(basePath = "") {
+  constructor(basePath = "", manifest?: AssetManifest) {
     startDecoderWorkers();
     this.gltfLoader = new GLTFLoader();
     // The app's models are meshopt-compressed (`EXT_meshopt_compression`); the decoder ships in the bundle, self-hosted.
     this.gltfLoader.setMeshoptDecoder?.(MeshoptDecoder);
     this.textureLoader = new THREE.TextureLoader();
     this.basePath = basePath;
+    this.hostManifest = manifest;
+    if (manifest) this.manifest = manifest;
+  }
+
+  /** The manifest: the host's, else `<basePath>/manifest.json` (`loadManifest`); kept once read. */
+  private async readManifest(): Promise<AssetManifest | null> {
+    const manifest = this.hostManifest ?? (await loadManifest(this.basePath));
+    this.manifest = manifest;
+    return manifest;
+  }
+
+  /**
+   * The model id a tile of plan `key` draws with `skin` (`skinModelPath`): the base model's key, a variant's path, or the
+   * base again for a variant that failed to load. Null while the manifest is not read yet, for a skinned tile: the skin is
+   * then remembered and `preloadAll` waits for its variant with the first models. Nothing loads here: the scene asks for
+   * what it draws (`want`, `getModel`).
+   */
+  skinModel(key: string, skin: SkinRef | null): string | null {
+    if (!skin) return key;
+    if (this.manifest === undefined) {
+      this.wantedSkins.push({ key, skin });
+      return null;
+    }
+    const id = this.resolveSkin(this.manifest, key, skin);
+    return this.failedVariants.has(id) ? key : id;
+  }
+
+  /** `skinModelPath`, remembering the variant's plan for its fallback. */
+  private resolveSkin(manifest: AssetManifest | null, key: string, skin: SkinRef): string {
+    const id = skinModelPath(manifest, key, skin);
+    if (id !== key) this.variantPlans.set(id, key);
+    return id;
+  }
+
+  /** Whether a model (a plan key or a variant's path) is loaded: `getModel` would answer it. */
+  has(id: string): boolean {
+    return this.models.has(id);
   }
 
   /**
@@ -150,16 +224,19 @@ export class AssetLoader {
 
   /** Every model, awaited (a failure rejects). */
   async preloadModels(): Promise<void> {
-    const manifest = await loadManifest(this.basePath);
+    const manifest = await this.readManifest();
     await Promise.all(PLAN_KEYS.map((key) => this.ensureModel(key, manifest)));
   }
 
-  /** Loads (once) the model of a plan key; the stored model is what `getModel` copies. */
+  /**
+   * Loads (once) the model of a plan key or a variant's path; the stored model is what `getModel` copies. A variant that
+   * fails is not tried again: its tiles draw the base model (`skinModel`), which this loads, and the scene is told.
+   */
   private ensureModel(key: string, manifest?: AssetManifest | null): Promise<void> {
     let load = this.modelLoads.get(key);
     if (!load) {
       load = (async () => {
-        const paths = manifest === undefined ? await loadManifest(this.basePath) : manifest;
+        const paths = manifest === undefined ? await this.readManifest() : manifest;
         const gltf = await this.loadModel(`${this.basePath}/${modelPath(paths, key)}`);
         if (this.disposed) disposeModel(gltf.scene);
         else {
@@ -167,6 +244,16 @@ export class AssetLoader {
           this.loadedListener?.();
         }
       })();
+      if (isVariant(key)) {
+        load = load.catch(async (error: unknown) => {
+          if (this.disposed) return;
+          console.warn(`[AssetLoader] the variant ${key} did not load, its tiles draw the base model:`, error);
+          this.failedVariants.add(key);
+          const base = this.variantPlans.get(key);
+          if (base) await this.ensureModel(base).catch(() => {});
+          this.loadedListener?.();
+        });
+      }
       this.modelLoads.set(key, load);
       // A failed load may be tried again (a later `want` or `preloadAll`).
       load.catch(() => {
@@ -222,10 +309,19 @@ export class AssetLoader {
    * them. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
-    const manifest = await loadManifest(this.basePath);
-    const first = firstModels(PLAN_KEYS, this.wanted);
+    const manifest = await this.readManifest();
+    // The skins asked for before the manifest was in: their variants (or base models) join the first models.
+    for (const { key, skin } of this.wantedSkins.splice(0)) this.wanted.add(this.resolveSkin(manifest, key, skin));
+    const variants = [...this.wanted].filter(isVariant);
+    // A board drawn in variants only still waits for no base model it does not draw.
+    const first = variants.length && !PLAN_KEYS.some((key) => this.wanted.has(key)) ? [] : firstModels(PLAN_KEYS, this.wanted);
     this.chosen = true;
-    await Promise.all([...first.map((key) => this.ensureModel(key, manifest)), this.wantTextures ? this.preloadTextures() : null]);
+    // A variant that fails loads its base model instead (`ensureModel`), which the first frame then waits for.
+    await Promise.all([
+      ...first.map((key) => this.ensureModel(key, manifest)),
+      ...variants.map((path) => this.ensureModel(path, manifest)),
+      this.wantTextures ? this.preloadTextures() : null,
+    ]);
     afterFirstFrame(() => {
       if (this.disposed) return;
       const rest = PLAN_KEYS.filter((key) => !first.includes(key)).map((key) => this.ensureModel(key, manifest));
@@ -276,6 +372,9 @@ export class AssetLoader {
     this.models.clear();
     this.textures.clear();
     this.modelLoads.clear();
+    this.wantedSkins = [];
+    this.failedVariants.clear();
+    this.variantPlans.clear();
     this.texturesLoad = null;
     this.dracoLoader?.dispose();
     this.dracoLoader = null;

@@ -2,6 +2,8 @@ import { useRef, useEffect } from "react";
 import { GameScene } from "../core/GameScene";
 import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
 import type { RendererSettingsInput } from "../core/settings";
+import type { AssetManifest } from "../core/AssetLoader";
+import { NO_SKINS, type TileSkins } from "../core/skins";
 import type {
   TileRenderData,
   HoverState,
@@ -20,6 +22,10 @@ export interface GameCanvasProps {
   className?: string;
   /** Outlines and camera zoom limits (`RendererSettings`); unnamed fields take the defaults. */
   settings?: RendererSettingsInput;
+  /** The theme of each plan (`GameScene.setSkins`): skinned plans draw a variant per tile. Unset: the base models. */
+  skins?: TileSkins;
+  /** A manifest the host gives instead of `<basePath>/manifest.json` (`RendererConfig.manifest`); read at init. */
+  manifest?: AssetManifest;
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
@@ -36,6 +42,8 @@ export function GameCanvas({
   compassRotation = 0,
   cameraMode = "play",
   settings,
+  skins = NO_SKINS,
+  manifest,
   basePath = "",
   style,
   className,
@@ -62,6 +70,8 @@ export function GameCanvas({
   // Read at init; later changes go through setSettings.
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+  const manifestRef = useRef(manifest);
+  useEffect(() => { manifestRef.current = manifest; }, [manifest]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -80,7 +90,7 @@ export function GameCanvas({
     sceneRef.current = gameScene;
     let cancelled = false;
 
-    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath, settings: settingsRef.current }).then(
+    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath, settings: settingsRef.current, manifest: manifestRef.current }).then(
       () => {
         // Unmounted while init was pending: never start the scene.
         if (cancelled) return;
@@ -104,6 +114,11 @@ export function GameCanvas({
       canvas.remove();
     };
   }, [basePath]);
+
+  // Before the tiles: the first tiles given are drawn with their skins (and their variants wanted for the first frame).
+  useEffect(() => {
+    sceneRef.current?.setSkins(skins);
+  }, [skins]);
 
   useEffect(() => {
     sceneRef.current?.updateTiles(tiles);
