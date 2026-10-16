@@ -264,7 +264,7 @@ export const SETTINGS = {
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
-const themeBase = { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: RENDERER_ASSETS } as const;
+const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS } as const;
 const FOREST = 1;
 const ALL_PLANS = Array.from({ length: 19 }, (_, i) => i + 1);
 const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
