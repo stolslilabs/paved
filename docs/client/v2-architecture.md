@@ -1737,7 +1737,7 @@ them. They are unmodified, and `sha256sum` equals that of `21788fb`:
 
 `public/fontawesome/README.md` names the source; `public/THIRD_PARTY_NOTICES.txt` names the licence. **A finding:
 `thin.min.js` registers one icon, `spider-web`** (4.5 KB); the thin style is not a thin version of the set. The
-solid file holds the whole solid set (since Q3 (c) the whole files are in `public/fontawesome/source/` and the served ones are subsets, below). Another style, or a thin icon, needs another file from the owner.
+solid file holds the whole solid set (since Q3 (c) the whole files are in `packages/app/vendor/fontawesome/` and the served ones are subsets, below). Another style, or a thin icon, needs another file from the owner.
 
 **How they load (F4).** Not as nums does, with `<script defer>` in `index.html`, and not through `<i>` tags.
 
@@ -1791,9 +1791,10 @@ observer for the first render, a CDP network and CPU throttle for the second blo
 
 **The subset (Q3 (c)).** `public/fontawesome/js/solid.min.js` and `thin.min.js` are now derivatives of the owner's files, cut
 to the icons the code names; `fontawesome.min.js` (the core, 47,100 B) is unchanged. They stay self-hosted, and the licence
-header stays first in each. The owner's whole files moved, unmodified, to `public/fontawesome/source/` (same SHA-256 as in
-the table above), the input of the script. `vite.config.ts` takes that folder out of `dist/` after Vite's copy of
-`public/`, and the bundle budget fails a build that holds it.
+header stays first in each. The owner's whole files moved, unmodified, to `packages/app/vendor/fontawesome/` (same SHA-256 as in
+the table above), the input of the script. That folder is outside `public/`, so neither the build nor Storybook copies it
+(the Storybook is published); `bundle-budget.ts` fails a `dist/`, and `scripts/storybook-guard.ts` (run last by
+`build-storybook`) a `storybook-static/`, that holds anything but the README and `js/` under `fontawesome/`.
 
 - `scripts/fa-subset.ts` (Node 24 runs it as is, no package): it reads the table of each source file
   (`var w={"name":[width,height,[aliases],"unicode","path"],...}`), keeps the entries whose name or alias the code uses,
@@ -1812,7 +1813,7 @@ the table above), the input of the script. `vite.config.ts` takes that folder ou
 - Bytes (`gzip -9`): `solid.min.js` 2,070,771 B (670,385 gzipped) to 41,071 B (15,794); `thin.min.js` 4,505 B (2,120) to
   4,739 B (2,276), the note being 234 B; the three files together 2,122,376 B to 92,910 B (33,332 gzipped). Parse of the
   three scripts (`new Function`) and parse plus run (indirect `eval`), median of 15 fresh contexts, headless Chromium
-  153 on the Linux VPS, a quiet machine: 19.4 ms to 2.9 ms parse, 82.1 ms to 13.5 ms parse and run. These are not the
+  153 on Linux, a quiet machine: 19.4 ms to 2.9 ms parse, 82.1 ms to 13.5 ms parse and run. These are not the
   Mac's figures of the table above (a different machine and browser); the ratio is what carries.
 
 ---

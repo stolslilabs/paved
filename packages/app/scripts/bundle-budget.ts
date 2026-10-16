@@ -15,7 +15,7 @@
  * - `fontAwesome`: the three scripts of `dist/fontawesome/js` (the subset: the owner's whole files must stay out of `dist/`).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
@@ -51,6 +51,11 @@ export function staticImports(code: string): string[] {
   return [...out];
 }
 
+/** The files a chunk loads with `import("./x.js")`: the route chunks are among them. */
+export function dynamicImports(code: string): string[] {
+  return [...new Set([...code.matchAll(/\bimport\(\s*["'`]\.\/([^"'`)]+\.js)["'`]\s*\)/g)].map((m) => m[1]!))];
+}
+
 /** The files `index.html` loads: its module script, its preloads, its stylesheets. */
 export function htmlAssets(html: string): { entry: string; preloads: string[]; css: string[] } {
   const hrefs = (re: RegExp) => [...html.matchAll(re)].map((m) => m[1]!.replace(/^\//, ""));
@@ -72,17 +77,22 @@ export function measureDist(dist: string, firstLoadRoute: string): Sizes & { rou
   const html = readFileSync(join(dist, "index.html"), "utf8");
   const { entry, preloads, css } = htmlAssets(html);
   const assets = readdirSync(join(dist, "assets"));
+  // A page's chunk is the one named for it that some chunk loads with `import()`: a module of the same name that is only
+  // imported statically (`settings-*.js` twice) is a shared chunk, not the route.
+  const dynamic = new Set(assets.filter((f) => f.endsWith(".js")).flatMap((f) => dynamicImports(readFileSync(join(dist, "assets", f), "utf8"))));
   const chunk = (name: string) => {
-    const hit = assets.filter((f) => new RegExp(`^${name}-[A-Za-z0-9_-]{8}\\.js$`).test(f));
-    if (hit.length !== 1) throw new Error(`expected one chunk named ${name}-<hash>.js in dist/assets, found ${hit.length}`);
+    const hit = assets.filter((f) => new RegExp(`^${name}-[A-Za-z0-9_-]{8}\\.js$`).test(f) && dynamic.has(f));
+    if (hit.length !== 1)
+      throw new Error(
+        `the page "${name}" must have exactly one chunk ${name}-<hash>.js that is loaded with import(), found ${hit.length}${hit.length ? ` (${hit.join(", ")})` : ""}. ` +
+          "The budget cannot measure a page it cannot find: fix the chunk, or the match in scripts/bundle-budget.ts.",
+      );
     return `assets/${hit[0]}`;
   };
 
+  // A page without exactly one chunk would drop out of `largestRoute` unseen: `chunk` fails instead.
   const routes: Record<string, Size> = {};
-  for (const page of pageNames()) {
-    const hit = assets.filter((f) => new RegExp(`^${page}-[A-Za-z0-9_-]{8}\\.js$`).test(f));
-    if (hit.length === 1) routes[page] = measure(join(dist, "assets", hit[0]!));
-  }
+  for (const page of pageNames()) routes[page] = measure(join(dist, chunk(page)));
 
   const files = new Set<string>();
   const visit = (file: string) => {
@@ -108,9 +118,16 @@ export function measureDist(dist: string, firstLoadRoute: string): Sizes & { rou
 
 const KB = (n: number) => `${(n / 1024).toFixed(1)} KiB`;
 
-/** The things a build must not hold, whatever its sizes. */
-export function forbidden(dist: string): string[] {
-  return existsSync(join(dist, "fontawesome/source")) ? ["dist/fontawesome/source exists: the owner's whole Font Awesome files must stay out of the build"] : [];
+/**
+ * What a static output (`dist/`, `storybook-static/`) must not hold, whatever its sizes: the owner's whole Font Awesome
+ * files. `fontawesome/` there is the README and the subset scripts of `js/`, nothing else.
+ */
+export function forbidden(dir: string): string[] {
+  const fa = join(dir, "fontawesome");
+  if (!existsSync(fa)) return [];
+  return readdirSync(fa)
+    .filter((f) => f !== "README.md" && f !== "js")
+    .map((f) => `fontawesome/${f} is in ${dir.split("/").pop()}: the owner's whole Font Awesome files must stay out of the output`);
 }
 
 /** The metrics over their limit, as messages that say which figure, by how much, and where the limit is. */
@@ -128,7 +145,7 @@ export function overBudget(sizes: Sizes, limits: Sizes): string[] {
 function main() {
   const args = process.argv.slice(2);
   const at = args.indexOf("--dist");
-  const dist = at >= 0 ? join(process.cwd(), args[at + 1]!) : join(APP, "dist");
+  const dist = at >= 0 ? resolve(process.cwd(), args[at + 1]!) : join(APP, "dist");
   if (!existsSync(join(dist, "index.html"))) throw new Error(`no build in ${dist}: run the build first`);
   const budget = readBudget();
   const sizes = measureDist(dist, budget.firstLoad.route);

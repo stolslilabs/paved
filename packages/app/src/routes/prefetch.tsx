@@ -12,7 +12,10 @@ import { PAGES, TABS } from "./pages";
  *   chunk of that route.
  *
  * Neither runs on a save-data connection or on 2G (`prefetchAllowed`). A prefetch is the page's own `import()`, so the
- * module the route renders later is the one already fetched; a failed one is forgotten and tried again by the route.
+ * module the route renders later is the one already fetched. Chosen over `<link rel="modulepreload">`, which needs the
+ * chunk's hashed URL, known only to the build. The cost: a failed `import()` may stay failed in the browser's module map,
+ * so the route may not retry it and may show its error; the prefetch forgets the failure (a later intent fetches again),
+ * which helps only where the browser itself retries.
  */
 
 /** The parts of the Network Information API this reads (not in the DOM types). */

@@ -3,7 +3,7 @@
  *
  * The three files in `public/fontawesome/js` are Font Awesome's "SVG with JavaScript" build; `solid.min.js` and
  * `thin.min.js` are subsets of the owner's files, cut to the icons the code names (`scripts/fa-subset.ts`; the whole
- * files are in `public/fontawesome/source/`, which the build leaves out of `dist/`). By default they
+ * files are in `vendor/fontawesome/`, outside `public/`). By default they
  * rewrite the DOM (`<i>` to `<svg>`) and watch it for changes, outside React. Here `FontAwesomeConfig` turns both
  * off before they run, so they only fill a library: the `Icon` component asks `FontAwesome.icon()` for the SVG
  * tree of one icon and React renders it.

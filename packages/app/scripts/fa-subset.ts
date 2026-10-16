@@ -1,7 +1,8 @@
 /**
  * The Font Awesome subset (docs/client/v2-architecture.md, section 8): `public/fontawesome/js/solid.min.js` and
- * `thin.min.js` are derivatives of the owner's Font Awesome Pro files kept whole in `public/fontawesome/source/`,
- * cut to the icons the app names. The source files are not served: the build leaves them out of `dist/`.
+ * `thin.min.js` are derivatives of the owner's Font Awesome Pro files kept whole in `vendor/fontawesome/`,
+ * cut to the icons the app names. They are outside `public/`, so
+ * neither the build nor Storybook copies them.
  *
  *   node scripts/fa-subset.ts            write the subset files
  *   node scripts/fa-subset.ts --check    fail when a committed subset differs from what the source and the code give
@@ -13,7 +14,8 @@
  * `--check` compares content (the files regenerated in memory against the committed ones), never compressed sizes.
  *
  * Which icons are "used" is `usedIcons`: the string literals of `src/` that are Font Awesome names on a line about an icon
- * (an `Icon` tag, an `icon` prop or key, an `ICON` table, the block such a line opens). `__tests__/fa-subset.test.ts`
+ * (an `Icon` tag, an `icon` prop or key, an `ICON` table, the block such a line opens), and the first string of an array row
+ * that starts its line (a table read later by a `.map`). `__tests__/fa-subset.test.ts`
  * holds the rule to the code.
  */
 import { createHash } from "node:crypto";
@@ -23,6 +25,8 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const FA_DIR = join(ROOT, "public/fontawesome");
+/** The owner's whole files: outside `public/`, so neither the build nor Storybook copies them. */
+export const SOURCE_DIR = join(ROOT, "vendor/fontawesome");
 export const VARIANTS = ["solid", "thin"] as const;
 export type Variant = (typeof VARIANTS)[number];
 
@@ -104,6 +108,14 @@ export function iconLines(src: string): string[] {
 /** Props and keys that take a word which is also an icon's name ("ghost" button, the "home" tab): not an icon. */
 const NOT_ICON_PROPS = /\b(?:variant|size|id|tone|type|active|mode|state)\s*[=:]\s*\{?\s*"[^"]*"/g;
 
+/**
+ * The first string of each array row that starts its line (`["ticket", "Challenge games", ...],` in a table a later
+ * `.map(([icon, label]) => ...)` reads): the line before the use need not say `icon`.
+ */
+export function rowStarts(src: string): string[] {
+  return [...stripComments(src).matchAll(/^\s*\[\s*("[a-z][a-z0-9-]*")\s*,/gm)].map((m) => m[1]!);
+}
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const path = join(dir, e.name);
@@ -120,7 +132,7 @@ export function usedIcons(known: ReadonlySet<string>, root: string = ROOT): Map<
     const rel = posix(relative(root, file));
     if (SCAN_SKIP.includes(rel)) continue;
     const src = readFileSync(file, "utf8");
-    const text = SCAN_WHOLE.includes(rel) ? stripComments(src) : iconLines(src).join("\n");
+    const text = SCAN_WHOLE.includes(rel) ? stripComments(src) : [...iconLines(src), ...rowStarts(src)].join("\n");
     for (const m of text.replace(NOT_ICON_PROPS, "").matchAll(/"([a-z][a-z0-9-]*)"/g)) {
       if (!known.has(m[1]!)) continue;
       const where = used.get(m[1]!) ?? [];
@@ -148,7 +160,7 @@ export function explicitIconNames(root: string = ROOT): { name: string; file: st
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
-export const readSource = (variant: Variant) => readFileSync(join(FA_DIR, "source", `${variant}.min.js`), "utf8");
+export const readSource = (variant: Variant) => readFileSync(join(SOURCE_DIR, `${variant}.min.js`), "utf8");
 export const subsetPath = (variant: Variant) => join(FA_DIR, "js", `${variant}.min.js`);
 
 /** The subset file of `variant` for the names in `used`. */
@@ -161,7 +173,7 @@ export function buildSubset(variant: Variant, sourceText: string, used: Readonly
   // The licence header is the source's first comment, kept as it is.
   const headEnd = source.head.indexOf("*/") + 2;
   const note =
-    `\n/* Subset for the Paved app, made by scripts/fa-subset.ts from source/${variant}.min.js (SHA-256 ${sha256(sourceText)}): ` +
+    `\n/* Subset for the Paved app, made by scripts/fa-subset.ts from vendor/fontawesome/${variant}.min.js (SHA-256 ${sha256(sourceText)}): ` +
     `${kept.length} of ${source.entries.size} icons. The code between the header and the table is the source's. */`;
   return `${source.head.slice(0, headEnd)}${note}${source.head.slice(headEnd)}{${table}}${source.tail}`;
 }

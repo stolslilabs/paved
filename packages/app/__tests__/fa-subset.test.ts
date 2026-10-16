@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildSubset,
@@ -7,6 +9,7 @@ import {
   nameIndex,
   parseIconFile,
   plan,
+  rowStarts,
   readSource,
   subsetPath,
   usedIcons,
@@ -75,5 +78,41 @@ describe("what counts as a use", () => {
 
   it("ignores comments", () => {
     expect(iconLines('// icon: "house"\n/* <Icon name="star" /> */').join("")).not.toMatch(/house|star/);
+  });
+});
+
+describe("a table read by a later map", () => {
+  const TABLE = [
+    "export function Earned({ games, packs }) {",
+    "  return (",
+    "    <ul>",
+    "      {(",
+    "        [",
+    '          ["bell", "Challenge games", games, "game"],',
+    '          ["anchor", "Cobbles packs", packs, "pack"],',
+    "        ] as const",
+    "      ).map(([icon, label]) => (",
+    "        <li><Icon name={icon} />{label}</li>",
+    "      ))}",
+    "    </ul>",
+    "  );",
+    "}",
+  ].join("\n");
+
+  it("takes the first string of each row, though the line before the use says nothing of an icon", () => {
+    expect(rowStarts(TABLE)).toEqual(['"bell"', '"anchor"']);
+  });
+
+  it("finds an icon in such a table that no other file names", () => {
+    const root = mkdtempSync(join(tmpdir(), "fa-"));
+    mkdirSync(join(root, "src"));
+    writeFileSync(join(root, "src/earned.tsx"), TABLE);
+    const used = usedIcons(known, root);
+    expect([...used.keys()].sort()).toEqual(["anchor", "bell"]);
+    expect(used.get("bell")).toEqual(["src/earned.tsx"]);
+  });
+
+  it("does not take a query key or a word in a sentence", () => {
+    expect(rowStarts('const k = ["indexer", "lag"] as const;\nconst s = "ticket to ride";')).toEqual([]);
   });
 });
