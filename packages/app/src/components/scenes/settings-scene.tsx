@@ -81,8 +81,15 @@ export function SettingsScene(props: SettingsSceneProps) {
                 className="w-full"
               >
                 {QUALITY.map((q) => (
-                  <ToggleGroupItem key={q.value} value={q.value} className="flex-1">
-                    {q.value === "auto" && props.autoQuality ? `Auto (${QUALITY.find((o) => o.value === props.autoQuality)?.label})` : q.label}
+                  // "Auto (Medium)" is the one long label: Auto gets double width so it fits at 320 px (WRAP360).
+                  <ToggleGroupItem key={q.value} value={q.value} className={`h-auto min-h-9 min-w-0 ${q.value === "auto" ? "flex-[2]" : "flex-1"} px-1 py-1 text-center text-xs leading-tight whitespace-normal`}>
+                    {q.value === "auto" && props.autoQuality ? (
+                      <>
+                        Auto <span className="inline-block">({QUALITY.find((o) => o.value === props.autoQuality)?.label})</span>
+                      </>
+                    ) : (
+                      q.label
+                    )}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
