@@ -199,7 +199,7 @@ describe("signing (P-14)", () => {
     expect(status()).toBe("read-only");
   });
 
-  it("the session holds the client's policies on the deployment's chain, approve on the entry token (Token before E3) pinned to Challenge, up to 10 stakes", async () => {
+  it("the session holds the client's policies on the deployment's chain, and no approve (P-65): app-web's entry cap is ignored", async () => {
     const { fake, network } = setup(SEPOLIA_ENV);
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));
@@ -208,32 +208,33 @@ describe("signing (P-14)", () => {
     expect(fake.seen.options).toMatchObject({ chains: [{ rpcUrl: "http://sepolia/rpc" }], defaultChainId: SEPOLIA });
     const session = fake.seen.options!.policies as { contracts: Record<string, { methods: Array<Record<string, string>> }> };
     const sessionKeys = Object.entries(session.contracts).flatMap(([target, { methods }]) => methods.map((m) => `${BigInt(target)}:${m.entrypoint}`));
-    const expected = controllerPolicies(network.deployment, { approve: { token: "0x4", cap: 10n * ENTRY } });
+    const expected = controllerPolicies(network.deployment);
     expect(sessionKeys.sort()).toEqual(expected.map((p) => `${BigInt(p.target)}:${p.method}`).sort());
-    expect(session.contracts[getChecksumAddress("0x4")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0xfa" }]);
+    // The entry token (0x4) has no policy at all: its approve prompts, in the purchase's multicall.
+    expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
   });
 
   const sessionOf = (fake: ReturnType<typeof fakeController>) =>
     fake.seen.options!.policies as { contracts: Record<string, { methods: Array<Record<string, string>> }> };
 
-  it("after E3 the entry is in USDC: the session's approve targets USDC, capped at 10 x the unit price", async () => {
+  it("after E3 the entry is in USDC: still no approve in the session, on USDC or any token (P-65)", async () => {
     const fake = fakeController();
     setup(SEPOLIA_ENV, fake, async () => ({ token: "0x5", amount: 2_000_000n }));
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));
     const session = sessionOf(fake);
-    expect(session.contracts[getChecksumAddress("0x5")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
+    expect(session.contracts[getChecksumAddress("0x5")]).toBeUndefined();
     expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
   });
 
-  it("no staking action is in the session (PM ruling, P-56): no deposit, withdraw or redeem, and the only approve is the entry's, to Challenge", async () => {
+  it("no staking action is in the session, and no approve at all (P-65, superseding P-56's entry approve)", async () => {
     const fake = fakeController();
     setup(SEPOLIA_ENV, fake, async () => ({ token: "0x5", amount: 2_000_000n }));
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));
     const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods);
     for (const vault of ["deposit", "withdraw", "redeem", "stake", "unstake", "claim"]) expect(methods.map((m) => m.entrypoint)).not.toContain(vault);
-    expect(methods.filter((m) => m.entrypoint === "approve").map((m) => m.spender)).toEqual([getChecksumAddress("0x2")]);
+    expect(methods.filter((m) => /approve|allowance/i.test(m.entrypoint))).toEqual([]);
   });
 
   it("the cap counts the economy's MAX_STAKE stakes (10)", () => {
@@ -249,7 +250,8 @@ describe("signing (P-14)", () => {
     await waitFor(() => expect(status()).toBe("ready"));
     const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
     expect(methods).not.toContain("approve");
-    expect(methods).toContain("spawn");
+    expect(methods).toContain("spawn_free");
+    expect(methods).not.toContain("spawn");
   });
 
   it("Disconnect is disabled while a write is in flight", async () => {

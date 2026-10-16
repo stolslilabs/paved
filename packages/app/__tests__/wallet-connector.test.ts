@@ -74,9 +74,23 @@ describe("the app's connector (P6)", () => {
     const economy = "0x10";
     const withEconomy = await policiesOf(economy);
     expect(withEconomy.filter((p) => BigInt(p.target) === BigInt(economy))).toEqual([{ target: economy, method: "settle" }]);
-    // Settle takes no approve: the session's only approve stays the entry's, which this deployment's unread price leaves out.
+    // Settle takes no approve, and no approve is in the session at all (P-65).
     expect(withEconomy.filter((p) => p.method === "approve")).toEqual([]);
     // Without an economy there is no policy on it.
     expect((await policiesOf(null)).some((p) => p.method === "settle")).toBe(false);
+  });
+
+  it("P-65: the session holds no approve even when the entry price reads, and never asks for it", async () => {
+    const c = client("sepolia");
+    const entryPrice = vi.fn(async () => ({ token: "0x14", amount: 2_000_000n }));
+    Object.assign(c.views, { entryPrice });
+    const controller = fakeController();
+    connectorFor(c, null, controller.create, "0x10");
+    const policies = controller.configs[0]!.policies;
+    const built = typeof policies === "function" ? await policies() : (policies ?? []);
+    expect(built.filter((p) => /approve|allowance/i.test(p.method))).toEqual([]);
+    expect(built.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
+    // The cap was read only to build an approve: nothing reads it now.
+    expect(entryPrice).not.toHaveBeenCalled();
   });
 });

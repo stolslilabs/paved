@@ -84,8 +84,11 @@ export {
   PACK_REFUSAL_TEXT,
   PackOutcomeUnknownError,
   PackRefusedError,
+  WALLET_REJECTED_TEXT,
+  WalletRejectedError,
   WriteError,
   buyPackArgs,
+  isWalletRejection,
   packBoughtOf,
 } from "./writer";
 export type { BuildMove, BuyPackRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";

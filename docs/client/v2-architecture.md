@@ -1277,12 +1277,38 @@ so a straight edge split into many segments covers each pixel once. The width is
 `widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
 zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
-the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: fully on at
-`fadeFullFactor` (1.0) x S, off at `fadeOffFactor` (0.85) x S, linear between, and the material is hidden
-below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
-about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
-height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
-(about 282): they vanish at the farthest zoom (300). On software WebGL (a renderer string of SwiftShader,
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: off at
+`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.15) x S, and between a smoothstep of
+`ln(tile px / off) / ln(full / off)` (OUT-FADE, PM ruling 2026-10-16: the toggle at a zoom-out level read as odd, so the
+opacity falls as the camera zooms out, ending where the old cut was). On the log of the tile size a wheel step changes
+the opacity by about the same amount, and the smoothstep has no kink at either end. The material is hidden below 1/255.
+A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile and S
+scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
+vanish at the farthest zoom (300). **Consequence: at the opening view (S) the opacity is no longer 1**: it is
+smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85) = 0.538) = **0.556** (readout of the story: 56 %). The PM's ruling (2026-10-16)
+made 1.15 S the default, since the owner called the outline at the opening view perfect and losing two thirds of it would be
+the larger change; the other candidate, 1.3 S (`fadeFullFactor` 1.3), gives 0.327 at S (33 %) and stays a preset; it is on at 80 % at 1.15 S. Both are presets of the
+story ("fade 1.3", "fade 1.15") next to the two factor controls. Captures
+(`captures/out-fade-1_3-*` and `out-fade-1_15-*`, for 1.3 S, 1.15 S, 1.0 S (the opening view), 0.9 S and 0.85 S: the
+Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**, `force: "on"`);
+opacity read from the story: 1.3 S: 100 % / 100 %; 1.15 S: 80 % / 100 %; S: 33 % / 56 %; 0.9 S: 5 % / 9 %; 0.85 S: off /
+off (preset 1.3 / preset 1.15). The default is 1.15.
+**The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
+voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
+fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
+it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture.
+
+**Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
+(`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
+(headless Chrome on SwiftShader, outlines forced on, 1280 x 800 at DPR 1, preset 1.3 (the first default), the story held; mean luma of the
+centre 800 x 500 crop after each step, the outline share being 1 minus the luma with the outlines on over the luma with
+them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (the off point) into the ramp: the share goes
+0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step
+0.47 point, no jump that is not the opacity ramp (the luma's own largest step is 0.53 on, 0.57 off). **Pan**: the 12-drag
+run did not finish on the loaded VPS (the screenshots timed out under SwiftShader, twice); it is left to the GPU check on
+the Mac, which the coordinator schedules. Unit tests cover the ramp's per-step change (no kink at either end).
+
+On software WebGL (a renderer string of SwiftShader,
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
@@ -1290,11 +1316,15 @@ The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tes
 between the old `#1f1f1f`, which showed as about `#53524f`, and black). The outlines are drawn into the linear target and the
 `FinishPass` then tone maps (ACES), grades, vignettes and sRGB-encodes the whole frame, outlines included, so a written
 dark grey is lifted a lot (the old "no sRGB encoding" line was stale since LIGHT). `screenColor` therefore converts the
-shown colour to the grey the outline pass writes (`outlineWrittenGrey`, a bisection on `outlineScreenOf`, the forward
-model: ACES at the Mockup exposure, the grade, the opening view's vignette and fog as one measured factor of 0.65 in
-linear light, sRGB). It matches the green channel and writes a grey, about `#0f0f0f` for the default. **It assumes the
-default look** (`mockup`) and the opening view: another look, or a corner under the vignette, shows a different value;
-the grade's warmth tints the grey a little. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
+shown colour to the colour the outline pass writes (`outlineWrittenColor`, OUTLINE-TINT: Newton's method on
+`outlineScreenOf`, the forward model, which takes three channels: ACES at the Mockup exposure, the grade, the opening
+view's vignette and fog as one measured factor of 0.65 in linear light, sRGB; the pass mixes the channels, so they are
+solved together, from the per-channel grey as the start). Each channel is converted, so a hue picked in the story control
+shows as that hue (before, only the green was kept and a grey written); a grey gives about `#0f0f0f` for the default.
+The test round-trips `#2a2928` and reds, blue and others within one 8-bit step. **It assumes the default look**
+(`mockup`), the `play` render profile (the chain whose finish pass is modelled) and the opening view: another look or
+profile, or a corner under the vignette, shows a different value; a colour above what the pass can reach (the falloff
+keeps 0.65 of the light) comes out as the nearest. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
 captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
 `#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible
@@ -1954,6 +1984,40 @@ to Home).
 | `@paved/ui` `GameLoadingScreen` | loading |
 | (none) | theme, settings |
 
+**The controller's session (P-65, PM ruling 2026-10-16; supersedes P-56).** No token approve is a session policy, on any
+token (USDC or PAVED). The reason, as the PM gave it: "an approve policy is executed once at connect, leaving a standing
+allowance of the cap; the session key is a wildcard filtered client-side by (target, method). No token approve in a session;
+one prompt per paid entry." P-56 had kept one approve in the session, the entry's, to Challenge up to 10 stakes; VALUE-FIX
+(#484) found that the controller does not enforce its spender or amount on a later call. So the session is a wildcard key,
+limited on chain by no target or selector, that the keychain's client-side store filters by (target, method) alone, never by
+calldata. Its policies (`CONTROLLER_ENTRY_POINTS`, `controllerPolicies`) are only what spends no token: Challenge
+`spawn_free`, `build`, `discard`, `surrender`; Setup's claims, `buy_skin`, `set_skins` (where the deployment has a Setup);
+Faucet `mint` (Sepolia only); Economy `settle` (with an economy). No call that pulls a token is a policy either: not the paid
+`spawn`, not `buy_pack`, not the Vault's `deposit` (fix loop 1 of the re-check). Each is sent with its approve, which prompts
+anyway, and in the session a bare one could spend a standing allowance that a connect from before P-65 left (the full cap to
+Challenge). `toControllerSessionPolicies` refuses any method whose name holds `approve`, `allowance` or `transfer`
+(`increase_allowance`, `transfer_from`...). A paid entry sends `approve(Challenge, price)` and `spawn(stake, referrer,
+min_out)` in one multicall, which the wallet prompts for once; a pack's approve and `buy_pack`, and the Vault's approve and
+`deposit`, are one multicall each the same way. A capped approve in
+the session may come back only by a new ruling (P-65 is reversed only by a verified enforcement of spender and amount).
+
+Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose keychain runs `@cartridge/controller-wasm`
+0.10.1, built from `cartridge-gg/controller-rs` v0.10.1 (`4ec2e4fc`):
+
+- the approve policies are executed once at connect, with their exact spender and amount: `createSession`,
+  [`account-wasm/src/account.rs:423-470`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/account.rs#L423-L470) (split at :427, the approve
+  call built at :437-449, executed at :464, or through the paymaster at :470);
+- the session registered is a wildcard: [`account-wasm/src/account.rs:502-505`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/account.rs#L502-L505)
+  (`create_wildcard_session`), [`account_sdk/src/account/session/hash.rs:92`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account_sdk/src/account/session/hash.rs#L92)
+  (`allowed_policies_root: "wildcard-policy"`) and [`:124-127`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account_sdk/src/account/session/hash.rs#L124-L127)
+  (a wildcard session is authorised for every policy);
+- a session call is authorised client-side by (target, method) only: [`account-wasm/src/types/policy.rs:139-143`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/types/policy.rs#L139-L143)
+  (`from_call` keeps the target and the selector, no calldata), [`account-wasm/src/storage.rs:197-202`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/storage.rs#L197-L202)
+  (target and method must match), checked in `hasAuthorizedPoliciesForCalls`, [`account-wasm/src/account.rs:1150`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/account.rs#L1150);
+- a later `approve` is not signed by the session: a call becomes a `Policy::Call`, which never matches a stored
+  `Policy::Approval` ([`account-wasm/src/storage.rs:209-216`](https://github.com/cartridge-gg/controller-rs/blob/4ec2e4fc6824807ec053c36bf8ed726db374e153/account-wasm/src/storage.rs#L209-L216), `_ => false`), so it
+  prompts. That it prompts is read from this `false`; the keychain's prompt route itself was not read.
+
 ### 6.4 What each page needs
 
 | Page | Chain (views, writes) | Indexer | Engine | Local storage |
@@ -1962,7 +2026,7 @@ to Home).
 | loading | — | — | — | — |
 | home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/tournaments/:day/leaderboard` (top 3), `/v1/head` | — | the Training save (resume) |
 | play | `spawn_paused` | — | — | — |
-| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)` | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet never answered, and when it was sent) |
+| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (neither the approve nor the call that pulls the USDC is a session policy, P-65) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
 | over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
 | leaderboard | — | tournaments, leaderboard, player, player games | — | — |
@@ -2436,9 +2500,16 @@ The `Toaster` is mounted once above the pages (`App.tsx`).
 
 **As built (P7b).** `/play/challenge` reads its Game tab from the chain: `Economy.quote(stake)` (the price from
 `entry_price`, the threshold), `split_bps`, the USDC `balance_of`, `spawn_paused`, and the pool's `quote_swap` of the stake's
-swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` through
-`EconomyWriter.purchase`, which reads the price, the quote, the router pin and the guard's rate again and sends nothing on a
-change, then opens `/game/:id` from the receipt's `GameSpawned`. While a new stake's quote is read the last one stays shown
+swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall
+through `EconomyWriter.purchase`, which reads the price, the quote, the router pin, `Economy.seller()` and the guard's rate
+again and sends nothing on a change, then opens `/game/:id` from the receipt's `GameSpawned`. The multicall is one wallet
+prompt (P-65, SESSION-NOAPPROVE); the pending state reads "Confirm in your wallet…", as a pack's already did, so nothing
+changes on screen but the prompt itself. A prompt the player declines is a `WalletRejectedError` ("You declined in your
+wallet: nothing was sent."): a refusal, no hold. Only the controller's documented cancel shapes are typed so (the
+`undefined` it rejects with on a cancel, `CANCELED`, `USER_REFUSED_OP`, a "User rejected" message); anything else, a bare
+`null` or a node's "Transaction rejected", stays a plain refusal with its message. In both cases nothing was sent, so the
+record written at send gives way to the one that was there before (none, or a record the player released). A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
+base deployment names no Setup (VALUE-FIX's note). While a new stake's quote is read the last one stays shown
 and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
 indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
 price before the indexer does. Buy is `PackBuyer.buy` (`@paved/chain`, `packs.ts`): the same fresh checks as a game (the
@@ -2446,8 +2517,8 @@ chain id, the pack on sale at the confirmed price, the router pin, the rate, the
 the price less the referral when one counts), then `PavedWriter.buyPack`: the approve of exactly the price to `Setup` on the
 economy's USDC and `Setup.buy_pack(pack_id, referrer, min_out)`. Its arguments are listed once (`buyPackArgs`), so a
 `max_price` is a one-line change. The receipt's `PackBought` sets the Cobbles balance in the cache, then the account is read
-again. `buy_pack` is a session policy; the pack's approve to `Setup` is not (PM ruling P-56: the session's only approve is the
-entry's, to Challenge), so a pack prompts once for its approve. The referrer is the link's `?ref=` (an address, not the player's own),
+again. Neither `buy_pack` nor the pack's approve to `Setup` is a session policy (PM ruling P-65), so a pack prompts once,
+for its approve and `buy_pack` together. The referrer is the link's `?ref=` (an address, not the player's own),
 as each purchase would send it (`Purchases.referrer`): one the contracts would not pay (the Challenge, the Economy; for a
 pack also `Setup`, the Vault and the router, which `Economy.pay` ignores) is dropped with a notice, never a refused
 purchase, and the split shown is the one the contract pays. The states: guest ("Connect to buy"), paused, not enough USDC
@@ -2464,12 +2535,20 @@ fails ("could not check", Retry), with "Check my games" or "Check my Cobbles". A
 (`TXN_HASH_NOT_FOUND`) keeps the hold (VALUE-FIX): it is read again after 5 s, 10 s and 20 s (`PURCHASE_RECHECK_MS`), then
 the page waits for the player, with Check again and "It did not land". "Buy again" is offered only after a definite answer
 (the record is cleared) or after the player confirms, from their USDC balance and their games (a pack: their Cobbles), that
-nothing landed; then only that deliberate "Buy again" sends (and clears the record), since a game's second purchase would be
-signed without a prompt. A send the wallet never answered (`PurchaseTimedOutError`, after 5 minutes) is recorded the same
-way without a hash (VALUE-FIX): sent at, by the sender, may still land. Its check reads the USDC balance, the player's
+nothing landed; then only that deliberate "Buy again" sends, since a second purchase would pay twice. A send is recorded
+without a hash when it starts (SESSION-NOAPPROVE, VALUE-FIX's note): sent at, by the sender, with the send's identity
+(`id`: milliseconds and a random part, so two sends of the same second differ; records are compared by it), may still
+land. Under the 5-minute limit such a record is a prompt that may still be open (a reload, a second tab): the notice reads
+"A purchase is waiting in your wallet", Pay stays held and "It did not land" is not offered, so no second purchase races
+the open prompt; past the limit, the usual text and the confirm. An answer in
+time settles it (it landed or reverted: the record goes; an unknown hash replaces it; a send that sent nothing, refused before
+sending, declined in the wallet or refused as busy, puts back the record that was there before, so an earlier send's record
+goes only once a new send is accepted). A send the wallet never answered (`PurchaseTimedOutError`, after 5 minutes) keeps that
+hash-less record (VALUE-FIX). Its check reads the USDC balance, the player's
 Challenge games and the active game (a pack: the Cobbles account and the USDC balance), with no receipt to read, and Pay stays
 held across a reconnect (a new writer, whose own pending flag knows nothing of the hung send) and a reload, until the send's
-late answer arrives in this page (it landed or was refused: the record goes; an unknown hash replaces it) or the player
+late answer arrives in this page (it landed or was refused: the record goes; an unknown hash replaces it, but only while
+the record is still that send's, so a late hash never overwrites a newer send's hold) or the player
 confirms as above. A check that keeps failing (a
 node without receipts, an outage) offers Dismiss beside Retry, with the warning that buying again may pay twice. The
 notice says how long ago the purchase was sent (the record's `at`). The receipt decides on its own: one that reads (it
@@ -2512,7 +2591,7 @@ refusal shows the writer's message (`SettleUnknownGameError`, `SettleNotRecorded
 `@paved/chain`; any other message as it is) with the button again, and the terms are read again, so a game another account
 settled meanwhile shows as already settled. An expired game has no settle control: it would mint 0. `settle` is a session
 policy of the controller (`controllerPolicies(..., { economy })`, the Economy's address from the economy deployment), with no
-approve (P-56: the session's only approve is the entry's); no other Economy entry point is, and the Vault's still prompt.
+approve (P-65: no token approve in the session); no other Economy entry point is, and the Vault's still prompt.
 `settlesAfter` and the threshold's formula are repeated in `data/over.ts` so that the route's chunk imports `@paved/chain` as
 types only; a test holds the first equal to the chain's.
 
@@ -2552,7 +2631,7 @@ active set's shape. A theme withdrawn from sale keeps the skins the player owns,
 loading skeleton, a failed read with Retry, Buy disabled with "Need N more" when the Cobbles are short, a purchase or a save on
 its way (the other writes wait), a refusal (`SkinRefusedError`: owned, not for sale, not enough Cobbles, not owned) shown with
 its reason and the batch kept, "Skins saved". The two writes are session policies (`CONTROLLER_ENTRY_POINTS`): they spend
-Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
+Cobbles, never a token, so they need no approve (P-65: none is in the session). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
 the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
 the top of the page is kept on this device (`paved.theme.v1`); the board reads it since P11a: see "As built (P11a)".
 
@@ -2604,7 +2683,7 @@ shares'`), `VaultOverMaxDepositError` (`'ERC4626: exceeds max deposit'`, out of 
 `VaultOverMaxWithdrawError` and `VaultOverMaxRedeemError` (`'ERC4626: exceeds max withdraw'`, `'... max redeem'`),
 `VaultAllowanceError` (`'ERC20: insufficient allowance'`), `VaultBalanceError` (`'ERC20: insufficient balance'`, and before
 sending), `VaultAmountChangedError`; the constructor's and the owner's reverts and `mint`'s are out of the client's reach. No
-Vault entry point and no PAVED approve is a session policy (P-56: the session's only approve is the entry's, to Challenge):
+Vault entry point and no PAVED approve is a session policy (P-65: no token approve in the session):
 the deposit needs the approve, and `withdraw` and `redeem` take a free `receiver`, so a session key could send a holder's
 PAVED anywhere; each prompts. The states: a guest's Connect, the loading shape, a failed read with Retry, nothing deposited,
 not enough PAVED and over `max_withdraw` (refused before any send), pending (the button waits; the line says what the wallet
@@ -2631,7 +2710,7 @@ Forest set downloads is in 4.2.
 gone from every text, story, mock and test of the app (`TOKENS` in `elements/amount.tsx` repeats `PAVED_LABEL` and `VPAVED_LABEL`,
 and `tokens.test.ts` checks that they agree; `app-web`, the v1 client, keeps its own text). The notes the reviews deferred:
 
-- *Purchase.* An unknown purchase's "sent N min ago" counts from the send (`onMutate`'s time), not from the outcome. Retry and Dismiss
+- *Purchase.* An unknown purchase's "sent N min ago" counts from the send (the record written when the send starts), not from the outcome. Retry and Dismiss
   are disabled while Retry is fetching (`hold.retrying`). When storage is full or refused, the record holds in this tab only
   (the cache's copy): the notice says so and which tab holds Pay, it does not try to reach other tabs. A send that lands after a change of
   player is kept for its sender (`purchaseReady`, in the cache), and the page says "Your game is ready" with Open game. The wallet has

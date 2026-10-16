@@ -18,6 +18,9 @@ import {
   outlineScreenOf,
   outlinesAllowed,
   outlineWrittenGrey,
+  outlineWrittenColor,
+  outlineFade,
+  outlineOpacityAtOpening,
   outlineStroke,
   probeMajorPerformanceCaveat,
   tilePixels,
@@ -61,12 +64,28 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     expect(outlineStroke(Number.NaN, S).opacity).toBe(0);
   });
 
-  it("fades in linearly between the off and the full sizes, from nothing, without a pop", () => {
+  it("fades in between the off and the full sizes as a smoothstep of log(tile px), from nothing, without a pop", () => {
     expect(outlineStroke(60.01, S).opacity).toBe(0); // under 1/255: not drawn
-    expect(outlineStroke(60 + 30.001 / 255, S).opacity).toBeCloseTo(1 / 255, 6);
-    expect(outlineStroke(70, S).opacity).toBeCloseTo(1 / 3, 9);
-    expect(outlineStroke(75, S)).toMatchObject({ width: 1, opacity: 0.5 });
+    // The middle of the log range (the geometric mean, 60 x sqrt(1.5)) is half; a quarter of it is 5/32 (smoothstep).
+    expect(outlineStroke(60 * Math.sqrt(1.5), S)).toMatchObject({ width: 1 });
+    expect(outlineStroke(60 * Math.sqrt(1.5), S).opacity).toBeCloseTo(0.5, 9);
+    expect(outlineStroke(60 * Math.pow(1.5, 0.25), S).opacity).toBeCloseTo(0.15625, 9);
+    expect(outlineStroke(89.99, S).opacity).toBeGreaterThan(0.999);
     expect(outlineStroke(90, S)).toMatchObject({ width: 1, opacity: 1 });
+  });
+
+  it("changes by about the same share of the opacity at each wheel step, and has no kink at either end", () => {
+    // A wheel step is a constant factor of the tile size. In log space the ramp is a smoothstep: slope 0 at both ends.
+    const step = 1.02;
+    const at = (px: number) => outlineFade(px, 60, 90);
+    // The first step off either end moves the opacity by 3 t^2 (t = a step's share of the log range, 0.049): under 0.008.
+    expect(at(60 * step)).toBeLessThan(0.008);
+    expect(1 - at(90 / step)).toBeLessThan(0.008);
+    const deltas: number[] = [];
+    for (let px = 60; px * step < 90; px *= step) deltas.push(at(px * step) - at(px));
+    // The largest step is the smoothstep's steepest slope (1.5 per ramp) times a step's share of the log range.
+    expect(Math.max(...deltas)).toBeLessThan(1.5 * (Math.log(step) / Math.log(1.5)) * 1.01);
+    expect(Math.max(...deltas)).toBeLessThan(0.08);
   });
 
   it("hides the stroke below an opacity of 1/255", () => {
@@ -114,16 +133,18 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
   it("is off when disabled, and handles equal sizes as a step", () => {
     expect(outlineStroke(400, { ...S, enabled: false })).toMatchObject({ width: 0, opacity: 0 });
     const step = { ...S, fadeFullFactor: 1 };
+    expect(outlineFade(60, 60, 60)).toBe(0);
+    expect(outlineFade(60.1, 60, 60)).toBe(1);
     expect(outlineStroke(60, step).opacity).toBe(0);
     expect(outlineStroke(60.5, step)).toMatchObject({ width: 1, opacity: 1 });
   });
 
-  it("defaults: fully on at the opening tile size S, off at 0.85 S, a hairline, dark grey", () => {
+  it("defaults: off at 0.85 S, fully on from 1.15 S, a hairline, dark grey", () => {
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
       force: "auto",
       fadeOffFactor: 0.85,
-      fadeFullFactor: 1,
+      fadeFullFactor: 1.15,
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
@@ -132,13 +153,17 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
       segmentFullDevicePx: 1,
     });
     for (const s of [52, 60, 75]) {
-      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ width: 1, opacity: 1 });
+      expect(outlineStroke(1.15 * s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ width: 1, opacity: 1 });
       expect(outlineStroke(0.85 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBe(0);
-      expect(outlineStroke(0.925 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.5, 9);
+      // The opening view is no longer fully on: smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85)) = 0.5565.
+      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.5565, 3);
     }
+    expect(outlineOpacityAtOpening()).toBeCloseTo(0.5565, 3);
+    // The 1.3 S preset.
+    expect(outlineOpacityAtOpening(0.85, 1.3)).toBeCloseTo(0.3268, 3);
     // Without an opening size, a 900 px high window's (60 px).
     expect(DEFAULT_OPENING_TILE_PX).toBe(60);
-    expect(outlineStroke(60)).toMatchObject({ width: 1, opacity: 1 });
+    expect(outlineStroke(70)).toMatchObject({ width: 1, opacity: 1 });
     expect(outlineStroke(51).opacity).toBe(0);
   });
 });
@@ -153,11 +178,12 @@ describe("the opening tile size S", () => {
     expect(openingTilePixels(camera, 900)).toBeCloseTo(60.3, 1);
   });
 
-  it("puts the fade at the same distances on every screen: on at the opening view, off past 240 / 0.85", () => {
+  it("puts the fade at the same distances on every screen: 0.56 at the opening view, fully on from 240 / 1.15, off past 240 / 0.85", () => {
     for (const height of [780, 900, 1300]) {
       const s = openingTilePixels(camera, height);
       const at = (distance: number) => outlineStroke(tilePixels(camera, distance, height), DEFAULT_OUTLINE_SETTINGS, 1, s);
-      expect(at(240)).toMatchObject({ width: 1, opacity: 1 });
+      expect(at(240).opacity).toBeCloseTo(0.5565, 3);
+      expect(at(240 / 1.15)).toMatchObject({ width: 1, opacity: 1 });
       expect(at(240 / 0.85 + 0.01).opacity).toBe(0);
       // The farthest zoom (300) is past the off distance (about 282): the outlines vanish zoomed out.
       expect(at(300).opacity).toBe(0);
@@ -210,10 +236,10 @@ describe("outline material", () => {
     expect(material.visible).toBe(true);
     expect(material.uniforms.linewidth.value).toBe(1.5);
     expect(material.uniforms.opacity.value).toBe(0.4);
-    // The colour is the one shown: the shader gets the grey that shows the green channel after the finish pass.
+    // The colour is the one shown: the shader gets the colour that shows each channel after the finish pass.
     const written = material.uniforms.diffuse.value;
-    expect(written.r).toBe(written.g);
-    expect(outlineScreenOf(written.g)[1]).toBe(0x66);
+    const shown = outlineScreenOf([written.r, written.g, written.b]);
+    for (let k = 0; k < 3; k++) expect(Math.abs(shown[k] - [0x33, 0x66, 0x99][k])).toBeLessThanOrEqual(1);
   });
 
   it("starts dark grey, #2a2928 on screen (about #101010 written), and antialiases in its shader (no multisampling needed)", () => {
@@ -223,6 +249,22 @@ describe("outline material", () => {
     expect(outlineScreenOf(written)[1]).toBe(0x29);
     expect(material.fragmentShader).toContain("coverage");
     expect(material.fog).toBe(true);
+  });
+
+  it("converts a hue per channel, not only the green: the shown colour comes back within one 8-bit step", () => {
+    for (const css of ["#2a2928", "#3a1a1a", "#a02828", "#1c3a5a", "#336699"]) {
+      const material = createOutlineMaterial(css);
+      const written = material.uniforms.diffuse.value;
+      const shown = outlineScreenOf([written.r, written.g, written.b]);
+      const want = [parseInt(css.slice(1, 3), 16), parseInt(css.slice(3, 5), 16), parseInt(css.slice(5, 7), 16)];
+      for (let k = 0; k < 3; k++) expect(Math.abs(shown[k] - want[k])).toBeLessThanOrEqual(1);
+    }
+    // A red is red, not grey: the old green-only conversion wrote r = g = b.
+    const red = createOutlineMaterial("#a02828").uniforms.diffuse.value;
+    expect(red.r).toBeGreaterThan(red.g * 3);
+    // A grey stays grey, to the step.
+    const grey = outlineWrittenColor([0x2a, 0x2a, 0x2a]);
+    expect(Math.abs(grey[0] - grey[1]) + Math.abs(grey[1] - grey[2])).toBeLessThan(0.02);
   });
 
   it("converts the shown colour to the grey the finish pass needs: a round trip within one 8-bit step", () => {
