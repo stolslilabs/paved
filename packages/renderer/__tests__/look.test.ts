@@ -235,6 +235,23 @@ describe("the lights and the scene's effects", () => {
   });
 });
 
+describe("the bloom's threshold", () => {
+  it("lets the gold slots bloom and keeps it above every tile's brightness (0.8, GPU captures of LIGHT-GPU)", () => {
+    // `UnrealBloomPass`'s high pass: three's `luminance` (Rec. 709) of the linear colour, from the threshold up.
+    const { highlights, bloom } = LOOK_PRESETS.mockup;
+    const slot = new THREE.Color(highlights.slotColor).multiplyScalar(highlights.slotIntensity);
+    const luminance = 0.2126 * slot.r + 0.7152 * slot.g + 0.0722 * slot.b;
+    expect(bloom.threshold).toBe(0.9);
+    // Above the threshold and its smooth width (0.01): the slots glow fully.
+    expect(luminance).toBeGreaterThan(bloom.threshold + 0.01);
+    // At 1.0 they did not (about 0.96): the bloom changed no pixel on the GPU.
+    expect(luminance).toBeLessThan(1);
+    // No tile glowed with the threshold at 0.8 (GPU captures, zoomed in and at 60, highlights off).
+    expect(bloom.threshold).toBeGreaterThanOrEqual(0.8);
+    expect(LOOK_PRESETS.soft.bloom.threshold).toBe(bloom.threshold);
+  });
+});
+
 describe("the tiles' part of the look", () => {
   it("draws the slots in emissive gold, brighter than 1 so the bloom picks them, and follows a new look", () => {
     const tiles = new TileRenderer({} as never);

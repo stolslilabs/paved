@@ -1365,7 +1365,7 @@ applies both only when a material draws to the canvas, the vignette's shader inc
    of the scene), 12 taps on a fixed spiral (no per-pixel noise, so nothing dithers under a pan), into its own target at
    `ao.resolution` of the buffer (0.5 by default). It writes nothing to the composer's buffers. Under about 1.5 texels of
    radius on screen (the board seen from far) it skips the taps.
-3. `UnrealBloomPass` on what is above `bloom.threshold` (1.0 in linear colour): in practice the gold slot outlines,
+3. `UnrealBloomPass` on what is above `bloom.threshold` (0.9 in linear colour, LIGHT-GPU): in practice the gold slot outlines,
    drawn at 1.6 times their colour.
 4. `FinishPass`, always: the AO multiplied in, the tone map (three's AgX, ACES or Neutral, with the exposure), the grade
    (saturation, contrast around 0.18, warmth), the vignette, then the sRGB transfer. One full-screen pass; each effect is
@@ -1401,7 +1401,7 @@ rebuilds the chain.
 | `vignette` | corners darkened | offset 1, darkness 0.45 | darkness 0.3 | off |
 | `fog` | distance fog | density 0.0018 | 0.001 | off |
 | `background` | what the board fades into | `#30363f` (dark navy on screen after ACES) | `#1a2330` | `#141b26` |
-| `bloom` | glow above the threshold | strength 0.15, radius 0.2, threshold 1 | strength 0.1 | off |
+| `bloom` | glow above the threshold | strength 0.15, radius 0.2, threshold 0.9 | strength 0.1 | off |
 | `highlights` | slots and ghost | gold `#ffc23d`, slots 1.6, ghost 0.25 | as Mockup | slots 1, ghost 0.2 |
 | `water` | brighter, glossier water | brightness 1.25, roughness 0.15 | as Mockup | off |
 

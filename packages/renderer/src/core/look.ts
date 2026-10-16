@@ -106,7 +106,8 @@ const MOCKUP: LookSettings = {
   fog: { enabled: true, density: 0.0018 },
   // ACES crushes the darks: this lands on the mockups' dark navy on screen.
   background: "#30363f",
-  bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 1.0 },
+  // 0.9: the gold slots (x 1.6, luminance about 0.96) glow; no tile glows at 0.8 or above (LIGHT-GPU, GPU captures).
+  bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 0.9 },
   highlights: { slotColor: "#ffc23d", slotIntensity: 1.6, ghostColor: "#ffc23d", ghostIntensity: 0.25 },
   water: { enabled: true, brightness: 1.25, roughness: 0.15 },
 };
