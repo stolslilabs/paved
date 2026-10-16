@@ -23,11 +23,12 @@ export interface SkinsBoardProps {
 }
 
 /**
- * The base models and the Forest variants as the app's manifest lists them (`models`, `themes["1"]`): Storybook serves the
+ * The base models and the Forest variants as the app's manifest lists them (`models`, `tiles`, `themes["1"]`): Storybook serves the
  * app's `public/` (where the compressed models are) at `APP_ASSETS` but no `manifest.json`, so the story names the files from
  * the folder, in variant order, and hands the renderer that manifest (`GameCanvas`'s `manifest`). The globs read the names
  * only: no model is imported or bundled.
  */
+const TILE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/tiles/*.png", { query: "?url" }));
 const BASE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/*.glb", { query: "?url" }));
 const FOREST_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
 export const SKINS_MANIFEST: AssetManifest = (() => {
@@ -42,7 +43,13 @@ export const SKINS_MANIFEST: AssetManifest = (() => {
     const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
     if (match) models[match[1]!] = `models/${file.slice(file.lastIndexOf("/") + 1)}`;
   }
-  return { models, themes: { "1": forest } };
+  // The 256 px tile images, as the app's build lists them: the app ships no original (`assets/tiles/`) to ask for.
+  const tiles: Record<string, Record<string, string>> = {};
+  for (const file of TILE_FILES) {
+    const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
+    if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${file.slice(file.lastIndexOf("/") + 1)}`;
+  }
+  return { models, tiles, themes: { "1": forest } };
 })();
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
