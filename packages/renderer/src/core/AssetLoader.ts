@@ -22,7 +22,7 @@ export interface AssetManifest {
 
 /**
  * The side, in pixels, of the tile images the renderer draws, the placeholder quad's and the plan view's: one size serves
- * both (the plan view at 256 and at 512 px differs by under 1.2 dE at every zoom, `docs/client/v2-architecture.md`, 4.2).
+ * both (the plan view at 256 and at 512 px differs by a mean 0.02 to 0.06 dE and 1.6 dE at most, at every zoom, `docs/client/v2-architecture.md`, 4.2).
  */
 export const TILE_IMAGE_SIZE = 256;
 

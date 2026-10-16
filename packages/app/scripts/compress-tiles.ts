@@ -6,8 +6,9 @@
  *
  * Reads `../app-web/public/assets/tiles/<plan>.png` (left untouched) and writes
  * `public/renderer-assets/tiles/<plan>.<size>.<hash>.png` for each size of `SIZES` (a list, so another size is one number). Each run removes the copies of an earlier
- * one. `--check` writes nothing and fails when the committed copies are not exactly what this run would write (same bytes,
- * so the same Node and zlib: the toolchain is pinned by `.tool-versions`). Node 24 runs it as is (type stripping): the
+ * one. `--check` writes nothing and fails when a committed copy is not what this run would write, compared by pixels, not
+ * bytes (the deflate stream depends on the Node and zlib that wrote it, which nothing pins): each copy's name must carry
+ * its file's hash, and its decoded size and pixels must be the ones computed from the original; a missing or extra file fails. Node 24 runs it as is (type stripping): the
  * syntax stays erasable.
  *
  * No package: the originals are 8-bit RGB or RGBA PNGs, read and written with `node:zlib` (PNG's filters are a few lines).
@@ -214,20 +215,30 @@ for (const file of sources) {
   const image = decode(file, src);
   before += src.length;
   for (const size of SIZES) {
-    const out = encode(resize(image, size));
+    const pixels = resize(image, size);
+    if (check) {
+      const names = readdirSync(OUT).filter((n) => n.startsWith(`${key}.${size}.`));
+      const name = names.length === 1 && new RegExp(`^${key}\\.${size}\\.([0-9a-f]{10})\\.png$`).test(names[0]!) ? names[0]! : null;
+      let same = false;
+      if (name) {
+        const current = readFileSync(join(OUT, name));
+        written.add(name);
+        totals.set(size, totals.get(size)! + current.length);
+        try {
+          const got = decode(name, current);
+          same = hashOf(current) === name.split(".")[2] && got.width === size && got.height === size && Buffer.compare(got.data, pixels.data) === 0;
+        } catch {}
+      }
+      console.log(`${key}: ${image.width} -> ${size}: ${same ? "current" : "STALE"} (${name ?? "missing"})`);
+      if (!same) stale = true;
+      continue;
+    }
+    const out = encode(pixels);
     const target = `${key}.${size}.${hashOf(out)}.png`;
     written.add(target);
     totals.set(size, totals.get(size)! + out.length);
     console.log(`${key}: ${image.width} -> ${size}: ${src.length} -> ${out.length} B (${target})`);
-    if (check) {
-      let current: Uint8Array | null = null;
-      try {
-        current = readFileSync(join(OUT, target));
-      } catch {}
-      if (!current || Buffer.compare(current, out) !== 0) stale = true;
-    } else {
-      writeFileSync(join(OUT, target), out);
-    }
+    writeFileSync(join(OUT, target), out);
   }
 }
 for (const name of readdirSync(OUT)) {

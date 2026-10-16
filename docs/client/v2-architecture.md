@@ -784,8 +784,8 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
  (19, the plan view's and the tile chips'), from app-web's `public/` under their
     plain names, served in dev and copied at build.
   - **Tile images, the app's own 256 px copy, content-hashed (TEX, 2026-10-16; PM ruling of that day: 1680 px was too
-    much):** `packages/app/scripts/compress-tiles.ts` (`node scripts/compress-tiles.ts`; `--check` fails when the committed
-    copy is stale, and a test runs it) reads app-web's 19 original 1680 x 1680 PNGs (left untouched) and writes
+    much):** `packages/app/scripts/compress-tiles.ts` (`node scripts/compress-tiles.ts`; `--check` fails when a committed
+    copy is stale, comparing decoded pixels and not bytes, so a zlib update cannot fail it, and a test runs it) reads app-web's 19 original 1680 x 1680 PNGs (left untouched) and writes
     `public/renderer-assets/tiles/<plan>.256.<hash>.png`, the hash being the first 10 hex digits of the file's SHA-256.
     No package: the script reads and writes PNG with `node:zlib` (an exact area-average resize on premultiplied alpha;
     sharp and the WASM codecs are not dependencies of the repository, and `pngjs` is only a transitive one). PNG, not
@@ -801,12 +801,13 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     319,815 B). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
     board; the phone profile is 360 x 740, device pixel ratio 2, touch and a coarse pointer, so the renderer's
     small-screen path): the images the tile materials hold on the GPU, computed per texture (width x height x 4, times 4/3
-    with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read 27 before and after on the phone
-    profile) were, before and after, in the plan view 286.0 MB (19 x 15.05 MB) and 6.64 MB (19 x 0.350 MB), and in the
+    with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read, before and after alike, 27 in the plan view
+    and 28 in the quads on the phone profile, 34 and 35 on the desktop one) were, before and after, in the plan view 286.0 MB (19 x 15.05 MB) and 6.64 MB (19 x 0.350 MB), and in the
     placeholder quads (18 quads, the board's first tile drawn from its model) 271.0 MB and 6.29 MB; both views resident
     (a plan shown both ways is uploaded twice, 5.6) about 557 MB and 12.9 MB. The desktop profile (1280 x 800) gives the
     same figures. Downloaded: 319,815 B raw for the 19 originals and 83,283 B for the 19 copies (3.8 times less; the
-    request count is the same, 19); gzipped at level 9, 60,549 B and 79,226 B: the originals are poorly deflated PNGs
+    request count is the same, 19; but the hand's `TileChip` still loads the 1680 px originals, so on a game page the download is
+    the copies plus the originals the hand shows, up to 403,098 B over a game, until `tile-chip.tsx` moves to the copy); gzipped at level 9, 60,549 B and 79,226 B: the originals are poorly deflated PNGs
     that gzip squeezes further, so a host that gzips `image/png` (the usual one does not) sends fewer bytes for the
     originals than for the copies. Captures `captures/tex-360-*.png` and `tex-1280-*.png`, `-before` and `-after`, of the
     plan view, the placeholder quads and the plan view at its closest zoom; the plan view at the default zoom differs by a

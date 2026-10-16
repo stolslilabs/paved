@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
+import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PlanType, getPlanKey } from "@paved/game-core";
@@ -103,10 +104,55 @@ describe("the app's resized, content-hashed tile images (scripts/compress-tiles.
     expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
     execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts")], { stdio: "pipe" });
     expect(execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("1 plans:");
+    const folder = join(app, "public/renderer-assets/tiles");
+    const run = () => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" });
+    const original = readFileSync(join(folder, readdirSync(folder)[0]!));
+    /** The file with its pixel data inflated, changed by `edit` and deflated at `level`, named by its new hash (the stream differs, the pixels may not). */
+    const rewrite = (level: number, edit: (raw: Buffer) => void) => {
+      const written = readdirSync(folder)[0]!;
+      const png = readFileSync(join(folder, written));
+      const parts: Buffer[] = [];
+      const others: Array<[string, Buffer]> = [];
+      for (let at = 8; at < png.length; ) {
+        const length = png.readUInt32BE(at);
+        const type = png.toString("latin1", at + 4, at + 8);
+        const body = png.subarray(at + 8, at + 8 + length);
+        if (type === "IDAT") parts.push(body);
+        else others.push([type, body]);
+        at += 12 + length;
+      }
+      const raw = inflateSync(Buffer.concat(parts));
+      edit(raw);
+      const chunk = (type: string, body: Buffer) => {
+        const head = Buffer.alloc(8);
+        head.writeUInt32BE(body.length, 0);
+        head.write(type, 4, "latin1");
+        const crc = Buffer.alloc(4);
+        crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), body])), 0);
+        return Buffer.concat([head, body, crc]);
+      };
+      const out = Buffer.concat([
+        png.subarray(0, 8),
+        ...others.filter(([t]) => t === "IHDR").map(([t, b]) => chunk(t, b)),
+        chunk("IDAT", deflateSync(raw, { level })),
+        chunk("IEND", Buffer.alloc(0)),
+      ]);
+      rmSync(join(folder, written));
+      const name = `${written.slice(0, 14)}${createHash("sha256").update(out).digest("hex").slice(0, 10)}.png`;
+      writeFileSync(join(folder, name), out);
+      return out;
+    };
+    // Another deflate level: a different file and hash, the same pixels: still current.
+    const other = rewrite(1, () => {});
+    expect(other.equals(original)).toBe(false);
+    expect(run().toString()).toContain("1 plans:");
+    // One pixel changed (a byte of the first row's data), the name still its file's hash: stale.
+    rewrite(9, (raw) => void (raw[5] = (raw[5]! + 1) & 0xff));
+    expect(() => run()).toThrow();
     // A copy edited under its name, and one extra file: both stale.
-    const written = readdirSync(join(app, "public/renderer-assets/tiles"));
-    writeFileSync(join(app, "public/renderer-assets/tiles", written[0]!), "edited");
-    expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
+    const [current] = readdirSync(folder);
+    writeFileSync(join(folder, current!), "edited");
+    expect(() => run()).toThrow();
   }, 120_000);
 
   it("fails the manifest when a name's hash is not its file's, or a plan has two images of a size", () => {
