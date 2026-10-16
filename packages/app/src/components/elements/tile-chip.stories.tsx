@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { RENDERER_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
 import { TileChip } from "./tile-chip";
 
-const meta = { title: "Elements/TileChip", component: TileChip, parameters: { layout: "padded" }, args: { plan: 13, orientation: 1, size: "lg", art: originalTileArt(RENDERER_ASSETS) } } satisfies Meta<typeof TileChip>;
+const meta = { title: "Elements/TileChip", component: TileChip, parameters: { layout: "padded" }, args: { plan: 13, orientation: 1, size: "lg", art: originalTileArt(APP_WEB_ASSETS) } } satisfies Meta<typeof TileChip>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -31,7 +31,7 @@ export const AllPlans: Story = {
   render: () => (
     <div className="grid grid-cols-5 gap-3 tablet:grid-cols-10">
       {Array.from({ length: 19 }, (_, i) => (
-        <TileChip key={i} plan={i + 1} size="md" art={originalTileArt(RENDERER_ASSETS)} />
+        <TileChip key={i} plan={i + 1} size="md" art={originalTileArt(APP_WEB_ASSETS)} />
       ))}
     </div>
   ),

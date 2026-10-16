@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { RENDERER_ASSETS } from "../../mocks/assets";
+import { APP_WEB_ASSETS } from "../../mocks/assets";
 import { BOARD_38, BOARD_72 } from "../../mocks/board";
 import { BoardViewport } from "./board-viewport";
 
@@ -7,7 +7,7 @@ import { BoardViewport } from "./board-viewport";
 const meta = {
   title: "Containers/BoardViewport",
   component: BoardViewport,
-  args: { tiles: BOARD_38.tiles, basePath: RENDERER_ASSETS },
+  args: { tiles: BOARD_38.tiles, basePath: APP_WEB_ASSETS },
   decorators: [(Story) => <div className="relative h-dvh"><Story /></div>],
 } satisfies Meta<typeof BoardViewport>;
 export default meta;
