@@ -6,12 +6,15 @@ import { AbiCodec, camelCase, type Abi } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, ViewError } from "../src/views";
+import { packReferrer } from "../src/packs";
+import { paidReferrer } from "../src/economy/writer";
 import { WriteError } from "../src/writer";
 import {
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
   RefusedReferrerError,
+  RouterNotPinnedError,
   referrerOf,
   refusedReferrer,
   RpcEconomyViews,
@@ -44,7 +47,7 @@ import {
   referralOf,
   resolveEconomyDeployment,
 } from "../src/economy";
-import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
 import devnetFile from "../../../contracts/deployments/devnet.json";
 
@@ -282,7 +285,7 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
       "0x123456789abcdef",
     );
     // The payer, the deployment's Challenge (0x2) and its Economy (0x10), in any spelling (padded, upper case): refused with the
-    // same plain message, and nothing is executed. The Vault, the token and USDC are ordinary addresses here.
+    // same plain message, and nothing is executed. (The Vault, the router and Setup are sent as 0x0: the next test.)
     const refused: Array<[string, string]> = [
       [PLAYER, "payer"], [`0x${"0".repeat(63)}5`, "payer"], ["0X5", "payer"],
       [ADDR.Challenge, "challenge"], [`0x${"0".repeat(63)}2`, "challenge"],
@@ -303,6 +306,33 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(refusedReferrer(ECON.vault, PLAYER, contracts)).toBeNull();
     // A deployment without an Economy address refuses no address in its name (an empty address names nothing).
     expect(refusedReferrer(REFERRER, null, { challenge: "", economy: "" })).toBeNull();
+  });
+
+  // `Economy.pay` ignores the Vault, the router and the seller (Setup) as referrers: the swap must be the no-referral one.
+  test("a Vault, router or Setup referrer is sent as 0x0, with the no-referral swap input and min_out", async () => {
+    const none = await setup().econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: null });
+    expect(none.swapIn).toBe(8_000_000n);
+    for (const ignored of [ECON.vault, FAKE_ROUTER, ADDR.Setup, `0x${"0".repeat(62)}12`, "0X3"]) {
+      const { econWriter, sent } = setup();
+      const plan = await econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: ignored });
+      expect(plan.referrer, ignored).toBe("0x0");
+      expect(plan.swapIn).toBe(none.swapIn);
+      expect(plan.minOut).toBe(none.minOut);
+      expect(plan.calls[1].calldata[1]).toBe("0x0");
+      // The page's read of the referrer failed, so it kept the link's: the writer maps it all the same.
+      await econWriter.purchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: none.minOut, referrer: ignored });
+      expect(sent()[0][1].calldata).toEqual(["0x4", "0x0", `0x${none.minOut.toString(16)}`, "0x0"]);
+    }
+    // The router is the one read in the prepare, not a constant: a moved router is no longer ignored (and is refused by the pin).
+    const { economy, econWriter } = setup();
+    economy.router_ = "0xbad";
+    await expect(econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: FAKE_ROUTER })).rejects.toBeInstanceOf(RouterNotPinnedError);
+  });
+
+  test("the game and the pack map a referrer with the same function (paidReferrer)", () => {
+    expect(packReferrer).toBe(paidReferrer);
+    expect(paidReferrer(REFERRER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe(REFERRER);
+    expect(paidReferrer(FAKE_ROUTER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe("0x0");
   });
 
   test("a changed price sends nothing", async () => {
