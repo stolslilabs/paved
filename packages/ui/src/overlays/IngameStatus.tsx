@@ -1,3 +1,4 @@
+import { formatNumber } from "@paved/game-core";
 import { Text, YStack } from "tamagui";
 const Stack = YStack as any;
 
@@ -25,7 +26,7 @@ export function IngameStatus({
     >
       <Text color="$muted" fontSize="$1">Score</Text>
       <Text fontSize="$7" fontWeight="700" fontFamily="$heading" color="$primary">
-        {score.toLocaleString()}
+        {formatNumber(score)}
       </Text>
       <Stack flexDirection="row" gap="$4">
         <Stack flexDirection="row" alignItems="center" gap="$1">

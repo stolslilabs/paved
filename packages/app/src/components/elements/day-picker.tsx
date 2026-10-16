@@ -1,3 +1,4 @@
+import { formatDate } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -5,11 +6,9 @@ import { Icon } from "../ui/icon";
 /** Seconds of a tournament: a UTC day (`TOURNAMENT_DURATION` of the indexer, `CHALLENGE_DURATION` of the contracts). */
 export const DAY_S = 86_400;
 
-/** A day id's date, UTC (a day is the tournament id `timestamp / 86400`): "Wed 14 Oct". */
+/** A day id's date, UTC (a day is the tournament id `timestamp / 86400`): "Wed, Oct 14". */
 export function formatDay(day: number): string {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
-    .format(new Date(day * DAY_S * 1000))
-    .replace(",", "");
+  return formatDate(day * DAY_S * 1000, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 export interface DayPickerProps {

@@ -1,3 +1,4 @@
+import { formatInteger } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 import { Icon, type IconSize } from "../ui/icon";
@@ -14,7 +15,7 @@ const ICON_SIZE: Record<NonNullable<VariantProps<typeof cobblesVariants>["size"]
 
 /** A Cobble count with a comma every three digits ("1,000"), as the packs are written. */
 export function formatCobbles(cobbles: number): string {
-  return Math.round(cobbles).toLocaleString("en-US");
+  return formatInteger(cobbles);
 }
 
 export interface CobblesProps extends VariantProps<typeof cobblesVariants> {

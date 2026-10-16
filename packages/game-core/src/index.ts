@@ -98,3 +98,17 @@ export { CENTER } from "./engine";
 
 // Game sessions (P2): Training, the tutorial run, the page session's shape
 export * from "./sessions";
+
+// Formatting: every number and date on screen goes through here (P-66, en-US)
+export {
+  LOCALE,
+  formatBps,
+  formatCompact,
+  formatDate,
+  formatFixed,
+  formatInteger,
+  formatNumber,
+  formatPercent,
+  formatUnits,
+} from "./format";
+export type { NumberOptions } from "./format";
