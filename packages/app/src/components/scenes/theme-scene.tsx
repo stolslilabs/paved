@@ -1,3 +1,4 @@
+import type { TileArt } from "../elements/tile-chip";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -48,7 +49,7 @@ export interface ThemeSceneProps {
   /** The tiles the preview cards draw. */
   tiles: readonly { plan: number; orientation: number }[];
   /** Where the tile art is served. */
-  tileArt?: string;
+  tileArt?: TileArt;
   /** The skins of the theme browsed (P-61); omitted: the board's look only, or `skinsStatus`. */
   skins?: ThemeSkins | null;
   /** Shown in the skins' place when `skins` is not given. */
@@ -91,7 +92,7 @@ export function ThemeScene({ selected, tiles, tileArt, skins, skinsStatus, showS
       )}
       <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
         {THEMES.map((t) => (
-          <ThemeCard key={t.id} theme={t} selected={t.id === selected} tiles={tiles} artBase={tileArt} onSelect={onSelect} />
+          <ThemeCard key={t.id} theme={t} selected={t.id === selected} tiles={tiles} tileArt={tileArt} onSelect={onSelect} />
         ))}
       </div>
       <p className="text-xs text-muted-foreground">

@@ -4,7 +4,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { Cobbles } from "../elements/cobbles";
-import { TileChip, planCode } from "../elements/tile-chip";
+import { TileChip, planCode, type TileArt } from "../elements/tile-chip";
 import { PLANS, ownsSkin, type SkinState } from "./cobble-types";
 import { THEME_TINT, THEMES, type ThemeId } from "./theme-card";
 
@@ -32,7 +32,7 @@ export interface SkinCellProps {
   buying?: boolean;
   /** Any purchase or the save is on its way: the others wait. */
   busy?: boolean;
-  tileArt?: string;
+  tileArt?: TileArt;
   onBuy?: (plan: number) => void;
   onToggle?: (plan: number) => void;
 }
@@ -52,7 +52,7 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
     >
       <span className="relative block aspect-square overflow-hidden rounded-lg bg-secondary">
         <span className="absolute inset-0" style={{ filter: THEME_TINT[theme] }}>
-          <TileChip plan={plan} artBase={tileArt} className="size-full rounded-none border-0" />
+          <TileChip plan={plan} art={tileArt} className="size-full rounded-none border-0" />
         </span>
         {state === "active" && <Badge className="absolute top-1 left-1">Active</Badge>}
       </span>
@@ -97,7 +97,7 @@ export interface SkinGridProps {
   /** The plan whose purchase is on its way. */
   buying?: number | null;
   busy?: boolean;
-  tileArt?: string;
+  tileArt?: TileArt;
   onBuy?: (plan: number) => void;
   onToggle?: (plan: number) => void;
   className?: string;

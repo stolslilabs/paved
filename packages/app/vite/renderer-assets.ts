@@ -30,10 +30,11 @@ const VARIANT = /^([a-z]{9})_[A-Z]{2}_(\d+)\.([0-9a-f]{10})\.glb$/;
 export const THEME_FOLDERS: Record<string, number> = { forest: 1 };
 
 /**
- * What the renderer requests (`AssetLoader`): a base model, a tile image, the Draco decoder. Anything else in the folder
- * (`models/extended/`, `assets/tiles/00.png`, the notices, the decoder's README) is never served nor copied.
+ * What the renderer requests from app-web's folder (`AssetLoader`): a base model, the Draco decoder. The tile images are the
+ * app's own copies (`tiles/`), not this folder's. Anything else in it (`models/extended/`, the `assets/tiles/` originals, the
+ * notices, the decoder's README) is never served nor copied.
  */
-const SERVED = [/^models\/[a-z]{9}\.glb$/, /^assets\/tiles\/[a-z]{9}\.png$/, /^draco\/(draco_decoder\.js|draco_decoder\.wasm|draco_wasm_wrapper\.js)$/];
+const SERVED = [/^models\/[a-z]{9}\.glb$/, /^draco\/(draco_decoder\.js|draco_decoder\.wasm|draco_wasm_wrapper\.js)$/];
 
 export const isRendererAsset = (path: string) => SERVED.some((re) => re.test(path));
 
@@ -125,9 +126,8 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
  * The renderer's assets at `<base>renderer-assets/`. The models are the app's compressed, hashed copy in `public/`
  * (Vite serves and copies it), and so are the resized tile images the renderer draws (`tiles/`, 256 px); this adds
  * the manifest that names them, served in `vite` (dev, `no-cache`) and written into `dist/renderer-assets/manifest.json` at
- * build, and the 1680 px originals (`assets/tiles/`), which the renderer no longer asks for but the tile chips (a DOM
- * `<img>`) still do: served from app-web's `public/` in dev and copied into `dist/renderer-assets/assets/tiles/` at
- * build. In dev it also answers the
+ * build. The 1680 px originals (`assets/tiles/`) are neither served nor copied: the renderer and the tile chips (a DOM `<img>`,
+ * through the manifest) draw the 256 px copies, so those are the only tile images in `dist/`. In dev it also answers the
  * original names (`models/<plan>.glb`, `draco/`), what the loader asks for when no manifest lists a plan; the build ships
  * neither. `vite preview` serves `dist` as a static host does, so the built copy is what it shows. Storybook maps
  * app-web's folder itself (`staticDirs`), whole, with no manifest: the plugin stays out of its builds.
@@ -169,9 +169,6 @@ export function rendererAssets(source = SOURCE, models = MODELS, tiles: string |
     generateBundle() {
       if (off) return;
       this.emitFile({ type: "asset", fileName: "renderer-assets/manifest.json", source: `${JSON.stringify(rendererManifest(models, tiles), null, 2)}\n` });
-      for (const rel of rendererAssetFiles(source).filter((f) => f.startsWith("assets/tiles/"))) {
-        this.emitFile({ type: "asset", fileName: `renderer-assets/${rel}`, source: readFileSync(join(source, rel)) });
-      }
     },
   };
 }

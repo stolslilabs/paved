@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { TileChip, chipVariants } from "../elements/tile-chip";
+import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
 
 /**
  * Where the hand is: `placing` (choose a slot, rotate, confirm), `pending` (a move sent, its receipt awaited),
@@ -20,8 +20,8 @@ export interface HandPanelProps {
   preview?: number | null;
   /** Why the move was refused. */
   error?: string | null;
-  /** Where the board's tile art is served (`TileChip`'s `artBase`): the hand shows the tile as the board draws it. */
-  tileArt?: string;
+  /** Where the board's tile art is served (`TileChip`'s `art`, from `useTileArt`): the hand shows the tile as the board draws it. */
+  tileArt?: TileArt;
   /** Draws the tile with the renderer (`TileView`), as the board does; the page gives it, tests leave it out (no WebGL). */
   renderTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   onRotate?: () => void;
@@ -71,7 +71,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
               {renderTile(tile)}
             </span>
           ) : (
-            <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} artBase={tileArt} size="lg" state={chipState} />
+            <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="lg" state={chipState} />
           )}
           <Button variant="ghost" size="sm" onClick={onRotate} disabled={locked || !tile} aria-label="Rotate tile">
             <Icon name="rotate-right" size="sm" /> Rotate

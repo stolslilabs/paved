@@ -1,3 +1,4 @@
+import type { TileArt } from "../elements/tile-chip";
 import { useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { Button } from "../ui/button";
@@ -36,8 +37,8 @@ export interface BoardSceneProps {
   };
   /** What the last move closed (`SessionState.lastScored`), shown as it arrives. */
   lastScored: ScoredStructure[];
-  /** Where the board's tile art is served: the hand shows the same art as the board. */
-  tileArt?: string;
+  /** The tiles' images (`useTileArt`): the hand shows the same art as the board. */
+  tileArt?: TileArt;
   /** The hand's tile drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** `localStorage` refused: a Training or Tutorial game is not saved on this device. */

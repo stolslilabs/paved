@@ -38,39 +38,44 @@ export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden r
   defaultVariants: { size: "md", state: "default" },
 });
 
+/** A plan's image URL by its nine letters (lower case), or null when it has none. */
+export type TileArt = (key: string) => string | null;
+
 export interface TileChipProps extends VariantProps<typeof chipVariants> {
   /** Chain plan id; 0 (None) draws an empty slot. */
   plan: number;
   /** Chain orientation, 1 North to 4 West; the chip turns a quarter per step. */
   orientation?: number;
   /**
-   * Where the board's tile art is served (`<artBase>/assets/tiles/<plan>.png`, the images the renderer loads): the chip
-   * then shows the same art as the board, so the player recognises the tile they place (the PM's ruling, 2026-10-14).
-   * Without it, or with `view="areas"`, the chip draws the plan's nine areas: a debug and accessibility view.
+   * The image of a plan, given its nine letters in lower case: a URL (the 256 px copy the renderer draws: the chip then shows
+   * the same art as the board, so the player recognises the tile they place, the PM's ruling, 2026-10-14), or null for a plan
+   * with no image. Resolved by the page (`useTileArt`); the chip only draws. Without it, with `view="areas"`, or for a plan
+   * with no image, the chip draws the plan's nine areas: a debug and accessibility view, and the fallback.
    */
-  artBase?: string;
+  art?: TileArt;
   view?: "art" | "areas";
   className?: string;
 }
 
 /** A tile seen from above, turned to its orientation: the board's art, or its plan's nine areas on a 3x3 grid. */
-export function TileChip({ plan, orientation = 1, artBase, view = "art", size, state, className }: TileChipProps) {
+export function TileChip({ plan, orientation = 1, art, view = "art", size, state, className }: TileChipProps) {
   const code = planCode(plan);
   const label = code ? `Tile ${code.toLowerCase()}, ${["north", "east", "south", "west"][(orientation - 1 + 4) % 4]}` : "No tile";
   const turn = { transform: `rotate(${(orientation - 1) * 90}deg)` };
-  const art = code && artBase != null && view === "art";
+  const src = code && view === "art" && art ? art(code.toLowerCase()) : null;
+  const drawn = src != null;
   return (
-    <span role="img" aria-label={label} data-state={state ?? "default"} data-view={art ? "art" : "areas"} className={cn(chipVariants({ size, state }), className)}>
-      {art && (
+    <span role="img" aria-label={label} data-state={state ?? "default"} data-view={drawn ? "art" : "areas"} className={cn(chipVariants({ size, state }), className)}>
+      {drawn && (
         <img
-          src={`${artBase}/assets/tiles/${code.toLowerCase()}.png`}
+          src={src}
           alt=""
           draggable={false}
           className="size-full object-cover transition-transform duration-200 motion-reduce:transition-none"
           style={turn}
         />
       )}
-      {code && !art && (
+      {code && !drawn && (
         <svg
           viewBox="0 0 3 3"
           className="size-full transition-transform duration-200 motion-reduce:transition-none"
