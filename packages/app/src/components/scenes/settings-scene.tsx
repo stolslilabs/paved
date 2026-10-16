@@ -5,12 +5,13 @@ import { Icon } from "../ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { PlayerName } from "../elements/player-name";
 import { ShortAddress } from "../elements/short-address";
-import { SettingSwitch } from "../elements/setting-switch";
+import { SettingSwitch, ShowSkinsSwitch } from "../elements/setting-switch";
 import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, type ThemeId } from "../containers/theme-card";
 
-export type GraphicsQuality = "low" | "medium" | "high";
+/** "auto" picks by device: Low on a phone, Medium on a desktop; High only by hand. */
+export type GraphicsQuality = "auto" | "low" | "medium" | "high";
 
 /** The player's preferences, kept on this device (section 6.4: local storage). */
 export interface Preferences {
@@ -21,6 +22,8 @@ export interface Preferences {
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
   placementHighlight: boolean;
+  /** Show the players' skins on the boards (off: the base models, nothing downloaded). Kept with the theme. */
+  showSkins: boolean;
 }
 
 /** The connected controller account. */
@@ -35,6 +38,8 @@ export interface SettingsSceneProps {
   /** Null: a guest. */
   account: Account | null;
   theme: ThemeId;
+  /** The tier "auto" resolves to on this device: "Auto (Medium)". */
+  autoQuality?: Exclude<GraphicsQuality, "auto">;
   connecting?: boolean;
   /** The app's version, at the foot of the page. */
   version?: string;
@@ -47,6 +52,7 @@ export interface SettingsSceneProps {
 }
 
 const QUALITY: { value: GraphicsQuality; label: string }[] = [
+  { value: "auto", label: "Auto" },
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
@@ -75,12 +81,21 @@ export function SettingsScene(props: SettingsSceneProps) {
                 className="w-full"
               >
                 {QUALITY.map((q) => (
-                  <ToggleGroupItem key={q.value} value={q.value} className="flex-1">
-                    {q.label}
+                  // "Auto (Medium)" is the one long label: Auto gets double width so it fits at 320 px (WRAP360).
+                  <ToggleGroupItem key={q.value} value={q.value} className={`h-auto min-h-9 min-w-0 ${q.value === "auto" ? "flex-[2]" : "flex-1"} px-1 py-1 text-center text-xs leading-tight whitespace-normal`}>
+                    {q.value === "auto" && props.autoQuality ? (
+                      <>
+                        Auto <span className="inline-block">({QUALITY.find((o) => o.value === props.autoQuality)?.label})</span>
+                      </>
+                    ) : (
+                      q.label
+                    )}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+              {p.quality === "high" && <p className="text-xs text-muted-foreground">High is heavier: it can slow the board and drain a battery faster.</p>}
             </div>
+            <ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />
             <SettingSwitch label="Sound" icon="volume-high" checked={p.sound} onCheckedChange={(v) => onChange?.("sound", v)} />
             <SettingSwitch label="Music" icon="music" checked={p.music} onCheckedChange={(v) => onChange?.("music", v)} />
           </SettingsGroup>

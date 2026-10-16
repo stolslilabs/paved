@@ -791,18 +791,41 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
     (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
     A theme's variants (SKIN-RENDER, 5.6) load only for the tiles that draw them: those handed before the first frame join
-    the first models (and a board drawn only in variants waits for no base model), the others when a tile first needs one;
-    the base models still all load after the first frame, as every tile's fallback.
+    the first models (and a board drawn only in variants waits for no base model), the others when a tile first needs one.
+    A plan whose skin is known and whose variants the manifest lists loads its base model only as a fallback (SKIN-BASE,
+    5.6): not with the rest after the first frame, not with a scene handed no tiles; the other plans' base models load
+    as before.
   - **What a player's Forest set downloads** (SKIN-RENDER, measured on the files, 2026-10-16; gzip level 9 by Python's
     `gzip`, no brotli encoder on the machine; the host's own compression of `model/gltf-binary` is not measured, there is
     no deployment to measure): the worst case, all 19 plans active and all 72 variants on the board, is 7,493,028 B
-    (3,941,654 B gzipped), on top of the 19 base models (1,089,624 B; 653,324 B gzipped), which load anyway. A typical
-    finished Challenge board (38 tiles), all 19 plans on Forest, simulated over 200 games of the engine (random legal
-    placements, the real hash, the game id varied): 25 to 36 variant files (median 31), 2,566,832 to 3,819,060 B (median
-    3,204,428 B), 1,348,794 to 2,007,262 B gzipped (median 1,690,905 B); the recorded 72-tile board of the stories
+    (3,941,654 B gzipped); SKIN-RENDER loaded the 19 base models (1,089,624 B; 653,324 B gzipped) on top of them, and since
+    SKIN-BASE (2026-10-16) a skinned plan's base model is a fallback, so a fully skinned board loads none (see below). A
+    typical finished Challenge board (37 to 38 tiles), all 19 plans on Forest, simulated over 200 games of the engine (random
+    legal placements, the real hash, the game id varied): 26 to 35 variant files (median 31), 2,675,836 to 3,699,528 B
+    (median 3,211,390 B), 1,404,863 to 1,940,413 B gzipped (median 1,691,400 B); the recorded 72-tile board of the stories
     fetches 52 of the 72. The lazy load bounds it by the board: one file per (plan, variant) a tile shows, at most the
     tiles on the board, and only the plans the player has skinned; the files are content-hashed, so a return visit
     fetches none of them again under the immutable rule below.
+  - **What SKIN-BASE saves** (measured on the files, 2026-10-16, the same method: 200 simulated finished boards of 37 to 38
+    tiles, random legal placements, the real hash, the game id varied, the variants a board shows and the base models loaded
+    for the first view and after it; raw bytes and gzip level 9 by Python's `gzip`; the boards are a fresh seeded run, so
+    their variant bytes differ from SKIN-RENDER's by under 0.3 %). Bytes of base models plus variants, before → after:
+
+    | Skinned plans | Raw, median (range) | Gzip, median (range) | Saved, median (of the total) |
+    |---|---|---|---|
+    | all 19 | 4,301,014 (3,765,460 to 4,789,152) → 3,211,390 (2,675,836 to 3,699,528) | 2,344,724 (2,058,187 to 2,593,737) → 1,691,400 (1,404,863 to 1,940,413) | 1,089,624 B raw, 653,324 B gzip: 25.3 % / 27.9 % |
+    | 10, drawn per game | 2,836,326 (2,075,088 to 3,453,372) → 2,279,672 (1,481,496 to 2,906,956) | 1,574,230 → 1,236,065 (823,599 to 1,556,422) | 563,516 B raw (range 526,968 to 619,196), 340,881 B gzip: 19.9 % / 21.7 % |
+    | 5, drawn per game | 1,903,934 → 1,625,678 | 1,082,769 → 913,691 | 279,484 B raw, 170,052 B gzip: 14.7 % / 15.7 % |
+    | 1 | 1,245,538 → 1,190,960 | 736,908 → 703,795 | 56,188 B raw, 34,152 B gzip: 4.5 % / 4.6 % |
+    | none, or the skin read failed | 1,089,624 → 1,089,624 | 653,324 → 653,324 | 0 |
+
+    A saving is the base models of the skinned plans: 1,089,624 B for all 19 (every board, since it is the whole set), at
+    most 92,460 B for a single plan, and for a player with some plans skinned the base models of those plans only (they
+    load for every plan the player has not skinned, as before). **The worst case** is unchanged in kind: all 19 plans
+    skinned and all 72 variants on the board, 7,493,028 B (3,941,654 B gzipped), which no longer carries 1,089,624 B of
+    base models (8,582,652 B, 4,594,978 B gzipped, before). A board whose skin read arrives after the rest of the models
+    were asked for (a slow read; the rest runs one frame and an idle callback after the first one, at most about 0.5 s)
+    saves nothing: its base models are loaded, as the fallback of a read that had not come. That case is not measured.
   - **Cache headers for the host step** (the host config is not changed here): hashed models
     `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
     (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.
@@ -1393,12 +1416,28 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
   when the manifest lists no variant of that theme and plan: theme 0, a theme not out (Snow, Desert, Volcano), a host with
   no manifest. `GameScene.setSkins` (and `GameCanvas`'s `skins`) hands the map to `TileRenderer`, which keys its shared
   models by model id (a plan key, or a variant's path): one variant loads once and is shared by its tiles, with its own
-  outline geometry, built the same way. A tile whose variant is not in yet keeps its base model meanwhile (when that is
-  in) and swaps when the variant comes in; a variant that fails to load is not asked again, and its tiles draw the base
-  model (logged once). Outlines, MSAA, the segment cut and LIGHT's look are unchanged on skinned tiles: the variants sit on
+  outline geometry, built the same way. A tile whose variant is not in yet keeps the base model it
+  already draws (when that is in) and swaps when the variant comes in; a variant that fails to load is not asked again,
+  and its tiles draw the base model (logged once). Outlines, MSAA, the segment cut and LIGHT's look are unchanged on skinned tiles: the variants sit on
   the same 0.1 voxel grid, and `renderer-models-edges.test.ts` checks that each of the 72 Forest models gives its Draco
   source's outline segments, within the voxel snap (each source coordinate within 1.3e-4 of the grid). A host that serves
   no `manifest.json` may hand one (`RendererConfig.manifest`, `GameCanvas`'s `manifest`): the stories do.
+- **The base model as a fallback (SKIN-BASE, 2026-10-16).** A plan's base model loads only when a tile needs it:
+  the plan has no active skin (theme 0, an unlisted theme, a host with no manifest), the skin read failed or has not
+  come when the tile first draws (the board never waits on it), or a variant of that plan failed (it loads that plan's
+  base model alone). For a plan whose skin is known (`AssetLoader.setSkins`, from `TileRenderer.setSkins`) and whose
+  theme the manifest lists, nothing asks for its base model: not the first frame's models, not `preloadAll`'s rest after
+  the first frame, not a scene handed no tiles (which used to load all 19). `preloadModels`, which `BoxRainScene` uses
+  for its own models, is unchanged. Savings: the 4.2 table (all 19 skinned: 1,089,624 B raw, 653,324 B gzip, a quarter of
+  a typical board's bytes). **What a tile draws while its variant is on its way: nothing, when its base model was not
+  loaded.** A cheap placeholder would be a third model and a visible swap, and a delay before the base model would
+  re-download the thing this task spares on the connections where the variant is slow; a variant is one file (75,204 to 134,788 B, median 105,326 B, raw) fetched on the tile's placement, and the tile appears when it arrives, the shadow
+  map and frame with it (as any late model already does). A tile that already draws a base model (its skin came later than
+  its first draw) keeps it until the variant arrives, so no tile vanishes. The ghost follows the same rule, and a ghost with
+  no hovered cell draws the variant at the board's centre of game 0, as the hand's tile does, instead of the base model.
+  Outlines, MSAA, the segment cut and LIGHT's look are untouched: the same variants and the same code draw them. Reversed
+  by loading the skinned plans' base models after the first frame again (`skipsBase` always false), or by a delayed
+  fallback if the placement latency turns out visible on a slow connection.
 - **The device's theme** (`paved.theme.v1`, `useDeviceTheme`, "the board's look" at the top of the theme page) is not read
   by the board. The skins are the chain's and belong to a player: a Challenge board shows its player's choice to every
   viewer. What the device choice should do there is a product choice this task does not settle: a viewer's opt-out
@@ -1484,15 +1523,14 @@ to Home).
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
 | referral | `Economy.split_bps()` (the share shown) | `/v1/players/:id/referrals` (IX-COBBLES2): the games' and the packs' referrals, summed by referrer; the id is the player's address | — | the referrer from `?ref=` (kept on every link) |
-| theme | — | — | — | the chosen theme |
-| settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
+| theme | — | — | — | the chosen theme, which is also the viewer's skins switch (`paved.theme.v1`) |
+| settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight (`paved.settings.v1`); the skins switch (`paved.theme.v1`) |
 
 **As wired (P6).** Home reads the day from the chain's `currentDay()` (the clock's until it answers) and its top 3 from
 the indexer client on `VITE_INDEXER_URL`; `/v1/head` is not read. Each home read that has not answered, or failed,
 leaves its part empty instead of holding the page: an empty podium, no game to resume, not paused (purchase reads the
 pause again); a connected player the indexer has not answered for is shown by address with zero figures. The welcome's
-controller connect is the devnet burner on devnet. The settings' Disconnect is in the shell's footer until P11 (with the
-D-15 notice, section 6.3); the footer is left out of the board routes, which carry the notice under their header. The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
+controller connect is the devnet burner on devnet. The shell's footer keeps its Disconnect beside the D-15 notice (section 6.3); Settings (P11a) has its own, see "As built (P11a)"; the footer is left out of the board routes, which carry the notice under their header. The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
 `Setup.claim_tutorial` only at its end, for the claim.
 
 **What Cobbles change (P-61, SC3).** The owner's in-game currency is named **Cobbles** (singular Cobble; the owner,
@@ -1892,7 +1930,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route). **Done** (2026-10-16; "As built (P10)" below): `/vault` on the Vault as it is on main, an ERC4626 over PAVED (vPAVED), with deposit, withdraw and withdraw all; `/referral` on the indexer's `/v1/players/:id/referrals` (IX-COBBLES2, games and packs) | 1.5 d |
-| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **SKIN-RENDER done** (2026-10-16; "As built (SKIN-RENDER)" below and 5.6): the board draws each tile with its player's active skin, a variant per tile by origin/dev's `getVarietyModelPath` hash | 0.5 d |
+| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **P11a done** (2026-10-16; "As built (P11a)" below): `/settings` on its data, the device settings and the viewer's skins opt-out. **SKIN-RENDER done** (2026-10-16; "As built (SKIN-RENDER)" below and 5.6): the board draws each tile with its player's active skin, a variant per tile by origin/dev's `getVarietyModelPath` hash | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
 
 **P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
@@ -2020,7 +2058,32 @@ its way (the other writes wait), a refusal (`SkinRefusedError`: owned, not for s
 its reason and the batch kept, "Skins saved". The two writes are session policies (`CONTROLLER_ENTRY_POINTS`): they spend
 Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
 the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
-the top of the page is kept on this device (`paved.theme.v1`); the board does not read it yet.
+the top of the page is kept on this device (`paved.theme.v1`); the board reads it since P11a: see "As built (P11a)".
+
+**As built (P11a).** `/settings` keeps the device settings under one versioned key, `paved.settings.v1` (`data/settings.ts`, on
+`data/device-store.ts`: `localStorage` read with try/catch, an in-memory twin once storage throws, one store shared by every
+component that reads it, so a change applies at once). It holds `quality` (`"auto"` by default, `"low"`, `"medium"`,
+`"high"`), `sound` (on), `music` (off), `tilePreview` (on) and `placementHighlight` (on); a text that does not parse, or a
+field of the wrong kind, is that field's default. *Graphics quality* is a row of Auto, Low, Medium and High: Auto shows what
+it resolves to on this device ("Auto (Medium)": Low on a coarse pointer or a small screen, else Medium; High only by hand) and
+High carries a line that it is heavier. The three board pages pass `{ quality }` to `BoardViewport`'s `settings`, kept as one
+object while the quality does not change; `GameCanvas` calls `GameScene.setSettings` when it changes, which re-applies the
+look, the antialiasing and the pixel-ratio cap, so an open board changes without a reload. The tiers stay provisional until
+LIGHT-GPU (a code comment only). *Tile preview* and *placement highlight* are wired in the board, not the renderer (which has
+no switch, and none was added): off, `BoardViewport` hands the canvas no ghost, or no lit slot. The plan view (the fallback
+without WebGL) still lights its slots. *Sound* and *music* are stored only: the app plays no audio yet. *The account* is the
+wallet's: the controller username, or the short address, with Disconnect (the wallet's own, then Home with `?ref=` kept), and
+a guest sees Connect; the links to Theme and Referral keep `?ref=`; the version line is the package's, bundled by the build.
+The shell's footer keeps its Disconnect: it is on every page that has a footer, Settings is one tab away, and removing it is a
+product call, not this page's; the D-15 notice stays where it is.
+
+*The viewer's opt-out (PM, 2026-10-16).* `paved.theme.v1` is the switch of the players' skins: `"default"` shows every board
+(Challenge, Training, the tutorial, the hand) on the base models, whoever's game it is, and `useBoardSkins` then returns
+`NO_SKINS` and reads nothing, so the renderer asks for no variant and no skin model is downloaded; any other value
+(`"forest"`) shows the players' skins as before. Nothing stored is `"forest"`: the skins show until the viewer opts out. The
+values stored before P11a are readable as they are (`"default"` was only ever written by choosing Default), so there is no
+migration. Two rows read and write that one key, in the same words, "Show players' skins" with a line that it saves data and
+graphics work: on the theme page, above the cards (choosing the Default card is the same opt-out), and in Settings.
 
 **As built (P10).** The Vault on main is not the plain staking vault of 6.5's first read: `contracts/src/systems/vault.cairo`
 is an OpenZeppelin ERC4626 over PAVED (vPAVED, 18 decimals, offset 0) with an exit fee (`exit_fee` bps, 5 % at launch, at most
@@ -2066,7 +2129,7 @@ failed read shows Retry inside the earnings and never hides the link; a guest co
 player's, Training and the tutorial the connected player's (a guest's, the base models), one variant per tile by origin/dev's
 hash of the plan, the cell and the game. The variants load lazily, only those the board and the hand show; theme 0, a theme
 the manifest does not list, a failed skin read and a variant that fails to load all draw the base model, and the board never
-waits for the skins. The device's theme (`paved.theme.v1`) is still not read by the board (5.6 says why). What a player's
+waits for the skins. Since P11a the device's theme (`paved.theme.v1`) is the viewer's opt-out of all of it ("As built (P11a)"). What a player's
 Forest set downloads is in 4.2.
 
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
