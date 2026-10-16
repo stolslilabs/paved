@@ -151,12 +151,12 @@ texture, decoder or font, in code or stories. Section 4.2 has the sizes and the 
 
 **The pipeline** (`packages/app`, committed outputs, each script has `--check` and a test that runs it):
 
-- `scripts/compress-models.ts`: app-web's base models and the Forest variants, meshopt-compressed, to
+- `packages/app/scripts/compress-models.ts`: app-web's base models and the Forest variants, meshopt-compressed, to
   `public/renderer-assets/models/<key>.<hash>.glb` and `models/forest/<plan>_HF_<n>.<hash>.glb`. The hash is the first 10 hex
   digits of the file's SHA-256.
-- `scripts/compress-tiles.ts`: the 19 plan images, 256 px, to `tiles/<plan>.256.<hash>.png`. `--check` compares decoded
+- `packages/app/scripts/compress-tiles.ts`: the 19 plan images, 256 px, to `tiles/<plan>.256.<hash>.png`. `--check` compares decoded
   pixels, not bytes. The 1680 px originals stay in app-web for Storybook; the v2 build ships none.
-- `vite/renderer-assets.ts` builds `manifest.json` from the file names, in dev and at build, and fails on a wrong hash:
+- `packages/app/vite/renderer-assets.ts` builds `manifest.json` from the file names, in dev and at build, and fails on a wrong hash:
   `{ models: { plan: path }, themes: { "<theme id>": { plan: [variant paths in order] } }, tiles: { "256": { plan: path } } }`.
   `AssetLoader` reads it once per base path (`loadManifest`); no manifest, or a plan it does not list, means the plain names.
   A changed source file means running the script (no `--check` failure in CI): never edit a hashed file or the manifest by
@@ -170,8 +170,8 @@ texture, decoder or font, in code or stories. Section 4.2 has the sizes and the 
   (`AssetLoader.onLoaded`, with a new frame and shadows).
 - A failure among the first models rejects `init`, so the app shows its plan view. A failed tile image does not stop the
   scene: it is logged and tried again after the first frame.
-- **Only the plan view's `getTexture` makes an image failure fatal**, and only when the plan view asks before the first frame
-  (`want([], true)`; asked later, a failure is logged). The placeholder quad reads `peekTexture`, which asks for nothing and
+- **Only the plan view's `getTexture` makes an image failure fatal**, and only when the plan view asks before the loader has
+  chosen, right after the manifest is read (`want([], true)` before `preloadAll` chooses; asked later, a failure is logged). The placeholder quad reads `peekTexture`, which asks for nothing and
   never counts as the plan view asking. Do not call `getTexture` from the board's path.
 - **A skinned plan's base model loads only as a fallback** (SKIN-BASE): when the plan has no skin, the skin read failed or
   was late, the manifest lists no variant, or a variant failed. For a plan whose skin is known (`setSkins`) and listed, nothing
@@ -200,11 +200,13 @@ Design: section 5.6 of `docs/client/v2-architecture.md`.
 
 ## Tests
 
-- A fake `AssetLoader` handed to `TileRenderer` needs, besides `getModel` and `getTexture`: `setSkins` (every
-  `TileRenderer.setSkins`), `has` and `want` (every model lookup, `modelOf`), `skinModel(key, skin)` (`modelOf`, as soon as a
-  plan has a skin: a fake without it throws after `setSkins`), and `peekTexture(key)` (the placeholder quad, whenever a tile
-  or the ghost has no model yet). `tile-placeholder.test.ts` has the full set; `tile-renderer.test.ts` has no `peekTexture` and
-  works only because its `has` is always true. A fake `GameScene` class for a React test needs `setSkins`
+- A fake `AssetLoader` handed to `TileRenderer` needs: `setSkins` (every `TileRenderer.setSkins`), `has` and `want` (every
+  model lookup, `modelOf`), `getModel` (a tile's model), `getTexture` (the plan view), `skinModel(key, skin)` (`modelOf`, as
+  soon as a plan has a skin: a fake without it throws after `setSkins`) and `peekTexture(key)` (the placeholder quad,
+  whenever a tile or the ghost has no model yet). No existing fake has all of them: `tile-placeholder.test.ts`'s
+  `fakeAssets()` has all but `skinModel` (its skinned tests use a real `AssetLoader`), and `tile-renderer.test.ts`'s has
+  `has`, `want`, `setSkins`, `getModel` and `getTexture` but no `peekTexture` or `skinModel`, and works only because its
+  `has` is always true and no tile has a skin. A fake `GameScene` class for a React test needs `setSkins`
   (`packages/renderer/__tests__/helpers/hooks.ts`).
 - `@paved/renderer` is consumed through its `dist` (`main` and `exports`). `bun run test --filter` builds it first (turbo);
   **Storybook does not**: `bun run --filter @paved/app build-storybook` and `storybook dev` read a stale or missing `dist`, so
@@ -249,10 +251,10 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --filter @paved/app build-storybo
 Storybook takes 2048 MB (what the briefs use; `packages/app/README.md` still says 1536). Run the package you touched; the
 whole suite is the CI's, and so is the Training e2e (`packages/app-web/e2e/`), which runs when `packages/renderer` changes.
 
-`bun run build --filter @paved/app` ends with the bundle budget (`scripts/bundle-budget.ts`, limits in
-`scripts/bundle-budget.json`): it fails when a metric passes its limit. The `board` chunk, which holds the renderer and
+`bun run build --filter @paved/app` ends with the bundle budget (`packages/app/scripts/bundle-budget.ts`, limits in
+`packages/app/scripts/bundle-budget.json`): it fails when a metric passes its limit. The `board` chunk, which holds the renderer and
 three, is the largest route, so it sets `largestRoute` (854,735 B raw against 872,448 on 2026-10-16). A renderer change that
-grows it raises that limit in `bundle-budget.json` in the same PR, with the measured size.
+grows it raises that limit in `packages/app/scripts/bundle-budget.json` in the same PR, with the measured size.
 
 ## Done when
 
