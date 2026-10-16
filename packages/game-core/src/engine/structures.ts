@@ -11,6 +11,7 @@
 import {
   areaAt,
   areaRow,
+  categoryOf,
   movesOf,
   recordAreas,
   toward,
@@ -34,6 +35,19 @@ interface StructureRecord {
   size: number;
   open: number;
   tiles: Set<number>;
+}
+
+/**
+ * A structure as the board holds it, with its nodes: its root, its category (1 forest, 2 road, 3 city, 5 wonder), its
+ * size in nodes, its open half-edges, and the areas it holds on each of its tiles (tile id to a mask, bit `area - 1`).
+ * What a view needs to draw one structure across its tiles (the renderer's lit areas).
+ */
+export interface StructureAreas {
+  readonly root: number;
+  readonly category: number;
+  readonly size: number;
+  readonly open: number;
+  readonly areas: ReadonlyMap<number, number>;
 }
 
 export function positionKey(x: number, y: number): string {
@@ -74,6 +88,34 @@ export class Board {
   /** The root of `area` of a placed tile. */
   rootOf(tile: BoardTile, area: number): { root: number; record: StructureRecord } {
     return this.find(tile.refs[area]);
+  }
+
+  /**
+   * Every structure of the board with its nodes (`StructureAreas`), in the order of their first node (tiles by id, then
+   * areas). A walk over the placed tiles: for a view, not for the placement's hot path.
+   */
+  structures(): StructureAreas[] {
+    const byRoot = new Map<number, { category: number; size: number; open: number; areas: Map<number, number> }>();
+    for (const tile of [...this.byId.values()].sort((a, b) => a.id - b.id)) {
+      for (let area = 1; area <= 9; area++) {
+        if (!tile.refs[area]) continue;
+        const { root, record } = this.rootOf(tile, area);
+        let entry = byRoot.get(root);
+        if (!entry) {
+          entry = { category: categoryOf(tile.plan, area), size: record.size, open: record.open, areas: new Map() };
+          byRoot.set(root, entry);
+        }
+        entry.areas.set(tile.id, (entry.areas.get(tile.id) ?? 0) | (1 << (area - 1)));
+      }
+    }
+    return [...byRoot].map(([root, entry]) => ({ root, ...entry }));
+  }
+
+  /** The structure of `area` of a placed tile, with its nodes (`structures`); null for an area with no structure. */
+  structureOf(tile: BoardTile, area: number): StructureAreas | null {
+    if (!tile.refs[area]) return null;
+    const { root } = this.rootOf(tile, area);
+    return this.structures().find((structure) => structure.root === root) ?? null;
   }
 
   private closeOne(record: StructureRecord): void {

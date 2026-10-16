@@ -3,7 +3,7 @@ import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
 // The owner's target images, read where they are kept (not copied): Vite serves the workspace.
 import mockup01 from "../../../../../app/docs/mockup-01.png";
 import mockup02 from "../../../../../app/docs/mockup-02.png";
-import { LightingBoard } from "./lighting-board";
+import { LIT_STRUCTURES, LightingBoard } from "./lighting-board";
 import { lookArgTypes } from "./lighting-look";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
@@ -34,6 +34,12 @@ const meta = {
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the tier in effect and the passes that run" },
     forest: { control: "boolean", description: "Forest on all 19 plans: every tile draws its cell's variant (SKIN-RENDER)" },
+    litStructure: {
+      control: "inline-radio",
+      options: LIT_STRUCTURES,
+      type: { name: "enum", value: [...LIT_STRUCTURES] },
+      description: "One structure lit across its tiles (FEATURE-HL): the board's largest city or road, from the engine's union-find",
+    },
     force: {
       control: "inline-radio",
       options: ["auto", "on", "off"],
@@ -48,7 +54,7 @@ const meta = {
     },
     ...lookArgTypes(),
   },
-  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto" },
+  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto", litStructure: "none" },
 } satisfies Meta<typeof LightingBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -70,6 +76,12 @@ export const ZoomedIn: Story = { args: { view: "zoomed-in", distance: 30 } };
  * (`labelTileGeometry`) tinted and glowing, the rest dimmed. "Feature highlight" picks the feature and the strengths.
  */
 export const CitiesLit: Story = { args: { featureHighlightEnabled: true, highlights: false } };
+
+/**
+ * One city lit across its tiles (FEATURE-HL): the board's largest city, its areas found by the engine's union-find
+ * (`StructureBoard`) and lit on each of its tiles (`GameScene.setLitAreas`), the rest of the board dimmed.
+ */
+export const LargestCityLit: Story = { args: { litStructure: "largest-city", highlights: false } };
 
 const MOCKUPS = { "mockup-01": mockup01, "mockup-02": mockup02 } as const;
 

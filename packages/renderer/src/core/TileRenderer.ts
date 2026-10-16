@@ -67,10 +67,21 @@ export const WATER_MASK_GLSL = /* glsl */ `
 /**
  * The feature highlight (`LookSettings.featureHighlight`, FEATURE-HL): the voxels whose `feature` attribute
  * (`features.ts`) is the lit feature are tinted and glow, the others are dimmed; `uFeatureOn` at 0 leaves every voxel as
- * is. It runs after the water mask, on the palette's colour.
+ * is. With a structure lit (`uStructureOn`, `TileRenderer.setLitAreas`) a voxel is lit instead when its `area` is in its
+ * tile's mask, read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the
+ * palette's colour.
  */
 export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   float featureLit = uFeatureOn * (1.0 - step(0.5, abs(vFeature - uFeature)));
+  if (uStructureOn > 0.5) {
+    ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
+    int litMask = 0;
+    if (all(greaterThanEqual(litTexel, ivec2(0))) && all(lessThan(litTexel, ivec2(uLitRect.zw + 0.5)))) {
+      litMask = int(texelFetch(uLitMap, litTexel, 0).r + 0.5);
+    }
+    int litArea = int(vArea + 0.5);
+    featureLit = litArea > 0 && ((litMask >> (litArea - 1)) & 1) == 1 ? uFeatureOn : 0.0;
+  }
   diffuseColor.rgb = mix(
     diffuseColor.rgb * mix(1.0, uFeatureDim, uFeatureOn),
     mix(diffuseColor.rgb, uFeatureColor, uFeatureTint),
@@ -80,6 +91,16 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
 
 /** The look's parts the tiles draw: the slots' and ghost's highlights, the water and the feature highlight. */
 export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighlight">;
+
+/**
+ * The areas of a placed tile to light (`TileRenderer.setLitAreas`): its game and id, as `TileRenderData` names it, and a
+ * mask of its areas, bit `area - 1` (the plan's own areas, A to I, as `StructureBoard.structures` gives them).
+ */
+export interface LitTile {
+  gameId: number;
+  id: number;
+  areas: number;
+}
 
 export class TileRenderer {
   private group: THREE.Group;
@@ -136,8 +157,25 @@ export class TileRenderer {
     uFeatureGlow: { value: 0 },
     uFeatureDim: { value: 1 },
   };
-  /** Whether the feature highlight is on: the models drawn get their voxels' labels (`labelFeatures`), once each. */
-  private featuresOn = false;
+  /**
+   * The structure's lit areas (`setLitAreas`): a board map, one texel per cell from `uLitRect.xy`, `uLitRect.zw` wide
+   * and deep, each the mask of its tile's lit areas. Shared by every tile material, as the other uniforms: a tile finds
+   * its cell from its own model matrix (`uFootprint`, per material), so no tile has state of its own.
+   */
+  private structureUniforms = {
+    uStructureOn: { value: 0 },
+    uLitMap: { value: emptyLitMap() },
+    uLitRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uTileSize: { value: TILE_SIZE },
+  };
+  /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
+  private litAreas: Map<string, number> | null = null;
+  /** The grid cell of each tile given (`updateTiles`), by tile key: where the lit map puts its mask. */
+  private tileCells: Map<string, [number, number]> = new Map();
+  /** The lit map's content as last built: rebuilt only when it changes. */
+  private litKey = "";
+  /** Whether a highlight is on: the models drawn then are labelled (`labelFeatures`), each once. */
+  private labelling = false;
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -160,6 +198,7 @@ export class TileRenderer {
     for (const tile of tiles) {
       const key = `${tile.game_id}-${tile.id}`;
       currentKeys.add(key);
+      this.tileCells.set(key, [tile.worldX, tile.worldZ]);
 
       const existing = this.tileMeshes.get(key);
       const pending = !!tile.pending;
@@ -209,6 +248,8 @@ export class TileRenderer {
         changed = true;
       }
     }
+    for (const key of this.tileCells.keys()) if (!currentKeys.has(key)) this.tileCells.delete(key);
+    this.buildLitMap();
     return changed;
   }
 
@@ -296,7 +337,7 @@ export class TileRenderer {
           TILE_MAX_METALNESS,
         );
         child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
-        this.patchTileShader(child.material);
+        this.patchTileShader(child.material, child.geometry);
       }
       child.castShadow = true;
       child.receiveShadow = true;
@@ -305,7 +346,7 @@ export class TileRenderer {
       child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
     }
     this.tileTypes.set(key, model);
-    if (this.featuresOn) this.labelFeatures(key, model);
+    if (this.labelling) this.labelFeatures(key, model);
     return model;
   }
 
@@ -329,15 +370,31 @@ export class TileRenderer {
   /**
    * The tile shader: the water texels brighter and glossier (`LookSettings.water`), the mask (`WATER_MASK_GLSL`) after the
    * palette is read, the roughness after it is set; then the feature highlight (`FEATURE_HIGHLIGHT_GLSL`), from the
-   * `feature` attribute, flat across each triangle. Every patched material compiles to one program.
+   * `feature` and `area` attributes, flat across each triangle, and the tile's cell, from its model matrix and the
+   * footprint's centre (`uFootprint`, the geometry's own: the one uniform a material does not share). Every patched
+   * material compiles to one program.
    */
-  private patchTileShader(material: THREE.MeshStandardMaterial): void {
-    const uniforms = { ...this.waterUniforms, ...this.featureUniforms };
+  private patchTileShader(material: THREE.MeshStandardMaterial, geometry: THREE.BufferGeometry): void {
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    const footprint = { value: geometry.boundingBox!.getCenter(new THREE.Vector3()) };
+    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, uFootprint: footprint };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace(
         "void main() {",
-        "attribute float feature;\nflat varying float vFeature;\nvoid main() {\n  vFeature = feature;",
+        [
+          "attribute float feature;",
+          "attribute float area;",
+          "uniform vec3 uFootprint;",
+          "uniform float uTileSize;",
+          "flat varying float vFeature;",
+          "flat varying float vArea;",
+          "flat varying vec2 vCell;",
+          "void main() {",
+          "  vFeature = feature;",
+          "  vArea = area;",
+          "  vCell = floor((modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
+        ].join("\n"),
       );
       shader.fragmentShader = shader.fragmentShader
         .replace(
@@ -352,7 +409,12 @@ export class TileRenderer {
             "uniform float uFeatureTint;",
             "uniform float uFeatureGlow;",
             "uniform float uFeatureDim;",
+            "uniform float uStructureOn;",
+            "uniform sampler2D uLitMap;",
+            "uniform vec4 uLitRect;",
             "flat varying float vFeature;",
+            "flat varying float vArea;",
+            "flat varying vec2 vCell;",
             "void main() {",
           ].join("\n"),
         )
@@ -383,16 +445,12 @@ export class TileRenderer {
     this.waterUniforms.uWaterBrightness.value = water.brightness;
     this.waterUniforms.uWaterRoughness.value = water.roughness;
     const features = this.featureUniforms;
-    features.uFeatureOn.value = featureHighlight.enabled ? 1 : 0;
     features.uFeature.value = FEATURE_CODE[featureHighlight.feature] ?? FEATURE_CODE.city;
     features.uFeatureColor.value.set(featureHighlight.color);
     features.uFeatureTint.value = featureHighlight.tint;
     features.uFeatureGlow.value = featureHighlight.glow;
     features.uFeatureDim.value = featureHighlight.dim;
-    if (featureHighlight.enabled && !this.featuresOn) {
-      for (const [key, model] of this.tileTypes) this.labelFeatures(key, model);
-    }
-    this.featuresOn = featureHighlight.enabled;
+    this.applyHighlight();
     this.slotMaterial?.color.copy(slotColor(highlights));
     if (this.previewContainer && this.previewKey) {
       // The ghost's tint is set when it is made: make it again with the new one.
@@ -404,6 +462,56 @@ export class TileRenderer {
         }
       });
     }
+  }
+
+  /**
+   * Lights one structure across its tiles (FEATURE-HL): each tile's areas in `lit` are tinted and glow with the look's
+   * feature highlight (`LookSettings.featureHighlight`: colour, tint, glow, dim; its `enabled` and `feature` do not
+   * apply), the rest of the board dimmed. A tile not drawn yet is lit when it comes. Null goes back to the look's
+   * feature highlight, or to no highlight. The voxels are labelled on the first call, as for the feature highlight.
+   */
+  setLitAreas(lit: Iterable<LitTile> | null): void {
+    this.litAreas = lit === null ? null : new Map([...lit].map((t) => [`${t.gameId}-${t.id}`, t.areas]));
+    this.applyHighlight();
+    this.buildLitMap();
+  }
+
+  /** The highlight's switches from the look and the lit structure; when one comes on, the models drawn are labelled. */
+  private applyHighlight(): void {
+    const on = this.look.featureHighlight.enabled || this.litAreas !== null;
+    this.featureUniforms.uFeatureOn.value = on ? 1 : 0;
+    this.structureUniforms.uStructureOn.value = this.litAreas !== null ? 1 : 0;
+    if (on && !this.labelling) for (const [key, model] of this.tileTypes) this.labelFeatures(key, model);
+    this.labelling = on;
+  }
+
+  /**
+   * The lit map (`structureUniforms`): the lit tiles' masks at their cells, over the smallest rectangle that holds them.
+   * Built again only when the lit tiles, their masks or their cells change; a lit tile not given yet has no cell.
+   */
+  private buildLitMap(): void {
+    const cells: [number, number, number][] = [];
+    for (const [key, mask] of this.litAreas ?? []) {
+      const cell = this.tileCells.get(key);
+      if (cell && mask) cells.push([cell[0], cell[1], mask]);
+    }
+    const key = JSON.stringify(cells);
+    if (key === this.litKey) return;
+    this.litKey = key;
+    const uniforms = this.structureUniforms;
+    uniforms.uLitMap.value.dispose();
+    if (!cells.length) {
+      uniforms.uLitMap.value = emptyLitMap();
+      uniforms.uLitRect.value.set(0, 0, 0, 0);
+      return;
+    }
+    const [minX, minZ] = [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))];
+    const width = Math.max(...cells.map((c) => c[0])) - minX + 1;
+    const depth = Math.max(...cells.map((c) => c[1])) - minZ + 1;
+    const data = new Float32Array(width * depth);
+    for (const [x, z, mask] of cells) data[(z - minZ) * width + (x - minX)] = mask;
+    uniforms.uLitMap.value = litMap(data, width, depth);
+    uniforms.uLitRect.value.set(minX, minZ, width, depth);
   }
 
   private createVoxelTile(tile: TileRenderData, key: string): THREE.Object3D | null {
@@ -738,7 +846,26 @@ export class TileRenderer {
     this.slotGeometry = null;
     this.slotMaterial?.dispose();
     this.slotMaterial = null;
+    this.structureUniforms.uLitMap.value.dispose();
+    this.litAreas = null;
+    this.tileCells.clear();
+    this.litKey = "";
   }
+}
+
+/** A lit map (`TileRenderer.buildLitMap`): one float texel per cell, the cell's mask, read exactly (`texelFetch`). */
+function litMap(data: Float32Array, width: number, depth: number): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, width, depth, THREE.RedFormat, THREE.FloatType);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** The lit map with no lit tile: one empty texel (the sampler is always bound). */
+function emptyLitMap(): THREE.DataTexture {
+  return litMap(new Float32Array(1), 1, 1);
 }
 
 /** The slots' colour: the look's gold at its intensity (above 1 in linear colour: it blooms). */

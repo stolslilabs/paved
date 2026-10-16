@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
-import { CategoryType, Plan, PlanType, SpotType } from "@paved/game-core";
+import { CategoryType, Plan, PlanType, SpotType, StructureBoard } from "@paved/game-core";
 import { FEATURE_CODE, labelTileGeometry, planKeyOfModel, type TileLabels } from "../src/core/features";
 import { TileRenderer } from "../src/core/TileRenderer";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -229,6 +229,110 @@ describe("the feature highlight in the tile shader", () => {
     expect((uniforms.uFeatureColor.value as THREE.Color).equals(new THREE.Color(featureOn.color))).toBe(true);
     tiles.setLook(LOOK_PRESETS.mockup.highlights, LOOK_PRESETS.mockup.water, LOOK_PRESETS.mockup.featureHighlight);
     expect(uniforms.uFeatureOn.value).toBe(0);
+    tiles.dispose();
+  });
+});
+
+describe("one structure lit across its tiles (setLitAreas)", () => {
+  function renderer() {
+    const models = new Map(KEYS.map((key) => [key, readTileModel(key)]));
+    const assets = {
+      has: (key: string) => models.has(key),
+      want: () => {},
+      setSkins: () => {},
+      getModel: (key: string) => {
+        const model = models.get(key)!.clone(true);
+        model.traverse((child) => {
+          if (child instanceof THREE.Mesh) child.material = (child.material as THREE.Material).clone();
+        });
+        return model;
+      },
+    };
+    return new TileRenderer(assets as never);
+  }
+  const planCode = (plan: PlanType) => new Plan(plan).into();
+  const areaOf = (plan: PlanType, spot: SpotType) => " ABCDEFGHI".indexOf(new Plan(plan).area(spot));
+  /** A tile as the board hands it: the contracts' (x, y), the grid's cell (y grows to the north, the grid's z to the south). */
+  const renderTile = (id: number, plan: PlanType, orientation: number, x: number, y: number) =>
+    ({ game_id: 1, id, plan: planCode(plan), orientation, x, y, worldX: x, worldZ: -y }) as never;
+
+  /** The tile mesh drawn for a tile key, and what its shader reads: its cell (`vCell`), its uniforms. */
+  function drawn(tiles: TileRenderer, key: string) {
+    tiles.getGroup().updateMatrixWorld(true);
+    let mesh: THREE.Mesh | null = null;
+    (tiles as any).tileMeshes.get(key).mesh.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh && child.geometry.getAttribute("area")) mesh = child;
+    });
+    const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+    (mesh!.material as THREE.MeshStandardMaterial).onBeforeCompile(shader as never, {} as never);
+    const uniforms = shader.uniforms as Record<string, { value: any }>;
+    // vCell = floor((modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5)
+    const centre = (uniforms.uFootprint.value as THREE.Vector3).clone().applyMatrix4(mesh!.matrixWorld);
+    const size = uniforms.uTileSize.value as number;
+    const cell = [Math.floor(centre.x / size + 0.5), Math.floor(centre.z / size + 0.5)];
+    return { mesh: mesh!, uniforms, cell, shader };
+  }
+
+  /** The shader's test (FEATURE_HIGHLIGHT_GLSL) for each vertex of a drawn tile: whether its area is lit. */
+  function litVertices(tiles: TileRenderer, key: string): { lit: Set<number>; unlit: Set<number> } {
+    const { mesh, uniforms, cell } = drawn(tiles, key);
+    const rect = uniforms.uLitRect.value as THREE.Vector4;
+    const map = uniforms.uLitMap.value as THREE.DataTexture;
+    const [tx, tz] = [cell[0] - rect.x, cell[1] - rect.y];
+    const inside = tx >= 0 && tz >= 0 && tx < rect.z && tz < rect.w;
+    const mask = inside ? (map.image.data as Float32Array)[tz * map.image.width + tx] : 0;
+    const area = mesh.geometry.getAttribute("area");
+    const [lit, unlit] = [new Set<number>(), new Set<number>()];
+    for (let v = 0; v < area.count; v++) {
+      const a = area.getX(v);
+      (a > 0 && (mask >> (a - 1)) & 1 ? lit : unlit).add(a);
+    }
+    return { lit, unlit };
+  }
+
+  it("lights a city across two tiles: exactly its area on each, not the other city of the first", () => {
+    // ffcfffcff: a city on the north edge and one on the south; ffffffcff north of it closes the first with its south city.
+    const board = new StructureBoard();
+    board.place({ id: 1, plan: planCode(PlanType.FFCFFFCFF), orientation: 1, x: 0, y: 0, owner: 0n });
+    const above = board.place({ id: 2, plan: planCode(PlanType.FFFFFFCFF), orientation: 1, x: 0, y: 1, owner: 0n });
+    const city = board.structureOf(above, areaOf(PlanType.FFFFFFCFF, SpotType.South))!;
+    const [belowNorth, belowSouth] = [areaOf(PlanType.FFCFFFCFF, SpotType.North), areaOf(PlanType.FFCFFFCFF, SpotType.South)];
+
+    const tiles = renderer();
+    tiles.updateTiles([renderTile(1, PlanType.FFCFFFCFF, 1, 0, 0), renderTile(2, PlanType.FFFFFFCFF, 1, 0, 1)]);
+    tiles.setLitAreas([...city.areas].map(([id, areas]) => ({ gameId: 1, id, areas })));
+
+    const below = drawn(tiles, "1-1");
+    expect(below.cell).toEqual([0, 0]);
+    expect(drawn(tiles, "1-2").cell).toEqual([0, -1]);
+    expect([below.uniforms.uStructureOn.value, below.uniforms.uFeatureOn.value]).toEqual([1, 1]);
+    expect((below.uniforms.uLitRect.value as THREE.Vector4).toArray()).toEqual([0, -1, 1, 2]);
+    expect(below.shader.fragmentShader).toContain("texelFetch(uLitMap, litTexel, 0)");
+
+    expect(litVertices(tiles, "1-1").lit).toEqual(new Set([belowNorth]));
+    expect(litVertices(tiles, "1-1").unlit.has(belowSouth)).toBe(true);
+    expect(litVertices(tiles, "1-2").lit).toEqual(new Set([areaOf(PlanType.FFFFFFCFF, SpotType.South)]));
+
+    // Off: back to the look's highlight (off by default); the map empty.
+    tiles.setLitAreas(null);
+    expect([below.uniforms.uStructureOn.value, below.uniforms.uFeatureOn.value]).toEqual([0, 0]);
+    expect((below.uniforms.uLitRect.value as THREE.Vector4).toArray()).toEqual([0, 0, 0, 0]);
+    tiles.dispose();
+  });
+
+  it("finds each tile's cell from its model matrix, whatever its orientation", () => {
+    const tiles = renderer();
+    tiles.setLitAreas([]);
+    tiles.updateTiles([1, 2, 3, 4].map((orientation) => renderTile(orientation, PlanType.RFRFCCCFR, orientation, 3 + orientation, -2)));
+    for (const orientation of [1, 2, 3, 4]) expect(drawn(tiles, `1-${orientation}`).cell, `orientation ${orientation}`).toEqual([3 + orientation, 2]);
+    tiles.dispose();
+  });
+
+  it("lights a tile given after the structure, when it comes", () => {
+    const tiles = renderer();
+    tiles.setLitAreas([{ gameId: 1, id: 7, areas: 1 }]);
+    tiles.updateTiles([renderTile(7, PlanType.CCCCCCCCC, 1, 5, 5)]);
+    expect(litVertices(tiles, "1-7").lit).toEqual(new Set([1]));
     tiles.dispose();
   });
 });

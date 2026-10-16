@@ -275,7 +275,7 @@ describe("the tiles' part of the look", () => {
   it("brightens the water through shared uniforms, and turns it off without a recompile", () => {
     const tiles = new TileRenderer({} as never);
     const material = new THREE.MeshStandardMaterial();
-    (tiles as any).patchTileShader(material);
+    (tiles as any).patchTileShader(material, new THREE.BoxGeometry());
     const shader = { uniforms: {}, fragmentShader: THREE.ShaderLib.standard.fragmentShader, vertexShader: "" } as never;
     material.onBeforeCompile(shader, {} as never);
     const { uniforms, fragmentShader } = shader as { uniforms: Record<string, { value: number }>; fragmentShader: string };

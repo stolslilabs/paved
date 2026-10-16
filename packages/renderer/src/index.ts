@@ -2,6 +2,7 @@
 export { GameScene } from "./core/GameScene";
 export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
+export type { LitTile } from "./core/TileRenderer";
 export {
   BASE_PALETTE_CLASSES,
   FEATURES,

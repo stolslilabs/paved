@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
-import { TileRenderer } from "./TileRenderer";
+import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
@@ -528,6 +528,15 @@ export class GameScene {
   /** Show available placement slots on the board */
   setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
     this.tiles.setAvailableSlots(slots);
+    this.requestRender();
+  }
+
+  /**
+   * Light one structure across its tiles: each tile's areas (a mask, bit `area - 1`, as `StructureBoard.structures`
+   * gives them), with the look's feature highlight; the rest of the board dimmed. Null turns it off.
+   */
+  setLitAreas(lit: Iterable<LitTile> | null): void {
+    this.tiles.setLitAreas(lit);
     this.requestRender();
   }
 
