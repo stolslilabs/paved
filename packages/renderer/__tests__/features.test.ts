@@ -170,21 +170,39 @@ function typeMesh(tiles: TileRenderer, key: string): THREE.Mesh {
 }
 
 /**
- * The label the tile shader reads for a fragment (`FEATURE_HIGHLIGHT_GLSL`), in TypeScript: the fragment's place on the
- * grid (`uGridMatrix`), half a voxel inward along its face's normal, its column's byte in the label map.
+ * What the tile shader reads for a label (`FEATURE_HIGHLIGHT_GLSL`), taken from the GLSL itself, as the water's test reads
+ * its ramps: the step inward along the normal, the two grid axes the label map is read on, how a label packs its feature,
+ * and the bridge deck's rule (the road's code, the axis and the height). A change there changes the replay below, and the
+ * tests, which expect the classifier's own columns, fail.
+ */
+function shaderRules() {
+  const glsl = FEATURE_HIGHLIGHT_GLSL;
+  const step = glsl.match(/vec3 labelAt = vGrid - normalize\(vGridNormal\) \* ([\d.]+);/);
+  const axes = glsl.match(/ivec2\(floor\(labelAt\.([xyz])([xyz])\)\)/);
+  const pack = glsl.match(/int labelFeature = label \/ (\d+);/);
+  const deck = glsl.match(/labelFeature == (\d+) && vGrid\.([xyz]) > ([\d.]+)/);
+  expect([step, axes, pack, deck].every(Boolean), "the shader's label rules changed shape").toBe(true);
+  return { step: Number(step![1]), axes: [axes![1], axes![2]] as const, pack: Number(pack![1]), deck: { road: Number(deck![1]), axis: deck![2], above: Number(deck![3]) } };
+}
+
+/**
+ * The label the tile shader reads for a fragment, replayed with its own rules (`shaderRules`): the fragment's place on
+ * the grid (`uGridMatrix`), stepped inward along its face's normal, its column's byte in the label map, and none for a
+ * road column's fragment above the ground (a bridge's deck).
  */
 function fragmentLabel(uniforms: Record<string, { value: any }>, point: THREE.Vector3, normal: THREE.Vector3): { feature: number; area: number } {
+  const rules = shaderRules();
   const grid = uniforms.uGridMatrix.value as THREE.Matrix4;
   const { width, height, data } = (uniforms.uLabelMap.value as THREE.DataTexture).image as { width: number; height: number; data: Uint8Array };
   const n = normal.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(grid)).normalize();
   const onGrid = point.clone().applyMatrix4(grid);
-  const at = onGrid.clone().addScaledVector(n, -0.5);
-  const i = Math.min(width - 1, Math.max(0, Math.floor(at.x)));
-  const j = Math.min(height - 1, Math.max(0, Math.floor(at.z)));
+  const at = onGrid.clone().addScaledVector(n, -rules.step);
+  const i = Math.min(width - 1, Math.max(0, Math.floor(at[rules.axes[0]])));
+  const j = Math.min(height - 1, Math.max(0, Math.floor(at[rules.axes[1]])));
   const label = data[j * width + i];
-  // A road column's fragment above the ground's top is a bridge's deck: none.
-  if (label >> 4 === FEATURE_CODE.road && onGrid.y > GROUND_VOXELS + ABOVE_GROUND_VOXELS) return { feature: 0, area: 0 };
-  return { feature: label >> 4, area: label & 15 };
+  const [feature, area] = [Math.floor(label / rules.pack), label % rules.pack];
+  if (feature === rules.deck.road && onGrid[rules.deck.axis as "x" | "y" | "z"] > rules.deck.above) return { feature: 0, area: 0 };
+  return { feature, area };
 }
 
 describe("the voxels' features (labelTileGeometry) over the 19 base models", () => {
@@ -547,6 +565,55 @@ describe("the feature highlight in the tile shader", () => {
     expect(mixed).toBeGreaterThan(0);
     expect(cut).toBeGreaterThan(0);
     console.info(`[features] ${samples} top columns read per fragment, ${wrong} wrong; ${mixed} merged faces over two labels, ${cut} columns a label per vertex drew wrong`);
+    tiles.dispose();
+  });
+});
+
+describe("the label read on the walls (vertical faces)", () => {
+  it("reads a wall's fragment in its own column, half a voxel inward, never its neighbour's", async () => {
+    const { tiles } = renderer();
+    lightUp(tiles);
+    tiles.updateTiles(KEYS.map((key, i) => ({ game_id: 1, id: i + 1, plan: Object.values(PlanType).indexOf(key.toUpperCase() as PlanType), orientation: 1, x: i, y: 0, worldX: i, worldZ: 0 })) as never);
+    await tiles.whenLabelled();
+    let [samples, wrong, outward] = [0, 0, 0];
+    const [a, b, c, n, centre, inward] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+    for (const key of KEYS) {
+      const mesh = typeMesh(tiles, key);
+      const { uniforms } = shaderOf(mesh.material as THREE.Material);
+      const { columns, grid } = labelled.get(key)!;
+      const toModel = mesh.matrixWorld;
+      const position = mesh.geometry.getAttribute("position");
+      const normal = mesh.geometry.getAttribute("normal");
+      const index = mesh.geometry.getIndex()!.array;
+      const column = (p: THREE.Vector3) => {
+        const i = Math.min(39, Math.max(0, Math.floor((p.x - grid.minX) / grid.cell)));
+        const j = Math.min(39, Math.max(0, Math.floor((p.z - grid.minZ) / grid.cell)));
+        return j * 40 + i;
+      };
+      for (let t = 0; t < index.length; t += 3) {
+        n.fromBufferAttribute(normal, index[t + 2]);
+        const world = n.clone().transformDirection(toModel);
+        if (Math.abs(world.y) > 0.5) continue; // a wall: its normal lies flat
+        a.fromBufferAttribute(position, index[t]);
+        b.fromBufferAttribute(position, index[t + 1]);
+        c.fromBufferAttribute(position, index[t + 2]);
+        centre.copy(a).add(b).add(c).divideScalar(3);
+        // The expected label, apart from the shader: the column half a voxel inside the wall, in the classifier's frame.
+        const model = centre.clone().applyMatrix4(toModel);
+        inward.copy(model).addScaledVector(world, -grid.cell / 2);
+        const k = column(inward);
+        const deck = columns.feature[k] === FEATURE_CODE.road && (model.y - grid.minY) / grid.cell > GROUND_VOXELS + ABOVE_GROUND_VOXELS;
+        const expected = deck ? 0 : columns.feature[k];
+        samples++;
+        if (fragmentLabel(uniforms, centre, n).feature !== expected) wrong++;
+        // A step the wrong way reads the neighbour across the wall: the test would see it.
+        if (columns.feature[column(model.clone().addScaledVector(world, grid.cell / 2))] !== columns.feature[k]) outward++;
+      }
+    }
+    expect(samples).toBeGreaterThan(19 * 1000);
+    expect(wrong).toBe(0);
+    expect(outward).toBeGreaterThan(1000);
+    console.info(`[features] ${samples} wall fragments read, ${wrong} wrong; a step outward would read ${outward} of them in the neighbour's column`);
     tiles.dispose();
   });
 });
