@@ -1003,7 +1003,8 @@ pass, not a screen-space pass reading the target's depth and normals. No package
 - **Both composer targets multisample.** `EffectComposer` swaps its two targets every frame (the vignette swaps even
   when it draws to the screen), so the scene lands in each in turn. A first build gave only the first target the
   samples: every other frame lost the MSAA, and the pan check below caught it as a flicker of about 1 point of the
-  outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`).
+  outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`) (superseded by Q3-GPU,
+  below: one multisampled target, the second never allocated).
 - **Memory of MSAA** (estimate from the targets' formats, not measured; measured and cut in Q3-GPU, below). Each of the two targets holds a 4-sample
   RGBA half-float colour renderbuffer (32 B/px), a 4-sample 24-bit depth renderbuffer (16 B/px) and its single-sample
   resolve texture (8 B/px): about 56 B/px, so 112 B/px for the two, against 24 B/px for the two without MSAA (colour
@@ -1104,7 +1105,7 @@ profile, it held a second cost P4 did not count, and both are cut now:
   below). MSAA is taken only where the context multisamples that many. The "Renderer/Lighting" story has the controls
   (`multisampling`, `msaaSamples`) and a readout of the face antialiasing in effect.
 
-**The method.** Headless Chrome (Chrome for Testing 1217, `--headless=new`, ANGLE Metal on the M2 Max, never on screen),
+**The method.** Headless Chrome (Chrome for Testing 1217, `--headless=new`, ANGLE Metal on the Mac's GPU, never on screen),
 the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the slots and the ghost) on the recorded
 72-tile board, this branch's static Storybook on a plain file server. The phone profile: 360 x 740 and 430 x 932 CSS px
 at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per configuration in a fresh browser:
@@ -1126,8 +1127,12 @@ at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per conf
 **The reference bench, from now on: Q3-GPU's.** Frame times, memory and flicker on the Mac's GPU are measured with
 Q3-GPU's bench, whose scripts are kept in Q3-GPU's thread library (`q3gpu-lib.mjs`, `q3gpu-bench.mjs`,
 `q3gpu-summary.mjs`; not in this repository, like LIGHT-GPU's before them, which were not on the Mac). It follows
-DPR's, OUT-LOD's and LIGHT-GPU's method (above), and reads lower than LIGHT-GPU's bench: tied in 5.5, LIGHT-GPU's own
-build reads **2.78 ms lower at p95** (2.45 at p50) on it at the desktop profile, the opening view, cap 1.5, Medium.
+DPR's, OUT-LOD's and LIGHT-GPU's method (above), and reads lower than LIGHT-GPU's bench. Tied in 5.5 on **one
+configuration only** (the desktop profile, the opening view, cap 1.5, Medium): there LIGHT-GPU's own build reads **2.78 ms
+lower at p95** on Q3-GPU's bench (6.47 against 9.25: 0.70 times) and 2.45 ms lower at p50 (4.45 against 6.90: 0.64
+times). The cause is unknown (the method is described alike; LIGHT-GPU's scripts are not on the Mac to compare). The
+offset is not a correction: it was not measured at another configuration (another view, cap, tier or the phone-like
+profile), and is not applied to one.
 Earlier figures (P4, DPR, OUT-LOD, LIGHT-GPU) compare with each other, not with Q3-GPU's: compare within one bench, or
 re-run the older configuration on this one. To re-run: build the static Storybook (`bun run --filter @paved/app
 build-storybook`) and copy `storybook-static` out of the tree; then, from `packages/app` (where `playwright-core`
@@ -1612,8 +1617,8 @@ the GPU figures by the PM's rules (LIGHT-GPU, below): each tier holds the effect
 | Medium | on | look's radius | off | render, AO, finish | 9.25 / 5.89 ms |
 | High | on | look's radius | on | render, AO, bloom, finish | 12.40 / 9.55 ms |
 
-The p95 column is LIGHT-GPU's bench; Q3-GPU's, the reference from now on, reads 2.78 ms lower at p95 on the same build
-(5.2, "The reference bench").
+The p95 column is LIGHT-GPU's bench, not the reference (Q3-GPU's, 5.2, "The reference bench"); the two were tied at one
+configuration only, and no offset is applied to these figures.
 
 `quality: "auto"` (the default) picks **Medium** on every device (a coarse pointer, a small screen or a desktop), and
 **Low** on `EffectsCapabilities.lowPowerDevice`; **High only when chosen by hand**. Medium is the richest tier under 12 ms
@@ -1645,8 +1650,8 @@ profile), then the variant's args: `preset:off;quality:high` for the Off preset,
 for the skinned board. Wait for `[data-ready]`, then throttle the CPU (phone-like) and count the frames.
 
 CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95). LIGHT-GPU's bench, not the
-reference: Q3-GPU's reads 2.78 ms lower at p95 on the same build (5.2, "The reference bench"; the tie below, "The desktop
-cap, re-measured"):
+reference (Q3-GPU's, 5.2, "The reference bench"; tied at one configuration only, below, "The desktop cap, re-measured";
+no offset applied):
 
 | Variant | Desktop, opening | cost | Desktop, zoomed | cost | Phone-like, opening | cost | Phone-like, zoomed | cost |
 |---|---|---|---|---|---|---|---|---|
@@ -1801,12 +1806,12 @@ order rotated: LIGHT-GPU's own (its merge, `b064b2e5`) and this branch's head. F
 | LIGHT-GPU (`b064b2e5`) | 4.45 / **6.47** (6.50, 5.72, 6.43, 6.99) | 6.90 / **9.25** |
 | This branch | 4.30 / **6.75** (5.95, 5.74, 7.42, 6.96) | |
 
-So the gap is the bench's, not the code's: on the same build, Q3-GPU's bench reads **2.45 ms lower at p50 and 2.78 at
-p95**, and the two builds are within its noise of each other. This run also reads 0.7 ms lower than the cap runs above
+So the gap is the bench's, not the code's: on the same build, at this configuration, Q3-GPU's bench reads **2.45 ms
+lower at p50 and 2.78 at p95** (0.64 and 0.70 times LIGHT-GPU's), and the two builds are within its noise of each
+other. Its cause is unknown, and it was measured at this configuration only: not a correction for others. This run also reads 0.7 ms lower than the cap runs above
 (7.49), taken earlier the same day at loads up to 5.9: the bench's noise between sessions. Q3-GPU's bench is the
 reference from now on (5.2, "The reference bench"); its scripts are in Q3-GPU's library, LIGHT-GPU's were not on the Mac
-and are not re-run. The rule's comparisons above are all made within Q3-GPU's runs, and Medium at 1.75 stays under 12 ms
-even with the full 2.78 ms added (7.59 + 2.78 = 10.37).
+and are not re-run. The rule's comparisons above are all made within Q3-GPU's runs.
 
 **Zero flicker at 1.75** (LIGHT-GPU's check on the desktop profile: the centre 800 x 500 CSS px; 1.5 against 1.75, Medium
 and High; loads 4.97 to 5.78, one configuration dropped): largest step (mean), opening pan 0.63 (0.22) at 1.5, 0.68 (0.21)
@@ -1822,8 +1827,7 @@ zoomed at 1.75 was the dropped configuration. So 1.75 adds no flicker over 1.5.
 High included (9.97 at most), and 2 passes in the canvas run. Q3 kept 1.5 unless the figures said otherwise; they
 do, by more than 2 ms at the `"auto"` tier, so `PIXEL_RATIO_CAPS.fine` is **1.75** (`core/settings.ts`). Not 2: it was
 measured in one or two rounds only, against three for the others, and the PM ruled (2026-10-16): no cap-2 run, 1.75
-stands. Even with
-the 2.78 ms by which LIGHT-GPU's bench reads higher, Medium at 1.75 stays under 12 ms. The memory this costs is less than
+stands. The memory this costs is less than
 main's chain held at 1.5 (61 MiB against 155).
 
 ### 5.6 Tile skins (SKIN-RENDER)
