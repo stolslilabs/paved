@@ -2049,19 +2049,21 @@ on screen; this branch's static Storybook, "Renderer/Placement" on the recorded 
 forced on, quality and pixel-ratio cap "auto" (Medium; 1.75 on the desktop since Q3-GPU, 2 on the phone-like profile);
 per frame the CPU time of every rAF callback of the frame plus the GPU time (`EXT_disjoint_timer_query_webgl2`) from its
 first callback to the next frame's; a fresh context per configuration, 120 warm-up and 600 measured frames; two rounds,
-the variants alternated and their order rotated; each run started at a 1-minute load under 6 (kept: 3.9 to 5.8).
+the variants alternated and their order rotated; each run started at a 1-minute load under 6 (5.4 to 6.0). Re-run in fix
+loop 1, after the grid's per-line fade (`8249a74e`); the first run (`7fb6e04e`, loads 3.9 to 5.8) was within 0.2 ms of it
+in every cell.
 Desktop: 1440 x 900 at DPR 2 (2520 x 1575). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x (720 x 1560). Variants:
 "none" (no grid, no slot), "grid" (idle), "slots" (a tile in hand: every empty cell next to a tile, dashed and solid), "placed" (the slots, the
 placed tile's aura and veil, its waves moving). CPU + GPU per frame, ms, pooled p50 / p95:
 
 | Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
 |---|---|---|---|---|
-| none | 4.54 / 6.03 | 3.99 / 5.39 | 3.54 / 5.38 | 2.51 / 4.35 |
-| grid | 4.71 / 6.25 | 3.96 / 5.41 | 3.74 / 5.36 | 2.50 / 4.09 |
-| slots | 4.67 / 6.28 | 4.02 / 5.39 | 3.70 / 5.33 | 2.46 / 4.14 |
-| placed | 4.72 / 6.33 | 4.10 / 5.57 | 3.68 / 5.32 | 2.58 / 4.34 |
+| none | 4.52 / 5.96 | 3.94 / 5.37 | 3.51 / 5.21 | 2.43 / 4.35 |
+| grid | 4.68 / 6.25 | 3.98 / 5.30 | 3.68 / 5.53 | 2.46 / 4.30 |
+| slots | 4.68 / 6.25 | 4.03 / 5.44 | 3.64 / 5.38 | 2.44 / 4.21 |
+| placed | 4.81 / 6.43 | 4.12 / 5.48 | 3.69 / 5.36 | 2.58 / 4.16 |
 
-The placement visuals cost at most 0.3 ms of p95 (desktop, opening), inside the runs' noise elsewhere; every row is far
+The placement visuals cost at most 0.5 ms of p95 (desktop, opening, the aura moving), inside the runs' noise elsewhere; every row is far
 under the rules (12 ms desktop, 16.6 ms phone-like). This driver times the frame from the first callback to the next
 frame's and the story's board, so its absolute figures are not those of LIGHT-GPU's table (5.5): compare within this table.
 
