@@ -2,15 +2,11 @@ import { getChecksumAddress } from "starknet";
 import type { Deployment } from "../deployment";
 import type { WriteAccount } from "../writer";
 
-/** One session policy: a call the controller signs without a prompt. An `approve` names its spender and cap. */
+/** One session policy: a call the controller signs without a prompt. Never an `approve` (P-65). */
 export interface ControllerPolicy {
   target: string;
   method: string;
   description?: string;
-  /** `approve` only: the one spender the session may approve. */
-  spender?: string;
-  /** `approve` only: the most the session may approve, in the token's base unit. */
-  amount?: bigint;
 }
 
 export interface ControllerConfig {
@@ -22,19 +18,19 @@ export interface ControllerConfig {
 }
 
 /**
- * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
- * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `Faucet.mint`
- * (the faucet, `PavedWriter.mint`) is left out too: it is a policy only where the
- * deployment has a Faucet (Sepolia; `controllerPolicies`), never on mainnet.
+ * The client's writes, by contract: what `PavedWriter` sends outside devnet. No token `approve` is a policy, on any token
+ * (P-65): the controller matches a session call on (target, method) alone, never on its spender or amount, so every approve
+ * prompts, in the multicall of the write that needs it. `Faucet.mint` (the faucet, `PavedWriter.mint`) is left out too: it
+ * is a policy only where the deployment has a Faucet (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
   // `spawn_free` is Play free (a free-game credit spent): no token moves, so it is a session policy like the rest.
   Challenge: ["spawn", "spawn_free", "build", "discard", "surrender"],
   // The tutorial claim (D-21) and the Cobbles claims (cobbles v1, part 1: a quest's, an achievement's, a day's and a week's
   // free game; Claim all is a multicall of them), and a pack's purchase (cobbles v1, part 2): policies only where the
-  // deployment has a Setup (`controllerPolicies`). A pack's approve to Setup is not a policy (P-56: the session's only
-  // approve is the entry's, to Challenge): it prompts once per pack. The skins (cobbles v1, part 3): `buy_skin` spends
-  // Cobbles, which no token carries, and `set_skins` spends nothing, so neither adds an approve (P-56 holds).
+  // deployment has a Setup (`controllerPolicies`). A pack's approve to Setup is not a policy (P-65: no token approve in the
+  // session): it prompts once per pack, with `buy_pack`. The skins (cobbles v1, part 3): `buy_skin` spends Cobbles, which
+  // no token carries, and `set_skins` spends nothing, so neither needs an approve.
   Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins"],
 } as const;
 
@@ -42,21 +38,21 @@ export const CONTROLLER_ENTRY_POINTS = {
 export const ECONOMY_ENTRY_POINT = "settle";
 
 /**
- * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
- * above 0), an approve to the Challenge contract on that token (the one `Challenge.entry_price` names: the
- * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
- * purchase; above the cap, or on another token or spender, it prompts: a pack's approve to `Setup` too (P-56). Without
- * `approve`, every approve prompts. `Setup.claim_tutorial`, the four Cobbles claims, `buy_pack` and the two skin writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment resolves a Faucet
- * (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
+ * Session policies for the game's writes, on the deployment's addresses. No token `approve` (P-65, superseding P-56): a paid
+ * entry sends its approve and `spawn` in one multicall, which prompts once; a pack's approve and `buy_pack`, and the Vault's
+ * approve and deposit, prompt the same way. `Setup.claim_tutorial`, the four Cobbles claims, `buy_pack` and the two skin
+ * writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment
+ * resolves a Faucet (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  *
  * `economy` is the Economy's address (the economy deployment's, not the game's): with it, `Economy.settle` is a policy, the
- * one entry point of the Economy in the session (P7a). It moves no token from the player and takes no approve (P-56:
- * the session's only approve is the entry's); it mints the reward to the game's player whoever sends it. The Vault, the
- * purchase and every other Economy write still prompt.
+ * one entry point of the Economy in the session (P7a). It moves no token from the player and takes no approve; it mints the
+ * reward to the game's player whoever sends it. The Vault, the purchase and every other Economy write still prompt.
+ *
+ * `approve` is ignored (P-65): app-web's connector still passes the entry's cap, and no approve is built from it.
  */
 export function controllerPolicies(
   deployment: Deployment,
-  options: { approve?: { token: string; cap: bigint } | null; economy?: string | null } = {},
+  options: { /** @deprecated Ignored (P-65): no token approve in the session. */ approve?: unknown; economy?: string | null } = {},
 ): ControllerPolicy[] {
   // No policy on an empty target: the deployment must be complete.
   if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
@@ -67,10 +63,6 @@ export function controllerPolicies(
     policies.push({ target: deployment.faucet, method: "mint", description: "Test USDC faucet" });
   }
   if (options.economy && isAddress(options.economy)) policies.push({ target: options.economy, method: ECONOMY_ENTRY_POINT });
-  const approve = options.approve;
-  if (approve && approve.cap > 0n && isAddress(approve.token)) {
-    policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Challenge, amount: approve.cap });
-  }
   return policies;
 }
 
@@ -83,22 +75,16 @@ function isAddress(value: string): boolean {
 }
 
 /**
- * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). Built here, not
- * by the package's `toSessionPolicies`, which drops `spender` and `amount`: an `approve` without
- * both becomes a policy on any spender and any amount.
+ * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). An `approve` is refused (P-65): the
+ * controller would execute it once at connect, leaving a standing allowance of its cap, and its session key is a wildcard
+ * that the keychain filters by (target, method) alone, so the policy would sign any approve on that token.
  */
 export function toControllerSessionPolicies(policies: ControllerPolicy[]) {
-  const contracts: Record<string, { methods: Array<{ entrypoint: string; description?: string; spender?: string; amount?: string }> }> = {};
+  const contracts: Record<string, { methods: Array<{ entrypoint: string; description?: string }> }> = {};
   for (const p of policies) {
-    if (p.method === "approve" && (!p.spender || !p.amount || p.amount <= 0n)) {
-      throw new Error("An approve policy needs its spender and a cap above 0");
-    }
+    if (p.method === "approve") throw new Error("No token approve in the session (P-65): an approve prompts with its write");
     const target = getChecksumAddress(p.target);
-    const method = {
-      entrypoint: p.method,
-      ...(p.description ? { description: p.description } : {}),
-      ...(p.method === "approve" ? { spender: getChecksumAddress(p.spender!), amount: `0x${p.amount!.toString(16)}` } : {}),
-    };
+    const method = { entrypoint: p.method, ...(p.description ? { description: p.description } : {}) };
     (contracts[target] ??= { methods: [] }).methods.push(method);
   }
   return { contracts };

@@ -8,7 +8,7 @@ import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, ViewError } from "../src/views";
 import { packReferrer } from "../src/packs";
 import { paidReferrer } from "../src/economy/writer";
-import { WriteError } from "../src/writer";
+import { WalletRejectedError, WriteError, isWalletRejection } from "../src/writer";
 import {
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
@@ -65,7 +65,7 @@ const spawnedEvent = (gameId: number) => ({
   data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"],
 });
 
-function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }>; wait?: () => Promise<unknown>; pool?: FakePoolQuoter | null } = {}) {
+function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }>; wait?: () => Promise<unknown>; pool?: FakePoolQuoter | null; addresses?: Record<string, string> } = {}) {
   const economy = new FakeEconomy();
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -76,10 +76,12 @@ function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () 
     waitForTransaction: options.wait ?? (async () => ({ execution_status: "SUCCEEDED", events: options.receiptEvents ?? [spawnedEvent(9)] })),
   } as unknown as PavedRpc;
   const execute = vi.fn(options.execute ?? (async () => ({ transaction_hash: "0x1" })));
-  const client = new PavedClient(base, rpc, createCodecs(), gameViews);
+  // A base deployment of other addresses (one without Setup: it is optional there).
+  const gameBase = options.addresses ? resolveDeployment({ network: "devnet", file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: options.addresses } }) : base;
+  const client = new PavedClient(gameBase, rpc, createCodecs(), gameViews);
   const writer = client.writer({ address: PLAYER, execute });
   const pool = options.pool === undefined ? new FakePoolQuoter() : options.pool;
-  const econ = createEconomyClient(economyDeployment, client, economy, pool)!;
+  const econ = createEconomyClient(options.addresses ? resolveEconomyDeployment({ base: gameBase, file: FAKE_ROUTER_FILE, env: ECON }) : economyDeployment, client, economy, pool)!;
   const econWriter = econ.writer(writer, { now: () => options.now ?? settlesAfter(DAY) });
   const sent = () => (execute.mock.calls as unknown as Array<[Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>]>).map((c) => c[0]);
   return { economy, gameViews, execute, writer, econWriter, sent, pool };
@@ -333,6 +335,52 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(packReferrer).toBe(paidReferrer);
     expect(paidReferrer(REFERRER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe(REFERRER);
     expect(paidReferrer(FAKE_ROUTER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe("0x0");
+    expect(paidReferrer(REFERRER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: REFERRER })).toBe("0x0");
+    expect(paidReferrer(REFERRER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: "0x0" })).toBe(REFERRER);
+  });
+
+  // VALUE-FIX's note: `Setup` is optional in the base deployment, so the seller is read from the chain in the same prepare.
+  test("a Setup referrer when the deployment lacks Setup: Economy.seller(), read in the prepare, is sent as 0x0", async () => {
+    const noSetup = { Challenge: ADDR.Challenge, Token: ADDR.Token };
+    const none = await setup({ addresses: noSetup }).econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: null });
+    // Without the read, Setup would be a paid referrer here: the seller unset reads 0x0, and the referrer is sent.
+    const unset = setup({ addresses: noSetup });
+    expect((await unset.econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: ADDR.Setup })).referrer).toBe(ADDR.Setup);
+    const { economy, econWriter, sent } = setup({ addresses: noSetup });
+    economy.seller_ = ADDR.Setup;
+    const plan = await econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: `0x${"0".repeat(63)}3` });
+    expect([plan.seller, plan.referrer, plan.swapIn, plan.minOut]).toEqual([ADDR.Setup, "0x0", none.swapIn, none.minOut]);
+    economy.calls.length = 0;
+    await econWriter.purchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: none.minOut, referrer: ADDR.Setup });
+    // Read at every send, beside the router.
+    expect(economy.calls).toEqual(expect.arrayContaining(["router", "seller"]));
+    expect(sent()[0][1].calldata).toEqual(["0x4", "0x0", `0x${none.minOut.toString(16)}`, "0x0"]);
+  });
+
+  test("a seller that cannot be read sends nothing", async () => {
+    const { economy, econWriter, execute } = setup();
+    const seller = economy.seller.bind(economy);
+    economy.seller = async () => (await seller(), Promise.reject(new Error("rpc down")));
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/Cannot read the price/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("P-65: a prompt the player declines is a refusal (WalletRejectedError), never an unknown outcome: no hash", async () => {
+    for (const declined of [undefined, { code: "CANCELED", message: "Canceled" }, new Error("User rejected the request"), { code: 113, message: "An error occurred (USER_REFUSED_OP)" }]) {
+      const { econWriter, execute } = setup({ execute: () => Promise.reject(declined) });
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
+      expect(error, String(declined)).toBeInstanceOf(WalletRejectedError);
+      expect(error).not.toBeInstanceOf(PurchaseOutcomeUnknownError);
+      expect((error as WriteError).transactionHash).toBeUndefined();
+      expect((error as Error).message).toBe("You declined in your wallet: nothing was sent.");
+      expect(execute).toHaveBeenCalledTimes(1);
+    }
+    // A failure at fee estimation stays a plain refusal with the node's message.
+    const { econWriter } = setup({ execute: () => Promise.reject(new Error("Fee estimation failed: insufficient balance")) });
+    const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WriteError);
+    expect(error).not.toBeInstanceOf(WalletRejectedError);
+    expect(isWalletRejection(new Error("execution reverted: ERC20: insufficient allowance"))).toBe(false);
   });
 
   test("a changed price sends nothing", async () => {

@@ -193,6 +193,8 @@ describe("PackBuyer: the fresh reads and checks before buyPack", () => {
     for (const ignored of [ADDR.Setup, ECON.vault, "0xd3de"]) expect(packReferrer(ignored, PLAYER, economyDeployment, "0xd3de")).toBe("0x0");
     for (const refused of [PLAYER, ADDR.Challenge, ECON.economy]) expect(() => packReferrer(refused, PLAYER, economyDeployment, "0xd3de")).toThrow(RefusedReferrerError);
     expect(packReferrer(null, PLAYER, economyDeployment, "0xd3de")).toBe("0x0");
+    // The seller read from the chain (`Economy.seller()`) is ignored too, whatever the deployment names.
+    expect(packReferrer(REFERRER, PLAYER, economyDeployment, { router: "0xd3de", seller: REFERRER })).toBe("0x0");
   });
 
   test("each refusal before sending is typed, and nothing is sent", async () => {

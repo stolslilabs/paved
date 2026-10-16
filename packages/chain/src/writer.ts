@@ -49,6 +49,32 @@ export class WriteError extends Error {
   }
 }
 
+/** What the player reads when they decline a write in their wallet's prompt. */
+export const WALLET_REJECTED_TEXT = "You declined in your wallet: nothing was sent.";
+
+/**
+ * The player declined the wallet's prompt (or closed it): nothing was sent, so there is no hash and no outcome to wait for.
+ * A refusal, never an unknown outcome. Since P-65 every paid write prompts (a paid entry, a pack, a Vault deposit).
+ */
+export class WalletRejectedError extends WriteError {
+  constructor(readonly detail: string) {
+    super(WALLET_REJECTED_TEXT);
+    this.name = "WalletRejectedError";
+  }
+}
+
+/**
+ * Whether `account.execute`'s error is the player's refusal. `@cartridge/controller` 0.13.16 rejects a cancelled prompt with
+ * its reply's `error`, which may be absent (`undefined`) or carry the code `CANCELED`; an injected wallet answers
+ * `USER_REFUSED_OP` (code 113) or a "rejected by the user" message.
+ */
+export function isWalletRejection(error: unknown): boolean {
+  if (error === undefined || error === null) return true;
+  const { code, message } = (typeof error === "object" ? error : { message: String(error) }) as { code?: unknown; message?: unknown };
+  if (code === "CANCELED" || code === 113 || code === "USER_REFUSED_OP") return true;
+  return typeof message === "string" && /USER_REFUSED_OP|user (rejected|refused|denied|cancel+ed|aborted)|rejected by (the )?user|(request|transaction) (was )?(rejected|cancel+ed)|^cancel+ed$/i.test(message.trim());
+}
+
 /** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
 export function revertNames(revert: string, reason: string): boolean {
   return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
@@ -606,10 +632,12 @@ export class PavedWriter {
     const { account, provider, codecs, deployment, tip, receiptPollMs = RECEIPT_POLL_MS, onEvents } = this.options;
     let transaction_hash: string;
     try {
-      // Rejected before sending: fee estimation, or a contract assert found by the simulation.
+      // Rejected before sending: fee estimation, a contract assert found by the simulation, or the player's refusal.
       ({ transaction_hash } = await account.execute(calls, tip === undefined ? undefined : { tip }));
     } catch (error) {
-      throw new WriteError(error instanceof Error ? error.message : String(error));
+      const detail = error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String(error.message) : String(error);
+      if (isWalletRejection(error)) throw new WalletRejectedError(detail);
+      throw new WriteError(detail);
     }
     let receipt: Receipt;
     try {
