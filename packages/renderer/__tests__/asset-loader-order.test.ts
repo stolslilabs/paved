@@ -147,7 +147,8 @@ describe("the load order: what the first frame shows, then the rest", () => {
     await assets.preloadAll();
     expect(requested().sort()).toEqual([`${at}/models/ccccccccc.glb`, `${at}/models/rfffrfffr.glb`]);
     expect(() => assets.getModel("rfffrfffr")).not.toThrow();
-    expect(THREE.TextureLoader.prototype.loadAsync).not.toHaveBeenCalled();
+    // The 19 tile images come with the first frame: they are the placeholder of a tile whose model is on its way.
+    expect(THREE.TextureLoader.prototype.loadAsync).toHaveBeenCalledTimes(19);
 
     nextFrame(); // the first frame
     nextFrame(); // the idle time after it
@@ -296,15 +297,18 @@ describe("GameScene with the load order, as GameCanvas drives it", () => {
       return box();
     });
     s.updateTiles([tile(1, 9), tile(2, 5)]);
-    const placed = () => s.tiles.getGroup().children[0]!.children.length;
-    expect(placed()).toBe(1);
+    const placed = () => s.tiles.getGroup().children[0]!.children;
+    // The new tile draws its placeholder quad meanwhile (Q-POLISH-R), then its model in its place.
+    expect(placed()).toHaveLength(2);
+    expect(placed()[1]!.userData.placeholder).toBe(true);
     await settle();
     expect(requested()).toContain(late);
     (s as any).needsRender = false;
     (s as any).shadowsDirty = false;
     arrive();
     await settle();
-    expect(placed()).toBe(2);
+    expect(placed()).toHaveLength(2);
+    expect(placed().some((m) => m.userData.placeholder)).toBe(false);
     expect((s as any).needsRender).toBe(true);
     expect((s as any).shadowsDirty).toBe(true);
     // The rest, after the first frame, adds no tile: no frame asked for.
@@ -312,19 +316,38 @@ describe("GameScene with the load order, as GameCanvas drives it", () => {
     nextFrame();
     nextFrame();
     await settle();
-    expect(placed()).toBe(2);
+    expect(placed()).toHaveLength(2);
     expect((s as any).needsRender).toBe(false);
     s.dispose();
   });
 
-  it("draws the plan view's tiles once its images come in", async () => {
+  it("draws the plan view's tiles at once: its images came with the first frame", async () => {
     const at = nextBase();
     const s = scene();
     const init = s.init({ surface: surface(), basePath: at });
     s.updateTiles([tile(1, 9)]);
     await init;
     s.setStrategyMode(true);
+    expect(s.tiles.getGroup().children[0]!.children).toHaveLength(1);
+    s.dispose();
+  });
+
+  it("draws the plan view's tiles once its images come in, when they came late", async () => {
+    const at = nextBase();
+    let arrive!: () => void;
+    const images = new Promise<void>((done) => (arrive = done));
+    vi.mocked(THREE.TextureLoader.prototype.loadAsync).mockImplementation(async () => {
+      await images;
+      return new THREE.Texture();
+    });
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    s.setStrategyMode(true);
+    s.updateTiles([tile(1, 9)]);
     expect(s.tiles.getGroup().children[0]!.children).toHaveLength(0);
+    arrive();
+    await init;
     await settle();
     expect(s.tiles.getGroup().children[0]!.children).toHaveLength(1);
     s.dispose();

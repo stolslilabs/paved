@@ -300,11 +300,14 @@ export class AssetLoader {
     }
   }
 
-  /** Every plan's image for the plan view (strategy mode), loaded once (a failure may be tried again). */
+  /**
+   * Every plan's image for the plan view (strategy mode) and the placeholder quad, loaded once. A failure may be tried
+   * again: the next try asks only for the images not in yet.
+   */
   preloadTextures(): Promise<void> {
     if (!this.texturesLoad) {
       const load = Promise.all(
-        PLAN_KEYS.map(async (key) => {
+        PLAN_KEYS.filter((key) => !this.textures.has(`tile-${key}`)).map(async (key) => {
           const texture = await this.textureLoader.loadAsync(`${this.basePath}/assets/tiles/${key}.png`);
           if (this.disposed) texture.dispose();
           else this.textures.set(`tile-${key}`, texture);
@@ -324,8 +327,10 @@ export class AssetLoader {
    * What the scene's first frame needs, awaited; the rest after that frame (`load-order.ts`). First: the models of the
    * tiles handed over (`want`) by the time the manifest is in, which is all of them when the scene mounts with its tiles
    * (`GameCanvas` hands them over in the same commit as `init`); every model when none was handed over. A failure there
-   * rejects, so the scene does not start (the app shows its plan view). The plan view's images wait too when it asked for
-   * them. A later failure only leaves that plan's tiles undrawn.
+   * rejects, so the scene does not start (the app shows its plan view). The plan view's 19 images wait too, always: they
+   * are the placeholder a tile draws while its model is on its way (`TileRenderer`), so a tile placed after the first
+   * frame is never empty. Their failure rejects only when the plan view asked for them; otherwise it is logged, and tried
+   * again after the first frame. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
     const manifest = await this.readManifest();
@@ -345,7 +350,11 @@ export class AssetLoader {
     await Promise.all([
       ...first.map((key) => this.ensureModel(key, manifest)),
       ...variants.map((path) => this.ensureModel(path, manifest)),
-      this.wantTextures ? this.preloadTextures() : null,
+      this.wantTextures
+        ? this.preloadTextures()
+        : this.preloadTextures().catch((error: unknown) => {
+            if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
+          }),
     ]);
     afterFirstFrame(() => {
       if (this.disposed) return;
@@ -381,6 +390,14 @@ export class AssetLoader {
       }
     });
     return clone;
+  }
+
+  /**
+   * A plan's image if it is in, else null, asking for nothing: the placeholder quad (`TileRenderer`) reads it this way, so
+   * that it never counts as the plan view asking (whose image failure stops the scene, `preloadAll`).
+   */
+  peekTexture(key: string): THREE.Texture | null {
+    return this.textures.get(key) ?? null;
   }
 
   getTexture(key: string): THREE.Texture {
