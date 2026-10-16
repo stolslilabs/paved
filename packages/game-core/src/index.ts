@@ -96,8 +96,8 @@ export type {
 // The starter's coordinates on chain (the contracts' `CENTER`)
 export { CENTER } from "./engine";
 // The structure state (a union-find over the placed tiles' areas), for a view that draws a structure across its tiles
-export { Board as StructureBoard } from "./engine/structures";
-export type { BoardTile as StructureTile, StructureAreas } from "./engine/structures";
+export { StructureBoard } from "./engine/structures";
+export type { StructureAreas, StructureTileInput } from "./engine/structures";
 
 // Game sessions (P2): Training, the tutorial run, the page session's shape
 export * from "./sessions";

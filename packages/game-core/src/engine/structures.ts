@@ -8,6 +8,7 @@
 // structure's tiles by a walk at scoring (design note, "The two counting designs"); off chain the set
 // costs nothing and gives the same count.
 
+import { Category, CategoryType } from "../types/category";
 import {
   areaAt,
   areaRow,
@@ -35,19 +36,6 @@ interface StructureRecord {
   size: number;
   open: number;
   tiles: Set<number>;
-}
-
-/**
- * A structure as the board holds it, with its nodes: its root, its category (1 forest, 2 road, 3 city, 5 wonder), its
- * size in nodes, its open half-edges, and the areas it holds on each of its tiles (tile id to a mask, bit `area - 1`).
- * What a view needs to draw one structure across its tiles (the renderer's lit areas).
- */
-export interface StructureAreas {
-  readonly root: number;
-  readonly category: number;
-  readonly size: number;
-  readonly open: number;
-  readonly areas: ReadonlyMap<number, number>;
 }
 
 export function positionKey(x: number, y: number): string {
@@ -88,34 +76,6 @@ export class Board {
   /** The root of `area` of a placed tile. */
   rootOf(tile: BoardTile, area: number): { root: number; record: StructureRecord } {
     return this.find(tile.refs[area]);
-  }
-
-  /**
-   * Every structure of the board with its nodes (`StructureAreas`), in the order of their first node (tiles by id, then
-   * areas). A walk over the placed tiles: for a view, not for the placement's hot path.
-   */
-  structures(): StructureAreas[] {
-    const byRoot = new Map<number, { category: number; size: number; open: number; areas: Map<number, number> }>();
-    for (const tile of [...this.byId.values()].sort((a, b) => a.id - b.id)) {
-      for (let area = 1; area <= 9; area++) {
-        if (!tile.refs[area]) continue;
-        const { root, record } = this.rootOf(tile, area);
-        let entry = byRoot.get(root);
-        if (!entry) {
-          entry = { category: categoryOf(tile.plan, area), size: record.size, open: record.open, areas: new Map() };
-          byRoot.set(root, entry);
-        }
-        entry.areas.set(tile.id, (entry.areas.get(tile.id) ?? 0) | (1 << (area - 1)));
-      }
-    }
-    return [...byRoot].map(([root, entry]) => ({ root, ...entry }));
-  }
-
-  /** The structure of `area` of a placed tile, with its nodes (`structures`); null for an area with no structure. */
-  structureOf(tile: BoardTile, area: number): StructureAreas | null {
-    if (!tile.refs[area]) return null;
-    const { root } = this.rootOf(tile, area);
-    return this.structures().find((structure) => structure.root === root) ?? null;
   }
 
   private closeOne(record: StructureRecord): void {
@@ -250,5 +210,71 @@ export class Board {
       }
     }
     return { openRoad: false, roads: roadRoots.size, cities: cityRoots.size };
+  }
+}
+
+/** A placed tile as the structure board takes it: its id, its plan and orientation (contract codes), its position. */
+export interface StructureTileInput {
+  readonly id: number;
+  readonly plan: number;
+  readonly orientation: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * A structure of the board with its nodes: its root, its category, its distinct tiles (what D-19 counts) and its nodes
+ * (an area of a tile), its open half-edges, and the areas it holds on each of its tiles (tile id to a mask, bit
+ * `area - 1`): what a view needs to draw one structure across its tiles (the renderer's lit areas).
+ */
+export interface StructureAreas {
+  readonly root: number;
+  readonly category: CategoryType;
+  readonly tiles: number;
+  readonly nodes: number;
+  readonly open: number;
+  readonly areas: ReadonlyMap<number, number>;
+}
+
+/**
+ * A read-only view of the structures of a set of placed tiles: the engine's union-find (`Board`) kept inside, the tiles
+ * placed once, in id order as the game placed them. A board that changes builds a new view. Tiles that do not fit
+ * together (a half-edge closed twice) throw, as the engine does.
+ */
+export class StructureBoard {
+  private readonly all: readonly StructureAreas[];
+  private readonly byNode: ReadonlyMap<string, StructureAreas>;
+
+  constructor(tiles: Iterable<StructureTileInput>) {
+    const board = new Board();
+    for (const { id, plan, orientation, x, y } of [...tiles].sort((a, b) => a.id - b.id)) board.place({ id, plan, orientation, x, y, owner: 0n });
+    const byRoot = new Map<number, { category: CategoryType; tiles: number; nodes: number; open: number; areas: Map<number, number> }>();
+    const byNode = new Map<string, number>();
+    for (const tile of [...board.byId.values()].sort((a, b) => a.id - b.id)) {
+      for (let area = 1; area <= 9; area++) {
+        if (!tile.refs[area]) continue;
+        const { root, record } = board.rootOf(tile, area);
+        let entry = byRoot.get(root);
+        if (!entry) {
+          entry = { category: Category.from(categoryOf(tile.plan, area)).value, tiles: record.tiles.size, nodes: record.size, open: record.open, areas: new Map() };
+          byRoot.set(root, entry);
+        }
+        entry.areas.set(tile.id, (entry.areas.get(tile.id) ?? 0) | (1 << (area - 1)));
+        byNode.set(`${tile.id}:${area}`, root);
+      }
+    }
+    const structures = new Map([...byRoot].map(([root, entry]) => [root, Object.freeze({ root, ...entry }) as StructureAreas]));
+    this.all = Object.freeze([...structures.values()]);
+    this.byNode = new Map([...byNode].map(([node, root]) => [node, structures.get(root)!]));
+  }
+
+  /** Every structure, in the order of its first node (tiles by id, then areas). */
+  structures(): readonly StructureAreas[] {
+    return this.all;
+  }
+
+  /** The structure of `area` of the tile `tileId`; null for an area with no structure, or a tile not on the board. */
+  structureOf(tileId: number, area: number): StructureAreas | null {
+    return this.byNode.get(`${tileId}:${area}`) ?? null;
   }
 }

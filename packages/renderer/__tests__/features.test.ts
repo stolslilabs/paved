@@ -595,10 +595,11 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
 
   it("lights a city across two tiles: exactly its area on each, not the other city of the first", async () => {
     // ffcfffcff: a city on the north edge and one on the south; ffffffcff north of it closes the first with its south city.
-    const board = new StructureBoard();
-    board.place({ id: 1, plan: planCode(PlanType.FFCFFFCFF), orientation: 1, x: 0, y: 0, owner: 0n });
-    const above = board.place({ id: 2, plan: planCode(PlanType.FFFFFFCFF), orientation: 1, x: 0, y: 1, owner: 0n });
-    const city = board.structureOf(above, areaOf(PlanType.FFFFFFCFF, SpotType.South))!;
+    const board = new StructureBoard([
+      { id: 1, plan: planCode(PlanType.FFCFFFCFF), orientation: 1, x: 0, y: 0 },
+      { id: 2, plan: planCode(PlanType.FFFFFFCFF), orientation: 1, x: 0, y: 1 },
+    ]);
+    const city = board.structureOf(2, areaOf(PlanType.FFFFFFCFF, SpotType.South))!;
     const [belowNorth, belowSouth] = [areaOf(PlanType.FFCFFFCFF, SpotType.North), areaOf(PlanType.FFCFFFCFF, SpotType.South)];
 
     const { tiles } = renderer();

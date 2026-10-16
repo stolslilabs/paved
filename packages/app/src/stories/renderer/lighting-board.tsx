@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { StructureBoard } from "@paved/game-core";
+import { CategoryType, StructureBoard } from "@paved/game-core";
 import { NO_SKINS, TILE_SIZE, type GameScene, type HoverState, type LitTile, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
@@ -43,19 +43,22 @@ export const LIT_STRUCTURES = ["none", "largest-city", "longest-road", "largest-
 export type LitStructure = (typeof LIT_STRUCTURES)[number];
 
 /**
- * The board's structures with their nodes: its tiles placed in id order on the structure state (`StructureBoard`, the
- * engine's union-find), as the game placed them. Each lit choice is the largest structure of its category (the first
- * on a tie), as the renderer's lit tiles of game 1.
+ * The board's structures with their nodes (`StructureBoard`, the engine's union-find seen read-only, the tiles placed in
+ * id order as the game placed them). Each lit choice is the structure of its category over the most tiles (the first on
+ * a tie), as the renderer's lit tiles of game 1.
  */
 const LIT: Record<LitStructure, LitTile[] | null> = (() => {
-  const board = new StructureBoard();
-  for (const { id, plan, orientation, x, y } of [...BOARD_72.tiles].sort((a, b) => a.id - b.id)) board.place({ id, plan, orientation, x, y, owner: 0n });
-  const structures = board.structures();
-  const largest = (category: number): LitTile[] => {
-    const [first] = structures.filter((s) => s.category === category).sort((a, b) => b.size - a.size);
+  const structures = new StructureBoard(BOARD_72.tiles).structures();
+  const largest = (category: CategoryType): LitTile[] => {
+    const [first] = structures.filter((s) => s.category === category).sort((a, b) => b.tiles - a.tiles);
     return [...first.areas].map(([id, areas]) => ({ gameId: 1, id, areas }));
   };
-  return { none: null, "largest-city": largest(3), "longest-road": largest(2), "largest-forest": largest(1) };
+  return {
+    none: null,
+    "largest-city": largest(CategoryType.City),
+    "longest-road": largest(CategoryType.Road),
+    "largest-forest": largest(CategoryType.Forest),
+  };
 })();
 
 /** The board's bounds, the zoomed-in view's anchor on the lit structure's tiles (their centre) when one is lit. */
