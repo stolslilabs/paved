@@ -6,7 +6,7 @@ Overseer.
 | id | decision | who | date | what would reverse it |
 |---|---|---|---|---|
 | D-1 | Plan v0 is validated: order P0..P8, tracks CORE, CLIENT, META, ECO | owner | 2026-10-06 | The owner changes the plan |
-| D-2 | Token: the official name is decided later with the team; the client hard-codes `$TILE` for now | owner | 2026-10-06 | The team picks a name |
+| D-2 | Token: the official name is decided later with the team; the client hard-codes `PAVED` for now | owner | 2026-10-06 | The team picks a name |
 | D-3 | (shared daily seed reversed by D-23) Randomness: keep what is implemented, a predictable daily seed and a game seed that evolves with the player's actions; no VRF for now | owner | 2026-10-06 | The owner asks for a VRF (revisit before paid games in P8, see RISKS) |
 | D-4 | Out of scope for now: Weekly, and multiplayer (duel included) | owner | 2026-10-06 | The owner brings them back |
 | D-5 | (amended by D-8) Networks: Katana / Madara for the MVP and the tests; a mainnet trial later when the owner is satisfied (reserved act: their go); Sepolia not required | owner | 2026-10-06 | The owner asks for Sepolia or another network |
