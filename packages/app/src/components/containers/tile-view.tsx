@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import type { GameScene } from "@paved/renderer";
+import type { GameScene, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { TileChip, planCode } from "../elements/tile-chip";
 import { toRenderTiles } from "./board-viewport";
@@ -40,6 +40,11 @@ export interface TileViewProps {
   orientation: number;
   /** As `BoardViewport`'s: where the renderer finds the models. */
   basePath?: string;
+  /**
+   * As `BoardViewport`'s: the hand's tile drawn in its player's skin. Its variant is the one a tile of its plan gets at the
+   * board's centre (game 0), the same each time: the hand has no cell yet; the ghost shows the cell's.
+   */
+  skins?: TileSkins;
   className?: string;
 }
 
@@ -48,7 +53,7 @@ export interface TileViewProps {
  * PM's ruling, 2026-10-14). A second WebGL canvas; it takes no input, the hand's buttons turn it. Without WebGL it is
  * the tile chip with the board's art from the same `basePath`.
  */
-export function TileView({ plan, orientation, basePath, className }: TileViewProps) {
+export function TileView({ plan, orientation, basePath, skins, className }: TileViewProps) {
   const tiles = useMemo(() => toRenderTiles([{ id: 1, plan, orientation, x: CENTER, y: CENTER }], 0), [plan, orientation]);
   const frame = (scene: GameScene) => {
     scene.camera.zoom = ONE_TILE_ZOOM;
@@ -58,7 +63,7 @@ export function TileView({ plan, orientation, basePath, className }: TileViewPro
   if (!hasWebGL()) return <TileChip plan={plan} orientation={orientation} artBase={basePath} size="lg" className={cn("size-full border-0", className)} />;
   return (
     <span role="img" aria-label={`Tile ${planCode(plan).toLowerCase()}, ${["north", "east", "south", "west"][(orientation - 1 + 4) % 4]}`} className={cn("pointer-events-none block size-full bg-board", className)}>
-      <GameCanvas tiles={tiles} basePath={basePath} onReady={frame} />
+      <GameCanvas tiles={tiles} basePath={basePath} skins={skins} onReady={frame} />
     </span>
   );
 }
