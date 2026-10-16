@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { NO_SKINS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
+import { CategoryType, StructureBoard } from "@paved/game-core";
+import { NO_SKINS, TILE_SIZE, type GameScene, type HoverState, type LitTile, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -29,6 +30,8 @@ export interface LightingBoardProps {
   force?: "auto" | "on" | "off";
   /** The pixel-ratio cap: "auto" (the device's) or a number. */
   maxPixelRatio?: number | "auto";
+  /** One structure lit across its tiles (`GameScene.setLitAreas`): the board's largest city, longest road or largest forest, or none. */
+  litStructure?: LitStructure;
   /** The faces' antialiasing: "auto" (the device's), on or off. */
   multisampling?: boolean | "auto";
   /** MSAA's samples (2 or 4). */
@@ -39,6 +42,36 @@ export interface LightingBoardProps {
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
 const FOREST = skinsFor("all");
+
+export const LIT_STRUCTURES = ["none", "largest-city", "longest-road", "largest-forest"] as const;
+export type LitStructure = (typeof LIT_STRUCTURES)[number];
+
+/**
+ * The board's structures with their nodes (`StructureBoard`, the engine's union-find seen read-only, the tiles placed in
+ * id order as the game placed them). Each lit choice is the structure of its category over the most tiles (the first on
+ * a tie), as the renderer's lit tiles of game 1.
+ */
+const LIT: Record<LitStructure, LitTile[] | null> = (() => {
+  const structures = new StructureBoard(BOARD_72.tiles).structures();
+  const largest = (category: CategoryType): LitTile[] => {
+    const [first] = structures.filter((s) => s.category === category).sort((a, b) => b.tiles - a.tiles);
+    return [...first.areas].map(([id, areas]) => ({ gameId: 1, id, areas }));
+  };
+  return {
+    none: null,
+    "largest-city": largest(CategoryType.City),
+    "longest-road": largest(CategoryType.Road),
+    "largest-forest": largest(CategoryType.Forest),
+  };
+})();
+
+/** The board's bounds, the zoomed-in view's anchor on the lit structure's tiles (their centre) when one is lit. */
+function boundsFor(lit: LitTile[] | null): Bounds {
+  const cells = lit ? tiles.filter((t) => lit.some((l) => l.id === t.id)) : [];
+  if (!cells.length) return BOUNDS;
+  const mean = (values: number[]) => (values.reduce((a, b) => a + b, 0) / values.length) * TILE_SIZE;
+  return { ...BOUNDS, anchor: [mean(cells.map((t) => t.worldX)), mean(cells.map((t) => t.worldZ))] };
+}
 
 function boundsOf(): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -78,7 +111,7 @@ const GHOST: HoverState = (() => {
  * The recorded 72-tile board through the real renderer with the look of the args: a preset, any field over it, and the
  * quality tier. `data-ready` is set once the board is drawn at the held view.
  */
-export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, forest = false, force = "auto", maxPixelRatio = "auto", multisampling = "auto", msaaSamples = 4, ...args }: LightingBoardProps) {
+export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, forest = false, force = "auto", maxPixelRatio = "auto", multisampling = "auto", msaaSamples = 4, litStructure = "none", ...args }: LightingBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState("");
@@ -98,14 +131,14 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
 
   useEffect(() => {
     if (!scene) return;
-    const pose = viewPose(view, BOUNDS, distance);
+    const pose = viewPose(view, boundsFor(LIT[litStructure]), distance);
     scene.controls.controls.target.set(...pose.target);
     scene.camera.position.set(...pose.position);
     scene.camera.lookAt(...pose.target);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);
-  }, [scene, view, distance]);
+  }, [scene, view, distance, litStructure]);
 
   useEffect(() => {
     if (!scene || !readout) return;
@@ -115,6 +148,10 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
     );
     return () => cancelAnimationFrame(id);
   }, [scene, readout, key]);
+
+  useEffect(() => {
+    scene?.setLitAreas(LIT[litStructure] ?? null);
+  }, [scene, litStructure]);
 
   useEffect(() => {
     if (!scene || !redraw) return;

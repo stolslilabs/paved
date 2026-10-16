@@ -1,4 +1,4 @@
-import { LOOK_PRESETS, TONE_MAPPING_MODES, type LookSettings, type LookSettingsInput } from "@paved/renderer";
+import { FEATURES, LOOK_PRESETS, TONE_MAPPING_MODES, type LookSettings, type LookSettingsInput } from "@paved/renderer";
 
 /**
  * The look's fields (`LookSettings`) as flat story args, `<group><Field>` (`keyIntensity`, `aoRadius`,
@@ -28,7 +28,11 @@ const GROUP_LABELS: Record<Group, string> = {
   bloom: "Bloom",
   highlights: "Highlights",
   water: "Water",
+  featureHighlight: "Feature highlight",
 };
+
+/** The features the highlight can light (`featureHighlightFeature`): every one but "none". */
+const LIT_FEATURES = FEATURES.filter((f) => f !== "none");
 
 /** Range of each numeric field: [min, max, step]. */
 const RANGES: Record<string, [number, number, number]> = {
@@ -52,6 +56,9 @@ const RANGES: Record<string, [number, number, number]> = {
   ghostIntensity: [0, 3, 0.05],
   brightness: [0.5, 2, 0.01],
   roughness: [0, 1, 0.01],
+  tint: [0, 1, 0.01],
+  glow: [0, 3, 0.05],
+  dim: [0, 1, 0.01],
 };
 /** The AO's radius is in world units, the bloom's a share of its blur. */
 const RANGE_OVERRIDES: Record<string, [number, number, number]> = { aoIntensity: [0, 1.5, 0.01], bloomRadius: [0, 1, 0.01] };
@@ -77,6 +84,9 @@ export function lookArgTypes(): Record<string, object> {
     const table = { category: GROUP_LABELS[f.group] };
     const name = f.field || f.group;
     if (f.arg === "toneMappingMode") types[f.arg] = { control: "inline-radio", options: TONE_MAPPING_MODES, table };
+    // An enum, so a URL can set it (`args=featureHighlightFeature:road`), as `quality` in the stories.
+    else if (f.arg === "featureHighlightFeature")
+      types[f.arg] = { control: "inline-radio", options: LIT_FEATURES, type: { name: "enum", value: LIT_FEATURES }, table };
     else if (typeof v === "boolean") types[f.arg] = { control: "boolean", table };
     else if (typeof v === "string") types[f.arg] = { control: "color", table };
     else {
