@@ -1,0 +1,219 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { GameCanvas } from "@paved/renderer/react";
+import { DEFAULT_PLACEMENT_SETTINGS, TILE_SIZE, type GameScene, type HoverState, type PlacementSettingsInput, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
+import { toRenderTiles } from "../../components/containers/board-viewport";
+import { APP_WEB_ASSETS } from "../../mocks/assets";
+import { BOARD_72 } from "../../mocks/board";
+import { viewPose, type Bounds, type View } from "./outlines-tour";
+
+/** The placement states the story shows (SLOTS, P-68). */
+export const PLACEMENT_STATES = ["idle", "in-hand", "placed", "placed-red", "confirm"] as const;
+export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
+
+export interface PlacementBoardProps {
+  /** idle: the grid only; in-hand: the slots; placed: the tile on a slot (yellow, or red: its rotation does not fit); confirm: green, fading. */
+  state: PlacementStoryState;
+  /** Reduced motion: a still aura, an instant colour change, a short fade (`prefers-reduced-motion` when unset). */
+  reducedMotion?: boolean;
+  /** The confirm plays again every this many ms (0: once). */
+  replayMs?: number;
+  view: View;
+  distance?: number;
+  /** Draw every frame even when nothing moves, as the frame-time measures need. */
+  redraw?: boolean;
+  readout?: boolean;
+  force?: "auto" | "on" | "off";
+  maxPixelRatio?: number | "auto";
+  /** The placement settings, flat (`placementArgTypes`). */
+  [arg: string]: unknown;
+}
+
+const tiles = toRenderTiles(BOARD_72.tiles, 1);
+
+function boundsOf(): Bounds {
+  const xs = tiles.map((t) => t.worldX * TILE_SIZE);
+  const zs = tiles.map((t) => t.worldZ * TILE_SIZE);
+  const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  const [cx, cz] = [(minX + maxX) / 2, (minZ + maxZ) / 2];
+  const near = xs.map((x, i) => ({ x, z: zs[i], d: (x - cx) ** 2 + (zs[i] - cz) ** 2 })).sort((a, b) => a.d - b.d)[0];
+  return { minX, maxX, minZ, maxZ, anchor: [near.x, near.z] };
+}
+const BOUNDS = boundsOf();
+
+/**
+ * The empty cells next to a tile, as the legal slots of a tile in hand (any rotation): about two in three fit the
+ * current rotation (solid), the others only in another (dashed). A story's stand-in for the engine's legality.
+ */
+const SLOTS: PlacementSlot[] = (() => {
+  const taken = new Set(tiles.map((t) => `${t.worldX},${t.worldZ}`));
+  const slots = new Map<string, PlacementSlot>();
+  for (const t of tiles) {
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const [x, y] = [t.worldX + dx, t.worldZ + dz];
+      if (!taken.has(`${x},${y}`)) slots.set(`${x},${y}`, { x, y, fits: (((x * 7 + y * 3) % 3) + 3) % 3 !== 0 });
+    }
+  }
+  return [...slots.values()];
+})();
+
+/** The slot nearest the board's centre that fits: where the tile is placed, with a plan already on the board (its model is in). */
+const PLACED: HoverState = (() => {
+  const cx = (BOUNDS.minX + BOUNDS.maxX) / 2 / TILE_SIZE;
+  const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
+  const slot = SLOTS.filter((s) => s.fits).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
+  return { x: slot.x, y: slot.y, valid: true, idle: true, placed: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
+})();
+
+type Group = keyof PlacementSettingsInput;
+/** A flat arg's group and field: `gridOpacity` is `grid.opacity`. */
+const FIELDS: Record<string, [Group, string]> = {};
+for (const group of Object.keys(DEFAULT_PLACEMENT_SETTINGS) as Group[]) {
+  for (const field of Object.keys(DEFAULT_PLACEMENT_SETTINGS[group])) {
+    if (field === "rings" || field === "reducedMotion") continue;
+    FIELDS[`${group}${field[0]!.toUpperCase()}${field.slice(1)}`] = [group, field];
+  }
+}
+
+/** The placement settings of the flat args that are set; the grid's rings from `gridRing1` to `gridRing3`. */
+export function placementInput(args: Record<string, unknown>): PlacementSettingsInput {
+  const input: Record<string, Record<string, unknown>> = {};
+  for (const [arg, [group, field]] of Object.entries(FIELDS)) {
+    if (args[arg] === undefined) continue;
+    (input[group] ??= {})[field] = args[arg];
+  }
+  const rings = DEFAULT_PLACEMENT_SETTINGS.grid.rings;
+  const ring = (k: number) => (typeof args[`gridRing${k}`] === "number" ? (args[`gridRing${k}`] as number) : rings[k - 1]!);
+  if ([1, 2, 3].some((k) => args[`gridRing${k}`] !== undefined)) (input.grid ??= {}).rings = [ring(1), ring(2), ring(3)];
+  return input as PlacementSettingsInput;
+}
+
+/** Storybook controls for every placement setting, in groups. */
+export function placementArgTypes(): Record<string, object> {
+  const types: Record<string, object> = {};
+  const range = (min: number, max: number, step: number) => ({ control: { type: "range", min, max, step } });
+  const spec: Record<string, object> = {
+    color: { control: "color" },
+    opacity: range(0, 1, 0.01),
+    fillOpacity: range(0, 0.6, 0.01),
+    width: range(0.002, 0.1, 0.001),
+    glow: range(0, 0.3, 0.005),
+    minWidthDevicePx: range(0.25, 3, 0.25),
+    intensity: range(0, 6, 0.05),
+    fitIntensity: range(0, 6, 0.05),
+    glowIntensity: range(0, 3, 0.05),
+    borderIntensity: range(0, 6, 0.05),
+    gap: range(0, 0.9, 0.01),
+    dashesAtTilePx: range(20, 300, 1),
+    dashBlendPx: range(0, 80, 1),
+    fadeFloor: range(0, 1, 0.05),
+    height: range(0, 1.5, 0.01),
+    halo: range(0, 0.6, 0.01),
+    waves: range(0, 6, 0.5),
+    waveAmount: range(0, 1, 0.05),
+    periodMs: range(200, 5000, 50),
+    whiten: range(0, 1, 0.05),
+    colorMs: range(0, 1000, 10),
+    confirmMs: range(100, 2000, 10),
+    reducedConfirmMs: range(0, 600, 10),
+  };
+  for (const [arg, [group, field]] of Object.entries(FIELDS)) {
+    const value = (DEFAULT_PLACEMENT_SETTINGS[group] as Record<string, unknown>)[field];
+    const control = typeof value === "boolean" ? { control: "boolean" } : group === "colors" ? { control: "color" } : (spec[field] ?? { control: "number" });
+    types[arg] = { ...control, description: `${group}.${field} (default ${String(value)})`, table: { category: group } };
+  }
+  for (const k of [1, 2, 3]) {
+    types[`gridRing${k}`] = { ...range(0, 1, 0.01), description: `grid.rings[${k - 1}]: the share at ring ${k} (default ${DEFAULT_PLACEMENT_SETTINGS.grid.rings[k - 1]})`, table: { category: "grid" } };
+  }
+  return types;
+}
+
+/**
+ * The recorded 72-tile board with the placement visuals in one state (SLOTS, P-68): the grid around it, the legal slots
+ * of a tile in hand (dashed, or solid where the rotation fits), the tile placed on one (yellow, or red when its rotation
+ * does not fit), and the confirm (green, fading out). `data-ready` is set once the board is drawn at the held view.
+ */
+export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", ...args }: PlacementBoardProps) {
+  const [scene, setScene] = useState<GameScene | null>(null);
+  const [ready, setReady] = useState(false);
+  const [zoom, setZoom] = useState("");
+  const [confirmKey, setConfirmKey] = useState(0);
+  const input = placementInput(args);
+  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio]);
+  const settings = useMemo<RendererSettingsInput>(
+    () => ({ outlines: { force }, maxPixelRatio, placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
+    [key], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const onReady = useCallback((s: GameScene) => setScene(s), []);
+
+  useEffect(() => {
+    if (!scene) return;
+    const pose = viewPose(view, BOUNDS, distance);
+    scene.controls.controls.target.set(...pose.target);
+    scene.camera.position.set(...pose.position);
+    scene.camera.lookAt(...pose.target);
+    scene.requestRender();
+    let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
+    return () => cancelAnimationFrame(id);
+  }, [scene, view, distance]);
+
+  // The confirm again and again, so its fade can be watched (and tuned).
+  useEffect(() => {
+    if (state !== "confirm" || !ready) return;
+    setConfirmKey((k) => k + 1);
+    if (!(replayMs > 0)) return;
+    const id = setInterval(() => setConfirmKey((k) => k + 1), replayMs);
+    return () => clearInterval(id);
+  }, [state, ready, replayMs]);
+
+  useEffect(() => {
+    if (!scene || !redraw) return;
+    let id = 0;
+    const step = () => {
+      scene.requestRender();
+      id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [scene, redraw]);
+
+  useEffect(() => {
+    if (!scene || !readout) return;
+    let id = 0;
+    const step = () => {
+      const z = scene.getZoom();
+      setZoom(`distance ${z.distance.toFixed(0)} · tile ${z.tilePx.toFixed(0)} px (S ${z.openingTilePx.toFixed(0)})`);
+      id = window.setTimeout(step, 250);
+    };
+    step();
+    return () => clearTimeout(id);
+  }, [scene, readout]);
+
+  const slots = state === "in-hand" || state === "placed" || state === "placed-red" ? SLOTS : NO_SLOTS;
+  const hover = useMemo<HoverState | null>(
+    () => (!ready ? null : state === "placed" ? PLACED : state === "placed-red" ? { ...PLACED, valid: false } : null),
+    [state, ready],
+  );
+  const confirmed = useMemo(() => (state === "confirm" && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [state, ready, confirmKey]);
+
+  return (
+    <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
+      <GameCanvas
+        tiles={tiles}
+        availableSlots={slots}
+        hover={hover}
+        confirmed={confirmed}
+        basePath={APP_WEB_ASSETS}
+        settings={settings}
+        onReady={onReady}
+        style={{ position: "absolute", inset: 0 }}
+      />
+      {readout && zoom && (
+        <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground numeric" aria-live="off">
+          {state} · {zoom}
+        </output>
+      )}
+    </div>
+  );
+}
+
+const NO_SLOTS: PlacementSlot[] = [];

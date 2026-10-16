@@ -8,16 +8,16 @@
       "gzip": 86016
     },
     "largestRoute": {
-      "raw": 872448,
-      "gzip": 249856
+      "raw": 884736,
+      "gzip": 253952
     },
     "firstLoadJs": {
       "raw": 663552,
       "gzip": 214016
     },
     "css": {
-      "raw": 67584,
-      "gzip": 12288
+      "raw": 69632,
+      "gzip": 12800
     },
     "fontAwesome": {
       "raw": 95232,

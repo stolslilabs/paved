@@ -344,7 +344,7 @@ describe("the placement's resources", () => {
     }
     expect(walls).toBe(16);
     const box = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute("position") as THREE.BufferAttribute);
-    expect(box.max.y).toBeCloseTo(0.45 * TILE_SIZE, 6);
+    expect(box.max.y).toBeCloseTo(0.3 + 0.45 * TILE_SIZE, 6);
     expect(box.max.x).toBeCloseTo(TILE_SIZE / 2 + 0.2 * TILE_SIZE, 6);
   });
 

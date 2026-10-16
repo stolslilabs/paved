@@ -98,7 +98,7 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
   grid: { enabled: true, color: "#d1d9df", opacity: 0.32, rings: [1, 0.4, 0.1], width: 0.012, minWidthDevicePx: 1 },
   slots: {
     enabled: true,
-    fillOpacity: 0.1,
+    fillOpacity: 0.045,
     width: 0.025,
     glow: 0.07,
     intensity: 1.3,
@@ -109,8 +109,8 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     dashBlendPx: 16,
     fadeFloor: 0.6,
   },
-  aura: { enabled: true, intensity: 1.1, height: 0.45, halo: 0.2, waves: 2, waveAmount: 0.5, periodMs: 1800, borderIntensity: 2.8 },
-  veil: { opacity: 0.22, whiten: 0.55 },
+  aura: { enabled: true, intensity: 1.6, height: 0.45, halo: 0.2, waves: 2, waveAmount: 0.5, periodMs: 1800, borderIntensity: 2.8 },
+  veil: { opacity: 0.16, whiten: 0.5 },
   motion: { colorMs: 220, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 
@@ -325,8 +325,9 @@ void main() {
   float base = ( 1.0 - vV ) * ( 1.0 - vV );
   float wave = 0.5 + 0.5 * sin( 6.28318530718 * ( vV * waves - phase ) );
   float a = base * mix( 1.0, wave, waveAmount ) * intensity * opacity;
-  // The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line).
-  float facing = abs( dot( normalize( vNormalView ), normalize( -vViewPosition ) ) );
+  // The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
+  // which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
+  float facing = dot( normalize( vNormalView ), normalize( -vViewPosition ) );
   a *= mix( 1.0, smoothstep( 0.15, 0.5, facing ), vWall );
   gl_FragColor = vec4( color * a, 0.0 );
 }
@@ -368,6 +369,8 @@ function createAuraMaterial(): AuraMaterial {
     fragmentShader: auraFragment,
     transparent: true,
     depthWrite: false,
+    // A glow over the neighbours' ground: their trees and roofs would cut its halo into pieces.
+    depthTest: false,
     blending: THREE.CustomBlending,
     blendSrc: THREE.OneFactor,
     blendDst: THREE.OneMinusSrcAlphaFactor,
@@ -408,7 +411,7 @@ export function createAuraGeometry(height: number, halo: number): THREE.BufferGe
     [0, 1, -1, 0],
     [0, -1, 1, 0],
   ];
-  const y = 0.03;
+  const y = GROUND_TOP + 0.02;
   for (const [dx, dz, sx, sz] of sides) {
     // Ground halo: a trapezoid from the inner square to the outer one.
     quad(
@@ -425,10 +428,10 @@ export function createAuraGeometry(height: number, halo: number): THREE.BufferGe
     if (top > 0) {
       quad(
         [
-          [dx! * wall - sx! * wall, 0, dz! * wall - sz! * wall],
-          [dx! * wall + sx! * wall, 0, dz! * wall + sz! * wall],
-          [dx! * wall + sx! * wall, top, dz! * wall + sz! * wall],
-          [dx! * wall - sx! * wall, top, dz! * wall - sz! * wall],
+          [dx! * wall - sx! * wall, GROUND_TOP, dz! * wall - sz! * wall],
+          [dx! * wall + sx! * wall, GROUND_TOP, dz! * wall + sz! * wall],
+          [dx! * wall + sx! * wall, GROUND_TOP + top, dz! * wall + sz! * wall],
+          [dx! * wall - sx! * wall, GROUND_TOP + top, dz! * wall - sz! * wall],
         ],
         [dx!, 0, dz!],
         [0, 0, 1, 1],
@@ -444,6 +447,12 @@ export function createAuraGeometry(height: number, halo: number): THREE.BufferGe
   geometry.setIndex(index);
   return geometry;
 }
+
+/**
+ * A tile's ground top (every base model's ground is 0.4 of its 4 units): the aura's halo and the placed cell's border lie
+ * just above it, over the neighbours' ground and the tile's own, not under them.
+ */
+const GROUND_TOP = 0.4 * (TILE_SIZE / 4);
 
 /** The veil's draw order: after the faces, before the outlines (1), so the outlines stay dark on top. */
 const VEIL_ORDER = 0.5;
@@ -483,6 +492,13 @@ export function veilOf(model: THREE.Object3D, material: THREE.Material): THREE.O
   for (const outline of outlines) outline.removeFromParent();
   veil.userData.veil = true;
   return veil;
+}
+
+/** The placed cell's border: drawn over the neighbours' features, as the aura is. */
+function overlayFrame(): NeonFrameMaterial {
+  const material = createNeonFrameMaterial();
+  material.depthTest = false;
+  return material;
 }
 
 /** A slot as the board gives it: grid coordinates, and whether the tile in hand fits it at the current rotation. */
@@ -670,7 +686,7 @@ export class PlacementRenderer {
     this.ghostCell = placed ? { x: cell.x, y: cell.y } : null;
     if (placed && this.settings.aura.enabled) {
       const aura = (this.ghostAura ??= createAuraMaterial());
-      const border = (this.ghostBorder ??= createNeonFrameMaterial());
+      const border = (this.ghostBorder ??= overlayFrame());
       this.addAura(container, aura, border);
     }
     if (before?.x !== this.ghostCell?.x || before?.y !== this.ghostCell?.y) this.rebuildSlots();
@@ -708,7 +724,7 @@ export class PlacementRenderer {
     this.confirmSince = now;
     const veil = (this.confirmVeil ??= createVeilMaterial());
     if (model) container.add(veilOf(model, veil));
-    if (this.settings.aura.enabled) this.addAura(container, (this.confirmAura ??= createAuraMaterial()), (this.confirmBorder ??= createNeonFrameMaterial()));
+    if (this.settings.aura.enabled) this.addAura(container, (this.confirmAura ??= createAuraMaterial()), (this.confirmBorder ??= overlayFrame()));
     container.userData.confirm = true;
     this.confirmGroup = new THREE.Group();
     this.confirmGroup.add(container);
@@ -723,7 +739,7 @@ export class PlacementRenderer {
     mesh.userData.aura = true;
     container.add(mesh);
     const frame = new THREE.Mesh((this.slotGeometry ??= this.frameGeometry(this.settings.slots.glow)), border);
-    frame.position.y = 0.025;
+    frame.position.y = GROUND_TOP + 0.025;
     frame.scale.set(TILE_SIZE, 1, TILE_SIZE);
     frame.renderOrder = AURA_ORDER;
     frame.userData.auraBorder = true;
