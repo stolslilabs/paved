@@ -9,6 +9,8 @@ tags: advanced, hooks, refs, event-handlers, optimization
 
 ## Store Event Handlers in Refs
 
+<!-- Paved: Upstream contradicts itself on stable handler identity: prefer `useEffectEvent` as in `advanced-effect-event-deps` and `advanced-use-latest`; a handler ref is the fallback. -->
+
 Store callbacks in refs when used in effects that shouldn't re-subscribe on callback changes.
 
 **Incorrect (re-subscribes on every render):**

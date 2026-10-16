@@ -9,6 +9,8 @@ tags: rendering, transitions, useTransition, loading, state
 
 ## Use useTransition Over Manual Loading States
 
+<!-- Paved: Server data comes from the query hooks of `src/data/` (TanStack Query owns it, `paved-data`); never fetch in a component and copy the result into `useState`, as the example below does. `useTransition` applies to local state and navigation only; its fetch is upstream's illustration. -->
+
 Use `useTransition` instead of manual `useState` for loading states. This provides built-in `isPending` state and automatically manages transitions.
 
 **Incorrect (manual loading state):**

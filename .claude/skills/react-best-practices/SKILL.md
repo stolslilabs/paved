@@ -104,7 +104,7 @@ Read the rule file before applying a rule; each has an incorrect and a correct e
 - `advanced-effect-event-deps`: do not put a `useEffectEvent` result in an effect's dependencies
 - `advanced-event-handler-refs`: event handlers in refs
 - `advanced-init-once`: initialise once per app load
-- `advanced-use-latest`: a `useLatest` ref for stable callbacks
+- `advanced-use-latest`: `useEffectEvent` for callbacks that read the latest values without re-running an effect
 
 ## Measure before and after
 

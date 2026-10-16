@@ -9,7 +9,7 @@ tags: rendering, svg, optimization, svgo
 
 ## Optimize SVG Precision
 
-<!-- Paved: Run `svgo` as a dev tool on an icon before committing it, with the options shown. This skill adds no dependency. Icons are Font Awesome through `<Icon>` (`paved-ui`), so this applies to hand-made SVG only. -->
+<!-- Paved: Run `svgo` on an icon before committing it, with the options shown, only if `svgo` is already on the machine; do not add it. This skill adds no dependency. Icons are Font Awesome through `<Icon>` (`paved-ui`), so this applies to hand-made SVG only. -->
 
 Reduce SVG coordinate precision to decrease file size. The optimal precision depends on the viewBox size, but in general reducing precision should be considered.
 

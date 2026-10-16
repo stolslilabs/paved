@@ -9,6 +9,8 @@ tags: rerender, searchParams, localStorage, optimization
 
 ## Defer State Reads to Usage Point
 
+<!-- Paved: `useSearchParams()` here is Next.js's. In this app read search params with react-router's `useSearchParams()` (see `src/routes/pages/purchase.tsx`), never `window.location`: tests and stories run on memory routers, where `window.location.search` is wrong. The rule's point (do not subscribe to what only a callback reads) still holds. -->
+
 Don't subscribe to dynamic state (searchParams, localStorage) if you only read it inside callbacks.
 
 **Incorrect (subscribes to all searchParams changes):**

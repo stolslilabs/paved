@@ -9,7 +9,7 @@ tags: rendering, preload, preconnect, prefetch, resource-hints
 
 ## Use React DOM Resource Hints
 
-<!-- Paved: The app has no server components. Call these in client code at the moment the need is known (an event handler, a route loader). Every URL must be a self-hosted asset of the app; the third-party hosts in the samples are placeholders from the upstream text, and nothing is fetched from a CDN at run time. -->
+<!-- Paved: The app has no server components. Call these in client code at the moment the need is known (an event handler, a route loader). Every asset URL is self-hosted; a hint to a host the app already calls (RPC, indexer) is allowed. The third-party hosts in the samples are placeholders from the upstream text, and nothing is fetched from a CDN at run time. -->
 
 **Impact: HIGH (reduces load time for critical resources)**
 
