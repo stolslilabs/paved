@@ -317,6 +317,23 @@ export interface PlayerAchievements {
   achievements: PlayerAchievement[];
 }
 
+/** A part of a referrer's earnings: how many purchases paid it, and their referral in USDC base units (a decimal string). */
+export interface ReferralTotal {
+  count: number;
+  total: string;
+}
+
+/**
+ * What a referrer earned (IX-COBBLES2, `/v1/players/:id/referrals`): the referral of every Challenge game bought through
+ * its link (`Purchased`) and of every pack of Cobbles (`Sold`), each in USDC base units. `total` is the two together.
+ */
+export interface PlayerReferrals {
+  playerId: string;
+  total: string;
+  games: ReferralTotal;
+  packs: ReferralTotal;
+}
+
 export interface IndexerOptions {
   /** Base URL of the API, without the `/v1`. */
   url: string;
@@ -728,6 +745,22 @@ export class IndexerClient {
       points: num(b, "points", "achievements"),
       achievements: list(b, "achievements", "achievements").map((a, i) => parsePlayerAchievement(a, `achievements[${i}]`)),
     }));
+  }
+
+  /** What a referrer earned through its link, games and packs; a player that referred nobody answers zeros. */
+  async playerReferrals(playerId: string | bigint): Promise<IndexerAnswer<PlayerReferrals>> {
+    const id = indexerPlayerId(playerId);
+    return this.get(`/v1/players/${id}/referrals`, {}, (b) => {
+      const part = (key: string): ReferralTotal => {
+        const o = obj(b[key], `referrals.${key}`);
+        return { count: num(o, "count", `referrals.${key}`), total: amount(o, "total", `referrals.${key}`) };
+      };
+      const games = part("games");
+      const packs = part("packs");
+      const total = amount(b, "total", "referrals");
+      if (BigInt(total) !== BigInt(games.total) + BigInt(packs.total)) bad("referrals.total is not its games' and packs' sum");
+      return { playerId: answerPlayer(b, id, "referrals"), total, games, packs };
+    });
   }
 
   private async fetchText(url: string): Promise<{ response: Response; text: string }> {

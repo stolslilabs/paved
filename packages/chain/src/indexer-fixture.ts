@@ -118,6 +118,14 @@ export class FixtureIndexer {
     [FIXTURE_ADA, { quests: ADA_QUEST_COUNTS, achievements: ADA_ACHIEVEMENT_COUNTS }],
   ]);
 
+  /**
+   * What each referrer earned (`/v1/players/:id/referrals`), as the indexer's `playerReferrals` sums it: the games' and the
+   * packs' referrals, USDC base units. A player not listed referred nobody and answers zeros.
+   */
+  referrals = new Map<string, { games: { count: number; total: string }; packs: { count: number; total: string } }>([
+    [FIXTURE_ADA, { games: { count: 3, total: "1200000" }, packs: { count: 1, total: "450000" } }],
+  ]);
+
   /** A `fetch` for `new IndexerClient({ url, fetch })`. */
   readonly fetch = async (input: RequestInfo | URL): Promise<Response> => {
     const url = new URL(String(input));
@@ -242,6 +250,12 @@ export class FixtureIndexer {
         const mine = this.progress.get(b)?.achievements;
         const rows = this.achievements.map((a) => progressRow(a, "achievement_id", mine?.get(a.achievement_id as number), { points: a.points }));
         return ok({ player_id: b, points: rows.filter((r) => r.completed).reduce((sum, r) => sum + (r.points as number), 0), achievements: rows });
+      }
+      if (c === "referrals" && !d) {
+        const e = allowed();
+        if (e) return fail(400, e);
+        const mine = this.referrals.get(b) ?? { games: { count: 0, total: "0" }, packs: { count: 0, total: "0" } };
+        return ok({ player_id: b, total: String(BigInt(mine.games.total) + BigInt(mine.packs.total)), ...mine });
       }
       if (c === "tournaments" && d) {
         const e = allowed();
