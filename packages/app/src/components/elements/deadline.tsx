@@ -1,34 +1,59 @@
-import { formatDate } from "@paved/game-core";
+import { useEffect, useMemo, useState } from "react";
+import { formatBoundary, formatRelative } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
-/** "23 h 12 min", "45 min", "0 min": the time left, cut to the minute. */
-export function formatRelative(seconds: number): string {
-  const minutes = Math.max(0, Math.floor(seconds / 60));
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h} h ${m} min` : `${m} min`;
+const MINUTE_MS = 60_000;
+
+/**
+ * The scene's clock, in seconds since the epoch, moving on once a minute (the interval is cleaned up on unmount). `now` is
+ * the scene's own clock when it has one (stories and tests fix it): it moves on from there by the time elapsed since it was
+ * given. Without it the clock is the browser's.
+ */
+export function useClock(now?: number): number {
+  const [, setTick] = useState(0);
+  const anchor = useMemo(() => Date.now(), [now]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), MINUTE_MS);
+    return () => clearInterval(id);
+  }, []);
+  return now == null ? Math.floor(Date.now() / 1000) : now + Math.floor((Date.now() - anchor) / 1000);
+}
+
+export interface BoundaryProps {
+  /** Seconds since the epoch. */
+  at: number;
+  /** Seconds since the epoch: the clock. */
+  now: number;
+  /** `ended 2 h ago` rather than `2 h ago` once past. */
+  ended?: boolean;
+  /** `dot`: "in 23 h 12 min · Thu, Oct 16, 17:00 UTC" (the default); `paren`: "in 23 h 12 min (Thu, Oct 16, 17:00 UTC)", inside a sentence. */
+  join?: "dot" | "paren";
+  className?: string;
 }
 
 /**
- * A moment as the player reads it: "Thu, Oct 15, 17:00" in `timeZone` (the viewer's own when omitted). The locale is
- * fixed (en-US, with a 24 h clock) so a story reads the same everywhere once its time zone is fixed too.
+ * A game boundary as the player reads it (the PM's ruling, 2026-10-16): the relative time first ("in 23 h 12 min"), then the
+ * absolute time in UTC with its label ("Thu, Oct 16, 17:00 UTC"), never local, and nothing only in a tooltip. One `<time>`
+ * whose accessible name is the sentence without the dot.
  */
-export function formatLocal(seconds: number, timeZone?: string): string {
-  return formatDate(seconds * 1000, {
-    timeZone,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-}
-
-/** The same moment in UTC, for the tooltip: "2026-10-15 15:00 UTC". */
-export function formatUtc(seconds: number): string {
-  return `${new Date(seconds * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+export function Boundary({ at, now, ended, join = "dot", className }: BoundaryProps) {
+  const relative = formatRelative(at - now, { ended });
+  const absolute = formatBoundary(at);
+  return (
+    <time dateTime={new Date(at * 1000).toISOString()} aria-label={join === "dot" ? `${relative}, ${absolute}` : `${relative} (${absolute})`} className={cn("text-foreground", className)}>
+      {join === "paren" ? (
+        `${relative} (${absolute})`
+      ) : (
+        <>
+          {relative}{" "}
+          <span aria-hidden className="text-muted-foreground">
+            ·
+          </span>{" "}
+          {absolute}
+        </>
+      )}
+    </time>
+  );
 }
 
 export interface DeadlineProps {
@@ -36,32 +61,18 @@ export interface DeadlineProps {
   expiresAt: number;
   /** Seconds since the epoch: the scene's clock. */
   now: number;
-  /** An IANA zone; the viewer's own when omitted. Stories and tests fix it. */
+  /** Ignored: a game boundary is always UTC. Kept so a scene that still passes it compiles. */
   timeZone?: string;
   className?: string;
 }
 
-/**
- * When a game expires (the PM's ruling, 2026-10-14): "expires in 23 h 12 min" and the player's local time, with UTC in a
- * tooltip.
- */
-export function Deadline({ expiresAt, now, timeZone, className }: DeadlineProps) {
+/** When a game expires: "in 23 h 12 min · Thu, Oct 16, 17:00 UTC", the relative time moving on once a minute. */
+export function Deadline({ expiresAt, now, className }: DeadlineProps) {
+  const clock = useClock(now);
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-1.5", className)}>
-      <span>expires in {formatRelative(expiresAt - now)}</span>
-      <span aria-hidden>·</span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <time
-            dateTime={new Date(expiresAt * 1000).toISOString()}
-            tabIndex={0}
-            className="cursor-help underline decoration-dotted underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {formatLocal(expiresAt, timeZone)}
-          </time>
-        </TooltipTrigger>
-        <TooltipContent>{formatUtc(expiresAt)}</TooltipContent>
-      </Tooltip>
+      {expiresAt >= clock && <span>expires</span>}
+      <Boundary at={expiresAt} now={clock} ended />
     </span>
   );
 }

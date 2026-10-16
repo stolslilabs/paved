@@ -22,7 +22,7 @@ export interface ShortAddressProps {
 export function ShortAddress({ address, className }: ShortAddressProps) {
   const short = shortAddress(address);
   return (
-    <span title={address} className={cn("font-mono whitespace-nowrap", className)}>
+    <span title={address} className={cn("font-mono whitespace-nowrap select-text", className)}>
       {short === address ? (
         address
       ) : (

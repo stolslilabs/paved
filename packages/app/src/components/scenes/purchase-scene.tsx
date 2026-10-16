@@ -57,7 +57,24 @@ interface Check {
   onConfirmNone?: () => void;
 }
 
-function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
+/** The message with its transaction hash (`0x…`) selectable: the one copy target of a notice that is not an error (APP-FEEL, P-69). */
+function WithHash({ message }: { message: string }) {
+  return (
+    <>
+      {message.split(/(0x[0-9a-fA-F]+)/).map((part, i) =>
+        i % 2 ? (
+          <span key={i} className="select-text">
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+export function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
   const tone = refusal.kind === "refused" ? "danger" : refusal.kind === "busy" || refusal.kind === "landed" || refusal.kind === "ready" ? "info" : "warning";
   const checkable = (refusal.kind === "unknown" || refusal.kind === "landed") && check;
   const ready = refusal.kind === "ready" && check?.onOpen;
@@ -99,7 +116,7 @@ function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: C
         ) : undefined
       }
     >
-      {refusal.message}
+      <WithHash message={refusal.message} />
       {refusal.kind === "unknown" &&
         check?.failed &&
         " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice."}

@@ -115,7 +115,8 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   const hover = useMemo<HoverState | null>(() => (ghost && tilePreview ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   return (
-    <div className={cn("absolute inset-0 bg-board", className)}>
+    // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).
+    <div className={cn("absolute inset-0 touch-none bg-board", className)} onContextMenu={(e) => e.preventDefault()}>
       <GameCanvas
         tiles={renderTiles}
         basePath={basePath}

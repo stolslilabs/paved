@@ -83,3 +83,37 @@ export function formatDate(value: number | Date, options: Intl.DateTimeFormatOpt
   const text = dateFormat(options).format(value);
   return options.timeZone?.toUpperCase() === "UTC" ? `${text} UTC` : text;
 }
+
+/** "2 h", "14 h 05 min", "12 min", "2 d 3 h": a span cut to the minute (hours up to 48, then days), never "0 min" after whole hours. */
+function formatSpan(totalSeconds: number): string {
+  const minutes = Math.floor(Math.abs(totalSeconds) / 60);
+  const hours = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (hours >= 48) {
+    const h = hours % 24;
+    return `${Math.floor(hours / 24)} d${h > 0 ? ` ${h} h` : ""}`;
+  }
+  if (hours > 0) return m > 0 ? `${hours} h ${String(m).padStart(2, "0")} min` : `${hours} h`;
+  return `${m} min`;
+}
+
+export interface RelativeOptions {
+  /** Write a moment already past as "ended 2 h ago" instead of "2 h ago". */
+  ended?: boolean;
+}
+
+/**
+ * A moment relative to now, from the seconds until it (negative once past): "in 23 h 12 min", "in 12 min", "in less than a
+ * minute", "2 h ago", "ended 3 min ago" (`ended`). Cut to the minute; en-US text written here, not by `Intl.RelativeTimeFormat`.
+ */
+export function formatRelative(secondsUntil: number, { ended = false }: RelativeOptions = {}): string {
+  const future = secondsUntil >= 0;
+  const small = Math.abs(secondsUntil) < 60;
+  if (future) return small ? "in less than a minute" : `in ${formatSpan(secondsUntil)}`;
+  return `${ended ? "ended " : ""}${small ? "less than a minute" : formatSpan(secondsUntil)} ago`;
+}
+
+/** A game boundary (seconds since the epoch) in UTC, never local: "Thu, Oct 15, 15:00 UTC". */
+export function formatBoundary(seconds: number): string {
+  return formatDate(seconds * 1000, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
+}
