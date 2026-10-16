@@ -165,6 +165,8 @@ export class GameScene {
     this.scene.add(this.sceneGroup);
     this.assets = new AssetLoader();
     this.tiles = new TileRenderer(this.assets);
+    // The tiles' labels come in idle slices once a highlight is on: each draws the board again.
+    this.tiles.onLabelled(() => this.requestRender());
     this.effects = new Effects();
 
     this.sceneGroup.add(this.tiles.getGroup());
@@ -201,6 +203,7 @@ export class GameScene {
     if (basePath || manifest) {
       this.assets = new AssetLoader(basePath, manifest);
       this.tiles = new TileRenderer(this.assets);
+      this.tiles.onLabelled(() => this.requestRender());
       this.tiles.setSkins(this.skins);
       // Re-add to scene group
       this.sceneGroup.clear();

@@ -10,14 +10,14 @@ import {
   FEATURE_CODE,
   FOREST_PALETTE_CLASSES,
   GROUND_VOXELS,
+  LABEL_COLUMNS,
   columnTops,
   labelTileColumns,
-  labelTileGeometry,
-  paletteOfModel,
-  planKeyOfModel,
   type ColumnLabels,
-  type TileLabels,
 } from "../src/core/features";
+import { paletteOfModel, planKeyOfModel, planLayout } from "../src/core/feature-layout";
+import { TILE_VOXELS } from "../src/core/outlines";
+import { labelTileGeometry, type TileLabels } from "./helpers/per-vertex";
 import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-variants";
 import { decodePng } from "./helpers/png";
 import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
@@ -188,8 +188,9 @@ function fragmentLabel(uniforms: Record<string, { value: any }>, point: THREE.Ve
 }
 
 describe("the voxels' features (labelTileGeometry) over the 19 base models", () => {
-  it("reads the 19 base models", () => {
+  it("reads the 19 base models, on a grid of a column a voxel", () => {
     expect(KEYS).toHaveLength(19);
+    expect(LABEL_COLUMNS).toBe(TILE_VOXELS);
   });
 
   it("finds each city of a plan, one area per city: two in ffcfffcff, none on a plan without one", () => {
@@ -341,7 +342,7 @@ describe("the Forest variants (their own palette)", () => {
     for (const file of FOREST_FILES) {
       const { mesh } = await loadForestVariant(file);
       const key = planKeyOfModel(file)!;
-      variants.set(file, { key, mesh, labels: labelTileColumns(mesh.geometry, key, mesh.matrixWorld, FOREST_PALETTE_CLASSES) });
+      variants.set(file, { key, mesh, labels: labelTileColumns(mesh.geometry, planLayout(key), mesh.matrixWorld, FOREST_PALETTE_CLASSES) });
     }
   }, 60_000);
 
@@ -367,7 +368,7 @@ describe("the Forest variants (their own palette)", () => {
 
   it("loses the roads with the base palette's classes (the variants paint them with 96 to 99)", () => {
     const roadless = [...variants].filter(([, { key, mesh }]) => {
-      const base = labelTileColumns(mesh.geometry, key, mesh.matrixWorld, BASE_PALETTE_CLASSES);
+      const base = labelTileColumns(mesh.geometry, planLayout(key), mesh.matrixWorld, BASE_PALETTE_CLASSES);
       return planAreas(key, CategoryType.Road).size > 0 && columnAreas(base, FEATURE_CODE.road).size < planAreas(key, CategoryType.Road).size;
     });
     expect(roadless.length).toBeGreaterThan(20);
@@ -383,33 +384,51 @@ describe("the feature highlight in the tile shader", () => {
   const labelMapOf = (tiles: TileRenderer, models: Map<string, THREE.Group>, key: string) =>
     (tiles as any).labelMaps.get(meshOf(models.get(key)!).geometry)?.uLabelMap.value as THREE.DataTexture | undefined;
 
-  it("labels nothing while it is off, then the models drawn and those drawn after once it is on, once each", () => {
+  it("labels nothing while it is off, then the models drawn and those drawn after once it is on, once each", async () => {
     const { tiles, models } = renderer();
     tiles.updateTiles([tile("rfrfcccfr", 1)] as never);
     const empty = (tiles as any).emptyLabelMap;
     expect(labelMapOf(tiles, models, "rfrfcccfr")).toBe(empty);
     lightUp(tiles);
+    await tiles.whenLabelled();
     const map = labelMapOf(tiles, models, "rfrfcccfr")!;
     expect(map).not.toBe(empty);
     expect([map.image.width, map.image.height]).toEqual([40, 40]);
     tiles.updateTiles([tile("rfrfcccfr", 1), tile("ffcfffcff", 2)] as never);
+    await tiles.whenLabelled();
     expect(labelMapOf(tiles, models, "ffcfffcff")).not.toBe(empty);
     // Once each: turning it off and on keeps the same map.
     lightUp(tiles, LOOK_PRESETS.mockup.featureHighlight);
     lightUp(tiles);
+    await tiles.whenLabelled();
     expect(labelMapOf(tiles, models, "rfrfcccfr")).toBe(map);
     tiles.dispose();
   });
 
-  it("labels no model of a palette it has no classes for (another theme): its tiles never light", () => {
+  it("labels the models drawn once a highlight is on, one per idle slice, telling the scene after each", async () => {
     const { tiles, models } = renderer();
+    const labelled: number[] = [];
+    tiles.onLabelled(() => labelled.push(labelled.length + 1));
+    tiles.updateTiles([tile("rfrfcccfr", 1), tile("ffcfffcff", 2), tile("sfrfrfrfr", 3)] as never);
     lightUp(tiles);
+    // Nothing yet: the classifier loads on its own, and each model waits for its slice.
+    const empty = (tiles as any).emptyLabelMap;
+    expect(["rfrfcccfr", "ffcfffcff", "sfrfrfrfr"].map((key) => labelMapOf(tiles, models, key))).toEqual([empty, empty, empty]);
+    await tiles.whenLabelled();
+    expect(labelled).toEqual([1, 2, 3]);
+    for (const key of ["rfrfcccfr", "ffcfffcff", "sfrfrfrfr"]) expect(labelMapOf(tiles, models, key)).not.toBe(empty);
+    tiles.dispose();
+  });
+
+  it("labels no model of a palette it has no classes for (another theme): its tiles never light", async () => {
+    const { tiles, models } = renderer();
+    const classifier = await import("../src/core/features");
     const labelMaps = (tiles as any).labelMaps as Map<THREE.BufferGeometry, unknown>;
     const winter = models.get("rfrfcccfr")!.clone(true);
-    (tiles as any).labelFeatures("models/winter/rfrfcccfr_1.0123456789.glb", winter);
+    (tiles as any).labelFeatures(classifier, "models/winter/rfrfcccfr_1.0123456789.glb", winter);
     expect(labelMaps.has(meshOf(winter).geometry)).toBe(false);
     const forest = models.get("ffcfffcff")!.clone(true);
-    (tiles as any).labelFeatures("models/forest/ffcfffcff_HF_1.0123456789.glb", forest);
+    (tiles as any).labelFeatures(classifier, "models/forest/ffcfffcff_HF_1.0123456789.glb", forest);
     expect(labelMaps.has(meshOf(forest).geometry)).toBe(true);
     tiles.dispose();
   });
@@ -435,12 +454,13 @@ describe("the feature highlight in the tile shader", () => {
     tiles.dispose();
   });
 
-  it("reads each fragment's own column: a merged face over columns of two labels shows each on its own columns, not cut on its diagonal", () => {
+  it("reads each fragment's own column: a merged face over columns of two labels shows each on its own columns, not cut on its diagonal", async () => {
     // The shader reads no label per vertex (a flat varying lit a whole triangle from its last vertex: the cut voxels).
     expect(FEATURE_HIGHLIGHT_GLSL).not.toMatch(/vFeature|vArea/);
     const { tiles } = renderer();
     lightUp(tiles);
     tiles.updateTiles(KEYS.map((key, i) => tile(key, i + 1)) as never);
+    await tiles.whenLabelled();
     let [samples, wrong, mixed, cut] = [0, 0, 0, 0];
     const [a, b, c, n, point] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
     for (const key of KEYS) {
@@ -533,7 +553,7 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     return { lit, unlit };
   }
 
-  it("lights a city across two tiles: exactly its area on each, not the other city of the first", () => {
+  it("lights a city across two tiles: exactly its area on each, not the other city of the first", async () => {
     // ffcfffcff: a city on the north edge and one on the south; ffffffcff north of it closes the first with its south city.
     const board = new StructureBoard();
     board.place({ id: 1, plan: planCode(PlanType.FFCFFFCFF), orientation: 1, x: 0, y: 0, owner: 0n });
@@ -544,6 +564,7 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     const { tiles } = renderer();
     tiles.updateTiles([renderTile(1, PlanType.FFCFFFCFF, 1, 0, 0), renderTile(2, PlanType.FFFFFFCFF, 1, 0, 1)]);
     tiles.setLitAreas([...city.areas].map(([id, areas]) => ({ gameId: 1, id, areas })));
+    await tiles.whenLabelled();
 
     const below = drawn(tiles, "1-1");
     expect(below.cell).toEqual([0, 0]);
@@ -571,12 +592,13 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     tiles.dispose();
   });
 
-  it("reads each tile's cell in the board's frame: a turned compass lights the same tiles", () => {
+  it("reads each tile's cell in the board's frame: a turned compass lights the same tiles", async () => {
     const { tiles } = renderer();
     const compass = new THREE.Group();
     compass.add(tiles.getGroup());
     tiles.updateTiles([renderTile(1, PlanType.CCCCCCCCC, 1, 5, 2), renderTile(2, PlanType.CCCCCCCCC, 1, 2, -5)]);
     tiles.setLitAreas([{ gameId: 1, id: 1, areas: 1 }]);
+    await tiles.whenLabelled();
     for (const angle of [Math.PI / 2, 0.3, -2]) {
       compass.rotation.y = angle;
       tiles.updateBoardFrame();
@@ -597,10 +619,11 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     scene.dispose();
   });
 
-  it("lights a tile given after the structure, when it comes", () => {
+  it("lights a tile given after the structure, when it comes", async () => {
     const { tiles } = renderer();
     tiles.setLitAreas([{ gameId: 1, id: 7, areas: 1 }]);
     tiles.updateTiles([renderTile(7, PlanType.CCCCCCCCC, 1, 5, 5)]);
+    await tiles.whenLabelled();
     expect(litAreas(tiles, "1-7").lit).toEqual(new Set([1]));
     tiles.dispose();
   });

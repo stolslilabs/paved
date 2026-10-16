@@ -8,7 +8,17 @@ import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
-import { PALETTE_CLASSES, labelTileColumns, packLabels, paletteOfModel, planKeyOfModel } from "./features";
+import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
+// The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
+// does not light anything.
+import type * as Classifier from "./features";
+
+/** Runs `task` when the main thread is idle (`requestIdleCallback`), or on the next task where there is none. */
+function whenIdle(task: () => void): void {
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+  if (idle) idle(task, { timeout: 250 });
+  else setTimeout(task, 0);
+}
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -201,6 +211,17 @@ export class TileRenderer {
   private litKey = "";
   /** Whether a highlight is on: the models drawn then are labelled (`labelFeatures`), each once. */
   private labelling = false;
+  /** The classifier (`features.ts`), loaded the first time a model is to be labelled. */
+  private classifier: Promise<typeof Classifier> | null = null;
+  /** The models waiting for their labels, one labelled per idle slice (`scheduleLabels`). */
+  private labelQueue: Array<[string, THREE.Group]> = [];
+  /** Whether a slice is on its way. */
+  private labelScheduled = false;
+  /** Told after each model labelled (`onLabelled`): the scene draws again. */
+  private labelledListener: (() => void) | null = null;
+  /** Waiting for the queue to empty (`whenLabelled`). */
+  private labelWaiters: Array<() => void> = [];
+  private disposed = false;
   /** The labels of each model geometry drawn (`labelFeatures`), owned here: an empty map until it is labelled. */
   private labelMaps: Map<THREE.BufferGeometry, LabelUniforms> = new Map();
   /** The label map of a geometry not labelled yet: one empty column (the sampler is always bound). */
@@ -384,7 +405,7 @@ export class TileRenderer {
       child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
     }
     this.tileTypes.set(key, model);
-    if (this.labelling) this.labelFeatures(key, model);
+    if (this.labelling) this.queueLabels(key, model);
     return model;
   }
 
@@ -399,14 +420,70 @@ export class TileRenderer {
   }
 
   /**
+   * Calls `listener` after each model labelled (`labelFeatures`, one per idle slice): the scene draws its tiles again
+   * with their labels. One listener; null removes it.
+   */
+  onLabelled(listener: (() => void) | null): void {
+    this.labelledListener = listener;
+  }
+
+  /** Resolves once every model asked for is labelled (or the classifier failed to load): for tests and captures. */
+  whenLabelled(): Promise<void> {
+    if (!this.labelQueue.length && !this.labelScheduled) return Promise.resolve();
+    return new Promise((resolve) => this.labelWaiters.push(resolve));
+  }
+
+  /** A model to label, in its turn (`scheduleLabels`); one with no plan or no known palette is never labelled. */
+  private queueLabels(key: string, model: THREE.Group): void {
+    if (!planKeyOfModel(key) || !paletteOfModel(key)) return;
+    this.labelQueue.push([key, model]);
+    this.scheduleLabels();
+  }
+
+  /**
+   * Labels the next model in the queue when the main thread is idle, one model a slice (about 6 to 18 ms each), the
+   * classifier loaded first (its own chunk). A classifier that fails to load leaves every model unlabelled (nothing
+   * lights), with a warning.
+   */
+  private scheduleLabels(): void {
+    if (this.labelScheduled || this.disposed) return;
+    if (!this.labelQueue.length) {
+      for (const resolve of this.labelWaiters.splice(0)) resolve();
+      return;
+    }
+    this.labelScheduled = true;
+    this.classifier ??= import("./features");
+    this.classifier.then(
+      (classifier) =>
+        whenIdle(() => {
+          this.labelScheduled = false;
+          if (this.disposed) return;
+          const next = this.labelQueue.shift();
+          if (next) {
+            this.labelFeatures(classifier, ...next);
+            this.labelledListener?.();
+          }
+          this.scheduleLabels();
+        }),
+      (error: unknown) => {
+        console.warn("[TileRenderer] the feature classifier did not load, nothing is labelled:", error);
+        this.labelScheduled = false;
+        this.labelQueue = [];
+        this.scheduleLabels();
+      },
+    );
+  }
+
+  /**
    * The label map of each of a model's meshes (`features.ts`), once per geometry: its columns' labels and the matrix from
    * the geometry to its grid, which every tile of the model reads, with its palette's classes (`paletteOfModel`). A model
    * id that names no plan, or a palette with no class table, is left unlabelled: its tiles never light.
    */
-  private labelFeatures(key: string, model: THREE.Group): void {
+  private labelFeatures(classifier: typeof Classifier, key: string, model: THREE.Group): void {
     const plan = planKeyOfModel(key);
     const palette = paletteOfModel(key);
     if (!plan || !palette) return;
+    const layout = planLayout(plan);
     model.updateMatrixWorld(true);
     const toRoot = model.matrixWorld.clone().invert();
     model.traverse((child) => {
@@ -414,8 +491,8 @@ export class TileRenderer {
       const uniforms = this.labelUniformsOf(child.geometry);
       if (uniforms.uLabelMap.value !== this.emptyLabelMap) return;
       const toModel = toRoot.clone().multiply(child.matrixWorld);
-      const { columns, grid } = labelTileColumns(child.geometry, plan, toModel, PALETTE_CLASSES[palette]);
-      uniforms.uLabelMap.value = labelMapTexture(packLabels(columns), columns.size);
+      const { columns, grid } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
+      uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
         .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
@@ -533,12 +610,15 @@ export class TileRenderer {
     this.buildLitMap();
   }
 
-  /** The highlight's switches from the look and the lit structure; when one comes on, the models drawn are labelled. */
+  /**
+   * The highlight's switches from the look and the lit structure; when one comes on, the models drawn are queued for
+   * their labels (`scheduleLabels`): each lights when its turn comes.
+   */
   private applyHighlight(): void {
     const on = this.look.featureHighlight.enabled || this.litAreas !== null;
     this.featureUniforms.uFeatureOn.value = on ? 1 : 0;
     this.structureUniforms.uStructureOn.value = this.litAreas !== null ? 1 : 0;
-    if (on && !this.labelling) for (const [key, model] of this.tileTypes) this.labelFeatures(key, model);
+    if (on && !this.labelling) for (const [key, model] of this.tileTypes) this.queueLabels(key, model);
     this.labelling = on;
   }
 
@@ -908,6 +988,10 @@ export class TileRenderer {
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();
     this.labelling = false;
+    this.disposed = true;
+    this.labelQueue = [];
+    this.labelledListener = null;
+    for (const resolve of this.labelWaiters.splice(0)) resolve();
     this.litAreas = null;
     this.tileCells.clear();
     this.litKey = "";

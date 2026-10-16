@@ -8,6 +8,9 @@ export const FEATURES = ["none", "city", "road", "forest", "wonder"] as const;
 export type FeatureName = (typeof FEATURES)[number];
 export const FEATURE_CODE: Record<FeatureName, number> = { none: 0, city: 1, road: 2, forest: 3, wonder: 4 };
 
+/** The columns of a tile's label map a side: a voxel each, as a tile model is 40 voxels wide (`TILE_VOXELS`). */
+export const LABEL_COLUMNS = 40;
+
 /** The ground's top, in voxels above the model's bottom: every base model's ground is 4 voxels high (0.4 of its 4 units). */
 export const GROUND_VOXELS = 4;
 /**

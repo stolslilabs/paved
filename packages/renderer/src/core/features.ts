@@ -1,15 +1,16 @@
-import * as THREE from "three";
-import { AreaType, CategoryType, Plan, PlanType, SpotType } from "@paved/game-core";
-import { TILE_VOXELS } from "./outlines";
-import { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, type FeatureName } from "./feature-codes";
+// Types only from three and the game: this module is its own chunk, loaded once a highlight is on (`TileRenderer`), and
+// shares nothing with the board's chunk but `feature-codes.ts`. `feature-layout.ts` reads what it needs of the game.
+import type { BufferGeometry } from "three";
+import type { PaletteName } from "./feature-layout";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, LABEL_COLUMNS, type FeatureName } from "./feature-codes";
 
-export { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, type FeatureName };
+export { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, LABEL_COLUMNS, type FeatureName };
 
 /**
  * Which feature of the game each voxel of a tile model shows (FEATURE-HL): a city, a road, a forest or a wonder, with the
  * plan's area (A to I) it belongs to. Nothing is authored in the models: the labels are read off the voxels, column by
- * column of the 40 x 40 grid (`TILE_VOXELS`), from the colour of each column's top and the plan's layout (its spots'
- * categories and areas, `@paved/game-core`). The board can then light every city, or one structure, in the tile shader
+ * column of the 40 x 40 grid (`LABEL_COLUMNS`), from the colour of each column's top and the plan's layout (its spots'
+ * categories and areas, `planLayout`). The board can then light every city, or one structure, in the tile shader
  * (`TileRenderer`).
  *
  * The method (the feasibility prototype, 2026-10-16): a city is a group of city-coloured or stone columns that touches the
@@ -19,9 +20,6 @@ export { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, type Featur
  * ground by something else, labelled none; a forest, a free column reached from a forest spot's border, the nearest one's
  * area. The 3 x 3 grid of spots is only a prior: the areas' shapes come from the voxels.
  */
-
-/** The areas by code, as a label holds them: 0 for none, 1 to 9 for A to I (the contracts' area codes). */
-const AREA_CODES: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9 };
 
 /**
  * The entries of the base models' palette (the 256 x 1 texture every base model shares) by what they paint, read off the
@@ -52,19 +50,20 @@ export const FOREST_PALETTE_CLASSES: PaletteClasses = {
 };
 
 /** The palettes whose classes are known, by name: a model of another palette is not labelled (`paletteOfModel`). */
-export const PALETTE_CLASSES = { base: BASE_PALETTE_CLASSES, forest: FOREST_PALETTE_CLASSES } as const;
-export type PaletteName = keyof typeof PALETTE_CLASSES;
+export const PALETTE_CLASSES: Record<PaletteName, PaletteClasses> = { base: BASE_PALETTE_CLASSES, forest: FOREST_PALETTE_CLASSES };
 
-/**
- * The palette of a model id: a plan key is a base model; a variant's path names its theme's folder
- * (`models/forest/<plan>_HF_<n>.<hash>.glb`). Null for a palette with no class table (another theme): such a model is
- * not labelled, rather than labelled wrong. `features.test.ts` pins each palette's colours, so a changed palette fails
- * there before its classes go stale.
- */
-export function paletteOfModel(id: string): PaletteName | null {
-  const parts = id.split("/");
-  if (parts.length === 1) return "base";
-  return parts[parts.length - 2] === "forest" ? "forest" : null;
+/** A spot's category, as `CategoryType`'s values spell it. */
+export type SpotCategory = "None" | "Forest" | "Road" | "City" | "Stop" | "Wonder";
+
+/** The layout of a plan (`planLayout`): each spot's category and area code, in plan-key order (centre, north-west...). */
+export interface PlanLayout {
+  readonly category: readonly SpotCategory[];
+  readonly area: readonly number[];
+}
+
+/** A 4 x 4 matrix, column-major (three's `Matrix4`, or its `elements`). */
+export interface MatrixLike {
+  readonly elements: ArrayLike<number>;
 }
 
 /** The palette's width in texels: an entry is `floor(u * PALETTE_SIZE)`. */
@@ -73,18 +72,7 @@ const PALETTE_SIZE = 256;
 /** The ground layer of a column: its highest horizontal face at the ground's top or below (within a tenth of a voxel). */
 const GROUND_LAYER_VOXELS = 0.1;
 
-/** The plan key's spots in order (centre, then north-west clockwise to west), and each one's cell [row from north, column from west]. */
-const SPOTS = [
-  SpotType.Center,
-  SpotType.NorthWest,
-  SpotType.North,
-  SpotType.NorthEast,
-  SpotType.East,
-  SpotType.SouthEast,
-  SpotType.South,
-  SpotType.SouthWest,
-  SpotType.West,
-];
+/** Each cell of the 3 x 3 grid of spots [row from north][column from west]: its spot's index in plan-key order. */
 const SPOT_OF_CELL = [
   [1, 2, 3],
   [8, 0, 4],
@@ -133,36 +121,6 @@ export interface TileColumns {
   readonly grid: TileGrid;
 }
 
-/** A model's labels: per column, and per vertex (`labelTileGeometry`). */
-export interface TileLabels extends TileColumns {
-  readonly feature: Uint8Array;
-  readonly area: Uint8Array;
-}
-
-/** The layout of a plan: each spot's category and area code, in plan-key order. */
-interface PlanLayout {
-  readonly category: CategoryType[];
-  readonly area: number[];
-}
-
-function planLayout(planKey: string): PlanLayout {
-  const value = planKey.toUpperCase() as PlanType;
-  if (!Object.values(PlanType).includes(value) || value === PlanType.None) throw new Error(`features: unknown plan ${planKey}`);
-  const plan = new Plan(value);
-  const category = plan.unpack().map((c) => c.value);
-  const area = SPOTS.map((spot) => AREA_CODES[plan.area(spot) as AreaType] ?? 0);
-  return { category, area };
-}
-
-/**
- * The plan key of a model id: a plan key as is, or a variant's path (`models/forest/cccccfffc_HF_1.<hash>.glb`) by its file
- * name. Null when the id names no plan.
- */
-export function planKeyOfModel(id: string): string | null {
-  const name = id.slice(id.lastIndexOf("/") + 1).split(/[_.]/)[0].toLowerCase();
-  return Object.values(PlanType).includes(name.toUpperCase() as PlanType) && name !== "none" ? name : null;
-}
-
 /** A model's positions in its model's frame (the loaded scene's, Y up), and the footprint of the grid. */
 interface ModelFrame {
   readonly positions: Float32Array;
@@ -172,19 +130,24 @@ interface ModelFrame {
   readonly cell: number;
 }
 
-function modelFrame(geometry: THREE.BufferGeometry, toModel: THREE.Matrix4, size: number): ModelFrame {
+function modelFrame(geometry: BufferGeometry, toModel: MatrixLike | undefined, size: number): ModelFrame {
   const source = geometry.getAttribute("position");
   const positions = new Float32Array(source.count * 3);
-  const v = new THREE.Vector3();
+  const m = toModel?.elements ?? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   let [minX, maxX, minY, minZ, maxZ] = [Infinity, -Infinity, Infinity, Infinity, -Infinity];
   for (let i = 0; i < source.count; i++) {
-    v.fromBufferAttribute(source, i).applyMatrix4(toModel);
-    positions.set([v.x, v.y, v.z], i * 3);
-    minX = Math.min(minX, v.x);
-    maxX = Math.max(maxX, v.x);
-    minY = Math.min(minY, v.y);
-    minZ = Math.min(minZ, v.z);
-    maxZ = Math.max(maxZ, v.z);
+    const [px, py, pz] = [source.getX(i), source.getY(i), source.getZ(i)];
+    // An affine point times the column-major matrix (three's `Vector3.applyMatrix4`, the models' w is 1).
+    const w = m[3] * px + m[7] * py + m[11] * pz + m[15] || 1;
+    const x = (m[0] * px + m[4] * py + m[8] * pz + m[12]) / w;
+    const y = (m[1] * px + m[5] * py + m[9] * pz + m[13]) / w;
+    const z = (m[2] * px + m[6] * py + m[10] * pz + m[14]) / w;
+    positions.set([x, y, z], i * 3);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
   }
   // The footprint is the model's square, as the board scales it (`TileRenderer.createVoxelTile`: its larger side).
   const cell = Math.max(maxX - minX, maxZ - minZ) / size;
@@ -192,7 +155,7 @@ function modelFrame(geometry: THREE.BufferGeometry, toModel: THREE.Matrix4, size
 }
 
 /** The triangles of a geometry, as vertex indices. */
-function triangles(geometry: THREE.BufferGeometry): ArrayLike<number> {
+function triangles(geometry: BufferGeometry): ArrayLike<number> {
   const index = geometry.getIndex();
   if (index) return index.array;
   return Array.from({ length: geometry.getAttribute("position").count }, (_, i) => i);
@@ -202,12 +165,12 @@ function triangles(geometry: THREE.BufferGeometry): ArrayLike<number> {
  * The top of each column: the palette entry (`floor(u * 256)`, the triangle's mean) and height of the highest horizontal
  * face whose projection covers the column's centre, and the entry of its ground layer (`ColumnTops`).
  */
-export function columnTops(geometry: THREE.BufferGeometry, toModel = new THREE.Matrix4(), size = TILE_VOXELS): ColumnTops {
+export function columnTops(geometry: BufferGeometry, toModel?: MatrixLike, size = LABEL_COLUMNS): ColumnTops {
   const frame = modelFrame(geometry, toModel, size);
   return topsOf(geometry, frame, size);
 }
 
-function topsOf(geometry: THREE.BufferGeometry, frame: ModelFrame, size: number): ColumnTops {
+function topsOf(geometry: BufferGeometry, frame: ModelFrame, size: number): ColumnTops {
   const { positions: p, minX, minZ, cell } = frame;
   const uv = geometry.getAttribute("uv");
   const tris = triangles(geometry);
@@ -348,11 +311,10 @@ function enclosed(wall: (k: number) => boolean, size: number): Uint8Array {
   return out;
 }
 
-/** The feature and area of each column of a model of plan `planKey`, from its columns' tops (`columnTops`). */
-export function classifyColumns(tops: ColumnTops, planKey: string, classes: PaletteClasses = BASE_PALETTE_CLASSES): ColumnLabels {
+/** The feature and area of each column of a model of a plan (its `layout`), from its columns' tops (`columnTops`). */
+export function classifyColumns(tops: ColumnTops, layout: PlanLayout, classes: PaletteClasses = BASE_PALETTE_CLASSES): ColumnLabels {
   const { size, entry } = tops;
   const total = size * size;
-  const layout = planLayout(planKey);
   const spotOf = (k: number) => {
     const [x, y] = [k % size, Math.floor(k / size)];
     return SPOT_OF_CELL[Math.min(2, Math.floor((y * 3) / size))][Math.min(2, Math.floor((x * 3) / size))];
@@ -379,7 +341,7 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   // the areas of the city spots it covers: each of its columns the nearest one along the group, so two cities whose walls
   // touch (ffcfffffc) stay two.
   for (const cells of groups((k) => isCity(k) || isStone(k), size, NEIGHBOURS_8)) {
-    const inCity = cells.filter((k) => categoryAt(k) === CategoryType.City);
+    const inCity = cells.filter((k) => categoryAt(k) === "City");
     if (!inCity.length) continue;
     const onEdge = inCity.some((k) => EDGE_SPOTS[spots[k]]?.(k % size, Math.floor(k / size), size));
     if (!onEdge && inCity.length / cells.length < 0.4) continue;
@@ -396,7 +358,7 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   const inside = enclosed(isCityColumn, size);
   const filled = Uint8Array.from(area, (a, k) => (isCityColumn(k) ? a : 0));
   spread(filled, (k) => isCityColumn(k) || inside[k] === 1, size);
-  for (let k = 0; k < total; k++) if (inside[k] && !feature[k] && filled[k] && categoryAt(k) === CategoryType.City) label(k, "city", filled[k]);
+  for (let k = 0; k < total; k++) if (inside[k] && !feature[k] && filled[k] && categoryAt(k) === "City") label(k, "city", filled[k]);
   const before = Uint8Array.from(feature);
   const beforeArea = Uint8Array.from(area);
   for (let k = 0; k < total; k++) {
@@ -414,7 +376,7 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   }
 
   // The wonder: wonder-coloured groups over the wonder spot, with what they enclose.
-  const wonderSpot = layout.category.indexOf(CategoryType.Wonder);
+  const wonderSpot = layout.category.indexOf("Wonder");
   if (wonderSpot >= 0) {
     const code = layout.area[wonderSpot];
     for (const cells of groups((k) => !feature[k] && isWonder(k), size, NEIGHBOURS_8)) {
@@ -439,14 +401,14 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   }
   const centre = layout.category[0];
   const roadEnd = (k: number) =>
-    (categoryAt(k) === CategoryType.Road && EDGE_SPOTS[spots[k]]?.(k % size, Math.floor(k / size), size)) ||
-    (spots[k] === 0 && (centre === CategoryType.Stop || centre === CategoryType.Road));
+    (categoryAt(k) === "Road" && EDGE_SPOTS[spots[k]]?.(k % size, Math.floor(k / size), size)) ||
+    (spots[k] === 0 && (centre === "Stop" || centre === "Road"));
   const onRoad = new Uint8Array(total);
   for (const cells of groups((k) => opened[k] === 1, size, NEIGHBOURS_8)) {
     if (cells.some(roadEnd)) for (const k of cells) onRoad[k] = 1;
   }
   const roadArea = new Uint8Array(total);
-  for (let k = 0; k < total; k++) if (onRoad[k] && categoryAt(k) === CategoryType.Road) roadArea[k] = spotArea(k);
+  for (let k = 0; k < total; k++) if (onRoad[k] && categoryAt(k) === "Road") roadArea[k] = spotArea(k);
   spread(roadArea, (k) => onRoad[k] === 1, size);
   for (let k = 0; k < total; k++) if (onRoad[k] && roadArea[k]) label(k, "road", roadArea[k]);
 
@@ -463,7 +425,7 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
   const forestArea = new Uint8Array(total);
   const queue: number[] = [];
   layout.category.forEach((category, spot) => {
-    if (category !== CategoryType.Forest) return;
+    if (category !== "Forest") return;
     for (let k = 0; k < total; k++) {
       if (spots[k] !== spot || !free[k] || forestArea[k]) continue;
       const [x, y] = [k % size, Math.floor(k / size)];
@@ -493,21 +455,18 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
 
 /**
  * The column labels of a tile model's mesh (`classifyColumns`) and where its grid lies in the model's frame: what the tile
- * shader reads per fragment (`packLabels`, `TileRenderer`). `toModel` takes the geometry's positions to the model's frame
- * (Y up, the north to -Z), as the loaded scene places it.
+ * shader reads per fragment (`packLabels`, `TileRenderer`). `layout` is its plan's (`planLayout`); `toModel` takes the
+ * geometry's positions to the model's frame (Y up, the north to -Z), as the loaded scene places it.
  */
 export function labelTileColumns(
-  geometry: THREE.BufferGeometry,
-  planKey: string,
-  toModel = new THREE.Matrix4(),
+  geometry: BufferGeometry,
+  layout: PlanLayout,
+  toModel?: MatrixLike,
   classes: PaletteClasses = BASE_PALETTE_CLASSES,
-  size = TILE_VOXELS,
+  size = LABEL_COLUMNS,
 ): TileColumns {
-  return columnsOf(modelFrame(geometry, toModel, size), geometry, planKey, classes, size);
-}
-
-function columnsOf(frame: ModelFrame, geometry: THREE.BufferGeometry, planKey: string, classes: PaletteClasses, size: number): TileColumns {
-  const columns = classifyColumns(topsOf(geometry, frame, size), planKey, classes);
+  const frame = modelFrame(geometry, toModel, size);
+  const columns = classifyColumns(topsOf(geometry, frame, size), layout, classes);
   return { columns, grid: { minX: frame.minX, minY: frame.minY, minZ: frame.minZ, cell: frame.cell } };
 }
 
@@ -517,53 +476,4 @@ function columnsOf(frame: ModelFrame, geometry: THREE.BufferGeometry, planKey: s
  */
 export function packLabels(columns: ColumnLabels): Uint8Array {
   return Uint8Array.from(columns.feature, (feature, k) => feature * 16 + columns.area[k]);
-}
-
-/**
- * The labels of a tile model's mesh per column (`labelTileColumns`) and per vertex: the label of the voxel column its
- * triangles stand on (a triangle's centre stepped half a voxel inward along its normal, so a wall's side takes its own
- * column). A vertex shared by triangles of different columns takes the label covering most of their area. A merged face
- * over columns of two labels cannot show both through its vertices: the tile shader reads the columns per fragment.
- */
-export function labelTileGeometry(
-  geometry: THREE.BufferGeometry,
-  planKey: string,
-  toModel = new THREE.Matrix4(),
-  classes: PaletteClasses = BASE_PALETTE_CLASSES,
-  size = TILE_VOXELS,
-): TileLabels {
-  const frame = modelFrame(geometry, toModel, size);
-  const { columns, grid } = columnsOf(frame, geometry, planKey, classes, size);
-  const { positions: p, minX, minZ, cell } = frame;
-  const count = geometry.getAttribute("position").count;
-  // Per vertex: the area of its triangles under each label (feature and area packed in one key).
-  const weights: Map<number, number>[] = Array.from({ length: count }, () => new Map());
-  const tris = triangles(geometry);
-  const [a, b, c, ab, ac, n] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-  for (let t = 0; t + 2 < tris.length; t += 3) {
-    const ids = [tris[t], tris[t + 1], tris[t + 2]];
-    a.fromArray(p, ids[0] * 3);
-    b.fromArray(p, ids[1] * 3);
-    c.fromArray(p, ids[2] * 3);
-    n.crossVectors(ab.subVectors(b, a), ac.subVectors(c, a));
-    const twiceArea = n.length();
-    if (twiceArea === 0) continue;
-    n.divideScalar(twiceArea);
-    const centre = a.add(b).add(c).divideScalar(3).addScaledVector(n, -cell / 2);
-    const i = Math.min(size - 1, Math.max(0, Math.floor((centre.x - minX) / cell)));
-    const j = Math.min(size - 1, Math.max(0, Math.floor((centre.z - minZ) / cell)));
-    const k = j * size + i;
-    const key = columns.feature[k] * 16 + columns.area[k];
-    for (const id of ids) weights[id].set(key, (weights[id].get(key) ?? 0) + twiceArea);
-  }
-  const feature = new Uint8Array(count);
-  const area = new Uint8Array(count);
-  for (let v = 0; v < count; v++) {
-    let best = 0;
-    let weight = -1;
-    for (const [key, w] of weights[v]) if (w > weight) [best, weight] = [key, w];
-    feature[v] = Math.floor(best / 16);
-    area[v] = best % 16;
-  }
-  return { feature, area, columns, grid };
 }
