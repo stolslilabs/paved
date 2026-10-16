@@ -454,6 +454,25 @@ describe("the feature highlight in the tile shader", () => {
     expect(glsl.slice(0, open).trim()).toBe("float featureLit = 0.0;");
   });
 
+  it("patches a pending tile's material as its model's: it dims and lights as the others", async () => {
+    const { tiles } = renderer();
+    tiles.updateTiles([{ ...tile("rfrfcccfr", 1), pending: true }] as never);
+    let pending: THREE.MeshStandardMaterial | null = null;
+    (tiles as any).tileMeshes.get("1-1").mesh.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) pending = child.material;
+    });
+    const model = typeMesh(tiles, "rfrfcccfr").material as THREE.MeshStandardMaterial;
+    expect(pending).not.toBe(model);
+    expect(pending!.transparent).toBe(true);
+    const [own, its] = [shaderOf(pending!), shaderOf(model)];
+    expect(own.fragmentShader).toContain("float featureLit");
+    expect(pending!.customProgramCacheKey()).toBe("paved-tile");
+    // The same uniforms: the model's label map and the shared switches.
+    expect(own.uniforms.uLabelMap).toBe(its.uniforms.uLabelMap);
+    expect(own.uniforms.uFeatureOn).toBe(its.uniforms.uFeatureOn);
+    tiles.dispose();
+  });
+
   it("lights the chosen feature through shared uniforms, its label read per fragment, with no recompile", () => {
     const { tiles } = renderer();
     tiles.updateTiles([tile("rfrfcccfr", 1)] as never);

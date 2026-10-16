@@ -85,6 +85,8 @@ export const WATER_MASK_GLSL = /* glsl */ `
  * structure lit (`uStructureOn`, `TileRenderer.setLitAreas`) a voxel is lit instead when its area is in its tile's mask,
  * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
  * Off (`uFeatureOn` 0, the default), it skips the whole block: the board pays no texture read and no label per fragment.
+ * A pending tile's material is patched as its model's; the placeholder quad (a plan's image, no voxels to label) and the
+ * ghost (the tile in hand, tinted gold or red) are drawn as they are, neither lit nor dimmed.
  */
 export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   float featureLit = 0.0;
@@ -353,6 +355,9 @@ export class TileRenderer {
       let pending = this.pendingMaterials.get(material);
       if (!pending) {
         const clone = material.clone();
+        // `Material.copy` leaves the shader patch out: a pending tile has the water and dims or lights as the others.
+        clone.onBeforeCompile = material.onBeforeCompile;
+        clone.customProgramCacheKey = material.customProgramCacheKey;
         clone.transparent = true;
         clone.opacity = 0.55;
         clone.emissive = new THREE.Color(0x4488ff);
