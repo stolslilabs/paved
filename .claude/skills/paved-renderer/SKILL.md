@@ -7,8 +7,9 @@ description: How to change the Paved board renderer (packages/renderer, three.js
 
 `packages/renderer` draws the board (`@paved/renderer`, entry points `.`, `./react`, `./react-native`). `core/GameScene.ts`
 owns the scene; `react/GameCanvas.tsx` mounts it. `packages/app` uses it in `components/containers/board-viewport.tsx` and
-the `src/stories/renderer/` stories. The design is section 5 of `docs/client/v2-architecture.md` (5.3 ends with what R-OUT
-decided; read that, not the proposal above it). Paths below are relative to `packages/renderer/src/` unless they start
+the `src/stories/renderer/` stories. The design is section 5 of `docs/client/v2-architecture.md`, with the assets in 4.2. Each
+section ends with what was decided (5.2 P4, 5.3 R-OUT to OUT-LOD, 5.5 LIGHT, 5.6 skins): read those, not the proposals above
+them. Paths below are relative to `packages/renderer/src/` unless they start
 with `docs/`, `scripts/` or `packages/`.
 
 ## Render on demand
@@ -73,19 +74,39 @@ with `docs/`, `scripts/` or `packages/`.
   - Four-vertex quads: `createOutline` draws the four outer corners of `LineSegmentsGeometry`'s eight, two triangles a
     segment (same file, "the outline's quad").
   Do not change the two device-px defaults without a capture and a figure, as for the others below.
-- Camera limits (`camera.minDistance` 5, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web controller only;
-  `NativeCameraController` ignores them.
+- Camera limits (`camera.minDistance` 8 = `CLOSEST_DISTANCE`, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web
+  controller only; `NativeCameraController` ignores them. The near plane is 5 (`CAMERA_NEAR`) and the closest zoom 8 keeps the
+  tallest tile (2.625 units) beyond it: raise one only with the other (P4; a test reads every model's height).
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
   comparison" in `packages/app/src/stories/renderer/`).
 
-## Post-processing, as it stands
+## Post-processing and the look
 
-`core/Effects.ts` builds an `EffectComposer` from the profile in `core/render-profiles.ts` (`play`, `showcase`,
-`showcaseCinematic`): `RenderPass`, then `SSAOPass` (only where the profile enables it: `showcaseCinematic`, checked by `packages/renderer/__tests__/render-profiles.test.ts`), then
-`UnrealBloomPass`, then a vignette `ShaderPass`. The scene is drawn into a half-float target, not the canvas, so the
-canvas's `antialias` does not reach it. `multisampling` (off by default, 4 samples when on) is the only anti-aliasing; there
-is no FXAA, SMAA or edge pass. `resolveEffectsProfile` lowers bloom, vignette and SSAO for capabilities and low-power
-devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). A new pass is a measured cost: see the bench.
+`core/Effects.ts` builds an `EffectComposer` from the look (`core/look.ts`, `LookSettings`), with `core/post-shaders.ts`. The
+design is 5.5 (LIGHT) and the MSAA part of 5.2 (P4) of `docs/client/v2-architecture.md`; read those, not the 5.2 proposal.
+
+- **The pass chain**, each pass only when its effect is on: `RenderPass` into a half-float target (not the canvas, so the
+  canvas's `antialias` does not reach it), `AoPass` (High only), `UnrealBloomPass` (Medium and High), `FinishPass` (always),
+  `SMAAPass` (only where it stands in for MSAA). `Effects.getPassNames()` lists them; `look.test.ts` ("the chain of passes")
+  pins them. Turning an effect on or off rebuilds the chain; a changed value only sets uniforms (`chainKey`).
+- **The sRGB transfer happens once, in `FinishPass`.** Through the composer three runs neither the tone map nor the sRGB
+  transfer (there is no `OutputPass`): `FinishPass` does AO, tone map and exposure, grade, vignette, then
+  `sRGBTransferOETF`. A new pass goes before it and stays in linear colour. A new final pass (or one after it, as SMAA is)
+  must not encode again: a second transfer washes the board out. The outline colour `#1f1f1f` is written for that path (its
+  CSS channels reach the screen unchanged).
+- **The look**: `RendererSettings.lookPreset` ("mockup" by default, "soft", "off") and `look` (partial, over the preset; every
+  light and effect a group with `enabled`). `setSettings` replaces, it does not merge. Lights, fog, the gold slot band and the
+  water mask are `GameScene.applyLook` and `TileRenderer`. The render profiles (`play`, `showcase`, `showcaseCinematic`) only
+  scale the exposure and the fog now (`render-profiles.test.ts`).
+- **Quality tiers** (`TIER_EFFECTS`): a tier only turns effects off, never changes a value. Low: no AO, no bloom, shadow
+  radius 1. Medium: bloom. High: AO too. `quality: "auto"` (the default, `resolveQuality`, `AUTO_QUALITY`) is Low on a coarse
+  pointer, a small screen or a low-power device, Medium on a desktop, and High only by hand. **Provisional until LIGHT-GPU**
+  measures each effect on the Mac's GPU: do not move a tier default without that run (`look.test.ts`, "quality tiers").
+- **Face antialiasing**: `multisampling` is `"auto"`: MSAA (4 samples on both composer targets, or the scene lands unsampled
+  every other frame) on phones, none on desktops, where it costs about 4 ms of p95 (`resolveFaceAntialiasing`,
+  `face-antialiasing.test.ts`). SMAA stands in on software WebGL or without 4 samples. No FXAA, no edge pass.
+- A new pass or effect is a measured cost: see the bench. `resolveLook` also turns effects off for
+  `EffectsCapabilities` (`effects-profile-fallback.test.ts`).
 
 ## Size, pixel ratio and shadows
 
@@ -122,28 +143,74 @@ devices (`packages/renderer/__tests__/effects-profile-fallback.test.ts`). A new 
 
 ## Assets: self-hosted, no CDN
 
-Models, tile images (`assets/tiles/<key>.png`) and the Draco decoder (`draco/`) load from `<basePath>`
-(`core/AssetLoader.ts`). Storybook serves `packages/app-web/public/` at `/renderer-assets` (`packages/app/.storybook/main.ts`,
-`src/mocks/assets.ts`): plain `models/<key>.glb`, no manifest. The decoder is created only when a model needs it, from
-`<basePath>/draco/`: `packages/renderer/__tests__/asset-loader-draco.test.ts` checks that path and that plain models never create it.
+Models, tile images and the Draco decoder (`draco/`) load from `<basePath>` (`core/AssetLoader.ts`). Storybook serves
+`packages/app-web/public/` at `/renderer-assets` (`packages/app/.storybook/main.ts`, `src/mocks/assets.ts`): plain
+`models/<key>.glb` and `assets/tiles/<key>.png`, no manifest unless a story hands one (`manifest` of `GameCanvas`).
+`asset-loader-draco.test.ts` checks that the decoder loads only for a model that needs it. Add no remote URL for a model,
+texture, decoder or font, in code or stories. Section 4.2 has the sizes and the measures; this is what to get right.
 
-The app (`packages/app`) serves its own models: meshopt-compressed (`packages/app/scripts/compress-models.ts`) under
-content-hashed names `models/<key>.<hash>.glb` in `packages/app/public/renderer-assets/models/`, with a `manifest.json`
-(`{ "models": { "<key>": "models/<key>.<hash>.glb" } }`) that `packages/app/vite/renderer-assets.ts` serves in dev and writes
-into `dist/` at build. `AssetLoader` reads it at `<basePath>/manifest.json` (`loadManifest`, `modelPath`); with none (a 404, or
-Storybook) it asks for the plain names, and when the manifest cannot be reached after its retries it rejects, so the app
-shows its plan view. Tests: `packages/renderer/__tests__/asset-loader-order.test.ts` ("the manifest"),
-`packages/app/__tests__/renderer-manifest.test.ts` (files, hashes, the manifest and the dev middleware) and
-`packages/app/__tests__/renderer-models-edges.test.ts` (the compressed models give the same outline segments as the
-originals).
+**The pipeline** (`packages/app`, committed outputs, each script has `--check` and a test that runs it):
 
-Load order (`core/load-order.ts`): the first frame waits only for the models of the tiles `GameScene` was handed (`want`;
-every model when it was handed none); the rest load after that frame (`afterFirstFrame`). A tile whose model arrives later
-is drawn then, with a new frame and shadows (`AssetLoader.onLoaded`, `GameScene`). `packages/renderer/__tests__/asset-loader-order.test.ts`
-("the load order", "GameScene with the load order") covers it. The meshopt decoder is set on the loader, and the first loader starts it in two
-workers where the browser has workers (`startDecoderWorkers`, `MeshoptDecoder.useWorkers(2)`); no test covers the workers.
+- `packages/app/scripts/compress-models.ts`: app-web's base models and the Forest variants, meshopt-compressed, to
+  `public/renderer-assets/models/<key>.<hash>.glb` and `models/forest/<plan>_HF_<n>.<hash>.glb`. The hash is the first 10 hex
+  digits of the file's SHA-256.
+- `packages/app/scripts/compress-tiles.ts`: the 19 plan images, 256 px, to `tiles/<plan>.256.<hash>.png`. `--check` compares decoded
+  pixels, not bytes. The 1680 px originals stay in app-web for Storybook; the v2 build ships none.
+- `packages/app/vite/renderer-assets.ts` builds `manifest.json` from the file names, in dev and at build, and fails on a wrong hash:
+  `{ models: { plan: path }, themes: { "<theme id>": { plan: [variant paths in order] } }, tiles: { "256": { plan: path } } }`.
+  `AssetLoader` reads it once per base path (`loadManifest`); no manifest, or a plan it does not list, means the plain names.
+  A changed source file means running the script (no `--check` failure in CI): never edit a hashed file or the manifest by
+  hand. Tests: `renderer-manifest.test.ts`, `renderer-models-edges.test.ts` (the compressed models give the originals' outline
+  segments), `asset-loader-order.test.ts`, `asset-loader-tiles.test.ts`.
 
-Add no remote URL for a model, texture, decoder or font, in code or stories.
+**The loader's rules** (`AssetLoader`, `core/load-order.ts`; `asset-loader-order.test.ts`, `skins.test.ts`):
+
+- The first frame waits only for the models of the tiles `GameScene` was handed (`want`; every model when none), and for the
+  19 tile images. The rest load after that frame (`afterFirstFrame`). A model that comes later is drawn then
+  (`AssetLoader.onLoaded`, with a new frame and shadows).
+- A failure among the first models rejects `init`, so the app shows its plan view. A failed tile image does not stop the
+  scene: it is logged and tried again after the first frame.
+- **Only the plan view's `getTexture` makes an image failure fatal**, and only when the plan view asks before the loader has
+  chosen, right after the manifest is read (`want([], true)` before `preloadAll` chooses; asked later, a failure is logged). The placeholder quad reads `peekTexture`, which asks for nothing and
+  never counts as the plan view asking. Do not call `getTexture` from the board's path.
+- **A skinned plan's base model loads only as a fallback** (SKIN-BASE): when the plan has no skin, the skin read failed or
+  was late, the manifest lists no variant, or a variant failed. For a plan whose skin is known (`setSkins`) and listed, nothing
+  asks for its base model: not the first frame, not `preloadAll`'s rest, not a scene handed no tiles. `preloadModels`
+  (`BoxRainScene`) is unchanged.
+
+## Skins and the placeholder quad
+
+Design: section 5.6 of `docs/client/v2-architecture.md`.
+
+- `GameScene.setSkins` (and `GameCanvas`'s `skins`) hands `TileSkins` (plan key to theme id) to `TileRenderer`, which keys its
+  shared models by model id: a plan key, or a variant's path. A variant loads once and is shared by its tiles.
+- **The variant** is `variantHash` of `core/skins.ts`, origin/dev's `getVarietyModelPath` hash over `${PLAN}${x}${y}${gameId}`
+  in 32-bit integers, then `abs(hash) % count` of the plan's own variants. It must stay bit for bit what dev computed (every
+  viewer and reload sees the same board): `skins.test.ts` pins values. **Theme 0, a theme the manifest does not list, a plan
+  with no variants, and a host with no manifest draw the base model** (`skinModelPath`).
+- **The placeholder quad.** A tile with no model drawn yet (variant or base on its way, at its first draw or after a
+  placement) draws its plan's image on a flat quad at `PLACEHOLDER_HEIGHT` (the ground's top), with its square's outline. It
+  downloads nothing. A model already drawn stays until the next is in: the quad is only for a tile with none.
+- **The swap order**: when a model comes in, `AssetLoader.onLoaded` redraws the tiles; the model is added to the tile group,
+  then the quad removed, in that one call, before the next frame. Never remove first (an empty frame) or leave both.
+- The quad reads its own `Texture` copy as sRGB (the plan view's stays as is: one colour space cannot serve both). One quad
+  geometry and outline for every plan, one material per plan, all disposed by `TileRenderer.dispose()` (not the loader's
+  images). The quad casts no shadow and has no water mask. `tile-placeholder.test.ts` covers the swap, the ghost, a live
+  switch of skins, failed variants and images, and the dispose counts.
+
+## Tests
+
+- A fake `AssetLoader` handed to `TileRenderer` needs: `setSkins` (every `TileRenderer.setSkins`), `has` and `want` (every
+  model lookup, `modelOf`), `getModel` (a tile's model), `getTexture` (the plan view), `skinModel(key, skin)` (`modelOf`, as
+  soon as a plan has a skin: a fake without it throws after `setSkins`) and `peekTexture(key)` (the placeholder quad,
+  whenever a tile or the ghost has no model yet). No existing fake has all of them: `tile-placeholder.test.ts`'s
+  `fakeAssets()` has all but `skinModel` (its skinned tests use a real `AssetLoader`), and `tile-renderer.test.ts`'s has
+  `has`, `want`, `setSkins`, `getModel` and `getTexture` but no `peekTexture` or `skinModel`, and works only because its
+  `has` is always true and no tile has a skin. A fake `GameScene` class for a React test needs `setSkins`
+  (`packages/renderer/__tests__/helpers/hooks.ts`).
+- `@paved/renderer` is consumed through its `dist` (`main` and `exports`). `bun run test --filter` builds it first (turbo);
+  **Storybook does not**: `bun run --filter @paved/app build-storybook` and `storybook dev` read a stale or missing `dist`, so
+  `bun run build --filter @paved/renderer` first, and again after each renderer change.
 
 ## The bench
 
@@ -154,8 +221,14 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
 - A figure states: the machine, the **window mode** (on screen, off screen, headless), the GPU or software rendering, the
   profile (`unthrottled`, or `throttled`: CPU 4x and a 60 Hz cap), the tile count (38, 72), the run count, the window size,
   and the commit. Frame time is **CPU + GPU per frame, p95**, from the raw runs, beside draw calls and triangles.
+- The phone profile is 360 x 780 at DPR 3 with the CPU throttled 4x: an approximation, since it runs on the Mac's GPU. The
+  desktop profile is 1440 x 900 at DPR 2. The rules: the highest pixel-ratio cap whose CPU + GPU p95 stays under 12 ms on
+  the desktop profile at both views (distances 240 and 170), and under 16.6 ms on the phone profile (240 and 280); the
+  outlines forced `"on"`, 120 warm-up and 600 measured frames in a fresh context, rounds alternated, the load average stated.
 - `--headless` is software rendering: a smoke run on Linux or any machine with no GPU. Its figures are not measures, and the
-  driver refuses `--out` under `docs/measures/`. A figure needs a GPU run on the Mac.
+  driver refuses `--out` under `docs/measures/`. A figure needs a GPU run on the Mac. A capture taken on software WebGL
+  (SwiftShader) is marked as such, with the outlines off there: it shows layout and colour, never a frame time or the
+  outlines. The CI e2e runs on it too.
 - On the Mac a run opens no visible window while the owner uses the machine, and the driver has no hidden GPU mode
   (`--offscreen` still opens windows; `--headless` is software rendering): do not start a Mac run yourself; report the need.
   `docs/measures/client-baseline.md` and the bench driver's header still name `--offscreen` for the Mac, which is out of
@@ -165,20 +238,27 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
 
 ## Commands
 
-From the repository root, with the heap capped as `AGENTS.md` says (its table: `@paved/renderer` 384 MB; never
-`prlimit --as` for Node):
+From the repository root, with the heap capped as `AGENTS.md` says: take each package's figure from its table, never
+`prlimit --as` for Node.
 
 ```sh
-NODE_OPTIONS=--max-old-space-size=384 bun run test --filter @paved/renderer
-NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app
-NODE_OPTIONS=--max-old-space-size=1536 bun run --filter @paved/app build-storybook
+NODE_OPTIONS=--max-old-space-size=<MB> bun run test --filter @paved/renderer   # <MB>: AGENTS.md's row for the package
+NODE_OPTIONS=--max-old-space-size=<MB> bun run test --filter @paved/app
+bun run build --filter @paved/renderer
+NODE_OPTIONS=--max-old-space-size=2048 bun run --filter @paved/app build-storybook
 ```
 
-Run the package you touched; `packages/app`'s figure is that of its README (832). The whole suite is the CI's. The Training
-e2e (`packages/app-web/e2e/`) runs in CI when `packages/renderer` changes.
+Storybook takes 2048 MB (what the briefs use; `packages/app/README.md` still says 1536). Run the package you touched; the
+whole suite is the CI's, and so is the Training e2e (`packages/app-web/e2e/`), which runs when `packages/renderer` changes.
+
+`bun run build --filter @paved/app` ends with the bundle budget (`packages/app/scripts/bundle-budget.ts`, limits in
+`packages/app/scripts/bundle-budget.json`): it fails when a metric passes its limit. The `board` chunk, which holds the renderer and
+three, is the largest route, so it sets `largestRoute` (854,735 B raw against 872,448 on 2026-10-16). A renderer change that
+grows it raises that limit in `packages/app/scripts/bundle-budget.json` in the same PR, with the measured size.
 
 ## Done when
 
 A state change ends in `requestRender()`; no per-tile geometry or material; `dispose` frees what the change allocates;
-the settings carry any new knob with a default and a test; no remote asset; a frame-time claim has a bench figure with its
-machine and window mode; the renderer tests pass.
+the settings carry any new knob with a default and a test; a new final pass keeps the single sRGB transfer; no remote asset;
+a changed model or tile image went through its script (`--check` clean); a frame-time claim has a bench figure with its
+machine and window mode; the renderer and app tests pass, Storybook builds, and the app's build stays inside the bundle budget.
