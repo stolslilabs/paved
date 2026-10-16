@@ -224,6 +224,12 @@ which the session is meant to avoid. It stays in the table and the JSON, and out
   fresh `starknet-devnet --seed 42`, `scripts/deploy.sh devnet`, the client with `VITE_PLAYER_*`). A devnet seals a block per transaction at once, so its figures prove
   the instrumentation and are not release figures.
 
+## Release notes
+
+- **The controller's session is a wildcard.** The controller registers its session key as a wildcard. The keychain filters a
+  session call client-side by (target, method), and never by calldata. The client keeps no token approve in the session (P-65),
+  so each paid entry prompts once.
+
 ## Release gates
 
 - LIGHT-GPU: per-effect GPU frame times on both profiles, tier defaults set from them, and the flicker re-check with
