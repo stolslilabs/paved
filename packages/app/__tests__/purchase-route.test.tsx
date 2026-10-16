@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import userEvent from "@testing-library/user-event";
@@ -27,7 +27,7 @@ import { App } from "../src/App";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
-import { PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, usePurchase } from "../src/data/purchase";
+import { PURCHASE_RECHECK_MS, PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, setPurchaseRecheckForTests, usePurchase } from "../src/data/purchase";
 import { resetFailedWritesForTests, unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
@@ -88,6 +88,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     receipts: Map<string, "SUCCEEDED" | "REVERTED">;
     receiptGate: Promise<void> | null;
     receiptFail: string | null;
+    receiptCalls: number;
   } = {
     gate: null,
     revert: options.revert ?? null,
@@ -100,6 +101,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     receipts: new Map(),
     receiptGate: null,
     receiptFail: null,
+    receiptCalls: 0,
   };
   const usdcBalance = economy.usdcBalance.bind(economy);
   economy.usdcBalance = async (account) => {
@@ -142,6 +144,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     return { execution_status: "SUCCEEDED", events: [] };
   };
   const getTransactionReceipt = async (hash: string) => {
+    state.receiptCalls++;
     if (state.receiptGate) await state.receiptGate;
     if (state.receiptFail) throw new Error(state.receiptFail);
     const status = state.receipts.get(hash);
@@ -190,6 +193,8 @@ beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
   resetFailedWritesForTests();
+  // The re-checks of an unknown receipt, short on real timers (their own test runs the real ones on fake timers).
+  setPurchaseRecheckForTests([10, 10, 10]);
   resetWelcomedForTests();
   markWelcomed();
 });
@@ -204,13 +209,20 @@ async function unknownGame(s: ReturnType<typeof setup>) {
   return opened;
 }
 
+/** The check cannot tell (its re-checks done): the player confirms that their balance and games show no purchase. */
+async function confirmNone() {
+  await userEvent.click(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 }));
+}
+
 /** A reload: the page and the app's cache gone, the browser's storage kept. */
 function reload(s: ReturnType<typeof setup>, path = "/play/challenge") {
-  document.body.innerHTML = "";
+  // Unmounted, not only cleared: a page left mounted would keep checking (its re-checks) beside the new one.
+  cleanup();
   queryClient.clear();
   return open(path, s);
 }
 afterEach(() => {
+  setPurchaseRecheckForTests(null);
   vi.restoreAllMocks();
   resetWelcomedForTests();
 });
@@ -315,7 +327,7 @@ describe("/play/challenge: the game's stake", () => {
     expect(screen.queryByText("Purchase refused")).toBeNull();
   });
 
-  it("an unknown outcome holds Pay until the games and USDC are read again, then offers Buy again only", async () => {
+  it("an unknown outcome holds Pay until the games and USDC are read again, then offers Buy again only once the player confirms", async () => {
     const s = setup();
     const { router } = open("/play/challenge", s);
     const button = await enabledPay();
@@ -333,6 +345,10 @@ describe("/play/challenge: the game's stake", () => {
     s.state.noEvents = false;
     s.state.balanceGate = null;
     release();
+    // The receipt is still unknown after its re-checks: Pay stays held until the player confirms.
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(screen.getByText(/Check your USDC balance and your games: confirm only if they show no purchase/)).toBeInTheDocument();
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
     await userEvent.click(again);
@@ -435,7 +451,7 @@ describe("/play/challenge?tab=cobbles: the packs", () => {
     expect(s.sent).toEqual([]);
   });
 
-  it("an unknown outcome holds Buy until the Cobbles and USDC are read again, then offers Buy again only", async () => {
+  it("an unknown outcome holds Buy until the Cobbles and USDC are read again, then offers Buy again only once the player confirms", async () => {
     const s = setup();
     open("/play/challenge?tab=cobbles", s);
     await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
@@ -453,6 +469,7 @@ describe("/play/challenge?tab=cobbles: the packs", () => {
     s.state.noEvents = false;
     s.state.balanceGate = null;
     release();
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
     await userEvent.click(again);
@@ -571,6 +588,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await userEvent.click(held);
     expect(s.sent).toHaveLength(1);
     release();
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
@@ -582,6 +600,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await unknownGame(s);
     reload(s);
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
@@ -631,6 +650,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     // The outcome's own Retry (the balance's notice has one too).
     const outcome = screen.getByText("Outcome unknown").closest("[role=alert]") as HTMLElement;
     await userEvent.click(within(outcome).getByRole("button", { name: "Retry" }));
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
   });
@@ -651,6 +671,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(held).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Buy again" })).toBeNull();
     release();
+    await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
     await waitFor(() => expect(again).toBeEnabled());
   });
@@ -665,6 +686,8 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
     reload(s, "/play/challenge?tab=cobbles");
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    // The packs wait while the check runs; once it cannot tell, the player confirms, then picks.
+    await confirmNone();
     await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
     expect(await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 })).toBeInTheDocument();
     expect(s.sent).toHaveLength(1);
@@ -1020,7 +1043,8 @@ describe("a wallet that never answers (writer timeout)", () => {
       release = await timedOut(s, result);
       s.state.noEvents = true;
       release();
-      await flush(() => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game")) !== null);
+      // The timeout's hash-less hold is replaced by the late hash.
+      await flush(() => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))?.includes('"hash":"0x1"') === true);
       expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"');
     } finally {
       vi.useRealTimers();
@@ -1160,5 +1184,232 @@ describe("a wallet that never answers (writer timeout)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("a receipt that reads unknown keeps the hold: re-checks at 5 s, 10 s and 20 s, then Check again (VALUE-FIX 3)", () => {
+  const stored = () => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"));
+  function hold(s: ReturnType<typeof setup>) {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={s.sources}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    return renderHook(() => usePurchase(PLAYER).hold, { wrapper });
+  }
+  const flush = async (until: () => boolean) => {
+    for (let i = 0; i < 100 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  };
+
+  it("holds through the backoff, never offering Buy again, until the player confirms; Check again reads once more", async () => {
+    setPurchaseRecheckForTests(null);
+    expect(PURCHASE_RECHECK_MS).toEqual([5_000, 10_000, 20_000]);
+    const s = setup();
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) }));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { result } = hold(s);
+      await flush(() => s.state.receiptCalls === 1);
+      // Each wait, then its re-check: the hold is `checking` throughout, never released.
+      for (const [wait, calls] of [[5_000, 2], [10_000, 3], [20_000, 4]] as const) {
+        expect(result.current).toMatchObject({ held: true, checking: true, unresolved: false, failed: false });
+        await act(() => vi.advanceTimersByTimeAsync(wait - 100));
+        expect(s.state.receiptCalls, `before the ${wait} ms re-check`).toBe(calls - 1);
+        expect(result.current).toMatchObject({ held: true, checking: true, unresolved: false });
+        await act(() => vi.advanceTimersByTimeAsync(100));
+        await flush(() => s.state.receiptCalls === calls);
+        expect(s.state.receiptCalls).toBe(calls);
+      }
+      // The backoff is bounded: no read after the third re-check, and the hold waits for the player.
+      await flush(() => result.current.unresolved);
+      expect(result.current).toMatchObject({ held: true, checking: false, unresolved: true, released: false });
+      await act(() => vi.advanceTimersByTimeAsync(120_000));
+      expect(s.state.receiptCalls).toBe(4);
+      expect(stored()).toContain('"hash":"0x1"');
+      // Check again: one more read, still held.
+      act(() => result.current.checkAgain());
+      await flush(() => s.state.receiptCalls === 5 && result.current.unresolved);
+      expect(s.state.receiptCalls).toBe(5);
+      expect(result.current.held).toBe(true);
+      // The player confirms: Pay is released (Buy again), the record kept until that deliberate send.
+      act(() => void result.current.confirmNone());
+      expect(result.current).toMatchObject({ held: false, released: true, unresolved: false });
+      expect(stored()).toContain('"hash":"0x1"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a definite answer during the backoff ends the hold: it went through, the record is cleared", async () => {
+    setPurchaseRecheckForTests(null);
+    const s = setup();
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) }));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { result } = hold(s);
+      await flush(() => s.state.receiptCalls === 1);
+      await act(() => vi.advanceTimersByTimeAsync(5_000));
+      await flush(() => s.state.receiptCalls === 2);
+      // The node sees it before the 10 s re-check.
+      s.state.receipts.set("0x1", "SUCCEEDED");
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      await flush(() => result.current.resolved === "succeeded");
+      expect(result.current).toMatchObject({ resolved: "succeeded", held: false, unknown: null });
+      expect(stored()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the page: Outcome unknown, Pay held as Check your games first, Check again and It did not land; Buy again only after it", async () => {
+    const s = setup();
+    await unknownGame(s);
+    const held = await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 });
+    expect(held).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Buy again" })).toBeNull();
+    expect(screen.getByText(/the network does not know it yet/)).toBeInTheDocument();
+    const before = s.state.receiptCalls;
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(s.state.receiptCalls).toBe(before + 1));
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    await confirmNone();
+    expect(await screen.findByText(/You confirmed that it did not land/)).toBeInTheDocument();
+    expect(await enabledPay(/^Buy again$/)).toBeInTheDocument();
+    expect(s.sent).toHaveLength(1);
+  });
+});
+
+describe("a send the wallet never answered holds Pay across a reconnect and a reload (VALUE-FIX 2)", () => {
+  const stored = () => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"));
+  const request = { playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
+  const flush = async (until: () => boolean = () => false) => {
+    for (let i = 0; i < 100 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  };
+  /** The page's hook under `sources` (a reconnect swaps them), for the player connected in them. */
+  function hook(initial: DataSources) {
+    let current = initial;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={current}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const rendered = renderHook(({ player }: { player: string | null }) => usePurchase(player), { wrapper, initialProps: { player: PLAYER as string | null } });
+    const reconnect = (next: DataSources, player: string | null) => {
+      current = next;
+      rendered.rerender({ player });
+    };
+    return { ...rendered, reconnect };
+  }
+  /** Sends, and the wallet hangs past the limit: the hash-less hold is recorded under the sender. */
+  async function timedOut(s: ReturnType<typeof setup>, result: ReturnType<typeof hook>["result"]) {
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    act(() => result.current.mutation.mutate(request));
+    await flush(() => s.sent.length === 1);
+    await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+    await flush(() => result.current.mutation.status === "error");
+    expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number) });
+    return release;
+  }
+
+  it("a timeout, then a reconnect (a new writer): Pay is held; then the late answer releases it", async () => {
+    const s = setup();
+    const { result, reconnect } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      await flush(() => result.current.hold.unresolved);
+      expect(result.current.hold).toMatchObject({ held: true, unresolved: true });
+      // Disconnect, then connect again: a new writer, whose own pending flag knows nothing of the hung send.
+      reconnect({ ...s.sources, signer: null }, null);
+      await flush();
+      const fresh = s.client.writer({ address: PLAYER, execute: async (calls: Sent) => (s.sent.push(calls), { transaction_hash: "0xf" }) });
+      reconnect({ ...s.sources, signer: fresh as unknown as GameSigner }, PLAYER);
+      await flush(() => result.current.hold.unknown !== null);
+      expect(result.current.hold.unknown).toEqual({ hash: null, at: expect.any(Number) });
+      expect(result.current.hold.held).toBe(true);
+      await flush(() => result.current.hold.unresolved);
+      expect(result.current.hold.held).toBe(true);
+      // The first send lands at last: its game is ready and the hold goes.
+      s.state.gate = null;
+      release();
+      await flush(() => result.current.hold.unknown === null);
+      expect(result.current.hold).toMatchObject({ unknown: null, held: false });
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      expect(stored()).toBeNull();
+      expect(s.sent).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a late refusal releases it too (a late unknown hash replaces it: the writer-timeout tests above)", async () => {
+    const s = setup();
+    const { result } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      s.state.gate = null;
+      s.state.revert = "Challenge: spawn paused";
+      release();
+      await flush(() => stored() === null);
+      expect(stored()).toBeNull();
+      expect(result.current.hold.held).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a timeout, then a reload: the stored hold keeps Pay held; then the late answer releases it", async () => {
+    const s = setup();
+    const first = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let release = () => {};
+    try {
+      release = await timedOut(s, first.result);
+    } finally {
+      vi.useRealTimers();
+    }
+    first.unmount();
+    // A reload: a fresh page and cache, the storage kept.
+    queryClient.clear();
+    open("/play/challenge", s);
+    expect(await screen.findByText(/your wallet did not answer, so it may still go through/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(screen.getByText(/Check your USDC balance and your games: confirm only if they show no purchase/)).toBeInTheDocument();
+    // The answer of the send (in a real reload it is the player's confirm that ends it; here the page saw it go).
+    s.state.gate = null;
+    release();
+    await waitFor(() => expect(stored()).toBeNull(), { timeout: 3000 });
+    expect(await enabledPay()).toBeInTheDocument();
+    expect(s.sent).toHaveLength(1);
+  });
+
+  it("after a reload with no late answer, only the player's confirm releases Pay (after the reads of the USDC and the games)", async () => {
+    const s = setup();
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) - 600 }));
+    const before = s.state.balanceCalls;
+    open("/play/challenge", s);
+    expect(await screen.findByText(/Purchase sent 10 min ago: your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    // The check read the USDC balance (and the games) before offering the confirm; no receipt is asked for.
+    expect(s.state.balanceCalls).toBeGreaterThan(before);
+    expect(s.state.receiptCalls).toBe(0);
+    await confirmNone();
+    const again = await enabledPay(/^Buy again$/);
+    await userEvent.click(again);
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    await waitFor(() => expect(stored()).toBeNull());
+  });
+
+  it("a pack's timeout holds Buy the same way", async () => {
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "pack"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) }));
+    const s = setup();
+    open("/play/challenge?tab=cobbles", s);
+    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Check your USDC balance and your Cobbles/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
   });
 });

@@ -26,7 +26,18 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
-    return { kind: "unknown", message: `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.${unsaved}` };
+    const sent =
+      hold.unknown.hash === null
+        ? `Purchase sent ${when}: your wallet did not answer, so it may still go through.`
+        : `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown${hold.unresolved ? ": the network does not know it yet" : ""}.`;
+    // What the player reads before confirming: the check has just read them again (`usePurchaseHold`).
+    const reads = what === "games" ? "your USDC balance and your games" : "your USDC balance and your Cobbles";
+    const next = hold.released
+      ? " You confirmed that it did not land: Buy again sends a new purchase."
+      : hold.unresolved
+        ? ` Check ${reads}: confirm only if they show no purchase, as buying again may pay twice.`
+        : ` Check ${reads} before buying again.`;
+    return { kind: "unknown", message: `${sent}${next}${unsaved}` };
   }
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
@@ -56,8 +67,10 @@ function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error:
  * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
  * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said) when
  * the contracts would not pay it. A guest's Pay connects. An unknown outcome is recorded per player (it survives a remount,
- * a reload and a second tab): Pay is held while its receipt and the reconciling reads are checked, and while that check
- * fails (Retry), then only a deliberate Buy again sends. An unread USDC balance is unknown, not 0: Pay waits for it.
+ * a reload, a reconnect and a second tab), and so is a send the wallet never answered: Pay is held while its receipt and the
+ * reconciling reads are checked (a receipt still unknown is read again after 5, 10 and 20 s), while that check fails (Retry),
+ * and until the player confirms that their balance and games show no purchase; then only a deliberate Buy again sends. An
+ * unread USDC balance is unknown, not 0: Pay waits for it.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -169,6 +182,7 @@ export default function Page() {
       checking={gameHold.checking}
       checkFailed={gameHold.failed}
       checkRetrying={gameHold.retrying}
+      checkUnresolved={gameHold.unresolved}
       connected={connected}
       now={now}
       tab={tab}
@@ -187,6 +201,7 @@ export default function Page() {
               checking: packHold.checking,
               checkFailed: packHold.failed,
               checkRetrying: packHold.retrying,
+              checkUnresolved: packHold.unresolved,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
             }
       }
@@ -205,6 +220,8 @@ export default function Page() {
       onRetryBalance={() => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) })}
       onRetryPacks={() => void client.invalidateQueries({ queryKey: packKeys.packs() })}
       onRetryCheck={() => (tab === "cobbles" ? packHold : gameHold).retry()}
+      onCheckAgain={() => (tab === "cobbles" ? packHold : gameHold).checkAgain()}
+      onConfirmNone={() => (tab === "cobbles" ? packHold : gameHold).confirmNone()}
       onDismissCheck={() => {
         // The player's deliberate way out of a check that keeps failing: the record and the unknown error both go.
         if (tab === "cobbles") {
