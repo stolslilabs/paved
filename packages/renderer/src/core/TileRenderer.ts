@@ -143,9 +143,9 @@ export class TileRenderer {
   private previewGroup: THREE.Group; // hover preview
   /**
    * Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view, and for the
-   * placeholder quad drawn while its model is on its way).
+   * placeholder quad drawn while its model is on its way), and the plan and orientation it was drawn in.
    */
-  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null }> = new Map();
+  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null; plan: number; orientation: number }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
@@ -267,11 +267,13 @@ export class TileRenderer {
       // placeholder quad (null) until one comes, so a tile is never empty.
       const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id) ?? existing?.model ?? null);
 
-      // Skip if already rendered with same pending state and model
-      if (existing && existing.pending === pending && existing.model === model) continue;
+      // Skip if already drawn as given: same pending state, model, plan and orientation (the hand's tile, `TileView`, is
+      // one tile turned in place: its model stays, its orientation changes)
+      const drawn = existing && existing.pending === pending && existing.model === model;
+      if (drawn && existing.plan === tile.plan && existing.orientation === tile.orientation) continue;
 
-      // Pending state or model changed: the new mesh replaces the old one in this call, so no frame shows the cell empty
-      // or both at once (a tile owns no geometry or material)
+      // Pending state, model, plan or orientation changed: the new mesh replaces the old one in this call, so no frame shows
+      // the cell empty or both at once (a tile owns no geometry or material)
       const mesh = this.strategyMode
         ? this.createStrategyTile(tile)
         : model
@@ -296,7 +298,7 @@ export class TileRenderer {
         // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
         if (existing) this.tileGroup.remove(existing.mesh);
-        this.tileMeshes.set(key, { mesh, pending, model });
+        this.tileMeshes.set(key, { mesh, pending, model, plan: tile.plan, orientation: tile.orientation });
         changed = true;
       }
     }
