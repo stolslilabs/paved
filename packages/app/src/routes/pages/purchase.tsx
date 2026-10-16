@@ -14,6 +14,7 @@ import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { useChainClock } from "../../data/clock";
 import { useNow } from "../now";
 import { useAppNavigate, useBack } from "../ref";
 
@@ -97,6 +98,9 @@ export default function Page() {
   const packReferrer = useEffectiveReferrer("pack", link);
   const tab: PurchaseTab = params.get("tab") === "cobbles" ? "cobbles" : "game";
   const now = useNow();
+  // The expiry shown is read against the chain's time (the indexer's), not the browser's; `now` stays the browser's for the
+  // records of sent purchases, which carry the browser's time.
+  const chainNow = useChainClock();
   const client = useQueryClient();
 
   const [stake, setStake] = useState(1);
@@ -197,7 +201,7 @@ export default function Page() {
       checkRetrying={gameHold.retrying}
       checkUnresolved={gameHold.unresolved}
       connected={connected}
-      now={now}
+      now={chainNow}
       tab={tab}
       cobbles={
         packs.data === null
