@@ -1,5 +1,5 @@
 import { Account, RpcProvider } from "starknet";
-import { MAX_STAKE, controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
+import { controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
 import { chainClient } from "../data/chain-client";
 import { economyClient } from "../data/economy-client";
 import type { WalletConnector } from "./wallet";
@@ -7,19 +7,6 @@ import type { WalletConnector } from "./wallet";
 // The app's connector (P6), loaded with its own chunk by `WalletProvider`: app-web's `WalletProvider.tsx` and
 // `utils/network.ts` brought over. Outside devnet the Cartridge controller with the game's session policies; on devnet
 // the env's burner (a predeployed account), which no other network takes: a key in a built bundle is public.
-
-/**
- * The session's approve: the entry token `Challenge.entry_price` names, capped at `MAX_STAKE` x its unit price (a
- * purchase of the most stakes signs without a prompt). Null when the price cannot be read: every approve prompts then.
- */
-export async function entryApprove(client: PavedClient): Promise<{ token: string; cap: bigint } | null> {
-  try {
-    const price = await client.views.entryPrice();
-    return { token: price.token, cap: price.amount * BigInt(MAX_STAKE) };
-  } catch {
-    return null;
-  }
-}
 
 /** `@paved/chain`'s controller connector (its type is not exported from the chain's entry). */
 type ControllerConnector = ReturnType<typeof createControllerConnector>;
@@ -91,8 +78,8 @@ export function connectorFor(
   const connector = controller({
     rpc: deployment.rpcUrl,
     chainId: deployment.chainId,
-    // The price is read once, when the controller is first used.
-    policies: async () => controllerPolicies(deployment, { approve: await entryApprove(client), economy }),
+    // No token approve (P-65): a paid entry's approve and spawn are one multicall, which prompts once.
+    policies: async () => controllerPolicies(deployment, { economy }),
   });
   return {
     probe: () => connector.probe(),
