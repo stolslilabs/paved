@@ -14,6 +14,7 @@ import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { useChainClock } from "../../data/clock";
 import { useNow } from "../now";
 import { useAppNavigate, useBack } from "../ref";
 
@@ -26,6 +27,10 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
+    // Under the wallet's limit a hash-less record is a prompt that may still be open (another tab, a reload).
+    if (hold.waiting) {
+      return { kind: "unknown", message: `A purchase is waiting in your wallet (sent ${when}): it may still go through. Answer it there, or wait, before buying again.${unsaved}` };
+    }
     const sent =
       hold.unknown.hash === null
         ? `Purchase sent ${when}: your wallet did not answer, so it may still go through.`
@@ -42,6 +47,12 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
   return null;
+}
+
+/** A refusal of a send that sent nothing (busy, declined, a moved price), never the earlier send's own unknown outcome; else null. */
+function newRefusal(error: Error | null): PurchaseRefusal | null {
+  const refusal = error ? purchaseRefusal(error) : null;
+  return refusal && refusal.kind !== "unknown" ? refusal : null;
 }
 
 /** How long ago a purchase was sent, from its record's `at` (the send's time): "just now", "5 min ago", "3 h ago", "2 days ago". */
@@ -62,8 +73,9 @@ function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error:
 /**
  * `/play/challenge` (P7b): the Challenge purchase and the Cobble packs, on the chain's data (section 6.4). The Game tab reads
  * `entry_price` through `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out`, the USDC balance and
- * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` (`EconomyWriter.purchase`, which
- * reads them all again, with the router and the rate) and opens the new game on its board. The Cobbles tab (`?tab=cobbles`)
+ * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall (`EconomyWriter.purchase`,
+ * which reads them all again, with the router, the seller and the rate), which the wallet prompts for once (no approve is a
+ * session policy, P-65), and opens the new game on its board. A declined prompt is a refusal: nothing was sent, no hold. The Cobbles tab (`?tab=cobbles`)
  * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
  * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said) when
  * the contracts would not pay it. A guest's Pay connects. An unknown outcome is recorded per player (it survives a remount,
@@ -86,6 +98,9 @@ export default function Page() {
   const packReferrer = useEffectiveReferrer("pack", link);
   const tab: PurchaseTab = params.get("tab") === "cobbles" ? "cobbles" : "game";
   const now = useNow();
+  // The expiry shown is read against the chain's time (the indexer's), not the browser's; `now` stays the browser's for the
+  // records of sent purchases, which carry the browser's time.
+  const chainNow = useChainClock();
   const client = useQueryClient();
 
   const [stake, setStake] = useState(1);
@@ -111,18 +126,21 @@ export default function Page() {
 
   const gameHold = purchase.hold;
   const packHold = buyPack.hold;
+  // A Buy again that sent nothing (busy, declined) puts the released record back: its own refusal is what the player reads.
   const gameRefusal =
+    (gameHold.released ? newRefusal(purchase.mutation.error) : null) ??
     heldRefusal(gameHold, "games", now) ??
     (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed: your game is waiting." } : null) ??
     (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
+    (packHold.released ? newRefusal(buyPack.mutation.error) : null) ??
     heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const confirm = () => {
     if (!purchase.buyer || !playerId) return void wallet.connect();
     if (stakeQuote.minOut === null || gameHold.held || purchase.sending || gameReferrer.isPending) return;
-    // A deliberate Buy again: the earlier purchase is left to the player's check.
-    if (gameHold.unknown) gameHold.clear();
+    // A deliberate Buy again: the earlier purchase is left to the player's check. Its record goes only once the new send is
+    // accepted (`heldSend` writes the new send's hold over it, and puts it back if nothing was sent).
     gameHold.dismiss();
     purchase.ready.clear();
     purchase.mutation.mutate(
@@ -145,7 +163,6 @@ export default function Page() {
   const buy = () => {
     if (!buyPack.buyer || !playerId) return void wallet.connect();
     if (!pack || packQuote.minOut === null || packHold.held || buyPack.sending || packReferrer.isPending) return;
-    if (packHold.unknown) packHold.clear();
     packHold.dismiss();
     buyPack.mutation.mutate({
       playerId,
@@ -184,7 +201,7 @@ export default function Page() {
       checkRetrying={gameHold.retrying}
       checkUnresolved={gameHold.unresolved}
       connected={connected}
-      now={now}
+      now={chainNow}
       tab={tab}
       cobbles={
         packs.data === null

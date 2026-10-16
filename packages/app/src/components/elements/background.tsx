@@ -29,6 +29,7 @@ export function Background({ name = "placeholder", base = import.meta.env.BASE_U
           srcSet={srcSet(name, "jpg", base)}
           sizes={sizes}
           alt=""
+          draggable={false}
           decoding="async"
           className="size-full object-cover"
         />

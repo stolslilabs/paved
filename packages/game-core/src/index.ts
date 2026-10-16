@@ -105,6 +105,7 @@ export * from "./sessions";
 // Formatting: every number and date on screen goes through here (P-66, en-US)
 export {
   LOCALE,
+  formatBoundary,
   formatBps,
   formatCompact,
   formatDate,
@@ -112,6 +113,7 @@ export {
   formatInteger,
   formatNumber,
   formatPercent,
+  formatRelative,
   formatUnits,
 } from "./format";
-export type { NumberOptions } from "./format";
+export type { NumberOptions, RelativeOptions } from "./format";

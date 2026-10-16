@@ -53,6 +53,7 @@ export interface PackPlan {
   poolOut: bigint;
   minOut: bigint;
   router: string;
+  seller: string;
 }
 
 /** The pack's price at send is not the one the player confirmed (the owner changed it): nothing was sent. */
@@ -76,7 +77,7 @@ export interface PackBuyerOptions {
   /** `Setup.pack`. */
   packs: PackViews;
   /** The economy's split, guard rate and router. */
-  economy: Pick<EconomyViews, "split" | "guardRate" | "router">;
+  economy: Pick<EconomyViews, "split" | "guardRate" | "router" | "seller">;
   deployment: EconomyDeployment;
   /** `Economy.quote_swap`; null refuses every purchase. */
   poolQuoter: PoolQuoter | null;
@@ -114,8 +115,9 @@ export class PackBuyer {
     let split: SplitView;
     let rate: bigint;
     let router: string;
+    let seller: string;
     try {
-      [pack, split, rate, router] = await Promise.all([packs.pack(request.packId), economy.split(), economy.guardRate(), economy.router()]);
+      [pack, split, rate, router, seller] = await Promise.all([packs.pack(request.packId), economy.split(), economy.guardRate(), economy.router(), economy.seller()]);
     } catch (error) {
       throw new WriteError(`Cannot read the price: ${message(error)}`);
     }
@@ -126,7 +128,7 @@ export class PackBuyer {
     if (!onSale(pack)) throw new PackNotOnSaleError(request.packId);
     if (request.confirmedPrice !== pack.price) throw new PackPriceChangedError(request.confirmedPrice, pack.price);
     if (typeof request.confirmedMinOut !== "bigint" || request.confirmedMinOut <= 0n) throw new WriteError("No confirmed minimum PAVED: confirm again");
-    const referrer = packReferrer(request.referrer, this.address, deployment, router);
+    const referrer = packReferrer(request.referrer, this.address, deployment, { router, seller });
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
     if (typeof slippage !== "bigint" || slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
     if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
@@ -143,7 +145,7 @@ export class PackBuyer {
     if (minOut < request.confirmedMinOut) throw new PoolPriceMovedError(request.confirmedMinOut, minOut);
     const implied = impliedPaved(swapIn, rate);
     if (implied !== null && quoteBelowFloor(poolOut, swapIn, rate) && request.acceptedLowQuote !== true) throw new PoolQuoteBelowFloorError(poolOut, implied);
-    return { pack, referrer, swapIn, poolOut, minOut, router };
+    return { pack, referrer, swapIn, poolOut, minOut, router, seller };
   }
 }
 

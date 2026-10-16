@@ -41,22 +41,22 @@ describe("GameScene settings", () => {
     (scene as any).renderer = { capabilities: { maxSamples: 4 } };
     (scene as any).webgl = { renderer: "ANGLE (Apple, Metal)", software: false, reason: "GPU renderer" };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa", 4);
     scene.setSettings({ multisampling: false });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("off");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("off", 4);
     // No WebGL 2 multisampling: SMAA.
     (scene as any).renderer = { capabilities: { maxSamples: 0 } };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa", 4);
     // Software WebGL multisamples on the CPU: SMAA.
     (scene as any).renderer = { capabilities: { maxSamples: 16 } };
     (scene as any).webgl = { renderer: "SwiftShader", software: true, reason: "software renderer" };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa", 4);
     // The path is logged once per change.
     scene.setSettings({ multisampling: true });
     expect(info.mock.calls.filter(([m]) => String(m).includes("face antialiasing")).map(([m]) => m)).toEqual([
-      "[renderer] face antialiasing msaa: 4 samples available on GPU renderer",
+      "[renderer] face antialiasing msaa: 4 samples, 4 available on GPU renderer",
       "[renderer] face antialiasing off: disabled by the settings",
       "[renderer] face antialiasing smaa: multisampling unavailable (0 samples)",
       "[renderer] face antialiasing smaa: software renderer",
@@ -117,13 +117,14 @@ describe("GameScene settings", () => {
     const desktop = scene.getZoom();
     expect(desktop.openingTilePx).toBeCloseTo(openingTilePixels(camera, 900), 9);
     expect(desktop.openingTilePx).toBeCloseTo(60.3, 1);
-    expect(desktop.outline.opacity).toBe(1);
+    // The opening view is at 0.56 of the fade (OUT-FADE), the same on every screen.
+    expect(desktop.outline.opacity).toBeCloseTo(0.5565, 2);
     scene.render();
     (scene as any).surface = { getSize: () => ({ width: 360, height: 780 }) };
     const phone = scene.getZoom();
     expect(phone.openingTilePx).toBeCloseTo(52.3, 1);
-    // The opening view stays fully on: the tile and S shrink together.
-    expect(phone.outline.opacity).toBe(1);
+    // The opening view keeps its opacity: the tile and S shrink together.
+    expect(phone.outline.opacity).toBeCloseTo(0.5565, 2);
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(2);
   });

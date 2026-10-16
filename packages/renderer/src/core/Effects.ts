@@ -8,7 +8,7 @@ import { getLightingProfile } from "./render-profiles";
 import { LOOK_PRESETS, resolveLook, type LookSettings, type QualityTier } from "./look";
 import { AoPass, FinishPass, finishDefines } from "./post-shaders";
 
-/** Samples of the multisampled scene target. */
+/** Samples of the multisampled scene target, unless the settings give another count (`RendererSettings.msaaSamples`). */
 export const MSAA_SAMPLES = 4;
 
 /**
@@ -29,11 +29,11 @@ export interface FaceAntialiasingDevice {
 
 /**
  * The face antialiasing in effect for `RendererSettings.multisampling` on this device: off when the setting is off;
- * MSAA when the context multisamples at least `MSAA_SAMPLES` on a GPU; SMAA otherwise.
+ * MSAA when the context multisamples at least `samples` on a GPU; SMAA otherwise.
  */
-export function resolveFaceAntialiasing(on: boolean, device: FaceAntialiasingDevice): FaceAntialiasing {
+export function resolveFaceAntialiasing(on: boolean, device: FaceAntialiasingDevice, samples = MSAA_SAMPLES): FaceAntialiasing {
   if (!on) return "off";
-  const msaa = device.supportsMultisampling !== false && !device.software && device.maxSamples >= MSAA_SAMPLES;
+  const msaa = device.supportsMultisampling !== false && !device.software && device.maxSamples >= samples;
   return msaa ? "msaa" : "smaa";
 }
 
@@ -59,6 +59,8 @@ export class Effects {
   private profile: RenderProfile = "play";
   private capabilities: EffectsCapabilities = {};
   private antialiasing: FaceAntialiasing = "off";
+  /** Samples of the scene's target under MSAA. */
+  private samples = MSAA_SAMPLES;
   private look: LookSettings = LOOK_PRESETS.mockup;
   private tier: QualityTier = "high";
   /** The look as drawn (`resolveLook` of the look, the tier and the capabilities). */
@@ -79,8 +81,10 @@ export class Effects {
     camera: THREE.Camera,
     profile: RenderProfile = "play",
     antialiasing: FaceAntialiasing = "off",
+    samples = MSAA_SAMPLES,
   ): void {
     this.antialiasing = antialiasing;
+    this.samples = samples;
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -94,10 +98,11 @@ export class Effects {
     this.update();
   }
 
-  /** The face antialiasing (`resolveFaceAntialiasing`). Rebuilds the passes when it changes. */
-  setAntialiasing(antialiasing: FaceAntialiasing): void {
-    if (this.antialiasing === antialiasing) return;
+  /** The face antialiasing (`resolveFaceAntialiasing`) and MSAA's samples. Rebuilds the passes when either changes. */
+  setAntialiasing(antialiasing: FaceAntialiasing, samples = this.samples): void {
+    if (this.antialiasing === antialiasing && this.samples === samples) return;
     this.antialiasing = antialiasing;
+    this.samples = samples;
     this.rebuild();
   }
 
@@ -146,6 +151,7 @@ export class Effects {
     const look = this.drawn;
     return JSON.stringify([
       this.antialiasing,
+      this.antialiasing === "msaa" && this.samples,
       look.ao.enabled && look.ao.resolution,
       look.bloom.enabled,
       finishDefines(look, look.ao.enabled),
@@ -192,14 +198,16 @@ export class Effects {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      samples: multisample ? MSAA_SAMPLES : 0,
+      samples: multisample ? this.samples : 0,
       // The AO reads the scene's depth: a texture instead of a renderbuffer, only then (the composer's clone gets its own).
       ...(look.ao.enabled ? { depthTexture: new THREE.DepthTexture(size.x, size.y) } : {}),
     });
     target.texture.name = "EffectComposer.rt1";
-    // The composer clones the first target into its second and swaps the two every frame (the final pass swaps even
-    // when it draws to the screen), so the scene lands in each target in turn: both keep the samples, or every other
-    // frame would be drawn without MSAA (a flicker, measured in P4).
+    // The composer clones the first target into its second and swaps the two after every pass that `needsSwap`. Only
+    // SMAA reads what the finish pass wrote, so the finish pass swaps only when SMAA follows it: otherwise no pass swaps,
+    // the scene lands in the same target every frame (the composer's read buffer, its resolve texture read by the next
+    // passes) and the other is never bound, so never allocated (three allocates a target on its first use). One
+    // multisampled target, not two (Q3-GPU); P4's chain swapped every frame, and both targets had to multisample.
     this.composer = new EffectComposer(renderer, target);
     // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
     // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
@@ -225,14 +233,17 @@ export class Effects {
       names.push("bloom");
     }
 
-    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null);
-    this.composer.addPass(this.finishPass);
-    names.push("finish");
-
     // SMAA last, where MSAA is not used: it reads the final, display-encoded colour (its edge detection is tuned for
     // it), so it smooths the faces' edges after everything else.
     // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
-    if (this.antialiasing === "smaa" && typeof Image !== "undefined") {
+    const smaa = this.antialiasing === "smaa" && typeof Image !== "undefined";
+
+    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null);
+    this.finishPass.needsSwap = smaa;
+    this.composer.addPass(this.finishPass);
+    names.push("finish");
+
+    if (smaa) {
       this.smaaPass = new SMAAPass();
       this.composer.addPass(this.smaaPass);
       names.push("smaa");
