@@ -64,6 +64,12 @@ const PLACED: HoverState = (() => {
   return { x: slot.x, y: slot.y, valid: true, idle: true, placed: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
 })();
 
+/** The board with the placed tile on its slot: the confirm's board. */
+const WITH_PLACED = [
+  ...tiles,
+  { ...tiles[1]!, id: 10_000, x: tiles[1]!.x + PLACED.x - tiles[1]!.worldX, y: tiles[1]!.y - (PLACED.y - tiles[1]!.worldZ), worldX: PLACED.x, worldZ: PLACED.y },
+];
+
 type Group = keyof PlacementSettingsInput;
 /** A flat arg's group and field: `gridOpacity` is `grid.opacity`. */
 const FIELDS: Record<string, [Group, string]> = {};
@@ -194,11 +200,13 @@ export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, di
     [state, ready],
   );
   const confirmed = useMemo(() => (state === "confirm" && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [state, ready, confirmKey]);
+  // Confirmed, the tile is on the board (as the game draws it after a move); the effects fade over it.
+  const shown = state === "confirm" ? WITH_PLACED : tiles;
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
       <GameCanvas
-        tiles={tiles}
+        tiles={shown}
         availableSlots={slots}
         hover={hover}
         confirmed={confirmed}

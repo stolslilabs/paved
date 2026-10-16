@@ -98,7 +98,7 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
   grid: { enabled: true, color: "#d1d9df", opacity: 0.32, rings: [1, 0.4, 0.1], width: 0.012, minWidthDevicePx: 1 },
   slots: {
     enabled: true,
-    fillOpacity: 0.045,
+    fillOpacity: 0.03,
     width: 0.025,
     glow: 0.07,
     intensity: 1.3,
