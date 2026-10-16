@@ -80,10 +80,10 @@ export interface TierEffects {
 }
 
 /**
- * What each tier runs, set by the PM's rule from the GPU figures (LIGHT-GPU, M2 Max, headless Chrome on ANGLE Metal, the
- * Mockup look on the 72-tile board, outlines on; `docs/client/v2-architecture.md` 5.5): a tier holds the effects that
- * fit its profile. The bloom alone costs about 3 ms of p95 (desktop, cap 1.5: 11.18 against 8.16 with no effect); every
- * other effect under 0.6 ms. Low runs no extra pass (8.61 ms); medium adds the AO and the soft shadows, everything but
+ * What each tier runs, set by the PM's rule from the GPU figures (LIGHT-GPU: the Mac's GPU, headless Chrome on ANGLE
+ * Metal, the Mockup look on the 72-tile board, outlines on; `docs/client/v2-architecture.md` 5.5): a tier holds the
+ * effects that fit its profile. The bloom alone costs about 3 ms of p95 (desktop, cap 1.5: 11.18 against 8.16 with no effect); every
+ * other effect under 0.7 ms. Low runs no extra pass (8.61 ms); medium adds the AO and the soft shadows, everything but
  * the bloom (9.25 ms, under the desktop's 12); high adds the bloom (12.40 ms on the desktop, 9.55 on the phone-like
  * profile at cap 2, under its 16.6; it shimmers on the slots, see `AUTO_QUALITY`).
  */

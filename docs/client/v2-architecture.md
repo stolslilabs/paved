@@ -858,7 +858,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     Drawn, the skinned board costs no frame time (LIGHT-GPU, 5.5; Mac GPU, headless Chrome on ANGLE Metal, outlines on):
     with Forest on all 19 plans against the base models, CPU + GPU p95 at the default Medium tier is 8.74 against 9.03 ms on
     the desktop profile and 6.26 against 5.89 ms on the phone-like one at the opening view; every tier and view is within
-    0.6 ms of the base board.
+    1 ms of the base board, inside the bench's run-to-run noise (about 1 ms, 5.5).
   - **What SKIN-BASE saves** (measured on the files, 2026-10-16, the same method: 200 simulated finished boards of 37 to 38
     tiles, random legal placements, the real hash, the game id varied, the variants a board shows and the base models loaded
     for the first view and after it; raw bytes and gzip level 9 by Python's `gzip`; the boards are a fresh seeded run, so
@@ -1438,7 +1438,7 @@ effects off whatever the tier. P11a adds the settings row (Low / Medium / High);
 `showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against `play`'s, and the
 cinematic profile's SSAO gave way to the look's AO.
 
-**As measured (LIGHT-GPU, 2026-10-16).** DPR's and OUT-LOD's method: M2 Max, Chrome in new headless mode on ANGLE Metal,
+**As measured (LIGHT-GPU, 2026-10-16).** DPR's and OUT-LOD's method: the Mac's GPU, Chrome in new headless mode on ANGLE Metal,
 never on screen; the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the gold slots and the
 ghost shown) on the recorded 72-tile board; per frame the CPU time of every rAF callback plus the GPU time of
 `EXT_disjoint_timer_query_webgl2` around them; a fresh context per configuration, 120 warm-up and 600 measured frames;
@@ -1450,7 +1450,13 @@ turned on (quality High, so no tier hides it); the tiers are the Mockup look who
 round, the order rotated between rounds. Every round started only with the 1-minute load average under 6, and every
 configuration measured at a load of 6 or more was dropped (21, nearly all of desktop round 2, where another process
 raised it to 23.6). Kept: desktop rounds at loads 2.2 to 5.9 (four rounds a variant; "all but the bloom" two),
-phone-like 2.5 to 5.5 (two rounds). The builds: this branch's static Storybook, served by a plain file server.
+phone-like 2.5 to 5.5 (two rounds). The builds: this branch's static Storybook, served by a plain file server. To re-run
+it, open `iframe.html?id=renderer-lighting--mockup&viewMode=story&args=` with
+`view:default;distance:240` (or `60`)`;redraw:!true;readout:!false;force:on;maxPixelRatio:x1_5` (`x2` on the phone-like
+profile), then the variant's args: `preset:off;quality:high` for the Off preset, with `aoEnabled:!true`,
+`bloomEnabled:!true`, `fogEnabled:!true`, `gradeEnabled:!true`, `vignetteEnabled:!true`, `waterEnabled:!true` or
+`keyShadowSoftness:3` for one effect alone; `quality:low`, `quality:medium` or `quality:high` for a tier; `forest:!true`
+for the skinned board. Wait for `[data-ready]`, then throttle the CPU (phone-like) and count the frames.
 
 CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95):
 
@@ -1473,12 +1479,16 @@ The phone-like Medium row is from the skinned run below (its base board, the sam
 costly effect, about 3 ms of p95 on both profiles: `UnrealBloomPass` runs its high pass, five blurred mips and the
 composite whatever is above the threshold. Every other effect costs under 0.7 ms, within or near the rounds' noise (some
 read negative). The desktop per-round p95 of the former Medium were 12.22, 12.22, 11.92 and 11.65, of High 12.02 to
-12.68: at or over 12 in most rounds.
+12.68: at or over 12 in most rounds. **The bench's run-to-run noise** is about 1 ms of p95: one configuration's per-round
+p95 differ by up to 0.9 ms on the desktop (High: 12.02 to 12.68 over four rounds; 12.19 and 13.09 in the skinned runs)
+and up to 2 ms on the phone-like profile (the former Medium: 10.86 and 8.87).
 
 **The rule applied** (the PM's: desktop p95 under 12 ms at cap 1.5, the phone-like under 16.6 ms at cap 2, zero
-flicker): Low and Medium pass on both profiles at both views; High misses the desktop's 12 ms (12.40) and passes the
-phone-like time (9.55) but not zero flicker. So Medium takes everything but the bloom (it held the bloom and no AO
-before), and "auto" is Medium on both, with Low on a low-power device. A cheaper or steadier bloom (a 13-tap downsample
+flicker): Low and Medium pass on both profiles at both views; High misses the desktop's 12 ms (12.40, by less than the
+noise: on time alone it is a near miss, not a clear one) and passes the phone-like time (9.55), but it fails zero flicker
+on both profiles (its bloom shimmers, below). So Medium takes everything but the bloom (it held the bloom and no AO
+before), and "auto" is Medium on both, with Low on a low-power device: on the desktop by the time and by zero flicker, on
+phones by zero flicker alone. Medium itself passes with room (9.25 on the desktop, 2.75 ms under the rule). A cheaper or steadier bloom (a 13-tap downsample
 with a tent upsample, at half resolution) would be its own task, measured the same way.
 
 **A fully skinned board** (Forest on all 19 plans, every tile its cell's variant: the board fetches 52 variant models; same method,
@@ -1490,7 +1500,8 @@ two rounds each, `forest` on against off in the same round), p95 ms:
 | Medium | 9.03 / 8.74 | 7.06 / 6.81 | 5.89 / 6.26 | 4.18 / 3.63 |
 | High | 12.78 / 11.81 | 10.87 / 10.14 | 10.22 / 9.54 | 6.92 / 6.62 |
 
-The skins cost nothing measurable: every pair is within 0.6 ms, in both directions. A variant is a shared model like a
+The skins cost nothing measurable: every pair is within 1 ms, inside the noise, and the skinned board reads faster in
+most of them (High by 0.97, 0.73 and 0.68 ms). A variant is a shared model like a
 base one (5.6), so the draw calls and the triangles per tile are those of the base board's.
 
 **The bloom's threshold** (GPU captures, the board with its highlights off, bloom on against off): at 1.0 the bloom
@@ -1515,11 +1526,16 @@ desktop profile at cap 1.5, 300 x 400 on the phone-like at cap 2) after each ste
 | Desktop 60, zoom | 0.15 (0.13) | 0.31 (0.17) | 0.30 (0.17) | 0.65 (0.26) | 0.65 (0.26) |
 | Phone-like 240, pan | 0.68 (0.30) | 1.02 (0.42) | 1.05 (0.42) | 2.41 (0.65) | 2.40 (0.66) |
 | Phone-like 240, zoom | 0.04 (0.02) | 0.17 (0.07) | 0.18 (0.08) | **10.28** (2.44) | 10.31 (2.44) |
+| Phone-like 60, pan | 1.23 (0.92) | 1.29 (0.68) | 1.22 (0.66) | 0.86 (0.45) | 0.85 (0.46) |
+| Phone-like 60, zoom | 0.11 (0.05) | 0.09 (0.04) | 0.08 (0.03) | 0.56 (0.41) | 0.57 (0.41) |
 
 - Low and Medium: the largest steps fall on the same step in every LIGHT variant (pan step 9 at 240, step 4 at 60):
   content entering the crop, not flicker, which would not repeat. LIGHT's frame is about twice as bright (luma 70 to
   94 against 37 to 56) and more contrasted, so its steps are larger in levels: relative to the frame's luma, the
   largest pan step is 1.1 % against 0.9 % before LIGHT at 240.
+- Phone-like at 60 (run in the review's fix loop, at a load of 2.4 to 4.5): Low and Medium drift as before LIGHT (pan
+  steps of 1.1 to 1.3 levels once the board moves, the same at each step; zoom steps under 0.1), with no spike; High's
+  zoom steps are 0.3 to 0.6 against under 0.1, its bloom again.
 - **The key light's PCF radius of 3 adds nothing under a pan**: radius 1 gives the same steps within 0.02 levels.
   `shadowSoftness` stays 3.
 - **High's bloom shimmers.** On the phone-like profile one zoom notch jumps 91.2, 101.5, 92.3 (the whole board washed
@@ -1665,7 +1681,7 @@ type was an unresolved union).
   Forest on none, every other plan, or all 19 (a control), and a readout of the variant files fetched. Captures in
   `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on
   (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
-  against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 0.6 ms).
+  against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 1 ms, inside the noise).
 
 ---
 
@@ -2333,11 +2349,10 @@ the top of the page is kept on this device (`paved.theme.v1`); the board reads i
 component that reads it, so a change applies at once). It holds `quality` (`"auto"` by default, `"low"`, `"medium"`,
 `"high"`), `sound` (on), `music` (off), `tilePreview` (on) and `placementHighlight` (on); a text that does not parse, or a
 field of the wrong kind, is that field's default. *Graphics quality* is a row of Auto, Low, Medium and High: Auto shows what
-it resolves to on this device ("Auto (Medium)": Low on a coarse pointer or a small screen, else Medium; High only by hand) and
+it resolves to on this device: Auto (Medium) on every device (Low on a low-power one); High only by hand, and
 High carries a line that it is heavier. The three board pages pass `{ quality }` to `BoardViewport`'s `settings`, kept as one
 object while the quality does not change; `GameCanvas` calls `GameScene.setSettings` when it changes, which re-applies the
-look, the antialiasing and the pixel-ratio cap, so an open board changes without a reload. The tiers stay provisional until
-LIGHT-GPU (a code comment only). *Tile preview* and *placement highlight* are wired in the board, not the renderer (which has
+look, the antialiasing and the pixel-ratio cap, so an open board changes without a reload. *Tile preview* and *placement highlight* are wired in the board, not the renderer (which has
 no switch, and none was added): off, `BoardViewport` hands the canvas no ghost, or no lit slot. The plan view (the fallback
 without WebGL) still lights its slots. *Sound* and *music* are stored only: the app plays no audio yet. *The account* is the
 wallet's: the controller username, or the short address, with Disconnect (the wallet's own, then Home with `?ref=` kept), and
