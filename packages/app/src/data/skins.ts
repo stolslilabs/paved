@@ -108,12 +108,13 @@ export function applySkinEvents(client: QueryClient, playerId: string, events: r
   }
 }
 
-/** What a write is on its way for: a plan's purchase, or the batch's save. */
-export type SkinWrite = { kind: "buy"; theme: number; plan: number } | { kind: "save"; changes: SkinChange[] };
+/** What a write is on its way for: a plan's purchase at the price its card showed, or the batch's save. */
+export type SkinWrite = { kind: "buy"; theme: number; plan: number; price: number } | { kind: "save"; changes: SkinChange[] };
 
 /**
- * The skin writes of the connected account: `buy(theme, plan)` (one `buy_skin`) and `save(changes)` (one `set_skins` of
- * the plans that changed). Each puts its receipt's events into the cache and invalidates the reads it touched, after a
+ * The skin writes of the connected account: `buy(theme, plan, price)` (one `buy_skin`, at the price the card showed: the
+ * writer reads `skin_price` again inside its send and refuses another, `SkinPriceChangedError`) and `save(changes)` (one
+ * `set_skins` of the plans that changed). Each puts its receipt's events into the cache and invalidates the reads it touched, after a
  * refusal too (an earlier write may have landed). `buying` is the plan on its way, `saving` the batch; `error` the last
  * refusal (`SkinRefusedError` or another `WriteError`) until `reset`; `saved` true after a save until `reset` or another
  * write. `signer` is null without a signer that writes skins: read only.
@@ -127,7 +128,10 @@ export function useSkinWrites(playerId: string | null) {
     mutationFn: (write) => {
       if (!signer) return Promise.reject(new Error("Connect to buy and switch skins"));
       setSaved(false);
-      return write.kind === "buy" ? signer.buySkin(write.theme, write.plan) : signer.setSkins(write.changes);
+      if (write.kind === "save") return signer.setSkins(write.changes);
+      const prices = skinViews(sources.views);
+      if (!prices) return Promise.reject(new Error("The skins' prices cannot be read on this network: nothing was sent"));
+      return signer.buySkin({ theme: write.theme, plan: write.plan, confirmedPrice: write.price }, prices);
     },
     onSuccess: ({ events }, write) => {
       if (playerId) applySkinEvents(client, playerId, events);
@@ -136,7 +140,10 @@ export function useSkinWrites(playerId: string | null) {
     onSettled: (_result, _error, write) => {
       if (!playerId) return;
       void client.invalidateQueries({ queryKey: write.kind === "buy" ? skinKeys.owned(playerId, write.theme) : skinKeys.active(playerId) });
-      if (write.kind === "buy") void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
+      if (write.kind !== "buy") return;
+      void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
+      // A refused price change shows the new price on the card.
+      void client.invalidateQueries({ queryKey: skinKeys.prices(write.theme) });
     },
   });
   const pending = mutation.isPending ? mutation.variables : undefined;
@@ -150,7 +157,7 @@ export function useSkinWrites(playerId: string | null) {
       mutation.reset();
       setSaved(false);
     },
-    buy: (theme: number, plan: number) => mutation.mutateAsync({ kind: "buy", theme, plan }),
+    buy: (theme: number, plan: number, price: number) => mutation.mutateAsync({ kind: "buy", theme, plan, price }),
     save: (changes: SkinChange[]) => mutation.mutateAsync({ kind: "save", changes }),
   };
 }

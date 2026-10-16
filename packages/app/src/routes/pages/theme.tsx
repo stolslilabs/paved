@@ -72,9 +72,11 @@ export default function Page() {
           : null;
 
   const buy = (plan: number) => {
-    if (!available) return;
+    // The price the card shows: the writer reads `skin_price` again at send and refuses another.
+    const price = read.data?.prices[plan - 1];
+    if (!available || !price) return;
     writes.reset();
-    writes.buy(code, plan).then(
+    writes.buy(code, plan, price).then(
       () => toast.success("Skin bought", { description: "Switch it on, then save." }),
       () => undefined,
     );

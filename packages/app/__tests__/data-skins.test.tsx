@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { activeThemes, type CobbleAccount } from "@paved/chain";
+import { SkinPriceChangedError, activeThemes, type CobbleAccount } from "@paved/chain";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
 import { applySkinEvents, skinChanges, skinKeys, unpackActive, useSkinWrites, useThemeSkins } from "../src/data/skins";
@@ -89,10 +89,23 @@ describe("useSkinWrites", () => {
     const { result } = renderData(() => ({ read: useThemeSkins(PLAYER_ID, 1), writes: useSkinWrites(PLAYER_ID) }), sources);
     await waitFor(() => expect(result.current.read.data).toBeDefined());
     const before = views.calls.length;
-    await act(() => result.current.writes.buy(1, 10));
+    await act(() => result.current.writes.buy(1, 10, 55));
     expect(writer.sent).toEqual([{ buy: { theme: 1, plan: 10 } }]);
     await waitFor(() => expect(result.current.read.data?.balance).toBe(185));
     await waitFor(() => expect(views.calls.slice(before)).toEqual(expect.arrayContaining([`skins ${BigInt(PLAYER_ID)} 1`, `account ${BigInt(PLAYER_ID)}`])));
+  });
+
+  it("buys at the price the card showed: a price changed since sends nothing, and the new price is read again", async () => {
+    const { sources, writer, views } = skinsSetup();
+    const { result } = renderData(() => ({ read: useThemeSkins(PLAYER_ID, 1), writes: useSkinWrites(PLAYER_ID) }), sources);
+    await waitFor(() => expect(result.current.read.data?.prices[9]).toBe(55));
+    // The owner raises the price after the card was read.
+    views.skinPriceTable.set("1:10", 70);
+    await act(() => result.current.writes.buy(1, 10, 55).catch(() => undefined));
+    await waitFor(() => expect(result.current.writes.error).toBeInstanceOf(SkinPriceChangedError));
+    expect(writer.sent).toEqual([]);
+    expect(result.current.read.data?.balance).toBe(240);
+    await waitFor(() => expect(result.current.read.data?.prices[9]).toBe(70));
   });
 
   it("saves a batch in one write; a refusal is the error, saved only after a success", async () => {
@@ -112,6 +125,6 @@ describe("useSkinWrites", () => {
     const { sources } = skinsSetup();
     const { result } = renderData(() => useSkinWrites(PLAYER_ID), { ...sources, signer: { address: PLAYER_ID } as unknown as GameSigner });
     expect(result.current.signer).toBeNull();
-    await expect(result.current.buy(1, 10)).rejects.toThrow(/Connect/);
+    await expect(result.current.buy(1, 10, 55)).rejects.toThrow(/Connect/);
   });
 });

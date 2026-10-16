@@ -4,7 +4,7 @@ import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type 
 import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { SKIN_PLANS, isSkinPlan, type SkinChange } from "./skins";
+import { SKIN_PLANS, isSkinPlan, type SkinChange, type SkinViews } from "./skins";
 import { gameContract, type GameKey } from "./views";
 
 export interface Call {
@@ -194,6 +194,22 @@ export class SkinRefusedError extends WriteError {
   constructor(readonly reason: SkinRefusal, transactionHash?: string) {
     super(SKIN_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
     this.name = "SkinRefusedError";
+  }
+}
+
+/** A skin's purchase as the player confirmed it: the plan, the theme, and the price in Cobbles the card showed. */
+export interface BuySkinRequest {
+  theme: number;
+  plan: number;
+  /** The price the card showed, in Cobbles (`skin_price`). Another price at send sends nothing. */
+  confirmedPrice: number;
+}
+
+/** The skin's price at send is not the one the card showed (the owner changed it, or took it off sale): nothing was sent. */
+export class SkinPriceChangedError extends WriteError {
+  constructor(readonly confirmed: number, readonly current: number) {
+    super(current === 0 ? "This skin is not for sale any more. Nothing was sent." : "This skin's price changed: check the new price and buy again. Nothing was sent.");
+    this.name = "SkinPriceChangedError";
   }
 }
 
@@ -468,12 +484,25 @@ export class PavedWriter {
    * `Setup.buy_skin(theme, plan)`: the caller buys the skin of `plan` (1 to 19) in `theme` (1 to 255) for its price in
    * Cobbles, once; buying does not activate it. The receipt's `SkinBought` carries the price and the balance after. A
    * refusal is a `SkinRefusedError` (owned, not for sale, not enough Cobbles): nothing moved. Theme 0 (the default, free)
-   * and a plan outside 1 to 19 are refused before anything is sent, as is a deployment without Setup.
+   * and a plan outside 1 to 19 are refused before anything is sent, as is a deployment without Setup. `skin_price` is read
+   * again inside the serialised send (`views.skinPrice`): a price other than `confirmedPrice`, the one the card showed, is a
+   * `SkinPriceChangedError` and nothing is sent, as for a pack (`PackPriceChangedError`); a failed read sends nothing.
    */
-  buySkin(theme: number, plan: number): Promise<WriteResult> {
+  buySkin(request: BuySkinRequest, views: Pick<SkinViews, "skinPrice">): Promise<WriteResult> {
+    const { theme, plan, confirmedPrice } = request;
     if (!this.options.deployment.addresses.Setup) return Promise.reject(new WriteError("No Setup contract in this deployment: no skin is for sale"));
     if (!Number.isInteger(theme) || theme < 1 || theme > 255 || !isSkinPlan(plan)) return Promise.reject(new SkinRefusedError("invalid-skin"));
-    return this.send("Setup", [this.call("Setup", "buy_skin", [theme, plan])]).catch(skinRevert);
+    if (!Number.isInteger(confirmedPrice) || confirmedPrice <= 0) return Promise.reject(new WriteError("No confirmed price for this skin: nothing was sent"));
+    return this.serialised(async () => {
+      let current: number;
+      try {
+        current = await views.skinPrice(theme, plan);
+      } catch (error) {
+        throw new WriteError(`Cannot read the skin's price: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      if (current !== confirmedPrice) throw new SkinPriceChangedError(confirmedPrice, current);
+      return this.sendNow("Setup", [this.call("Setup", "buy_skin", [theme, plan])]);
+    }).catch(skinRevert);
   }
 
   /**

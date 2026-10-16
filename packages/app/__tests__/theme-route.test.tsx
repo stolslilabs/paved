@@ -116,6 +116,17 @@ describe("/settings/theme (P11b)", () => {
     expect(activeCount().textContent).toBe("1 of 19 active");
   });
 
+  it("a skin whose price changed since the card was read: nothing is sent, the refusal is said, the card reads the new price", async () => {
+    const s = setup();
+    open(s);
+    const buy = await buyButton(10);
+    s.views.skinPriceTable.set(`${FOREST}:10`, 70);
+    await userEvent.click(buy);
+    expect(await screen.findByText("This skin's price changed: check the new price and buy again. Nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(s.writer.sent).toEqual([]);
+    await waitFor(async () => expect(await cell(10)).toHaveTextContent("70"));
+  });
+
   it("shows a purchase on its way, the other Buy buttons waiting", async () => {
     const s = setup();
     let release!: () => void;

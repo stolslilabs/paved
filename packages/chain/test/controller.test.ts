@@ -91,7 +91,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
         { kind: "credit", credit: "weekly", period: 2_857 },
       ]),
     // The skins (cobbles v1, part 3): a purchase and a batch of switches, Cobbles only, no token.
-    "skin purchase": () => writer.buySkin(1, 7),
+    "skin purchase": () => writer.buySkin({ theme: 1, plan: 7, confirmedPrice: 75 }, { skinPrice: async () => 75 }),
     "skins saved": () => writer.setSkins([{ plan: 7, theme: 1 }, { plan: 13, theme: 0 }]),
     // Play free: `Challenge.spawn_free()`, no token moves; the empty receipt makes the write throw after sending.
     "play free": () => writer.spawnFree(),
