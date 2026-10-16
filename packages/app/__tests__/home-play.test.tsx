@@ -90,7 +90,7 @@ describe("/ (P6): home on its data", () => {
 });
 
 describe("/play (P6): the mode choice", () => {
-  const challenge = () => screen.getByText("The daily ranked game: stake 1 to 10, beat the threshold, earn $TILE.");
+  const challenge = () => screen.getByText("The daily ranked game: stake 1 to 10, beat the threshold, earn PAVED.");
 
   it("a guest: the Challenge connects first; Multiplayer is coming soon", async () => {
     const { router, wallet } = open("/play", { guest: true });

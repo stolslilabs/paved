@@ -64,3 +64,12 @@ describe("color-math", () => {
     expect(contrast(t["primary-foreground"]!, t.primary!)).toBeGreaterThan(4.5);
   });
 });
+
+describe("the token names on screen", () => {
+  it("agree with the chain's labels, and $TILE is gone", async () => {
+    const { PAVED_LABEL, VPAVED_LABEL } = await import("@paved/chain");
+    const { TOKENS } = await import("../src/components/elements/amount");
+    expect(TOKENS.paved.symbol).toBe(PAVED_LABEL);
+    expect(TOKENS.vpaved.symbol).toBe(VPAVED_LABEL);
+  });
+});

@@ -49,10 +49,10 @@ describe("SC2 helpers", () => {
   });
 
   it("takes the exit fee with V1b's rounding: inside a redeem, on top of a withdraw (vault.cairo:233, :240, :299)", () => {
-    // max_withdraw = value - ceil(value x 500 / 10,500), the value 1,355.68... $TILE.
+    // max_withdraw = value - ceil(value x 500 / 10,500), the value 1,355.68... PAVED.
     expect(VAULT_HELD.maxWithdraw).toBe(VAULT_HELD.value - (VAULT_HELD.value * 500n + 10_499n) / 10_500n);
     expect(VAULT_HELD.maxWithdraw).toBe(1_291_127_314_285_714_285_713n);
-    // withdraw 500: the shares of 500 + ceil(500 x 500 / 10,000) = 525 $TILE, rounded up.
+    // withdraw 500: the shares of 500 + ceil(500 x 500 / 10,000) = 525 PAVED, rounded up.
     expect(PREVIEW_WITHDRAW_500).toBe(484_228_002_213_613_724_406n);
   });
 
@@ -173,7 +173,7 @@ describe("Vault", () => {
     render(wrap(<VaultScene {...VAULT.position} />));
     const position = screen.getByRole("region", { name: "Your position" });
     expect(position).toHaveTextContent("1,250.40vPAVED");
-    expect(position).toHaveTextContent("1,355.68$TILE");
+    expect(position).toHaveTextContent("1,355.68PAVED");
     expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,291.12");
     expect(within(position).getByText("Rate").closest("div")?.parentElement).toHaveTextContent("1 : 1.0841");
     expect(within(position).getByText("Exit fee").closest("div")?.parentElement).toHaveTextContent("5%");
@@ -223,7 +223,7 @@ describe("Vault", () => {
   it("shows the exit fee before a withdraw is sent: on top of the amount, and inside Withdraw all", () => {
     render(wrap(<VaultScene {...VAULT.position} />));
     const before = screen.getByLabelText("Before you withdraw");
-    // 5 % of 500 $TILE, on top.
+    // 5 % of 500 PAVED, on top.
     expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("25.00");
     expect(before).toHaveTextContent(/You receive\s*500.00/);
     // Withdraw all pays max_withdraw, the value less it taken.
@@ -264,24 +264,24 @@ describe("Vault", () => {
     expect(screen.getByRole("button", { name: "Deposit" })).toBeEnabled();
     unmount();
     const deposited = render(wrap(<VaultScene {...VAULT.deposited} />));
-    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("100.00 $TILE in the Vault for 92.23 vPAVED.");
+    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("100.00 PAVED in the Vault for 92.23 vPAVED.");
     deposited.unmount();
     render(wrap(<VaultScene {...VAULT.withdrawn} />));
-    expect(screen.getByText("Withdrawn").parentElement).toHaveTextContent("500.00 $TILE sent to your wallet");
+    expect(screen.getByText("Withdrawn").parentElement).toHaveTextContent("500.00 PAVED sent to your wallet");
   });
 
   it("refuses a withdraw over max_withdraw before any send", () => {
     render(wrap(<VaultScene {...VAULT.overMax} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("at most 1,291.12 $TILE now, the exit fee taken. Nothing was sent.");
+    expect(screen.getByRole("alert")).toHaveTextContent("at most 1,291.12 PAVED now, the exit fee taken. Nothing was sent.");
     expect(screen.getByRole("textbox", { name: "Amount to withdraw" })).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("button", { name: "Withdraw" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Withdraw all/ })).toBeEnabled();
   });
 
-  it("sends a player with no $TILE to play", async () => {
+  it("sends a player with no PAVED to play", async () => {
     const onPlay = vi.fn();
     render(wrap(<VaultScene {...VAULT.noPaved} onPlay={onPlay} />));
-    expect(screen.getByRole("status")).toHaveTextContent("No $TILE in your wallet");
+    expect(screen.getByRole("status")).toHaveTextContent("No PAVED in your wallet");
     expect(screen.queryByRole("button", { name: "Deposit" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(onPlay).toHaveBeenCalledOnce();

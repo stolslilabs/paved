@@ -125,7 +125,7 @@ export function HomeScene(props: HomeSceneProps) {
             featured
             icon="trophy"
             title="Challenge"
-            description="Today's ranked game. Beat the threshold to earn $TILE."
+            description="Today's ranked game. Beat the threshold to earn PAVED."
             badge="Daily"
             disabled={spawnPaused}
             reason="Purchases paused"

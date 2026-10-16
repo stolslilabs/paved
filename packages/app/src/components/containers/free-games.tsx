@@ -86,7 +86,7 @@ export function FreeGames({ credits, daily, weekly, busy, onClaim, onPlayFree, c
           {weekly && <ClaimRow kind="weekly" claim={weekly} busy={busy} onClaim={onClaim} />}
         </ul>
       )}
-      <p className="text-[11px] text-muted-foreground">Only paid games count towards a free game. A free game ranks like any other and pays no $TILE.</p>
+      <p className="text-[11px] text-muted-foreground">Only paid games count towards a free game. A free game ranks like any other and pays no PAVED.</p>
     </section>
   );
 }

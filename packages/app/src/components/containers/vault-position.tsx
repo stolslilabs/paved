@@ -34,7 +34,7 @@ export interface VaultPositionProps {
 }
 
 /**
- * A holder's vPAVED (V1b, P-56): the shares, their $TILE at the rate, what leaves now once the exit fee is taken
+ * A holder's vPAVED (V1b, P-56): the shares, their PAVED at the rate, what leaves now once the exit fee is taken
  * (`max_withdraw`), the rate and the fee. No claim: the rate is the reward, raised by every purchase's margin and exit fee.
  */
 export function VaultPosition({ position, delegate, className }: VaultPositionProps) {
@@ -64,7 +64,7 @@ export function VaultPosition({ position, delegate, className }: VaultPositionPr
         hint="Of every vPAVED, the dead shares included"
         value={share === 0 && position.shares > 0n ? "< 0.01%" : formatBps(share)}
       />
-      <StatRow icon="arrow-trend-up" label="Rate" hint="$TILE per vPAVED, rises with every purchase" value={`1 : ${formatUnits(rate, 18, 4)}`} tone="success" />
+      <StatRow icon="arrow-trend-up" label="Rate" hint="PAVED per vPAVED, rises with every purchase" value={`1 : ${formatUnits(rate, 18, 4)}`} tone="success" />
       <StatRow icon="percent" label="Exit fee" hint="Kept in the Vault for the other holders" value={formatBps(position.exitFeeBps)} />
       <StatRow icon="piggy-bank" label="In the Vault" hint="All holders" value={<Amount value={position.totalAssets} token="paved" />} tone="muted" />
       {delegate !== undefined && (

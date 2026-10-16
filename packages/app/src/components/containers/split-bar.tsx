@@ -18,7 +18,7 @@ export interface SplitBarProps {
  */
 export function SplitBar({ split, highlight, className }: SplitBarProps) {
   const parts = [
-    { key: "burn", label: "Burned", bps: split.burn, hint: "buys $TILE, burns it" },
+    { key: "burn", label: "Burned", bps: split.burn, hint: "buys PAVED, burns it" },
     { key: "vault", label: "Vault", bps: split.vault - split.referral, hint: "the referral included" },
     { key: "referral", label: "Referral", bps: split.referral, hint: "out of the Vault's part" },
   ] as const;

@@ -11,7 +11,7 @@ import { addressKey } from "./keys";
 /** What was bought: a Challenge game, or a pack of Cobbles. */
 export type PurchaseKind = "game" | "pack";
 
-/** The unknown purchase of a player and kind: its transaction hash and when it was recorded (seconds). */
+/** The unknown purchase of a player and kind: its transaction hash and when it was sent (seconds). */
 export interface UnknownPurchase {
   hash: string;
   at: number;
@@ -100,9 +100,11 @@ export function useUnknownPurchase(playerId: string | null, kind: PurchaseKind) 
     return () => window.removeEventListener("storage", onStorage);
   }, [client, playerId, kind]);
   const record = useCallback(
-    (hash: string) => playerId !== null && writeUnknownPurchase(client, playerId, kind, { hash, at: Math.floor(Date.now() / 1000) }),
+    (hash: string, at = Math.floor(Date.now() / 1000)) => playerId !== null && writeUnknownPurchase(client, playerId, kind, { hash, at }),
     [client, playerId, kind],
   );
+  // Read at each render: a write that fails sets it before the cache's copy is, which renders again.
+  const unsaved = playerId !== null && failedWrites.has(unknownPurchaseStorageKey(playerId, kind));
   const clear = useCallback(() => playerId !== null && writeUnknownPurchase(client, playerId, kind, null), [client, playerId, kind]);
-  return { unknown: playerId === null ? null : (query.data ?? null), isPending: playerId !== null && query.isPending, record, clear };
+  return { unknown: playerId === null ? null : (query.data ?? null), isPending: playerId !== null && query.isPending, unsaved, record, clear };
 }

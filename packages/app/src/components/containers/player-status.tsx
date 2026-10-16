@@ -14,7 +14,7 @@ export interface PlayerStatusData {
   today: LeaderboardEntry | null;
   /** USDC base units (`balance_of`). */
   usdc: bigint;
-  /** PAVED base units, shown as $TILE. */
+  /** PAVED base units, shown as PAVED. */
   paved: bigint;
 }
 
@@ -75,7 +75,7 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
         <Figure label="USDC" className="col-span-2 mobile:col-span-1">
           <Amount value={data.usdc} token="usdc" />
         </Figure>
-        <Figure label="$TILE" className="col-span-2 mobile:col-span-1">
+        <Figure label="PAVED" className="col-span-2 mobile:col-span-1">
           <Amount value={data.paved} token="paved" />
         </Figure>
       </div>

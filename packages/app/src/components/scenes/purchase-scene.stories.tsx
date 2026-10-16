@@ -82,6 +82,14 @@ export const OutcomeUnknownChecked: Story = { args: { ...PURCHASE.stake1, refusa
 export const OutcomeUnknownCheckFailed: Story = {
   args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
 };
+/** Retry is fetching: Retry and Dismiss wait for its answer. */
+export const OutcomeUnknownRetrying: Story = {
+  args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, checkRetrying: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
+};
+/** A send landed after the player switched account: its game waits to be opened. */
+export const GameReady: Story = {
+  args: { ...PURCHASE.stake1, refusal: { kind: "ready", message: "Your purchase landed after you switched account: your game is waiting." }, onOpenReady: fn() },
+};
 /** The receipt of the unknown purchase read since: it went through. */
 export const EarlierPurchaseLanded: Story = {
   args: { ...PURCHASE.stake1, refusal: { kind: "landed", message: "Your earlier purchase went through: check your games before buying again." }, onCheckGames: fn() },

@@ -102,7 +102,7 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
     expect(within(region).getByText("Exit fee").parentElement).toHaveTextContent("5%");
     expect(within(region).getByText("Withdrawable now").parentElement).toHaveTextContent("238.09");
     expect(within(region).getByText("Votes").parentElement).toHaveTextContent("Not delegated");
-    expect(document.body).toHaveTextContent(/Wallet\s*50.00\s*\$TILE/);
+    expect(document.body).toHaveTextContent(/Wallet\s*50.00\s*\PAVED/);
     expect(s.economy.calls).toEqual(expect.arrayContaining([`vault ${PLAYER}`, `paved ${PLAYER}`, `delegates ${PLAYER}`]));
   });
 
@@ -137,7 +137,7 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
     await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledOnce());
     expect(s.writes.deposit).toHaveBeenCalledWith(125n * 10n ** 17n, { confirmedAmount: 125n * 10n ** 17n });
     expect(await screen.findByText("Deposited")).toBeInTheDocument();
-    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("12.50 $TILE in the Vault for 12.50 vPAVED.");
+    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("12.50 PAVED in the Vault for 12.50 vPAVED.");
     expect(field(/Amount to deposit/)).toHaveValue("");
   });
 
@@ -166,7 +166,7 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
     open(s);
     await position();
     await userEvent.type(field(/Amount to deposit/), "3.000000000000000001");
-    expect(screen.getByRole("alert")).toHaveTextContent("Not enough $TILE");
+    expect(screen.getByRole("alert")).toHaveTextContent("Not enough PAVED");
     expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
     expect(s.writes.deposit).not.toHaveBeenCalled();
   });
@@ -286,7 +286,7 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
       [BigInt(ECON.vault), "deposit", [...u256(2n * P), PLAYER]],
     ]);
     expect(await screen.findByText("Deposited")).toBeInTheDocument();
-    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("2.00 $TILE in the Vault for 2.00 vPAVED.");
+    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("2.00 PAVED in the Vault for 2.00 vPAVED.");
   });
 });
 

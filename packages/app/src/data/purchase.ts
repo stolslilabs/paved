@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
@@ -136,6 +136,39 @@ export function useEffectiveReferrer(kind: "game" | "pack", ref: string | null):
   return { referrer: ref, dropped: false, isPending: true };
 }
 
+/**
+ * How long a wallet may take to answer a purchase before the page stops waiting: 5 minutes. A prompt the player reads, signs
+ * and sees included takes a minute or two on a slow network, so a shorter limit would call a slow but honest send "unknown";
+ * a promise still pending after 5 minutes is the wallet's hang (a closed popup, a dead extension), which would otherwise hold
+ * Pay on "Confirm in your wallet" for good.
+ */
+export const PURCHASE_TIMEOUT_MS = 300_000;
+
+/**
+ * The wallet did not answer in `PURCHASE_TIMEOUT_MS`: the purchase may still be signed and land, so the outcome is unknown.
+ * It carries no hash (none was given), so nothing can be recorded or checked by receipt; the page says so and offers Buy
+ * again, which the writer refuses ("Another write is pending") while the hung send still holds the account's write.
+ */
+export class PurchaseTimedOutError extends Error {
+  constructor() {
+    super(`Your wallet did not answer in ${PURCHASE_TIMEOUT_MS / 60_000} minutes: the purchase may still go through. Check your wallet and your balance before buying again.`);
+    this.name = "PurchaseTimedOutError";
+  }
+}
+
+/** `send`'s answer, or `PurchaseTimedOutError` when it is still pending after `ms`. The send itself is not cancelled. */
+export function withPurchaseTimeout<T>(send: Promise<T>, ms = PURCHASE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new PurchaseTimedOutError()), ms);
+    send.then(
+      (value) => (clearTimeout(timer), resolve(value)),
+      (error: unknown) => (clearTimeout(timer), reject(error)),
+    );
+  });
+}
+
+const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
 /** The outcome of a send is unknown: the player must see the reconciling reads before buying again. */
 const outcomeUnknown = (error: Error | null): error is WriteError =>
   (error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError) && !!error.transactionHash;
@@ -152,7 +185,7 @@ export type PurchaseResolution = "succeeded" | "reverted";
  * (`resolved`) clears the record.
  */
 export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
-  const { unknown, isPending, clear } = useUnknownPurchase(playerId, kind);
+  const { unknown, isPending, unsaved, clear } = useUnknownPurchase(playerId, kind);
   const buyer = usePurchases();
   const { economy, events, views } = useDataSources();
   const client = useQueryClient();
@@ -213,6 +246,10 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
     held: checking || failed || (hash !== null && buyer === null),
     checking,
     failed,
+    /** Retry is fetching: Dismiss waits for its answer. */
+    retrying: failed && check.isFetching,
+    /** The record could not be written to storage: it holds in this tab only. */
+    unsaved,
     retry: () => void check.refetch(),
     resolved,
     dismiss: () => setResolved(null),
@@ -238,9 +275,23 @@ function useSending(kind: PurchaseKind, playerId: string | null): boolean {
   return playerId !== null && senders.some((sender) => sender !== null && addressKey(sender) === addressKey(playerId));
 }
 
-/** Records an unknown outcome under the player who sent it. */
-function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string): void {
-  if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: Math.floor(Date.now() / 1000) });
+/** The query key of the game a send opened for `playerId` and the page has not opened yet (`local`: the browser's state). */
+const readyKey = (kind: PurchaseKind, playerId: string) => ["local", "purchaseReady", kind, addressKey(playerId)] as const;
+
+/**
+ * The game bought by a send whose page was gone when it landed (a change of player resets the page's mutation, so its own
+ * `onSuccess` never runs): its id until the player opens it (`open`) or buys again (`clear`). Null otherwise.
+ */
+function useReady(kind: PurchaseKind, playerId: string | null) {
+  const client = useQueryClient();
+  const { data } = useQuery({ queryKey: readyKey(kind, playerId ?? "0x0"), queryFn: () => null as number | null, enabled: false, initialData: null as number | null });
+  const clear = useCallback(() => playerId !== null && client.setQueryData(readyKey(kind, playerId), null), [client, kind, playerId]);
+  return { gameId: playerId === null ? null : data, clear };
+}
+
+/** Records an unknown outcome under the player who sent it, stamped with the time of the send (`sentAt`), not of the outcome. */
+function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string, sentAt: number | undefined): void {
+  if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: sentAt ?? nowSeconds() });
 }
 
 /**
@@ -253,10 +304,13 @@ export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("game", playerId);
-  const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>>({
+  const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("game"),
-    mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
-    onError: (error, { playerId: sender }) => recordUnknown(client, "game", error, sender),
+    mutationFn: ({ playerId: _sender, ...request }) => withPurchaseTimeout(buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
+    onMutate: () => ({ sentAt: nowSeconds() }),
+    // The game is kept for its sender: a send that lands after a change of player has no page to open it (`ready`).
+    onSuccess: ({ gameId }, { playerId: sender }) => client.setQueryData(readyKey("game", sender), gameId),
+    onError: (error, { playerId: sender }, context) => recordUnknown(client, "game", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => {
       // A refusal may come from a moved price or a pause: those reads are stale too.
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
@@ -273,7 +327,8 @@ export function usePurchase(playerId: string | null) {
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
   const sending = useSending("game", playerId);
-  return { buyer, mutation, hold, sending };
+  const ready = useReady("game", playerId);
+  return { buyer, mutation, hold, sending, ready };
 }
 
 /** A pack's receipt into the cache: the Cobbles balance `PackBought` carries. */
@@ -291,11 +346,12 @@ export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("pack", playerId);
-  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>>({
+  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("pack"),
-    mutationFn: ({ playerId: _sender, ...request }) => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
+    mutationFn: ({ playerId: _sender, ...request }) => withPurchaseTimeout(buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
+    onMutate: () => ({ sentAt: nowSeconds() }),
     onSuccess: ({ bought }, { playerId: sender }) => applyPackBought(client, sender, bought),
-    onError: (error, { playerId: sender }) => recordUnknown(client, "pack", error, sender),
+    onError: (error, { playerId: sender }, context) => recordUnknown(client, "pack", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => {
       void client.invalidateQueries({ queryKey: packKeys.packs() });
       void client.invalidateQueries({ queryKey: ["chain", "economy"] });
@@ -332,6 +388,7 @@ export function purchaseRefusal(error: Error): PurchaseRefusal {
     return { kind: "low-quote", message: "The pool quotes far less PAVED than the guard rate for this purchase. Buy anyway, or try later." };
   }
   if (error instanceof SpawnPausedError) return { kind: "paused", message: error.message };
+  if (error instanceof PurchaseTimedOutError) return { kind: "unknown", message: error.message };
   if (error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError) return { kind: "unknown", message: error.message };
   return { kind: "refused", message: error.message };
 }

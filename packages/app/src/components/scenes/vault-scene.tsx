@@ -16,7 +16,7 @@ import { VaultPosition } from "../containers/vault-position";
  */
 export type VaultStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string };
 
-const SUBTITLE = "Deposit $TILE for vPAVED";
+const SUBTITLE = "Deposit PAVED for vPAVED";
 
 export interface VaultSceneProps {
   /** The economy's addresses are configured (`EconomyDeployment.configured`); false: nothing to read or send. */
@@ -29,7 +29,7 @@ export interface VaultSceneProps {
   /** `Economy.split_bps()`: the Vault's part of each purchase. */
   split: SplitView | null;
   mode: VaultMode;
-  /** The amount typed, in $TILE. */
+  /** The amount typed, in PAVED. */
   amount: string;
   /** `preview_deposit` / `preview_withdraw` of the typed amount; null until read. */
   preview: bigint | null;
@@ -53,7 +53,7 @@ export interface VaultSceneProps {
 }
 
 /**
- * The Vault (`/vault`, V1b's vPAVED, P-56): $TILE deposited for vPAVED, whose rate rises with the Vault's part of every
+ * The Vault (`/vault`, V1b's vPAVED, P-56): PAVED deposited for vPAVED, whose rate rises with the Vault's part of every
  * purchase and every exit fee; the position, its value, its share of the Vault and `max_withdraw`; deposit, withdraw and
  * withdraw all, each exit with its fee shown before it is sent. No stake, no claim, no dividend: the rate is the reward.
  */
@@ -72,7 +72,7 @@ export function VaultScene(props: VaultSceneProps) {
         <div className="flex flex-col gap-4 desktop:max-w-xl">
           {status.kind === "guest" ? (
             <Notice title="Connect to use the Vault" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-              Your vPAVED, its worth and your $TILE are read for your account.
+              Your vPAVED, its worth and your PAVED are read for your account.
             </Notice>
           ) : status.kind === "error" ? (
             <Notice tone="danger" title="The Vault cannot be read" action={<Button size="sm" onClick={props.onRetry}>Retry</Button>}>
@@ -111,7 +111,7 @@ export function VaultScene(props: VaultSceneProps) {
                 <Icon name="piggy-bank" size="xl" className="text-primary" />
                 <p className="text-sm font-semibold">No vPAVED yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">
-                  Deposit $TILE to hold vPAVED. Its rate rises with every purchase; there is nothing to claim, you withdraw at the rate.
+                  Deposit PAVED to hold vPAVED. Its rate rises with every purchase; there is nothing to claim, you withdraw at the rate.
                 </p>
               </div>
             ) : (
@@ -124,7 +124,7 @@ export function VaultScene(props: VaultSceneProps) {
               <h2 className="font-display text-sm font-semibold">Where each purchase goes</h2>
               <SplitBar split={split} highlight="vault" />
               <p className="text-xs text-muted-foreground">
-                The Vault's part is swapped for $TILE and added to the Vault, which raises the rate for every holder. With a referrer, the referral is paid out
+                The Vault's part is swapped for PAVED and added to the Vault, which raises the rate for every holder. With a referrer, the referral is paid out
                 of it.
               </p>
             </section>
@@ -135,14 +135,14 @@ export function VaultScene(props: VaultSceneProps) {
           {nothing ? (
             <Notice
               tone="info"
-              title="No $TILE in your wallet"
+              title="No PAVED in your wallet"
               action={
                 <Button size="sm" onClick={props.onPlay}>
                   Play
                 </Button>
               }
             >
-              $TILE is minted to Challenge games that beat their threshold. Earn some, then deposit it here.
+              PAVED is minted to Challenge games that beat their threshold. Earn some, then deposit it here.
             </Notice>
           ) : (
             <VaultForm
