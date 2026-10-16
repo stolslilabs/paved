@@ -1,5 +1,6 @@
 import type { TileData } from "@paved/game-core";
 import type { RendererSettingsInput } from "./settings";
+import type { AssetManifest } from "./AssetLoader";
 
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
@@ -21,6 +22,11 @@ export interface RendererConfig {
   effectsCapabilities?: EffectsCapabilities;
   /** Outlines, camera zoom limits and the pixel-ratio cap (`settings.ts`); unnamed fields take the defaults. */
   settings?: RendererSettingsInput;
+  /**
+   * The asset manifest, for a host that serves none at `<basePath>/manifest.json` but knows its files (a story that draws
+   * skins): read instead of fetching it. Unset: the loader reads `<basePath>/manifest.json`.
+   */
+  manifest?: AssetManifest;
 }
 
 export interface SurfaceSize {
@@ -81,4 +87,9 @@ export interface HoverState {
   idle: boolean;
   planIndex: number;
   orientation: number;
+  /**
+   * The hovered cell as a tile there would be (the contracts' x and y, the game's id): the ghost draws the skin variant
+   * that cell's tile would (`setSkins`). Unset: the plan's base model.
+   */
+  cell?: { x: number; y: number; gameId: number };
 }

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { HoverState, TileRenderData } from "@paved/renderer";
+import type { HoverState, TileRenderData, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
@@ -49,7 +49,13 @@ export interface BoardGhost {
 
 export interface BoardViewportProps {
   tiles: BoardTile[];
+  /** The game's id: with each tile's x and y, it picks the tile's skin variant (the same for every viewer and reload). */
   gameId?: number;
+  /**
+   * The theme of each plan (`useBoardSkins`: the active skins of the player whose board this is): skinned plans draw a
+   * variant per tile, the others their base models. Unset: every tile on its base model.
+   */
+  skins?: TileSkins;
   /**
    * Where the renderer finds `models/<plan>.glb` and `assets/tiles/<plan>.png`. The files are app-web's `public/`; this
    * package serves them once its Storybook and build map that folder (escalated with SC1).
@@ -68,18 +74,23 @@ export interface BoardViewportProps {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, basePath, slots, ghost, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
   const gridSlots = useMemo(() => (slots ?? []).map((s) => toGridSlot(s.x, s.y)), [slots]);
   const hover = useMemo<HoverState | null>(
-    () => (ghost ? { ...toGridSlot(ghost.x, ghost.y), valid: true, idle: true, planIndex: ghost.plan, orientation: ghost.orientation } : null),
-    [ghost],
+    // The ghost draws the variant the tile would have in the cell it hovers.
+    () =>
+      ghost
+        ? { ...toGridSlot(ghost.x, ghost.y), valid: true, idle: true, planIndex: ghost.plan, orientation: ghost.orientation, cell: { x: ghost.x, y: ghost.y, gameId } }
+        : null,
+    [ghost, gameId],
   );
   return (
     <div className={cn("absolute inset-0 bg-board", className)}>
       <GameCanvas
         tiles={renderTiles}
         basePath={basePath}
+        skins={skins}
         availableSlots={gridSlots}
         hover={hover}
         onError={onError}

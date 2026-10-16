@@ -64,6 +64,7 @@ export function createFakeSceneClass(scenes: unknown[]) {
     setCompassRotation = vi.fn();
     setCameraMode = vi.fn();
     setSettings = vi.fn();
+    setSkins = vi.fn();
     constructor() {
       scenes.push(this);
     }
