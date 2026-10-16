@@ -889,7 +889,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     | Mac | 35 tiles | 597 → 559 | 16,455,270 → 2,220,186 B |
 
     All transferred by 5 s after the first frame: 16,457,682 → 2,604,769 B (fresh). The rest of the first view is the app's
-    code and fonts, the largest Font Awesome's `solid.min.js` (669,527 B). Draco (gltf-transform's defaults, edgebreaker),
+    code and fonts, the largest Font Awesome's `solid.min.js` (669,527 B then; since Q3 (c) it is a subset of 41,071 B, 15,794 B gzipped, section 8). Draco (gltf-transform's defaults, edgebreaker),
     measured the same way (a hand-made build; its loader fetched each first model twice, about 20 KB each): 427,204 B for the 19 models and 250,876 B of decoder; first view 1,423,921 B fresh and
     1,795,893 B at 35 tiles; first frame on the phone-like profile 739 ms fresh, 1,177 ms at 35 tiles. meshopt was chosen:
     positions lossless and normals and UVs within 0.001 degree / 8e-6, where Draco quantizes (14-bit positions, 10-bit normals), the smaller and faster fresh first view,
@@ -1737,7 +1737,7 @@ them. They are unmodified, and `sha256sum` equals that of `21788fb`:
 
 `public/fontawesome/README.md` names the source; `public/THIRD_PARTY_NOTICES.txt` names the licence. **A finding:
 `thin.min.js` registers one icon, `spider-web`** (4.5 KB); the thin style is not a thin version of the set. The
-solid file holds the whole solid set. Another style, or a thin icon, needs another file from the owner.
+solid file holds the whole solid set (since Q3 (c) the whole files are in `public/fontawesome/source/` and the served ones are subsets, below). Another style, or a thin icon, needs another file from the owner.
 
 **How they load (F4).** Not as nums does, with `<script defer>` in `index.html`, and not through `<i>` tags.
 
@@ -1786,7 +1786,34 @@ observer for the first render, a CDP network and CPU throttle for the second blo
   9 Mbit/s with a slow CPU. Loaded after the first frame (`lazy`), the first paint does not move (60 against 64
   ms; 624 against 648 ms, within the noise of a run), and the icons appear when the scripts are ready, about 2.5 s
   in on that slow link. P1's tabs will show their icon boxes empty until then; **if that flash is not wanted**,
-  the next step is a smaller file than `solid.min.js` (only the icons the app uses), not the head.
+  the next step is a smaller file than `solid.min.js` (only the icons the app uses), not the head. **That step is
+  Q3 (c), below.**
+
+**The subset (Q3 (c)).** `public/fontawesome/js/solid.min.js` and `thin.min.js` are now derivatives of the owner's files, cut
+to the icons the code names; `fontawesome.min.js` (the core, 47,100 B) is unchanged. They stay self-hosted, and the licence
+header stays first in each. The owner's whole files moved, unmodified, to `public/fontawesome/source/` (same SHA-256 as in
+the table above), the input of the script. `vite.config.ts` takes that folder out of `dist/` after Vite's copy of
+`public/`, and the bundle budget fails a build that holds it.
+
+- `scripts/fa-subset.ts` (Node 24 runs it as is, no package): it reads the table of each source file
+  (`var w={"name":[width,height,[aliases],"unicode","path"],...}`), keeps the entries whose name or alias the code uses,
+  in name order, each copied as the source has it, and writes the source's own code around them. A note after the header
+  names the source's SHA-256 and the count (`67 of 3312`). `bun run fa-subset` writes the files; `--check` regenerates
+  them in memory and compares content with the committed files (never compressed sizes), and exits 1 when they differ.
+  `bun run build` runs the check first, so a stale subset fails the client job.
+- What "used" means: a string literal of `src/` that is a Font Awesome name (or alias) on a line about an icon: an
+  `<Icon>`, an `icon` prop or key, an `ICON` table, the block such a line opens (comments and props such as
+  `variant="ghost"` are left out). The Icons story is read whole, since it lists its names in a plain array. The names are
+  the 67 solid icons (the names are the keys of the table in `public/fontawesome/js/solid.min.js`) and `spider-web` for thin.
+- `__tests__/fa-subset.test.ts` holds the rule to the code: the committed files equal what the script gives; every icon a
+  component names is in the subset (the failing file is named); an `<Icon name>`, `icon=` or `icon:` literal that is not in
+  the owner's file is a typo and fails; the subset has no icon that no code names; each entry equals the source's; the header
+  is first. **A name built at run time** (a template string) is invisible to the scan: write it as literals.
+- Bytes (`gzip -9`): `solid.min.js` 2,070,771 B (670,385 gzipped) to 41,071 B (15,794); `thin.min.js` 4,505 B (2,120) to
+  4,739 B (2,276), the note being 234 B; the three files together 2,122,376 B to 92,910 B (33,332 gzipped). Parse of the
+  three scripts (`new Function`) and parse plus run (indirect `eval`), median of 15 fresh contexts, headless Chromium
+  153 on the Linux VPS, a quiet machine: 19.4 ms to 2.9 ms parse, 82.1 ms to 13.5 ms parse and run. These are not the
+  Mac's figures of the table above (a different machine and browser); the ratio is what carries.
 
 ---
 
@@ -2273,11 +2300,36 @@ gzipped); Q3's bundle budget counts it.
 
 ### Phase 3: polish
 
+**Q3 (d): the bundle budget and the route prefetch** (Q3-BUNDLE). `scripts/bundle-budget.ts` measures `dist/` and holds it to
+`scripts/bundle-budget.json`, the one place for the figures; `bun run build` runs it last, so the client job fails on a build over
+budget, and the message names the metric, the unit, the figure and the limit. Sizes are raw bytes and `gzip -9` bytes of the
+files of `dist/assets` (not the source maps). The limits are the measured sizes plus 2 %, rounded up to the next KiB:
+
+| Metric | What it counts | Measured raw / gzip | Limit raw / gzip |
+|---|---|---|---|
+| `entry` | the module script of `index.html` | 273,124 / 83,701 | 279,552 / 86,016 |
+| `largestRoute` | the biggest page chunk of `src/routes/pages` (`board`) | 854,735 / 244,650 | 872,448 / 249,856 |
+| `firstLoadJs` | the entry, the chunks `index.html` preloads, the `home` chunk and what those import statically | 649,978 / 208,981 | 663,552 / 214,016 |
+| `css` | the stylesheets of `dist/assets` | 65,462 / 11,961 | 67,584 / 12,288 |
+| `fontAwesome` | the three scripts of `dist/fontawesome/js` | 92,910 / 33,332 | 95,232 / 34,816 |
+
+A limit moves in the pull request that needs it, with the reason; a smaller build does not move it by itself (lower it by hand
+when a cut lands). `board` is the renderer, three and the engine, and is fetched only for a game.
+
+Route prefetch (`src/routes/prefetch.tsx`, `page-loaders.ts`): the pages' `import()`s are one table, shared by the router's
+`lazy` and the prefetch, so a prefetch is the page's own fetch. (1) Once the shell has rendered and the browser is idle
+(`requestIdleCallback`, or 200 ms later where it cannot tell), the five tab pages' chunks are fetched, one per idle slot. (2)
+`PrefetchOnIntent` wraps a page whose buttons lead elsewhere and fetches their chunks when the pointer first goes over it or
+focus first lands in it: Home prefetches `/play` and `/play/challenge`, and `/game/:id` when a game is in progress (Resume); Play
+prefetches `/play/challenge`. The scenes navigate from buttons, not links, so the part hovered is the page, not the
+button; a button-level hint needs a `data-prefetch`-style attribute in the scenes, which this change did not touch.
+Nothing is prefetched when `navigator.connection.saveData` is set or `effectiveType` is `2g` or `slow-2g`.
+
 | PR | Content | Estimate |
 |---|---|---|
 | Q1 | Motion pass on every interaction; reduced motion checked | 1.5 d |
 | Q2 | Accessibility: Storybook a11y tests in CI, keyboard paths, focus | 1.5 d |
-| Q3 | Performance: bundle budget, route prefetch, the bench on the new app against P-7b (the Mac's headless rule). Added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; the first paint with the icons (F4's Font Awesome) | 2 d |
+| Q3 | Performance: (a) the bench on the new app against P-7b (the Mac's headless rule); (b) added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; (c) the first paint with the icons (F4's Font Awesome): a subset of the owner's files; (d) a bundle budget and route prefetch. **(c) and (d) done by Q3-BUNDLE** (2026-10-16, section 8 and below); (a) and (b) wait for the Mac with LIGHT-GPU | 2 d |
 | Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did). **Done by SKIN-RENDER** (2026-10-16, 5.6) | 2 d |
 
 Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
