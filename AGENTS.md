@@ -43,8 +43,14 @@ Node test peaks (VPS, 2026-10-10, bun 1.4.2, Node v24.21.0, vitest; after `bun i
 | `@paved/renderer` | 233,404 kB (227.9 MiB) | 384 |
 | `@paved/ui` | 237,084 kB (231.5 MiB) | 384 |
 | `@paved/app-web` | 1,024,844 kB (1,000.8 MiB) | 1536 |
+| `@paved/app` | 952,816 kB (930.5 MiB) | 1536 |
 | `@paved/app-native` | 152,740 kB (149.2 MiB) | 256 |
 | `@paved/indexer` | 240,220 kB (234.6 MiB) | 384 |
+
+`@paved/app` row (2026-10-16, bun 1.4.2, commit 31314d94): measured with
+`NODE_OPTIONS=--max-old-space-size=4096 /usr/bin/time -v bun run test --filter @paved/app --force`, run twice (943,948 and
+952,816 kB, the larger kept). 1.5x the peak, rounded up to 64 MB, is 1472; the PM's 1536 is kept (PM, 2026-10-16). Both runs
+were under heavy load, and one to two timeout-bound tests failed in each (not the same ones); the peak is that of those runs.
 
 Example: `NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app-web`. Re-measure when a
 package's tests change a lot.

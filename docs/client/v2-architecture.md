@@ -1616,9 +1616,10 @@ player ids (`free`), not a field of `LeaderboardEntry`.
   five. Not compared: glitchbomb's free social bundle (0 USDC) and its multi-game quantity; its reward
   curve (a step table) against Paved's (`threshold` and `payout`). The parity table is CORE's
   (`docs/architecture/glitchbomb-gap.md` is its start).
-- **The vault.** Read: `contracts/src/systems/vault.cairo` is a plain staking vault (no ERC4626, no share
-  token); vPAVED with votes is designed only (`docs/architecture/vault-share.md`, P-55, D-27). The vault
-  page is built on today's views behind a `VaultViews` interface, so the share token swaps in.
+- **The vault.** Read: `contracts/src/systems/vault.cairo` is an OpenZeppelin ERC4626 over PAVED whose share is
+  vPAVED, with an exit fee kept in the Vault, dead shares against the inflation attack, and votes
+  (`docs/architecture/vault-share.md`, P-55, P-56, D-27). The vault page is built on it ("As built (P10)"), behind
+  a `VaultViews` interface.
 - **The prediction's view** (section 9).
 
 ---
