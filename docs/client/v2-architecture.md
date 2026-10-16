@@ -603,6 +603,21 @@ Playwright context with `locale: "de-DE"` and fails on a German separator or mon
 sweep, so the CI `client` job covers both. A date shows weekday, month
 then day, on a 24 h clock (the former en-GB order is gone).
 
+One error component (ERR-UI, P-67). Every error the app shows, a failed read, a refused write, a refused input, an error
+toast, goes through `InlineError` (`src/components/elements/inline-error.tsx`): the `triangle-exclamation` icon, `text-sm`
+in the body font, the `destructive-text` token, two lines at most then an ellipsis (the whole text in its `title` and for
+screen readers), and a Copy button that puts the message and its detail on the clipboard as plain text for support: the
+typed error's name, the transaction hash, the game id, the app version and the UTC time. The component reads nothing: the
+route builds the detail (`src/routes/error-detail.ts`, from a `@paved/chain` error's `name` and `transactionHash`) and the
+scene passes it down as a prop. A host renders it always, with `message` null when there is no error, so its height
+animates as the error appears, changes or goes (Motion, 0.18 s, none under reduced motion); an error that replaces a page's
+content mounts with the same animation. An error with no place on its page (a failed claim, a free game that did not
+start, the wallet's connect) is a toast that holds `InlineError` (`containers/error-toast.tsx`), never Sonner's own error
+style. A `Notice` is a state (a guest, purchases paused, the economy not deployed, storage off, an outcome to check) and has
+no danger tone. `__tests__/error-guard.test.ts` fails on an error role, a `toast.error`, a danger `Notice` or the error
+token outside `InlineError` and a listed set of non-error uses, under `src/components` and `src/routes`, and is tested on a
+fixture that must fail.
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,

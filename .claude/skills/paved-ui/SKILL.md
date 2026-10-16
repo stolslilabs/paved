@@ -66,6 +66,13 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
   navigation into a left rail (`containers/app-nav.tsx`), wide caps content at 1200 px except the board.
 - Full-height screens: `min-h-dvh`. Notches: `env(safe-area-inset-*)`, as `app-nav.tsx` does. Touch targets 44 px or more.
 
+## Errors
+
+Every error goes through `InlineError` (`elements/inline-error.tsx`, P-67); there is no other error rendering. Render it
+always, with `message` null when there is none, and pass its `detail` from the route (`routes/error-detail.ts`); an error
+with no place on its page is `toastError` (`containers/error-toast.tsx`). A `Notice` is a state, never an error.
+`__tests__/error-guard.test.ts` enforces it.
+
 ## Fonts and numbers
 
 Three families, self-hosted from npm (`@fontsource*`, `src/styles/fonts.css`), Latin subset, `font-display: swap`:
