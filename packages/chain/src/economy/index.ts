@@ -6,7 +6,7 @@ export { MAINNET_ROUTER, resolveEconomyDeployment } from "./deployment";
 export type { EconomyDeployment, EconomyDeploymentFile, EconomyEnv } from "./deployment";
 export { ECONOMY_VIEW_FIELDS, RpcEconomyViews } from "./views";
 export type { DayView, EconomyViews, QuoteView, SplitView, TermsView, VaultPosition } from "./views";
-export { EconomyWriter, RateUnavailableError, PoolCannotFillError, PoolPriceMovedError, PoolQuoteBelowFloorError, PoolQuoteUnavailableError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, RouterNotPinnedError, RefusedReferrerError, SettleTooEarlyError, SpawnPausedError, SPAWN_PAUSED_TEXT, referrerOf, refusedReferrer, SwapBelowMinOutError, VaultAllowanceError, VaultAmountChangedError, VaultOverMaxWithdrawError, VaultZeroSharesError } from "./writer";
+export { EconomyWriter, RateUnavailableError, PoolCannotFillError, PoolPriceMovedError, PoolQuoteBelowFloorError, PoolQuoteUnavailableError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, RouterNotPinnedError, RefusedReferrerError, SettleNotRecordedError, SettleTooEarlyError, SettleUnknownGameError, SpawnPausedError, SPAWN_PAUSED_TEXT, referrerOf, refusedReferrer, SwapBelowMinOutError, VaultAllowanceError, VaultAmountChangedError, VaultOverMaxWithdrawError, VaultZeroSharesError } from "./writer";
 export type { ReferrerContracts, RefusedReferrer } from "./writer";
 export type { PurchasePlan, PurchaseRequest } from "./writer";
 export { CHAIN_MISMATCH, CHAIN_UNKNOWN, ChainMismatchError, EconomyClient, createEconomyClient } from "./client";

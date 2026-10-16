@@ -44,6 +44,8 @@ export class SpawnPausedError extends WriteError {
 
 const BELOW_MIN_OUT = "Economy: swap below min_out";
 const TOO_EARLY = "Economy: day cannot close yet";
+const UNKNOWN_GAME = "Economy: unknown game";
+const NOT_RECORDED = "Economy: not recorded";
 
 /**
  * The purchase reverted because the swap paid less than `min_out`: the pool's price moved between the quote and the
@@ -60,9 +62,28 @@ export class SwapBelowMinOutError extends WriteError {
 
 /** Settle refused by the contract: the game's day cannot be settled yet (it settles after the next day ends). */
 export class SettleTooEarlyError extends WriteError {
-  constructor(transactionHash?: string) {
-    super("This day cannot be settled yet: try again after the next day ends.", transactionHash, transactionHash !== undefined);
+  constructor(transactionHash?: string, message = "This day cannot be settled yet: try again after the next day ends.") {
+    super(message, transactionHash, transactionHash !== undefined);
     this.name = "SettleTooEarlyError";
+  }
+}
+
+/** Settle refused (P7a): no player bought this game (`'Economy: unknown game'`), so there is nothing to settle. */
+export class SettleUnknownGameError extends WriteError {
+  constructor(gameId: number, transactionHash?: string) {
+    super(`Game ${gameId} was not bought: nothing to settle`, transactionHash, transactionHash !== undefined);
+    this.name = "SettleUnknownGameError";
+  }
+}
+
+/**
+ * Settle refused (P7a): the game is not recorded (`'Economy: not recorded'`): it is not over yet, or it was never recorded
+ * within its 24 h (then `expired`, and the message says so).
+ */
+export class SettleNotRecordedError extends WriteError {
+  constructor(readonly gameId: number, readonly expired = false, transactionHash?: string) {
+    super(expired ? `Game ${gameId} is expired: no reward` : `Game ${gameId} is not over yet`, transactionHash, transactionHash !== undefined);
+    this.name = "SettleNotRecordedError";
   }
 }
 
@@ -387,7 +408,13 @@ export class EconomyWriter {
     try {
       return { ...(await this.sendSettle(gameIds, noReward)), noReward };
     } catch (error) {
-      throw economyRevert(error);
+      const refused = economyRevert(error);
+      // The contract names no game in a revert: a single game's is the one asked for.
+      if (refused instanceof WriteError && gameIds.length === 1 && !(refused instanceof SettleTooEarlyError)) {
+        if (revertNames(refused.message, UNKNOWN_GAME)) throw new SettleUnknownGameError(gameIds[0], refused.transactionHash);
+        if (revertNames(refused.message, NOT_RECORDED)) throw new SettleNotRecordedError(gameIds[0], false, refused.transactionHash);
+      }
+      throw refused;
     }
   }
 
@@ -411,16 +438,16 @@ export class EconomyWriter {
       checked.forEach((terms, i) => {
         const id = gameIds[i];
         // `'Economy: unknown game'`: no player bought it.
-        if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
+        if (terms.stake === 0) throw new SettleUnknownGameError(id);
         // Skipped by the contract: a send would settle nothing and still pay the network fee.
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
         // `'Economy: not recorded'`. Never recorded within its 24 h, it is expired too (P-34): no reward whenever it is
         // recorded; still refused until then, as the contract does.
-        if (!terms.recorded && now >= expiresAt(terms.time)) throw new WriteError(`Game ${id} is expired: no reward`);
-        if (!terms.recorded) throw new WriteError(`Game ${id} is not over yet`);
+        if (!terms.recorded && now >= expiresAt(terms.time)) throw new SettleNotRecordedError(id, true);
+        if (!terms.recorded) throw new SettleNotRecordedError(id);
         // `'Economy: day cannot close yet'`: before the end of the next day, expired or not.
         const after = settlesAfter(terms.day);
-        if (now < after) throw new WriteError(`Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
+        if (now < after) throw new SettleTooEarlyError(undefined, `Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
         // Recorded expired (24 h or more after its purchase): the contract settles it for 0, outside the day's mean.
         if (terms.expired) noReward.push(id);
       });

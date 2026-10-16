@@ -139,7 +139,7 @@ const GAME_AND_PURCHASE = [
 ];
 /** A pack's purchase: `buy_pack` is in the session, its approve to Setup prompts (P-56). */
 const PACKS = ["pack, 50 for $5", "pack, 1,000 for $70"];
-const PROMPTED = ["settle", "vault deposit", "vault withdraw", "vault withdraw all"];
+const PROMPTED = ["vault deposit", "vault withdraw", "vault withdraw all"];
 
 describe("controllerPolicies against what the writers send (E3)", () => {
   test("every game write and the paid Challenge purchase are signed in the session", async () => {
@@ -235,12 +235,36 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(priceOf(FAKE_UNIT, MAX_STAKE)).toBe(USDC_APPROVE.cap);
   });
 
-  test("settle and the Vault fall outside the session: each prompts", async () => {
+  test("the Vault falls outside the session: each of its writes prompts", async () => {
     const sent = await sentByEveryWrite();
     for (const label of PROMPTED) {
       expect(sent[label].length, label).toBeGreaterThan(0);
       for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(false);
     }
+  });
+
+  test("settle is a session policy when the Economy is given (P7a), with no approve: the only Economy entry point", async () => {
+    const sent = await sentByEveryWrite();
+    const withEconomy = controllerPolicies(deployment, { approve: USDC_APPROVE, economy: ECON.economy });
+    const withoutApprove = controllerPolicies(deployment, { economy: ECON.economy });
+    expect(sent.settle.map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.economy), "settle"]]);
+    for (const ps of [withEconomy, withoutApprove]) {
+      expect(inSession(sent.settle[0], ps)).toBe(true);
+      // Exactly one more policy than without the Economy, and it is that one.
+      expect(ps.filter((p) => BigInt(p.target) === BigInt(ECON.economy))).toEqual([{ target: ECON.economy, method: "settle" }]);
+    }
+    expect(withEconomy).toHaveLength(session.length + 1);
+    expect(withoutApprove).toHaveLength(policies.length + 1);
+    // The approve of the entry stays the session's only one.
+    expect(withEconomy.filter((p) => p.method === "approve")).toHaveLength(1);
+    // Nothing else of the Economy, or of the Vault, is signed in the session.
+    for (const label of ["vault deposit", "vault withdraw", "vault withdraw all"]) {
+      for (const call of sent[label]) expect(inSession(call, withEconomy), `${label}: ${call.entrypoint}`).toBe(false);
+    }
+    // Without the Economy, or with an empty address, settle prompts as before.
+    expect(inSession(sent.settle[0], session)).toBe(false);
+    expect(inSession(sent.settle[0], controllerPolicies(deployment, { economy: "" }))).toBe(false);
+    expect(inSession(sent.settle[0], controllerPolicies(deployment, { economy: "0x0" }))).toBe(false);
   });
 
   test("PM ruling (P-56): no Vault entry point and no approve to the Vault is in the session; every staking action prompts", async () => {

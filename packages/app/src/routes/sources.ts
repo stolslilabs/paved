@@ -1,5 +1,5 @@
 import type { EconomyClient, IndexerClient, PavedClient } from "@paved/chain";
-import type { DataSources, Purchases } from "../data/sources";
+import type { DataSources, Purchases, Settlements } from "../data/sources";
 
 /** Why an indexer read fails in a build without one. */
 const NO_INDEXER = "No indexer: VITE_INDEXER_URL is not set in this build";
@@ -72,6 +72,11 @@ const lazyPurchases = (signer: Parameters<NonNullable<DataSources["purchases"]>>
   receipt: async (hash) => (await import("../data/economy-client")).purchasesOf(signer).receipt(hash),
 });
 
+/** The settlement of a signer (P7a), built on the economy client at the first settle. */
+const lazySettlements = (signer: Parameters<NonNullable<DataSources["settlements"]>>[0]): Settlements => ({
+  settle: async (gameIds) => (await import("../data/settle-client")).settlementsOf(signer).settle(gameIds),
+});
+
 /**
  * The sources the app's `DataProvider` gives. Training needs only its save, `localStorage` (`store` left out:
  * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
@@ -87,4 +92,5 @@ export const APP_SOURCES: DataSources = {
   indexer: lazyIndexer(),
   signer: null,
   purchases: lazyPurchases,
+  settlements: lazySettlements,
 };
