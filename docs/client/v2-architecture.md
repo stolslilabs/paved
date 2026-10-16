@@ -1018,8 +1018,9 @@ pass, not a screen-space pass reading the target's depth and normals. No package
 - **Both composer targets multisample.** `EffectComposer` swaps its two targets every frame (the vignette swaps even
   when it draws to the screen), so the scene lands in each in turn. A first build gave only the first target the
   samples: every other frame lost the MSAA, and the pan check below caught it as a flicker of about 1 point of the
-  outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`).
-- **Memory of MSAA** (estimate from the targets' formats, not measured). Each of the two targets holds a 4-sample
+  outline share. Both keep them now (`packages/renderer/__tests__/face-antialiasing.test.ts`) (superseded by Q3-GPU,
+  below: one multisampled target, the second never allocated).
+- **Memory of MSAA** (estimate from the targets' formats, not measured; measured and cut in Q3-GPU, below). Each of the two targets holds a 4-sample
   RGBA half-float colour renderbuffer (32 B/px), a 4-sample 24-bit depth renderbuffer (16 B/px) and its single-sample
   resolve texture (8 B/px): about 56 B/px, so 112 B/px for the two, against 24 B/px for the two without MSAA (colour
   8 and depth 4 each). At a 720 x 1560 buffer (360 x 780 at DPR 2, or the phone-like DPR 3 capped at 2): about 126 MB,
@@ -1073,7 +1074,7 @@ breaks it, keep the faster option as the default; on phones, the phone-like prof
   (14.64 and 16.16 against 11.72 and 12.64). So no MSAA on desktops follows in both runs. The pass of 12 ms without
   face antialiasing does not hold firmly: it holds in run A (11.11 and 11.87) but not in run B, taken in turn, where
   off is 11.72 and 12.64 and main 12.35 and 12.53. The desktop pass at cap 1.5 is within the noise, and the cap is
-  re-measured on a quiet Mac in Q3. The faster option is no face antialiasing: SMAA costs little at cap 1.5 (11.78 and
+  re-measured on a quiet Mac in Q3 (done by Q3-GPU, 5.5: the cap is 1.75 now). The faster option is no face antialiasing: SMAA costs little at cap 1.5 (11.78 and
   12.71 against 11.72 and 12.64 for off in the same run) but more at cap 2, and changes more of the image than MSAA
   does (below). So desktops keep the faces unantialiased: `"auto"` is off on a fine pointer and a large screen, and
   the cap stays 1.5 (no change from main: off measures as main does).
@@ -1099,6 +1100,138 @@ on the phone-like):
 and `p4-360-before.webp` (main), `p4-*-msaa.webp`, `p4-*-smaa.webp`. Whole frames against main: off changes 0.13 to
 0.17 % of the pixels (the near plane), by 3 levels on average; MSAA 17 to 24 %, by 3 levels (the faces' edges); SMAA 9
 to 15 %, by 5 levels (it also smooths edges inside the voxel textures).
+
+**The memory of MSAA, measured (Q3-GPU, 2026-10-16).** P4's figure above was an estimate. Measured on the phone
+profile, it held a second cost P4 did not count, and both are cut now:
+
+- **One multisampled target, not two.** The composer swapped its two targets after the finish pass, so the scene landed
+  in each in turn and both had to multisample (P4's flicker). Only SMAA reads what the finish pass writes, so the finish
+  pass now swaps only when SMAA follows it (`Effects.ts`). No pass swaps on the MSAA and "off" paths: the scene lands in
+  the composer's read buffer every frame, its resolve texture is what the AO, the bloom and the finish pass read, and the
+  other target is never bound, so three never allocates it. This is the "one multisampled target with a resolve": three
+  resolves (blits) the multisampled buffers into the target's own textures after the scene pass, as before.
+  (`face-antialiasing.test.ts`: no pass swaps at any tier with MSAA; on the SMAA path the finish pass and SMAA swap, two
+  swaps a frame, so the scene still lands in one target.)
+- **No multisampled canvas.** `GameScene` created its renderer with `antialias: true`. The canvas only receives the
+  finish pass's full-screen triangle, which multisampling cannot smooth, but Chrome still gave the canvas a 4-sample
+  colour buffer and a 4-sample depth buffer: 32 B a pixel (33.8 MiB at 720 x 1480). The renderer is created with
+  `antialias: false` now. The faces' antialiasing is the composer's (`multisampling`), unchanged.
+- **The samples as a setting.** `RendererSettings.msaaSamples`: 2 or 4 (`MSAA_SAMPLE_COUNTS`), 4 by default (the rule
+  below). MSAA is taken only where the context multisamples that many. The "Renderer/Lighting" story has the controls
+  (`multisampling`, `msaaSamples`) and a readout of the face antialiasing in effect.
+
+**The method.** Headless Chrome (Chrome for Testing 1217, `--headless=new`, ANGLE Metal on the Mac's GPU, never on screen),
+the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the slots and the ghost) on the recorded
+72-tile board, this branch's static Storybook on a plain file server. The phone profile: 360 x 740 and 430 x 932 CSS px
+at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per configuration in a fresh browser:
+
+- **The ledger** (exact): a script wraps the WebGL 2 calls that allocate (`texImage2D`, `texStorage2D`,
+  `renderbufferStorage`, `renderbufferStorageMultisample`, and the deletes) and records each object's size, format and
+  samples, then keeps those attached to a framebuffer (the render targets). Bytes are width x height x bytes per pixel
+  x samples, as the API asks for them; it has no error of its own, but it does not see the canvas's buffers nor any
+  padding the driver adds.
+- **The GPU process's Metal memory** (real): `footprint` (macOS) of Chrome's GPU process, its category "Owned physical
+  footprint (unmapped) (graphics)", read after 3 s of frames. It catches the canvas and the driver's own allocations. Its
+  error: it moves in steps (Metal allocates in heaps), about 10 % low against the ledger's differences (removing the
+  second target: ledger -61.0 MiB, measured -55.1 at 720 x 1480; -91.7 against -82.1 at 860 x 1864), and it does not
+  move for small targets (the AO's, 1.0 MiB, and the bloom's mips, 7.4 MiB, leave it within 0.8 MiB). Two rounds; the
+  pairs agree within 0.8 MiB.
+- Chrome exposes no per-context GPU memory to a page (`performance.measureUserAgentSpecificMemory` counts no GPU
+  memory), so the browser figure is the GPU process's.
+
+**The reference bench, from now on: Q3-GPU's.** Frame times, memory and flicker on the Mac's GPU are measured with
+Q3-GPU's bench, whose scripts are kept in Q3-GPU's thread library (`q3gpu-lib.mjs`, `q3gpu-bench.mjs`,
+`q3gpu-summary.mjs`; not in this repository, like LIGHT-GPU's before them, which were not on the Mac). It follows
+DPR's, OUT-LOD's and LIGHT-GPU's method (above), and reads lower than LIGHT-GPU's bench. Tied in 5.5 on **one
+configuration only** (the desktop profile, the opening view, cap 1.5, Medium): there LIGHT-GPU's own build reads **2.78 ms
+lower at p95** on Q3-GPU's bench (6.47 against 9.25: 0.70 times) and 2.45 ms lower at p50 (4.45 against 6.90: 0.64
+times). The cause is unknown (the method is described alike; LIGHT-GPU's scripts are not on the Mac to compare). The
+offset is not a correction: it was not measured at another configuration (another view, cap, tier or the phone-like
+profile), and is not applied to one.
+Earlier figures (P4, DPR, OUT-LOD, LIGHT-GPU) compare with each other, not with Q3-GPU's: compare within one bench, or
+re-run the older configuration on this one. To re-run: build the static Storybook (`bun run --filter @paved/app
+build-storybook`) and copy `storybook-static` out of the tree; then, from `packages/app` (where `playwright-core`
+resolves; Chrome for Testing 1217 from Playwright's cache), `node <library>/q3gpu-bench.mjs <mode> <storybook copy>
+<out.jsonl> <rounds>` with the mode `mem`, `time` (phone), `flicker`, `sweep`, `desk` (desktop caps), `deskab` (the
+canvas pairs) or `tie` (one configuration on several builds, `Q3_BUILDS=name=<dir>,name=<dir>`), and `node
+<library>/q3gpu-summary.mjs <mode> <out.jsonl>` for the pooled p50 / p95 per configuration. Every configuration waits for
+a 1-minute load under 6; the summary drops a configuration measured at 6 or more.
+
+The variants: "main" is P4's chain (4 samples, both targets swapped, the canvas multisampled), reproduced on this
+branch by setting the finish pass's `needsSwap` back on (it draws the same frames: the crop's mean luma is identical at
+181 poses, below) and the canvas's `antialias` forced by the bench; "one" is one target; "canvas off" is the canvas
+without multisampling (this branch's default).
+
+The composer's targets alone (ledger), at 720 x 1480 / 860 x 1864: 4 samples, two targets 122.0 / 183.4 MiB, one target
+61.0 / 91.7 MiB (60 B/px: colour 32, depth 16, the resolve's colour 8 and depth 4); 2 samples, one target 36.6 / 55.0
+MiB (36 B/px); off, one target 12.2 / 18.3 MiB. The shadow map (2048 x 2048, colour and depth: 32 MiB), the AO's target
+(Medium and High: 1.0 / 1.5 MiB) and the bloom's mips (High: 7.4 / 11.2 MiB) are in every row of the ledger column
+below.
+
+At Medium (the phone's tier), MiB, ledger (all render targets) / GPU process graphics (range of two rounds):
+
+| Variant | 360 x 740 | 430 x 932 |
+|---|---|---|
+| Main: 4x, two targets, canvas multisampled | 155.0 / **172.3 to 172.6** | 217.0 / **243.0** |
+| 4x, one target | 94.0 / 116.7 to 117.5 | 125.3 / 160.9 |
+| **4x, one target, canvas off (this branch)** | 94.0 / **83.7** | 125.3 / **112.4** |
+| 2x, two targets | 106.2 / 122.6 | 143.6 / 169.2 |
+| 2x, one target | 69.6 / 92.2 | 88.6 / 124.3 to 124.6 |
+| 2x, one target, canvas off | 69.6 / 58.9 | 88.6 / 75.8 |
+| Off, two targets (main's off) | 57.4 / 71.0 | 70.2 / 93.3 (one round) |
+| Off, one target | 45.2 / 66.4 | 51.9 / 86.4 |
+| Off, one target, canvas off | 45.2 / 32.8 to 33.1 | 51.9 / 37.1 to 37.9 |
+
+Low and High: the ledger moves by the AO's target and the bloom's mips (Low 1.0 / 1.5 MiB less, High 7.4 / 11.2 more), the
+graphics figure stays within 0.8 MiB of Medium's in every variant. So P4's estimate of "about 90 MB" for MSAA was the
+right order: main's MSAA path held 172 MiB of Metal memory at 360 x 740, 101 MiB more than main's off path. This branch's
+default holds **83.7 MiB** there (112.4 at 430 x 932): its MSAA now costs 12.7 MiB more than main's off path (71.0).
+
+**Frame time** (LIGHT-GPU's method: per frame the CPU time of every rAF callback plus the GPU time of
+`EXT_disjoint_timer_query_webgl2` around them, 120 warm-up and 600 measured frames, nearest-rank percentiles over the
+pooled frames; a fresh context per configuration, CPU throttled 4x; the opening view at 240; variants alternated within a
+round, the order rotated between rounds; two rounds, every configuration at a 1-minute load under 6, none dropped, loads
+3.6 to 5.2). CPU + GPU p95, ms, 360 x 740 / 430 x 932:
+
+| Variant | Low | Medium | High |
+|---|---|---|---|
+| Main: 4x, two targets | 6.24 / 6.43 | 6.24 / 6.69 | 10.27 / 10.31 |
+| 4x, one target | 6.31 / 6.58 | 6.42 / 6.85 | 10.21 / 10.24 |
+| **4x, one target, canvas off** | 7.06 / 6.47 | **6.30 / 6.89** | 10.08 / 10.52 |
+| 2x, two targets | 5.90 / 6.05 | 5.89 / 6.20 | 9.44 / 10.04 |
+| 2x, one target | 6.27 / 6.00 | 6.20 / 6.46 | 9.42 / 10.06 |
+| 2x, one target, canvas off | 6.28 / 6.01 | 5.73 / 6.43 | 9.32 / 9.93 |
+| Off | 5.73 / 5.17 | 5.16 / 5.64 | 7.43 / 8.30 |
+
+Every variant is far under 16.6 ms. One target against two, and the canvas off against on, are within the rounds' noise
+(per-round p95 of one configuration differ by up to 0.9 ms; the Low 7.06 is one round at 7.28 against 6.75). 2 samples
+save about 0.4 ms against 4, MSAA itself 1 to 3 ms against off.
+
+**Zero flicker, outlines on** (LIGHT-GPU's check: 12 mouse drags of 2 CSS px then 12 wheel notches of 20, a 1.5 s settle
+after each, the mean luma of the centre 300 x 400 CSS px after each step; largest change between two steps, mean change
+in brackets; 360 x 740, Medium; loads 3.8 to 6.0):
+
+| Variant | 240, pan | 240, zoom | 60, pan | 60, zoom |
+|---|---|---|---|---|
+| Main: 4x, two targets | 0.72 (0.38) | 0.94 (0.31) | 0.99 (0.49) | 0.27 (0.17) |
+| 4x, one target, canvas on or off | 0.72 (0.38) | 0.94 (0.31) | 0.99 (0.49) | 0.27 (0.17) |
+| 2x, two or one target, canvas on or off | 0.70 (0.38) | 1.13 (0.48) | 1.00 (0.48) | 0.30 (0.18) |
+| Off | 0.71 (0.35) | 1.12 (0.32) | 0.98 (0.48) | 0.45 (0.17) |
+
+The steps repeat to the hundredth in every run of a sample count (the same content enters the crop), but 2 samples swing
+more at the same poses. LIGHT-GPU's finer sweep settles it (the distance from 240 to 150 in steps of 0.5 along the view,
+180 steps, Medium; loads 3.8 to 5.0): with 4 samples, main, one target and the canvas off give the same luma at all 181
+poses (difference 0), the largest step 0.90 levels, **no step over 1**, 10 over 0.5; with 2 samples the largest 1.65,
+**6 over 1**, 28 over 0.5; off 1.58, 8 over 1, 30 over 0.5. So 2 samples shimmer under a zoom about as much as no MSAA. At
+Low and High (main against 2x, one target, canvas off, and off; High at 240 with 2x was dropped, measured at a load of 6
+or more): the same pattern, and High's bloom as LIGHT-GPU found it (at 240, zoom: main 1.51, off 3.74).
+
+**The rule applied** (the phone profile under 16.6 ms, zero flicker, the least memory when both hold): every variant passes
+the time; zero flicker keeps 4 samples (2 shimmer like no MSAA, so they fail it, as off does). Among the 4-sample variants,
+one target with the canvas off holds the least memory and draws the same frames. So the phone default is **4x MSAA, one
+target, the canvas without multisampling**: 83.7 MiB of Metal memory at 360 x 740 against main's 172.3 (-88.6 MiB,
+-51 %), 112.4 at 430 x 932 against 243.0. "Off" stays the floor for a device without MSAA (SMAA there, as before): it is
+not a candidate, P4 having ruled that phones antialias the faces. The desktop gains both cuts too (5.5).
 
 ### 5.3 Proposed: outlines that follow the zoom
 
@@ -1499,6 +1632,9 @@ the GPU figures by the PM's rules (LIGHT-GPU, below): each tier holds the effect
 | Medium | on | look's radius | off | render, AO, finish | 9.25 / 5.89 ms |
 | High | on | look's radius | on | render, AO, bloom, finish | 12.40 / 9.55 ms |
 
+The p95 column is LIGHT-GPU's bench, not the reference (Q3-GPU's, 5.2, "The reference bench"); the two were tied at one
+configuration only, and no offset is applied to these figures.
+
 `quality: "auto"` (the default) picks **Medium** on every device (a coarse pointer, a small screen or a desktop), and
 **Low** on `EffectsCapabilities.lowPowerDevice`; **High only when chosen by hand**. Medium is the richest tier under 12 ms
 on the desktop profile (High is 12.40). On the phone-like profile High fits the time (9.55, under 16.6) but its bloom
@@ -1528,7 +1664,9 @@ profile), then the variant's args: `preset:off;quality:high` for the Off preset,
 `keyShadowSoftness:3` for one effect alone; `quality:low`, `quality:medium` or `quality:high` for a tier; `forest:!true`
 for the skinned board. Wait for `[data-ready]`, then throttle the CPU (phone-like) and count the frames.
 
-CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95):
+CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95). LIGHT-GPU's bench, not the
+reference (Q3-GPU's, 5.2, "The reference bench"; tied at one configuration only, below, "The desktop cap, re-measured";
+no offset applied):
 
 | Variant | Desktop, opening | cost | Desktop, zoomed | cost | Phone-like, opening | cost | Phone-like, zoomed | cost |
 |---|---|---|---|---|---|---|---|---|
@@ -1562,7 +1700,7 @@ phones by zero flicker alone. Medium itself passes with room (9.25 on the deskto
 with a tent upsample, at half resolution) would be its own task, measured the same way.
 
 **A fully skinned board** (Forest on all 19 plans, every tile its cell's variant: the board fetches 52 variant models; same method,
-two rounds each, `forest` on against off in the same round), p95 ms:
+two rounds each, `forest` on against off in the same round; LIGHT-GPU's bench, see the pointer above), p95 ms:
 
 | Tier | Desktop, opening: base / skinned | Desktop, zoomed | Phone-like, opening | Phone-like, zoomed |
 |---|---|---|---|---|
@@ -1653,6 +1791,59 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
 LIGHT-GPU added the controls the bench drives: `forest` (Forest on every plan), `force` (the outlines) and
 `maxPixelRatio`; `quality` is typed as an enum so a URL can set it (Storybook dropped it from a URL before: its docgen
 type was an unresolved union).
+
+**The desktop cap, re-measured (Q3-GPU, 2026-10-16).** P4's pass of 12 ms at cap 1.5 was within the noise; LIGHT-GPU's
+tiers changed the passes since. Method as in 5.2's Q3-GPU measures, the desktop profile: 1440 x 900 at DPR 2, faces
+`"auto"` (unantialiased), this branch's chain (one target, the canvas without multisampling); the opening view (240) and
+the zoomed one (60), each tier, caps 1.25, 1.5 and 1.75 alternated within a round, the order rotated between rounds;
+three rounds, every configuration at a 1-minute load under 6; 4 of 54 dropped at 6 or more; kept loads 3.4 to 5.9. CPU +
+GPU p95, ms, opening / zoomed:
+
+| Tier | Cap 1.25 (1800 x 1125) | Cap 1.5 (2160 x 1350) | Cap 1.75 (2520 x 1575) |
+|---|---|---|---|
+| Low | 7.06 / 5.78 | 7.27 / 6.21 | 7.57 / 6.74 |
+| Medium (`"auto"`) | 7.12 / 6.46 | 7.49 / 6.71 | **7.59 / 7.04** |
+| High | 9.22 / 8.39 | 9.67 / 9.54 | 9.72 / 9.97 |
+
+A second run alternated the canvas's own `antialias` on (main) and off (this branch) at caps 1.5, 1.75 and 2, Medium and
+High, two rounds (13 of 48 dropped at a load of 6 or more): the pairs are within the noise either way (the canvas costs
+no measurable time, only memory), and cap 2 passes too (Medium 7.30 / 7.52, High 9.22 / 9.93, one round each kept for the
+branch's canvas).
+
+**The two benches tied.** These figures read lower than LIGHT-GPU's at the same configurations (at cap 1.5, Medium 7.49 /
+6.71 against 9.25 / 7.12, High 9.67 / 9.54 against 12.40 / 11.15). To place the gap, Q3-GPU's bench re-ran
+LIGHT-GPU's configuration (desktop, the opening view, cap 1.5, Medium) on two builds, alternated within each round, the
+order rotated: LIGHT-GPU's own (its merge, `b064b2e5`) and this branch's head. Four rounds, every configuration at a
+1-minute load under 6, none dropped, loads 3.1 to 4.8. CPU + GPU, p50 / p95, ms:
+
+| Build | Q3-GPU's bench (per-round p95) | LIGHT-GPU's bench (5.5's table) |
+|---|---|---|
+| LIGHT-GPU (`b064b2e5`) | 4.45 / **6.47** (6.50, 5.72, 6.43, 6.99) | 6.90 / **9.25** |
+| This branch | 4.30 / **6.75** (5.95, 5.74, 7.42, 6.96) | |
+
+So the gap is the bench's, not the code's: on the same build, at this configuration, Q3-GPU's bench reads **2.45 ms
+lower at p50 and 2.78 at p95** (0.64 and 0.70 times LIGHT-GPU's), and the two builds are within its noise of each
+other. Its cause is unknown, and it was measured at this configuration only: not a correction for others. This run also reads 0.7 ms lower than the cap runs above
+(7.49), taken earlier the same day at loads up to 5.9: the bench's noise between sessions. Q3-GPU's bench is the
+reference from now on (5.2, "The reference bench"); its scripts are in Q3-GPU's library, LIGHT-GPU's were not on the Mac
+and are not re-run. The rule's comparisons above are all made within Q3-GPU's runs.
+
+**Zero flicker at 1.75** (LIGHT-GPU's check on the desktop profile: the centre 800 x 500 CSS px; 1.5 against 1.75, Medium
+and High; loads 4.97 to 5.78, one configuration dropped): largest step (mean), opening pan 0.63 (0.22) at 1.5, 0.68 (0.21)
+at 1.75; opening zoom 1.03 (0.52), 0.67 (0.36); zoomed pan 0.72 (0.17) at both; zoomed zoom 0.25 (0.18), 0.42 (0.15).
+High at the opening view: pan 0.61 at 1.5, 0.68 at 1.75; zoom 4.95 and 4.68 (its bloom's shimmer at both caps); High
+zoomed at 1.75 was the dropped configuration. So 1.75 adds no flicker over 1.5.
+
+**Memory on the desktop** (Medium, opening view, two rounds, loads 4.2 to 6.0, one row dropped): main's chain at cap
+1.5 held 101.5 MiB of render targets (ledger) and 155.3 MiB of Metal memory in the GPU process; this branch at 1.5,
+68.2 and 50.3 to 51.2; at 1.75, 81.2 and 60.8 to 61.0 (main's chain at 1.75 would hold 126.6 and 200.5).
+
+**The rule applied** (the desktop cap is the highest under 12 ms at both views): 1.25, 1.5 and 1.75 pass at every tier,
+High included (9.97 at most), and 2 passes in the canvas run. Q3 kept 1.5 unless the figures said otherwise; they
+do, by more than 2 ms at the `"auto"` tier, so `PIXEL_RATIO_CAPS.fine` is **1.75** (`core/settings.ts`). Not 2: it was
+measured in one or two rounds only, against three for the others, and the PM ruled (2026-10-16): no cap-2 run, 1.75
+stands. The memory this costs is less than
+main's chain held at 1.5 (61 MiB against 155).
 
 ### 5.6 Tile skins (SKIN-RENDER)
 
@@ -2617,7 +2808,7 @@ Nothing is prefetched when `navigator.connection.saveData` is set or `effectiveT
 |---|---|---|
 | Q1 | Motion pass on every interaction; reduced motion checked | 1.5 d |
 | Q2 | Accessibility: Storybook a11y tests in CI, keyboard paths, focus | 1.5 d |
-| Q3 | Performance: (a) the bench on the new app against P-7b (the Mac's headless rule); (b) added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; (c) the first paint with the icons (F4's Font Awesome): a subset of the owner's files; (d) a bundle budget and route prefetch. **(c) and (d) done by Q3-BUNDLE** (2026-10-16, section 8 and below); (a) and (b) wait for the Mac with LIGHT-GPU | 2 d |
+| Q3 | Performance: (a) the bench on the new app against P-7b (the Mac's headless rule); (b) added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; (c) the first paint with the icons (F4's Font Awesome): a subset of the owner's files; (d) a bundle budget and route prefetch. **(c) and (d) done by Q3-BUNDLE** (2026-10-16, section 8 and below); (a) and (b) wait for the Mac with LIGHT-GPU. **Q3-GPU** (2026-10-16), the GPU part of (a) as the PM scoped it, **done**: the phone's MSAA memory measured and cut by half (4x kept, one multisampled target, the canvas without multisampling: 172 to 84 MiB of Metal memory at 360 x 740, 5.2), and the desktop cap re-measured with the tiers (1.5 to **1.75**, 5.5). The board's p95 on the new app is in 5.2 and 5.5; placement latency (b) is not measured yet | 2 d |
 | Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did). **Done by SKIN-RENDER** (2026-10-16, 5.6) | 2 d |
 
 Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
