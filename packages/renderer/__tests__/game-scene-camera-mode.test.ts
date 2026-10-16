@@ -8,7 +8,7 @@ describe("GameScene camera mode wiring", () => {
     const setProfile = vi.fn();
 
     (scene as any).controls = { setMode };
-    (scene as any).effects = { setProfile };
+    (scene as any).effects = { setLook: vi.fn(), setProfile };
     const requestRenderSpy = vi.spyOn(scene, "requestRender");
 
     (scene as any).setCameraMode("showcase");

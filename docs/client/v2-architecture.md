@@ -1267,6 +1267,96 @@ Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:
   1 to 2 days each.
 - **UI:** none beyond the renderer: the pages do not change.
 
+### 5.5 Lighting and post-processing (LIGHT)
+
+The owner's remark (P-63, 2026-10-15): the voxel assets and the outlines are right; the lighting and the scene's
+post-processing are what is missing to reach `app/docs/mockup-01.png` and `-02.png`. LIGHT takes over item 3 of 5.2 (the
+order of bloom, vignette and tone mapping, deferred to Q-polish by P4).
+
+**What was there.** `GameScene` drew an ambient, a hemisphere and one white directional light, set
+`ACESFilmicToneMapping` on the renderer, and `Effects` ran `RenderPass`, `UnrealBloomPass` (threshold 3: nothing
+bloomed) and a vignette `ShaderPass`. Through the composer **neither the tone map nor the sRGB transfer ran**: three
+applies both only when a material draws to the canvas, the vignette's shader included neither, and the composer had no
+`OutputPass`. The board was shown in linear colour, dark and crushed, with the renderer's exposure unused.
+
+**The chain now** (`core/Effects.ts`, `core/post-shaders.ts`), each pass only when its effect is on:
+
+1. `RenderPass` into the half-float target (multisampled for MSAA, unchanged from P4), with a `DepthTexture` only when
+   the AO reads it.
+2. `AoPass`: screen-space ambient occlusion from the depth texture alone (normals rebuilt from the depth, no second draw
+   of the scene), 12 taps on a fixed spiral (no per-pixel noise, so nothing dithers under a pan), into its own target at
+   `ao.resolution` of the buffer (0.5 by default). It writes nothing to the composer's buffers. Under about 1.5 texels of
+   radius on screen (the board seen from far) it skips the taps.
+3. `UnrealBloomPass` on what is above `bloom.threshold` (1.0 in linear colour): in practice the gold slot outlines,
+   drawn at 1.6 times their colour.
+4. `FinishPass`, always: the AO multiplied in, the tone map (three's AgX, ACES or Neutral, with the exposure), the grade
+   (saturation, contrast around 0.18, warmth), the vignette, then the sRGB transfer. One full-screen pass; each effect is
+   a `#define`, so an effect that is off costs no instruction. It replaces the vignette pass: the "Off" chain is two
+   passes, one fewer than main's.
+5. `SMAAPass` where SMAA antialiases the faces, now after the sRGB transfer (its edge detection is tuned for display
+   colour). The MSAA path and `"auto"` are unchanged.
+
+The lights (`GameScene.applyLook`): the **key**, warm, the only shadow caster, placed by compass angle and height at the
+former light's distance (89.4 units) so the shadow camera's 1 to 100 range and R-VIS's biases hold at every direction; a
+new direction redraws the shadow map; its PCF radius is `shadowSoftness`. The **fill**, cool, no shadow, from the other
+side. The **sky**, a hemisphere light (blue above, earth below) plus a small ambient. **Fog** (`FogExp2`) toward the
+background colour. The **highlights** (`TileRenderer`): the empty slots are a gold square band just inside the tile's
+edge (1.30 to 1.42 of its half-width), unfogged, at 1.6 times the colour so the bloom picks them; the valid ghost glows
+gold, an invalid one red. The **water**: the palette's water texels are its cyan-blue entries (blue over green over red
+in linear colour; roofs and banners are violet, stone grey), found by hue in the tile shader (`WATER_MASK_GLSL`,
+`onBeforeCompile`, one program for every tile type) and made brighter and glossier through uniforms shared by every
+tile material, so a change recompiles nothing.
+
+**Settings** (`core/look.ts`, `core/settings.ts`): `RendererSettings.lookPreset`, `look` (every light and effect a
+group with `enabled` and its values) and `quality`. A partial `look` overrides the preset's fields; `setSettings`
+replaces, as for the outlines. A value change that keeps the same passes only sets uniforms; turning an effect on or off
+rebuilds the chain.
+
+| Group | What it does | Mockup | Soft | Off |
+|---|---|---|---|---|
+| `key` | warm key light, shadows | `#ffd8a0`, 3.6, azimuth -60, height 34, softness 3 | `#ffe6c4`, 2.8, height 48, softness 4 | white, 2.6, softness 1 |
+| `fill` | cool fill, no shadow | `#8fb4ff`, 0.7, azimuth 120, height 40 | `#b4c8ff`, 0.9 | off |
+| `sky` | hemisphere + ambient | `#bcd4ff` / `#3a3324`, 1.1, ambient 0.25 | 1.4, ambient 0.4 | white / grey, 1.2, ambient 0.4 |
+| `ao` | contact shading | radius 0.35, intensity 0.8, half resolution | intensity 0.5 | off |
+| `toneMapping` | curve, exposure | ACES, 1.05 | AgX, 1.1 | Neutral, 1 |
+| `grade` | saturation, contrast, warmth | 1.08, 1.08, 0.06 | 1.05, 1.0, 0.03 | off |
+| `vignette` | corners darkened | offset 1, darkness 0.45 | darkness 0.3 | off |
+| `fog` | distance fog | density 0.0018 | 0.001 | off |
+| `background` | what the board fades into | `#30363f` (dark navy on screen after ACES) | `#1a2330` | `#141b26` |
+| `bloom` | glow above the threshold | strength 0.15, radius 0.2, threshold 1 | strength 0.1 | off |
+| `highlights` | slots and ghost | gold `#ffc23d`, slots 1.6, ghost 0.25 | as Mockup | slots 1, ghost 0.2 |
+| `water` | brighter, glossier water | brightness 1.25, roughness 0.15 | as Mockup | off |
+
+**AgX or ACES** (compared on software WebGL, the "Renderer/Lighting" story zoomed in): ACES keeps the greens and the
+roofs rich, as in the mockups, but crushes the darks (the background had to be raised from `#141b26` to `#30363f` to
+land on the mockups' dark navy); AgX is more muted and keeps the darks. Mockup takes ACES, Soft takes AgX.
+
+**Quality tiers** (`TIER_EFFECTS`, `AUTO_QUALITY`): a tier only turns effects off, it never changes a value.
+
+| Tier | AO | Bloom | Soft shadows | Passes with the Mockup look |
+|---|---|---|---|---|
+| Low | off | off | radius 1 | render, finish |
+| Medium | off | on | look's radius | render, bloom, finish |
+| High | on | on | look's radius | render, AO, bloom, finish |
+
+`quality: "auto"` (the default) picks conservatively (the PM's ruling, 2026-10-15): **Low** on a coarse pointer or a
+small screen (the test of `maxPixelRatio: "auto"`) and on `EffectsCapabilities.lowPowerDevice`, so no AO and no bloom on
+phones; **Medium** elsewhere; **High only when chosen by hand**. `supportsSSAO`, `supportsBloom` and `supportsVignette`
+false turn those effects off whatever the tier. **Provisional until measured on the GPU** (LIGHT-GPU, below). P11a adds the settings row (Low / Medium / High); the
+render profiles (`play`, `showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against
+`play`'s, and the cinematic profile's SSAO gave way to the look's AO.
+
+**The cost per effect** (on against off, both profiles, DPR's and OUT-LOD's bench, the load beside each round, the
+variants alternated within a round): **to be measured on the Mac's GPU in LIGHT-GPU**, a follow-up of its own (a
+release gate, `docs/client/f-release.md`), with the flicker re-check with the outlines on. Software
+WebGL figures are not measures (the bench refuses them). The tier defaults above are then set by the PM's rule: desktop
+p95 under 12 ms at cap 1.5, the phone-like profile under 16.6 ms at cap 2.
+
+**Stories:** "Renderer/Lighting" (`packages/app/src/stories/renderer/lighting.stories.tsx`): every field of the look
+is a control over the preset (unset fields keep the preset's), with the quality tier and a readout of the tier in
+effect and the passes that run; the stories Mockup, Soft, Off and Zoomed in; and "Side by side with the mockup", the
+board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/docs`, which Vite serves: not copied).
+
 ---
 
 ## 6. The page map
