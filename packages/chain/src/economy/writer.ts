@@ -678,9 +678,7 @@ export function referrerOf(referrer: string | null, self: string, contracts: Ref
  * (`Economy.router()`, read in the same prepare), which `Economy.pay` ignores, are sent as "0x0", so the swap the client
  * quotes and its `min_out` are the ones the contract runs: never a referral cut it does not take (P-35).
  */
-export function paidReferrer(referrer: string | null, self: string, deployment: EconomyDeployment, chain: string | { router: string; seller: string }): string {
-  // A bare string is the router alone (the app's referrer preview, which reads no seller); the prepares give both.
-  const read = typeof chain === "string" ? { router: chain, seller: "0x0" } : chain;
+export function paidReferrer(referrer: string | null, self: string, deployment: EconomyDeployment, read: { router: string; seller: string }): string {
   const sent = referrerOf(referrer, self, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
   if (sent === "0x0") return sent;
   const ignored = [deployment.base.addresses.Setup, read.seller, deployment.addresses.Vault, read.router].some((other) => {

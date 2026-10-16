@@ -699,6 +699,17 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(s.sent).toHaveLength(1);
   });
 
+  it("a ?ref= that is Economy.seller() (read from the chain, not the deployment's Setup) is dropped with a notice, and sent as 0x0", async () => {
+    const s = setup();
+    const seller = "0x99";
+    s.economy.seller_ = seller;
+    open(`/play/challenge?ref=${seller}`, s);
+    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    await userEvent.click(await enabledPay());
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
+  });
+
   it("a ?ref= the game's split ignores (the Vault) is dropped with a notice, and the game is bought with 0x0", async () => {
     const s = setup();
     open(`/play/challenge?ref=${ECON.vault}`, s);

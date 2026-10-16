@@ -333,8 +333,8 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
 
   test("the game and the pack map a referrer with the same function (paidReferrer)", () => {
     expect(packReferrer).toBe(paidReferrer);
-    expect(paidReferrer(REFERRER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe(REFERRER);
-    expect(paidReferrer(FAKE_ROUTER, PLAYER, economyDeployment, FAKE_ROUTER)).toBe("0x0");
+    expect(paidReferrer(REFERRER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: "0x0" })).toBe(REFERRER);
+    expect(paidReferrer(FAKE_ROUTER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: "0x0" })).toBe("0x0");
     expect(paidReferrer(REFERRER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: REFERRER })).toBe("0x0");
     expect(paidReferrer(REFERRER, PLAYER, economyDeployment, { router: FAKE_ROUTER, seller: "0x0" })).toBe(REFERRER);
   });
