@@ -1,0 +1,27 @@
+{
+  "firstLoad": {
+    "route": "home"
+  },
+  "limits": {
+    "entry": {
+      "raw": 279552,
+      "gzip": 86016
+    },
+    "largestRoute": {
+      "raw": 872448,
+      "gzip": 249856
+    },
+    "firstLoadJs": {
+      "raw": 663552,
+      "gzip": 214016
+    },
+    "css": {
+      "raw": 67584,
+      "gzip": 12288
+    },
+    "fontAwesome": {
+      "raw": 95232,
+      "gzip": 34816
+    }
+  }
+}

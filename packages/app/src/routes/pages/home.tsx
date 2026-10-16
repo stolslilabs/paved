@@ -10,6 +10,7 @@ import { useTrainingSave } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { useNow } from "../now";
+import { PrefetchOnIntent } from "../prefetch";
 import { useAppNavigate, useTabNavigate } from "../ref";
 
 const DAY = 86_400;
@@ -58,24 +59,29 @@ export default function Page() {
       })
     : null;
 
+  const activeGameId = address ? (active.data?.id ?? null) : null;
+  // The pages the buttons lead to: Play (the mode choice), the Challenge, and the game to resume.
+  const next = activeGameId === null ? ["/play", "/play/challenge"] : ["/play", "/play/challenge", `/game/${activeGameId}`];
   return (
-    <HomeScene
-      player={player}
-      leaderboard={top.data ?? emptyBoard(day)}
-      activeGame={address ? (active.data ?? null) : null}
-      training={training.data ?? null}
-      spawnPaused={paused.data ?? false}
-      cobbles={address && account.data ? { balance: account.data.cobbles, credits: free.available ? account.data.credits : 0 } : null}
-      now={now}
-      connecting={wallet.status === "connecting"}
-      onPlay={() => go("/play")}
-      onPlayFree={playFree}
-      onChallenge={() => (address ? go("/play/challenge") : void wallet.connect())}
-      onTraining={() => go("/training")}
-      onTutorial={() => go("/tutorial")}
-      onResume={(id) => go(`/game/${id}`)}
-      onConnect={() => void wallet.connect()}
-      onNavigate={onNavigate}
-    />
+    <PrefetchOnIntent routes={next}>
+      <HomeScene
+        player={player}
+        leaderboard={top.data ?? emptyBoard(day)}
+        activeGame={address ? (active.data ?? null) : null}
+        training={training.data ?? null}
+        spawnPaused={paused.data ?? false}
+        cobbles={address && account.data ? { balance: account.data.cobbles, credits: free.available ? account.data.credits : 0 } : null}
+        now={now}
+        connecting={wallet.status === "connecting"}
+        onPlay={() => go("/play")}
+        onPlayFree={playFree}
+        onChallenge={() => (address ? go("/play/challenge") : void wallet.connect())}
+        onTraining={() => go("/training")}
+        onTutorial={() => go("/tutorial")}
+        onResume={(id) => go(`/game/${id}`)}
+        onConnect={() => void wallet.connect()}
+        onNavigate={onNavigate}
+      />
+    </PrefetchOnIntent>
   );
 }
