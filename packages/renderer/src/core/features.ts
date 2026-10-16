@@ -11,8 +11,9 @@ import { TILE_VOXELS } from "./outlines";
  *
  * The method (the feasibility prototype, 2026-10-16): a city is a group of city-coloured or stone columns that touches the
  * tile's border on a city edge, or lies mostly in city spots, with the gardens it encloses; a road is a road-coloured column
- * reached from a road spot; a wonder, a wonder-coloured group over a wonder spot; a forest, every other column, split by the
- * roads and cities into the forest areas. The 3 x 3 grid of spots is only a prior: the areas' shapes come from the voxels.
+ * at least two voxels wide, on a road that reaches a road edge or the centre; a wonder, a wonder-coloured group over a
+ * wonder spot; a forest, every other column, split by the roads and cities into the forest areas. The 3 x 3 grid of spots
+ * is only a prior: the areas' shapes come from the voxels.
  */
 
 /** The features a column can show, by code: the code is the `feature` attribute's value. */
@@ -370,13 +371,31 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
     for (let k = 0; k < total; k++) if (inside[k] && !feature[k]) label(k, "wonder", code);
   }
 
-  // Roads: road-coloured columns, each the area of the nearest road spot's column along the road; a road-coloured group
-  // that reaches no road spot (a path by a house) is left to the forest.
+  // Roads: road-coloured columns, without the decoration that shares their colours (the paths by a house or a stop):
+  // first an opening by a 2 x 2 square (a column stays only in a 2 x 2 block of road columns: what is one voxel wide
+  // goes), then only the groups (8 neighbours) that reach the tile's border on a road edge, or the centre of a stop or a
+  // crossing. Each column left takes the area of the nearest road spot's column along the road. A column dropped is left
+  // to the forest.
+  const roadColour = Uint8Array.from({ length: total }, (_, k) => (!feature[k] && isRoad(k) ? 1 : 0));
+  const opened = new Uint8Array(total);
+  for (let y = 0; y + 1 < size; y++) {
+    for (let x = 0; x + 1 < size; x++) {
+      const block = [y * size + x, y * size + x + 1, (y + 1) * size + x, (y + 1) * size + x + 1];
+      if (block.every((k) => roadColour[k])) for (const k of block) opened[k] = 1;
+    }
+  }
+  const centre = layout.category[0];
+  const roadEnd = (k: number) =>
+    (categoryAt(k) === CategoryType.Road && EDGE_SPOTS[spots[k]]?.(k % size, Math.floor(k / size), size)) ||
+    (spots[k] === 0 && (centre === CategoryType.Stop || centre === CategoryType.Road));
+  const onRoad = new Uint8Array(total);
+  for (const cells of groups((k) => opened[k] === 1, size, NEIGHBOURS_8)) {
+    if (cells.some(roadEnd)) for (const k of cells) onRoad[k] = 1;
+  }
   const roadArea = new Uint8Array(total);
-  const onRoad = (k: number) => !feature[k] && isRoad(k);
-  for (let k = 0; k < total; k++) if (onRoad(k) && categoryAt(k) === CategoryType.Road) roadArea[k] = spotArea(k);
-  spread(roadArea, onRoad, size);
-  for (let k = 0; k < total; k++) if (onRoad(k) && roadArea[k]) label(k, "road", roadArea[k]);
+  for (let k = 0; k < total; k++) if (onRoad[k] && categoryAt(k) === CategoryType.Road) roadArea[k] = spotArea(k);
+  spread(roadArea, (k) => onRoad[k] === 1, size);
+  for (let k = 0; k < total; k++) if (onRoad[k] && roadArea[k]) label(k, "road", roadArea[k]);
 
   // Forests: every other column, split by the roads, cities and wonder into groups, each the forest area it covers most;
   // a group in no forest spot takes the nearest forest area.

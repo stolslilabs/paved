@@ -142,6 +142,67 @@ describe("the voxels' features (labelTileGeometry) over the 19 base models", () 
     }
   });
 
+  it("keeps the roads two voxels wide or more: each road edge lit at the border, each road area in one piece", () => {
+    const N = 40;
+    const failures: string[] = [];
+    const spots = [SpotType.Center, SpotType.NorthWest, SpotType.North, SpotType.NorthEast, SpotType.East, SpotType.SouthEast, SpotType.South, SpotType.SouthWest, SpotType.West];
+    // The border's middle third of each edge spot: north (y 0), east (x 39), south (y 39), west (x 0).
+    const third = (v: number) => Math.min(2, Math.floor((v * 3) / N));
+    const EDGES: [SpotType, (i: number) => number][] = [
+      [SpotType.North, (i) => i],
+      [SpotType.East, (i) => i * N + N - 1],
+      [SpotType.South, (i) => (N - 1) * N + i],
+      [SpotType.West, (i) => i * N],
+    ];
+    for (const key of KEYS) {
+      const { columns } = labelled.get(key)!;
+      const plan = new Plan(key.toUpperCase() as PlanType);
+      const categories = plan.unpack().map((c) => c.value);
+      const isRoad = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && columns.feature[y * N + x] === FEATURE_CODE.road;
+      // No road column outside a 2 x 2 block of road columns (the one-voxel paths are gone).
+      for (let k = 0; k < N * N; k++) {
+        const [x, y] = [k % N, Math.floor(k / N)];
+        if (!isRoad(x, y)) continue;
+        const inBlock = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => isRoad(x + dx, y + dy) && isRoad(x + dx + 1, y + dy) && isRoad(x + dx, y + dy + 1) && isRoad(x + dx + 1, y + dy + 1));
+        if (!inBlock) failures.push(`${key}: road column (${x}, ${y}) in no 2 x 2 block`);
+      }
+      // Each road edge: road columns of its area on the border's middle third.
+      for (const [spot, at] of EDGES) {
+        if (categories[spots.indexOf(spot)] !== CategoryType.Road) continue;
+        const area = " ABCDEFGHI".indexOf(plan.area(spot));
+        const lit = Array.from({ length: N }, (_, i) => i).filter((i) => third(i) === 1 && columns.feature[at(i)] === FEATURE_CODE.road && columns.area[at(i)] === area);
+        if (!lit.length) failures.push(`${key}: no road at the ${spot} edge`);
+      }
+      // Each road area in one piece (8 neighbours): a road cut where it narrows would split.
+      for (const area of planAreas(key, CategoryType.Road)) {
+        const cells = Array.from({ length: N * N }, (_, k) => k).filter((k) => columns.feature[k] === FEATURE_CODE.road && columns.area[k] === area);
+        const seen = new Set([cells[0]]);
+        const stack = [cells[0]];
+        const inArea = new Set(cells);
+        while (stack.length) {
+          const c = stack.pop()!;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const [x, y] = [(c % N) + dx, Math.floor(c / N) + dy];
+            const n = y * N + x;
+            if (x >= 0 && y >= 0 && x < N && y < N && inArea.has(n) && !seen.has(n)) {
+              seen.add(n);
+              stack.push(n);
+            }
+          }
+        }
+        if (seen.size !== cells.length) failures.push(`${key}: road area ${area} in ${cells.length - seen.size} columns apart from the rest`);
+      }
+    }
+    // Breaks in the voxel art, there before the paths were filtered: a strip of stone (palette 192 to 199, 0.5 to 0.8
+    // high, a gate or a low wall) across the road, on two stop plans: sfrfrfcfr's north road (rows 9 and 10) and west
+    // road (columns 11 and 12), sfrfrfrfr's north road (row 12). Any other split fails.
+    expect(failures).toEqual([
+      "sfrfrfcfr: road area 3 in 44 columns apart from the rest",
+      "sfrfrfcfr: road area 8 in 41 columns apart from the rest",
+      "sfrfrfrfr: road area 3 in 69 columns apart from the rest",
+    ]);
+  });
+
   it("gives every forest column one of the plan's forest areas, and leaves no column of a full model unlabelled", () => {
     for (const key of KEYS) {
       const labels = labelled.get(key)!;
