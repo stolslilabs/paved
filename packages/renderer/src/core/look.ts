@@ -85,7 +85,7 @@ export interface TierEffects {
  * fit its profile. The bloom alone costs about 3 ms of p95 (desktop, cap 1.5: 11.18 against 8.16 with no effect); every
  * other effect under 0.6 ms. Low runs no extra pass (8.61 ms); medium adds the AO and the soft shadows, everything but
  * the bloom (9.25 ms, under the desktop's 12); high adds the bloom (12.40 ms on the desktop, 9.55 on the phone-like
- * profile at cap 2, under its 16.6).
+ * profile at cap 2, under its 16.6; it shimmers on the slots, see `AUTO_QUALITY`).
  */
 export const TIER_EFFECTS: Record<QualityTier, TierEffects> = {
   low: { ao: false, bloom: false, softShadows: false },
@@ -94,11 +94,12 @@ export const TIER_EFFECTS: Record<QualityTier, TierEffects> = {
 };
 
 /**
- * The tiers of "auto", by the PM's rule from the GPU figures (LIGHT-GPU): the richest tier under 12 ms of p95 on the
- * desktop profile (Medium: 9.25; High is 12.40) and under 16.6 ms on the phone-like one (High: 9.55 to 10.22 over the
- * runs, 9.54 with every plan in Forest). A low-power device still gets Low.
+ * The tiers of "auto", by the PM's rules from the GPU figures (LIGHT-GPU): the richest tier under 12 ms of p95 on the
+ * desktop profile (Medium: 9.25; High is 12.40) and under 16.6 ms on the phone-like one, with zero flicker. High fits
+ * the phone's time (9.55) but its bloom shimmers on the gold slots under a zoom or a pan (the crop's luma jumps by up to
+ * 7.7 levels between two zoom steps of 0.5, where Medium moves under 1): so Medium there too. A low-power device gets Low.
  */
-export const AUTO_QUALITY = { coarse: "high", fine: "medium" } as const satisfies Record<string, QualityTier>;
+export const AUTO_QUALITY = { coarse: "medium", fine: "medium" } as const satisfies Record<string, QualityTier>;
 
 const MOCKUP: LookSettings = {
   key: { enabled: true, color: "#ffd8a0", intensity: 3.6, azimuth: -60, elevation: 34, shadowSoftness: 3 },

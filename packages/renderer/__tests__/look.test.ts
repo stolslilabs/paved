@@ -104,33 +104,38 @@ describe("quality tiers", () => {
     expect([look.ao.enabled, look.bloom.enabled, look.vignette.enabled]).toEqual([false, false, false]);
   });
 
-  it('"auto" picks the richest tier under the rule: high on a coarse pointer or a small screen, medium elsewhere, low on a low-power device', () => {
+  it('"auto" picks the richest tier under the rules: medium on every device (high\'s bloom shimmers), low on a low-power one', () => {
     expect(DEFAULT_RENDERER_SETTINGS.quality).toBe("auto");
-    // Desktop p95 under 12 ms at cap 1.5: medium (9.25), not high (12.40); phone-like under 16.6 at cap 2: high (9.55).
-    expect(AUTO_QUALITY).toEqual({ coarse: "high", fine: "medium" });
-    expect(resolveQuality("auto", true)).toBe("high");
+    // Desktop p95 under 12 ms at cap 1.5: medium (9.25), not high (12.40). Phone-like under 16.6 at cap 2: high would
+    // fit (9.55), but its bloom shimmers on the slots: zero flicker keeps medium.
+    expect(AUTO_QUALITY).toEqual({ coarse: "medium", fine: "medium" });
+    expect(resolveQuality("auto", true)).toBe("medium");
     expect(resolveQuality("auto", false)).toBe("medium");
     expect(resolveQuality("auto", false, { lowPowerDevice: true })).toBe("low");
     expect(resolveQuality("auto", true, { lowPowerDevice: true })).toBe("low");
-    // No bloom on a desktop by default: it alone costs about 3 ms of p95 there.
-    const desktop = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", false));
-    expect([desktop.ao.enabled, desktop.bloom.enabled]).toEqual([true, false]);
+    // No bloom by default: it alone costs about 3 ms of p95 on a desktop, and shimmers on the slots.
+    for (const coarse of [true, false]) {
+      const look = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", coarse));
+      expect([look.ao.enabled, look.bloom.enabled]).toEqual([true, false]);
+    }
     for (const tier of QUALITY_TIERS) expect(resolveQuality(tier, true)).toBe(tier);
     expect(resolveRendererSettings({ quality: "x" as never }).quality).toBe("auto");
   });
 
-  it('"auto" in GameScene reads the window, and follows a resize', () => {
+  it('"auto" in GameScene reads the device: medium on a desktop and on a phone, low on a low-power device; a tier by hand wins', () => {
     const scene = new GameScene();
     let size = { width: 1440, height: 900 };
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2, hasCoarsePointer: () => false };
     expect(scene.getQuality()).toBe("medium");
     expect(scene.getLook().bloom.enabled).toBe(false);
+    expect(scene.getLook().ao.enabled).toBe(true);
+    // A low-power device gets low, whatever its window.
+    (scene as any).effectsCapabilities = { lowPowerDevice: true };
+    expect(scene.getQuality()).toBe("low");
+    (scene as any).effectsCapabilities = {};
     size = { width: 360, height: 780 };
-    expect(scene.getQuality()).toBe("high");
-    expect(scene.getLook().bloom.enabled).toBe(true);
     (scene as any).surface.hasCoarsePointer = () => true;
-    size = { width: 1440, height: 900 };
-    expect(scene.getQuality()).toBe("high");
+    expect(scene.getQuality()).toBe("medium");
     // A tier chosen by hand wins.
     scene.setSettings({ quality: "low" });
     expect(scene.getQuality()).toBe("low");

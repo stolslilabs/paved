@@ -26,7 +26,7 @@ const meta = {
       // An enum, so a URL can set it (`args=quality:high`): Storybook drops a URL arg its docgen type (an unresolved
       // union here) does not validate.
       type: { name: "enum", value: ["auto", ...QUALITY_TIERS] },
-      description: "Graphics quality: low runs no extra pass, medium adds the ambient occlusion and the soft shadows (all but the bloom), high the bloom too. auto (measured on the GPU, LIGHT-GPU): high on a coarse pointer or a small screen, medium elsewhere, low on a low-power device",
+      description: "Graphics quality: low runs no extra pass, medium adds the ambient occlusion and the soft shadows (all but the bloom), high the bloom too. auto (measured on the GPU, LIGHT-GPU): medium on every device (high is over 12 ms on a desktop, and its bloom shimmers on the slots), low on a low-power device",
     },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
     distance: { control: { type: "range", min: MIN_DISTANCE, max: MAX_DISTANCE, step: 1 }, description: "Camera distance; unset, the view's own" },
