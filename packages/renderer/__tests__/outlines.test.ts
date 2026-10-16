@@ -139,12 +139,12 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     expect(outlineStroke(60.5, step)).toMatchObject({ width: 1, opacity: 1 });
   });
 
-  it("defaults: off at 0.85 S, fully on from 1.3 S, a hairline, dark grey", () => {
+  it("defaults: off at 0.85 S, fully on from 1.15 S, a hairline, dark grey", () => {
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
       force: "auto",
       fadeOffFactor: 0.85,
-      fadeFullFactor: 1.3,
+      fadeFullFactor: 1.15,
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
@@ -153,17 +153,17 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
       segmentFullDevicePx: 1,
     });
     for (const s of [52, 60, 75]) {
-      expect(outlineStroke(1.3 * s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ width: 1, opacity: 1 });
+      expect(outlineStroke(1.15 * s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ width: 1, opacity: 1 });
       expect(outlineStroke(0.85 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBe(0);
-      // The opening view is no longer fully on: smoothstep(ln(1 / 0.85) / ln(1.3 / 0.85)) = 0.327.
-      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.3268, 3);
+      // The opening view is no longer fully on: smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85)) = 0.5565.
+      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.5565, 3);
     }
-    expect(outlineOpacityAtOpening()).toBeCloseTo(0.3268, 3);
-    // The 1.15 S candidate.
-    expect(outlineOpacityAtOpening(0.85, 1.15)).toBeCloseTo(0.5565, 3);
+    expect(outlineOpacityAtOpening()).toBeCloseTo(0.5565, 3);
+    // The 1.3 S preset.
+    expect(outlineOpacityAtOpening(0.85, 1.3)).toBeCloseTo(0.3268, 3);
     // Without an opening size, a 900 px high window's (60 px).
     expect(DEFAULT_OPENING_TILE_PX).toBe(60);
-    expect(outlineStroke(78)).toMatchObject({ width: 1, opacity: 1 });
+    expect(outlineStroke(70)).toMatchObject({ width: 1, opacity: 1 });
     expect(outlineStroke(51).opacity).toBe(0);
   });
 });
@@ -178,12 +178,12 @@ describe("the opening tile size S", () => {
     expect(openingTilePixels(camera, 900)).toBeCloseTo(60.3, 1);
   });
 
-  it("puts the fade at the same distances on every screen: 0.33 at the opening view, fully on from 240 / 1.3, off past 240 / 0.85", () => {
+  it("puts the fade at the same distances on every screen: 0.56 at the opening view, fully on from 240 / 1.15, off past 240 / 0.85", () => {
     for (const height of [780, 900, 1300]) {
       const s = openingTilePixels(camera, height);
       const at = (distance: number) => outlineStroke(tilePixels(camera, distance, height), DEFAULT_OUTLINE_SETTINGS, 1, s);
-      expect(at(240).opacity).toBeCloseTo(0.3268, 3);
-      expect(at(240 / 1.3)).toMatchObject({ width: 1, opacity: 1 });
+      expect(at(240).opacity).toBeCloseTo(0.5565, 3);
+      expect(at(240 / 1.15)).toMatchObject({ width: 1, opacity: 1 });
       expect(at(240 / 0.85 + 0.01).opacity).toBe(0);
       // The farthest zoom (300) is past the off distance (about 282): the outlines vanish zoomed out.
       expect(at(300).opacity).toBe(0);

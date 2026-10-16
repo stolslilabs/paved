@@ -1150,20 +1150,21 @@ so a straight edge split into many segments covers each pixel once. The width is
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
 zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
 the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: off at
-`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.3) x S, and between a smoothstep of
+`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.15) x S, and between a smoothstep of
 `ln(tile px / off) / ln(full / off)` (OUT-FADE, PM ruling 2026-10-16: the toggle at a zoom-out level read as odd, so the
 opacity falls as the camera zooms out, ending where the old cut was). On the log of the tile size a wheel step changes
 the opacity by about the same amount, and the smoothstep has no kink at either end. The material is hidden below 1/255.
 A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile and S
 scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
 vanish at the farthest zoom (300). **Consequence: at the opening view (S) the opacity is no longer 1**: it is
-smoothstep(ln(1 / 0.85) / ln(1.3 / 0.85) = 0.383) = **0.327** (readout of the story: 33 %). The second candidate, 1.15 S
-(`fadeFullFactor` 1.15), gives 0.556 at S (56 %); it is on at 80 % at 1.15 S with the first. Both are presets of the
+smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85) = 0.538) = **0.556** (readout of the story: 56 %). The PM's ruling (2026-10-16)
+made 1.15 S the default, since the owner called the outline at the opening view perfect and losing two thirds of it would be
+the larger change; the other candidate, 1.3 S (`fadeFullFactor` 1.3), gives 0.327 at S (33 %) and stays a preset; it is on at 80 % at 1.15 S. Both are presets of the
 story ("fade 1.3", "fade 1.15") next to the two factor controls. Captures
 (`captures/out-fade-1_3-*` and `out-fade-1_15-*`, for 1.3 S, 1.15 S, 1.0 S (the opening view), 0.9 S and 0.85 S: the
 Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**, `force: "on"`);
 opacity read from the story: 1.3 S: 100 % / 100 %; 1.15 S: 80 % / 100 %; S: 33 % / 56 %; 0.9 S: 5 % / 9 %; 0.85 S: off /
-off (preset 1.3 / preset 1.15). The default is 1.3 (the PM's estimate) until the PM and the owner choose.
+off (preset 1.3 / preset 1.15). The default is 1.15.
 **The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
@@ -1171,7 +1172,7 @@ it fades over a factor of two in length, a small step per zoom step (`outline-se
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
-(headless Chrome on SwiftShader, outlines forced on, 1280 x 800 at DPR 1, preset 1.3, the story held; mean luma of the
+(headless Chrome on SwiftShader, outlines forced on, 1280 x 800 at DPR 1, preset 1.3 (the first default), the story held; mean luma of the
 centre 800 x 500 crop after each step, the outline share being 1 minus the luma with the outlines on over the luma with
 them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (the off point) into the ramp: the share goes
 0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step

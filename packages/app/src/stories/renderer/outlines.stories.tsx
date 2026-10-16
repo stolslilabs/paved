@@ -5,8 +5,8 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 /**
  * The voxel tiles' outlines on the recorded 72-tile board (R-OUT, R-VIS): dark grey antialiased strokes whose width is a
  * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (a smoothstep
- * of the log of the tile size: off at 0.85 of the tile size the board opens at on this screen, fully on from 1.3 of it, or
- * 1.15 with the other preset), and never flickering while it pans. The
+ * of the log of the tile size: off at 0.85 of the tile size the board opens at on this screen, fully on from 1.15 of it, or
+ * 1.3 with the other preset), and never flickering while it pans. The
  * tour goes through the views where the old 1-pixel lines failed; stop it to hold one view and set its distance. Under
  * reduced motion nothing moves by itself.
  */
@@ -34,7 +34,7 @@ const meta = {
       control: { type: "inline-radio", labels: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" } },
       options: ["custom", "fade_1_3", "fade_1_15"],
       mapping: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" },
-      description: "The two fade candidates, both off at 0.85 of the opening tile size S and fully on from 1.3 S or 1.15 S (a smoothstep of log(tile px) between; the opacity at S is 0.33 and 0.56). Custom: the two factor controls below",
+      description: "The two fade candidates, both off at 0.85 of the opening tile size S and fully on from 1.3 S or 1.15 S (a smoothstep of log(tile px) between; the opacity at S is 0.33 and 0.56; the default, custom, is 1.15). Custom: the two factor controls below",
       table: { category: "Outlines" },
     },
     fadeFullFactor: {

@@ -75,12 +75,12 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
   force: "auto",
-  // The fade follows the opening tile size S: off at 0.85 S, fully on from 1.3 S, a smoothstep of log(tile px) between
+  // The fade follows the opening tile size S: off at 0.85 S, fully on from 1.15 S, a smoothstep of log(tile px) between
   // (OUT-FADE). A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
   // over the farthest zoom's 48 px: the outlines vanish zoomed out). At S itself the opacity is no longer 1: see
   // `outlineOpacityAtOpening`.
   fadeOffFactor: 0.85,
-  fadeFullFactor: 1.3,
+  fadeFullFactor: 1.15,
   // 1.5 % of a voxel, in the 1 to 2 % that keeps the stroke thin. That is under a device pixel until a voxel is about 33 CSS px wide
   // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
   widthVoxels: 0.015,
