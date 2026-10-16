@@ -91,7 +91,10 @@ function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRender
 
   return new THREE.WebGLRenderer({
     canvas: renderTarget as HTMLCanvasElement,
-    antialias: true,
+    // Every frame is drawn into the composer's target (`Effects`), and the canvas only receives its full-screen final
+    // pass: a multisampled canvas would antialias nothing and hold a 4-sample colour and depth buffer, 32 B a pixel
+    // (33.8 MiB at 720 x 1480, measured in Q3-GPU). The faces' antialiasing is the composer's (`multisampling`).
+    antialias: false,
     alpha: false,
   });
 }
