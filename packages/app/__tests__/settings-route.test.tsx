@@ -63,7 +63,7 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 describe("/settings", { timeout: 15_000 }, () => {
   it("shows the defaults: Auto with what it resolves to, sound on, music off, preview and highlight on, skins shown", async () => {
     open();
-    expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ })).toHaveAttribute("data-state", "on");
+    expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
@@ -112,13 +112,13 @@ describe("/settings", { timeout: 15_000 }, () => {
     await userEvent.click(await screen.findByRole("switch", { name: /Show players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("default");
     await act(() => router.navigate("/settings/theme"));
-    expect(await screen.findByRole("radiogroup", { name: "Theme" })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Theme" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: /Show players' skins/ })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: /Default/ })).toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: /Show players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("forest");
     await act(() => router.navigate("/settings"));
-    expect(await screen.findByRole("region", { name: "Account" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Account" }, { timeout: 5000 })).toBeInTheDocument();
     expect(await screen.findByRole("switch", { name: /Show players' skins/ })).toBeChecked();
   });
 

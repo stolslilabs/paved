@@ -263,7 +263,7 @@ export const SETTINGS = {
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
-const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS } as const;
+const themeBase = { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: RENDERER_ASSETS } as const;
 const FOREST = 1;
 const ALL_PLANS = Array.from({ length: 19 }, (_, i) => i + 1);
 const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
@@ -276,8 +276,8 @@ const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
 };
 
 export const THEME = {
-  defaultSelected: { selected: "default", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
-  forestSelected: { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+  defaultSelected: { selected: "default", showSkins: false, tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+  forestSelected: { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
   /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
   skins: { ...themeBase, skins: forestSkins },
   /** Two switches changed, not saved: Save sends them in one `set_skins` write. */
