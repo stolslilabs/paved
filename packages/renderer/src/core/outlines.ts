@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { OPENING_DISTANCE } from "./CameraController";
 import { mergeCollinearSegments } from "./edges";
+import { LOOK_PRESETS } from "./look";
 import { TILE_SIZE } from "./types";
 
 /**
@@ -79,11 +80,9 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   widthVoxels: 0.015,
   minWidthDevicePx: 1,
   maxWidthPx: 2,
-  // A very dark grey, not black. The value is what the outline pass writes into the linear target; the FinishPass then
-  // tone maps, grades and sRGB-encodes it, which lifts a dark grey a lot. #090909 shows as about #141313 at the middle
-  // of the Mockup look (ACES, grade on; the vignette darkens it toward the corners), the nearest the 8-bit input gets to
-  // #101010 on screen (#08 gives #0b0a09, #0a gives #1b1a19).
-  color: "#090909",
+  // The colour on screen, halfway between the old #1f1f1f (which showed as about #53524f, the finish pass lifting it) and
+  // black. `screenColor` converts it to the grey the pass writes (about #101010) for the default look.
+  color: "#2a2928",
   // Under a device pixel a segment covers a pixel only where a pixel's centre falls within its span, so it shows as a
   // stray dot that comes and goes as the camera moves; at 0.5 px it covers at most half a pixel's row. It fades out
   // from one device pixel down to half of one, so nothing pops. Top-down, the voxels' vertical edges are all under it.
@@ -333,13 +332,83 @@ void main() {
 `;
 
 /**
- * The colour the outline material is given for `css`. The scene is drawn into the composer's linear
- * target; the `FinishPass` (`Effects`) then applies the tone map, the grade, the vignette and the sRGB encoding to the
- * whole frame, outlines included. The CSS channels go in as they are (the value written is the linear one) and are NOT
- * the 8-bit value shown: a dark grey is lifted (see `DEFAULT_OUTLINE_SETTINGS.color`).
+ * The share of the finish pass's vignette and the fog that the outlines at the opening view keep, measured on the
+ * Mockup captures (the stroke's visible value over the no-vignette value: about 0.8 in sRGB, 0.65 in linear light).
+ */
+export const OUTLINE_VIEW_FALLOFF = 0.65;
+
+const ACES_IN = [
+  [0.59719, 0.35458, 0.04823],
+  [0.076, 0.90834, 0.01566],
+  [0.0284, 0.13383, 0.83777],
+];
+const ACES_OUT = [
+  [1.60475, -0.53108, -0.07367],
+  [-0.10208, 1.10813, -0.00605],
+  [-0.00327, -0.07276, 1.07602],
+];
+
+function mulRow(m: number[][], v: number[]): number[] {
+  return m.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+}
+
+function srgbEncode(x: number): number {
+  return x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+}
+
+/**
+ * What the `FinishPass` shows (8-bit sRGB channels, 0 to 255) for a grey `written` (linear, 0 to 1) the outline pass
+ * writes, in the default look (`mockup`: ACES at its exposure, then the grade) and with the opening view's vignette and
+ * fog taken as `OUTLINE_VIEW_FALLOFF`. This is the forward model `outlineWrittenGrey` inverts; the shader is
+ * `post-shaders.ts`.
+ */
+export function outlineScreenOf(written: number): [number, number, number] {
+  const [r, g, b] = outlineScreenChannels(written);
+  return [Math.round(r), Math.round(g), Math.round(b)];
+}
+
+function outlineScreenChannels(written: number): [number, number, number] {
+  const look = LOOK_PRESETS.mockup;
+  let v = mulRow(ACES_IN, [written, written, written].map((x) => (x * look.toneMapping.exposure) / 0.6));
+  v = v.map((x) => (x * (x + 0.0245786) - 0.000090537) / (x * (0.983729 * x + 0.432951) + 0.238081));
+  v = mulRow(ACES_OUT, v).map((x) => Math.min(1, Math.max(0, x)));
+  if (look.grade.enabled) {
+    const { saturation, contrast, warmth } = look.grade;
+    const luma = v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722;
+    v = v.map((x) => luma + (x - luma) * saturation).map((x) => (x - 0.18) * contrast + 0.18);
+    v = [v[0] * (1 + warmth), v[1], v[2] * (1 - warmth)].map((x) => Math.min(1, Math.max(0, x)));
+  }
+  const out = v.map((x) => srgbEncode(x * OUTLINE_VIEW_FALLOFF) * 255);
+  return [out[0], out[1], out[2]];
+}
+
+/**
+ * The grey (linear, 0 to 1) the outline pass must write for the visible channel `green` (8-bit sRGB, 0 to 255) to show,
+ * found by bisection on `outlineScreenOf` (monotone): the inverse of the finish pass's sRGB, ACES and grade for the
+ * default look. A visible value above what a grey can reach gives 1.
+ */
+export function outlineWrittenGrey(green: number): number {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (outlineScreenChannels(mid)[1] < green) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
+ * The colour the outline material is given for `css`, which is the colour that shows on screen. The scene is drawn
+ * into the composer's linear target and the `FinishPass` (`Effects`) then tone maps, grades, vignettes and sRGB-encodes
+ * the whole frame, outlines included, lifting a dark grey a lot. So the material gets the grey that shows `css`'s green
+ * channel after that pass (`outlineWrittenGrey`). It assumes the default look (`mockup`): another look shifts the
+ * visible value; the grade's warmth tints the grey a little.
  */
 function screenColor(css: string, target = new THREE.Color()): THREE.Color {
-  return target.setStyle(css, THREE.LinearSRGBColorSpace);
+  const green = Math.round(target.setStyle(css, THREE.LinearSRGBColorSpace).g * 255);
+  const w = outlineWrittenGrey(green);
+  return target.setRGB(w, w, w, THREE.LinearSRGBColorSpace);
 }
 
 /** The outline material: `diffuse` its colour, `opacity`, `linewidth` in device px. */
