@@ -938,21 +938,42 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
 });
 
 describe("a wallet that never answers (writer timeout)", () => {
-  it("rejects with the unknown outcome after the limit, and not before", async () => {
-    const s = setup();
+  function hook(s: ReturnType<typeof setup>) {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>
         <DataProvider sources={s.sources}>{children}</DataProvider>
       </QueryClientProvider>
     );
-    const { result } = renderHook(() => usePurchase(PLAYER), { wrapper });
+    return renderHook(() => usePurchase(PLAYER), { wrapper });
+  }
+  const request = { playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
+  /** The fake clock only moves by hand: let the pending promises settle. */
+  const flush = async (until: () => boolean = () => false) => {
+    for (let i = 0; i < 60 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  };
+  /** A hung send, past its limit: the page has the timeout error. */
+  async function timedOut(s: ReturnType<typeof setup>, result: ReturnType<typeof hook>["result"]) {
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    act(() => result.current.mutation.mutate(request));
+    await flush(() => s.sent.length === 1);
+    expect(s.sent).toHaveLength(1);
+    await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+    await flush(() => result.current.mutation.status === "error");
+    expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+    return release;
+  }
+
+  it("rejects with the unknown outcome after the limit, and not before", async () => {
+    const s = setup();
+    const { result } = hook(s);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       // The wallet's promise never settles.
       s.state.gate = new Promise<void>(() => {});
-      act(() => result.current.mutation.mutate({ playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null }));
+      act(() => result.current.mutation.mutate(request));
       // The writer reads its quotes before signing: let those settle (the fake clock only moves by hand).
-      for (let i = 0; i < 50 && s.sent.length === 0; i++) await act(() => vi.advanceTimersByTimeAsync(0));
+      await flush(() => s.sent.length === 1);
       expect(s.sent).toHaveLength(1);
       await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS - 1));
       expect(result.current.mutation.status).toBe("pending");
@@ -961,6 +982,82 @@ describe("a wallet that never answers (writer timeout)", () => {
       const error = result.current.mutation.error!;
       expect(error).toBeInstanceOf(PurchaseTimedOutError);
       expect(purchaseRefusal(error)).toEqual({ kind: "unknown", message: expect.stringContaining("did not answer in 5 minutes") });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Buy again is refused as busy while the hung send holds the writer, and works once it has answered", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => result.current.mutation.error !== null && !(result.current.mutation.error instanceof PurchaseTimedOutError));
+      expect(purchaseRefusal(result.current.mutation.error!).kind).toBe("busy");
+      expect(s.sent).toHaveLength(1);
+      // The wallet answers at last: the send lands (its game is ready, which the page shows before any refusal) and the writer is free.
+      s.state.gate = null;
+      release();
+      await flush(() => result.current.ready.gameId !== null);
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      expect(result.current.sending).toBe(false);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 2);
+      expect(s.sent).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an outcome-unknown hash that arrives after the limit is recorded, and Pay stays held on a remount", async () => {
+    const s = setup();
+    const { result, unmount } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let release = () => {};
+    try {
+      release = await timedOut(s, result);
+      s.state.noEvents = true;
+      release();
+      await flush(() => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game")) !== null);
+      expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"');
+    } finally {
+      vi.useRealTimers();
+    }
+    unmount();
+    open("/play/challenge", s);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+  });
+
+  it("a success that arrives after the limit shows the game as ready, and clears the timed-out state", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      release();
+      await flush(() => result.current.ready.gameId !== null);
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a refusal that arrives after the limit clears the timed-out state", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      s.state.revert = "Challenge: spawn paused";
+      release();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+      expect(result.current.ready.gameId).toBeNull();
     } finally {
       vi.useRealTimers();
     }

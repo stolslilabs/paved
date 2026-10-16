@@ -86,9 +86,9 @@ export const OutcomeUnknownCheckFailed: Story = {
 export const OutcomeUnknownRetrying: Story = {
   args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, checkRetrying: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
 };
-/** A send landed after the player switched account: its game waits to be opened. */
+/** A send landed after the page had stopped waiting for it (a switch of account, a timeout): its game waits to be opened. */
 export const GameReady: Story = {
-  args: { ...PURCHASE.stake1, refusal: { kind: "ready", message: "Your purchase landed after you switched account: your game is waiting." }, onOpenReady: fn() },
+  args: { ...PURCHASE.stake1, refusal: { kind: "ready", message: "Your purchase landed: your game is waiting." }, onOpenReady: fn() },
 };
 /** The receipt of the unknown purchase read since: it went through. */
 export const EarlierPurchaseLanded: Story = {

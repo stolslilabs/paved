@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   PackOutcomeUnknownError,
@@ -156,13 +156,33 @@ export class PurchaseTimedOutError extends Error {
   }
 }
 
-/** `send`'s answer, or `PurchaseTimedOutError` when it is still pending after `ms`. The send itself is not cancelled. */
-export function withPurchaseTimeout<T>(send: Promise<T>, ms = PURCHASE_TIMEOUT_MS): Promise<T> {
+/** What a send answered after the page stopped waiting for it. */
+export type LateAnswer<T> = { value: T } | { error: Error };
+
+/**
+ * `send`'s answer, or `PurchaseTimedOutError` when it is still pending after `ms`. The send itself is not cancelled: its
+ * late answer goes to `onLate` (a hash that arrives at minute 6 must still be recorded). The timer is not cleared on
+ * unmount: it fires once and settles a promise nobody waits for, which is harmless.
+ */
+export function withPurchaseTimeout<T>(send: Promise<T>, ms = PURCHASE_TIMEOUT_MS, onLate?: (answer: LateAnswer<T>) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new PurchaseTimedOutError()), ms);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      reject(new PurchaseTimedOutError());
+    }, ms);
     send.then(
-      (value) => (clearTimeout(timer), resolve(value)),
-      (error: unknown) => (clearTimeout(timer), reject(error)),
+      (value) => {
+        if (timedOut) return onLate?.({ value });
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        const failure = error instanceof Error ? error : new Error(String(error));
+        if (timedOut) return onLate?.({ error: failure });
+        clearTimeout(timer);
+        reject(error);
+      },
     );
   });
 }
@@ -294,6 +314,40 @@ function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: Purchase
   if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: sentAt ?? nowSeconds() });
 }
 
+/** The reads a game purchase touches, read again once it is settled (a refusal may come from a moved price or a pause too). */
+function reconcileGame(client: ReturnType<typeof useQueryClient>, error: Error | null, sender: string | undefined): void {
+  void client.invalidateQueries({ queryKey: ["chain", "economy"] });
+  void client.invalidateQueries({ queryKey: queryKeys.chain.spawnPaused() });
+  if (!sender || outcomeUnknown(error)) return;
+  void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
+  void client.invalidateQueries({ queryKey: queryKeys.chain.playerGames(sender) });
+  void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(sender) });
+}
+
+/** The reads a pack purchase touches, read again once it is settled. */
+function reconcilePack(client: ReturnType<typeof useQueryClient>, error: Error | null, sender: string | undefined): void {
+  void client.invalidateQueries({ queryKey: packKeys.packs() });
+  void client.invalidateQueries({ queryKey: ["chain", "economy"] });
+  if (!sender || outcomeUnknown(error)) return;
+  void client.invalidateQueries({ queryKey: cobbleKeys.account(sender) });
+  void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
+}
+
+/** A mutation's latest error and `reset`, for the late answer of a timed-out send to clear the page's timed-out state. */
+type MutationHandle = { error: Error | null; reset: () => void };
+
+/** Clears a mutation's state when it is the timed-out error, never a newer purchase's. */
+const clearTimedOut = (handle: { current: MutationHandle }): void => {
+  if (handle.current.error instanceof PurchaseTimedOutError) handle.current.reset();
+};
+
+/** Keeps `handle` on the mutation as rendered (an effect, not a write during render). */
+function useMutationHandle(mutation: MutationHandle, handle: { current: MutationHandle }): void {
+  useEffect(() => {
+    handle.current = { error: mutation.error, reset: mutation.reset };
+  });
+}
+
 /**
  * Buys a Challenge game. On its receipt the player's USDC, games and active game are read again; the page opens the new
  * game (`gameId`). An unknown outcome is recorded (`usePurchaseHold`), and its reads are left to the hold's check rather
@@ -304,24 +358,26 @@ export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("game", playerId);
+  const handle = useRef<MutationHandle>({ error: null, reset: () => {} });
   const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("game"),
-    mutationFn: ({ playerId: _sender, ...request }) => withPurchaseTimeout(buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))),
+    mutationFn: ({ playerId: sender, ...request }) => {
+      const sentAt = nowSeconds();
+      return withPurchaseTimeout(buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy")), PURCHASE_TIMEOUT_MS, (late) => {
+        // The wallet answered after the page gave up: as an in-time answer would have gone.
+        if ("value" in late) client.setQueryData(readyKey("game", sender), late.value.gameId);
+        else recordUnknown(client, "game", late.error, sender, sentAt);
+        reconcileGame(client, "error" in late ? late.error : null, sender);
+        if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(handle);
+      });
+    },
     onMutate: () => ({ sentAt: nowSeconds() }),
     // The game is kept for its sender: a send that lands after a change of player has no page to open it (`ready`).
     onSuccess: ({ gameId }, { playerId: sender }) => client.setQueryData(readyKey("game", sender), gameId),
     onError: (error, { playerId: sender }, context) => recordUnknown(client, "game", error, sender, context?.sentAt),
-    onSettled: (_data, error, variables) => {
-      // A refusal may come from a moved price or a pause: those reads are stale too.
-      void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.spawnPaused() });
-      const sender = variables?.playerId;
-      if (!sender || outcomeUnknown(error)) return;
-      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.playerGames(sender) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.activeGame(sender) });
-    },
+    onSettled: (_data, error, variables) => reconcileGame(client, error, variables?.playerId),
   });
+  useMutationHandle(mutation, handle);
   // Another player: the last one's refusal or success is not theirs. The send itself stays pending in the mutation
   // cache, and `sending` keeps the sender's Pay held when they come back.
   const { reset } = mutation;
@@ -346,21 +402,24 @@ export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("pack", playerId);
+  const handle = useRef<MutationHandle>({ error: null, reset: () => {} });
   const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("pack"),
-    mutationFn: ({ playerId: _sender, ...request }) => withPurchaseTimeout(buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))),
+    mutationFn: ({ playerId: sender, ...request }) => {
+      const sentAt = nowSeconds();
+      return withPurchaseTimeout(buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy")), PURCHASE_TIMEOUT_MS, (late) => {
+        if ("value" in late) applyPackBought(client, sender, late.value.bought);
+        else recordUnknown(client, "pack", late.error, sender, sentAt);
+        reconcilePack(client, "error" in late ? late.error : null, sender);
+        if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(handle);
+      });
+    },
     onMutate: () => ({ sentAt: nowSeconds() }),
     onSuccess: ({ bought }, { playerId: sender }) => applyPackBought(client, sender, bought),
     onError: (error, { playerId: sender }, context) => recordUnknown(client, "pack", error, sender, context?.sentAt),
-    onSettled: (_data, error, variables) => {
-      void client.invalidateQueries({ queryKey: packKeys.packs() });
-      void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-      const sender = variables?.playerId;
-      if (!sender || outcomeUnknown(error)) return;
-      void client.invalidateQueries({ queryKey: cobbleKeys.account(sender) });
-      void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
-    },
+    onSettled: (_data, error, variables) => reconcilePack(client, error, variables?.playerId),
   });
+  useMutationHandle(mutation, handle);
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
   const sending = useSending("pack", playerId);

@@ -100,7 +100,7 @@ export default function Page() {
   const packHold = buyPack.hold;
   const gameRefusal =
     heldRefusal(gameHold, "games", now) ??
-    (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed after you switched account: your game is waiting." } : null) ??
+    (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed: your game is waiting." } : null) ??
     (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
     heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));

@@ -2189,7 +2189,7 @@ and `tokens.test.ts` checks that they agree; `app-web`, the v1 client, keeps its
   player is kept for its sender (`purchaseReady`, in the cache), and the page says "Your game is ready" with Open game. The wallet has
   `PURCHASE_TIMEOUT_MS` = 5 minutes to answer (a prompt read, signed and included takes a minute or two; a shorter limit would call a slow
   honest send unknown): past it the mutation rejects with `PurchaseTimedOutError`, shown as the unknown outcome with no hash (nothing to
-  record or to check by receipt), and the writer's own "Another write is pending" refuses a second send while the hung one holds the account.
+  record or to check by receipt), and the writer's own "Another write is pending" refuses a second send while the hung one holds the account. The send is not cancelled: its late answer is handled as an in-time one (an outcome-unknown hash is recorded under the sender and holds Pay; a success is kept as the sender's ready game; a refusal or success clears the timed-out state).
 - *Over.* The settle mutation stays pending until the terms are read again, so after a receipt with no `Settled` (someone settled first)
   a second tap sends nothing.
 - *Theme.* After a save whose receipt could not be read, the active set read again drops the changes it already holds (`dropSavedChanges`).
