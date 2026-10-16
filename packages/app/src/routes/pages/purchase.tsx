@@ -8,7 +8,7 @@ import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { useSpawnPaused, useSplit, useUsdcBalance } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
-import { packKeys, purchaseRefusal, referrerParam, useBuyPack, useEffectiveReferrer, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
+import { PURCHASE_TIMEOUT_MS, packKeys, purchaseRefusal, referrerParam, useBuyPack, useEffectiveReferrer, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
 import { cobbleKeys } from "../../data/cobbles";
 import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
@@ -26,9 +26,11 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
+    // A hash-less record younger than the timeout is a send whose wallet prompt may still be open (another tab, a reload).
+    const waiting = now - hold.unknown.at < PURCHASE_TIMEOUT_MS / 1000;
     const sent =
       hold.unknown.hash === null
-        ? `Purchase sent ${when}: your wallet did not answer, so it may still go through.`
+        ? `Purchase sent ${when}: your wallet ${waiting ? "has not answered yet" : "did not answer"}, so it may still go through.`
         : `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown${hold.unresolved ? ": the network does not know it yet" : ""}.`;
     // What the player reads before confirming: the check has just read them again (`usePurchaseHold`).
     const reads = what === "games" ? "your USDC balance and your games" : "your USDC balance and your Cobbles";
@@ -62,8 +64,9 @@ function quoteProblem(quote: { minOut: bigint | null; isPending: boolean; error:
 /**
  * `/play/challenge` (P7b): the Challenge purchase and the Cobble packs, on the chain's data (section 6.4). The Game tab reads
  * `entry_price` through `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out`, the USDC balance and
- * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` (`EconomyWriter.purchase`, which
- * reads them all again, with the router and the rate) and opens the new game on its board. The Cobbles tab (`?tab=cobbles`)
+ * `spawn_paused`; Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall (`EconomyWriter.purchase`,
+ * which reads them all again, with the router, the seller and the rate), which the wallet prompts for once (no approve is a
+ * session policy, P-65), and opens the new game on its board. A declined prompt is a refusal: nothing was sent, no hold. The Cobbles tab (`?tab=cobbles`)
  * reads the packs from `Setup.pack` and buys one with the approve and `Setup.buy_pack` (`PackBuyer`); the receipt's
  * `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said) when
  * the contracts would not pay it. A guest's Pay connects. An unknown outcome is recorded per player (it survives a remount,
@@ -121,8 +124,8 @@ export default function Page() {
   const confirm = () => {
     if (!purchase.buyer || !playerId) return void wallet.connect();
     if (stakeQuote.minOut === null || gameHold.held || purchase.sending || gameReferrer.isPending) return;
-    // A deliberate Buy again: the earlier purchase is left to the player's check.
-    if (gameHold.unknown) gameHold.clear();
+    // A deliberate Buy again: the earlier purchase is left to the player's check. Its record goes only once the new send is
+    // accepted (`heldSend` writes the new send's hold over it, and puts it back if nothing was sent).
     gameHold.dismiss();
     purchase.ready.clear();
     purchase.mutation.mutate(
@@ -145,7 +148,6 @@ export default function Page() {
   const buy = () => {
     if (!buyPack.buyer || !playerId) return void wallet.connect();
     if (!pack || packQuote.minOut === null || packHold.held || buyPack.sending || packReferrer.isPending) return;
-    if (packHold.unknown) packHold.clear();
     packHold.dismiss();
     buyPack.mutation.mutate({
       playerId,
