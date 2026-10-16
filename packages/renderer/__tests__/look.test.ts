@@ -83,17 +83,17 @@ describe("the look's presets", () => {
 });
 
 describe("quality tiers", () => {
-  it("turn off what a tier cannot afford: low no extra pass, medium the bloom, high the AO too", () => {
+  it("hold the effects that fit their profile (LIGHT-GPU): low no extra pass, medium all but the bloom, high everything", () => {
     expect(TIER_EFFECTS).toEqual({
       low: { ao: false, bloom: false, softShadows: false },
-      medium: { ao: false, bloom: true, softShadows: true },
+      medium: { ao: true, bloom: false, softShadows: true },
       high: { ao: true, bloom: true, softShadows: true },
     });
     const look = LOOK_PRESETS.mockup;
     const low = resolveLook(look, "low");
     expect([low.ao.enabled, low.bloom.enabled, low.key.shadowSoftness]).toEqual([false, false, 1]);
     const medium = resolveLook(look, "medium");
-    expect([medium.ao.enabled, medium.bloom.enabled, medium.key.shadowSoftness]).toEqual([false, true, look.key.shadowSoftness]);
+    expect([medium.ao.enabled, medium.bloom.enabled, medium.key.shadowSoftness]).toEqual([true, false, look.key.shadowSoftness]);
     expect(resolveLook(look, "high")).toEqual(look);
     // A tier never turns an effect on.
     expect(resolveLook(LOOK_PRESETS.off, "high").bloom.enabled).toBe(false);
@@ -104,35 +104,42 @@ describe("quality tiers", () => {
     expect([look.ao.enabled, look.bloom.enabled, look.vignette.enabled]).toEqual([false, false, false]);
   });
 
-  it('"auto" picks conservatively: low on a coarse pointer, a small screen or a low-power device, medium elsewhere, never high', () => {
+  it('"auto" picks the richest tier under the rules: medium on every device (high\'s bloom shimmers), low on a low-power one', () => {
     expect(DEFAULT_RENDERER_SETTINGS.quality).toBe("auto");
-    expect(AUTO_QUALITY).toEqual({ coarse: "low", fine: "medium" });
-    expect(resolveQuality("auto", true)).toBe("low");
+    // Desktop p95 under 12 ms at cap 1.5: medium (9.25), not high (12.40). Phone-like under 16.6 at cap 2: high would
+    // fit (9.55), but its bloom shimmers on the slots: zero flicker keeps medium.
+    expect(AUTO_QUALITY).toEqual({ coarse: "medium", fine: "medium" });
+    expect(resolveQuality("auto", true)).toBe("medium");
     expect(resolveQuality("auto", false)).toBe("medium");
     expect(resolveQuality("auto", false, { lowPowerDevice: true })).toBe("low");
-    for (const coarse of [true, false]) expect(resolveQuality("auto", coarse)).not.toBe("high");
-    // Low on a phone: no AO and no bloom.
-    const phone = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", true));
-    expect([phone.ao.enabled, phone.bloom.enabled]).toEqual([false, false]);
+    expect(resolveQuality("auto", true, { lowPowerDevice: true })).toBe("low");
+    // No bloom by default: it alone costs about 3 ms of p95 on a desktop, and shimmers on the slots.
+    for (const coarse of [true, false]) {
+      const look = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", coarse));
+      expect([look.ao.enabled, look.bloom.enabled]).toEqual([true, false]);
+    }
     for (const tier of QUALITY_TIERS) expect(resolveQuality(tier, true)).toBe(tier);
     expect(resolveRendererSettings({ quality: "x" as never }).quality).toBe("auto");
   });
 
-  it('"auto" in GameScene reads the window, and follows a resize', () => {
+  it('"auto" in GameScene reads the device: medium on a desktop and on a phone, low on a low-power device; a tier by hand wins', () => {
     const scene = new GameScene();
     let size = { width: 1440, height: 900 };
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2, hasCoarsePointer: () => false };
     expect(scene.getQuality()).toBe("medium");
-    size = { width: 360, height: 780 };
-    expect(scene.getQuality()).toBe("low");
     expect(scene.getLook().bloom.enabled).toBe(false);
-    (scene as any).surface.hasCoarsePointer = () => true;
-    size = { width: 1440, height: 900 };
-    expect(scene.getQuality()).toBe("low");
-    // High only when chosen.
-    scene.setSettings({ quality: "high" });
-    expect(scene.getQuality()).toBe("high");
     expect(scene.getLook().ao.enabled).toBe(true);
+    // A low-power device gets low, whatever its window.
+    (scene as any).effectsCapabilities = { lowPowerDevice: true };
+    expect(scene.getQuality()).toBe("low");
+    (scene as any).effectsCapabilities = {};
+    size = { width: 360, height: 780 };
+    (scene as any).surface.hasCoarsePointer = () => true;
+    expect(scene.getQuality()).toBe("medium");
+    // A tier chosen by hand wins.
+    scene.setSettings({ quality: "low" });
+    expect(scene.getQuality()).toBe("low");
+    expect(scene.getLook().ao.enabled).toBe(false);
   });
 });
 
@@ -156,15 +163,15 @@ describe("the chain of passes", () => {
     expect(effects.getComposer()!.passes).toHaveLength(2);
     expect(effects.getComposer()!.renderTarget1.depthTexture).toBeNull();
     // Off, the final pass compiles no code for the AO, the grade, the vignette or a tone-mapping curve.
-    expect(finishDefines(allOff(), false)).toEqual({ SRGB_TRANSFER: "" });
-    expect(Object.keys(finishDefines(LOOK_PRESETS.mockup, true)).sort()).toEqual(["ACES_FILMIC_TONE_MAPPING", "AO", "GRADE", "SRGB_TRANSFER", "VIGNETTE"]);
+    expect(finishDefines(allOff(), false)).toEqual({});
+    expect(Object.keys(finishDefines(LOOK_PRESETS.mockup, true)).sort()).toEqual(["ACES_FILMIC_TONE_MAPPING", "AO", "GRADE", "VIGNETTE"]);
   });
 
   it("drops each costly pass alone when its effect is off, or its tier forbids it", () => {
     const look = LOOK_PRESETS.mockup;
     expect(effectsFor({ ...look, ao: { ...look.ao, enabled: false } }).getPassNames()).toEqual(["render", "bloom", "finish"]);
     expect(effectsFor({ ...look, bloom: { ...look.bloom, enabled: false } }).getPassNames()).toEqual(["render", "ao", "finish"]);
-    expect(effectsFor(look, "medium").getPassNames()).toEqual(["render", "bloom", "finish"]);
+    expect(effectsFor(look, "medium").getPassNames()).toEqual(["render", "ao", "finish"]);
     expect(effectsFor(look, "low").getPassNames()).toEqual(["render", "finish"]);
   });
 
@@ -232,6 +239,23 @@ describe("the lights and the scene's effects", () => {
     expect((scene as any).shadowsDirty).toBe(false);
     scene.setSettings({ look: { ...LOOK_PRESETS.mockup, key: { ...LOOK_PRESETS.mockup.key, azimuth: 10 } }, quality: "high" });
     expect((scene as any).shadowsDirty).toBe(true);
+  });
+});
+
+describe("the bloom's threshold", () => {
+  it("lets the gold slots bloom and keeps it above every tile's brightness (0.8, GPU captures of LIGHT-GPU)", () => {
+    // `UnrealBloomPass`'s high pass: three's `luminance` (Rec. 709) of the linear colour, from the threshold up.
+    const { highlights, bloom } = LOOK_PRESETS.mockup;
+    const slot = new THREE.Color(highlights.slotColor).multiplyScalar(highlights.slotIntensity);
+    const luminance = 0.2126 * slot.r + 0.7152 * slot.g + 0.0722 * slot.b;
+    expect(bloom.threshold).toBe(0.9);
+    // Above the threshold and its smooth width (0.01): the slots glow fully.
+    expect(luminance).toBeGreaterThan(bloom.threshold + 0.01);
+    // At 1.0 they did not (about 0.96): the bloom changed no pixel on the GPU.
+    expect(luminance).toBeLessThan(1);
+    // No tile glowed with the threshold at 0.8 (GPU captures, zoomed in and at 60, highlights off).
+    expect(bloom.threshold).toBeGreaterThanOrEqual(0.8);
+    expect(LOOK_PRESETS.soft.bloom.threshold).toBe(bloom.threshold);
   });
 });
 

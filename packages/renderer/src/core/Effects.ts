@@ -68,6 +68,7 @@ export class Effects {
   private bloomPass: UnrealBloomPass | null = null;
   private aoPass: AoPass | null = null;
   private finishPass: FinishPass | null = null;
+  private smaaPass: SMAAPass | null = null;
   private passNames: EffectsPassName[] = [];
 
   constructor(_config: EffectsConfig = {}) {}
@@ -179,13 +180,7 @@ export class Effects {
     this.drawn = resolveLook(this.look, this.tier, this.capabilities);
     if (!this.renderer || !this.scene || !this.camera) return;
 
-    this.composer?.dispose();
-    this.aoPass?.dispose();
-    this.finishPass?.dispose();
-    this.bloomPass?.dispose();
-    this.aoPass = null;
-    this.finishPass = null;
-    this.bloomPass = null;
+    this.disposePasses();
     const renderer = this.renderer;
     const scene = this.scene;
     const camera = this.camera;
@@ -238,7 +233,8 @@ export class Effects {
     // it), so it smooths the faces' edges after everything else.
     // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
     if (this.antialiasing === "smaa" && typeof Image !== "undefined") {
-      this.composer.addPass(new SMAAPass());
+      this.smaaPass = new SMAAPass();
+      this.composer.addPass(this.smaaPass);
       names.push("smaa");
     }
 
@@ -263,13 +259,23 @@ export class Effects {
   }
 
   dispose(): void {
+    this.disposePasses();
+  }
+
+  /**
+   * The composer (its two targets, the depth textures with them) and every pass it holds: the composer frees only its
+   * own targets and copy pass, not the passes added to it.
+   */
+  private disposePasses(): void {
     this.composer?.dispose();
     this.aoPass?.dispose();
-    this.finishPass?.dispose();
     this.bloomPass?.dispose();
+    this.finishPass?.dispose();
+    this.smaaPass?.dispose();
     this.composer = null;
     this.aoPass = null;
-    this.finishPass = null;
     this.bloomPass = null;
+    this.finishPass = null;
+    this.smaaPass = null;
   }
 }

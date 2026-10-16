@@ -80,20 +80,26 @@ export interface TierEffects {
 }
 
 /**
- * What each tier runs. **Provisional until measured on the GPU** (LIGHT; the per-effect costs are the follow-up run on
- * the Mac): low runs no extra pass; medium adds the bloom; high adds the ambient occlusion.
+ * What each tier runs, set by the PM's rule from the GPU figures (LIGHT-GPU: the Mac's GPU, headless Chrome on ANGLE
+ * Metal, the Mockup look on the 72-tile board, outlines on; `docs/client/v2-architecture.md` 5.5): a tier holds the
+ * effects that fit its profile. The bloom alone costs about 3 ms of p95 (desktop, cap 1.5: 11.18 against 8.16 with no effect); every
+ * other effect under 0.7 ms. Low runs no extra pass (8.61 ms); medium adds the AO and the soft shadows, everything but
+ * the bloom (9.25 ms, under the desktop's 12); high adds the bloom (12.40 ms on the desktop, 9.55 on the phone-like
+ * profile at cap 2, under its 16.6; it shimmers on the slots, see `AUTO_QUALITY`).
  */
 export const TIER_EFFECTS: Record<QualityTier, TierEffects> = {
   low: { ao: false, bloom: false, softShadows: false },
-  medium: { ao: false, bloom: true, softShadows: true },
+  medium: { ao: true, bloom: false, softShadows: true },
   high: { ao: true, bloom: true, softShadows: true },
 };
 
 /**
- * The tiers of "auto": conservative (the PM's ruling, 2026-10-15). **Provisional until measured on the GPU** (LIGHT-GPU):
- * phones get Low (no AO, no bloom), desktops Medium; High is only chosen by hand.
+ * The tiers of "auto", by the PM's rules from the GPU figures (LIGHT-GPU): the richest tier under 12 ms of p95 on the
+ * desktop profile (Medium: 9.25; High is 12.40) and under 16.6 ms on the phone-like one, with zero flicker. High fits
+ * the phone's time (9.55) but its bloom shimmers on the gold slots under a zoom or a pan (the crop's luma jumps by up to
+ * 7.7 levels between two zoom steps of 0.5, where Medium moves under 1): so Medium there too. A low-power device gets Low.
  */
-export const AUTO_QUALITY = { coarse: "low", fine: "medium" } as const satisfies Record<string, QualityTier>;
+export const AUTO_QUALITY = { coarse: "medium", fine: "medium" } as const satisfies Record<string, QualityTier>;
 
 const MOCKUP: LookSettings = {
   key: { enabled: true, color: "#ffd8a0", intensity: 3.6, azimuth: -60, elevation: 34, shadowSoftness: 3 },
@@ -106,7 +112,8 @@ const MOCKUP: LookSettings = {
   fog: { enabled: true, density: 0.0018 },
   // ACES crushes the darks: this lands on the mockups' dark navy on screen.
   background: "#30363f",
-  bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 1.0 },
+  // 0.9: the gold slots (x 1.6, luminance about 0.96) glow; no tile glows at 0.8 or above (LIGHT-GPU, GPU captures).
+  bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 0.9 },
   highlights: { slotColor: "#ffc23d", slotIntensity: 1.6, ghostColor: "#ffc23d", ghostIntensity: 0.25 },
   water: { enabled: true, brightness: 1.25, roughness: 0.15 },
 };

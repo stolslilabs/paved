@@ -50,8 +50,8 @@ export interface RendererSettings {
   look: LookSettings;
   /**
    * The graphics quality (P11a's settings row): which costly effects run (`TIER_EFFECTS`). `"auto"` (the default) takes
-   * the device's (`resolveQuality`, `AUTO_QUALITY`): low on a coarse pointer, a small screen or a low-power device,
-   * medium elsewhere; high only when chosen. Provisional until measured on the GPU.
+   * the device's (`resolveQuality`, `AUTO_QUALITY`): medium on every device, low on a low-power device; high only when
+   * chosen (set from the GPU figures, LIGHT-GPU).
    */
   quality: QualityTier | "auto";
 }

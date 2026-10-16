@@ -248,9 +248,12 @@ export class GameScene {
     this.setupLighting();
 
     // Post-processing
+    // The capabilities and the look go to the effects before `init`, so the chain is built once, for the tier in effect
+    // (set before a renderer, they only resolve the look).
     this.effectsCapabilities = effectsCapabilities;
-    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing());
     this.effects.setCapabilities(effectsCapabilities);
+    this.effects.setLook(this.settings.look, this.getQuality());
+    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing());
     this.applyLook();
     this.logAntialiasingPath();
 

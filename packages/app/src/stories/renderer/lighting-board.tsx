@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { TILE_SIZE, type GameScene, type HoverState, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
+import { NO_SKINS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { lookInput } from "./lighting-look";
+import { SKINS_MANIFEST, skinsFor } from "./skins-board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
 export interface LightingBoardProps {
@@ -22,11 +23,18 @@ export interface LightingBoardProps {
   redraw?: boolean;
   /** Show the tier in effect and the passes that run. */
   readout?: boolean;
+  /** Forest on every plan (each tile its cell's variant, SKIN-RENDER), or the base models. */
+  forest?: boolean;
+  /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them (the GPU measures force them on). */
+  force?: "auto" | "on" | "off";
+  /** The pixel-ratio cap: "auto" (the device's) or a number. */
+  maxPixelRatio?: number | "auto";
   /** The look's flat args (`lighting-look.ts`). */
   [arg: string]: unknown;
 }
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
+const FOREST = skinsFor("all");
 
 function boundsOf(): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -66,13 +74,17 @@ const GHOST: HoverState = (() => {
  * The recorded 72-tile board through the real renderer with the look of the args: a preset, any field over it, and the
  * quality tier. `data-ready` is set once the board is drawn at the held view.
  */
-export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, ...args }: LightingBoardProps) {
+export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, forest = false, force = "auto", maxPixelRatio = "auto", ...args }: LightingBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState("");
   const input = lookInput(args);
-  const key = JSON.stringify([preset, quality, input]);
-  const settings = useMemo<RendererSettingsInput>(() => ({ lookPreset: preset, quality, look: input }), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const key = JSON.stringify([preset, quality, input, force, maxPixelRatio]);
+  const settings = useMemo<RendererSettingsInput>(
+    () => ({ lookPreset: preset, quality, look: input, outlines: { force }, maxPixelRatio }),
+    [key], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
 
   const onReady = useCallback((s: GameScene) => setScene(s), []);
 
@@ -112,7 +124,11 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
         availableSlots={highlights ? SLOTS : []}
         // Once the models are in: a ghost handed over before then has no model to draw.
         hover={highlights && ready ? GHOST : null}
-        basePath={APP_WEB_ASSETS}
+        // Forest: the app's assets and the story's manifest of them (the base models, the variants, the tiles). Without it,
+        // app-web's assets and no manifest, as before; a new base path gives the canvas a fresh scene.
+        skins={forest ? FOREST : NO_SKINS}
+        manifest={forest ? SKINS_MANIFEST : undefined}
+        basePath={forest ? APP_ASSETS : APP_WEB_ASSETS}
         settings={settings}
         onReady={onReady}
         style={{ position: "absolute", inset: 0 }}

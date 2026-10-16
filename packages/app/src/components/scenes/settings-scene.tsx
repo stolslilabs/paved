@@ -10,7 +10,7 @@ import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, type ThemeId } from "../containers/theme-card";
 
-/** "auto" picks by device: Low on a phone, Medium on a desktop; High only by hand. */
+/** "auto" picks by device: Medium on every device, Low on a low-power one; High only by hand. */
 export type GraphicsQuality = "auto" | "low" | "medium" | "high";
 
 /** The player's preferences, kept on this device (section 6.4: local storage). */

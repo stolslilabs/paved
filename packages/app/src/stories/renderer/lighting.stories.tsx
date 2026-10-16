@@ -23,16 +23,32 @@ const meta = {
     quality: {
       control: "inline-radio",
       options: ["auto", ...QUALITY_TIERS],
-      description: "Graphics quality: low runs no extra pass, medium adds the bloom, high the ambient occlusion. auto: low on a coarse pointer or a small screen, medium elsewhere; high only by hand (provisional until measured on the GPU)",
+      // An enum, so a URL can set it (`args=quality:high`): Storybook drops a URL arg its docgen type (an unresolved
+      // union here) does not validate.
+      type: { name: "enum", value: ["auto", ...QUALITY_TIERS] },
+      description: "Graphics quality: low runs no extra pass, medium adds the ambient occlusion and the soft shadows (all but the bloom), high the bloom too. auto (measured on the GPU, LIGHT-GPU): medium on every device (high is over 12 ms on a desktop, and its bloom shimmers on the slots), low on a low-power device",
     },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
     distance: { control: { type: "range", min: MIN_DISTANCE, max: MAX_DISTANCE, step: 1 }, description: "Camera distance; unset, the view's own" },
     highlights: { control: "boolean", description: "Show the empty slots and the ghost of the tile in hand" },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the tier in effect and the passes that run" },
+    forest: { control: "boolean", description: "Forest on all 19 plans: every tile draws its cell's variant (SKIN-RENDER)" },
+    force: {
+      control: "inline-radio",
+      options: ["auto", "on", "off"],
+      description: "Outlines: auto turns them off on software WebGL; on and off force them (the GPU measures force them on)",
+    },
+    maxPixelRatio: {
+      // Keys without a dot, so a URL can name one (`args=maxPixelRatio:x1_5`); `mapping` gives the renderer the number.
+      control: { type: "select", labels: { auto: "auto", x1: "1", x1_5: "1.5", x2: "2" } },
+      options: ["auto", "x1", "x1_5", "x2"],
+      mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2 },
+      description: "The pixel-ratio cap: auto is the device's (1.5 on a desktop, 2 on a coarse pointer or a small screen)",
+    },
     ...lookArgTypes(),
   },
-  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true },
+  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto" },
 } satisfies Meta<typeof LightingBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;

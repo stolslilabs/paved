@@ -139,7 +139,7 @@ const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
 
 /** The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs). */
 export function finishDefines(look: LookSettings, ao: boolean): Record<string, string> {
-  const defines: Record<string, string> = { SRGB_TRANSFER: "" };
+  const defines: Record<string, string> = {};
   const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
   if (tone) defines[tone] = "";
   if (ao) defines.AO = "";

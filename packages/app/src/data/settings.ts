@@ -13,14 +13,14 @@ import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-st
 export const SMALL_SCREEN_PX = 600;
 
 /** What "auto" resolves to: `resolveQuality("auto", coarseOrSmall)` of `@paved/renderer`, without `lowPowerDevice`. */
-export const autoTier = (coarseOrSmall: boolean): QualityTier => (coarseOrSmall ? "low" : "medium");
+export const autoTier = (_coarseOrSmall: boolean): QualityTier => "medium";
 
 /** Where this device keeps its settings: one key, one JSON object; a change of shape is a new key. */
 export const SETTINGS_KEY = "paved.settings.v1";
 
 /**
- * The graphics quality: "auto" or a tier of the renderer (`RendererSettings.quality`). The tiers are provisional until
- * LIGHT-GPU measures them on real GPUs: "auto" picks Low on a phone and Medium on a desktop, High only by hand.
+ * The graphics quality: "auto" or a tier of the renderer (`RendererSettings.quality`). The tiers were set from the GPU
+ * figures (LIGHT-GPU): "auto" picks Medium on a phone and on a desktop (Low on a low-power device), High only by hand.
  */
 export type GraphicsQuality = "auto" | QualityTier;
 
@@ -75,8 +75,8 @@ export function useDeviceSettings(): [DeviceSettings, <K extends keyof DeviceSet
 }
 
 /**
- * The tier "auto" resolves to on this device, as the renderer does: Low on a coarse pointer or a small screen, else Medium
- * (`autoTier`, `resolveQuality`'s). Read when the page draws; the renderer decides again by the board's own size.
+ * The tier "auto" resolves to on this device, as the renderer does: Medium, on a coarse pointer or a small screen as
+ * elsewhere (`autoTier`, `resolveQuality`'s). Read when the page draws; the renderer decides again by the board's own size.
  */
 export function autoQuality(): QualityTier {
   const w = globalThis as { matchMedia?: (q: string) => { matches: boolean }; innerWidth?: number; innerHeight?: number };

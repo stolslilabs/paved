@@ -227,7 +227,8 @@ which the session is meant to avoid. It stays in the table and the JSON, and out
 ## Release gates
 
 - LIGHT-GPU: per-effect GPU frame times on both profiles, tier defaults set from them, and the flicker re-check with
-  outlines on. The v2 app is not published to players before it lands (PM, 2026-10-15).
+  outlines on. The v2 app is not published to players before it lands (PM, 2026-10-15). **Done in #485**
+  (`docs/client/v2-architecture.md` 5.5): "auto" is Medium (AO and soft shadows, no bloom) on every device, measured.
 - Client value-path audit: before the v2 app is published on any public network (Sepolia included), one audit lens, Opus, read-only on the release commit, of the client's value paths: purchase and stake, packs, skins, claims, settle, spawn_free, the session policies and the referrer (PM, 2026-10-16).
 
 ## What "done" means
