@@ -202,7 +202,6 @@ Design: section 5.6 of `docs/client/v2-architecture.md`.
 - A fake `AssetLoader` handed to `TileRenderer` needs `has`, `want`, `setSkins` and `peekTexture` besides `getModel` and
   `getTexture` (`tile-renderer.test.ts`, `tile-placeholder.test.ts`); a missing one throws in the tile path. A fake
   `GameScene` class for a React test needs `setSkins` too (`packages/renderer/__tests__/helpers/hooks.ts`).
-- Tests that loop over the 19 models, or all the Forest variants, need more than vitest's 5 s on CI.
 - `@paved/renderer` is consumed through its `dist` (`main` and `exports`). `bun run test --filter` builds it first (turbo);
   **Storybook does not**: `bun run --filter @paved/app build-storybook` and `storybook dev` read a stale or missing `dist`, so
   `bun run build --filter @paved/renderer` first, and again after each renderer change.
