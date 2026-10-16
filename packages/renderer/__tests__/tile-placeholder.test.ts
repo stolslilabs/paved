@@ -217,6 +217,98 @@ describe("a tile whose model is on its way draws its plan's image on a flat quad
   });
 });
 
+describe("a tile image that fails or comes late", () => {
+  /** The tries of each image URL, in order: "fail" rejects, "hold" waits for `releaseImage(url)`; past the list, it loads. */
+  let tries: Map<string, Array<"fail" | "hold">>;
+  let heldImages: Map<string, () => void>;
+  const releaseImage = (url: string) => heldImages.get(url)!();
+  const imageCalls = (url?: string) => vi.mocked(THREE.TextureLoader.prototype.loadAsync).mock.calls.filter(([u]) => !url || u === url).length;
+  beforeEach(() => {
+    tries = new Map();
+    heldImages = new Map();
+    vi.mocked(THREE.TextureLoader.prototype.loadAsync).mockImplementation(async (url: string) => {
+      const next = tries.get(url)?.shift();
+      if (next === "fail") throw new Error(`404 ${url}`);
+      if (next === "hold") await new Promise<void>((done) => heldImages.set(url, done));
+      return new THREE.Texture();
+    });
+  });
+  const image = (at: string, plan: number) => `${at}/assets/tiles/${keyOf(plan)}.png`;
+
+  it("does not stop the scene on the normal mount (tiles handed before init): the tile draws no quad, then its model", async () => {
+    const at = nextBase();
+    tries.set(image(at, 5), ["fail", "fail"]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    // Handed before the models are in: the renderer looks for the quad's image then, which must not count as the plan view.
+    s.updateTiles([tile(1, 9)]);
+    await expect(init).resolves.toBeUndefined();
+    expect(drawn(s)).toEqual({ "1": keyOf(9) });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("tile images"), expect.any(Error));
+
+    hold(`${at}/models/${keyOf(5)}.glb`);
+    s.updateTiles([tile(1, 9), tile(2, 5)]);
+    // No image for plan 5: no quad (the cell waits for its model, as before Q-POLISH-R), and no frame lost.
+    expect(drawn(s)).toEqual({ "1": keyOf(9) });
+    await settle();
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    expect(drawn(s)).toEqual({ "1": keyOf(9), "2": keyOf(5) });
+    s.dispose();
+  });
+
+  it("still stops the scene when the plan view asked for the images and one fails", async () => {
+    const at = nextBase();
+    tries.set(image(at, 5), ["fail"]);
+    const s = scene();
+    // As GameCanvas: init, then the view and the tiles in the same commit.
+    const init = s.init({ surface: surface(), basePath: at });
+    s.setStrategyMode(true);
+    s.updateTiles([tile(1, 9)]);
+    await expect(init).rejects.toThrow("404");
+    s.dispose();
+  });
+
+  it("gives a tile and the ghost their quad when a missing image comes late, asking only for that image again", async () => {
+    const at = nextBase();
+    // The first try fails (before the first frame), the retry after the first frame is held.
+    tries.set(image(at, 5), ["fail", "hold"]);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    await init;
+    hold(`${at}/models/${keyOf(5)}.glb`);
+    s.updateTiles([tile(1, 9), tile(2, 5)]);
+    s.setHoveredTile(hover(5));
+    expect(drawn(s)).toEqual({ "1": keyOf(9) });
+    expect((s.tiles as any).previewKey).toMatch(/-none$/);
+
+    nextFrame();
+    nextFrame();
+    await settle();
+    // The retry asks for plan 5's image only: the 18 in already are kept, not fetched and overwritten.
+    expect(imageCalls()).toBe(20);
+    expect(imageCalls(image(at, 5))).toBe(2);
+    expect(drawn(s)).toEqual({ "1": keyOf(9) });
+
+    (s as any).needsRender = false;
+    releaseImage(image(at, 5));
+    await settle();
+    expect(drawn(s)).toEqual({ "1": keyOf(9), "2": null });
+    expect(placed(s)[1]!.userData.placeholder).toBe(true);
+    expect((s.tiles as any).previewKey).toMatch(/-quad$/);
+    expect((s as any).needsRender).toBe(true);
+
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    expect(drawn(s)).toEqual({ "1": keyOf(9), "2": keyOf(5) });
+    expect((s.tiles as any).previewKey).toContain(`-${keyOf(5)}`);
+    s.dispose();
+  });
+});
+
 describe("the ghost while its model loads", () => {
   it("draws the quad with the ghost's tint, red where the placement is invalid, then the model", async () => {
     const { s, at } = await boardWithOneTile();
@@ -286,6 +378,33 @@ describe("a live switch of skins", () => {
     s.dispose();
   });
 
+  it("a variant that fails: the quad stays until the base model it falls back to comes, then the base", async () => {
+    manifestBody = manifest;
+    const at = nextBase();
+    const t = tile(1, 9);
+    net.loadAsync.mockImplementation(async (url: string) => {
+      if (url === `${at}/${variantOf(t)}`) throw new Error(`404 ${url}`);
+      if (held.has(url)) await new Promise<void>((done) => held.set(url, done));
+      return box();
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = scene();
+    s.setSkins({ [keyOf(9)]: 1 });
+    await s.init({ surface: surface(), basePath: at });
+    hold(`${at}/models/${keyOf(9)}.glb`);
+    s.updateTiles([t]);
+    expect(drawn(s)).toEqual({ "1": null });
+    await settle();
+    await settle();
+    // The variant failed and the base model is on its way: still the quad, never an empty cell.
+    expect(requested()).toContain(`${at}/models/${keyOf(9)}.glb`);
+    expect(drawn(s)).toEqual({ "1": null });
+    release(`${at}/models/${keyOf(9)}.glb`);
+    await settle();
+    expect(drawn(s)).toEqual({ "1": keyOf(9) });
+    s.dispose();
+  });
+
   it("skins on, base model never loaded: a new tile and the ghost draw the quad, then the variant", async () => {
     manifestBody = manifest;
     const at = nextBase();
@@ -330,6 +449,7 @@ describe("no leak after many swaps", () => {
         return copy;
       },
       getTexture: () => image,
+      peekTexture: () => image,
     };
   }
 

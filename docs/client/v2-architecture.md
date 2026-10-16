@@ -791,8 +791,9 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     gzipped at level 9 by Python's `gzip`, a compression the host may not apply to `image/png`), measured on the files;
     before, they came after the first frame, so the whole first view is unchanged and the first frame's bytes grow by them.
     The time this adds to the first frame is not measured (estimate: one parallel round of 19 small files beside the first
-    models). A failure there is logged, not fatal (the scene starts; the images are tried again after the first frame),
-    unless the plan view asked for them. A failure among the first models stops the scene, so the page shows its plan view as
+    models). A failure there is logged, not fatal (the scene starts; the images not in are tried again after the first
+    frame, the others kept), unless the plan view asked for them: only the plan view's own request (`getTexture`) makes it
+    fatal, the placeholder reads an image with `peekTexture`, which asks for nothing. A failure among the first models stops the scene, so the page shows its plan view as
     before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
     model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
     (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
@@ -1462,15 +1463,22 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
     first time a plan needs a quad and kept until `TileRenderer.dispose()`, which disposes them and the image copies
     (not the loader's images). A pending tile's quad takes the pending style (`pendingMaterial`, cached per source). The
     ghost's quad has its own copy of the plan's material (disposed with the ghost, as the ghost's model materials are) and
-    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. `tile-placeholder.test.ts`
-    checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, that no image
-    or other file is requested for it, and the dispose counts after 50 swaps.
+    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. A plan whose image is not
+    in (it failed to load) draws no quad: its tile waits for its model, as before, and gets its quad if the image comes
+    first (the loader's retry after the first frame; the ghost's key goes from "none" to "quad"). `tile-placeholder.test.ts`
+    checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, a failed
+    variant (the quad until its base model), a failed image (the scene starts, no quad, then the model) and a late one,
+    that no image or other file is requested for the quad, and the dispose counts after 50 swaps.
   - **What differs on the quad.** Outlines: the square's four sides only, by the same shared material (width, fade, the
     segment cut and software WebGL's "off" apply as on the models); a model's inner creases are not there. MSAA applies.
     LIGHT's look: the quad is lit and receives shadows (a `MeshStandardMaterial`, roughness 0.95), but casts none, and
     the water mask is not applied (the image is not the models' palette). It is flat: no relief, at the ground's height,
     so the swap shows the buildings and trees rising out of it. GPU memory: an image is 1680 x 1680, so each plan's quad
     uploads about 11.3 MB (15 MB with mipmaps; computed, not measured) while it is in use, as the plan view's tiles do.
+    The quad reads its image as sRGB (its own copy of the loader's `Texture`, the same source); the plan view reads the
+    loader's texture with no colour space (a `MeshBasicMaterial`, as before), so one texture cannot serve both without
+    changing the plan view's colours, and a plan shown both ways is uploaded twice (about 11.3 MB more, computed). Left as
+    is: the plan view is not this task's, and its colours would need a capture to change.
   - **Story:** "Renderer/Skins", control `delayModels` (story `SlowModels`, 4 s): the story holds every model response
     (the page's `fetch` waits before answering a `.glb`), opens the board without its last 12 tiles, places them once it
     is drawn, and hovers a ghost on a cell whose Forest variant the opening board does not load. Captures

@@ -415,18 +415,16 @@ export class TileRenderer {
     if (key === "00") return null;
     let type = this.placeholderTypes.get(key);
     if (type) return type;
-    let image: THREE.Texture;
-    try {
-      image = this.assets.getTexture(`tile-${key}`);
-    } catch {
-      return null;
-    }
+    // Peeked, not asked for: a missing image is the loader's to fetch again, and must not count as the plan view asking.
+    const image = this.assets.peekTexture(`tile-${key}`);
+    if (!image) return null;
     if (!this.placeholderGeometry) {
       // A flat square, its image's top edge to the north as on the plan view's tile (`createStrategyTile`)
       this.placeholderGeometry = new THREE.PlaneGeometry(this.squareSize, this.squareSize).rotateX(-Math.PI / 2);
       this.placeholderOutline = createOutline(buildEdgesGeometry(this.placeholderGeometry), this.edgeMaterial);
     }
-    // Its own copy of the image to read it as sRGB, as the models' palettes are: the same picture, nothing fetched.
+    // Its own copy of the image to read it as sRGB, as the models' palettes are: the same picture, nothing fetched. The
+    // plan view reads the loader's texture as is (no colour space), so a plan shown both ways is uploaded twice.
     const map = image.clone();
     map.colorSpace = THREE.SRGBColorSpace;
     map.needsUpdate = true;

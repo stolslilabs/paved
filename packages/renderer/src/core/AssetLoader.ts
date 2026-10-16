@@ -300,11 +300,14 @@ export class AssetLoader {
     }
   }
 
-  /** Every plan's image for the plan view (strategy mode), loaded once (a failure may be tried again). */
+  /**
+   * Every plan's image for the plan view (strategy mode) and the placeholder quad, loaded once. A failure may be tried
+   * again: the next try asks only for the images not in yet.
+   */
   preloadTextures(): Promise<void> {
     if (!this.texturesLoad) {
       const load = Promise.all(
-        PLAN_KEYS.map(async (key) => {
+        PLAN_KEYS.filter((key) => !this.textures.has(`tile-${key}`)).map(async (key) => {
           const texture = await this.textureLoader.loadAsync(`${this.basePath}/assets/tiles/${key}.png`);
           if (this.disposed) texture.dispose();
           else this.textures.set(`tile-${key}`, texture);
@@ -387,6 +390,14 @@ export class AssetLoader {
       }
     });
     return clone;
+  }
+
+  /**
+   * A plan's image if it is in, else null, asking for nothing: the placeholder quad (`TileRenderer`) reads it this way, so
+   * that it never counts as the plan view asking (whose image failure stops the scene, `preloadAll`).
+   */
+  peekTexture(key: string): THREE.Texture | null {
+    return this.textures.get(key) ?? null;
   }
 
   getTexture(key: string): THREE.Texture {
