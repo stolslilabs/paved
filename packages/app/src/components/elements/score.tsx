@@ -1,5 +1,6 @@
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
+import { formatInteger } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 import type { IconSize } from "../ui/icon";
@@ -15,7 +16,7 @@ const scoreVariants = cva("numeric font-semibold leading-none", {
 
 /** Points with a space every three digits, as the mockups write them ("1 240"); no-break, one cell wide in the mono font. */
 export function formatPoints(points: number): string {
-  return Math.round(points).toLocaleString("en-US").replaceAll(",", "\u00a0");
+  return formatInteger(points).replaceAll(",", "\u00a0");
 }
 
 /** The icon beside each size's figure (Font Awesome sizes an icon as its font size). */

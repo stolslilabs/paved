@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { formatNumber } from "@paved/game-core";
 import { BIG_AMOUNT_18, BIG_NUMBER, LONG_ADDRESS, LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
 import { Amount } from "./amount";
 import { StatRow } from "./stat-row";
@@ -24,7 +25,7 @@ export const Stress: Story = {
   render: (args) => (
     <>
       <StatRow {...args} label={LONG_LABEL} hint={LONG_SENTENCE} value={<Amount value={BIG_AMOUNT_18} token="paved" />} />
-      <StatRow {...args} label={LONG_WORD} hint={LONG_ADDRESS} value={BIG_NUMBER.toLocaleString("en-US")} />
+      <StatRow {...args} label={LONG_WORD} hint={LONG_ADDRESS} value={formatNumber(BIG_NUMBER)} />
     </>
   ),
 };

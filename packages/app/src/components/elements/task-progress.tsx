@@ -1,3 +1,4 @@
+import { formatNumber } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Progress } from "../ui/progress";
 
@@ -9,7 +10,7 @@ export interface TaskProgressProps {
   className?: string;
 }
 
-const count = (n: number) => n.toLocaleString("en-US");
+const count = (n: number) => formatNumber(n);
 
 /** One task of a quest or an achievement: its count against its total, and the bar (the indexer's sum, saturated at the total). */
 export function TaskProgress({ unit, count: done, total, className }: TaskProgressProps) {

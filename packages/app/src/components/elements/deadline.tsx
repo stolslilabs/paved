@@ -1,3 +1,4 @@
+import { formatDate } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
@@ -10,17 +11,18 @@ export function formatRelative(seconds: number): string {
 }
 
 /**
- * A moment as the player reads it: "Thu 15 Oct, 17:00" in `timeZone` (the viewer's own when omitted). The locale is
- * fixed (en-GB, a 24 h clock) so a story reads the same everywhere once its time zone is fixed too.
+ * A moment as the player reads it: "Thu, Oct 15, 17:00" in `timeZone` (the viewer's own when omitted). The locale is
+ * fixed (en-US, with a 24 h clock) so a story reads the same everywhere once its time zone is fixed too.
  */
 export function formatLocal(seconds: number, timeZone?: string): string {
-  return new Date(seconds * 1000).toLocaleString("en-GB", {
+  return formatDate(seconds * 1000, {
     timeZone,
     weekday: "short",
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   });
 }
 

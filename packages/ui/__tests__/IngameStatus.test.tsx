@@ -94,3 +94,12 @@ describe("IngameStatus", () => {
     expect(typeof (mod as any).IngameStatus).toBe("function");
   });
 });
+
+describe("IngameStatus under a French process locale (P-66)", () => {
+  it("writes the score en-US: commas, never a narrow no-break space", async () => {
+    const mod = await import("../src/overlays/IngameStatus");
+    const json = JSON.stringify(mod.IngameStatus({ score: 1234567, built: 1, totalTiles: 72, discarded: 0 }));
+    expect(json).toContain("1,234,567");
+    expect(json).not.toMatch(/1[   ]234/);
+  });
+});

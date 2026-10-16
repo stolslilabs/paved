@@ -1,8 +1,9 @@
 import type { SplitView } from "@paved/chain";
+import { formatBps } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 
 /** Bps as a percentage: 7,368 is "73.68%". */
-export const formatBps = (bps: number) => `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
+export { formatBps };
 
 export interface SplitBarProps {
   /** `Economy.split_bps()` (V1b): burn + vault = 10,000; the referral is paid out of the Vault's part. */
