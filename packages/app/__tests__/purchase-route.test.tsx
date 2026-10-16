@@ -23,7 +23,7 @@ import {
   resolveEconomyDeployment,
   type PavedRpc,
 } from "@paved/chain";
-import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT } from "@paved/chain/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FIXTURE_HEAD } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
@@ -252,6 +252,16 @@ describe("/play/challenge: the game's stake", () => {
     const minOut = ((((6n * USDC_UNIT * 95n * 80n * 10n ** 18n) / (100n * USDC_UNIT)) * 9_900n) / 10_000n);
     expect([Number(calls[1].calldata[0]), BigInt(calls[1].calldata[1]), u256(calls[1].calldata[2], calls[1].calldata[3])]).toEqual([3, 0n, minOut]);
     expect(s.pool.calls).toContain(6n * USDC_UNIT);
+  });
+
+  it("the 24 h expiry is read against the chain's time, not the browser's (UTC-BOUND)", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    await enabledPay();
+    // The browser's clock is days away from the indexer's head: the expiry is the head's plus 24 h, in UTC.
+    const expiry = new Date((FIXTURE_HEAD.timestamp + 86_400) * 1000).toISOString();
+    await waitFor(() => expect(document.querySelector("time")).toHaveAttribute("dateTime", expiry));
+    expect(document.querySelector("time")).toHaveTextContent(/^in 24 h · \w{3}, \w{3} \d+, \d{2}:\d{2} UTC$/);
   });
 
   it("sends the referrer of ?ref=, which keeps the 5 % out of the swap", async () => {

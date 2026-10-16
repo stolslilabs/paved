@@ -23,11 +23,11 @@ export const BelowThreshold: Story = { args: OVER.below };
 /** Not finished within 24 h of the purchase. */
 export const Expired: Story = { args: OVER.expired };
 
-// The Challenge's settle area (P7a): the dates are fixed to UTC so a story reads the same everywhere.
-const settling = { ...OVER.awaiting, timeZone: "UTC" } as const;
+// The Challenge's settle area (P7a): the clock is fixed so a story reads the same everywhere (the dates are UTC).
+const settling = { ...OVER.awaiting, now: MOCK_NOW } as const;
 
-/** The day cannot be settled yet: "Settles after <date>". */
-export const SettlesAfter: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + DAY } } };
+/** The day cannot be settled yet: "Settles in <time> (<date> UTC)". */
+export const SettlesAfter: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + 14 * 3600 + 5 * 60 } } };
 
 /** A guest: connect first. */
 export const ConnectToSettle: Story = { args: { ...settling, settle: { state: "connect" } } };
@@ -45,13 +45,13 @@ export const SettlePending: Story = { args: { ...settling, settle: { state: "pen
 export const SettleRefused: Story = { args: { ...settling, settle: { state: "refused", message: "This day cannot be settled yet: try again after the next day ends." } } };
 
 /** Settled from this page: the reward, then the label. */
-export const JustSettled: Story = { args: { ...OVER.rewarded, timeZone: "UTC", settle: { state: "settled" } } };
+export const JustSettled: Story = { args: { ...OVER.rewarded, settle: { state: "settled" } } };
 
 /** Settled earlier. */
-export const AlreadySettled: Story = { args: { ...OVER.rewarded, timeZone: "UTC", settle: { state: "done" } } };
+export const AlreadySettled: Story = { args: { ...OVER.rewarded, settle: { state: "done" } } };
 
 /** Not finished within 24 h: the deadline it missed. */
-export const ExpiredWithDeadline: Story = { args: { ...OVER.expired, timeZone: "UTC", deadline: MOCK_NOW - 3_600 } };
+export const ExpiredWithDeadline: Story = { args: { ...OVER.expired, now: MOCK_NOW, deadline: MOCK_NOW - 3_600 } };
 
 /** A free Challenge game (PLAYFREE): the label, no reward, nothing to settle. */
 export const FreeGame: Story = { args: { ...OVER.awaiting, freeGame: true, reward: { state: "free" } } };
@@ -66,3 +66,6 @@ export const Training: Story = { args: OVER.training };
 export const NoClosing: Story = { args: OVER.noClosing };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: OVER.stress };
+
+/** WRAP360: the longest relative time ("41 d 15 h") with the UTC date, in a sentence. */
+export const SettlesAfterStress: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + 999 * 3600 + 59 * 60 } } };

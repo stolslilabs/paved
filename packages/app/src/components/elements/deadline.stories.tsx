@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
 import { MOCK_NOW, MOCK_TIME_ZONE } from "../../mocks/clock";
 import { Deadline } from "./deadline";
 
@@ -18,12 +17,7 @@ export const HoursLeft: Story = {};
 /** A purchase now: 24 h. */
 export const FullDay: Story = { args: { expiresAt: MOCK_NOW + 86_400 } };
 export const MinutesLeft: Story = { args: { expiresAt: MOCK_NOW + 45 * 60 } };
-/** Focus the local time: the tooltip gives it in UTC. */
-export const UtcTooltip: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.tab();
-    await expect(within(canvasElement).getByText(/Oct/)).toHaveFocus();
-  },
-};
-/** WRAP360: the widest relative time; the local time wraps to its own line when the line is full. */
+/** Already past: "ended 2 h ago", then its UTC time. */
+export const Ended: Story = { args: { expiresAt: MOCK_NOW - 2 * 3600 } };
+/** WRAP360: the widest relative time; the UTC time wraps to its own line when the line is full. */
 export const Stress: Story = { args: { expiresAt: MOCK_NOW + 999 * 3600 + 59 * 60 }, decorators: [(Story) => <div className="max-w-40 text-sm"><Story /></div>] };
