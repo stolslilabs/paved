@@ -848,6 +848,10 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     fetches 52 of the 72. The lazy load bounds it by the board: one file per (plan, variant) a tile shows, at most the
     tiles on the board, and only the plans the player has skinned; the files are content-hashed, so a return visit
     fetches none of them again under the immutable rule below.
+    Drawn, the skinned board costs no frame time (LIGHT-GPU, 5.5; Mac GPU, headless Chrome on ANGLE Metal, outlines on):
+    with Forest on all 19 plans against the base models, CPU + GPU p95 at the default Medium tier is 8.74 against 9.03 ms on
+    the desktop profile and 6.26 against 5.89 ms on the phone-like one at the opening view; every tier and view is within
+    0.6 ms of the base board.
   - **What SKIN-BASE saves** (measured on the files, 2026-10-16, the same method: 200 simulated finished boards of 37 to 38
     tiles, random legal placements, the real hash, the game id varied, the variants a board shows and the base models loaded
     for the first view and after it; raw bytes and gzip level 9 by Python's `gzip`; the boards are a fresh seeded run, so
@@ -1409,31 +1413,151 @@ rebuilds the chain.
 roofs rich, as in the mockups, but crushes the darks (the background had to be raised from `#141b26` to `#30363f` to
 land on the mockups' dark navy); AgX is more muted and keeps the darks. Mockup takes ACES, Soft takes AgX.
 
-**Quality tiers** (`TIER_EFFECTS`, `AUTO_QUALITY`): a tier only turns effects off, it never changes a value.
+**Quality tiers** (`TIER_EFFECTS`, `AUTO_QUALITY`): a tier only turns effects off, it never changes a value. Set from
+the GPU figures by the PM's rules (LIGHT-GPU, below): each tier holds the effects that fit its profile.
 
-| Tier | AO | Bloom | Soft shadows | Passes with the Mockup look |
+| Tier | AO | Soft shadows | Bloom | Passes with the Mockup look | p95, desktop / phone-like (opening view) |
+|---|---|---|---|---|---|
+| Low | off | radius 1 | off | render, finish | 8.61 / 5.93 ms |
+| Medium | on | look's radius | off | render, AO, finish | 9.25 / 5.89 ms |
+| High | on | look's radius | on | render, AO, bloom, finish | 12.40 / 9.55 ms |
+
+`quality: "auto"` (the default) picks **Medium** on every device (a coarse pointer, a small screen or a desktop), and
+**Low** on `EffectsCapabilities.lowPowerDevice`; **High only when chosen by hand**. Medium is the richest tier under 12 ms
+on the desktop profile (High is 12.40). On the phone-like profile High fits the time (9.55, under 16.6) but its bloom
+shimmers on the gold slots under a zoom or a pan (below), so zero flicker keeps Medium there too: phones gain the AO and
+the soft shadows over the former provisional Low. `supportsSSAO`, `supportsBloom` and `supportsVignette` false turn those
+effects off whatever the tier. P11a adds the settings row (Low / Medium / High); the render profiles (`play`,
+`showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against `play`'s, and the
+cinematic profile's SSAO gave way to the look's AO.
+
+**As measured (LIGHT-GPU, 2026-10-16).** DPR's and OUT-LOD's method: M2 Max, Chrome in new headless mode on ANGLE Metal,
+never on screen; the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the gold slots and the
+ghost shown) on the recorded 72-tile board; per frame the CPU time of every rAF callback plus the GPU time of
+`EXT_disjoint_timer_query_webgl2` around them; a fresh context per configuration, 120 warm-up and 600 measured frames;
+nearest-rank percentiles over the pooled frames. Desktop profile: 1440 x 900 at DPR 2, cap 1.5 (2160 x 1350), faces
+unantialiased (`"auto"`). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x, cap 2 (720 x 1560), MSAA (`"auto"`): an
+approximation on the Mac's GPU, not a phone's. Views: the opening (240, straight down) and a zoomed one (60, straight
+down, where the AO, the shadows and the water fill the screen). Each effect alone is the Off preset with that one effect
+turned on (quality High, so no tier hides it); the tiers are the Mockup look whole. The variants alternated within a
+round, the order rotated between rounds. Every round started only with the 1-minute load average under 6, and every
+configuration measured at a load of 6 or more was dropped (21, nearly all of desktop round 2, where another process
+raised it to 23.6). Kept: desktop rounds at loads 2.2 to 5.9 (four rounds a variant; "all but the bloom" two),
+phone-like 2.5 to 5.5 (two rounds). The builds: this branch's static Storybook, served by a plain file server.
+
+CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95):
+
+| Variant | Desktop, opening | cost | Desktop, zoomed | cost | Phone-like, opening | cost | Phone-like, zoomed | cost |
+|---|---|---|---|---|---|---|---|---|
+| Off preset (no effect) | 6.11 / 8.16 | | 4.81 / 6.54 | | 3.81 / 5.58 | | 2.22 / 3.33 | |
+| AO alone | 6.33 / 8.69 | +0.52 | 5.22 / 7.17 | +0.63 | 4.13 / 5.61 | +0.03 | 2.38 / 3.68 | +0.35 |
+| Bloom alone | 7.70 / 11.18 | **+3.02** | 6.55 / 9.73 | **+3.19** | 5.77 / 8.56 | **+2.99** | 3.80 / 6.09 | **+2.76** |
+| Fog alone | 6.40 / 8.58 | +0.42 | 4.80 / 6.71 | +0.16 | 3.92 / 5.69 | +0.12 | 2.25 / 3.45 | +0.12 |
+| Grade alone | 6.18 / 8.54 | +0.38 | 4.95 / 6.66 | +0.12 | 4.24 / 5.48 | -0.09 | 2.31 / 3.50 | +0.17 |
+| Vignette alone | 6.38 / 8.61 | +0.45 | 4.67 / 6.60 | +0.06 | 3.59 / 5.20 | -0.38 | 2.26 / 3.42 | +0.09 |
+| Water alone | 6.33 / 8.51 | +0.35 | 4.79 / 6.57 | +0.03 | 3.74 / 5.54 | -0.03 | 2.41 / 3.48 | +0.15 |
+| Soft shadows alone (PCF radius 3) | 6.28 / 8.43 | +0.26 | 4.47 / 6.41 | -0.13 | 3.73 / 5.33 | -0.25 | 2.32 / 3.46 | +0.13 |
+| Mockup at Low | 6.41 / **8.61** | +0.45 | 4.75 / **6.78** | +0.24 | 4.03 / **5.93** | +0.35 | 2.35 / **3.61** | +0.28 |
+| Mockup, all but the bloom (Medium) | 6.90 / **9.25** | +1.09 | 5.11 / **7.12** | +0.58 | 4.00 / **5.89** | +0.31 | 2.90 / **4.18** | +0.85 |
+| Mockup with the bloom, no AO (the former Medium) | 8.28 / 12.05 | +3.89 | 7.02 / 10.62 | +4.08 | 5.82 / 9.28 | +3.70 | 4.11 / 6.27 | +2.94 |
+| Mockup at High | 8.59 / **12.40** | +4.24 | 7.42 / **11.15** | +4.61 | 6.19 / **9.55** | +3.97 | 4.72 / **6.79** | +3.46 |
+
+The phone-like Medium row is from the skinned run below (its base board, the same configuration). The bloom is the only
+costly effect, about 3 ms of p95 on both profiles: `UnrealBloomPass` runs its high pass, five blurred mips and the
+composite whatever is above the threshold. Every other effect costs under 0.7 ms, within or near the rounds' noise (some
+read negative). The desktop per-round p95 of the former Medium were 12.22, 12.22, 11.92 and 11.65, of High 12.02 to
+12.68: at or over 12 in most rounds.
+
+**The rule applied** (the PM's: desktop p95 under 12 ms at cap 1.5, the phone-like under 16.6 ms at cap 2, zero
+flicker): Low and Medium pass on both profiles at both views; High misses the desktop's 12 ms (12.40) and passes the
+phone-like time (9.55) but not zero flicker. So Medium takes everything but the bloom (it held the bloom and no AO
+before), and "auto" is Medium on both, with Low on a low-power device. A cheaper or steadier bloom (a 13-tap downsample
+with a tent upsample, at half resolution) would be its own task, measured the same way.
+
+**A fully skinned board** (Forest on all 19 plans, every tile its cell's variant: the board fetches 52 variant models; same method,
+two rounds each, `forest` on against off in the same round), p95 ms:
+
+| Tier | Desktop, opening: base / skinned | Desktop, zoomed | Phone-like, opening | Phone-like, zoomed |
 |---|---|---|---|---|
-| Low | off | off | radius 1 | render, finish |
-| Medium | off | on | look's radius | render, bloom, finish |
-| High | on | on | look's radius | render, AO, bloom, finish |
+| Low | 8.54 / 8.64 | 6.89 / 6.78 | 5.71 / 6.22 | 3.64 / 3.31 |
+| Medium | 9.03 / 8.74 | 7.06 / 6.81 | 5.89 / 6.26 | 4.18 / 3.63 |
+| High | 12.78 / 11.81 | 10.87 / 10.14 | 10.22 / 9.54 | 6.92 / 6.62 |
 
-`quality: "auto"` (the default) picks conservatively (the PM's ruling, 2026-10-15): **Low** on a coarse pointer or a
-small screen (the test of `maxPixelRatio: "auto"`) and on `EffectsCapabilities.lowPowerDevice`, so no AO and no bloom on
-phones; **Medium** elsewhere; **High only when chosen by hand**. `supportsSSAO`, `supportsBloom` and `supportsVignette`
-false turn those effects off whatever the tier. **Provisional until measured on the GPU** (LIGHT-GPU, below). P11a adds the settings row (Low / Medium / High); the
-render profiles (`play`, `showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against
-`play`'s, and the cinematic profile's SSAO gave way to the look's AO.
+The skins cost nothing measurable: every pair is within 0.6 ms, in both directions. A variant is a shared model like a
+base one (5.6), so the draw calls and the triangles per tile are those of the base board's.
 
-**The cost per effect** (on against off, both profiles, DPR's and OUT-LOD's bench, the load beside each round, the
-variants alternated within a round): **to be measured on the Mac's GPU in LIGHT-GPU**, a follow-up of its own (a
-release gate, `docs/client/f-release.md`), with the flicker re-check with the outlines on. Software
-WebGL figures are not measures (the bench refuses them). The tier defaults above are then set by the PM's rule: desktop
-p95 under 12 ms at cap 1.5, the phone-like profile under 16.6 ms at cap 2.
+**The bloom's threshold** (GPU captures, the board with its highlights off, bloom on against off): at 1.0 the bloom
+changed **no pixel**, neither a tile nor the gold slots (their colour times 1.6 has a luminance of about 0.96, under
+1.0). No tile glowed with the threshold at 0.95, 0.9 or 0.8, zoomed in (30) or at 60; the slots glow from 0.95 down.
+The PM's ruling (2026-10-16): **0.9**, the slots glow as in the mockups and no tile does (`look.test.ts`, "the bloom's
+threshold"). Captures: `captures/bloom-threshold-1.0-gpu.webp` and `bloom-threshold-0.9-gpu.webp` (1280 x 800, DPR 2,
+High). The bench's builds had the threshold at 1.0; the bloom pass does the same work at either (its cost does not
+depend on what passes the threshold).
+
+**Zero flicker, outlines on** (LIGHT's check, on the GPU: headless Chrome on ANGLE Metal). Main before LIGHT
+(`fe3d7699^`, the "Renderer/Outlines" story held) against the Mockup look at each tier; 12 mouse drags of 2 CSS px, then
+12 wheel notches of 20, a 1.5 s settle after each; the mean luma (0 to 255) of the centre crop (800 x 500 CSS px on the
+desktop profile at cap 1.5, 300 x 400 on the phone-like at cap 2) after each step. Largest change between two steps
+(mean change):
+
+| Pose | Before LIGHT | Low | Medium | High | High, PCF radius 1 |
+|---|---|---|---|---|---|
+| Desktop 240, pan | 0.32 (0.16) | 0.82 (0.27) | 0.81 (0.27) | 0.74 (0.28) | 0.74 (0.28) |
+| Desktop 240, zoom | 0.15 (0.12) | 0.62 (0.36) | 0.61 (0.36) | 3.16 (1.92) | 3.16 (1.92) |
+| Desktop 60, pan | 0.21 (0.15) | 1.04 (0.50) | 1.00 (0.48) | 0.70 (0.28) | 0.71 (0.28) |
+| Desktop 60, zoom | 0.15 (0.13) | 0.31 (0.17) | 0.30 (0.17) | 0.65 (0.26) | 0.65 (0.26) |
+| Phone-like 240, pan | 0.68 (0.30) | 1.02 (0.42) | 1.05 (0.42) | 2.41 (0.65) | 2.40 (0.66) |
+| Phone-like 240, zoom | 0.04 (0.02) | 0.17 (0.07) | 0.18 (0.08) | **10.28** (2.44) | 10.31 (2.44) |
+
+- Low and Medium: the largest steps fall on the same step in every LIGHT variant (pan step 9 at 240, step 4 at 60):
+  content entering the crop, not flicker, which would not repeat. LIGHT's frame is about twice as bright (luma 70 to
+  94 against 37 to 56) and more contrasted, so its steps are larger in levels: relative to the frame's luma, the
+  largest pan step is 1.1 % against 0.9 % before LIGHT at 240.
+- **The key light's PCF radius of 3 adds nothing under a pan**: radius 1 gives the same steps within 0.02 levels.
+  `shadowSoftness` stays 3.
+- **High's bloom shimmers.** On the phone-like profile one zoom notch jumps 91.2, 101.5, 92.3 (the whole board washed
+  by the bloom for one pose), repeated in both High runs. A finer sweep (the distance from 240 to 150 in steps of 0.5,
+  no damping): with High the crop's luma jumps by up to 7.7 levels between two steps, 95 of the 180 steps over 1 level;
+  with Medium none over 1. With the slots hidden, or the threshold at 1.0, no step over 1 level either: the slots'
+  bands are 2 to 3 device px wide, and the bloom's downsampled mips catch them differently at each zoom. A clamp of the
+  bloom's input (to 2 a channel) changed nothing: no specular glint is involved. So no default tier runs the bloom.
+- **Still** (the camera held, a frame drawn every rAF, 20 captures 250 ms apart): STILL_RESULTS
+
+**LIGHT's review notes (t-0396), closed in LIGHT-GPU:**
+
+- `SMAAPass` is disposed on a rebuild and on `dispose`, with every pass the chain built (the composer frees only its own
+  targets and copy pass); `effects-chain.test.ts`.
+- The sRGB transfer happens once on every path: each preset at each tier, with no face antialiasing, MSAA or SMAA, the
+  chain's shaders call `sRGBTransferOETF` once, in `FinishPass`, and none includes three's colour-space or tone-map
+  chunk; only SMAA follows the final pass, and the scene is drawn into the composer's target. The unused
+  `SRGB_TRANSFER` define is gone. The AO's target and the composer's targets (with their depth textures) are disposed
+  when a rebuild drops the AO or changes its resolution.
+- The start-up builds the chain once: `GameScene.init` hands the effects their capabilities and the look at the tier in
+  effect before `Effects.init` (it built it three times).
+- The water mask, run over every entry of both palettes (the base models' and Forest's, read from the GLBs;
+  `water-mask.test.ts`): its green-over-red ramp, 1.5 to 1.7, caught two dark slate-blues, (64, 82, 115) at 0.82 (the
+  darkest of `wfffffffr`'s three stone shades, the other two outside it) and (70, 87, 136) at 0.19. The ramp is 1.75 to
+  1.95 now: the five water entries ((0, 130, 167), (56, 113, 149), (90, 157, 194), (73, 125, 158) and (102, 142, 167),
+  the palest at 2.04) stay fully in, and nothing else is caught.
+- The bloom's threshold: above.
+
+**Captures (GPU)** in `packages/app/src/stories/renderer/captures/`, headless Chrome on ANGLE Metal, outlines on, 1280 x
+800 at DPR 2 (cap 1.5) and 360 x 780 at DPR 3 (cap 2; the skins' 360 x 740). They replace the software-WebGL ones of
+LIGHT and SKIN-RENDER under the same names: `light-before-*` (main before LIGHT, `fe3d7699^`) and `light-after-*` (this
+branch, `"auto"`), the "Renderer/Outlines" story held at the opening view; `light-after-1280-high` and
+`light-after-1280-zin` (High, the opening view and zoomed in at 30); `skins-before-*`, `skins-after-all-*`,
+`skins-after-some-1280` and `skins-placeholder-*`. New: `light-gpu-<tier>-<width>-main` (main at `9443488d`, before
+LIGHT-GPU) and `-after`, the "Renderer/Lighting" Mockup at each tier with the slots and the ghost; `skins-gpu-<width>-main`
+and `-after`, the board with Forest on all 19 plans; and the two bloom captures above. Before and after differ by the
+threshold (main's slots do not glow) and the water mask; the tier contents changed, not the passes' code.
 
 **Stories:** "Renderer/Lighting" (`packages/app/src/stories/renderer/lighting.stories.tsx`): every field of the look
 is a control over the preset (unset fields keep the preset's), with the quality tier and a readout of the tier in
 effect and the passes that run; the stories Mockup, Soft, Off and Zoomed in; and "Side by side with the mockup", the
 board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/docs`, which Vite serves: not copied).
+LIGHT-GPU added the controls the bench drives: `forest` (Forest on every plan), `force` (the outlines) and
+`maxPixelRatio`; `quality` is typed as an enum so a URL can set it (Storybook dropped it from a URL before: its docgen
+type was an unresolved union).
 
 ### 5.6 Tile skins (SKIN-RENDER)
 
@@ -1522,7 +1646,7 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
     (the page's `fetch` waits before answering a `.glb`), opens the board without its last 12 tiles, places them once it
     is drawn, and hovers a ghost on a cell whose Forest variant the opening board does not load. Captures
     `captures/skins-placeholder-1280.webp`, `-360.webp` (during the hold) and `-after-1280.webp` (after it), headless
-    Chromium on software WebGL (SwiftShader), outlines off there: not a GPU render. The story's camera looks straight
+    Chrome on the Mac's GPU (ANGLE Metal), outlines on (retaken by LIGHT-GPU, 5.5). The story's camera looks straight
     down, so the quad's height does not show there.
 - **The device's theme** (`paved.theme.v1`, `useDeviceTheme`, "the board's look" at the top of the theme page) is not read
   by the board. The skins are the chain's and belong to a player: a Challenge board shows its player's choice to every
@@ -1530,9 +1654,9 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
   ("Default": draw every board in base models on this device), or the theme a guest's Training board shows. Left as is.
 - **Stories:** "Renderer/Skins" (`packages/app/src/stories/renderer/skins.stories.tsx`): the recorded 72-tile board with
   Forest on none, every other plan, or all 19 (a control), and a readout of the variant files fetched. Captures in
-  `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chromium on software WebGL (outlines off there): not a GPU
-  render. No frame-time figure was measured; a skinned board has as many shared models as variants shown (up to 52 on the
-  72-tile board, against 19), so a bench run on the Mac's GPU is the way to know its cost.
+  `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on
+  (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
+  against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 0.6 ms).
 
 ---
 

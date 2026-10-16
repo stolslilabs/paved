@@ -7,8 +7,8 @@ import { SkinsBoard } from "./skins-board";
  * sees the same board. Plans without a skin keep their base models. Only the variants the board shows are fetched (the
  * readout counts them).
  *
- * Captures (`captures/skins-before-*.webp`, `captures/skins-after-*.webp`; 1280 x 800 and 360 x 740): headless Chromium on
- * software WebGL (SwiftShader), so the outlines are off there (`force: "auto"`); not a GPU render, and no frame-time figure.
+ * Captures (`captures/skins-before-*.webp`, `captures/skins-after-*.webp`; 1280 x 800 and 360 x 740): headless Chrome on
+ * the Mac's GPU (ANGLE Metal), outlines on (LIGHT-GPU). The skins' frame time is in docs/client/v2-architecture.md 5.5.
  */
 const meta = {
   title: "Renderer/Skins",
