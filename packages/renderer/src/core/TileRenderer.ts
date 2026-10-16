@@ -7,7 +7,8 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
-import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS, PALETTE_CLASSES, labelTileColumns, packLabels, paletteOfModel, planKeyOfModel } from "./features";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
+import { PALETTE_CLASSES, labelTileColumns, packLabels, paletteOfModel, planKeyOfModel } from "./features";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;

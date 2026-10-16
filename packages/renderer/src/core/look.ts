@@ -1,4 +1,4 @@
-import type { FeatureName } from "./features";
+import type { FeatureName } from "./feature-codes";
 import type { EffectsCapabilities } from "./types";
 
 /**

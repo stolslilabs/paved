@@ -3,20 +3,8 @@ export { GameScene } from "./core/GameScene";
 export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
 export type { LitTile } from "./core/TileRenderer";
-export {
-  ABOVE_GROUND_VOXELS,
-  BASE_PALETTE_CLASSES,
-  FEATURES,
-  FEATURE_CODE,
-  GROUND_VOXELS,
-  classifyColumns,
-  columnTops,
-  labelTileColumns,
-  labelTileGeometry,
-  packLabels,
-  planKeyOfModel,
-} from "./core/features";
-export type { ColumnLabels, ColumnTops, FeatureName, PaletteClasses, TileColumns, TileGrid, TileLabels } from "./core/features";
+export { FEATURES } from "./core/feature-codes";
+export type { FeatureName } from "./core/feature-codes";
 export { CameraController } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";

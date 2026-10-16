@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import { AreaType, CategoryType, Plan, PlanType, SpotType } from "@paved/game-core";
 import { TILE_VOXELS } from "./outlines";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, type FeatureName } from "./feature-codes";
+
+export { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, type FeatureName };
 
 /**
  * Which feature of the game each voxel of a tile model shows (FEATURE-HL): a city, a road, a forest or a wonder, with the
@@ -17,12 +20,7 @@ import { TILE_VOXELS } from "./outlines";
  * area. The 3 x 3 grid of spots is only a prior: the areas' shapes come from the voxels.
  */
 
-/** The features a column can show, by code: the code is the `feature` attribute's value. */
-export const FEATURES = ["none", "city", "road", "forest", "wonder"] as const;
-export type FeatureName = (typeof FEATURES)[number];
-export const FEATURE_CODE: Record<FeatureName, number> = { none: 0, city: 1, road: 2, forest: 3, wonder: 4 };
-
-/** The areas by code: the `area` attribute's value, 0 for none, 1 to 9 for A to I (the contracts' area codes). */
+/** The areas by code, as a label holds them: 0 for none, 1 to 9 for A to I (the contracts' area codes). */
 const AREA_CODES: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9 };
 
 /**
@@ -72,14 +70,6 @@ export function paletteOfModel(id: string): PaletteName | null {
 /** The palette's width in texels: an entry is `floor(u * PALETTE_SIZE)`. */
 const PALETTE_SIZE = 256;
 
-/** The ground's top, in voxels above the model's bottom: every base model's ground is 4 voxels high (0.4 of its 4 units). */
-export const GROUND_VOXELS = 4;
-/**
- * How far above the ground's top a face stands on it, in voxels: a column topped higher by no vegetation, road or city is a
- * structure, and a road column's fragment higher is a bridge's deck, not the road (`TileRenderer`). The sunk road is at
- * about 3 voxels, the ground's top at 4.
- */
-export const ABOVE_GROUND_VOXELS = 0.5;
 /** The ground layer of a column: its highest horizontal face at the ground's top or below (within a tenth of a voxel). */
 const GROUND_LAYER_VOXELS = 0.1;
 
