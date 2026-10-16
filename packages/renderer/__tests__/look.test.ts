@@ -156,8 +156,8 @@ describe("the chain of passes", () => {
     expect(effects.getComposer()!.passes).toHaveLength(2);
     expect(effects.getComposer()!.renderTarget1.depthTexture).toBeNull();
     // Off, the final pass compiles no code for the AO, the grade, the vignette or a tone-mapping curve.
-    expect(finishDefines(allOff(), false)).toEqual({ SRGB_TRANSFER: "" });
-    expect(Object.keys(finishDefines(LOOK_PRESETS.mockup, true)).sort()).toEqual(["ACES_FILMIC_TONE_MAPPING", "AO", "GRADE", "SRGB_TRANSFER", "VIGNETTE"]);
+    expect(finishDefines(allOff(), false)).toEqual({});
+    expect(Object.keys(finishDefines(LOOK_PRESETS.mockup, true)).sort()).toEqual(["ACES_FILMIC_TONE_MAPPING", "AO", "GRADE", "VIGNETTE"]);
   });
 
   it("drops each costly pass alone when its effect is off, or its tier forbids it", () => {

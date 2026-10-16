@@ -51,12 +51,15 @@ const SLOT_OUTER = 1.42 * Math.SQRT2;
 /**
  * The water of the tile palettes: its texels are cyan-blue (blue above green above red, in linear colour: (0, 130, 167)
  * and (90, 157, 194) in sRGB, among others), the palette's roofs and banners are violet (green under red) and its
- * stone grey. The mask picks the first by hue and nothing else; `uWaterOn` at 0 turns it off.
+ * stone grey. The mask picks the first by hue and nothing else; `uWaterOn` at 0 turns it off. Its green-over-red ramp
+ * starts at 1.75, so the dark slate-blues stay out: (64, 82, 115) at 1.65, the darkest of the three stone shades of
+ * `wfffffffr`, and (70, 87, 136) at 1.56. The palest water, (102, 142, 167) at 2.04, is fully in. `water-mask.test.ts`
+ * runs every entry of every palette through it.
  */
 export const WATER_MASK_GLSL = /* glsl */ `
   float waterMask = uWaterOn
     * smoothstep(1.1, 1.2, diffuseColor.b / max(diffuseColor.g, 1e-4))
-    * smoothstep(1.5, 1.7, diffuseColor.g / max(diffuseColor.r, 1e-4));
+    * smoothstep(1.75, 1.95, diffuseColor.g / max(diffuseColor.r, 1e-4));
   diffuseColor.rgb *= mix(1.0, uWaterBrightness, waterMask);
 `;
 
