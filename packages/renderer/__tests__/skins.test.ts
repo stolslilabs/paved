@@ -462,6 +462,36 @@ describe("the base model as a fallback", () => {
     s.dispose();
   });
 
+  it("keeps the variants drawn when the skins go off until the base models arrive, never an empty tile", async () => {
+    const tiles = [tile(1, 9), tile(2, 5)];
+    const { s, at } = await board(skinned(() => 1), tiles);
+    await afterFirst();
+    const variantsDrawn = Object.fromEntries(tiles.map((t) => [String(t.id), variantOf(t)]));
+    expect(drawn(s)).toEqual(variantsDrawn);
+    expect(baseRequests()).toEqual([]);
+    const held: Array<() => void> = [];
+    net.loadAsync.mockImplementation(async (url: string) => {
+      await new Promise<void>((done) => held.push(done));
+      return box();
+    });
+    // The viewer's opt-out, live: the base models are asked for at once, the variants stay until they are in.
+    s.setSkins(NO_SKINS);
+    s.updateTiles(tiles);
+    await settle();
+    expect(baseRequests().sort()).toEqual([`${at}/models/${keyOf(5)}.glb`, `${at}/models/${keyOf(9)}.glb`].sort());
+    expect(drawn(s)).toEqual(variantsDrawn);
+    held[0]!();
+    await settle();
+    await settle();
+    // One base is in: its tile swaps, the other still draws its variant.
+    expect(Object.keys(drawn(s)).sort()).toEqual(["1", "2"]);
+    held.slice(1).forEach((done) => done());
+    await settle();
+    await settle();
+    expect(drawn(s)).toEqual({ "1": keyOf(9), "2": keyOf(5) });
+    s.dispose();
+  });
+
   it("loads each model once: a base model asked for by a tile, by the rest and by a failed variant is one request", async () => {
     const t = tile(1, 9);
     manifestBody = manifest;

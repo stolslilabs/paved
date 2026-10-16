@@ -166,14 +166,12 @@ export class TileRenderer {
     const key = getPlanKey(Plan.from(plan).value);
     if (key === "00") return null;
     const skin = skinRef(this.skins, plan, x, y, gameId);
-    if (!skin) return key;
-    const id = this.assets.skinModel(key, skin);
-    if (id === key) return key;
-    if (id !== null) {
-      if (this.assets.has(id)) return id;
-      this.assets.want([id]);
-    }
-    return this.assets.has(key) ? key : null;
+    const id = skin ? this.assets.skinModel(key, skin) : key;
+    if (id !== null && this.assets.has(id)) return id;
+    // Not in yet: asked for at once (a base model needed again when the skins go off, a variant), and the tile keeps what it
+    // draws meanwhile (null), a variant or a base model, so it is never empty.
+    if (id !== null) this.assets.want([id]);
+    return id === null || id === key ? null : this.assets.has(key) ? key : null;
   }
 
   /**

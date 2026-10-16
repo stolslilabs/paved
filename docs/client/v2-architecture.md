@@ -800,7 +800,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     no deployment to measure): the worst case, all 19 plans active and all 72 variants on the board, is 7,493,028 B
     (3,941,654 B gzipped); SKIN-RENDER loaded the 19 base models (1,089,624 B; 653,324 B gzipped) on top of them, and since
     SKIN-BASE (2026-10-16) a skinned plan's base model is a fallback, so a fully skinned board loads none (see below). A
-    typical finished Challenge board (38 tiles), all 19 plans on Forest, simulated over 200 games of the engine (random
+    typical finished Challenge board (37 to 38 tiles), all 19 plans on Forest, simulated over 200 games of the engine (random
     legal placements, the real hash, the game id varied): 26 to 35 variant files (median 31), 2,675,836 to 3,699,528 B
     (median 3,211,390 B), 1,404,863 to 1,940,413 B gzipped (median 1,691,400 B); the recorded 72-tile board of the stories
     fetches 52 of the 72. The lazy load bounds it by the board: one file per (plan, variant) a tile shows, at most the
