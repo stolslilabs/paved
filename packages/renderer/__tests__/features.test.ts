@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { CategoryType, Plan, PlanType, SpotType, StructureBoard } from "@paved/game-core";
 import { ABOVE_GROUND_VOXELS, BASE_PALETTE_CLASSES, FEATURE_CODE, GROUND_VOXELS, columnTops, labelTileGeometry, planKeyOfModel, type TileLabels } from "../src/core/features";
 import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
+import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS } from "../src/core/look";
 
 const MODELS = fileURLToPath(new URL("../../app-web/public/models", import.meta.url));
@@ -404,8 +405,11 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
       if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) mesh = child;
     });
     const shader = shaderOf(mesh!.material as THREE.Material);
-    // vCell = floor((modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5)
-    const centre = (shader.uniforms.uFootprint.value as THREE.Vector3).clone().applyMatrix4(mesh!.matrixWorld);
+    // vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5)
+    const centre = (shader.uniforms.uFootprint.value as THREE.Vector3)
+      .clone()
+      .applyMatrix4(mesh!.matrixWorld)
+      .applyMatrix4(shader.uniforms.uBoardInverse.value as THREE.Matrix4);
     const size = shader.uniforms.uTileSize.value as number;
     const cell = [Math.floor(centre.x / size + 0.5), Math.floor(centre.z / size + 0.5)];
     return { mesh: mesh!, uniforms: shader.uniforms, cell, shader };
@@ -464,6 +468,32 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     tiles.updateTiles([1, 2, 3, 4].map((orientation) => renderTile(orientation, PlanType.RFRFCCCFR, orientation, 3 + orientation, -2)));
     for (const orientation of [1, 2, 3, 4]) expect(drawn(tiles, `1-${orientation}`).cell, `orientation ${orientation}`).toEqual([3 + orientation, 2]);
     tiles.dispose();
+  });
+
+  it("reads each tile's cell in the board's frame: a turned compass lights the same tiles", () => {
+    const { tiles } = renderer();
+    const compass = new THREE.Group();
+    compass.add(tiles.getGroup());
+    tiles.updateTiles([renderTile(1, PlanType.CCCCCCCCC, 1, 5, 2), renderTile(2, PlanType.CCCCCCCCC, 1, 2, -5)]);
+    tiles.setLitAreas([{ gameId: 1, id: 1, areas: 1 }]);
+    for (const angle of [Math.PI / 2, 0.3, -2]) {
+      compass.rotation.y = angle;
+      tiles.updateBoardFrame();
+      expect(drawn(tiles, "1-1").cell, `angle ${angle}`).toEqual([5, -2]);
+      expect(drawn(tiles, "1-2").cell, `angle ${angle}`).toEqual([2, 5]);
+      expect(litAreas(tiles, "1-1").lit, `angle ${angle}`).toEqual(new Set([1]));
+      expect(litAreas(tiles, "1-2").lit, `angle ${angle}`).toEqual(new Set());
+    }
+    tiles.dispose();
+  });
+
+  it("refreshes the board's frame when the scene turns the compass", () => {
+    const scene = new GameScene();
+    const uniforms = (scene as any).tiles.structureUniforms;
+    scene.setCompassRotation(Math.PI / 2);
+    const expected = new THREE.Matrix4().makeRotationY(Math.PI / 2).invert();
+    (uniforms.uBoardInverse.value as THREE.Matrix4).elements.forEach((e, i) => expect(e).toBeCloseTo(expected.elements[i], 6));
+    scene.dispose();
   });
 
   it("lights a tile given after the structure, when it comes", () => {

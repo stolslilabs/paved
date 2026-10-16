@@ -551,6 +551,8 @@ export class GameScene {
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    // The tile shader reads a tile's cell in the board's frame, not the world's (the lit structure).
+    this.tiles.updateBoardFrame();
     this.requestShadowUpdate();
     this.requestRender();
   }

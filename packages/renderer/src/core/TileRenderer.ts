@@ -188,6 +188,9 @@ export class TileRenderer {
     uLitMap: { value: emptyLitMap() },
     uLitRect: { value: new THREE.Vector4(0, 0, 0, 0) },
     uTileSize: { value: TILE_SIZE },
+    // The inverse of the placed tiles' group's world matrix (`updateBoardFrame`): a tile's cell is read in the board's
+    // frame, so a turned compass (`GameScene.setCompassRotation`) does not move the lit cells.
+    uBoardInverse: { value: new THREE.Matrix4() },
   };
   /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
   private litAreas: Map<string, number> | null = null;
@@ -213,6 +216,15 @@ export class TileRenderer {
 
   getGroup(): THREE.Group {
     return this.group;
+  }
+
+  /**
+   * The board's frame as the tile shader reads a tile's cell in it (`uBoardInverse`): the inverse of the placed tiles'
+   * group's world matrix. The scene calls it when that group's parents move (the compass, `GameScene.setCompassRotation`).
+   */
+  updateBoardFrame(): void {
+    this.tileGroup.updateWorldMatrix(true, false);
+    this.structureUniforms.uBoardInverse.value.copy(this.tileGroup.matrixWorld).invert();
   }
 
   /** Draws the tiles given; true when it added or removed one (a tile whose model is not in yet is added later). */
@@ -428,13 +440,14 @@ export class TileRenderer {
           "uniform vec3 uFootprint;",
           "uniform float uTileSize;",
           "uniform mat4 uGridMatrix;",
+          "uniform mat4 uBoardInverse;",
           "varying vec3 vGrid;",
           "varying vec3 vGridNormal;",
           "flat varying vec2 vCell;",
           "void main() {",
           "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
           "  vGridNormal = mat3(uGridMatrix) * normal;",
-          "  vCell = floor((modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
+          "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
         ].join("\n"),
       );
       shader.fragmentShader = shader.fragmentShader
