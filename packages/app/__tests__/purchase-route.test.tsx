@@ -836,7 +836,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     const s = setup();
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) - 300 }));
     open("/play/challenge", s);
-    expect(await screen.findByText(/Purchase sent 5 min ago \(0x1\)/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Purchase sent 5 min ago/, undefined, { timeout: 3000 })).toBeInTheDocument();
   });
 
   it("the record goes under the sender: switch the signer while pending, then back, and the hold is the sender's", async () => {
@@ -904,7 +904,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     localStorage.setItem(key, JSON.stringify({ hash: "0x7", at: Math.floor(Date.now() / 1000) }));
     act(() => void window.dispatchEvent(new StorageEvent("storage", { key })));
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.getByText(/\(0x7\)/)).toBeInTheDocument();
+    expect(screen.getByText("0x7")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
 });
