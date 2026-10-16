@@ -90,6 +90,9 @@ const settleButton = () => screen.queryByRole("button", { name: /Settle and clai
 // The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
 // a stand-in keeps the renderer and three out of its first test.
 vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
+// The fixture indexer's block time is fixed in the past: this file's days are the real today's, so its clock is the browser's
+// (the chain clock itself is tested in `chain-clock.test.tsx`).
+vi.mock("../src/data/clock", async () => ({ useChainClock: (await import("../src/routes/now")).useNow }));
 preloadPages("over", "home", "purchase");
 
 beforeEach(() => {

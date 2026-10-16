@@ -21,7 +21,8 @@ describe("Deadline", () => {
 
   it("at the very moment it expires: expires in less than a minute, not a bare relative", () => {
     const { container } = render(<Deadline expiresAt={MOCK_NOW} now={MOCK_NOW} />);
-    expect(container).toHaveTextContent("expires in less than a minute");
+    expect(container).toHaveTextContent(/^expires/);
+    expect(container.querySelector("time")).toHaveTextContent(/^in less than a minute/);
   });
 
   it("updates once a minute and stops on unmount", () => {
