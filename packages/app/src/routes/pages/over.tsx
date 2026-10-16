@@ -13,7 +13,7 @@ import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useRoutePage } from "../handle";
-import { useNow } from "../now";
+import { useChainClock } from "../../data/clock";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
 
@@ -60,7 +60,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   useConnectError(wallet.error);
   const { signer = null } = useDataSources();
   const read = useOverRead(gameId);
-  const now = useNow();
+  const now = useChainClock();
   const viewer = signer?.address ?? null;
   const control = useSettle(gameId, viewer);
   const playing = read.status === "playing";
@@ -89,6 +89,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       rewardUnavailable={reward.kind === "none"}
       deadline={reward.kind === "expired" ? reward.deadline : undefined}
       settle={settle ? (control.error && settle.state === "refused" ? { ...settle, detail: errorDetail(control.error, { gameId }) } : settle) : undefined}
+      now={now}
       onPlayAgain={() => go("/play/challenge")}
       onHome={() => go("/")}
     />

@@ -17,8 +17,10 @@ export function toastError(props: ErrorToastProps) {
   return toast.custom(
     (id) => (
       <div data-slot="error-toast" className="w-(--width) max-w-full rounded-lg bg-popover shadow-lg">
+        {/* At its height from the first frame: Sonner measures a custom toast on mount, so a grow-in would stack it wrong. */}
         <InlineError
           {...props}
+          animateIn={false}
           action={
             <Button size="sm" variant="ghost" onClick={() => toast.dismiss(id)}>
               Close

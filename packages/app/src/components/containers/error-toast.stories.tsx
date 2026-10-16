@@ -33,6 +33,13 @@ export const Shown: Story = {
     toastError(args);
   },
 };
+/** Two at once: Sonner stacks them at their measured height (no grow-in inside a toast). */
+export const Stacked: Story = {
+  play: async ({ args }) => {
+    toastError(args);
+    toastError({ title: "The free game did not start", message: "You have no free game left: earn one on the quests page.", detail: { version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 31) } });
+  },
+};
 /** The wallet's connect failed (`useConnectError`). */
 export const Wallet: Story = {
   args: { title: "Wallet", message: "The controller window was closed before the account connected.", detail: { version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) } },

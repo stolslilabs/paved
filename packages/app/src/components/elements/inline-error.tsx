@@ -14,7 +14,7 @@ export interface ErrorDetail {
   gameId?: number | string;
   /** The app's version (`package.json`). */
   version?: string;
-  /** When the error happened, in ms since the epoch: copied as UTC (ISO 8601). */
+  /** When the error was first shown, in ms since the epoch: copied as UTC (ISO 8601). */
   at?: number;
 }
 
@@ -28,10 +28,12 @@ export interface InlineErrorProps {
   detail?: ErrorDetail;
   /** A way out beside Copy: Retry, Dismiss. */
   action?: ReactNode;
-  /** Copies the text; the clipboard by default. */
+  /** Copies the text; the clipboard by default. A throw or a rejection is a failed copy. */
   onCopy?: (text: string) => void | Promise<void>;
-  /** Starts as just copied (the `Copied` story). */
-  defaultCopied?: boolean;
+  /** Starts as just copied, or as a failed copy (the `Copied` and `CopyFailed` stories). */
+  defaultCopy?: CopyState;
+  /** False: shown at its height from the first frame, no grow-in (a toast, which Sonner measures on mount). */
+  animateIn?: boolean;
   className?: string;
 }
 
@@ -42,25 +44,35 @@ export function errorReport({ title, message, detail }: Pick<InlineErrorProps, "
   if (detail?.txHash) lines.push(`Transaction: ${detail.txHash}`);
   if (detail?.gameId !== undefined) lines.push(`Game: ${detail.gameId}`);
   if (detail?.version) lines.push(`Version: ${detail.version}`);
-  if (detail?.at !== undefined) lines.push(`Time (UTC): ${new Date(detail.at).toISOString()}`);
+  if (detail?.at !== undefined) lines.push(`First shown (UTC): ${new Date(detail.at).toISOString()}`);
   return lines.join("\n");
 }
 
 const COPIED_MS = 2000;
 
-function copyToClipboard(text: string) {
-  return navigator.clipboard?.writeText(text);
+export type CopyState = "idle" | "copied" | "failed";
+
+/** The clipboard, or a failure without it (an insecure origin, an old browser): the caller then shows the text to select. */
+function copyToClipboard(text: string): Promise<void> {
+  if (!navigator.clipboard?.writeText) return Promise.reject(new Error("No Clipboard API"));
+  return navigator.clipboard.writeText(text);
 }
 
 /**
  * Every error of the app (P-67): one look (the alert icon, `text-sm`, the error token), two lines at most then an
- * ellipsis (the whole text in the tooltip and for screen readers), a Copy button with the detail for support, and a
- * height that animates as it appears, changes or goes (none under reduced motion). Hosts render it always, with
- * `message` null when there is no error, so the fold animates too. There is no other error rendering.
+ * ellipsis (the whole text in the tooltip and for screen readers), a Copy button with the detail for support ("Copied" on
+ * success; on a failure the full text shown, selected, to copy by hand), and a height that animates as it appears,
+ * changes or goes (none under reduced motion). Hosts render it always, with `message` null when there is no error: it
+ * takes no space then (nothing is rendered once the fold ends, so a flex or grid `gap` is not added for it). There is no
+ * other error rendering.
  */
-export function InlineError({ message, title, children, detail, action, onCopy = copyToClipboard, defaultCopied = false, className }: InlineErrorProps) {
+export function InlineError({ message, title, children, detail, action, onCopy = copyToClipboard, defaultCopy = "idle", animateIn = true, className }: InlineErrorProps) {
   const reduced = useReducedMotionConfig();
   const open = Boolean(message);
+  // Mounted while open and while its space folds away; then nothing, so no gap is left.
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  if (!open && mounted && reduced) setMounted(false);
   // Gone at once when the error clears; only the space it took folds away.
   const shown = open ? { message, title, children, detail, action } : null;
   const inner = useRef<HTMLDivElement>(null);
@@ -73,25 +85,35 @@ export function InlineError({ message, title, children, detail, action, onCopy =
     const observer = new ResizeObserver(() => setHeight(el.getBoundingClientRect().height));
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shown !== null]);
+  }, [shown !== null, mounted]);
 
-  const [copied, setCopied] = useState(defaultCopied);
+  const [copy, setCopy] = useState<CopyState>(defaultCopy);
   useEffect(() => {
-    if (!copied || defaultCopied) return;
-    const id = setTimeout(() => setCopied(false), COPIED_MS);
+    if (copy !== "copied" || defaultCopy === "copied") return;
+    const id = setTimeout(() => setCopy("idle"), COPIED_MS);
     return () => clearTimeout(id);
-  }, [copied, defaultCopied]);
+  }, [copy, defaultCopy]);
+  // A failed copy shows the whole text, selected: the player copies it by hand.
+  const fallback = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (copy === "failed" && defaultCopy !== "failed") fallback.current?.select();
+  }, [copy, defaultCopy]);
 
+  if (!mounted) return null;
   const text = shown ? errorReport(shown) : "";
   const full = shown ? (shown.title ? `${shown.title}: ${shown.message}` : (shown.message ?? "")) : "";
+  const copied = copy === "copied";
   return (
     <m.div
       data-slot="inline-error"
-      initial={{ height: 0 }}
+      initial={animateIn ? { height: 0 } : false}
       animate={{ height: open ? height : 0 }}
       transition={{ duration: reduced ? 0 : 0.18, ease: "easeOut" }}
       onAnimationStart={() => setMoving(true)}
-      onAnimationComplete={() => setMoving(false)}
+      onAnimationComplete={() => {
+        setMoving(false);
+        if (!open) setMounted(false);
+      }}
       // Clipped only while the height moves: a settled error is never cut.
       className={cn((moving || !open) && "overflow-hidden", className)}
     >
@@ -101,7 +123,8 @@ export function InlineError({ message, title, children, detail, action, onCopy =
             <Icon name="triangle-exclamation" size="sm" fixedWidth />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p title={full} className="line-clamp-2 wrap-anywhere">
+            {/* A copy target (APP-FEEL, P-69: the app is `select-none` elsewhere). */}
+            <p title={full} className="line-clamp-2 wrap-anywhere select-text">
               {shown.title && (
                 <>
                   <span className="font-semibold">{shown.title}</span>
@@ -117,16 +140,31 @@ export function InlineError({ message, title, children, detail, action, onCopy =
                 variant="outline"
                 aria-label={copied ? "Copied" : "Copy the error"}
                 onClick={() => {
-                  void Promise.resolve(onCopy(text)).then(() => setCopied(true));
+                  Promise.resolve()
+                    .then(() => onCopy(text))
+                    .then(
+                      () => setCopy("copied"),
+                      () => setCopy("failed"),
+                    );
                 }}
               >
                 <Icon name={copied ? "check" : "copy"} size="xs" />
                 {copied ? "Copied" : "Copy"}
               </Button>
-              <span role="status" className="sr-only">
-                {copied ? "The error is copied" : ""}
+              <span role="status" className={copy === "failed" ? "text-xs" : "sr-only"}>
+                {copied ? "The error is copied" : copy === "failed" ? "Copy failed: select the text" : ""}
               </span>
             </div>
+            {copy === "failed" && (
+              <textarea
+                ref={fallback}
+                readOnly
+                aria-label="The error, to copy"
+                value={text}
+                rows={Math.min(6, text.split("\n").length)}
+                className="w-full resize-none rounded-md border border-input bg-transparent px-2 py-1 font-mono text-xs text-foreground"
+              />
+            )}
           </div>
         </div>
       )}

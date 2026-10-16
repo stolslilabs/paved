@@ -65,11 +65,16 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
   What changes at each (section 3.4): mobile shows tab labels, tablet two columns, desktop turns the bottom
   navigation into a left rail (`containers/app-nav.tsx`), wide caps content at 1200 px except the board.
 - Full-height screens: `min-h-dvh`. Notches: `env(safe-area-inset-*)`, as `app-nav.tsx` does. Touch targets 44 px or more.
+- Feels like an app (P-69): text is not selectable by default (`select-none` on `body`, `styles/theme.css`). Only a copy
+  target opts back in with `select-text` (an address, the referral link, an error detail; inputs always do), and
+  `__tests__/app-feel.test.tsx` lists the files that may. No page zoom: the viewport meta forbids it, `touch-manipulation`
+  stops the double-tap zoom, `usePageGestures` cancels iOS's pinch. The board owns its gestures (`touch-none` on the
+  canvas, no context menu). An `<img>` is `draggable={false}`. Never set a text under 12 px.
 
 ## Errors
 
 Every error goes through `InlineError` (`elements/inline-error.tsx`, P-67); there is no other error rendering. Render it
-always, with `message` null when there is none, and pass its `detail` from the route (`routes/error-detail.ts`); an error
+always, with `message` null when there is none (it then takes no space), and pass its `detail` from the route (`routes/error-detail.ts`); an error
 with no place on its page is `toastError` (`containers/error-toast.tsx`). A `Notice` is a state, never an error.
 `__tests__/error-guard.test.ts` enforces it.
 

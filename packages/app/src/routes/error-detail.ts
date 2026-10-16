@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import { version } from "../../package.json";
 import type { ErrorDetail } from "../components/elements/inline-error";
 
-/** When each error object was first seen: its copied time stays that of the failure, not of the last render. */
+/** When each error object was first shown: its copied time stays that one, not the last render's. */
 const SEEN = new WeakMap<object, number>();
 
 /**
  * The detail `InlineError` copies for support (P-67), from what the page holds: a typed error's name and its transaction
- * hash (`WriteError.transactionHash`), the game, the app's version and the time. A string error carries only its time.
+ * hash (`WriteError.transactionHash`), the game, the app's version and the time the error was first shown. A string error carries only that time.
  */
 export function errorDetail(error: unknown, extra: { gameId?: number | string; txHash?: string } = {}): ErrorDetail {
   const detail: ErrorDetail = { version, ...extra };

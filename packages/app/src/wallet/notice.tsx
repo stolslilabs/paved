@@ -1,5 +1,7 @@
 import { Button } from "../components/ui/button";
+import { InlineError } from "../components/elements/inline-error";
 import { shortAddress } from "../components/elements/short-address";
+import { errorDetail } from "../routes/error-detail";
 import { useWallet } from "./wallet";
 
 /** Where the notices file is served: `public/THIRD_PARTY_NOTICES.txt`, copied to `dist` by `vite build`. */
@@ -29,7 +31,7 @@ export function WalletNotice({ base = import.meta.env.BASE_URL }: { base?: strin
 export function WalletFooter() {
   const wallet = useWallet();
   return (
-    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 py-2 text-center text-base text-muted-foreground">
+    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center text-base text-muted-foreground">
       <WalletNotice />
       {wallet.address && (
         <span className="flex items-center gap-2">
@@ -41,7 +43,7 @@ export function WalletFooter() {
           </Button>
         </span>
       )}
-      {wallet.error && !wallet.address && <span className="text-destructive-text wrap-anywhere">{wallet.error}</span>}
+      <InlineError title="Wallet" message={wallet.address ? null : wallet.error} detail={wallet.error ? errorDetail(wallet.error) : undefined} className="w-full text-left" />
     </footer>
   );
 }

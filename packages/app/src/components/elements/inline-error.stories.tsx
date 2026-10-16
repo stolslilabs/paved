@@ -31,6 +31,8 @@ export const VeryLongWithAddress: Story = {
 };
 export const WithDetail: Story = { args: { message: "The price moved before your purchase went through: your USDC was not spent. Try again.", detail: DETAIL } };
 export const WithoutDetail: Story = { args: { message: "Could not connect." } };
-export const Copied: Story = { args: { title: "Settle refused", message: "Game 42 is not over yet", detail: DETAIL, defaultCopied: true } };
+export const Copied: Story = { args: { title: "Settle refused", message: "Game 42 is not over yet", detail: DETAIL, defaultCopy: "copied" } };
+/** The clipboard refused (or there is none): the whole text, selected, to copy by hand. */
+export const CopyFailed: Story = { args: { title: "Settle refused", message: "Game 42 is not over yet", detail: DETAIL, defaultCopy: "failed" } };
 /** No error: nothing shows and the space is folded. */
 export const None: Story = { args: { message: null } };
