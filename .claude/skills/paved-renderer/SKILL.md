@@ -170,8 +170,9 @@ texture, decoder or font, in code or stories. Section 4.2 has the sizes and the 
   (`AssetLoader.onLoaded`, with a new frame and shadows).
 - A failure among the first models rejects `init`, so the app shows its plan view. A failed tile image does not stop the
   scene: it is logged and tried again after the first frame.
-- **Only the plan view's `getTexture` makes an image failure fatal.** The placeholder quad reads `peekTexture`, which asks for
-  nothing and never counts as the plan view asking. Do not call `getTexture` from the board's path.
+- **Only the plan view's `getTexture` makes an image failure fatal**, and only when the plan view asks before the first frame
+  (`want([], true)`; asked later, a failure is logged). The placeholder quad reads `peekTexture`, which asks for nothing and
+  never counts as the plan view asking. Do not call `getTexture` from the board's path.
 - **A skinned plan's base model loads only as a fallback** (SKIN-BASE): when the plan has no skin, the skin read failed or
   was late, the manifest lists no variant, or a variant failed. For a plan whose skin is known (`setSkins`) and listed, nothing
   asks for its base model: not the first frame, not `preloadAll`'s rest, not a scene handed no tiles. `preloadModels`
@@ -199,9 +200,12 @@ Design: section 5.6 of `docs/client/v2-architecture.md`.
 
 ## Tests
 
-- A fake `AssetLoader` handed to `TileRenderer` needs `has`, `want`, `setSkins` and `peekTexture` besides `getModel` and
-  `getTexture` (`tile-renderer.test.ts`, `tile-placeholder.test.ts`); a missing one throws in the tile path. A fake
-  `GameScene` class for a React test needs `setSkins` too (`packages/renderer/__tests__/helpers/hooks.ts`).
+- A fake `AssetLoader` handed to `TileRenderer` needs, besides `getModel` and `getTexture`: `setSkins` (every
+  `TileRenderer.setSkins`), `has` and `want` (every model lookup, `modelOf`), `skinModel(key, skin)` (`modelOf`, as soon as a
+  plan has a skin: a fake without it throws after `setSkins`), and `peekTexture(key)` (the placeholder quad, whenever a tile
+  or the ghost has no model yet). `tile-placeholder.test.ts` has the full set; `tile-renderer.test.ts` has no `peekTexture` and
+  works only because its `has` is always true. A fake `GameScene` class for a React test needs `setSkins`
+  (`packages/renderer/__tests__/helpers/hooks.ts`).
 - `@paved/renderer` is consumed through its `dist` (`main` and `exports`). `bun run test --filter` builds it first (turbo);
   **Storybook does not**: `bun run --filter @paved/app build-storybook` and `storybook dev` read a stale or missing `dist`, so
   `bun run build --filter @paved/renderer` first, and again after each renderer change.
@@ -232,22 +236,27 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
 
 ## Commands
 
-From the repository root, with the heap capped as `AGENTS.md` says (its table: `@paved/renderer` 384 MB; never
-`prlimit --as` for Node):
+From the repository root, with the heap capped as `AGENTS.md` says: take each package's figure from its table, never
+`prlimit --as` for Node.
 
 ```sh
-NODE_OPTIONS=--max-old-space-size=384 bun run test --filter @paved/renderer
-NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app
+NODE_OPTIONS=--max-old-space-size=<MB> bun run test --filter @paved/renderer   # <MB>: AGENTS.md's row for the package
+NODE_OPTIONS=--max-old-space-size=<MB> bun run test --filter @paved/app
 bun run build --filter @paved/renderer
 NODE_OPTIONS=--max-old-space-size=2048 bun run --filter @paved/app build-storybook
 ```
 
-Run the package you touched; `packages/app`'s figure is that of its README (832), and the Storybook build takes 2048. The
+Storybook takes 2048 MB (what the briefs use; `packages/app/README.md` still says 1536). Run the package you touched; the
 whole suite is the CI's, and so is the Training e2e (`packages/app-web/e2e/`), which runs when `packages/renderer` changes.
+
+`bun run build --filter @paved/app` ends with the bundle budget (`scripts/bundle-budget.ts`, limits in
+`scripts/bundle-budget.json`): it fails when a metric passes its limit. The `board` chunk, which holds the renderer and
+three, is the largest route, so it sets `largestRoute` (854,735 B raw against 872,448 on 2026-10-16). A renderer change that
+grows it raises that limit in `bundle-budget.json` in the same PR, with the measured size.
 
 ## Done when
 
 A state change ends in `requestRender()`; no per-tile geometry or material; `dispose` frees what the change allocates;
 the settings carry any new knob with a default and a test; a new final pass keeps the single sRGB transfer; no remote asset;
 a changed model or tile image went through its script (`--check` clean); a frame-time claim has a bench figure with its
-machine and window mode; the renderer and app tests pass and Storybook builds.
+machine and window mode; the renderer and app tests pass, Storybook builds, and the app's build stays inside the bundle budget.
