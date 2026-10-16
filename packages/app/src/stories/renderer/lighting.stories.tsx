@@ -46,9 +46,23 @@ const meta = {
       mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2 },
       description: "The pixel-ratio cap: auto is the device's (1.5 on a desktop, 2 on a coarse pointer or a small screen)",
     },
+    multisampling: {
+      // Keys without a dot or a boolean, so a URL can name one (`args=multisampling:on`).
+      control: { type: "inline-radio" },
+      options: ["auto", "on", "off"],
+      mapping: { auto: "auto", on: true, off: false },
+      description: "Face antialiasing: MSAA where WebGL 2 multisamples on a GPU, SMAA otherwise. auto: on on a coarse pointer or a small screen, off elsewhere",
+    },
+    msaaSamples: {
+      // Keys a URL can name (`args=msaaSamples:x2`); `mapping` gives the renderer the number.
+      control: { type: "inline-radio", labels: { x2: "2", x4: "4" } },
+      options: ["x2", "x4"],
+      mapping: { x2: 2, x4: 4 },
+      description: "MSAA's samples: the scene's target multisamples this many (Q3-GPU)",
+    },
     ...lookArgTypes(),
   },
-  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto" },
+  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto", multisampling: "auto" },
 } satisfies Meta<typeof LightingBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;

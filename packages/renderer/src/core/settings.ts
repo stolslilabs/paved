@@ -1,4 +1,5 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
+import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import {
   DEFAULT_LOOK_PRESET,
@@ -38,6 +39,10 @@ export interface RendererSettings {
    */
   multisampling: boolean | "auto";
   /**
+   * The samples of MSAA's scene target, 2 or 4 (Q3-GPU). MSAA is taken only where the context multisamples that many.
+   */
+  msaaSamples: number;
+  /**
    * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
    * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
    * `"auto"` (the default) takes the cap measured for the device (`resolveMaxPixelRatio`): 2 on a coarse pointer or a
@@ -75,6 +80,7 @@ export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
   multisampling?: boolean | "auto";
+  msaaSamples?: number;
   maxPixelRatio?: number | "auto";
   /** A preset: the look starts from it, then `look` overrides its fields. Unset, the base's look. */
   lookPreset?: LookPreset;
@@ -96,6 +102,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
   multisampling: "auto",
+  msaaSamples: MSAA_SAMPLES,
   maxPixelRatio: "auto",
   lookPreset: DEFAULT_LOOK_PRESET,
   look: LOOK_PRESETS[DEFAULT_LOOK_PRESET],
@@ -158,12 +165,16 @@ export function resolveRendererSettings(
     outlines,
     camera: { ...base.camera, ...input.camera },
     multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
+    msaaSamples: MSAA_SAMPLE_COUNTS.includes(input.msaaSamples!) ? input.msaaSamples! : base.msaaSamples,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
     lookPreset: preset ?? base.lookPreset,
     look: mergeLookSettings(preset ? LOOK_PRESETS[preset] : base.look, input.look),
     quality,
   };
 }
+
+/** The sample counts `msaaSamples` takes: what WebGL 2 multisamples on every GPU that has MSAA. */
+export const MSAA_SAMPLE_COUNTS: readonly number[] = [2, 4];
 
 const MULTISAMPLING_VALUES: readonly RendererSettings["multisampling"][] = [true, false, "auto"];
 
