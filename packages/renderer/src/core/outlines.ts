@@ -16,8 +16,10 @@ import { TILE_SIZE } from "./types";
  *
  * The width is set in the world, as a fraction of a voxel (`widthVoxels`), converted to device pixels at the camera's
  * target, kept to at least `minWidthDevicePx` (a hairline) and capped at `maxWidthPx` CSS px when zoomed in. Zoomed out
- * the outlines fade linearly from fully on at `fadeFullFactor` of the tile size the board opens at on this viewport to
- * off at `fadeOffFactor` of it. They are drawn after the faces with a depth bias towards the camera: an outline lies
+ * the outlines fade from fully on at `fadeFullFactor` of the tile size the board opens at on this viewport to off at
+ * `fadeOffFactor` of it, on the logarithm of the tile size with a smoothstep (OUT-FADE): a wheel step multiplies the
+ * tile size by a constant, so each step changes the opacity by about the same amount, and the ramp has no kink at
+ * either end. They are drawn after the faces with a depth bias towards the camera: an outline lies
  * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
  * removed).
  *
@@ -40,7 +42,10 @@ export interface OutlineSettings {
   force: "auto" | "on" | "off";
   /** At or below this share of the opening tile size (`openingTilePx`) the outlines are off. */
   fadeOffFactor: number;
-  /** At or above this share of the opening tile size the outlines are fully on; between the two the opacity is linear. */
+  /**
+   * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is a
+   * smoothstep of the logarithm of the tile size (`outlineFade`).
+   */
   fadeFullFactor: number;
   /** The stroke's width in the world, as a fraction of a voxel's width (`VOXEL_SIZE`). */
   widthVoxels: number;
@@ -70,11 +75,12 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
   force: "auto",
-  // Outlines show at every screen's opening view: the fade follows the opening tile size S, fully on at S, off at
-  // 0.85 S. A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
-  // under the farthest zoom's 48 px: the outlines vanish zoomed out).
+  // The fade follows the opening tile size S: off at 0.85 S, fully on from 1.15 S, a smoothstep of log(tile px) between
+  // (OUT-FADE). A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
+  // over the farthest zoom's 48 px: the outlines vanish zoomed out). At S itself the opacity is no longer 1: see
+  // `outlineOpacityAtOpening`.
   fadeOffFactor: 0.85,
-  fadeFullFactor: 1,
+  fadeFullFactor: 1.15,
   // 1.5 % of a voxel, in the 1 to 2 % that keeps the stroke thin. That is under a device pixel until a voxel is about 33 CSS px wide
   // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
   widthVoxels: 0.015,
@@ -113,7 +119,7 @@ const OFF: OutlineStroke = { width: 0, opacity: 0 };
 /**
  * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px, where the board
  * opens at `openingTilePx` (S, `openingTilePixels`). The opacity is 0 at or below `fadeOffFactor` x S, 1 at or above
- * `fadeFullFactor` x S, linear between, and 0 below `MIN_OUTLINE_OPACITY`. The width
+ * `fadeFullFactor` x S, `outlineFade` between, and 0 below `MIN_OUTLINE_OPACITY`. The width
  * is `widthVoxels` of a voxel at that zoom, in device px, at least `minWidthDevicePx` and at most `maxWidthPx` CSS px.
  * Width and opacity never decrease as the camera zooms in.
  */
@@ -126,11 +132,28 @@ export function outlineStroke(
   const off = settings.fadeOffFactor * openingTilePx;
   const full = settings.fadeFullFactor * openingTilePx;
   if (!settings.enabled || !(tilePx > off) || !(pixelRatio > 0)) return OFF;
-  const opacity = tilePx >= full ? 1 : (tilePx - off) / (full - off);
+  const opacity = outlineFade(tilePx, off, full);
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
   return width > 0 ? { width, opacity, segmentOff: settings.segmentOffDevicePx, segmentFull: settings.segmentFullDevicePx } : OFF;
+}
+
+/**
+ * The outlines' opacity for a tile `tilePx` wide, off at `off` px and fully on from `full` px: a smoothstep of the
+ * position of `tilePx` between them on a log scale, `ln(tilePx / off) / ln(full / off)`. 0 at or below `off`, 1 at or
+ * above `full` (a step when the two are equal).
+ */
+export function outlineFade(tilePx: number, off: number, full: number): number {
+  if (!(tilePx > off)) return 0;
+  if (!(tilePx < full)) return 1;
+  const t = Math.log(tilePx / off) / Math.log(full / off);
+  return t * t * (3 - 2 * t);
+}
+
+/** The opacity at the opening view (tile size S) for fade factors `off` and `full` (shares of S): `outlineFade(1, off, full)`. */
+export function outlineOpacityAtOpening(off = DEFAULT_OUTLINE_SETTINGS.fadeOffFactor, full = DEFAULT_OUTLINE_SETTINGS.fadeFullFactor): number {
+  return outlineFade(1, off, full);
 }
 
 /** The opening tile size `outlineStroke` assumes when it is not given one: a 900 px high window's, about 60 px. */
@@ -357,19 +380,20 @@ function srgbEncode(x: number): number {
 }
 
 /**
- * What the `FinishPass` shows (8-bit sRGB channels, 0 to 255) for a grey `written` (linear, 0 to 1) the outline pass
- * writes, in the default look (`mockup`: ACES at its exposure, then the grade) and with the opening view's vignette and
+ * What the `FinishPass` shows (8-bit sRGB channels, 0 to 255) for a grey `written` (linear, 0 to 1), or a colour of three
+ * channels, the outline pass writes, in the default look (`mockup`: ACES at its exposure, then the grade) and with the opening view's vignette and
  * fog taken as `OUTLINE_VIEW_FALLOFF`. This is the forward model `outlineWrittenGrey` inverts; the shader is
  * `post-shaders.ts`.
  */
-export function outlineScreenOf(written: number): [number, number, number] {
+export function outlineScreenOf(written: number | readonly number[]): [number, number, number] {
   const [r, g, b] = outlineScreenChannels(written);
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
 
-function outlineScreenChannels(written: number): [number, number, number] {
+function outlineScreenChannels(written: number | readonly number[]): [number, number, number] {
   const look = LOOK_PRESETS.mockup;
-  let v = mulRow(ACES_IN, [written, written, written].map((x) => (x * look.toneMapping.exposure) / 0.6));
+  const [wr, wg, wb] = typeof written === "number" ? [written, written, written] : written;
+  let v = mulRow(ACES_IN, [wr, wg, wb].map((x) => (x * look.toneMapping.exposure) / 0.6));
   v = v.map((x) => (x * (x + 0.0245786) - 0.000090537) / (x * (0.983729 * x + 0.432951) + 0.238081));
   v = mulRow(ACES_OUT, v).map((x) => Math.min(1, Math.max(0, x)));
   if (look.grade.enabled) {
@@ -399,16 +423,62 @@ export function outlineWrittenGrey(green: number): number {
 }
 
 /**
+ * The colour (linear, 0 to 1 per channel) the outline pass must write for the visible colour `shown` (8-bit sRGB
+ * channels, 0 to 255) to show: `outlineScreenOf`'s inverse over the three channels. The pass mixes the channels (the ACES
+ * matrices, the grade's saturation and warmth), so a channel is not inverted alone: the iteration starts from the grey
+ * that shows each channel and refines with Newton's method on the forward model (a finite-difference Jacobian), the
+ * written channels kept in 0 to 1. A colour the pass cannot reach (written channels stop at 1 and the view's falloff
+ * keeps 0.65 of the light) comes out as the nearest the iteration finds.
+ */
+export function outlineWrittenColor(shown: readonly [number, number, number]): [number, number, number] {
+  let w = shown.map(outlineWrittenGrey);
+  const eps = 1e-5;
+  for (let iteration = 0; iteration < 24; iteration++) {
+    const f = outlineScreenChannels(w);
+    const error = shown.map((s, k) => s - f[k]);
+    if (Math.max(...error.map(Math.abs)) < 1e-4) break;
+    const jacobian = [0, 1, 2].map((j) => {
+      const step = w.slice();
+      step[j] += eps;
+      const g = outlineScreenChannels(step);
+      return [0, 1, 2].map((k) => (g[k] - f[k]) / eps);
+    });
+    const delta = solve3(jacobian, error);
+    if (!delta) break;
+    w = w.map((x, k) => Math.min(1, Math.max(0, x + delta[k])));
+  }
+  return [w[0], w[1], w[2]];
+}
+
+/** Solves `m x = b` for 3 x 3, where `m[j][k]` is the derivative of output `k` by input `j` (a row per input). */
+function solve3(m: number[][], b: number[]): number[] | null {
+  const a = [0, 1, 2].map((k) => [m[0][k], m[1][k], m[2][k], b[k]]);
+  for (let c = 0; c < 3; c++) {
+    let p = c;
+    for (let r = c + 1; r < 3; r++) if (Math.abs(a[r][c]) > Math.abs(a[p][c])) p = r;
+    if (Math.abs(a[p][c]) < 1e-12) return null;
+    [a[c], a[p]] = [a[p], a[c]];
+    for (let r = 0; r < 3; r++) {
+      if (r === c) continue;
+      const k = a[r][c] / a[c][c];
+      for (let i = c; i < 4; i++) a[r][i] -= k * a[c][i];
+    }
+  }
+  return [a[0][3] / a[0][0], a[1][3] / a[1][1], a[2][3] / a[2][2]];
+}
+
+/**
  * The colour the outline material is given for `css`, which is the colour that shows on screen. The scene is drawn
  * into the composer's linear target and the `FinishPass` (`Effects`) then tone maps, grades, vignettes and sRGB-encodes
- * the whole frame, outlines included, lifting a dark grey a lot. So the material gets the grey that shows `css`'s green
- * channel after that pass (`outlineWrittenGrey`). It assumes the default look (`mockup`): another look shifts the
- * visible value; the grade's warmth tints the grey a little.
+ * the whole frame, outlines included, lifting a dark grey a lot. So the material gets the colour that shows each of
+ * `css`'s three channels after that pass (`outlineWrittenColor`); a grey gives a grey, a hue gives that hue. It assumes
+ * the default look (`mockup`) and the `play` render profile, the chain the conversion models: another look or profile
+ * shifts the visible value.
  */
 function screenColor(css: string, target = new THREE.Color()): THREE.Color {
-  const green = Math.round(target.setStyle(css, THREE.LinearSRGBColorSpace).g * 255);
-  const w = outlineWrittenGrey(green);
-  return target.setRGB(w, w, w, THREE.LinearSRGBColorSpace);
+  target.setStyle(css, THREE.LinearSRGBColorSpace);
+  const [r, g, b] = outlineWrittenColor([Math.round(target.r * 255), Math.round(target.g * 255), Math.round(target.b * 255)]);
+  return target.setRGB(r, g, b, THREE.LinearSRGBColorSpace);
 }
 
 /** The outline material: `diffuse` its colour, `opacity`, `linewidth` in device px. */
