@@ -1521,7 +1521,9 @@ desktop profile at cap 1.5, 300 x 400 on the phone-like at cap 2) after each ste
   with Medium none over 1. With the slots hidden, or the threshold at 1.0, no step over 1 level either: the slots'
   bands are 2 to 3 device px wide, and the bloom's downsampled mips catch them differently at each zoom. A clamp of the
   bloom's input (to 2 a channel) changed nothing: no specular glint is involved. So no default tier runs the bloom.
-- **Still** (the camera held, a frame drawn every rAF, 20 captures 250 ms apart): STILL_RESULTS
+- **Still** (the camera held, a frame drawn every rAF, 20 captures 250 ms apart): every
+  frame identical to the last, pixel for pixel, at 240 and 60 on both profiles, before LIGHT and at each tier, High
+  included. Nothing changes without a move: High's shimmer follows the zoom and the pan, it is not noise in time.
 
 **LIGHT's review notes (t-0396), closed in LIGHT-GPU:**
 
