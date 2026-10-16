@@ -6,6 +6,9 @@ import { Plan, PlanType, getPlanKey } from "@paved/game-core";
  * plan it does not list, theme 0 (the default) and a variant that does not load draw the plan's base model.
  */
 
+/** The contracts' board centre, x and y: where the hand's tile (and a ghost with no cell) is drawn for its variant. */
+export const CENTER_CELL = 2_147_483_647;
+
 /** The theme of each plan key (`ccccccccc` to its theme id on chain); a plan not named, or at 0, draws its base model. */
 export type TileSkins = Readonly<Record<string, number>>;
 

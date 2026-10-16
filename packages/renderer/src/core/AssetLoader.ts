@@ -4,7 +4,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { PlanType, getPlanKey } from "@paved/game-core";
 import { afterFirstFrame, firstModels } from "./load-order";
-import { variantIndex, type SkinRef } from "./skins";
+import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
 
 /**
  * Where a host lists its renderer assets under content-hashed names: `<basePath>/manifest.json`, a plan key to its model's
@@ -151,6 +151,8 @@ export class AssetLoader {
   private failedVariants: Set<string> = new Set();
   /** The plan key of each variant resolved (`resolveSkin`): the base model its tiles fall back to. */
   private variantPlans: Map<string, string> = new Map();
+  /** The theme of each plan (`setSkins`): a plan with a variant in the manifest does not load its base model unasked. */
+  private skins: TileSkins = NO_SKINS;
 
   constructor(basePath = "", manifest?: AssetManifest) {
     startDecoderWorkers();
@@ -184,6 +186,23 @@ export class AssetLoader {
     }
     const id = this.resolveSkin(this.manifest, key, skin);
     return this.failedVariants.has(id) ? key : id;
+  }
+
+  /**
+   * The theme of each plan, as the scene draws it. The base model of a plan whose skin is known and listed by the manifest
+   * is a fallback (no skin read, a variant that fails, theme 0): it loads only when a tile asks for it (`want`, `getModel`)
+   * or the variant fails, never with the models loaded for the rest of the board (`preloadAll`).
+   */
+  setSkins(skins: TileSkins): void {
+    this.skins = skins;
+  }
+
+  /** Whether the base model of plan `key` is left to be asked for: its skin is known and the manifest lists its variants. */
+  private skipsBase(key: string, manifest: AssetManifest | null): boolean {
+    const theme = this.skins[key];
+    if (!theme || !manifest?.themes?.[String(theme)]?.[key]?.length) return false;
+    for (const [variant, plan] of this.variantPlans) if (plan === key && this.failedVariants.has(variant)) return false;
+    return true;
   }
 
   /** `skinModelPath`, remembering the variant's plan for its fallback. */
@@ -313,8 +332,14 @@ export class AssetLoader {
     // The skins asked for before the manifest was in: their variants (or base models) join the first models.
     for (const { key, skin } of this.wantedSkins.splice(0)) this.wanted.add(this.resolveSkin(manifest, key, skin));
     const variants = [...this.wanted].filter(isVariant);
+    // The base models of the plans whose skin is known are not loaded with the others: tiles ask for one when they need it.
+    const bases = PLAN_KEYS.filter((key) => !this.skipsBase(key, manifest));
     // A board drawn in variants only still waits for no base model it does not draw.
-    const first = variants.length && !PLAN_KEYS.some((key) => this.wanted.has(key)) ? [] : firstModels(PLAN_KEYS, this.wanted);
+    const first = PLAN_KEYS.some((key) => this.wanted.has(key))
+      ? firstModels(PLAN_KEYS, this.wanted)
+      : variants.length
+        ? []
+        : bases;
     this.chosen = true;
     // A variant that fails loads its base model instead (`ensureModel`), which the first frame then waits for.
     await Promise.all([
@@ -324,7 +349,10 @@ export class AssetLoader {
     ]);
     afterFirstFrame(() => {
       if (this.disposed) return;
-      const rest = PLAN_KEYS.filter((key) => !first.includes(key)).map((key) => this.ensureModel(key, manifest));
+      // A skin that came in meanwhile spares its plans' base models too.
+      const rest = PLAN_KEYS.filter((key) => !first.includes(key) && !this.skipsBase(key, manifest)).map((key) =>
+        this.ensureModel(key, manifest)
+      );
       Promise.all([...rest, this.preloadTextures()]).catch((error: unknown) => {
         if (!this.disposed) console.warn("[AssetLoader] an asset loaded after the first frame failed:", error);
       });
@@ -375,6 +403,7 @@ export class AssetLoader {
     this.wantedSkins = [];
     this.failedVariants.clear();
     this.variantPlans.clear();
+    this.skins = NO_SKINS;
     this.texturesLoad = null;
     this.dracoLoader?.dispose();
     this.dracoLoader = null;
