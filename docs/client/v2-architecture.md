@@ -1954,6 +1954,118 @@ main's chain held at 1.5 (61 MiB against 155).
   (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
   against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 1 ms, inside the noise).
 
+### 5.7 Placement visuals (SLOTS, P-68)
+
+The owner's brief (via the PM, 2026-10-16, P-68), with the PM's rulings on its gaps. No component drew these before: the
+gold slot rings (`RingGeometry`) and the ghost's emissive tint, red where invalid, are replaced by this system.
+
+**The states** (`data/placement.ts`, `usePlacement`; the board page wires Training and Challenge through it, the
+Tutorial its one scripted slot the same way):
+
+| State | The board draws | Confirm |
+|---|---|---|
+| idle (no tile in hand) | the grid | off |
+| in hand | the grid; every legal slot in any rotation: a flat yellow fill and a neon border, dashed, solid and brighter where the current rotation fits | off |
+| placed, the rotation fits | the tile on its slot under a pale yellow veil, an aura (a halo on the ground and a curtain up its sides, waves running out and up) and the cell's solid border | on |
+| placed, the rotation does not fit | the same in red (the PM's reading of item 4: red means "this rotation does not fit here") | **off** |
+| confirmed | the veil and aura turn green over the placed tile, then fade to nothing | (sent) |
+
+- Rotating on a placed tile turns through all four rotations (it turned only through the fitting ones before), so the
+  red state is reachable; choosing a slot still picks a rotation that fits there, so a placement starts yellow. A hover
+  (the pointer, not a choice) previews the rotation a click would choose: never red, no aura.
+- **The rule lives in one place**, `placementTone(fits)` in `core/placement.ts` (and `placementView` in the app, which
+  computes `fits` from the engine's `orientationsAt`): red on any rotation would be a change there.
+- The plan view (`BoardMap`) draws the same states flat: faint cell outlines around the tiles by ring (two rings there,
+  to keep the tiles large), dashed or solid slot borders, the placed tile with a yellow or red ring and a pale veil, and a
+  green flash that fades on confirm (`motion-reduce` shortens it).
+
+**The renderer** (`core/placement.ts`, `PlacementRenderer`, owned by `TileRenderer`; `core/neon.ts`):
+
+- **The grid**: one plane over the tiles' bounds and four rings around, its shader drawing the cell lines antialiased by
+  their distance in device px (`fwidth`), at least `minWidthDevicePx` (1) wide, `width` 1.2 % of a tile. Its fade by
+  ring is **Chebyshev** (the eight cells around a tile are ring 1, so the band around the board is square and even): a
+  small texture holds each cell's ring opacity (ring 1: 1, ring 2: 0.4, ring 3: 0.1, from ring 4: 0, times `opacity`
+  0.32), read bilinearly, so a line's opacity is linear from one ring to the next (`gridLineOpacity`). It is rebuilt only
+  when the tiles' cells change. Colour ink-200 `#d1d9df`.
+- **The neon** (`neon.ts`, the reusable piece GLOW can take for the gold slots): `NEON_LINE_GLSL` (a line's coverage at
+  a distance, with a pixel floor; dashes along a side with whole corners; a gaussian halo) and a cell-frame material
+  (`createNeonFrameMaterial`, `setNeonFrame`): the line's core whitened, the halo in the colour, a flat fill, premultiplied
+  (`ONE, ONE_MINUS_SRC_ALPHA`) so the neon adds light and the fill covers in one draw. **Not the bloom pass**: LIGHT-GPU
+  found it High-only and shimmering on thin bands. One frame geometry and two materials (dashed, solid) serve every
+  slot.
+- **Dashes**: long dashes, smaller gaps (`gap` 0.28 of a period), the corners whole L shapes; 2 a side on a small cell, 3
+  on a large one, blended over 16 CSS px around 80 px a tile (`slotDashBlend`), so a zoom step never pops.
+- **Lines on zoom-out** fade on OUT-FADE's curve (`placementFade`: the outlines' `outlineFade` against the opening tile
+  size S): the grid to nothing, the slots' borders down to `fadeFloor` (0.6), so the legal slots stay findable zoomed out.
+- **The aura**: one shared geometry around a cell, a halo on the ground just above a tile's ground top (it lies over
+  the neighbours' ground, not under it) and a curtain up the four sides, `aV` from 0 at the cell's edge to 1 at the far
+  end: bright at the edge, falling to 0, so no hard edge to alias; waves `sin(2π(v · waves − phase))` with the phase looping
+  over `periodMs` (1800). The curtain fades out edge-on and on its far side; the aura and the placed cell's border are
+  drawn without the depth test (a glow over the neighbours' trees, which would cut it into pieces).
+- **The veil**: the tile's own model clone with every mesh drawn in a pale colour (the state's mixed 50 % with white, at
+  0.16), its outlines dropped; it shares the model's geometry and uses the outlines' depth bias (factor −1, units −4) to lie
+  on the faces without fighting them, drawn after the faces and before the outlines. The ghost itself is now the tile as
+  the board draws it (the type's shared model and materials, no shadow): the ghost makes no material of its own.
+- **Colours** (the Tailwind tokens): yellow `#f0bf5b` (primary, gold-300), red `#f85e4d` (ember-500), green `#6eca6f`
+  (meadow-400).
+- **Motion**: a change of tone runs 220 ms, the confirm 700 ms (green in its first third, a smoothstep fade); render on
+  demand holds: `TileRenderer.update(now)` reports when an effect still moves (a colour change, the aura's waves, the
+  confirm), and `GameScene`'s tick draws a frame only then. **Reduced motion** (`motion.reducedMotion`, "auto" follows
+  `prefers-reduced-motion` and its changes): a still aura (no continuous frames), colours at once, a 150 ms fade.
+- Every value is a setting (`RendererSettings.placement`, a partial per group) and a control of the story.
+
+**Stories**: "Renderer/Placement" (`packages/app/src/stories/renderer/placement.stories.tsx`): Idle grid, Slots, Placed
+yellow, Placed red, Confirm green (played again every 1.6 s) and Reduced motion, every setting a control.
+
+**Frame time (measured, 2026-10-16).** The Mac's GPU (Apple M2 Max), Chrome in new headless mode on ANGLE Metal, never
+on screen; this branch's static Storybook, "Renderer/Placement" on the recorded 72-tile board, `redraw` on, outlines
+forced on, quality and pixel-ratio cap "auto" (Medium; 1.75 on the desktop since Q3-GPU, 2 on the phone-like profile);
+per frame the CPU time of every rAF callback of the frame plus the GPU time (`EXT_disjoint_timer_query_webgl2`) from its
+first callback to the next frame's; a fresh context per configuration, 120 warm-up and 600 measured frames; two rounds,
+the variants alternated and their order rotated; each run started at a 1-minute load under 6 (kept: 3.9 to 5.8).
+Desktop: 1440 x 900 at DPR 2 (2520 x 1575). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x (720 x 1560). Variants:
+"none" (no grid, no slot), "grid" (idle), "slots" (a tile in hand: every empty cell next to a tile, dashed and solid), "placed" (the slots, the
+placed tile's aura and veil, its waves moving). CPU + GPU per frame, ms, pooled p50 / p95:
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| none | 4.54 / 6.03 | 3.99 / 5.39 | 3.54 / 5.38 | 2.51 / 4.35 |
+| grid | 4.71 / 6.25 | 3.96 / 5.41 | 3.74 / 5.36 | 2.50 / 4.09 |
+| slots | 4.67 / 6.28 | 4.02 / 5.39 | 3.70 / 5.33 | 2.46 / 4.14 |
+| placed | 4.72 / 6.33 | 4.10 / 5.57 | 3.68 / 5.32 | 2.58 / 4.34 |
+
+The placement visuals cost at most 0.3 ms of p95 (desktop, opening), inside the runs' noise elsewhere; every row is far
+under the rules (12 ms desktop, 16.6 ms phone-like). This driver times the frame from the first callback to the next
+frame's and the story's board, so its absolute figures are not those of LIGHT-GPU's table (5.5): compare within this table.
+
+**Zero flicker (outlines on).** Same machine and mode, "Renderer/Placement" held at 240, quality and cap "auto"; "none"
+against "slots" and "placed" (reduced motion, so the aura holds still). 12 mouse drags of 2 CSS px, 1.5 s settle each.
+- The mean luma of the centre crop (800 x 500 CSS px desktop, 300 x 400 phone-like) after each step: largest step
+  (mean step) none / slots / placed: desktop pan 0.24 (0.11) / 0.56 (0.17) / 0.57 (0.17), phone-like pan 0.69 (0.37) /
+  1.07 (0.28) / 1.07 (0.28); 12 wheel notches of 20: desktop 0.10 / 0.31 / 0.31, phone-like 0.05 / 0.20 / 0.19. The slots'
+  and the placed tile's series are the same step for step (a bright border crossing the crop's edge), so the mean-luma
+  test cannot tell content from shimmer here.
+- So each frame was compared with the one before, shifted by the pan (the best whole-pixel offset, x within 24 device px):
+  the residual, what the move does not explain, mean absolute difference over the crop (0 to 255), mean (max) over the 12
+  steps: desktop none 1.23 (1.53), slots 1.27 (1.74), placed 1.27 (1.75); phone-like none 1.29 (1.36), slots 1.36 (1.64),
+  placed 1.37 (1.65). The offset is a constant 16 (desktop) and 24 (phone) device px every step, the residual flat from
+  step to step, its maximum on the first step in every variant: the lines add about 0.05 of a level, no step that
+  shimmers.
+
+**Captures** (`packages/app/src/stories/renderer/captures/slots-<state>-<width>.webp`): each story (idle grid, slots,
+placed yellow, placed red, confirm green caught about 150 ms into its fade, reduced motion) at 1280 x 800, DPR 2, and
+360 x 780, DPR 3, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on, quality and cap "auto".
+
+**Where this differs from the brief, or decides a gap** (the PM's rulings stand; these are the thread's, reversible):
+- The aura and the placed cell's border are drawn without the depth test (the neighbours' trees cut them otherwise); the
+  curtain's far side is not drawn, so the aura never shows through the tile.
+- The slots' borders keep 0.6 of their opacity when zoomed out past the outlines' fade (the grid fades to nothing): a
+  slot must stay findable at the farthest zoom.
+- A hover previews the rotation a click would pick (never red); the aura and Confirm are for a placed tile only.
+- The player's "tile preview" setting still hides the ghost, placed or not; the slots' borders and the plan view keep
+  the state.
+- The look's gold highlights (`look.highlights`) no longer draw the slots or the ghost; they stay in the look for GLOW.
+
 ---
 
 ## 6. The page map
