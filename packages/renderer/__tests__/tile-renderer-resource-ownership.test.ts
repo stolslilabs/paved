@@ -30,6 +30,9 @@ function createSharedAssetLoader() {
     source,
     geometry,
     material,
+    has: () => true,
+    want: () => {},
+    setSkins: () => {},
     getModel(_key: string) {
       return source.clone();
     },

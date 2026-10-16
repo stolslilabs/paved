@@ -20,6 +20,9 @@ function makeTile(overrides: Partial<TileRenderData> = {}): TileRenderData {
 
 function createMockAssetLoader() {
   return {
+    has: () => true,
+    want: () => {},
+    setSkins: () => {},
     getModel(_key: string): THREE.Group {
       const group = new THREE.Group();
       const geo = new THREE.BoxGeometry(1, 1, 1);

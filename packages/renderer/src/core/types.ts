@@ -89,7 +89,7 @@ export interface HoverState {
   orientation: number;
   /**
    * The hovered cell as a tile there would be (the contracts' x and y, the game's id): the ghost draws the skin variant
-   * that cell's tile would (`setSkins`). Unset: the plan's base model.
+   * that cell's tile would (`setSkins`). Unset: the variant at the board's centre of game 0, as the hand's tile.
    */
   cell?: { x: number; y: number; gameId: number };
 }

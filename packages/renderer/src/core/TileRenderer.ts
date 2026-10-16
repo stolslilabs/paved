@@ -6,7 +6,7 @@ import { applyOutlineStroke, createOutline, createOutlineMaterial, isOutline, ty
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
-import { NO_SKINS, skinRef, type TileSkins } from "./skins";
+import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -166,14 +166,12 @@ export class TileRenderer {
     const key = getPlanKey(Plan.from(plan).value);
     if (key === "00") return null;
     const skin = skinRef(this.skins, plan, x, y, gameId);
-    if (!skin) return key;
-    const id = this.assets.skinModel(key, skin);
-    if (id === key) return key;
-    if (id !== null) {
-      if (this.assets.has(id)) return id;
-      this.assets.want([id]);
-    }
-    return this.assets.has(key) ? key : null;
+    const id = skin ? this.assets.skinModel(key, skin) : key;
+    if (id !== null && this.assets.has(id)) return id;
+    // Not in yet: asked for at once (a base model needed again when the skins go off, a variant), and the tile keeps what it
+    // draws meanwhile (null), a variant or a base model, so it is never empty.
+    if (id !== null) this.assets.want([id]);
+    return id === null || id === key ? null : this.assets.has(key) ? key : null;
   }
 
   /**
@@ -182,6 +180,7 @@ export class TileRenderer {
    */
   setSkins(skins: TileSkins): void {
     this.skins = skins;
+    this.assets.setSkins(skins);
     this.refreshHover();
   }
 
@@ -390,9 +389,10 @@ export class TileRenderer {
       return;
     }
 
-    // The ghost draws the variant of the cell it hovers (`HoverState.cell`); without one, the plan's base model.
-    const cell = state.cell;
-    const planModel = cell ? this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId) : getPlanKey(Plan.from(state.planIndex).value);
+    // The ghost draws the variant of the cell it hovers (`HoverState.cell`); without one, the board's centre of game 0 (the
+    // hand's), so a skinned plan's base model is not asked for just for a ghost.
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
     const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${planModel}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(
