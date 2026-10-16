@@ -421,10 +421,15 @@ describe("no wiring (SC1, SC2)", () => {
   it("reaches the page modules only through import(), never statically", () => {
     const outside = files(join(src, "routes")).filter((f) => !f.includes(join("routes", "pages")) && !f.endsWith("pages.ts"));
     for (const f of outside) expect(readFileSync(f, "utf8")).not.toMatch(/^\s*(import|export)\b[^;]*from\s+["']\.\/pages\//m);
-    const router = readFileSync(join(src, "routes/router.tsx"), "utf8");
-    const dynamic = [...router.matchAll(/import\("\.\/pages\/[\w-]+"\)/g)].length;
+    // The page loaders (`page-loaders.ts`) are the one table of `import()`s; the router and the prefetch go through it.
+    const loaders = readFileSync(join(src, "routes/page-loaders.ts"), "utf8");
+    const dynamic = [...loaders.matchAll(/import\("\.\/pages\/[\w-]+"\)/g)].length;
     expect(dynamic).toBeGreaterThanOrEqual(14);
-    expect(router.match(/\.\/pages\//g)).toHaveLength(dynamic);
+    expect(loaders.match(/\.\/pages\//g)).toHaveLength(dynamic);
+    const router = readFileSync(join(src, "routes/router.tsx"), "utf8");
+    expect(router).toMatch(/PAGE_LOADERS/);
+    // The router's own `import()` is the not-found page, which is in no route of the table.
+    expect(router.match(/\.\/pages\//g)).toHaveLength([...router.matchAll(/import\("\.\/pages\/[\w-]+"\)/g)].length);
   });
 });
 

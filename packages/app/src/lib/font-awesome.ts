@@ -1,13 +1,15 @@
 /**
  * Loader and reader of the Font Awesome Pro scripts (docs/client/v2-architecture.md, section 8).
  *
- * The three files in `public/fontawesome/js` are Font Awesome's "SVG with JavaScript" build. By default they
+ * The three files in `public/fontawesome/js` are Font Awesome's "SVG with JavaScript" build; `solid.min.js` and
+ * `thin.min.js` are subsets of the owner's files, cut to the icons the code names (`scripts/fa-subset.ts`; the whole
+ * files are in `public/fontawesome/source/`, which the build leaves out of `dist/`). By default they
  * rewrite the DOM (`<i>` to `<svg>`) and watch it for changes, outside React. Here `FontAwesomeConfig` turns both
  * off before they run, so they only fill a library: the `Icon` component asks `FontAwesome.icon()` for the SVG
  * tree of one icon and React renders it.
  *
- * The scripts are 2 MB (`solid.min.js`) and parsed at load, so they are injected after the first render, with a low
- * fetch priority, rather than blocking the app's module in the head. `Icon` shows an empty box of its size until
+ * The scripts are parsed at load, so they are injected after the first render, with a low fetch priority, rather than
+ * blocking the app's module in the head. `Icon` shows an empty box of its size until
  * they are ready.
  */
 import { useSyncExternalStore } from "react";
@@ -33,7 +35,7 @@ declare global {
   }
 }
 
-/** The two styles the owner's files hold: `solid.min.js` registers `fas`, `thin.min.js` registers `fat`. */
+/** The two styles the files hold: `solid.min.js` registers `fas`, `thin.min.js` registers `fat`. */
 export type FaVariant = "solid" | "thin";
 const PREFIX: Record<FaVariant, string> = { solid: "fas", thin: "fat" };
 
