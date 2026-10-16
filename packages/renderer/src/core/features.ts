@@ -28,8 +28,8 @@ const AREA_CODES: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6,
 /**
  * The entries of the base models' palette (the 256 x 1 texture every base model shares) by what they paint, read off the
  * 19 base models: an entry is in a class when it lies mostly in that feature's spots across them. `stone` is the grey of
- * walls and of rocks alike: a city only when it joins a city. The Forest variants' palette differs on 34 entries (among
- * them 179, 180, 228 and 229): this table is the base palette's.
+ * walls and of rocks alike: a city only when it joins a city. The Forest variants have a palette of their own
+ * (`FOREST_PALETTE_CLASSES`).
  */
 export const BASE_PALETTE_CLASSES = {
   city: [7, 91, 92, 94, 95, 163, 164, 216, 217, 218, 219, 220, 221, 222, 225, 227, 228, 229, 253],
@@ -40,6 +40,34 @@ export const BASE_PALETTE_CLASSES = {
   vegetation: [3, 80, 81, 82, 83, 104, 105, 112, 113, 114, 115, 152, 153, 160, 161, 176, 177, 179, 180, 184, 185, 187, 188],
 } as const;
 export type PaletteClasses = { readonly [K in keyof typeof BASE_PALETTE_CLASSES]: readonly number[] };
+
+/**
+ * The Forest variants' palette (the one every Forest variant shares; it differs from the base one on 34 entries), read
+ * off the 72 variants as the base table was: their roads are painted with 96 to 99, their wonders with entries of their
+ * own (0, 1, 24 to 31, 140 to 142, 180, 181), and their leaves are 176 to 179.
+ */
+export const FOREST_PALETTE_CLASSES: PaletteClasses = {
+  ...BASE_PALETTE_CLASSES,
+  road: [96, 97, 98, 99],
+  wonder: [...BASE_PALETTE_CLASSES.wonder, 0, 1, 24, 25, 26, 27, 28, 29, 30, 31, 140, 141, 142, 180, 181],
+  vegetation: [3, 80, 81, 82, 83, 104, 105, 112, 113, 114, 115, 152, 153, 160, 161, 176, 177, 178, 179, 184, 185, 187, 188],
+};
+
+/** The palettes whose classes are known, by name: a model of another palette is not labelled (`paletteOfModel`). */
+export const PALETTE_CLASSES = { base: BASE_PALETTE_CLASSES, forest: FOREST_PALETTE_CLASSES } as const;
+export type PaletteName = keyof typeof PALETTE_CLASSES;
+
+/**
+ * The palette of a model id: a plan key is a base model; a variant's path names its theme's folder
+ * (`models/forest/<plan>_HF_<n>.<hash>.glb`). Null for a palette with no class table (another theme): such a model is
+ * not labelled, rather than labelled wrong. `features.test.ts` pins each palette's colours, so a changed palette fails
+ * there before its classes go stale.
+ */
+export function paletteOfModel(id: string): PaletteName | null {
+  const parts = id.split("/");
+  if (parts.length === 1) return "base";
+  return parts[parts.length - 2] === "forest" ? "forest" : null;
+}
 
 /** The palette's width in texels: an entry is `floor(u * PALETTE_SIZE)`. */
 const PALETTE_SIZE = 256;

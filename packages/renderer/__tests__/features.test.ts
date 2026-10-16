@@ -1,9 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { CategoryType, Plan, PlanType, SpotType, StructureBoard } from "@paved/game-core";
-import { ABOVE_GROUND_VOXELS, BASE_PALETTE_CLASSES, FEATURE_CODE, GROUND_VOXELS, columnTops, labelTileGeometry, planKeyOfModel, type TileLabels } from "../src/core/features";
+import {
+  ABOVE_GROUND_VOXELS,
+  BASE_PALETTE_CLASSES,
+  FEATURE_CODE,
+  FOREST_PALETTE_CLASSES,
+  GROUND_VOXELS,
+  columnTops,
+  labelTileColumns,
+  labelTileGeometry,
+  paletteOfModel,
+  planKeyOfModel,
+  type ColumnLabels,
+  type TileLabels,
+} from "../src/core/features";
+import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-variants";
+import { decodePng } from "./helpers/png";
 import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -55,8 +71,58 @@ function planAreas(key: string, category: CategoryType): Set<number> {
 }
 
 /** The area codes the columns of one feature carry. */
-const columnAreas = (labels: TileLabels, feature: number) =>
+const columnAreas = (labels: { columns: ColumnLabels }, feature: number) =>
   new Set(Array.from(labels.columns.area).filter((_, k) => labels.columns.feature[k] === feature));
+
+/** Where a model's labels differ from its plan: each feature whose areas are not the plan's areas of its category. */
+function planMismatches(key: string, labels: { columns: ColumnLabels }): string[] {
+  const out: string[] = [];
+  for (const [name, category] of [["city", CategoryType.City], ["road", CategoryType.Road], ["wonder", CategoryType.Wonder], ["forest", CategoryType.Forest]] as const) {
+    const [got, want] = [columnAreas(labels, FEATURE_CODE[name]), planAreas(key, category)];
+    if (got.size !== want.size || [...got].some((a) => !want.has(a))) out.push(`${name} [${[...got]}] for [${[...want]}]`);
+  }
+  return out;
+}
+
+/** The 4-connected groups of forest columns that hold 15 or more columns of two forest areas (forests that leak). */
+function forestLeaks(columns: ColumnLabels): string[] {
+  const N = columns.size;
+  const leaks: string[] = [];
+  const forest = (k: number) => columns.feature[k] === FEATURE_CODE.forest;
+  const seen = new Uint8Array(N * N);
+  for (let k = 0; k < N * N; k++) {
+    if (seen[k] || !forest(k)) continue;
+    const counts = new Map<number, number>();
+    const stack = [k];
+    seen[k] = 1;
+    while (stack.length) {
+      const c = stack.pop()!;
+      counts.set(columns.area[c], (counts.get(columns.area[c]) ?? 0) + 1);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const [x, y] = [(c % N) + dx, Math.floor(c / N) + dy];
+        const n = y * N + x;
+        if (x >= 0 && y >= 0 && x < N && y < N && !seen[n] && forest(n)) {
+          seen[n] = 1;
+          stack.push(n);
+        }
+      }
+    }
+    const big = [...counts].filter(([, n]) => n >= 15);
+    if (big.length > 1) leaks.push(big.map(([a, n]) => `${" ABCDEFGHI"[a]} ${n}`).join(" + "));
+  }
+  return leaks;
+}
+
+/** A model file's palette: its embedded 256 x 1 texture's colours, as a short hash. */
+function paletteHash(file: string): string {
+  const glb = readFileSync(file);
+  const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString());
+  const bin = glb.subarray(20 + glb.readUInt32LE(12) + 8);
+  const view = json.bufferViews[json.images[0].bufferView];
+  const { rgba } = decodePng(bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength));
+  const rgb = Array.from({ length: 256 }, (_, i) => `${rgba[i * 4]},${rgba[i * 4 + 1]},${rgba[i * 4 + 2]}`).join(";");
+  return createHash("sha256").update(rgb).digest("hex").slice(0, 16);
+}
 
 const labelled = new Map<string, TileLabels>();
 const timings: number[] = [];
@@ -213,34 +279,7 @@ describe("the voxels' features (labelTileGeometry) over the 19 base models", () 
   });
 
   it("keeps the forests apart: no group of forest columns holds 15 or more of two forest areas", () => {
-    const N = 40;
-    const leaks: string[] = [];
-    for (const key of KEYS) {
-      const { columns } = labelled.get(key)!;
-      const forest = (k: number) => columns.feature[k] === FEATURE_CODE.forest;
-      const seen = new Uint8Array(N * N);
-      for (let k = 0; k < N * N; k++) {
-        if (seen[k] || !forest(k)) continue;
-        const counts = new Map<number, number>();
-        const stack = [k];
-        seen[k] = 1;
-        while (stack.length) {
-          const c = stack.pop()!;
-          counts.set(columns.area[c], (counts.get(columns.area[c]) ?? 0) + 1);
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const [x, y] = [(c % N) + dx, Math.floor(c / N) + dy];
-            const n = y * N + x;
-            if (x >= 0 && y >= 0 && x < N && y < N && !seen[n] && forest(n)) {
-              seen[n] = 1;
-              stack.push(n);
-            }
-          }
-        }
-        const big = [...counts].filter(([, n]) => n >= 15);
-        if (big.length > 1) leaks.push(`${key}: ${big.map(([a, n]) => `${" ABCDEFGHI"[a]} ${n}`).join(" + ")}`);
-      }
-    }
-    expect(leaks).toEqual([]);
+    expect(KEYS.flatMap((key) => forestLeaks(labelled.get(key)!.columns).map((leak) => `${key}: ${leak}`))).toEqual([]);
   });
 
   it("leaves a stop's building, and what stands on the ground, out of the forests", () => {
@@ -288,6 +327,55 @@ describe("planKeyOfModel", () => {
     expect(planKeyOfModel("00")).toBeNull();
     expect(planKeyOfModel("none")).toBeNull();
   });
+
+  it("reads a model's palette: a plan key the base one, a Forest variant's path the Forest one, another theme none", () => {
+    expect(paletteOfModel("rfrfcccfr")).toBe("base");
+    expect(paletteOfModel("models/forest/cccccfffc_HF_1.a081baf113.glb")).toBe("forest");
+    expect(paletteOfModel("models/winter/cccccfffc_1.a081baf113.glb")).toBeNull();
+  });
+});
+
+describe("the Forest variants (their own palette)", () => {
+  const variants = new Map<string, { key: string; mesh: THREE.Mesh; labels: { columns: ColumnLabels } }>();
+  beforeAll(async () => {
+    for (const file of FOREST_FILES) {
+      const { mesh } = await loadForestVariant(file);
+      const key = planKeyOfModel(file)!;
+      variants.set(file, { key, mesh, labels: labelTileColumns(mesh.geometry, key, mesh.matrixWorld, FOREST_PALETTE_CLASSES) });
+    }
+  }, 60_000);
+
+  it("pins each palette: one for the 19 base models, one for the 72 Forest variants", () => {
+    // A changed palette fails here: review its classes (`BASE_PALETTE_CLASSES`, `FOREST_PALETTE_CLASSES`), then pin it.
+    expect(new Set(KEYS.map((key) => paletteHash(`${MODELS}/${key}.glb`)))).toEqual(new Set(["d01f168664d2d9c1"]));
+    expect(FOREST_FILES).toHaveLength(72);
+    expect(new Set(FOREST_FILES.map((file) => paletteHash(`${FOREST}/${file}`)))).toEqual(new Set(["8d6eebcf0b30f9f1"]));
+    for (const file of FOREST_FILES) expect(paletteOfModel(`models/forest/${file}`)).toBe("forest");
+  });
+
+  it("finds each variant's cities, roads, wonder and forests, with the Forest palette's classes", () => {
+    const wrong = [...variants].flatMap(([file, { key, labels }]) => planMismatches(key, labels).map((m) => `${file.split(".")[0]}: ${m}`));
+    // Two variants of wfffffffr are drawn a quarter turn from their plan: their road leaves by the south edge, where the
+    // plan has it to the west, so no road reaches its area. The second one's wonder is a ring of grey stone (the
+    // city's and the rocks' greys, none of the wonder's entries): not found.
+    expect(wrong).toEqual([
+      "wfffffffr_HF_1: road [] for [3]",
+      "wfffffffr_HF_2: road [] for [3]",
+      "wfffffffr_HF_2: wonder [] for [1]",
+    ]);
+  });
+
+  it("loses the roads with the base palette's classes (the variants paint them with 96 to 99)", () => {
+    const roadless = [...variants].filter(([, { key, mesh }]) => {
+      const base = labelTileColumns(mesh.geometry, key, mesh.matrixWorld, BASE_PALETTE_CLASSES);
+      return planAreas(key, CategoryType.Road).size > 0 && columnAreas(base, FEATURE_CODE.road).size < planAreas(key, CategoryType.Road).size;
+    });
+    expect(roadless.length).toBeGreaterThan(20);
+  });
+
+  it("keeps the variants' forests apart", () => {
+    expect([...variants].flatMap(([file, { labels }]) => forestLeaks(labels.columns).map((leak) => `${file}: ${leak}`))).toEqual([]);
+  });
 });
 
 describe("the feature highlight in the tile shader", () => {
@@ -310,6 +398,19 @@ describe("the feature highlight in the tile shader", () => {
     lightUp(tiles, LOOK_PRESETS.mockup.featureHighlight);
     lightUp(tiles);
     expect(labelMapOf(tiles, models, "rfrfcccfr")).toBe(map);
+    tiles.dispose();
+  });
+
+  it("labels no model of a palette it has no classes for (another theme): its tiles never light", () => {
+    const { tiles, models } = renderer();
+    lightUp(tiles);
+    const labelMaps = (tiles as any).labelMaps as Map<THREE.BufferGeometry, unknown>;
+    const winter = models.get("rfrfcccfr")!.clone(true);
+    (tiles as any).labelFeatures("models/winter/rfrfcccfr_1.0123456789.glb", winter);
+    expect(labelMaps.has(meshOf(winter).geometry)).toBe(false);
+    const forest = models.get("ffcfffcff")!.clone(true);
+    (tiles as any).labelFeatures("models/forest/ffcfffcff_HF_1.0123456789.glb", forest);
+    expect(labelMaps.has(meshOf(forest).geometry)).toBe(true);
     tiles.dispose();
   });
 

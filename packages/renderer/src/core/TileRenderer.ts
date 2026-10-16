@@ -7,7 +7,7 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
-import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS, labelTileColumns, packLabels, planKeyOfModel } from "./features";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS, PALETTE_CLASSES, labelTileColumns, packLabels, paletteOfModel, planKeyOfModel } from "./features";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -399,12 +399,13 @@ export class TileRenderer {
 
   /**
    * The label map of each of a model's meshes (`features.ts`), once per geometry: its columns' labels and the matrix from
-   * the geometry to its grid, which every tile of the model reads. A model id that names no plan is left as is. A Forest
-   * variant is labelled with the base palette's classes, which its palette mostly shares.
+   * the geometry to its grid, which every tile of the model reads, with its palette's classes (`paletteOfModel`). A model
+   * id that names no plan, or a palette with no class table, is left unlabelled: its tiles never light.
    */
   private labelFeatures(key: string, model: THREE.Group): void {
     const plan = planKeyOfModel(key);
-    if (!plan) return;
+    const palette = paletteOfModel(key);
+    if (!plan || !palette) return;
     model.updateMatrixWorld(true);
     const toRoot = model.matrixWorld.clone().invert();
     model.traverse((child) => {
@@ -412,7 +413,7 @@ export class TileRenderer {
       const uniforms = this.labelUniformsOf(child.geometry);
       if (uniforms.uLabelMap.value !== this.emptyLabelMap) return;
       const toModel = toRoot.clone().multiply(child.matrixWorld);
-      const { columns, grid } = labelTileColumns(child.geometry, plan, toModel);
+      const { columns, grid } = labelTileColumns(child.geometry, plan, toModel, PALETTE_CLASSES[palette]);
       uniforms.uLabelMap.value = labelMapTexture(packLabels(columns), columns.size);
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
