@@ -1,6 +1,7 @@
 import { Account, RpcProvider } from "starknet";
 import { MAX_STAKE, controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
 import { chainClient } from "../data/chain-client";
+import { economyClient } from "../data/economy-client";
 import type { WalletConnector } from "./wallet";
 
 // The app's connector (P6), loaded with its own chunk by `WalletProvider`: app-web's `WalletProvider.tsx` and
@@ -48,7 +49,16 @@ export const BUILD_BURNER: Burner | null = DEVNET_BUILD
 
 /** The connector of this build's deployment (`chainClient`, `BUILD_BURNER`). Rejects when the deployment is not configured. */
 export async function appConnector(): Promise<WalletConnector> {
-  return connectorFor(chainClient(), BUILD_BURNER);
+  return connectorFor(chainClient(), BUILD_BURNER, createControllerConnector, economyAddress());
+}
+
+/** The Economy's address in this build's deployment, or null without one: `Economy.settle` is a session policy only with it (P7a). */
+function economyAddress(): string | null {
+  try {
+    return economyClient()?.deployment.addresses.Economy ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -60,6 +70,7 @@ export function connectorFor(
   client: PavedClient,
   burner: Burner | null,
   controller: (config: ControllerConfig) => ControllerConnector = createControllerConnector,
+  economy: string | null = null,
 ): WalletConnector {
   const { deployment } = client;
   if (deployment.network === "devnet") {
@@ -81,7 +92,7 @@ export function connectorFor(
     rpc: deployment.rpcUrl,
     chainId: deployment.chainId,
     // The price is read once, when the controller is first used.
-    policies: async () => controllerPolicies(deployment, { approve: await entryApprove(client) }),
+    policies: async () => controllerPolicies(deployment, { approve: await entryApprove(client), economy }),
   });
   return {
     probe: () => connector.probe(),

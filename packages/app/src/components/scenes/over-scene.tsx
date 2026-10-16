@@ -1,14 +1,35 @@
 import type { GameView, ScoredStructure } from "@paved/chain";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Icon } from "../ui/icon";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
 import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
+import { Notice } from "../elements/notice";
+import { formatLocal, formatUtc } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import { TopBar } from "../containers/top-bar";
+
+/**
+ * What the settle area shows (P7a, a Challenge game bought with a stake, not settled): `after` (the day cannot be settled
+ * yet: "Settles after <date>"), `connect` (a guest), `ready` (the player's button), `viewing` (settleable, shown to someone
+ * who is not the player: anyone may settle, the button is the player's), `pending` (the wallet or the chain),
+ * `refused` (the writer's message, the button again), `settled` (settled from this page) and `done` (settled before).
+ */
+export type SettleState = "after" | "connect" | "ready" | "viewing" | "pending" | "refused" | "settled" | "done";
+
+export interface SettleProps {
+  state: SettleState;
+  /** `after`: seconds since the epoch the day can be settled from. */
+  at?: number;
+  /** `refused`: why. */
+  message?: string;
+  onSettle?: () => void;
+  onConnect?: () => void;
+}
 
 export interface OverSceneProps {
   mode: "challenge" | "training";
@@ -29,6 +50,21 @@ export interface OverSceneProps {
   };
   settling?: boolean;
   onSettle?: () => void;
+  /**
+   * A Challenge game's settlement (P7a). Without it the reward panel alone is shown, with its own button in the `settle`
+   * state (the scene's first mocks).
+   */
+  settle?: SettleProps;
+  /** A free Challenge game (`GameSpawned.price == 0`): the label "Free game" and no reward, no settle. */
+  freeGame?: boolean;
+  /** The reward cannot be read (no economy on this network): a neutral line replaces the reward panel. */
+  rewardUnavailable?: boolean;
+  /** `expired`: the 24 h deadline the game missed (`terms.time + 86400`), seconds since the epoch. */
+  deadline?: number;
+  /** Why the list of closings is not shown, when it could not be read. */
+  closingsNote?: string;
+  /** An IANA zone for the dates; the viewer's own when omitted. Stories and tests fix it. */
+  timeZone?: string;
   onPlayAgain?: () => void;
   onHome?: () => void;
 }
@@ -40,7 +76,7 @@ const duration = (seconds: number) => {
 };
 
 /** The end of a game (`/game/:id/over`, `/training/over`): the final score, its metrics, every closing, the reward. */
-export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, onPlayAgain, onHome }: OverSceneProps) {
+export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, timeZone, onPlayAgain, onHome }: OverSceneProps) {
   const best = previousBest != null && game.score > previousBest;
   const byCategory = CLOSING_CATEGORIES.map((category) => {
     const of = closings.filter((c) => c.category === category);
@@ -58,6 +94,7 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
             <span className="text-sm text-muted-foreground">{mode === "challenge" ? `Challenge #${game.id}` : "Training"}</span>
             <Score value={game.score} size="xl" tone="gold" className="items-center" />
             <span className="flex flex-wrap justify-center gap-2">
+              {freeGame && <Badge variant="secondary">Free game</Badge>}
               {best && <Badge>New best</Badge>}
               {rank != null && <Badge variant="outline">#{rank} today</Badge>}
             </span>
@@ -77,15 +114,35 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
             {game.endTime > 0 && <StatRow icon="clock" label="Time played" value={duration(game.endTime - game.startTime)} />}
           </section>
 
-          <RewardPanel
-            state={reward.state}
-            reward={reward.amount}
-            stake={reward.stake}
-            score={game.score}
-            threshold={reward.threshold}
-            settling={settling}
-            onSettle={onSettle}
-          />
+          {freeGame ? (
+            <section aria-label="Reward" data-state="free-game" className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-4">
+              <span className="flex items-center gap-2 font-semibold">
+                <Icon name="gift" className="text-primary" size="md" />
+                Free game
+              </span>
+              <p className="text-sm text-muted-foreground">A free game costs no stake and pays no reward: there is nothing to settle.</p>
+            </section>
+          ) : rewardUnavailable ? (
+            <Notice title="Reward unavailable">The reward cannot be read on this network.</Notice>
+          ) : (
+            <>
+              <RewardPanel
+                state={reward.state}
+                reward={reward.amount}
+                stake={reward.stake}
+                score={game.score}
+                threshold={reward.threshold}
+                settling={settling}
+                onSettle={onSettle}
+              />
+              {reward.state === "expired" && deadline != null && (
+                <p className="-mt-2 px-1 text-sm text-muted-foreground">
+                  The 24 h ended <When at={deadline} timeZone={timeZone} />.
+                </p>
+              )}
+              {settle && <SettleArea {...settle} timeZone={timeZone} />}
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -96,7 +153,7 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
             </header>
             <Separator />
             {closings.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-muted-foreground">No structure closed in this game.</p>
+              <p className="px-4 py-4 text-sm text-muted-foreground">{closingsNote ?? "No structure closed in this game."}</p>
             ) : (
               <ScrollArea className={closings.length > 8 ? "h-80 desktop:h-[28rem]" : undefined}>
                 <ol className="flex flex-col divide-y divide-border px-4">
@@ -116,5 +173,49 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
         </div>
       </main>
     </div>
+  );
+}
+
+/** A moment in the viewer's zone, its UTC form on hover (the same `<time>` as the deadline's). */
+function When({ at, timeZone }: { at: number; timeZone?: string }) {
+  return (
+    <time dateTime={new Date(at * 1000).toISOString()} title={formatUtc(at)} className="whitespace-nowrap text-foreground">
+      {formatLocal(at, timeZone)}
+    </time>
+  );
+}
+
+/** The settle area under the reward (P7a): when the day can be settled, then the button, its refusal and its outcome. */
+function SettleArea({ state, at, message, onSettle, onConnect, timeZone }: SettleProps & { timeZone?: string }) {
+  return (
+    <section aria-label="Settle" data-state={state} className="flex flex-col gap-3">
+      {state === "after" && at != null && (
+        <p className="flex items-start gap-2 px-1 text-sm text-muted-foreground">
+          <Icon name="clock" size="sm" className="mt-0.5" />
+          <span>
+            Settles after <When at={at} timeZone={timeZone} />. The day closes with the end of the next day.
+          </span>
+        </p>
+      )}
+      {state === "viewing" && <p className="px-1 text-sm text-muted-foreground">This game can be settled now. The player settles it from their own account.</p>}
+      {state === "connect" && <Button onClick={onConnect}>Connect to settle</Button>}
+      {(state === "ready" || state === "pending" || state === "refused") && (
+        <Button onClick={onSettle} loading={state === "pending"}>
+          {state === "pending" ? "Settling…" : "Settle and claim"}
+        </Button>
+      )}
+      {state === "refused" && (
+        <Notice tone="danger" title="Settle refused">
+          {message}
+        </Notice>
+      )}
+      {state === "settled" && (
+        <p className="flex items-center gap-2 px-1 text-sm text-success">
+          <Icon name="circle-check" size="sm" />
+          Settled
+        </p>
+      )}
+      {state === "done" && <p className="px-1 text-sm text-muted-foreground">Already settled.</p>}
+    </section>
   );
 }

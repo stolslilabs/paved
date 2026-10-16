@@ -1888,7 +1888,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction. **Done** (2026-10-15; section 9.5, "As built (P5)"): `/game/:gameId` on the predicted session, read only until P6 fills the sources' `signer` | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene. **Done** (2026-10-15): the wallet (`src/wallet/`): `WalletProvider` fills the sources' `signer` (`PavedClient.writer` of the account: the moves, the tutorial's claim and P9's Cobbles claims) while connected and clears it on Disconnect; the Cartridge controller with the game's session policies outside devnet, the env's burner (`VITE_PLAYER_ADDRESS`, `VITE_PLAYER_PRIVATE_KEY`) on devnet, loaded in its own chunk on the first connect or on a page that reads the account (home, play, the tutorial's end), never by the welcome or Training; the welcome's Connect connects; the D-15 notice and the connected account with Disconnect in the shell's footer; the board routes (`h-dvh`) have no footer and show the notice compact under the board's header. A devnet key is read only in a devnet build (static accesses behind a build-time test), and a production build without `VITE_NETWORK` names no network: the chain client refuses rather than falling back to devnet. Home and play on their data (section 6.4, "As wired (P6)"); `/tutorial` on the board scene with its own `TutorialRun` (`data/tutorial.ts`) and, at its end, the First Stone claim through the signer (D-21). "Play free" on home and play, and the wallet restored on quests and achievements: done (PLAYFREE; see the P9 row) | 1 d |
-| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game. **P7b done** (2026-10-15; "As built (P7b)" below): the purchase half, with Cobbles part 2's packs; the over page is P7a | 2 d |
+| P7 | The purchase scene (stake, price, boost, split, 24 h validity, threshold) and the over scene (metrics, reward, settle) on their data. Added by the PM: on the over page, the list of every closing of the game. **P7b done** (2026-10-15; "As built (P7b)" below): the purchase half, with Cobbles part 2's packs. **P7a done** (2026-10-15; "As built (P7a)" below): the over page of a Challenge, with settle | 2 d |
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
@@ -1951,6 +1951,38 @@ is never read back over the cache's copy. The game's referrer follows the same r
 the Vault and the router read at the time are dropped too), since both go through `Economy.pay`. The app's
 sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
 `data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).
+
+**As built (P7a).** `/game/:gameId/over` reads, once the game is over, from where each value is authoritative. The
+final score, the counters and the times are `Challenge.game(id)`: the chain, which the indexer follows. The reward is
+`Economy.terms(id)`: `settled` and `reward` (the PAVED minted, 0 below the threshold), `expired` (the game was not recorded within
+24 h of its purchase, whose deadline the page writes as `terms.time + 86400`), `stake` and `day`. The threshold is the closed day's
+(`Economy.day(day).mean`, 0 until the day closes at the first settle after it) shifted by the game's own frozen `sigmaBps`, as
+`curve::threshold`; once settled it is the one the contract used, read from the indexer's record (`economy.threshold`, the
+`Settled` event). Before the day closes the threshold is unknown and the page says nothing of it. The indexer's game record
+(`/v1/games/challenge/:id`) also gives `free`. Its failure is not an error of the page: a game that just ended is not indexed
+yet, and the page needs only the chain. The metrics are the chain's, not the record's (the record has no counters of tiles).
+Every closing of the game is not in the record either (the indexer ingests the `Scored` events but its game row does not list
+them), so the page replays the game on the engine, as the board opens one (`replayClosings`: `initial_seed` and `tiles()`),
+and lists what each build closed with its tile; a replay that does not end on the chain's score is dropped and the list says
+it could not be read. A failed read of the game, its terms or its day shows an error with Retry; nothing polls. A game still
+in play goes to `/game/:id` (replace); an unknown or non-numeric id is "Game not found" with Back home. The board's end of a
+Challenge already leads here (`board.tsx`, P5). Play again opens `/play/challenge` and keeps `?ref=`.
+
+The reward panel shows: the PAVED amount when the game is settled above the threshold; "No reward" and the threshold when it
+is settled below; "Expired" with the 24 h deadline when `terms.expired`; "Free game" and no reward or settle when
+`GameSpawned.price == 0` (the indexer's `free`, or a game `Economy` never sold, `stake` 0). Read in `economy.cairo`:
+`spawn_free` does not pass through the Economy, so a free game has no terms, is never recorded, and `settle` refuses it
+(`'Economy: unknown game'`): the contract pays nothing for it. Settle is `EconomyWriter.settle`: "Settles after <date>" until
+`settlesAfter(day)` (the end of the day after the game's, P-34), then the player's "Settle and claim" (a guest sees "Connect to
+settle", someone else that it can be settled now: the button is the player's, though anyone may settle). Pending, then the
+receipt's `Settled` sets the game's terms in the cache and the terms, the day and the PAVED balance are read once more; a
+refusal shows the writer's message (`SettleUnknownGameError`, `SettleNotRecordedError`, `SettleTooEarlyError`, now typed in
+`@paved/chain`; any other message as it is) with the button again, and the terms are read again, so a game another account
+settled meanwhile shows as already settled. An expired game has no settle control: it would mint 0. `settle` is a session
+policy of the controller (`controllerPolicies(..., { economy })`, the Economy's address from the economy deployment), with no
+approve (P-56: the session's only approve is the entry's); no other Economy entry point is, and the Vault's still prompt.
+`settlesAfter` and the threshold's formula are repeated in `data/over.ts` so that the route's chunk imports `@paved/chain` as
+types only; a test holds the first equal to the chain's.
 
 **As built (P9).** `/quests/:day?` and `/achievements` read the quests and achievements from the indexer (`usePlayerQuests`,
 `usePlayerAchievements`) and their Cobbles from two sources: each quest's and achievement's amount from the indexer's
