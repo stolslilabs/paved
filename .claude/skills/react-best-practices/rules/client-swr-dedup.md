@@ -9,6 +9,8 @@ tags: client, swr, deduplication, data-fetching
 
 ## Use SWR for Automatic Deduplication
 
+<!-- Paved: The app does not use SWR and must not add it. TanStack Query already deduplicates by query key, so the rule is met by `paved-data`: every read has its key in `src/data/keys.ts` and a hook never fetches inline in an effect. The SWR code below shows the idea only; write the TanStack Query equivalent (`useQuery` with a key from `queryKeys`). -->
+
 SWR enables request deduplication, caching, and revalidation across component instances.
 
 **Incorrect (no deduplication, each instance fetches):**

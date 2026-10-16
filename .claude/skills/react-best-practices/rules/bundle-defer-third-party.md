@@ -9,6 +9,8 @@ tags: bundle, third-party, analytics, defer
 
 ## Defer Non-Critical Third-Party Libraries
 
+<!-- Paved: The app ships no analytics. If a third-party script is ever added it must be self-hosted (no CDN at run time) and loaded after first render with `React.lazy` or an `import()` in an effect; `next/dynamic` and `@vercel/analytics` below are upstream examples only. -->
+
 Analytics, logging, and error tracking don't block user interaction. Load them after hydration.
 
 **Incorrect (blocks initial bundle):**

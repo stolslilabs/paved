@@ -9,6 +9,8 @@ tags: api-routes, server-actions, waterfalls, parallelization
 
 ## Prevent Waterfall Chains in API Routes
 
+<!-- Paved: The app has no API routes or Server Actions (Vite single-page app). The rule still holds for any async handler that starts independent reads, for example in `packages/chain` or a data hook: start the promises first, await late. -->
+
 In API routes and Server Actions, start independent operations immediately, even if you don't await them yet.
 
 **Incorrect (config waits for auth, data waits for both):**

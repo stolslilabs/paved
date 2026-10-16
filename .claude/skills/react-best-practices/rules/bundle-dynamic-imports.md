@@ -9,6 +9,8 @@ tags: bundle, dynamic-import, code-splitting, next-dynamic
 
 ## Dynamic Imports for Heavy Components
 
+<!-- Paved: This is a Vite app: use `React.lazy` with `import()` (and `Suspense`), not `next/dynamic`. There is no `ssr` option. Routes are already split by `lazy` in the router; lazy-load a heavy component (the renderer, a chart) the same way. -->
+
 Use `next/dynamic` to lazy-load large components not needed on initial render.
 
 **Incorrect (Monaco bundles with main chunk ~300KB):**

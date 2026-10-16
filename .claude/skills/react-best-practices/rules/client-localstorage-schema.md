@@ -9,6 +9,8 @@ tags: client, localStorage, storage, versioning, data-minimization
 
 ## Version and Minimize localStorage Data
 
+<!-- Paved: The Training and tutorial saves (`paved:training:v1`, `paved.tutorial.v1`) keep their format byte for byte (`paved-data`): a change is a new key and a migration, never an edit in place. -->
+
 Add version prefix to keys and store only needed fields. Prevents schema conflicts and accidental storage of sensitive data.
 
 **Incorrect:**

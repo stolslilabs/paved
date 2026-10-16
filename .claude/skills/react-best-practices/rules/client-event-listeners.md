@@ -9,6 +9,8 @@ tags: client, swr, event-listeners, subscription
 
 ## Deduplicate Global Event Listeners
 
+<!-- Paved: The app does not use SWR. Share a global listener with a module-level registry or `useSyncExternalStore` (one listener, many subscribers), written in plain React; do not add `swr` for it. -->
+
 Use `useSWRSubscription()` to share global event listeners across component instances.
 
 **Incorrect (N instances = N listeners):**

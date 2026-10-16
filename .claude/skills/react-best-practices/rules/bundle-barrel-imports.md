@@ -9,6 +9,8 @@ tags: bundle, imports, tree-shaking, barrel-files, performance
 
 ## Avoid Barrel File Imports
 
+<!-- Paved: This is a Vite app: ignore the Next.js `optimizePackageImports` section. Use direct imports (the section marked non-Next.js), and keep the app's own folders free of barrel files that re-export many modules. -->
+
 Import directly from source files instead of barrel files to avoid loading thousands of unused modules. **Barrel files** are entry points that re-export multiple modules (e.g., `index.js` that does `export * from './module'`).
 
 Popular icon and component libraries can have **up to 10,000 re-exports** in their entry file. For many React packages, **it takes 200-800ms just to import them**, affecting both development speed and production cold starts.

@@ -9,6 +9,8 @@ tags: bundle, conditional-loading, lazy-loading
 
 ## Conditional Module Loading
 
+<!-- Paved: There is no server render, so the `typeof window` check is not needed here; load the module in the branch that needs it with `import()`. -->
+
 Load large data or modules only when a feature is activated.
 
 **Example (lazy-load animation frames):**

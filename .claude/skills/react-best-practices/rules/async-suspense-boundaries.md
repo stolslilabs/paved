@@ -9,6 +9,8 @@ tags: async, suspense, streaming, layout-shift
 
 ## Strategic Suspense Boundaries
 
+<!-- Paved: Pages load through TanStack Query hooks (`paved-data`), not server rendering. Suspense boundaries here wrap lazy routes and lazy components; a data hook reports `isPending` and `error` itself, and the page shows its own state from them. -->
+
 Instead of awaiting data in async components before returning JSX, use Suspense boundaries to show the wrapper UI faster while data loads.
 
 **Incorrect (wrapper blocked by data fetching):**

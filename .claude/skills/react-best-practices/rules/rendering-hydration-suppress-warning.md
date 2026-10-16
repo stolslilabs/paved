@@ -9,6 +9,8 @@ tags: rendering, hydration, ssr, nextjs
 
 ## Suppress Expected Hydration Mismatches
 
+<!-- Paved: There is no server rendering and no hydration in this app, so there is no mismatch to suppress. Do not add `suppressHydrationWarning`. Kept only so a future SSR move finds the rule. -->
+
 In SSR frameworks (e.g., Next.js), some values are intentionally different on server vs client (random IDs, dates, locale/timezone formatting). For these *expected* mismatches, wrap the dynamic text in an element with `suppressHydrationWarning` to prevent noisy warnings. Do not use this to hide real bugs. Don’t overuse it.
 
 **Incorrect (known mismatch warnings):**

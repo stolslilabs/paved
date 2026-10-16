@@ -9,6 +9,8 @@ tags: bundle, preload, user-intent, hover
 
 ## Preload Based on User Intent
 
+<!-- Paved: There is no server render, so the `typeof window` check is not needed here. The router prefetches routes (`Q3-BUNDLE`); use this rule for components that are not a route. -->
+
 Preload heavy bundles before they're needed to reduce perceived latency.
 
 **Example (preload on hover/focus):**

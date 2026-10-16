@@ -9,6 +9,8 @@ tags: async, parallelization, dependencies, better-all
 
 ## Dependency-Based Parallelization
 
+<!-- Paved: `better-all` is not a dependency of this repository and this skill does not add it. Get the same effect with explicit promises: start each task as soon as its inputs exist and `Promise.all` the ones that can overlap. -->
+
 For operations with partial dependencies, use `better-all` to maximize parallelism. It automatically starts each task at the earliest possible moment.
 
 **Incorrect (profile waits for config unnecessarily):**

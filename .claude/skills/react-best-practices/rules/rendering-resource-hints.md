@@ -9,6 +9,8 @@ tags: rendering, preload, preconnect, prefetch, resource-hints
 
 ## Use React DOM Resource Hints
 
+<!-- Paved: The app has no server components. Call these in client code at the moment the need is known (an event handler, a route loader). Every URL must be a self-hosted asset of the app; the third-party hosts in the samples are placeholders from the upstream text, and nothing is fetched from a CDN at run time. -->
+
 **Impact: HIGH (reduces load time for critical resources)**
 
 React DOM provides APIs to hint the browser about resources it will need. These are especially useful in server components to start loading resources before the client even receives the HTML.

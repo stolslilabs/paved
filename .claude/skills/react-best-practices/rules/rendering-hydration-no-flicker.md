@@ -9,6 +9,8 @@ tags: rendering, ssr, hydration, localStorage, flicker
 
 ## Prevent Hydration Mismatch Without Flickering
 
+<!-- Paved: There is no server rendering and no hydration in this app (Vite, `createRoot`). The mismatch half of the rule does not apply. The flicker half does: read a stored value synchronously for the first render (a lazy `useState` initialiser, or `useSyncExternalStore`) rather than setting it in an effect after the first paint. The inline-script remedy is only for a value the HTML must already carry (a theme class before first paint, in `index.html`). -->
+
 When rendering content that depends on client-side storage (localStorage, cookies), avoid both SSR breakage and post-hydration flickering by injecting a synchronous script that updates the DOM before React hydrates.
 
 **Incorrect (breaks SSR):**

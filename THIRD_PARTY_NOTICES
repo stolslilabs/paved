@@ -31,3 +31,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+react-best-practices skill (.claude/skills/react-best-practices/)
+-----------------------------------------------------------------
+
+Source:  https://github.com/vercel-labs/agent-skills
+Commit:  063bee94c3f4df8453406c830b0a7df0f2860278 (2026-08-28)
+Path:    skills/react-best-practices/ (SKILL.md rewritten for Paved; the 60 files of rules/ kept except the
+         10 server-* rules, trimmed and fitted for Paved; the compiled AGENTS.md, README.md, metadata.json,
+         rules/_sections.md and rules/_template.md dropped)
+Licence: MIT. The repository at that commit has no LICENSE file: it declares the licence in the skill's
+         SKILL.md front matter (license: MIT), in the README ("## License: MIT") and in the package.json of
+         packages/react-best-practices-build. It states no copyright holder or year, so none is given here.

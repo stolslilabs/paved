@@ -9,6 +9,8 @@ tags: rendering, script, defer, async, performance
 
 ## Use defer or async on Script Tags
 
+<!-- Paved: The app is a Vite page: scripts are bundled modules (`type="module"` is deferred). Ignore the `next/script` note. Any script that is not bundled must be self-hosted; the `example.com` URLs below are placeholders from the upstream text. -->
+
 **Impact: HIGH (eliminates render-blocking)**
 
 Script tags without `defer` or `async` block HTML parsing while the script downloads and executes. This delays First Contentful Paint and Time to Interactive.
