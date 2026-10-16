@@ -10,12 +10,24 @@ const show = (ui: React.ReactNode) => render(<LazyMotion features={domMax}>{ui}<
 const settleArea = () => screen.getByRole("region", { name: "Settle" });
 
 describe("OverScene: a Challenge game's settlement (P7a)", () => {
-  it("after: the date it settles from, in the viewer's zone with UTC on hover, and no button", () => {
-    show(<OverScene {...OVER.awaiting} timeZone="Europe/Paris" settle={{ state: "after", at: MOCK_NOW + DAY }} />);
+  it("after: how long until it settles, then the UTC date (Paris process zone), and no button", () => {
+    show(<OverScene {...OVER.awaiting} now={MOCK_NOW} settle={{ state: "after", at: MOCK_NOW + 14 * 3600 + 5 * 60 }} />);
     const area = settleArea();
-    expect(area).toHaveTextContent("Settles after Thu, Oct 15, 17:00");
-    expect(within(area).getByText("Thu, Oct 15, 17:00")).toHaveAttribute("title", "2026-10-15 15:00 UTC");
+    expect(area).toHaveTextContent("Settles in 14 h 05 min (Thu, Oct 15, 05:05 UTC)");
+    expect(within(area).getByText(/Settles/).querySelector("time")).toHaveAttribute("aria-label", "in 14 h 05 min (Thu, Oct 15, 05:05 UTC)");
+    expect(area.querySelector("[title]")).toBeNull();
     expect(within(area).queryByRole("button")).toBeNull();
+  });
+
+  it("an expired game with a slow clock never reads in the future", () => {
+    show(<OverScene {...OVER.expired} now={MOCK_NOW - 3 * 60} deadline={MOCK_NOW} />);
+    expect(screen.getByText(/The 24 h/)).toHaveTextContent("The 24 h ended less than a minute ago (Wed, Oct 14, 15:00 UTC).");
+  });
+
+  it("after, once the time has come: settle is offered as now", () => {
+    show(<OverScene {...OVER.awaiting} now={MOCK_NOW + DAY} settle={{ state: "after", at: MOCK_NOW + DAY }} />);
+    expect(settleArea()).toHaveTextContent("This game can be settled now.");
+    expect(settleArea()).not.toHaveTextContent("Settles in");
   });
 
   it.each([
@@ -60,8 +72,8 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
   });
 
   it("an expired game says when its 24 h ended", () => {
-    show(<OverScene {...OVER.expired} timeZone="UTC" deadline={MOCK_NOW} />);
-    expect(screen.getByText(/The 24 h ended/)).toHaveTextContent("The 24 h ended Wed, Oct 14, 15:00 UTC.");
+    show(<OverScene {...OVER.expired} now={MOCK_NOW + 2 * 3600} deadline={MOCK_NOW} />);
+    expect(screen.getByText(/The 24 h/)).toHaveTextContent("The 24 h ended 2 h ago (Wed, Oct 14, 15:00 UTC).");
   });
 
   it("the closings note replaces the empty list's sentence", () => {

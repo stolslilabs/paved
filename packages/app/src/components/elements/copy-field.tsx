@@ -16,7 +16,7 @@ export interface CopyFieldProps {
 export function CopyField({ value, label, copied, onCopy, className }: CopyFieldProps) {
   return (
     <div className={cn("flex items-center gap-2 rounded-lg border border-border bg-secondary/60 p-1.5 pl-3", className)}>
-      <span className="min-w-0 flex-1 truncate font-mono text-xs" title={value} aria-label={label}>
+      <span className="min-w-0 flex-1 truncate select-text font-mono text-xs" title={value} aria-label={label}>
         {value}
       </span>
       <Button size="sm" variant={copied ? "secondary" : "default"} onClick={() => onCopy?.(value)} aria-live="polite">

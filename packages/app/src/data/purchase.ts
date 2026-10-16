@@ -10,6 +10,7 @@ import {
   PurchasePriceChangedError,
   SpawnPausedError,
   SwapBelowMinOutError,
+  WalletRejectedError,
   WriteError,
   minOutFor,
   packSwapInput,
@@ -31,7 +32,7 @@ import { usePoolQuote } from "./chain";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type Purchases } from "./sources";
-import { clearTimedOutPurchase, useUnknownPurchase, writeUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
+import { clearTimedOutPurchase, currentRecord, newSendId, recordOwnSend, restorePurchase, useUnknownPurchase, writeUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
 
 // The purchase page's data and writes (P7b, section 6.4): the game's stake (`EconomyWriter.purchase`: the approve and
 // `Challenge.spawn(stake, referrer, min_out)`) and the packs of Cobbles (`PackBuyer.buy`: the approve and `Setup.buy_pack`).
@@ -146,8 +147,8 @@ export const PURCHASE_TIMEOUT_MS = 300_000;
 
 /**
  * The wallet did not answer in `PURCHASE_TIMEOUT_MS`: the purchase may still be signed and land, so the outcome is unknown.
- * It carries no hash (none was given), so nothing can be checked by receipt. The page records a hash-less hold under the
- * sender (`unknown-purchase.ts`), so Pay stays held across a reconnect (a new writer) and a reload, until the send's late
+ * It carries no hash (none was given), so nothing can be checked by receipt. The hash-less hold under the sender, written
+ * when the send started (`heldSend`), stays, so Pay stays held across a reconnect (a new writer) and a reload, until the send's late
  * answer arrives or the player confirms, after reading their balance and games, that nothing landed. A Buy again after that
  * confirm is still refused by the writer ("Another write is pending") while the hung send holds the account's write.
  */
@@ -230,7 +231,7 @@ type CheckAnswer = PurchaseResolution | "unknown" | "timed-out";
  * again with `checkAgain`); a failed check is `failed` (Retry with `retry`, or Dismiss with `clear`). After the confirm only
  * a deliberate Buy again sends (`clear` first). A receipt that reads (`resolved`) clears the record.
  */
-export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
+export function usePurchaseHold(kind: PurchaseKind, playerId: string | null, sending = false) {
   const { unknown, isPending, unsaved, clear } = useUnknownPurchase(playerId, kind);
   const buyer = usePurchases();
   const { economy, events, views } = useDataSources();
@@ -238,7 +239,18 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
   const [resolved, setResolved] = useState<PurchaseResolution | null>(null);
   const hash = unknown?.hash ?? null;
   // One check per record: a hash-less record is told apart by its time of sending.
-  const record = unknown ? (hash ?? `timed-out:${unknown.at}`) : "";
+  const record = unknown ? (hash ?? `timed-out:${unknown.id ?? unknown.at}`) : "";
+  // A hash-less record under the wallet's limit is a send whose prompt may still be open (another tab, a reload): it waits,
+  // and "It did not land" is not offered until the limit passes (a second purchase would race the open prompt).
+  const deadline = unknown && hash === null ? unknown.at * 1000 + PURCHASE_TIMEOUT_MS : 0;
+  const waiting = deadline > Date.now();
+  const [, setExpired] = useState(0);
+  // Renders again once the limit passes.
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(() => setExpired((n) => n + 1), deadline - Date.now());
+    return () => clearTimeout(timer);
+  }, [waiting, deadline]);
   const [rechecks, setRechecks] = useState(0);
   const [confirmed, setConfirmed] = useState<string | null>(null);
   const check = useQuery({
@@ -280,7 +292,8 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
       if (failedRead) throw failedRead.reason;
       return receipt.value;
     },
-    enabled: unknown !== null && playerId !== null && (hash === null || buyer !== null),
+    // Not while this page's own send is pending: its hold is the one written at send, and its answer settles it.
+    enabled: unknown !== null && playerId !== null && !sending && (hash === null || buyer !== null),
     retry: false,
     // Every mount checks again (a remount, a reload): the hold never rests on an earlier answer.
     refetchOnMount: "always",
@@ -313,11 +326,13 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null) {
     return () => clearTimeout(timer);
   }, [recheck, rechecks, refetch]);
   const failed = unknown !== null && check.isError;
-  const unresolved = unknown !== null && settled && ((hash !== null && outcome === "unknown" && !recheck) || (hash === null && outcome === "timed-out"));
+  const unresolved = unknown !== null && settled && ((hash !== null && outcome === "unknown" && !recheck) || (hash === null && outcome === "timed-out" && !waiting));
   const released = unknown !== null && confirmed === record;
   const checking = !released && (isPending || (unknown !== null && !failed && !unresolved));
   return {
     unknown,
+    /** A send the wallet has not answered yet, under the limit: its prompt may still be open, so no "It did not land". */
+    waiting: unknown !== null && waiting,
     held: isPending || (unknown !== null && !released),
     checking,
     failed,
@@ -377,23 +392,67 @@ function useReady(kind: PurchaseKind, playerId: string | null) {
   return { gameId: playerId === null ? null : data, clear };
 }
 
-/** Records an unknown outcome under the player who sent it, stamped with the time of the send (`sentAt`), not of the outcome. */
-function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string, sentAt: number | undefined): void {
-  if (outcomeUnknown(error)) writeUnknownPurchase(client, playerId, kind, { hash: error.transactionHash!, at: sentAt ?? nowSeconds() });
+/** A send: when it started (seconds, what the notice counts from) and its identity (`newSendId`), which records compare. */
+interface SendMark {
+  at: number;
+  id: string;
 }
 
-/** A send the wallet did not answer in time: a hash-less hold under its sender, which a reconnect or a reload still finds. */
-function recordTimedOut(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, sentAt: number): void {
-  writeUnknownPurchase(client, playerId, kind, { hash: null, at: sentAt });
+/**
+ * Records an unknown outcome under the player who sent it, stamped with the send's time and identity, not the outcome's;
+ * only over that send's own record, or none (`recordOwnSend`): a late hash never overwrites a newer send's hold.
+ */
+function recordUnknown(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, error: Error, playerId: string, sent: SendMark): void {
+  if (outcomeUnknown(error)) recordOwnSend(client, playerId, kind, { hash: error.transactionHash!, ...sent });
+}
+
+/** A send the wallet did not answer in time: its hash-less hold, written at send, is kept (written again if storage lost it). */
+function recordTimedOut(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, sent: SendMark): void {
+  recordOwnSend(client, playerId, kind, { hash: null, ...sent });
+}
+
+/**
+ * A purchase's send with its hold written when it starts: the hash-less record `{ hash: null, at, id }` under the sender, so a
+ * reload, a second tab or a reconnect while the wallet's prompt is open still holds Pay. An answer in time settles it: a
+ * receipt that landed or reverted clears it; an unknown outcome replaces it with its hash; a timeout keeps it; a send that
+ * sent nothing (refused before sending, declined in the wallet, or the writer busy with an earlier send) puts back the record
+ * that was there before, so an earlier send's hold is cleared only once the new send is accepted.
+ */
+async function heldSend<T>(
+  client: ReturnType<typeof useQueryClient>,
+  kind: PurchaseKind,
+  guard: { current: TimeoutGuard },
+  sender: string,
+  send: () => Promise<T>,
+  onLate: (late: LateAnswer<T>, sent: SendMark) => void,
+): Promise<T> {
+  const sent: SendMark = { at: nowSeconds(), id: newSendId() };
+  // Over any earlier record (one the player released with "It did not land"): put back below if nothing is sent.
+  const previous = currentRecord(client, sender, kind);
+  writeUnknownPurchase(client, sender, kind, { hash: null, ...sent });
+  try {
+    const value = await guardedSend(guard, sender, send(), (late) => onLate(late, sent), () => recordTimedOut(client, kind, sender, sent));
+    clearTimedOutPurchase(client, sender, kind, sent.id);
+    return value;
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    if (failure instanceof PurchaseTimedOutError) throw failure;
+    if (outcomeUnknown(failure)) recordUnknown(client, kind, failure, sender, sent);
+    // Sent and reverted: a known outcome, nothing moved.
+    else if (failure instanceof WriteError && failure.transactionHash) clearTimedOutPurchase(client, sender, kind, sent.id);
+    // Nothing sent (declined, refused before sending, busy): the earlier record comes back.
+    else restorePurchase(client, sender, kind, sent.id, previous);
+    throw failure;
+  }
 }
 
 /**
  * The late answer of a send that timed out, into its hold: an unknown outcome with a hash replaces the hash-less record (its
  * receipt is checked from then on); any other answer (it landed, or it was refused) releases that send's own record.
  */
-function settleTimedOut<T>(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, sentAt: number, late: LateAnswer<T>): void {
-  if ("error" in late && outcomeUnknown(late.error)) recordUnknown(client, kind, late.error, playerId, sentAt);
-  else clearTimedOutPurchase(client, playerId, kind, sentAt);
+function settleTimedOut<T>(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, sent: SendMark, late: LateAnswer<T>): void {
+  if ("error" in late && outcomeUnknown(late.error)) recordUnknown(client, kind, late.error, playerId, sent);
+  else clearTimedOutPurchase(client, playerId, kind, sent.id);
 }
 
 /** The reads a game purchase touches, read again once it is settled (a refusal may come from a moved price or a pause too). */
@@ -478,23 +537,20 @@ function useTimeoutGuard(mutation: { error: Error | null; reset: () => void; var
 export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
-  const hold = usePurchaseHold("game", playerId);
+  const sending = useSending("game", playerId);
+  const hold = usePurchaseHold("game", playerId, sending);
   const guard = useRef<TimeoutGuard>({ error: null, reset: () => {}, sender: null, hung: new Map() });
-  const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>, { sentAt: number }>({
+  const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>>({
     mutationKey: purchaseMutationKey("game"),
-    mutationFn: ({ playerId: sender, ...request }) => {
-      const sentAt = nowSeconds();
-      return guardedSend(guard, sender, buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy")), (late) => {
+    mutationFn: ({ playerId: sender, ...request }) =>
+      heldSend(client, "game", guard, sender, () => (buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy"))), (late, sent) => {
         // The wallet answered after the page gave up: as an in-time answer would have gone, and the timeout's hold settles.
         if ("value" in late) setReady(client, "game", sender, late.value.gameId);
-        settleTimedOut(client, "game", sender, sentAt, late);
+        settleTimedOut(client, "game", sender, sent, late);
         reconcileGame(client, "error" in late ? late.error : null, sender);
-      }, () => recordTimedOut(client, "game", sender, sentAt));
-    },
-    onMutate: () => ({ sentAt: nowSeconds() }),
+      }),
     // The game is kept for its sender: a send that lands after a change of player has no page to open it (`ready`).
     onSuccess: ({ gameId }, { playerId: sender }) => setReady(client, "game", sender, gameId),
-    onError: (error, { playerId: sender }, context) => recordUnknown(client, "game", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => reconcileGame(client, error, variables?.playerId),
   });
   useTimeoutGuard(mutation, guard);
@@ -502,7 +558,6 @@ export function usePurchase(playerId: string | null) {
   // cache, and `sending` keeps the sender's Pay held when they come back.
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
-  const sending = useSending("game", playerId);
   const ready = useReady("game", playerId);
   return { buyer, mutation, hold, sending, ready };
 }
@@ -521,27 +576,23 @@ export function applyPackBought(client: ReturnType<typeof useQueryClient>, playe
 export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
-  const hold = usePurchaseHold("pack", playerId);
+  const sending = useSending("pack", playerId);
+  const hold = usePurchaseHold("pack", playerId, sending);
   const guard = useRef<TimeoutGuard>({ error: null, reset: () => {}, sender: null, hung: new Map() });
-  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>, { sentAt: number }>({
+  const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>>({
     mutationKey: purchaseMutationKey("pack"),
-    mutationFn: ({ playerId: sender, ...request }) => {
-      const sentAt = nowSeconds();
-      return guardedSend(guard, sender, buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy")), (late) => {
+    mutationFn: ({ playerId: sender, ...request }) =>
+      heldSend(client, "pack", guard, sender, () => (buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy"))), (late, sent) => {
         if ("value" in late) applyPackBought(client, sender, late.value.bought);
-        settleTimedOut(client, "pack", sender, sentAt, late);
+        settleTimedOut(client, "pack", sender, sent, late);
         reconcilePack(client, "error" in late ? late.error : null, sender);
-      }, () => recordTimedOut(client, "pack", sender, sentAt));
-    },
-    onMutate: () => ({ sentAt: nowSeconds() }),
+      }),
     onSuccess: ({ bought }, { playerId: sender }) => applyPackBought(client, sender, bought),
-    onError: (error, { playerId: sender }, context) => recordUnknown(client, "pack", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => reconcilePack(client, error, variables?.playerId),
   });
   useTimeoutGuard(mutation, guard);
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
-  const sending = useSending("pack", playerId);
   return { buyer, mutation, hold, sending };
 }
 
@@ -562,6 +613,8 @@ export function purchaseRefusal(error: Error): PurchaseRefusal {
   if (error instanceof WriteError && error.message === "Another write is pending") {
     return { kind: "busy", message: "Wait for your other transaction, then confirm again." };
   }
+  // The player declined the wallet's prompt (every paid write prompts, P-65): nothing was sent, no hold.
+  if (error instanceof WalletRejectedError) return { kind: "refused", message: error.message };
   if (error instanceof PoolQuoteBelowFloorError) {
     return { kind: "low-quote", message: "The pool quotes far less PAVED than the guard rate for this purchase. Buy anyway, or try later." };
   }

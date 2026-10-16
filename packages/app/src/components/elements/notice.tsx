@@ -35,7 +35,7 @@ export function Notice({ tone = "info", title, children, icon, action, className
       <Icon name={icon ?? ICON[tone ?? "info"]} className="mt-0.5" size="sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 wrap-anywhere">
         {title && <span className="font-semibold">{title}</span>}
-        <span className="opacity-90">{children}</span>
+        <span className={cn("opacity-90", tone === "danger" && "select-text")}>{children}</span>
       </div>
       {action}
     </div>

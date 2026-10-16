@@ -8,14 +8,14 @@ import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
 import { Notice } from "../elements/notice";
-import { formatLocal, formatUtc } from "../elements/deadline";
+import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import { TopBar } from "../containers/top-bar";
 
 /**
  * What the settle area shows (P7a, a Challenge game bought with a stake, not settled): `after` (the day cannot be settled
- * yet: "Settles after <date>"), `connect` (a guest), `ready` (the player's button), `viewing` (settleable, shown to someone
+ * yet: "Settles in <time> (<date> UTC)"), `connect` (a guest), `ready` (the player's button), `viewing` (settleable, shown to someone
  * who is not the player: anyone may settle, the button is the player's), `pending` (the wallet or the chain),
  * `refused` (the writer's message, the button again), `settled` (settled from this page) and `done` (settled before).
  */
@@ -63,8 +63,8 @@ export interface OverSceneProps {
   deadline?: number;
   /** Why the list of closings is not shown, when it could not be read. */
   closingsNote?: string;
-  /** An IANA zone for the dates; the viewer's own when omitted. Stories and tests fix it. */
-  timeZone?: string;
+  /** Seconds since the epoch: the scene's clock for the relative times (the browser's when omitted). Stories and tests fix it. */
+  now?: number;
   onPlayAgain?: () => void;
   onHome?: () => void;
 }
@@ -76,7 +76,8 @@ const duration = (seconds: number) => {
 };
 
 /** The end of a game (`/game/:id/over`, `/training/over`): the final score, its metrics, every closing, the reward. */
-export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, timeZone, onPlayAgain, onHome }: OverSceneProps) {
+export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, onPlayAgain, onHome }: OverSceneProps) {
+  const clock = useClock(now);
   const best = previousBest != null && game.score > previousBest;
   const byCategory = CLOSING_CATEGORIES.map((category) => {
     const of = closings.filter((c) => c.category === category);
@@ -135,12 +136,14 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
                 settling={settling}
                 onSettle={onSettle}
               />
+              {/* The chain says it expired: a slow browser clock must not read "in 3 min", so the clock is clamped past it. */}
               {reward.state === "expired" && deadline != null && (
                 <p className="-mt-2 px-1 text-sm text-muted-foreground">
-                  The 24 h ended <When at={deadline} timeZone={timeZone} />.
+                  The 24 h{" "}
+                  <When at={deadline} now={Math.max(clock, deadline + 1)} ended />.
                 </p>
               )}
-              {settle && <SettleArea {...settle} timeZone={timeZone} />}
+              {settle && <SettleArea {...settle} now={clock} />}
             </>
           )}
         </div>
@@ -176,24 +179,20 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
   );
 }
 
-/** A moment in the viewer's zone, its UTC form on hover (the same `<time>` as the deadline's). */
-function When({ at, timeZone }: { at: number; timeZone?: string }) {
-  return (
-    <time dateTime={new Date(at * 1000).toISOString()} title={formatUtc(at)} className="whitespace-nowrap text-foreground">
-      {formatLocal(at, timeZone)}
-    </time>
-  );
+/** A game boundary: how long ago or from now, then its UTC time (the deadline's `<time>`). */
+function When({ at, now, ended }: { at: number; now: number; ended?: boolean }) {
+  return <Boundary at={at} now={now} ended={ended} join="paren" />;
 }
 
 /** The settle area under the reward (P7a): when the day can be settled, then the button, its refusal and its outcome. */
-function SettleArea({ state, at, message, onSettle, onConnect, timeZone }: SettleProps & { timeZone?: string }) {
+function SettleArea({ state, at, message, onSettle, onConnect, now }: SettleProps & { now: number }) {
   return (
     <section aria-label="Settle" data-state={state} className="flex flex-col gap-3">
       {state === "after" && at != null && (
         <p className="flex items-start gap-2 px-1 text-sm text-muted-foreground">
           <Icon name="clock" size="sm" className="mt-0.5" />
           <span>
-            Settles after <When at={at} timeZone={timeZone} />. The day closes with the end of the next day.
+            {at > now ? <>Settles <When at={at} now={now} />.</> : "This game can be settled now."} The day closes with the end of the next day.
           </span>
         </p>
       )}

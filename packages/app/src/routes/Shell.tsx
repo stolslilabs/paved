@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet } from "react-router";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { WalletFooter } from "../wallet/notice";
@@ -22,12 +22,21 @@ const BOARD_PATHS = new Set(["game/:gameId", "training", "tutorial"]);
 export function RootLayout() {
   const page = useRoutePage();
   usePrefetchTabs();
+  const onBoard = page !== null && BOARD_PATHS.has(page.path);
+  // A board route does not scroll: no pull-to-refresh, no bounce (`html[data-board]`, styles/theme.css; APP-FEEL, P-69).
+  useEffect(() => {
+    if (!onBoard) return;
+    document.documentElement.dataset.board = "";
+    return () => {
+      delete document.documentElement.dataset.board;
+    };
+  }, [onBoard]);
   return (
     <HistoryTracker>
       <Suspense fallback={bootScreen}>
         <Outlet />
       </Suspense>
-      {!(page && BOARD_PATHS.has(page.path)) && <WalletFooter />}
+      {!onBoard && <WalletFooter />}
     </HistoryTracker>
   );
 }

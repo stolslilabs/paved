@@ -102,9 +102,15 @@ design is 5.5 (LIGHT) and the MSAA part of 5.2 (P4) of `docs/client/v2-architect
   radius 1. Medium: bloom. High: AO too. `quality: "auto"` (the default, `resolveQuality`, `AUTO_QUALITY`) is Low on a coarse
   pointer, a small screen or a low-power device, Medium on a desktop, and High only by hand. **Provisional until LIGHT-GPU**
   measures each effect on the Mac's GPU: do not move a tier default without that run (`look.test.ts`, "quality tiers").
-- **Face antialiasing**: `multisampling` is `"auto"`: MSAA (4 samples on both composer targets, or the scene lands unsampled
-  every other frame) on phones, none on desktops, where it costs about 4 ms of p95 (`resolveFaceAntialiasing`,
-  `face-antialiasing.test.ts`). SMAA stands in on software WebGL or without 4 samples. No FXAA, no edge pass.
+- **Face antialiasing**: `multisampling` is `"auto"`: MSAA on phones, none on desktops, where it costs about 4 ms of p95
+  (`resolveFaceAntialiasing`, `face-antialiasing.test.ts`). SMAA stands in on software WebGL or without the samples. No
+  FXAA, no edge pass. MSAA is **one** 4-sample composer target with its resolve: the finish pass swaps the composer's
+  targets only when SMAA follows it, so the scene lands in the same target every frame and the second target is never
+  bound, never allocated. Do not make the finish pass swap again (the scene would land in each target in turn, and both
+  would have to multisample: twice the memory). `msaaSamples` is 4 by default; 2 saves 24 B/px but shimmers under a zoom
+  as much as no MSAA (fails zero flicker). The canvas is created with `antialias: false`: every frame is drawn into the
+  composer's target, so a multisampled canvas smooths nothing and holds 32 B/px (Q3-GPU, `docs/client/v2-architecture.md`
+  5.2).
 - A new pass or effect is a measured cost: see the bench. `resolveLook` also turns effects off for
   `EffectsCapabilities` (`effects-profile-fallback.test.ts`).
 
@@ -118,10 +124,10 @@ design is 5.5 (LIGHT) and the MSAA part of 5.2 (P4) of `docs/client/v2-architect
   targets (`packages/renderer/__tests__/surface-adapter.test.ts`, "uses surface resize callback"). A hidden 0 x 0 container keeps the last size (`GameScene.resize()`; `packages/renderer/__tests__/surface-adapter.test.ts`, "keeps the last size while the container is hidden").
 - The pixel ratio is `min(devicePixelRatio, maxPixelRatio)` (`capPixelRatio`, `core/settings.ts`). `maxPixelRatio`
   defaults to `"auto"`, which gives 2 on a coarse pointer or when the window's shorter side is at most 600 CSS px
-  (`SMALL_SCREEN_PX`, `PIXEL_RATIO_CAPS.coarse`), and 1.5 elsewhere (`PIXEL_RATIO_CAPS.fine`; `resolveMaxPixelRatio`); a number is used as is.
+  (`SMALL_SCREEN_PX`, `PIXEL_RATIO_CAPS.coarse`), and 1.75 elsewhere (`PIXEL_RATIO_CAPS.fine`; `resolveMaxPixelRatio`); a number is used as is.
   `packages/renderer/__tests__/outlines.test.ts` ("resolves the \"auto\" cap by device") pins the caps, `packages/renderer/__tests__/surface-adapter.test.ts` the ratio `GameScene` passes to
   `setPixelRatio`, and `packages/app/__tests__/board-pixel-ratio.test.tsx` that the app's board leaves the cap to "auto". A new cap through `setSettings` refits at once. The figures behind the caps are DPR's, in
-  `docs/client/v2-architecture.md` 5.3.
+  `docs/client/v2-architecture.md` 5.3, and Q3-GPU's re-measure of the desktop cap, in 5.5.
 - Shadows (`core/GameScene.ts`): `PCFShadowMap`, normal bias 0.1 (about 1.3 voxels), depth bias -0.001. They remove the
   shadow acne; half these values leave bands (R-VIS). `packages/renderer/__tests__/game-scene-shadow-map.test.ts` checks the type, the signs and the
   normal bias at most 0.1.

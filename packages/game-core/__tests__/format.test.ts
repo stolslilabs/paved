@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOCALE, formatBps, formatCompact, formatDate, formatFixed, formatInteger, formatNumber, formatPercent, formatUnits } from "../src/format";
+import { LOCALE, formatBoundary, formatBps, formatCompact, formatDate, formatFixed, formatInteger, formatNumber, formatPercent, formatRelative, formatUnits } from "../src/format";
 
 // Run under `LANG=fr_FR.UTF-8 TZ=Europe/Paris` too (CI does): the process locale must change nothing here.
 describe("formatter (P-66, en-US)", () => {
@@ -36,5 +36,30 @@ describe("formatter (P-66, en-US)", () => {
     // A boundary shown in UTC says so, under the Paris process zone too.
     expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" })).toBe("15:00 UTC");
     expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Paris" })).toBe("17:00");
+  });
+
+  it("writes a moment relative to now, to the minute", () => {
+    expect(formatRelative(0)).toBe("in less than a minute");
+    expect(formatRelative(59)).toBe("in less than a minute");
+    expect(formatRelative(60)).toBe("in 1 min");
+    expect(formatRelative(12 * 60 + 40)).toBe("in 12 min");
+    expect(formatRelative(3600)).toBe("in 1 h");
+    expect(formatRelative(3600 + 5 * 60)).toBe("in 1 h 05 min");
+    expect(formatRelative(23 * 3600 + 12 * 60 + 59)).toBe("in 23 h 12 min");
+    expect(formatRelative(86_400)).toBe("in 24 h");
+    expect(formatRelative(47 * 3600 + 59 * 60)).toBe("in 47 h 59 min");
+    expect(formatRelative(2 * 86_400 + 3 * 3600)).toBe("in 2 d 3 h");
+    expect(formatRelative(-1)).toBe("less than a minute ago");
+    expect(formatRelative(-3 * 60)).toBe("3 min ago");
+    expect(formatRelative(-2 * 3600)).toBe("2 h ago");
+    expect(formatRelative(-3 * 60, { ended: true })).toBe("ended 3 min ago");
+    expect(formatRelative(-2 * 3600, { ended: true })).toBe("ended 2 h ago");
+    expect(formatRelative(-30, { ended: true })).toBe("ended less than a minute ago");
+    expect(formatRelative(-3 * 86_400, { ended: true })).toBe("ended 3 d ago");
+  });
+
+  it("writes a game boundary in UTC with its label, whatever the process zone", () => {
+    expect(formatBoundary(Date.UTC(2026, 9, 16, 17, 0) / 1000)).toBe("Fri, Oct 16, 17:00 UTC");
+    expect(formatBoundary(Date.UTC(2026, 9, 17, 0, 0) / 1000)).toBe("Sat, Oct 17, 00:00 UTC");
   });
 });
