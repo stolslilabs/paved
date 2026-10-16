@@ -59,6 +59,18 @@ export interface Settlements {
 }
 
 /**
+ * The Vault's writes of one signer (P10): `EconomyWriter`'s deposit (the PAVED approve to the Vault and `deposit`, one
+ * multicall and one wallet prompt), withdraw (`withdraw(assets)`) and withdraw all (`redeem` of every vPAVED). Each reads
+ * the wallet or the position again before sending and refuses, with a typed error, an amount or a fee the player did not
+ * confirm. None of them is a session policy (P-56): each prompts.
+ */
+export interface VaultWrites {
+  deposit: EconomyWriter["deposit"];
+  withdraw: EconomyWriter["withdraw"];
+  withdrawAll: EconomyWriter["withdrawAll"];
+}
+
+/**
  * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the Training
  * save. The app gives the real ones (`PavedClient.views`, `.events`, `EconomyClient`, `createIndexerClient`); a test gives
  * `@paved/chain`'s fakes (`FakeGameViews`, `FakeEconomy`, `FakePoolQuoter`, an `IndexerClient` on `FixtureIndexer`).
@@ -78,6 +90,8 @@ export interface DataSources {
   purchases?: ((signer: GameSigner) => Purchases) | null;
   /** The settlement of a signer (the economy's writer on the signer's); null or left out without an economy: nothing can be settled. */
   settlements?: ((signer: GameSigner) => Settlements) | null;
+  /** The Vault's writes of a signer (the economy's writer on the signer's); null or left out without an economy: nothing can be deposited. */
+  vault?: ((signer: GameSigner) => VaultWrites) | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }

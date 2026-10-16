@@ -41,8 +41,9 @@ describe("app", () => {
   // The wired pages bring their own scene (welcome: P1; training and its end: P3, `training-route.test.tsx`; the
   // Challenge board: P5, `challenge-route.test.tsx`; home, play and the tutorial: P6, `home-play.test.tsx`,
   // `tutorial-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8,
-  // `leaderboard-route.test.tsx`; the purchase: P7b, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; settings: P11a, `settings-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "training", "tutorial", "training/over", "game/:gameId", "game/:gameId/over", "quests/:day?", "achievements", "leaderboard/:day?", "player/:id", "settings", "settings/theme"];
+  // `leaderboard-route.test.tsx`; the purchase: P7b, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
+  // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`).
+  const WIRED = ["welcome", "", "play", "play/challenge", "training", "tutorial", "training/over", "game/:gameId", "game/:gameId/over", "quests/:day?", "achievements", "leaderboard/:day?", "player/:id", "settings", "settings/theme", "vault", "referral"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

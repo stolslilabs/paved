@@ -2,6 +2,7 @@ import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { toHex, type Encodable } from "../codec";
 import { ViewError, toViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
+import type { VaultViews } from "./vault";
 
 /** `Economy.quote(stake)` (economy.md section 6): what a purchase of stake `k` costs and its terms now. */
 export interface QuoteView {
@@ -105,8 +106,11 @@ export const ECONOMY_VIEW_FIELDS = {
   ] satisfies (keyof TermsView)[],
 };
 
-/** The economy's reads. `RpcEconomyViews` calls the contracts; `FakeEconomy` (`economy/fake.ts`) is for unit tests. */
-export interface EconomyViews {
+/**
+ * The economy's reads, the Vault's included (`VaultViews`, `economy/vault.ts`). `RpcEconomyViews` calls the contracts;
+ * `FakeEconomy` (`economy/fake.ts`) is for unit tests.
+ */
+export interface EconomyViews extends VaultViews {
   quote(stake: number): Promise<QuoteView>;
   /** `Economy.split_bps()`: the split of the price in force (P-56). */
   split(): Promise<SplitView>;
@@ -116,15 +120,7 @@ export interface EconomyViews {
   router(): Promise<string>;
   day(day: number): Promise<DayView>;
   terms(gameId: number): Promise<TermsView>;
-  vault(account: string): Promise<VaultPosition>;
-  /** `Vault.preview_deposit(assets)`: the vPAVED a deposit of `assets` PAVED mints now (0 is refused by the contract). */
-  previewDeposit(assets: bigint): Promise<bigint>;
-  /** `Vault.preview_withdraw(assets)`: the vPAVED a withdraw of `assets` PAVED burns now, the exit fee included. */
-  previewWithdraw(assets: bigint): Promise<bigint>;
-  /** `Vault.preview_redeem(shares)`: the PAVED a redeem of `shares` pays now, the exit fee taken. */
-  previewRedeem(shares: bigint): Promise<bigint>;
   usdcBalance(account: string): Promise<bigint>;
-  pavedBalance(account: string): Promise<bigint>;
 }
 
 export class RpcEconomyViews implements EconomyViews {
@@ -184,6 +180,15 @@ export class RpcEconomyViews implements EconomyViews {
       totalAssets: totalAssets as bigint,
       totalSupply: totalSupply as bigint,
     };
+  }
+
+  async maxRedeem(account: string): Promise<bigint> {
+    return (await this.call("Vault", "max_redeem", [account])) as bigint;
+  }
+
+  async delegateOf(account: string): Promise<string | null> {
+    const delegate = BigInt((await this.call("Vault", "delegates", [account])) as string | bigint);
+    return delegate === 0n ? null : toHex(delegate);
   }
 
   async previewDeposit(assets: bigint): Promise<bigint> {
