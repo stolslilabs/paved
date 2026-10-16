@@ -23,7 +23,7 @@ const EXPECTED: { story: string; shows: (string | RegExp)[] }[] = [
   { story: "elements-score--final", shows: ["4 820"] },
   { story: "elements-cobbles--large", shows: ["1,000"] },
   { story: "elements-deadline--hours-left", shows: [/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{2}:\d{2}/] },
-  { story: "elements-day-picker--today", shows: ["Wed, Oct 14"] },
+  { story: "elements-daypicker--today", shows: ["Wed, Oct 14"] },
 ];
 
 /** German forms an en-US page never shows: a point between thousands, a comma before decimals, a day with a point, a German month. */
@@ -81,8 +81,15 @@ try {
   const page = await context.newPage();
   for (const { story, shows } of EXPECTED) {
     await page.goto(`${origin}/iframe.html?viewMode=story&id=${story}`);
-    await page.waitForFunction(() => document.body.classList.contains("sb-show-main") && !document.body.classList.contains("sb-show-preparing-story"), null, { timeout: 30_000 });
-    await page.waitForTimeout(300);
+    // The story's render, play function included, has ended (wrap-sweep's test).
+    await page.waitForFunction(
+      () => {
+        const render = (window as unknown as { __STORYBOOK_PREVIEW__?: { currentRender?: { phase?: string } } }).__STORYBOOK_PREVIEW__?.currentRender;
+        return document.body.classList.contains("sb-show-errordisplay") || ["finished", "completed", "errored", "aborted"].includes(render?.phase ?? "");
+      },
+      undefined,
+      { timeout: 60_000 },
+    );
     // The browser really is German: its own formatting differs, so a pass is not an en-US browser's.
     const own = await page.evaluate(() => ({ language: navigator.language, sample: (1234.5).toLocaleString() }));
     if (!own.language.startsWith("de") || own.sample !== "1.234,5") failures.push(`${story}: the browser is not de-DE (${own.language}, ${own.sample})`);
