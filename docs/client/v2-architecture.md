@@ -1167,7 +1167,19 @@ off (preset 1.3 / preset 1.15). The default is 1.3 (the PM's estimate) until the
 **The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
-it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture. On software WebGL (a renderer string of SwiftShader,
+it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture.
+
+**Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
+(`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
+(headless Chrome on SwiftShader, outlines forced on, 1280 x 800 at DPR 1, preset 1.3, the story held; mean luma of the
+centre 800 x 500 crop after each step, the outline share being 1 minus the luma with the outlines on over the luma with
+them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (the off point) into the ramp: the share goes
+0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step
+0.47 point, no jump that is not the opacity ramp (the luma's own largest step is 0.53 on, 0.57 off). **Pan**: the 12-drag
+run did not finish on the loaded VPS (the screenshots timed out under SwiftShader, twice); it is left to the GPU check on
+the Mac, which the coordinator schedules. Unit tests cover the ramp's per-step change (no kink at either end).
+
+On software WebGL (a renderer string of SwiftShader,
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
