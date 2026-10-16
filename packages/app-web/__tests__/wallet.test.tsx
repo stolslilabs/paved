@@ -250,7 +250,8 @@ describe("signing (P-14)", () => {
     await waitFor(() => expect(status()).toBe("ready"));
     const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
     expect(methods).not.toContain("approve");
-    expect(methods).toContain("spawn");
+    expect(methods).toContain("spawn_free");
+    expect(methods).not.toContain("spawn");
   });
 
   it("Disconnect is disabled while a write is in flight", async () => {

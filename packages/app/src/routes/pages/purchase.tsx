@@ -26,6 +26,10 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
+    // Under the wallet's limit a hash-less record is a prompt that may still be open (another tab, a reload).
+    if (hold.waiting) {
+      return { kind: "unknown", message: `A purchase is waiting in your wallet (sent ${when}): it may still go through. Answer it there, or wait, before buying again.${unsaved}` };
+    }
     const sent =
       hold.unknown.hash === null
         ? `Purchase sent ${when}: your wallet did not answer, so it may still go through.`

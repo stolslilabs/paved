@@ -1606,11 +1606,15 @@ allowance of the cap; the session key is a wildcard filtered client-side by (tar
 one prompt per paid entry." P-56 had kept one approve in the session, the entry's, to Challenge up to 10 stakes; VALUE-FIX
 (#484) found that the controller does not enforce its spender or amount on a later call. So the session is a wildcard key,
 limited on chain by no target or selector, that the keychain's client-side store filters by (target, method) alone, never by
-calldata. Its policies (`CONTROLLER_ENTRY_POINTS`, `controllerPolicies`): Challenge `spawn`, `spawn_free`, `build`,
-`discard`, `surrender`; Setup's claims, `buy_pack`, `buy_skin`, `set_skins` (where the deployment has a Setup); Faucet `mint`
-(Sepolia only); Economy `settle` (with an economy). `toControllerSessionPolicies` refuses an `approve`. A paid entry sends
-`approve(Challenge, price)` and `spawn(stake, referrer, min_out)` in one multicall, which the wallet prompts for once; a
-pack's approve and `buy_pack`, and the Vault's approve and `deposit`, are one multicall each the same way. A capped approve in
+calldata. Its policies (`CONTROLLER_ENTRY_POINTS`, `controllerPolicies`) are only what spends no token: Challenge
+`spawn_free`, `build`, `discard`, `surrender`; Setup's claims, `buy_skin`, `set_skins` (where the deployment has a Setup);
+Faucet `mint` (Sepolia only); Economy `settle` (with an economy). No call that pulls a token is a policy either: not the paid
+`spawn`, not `buy_pack`, not the Vault's `deposit` (fix loop 1 of the re-check). Each is sent with its approve, which prompts
+anyway, and in the session a bare one could spend a standing allowance that a connect from before P-65 left (the full cap to
+Challenge). `toControllerSessionPolicies` refuses any method whose name holds `approve`, `allowance` or `transfer`
+(`increase_allowance`, `transfer_from`...). A paid entry sends `approve(Challenge, price)` and `spawn(stake, referrer,
+min_out)` in one multicall, which the wallet prompts for once; a pack's approve and `buy_pack`, and the Vault's approve and
+`deposit`, are one multicall each the same way. A capped approve in
 the session may come back only by a new ruling (P-65 is reversed only by a verified enforcement of spender and amount).
 
 Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose keychain runs `@cartridge/controller-wasm`
@@ -1638,7 +1642,7 @@ Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose key
 | loading | — | — | — | — |
 | home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/tournaments/:day/leaderboard` (top 3), `/v1/head` | — | the Training save (resume) |
 | play | `spawn_paused` | — | — | — |
-| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (no approve in the session, P-65; `spawn` and `buy_pack` are session policies) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
+| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (neither the approve nor the call that pulls the USDC is a session policy, P-65) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
 | over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
 | leaderboard | — | tournaments, leaderboard, player, player games | — | — |
@@ -2117,7 +2121,10 @@ through `EconomyWriter.purchase`, which reads the price, the quote, the router p
 again and sends nothing on a change, then opens `/game/:id` from the receipt's `GameSpawned`. The multicall is one wallet
 prompt (P-65, SESSION-NOAPPROVE); the pending state reads "Confirm in your wallet…", as a pack's already did, so nothing
 changes on screen but the prompt itself. A prompt the player declines is a `WalletRejectedError` ("You declined in your
-wallet: nothing was sent."): a refusal, no hold. A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
+wallet: nothing was sent."): a refusal, no hold. Only the controller's documented cancel shapes are typed so (the
+`undefined` it rejects with on a cancel, `CANCELED`, `USER_REFUSED_OP`, a "User rejected" message); anything else, a bare
+`null` or a node's "Transaction rejected", stays a plain refusal with its message. In both cases nothing was sent, so the
+record written at send gives way to the one that was there before (none, or a record the player released). A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
 base deployment names no Setup (VALUE-FIX's note). While a new stake's quote is read the last one stays shown
 and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
 indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
@@ -2126,8 +2133,8 @@ chain id, the pack on sale at the confirmed price, the router pin, the rate, the
 the price less the referral when one counts), then `PavedWriter.buyPack`: the approve of exactly the price to `Setup` on the
 economy's USDC and `Setup.buy_pack(pack_id, referrer, min_out)`. Its arguments are listed once (`buyPackArgs`), so a
 `max_price` is a one-line change. The receipt's `PackBought` sets the Cobbles balance in the cache, then the account is read
-again. `buy_pack` is a session policy; the pack's approve to `Setup` is not (PM ruling P-65: no token approve in the
-session), so a pack prompts once, for its approve and `buy_pack` together. The referrer is the link's `?ref=` (an address, not the player's own),
+again. Neither `buy_pack` nor the pack's approve to `Setup` is a session policy (PM ruling P-65), so a pack prompts once,
+for its approve and `buy_pack` together. The referrer is the link's `?ref=` (an address, not the player's own),
 as each purchase would send it (`Purchases.referrer`): one the contracts would not pay (the Challenge, the Economy; for a
 pack also `Setup`, the Vault and the router, which `Economy.pay` ignores) is dropped with a notice, never a refused
 purchase, and the split shown is the one the contract pays. The states: guest ("Connect to buy"), paused, not enough USDC
@@ -2145,7 +2152,11 @@ fails ("could not check", Retry), with "Check my games" or "Check my Cobbles". A
 the page waits for the player, with Check again and "It did not land". "Buy again" is offered only after a definite answer
 (the record is cleared) or after the player confirms, from their USDC balance and their games (a pack: their Cobbles), that
 nothing landed; then only that deliberate "Buy again" sends, since a second purchase would pay twice. A send is recorded
-without a hash when it starts (SESSION-NOAPPROVE, VALUE-FIX's note): sent at, by the sender, may still land; an answer in
+without a hash when it starts (SESSION-NOAPPROVE, VALUE-FIX's note): sent at, by the sender, with the send's identity
+(`id`: milliseconds and a random part, so two sends of the same second differ; records are compared by it), may still
+land. Under the 5-minute limit such a record is a prompt that may still be open (a reload, a second tab): the notice reads
+"A purchase is waiting in your wallet", Pay stays held and "It did not land" is not offered, so no second purchase races
+the open prompt; past the limit, the usual text and the confirm. An answer in
 time settles it (it landed or reverted: the record goes; an unknown hash replaces it; a send that sent nothing, refused before
 sending, declined in the wallet or refused as busy, puts back the record that was there before, so an earlier send's record
 goes only once a new send is accepted). A send the wallet never answered (`PurchaseTimedOutError`, after 5 minutes) keeps that

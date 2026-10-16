@@ -20,7 +20,20 @@ export type PurchaseKind = "game" | "pack";
 export interface UnknownPurchase {
   hash: string | null;
   at: number;
+  /**
+   * The send's identity (`newSendId`: milliseconds and a random part), which tells two sends of the same second apart; a
+   * record stored before it existed has none, and is then no send's own.
+   */
+  id?: string;
 }
+
+/** A new send's identity: the time in milliseconds and a random part, unique across tabs and sends of the same second. */
+export function newSendId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Whether `record` is the send `id`'s own. */
+const ownedBy = (record: UnknownPurchase, id: string): boolean => record.id !== undefined && record.id === id;
 
 /** The storage key of a player's unknown purchase of `kind`: `paved:purchase-unknown:v1:<kind>:<player>`. */
 export const unknownPurchaseStorageKey = (playerId: string, kind: PurchaseKind): string => `paved:purchase-unknown:v1:${kind}:${addressKey(playerId)}`;
@@ -56,8 +69,9 @@ function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | nul
     const raw = store.getItem(name);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<UnknownPurchase>;
-    if (parsed.hash === null && Number.isFinite(parsed.at)) return { hash: null, at: Number(parsed.at) };
-    return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0) } : null;
+    const id = typeof parsed.id === "string" ? { id: parsed.id } : {};
+    if (parsed.hash === null && Number.isFinite(parsed.at)) return { hash: null, at: Number(parsed.at), ...id };
+    return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0), ...id } : null;
   } catch {
     return undefined;
   }
@@ -87,29 +101,29 @@ export function currentRecord(client: QueryClient, playerId: string, kind: Purch
 
 /**
  * Clears the hold of a send the wallet never answered, once its late answer arrives: only the hash-less record of that send
- * (`at`, its time of sending), never a record with a hash or a later send's.
+ * (`id`, its identity), never a record with a hash or a later send's.
  */
-export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, at: number): void {
-  restorePurchase(client, playerId, kind, at, null);
+export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, id: string): void {
+  restorePurchase(client, playerId, kind, id, null);
 }
 
 /**
- * Writes the record of the send made at `record.at` (its hash-less hold, or the hash of its unknown outcome) only when the
+ * Writes the record of the send `record.id` (its hash-less hold, or the hash of its unknown outcome) only when the
  * current record is that send's, or there is none: a late answer of an earlier send never overwrites a newer send's hold.
  */
 export function recordOwnSend(client: QueryClient, playerId: string, kind: PurchaseKind, record: UnknownPurchase): void {
   const current = currentRecord(client, playerId, kind);
-  if (current === null || current.at === record.at) writeUnknownPurchase(client, playerId, kind, record);
+  if (current === null || (record.id !== undefined && ownedBy(current, record.id))) writeUnknownPurchase(client, playerId, kind, record);
 }
 
 /**
- * Puts back `previous` (null clears) in place of the hash-less hold of the send made at `at`, when that hold is still the
+ * Puts back `previous` (null clears) in place of the hash-less hold of the send `id`, when that hold is still the
  * current record: a send that sent nothing (refused before sending, declined in the wallet, or the writer busy) leaves the
  * record as it was before it.
  */
-export function restorePurchase(client: QueryClient, playerId: string, kind: PurchaseKind, at: number, previous: UnknownPurchase | null): void {
+export function restorePurchase(client: QueryClient, playerId: string, kind: PurchaseKind, id: string, previous: UnknownPurchase | null): void {
   const current = currentRecord(client, playerId, kind);
-  if (current && current.hash === null && current.at === at) writeUnknownPurchase(client, playerId, kind, previous);
+  if (current && current.hash === null && ownedBy(current, id)) writeUnknownPurchase(client, playerId, kind, previous);
 }
 
 /**

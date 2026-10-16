@@ -1326,14 +1326,14 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
     await flush(() => result.current.mutation.status === "error");
     expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
-    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number) });
+    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number), id: expect.any(String) });
     return release;
   }
 
   it("a timeout, then a reconnect (a new writer): Pay is held; then the late answer releases it", async () => {
     const s = setup();
     const { result, reconnect } = hook(s.sources);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     try {
       const release = await timedOut(s, result);
       await flush(() => result.current.hold.unresolved);
@@ -1344,7 +1344,7 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
       const fresh = s.client.writer({ address: PLAYER, execute: async (calls: Sent) => (s.sent.push(calls), { transaction_hash: "0xf" }) });
       reconnect({ ...s.sources, signer: fresh as unknown as GameSigner }, PLAYER);
       await flush(() => result.current.hold.unknown !== null);
-      expect(result.current.hold.unknown).toEqual({ hash: null, at: expect.any(Number) });
+      expect(result.current.hold.unknown).toEqual({ hash: null, at: expect.any(Number), id: expect.any(String) });
       expect(result.current.hold.held).toBe(true);
       await flush(() => result.current.hold.unresolved);
       expect(result.current.hold.held).toBe(true);
@@ -1364,7 +1364,7 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
   it("a late refusal releases it too (a late unknown hash replaces it: the writer-timeout tests above)", async () => {
     const s = setup();
     const { result } = hook(s.sources);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     try {
       const release = await timedOut(s, result);
       s.state.gate = null;
@@ -1381,7 +1381,7 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
   it("a timeout, then a reload: the stored hold keeps Pay held; then the late answer releases it", async () => {
     const s = setup();
     const first = hook(s.sources);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     let release = () => {};
     try {
       release = await timedOut(s, first.result);
@@ -1389,6 +1389,9 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
       vi.useRealTimers();
     }
     first.unmount();
+    // The 5 minutes passed in real time too (the fake clock is gone): the record is older than the limit.
+    const record = JSON.parse(stored()!) as { at: number };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ ...record, at: record.at - PURCHASE_TIMEOUT_MS / 1000 - 1 }));
     // A reload: a fresh page and cache, the storage kept.
     queryClient.clear();
     open("/play/challenge", s);
@@ -1421,15 +1424,15 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     await waitFor(() => expect(stored()).toBeNull());
   });
 
-  it("6b: a late hash of send A never overwrites a newer send B's hold", async () => {
+  it("6b: a late hash of send A never overwrites a newer send B's hold, even one sent in the same second", async () => {
     const s = setup();
     const { result } = hook(s.sources);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     try {
       const release = await timedOut(s, result);
-      const a = JSON.parse(stored()!) as { hash: null; at: number };
-      // A later send B holds its own hash-less record (another tab, or a Buy again on a new writer).
-      const b = { hash: null, at: a.at + 60 };
+      const a = JSON.parse(stored()!) as { hash: null; at: number; id: string };
+      // A later send B in the same second holds its own hash-less record (another tab): only its identity tells them apart.
+      const b = { hash: null, at: a.at, id: `${a.id}-b` };
       writeUnknownPurchase(queryClient, PLAYER, "game", b);
       // A's late answer is an unknown outcome with a hash: B's hold stays.
       s.state.gate = null;
@@ -1444,7 +1447,7 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
   });
 
   it("a pack's timeout holds Buy the same way", async () => {
-    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "pack"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) }));
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "pack"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) - PURCHASE_TIMEOUT_MS / 1000 - 1 }));
     const s = setup();
     open("/play/challenge?tab=cobbles", s);
     expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
@@ -1492,16 +1495,59 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     // Before any answer and long before the 5-minute limit: the hash-less record is already there.
-    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number) });
+    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number), id: expect.any(String) });
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toBeInTheDocument();
-    // A reload: the page gone, the send's promise still pending; the new page holds Pay.
+    // A reload: the page gone, the send's promise still pending; the new page holds Pay, and says the prompt may be open.
     reload(s);
-    expect(await screen.findByText(/your wallet did not answer, so it may still go through/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
     // The send's answer in time clears its own record.
     s.state.gate = null;
     release();
     await waitFor(() => expect(stored()).toBeNull(), { timeout: 3000 });
+  });
+
+  it("a second tab during an open prompt: the purchase waits in the wallet, Pay held, no It did not land until the limit passes", async () => {
+    const s = setup();
+    // The first tab's send, 10 s ago: its prompt may still be open.
+    const young = { hash: null, at: Math.floor(Date.now() / 1000) - 10, id: "other-tab" };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
+    open("/play/challenge", s);
+    expect(await screen.findByText(/A purchase is waiting in your wallet \(sent just now\)/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText(/your wallet did not answer/)).toBeNull();
+    // The check's reads answer, and still no way to buy a second time while the prompt may be open.
+    await waitFor(() => expect(s.state.balanceCalls).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(s.sent).toHaveLength(0);
+    // Past the limit (the same send, read again after a reload): the usual text, and the confirm is offered.
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ ...young, at: young.at - PURCHASE_TIMEOUT_MS / 1000 }));
+    reload(s);
+    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("the open prompt's hold turns into the usual one when the limit passes, without a reload", async () => {
+    const s = setup();
+    // 299.9 s old: the limit passes 100 ms after the page opens.
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: (Date.now() - PURCHASE_TIMEOUT_MS + 100) / 1000, id: "other-tab" }));
+    open("/play/challenge", s);
+    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText(/your wallet did not answer/)).toBeInTheDocument();
+  });
+
+  it("a pack whose prompt the player declines: it says so and holds nothing", async () => {
+    const s = setup();
+    s.state.decline = () => undefined;
+    open("/play/challenge?tab=cobbles", s);
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await enabledPay(/Pay \$9 for/));
+    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(stored("pack")).toBeNull();
+    expect(s.sent).toHaveLength(0);
   });
 
   it("an answer in time clears the record written at send; a pack's too", async () => {
