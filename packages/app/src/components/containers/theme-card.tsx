@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Icon } from "../ui/icon";
-import { TileChip } from "../elements/tile-chip";
+import { TileChip, type TileArt } from "../elements/tile-chip";
 
 /** The five themes of the spec (A, "theme"); Default and Forest are playable, the other three come later. */
 export type ThemeId = "default" | "forest" | "snow" | "desert" | "volcano";
@@ -42,8 +42,8 @@ export interface ThemeCardProps {
   selected: boolean;
   /** Eighteen tiles of a recorded board (six by three), drawn with the theme's look. */
   tiles: readonly { plan: number; orientation: number }[];
-  /** Where the tile art is served (the renderer's `public/`). */
-  artBase?: string;
+  /** The tiles' images (`useTileArt`); the plans' areas without it. */
+  tileArt?: TileArt;
   onSelect?: (id: ThemeId) => void;
   className?: string;
 }
@@ -52,7 +52,7 @@ export interface ThemeCardProps {
  * One theme: a preview of its tiles, its name and line, selected with a gold ring and a check; locked when not out yet. A
  * tinted preview (every theme but Default) carries a "Preview" label on the card.
  */
-export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className }: ThemeCardProps) {
+export function ThemeCard({ theme, selected, tiles, tileArt, onSelect, className }: ThemeCardProps) {
   const soon = !theme.available;
   // A tinted sketch, never the theme's art: labelled on its own card (PM, 2026-10-14), so nobody takes it for final art.
   const tinted = THEME_TINT[theme.id] !== undefined;
@@ -73,7 +73,7 @@ export function ThemeCard({ theme, selected, tiles, artBase, onSelect, className
       <span className="relative block aspect-[2/1] overflow-hidden bg-secondary">
         <span className="absolute inset-0 grid grid-cols-6 gap-0.5 p-0.5" style={{ filter: THEME_TINT[theme.id] }}>
           {tiles.slice(0, 18).map((t, i) => (
-            <TileChip key={i} plan={t.plan} orientation={t.orientation} artBase={artBase} size="sm" className="size-full rounded-sm border-0" />
+            <TileChip key={i} plan={t.plan} orientation={t.orientation} art={tileArt} size="sm" className="size-full rounded-sm border-0" />
           ))}
         </span>
         {soon && (

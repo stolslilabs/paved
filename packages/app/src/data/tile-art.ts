@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { TileArt } from "../components/elements/tile-chip";
 
 /** The side, in pixels, of the tile copy the chips draw: the one the renderer draws (`TILE_IMAGE_SIZE`), so both share one cache entry. */
 const CHIP_IMAGE_SIZE = "256";
@@ -6,11 +7,13 @@ const CHIP_IMAGE_SIZE = "256";
 type Tiles = Record<string, string>;
 
 /**
- * One read of `<artBase>/manifest.json` per base path for the page's life, resolved to the 256 px copies by plan key
+ * The reads in flight, one per base path: `<artBase>/manifest.json` resolved to the 256 px copies by plan key
  * (`{ "ccccccccc": "tiles/ccccccccc.256.<hash>.png" }`), or to null: no manifest (a 404, a body that is not one, a base
- * path with no host), or a failed read. A failed read is asked again by the next chip that mounts.
+ * path with no host), or a failed read. A failed read is dropped, so the next hook that mounts asks again.
  */
 const reads = new Map<string, Promise<Tiles | null>>();
+/** The reads that ended with an answer (a manifest or none), kept beside `reads` so a hook mounted later has it at once. */
+const answers = new Map<string, Tiles | null>();
 
 /** Whether `value` is a map of plan key to path (a manifest's `tiles[size]`). */
 const isTiles = (value: unknown): value is Tiles =>
@@ -35,10 +38,16 @@ async function read(artBase: string): Promise<Tiles | null> {
 export function loadTileArt(artBase: string): Promise<Tiles | null> {
   let tiles = reads.get(artBase);
   if (!tiles) {
-    const attempt = read(artBase).catch(() => {
-      if (reads.get(artBase) === attempt) reads.delete(artBase);
-      return null;
-    });
+    const attempt: Promise<Tiles | null> = read(artBase).then(
+      (found) => {
+        answers.set(artBase, found);
+        return found;
+      },
+      () => {
+        if (reads.get(artBase) === attempt) reads.delete(artBase);
+        return null;
+      },
+    );
     tiles = attempt;
     reads.set(artBase, tiles);
   }
@@ -48,33 +57,25 @@ export function loadTileArt(artBase: string): Promise<Tiles | null> {
 /** For tests: forget what was read. */
 export function resetTileArt(): void {
   reads.clear();
+  answers.clear();
 }
-
-export type TileArt =
-  /** The manifest is still being read. */
-  | { status: "loading" }
-  /** The image of a plan key, relative to `artBase`: the manifest's 256 px copy, else the original `assets/tiles/<key>.png`. */
-  | { status: "ready"; path: (key: string) => string };
-
-const original = (key: string) => `assets/tiles/${key}.png`;
 
 /**
  * Where the tile chips find their image under `artBase`: the 256 px copy the manifest lists (the file the board draws, one
- * cache entry for both), and today's original path for a plan the manifest does not list, or when there is no manifest or the
- * read failed, so a chip is never blank. `loading` until the first read ends, so the chip does not fetch the original first.
- * Without an `artBase` there is nothing to read: ready, with the original path.
+ * cache entry for both). A plan the manifest does not list, no manifest, a failed read, and the time before the read ends
+ * give null, so the chip draws the plan's nine areas: never a request for a file the build does not ship, never blank.
+ * Without an `artBase` there is nothing to read: undefined. A read that ended earlier is answered at once, in the first render.
  */
-export function useTileArt(artBase: string | undefined): TileArt {
-  const [done, setDone] = useState<{ artBase: string; tiles: Tiles | null } | null>(null);
+export function useTileArt(artBase: string | undefined): TileArt | undefined {
+  const [, setRead] = useState(0);
   useEffect(() => {
-    if (artBase == null) return;
+    if (artBase == null || answers.has(artBase)) return;
     let live = true;
-    void loadTileArt(artBase).then((tiles) => live && setDone({ artBase, tiles }));
+    void loadTileArt(artBase).then(() => live && setRead((n) => n + 1));
     return () => {
       live = false;
     };
   }, [artBase]);
-  if (artBase != null && done?.artBase !== artBase) return { status: "loading" };
-  const tiles = done?.tiles ?? null;
-  return { status: "ready", path: (key) => tiles?.[key] ?? original(key) };
+  const tiles = artBase != null ? answers.get(artBase) : undefined;
+  return useMemo(() => (artBase == null ? undefined : (key: string) => (tiles?.[key] != null ? `${artBase}/${tiles[key]}` : null)), [artBase, tiles]);
 }

@@ -23,7 +23,7 @@ import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
-import { RENDERER_ASSETS } from "../src/mocks/assets";
+import { RENDERER_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
@@ -173,27 +173,26 @@ describe("Board", () => {
     expect(screen.getByRole("timer", { name: "Expires in 19:00:00" })).toBeInTheDocument();
   });
 
-  it("shows the tile in hand with the board's art, turned to its orientation", async () => {
+  it("shows the tile in hand with the board's art, turned to its orientation", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
-    // No manifest here (the test host has none): the chip asks for the original once its read ends (`tile-chip-art.test.tsx` has the hashed copy).
-    const chip = await within(screen.getByRole("region", { name: "Your tile" })).findByRole("img", { name: /^Tile / });
-    await waitFor(() => expect(chip).toHaveAttribute("data-view", "art"));
+    const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });
+    expect(chip).toHaveAttribute("data-view", "art");
     const art = chip.querySelector("img");
     expect(art).toHaveAttribute("src", `${RENDERER_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(art?.style.transform).toBe(`rotate(${(BOARD_38.next.orientation - 1) * 90}deg)`);
   });
 
-  it("falls back to the tile art when there is no WebGL, without an error", async () => {
+  it("falls back to the tile art when there is no WebGL, without an error", () => {
     // jsdom has no WebGL: the renderer's tile view and the board scene's hand both show the PNG chip.
-    const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={RENDERER_ASSETS} />));
+    const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={RENDERER_ASSETS} tileArt={originalTileArt(RENDERER_ASSETS)} />));
     const chip = screen.getByRole("img", { name: /^Tile / });
-    await waitFor(() => expect(chip).toHaveAttribute("data-view", "art"));
+    expect(chip).toHaveAttribute("data-view", "art");
     expect(chip.querySelector("img")).toHaveAttribute("src", `${RENDERER_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(document.querySelector("canvas")).toBeNull();
     unmount();
-    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={RENDERER_ASSETS} />} />));
+    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={RENDERER_ASSETS} tileArt={originalTileArt(RENDERER_ASSETS)} />} />));
     const hand = screen.getByRole("region", { name: "Your tile" });
-    await waitFor(() => expect(within(hand).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "art"));
+    expect(within(hand).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "art");
   });
 
   it("falls back to the plan's nine areas without the art", () => {

@@ -8,6 +8,7 @@ import { ThemeScene, type SkinsStatus, type ThemeSkins } from "../../components/
 import { cobbleKeys } from "../../data/cobbles";
 import { skinChanges, skinKeys, useDeviceTheme, useShowSkins, useSkinWrites, useThemeSkins } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
+import { useTileArt } from "../../data/tile-art";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
@@ -42,6 +43,7 @@ export default function Page() {
   const read = useThemeSkins(playerId, available ? code : null);
   const writes = useSkinWrites(playerId);
   const client = useQueryClient();
+  const tileArt = useTileArt(RENDERER_ASSETS);
 
   // The active set read again (after a save whose receipt could not be read, it may hold the batch): what it already holds is no change.
   const active = read.data?.active;
@@ -97,7 +99,7 @@ export default function Page() {
     <ThemeScene
       selected={selected}
       tiles={PREVIEW_TILES}
-      tileArt={RENDERER_ASSETS}
+      tileArt={tileArt}
       skins={skins}
       skinsStatus={status}
       showSkins={showSkins}

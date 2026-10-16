@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TileChip } from "../src/components/elements/tile-chip";
-import { resetTileArt } from "../src/data/tile-art";
+import { resetTileArt, useTileArt } from "../src/data/tile-art";
+import { originalTileArt } from "../src/mocks/assets";
 
 const BASE = "/renderer-assets";
 const HASHED = "tiles/ccccccccc.256.9a48178562.png";
@@ -18,32 +19,52 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const src = () => screen.getByRole("img", { name: /^Tile / }).querySelector("img")?.getAttribute("src");
+const listed = () => json({ models: {}, tiles: { "256": { ccccccccc: HASHED } } });
 
-describe("the tile chip's image (TILE-CHIP)", () => {
-  it("draws the manifest's hashed 256 px copy, the file the board draws", async () => {
-    fetchMock.mockResolvedValue(json({ models: {}, tiles: { "256": { ccccccccc: HASHED } } }));
-    render(<TileChip plan={PLAN} artBase={BASE} />);
-    await waitFor(() => expect(src()).toBe(`${BASE}/${HASHED}`));
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/renderer-assets\/manifest\.json$/), { cache: "no-cache" });
+describe("the tile chip only draws what it is given (TILE-CHIP)", () => {
+  it("draws the image the page resolved, turned to its orientation", () => {
+    render(<TileChip plan={PLAN} orientation={2} art={() => `${BASE}/${HASHED}`} />);
+    const chip = screen.getByRole("img", { name: /^Tile / });
+    expect(chip).toHaveAttribute("data-view", "art");
+    expect(chip.querySelector("img")).toHaveAttribute("src", `${BASE}/${HASHED}`);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reads the manifest once for all the chips of a base path", async () => {
-    fetchMock.mockResolvedValue(json({ models: {}, tiles: { "256": { ccccccccc: HASHED } } }));
+  it("draws the plan's areas when there is no art, when the plan has none, and in the areas view", () => {
     render(
       <>
-        <TileChip plan={PLAN} artBase={BASE} />
-        <TileChip plan={PLAN} artBase={BASE} />
+        <TileChip plan={PLAN} />
+        <TileChip plan={PLAN} art={() => null} />
+        <TileChip plan={PLAN} art={() => "/x.png"} view="areas" />
       </>,
     );
-    await waitFor(() => expect(screen.getAllByRole("img", { name: /^Tile / }).every((c) => c.querySelector("img"))).toBe(true));
+    expect(screen.getAllByRole("img", { name: /^Tile / }).map((c) => c.getAttribute("data-view"))).toEqual(["areas", "areas", "areas"]);
+    expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("draws the originals when a story names them", () => {
+    render(<TileChip plan={PLAN} art={originalTileArt(BASE)} />);
+    expect(document.querySelector("img")).toHaveAttribute("src", `${BASE}/assets/tiles/ccccccccc.png`);
+  });
+});
+
+describe("useTileArt, the page's read of the manifest", () => {
+  it("resolves the manifest's hashed 256 px copy, read once with no-cache", async () => {
+    fetchMock.mockResolvedValue(listed());
+    const { result } = renderHook(() => useTileArt(BASE));
+    expect(result.current?.("ccccccccc")).toBeNull();
+    await waitFor(() => expect(result.current?.("ccccccccc")).toBe(`${BASE}/${HASHED}`));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/renderer-assets\/manifest\.json$/), { cache: "no-cache" });
+    renderHook(() => useTileArt(BASE));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the plan's areas, not the original, while the manifest is read", async () => {
-    fetchMock.mockReturnValue(new Promise(() => {}));
-    render(<TileChip plan={PLAN} artBase={BASE} />);
-    expect(screen.getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "areas");
+  it("answers at once, with no frame of the areas, once a read has ended", async () => {
+    fetchMock.mockResolvedValue(listed());
+    const first = renderHook(() => useTileArt(BASE));
+    await waitFor(() => expect(first.result.current?.("ccccccccc")).toBe(`${BASE}/${HASHED}`));
+    const later = renderHook(() => useTileArt(BASE));
+    expect(later.result.current?.("ccccccccc")).toBe(`${BASE}/${HASHED}`);
   });
 
   it.each([
@@ -51,36 +72,34 @@ describe("the tile chip's image (TILE-CHIP)", () => {
     ["gets a page that is not JSON", () => new Response("<html></html>", { status: 200 })],
     ["gets a manifest that lists no 256 px copies", () => json({ models: {} })],
     ["gets a manifest that lists no copy of the plan", () => json({ models: {}, tiles: { "256": { fffffffff: "tiles/x.png" } } })],
-  ])("asks for the original when the host %s", async (_, response) => {
+    ["fails with a server error", () => new Response("", { status: 500 })],
+  ])("gives no image, and asks for no assets/tiles path, when the host %s", async (_, response) => {
     fetchMock.mockImplementation(async () => response());
-    render(<TileChip plan={PLAN} artBase={BASE} />);
-    await waitFor(() => expect(src()).toBe(`${BASE}/assets/tiles/ccccccccc.png`));
+    const { result } = renderHook(() => useTileArt(BASE));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await act(async () => {});
+    expect(result.current?.("ccccccccc")).toBeNull();
+    render(<TileChip plan={PLAN} art={result.current} />);
+    expect(screen.getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "areas");
+    expect(document.querySelector("img")).toBeNull();
+    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes("assets/tiles"))).toBe(true);
   });
 
-  it("asks for the original, never a blank chip, when the read fails, and reads again for the next chip", async () => {
+  it("gives no image when the read fails, and reads again for the next page", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("network"));
-    const first = render(<TileChip plan={PLAN} artBase={BASE} />);
-    await waitFor(() => expect(src()).toBe(`${BASE}/assets/tiles/ccccccccc.png`));
+    const first = renderHook(() => useTileArt(BASE));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(first.result.current?.("ccccccccc")).toBeNull();
     first.unmount();
-    fetchMock.mockResolvedValue(json({ models: {}, tiles: { "256": { ccccccccc: HASHED } } }));
-    render(<TileChip plan={PLAN} artBase={BASE} />);
-    await waitFor(() => expect(src()).toBe(`${BASE}/${HASHED}`));
+    fetchMock.mockResolvedValue(listed());
+    const next = renderHook(() => useTileArt(BASE));
+    await waitFor(() => expect(next.result.current?.("ccccccccc")).toBe(`${BASE}/${HASHED}`));
   });
 
-  it("asks for the original when the server fails (500)", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 500 }));
-    render(<TileChip plan={PLAN} artBase={BASE} />);
-    await waitFor(() => expect(src()).toBe(`${BASE}/assets/tiles/ccccccccc.png`));
-  });
-
-  it("reads nothing without an art base or in the areas view", () => {
-    render(
-      <>
-        <TileChip plan={PLAN} />
-        <TileChip plan={PLAN} artBase={BASE} view="areas" />
-      </>,
-    );
+  it("reads nothing without a base path", () => {
+    const { result } = renderHook(() => useTileArt(undefined));
+    expect(result.current).toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("img", { name: /^Tile / }).map((c) => c.getAttribute("data-view"))).toEqual(["areas", "areas"]);
   });
 });

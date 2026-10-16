@@ -796,12 +796,13 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     the PM's suggestion was 256 px for the quad and 512 px for the plan view, but the plan view drawn from the 256 px
     copy differs from the one drawn from the 512 px copy by a mean 0.02 dE at the default zoom and 0.05 to 0.06 dE at the
     closest (maximum 1.6 dE, no pixel above 2 dE), at 360 and 1280 (headless Chromium, software WebGL), so no 512 px copy is
-    written. The 1680 px originals are asked for by neither the renderer nor the tile chips any more (TILE-CHIP: `TileChip`,
-    a DOM `<img>`, reads the same `manifest.json` once, `src/data/tile-art.ts`, and draws the 256 px copy, one cache entry
-    with the board; while the read is out it draws the plan's nine areas, and with no manifest or a failed read it asks for
-    `assets/tiles/<plan>.png`, so it is never blank), and the v2 build no longer ships them: `vite/renderer-assets.ts` neither
-    serves nor copies `assets/tiles/`, so `dist/` holds the 19 copies, 83,283 B, and no original (319,815 B less; Storybook
-    maps app-web's `public/` itself and still finds the originals for its manifest-less stories). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
+    written. The 1680 px originals are asked for by neither the renderer nor the tile chips any more (TILE-CHIP: the pages read the same
+    `manifest.json` once, `useTileArt` in `src/data/tile-art.ts`, and hand the resolved image down; `TileChip`, which only
+    draws, shows the 256 px copy, one cache entry with the board. A plan the manifest does not list, no manifest, a failed read
+    and the time before the read ends draw the plan's nine areas, never a request for a file the build does not ship; a read
+    that ended earlier is answered in the first render), and the v2 build no longer ships them: `vite/renderer-assets.ts` neither
+    serves nor copies `assets/tiles/`, so `dist/` holds the 19 copies, 83,283 B, and no original (319,815 B less). Storybook
+    maps app-web's `public/` itself and still has the originals, which its stories name explicitly (`originalTileArt`). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
     board; the phone profile is 360 x 740, device pixel ratio 2, touch and a coarse pointer, so the renderer's
     small-screen path): the images the tile materials hold on the GPU, computed per texture (width x height x 4, times 4/3
     with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read, before and after alike, 27 in the plan view

@@ -57,8 +57,8 @@ export interface BoardViewportProps {
    */
   skins?: TileSkins;
   /**
-   * Where the renderer finds `models/<plan>.glb` and `assets/tiles/<plan>.png`. The files are app-web's `public/`; this
-   * package serves them once its Storybook and build map that folder (escalated with SC1).
+   * Where the renderer finds `manifest.json`, which lists its hashed models and tile images (`models/<plan>.glb` and
+   * `assets/tiles/<plan>.png` without one, as in Storybook, which maps app-web's `public/`).
    */
   basePath?: string;
   /** The legal slots of the tile in hand, lit on the board (the contracts' coordinates). */

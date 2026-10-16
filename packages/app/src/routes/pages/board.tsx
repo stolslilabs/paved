@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CENTER, MAX_UNCONFIRMED, WRONG_SQUARE, initialOrientation, orientationName, type PlaceMove, type PredictedState } from "@paved/game-core";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
+import { useTileArt } from "../../data/tile-art";
 import type { HandState } from "../../components/containers/hand-panel";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
@@ -60,6 +61,8 @@ function TrainingBoard() {
   const [hovered, setHovered] = useState<Slot | null>(null);
   // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
+  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
+  const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
 
   const hand = board.hand;
   // `snapshot` changes with every move: the slots are those of the tile now in hand.
@@ -123,8 +126,8 @@ function TrainingBoard() {
       now={Math.floor(Date.now() / 1000)}
       hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: move !== null && preview !== null, preview, error: state.writeError }}
       lastScored={board.lastScored}
-      tileArt={view === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
+      tileArt={tileArt}
+      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       storageDisabled={snapshot.storage === "off"}
       saveDropped={snapshot.storage === "dropped"}
       slots={slots}
@@ -193,6 +196,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const [chosen, setChosen] = useState<Slot | null>(null);
   const [hovered, setHovered] = useState<Slot | null>(null);
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
+  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
+  const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
 
   const ready = state?.status === "ready" ? state : null;
   const hand = ready?.hand ?? null;
@@ -324,8 +329,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         error: state.writeError,
       }}
       lastScored={state.lastScored}
-      tileArt={view === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
+      tileArt={tileArt}
+      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       slots={playable ? slots : []}
       ghost={ghost}
       onSlotClick={choose}
@@ -390,6 +395,8 @@ function TutorialBoard() {
   const [hovered, setHovered] = useState<Slot | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [view3d, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
+  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
+  const tileArt = useTileArt(view3d === "3d" ? RENDERER_ASSETS : undefined);
 
   // A new step (played, Back, Restart): its own orientation, no slot chosen, no refusal.
   useEffect(() => {
@@ -469,8 +476,8 @@ function TutorialBoard() {
         error: refusal,
       }}
       lastScored={board.lastScored}
-      tileArt={view3d === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view3d === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
+      tileArt={tileArt}
+      renderHandTile={view3d === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       storageDisabled={storageOff(trainingStore(sources))}
       slots={slots}
       ghost={ghost}
