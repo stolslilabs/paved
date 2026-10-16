@@ -61,7 +61,7 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
 
   it("an expired game says when its 24 h ended", () => {
     show(<OverScene {...OVER.expired} timeZone="UTC" deadline={MOCK_NOW} />);
-    expect(screen.getByText(/The 24 h ended/)).toHaveTextContent("The 24 h ended Wed, Oct 14, 15:00.");
+    expect(screen.getByText(/The 24 h ended/)).toHaveTextContent("The 24 h ended Wed, Oct 14, 15:00 UTC.");
   });
 
   it("the closings note replaces the empty list's sentence", () => {

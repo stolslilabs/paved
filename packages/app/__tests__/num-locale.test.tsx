@@ -35,7 +35,7 @@ describe("numbers in en-US under a French process locale (P-66)", () => {
 
   it("a day and a deadline: en-US order, in the zone given", () => {
     render(<DayPicker day={20_740} today={20_740} first={20_000} />);
-    expect(screen.getByRole("group", { name: "Day" })).toHaveTextContent("Wed, Oct 14");
+    expect(screen.getByRole("group", { name: "Day" })).toHaveTextContent("Wed, Oct 14 UTC");
     render(<Deadline expiresAt={MOCK_NOW + 23 * 3600 + 12 * 60} now={MOCK_NOW} timeZone="Europe/Paris" />);
     expect(screen.getByText("Thu, Oct 15, 16:12")).toBeInTheDocument();
   });

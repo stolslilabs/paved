@@ -74,7 +74,12 @@ export function formatUnits(amount: bigint, decimals: number, fraction: number):
   return `${negative ? "-" : ""}${whole}${fraction > 0 ? `.${frac}` : ""}`;
 }
 
-/** A moment: epoch milliseconds or a `Date`. `options` are `Intl.DateTimeFormat`'s; `timeZone` is the viewer's own when omitted. */
+/**
+ * A moment: epoch milliseconds or a `Date`. `options` are `Intl.DateTimeFormat`'s; `timeZone` is the viewer's own when
+ * omitted. A moment shown in UTC (a day or week end, an expiry) always ends with " UTC" ("Thu, Oct 15, 15:00 UTC"), so it
+ * is never read as local: the label comes from here, not from each component.
+ */
 export function formatDate(value: number | Date, options: Intl.DateTimeFormatOptions): string {
-  return dateFormat(options).format(value);
+  const text = dateFormat(options).format(value);
+  return options.timeZone?.toUpperCase() === "UTC" ? `${text} UTC` : text;
 }

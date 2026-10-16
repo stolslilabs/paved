@@ -31,8 +31,10 @@ describe("formatter (P-66, en-US)", () => {
 
   it("writes dates the en-US way, in the zone asked", () => {
     const moment = Date.UTC(2026, 9, 15, 15, 0);
-    expect(formatDate(moment, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })).toBe("Thu, Oct 15");
-    expect(formatDate(new Date(moment), { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "UTC" })).toBe("10/15/2026");
+    expect(formatDate(moment, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })).toBe("Thu, Oct 15 UTC");
+    expect(formatDate(new Date(moment), { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "UTC" })).toBe("10/15/2026 UTC");
+    // A boundary shown in UTC says so, under the Paris process zone too.
+    expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" })).toBe("15:00 UTC");
     expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Paris" })).toBe("17:00");
   });
 });
