@@ -76,11 +76,14 @@ export interface VaultFormProps {
 const tile = TOKENS.paved;
 const shown = (value: bigint) => `${formatUnits(value, tile.decimals, tile.fraction)} ${tile.symbol}`;
 
-/** The wallet's line while a write is on its way: a deposit's approve and deposit are one transaction, one prompt. */
-const BUSY_TEXT: Record<VaultBusy, string> = {
-  deposit: "Approve and deposit in your wallet…",
-  withdraw: "Confirm the withdraw in your wallet…",
-  withdrawAll: "Confirm in your wallet…",
+/** The button's label while a write is on its way; one wallet prompt each (a deposit's approve and deposit are one transaction). */
+const BUSY_TEXT = "Confirm in your wallet…";
+
+/** The line under the buttons while a write is on its way: what the wallet asks for. */
+const BUSY_LINE: Record<VaultBusy, string> = {
+  deposit: "Approve and deposit in your wallet: one transaction for both.",
+  withdraw: "Confirm the withdraw in your wallet.",
+  withdrawAll: "Confirm the withdrawal of every vPAVED in your wallet.",
 };
 
 /**
@@ -167,20 +170,25 @@ export function VaultForm(props: VaultFormProps) {
 
       {mode === "deposit" ? (
         <Button size="lg" onClick={props.onDeposit} disabled={empty || over || working} loading={busy === "deposit"}>
-          {busy === "deposit" ? BUSY_TEXT.deposit : "Deposit"}
+          {busy === "deposit" ? BUSY_TEXT : "Deposit"}
         </Button>
       ) : (
         <div className="grid grid-cols-1 gap-2 tablet:grid-cols-2">
           <Button size="lg" onClick={props.onWithdraw} disabled={empty || over || working} loading={busy === "withdraw"}>
-            {busy === "withdraw" ? BUSY_TEXT.withdraw : "Withdraw"}
+            {busy === "withdraw" ? BUSY_TEXT : "Withdraw"}
           </Button>
           <Button size="lg" variant="outline" onClick={props.onWithdrawAll} disabled={shares === 0n || working} loading={busy === "withdrawAll"}>
             <Icon name="arrow-right-from-bracket" size="sm" />
-            {busy === "withdrawAll" ? BUSY_TEXT.withdrawAll : "Withdraw all"}
+            {busy === "withdrawAll" ? BUSY_TEXT : "Withdraw all"}
           </Button>
         </div>
       )}
-      {mode === "deposit" && (
+      {busy && (
+        <p role="status" className="text-xs text-foreground">
+          {BUSY_LINE[busy]}
+        </p>
+      )}
+      {mode === "deposit" && !busy && (
         <p className="text-xs text-muted-foreground">
           Your wallet asks once: the approve of exactly this amount to the Vault, and the deposit, in one transaction.
         </p>

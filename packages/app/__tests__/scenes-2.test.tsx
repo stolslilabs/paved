@@ -212,11 +212,12 @@ describe("Vault", () => {
   });
 
   it.each([
-    ["depositing", /Approve and deposit in your wallet/],
+    ["depositing", /Approve and deposit in your wallet: one transaction for both/],
     ["withdrawing", /Confirm the withdraw in your wallet/],
   ] as const)("is busy while %s", (state, text) => {
     render(wrap(<VaultScene {...VAULT[state]} />));
-    expect(screen.getByRole("button", { name: text })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText(text)).toHaveAttribute("role", "status");
     expect(screen.getByRole("textbox")).toBeDisabled();
   });
 

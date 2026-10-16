@@ -154,9 +154,9 @@ export function ReferralScene(props: ReferralSceneProps) {
                         <span className="inline-flex h-5 items-center">
                           <Icon name={icon} size="sm" className="text-muted-foreground" />
                         </span>
-                        <span className="text-sm leading-5">{label}</span>
+                        <span className="min-w-0 text-sm leading-5 wrap-anywhere">{label}</span>
                         <Amount value={part.total} token="usdc" className="leading-5 text-success" />
-                        <span className="col-start-2 text-xs text-muted-foreground">{plural(part.count, one)}</span>
+                        <span className="col-span-2 col-start-2 min-w-0 text-xs wrap-anywhere text-muted-foreground">{plural(part.count, one)}</span>
                       </li>
                     ))}
                   </ul>
