@@ -8,11 +8,14 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/fa-subset.ts --check && tsc -b && vite build && node scripts/bundle-budget.ts",
+    "fa-subset": "node scripts/fa-subset.ts",
+    "fa-subset-check": "node scripts/fa-subset.ts --check",
+    "bundle-budget": "node scripts/bundle-budget.ts",
     "test": "vitest run",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o storybook-static",
+    "build-storybook": "storybook build -o storybook-static && node scripts/storybook-guard.ts",
     "wrap-sweep": "node scripts/wrap-sweep.ts"
   },
   "dependencies": {

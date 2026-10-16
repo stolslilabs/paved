@@ -1,5 +1,6 @@
 import { lazy, type ComponentType } from "react";
 import { createBrowserRouter, createMemoryRouter, replace, type LoaderFunctionArgs, type RouteObject } from "react-router";
+import { PAGE_LOADERS, type PageLoader } from "./page-loaders";
 import { PAGES } from "./pages";
 import { withRef } from "./ref";
 import { RouteError } from "./RouteError";
@@ -7,31 +8,14 @@ import { bootScreen, RootLayout } from "./Shell";
 import { hasWelcomed } from "./welcomed";
 
 /**
- * One lazy module per scene: a page's code is fetched when its route is first visited, so none of it is in the first
- * bundle. A wiring PR changes the module's body, not this table.
+ * One lazy component per loader of `page-loaders.ts`: paths that share a scene (the three boards, the two game-over
+ * pages) share the component, so a move between them keeps its state.
  */
-const home = lazy(() => import("./pages/home"));
-const board = lazy(() => import("./pages/board"));
-const over = lazy(() => import("./pages/over"));
-const leaderboard = lazy(() => import("./pages/leaderboard"));
-const PAGE_MODULES: Record<string, ComponentType> = {
-  welcome: lazy(() => import("./pages/welcome")),
-  "": home,
-  play: lazy(() => import("./pages/play")),
-  "play/challenge": lazy(() => import("./pages/purchase")),
-  "game/:gameId": board,
-  training: board,
-  tutorial: board,
-  "game/:gameId/over": over,
-  "training/over": over,
-  "leaderboard/:day?": leaderboard,
-  "player/:id": lazy(() => import("./pages/player")),
-  "quests/:day?": lazy(() => import("./pages/quests")),
-  achievements: lazy(() => import("./pages/achievements")),
-  vault: lazy(() => import("./pages/vault")),
-  referral: lazy(() => import("./pages/referral")),
-  "settings/theme": lazy(() => import("./pages/theme")),
-  settings: lazy(() => import("./pages/settings")),
+const lazies = new Map<PageLoader, ComponentType>();
+const pageComponent = (path: string): ComponentType => {
+  const load = PAGE_LOADERS[path]!;
+  if (!lazies.has(load)) lazies.set(load, lazy(load));
+  return lazies.get(load)!;
 };
 const NotFound = lazy(() => import("./pages/not-found"));
 
@@ -68,7 +52,7 @@ export const routes: RouteObject[] = [
     errorElement: <RouteError />,
     children: [
       ...PAGES.map((page): RouteObject => {
-        const Page = PAGE_MODULES[page.path]!;
+        const Page = pageComponent(page.path);
         const route = { handle: { page }, loader: LOADERS[page.path], element: <Page />, errorElement: <RouteError /> };
         return page.path === "" ? { index: true, ...route } : { path: page.path, ...route };
       }),

@@ -5,6 +5,7 @@ import { useFreeCredits } from "../../data/cobbles";
 import { usePlayFree } from "../../data/play-free";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { PrefetchOnIntent } from "../prefetch";
 import { useAppNavigate, useBack } from "../ref";
 
 /**
@@ -28,16 +29,18 @@ export default function Page() {
       .catch((e: unknown) => toast.error("The free game did not start", { description: e instanceof Error ? e.message : String(e) }));
   };
   return (
-    <PlayScene
-      connected={wallet.address !== null}
-      spawnPaused={paused.data ?? false}
-      credits={free.available ? (credits.data ?? 0) : 0}
-      onPlayFree={playFree}
-      onBack={onBack}
-      onChallenge={() => go("/play/challenge")}
-      onTraining={() => go("/training")}
-      onTutorial={() => go("/tutorial")}
-      onConnect={() => void wallet.connect()}
-    />
+    <PrefetchOnIntent routes={["/play/challenge"]}>
+      <PlayScene
+        connected={wallet.address !== null}
+        spawnPaused={paused.data ?? false}
+        credits={free.available ? (credits.data ?? 0) : 0}
+        onPlayFree={playFree}
+        onBack={onBack}
+        onChallenge={() => go("/play/challenge")}
+        onTraining={() => go("/training")}
+        onTutorial={() => go("/tutorial")}
+        onConnect={() => void wallet.connect()}
+      />
+    </PrefetchOnIntent>
   );
 }
