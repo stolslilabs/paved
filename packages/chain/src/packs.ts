@@ -1,10 +1,9 @@
-import { sameAddress } from "./codec";
 import { BPS, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, impliedPaved, minOutFor, quoteBelowFloor } from "./economy/amounts";
 import type { EconomyClient } from "./economy/client";
 import type { EconomyDeployment } from "./economy/deployment";
 import { isQuoteRevert, rateProblem, routerProblem, type PoolQuoter } from "./economy/pool";
 import type { EconomyViews, SplitView } from "./economy/views";
-import { PoolCannotFillError, PoolPriceMovedError, PoolQuoteBelowFloorError, PoolQuoteUnavailableError, RateUnavailableError, RouterNotPinnedError, referrerOf } from "./economy/writer";
+import { PoolCannotFillError, PoolPriceMovedError, PoolQuoteBelowFloorError, PoolQuoteUnavailableError, RateUnavailableError, RouterNotPinnedError, paidReferrer } from "./economy/writer";
 import { MAX_PACK_ID, type PackView, type PackViews } from "./views";
 import { WriteError, type PackBought, type PavedWriter, type WriteResult } from "./writer";
 
@@ -148,23 +147,8 @@ export class PackBuyer {
   }
 }
 
-/**
- * The referrer a pack's purchase sends. The payer, the Challenge and the Economy are refused as for a game
- * (`referrerOf`: `RefusedReferrerError`); `Setup`, the Vault and the router, which `Economy.pay` ignores, are sent as
- * "0x0", so the swap the client quotes is the one the contract runs.
- */
-export function packReferrer(referrer: string | null, self: string, deployment: EconomyDeployment, router: string): string {
-  const sent = referrerOf(referrer, self, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
-  if (sent === "0x0") return sent;
-  const ignored = [deployment.base.addresses.Setup, deployment.addresses.Vault, router].some((other) => {
-    try {
-      return !!other && BigInt(other) !== 0n && sameAddress(sent, other);
-    } catch {
-      return false;
-    }
-  });
-  return ignored ? "0x0" : sent;
-}
+/** The referrer a pack's purchase sends: `paidReferrer`, the same mapping as a game's (`Economy.pay`'s). */
+export const packReferrer = paidReferrer;
 
 /** The pack buyer of an economy client and the account's writer: the same views, quoter and chain check as its purchases. */
 export function packBuyerOf(client: EconomyClient, writer: PackBuyerOptions["writer"]): PackBuyer {

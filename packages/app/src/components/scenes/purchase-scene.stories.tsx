@@ -76,8 +76,43 @@ export const Refused: Story = { args: { ...PURCHASE.stake1, refusal: { kind: "re
 const UNKNOWN = { kind: "unknown", message: "Purchase sent 5 min ago (0x5f1e), outcome unknown: check your games before buying again." } as const;
 /** Sent, but the receipt could not be read: Pay waits while the player's games and USDC are read again. */
 export const OutcomeUnknown: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, checking: true, onCheckGames: fn() } };
-/** The reads have settled: only a deliberate Buy again. */
-export const OutcomeUnknownChecked: Story = { args: { ...PURCHASE.stake1, refusal: UNKNOWN, onCheckGames: fn() } };
+/** The player confirmed that their balance and games show no purchase: only a deliberate Buy again. */
+export const OutcomeUnknownChecked: Story = {
+  args: { ...PURCHASE.stake1, refusal: { kind: "unknown", message: "Purchase sent 5 min ago (0x5f1e), outcome unknown. You confirmed that it did not land: Buy again sends a new purchase." }, onCheckGames: fn() },
+};
+/**
+ * The receipt still reads unknown after its re-checks (5, 10 and 20 s): Pay stays held. Check again reads it once more; It
+ * did not land is the player's confirm, after reading their balance and games, that offers Buy again.
+ */
+export const OutcomeUnknownUnresolved: Story = {
+  args: {
+    ...PURCHASE.stake1,
+    refusal: {
+      kind: "unknown",
+      message:
+        "Purchase sent 2 min ago (0x5f1e), outcome unknown: the network does not know it yet. Check your USDC balance and your games: confirm only if they show no purchase, as buying again may pay twice.",
+    },
+    checkUnresolved: true,
+    onCheckGames: fn(),
+    onCheckAgain: fn(),
+    onConfirmNone: fn(),
+  },
+};
+/** The wallet never answered (5 minutes): no hash, but the send may still land. Held across a reconnect and a reload, as above. */
+export const WalletTimedOut: Story = {
+  args: {
+    ...PURCHASE.stake1,
+    refusal: {
+      kind: "unknown",
+      message:
+        "Purchase sent 6 min ago: your wallet did not answer, so it may still go through. Check your USDC balance and your games: confirm only if they show no purchase, as buying again may pay twice.",
+    },
+    checkUnresolved: true,
+    onCheckGames: fn(),
+    onCheckAgain: fn(),
+    onConfirmNone: fn(),
+  },
+};
 /** The check failed (a read down): Pay stays held; Retry checks again, Dismiss is the deliberate way out, with its warning. */
 export const OutcomeUnknownCheckFailed: Story = {
   args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },

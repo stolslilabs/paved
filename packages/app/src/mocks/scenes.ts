@@ -14,7 +14,7 @@ import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
 import type { ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
-import { RENDERER_ASSETS, originalTileArt } from "./assets";
+import { APP_WEB_ASSETS, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
@@ -117,7 +117,7 @@ const boardBase = {
   expiresAt: GAME_PLAYING.expiresAt,
   now: MOCK_NOW,
   lastScored: [],
-  tileArt: originalTileArt(RENDERER_ASSETS),
+  tileArt: originalTileArt(APP_WEB_ASSETS),
 } satisfies Partial<Data<BoardSceneProps>>;
 
 export const BOARD = {
@@ -264,7 +264,7 @@ export const SETTINGS = {
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
-const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: originalTileArt(RENDERER_ASSETS) } as const;
+const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: originalTileArt(APP_WEB_ASSETS) } as const;
 const FOREST = 1;
 const ALL_PLANS = Array.from({ length: 19 }, (_, i) => i + 1);
 const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
@@ -277,8 +277,8 @@ const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
 };
 
 export const THEME = {
-  defaultSelected: { selected: "default", showSkins: false, tiles: THEME_TILES, tileArt: originalTileArt(RENDERER_ASSETS) },
-  forestSelected: { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: originalTileArt(RENDERER_ASSETS) },
+  defaultSelected: { selected: "default", showSkins: false, tiles: THEME_TILES, tileArt: originalTileArt(APP_WEB_ASSETS) },
+  forestSelected: { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: originalTileArt(APP_WEB_ASSETS) },
   /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
   skins: { ...themeBase, skins: forestSkins },
   /** Two switches changed, not saved: Save sends them in one `set_skins` write. */

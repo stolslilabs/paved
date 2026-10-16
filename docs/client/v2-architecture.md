@@ -691,7 +691,7 @@ Storybook 10 with `@storybook/react-vite` (10.6.2 today), in the new app package
 ```
 packages/app/
 ├── .storybook/
-│   ├── main.ts          framework react-vite; stories: src/**/*.stories.tsx; addons: docs, a11y
+│   ├── main.ts          framework react-vite; stories: src/**/*.stories.tsx; addons: docs, a11y; staticDirs (below)
 │   ├── preview.tsx      imports src/styles/theme.css; MotionConfig; QueryClient with fixtures; MemoryRouter
 │   └── preview-head.html  font preloads
 └── src/
@@ -702,6 +702,13 @@ packages/app/
         ├── containers/  composites (hand panel, mode card, leaderboard table…) + stories
         └── scenes/      one per page, on fixture data + stories
 ```
+
+**Static dirs.** `main.ts` takes its `staticDirs` from `scripts/storybook-static-dirs.ts`: the app's `public/` at the root
+(Font Awesome scripts; `renderer-assets/`: the hashed models and 256 px tiles, which stories with a manifest of their own load
+from `/renderer-assets`) and app-web's `public/` at `/app-web-assets` (plain models, the original tile images, the Draco decoder:
+the stories with no manifest). Storybook copies the entries at once, and two copies creating one folder raced on `mkdir`
+(`EEXIST`, three CI failures, SB-COPY), so no two entries write a folder in common: `build-storybook` runs the check first and
+`__tests__/storybook-static-dirs.test.ts` covers it.
 
 The sidebar follows the tiers:
 
@@ -1727,7 +1734,7 @@ to Home).
 | loading | — | — | — | — |
 | home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/tournaments/:day/leaderboard` (top 3), `/v1/head` | — | the Training save (resume) |
 | play | `spawn_paused` | — | — | — |
-| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`; write `approve` + `spawn(stake, referrer, min_out)` | — | — | the referrer from `?ref=` |
+| purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)` | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet never answered, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
 | over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
 | leaderboard | — | tournaments, leaderboard, player, player games | — | — |
@@ -1735,8 +1742,14 @@ to Home).
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
 | referral | `Economy.split_bps()` (the share shown) | `/v1/players/:id/referrals` (IX-COBBLES2): the games' and the packs' referrals, summed by referrer; the id is the player's address | — | the referrer from `?ref=` (kept on every link) |
-| theme | — | — | — | the chosen theme, which is also the viewer's skins switch (`paved.theme.v1`) |
+| theme | `Setup.skin_price` (read again inside `buy_skin`'s send), `skins`, `active_skins`, `account`; writes `buy_skin`, `set_skins` (P11b) | — | — | the chosen theme, which is also the viewer's skins switch (`paved.theme.v1`) |
 | settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight (`paved.settings.v1`); the skins switch (`paved.theme.v1`) |
+
+**Accepted (VALUE-FIX, 2026-10-16): a pack's approve can outlive its purchase.** A pack's purchase approves `Setup` on USDC
+for exactly the price read at send, then `buy_pack`, in one multicall. If the owner lowers the pack's price between that read
+and the execution, `buy_pack` takes the lower price and the rest of the allowance to `Setup` stays standing. Only the player's
+own `buy_pack` can spend it (`Setup` moves USDC from the caller alone), so nothing is lost; the client does not reset it. No
+change: accepted as is.
 
 **As wired (P6).** Home reads the day from the chain's `currentDay()` (the clock's until it answers) and its top 3 from
 the indexer client on `VITE_INDEXER_URL`; `/v1/head` is not read. Each home read that has not answered, or failed,
@@ -2089,8 +2102,8 @@ read of `SKILL.md` and a search of every file for `allowed-tools`, `npx`, `bunx`
 | 2 | `paved-data` | **written by CLIENT** | about 100 lines (estimate) | the query keys, no polling, receipts into the cache, the three owners of state, the prediction session | written to pass. **Done (F7b):** `.claude/skills/paved-data/SKILL.md`, 86 lines |
 | 3 | `paved-renderer` | **written by CLIENT** | about 100 lines (estimate) | render on demand, no per-tile geometry, the outline pass and its settings, the bench method and the Mac's headless rule | written to pass. **Done (F7c):** `.claude/skills/paved-renderer/SKILL.md`, 125 lines |
 | 4 | `shadcn` | `shadcn-ui/ui@30a58d4498f270af1c1e981a7d78a15cf5740841` (2026-10-12), `skills/shadcn/` | 295 lines, 21,306 B; 21 files, 148,754 B | the shadcn conventions: composition, styling with tokens, forms, Radix vs Base UI | **fails as is**: `allowed-tools: Bash(npx shadcn@latest *)…` grants permissions; a `` !`npx shadcn@latest info --json` `` line runs the latest CLI at load; it tells the agent to run `shadcn@latest` and fetch the docs URLs. **Trim** to `rules/styling.md`, `composition.md`, `forms.md`, `base-vs-radix.md`, `icons.md` (23,336 B) and a rewritten `SKILL.md` that names the CLI version pinned in `package.json`; drop `mcp.md`, `registry.md`, `cli.md`, `design-system*.md`, `chat.md`, `evals/`, `assets/`, `agents/`, `scripts/`. **Done (F7d):** `.claude/skills/shadcn/`, `SKILL.md` plus the 5 rule files, licence in `THIRD_PARTY_NOTICES` |
-| 5 | `react-best-practices` | `vercel-labs/agent-skills@063bee94c3f4df8453406c830b0a7df0f2860278` (2026-08-28), `skills/react-best-practices/`, MIT | 149 lines, 7,251 B; 76 files, 230,383 B | 70 rules on waterfalls, bundle size, re-renders, rendering, ranked by impact | **passes** on the search (no permission, no run, no fetch); **trim** for size: drop the 10 `server-*` rules and the Next.js items, and the compiled `AGENTS.md` (a duplicate of the rules); kept: 60 rule files + `SKILL.md`, 95,623 B |
-| 6 | `composition-patterns` | same commit, `skills/composition-patterns/`, MIT | 89 lines, 2,886 B; 14 files, 50,339 B | compound components, no boolean-prop sprawl, React 19 APIs: fits the tiers | **passes** on the search; trim the compiled `AGENTS.md` duplicate |
+| 5 | `react-best-practices` | `vercel-labs/agent-skills@063bee94c3f4df8453406c830b0a7df0f2860278` (2026-08-28), `skills/react-best-practices/`, MIT | 149 lines, 7,251 B; 76 files, 230,383 B | 70 rules on waterfalls, bundle size, re-renders, rendering, ranked by impact | **passes** on the search (no permission, no run, no fetch); **trim** for size: drop the 10 `server-*` rules and the Next.js items, and the compiled `AGENTS.md` (a duplicate of the rules); kept: 60 rule files + `SKILL.md`, 95,623 B. **Done (F7f):** `.claude/skills/react-best-practices/`, `SKILL.md` plus the 60 rule files, licence in `THIRD_PARTY_NOTICES` |
+| 6 | `composition-patterns` | same commit, `skills/composition-patterns/`, MIT | 89 lines, 2,886 B; 14 files, 50,339 B | compound components, no boolean-prop sprawl, React 19 APIs: fits the tiers | **passes** on the search; trim the compiled `AGENTS.md` duplicate **Done (F7g):** `.claude/skills/composition-patterns/`, `SKILL.md` plus the 8 rule files, licence in `THIRD_PARTY_NOTICES` |
 | 7 | `web-design-guidelines` | same commit, `skills/web-design-guidelines/` | 39 lines, 1,231 B; 1 file | an accessibility and UX review against Vercel's Web Interface Guidelines | **fails as is**: it fetches its rules from `vercel-labs/web-interface-guidelines` at `main` before each review (remote text used as instructions). **Trim**: commit the guidelines file at a pinned commit beside `SKILL.md` and drop the fetch (the commit to pin is not read yet: the PR names it) |
 
 **Not proposed:** `frontend-design` (`anthropics/skills@dbd4588f9e1033efb41dad4bef2f7947c8993d44`, 71
@@ -2219,15 +2232,27 @@ unknown outcome is recorded per player and kind (its transaction hash, in `local
 off: `data/unknown-purchase.ts`), so it survives a remount ("Check my games" and back), a reload and a second tab. While
 it is recorded, each mount checks its receipt and the reads that tell whether it landed (a game: the player's games, active
 game and USDC; a pack: the Cobbles and USDC), each with `fetchQuery`. Pay and Buy are held during that check and while it
-fails ("could not check", Retry), with "Check my games" or "Check my Cobbles"; then only a deliberate "Buy again" sends
-(and clears the record), since a game's second purchase would be signed without a prompt. A check that keeps failing (a
+fails ("could not check", Retry), with "Check my games" or "Check my Cobbles". A receipt that reads unknown
+(`TXN_HASH_NOT_FOUND`) keeps the hold (VALUE-FIX): it is read again after 5 s, 10 s and 20 s (`PURCHASE_RECHECK_MS`), then
+the page waits for the player, with Check again and "It did not land". "Buy again" is offered only after a definite answer
+(the record is cleared) or after the player confirms, from their USDC balance and their games (a pack: their Cobbles), that
+nothing landed; then only that deliberate "Buy again" sends (and clears the record), since a game's second purchase would be
+signed without a prompt. A send the wallet never answered (`PurchaseTimedOutError`, after 5 minutes) is recorded the same
+way without a hash (VALUE-FIX): sent at, by the sender, may still land. Its check reads the USDC balance, the player's
+Challenge games and the active game (a pack: the Cobbles account and the USDC balance), with no receipt to read, and Pay stays
+held across a reconnect (a new writer, whose own pending flag knows nothing of the hung send) and a reload, until the send's
+late answer arrives in this page (it landed or was refused: the record goes; an unknown hash replaces it) or the player
+confirms as above. A check that keeps failing (a
 node without receipts, an outage) offers Dismiss beside Retry, with the warning that buying again may pay twice. The
 notice says how long ago the purchase was sent (the record's `at`). The receipt decides on its own: one that reads (it
 went through, or reverted) clears the record even when a reconciling read failed. The record goes under the player who
 sent it (the request carries it), whoever is connected when the outcome comes back; a change of player resets the page's
 refusals and resolutions. A write that storage refuses (full) is remembered for the page's life, so the stale stored value
-is never read back over the cache's copy. The game's referrer follows the same rule as a pack's (`packReferrer`: `Setup`,
-the Vault and the router read at the time are dropped too), since both go through `Economy.pay`. The app's
+is never read back over the cache's copy. The game's referrer follows the same rule as a pack's (`Setup`, the Vault and the
+router read at the time are dropped too), since both go through `Economy.pay`; since VALUE-FIX the writers map it themselves
+with one function (`paidReferrer`, `packReferrer` being the same): a link referrer the page could not check (its first read of
+`Purchases.referrer` failed) is still sent as "0x0", with the no-referral swap input and `min_out`, never a referral cut the
+contract does not take (P-35). The app's
 sources give the economy's views, its pool quote and the purchases (`EconomyClient` on the build's deployment,
 `data/economy-client.ts`, loaded with the chain's chunk). `Pack` is `@paved/chain`'s `PackView` (`cobbles`, no longer `gems`).
 
@@ -2289,8 +2314,10 @@ return. Left for others: the indexer in the app's sources (`routes/sources.ts` s
 `skin_price`, the player's `skins(player, theme)` and `active_skins(player)`, with the balance from `account` (`useThemeSkins`,
 `data/skins.ts`, keys `["chain", "skins", ...]` beside the ledger's). Forest is theme 1, priced by the fresh deployment for all
 19 plans; theme 0 (the default) is free and never priced; Snow, Desert and Volcano stay "coming soon" and are not read. Buy is one
-`buy_skin` (`PavedWriter.buySkin`); its receipt's `SkinBought` sets the balance and the owned bit in the cache, then the owned
-word and the account are read again. The switches are a batch on the page (`toggleSkin`: a switch back to the saved value leaves
+`buy_skin` (`PavedWriter.buySkin`) at the price the card showed: the writer reads `skin_price` again inside its serialised send
+and refuses another (`SkinPriceChangedError`, "not for sale any more" at 0), sending nothing, as a pack's changed price is
+refused (VALUE-FIX); the theme's prices are then read again. Its receipt's `SkinBought` sets the balance and the owned bit in
+the cache, then the owned word and the account are read again. The switches are a batch on the page (`toggleSkin`: a switch back to the saved value leaves
 it); Save sends only the plans that changed in one `set_skins` (`PavedWriter.setSkins`, about 0.12M gas per plan), whose
 `SkinsActivated` word replaces the active set in the cache before the reconciling read. At most one theme per plan holds by the
 active set's shape. A theme withdrawn from sale keeps the skins the player owns, switchable. The states: a guest's Connect, the
