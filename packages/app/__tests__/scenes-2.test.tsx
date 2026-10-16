@@ -83,8 +83,7 @@ describe("Leaderboard", () => {
     await userEvent.click(within(list).getAllByRole("button")[0]);
     expect(onSelectPlayer).toHaveBeenCalledWith("0x0123aa");
     expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Ranks" })).toHaveAttribute("aria-current", "page");
-    // A full scene with many rows and three clicks, on a slow CI runner: 5.1 to 5.4 s there, over vitest's 5 s default.
-  }, 20_000);
+  });
 
   it("ranks the rows in score order", () => {
     for (const state of ["today", "closed", "offTop"] as const) {

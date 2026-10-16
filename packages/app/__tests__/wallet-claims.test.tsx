@@ -11,6 +11,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import type { WalletConnector } from "../src/wallet/wallet";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 // P9's claims through the wallet (P6): the signer `WalletProvider` builds for the connected account carries the Cobbles'
 // claims (`GameSigner`), so /quests offers Claim to a connected wallet instead of "Connect to claim".
@@ -38,6 +39,8 @@ function setup() {
   return { sources: fakes.sources, claimer, load: async () => connector };
 }
 
+preloadPages("home");
+
 beforeEach(() => {
   queryClient.clear();
   useCompletionStore.setState({ announced: {}, last: {} });
@@ -49,7 +52,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("the Cobbles' claims through the wallet", { timeout: 15_000 }, () => {
+describe("the Cobbles' claims through the wallet", () => {
   it("a connected wallet enables Claim on /quests, and the claim goes through its signer", async () => {
     const s = setup();
     render(<App router={createTestRouter("/")} sources={s.sources} connector={s.load} />);

@@ -12,6 +12,7 @@ import { createTestRouter } from "../src/routes/router";
 import { hasWelcomed, markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
 
 // A player id is an address (P8): the page of anything else is not found.
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:(\w+)/g, "1");
@@ -22,6 +23,9 @@ function open(path: string, wallet = fakeWallet()) {
   render(<App router={router} sources={fakeSources().sources} connector={wallet.load} />);
   return router;
 }
+
+// The Back button is the board's own: the real board is kept, loaded once before the first test.
+preloadPages("board", "home", "leaderboard", "quests", "play", "welcome");
 
 beforeEach(() => {
   // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory

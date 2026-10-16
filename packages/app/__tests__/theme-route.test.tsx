@@ -12,6 +12,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { FOREST_PRICES, FakeSkinWriter } from "./skin-fakes";
+import { preloadPages } from "./route-helpers";
 
 // `/settings/theme` (P11b) on `@paved/chain`'s fakes: Forest's prices, the player's owned and active skins and the balance
 // on `FakeGameViews`, the writes on `FakeSkinWriter`, through the app's own query client.
@@ -45,6 +46,8 @@ const toggle = async (plan: number) => userEvent.click(within(await cell(plan)).
 const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy ${name(plan)} for ${FOREST_PRICES[plan - 1]} Cobbles` });
 const activeCount = () => screen.getByText((_, el) => el?.tagName === "SPAN" && /^\d+ of 19 active$/.test(el.textContent ?? "") && el.children.length > 0);
 
+preloadPages("theme", "welcome");
+
 beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
@@ -56,7 +59,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/settings/theme (P11b)", { timeout: 15_000 }, () => {
+describe("/settings/theme (P11b)", () => {
   it("shows each Forest skin's price, owned and active state, the balance and N of 19 active", async () => {
     open(setup());
     expect(await screen.findByRole("heading", { level: 1, name: "Theme" }, { timeout: 5000 })).toBeInTheDocument();

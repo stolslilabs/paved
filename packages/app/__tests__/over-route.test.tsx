@@ -26,6 +26,7 @@ import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { holdGame, playedGame } from "./over-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
 
 // `/game/:gameId/over` (P7a) on `@paved/chain`'s fakes: `FakeGameViews` for the game and its tiles, `FakeEconomy` for the
 // terms and the day, the fixture indexer for the record, and a settlement that records what it is asked to send.
@@ -86,6 +87,11 @@ const over = (s: ReturnType<typeof setup>, ref = "") => open(`/game/${GAME_ID}/o
 const reward = () => screen.findByRole("region", { name: "Reward" }, { timeout: 5000 });
 const settleButton = () => screen.queryByRole("button", { name: /Settle and claim/ });
 
+// The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
+// a stand-in keeps the renderer and three out of its first test.
+vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
+preloadPages("over", "home", "purchase");
+
 beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
@@ -98,7 +104,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("/game/:gameId/over (P7a)", { timeout: 20_000 }, () => {
+describe("/game/:gameId/over (P7a)", () => {
   it("shows the final score and the counters from game(id) and every closing of the game from its tiles", async () => {
     const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
     over(s);

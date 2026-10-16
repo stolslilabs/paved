@@ -11,6 +11,7 @@ import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 import { FakeFreeSpawner, freeWallet } from "./free-fakes";
 
 // "Play free" on / and /play, and the earlier wallet session on /quests and /achievements (PLAYFREE), on the fakes.
@@ -36,6 +37,11 @@ function open(path: string, options: { credits?: number; guest?: boolean; paused
 
 const freeCard = (name: string) => screen.queryByRole("button", { name: new RegExp(name) });
 
+// The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
+// a stand-in keeps the renderer and three out of its first test.
+vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
+preloadPages("home", "play", "quests", "achievements");
+
 beforeEach(() => {
   localStorage.clear();
   queryClient.clear();
@@ -50,7 +56,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("Play free on /", { timeout: 15_000 }, () => {
+describe("Play free on /", () => {
   it("no credit: the Cobbles balance shows, no Play free entry", async () => {
     open("/", { credits: 0 });
     expect(await screen.findByRole("img", { name: "120 Cobbles" }, { timeout: 5000 })).toBeInTheDocument();
@@ -125,7 +131,7 @@ describe("Play free on /", { timeout: 15_000 }, () => {
   });
 });
 
-describe("two quick taps", { timeout: 15_000 }, () => {
+describe("two quick taps", () => {
   it("send one transaction and show no error, though the writer would refuse the second", async () => {
     const error = vi.spyOn(toast, "error");
     const { router, spawner } = open("/", { credits: 2 });
@@ -139,7 +145,7 @@ describe("two quick taps", { timeout: 15_000 }, () => {
   });
 });
 
-describe("Play free on /play", { timeout: 15_000 }, () => {
+describe("Play free on /play", () => {
   it("no credit: no entry", async () => {
     open("/play", { credits: 0 });
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 });
@@ -171,7 +177,7 @@ describe("Play free on /play", { timeout: 15_000 }, () => {
   });
 });
 
-describe("the earlier wallet session on /quests and /achievements", { timeout: 15_000 }, () => {
+describe("the earlier wallet session on /quests and /achievements", () => {
   /** The fixture's Ada has done quest 1 today; her ledger holds it, and the wallet signs with a claimer. */
   function openClaims(path: string, options: { guest?: boolean } = {}) {
     const f = fakeSources();
