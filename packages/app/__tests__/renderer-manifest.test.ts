@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -14,6 +15,7 @@ const KEYS = Object.values(PlanType)
 const APP = resolve(__dirname, "..");
 const MODELS = join(APP, "public/renderer-assets/models");
 const FOREST = join(MODELS, "forest");
+const TILES = join(APP, "public/renderer-assets/tiles");
 /** The base models' files (the theme folders aside). */
 const baseFiles = () => readdirSync(MODELS).filter((n) => n.endsWith(".glb"));
 
@@ -60,6 +62,70 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
   }, 120_000);
 });
 
+describe("the app's resized, content-hashed tile images (scripts/compress-tiles.ts)", () => {
+  it("lists a 256 and a 512 px image per plan, each present with its hash in its name, and nothing else", () => {
+    const { tiles } = rendererManifest();
+    expect(Object.keys(tiles).sort()).toEqual(["256", "512"]);
+    const listed: string[] = [];
+    for (const [size, plans] of Object.entries(tiles)) {
+      expect(Object.keys(plans).sort()).toEqual([...KEYS].sort());
+      for (const key of KEYS) {
+        const path = plans[key]!;
+        expect(path).toMatch(new RegExp(`^tiles/${key}\\.${size}\\.[0-9a-f]{10}\\.png$`));
+        const png = readFileSync(join(APP, "public/renderer-assets", path));
+        // The hash in the name is the file's, and the image is `size` x `size`.
+        expect(createHash("sha256").update(png).digest("hex").slice(0, 10)).toBe(path.split(".")[2]);
+        expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([Number(size), Number(size)]);
+        listed.push(path.slice("tiles/".length));
+      }
+    }
+    expect(readdirSync(TILES).sort()).toEqual(listed.sort());
+  });
+
+  it("are exactly what the script writes from app-web's originals", () => {
+    const out = execFileSync(process.execPath, [join(APP, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" });
+    expect(out).toContain("19 plans:");
+  }, 120_000);
+
+  it("fail the check when a copy is stale", () => {
+    const [name] = readdirSync(TILES);
+    const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
+    // The check reads the script's own folders: a copy of the script and its sources beside a stale output.
+    const app = join(dir, "app");
+    const web = join(dir, "app-web/public/assets/tiles");
+    mkdirSync(join(app, "scripts"), { recursive: true });
+    mkdirSync(join(app, "public/renderer-assets/tiles"), { recursive: true });
+    mkdirSync(web, { recursive: true });
+    copyFileSync(join(APP, "scripts/compress-tiles.ts"), join(app, "scripts/compress-tiles.ts"));
+    const source = join(APP, "../app-web/public/assets/tiles", `${name!.slice(0, 9)}.png`);
+    copyFileSync(source, join(web, `${name!.slice(0, 9)}.png`));
+    // Nothing written yet: stale.
+    expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
+    execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts")], { stdio: "pipe" });
+    expect(execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("1 plans:");
+    // A copy edited under its name, and one extra file: both stale.
+    const written = readdirSync(join(app, "public/renderer-assets/tiles"));
+    writeFileSync(join(app, "public/renderer-assets/tiles", written[0]!), "edited");
+    expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
+  }, 120_000);
+
+  it("fails the manifest when a name's hash is not its file's, or a plan has two images of a size", () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
+    const models = join(dir, "models");
+    const tiles = join(dir, "tiles");
+    mkdirSync(models);
+    mkdirSync(tiles);
+    writeFileSync(join(tiles, "ccccccccc.256.0123456789.png"), "edited");
+    expect(() => rendererManifest(models, tiles)).toThrow(/hashes to/);
+    const real = readdirSync(TILES).filter((n) => n.includes(".256."));
+    rmSync(join(tiles, "ccccccccc.256.0123456789.png"));
+    copyFileSync(join(TILES, real[0]!), join(tiles, real[0]!));
+    // Another plan's image under this plan's key: its hash is right, the plan has two 256 px images.
+    copyFileSync(join(TILES, real[1]!), join(tiles, `${real[0]!.slice(0, 9)}${real[1]!.slice(9)}`));
+    expect(() => rendererManifest(models, tiles)).toThrow(/two 256 px images/);
+  });
+});
+
 describe("rendererManifest", () => {
   const dirWith = (files: Record<string, Buffer | string>) => {
     const dir = mkdtempSync(join(tmpdir(), "renderer-manifest-"));
@@ -73,7 +139,7 @@ describe("rendererManifest", () => {
     copyFileSync(join(MODELS, one), join(dir, one));
     writeFileSync(join(dir, "ccccccccc.glb"), "plain");
     writeFileSync(join(dir, "notes.txt"), "x");
-    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, themes: {} });
+    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {} });
   });
 
   it("fails when a name's hash is not its file's, or a plan has two files", () => {

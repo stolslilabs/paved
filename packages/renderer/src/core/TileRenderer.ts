@@ -416,7 +416,7 @@ export class TileRenderer {
     let type = this.placeholderTypes.get(key);
     if (type) return type;
     // Peeked, not asked for: a missing image is the loader's to fetch again, and must not count as the plan view asking.
-    const image = this.assets.peekTexture(`tile-${key}`);
+    const image = this.assets.peekTexture(`quad-${key}`);
     if (!image) return null;
     if (!this.placeholderGeometry) {
       // A flat square, its image's top edge to the north as on the plan view's tile (`createStrategyTile`)

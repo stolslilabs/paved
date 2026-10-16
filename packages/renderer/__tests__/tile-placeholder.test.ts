@@ -174,7 +174,7 @@ describe("a tile whose model is on its way draws its plan's image on a flat quad
     // Only the models the new tiles draw, once each, already asked for by the rest after the first frame.
     expect(requested()).toHaveLength(models);
     // The quad's picture is the loaded image itself (its copy shares the source: no second decode or fetch).
-    const texture = (s.assets as any).textures.get(`tile-${keyOf(5)}`) as THREE.Texture;
+    const texture = (s.assets as any).textures.get(`quad-${keyOf(5)}`) as THREE.Texture;
     expect(quadOf(placed(s)[1]!).material.map!.source).toBe(texture.source);
     expect(at).toBeTruthy();
     s.dispose();
