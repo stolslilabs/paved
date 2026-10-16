@@ -177,10 +177,28 @@ export class VaultAmountChangedError extends Error {
   }
 }
 
+/**
+ * The exit fee at send is not the one the player confirmed (the owner's `set_exit_fee`, at most 10 %, P-56): nothing was
+ * sent. The rate only rises between a confirm and a send; the fee is the one figure of an exit that can turn against the
+ * holder, so an exit sends only at the fee the player saw.
+ */
+export class VaultExitFeeChangedError extends Error {
+  constructor(readonly confirmed: number, readonly current: number) {
+    super("The exit fee changed: confirm again");
+    this.name = "VaultExitFeeChangedError";
+  }
+}
+
+// The reverts a client's Vault write can meet: the Vault's own (`vault.cairo`, `errors`), OpenZeppelin's ERC4626
+// (`openzeppelin_token` 4.0.1, `erc4626.cairo`, `Errors`) and PAVED's ERC20 (`ERC20Component`, `Errors`). The others are
+// out of the client's reach: the constructor's (`'Vault: zero address'`, `'ERC4626: asset address set to 0'`), the
+// owner's (`'Vault: fee too high'`), and `'ERC4626: exceeds max mint'` (the client sends no `mint`).
 const ZERO_SHARES = "Vault: zero shares";
+const OVER_MAX_DEPOSIT = "ERC4626: exceeds max deposit";
 const OVER_MAX_WITHDRAW = "ERC4626: exceeds max withdraw";
 const OVER_MAX_REDEEM = "ERC4626: exceeds max redeem";
 const NO_ALLOWANCE = "ERC20: insufficient allowance";
+const NO_BALANCE = "ERC20: insufficient balance";
 
 /**
  * A deposit too small to mint one vPAVED at the current rate (`preview_deposit` gives 0; the contract reverts with
@@ -211,6 +229,45 @@ export class VaultOverMaxWithdrawError extends WriteError {
 }
 
 /**
+ * A redeem of more vPAVED than `max_redeem` (the vPAVED held: the Vault sets no redeem limit). A kind of
+ * `VaultOverMaxWithdrawError`: both are an exit above what the holder can take now.
+ */
+export class VaultOverMaxRedeemError extends VaultOverMaxWithdrawError {
+  constructor(transactionHash?: string) {
+    super(null, transactionHash);
+    this.name = "VaultOverMaxRedeemError";
+  }
+}
+
+/**
+ * A deposit above `max_deposit`. The Vault sets no deposit limit (OpenZeppelin's default, 2^256 - 1), so only a later
+ * class of the Vault could raise it; typed so that one reads plainly.
+ */
+export class VaultOverMaxDepositError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("The Vault takes no deposit this large now. Your PAVED was not moved.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultOverMaxDepositError";
+  }
+}
+
+/**
+ * A deposit of more PAVED than the wallet holds: refused before sending from a fresh `balance_of`, and from PAVED's
+ * `'ERC20: insufficient balance'` after a race (the Vault's `transfer_from`). `balance` is null when only the revert says so.
+ */
+export class VaultBalanceError extends WriteError {
+  constructor(readonly balance: bigint | null, transactionHash?: string) {
+    super(
+      balance === null
+        ? "Not enough PAVED in your wallet. Your PAVED was not moved."
+        : `Not enough PAVED: your wallet holds ${formatUnits(balance, PAVED_DECIMALS, 4)} ${PAVED_LABEL}. Nothing was sent.`,
+      transactionHash,
+      transactionHash !== undefined,
+    );
+    this.name = "VaultBalanceError";
+  }
+}
+
+/**
  * The Vault could not pull the PAVED of a deposit: the allowance was missing or too small (`'ERC20: insufficient
  * allowance'`). The deposit approves exactly its amount in the same multicall, so only a changed approval in between
  * meets it. The revert moved nothing.
@@ -224,10 +281,13 @@ export class VaultAllowanceError extends WriteError {
 
 /** A known revert of the Vault as its clear state; any other error unchanged. */
 function vaultRevert(error: unknown): unknown {
-  if (!(error instanceof WriteError) || error instanceof VaultOverMaxWithdrawError || error instanceof VaultZeroSharesError) return error;
+  if (!(error instanceof WriteError) || error instanceof VaultOverMaxWithdrawError || error instanceof VaultZeroSharesError || error instanceof VaultBalanceError) return error;
   if (revertNames(error.message, ZERO_SHARES)) return new VaultZeroSharesError(error.transactionHash);
-  if (revertNames(error.message, OVER_MAX_WITHDRAW) || revertNames(error.message, OVER_MAX_REDEEM)) return new VaultOverMaxWithdrawError(null, error.transactionHash);
+  if (revertNames(error.message, OVER_MAX_DEPOSIT)) return new VaultOverMaxDepositError(error.transactionHash);
+  if (revertNames(error.message, OVER_MAX_WITHDRAW)) return new VaultOverMaxWithdrawError(null, error.transactionHash);
+  if (revertNames(error.message, OVER_MAX_REDEEM)) return new VaultOverMaxRedeemError(error.transactionHash);
   if (revertNames(error.message, NO_ALLOWANCE)) return new VaultAllowanceError(error.transactionHash);
+  if (revertNames(error.message, NO_BALANCE)) return new VaultBalanceError(null, error.transactionHash);
   return error;
 }
 
@@ -469,7 +529,7 @@ export class EconomyWriter {
         this.read(() => this.options.views.pavedBalance(this.address), "PAVED balance"),
         this.read(() => this.options.views.previewDeposit(amount), "Vault rate"),
       ]);
-      if (balance < amount) throw new WriteError("Not enough PAVED");
+      if (balance < amount) throw new VaultBalanceError(balance);
       if (shares === 0n) throw new VaultZeroSharesError();
       const { Vault } = this.options.deployment.addresses;
       return { calls: [this.call("PavedToken", "approve", [Vault, amount]), this.call("Vault", "deposit", [amount, this.address])], events: this.vaultEvents() };
@@ -478,12 +538,14 @@ export class EconomyWriter {
 
   /**
    * Withdraws exactly `amount` PAVED: `withdraw(amount, self, self)`, which burns the vPAVED of `amount` plus the exit fee
-   * (the fee stays in the Vault). Above `max_withdraw`, read just before, sends nothing (`VaultOverMaxWithdrawError`).
+   * (the fee stays in the Vault). Above `max_withdraw`, read just before, sends nothing (`VaultOverMaxWithdrawError`); so
+   * does an exit fee other than `confirmedExitFeeBps`, when given (`VaultExitFeeChangedError`).
    */
-  withdraw(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
+  withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult> {
     return this.sendVault(async () => {
       this.checkAmount(amount, options.confirmedAmount);
       const position = await this.read(() => this.options.views.vault(this.address), "Vault position");
+      this.checkFee(position.exitFeeBps, options.confirmedExitFeeBps);
       if (amount > position.maxWithdraw) throw new VaultOverMaxWithdrawError(position.maxWithdraw);
       return { calls: [this.call("Vault", "withdraw", [amount, this.address, this.address])], events: this.vaultEvents() };
     });
@@ -491,13 +553,15 @@ export class EconomyWriter {
 
   /**
    * Withdraws everything: `redeem(shares, self, self)` of every vPAVED held, for their PAVED less the exit fee. The vPAVED
-   * held at send must be the `confirmedShares` the player saw: another amount sends nothing (`VaultAmountChangedError`).
+   * held at send must be the `confirmedShares` the player saw: another amount sends nothing (`VaultAmountChangedError`),
+   * and so does an exit fee other than `confirmedExitFeeBps`, when given (`VaultExitFeeChangedError`).
    */
-  withdrawAll(options: { confirmedShares: bigint }): Promise<WriteResult> {
+  withdrawAll(options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult> {
     return this.sendVault(async () => {
       const position = await this.read(() => this.options.views.vault(this.address), "Vault position");
       if (position.shares === 0n) throw new WriteError("No vPAVED to withdraw");
       if (position.shares !== options.confirmedShares) throw new VaultAmountChangedError(options.confirmedShares, position.shares);
+      this.checkFee(position.exitFeeBps, options.confirmedExitFeeBps);
       return { calls: [this.call("Vault", "redeem", [position.shares, this.address, this.address])], events: this.vaultEvents() };
     });
   }
@@ -513,6 +577,10 @@ export class EconomyWriter {
   private checkAmount(amount: bigint, confirmed: bigint): void {
     if (amount <= 0n) throw new WriteError("An amount must be above 0");
     if (amount !== confirmed) throw new VaultAmountChangedError(confirmed, amount);
+  }
+
+  private checkFee(current: number, confirmed: number | undefined): void {
+    if (confirmed !== undefined && current !== confirmed) throw new VaultExitFeeChangedError(confirmed, current);
   }
 
   private async spawnPaused(): Promise<boolean> {

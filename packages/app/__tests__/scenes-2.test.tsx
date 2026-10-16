@@ -14,7 +14,7 @@ import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
 import { PlayerScene } from "../src/components/scenes/player-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
-import { ReferralScene, ago } from "../src/components/scenes/referral-scene";
+import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
@@ -62,11 +62,6 @@ describe("SC2 helpers", () => {
     expect(formatBps(7_368)).toBe("73.68%");
   });
 
-  it("says how long ago in its largest unit", () => {
-    expect(ago(45 * 60)).toBe("45 min ago");
-    expect(ago(7 * 3600 + 59)).toBe("7 h ago");
-    expect(ago(2 * DAY + 3600)).toBe("2 d ago");
-  });
 });
 
 describe("Leaderboard", () => {
@@ -216,12 +211,63 @@ describe("Vault", () => {
   });
 
   it.each([
-    ["depositing", "deposit"],
-    ["withdrawing", "withdraw"],
-  ] as const)("is busy while %s", (state) => {
+    ["depositing", /Approve and deposit in your wallet: one transaction for both/],
+    ["withdrawing", /Confirm the withdraw in your wallet/],
+  ] as const)("is busy while %s", (state, text) => {
     render(wrap(<VaultScene {...VAULT[state]} />));
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText(text)).toHaveAttribute("role", "status");
     expect(screen.getByRole("textbox")).toBeDisabled();
+  });
+
+  it("shows the exit fee before a withdraw is sent: on top of the amount, and inside Withdraw all", () => {
+    render(wrap(<VaultScene {...VAULT.position} />));
+    const before = screen.getByLabelText("Before you withdraw");
+    // 5 % of 500 $TILE, on top.
+    expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("25.00");
+    expect(before).toHaveTextContent(/You receive\s*500.00/);
+    // Withdraw all pays max_withdraw, the value less it taken.
+    expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("1,291.12");
+    expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("64.55");
+  });
+
+  it("shows the share of the Vault, and the delegate read only", () => {
+    const { unmount } = render(wrap(<VaultScene {...VAULT.position} />));
+    expect(screen.getByText("Your share of the Vault").parentElement).toHaveTextContent("0.25%");
+    expect(screen.queryByText("Votes")).not.toBeInTheDocument();
+    unmount();
+    render(wrap(<VaultScene {...VAULT.delegated} />));
+    expect(screen.getByText("Votes").parentElement).toHaveTextContent("0x04d1");
+    expect(screen.queryByRole("button", { name: /Delegate/ })).not.toBeInTheDocument();
+  });
+
+  it("a guest connects; a load shows its shape; a failed read has Retry", async () => {
+    const onConnect = vi.fn();
+    const onRetry = vi.fn();
+    const { unmount } = render(wrap(<VaultScene {...VAULT.guest} onConnect={onConnect} />));
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onConnect).toHaveBeenCalledOnce();
+    unmount();
+    const loading = render(wrap(<VaultScene {...VAULT.loading} />));
+    expect(screen.getByRole("status", { name: "Reading the Vault" })).toBeInTheDocument();
+    loading.unmount();
+    render(wrap(<VaultScene {...VAULT.error} onRetry={onRetry} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("The Vault cannot be read");
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("says a write was refused, with the writer's message, and what a done write moved", () => {
+    const { unmount } = render(wrap(<VaultScene {...VAULT.refused} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("Deposit refused");
+    expect(screen.getByRole("alert")).toHaveTextContent("The exit fee changed: confirm again");
+    expect(screen.getByRole("button", { name: "Deposit" })).toBeEnabled();
+    unmount();
+    const deposited = render(wrap(<VaultScene {...VAULT.deposited} />));
+    expect(screen.getByText("Deposited").parentElement).toHaveTextContent("100.00 $TILE in the Vault for 92.23 vPAVED.");
+    deposited.unmount();
+    render(wrap(<VaultScene {...VAULT.withdrawn} />));
+    expect(screen.getByText("Withdrawn").parentElement).toHaveTextContent("500.00 $TILE sent to your wallet");
   });
 
   it("refuses a withdraw over max_withdraw before any send", () => {
@@ -487,14 +533,35 @@ describe("Referral", () => {
     expect(REFERRAL_LINK).toBe(`https://paved.example/?ref=0x${BigInt(PLAYER_ID).toString(16)}`);
     await userEvent.click(screen.getByRole("button", { name: "Copy" }));
     expect(onCopy).toHaveBeenCalledWith(REFERRAL_LINK);
-    expect(screen.getByRole("region", { name: "Your link" })).toHaveTextContent("You get 5% of the price");
+    expect(screen.getByRole("region", { name: "Your link" })).toHaveTextContent("You get 5% of the price of every game and pack");
     expect(screen.getByRole("img", { name: /Referral 5%/ })).toBeInTheDocument();
-    // 5% of 6 + 2 + 20 + 4 + 10 USDC.
+    // 5% of 6 + 2 + 20 USDC of games, and of a 9 USDC pack.
     const earned = screen.getByRole("region", { name: "Earned" });
-    expect(earned).toHaveTextContent("2.10USDC");
-    expect(earned).toHaveTextContent("5 purchases");
-    expect(within(earned).getAllByRole("listitem")).toHaveLength(5);
-    expect(within(earned).getByText("2 h ago")).toBeInTheDocument();
+    expect(earned).toHaveTextContent("1.85USDC");
+    expect(earned).toHaveTextContent("4 purchases");
+    const [games, packs] = within(earned).getAllByRole("listitem");
+    expect(games).toHaveTextContent(/Challenge games\s*1.40USDC\s*3 games/);
+    expect(packs).toHaveTextContent(/Cobbles packs\s*0.45USDC\s*1 pack/);
+  });
+
+  it("shares the link where the browser can, and only then", async () => {
+    const onShare = vi.fn();
+    const { unmount } = render(wrap(<ReferralScene {...REFERRAL.earned} onShare={onShare} />));
+    await userEvent.click(screen.getByRole("button", { name: "Share" }));
+    expect(onShare).toHaveBeenCalledWith(REFERRAL_LINK);
+    unmount();
+    render(wrap(<ReferralScene {...REFERRAL.earned} />));
+    expect(screen.queryByRole("button", { name: "Share" })).not.toBeInTheDocument();
+  });
+
+  it("a failed read of the earnings keeps the link, with Retry", async () => {
+    const onRetry = vi.fn();
+    render(wrap(<ReferralScene {...REFERRAL.error} onRetry={onRetry} />));
+    expect(screen.getByLabelText("Your referral link")).toHaveTextContent(REFERRAL_LINK);
+    const earned = screen.getByRole("region", { name: "Earned" });
+    expect(within(earned).getByRole("alert")).toHaveTextContent("The earnings cannot be read");
+    await userEvent.click(within(earned).getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("says the link was copied", () => {

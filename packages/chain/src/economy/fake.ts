@@ -53,6 +53,8 @@ export class FakeEconomy implements EconomyViews {
   vaultSupply = 1_000n * 10n ** 18n;
   /** The deployment's default (`DEFAULT_EXIT_FEE_BPS`, 5 %, P-56). */
   exitFeeBps = 500;
+  /** `Vault.delegates`, by account: none delegated by default. */
+  readonly delegates = new Map<string, string>();
   readonly usdc = new Map<string, bigint>();
   readonly paved = new Map<string, bigint>();
   fail: string | null = null;
@@ -117,6 +119,16 @@ export class FakeEconomy implements EconomyViews {
     };
   }
 
+  async maxRedeem(account: string): Promise<bigint> {
+    this.check(`max_redeem ${account}`);
+    return this.shares.get(BigInt(account).toString(16)) ?? 0n;
+  }
+
+  async delegateOf(account: string): Promise<string | null> {
+    this.check(`delegates ${account}`);
+    return this.delegates.get(BigInt(account).toString(16)) ?? null;
+  }
+
   // OpenZeppelin's ERC4626 at offset 0 with the Vault's exit fee (`contracts/src/systems/vault.cairo`).
   async previewDeposit(assets: bigint): Promise<bigint> {
     this.check(`preview_deposit ${assets}`);
@@ -161,6 +173,11 @@ export class FakeEconomy implements EconomyViews {
     this.vaultAssets += this.toAssets(delta);
     this.vaultSupply += delta;
     this.shares.set(key, shares);
+  }
+
+  /** `account` delegated its votes to `delegatee` (`delegate`, which the client never sends). */
+  setDelegate(account: string, delegatee: string): void {
+    this.delegates.set(BigInt(account).toString(16), delegatee);
   }
 
   setBalance(token: "usdc" | "paved", account: string, amount: bigint): void {

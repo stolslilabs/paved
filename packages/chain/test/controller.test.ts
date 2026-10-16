@@ -243,6 +243,24 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     }
   });
 
+  test("no policy names PAVED or the Vault (P10, P-56): a deposit's approve, the deposit and both exits prompt", async () => {
+    const sent = await sentByEveryWrite();
+    // The deposit is the PAVED approve to the Vault and `deposit`; the exits are `withdraw` and `redeem`, which take a free
+    // `receiver`: in a session they would let its key move a holder's PAVED anywhere. Each is a wallet prompt.
+    expect(sent["vault deposit"].map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.pavedToken), "approve"], [BigInt(ECON.vault), "deposit"]]);
+    expect(sent["vault withdraw"].map((c) => c.entrypoint)).toEqual(["withdraw"]);
+    expect(sent["vault withdraw all"].map((c) => c.entrypoint)).toEqual(["redeem"]);
+    const every = [...onEveryNetwork(), ...controllerPolicies(deployment, { approve: USDC_APPROVE, economy: ECON.economy })];
+    for (const p of every) {
+      expect([ECON.pavedToken, ECON.vault].some((a) => BigInt(a) === BigInt(p.target)), `${p.target}:${p.method}`).toBe(false);
+      if (p.method === "approve") expect(BigInt(p.spender!), "the only approve is the entry's, to Challenge").toBe(BigInt(deployment.addresses.Challenge));
+    }
+    expect(every.filter((p) => p.method === "approve").map((p) => BigInt(p.target))).toEqual(every.filter((p) => p.method === "approve").map(() => BigInt(ECON.usdc)));
+    for (const method of ["deposit", "withdraw", "redeem", "mint", "delegate"]) {
+      expect(every.some((p) => p.method === method && BigInt(p.target) !== BigInt("0x14")), method).toBe(false);
+    }
+  });
+
   test("settle is a session policy when the Economy is given (P7a), with no approve: the only Economy entry point", async () => {
     const sent = await sentByEveryWrite();
     const withEconomy = controllerPolicies(deployment, { approve: USDC_APPROVE, economy: ECON.economy });
