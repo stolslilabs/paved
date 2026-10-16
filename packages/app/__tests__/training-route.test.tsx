@@ -6,6 +6,7 @@ import { App } from "../src/App";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
@@ -24,7 +25,6 @@ function open(path: string, store: KeyValueStore | null) {
   return { router, ...view };
 }
 
-// The board's page module brings the renderer (three.js): its first import can take longer than findBy's 1 s in jsdom.
 // A group when slots are lit, an image when none is (the hand fits nowhere at this orientation): found by its label.
 const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
@@ -38,6 +38,8 @@ async function chooseSlot() {
   await userEvent.click(screen.getAllByRole("button", { name: /^Slot / })[0]!);
 }
 
+preloadPages("board", "over");
+
 beforeEach(() => {
   localStorage.clear();
   resetWelcomedForTests();
@@ -49,7 +51,7 @@ afterEach(() => {
 });
 
 // Each test drives the real game through userEvent on a lazy route: more than vitest's 5 s default under a full run.
-describe("/training (P3)", { timeout: 15_000 }, () => {
+describe("/training (P3)", () => {
   it("renders the board scene on the saved game, and resumes it after a reload", async () => {
     const store = memoryStore({ [TRAINING_KEY]: save([firstMove([])]) });
     const first = open("/training", store);
@@ -112,7 +114,9 @@ describe("/training (P3)", { timeout: 15_000 }, () => {
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
     expect(saved.moves.some((m) => m.k === "b")).toBe(true);
-  }, 30_000);
+  // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under
+  // heavy load.
+  }, 60_000);
 
   it("counts a discard as spent in the tiles left", async () => {
     open("/training", memoryStore());
@@ -235,7 +239,7 @@ describe("/training (P3)", { timeout: 15_000 }, () => {
   });
 });
 
-describe("/training/over (P3)", { timeout: 15_000 }, () => {
+describe("/training/over (P3)", () => {
   it("shows the finished game's counters and closings; Play again starts a new game", async () => {
     // Every first legal move until the deck runs out: a game that ends by its last tile.
     const moves: SavedMove[] = [];

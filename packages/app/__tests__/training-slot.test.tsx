@@ -8,6 +8,7 @@ import { toChainSlot, toGridSlot, toRenderTiles } from "../src/components/contai
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 // The renderer's canvas, as the page drives it: the test reads what it is given (the lit slots, the ghost, the tiles)
 // and clicks a cell the way the renderer reports one (`onTileClick(gridX, gridY)`). jsdom has no WebGL.
@@ -25,6 +26,8 @@ vi.mock("../src/components/containers/tile-view", async (original) => ({
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
+
+preloadPages("board");
 
 beforeEach(() => {
   canvas.props = null;

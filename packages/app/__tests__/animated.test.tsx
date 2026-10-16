@@ -78,8 +78,8 @@ describe("NumberTicker (Magic UI)", () => {
     const ticker = document.querySelector('[data-slot="number-ticker"]') as HTMLElement;
     expect(ticker).toHaveTextContent("0");
     await waitFor(() => expect(ticker).toHaveTextContent("1,240"), { timeout: 5000 });
-    // The ticker animates in real time (4.6 s locally), near vitest's 5 s default; slower on a CI runner.
-  }, 20_000);
+    // The ticker animates in real time (4.6 s in 5 runs, always): it needs the suite's 15 s timeout, not the 5 s default.
+  });
 
   it("writes the value at once under reduced motion, and follows a change", async () => {
     function Score() {

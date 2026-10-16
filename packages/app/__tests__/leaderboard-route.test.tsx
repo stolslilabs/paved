@@ -9,6 +9,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
 
 // `/leaderboard/:day?` and `/player/:id` (P8) on `@paved/chain`'s fixture indexer, through the app's own query client.
 
@@ -34,6 +35,8 @@ const ranked = (text: string, timeout = 3000) => screen.findByText((_, el) => el
 
 const ranking = async () => within(await screen.findByRole("list", { name: "Ranking" }, { timeout: 5000 }));
 
+preloadPages("leaderboard", "player");
+
 beforeEach(() => {
   // A memory router leaves the window's history entry as it was: a redirect of an earlier test would answer Back's check.
   window.history.replaceState(null, "");
@@ -47,7 +50,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
+describe("/leaderboard (P8)", () => {
   it("today, by the chain's day: the first page of 20, the connected player's row outlined", async () => {
     const { fixture } = open("/leaderboard");
     const list = await ranking();
@@ -216,7 +219,7 @@ describe("/leaderboard (P8)", { timeout: 15_000 }, () => {
   });
 });
 
-describe("/player/:id (P8)", { timeout: 15_000 }, () => {
+describe("/player/:id (P8)", () => {
   it("the stats, today's rank and the games of a player; Back with nothing before goes to the leaderboard", async () => {
     const { router, fixture } = open(`/player/${FIXTURE_ADA}`);
     expect(await screen.findByText("Ada", {}, { timeout: 5000 })).toBeInTheDocument();

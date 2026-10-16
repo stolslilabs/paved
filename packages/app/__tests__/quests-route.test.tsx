@@ -12,6 +12,7 @@ import { weekOfDay } from "../src/lib/quest-window";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 // `/quests/:day?` and `/achievements` (P9) on `@paved/chain`'s fakes: the fixture indexer (its clock is `now`), the Cobbles
 // ledger of `FakeGameViews` and `FakeClaimer`'s claims, through the app's own query client and store.
@@ -67,6 +68,8 @@ function open(path: string, s: ReturnType<typeof setup>) {
 const balance = (value: number) => screen.findByRole("img", { name: `${value} Cobbles` }, { timeout: 3000 });
 const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: 3000 });
 
+preloadPages("quests", "achievements");
+
 beforeEach(() => {
   queryClient.clear();
   useCompletionStore.setState({ announced: {}, last: {} });
@@ -78,7 +81,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/quests/:day? (P9)", { timeout: 15_000 }, () => {
+describe("/quests/:day? (P9)", () => {
   it("shows the day's quests on the indexer's clock, each reward in Cobbles, and the balance", async () => {
     open("/quests", setup());
     // The page's module is loaded with the first visit: in jsdom it can take longer than findBy's 1 s.
@@ -167,7 +170,7 @@ describe("/quests/:day? (P9)", { timeout: 15_000 }, () => {
   });
 });
 
-describe("the completion toast, once per completion (P9's note)", { timeout: 15_000 }, () => {
+describe("the completion toast, once per completion (P9's note)", () => {
   it("survives a remount: a cached-then-fresh read toasts nothing twice, and a completion made away is announced on return", async () => {
     const s = setup();
     const success = vi.spyOn(toast, "success");
@@ -195,7 +198,7 @@ describe("the completion toast, once per completion (P9's note)", { timeout: 15_
   });
 });
 
-describe("/achievements (P9)", { timeout: 15_000 }, () => {
+describe("/achievements (P9)", () => {
   it("shows each achievement's Cobbles; a claim, then Claim all as one multicall", async () => {
     const s = setup({ achievements: { 2: 1, 3: 10 } });
     s.ada.account.games = 10;

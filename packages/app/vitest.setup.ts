@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { queryClient } from "./src/lib/query-client";
 
 afterEach(() => cleanup());
 
@@ -42,3 +43,11 @@ window.matchMedia ??= (query: string) =>
     removeEventListener() {},
     dispatchEvent: () => false,
   }) as MediaQueryList;
+
+// A failed read is retried once (`retry: 1`) after the cache's default 1 s, in real time: every test of a failing read waited that
+// second (1.1 to 1.4 s each, the retry included). The retry stays, without the wait; the app's own defaults are untouched.
+queryClient.setDefaultOptions({ ...queryClient.getDefaultOptions(), queries: { ...queryClient.getDefaultOptions().queries, retryDelay: 0 } });
+
+// `findBy` and `waitFor` wait 1 s by default: under heavy load a render that takes 0.1 s took more than that, and the
+// lookup failed with the element absent (purchase-route and wallet-claims). They return as soon as the element is there, so a longer ceiling costs a passing test nothing.
+configure({ asyncUtilTimeout: 5000 });

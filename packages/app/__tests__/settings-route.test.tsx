@@ -60,7 +60,7 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
   return { router, wallet, ...fakes };
 };
 
-describe("/settings", { timeout: 15_000 }, () => {
+describe("/settings", () => {
   it("shows the defaults: Auto with what it resolves to, sound on, music off, preview and highlight on, skins shown", async () => {
     open();
     expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
@@ -167,7 +167,7 @@ describe("/settings", { timeout: 15_000 }, () => {
   });
 });
 
-describe("the board reads the settings", { timeout: 15_000 }, () => {
+describe("the board reads the settings", () => {
   it("passes the quality to the renderer's settings, and a change applies to the open board without a reload", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
@@ -211,7 +211,7 @@ describe("BoardViewport and the settings", () => {
   });
 });
 
-describe("the viewer's skins opt-out", { timeout: 15_000 }, () => {
+describe("the viewer's skins opt-out", () => {
   const VIEWER = "0xdef";
   const skinned = () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });

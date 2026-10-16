@@ -8,6 +8,7 @@ import type { GameSigner } from "../src/data";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 const PLANS = Object.values(PlanType);
 const PLAYER = "0xabc";
@@ -71,6 +72,8 @@ function open(path: string, s: ReturnType<typeof sources>) {
 
 const hand = () => screen.queryByRole("region", { name: "Your tile" });
 
+preloadPages("board", "over");
+
 beforeEach(() => {
   resetWelcomedForTests();
   markWelcomed();
@@ -78,7 +81,7 @@ beforeEach(() => {
 afterEach(() => resetWelcomedForTests());
 
 // The board's page module brings the renderer (three.js): its first import can take longer than findBy's 1 s in jsdom.
-describe("/game/:gameId (P5)", { timeout: 15_000 }, () => {
+describe("/game/:gameId (P5)", () => {
   it("with no signer: the game read only, with a Connect to play notice and no hand", async () => {
     open(`/game/${GAME_ID}`, sources({ signer: false }));
     expect(await screen.findByText("Connect to play", {}, { timeout: 5000 })).toBeInTheDocument();

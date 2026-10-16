@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_TOURNAMENT } from "@paved/chain/testing";
 import { LocalSession } from "@paved/game-core";
 import { App } from "../src/App";
@@ -12,6 +12,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
 
 /** The app at `path` on the fakes; the wallet restores the mocks' player unless `guest`. */
 function open(path: string, options: { guest?: boolean; paused?: boolean; overrides?: Partial<DataSources> } = {}) {
@@ -23,6 +24,11 @@ function open(path: string, options: { guest?: boolean; paused?: boolean; overri
   render(<App router={router} sources={f.sources} connector={wallet.load} />);
   return { router, wallet, ...f };
 }
+
+// The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
+// a stand-in keeps the renderer and three out of its first test.
+vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
+preloadPages("home", "play", "purchase");
 
 beforeEach(() => {
   localStorage.clear();
@@ -36,7 +42,7 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/ (P6): home on its data", { timeout: 15_000 }, () => {
+describe("/ (P6): home on its data", () => {
   it("a connected player: their open game to resume, today's top 3 from the indexer", async () => {
     const { router, fixture } = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
@@ -83,7 +89,7 @@ describe("/ (P6): home on its data", { timeout: 15_000 }, () => {
   });
 });
 
-describe("/play (P6): the mode choice", { timeout: 15_000 }, () => {
+describe("/play (P6): the mode choice", () => {
   const challenge = () => screen.getByText("The daily ranked game: stake 1 to 10, beat the threshold, earn $TILE.");
 
   it("a guest: the Challenge connects first; Multiplayer is coming soon", async () => {
