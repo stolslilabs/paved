@@ -45,7 +45,7 @@ export interface RendererSettings {
    * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
    * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
    * `"auto"` (the default) takes the cap measured for the device (`resolveMaxPixelRatio`): 2 on a coarse pointer or a
-   * small screen, 1.5 elsewhere (DPR, then OUT-LOD, `docs/client/v2-architecture.md` 5.3).
+   * small screen, 1.75 elsewhere (DPR, OUT-LOD, then Q3-GPU, `docs/client/v2-architecture.md` 5.3 and 5.5).
    */
   maxPixelRatio: number | "auto";
   /** The preset the look starts from (`LOOK_PRESETS`): "mockup" (the default), "soft" or "off". */
@@ -112,9 +112,10 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
  * The pixel-ratio caps of `"auto"`, set by a rule from measures on an M2 Max (headless Chrome, the 72-tile board):
  * on coarse pointers and small screens, the highest cap whose CPU + GPU p95 stays under 16.6 ms on the phone-like
  * profile (360 x 780 at DPR 3, CPU 4x): 2 (DPR); elsewhere, the highest cap under 12 ms on the Mac profile (1440 x 900
- * at DPR 2) at both views with the outlines on: 1.5 once the outline segments are cut by screen size (OUT-LOD; 2 misses).
+ * at DPR 2) at both views with the outlines on, at every quality tier: 1.75 (Q3-GPU, re-measured with the lighting tiers
+ * and one composer target; 1.25 to 2 all pass, 2 in fewer rounds, so 1.75 is the highest cap measured in full).
  */
-export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1.5 } as const;
+export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1.75 } as const;
 
 /**
  * A window or screen whose shorter side is at most this many CSS px is a small screen (a phone, held either way). The
