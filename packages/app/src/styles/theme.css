@@ -179,7 +179,7 @@
   /* APP-FEEL (P-69): the app feels native, not like a page. Text, icons and images never highlight on a tap, a long press
      or a double click (`select-none`); only a copy target opts back in with `select-text`, and a field always does (iOS
      Safari makes an input unusable under `user-select: none`). No page zoom (the viewport meta, and `touch-action:
-     manipulation` against the double-tap zoom: iOS Safari ignores `user-scalable`, its pinch is stopped in `main.tsx`),
+     manipulation` against the double-tap zoom: iOS Safari ignores `user-scalable`, its pinch is stopped by `usePageGestures` in `App.tsx`),
      no long-press menu, no grey tap flash. The board's canvas owns its pinch, pan and rotate (`touch-action: none`). */
   html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { @apply select-none touch-manipulation; -webkit-touch-callout: none; }

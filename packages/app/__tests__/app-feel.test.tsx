@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Notice } from "../src/components/elements/notice";
 import { CopyField } from "../src/components/elements/copy-field";
+import { RefusalNotice } from "../src/components/scenes/purchase-scene";
 import { ShortAddress } from "../src/components/elements/short-address";
 import { stopPageGesture, usePageGestures } from "../src/lib/page-gestures";
 
@@ -59,6 +60,13 @@ describe("the copy targets opt back in with select-text", () => {
     expect(screen.getByText(/was reverted/).className).toContain("select-text");
   });
 
+  it("the transaction hash of an unknown purchase, and only the hash", () => {
+    render(<RefusalNotice refusal={{ kind: "unknown", message: "Purchase sent 2 min ago (0xabc123), outcome unknown." }} />);
+    const hash = screen.getByText("0xabc123");
+    expect(hash.className).toContain("select-text");
+    expect(hash.closest("[role=alert]")!.querySelector("span.opacity-90")!.className).not.toContain("select-text");
+  });
+
   it("an info notice stays select-none", () => {
     render(<Notice title="Heads up">Storage is off.</Notice>);
     expect(screen.getByText("Storage is off.").className).not.toContain("select-text");
@@ -71,7 +79,13 @@ describe("the copy targets opt back in with select-text", () => {
       .filter((f) => /\bselect-text\b/.test(read(resolve(dir, f))))
       .map((f) => relative(dir, resolve(dir, f)))
       .sort();
-    expect(found).toEqual(["components/elements/copy-field.tsx", "components/elements/notice.tsx", "components/elements/short-address.tsx", "wallet/notice.tsx"]);
+    expect(found).toEqual([
+      "components/elements/copy-field.tsx",
+      "components/elements/notice.tsx",
+      "components/elements/short-address.tsx",
+      "components/scenes/purchase-scene.tsx",
+      "wallet/notice.tsx",
+    ]);
   });
 });
 

@@ -115,9 +115,10 @@ async function main(): Promise<void> {
     check("board: a pinch zooms the board", !before.equals(after));
     const prevented = await page.evaluate(() => {
       let contextMenu = false;
-      const el = document.querySelector("canvas")!;
-      el.addEventListener("contextmenu", (e) => (contextMenu = e.defaultPrevented), { once: true });
-      el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      // A bubble listener on the document runs after React's root handler (the PR's `onContextMenu`): it sees what the
+      // app left of the event, not what three's OrbitControls did at the canvas.
+      document.addEventListener("contextmenu", (e) => (contextMenu = e.defaultPrevented), { once: true });
+      document.querySelector("canvas")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
       return contextMenu;
     });
     check("board: the context menu is off", prevented);
