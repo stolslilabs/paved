@@ -198,7 +198,8 @@ export interface SettleControl {
 /**
  * `Economy.settle([gameId])` for the connected account. The receipt's `Settled` sets the game's terms in the cache, then the
  * terms, the day and the player's PAVED balance are read once more (the reconciling read). After a refusal the terms are read
- * again too: the chain's answer may differ from the page's (someone else settled the game).
+ * again too: the chain's answer may differ from the page's (someone else settled the game). The settle stays pending until
+ * that read of the terms ends, so a second tap before the terms reconcile sends nothing.
  */
 export function useSettle(gameId: number, playerId: string | null): SettleControl {
   const { signer = null, settlements = null } = useDataSources();
@@ -215,10 +216,12 @@ export function useSettle(gameId: number, playerId: string | null): SettleContro
       if (settled) applySettled(client, gameId, settled);
     },
     onSettled: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.chain.terms(gameId) });
       void client.invalidateQueries({ queryKey: ["chain", "economy", "day"] });
       void client.invalidateQueries({ queryKey: ["indexer", "game"] });
       if (playerId) void client.invalidateQueries({ queryKey: queryKeys.chain.pavedBalance(playerId) });
+      // Returned, so the mutation stays pending until the terms are read again: after a receipt with no `Settled` (someone
+      // settled first) the cache still says unsettled, and a second tap would send a settle the contract skips.
+      return client.invalidateQueries({ queryKey: queryKeys.chain.terms(gameId) });
     },
   });
   return {
