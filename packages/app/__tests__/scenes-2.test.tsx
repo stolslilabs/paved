@@ -36,8 +36,8 @@ const pts = (n: number) => formatPoints(n).replace(" ", " ");
 describe("SC2 helpers", () => {
   it("dates a day id in UTC", () => {
     expect(TODAY).toBe(Math.floor(MOCK_NOW / DAY));
-    expect(formatDay(TODAY)).toBe("Wed 14 Oct");
-    expect(formatDay(TODAY - 1)).toBe("Tue 13 Oct");
+    expect(formatDay(TODAY)).toBe("Wed, Oct 14");
+    expect(formatDay(TODAY - 1)).toBe("Tue, Oct 13");
   });
 
   it("parses a typed amount, and refuses what is not one", () => {

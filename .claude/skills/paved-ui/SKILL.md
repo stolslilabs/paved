@@ -80,6 +80,10 @@ Any number that changes in place takes `numeric` (`font-family: var(--font-numer
 `theme.css`), so digits keep one width: `scoreVariants` in `elements/score.tsx` starts with it. Do not add a font
 without the owner's say; it is a package, a `@font-face` and a `THIRD_PARTY_NOTICES.txt` line.
 
+Every number, amount, percentage and date goes through the formatter module (`formatNumber`, `formatUnits`, `formatBps`,
+`formatDate`, ... in `@paved/game-core`, `src/format.ts`), never `toLocaleString` or `Intl` directly: the locale is en-US
+whatever the browser's (P-66), and the module is the single point a future i18n replaces. `game-core/__tests__/locale-guard.test.ts` fails on a bare call.
+
 ## Icons
 
 Font Awesome Pro is the owner's three script files in `public/fontawesome/js` (never `fortawesome` npm packages, never a

@@ -589,6 +589,18 @@ story at 360 and 320 px in headless Chromium and fails on text that leaves its b
 an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
 exception. The CI `client` job runs it.
 
+Numbers and dates in en-US (NUM-LOCALE, P-66). Every number, token amount, percentage and date on screen is written in
+en-US ("1,234.50", "73.68%", "Thu, Oct 15, 17:00"), not in the browser's locale, as long as the app is not multilingual.
+`packages/game-core/src/format.ts` is the one place that formats: a `LOCALE` constant and named functions (`formatNumber`,
+`formatInteger`, `formatUnits`, `formatBps`, `formatPercent`, `formatDate`, ...), the single point a future i18n replaces.
+It lives in `game-core` because the app, `packages/ui` and the other packages already depend on it, so no import cycle.
+No other file calls `toLocaleString` (with or without a locale) or builds an `Intl.NumberFormat`, `Intl.DateTimeFormat` or
+`Intl.RelativeTimeFormat`: `game-core/__tests__/locale-guard.test.ts` scans `app`, `ui`, `renderer`, `chain` and `game-core`
+sources (not app-web's own files) in `bun run test`, and is itself tested on a fixture that must fail. The tests of
+`game-core`, `ui` and `app` run under `fr_FR` and `Europe/Paris` (their `vitest.config.ts`; `process-locale.test.ts` proves
+the setting took), and `wrap-sweep` runs the stories at 360 and 320 px with the en-US widths. A date shows weekday, month
+then day, on a 24 h clock (the former en-GB order is gone).
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,
