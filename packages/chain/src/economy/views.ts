@@ -118,6 +118,8 @@ export interface EconomyViews extends VaultViews {
   guardRate(): Promise<bigint>;
   /** `Economy.router()`, as 0x-hex: the router the purchase swaps through (checked against the pin, E-9b). */
   router(): Promise<string>;
+  /** `Economy.seller()`, as 0x-hex: the one contract allowed to `sell` (`Setup`), "0x0" while unset. */
+  seller(): Promise<string>;
   day(day: number): Promise<DayView>;
   terms(gameId: number): Promise<TermsView>;
   usdcBalance(account: string): Promise<bigint>;
@@ -153,6 +155,10 @@ export class RpcEconomyViews implements EconomyViews {
 
   async router(): Promise<string> {
     return toHex(BigInt((await this.call("Economy", "router", [])) as string | bigint));
+  }
+
+  async seller(): Promise<string> {
+    return toHex(BigInt((await this.call("Economy", "seller", [])) as string | bigint));
   }
 
   async day(day: number): Promise<DayView> {

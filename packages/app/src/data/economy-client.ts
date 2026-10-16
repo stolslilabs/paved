@@ -53,7 +53,9 @@ export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purcha
     // A game's purchase and a pack's go through the same `Economy.pay`, which ignores the same addresses: one rule for both.
     referrer: async (_kind, referrer) => {
       try {
-        const sent = packReferrer(referrer, signer.address, deployment, await economy.views.router());
+        // The router and the seller (`Setup`), read now as the writers read them at send: both are sent as 0x0.
+        const [router, seller] = await Promise.all([economy.views.router(), economy.views.seller()]);
+        const sent = packReferrer(referrer, signer.address, deployment, { router, seller });
         return sent === "0x0" ? null : sent;
       } catch (error) {
         // A referrer the contract would not pay: dropped, never a refused purchase.
