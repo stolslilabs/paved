@@ -132,7 +132,7 @@ describe("Home", () => {
 
   it("disables the Challenge while purchases are paused", () => {
     render(wrap(<HomeScene {...HOME.paused} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Purchases paused");
+    expect(screen.getByText(/New Challenge games are paused for now/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
   });
 });
@@ -263,7 +263,7 @@ describe("Board", () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
     render(wrap(<BoardScene {...BOARD.storageDisabled} storageDisabled={false} saveDropped slots={[slot]} onSlotClick={onSlotClick} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Last move not saved");
+    expect(screen.getByText("Last move not saved")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Slot / }));
     expect(onSlotClick).toHaveBeenCalledWith(slot);
@@ -286,7 +286,7 @@ describe("Board", () => {
 
   it("warns when storage is off, and a Training game shows no deadline", () => {
     render(wrap(<BoardScene {...BOARD.storageDisabled} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Storage is off");
+    expect(screen.getByText("Storage is off")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Training" })).toBeInTheDocument();
     expect(screen.queryByText(/Expires in/)).not.toBeInTheDocument();
   });
@@ -381,7 +381,7 @@ describe("Purchase", () => {
     expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
     unmount();
     render(wrap(<PurchaseScene {...PURCHASE.paused} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Purchases paused");
+    expect(screen.getByText("Purchases paused")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
   });
 

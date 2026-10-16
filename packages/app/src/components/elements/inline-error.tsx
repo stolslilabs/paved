@@ -61,13 +61,8 @@ function copyToClipboard(text: string) {
 export function InlineError({ message, title, children, detail, action, onCopy = copyToClipboard, defaultCopied = false, className }: InlineErrorProps) {
   const reduced = useReducedMotionConfig();
   const open = Boolean(message);
-  // The last error stays drawn while the space folds away.
-  const current = { message, title, children, detail, action };
-  const last = useRef(current);
-  if (open) last.current = current;
-  const [folded, setFolded] = useState(!open);
-  if (open && folded) setFolded(false);
-  const shown = open ? current : folded ? null : last.current;
+  // Gone at once when the error clears; only the space it took folds away.
+  const shown = open ? { message, title, children, detail, action } : null;
   const inner = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
   const [moving, setMoving] = useState(false);
@@ -96,10 +91,7 @@ export function InlineError({ message, title, children, detail, action, onCopy =
       animate={{ height: open ? height : 0 }}
       transition={{ duration: reduced ? 0 : 0.18, ease: "easeOut" }}
       onAnimationStart={() => setMoving(true)}
-      onAnimationComplete={() => {
-        setMoving(false);
-        if (!open) setFolded(true);
-      }}
+      onAnimationComplete={() => setMoving(false)}
       // Clipped only while the height moves: a settled error is never cut.
       className={cn((moving || !open) && "overflow-hidden", className)}
     >
@@ -110,8 +102,13 @@ export function InlineError({ message, title, children, detail, action, onCopy =
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <p title={full} className="line-clamp-2 wrap-anywhere">
-              {shown.title && <span className="font-semibold">{shown.title}: </span>}
-              {shown.children ?? shown.message}
+              {shown.title && (
+                <>
+                  <span className="font-semibold">{shown.title}</span>
+                  {": "}
+                </>
+              )}
+              <span>{shown.children ?? shown.message}</span>
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {shown.action}

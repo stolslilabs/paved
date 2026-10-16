@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { LazyMotion, domMax } from "motion/react";
 import { beforeAll } from "vitest";
 
 /**
@@ -30,4 +33,19 @@ export function preloadPages(...names: (keyof typeof PAGES)[]) {
   beforeAll(async () => {
     await Promise.all(names.map((name) => PAGES[name]()));
   }, 60_000);
+}
+
+/**
+ * The text of each error toast a spy on `toast.custom` saw (`toastError`, P-67): its `InlineError` rendered to markup, as
+ * "Title: message" followed by its buttons' text.
+ */
+export function errorToastTexts(custom: { mock: { calls: unknown[][] } }): string[] {
+  return custom.mock.calls.map(([render]) => {
+    const html = renderToStaticMarkup(<LazyMotion features={domMax}>{(render as (id: string) => ReactNode)("toast")}</LazyMotion>);
+    return html
+      .replace(/<[^>]+>/g, "")
+      .replace(/&#x27;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, "&");
+  });
 }

@@ -195,6 +195,7 @@ export default function Page() {
       referrerDropped={shown.dropped}
       balance={connected ? (balance.data ?? null) : null}
       balanceError={balance.error?.message ?? null}
+      balanceErrorDetail={balance.error ? errorDetail(balance.error) : undefined}
       spawnPaused={paused.data ?? false}
       buying={purchase.mutation.isPending || purchase.sending}
       quoting={stakeQuote.isPending || gameReferrer.isPending}

@@ -15,7 +15,6 @@ export const Toasts: Story = {
       <Button variant="secondary" onClick={() => toast("Your turn")}>Default</Button>
       <Button variant="outline" onClick={() => toast.info("Season 3 starts tomorrow")}>Info</Button>
       <Button variant="outline" onClick={() => toast.warning("Connection is slow")}>Warning</Button>
-      <Button variant="destructive" onClick={() => toast.error("Move refused", { description: "Try another slot" })}>Error</Button>
       <Button variant="ghost" onClick={() => toast.promise(new Promise((r) => setTimeout(r, 1500)), { loading: "Sending the move", success: "Move confirmed", error: "Failed" })}>Loading</Button>
     </div>
   ),

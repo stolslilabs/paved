@@ -12,7 +12,7 @@ import { weekOfDay } from "../src/lib/quest-window";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { errorToastTexts, preloadPages } from "./route-helpers";
 
 // `/quests/:day?` and `/achievements` (P9) on `@paved/chain`'s fakes: the fixture indexer (its clock is `now`), the Cobbles
 // ledger of `FakeGameViews` and `FakeClaimer`'s claims, through the app's own query client and store.
@@ -140,10 +140,10 @@ describe("/quests/:day? (P9)", () => {
   it("a refused claim says why, and the reads are reconciled", async () => {
     const s = setup();
     s.ada.days.set(TODAY, { games: 0, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
-    const error = vi.spyOn(toast, "error");
+    const error = vi.spyOn(toast, "custom");
     open("/quests", s);
     await userEvent.click(await claimButton(5, "Daily Run"));
-    await waitFor(() => expect(error).toHaveBeenCalledWith("The claim did not go through", expect.objectContaining({ description: expect.stringMatching(/Not completed yet/) })));
+    await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringMatching(/^The claim did not go through: .*Not completed yet/)]));
     expect(await balance(240)).toBeInTheDocument();
   });
 

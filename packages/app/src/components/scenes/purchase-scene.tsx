@@ -124,19 +124,18 @@ function shortText(what: "stake" | "pack", price: bigint, balance: bigint): stri
 }
 
 /** The wallet's USDC could not be read: no "not enough" claim, Pay waits, and Retry reads it again. */
-function BalanceNotice({ error, onRetry }: { error: string; onRetry?: () => void }) {
+function BalanceNotice({ error, detail, onRetry }: { error: string; detail?: ErrorDetail; onRetry?: () => void }) {
   return (
-    <Notice
-      tone="warning"
+    <InlineError
       title="Your USDC balance cannot be read"
+      message={error}
+      detail={detail}
       action={
         <Button size="sm" variant="outline" onClick={onRetry}>
           Retry
         </Button>
       }
-    >
-      {error}
-    </Notice>
+    />
   );
 }
 
@@ -193,6 +192,7 @@ export interface PurchaseSceneProps {
   balance: bigint | null;
   /** The balance's read failed: why (Retry reads it again). */
   balanceError?: string | null;
+  balanceErrorDetail?: ErrorDetail;
   spawnPaused: boolean;
   /** The approve + spawn is on its way. */
   buying?: boolean;
@@ -352,7 +352,7 @@ function GameTab(props: PurchaseSceneProps) {
         <InlineError title="Not enough USDC" message={!spawnPaused && short ? shortText("stake", quote.price, balance!) : null}>
           This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance ?? 0n} token="usdc" />.
         </InlineError>
-        {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
+        {connected && props.balanceError && <BalanceNotice error={props.balanceError} detail={props.balanceErrorDetail} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
           <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, retrying: props.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, unresolved: props.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
@@ -436,7 +436,7 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
             </>
           )}
         </InlineError>
-        {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
+        {connected && props.balanceError && <BalanceNotice error={props.balanceError} detail={props.balanceErrorDetail} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !cobbles.buying && (
           <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, retrying: cobbles.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, unresolved: cobbles.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
