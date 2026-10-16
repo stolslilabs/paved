@@ -1135,12 +1135,25 @@ so a straight edge split into many segments covers each pixel once. The width is
 `widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
 zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
-the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: fully on at
-`fadeFullFactor` (1.0) x S, off at `fadeOffFactor` (0.85) x S, linear between, and the material is hidden
-below 1/255: outlines show at a phone's opening view, and the fade follows the opening tile size. A 360 x 780 phone opens at S = 52 (off at
-about 44), a 900 px high window at about 60 (off at about 51). The tile and S scale together with the
-height, so on every screen the outlines are fully on at the opening view and off past distance 240 / 0.85
-(about 282): they vanish at the farthest zoom (300). On software WebGL (a renderer string of SwiftShader,
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: off at
+`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.3) x S, and between a smoothstep of
+`ln(tile px / off) / ln(full / off)` (OUT-FADE, PM ruling 2026-10-16: the toggle at a zoom-out level read as odd, so the
+opacity falls as the camera zooms out, ending where the old cut was). On the log of the tile size a wheel step changes
+the opacity by about the same amount, and the smoothstep has no kink at either end. The material is hidden below 1/255.
+A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile and S
+scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
+vanish at the farthest zoom (300). **Consequence: at the opening view (S) the opacity is no longer 1**: it is
+smoothstep(ln(1 / 0.85) / ln(1.3 / 0.85) = 0.383) = **0.327** (readout of the story: 33 %). The second candidate, 1.15 S
+(`fadeFullFactor` 1.15), gives 0.556 at S (56 %); it is on at 80 % at 1.15 S with the first. Both are presets of the
+story ("fade 1.3", "fade 1.15") next to the two factor controls. Captures
+(`captures/out-fade-1_3-*` and `out-fade-1_15-*`, for 1.3 S, 1.15 S, 1.0 S (the opening view), 0.9 S and 0.85 S: the
+Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**, `force: "on"`);
+opacity read from the story: 1.3 S: 100 % / 100 %; 1.15 S: 80 % / 100 %; S: 33 % / 56 %; 0.9 S: 5 % / 9 %; 0.85 S: off /
+off (preset 1.3 / preset 1.15). The default is 1.3 (the PM's estimate) until the PM and the owner choose.
+**The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
+voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
+fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
+it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture. On software WebGL (a renderer string of SwiftShader,
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
@@ -1148,11 +1161,15 @@ The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tes
 between the old `#1f1f1f`, which showed as about `#53524f`, and black). The outlines are drawn into the linear target and the
 `FinishPass` then tone maps (ACES), grades, vignettes and sRGB-encodes the whole frame, outlines included, so a written
 dark grey is lifted a lot (the old "no sRGB encoding" line was stale since LIGHT). `screenColor` therefore converts the
-shown colour to the grey the outline pass writes (`outlineWrittenGrey`, a bisection on `outlineScreenOf`, the forward
-model: ACES at the Mockup exposure, the grade, the opening view's vignette and fog as one measured factor of 0.65 in
-linear light, sRGB). It matches the green channel and writes a grey, about `#0f0f0f` for the default. **It assumes the
-default look** (`mockup`) and the opening view: another look, or a corner under the vignette, shows a different value;
-the grade's warmth tints the grey a little. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
+shown colour to the colour the outline pass writes (`outlineWrittenColor`, OUTLINE-TINT: Newton's method on
+`outlineScreenOf`, the forward model, which takes three channels: ACES at the Mockup exposure, the grade, the opening
+view's vignette and fog as one measured factor of 0.65 in linear light, sRGB; the pass mixes the channels, so they are
+solved together, from the per-channel grey as the start). Each channel is converted, so a hue picked in the story control
+shows as that hue (before, only the green was kept and a grey written); a grey gives about `#0f0f0f` for the default.
+The test round-trips `#2a2928` and reds, blue and others within one 8-bit step. **It assumes the default look**
+(`mockup`), the `play` render profile (the chain whose finish pass is modelled) and the opening view: another look or
+profile, or a corner under the vignette, shows a different value; a colour above what the pass can reach (the falloff
+keeps 0.65 of the light) comes out as the nearest. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
 captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
 `#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible

@@ -4,8 +4,9 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
  * The voxel tiles' outlines on the recorded 72-tile board (R-OUT, R-VIS): dark grey antialiased strokes whose width is a
- * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (fully
- * on at the tile size the board opens at on this screen, off at 0.85 of it), and never flickering while it pans. The
+ * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (a smoothstep
+ * of the log of the tile size: off at 0.85 of the tile size the board opens at on this screen, fully on from 1.3 of it, or
+ * 1.15 with the other preset), and never flickering while it pans. The
  * tour goes through the views where the old 1-pixel lines failed; stop it to hold one view and set its distance. Under
  * reduced motion nothing moves by itself.
  */
@@ -28,14 +29,22 @@ const meta = {
       description: "Outlines on software WebGL (SwiftShader, llvmpipe...): auto turns them off there; on and off force them whatever the detection says. The console logs the path taken",
       table: { category: "Outlines" },
     },
+    fadePreset: {
+      // Keys without a dot, so a URL can name one (`args=fadePreset:fade_1_3`); `mapping` gives the board the preset.
+      control: { type: "inline-radio", labels: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" } },
+      options: ["custom", "fade_1_3", "fade_1_15"],
+      mapping: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" },
+      description: "The two fade candidates, both off at 0.85 of the opening tile size S and fully on from 1.3 S or 1.15 S (a smoothstep of log(tile px) between; the opacity at S is 0.33 and 0.56). Custom: the two factor controls below",
+      table: { category: "Outlines" },
+    },
     fadeFullFactor: {
       control: { type: "range", min: 0.5, max: 2, step: 0.01 },
-      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\")",
+      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\"); with a preset, the preset's",
       table: { category: "Outlines" },
     },
     fadeOffFactor: {
       control: { type: "range", min: 0.3, max: 2, step: 0.01 },
-      description: "Outlines off at or below this share of the opening tile size; linear fade up to the fully-on share",
+      description: "Outlines off at or below this share of the opening tile size; a smoothstep of log(tile px) up to the fully-on share (with a preset, the preset's)",
       table: { category: "Outlines" },
     },
     widthVoxels: {
@@ -49,7 +58,7 @@ const meta = {
       table: { category: "Outlines" },
     },
     maxWidthPx: { control: { type: "range", min: 0.5, max: 6, step: 0.25 }, description: "Widest stroke (CSS px): the cap zoomed in", table: { category: "Outlines" } },
-    color: { control: "color", description: "Outline colour as it shows on screen; converted to the value the outline pass writes for the default (Mockup) look, so another look shifts it", table: { category: "Outlines" } },
+    color: { control: "color", description: "Outline colour as it shows on screen; each channel is converted to the value the outline pass writes for the default (Mockup) look, so a hue shows as that hue (another look shifts it)", table: { category: "Outlines" } },
     segmentOffDevicePx: {
       control: { type: "range", min: 0, max: 4, step: 0.25 },
       description: "Screen-size cut: a segment shorter on screen than this (device px) is not drawn. 0 with the next at 0: no cut",
