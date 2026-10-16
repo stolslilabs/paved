@@ -41,9 +41,9 @@ const meta = {
     },
     maxPixelRatio: {
       // Keys without a dot, so a URL can name one (`args=maxPixelRatio:x1_5`); `mapping` gives the renderer the number.
-      control: { type: "select", labels: { auto: "auto", x1: "1", x1_5: "1.5", x2: "2" } },
-      options: ["auto", "x1", "x1_5", "x2"],
-      mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2 },
+      control: { type: "select", labels: { auto: "auto", x1: "1", x1_25: "1.25", x1_5: "1.5", x1_75: "1.75", x2: "2" } },
+      options: ["auto", "x1", "x1_25", "x1_5", "x1_75", "x2"],
+      mapping: { auto: "auto", x1: 1, x1_25: 1.25, x1_5: 1.5, x1_75: 1.75, x2: 2 },
       description: "The pixel-ratio cap: auto is the device's (1.5 on a desktop, 2 on a coarse pointer or a small screen)",
     },
     multisampling: {
