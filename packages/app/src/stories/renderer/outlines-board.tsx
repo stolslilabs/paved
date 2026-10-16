@@ -24,6 +24,11 @@ export interface OutlinesBoardProps {
    */
   /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
   force?: "auto" | "on" | "off";
+  /**
+   * The two fade candidates (OUT-FADE): "fade 1.3" fully on from 1.3 S, "fade 1.15" from 1.15 S, both off at 0.85 S. A
+   * preset sets the two factors below; "custom" leaves them to their controls.
+   */
+  fadePreset?: FadePreset;
   fadeOffFactor?: number;
   fadeFullFactor?: number;
   widthVoxels?: number;
@@ -43,10 +48,19 @@ export interface OutlinesBoardProps {
   maxPixelRatio?: number | "auto";
 }
 
+export type FadePreset = "custom" | "fade 1.3" | "fade 1.15";
+
+/** The fade candidates' factors (shares of the opening tile size S): off at 0.85, fully on at 1.3 or 1.15. */
+export const FADE_PRESETS = {
+  "fade 1.3": { fadeOffFactor: 0.85, fadeFullFactor: 1.3 },
+  "fade 1.15": { fadeOffFactor: 0.85, fadeFullFactor: 1.15 },
+} as const;
+
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
+  fadePreset: "custom" as FadePreset,
   force: OUTLINES.force,
   fadeOffFactor: OUTLINES.fadeOffFactor,
   fadeFullFactor: OUTLINES.fadeFullFactor,
@@ -111,7 +125,8 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const touring = tour && !reduced;
   const startedAt = useRef<number | null>(null);
   const [zoom, setZoom] = useState<Zoom | null>(null);
-  const o = { ...SETTINGS_DEFAULTS, ...rest };
+  const merged = { ...SETTINGS_DEFAULTS, ...rest };
+  const o = merged.fadePreset === "custom" ? merged : { ...merged, ...FADE_PRESETS[merged.fadePreset] };
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       outlines: {

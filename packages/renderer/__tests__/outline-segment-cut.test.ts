@@ -84,6 +84,38 @@ describe("the screen-size cut", () => {
     for (let i = 1; i < between.length; i++) expect(between[i]).toBeGreaterThanOrEqual(between[i - 1]);
   });
 
+  it("has no step at the zoom where the outlines fade out (0.85 S, distance 282): OUT-FADE's check", () => {
+    // 1440 x 900 at DPR 1 (the least device px), the camera from the opening distance 240 out to 300 in 0.5 % steps. The
+    // outlines are off from 282; a segment the cut keeps whole or drops whole there does not change at all, and one in
+    // its fade (a vertical edge seen from the 27 degree tilt) changes by a small step per zoom step: the cut is a ramp over
+    // a factor of two in length, not a toggle.
+    const [width, height] = [1440, 900];
+    const at = new THREE.Vector3(30, 0, 18);
+    const tilted = (distance: number) => {
+      const camera = new THREE.PerspectiveCamera(50, width / height, 1, 2000);
+      camera.zoom = 5;
+      const tilt = (27 * Math.PI) / 180;
+      camera.position.set(0, distance * Math.cos(tilt), distance * Math.sin(tilt));
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
+      return camera;
+    };
+    const along = (camera: THREE.PerspectiveCamera, v: THREE.Vector3) =>
+      segmentFade(screenLength(camera, at, at.clone().add(v), width, height), OFF, FULL);
+    const horizontal = new THREE.Vector3(VOXEL_SIZE, 0, 0);
+    const vertical = new THREE.Vector3(0, VOXEL_SIZE, 0);
+    let previous = along(tilted(240), vertical);
+    for (let distance = 240; distance <= 300; distance *= 1.005) {
+      expect(along(topDown(distance, width, height), horizontal)).toBe(1);
+      expect(along(topDown(distance, width, height), vertical)).toBe(0);
+      expect(along(tilted(distance), horizontal)).toBe(1);
+      const fade = along(tilted(distance), vertical);
+      expect(Math.abs(fade - previous)).toBeLessThan(0.03);
+      previous = fade;
+    }
+  });
+
   it("goes to the shader with the stroke: the stroke carries the settings, the material takes them", () => {
     const stroke = outlineStroke(60, { ...DEFAULT_OUTLINE_SETTINGS, segmentOffDevicePx: 1.5, segmentFullDevicePx: 3 });
     expect(stroke).toMatchObject({ segmentOff: 1.5, segmentFull: 3 });
