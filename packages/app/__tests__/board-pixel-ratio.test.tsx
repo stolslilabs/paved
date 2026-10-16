@@ -25,11 +25,11 @@ describe("the board's pixel ratio (OUT-LOD)", () => {
     expect(DEFAULT_RENDERER_SETTINGS.maxPixelRatio).toBe("auto");
   });
 
-  it("draws a Retina desktop at 1.5 and a phone at 2", () => {
-    expect(PIXEL_RATIO_CAPS).toEqual({ coarse: 2, fine: 1.5 });
+  it("draws a Retina desktop at 1.75 and a phone at 2", () => {
+    expect(PIXEL_RATIO_CAPS).toEqual({ coarse: 2, fine: 1.75 });
     const desktop = { coarsePointer: false, width: 1440, height: 900 };
     const phone = { coarsePointer: true, width: 390, height: 844 };
-    expect(capPixelRatio(2, resolveMaxPixelRatio("auto", desktop))).toBe(1.5);
+    expect(capPixelRatio(2, resolveMaxPixelRatio("auto", desktop))).toBe(1.75);
     expect(capPixelRatio(1, resolveMaxPixelRatio("auto", desktop))).toBe(1);
     expect(capPixelRatio(3, resolveMaxPixelRatio("auto", phone))).toBe(2);
   });

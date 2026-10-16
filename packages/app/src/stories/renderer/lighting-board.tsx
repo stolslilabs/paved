@@ -29,6 +29,10 @@ export interface LightingBoardProps {
   force?: "auto" | "on" | "off";
   /** The pixel-ratio cap: "auto" (the device's) or a number. */
   maxPixelRatio?: number | "auto";
+  /** The faces' antialiasing: "auto" (the device's), on or off. */
+  multisampling?: boolean | "auto";
+  /** MSAA's samples (2 or 4). */
+  msaaSamples?: number;
   /** The look's flat args (`lighting-look.ts`). */
   [arg: string]: unknown;
 }
@@ -74,19 +78,23 @@ const GHOST: HoverState = (() => {
  * The recorded 72-tile board through the real renderer with the look of the args: a preset, any field over it, and the
  * quality tier. `data-ready` is set once the board is drawn at the held view.
  */
-export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, forest = false, force = "auto", maxPixelRatio = "auto", ...args }: LightingBoardProps) {
+export function LightingBoard({ preset, quality, view, distance, highlights, redraw = false, readout = true, forest = false, force = "auto", maxPixelRatio = "auto", multisampling = "auto", msaaSamples = 4, ...args }: LightingBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState("");
   const input = lookInput(args);
-  const key = JSON.stringify([preset, quality, input, force, maxPixelRatio]);
+  const key = JSON.stringify([preset, quality, input, force, maxPixelRatio, multisampling, msaaSamples]);
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ lookPreset: preset, quality, look: input, outlines: { force }, maxPixelRatio }),
+    () => ({ lookPreset: preset, quality, look: input, outlines: { force }, maxPixelRatio, multisampling, msaaSamples }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
 
-  const onReady = useCallback((s: GameScene) => setScene(s), []);
+  const onReady = useCallback((s: GameScene) => {
+    // The GPU bench reads the composer through it (Q3-GPU: which targets are bound, the chain's swaps).
+    (window as { __lightingScene?: GameScene }).__lightingScene = s;
+    setScene(s);
+  }, []);
 
   useEffect(() => {
     if (!scene) return;
@@ -102,7 +110,9 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
   useEffect(() => {
     if (!scene || !readout) return;
     // After the settings reach the scene (GameCanvas applies them in its own effect).
-    const id = requestAnimationFrame(() => setState(`quality ${scene.getQuality()} · passes ${scene.effects.getPassNames().join(" → ")}`));
+    const id = requestAnimationFrame(() =>
+      setState(`quality ${scene.getQuality()} · passes ${scene.effects.getPassNames().join(" → ")} · faces ${scene.effects.getAntialiasing()}`),
+    );
     return () => cancelAnimationFrame(id);
   }, [scene, readout, key]);
 

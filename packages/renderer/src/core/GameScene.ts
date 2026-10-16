@@ -91,7 +91,10 @@ function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRender
 
   return new THREE.WebGLRenderer({
     canvas: renderTarget as HTMLCanvasElement,
-    antialias: true,
+    // Every frame is drawn into the composer's target (`Effects`), and the canvas only receives its full-screen final
+    // pass: a multisampled canvas would antialias nothing and hold a 4-sample colour and depth buffer, 32 B a pixel
+    // (33.8 MiB at 720 x 1480, measured in Q3-GPU). The faces' antialiasing is the composer's (`multisampling`).
+    antialias: false,
     alpha: false,
   });
 }
@@ -253,7 +256,7 @@ export class GameScene {
     this.effectsCapabilities = effectsCapabilities;
     this.effects.setCapabilities(effectsCapabilities);
     this.effects.setLook(this.settings.look, this.getQuality());
-    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing());
+    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing(), this.settings.msaaSamples);
     this.applyLook();
     this.logAntialiasingPath();
 
@@ -321,7 +324,7 @@ export class GameScene {
     this.controls?.resize(width, height);
     this.effects.resize(width, height, this.pixelRatio);
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
-    this.effects.setAntialiasing(this.faceAntialiasing());
+    this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     // `quality: "auto"` follows the window too.
     this.applyLook();
@@ -570,7 +573,7 @@ export class GameScene {
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
-    this.effects.setAntialiasing(this.faceAntialiasing());
+    this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
     // A new cap refits the drawing buffer and the composer's targets at once.
@@ -619,14 +622,18 @@ export class GameScene {
 
   /**
    * The face antialiasing for the settings on this device (`resolveFaceAntialiasing`): MSAA where the WebGL 2 context
-   * multisamples (`capabilities.maxSamples`) on a GPU, SMAA on software WebGL or without multisampling.
+   * multisamples (`capabilities.maxSamples`) `msaaSamples` on a GPU, SMAA on software WebGL or without multisampling.
    */
   private faceAntialiasing(): FaceAntialiasing {
-    return resolveFaceAntialiasing(resolveMultisampling(this.settings.multisampling, this.device()), {
-      maxSamples: this.renderer?.capabilities?.maxSamples ?? 0,
-      software: this.webgl.software,
-      supportsMultisampling: this.effectsCapabilities.supportsMultisampling,
-    });
+    return resolveFaceAntialiasing(
+      resolveMultisampling(this.settings.multisampling, this.device()),
+      {
+        maxSamples: this.renderer?.capabilities?.maxSamples ?? 0,
+        software: this.webgl.software,
+        supportsMultisampling: this.effectsCapabilities.supportsMultisampling,
+      },
+      this.settings.msaaSamples,
+    );
   }
 
   /** Logs which face antialiasing is taken, once, and again only when it changes. */
@@ -640,7 +647,7 @@ export class GameScene {
           ? "auto, off on a fine pointer and a large screen"
           : "disabled by the settings"
         : mode === "msaa"
-          ? `${maxSamples} samples available on ${this.webgl.reason}`
+          ? `${this.settings.msaaSamples} samples, ${maxSamples} available on ${this.webgl.reason}`
           : this.webgl.software
             ? this.webgl.reason
             : this.effectsCapabilities.supportsMultisampling === false
