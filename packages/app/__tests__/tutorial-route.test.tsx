@@ -9,6 +9,9 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore, renderData } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
+
+preloadPages("board");
 
 const PLAYER = "0x5f1";
 /** First Stone credited: the receipt of a first claim. */
@@ -58,6 +61,10 @@ describe("/tutorial (P6): the scripted game on the board scene", { timeout: 30_0
     expect(await screen.findByRole("heading", { level: 1, name: "Tutorial" }, { timeout: 5000 })).toBeInTheDocument();
     const moves = scriptedMoves();
     expect(stepLabel()).toBe(`Step 1 of ${moves.length}`);
+    // With the page preloaded, React renders its first mount twice and commits one (measured: two inits, one commit, with a
+    // `useRef` as with a lazy `useState`): the discarded render's engine is counted. Count from here, the committed page on screen.
+    const started = start.mock.calls.length;
+    expect(started).toBeLessThanOrEqual(2);
     // The tutorial has nothing to give up.
     expect(screen.queryByRole("button", { name: /Surrender/ })).toBeNull();
 
@@ -66,8 +73,8 @@ describe("/tutorial (P6): the scripted game on the board scene", { timeout: 30_0
       if (i < moves.length - 1) await waitFor(() => expect(stepLabel()).toBe(`Step ${i + 2} of ${moves.length}`));
     }
     expect(await screen.findByRole("heading", { name: "Tutorial complete" })).toBeInTheDocument();
-    // One engine for the whole run (its `TutorialRun`): no step replayed the moves before it.
-    expect(start.mock.calls.length).toBeLessThanOrEqual(1);
+    // One engine for the whole run (its `TutorialRun`): no step started another or replayed the moves before it.
+    expect(start.mock.calls.length).toBe(started);
     expect(JSON.parse(store.getItem(TUTORIAL_STORAGE_KEY)!).moves).toHaveLength(moves.length);
 
     // The claim needs a signer: Connect first, then one `claim_tutorial`.

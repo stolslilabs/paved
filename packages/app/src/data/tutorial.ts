@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { WriteResult } from "@paved/chain";
 import {
@@ -46,7 +46,7 @@ export function tutorialBoard(view: TutorialView): SessionBoard {
 }
 
 /**
- * The tutorial on the board (P6): game-core's `TutorialRun`, one per mounted page (a `useRef`, not the module-level
+ * The tutorial on the board (P6): game-core's `TutorialRun`, one per mounted page (a lazy `useState`, not the module-level
  * `followTutorial`), so its engine is kept between steps and replayed only to resume and on Back. The moves are saved in
  * the tutorial's own entry (`paved.tutorial.v1`) of the sources' store.
  */
@@ -65,10 +65,11 @@ export function useTutorialRun(): {
 } {
   const sources = useDataSources();
   const store = trainingStore(sources);
-  const run = useRef<TutorialRun | null>(null);
-  run.current ??= new TutorialRun();
+  // A lazy initialiser, not a write to a ref during render: React calls it for the state it keeps, and `TutorialRun`
+  // starts an engine as it is built.
+  const [run] = useState(() => new TutorialRun());
   const [moves, setMoves] = useState<TutorialMove[]>(() => loadMoves(store));
-  const view = useMemo(() => run.current!.sync(moves), [moves]);
+  const view = useMemo(() => run.sync(moves), [run, moves]);
   const board = useMemo(() => tutorialBoard(view), [view]);
 
   const commit = useCallback(
@@ -90,7 +91,7 @@ export function useTutorialRun(): {
   const back = useCallback(() => commit(backOne(moves)), [moves, commit]);
   const restart = useCallback(() => commit([]), [commit]);
 
-  return { view, board, index: moves.length, steps: tutorialSteps().length, play, back, restart, run: run.current };
+  return { view, board, index: moves.length, steps: tutorialSteps().length, play, back, restart, run };
 }
 
 /** The task the claim credits: `TUTORIAL_FINISHED` (quests.md), which completes First Stone. */
