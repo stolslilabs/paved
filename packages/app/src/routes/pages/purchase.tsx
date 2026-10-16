@@ -8,7 +8,7 @@ import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { useSpawnPaused, useSplit, useUsdcBalance } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
-import { PURCHASE_TIMEOUT_MS, packKeys, purchaseRefusal, referrerParam, useBuyPack, useEffectiveReferrer, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
+import { packKeys, purchaseRefusal, referrerParam, useBuyPack, useEffectiveReferrer, usePackQuote, usePacks, usePurchase, useStakeQuote } from "../../data/purchase";
 import { cobbleKeys } from "../../data/cobbles";
 import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
@@ -26,11 +26,9 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
-    // A hash-less record younger than the timeout is a send whose wallet prompt may still be open (another tab, a reload).
-    const waiting = now - hold.unknown.at < PURCHASE_TIMEOUT_MS / 1000;
     const sent =
       hold.unknown.hash === null
-        ? `Purchase sent ${when}: your wallet ${waiting ? "has not answered yet" : "did not answer"}, so it may still go through.`
+        ? `Purchase sent ${when}: your wallet did not answer, so it may still go through.`
         : `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown${hold.unresolved ? ": the network does not know it yet" : ""}.`;
     // What the player reads before confirming: the check has just read them again (`usePurchaseHold`).
     const reads = what === "games" ? "your USDC balance and your games" : "your USDC balance and your Cobbles";
@@ -44,6 +42,12 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
   return null;
+}
+
+/** A refusal of a send that sent nothing (busy, declined, a moved price), never the earlier send's own unknown outcome; else null. */
+function newRefusal(error: Error | null): PurchaseRefusal | null {
+  const refusal = error ? purchaseRefusal(error) : null;
+  return refusal && refusal.kind !== "unknown" ? refusal : null;
 }
 
 /** How long ago a purchase was sent, from its record's `at` (the send's time): "just now", "5 min ago", "3 h ago", "2 days ago". */
@@ -114,11 +118,14 @@ export default function Page() {
 
   const gameHold = purchase.hold;
   const packHold = buyPack.hold;
+  // A Buy again that sent nothing (busy, declined) puts the released record back: its own refusal is what the player reads.
   const gameRefusal =
+    (gameHold.released ? newRefusal(purchase.mutation.error) : null) ??
     heldRefusal(gameHold, "games", now) ??
     (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed: your game is waiting." } : null) ??
     (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
+    (packHold.released ? newRefusal(buyPack.mutation.error) : null) ??
     heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const confirm = () => {

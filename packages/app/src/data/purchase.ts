@@ -32,7 +32,7 @@ import { usePoolQuote } from "./chain";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type Purchases } from "./sources";
-import { clearTimedOutPurchase, currentRecord, recordOwnSend, restorePurchase, useUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
+import { clearTimedOutPurchase, currentRecord, recordOwnSend, restorePurchase, useUnknownPurchase, writeUnknownPurchase, type PurchaseKind } from "./unknown-purchase";
 
 // The purchase page's data and writes (P7b, section 6.4): the game's stake (`EconomyWriter.purchase`: the approve and
 // `Challenge.spawn(stake, referrer, min_out)`) and the packs of Cobbles (`PackBuyer.buy`: the approve and `Setup.buy_pack`).
@@ -408,8 +408,9 @@ async function heldSend<T>(
   onLate: (late: LateAnswer<T>, sentAt: number) => void,
 ): Promise<T> {
   const sentAt = nowSeconds();
+  // Over any earlier record (one the player released with "It did not land"): put back below if nothing is sent.
   const previous = currentRecord(client, sender, kind);
-  recordOwnSend(client, sender, kind, { hash: null, at: sentAt });
+  writeUnknownPurchase(client, sender, kind, { hash: null, at: sentAt });
   try {
     const value = await guardedSend(guard, sender, send(), (late) => onLate(late, sentAt), () => recordTimedOut(client, kind, sender, sentAt));
     clearTimedOutPurchase(client, sender, kind, sentAt);

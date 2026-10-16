@@ -14,6 +14,7 @@ import {
   PurchaseOutcomeUnknownError,
   SpawnPausedError,
   SwapBelowMinOutError,
+  WalletRejectedError,
   WriteError,
   PavedClient,
   createCodecs,
@@ -28,7 +29,7 @@ import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
 import { PURCHASE_RECHECK_MS, PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, setPurchaseRecheckForTests, usePurchase } from "../src/data/purchase";
-import { resetFailedWritesForTests, unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
+import { resetFailedWritesForTests, unknownPurchaseStorageKey, writeUnknownPurchase } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
 import { createTestRouter } from "../src/routes/router";
@@ -89,6 +90,8 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     receiptGate: Promise<void> | null;
     receiptFail: string | null;
     receiptCalls: number;
+    /** While set (a function), the account rejects with what it returns, as a wallet whose prompt the player declined. */
+    decline: (() => unknown) | null;
   } = {
     gate: null,
     revert: options.revert ?? null,
@@ -102,6 +105,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
     receiptGate: null,
     receiptFail: null,
     receiptCalls: 0,
+    decline: null,
   };
   const usdcBalance = economy.usdcBalance.bind(economy);
   economy.usdcBalance = async (account) => {
@@ -118,6 +122,7 @@ function setup(options: { signer?: boolean; usdc?: bigint; revert?: string } = {
   const account = {
     address: PLAYER,
     execute: async (calls: Sent) => {
+      if (state.decline) throw state.decline();
       sent.push(calls);
       if (state.gate) await state.gate;
       return { transaction_hash: `0x${sent.length.toString(16)}` };
@@ -551,6 +556,7 @@ describe("purchaseRefusal and referrerParam", () => {
       [new PackOutcomeUnknownError("0x1"), "unknown"],
       [new PackRefusedError("not-on-sale", "0x1"), "refused"],
       [new WriteError("Cannot read the price: node down"), "refused"],
+      [new WalletRejectedError("User rejected the request"), "refused"],
     ] as const;
     for (const [error, kind] of kinds) expect(purchaseRefusal(error).kind, error.message).toBe(kind);
     expect(purchaseRefusal(new WriteError("Another write is pending")).message).toBe("Wait for your other transaction, then confirm again.");
@@ -1404,6 +1410,28 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     await waitFor(() => expect(stored()).toBeNull());
   });
 
+  it("6b: a late hash of send A never overwrites a newer send B's hold", async () => {
+    const s = setup();
+    const { result } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      const a = JSON.parse(stored()!) as { hash: null; at: number };
+      // A later send B holds its own hash-less record (another tab, or a Buy again on a new writer).
+      const b = { hash: null, at: a.at + 60 };
+      writeUnknownPurchase(queryClient, PLAYER, "game", b);
+      // A's late answer is an unknown outcome with a hash: B's hold stays.
+      s.state.gate = null;
+      s.state.noEvents = true;
+      release();
+      await flush(() => result.current.mutation.status !== "error" || s.state.receiptCalls > 0);
+      await flush();
+      expect(JSON.parse(stored()!)).toEqual(b);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a pack's timeout holds Buy the same way", async () => {
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "pack"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) }));
     const s = setup();
@@ -1411,5 +1439,101 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(await screen.findByText(/Check your USDC balance and your Cobbles/, undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+});
+
+describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written at send (VALUE-FIX's notes, 6b)", () => {
+  const stored = (kind: "game" | "pack" = "game") => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, kind));
+
+  it("the paid entry is one execute of approve + spawn: the wallet prompts once, for both", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    await userEvent.click(await enabledPay());
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    expect(s.sent[0].map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(USDC), "approve"], [BigInt(ADDR.Challenge), "spawn"]]);
+  });
+
+  it("a prompt the player declines is a refusal: it says so, holds nothing, and Pay is back", async () => {
+    for (const declined of [() => undefined, () => new Error("User rejected the request"), () => ({ code: "CANCELED", message: "Canceled" })]) {
+      cleanup();
+      localStorage.clear();
+      queryClient.clear();
+      const s = setup();
+      s.state.decline = declined;
+      const { router } = open("/play/challenge", s);
+      await userEvent.click(await enabledPay());
+      const notice = await screen.findByRole("alert", undefined, { timeout: 3000 });
+      expect(notice).toHaveTextContent("You declined in your wallet: nothing was sent.");
+      expect(notice).not.toHaveTextContent(/Outcome unknown/);
+      expect(stored()).toBeNull();
+      expect(router.state.location.pathname).toBe("/play/challenge");
+      s.state.decline = null;
+      await userEvent.click(await enabledPay());
+      await waitFor(() => expect(s.sent).toHaveLength(1));
+    }
+  });
+
+  it("the hold is written when the send starts: a reload while the wallet's prompt is open still holds Pay", async () => {
+    const s = setup();
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    open("/play/challenge", s);
+    await userEvent.click(await enabledPay());
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    // Before any answer and long before the 5-minute limit: the hash-less record is already there.
+    expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number) });
+    expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toBeInTheDocument();
+    // A reload: the page gone, the send's promise still pending; the new page holds Pay.
+    reload(s);
+    expect(await screen.findByText(/your wallet did not answer, so it may still go through/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    // The send's answer in time clears its own record.
+    s.state.gate = null;
+    release();
+    await waitFor(() => expect(stored()).toBeNull(), { timeout: 3000 });
+  });
+
+  it("an answer in time clears the record written at send; a pack's too", async () => {
+    const s = setup();
+    open("/play/challenge?tab=cobbles", s);
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await enabledPay(/Pay \$9 for/));
+    expect(await screen.findByText("Pack bought", undefined, { timeout: 3000 })).toBeInTheDocument();
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    await waitFor(() => expect(stored("pack")).toBeNull());
+  });
+
+  it("Buy again refused as busy keeps the earlier record: it goes only once a new send is accepted", async () => {
+    const s = setup();
+    const earlier = { hash: null, at: Math.floor(Date.now() / 1000) - 600 };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(earlier));
+    open("/play/challenge", s);
+    await confirmNone();
+    const again = await enabledPay(/^Buy again$/);
+    // The earlier send still holds the account's writer.
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    const hung = s.writer.surrender({ mode: "challenge", gameId: 1 }).catch(() => undefined);
+    await waitFor(() => expect(s.sent).toHaveLength(1));
+    await userEvent.click(again);
+    expect(await screen.findByText("Wait for your other transaction, then confirm again.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(JSON.parse(stored()!)).toEqual(earlier);
+    expect(s.sent).toHaveLength(1);
+    s.state.gate = null;
+    release();
+    await hung;
+  });
+
+  it("a declined Buy again puts the earlier record back too: nothing was sent", async () => {
+    const s = setup();
+    const earlier = { hash: null, at: Math.floor(Date.now() / 1000) - 600 };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(earlier));
+    open("/play/challenge", s);
+    await confirmNone();
+    const again = await enabledPay(/^Buy again$/);
+    s.state.decline = () => new Error("User rejected the request");
+    await userEvent.click(again);
+    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(JSON.parse(stored()!)).toEqual(earlier);
   });
 });
