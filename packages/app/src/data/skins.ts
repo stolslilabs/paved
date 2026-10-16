@@ -5,6 +5,7 @@ import { PLANS } from "../components/containers/cobble-types";
 import type { ThemeId } from "../components/containers/theme-card";
 import type { ThemeSkinsData } from "../components/scenes/theme-scene";
 import { cobbleKeys, cobbleViews } from "./cobbles";
+import { createDeviceStore, useDeviceStore } from "./device-store";
 import { addressKey } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
 
@@ -161,31 +162,32 @@ export function skinChanges(changes: Readonly<Record<number, number>>): SkinChan
     .sort((a, b) => a.plan - b.plan);
 }
 
-/** Where this device keeps the theme chosen at the top of the page (the board's look; the skins are the chain's). */
+/**
+ * Where this device keeps the theme chosen at the top of the theme page. Since P11a it is also the viewer's skins switch:
+ * "default" shows every board on the base models, whoever's game it is, and downloads no skin model; any other value
+ * (today "forest") shows the players' skins. The values stored before P11a stay as they are: "default" and "forest" read as
+ * before, nothing is migrated.
+ */
 export const THEME_KEY = "paved.theme.v1";
 
-const isTheme = (value: string | null): value is "default" | "forest" => value === "default" || value === "forest";
+const isTheme = (value: string): value is "default" | "forest" => value === "default" || value === "forest";
 
-/** The theme chosen on this device, `default` when none or when storage is off; the setter keeps it when it can. */
-export function useDeviceTheme(store: () => Pick<Storage, "getItem" | "setItem"> | null = () => globalThis.localStorage ?? null): [ThemeId, (id: ThemeId) => void] {
-  const [theme, setTheme] = useState<ThemeId>(() => {
-    try {
-      const value = store()?.getItem(THEME_KEY) ?? null;
-      return isTheme(value) ? value : "default";
-    } catch {
-      return "default";
-    }
-  });
-  const choose = (id: ThemeId) => {
-    if (!isTheme(id)) return;
-    setTheme(id);
-    try {
-      store()?.setItem(THEME_KEY, id);
-    } catch {
-      // Storage off: the choice holds for this visit.
-    }
-  };
-  return [theme, choose];
+/**
+ * The theme store. Nothing stored is "forest", not "default": the skins show until the viewer opts out (the opt-out is
+ * the stored "default"); a value it does not know is the same as nothing.
+ */
+export const deviceTheme = createDeviceStore<"default" | "forest">(THEME_KEY, "forest", (raw) => (isTheme(raw) ? raw : null), (v) => v);
+
+/** The theme chosen on this device, kept when storage allows it and for the visit when not; shared by every page that reads it. */
+export function useDeviceTheme(): [ThemeId, (id: ThemeId) => void] {
+  const [theme, set] = useDeviceStore(deviceTheme);
+  return [theme, (id) => isTheme(id) && set(id)];
+}
+
+/** The viewer's skins switch: whether boards show the players' skins (any theme but "default"). One row on the theme page, one in Settings. */
+export function useShowSkins(): [boolean, (show: boolean) => void] {
+  const [theme, set] = useDeviceStore(deviceTheme);
+  return [theme !== "default", (show) => set(show ? "forest" : "default")];
 }
 
 // Compile-time check, no runtime code (as `scene-types.ts`'s, kept here with its hook): `useThemeSkins`'s data is the

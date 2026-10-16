@@ -1484,15 +1484,14 @@ to Home).
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
 | referral | `Economy.split_bps()` (the share shown) | `/v1/players/:id/referrals` (IX-COBBLES2): the games' and the packs' referrals, summed by referrer; the id is the player's address | — | the referrer from `?ref=` (kept on every link) |
-| theme | — | — | — | the chosen theme |
-| settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight |
+| theme | — | — | — | the chosen theme, which is also the viewer's skins switch (`paved.theme.v1`) |
+| settings | controller username, disconnect | — | — | quality, sound, music, preview, highlight (`paved.settings.v1`); the skins switch (`paved.theme.v1`) |
 
 **As wired (P6).** Home reads the day from the chain's `currentDay()` (the clock's until it answers) and its top 3 from
 the indexer client on `VITE_INDEXER_URL`; `/v1/head` is not read. Each home read that has not answered, or failed,
 leaves its part empty instead of holding the page: an empty podium, no game to resume, not paused (purchase reads the
 pause again); a connected player the indexer has not answered for is shown by address with zero figures. The welcome's
-controller connect is the devnet burner on devnet. The settings' Disconnect is in the shell's footer until P11 (with the
-D-15 notice, section 6.3); the footer is left out of the board routes, which carry the notice under their header. The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
+controller connect is the devnet burner on devnet. The shell's footer keeps its Disconnect beside the D-15 notice (section 6.3); Settings (P11a) has its own, see "As built (P11a)"; the footer is left out of the board routes, which carry the notice under their header. The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
 `Setup.claim_tutorial` only at its end, for the claim.
 
 **What Cobbles change (P-61, SC3).** The owner's in-game currency is named **Cobbles** (singular Cobble; the owner,
@@ -1892,7 +1891,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route). **Done** (2026-10-16; "As built (P10)" below): `/vault` on the Vault as it is on main, an ERC4626 over PAVED (vPAVED), with deposit, withdraw and withdraw all; `/referral` on the indexer's `/v1/players/:id/referrals` (IX-COBBLES2, games and packs) | 1.5 d |
-| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **SKIN-RENDER done** (2026-10-16; "As built (SKIN-RENDER)" below and 5.6): the board draws each tile with its player's active skin, a variant per tile by origin/dev's `getVarietyModelPath` hash | 0.5 d |
+| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **P11a done** (2026-10-16; "As built (P11a)" below): `/settings` on its data, the device settings and the viewer's skins opt-out. **SKIN-RENDER done** (2026-10-16; "As built (SKIN-RENDER)" below and 5.6): the board draws each tile with its player's active skin, a variant per tile by origin/dev's `getVarietyModelPath` hash | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
 
 **P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
@@ -2020,7 +2019,32 @@ its way (the other writes wait), a refusal (`SkinRefusedError`: owned, not for s
 its reason and the batch kept, "Skins saved". The two writes are session policies (`CONTROLLER_ENTRY_POINTS`): they spend
 Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span<(u8, u8)>`, which the codec does not encode:
 the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
-the top of the page is kept on this device (`paved.theme.v1`); the board does not read it yet.
+the top of the page is kept on this device (`paved.theme.v1`); the board reads it since P11a: see "As built (P11a)".
+
+**As built (P11a).** `/settings` keeps the device settings under one versioned key, `paved.settings.v1` (`data/settings.ts`, on
+`data/device-store.ts`: `localStorage` read with try/catch, an in-memory twin once storage throws, one store shared by every
+component that reads it, so a change applies at once). It holds `quality` (`"auto"` by default, `"low"`, `"medium"`,
+`"high"`), `sound` (on), `music` (off), `tilePreview` (on) and `placementHighlight` (on); a text that does not parse, or a
+field of the wrong kind, is that field's default. *Graphics quality* is a row of Auto, Low, Medium and High: Auto shows what
+it resolves to on this device ("Auto (Medium)": Low on a coarse pointer or a small screen, else Medium; High only by hand) and
+High carries a line that it is heavier. The three board pages pass `{ quality }` to `BoardViewport`'s `settings`, kept as one
+object while the quality does not change; `GameCanvas` calls `GameScene.setSettings` when it changes, which re-applies the
+look, the antialiasing and the pixel-ratio cap, so an open board changes without a reload. The tiers stay provisional until
+LIGHT-GPU (a code comment only). *Tile preview* and *placement highlight* are wired in the board, not the renderer (which has
+no switch, and none was added): off, `BoardViewport` hands the canvas no ghost, or no lit slot. The plan view (the fallback
+without WebGL) still lights its slots. *Sound* and *music* are stored only: the app plays no audio yet. *The account* is the
+wallet's: the controller username, or the short address, with Disconnect (the wallet's own, then Home with `?ref=` kept), and
+a guest sees Connect; the links to Theme and Referral keep `?ref=`; the version line is the package's, bundled by the build.
+The shell's footer keeps its Disconnect: it is on every page that has a footer, Settings is one tab away, and removing it is a
+product call, not this page's; the D-15 notice stays where it is.
+
+*The viewer's opt-out (PM, 2026-10-16).* `paved.theme.v1` is the switch of the players' skins: `"default"` shows every board
+(Challenge, Training, the tutorial, the hand) on the base models, whoever's game it is, and `useBoardSkins` then returns
+`NO_SKINS` and reads nothing, so the renderer asks for no variant and no skin model is downloaded; any other value
+(`"forest"`) shows the players' skins as before. Nothing stored is `"forest"`: the skins show until the viewer opts out. The
+values stored before P11a are readable as they are (`"default"` was only ever written by choosing Default), so there is no
+migration. Two rows read and write that one key, in the same words, "Show players' skins" with a line that it saves data and
+graphics work: on the theme page, above the cards (choosing the Default card is the same opt-out), and in Settings.
 
 **As built (P10).** The Vault on main is not the plain staking vault of 6.5's first read: `contracts/src/systems/vault.cairo`
 is an OpenZeppelin ERC4626 over PAVED (vPAVED, 18 decimals, offset 0) with an exit fee (`exit_fee` bps, 5 % at launch, at most
@@ -2066,7 +2090,7 @@ failed read shows Retry inside the earnings and never hides the link; a guest co
 player's, Training and the tutorial the connected player's (a guest's, the base models), one variant per tile by origin/dev's
 hash of the plan, the cell and the game. The variants load lazily, only those the board and the hand show; theme 0, a theme
 the manifest does not list, a failed skin read and a variant that fails to load all draw the base model, and the board never
-waits for the skins. The device's theme (`paved.theme.v1`) is still not read by the board (5.6 says why). What a player's
+waits for the skins. Since P11a the device's theme (`paved.theme.v1`) is the viewer's opt-out of all of it ("As built (P11a)"). What a player's
 Forest set downloads is in 4.2.
 
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's

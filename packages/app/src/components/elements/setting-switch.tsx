@@ -36,3 +36,17 @@ export function SettingSwitch({ label, hint, icon, checked, disabled, onCheckedC
     </div>
   );
 }
+
+/** The viewer's skins switch, worded once for both places it sits (the theme page and Settings). On: boards show the players' skins; off: the base models, and no skin model is downloaded. */
+export function ShowSkinsSwitch({ checked, onCheckedChange, className }: { checked: boolean; onCheckedChange?: (checked: boolean) => void; className?: string }) {
+  return (
+    <SettingSwitch
+      label="Show players' skins"
+      hint="Off saves data and graphics work: boards use the base tiles, and no skin is downloaded."
+      icon="shirt"
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      className={className}
+    />
+  );
+}

@@ -255,11 +255,11 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", sound: true, music: false, tilePreview: true, placementHighlight: true };
+export const PREFERENCES: Preferences = { quality: "high", sound: true, music: false, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
-  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "default", version: "0.1.0" },
-  guest: { preferences: { ...PREFERENCES, quality: "medium", sound: false }, account: null, theme: "forest", version: "0.1.0" },
+  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "default", autoQuality: "medium", version: "0.1.0" },
+  guest: { preferences: { ...PREFERENCES, quality: "auto", sound: false, showSkins: false }, account: null, theme: "forest", version: "0.1.0" },
   /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
@@ -277,8 +277,8 @@ const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
 };
 
 export const THEME = {
-  defaultSelected: { selected: "default", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
-  forestSelected: { selected: "forest", tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+  defaultSelected: { selected: "default", showSkins: false, tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
+  forestSelected: { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: RENDERER_ASSETS },
   /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
   skins: { ...themeBase, skins: forestSkins },
   /** Two switches changed, not saved: Save sends them in one `set_skins` write. */

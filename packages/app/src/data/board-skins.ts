@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { NO_SKINS, skinsOf, type TileSkins } from "@paved/renderer";
-import { skinKeys, skinViews } from "./skins";
+import { skinKeys, skinViews, useShowSkins } from "./skins";
 import { useDataSources } from "./sources";
 import type { BoardViewportProps } from "../components/containers/board-viewport";
 import type { TileViewProps } from "../components/containers/tile-view";
@@ -13,18 +13,20 @@ import type { TileViewProps } from "../components/containers/tile-view";
  * The tile skins of `playerId` (`active_skins(player)`, as `TileSkins`), for the board to draw: a Challenge game's player
  * (anyone viewing that game sees its player's skins), or the connected player in Training and the tutorial. `NO_SKINS`
  * (every tile on its base model) for a guest (null), without the skins views, while the read is on its way, and when it
- * fails.
+ * fails. And `NO_SKINS` for a viewer who opted out on this device (`useShowSkins`), with no read made: the renderer then
+ * asks for no variant, so no skin model is downloaded.
  */
 export function useBoardSkins(playerId: string | null): TileSkins {
   const { views } = useDataSources();
   const skins = skinViews(views);
+  const [show] = useShowSkins();
   const read = useQuery({
     queryKey: skinKeys.active(playerId ?? "0x0"),
     queryFn: () => skins!.activeSkins(playerId!),
-    enabled: playerId !== null && skins !== null,
+    enabled: show && playerId !== null && skins !== null,
     select: skinsOf,
   });
-  return (playerId !== null && read.data) || NO_SKINS;
+  return (show && playerId !== null && read.data) || NO_SKINS;
 }
 
 // Compile-time check, no runtime code (as `skins.ts`'s): the hook's map is what `BoardViewport` and `TileView` take.

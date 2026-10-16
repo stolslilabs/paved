@@ -8,6 +8,7 @@ import { Notice } from "../elements/notice";
 import { PLANS, applySkinChanges } from "../containers/cobble-types";
 import { SkinGrid, THEME_CODES } from "../containers/skin-grid";
 import { TabPage } from "../containers/tab-page";
+import { ShowSkinsSwitch } from "../elements/setting-switch";
 import { THEMES, ThemeCard, type ThemeId } from "../containers/theme-card";
 
 /** What the chain says of one theme's skins (`useThemeSkins`): the balance, the prices, the owned word, the active set. */
@@ -52,6 +53,9 @@ export interface ThemeSceneProps {
   skins?: ThemeSkins | null;
   /** Shown in the skins' place when `skins` is not given. */
   skinsStatus?: SkinsStatus | null;
+  /** Whether boards show the players' skins on this device; with `onShowSkins`, the switch above the cards. Same store as Settings' row. */
+  showSkins?: boolean;
+  onShowSkins?: (show: boolean) => void;
   onSelect?: (id: ThemeId) => void;
   onBrowse?: (id: Exclude<ThemeId, "default">) => void;
   onBuySkin?: (plan: number) => void;
@@ -77,9 +81,14 @@ const SKINNED = THEMES.filter((t) => t.id !== "default");
  * tile skins (P-61): a theme's 19 plans, each bought with Cobbles and switched on one by one, at most one theme per plan;
  * the switches are saved together, in one write.
  */
-export function ThemeScene({ selected, tiles, tileArt, skins, skinsStatus, onSelect, onBack, onNavigate, onConnect, onRetry, ...props }: ThemeSceneProps) {
+export function ThemeScene({ selected, tiles, tileArt, skins, skinsStatus, showSkins, onShowSkins, onSelect, onBack, onNavigate, onConnect, onRetry, ...props }: ThemeSceneProps) {
   return (
     <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate} end={skins ? <Cobbles value={skins.balance} /> : undefined}>
+      {showSkins !== undefined && (
+        <div data-slot="card" className="rounded-xl border border-border bg-card px-4">
+          <ShowSkinsSwitch checked={showSkins} onCheckedChange={onShowSkins} />
+        </div>
+      )}
       <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
         {THEMES.map((t) => (
           <ThemeCard key={t.id} theme={t} selected={t.id === selected} tiles={tiles} artBase={tileArt} onSelect={onSelect} />
