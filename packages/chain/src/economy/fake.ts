@@ -42,6 +42,8 @@ export class FakeEconomy implements EconomyViews {
   split_: SplitView = { burn: 7_000, vault: 3_000, referral: 500 };
   /** `Economy.router()`. */
   router_ = FAKE_ROUTER;
+  /** `Economy.seller()`: "0x0" (unset) unless a test sets it. */
+  seller_ = "0x0";
   threshold = 3_980_000;
   mean = 3_980_000;
   readonly days = new Map<number, DayView>();
@@ -94,6 +96,11 @@ export class FakeEconomy implements EconomyViews {
   async router(): Promise<string> {
     this.check("router");
     return this.router_;
+  }
+
+  async seller(): Promise<string> {
+    this.check("seller");
+    return this.seller_;
   }
 
   async day(day: number): Promise<DayView> {

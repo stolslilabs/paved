@@ -325,6 +325,8 @@ export interface PurchasePlan {
   implied: bigint | null;
   /** `Economy.router()`, read in this prepare and checked against the pin. */
   router: string;
+  /** `Economy.seller()` (`Setup`), read in this prepare: a referrer equal to it is sent as "0x0". */
+  seller: string;
   referrer: string;
   quote: QuoteView;
 }
@@ -364,10 +366,12 @@ export class EconomyWriter {
 
   /**
    * Buys a Challenge game of stake `k`: approves `Challenge` on USDC for exactly the price, then
-   * `Challenge.spawn(stake, referrer, min_out)`, in one multicall. The entry unit and the quote are read again first;
+   * `Challenge.spawn(stake, referrer, min_out)`, in one multicall: one wallet prompt, as no approve is a session policy
+   * (P-65). A prompt the player declines is a `WalletRejectedError` (nothing sent). The entry unit and the quote are read again first;
    * the price must be `k x entry_price().amount` and the one the player confirmed. The payer's own address as the
    * referrer, or the deployment's Challenge or Economy, is refused (`RefusedReferrerError`): the contract would not pay it.
-   * Setup, the Vault and the router are sent as "0x0" (`paidReferrer`), as `Economy.pay` ignores them.
+   * Setup (the deployment's and `Economy.seller()`), the Vault and the router are sent as "0x0" (`paidReferrer`), as
+   * `Economy.pay` ignores them.
    */
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     let result: WriteResult;
@@ -398,9 +402,10 @@ export class EconomyWriter {
     let quote: QuoteView;
     let rate: bigint;
     let router: string;
+    let seller: string;
     try {
-      // The router and the guard's rate in the same prepare as the quote: fresh at every send, never the confirm's.
-      [entry, quote, rate, router] = await Promise.all([gameViews.entryPrice(), views.quote(request.stake), views.guardRate(), views.router()]);
+      // The router, the seller and the guard's rate in the same prepare as the quote: fresh at every send, never the confirm's.
+      [entry, quote, rate, router, seller] = await Promise.all([gameViews.entryPrice(), views.quote(request.stake), views.guardRate(), views.router(), views.seller()]);
     } catch (error) {
       throw new WriteError(`Cannot read the price: ${message(error)}`);
     }
@@ -417,7 +422,7 @@ export class EconomyWriter {
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
     if (typeof request.confirmedMinOut !== "bigint" || request.confirmedMinOut <= 0n) throw new WriteError("No confirmed minimum PAVED: confirm again");
     // Mapped as `Economy.pay` counts it: a Vault, router or Setup referrer is sent as "0x0", so the swap is the one it runs.
-    const referrer = paidReferrer(request.referrer, this.address, deployment, router);
+    const referrer = paidReferrer(request.referrer, this.address, deployment, { router, seller });
     // `min_out` from the pool's quote (fee included) less the slippage; never from `min_out_hint`, which leaves the
     // fee out and would make the purchase revert (P-35). No quote, or a 0 one, is no slippage protection: refused.
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
@@ -453,7 +458,7 @@ export class EconomyWriter {
       this.call("USDC", "approve", [deployment.base.addresses.Challenge, price]),
       this.call("Challenge", "spawn", [request.stake, referrer, minOut]),
     ];
-    return { calls, price, minOut, swapIn, poolOut, implied, router, referrer, quote };
+    return { calls, price, minOut, swapIn, poolOut, implied, router, seller, referrer, quote };
   }
 
   /**
@@ -668,14 +673,15 @@ export function referrerOf(referrer: string | null, self: string, contracts: Ref
 
 /**
  * The referrer a purchase (a game or a pack) sends, as `Economy.pay` counts it. The payer, the Challenge and the Economy are
- * refused (`referrerOf`: `RefusedReferrerError`); `Setup` (the seller), the Vault and the router (`Economy.router()`, read in
- * the same prepare), which `Economy.pay` ignores, are sent as "0x0", so the swap the client quotes and its `min_out` are the
- * ones the contract runs: never a referral cut it does not take (P-35).
+ * refused (`referrerOf`: `RefusedReferrerError`); `Setup` (the seller: the deployment's when it names one, and
+ * `Economy.seller()`, read in the same prepare, since `Setup` is optional in the base deployment), the Vault and the router
+ * (`Economy.router()`, read in the same prepare), which `Economy.pay` ignores, are sent as "0x0", so the swap the client
+ * quotes and its `min_out` are the ones the contract runs: never a referral cut it does not take (P-35).
  */
-export function paidReferrer(referrer: string | null, self: string, deployment: EconomyDeployment, router: string): string {
+export function paidReferrer(referrer: string | null, self: string, deployment: EconomyDeployment, read: { router: string; seller: string }): string {
   const sent = referrerOf(referrer, self, { challenge: deployment.base.addresses.Challenge, economy: deployment.addresses.Economy });
   if (sent === "0x0") return sent;
-  const ignored = [deployment.base.addresses.Setup, deployment.addresses.Vault, router].some((other) => {
+  const ignored = [deployment.base.addresses.Setup, read.seller, deployment.addresses.Vault, read.router].some((other) => {
     try {
       return !!other && BigInt(other) !== 0n && sameAddress(sent, other);
     } catch {
