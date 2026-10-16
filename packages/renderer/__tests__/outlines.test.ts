@@ -125,7 +125,7 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
-      color: "#1f1f1f",
+      color: "#090909",
       segmentOffDevicePx: 0.5,
       segmentFullDevicePx: 1,
     });
@@ -208,13 +208,13 @@ describe("outline material", () => {
     expect(material.visible).toBe(true);
     expect(material.uniforms.linewidth.value).toBe(1.5);
     expect(material.uniforms.opacity.value).toBe(0.4);
-    // The CSS channels go to the shader as they are: the composer shows them without an sRGB encoding.
+    // The CSS channels go to the shader as they are (the finish pass then tone maps and encodes them).
     expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x336699);
   });
 
-  it("starts dark grey, #1f1f1f, and antialiases in its shader (no multisampling needed)", () => {
+  it("starts very dark grey, #090909 written (about #101010 on screen after the finish pass), and antialiases in its shader (no multisampling needed)", () => {
     const material = createOutlineMaterial();
-    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x1f1f1f);
+    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x090909);
     expect(material.fragmentShader).toContain("coverage");
     expect(material.fog).toBe(true);
   });

@@ -79,8 +79,11 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   widthVoxels: 0.015,
   minWidthDevicePx: 1,
   maxWidthPx: 2,
-  // Dark grey, not black: about 88 % black.
-  color: "#1f1f1f",
+  // A very dark grey, not black. The value is what the outline pass writes into the linear target; the FinishPass then
+  // tone maps, grades and sRGB-encodes it, which lifts a dark grey a lot. #090909 shows as about #141313 at the middle
+  // of the Mockup look (ACES, grade on; the vignette darkens it toward the corners), the nearest the 8-bit input gets to
+  // #101010 on screen (#08 gives #0b0a09, #0a gives #1b1a19).
+  color: "#090909",
   // Under a device pixel a segment covers a pixel only where a pixel's centre falls within its span, so it shows as a
   // stray dot that comes and goes as the camera moves; at 0.5 px it covers at most half a pixel's row. It fades out
   // from one device pixel down to half of one, so nothing pops. Top-down, the voxels' vertical edges are all under it.
@@ -330,9 +333,10 @@ void main() {
 `;
 
 /**
- * The colour the outline material is given for `css` to show on screen. The scene is drawn into the composer's linear
- * target and its passes copy it to the canvas without an sRGB encoding or tone mapping (`Effects`), so the value the
- * shader writes is the 8-bit value shown: the CSS channels go in as they are.
+ * The colour the outline material is given for `css`. The scene is drawn into the composer's linear
+ * target; the `FinishPass` (`Effects`) then applies the tone map, the grade, the vignette and the sRGB encoding to the
+ * whole frame, outlines included. The CSS channels go in as they are (the value written is the linear one) and are NOT
+ * the 8-bit value shown: a dark grey is lifted (see `DEFAULT_OUTLINE_SETTINGS.color`).
  */
 function screenColor(css: string, target = new THREE.Color()): THREE.Color {
   return target.setStyle(css, THREE.LinearSRGBColorSpace);

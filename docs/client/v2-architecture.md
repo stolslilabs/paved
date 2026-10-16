@@ -1144,8 +1144,16 @@ height, so on every screen the outlines are fully on at the opening view and off
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
-The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
-target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#090909`. It is the value the outline pass writes into the linear
+target, and the CSS channels go to the shader unchanged; since LIGHT the `FinishPass` then tone maps (ACES), grades,
+vignettes and sRGB-encodes the whole frame, outlines included, so a dark grey is lifted a lot. At the middle of the
+Mockup look (no vignette, fog ignored): written `#1f1f1f` (the old default) showed as about `#686561`, not `#1f1f1f`;
+`#101010` written shows as about `#393736`; `#090909` shows as about `#141313`, the nearest the 8-bit input gets to
+`#101010` on screen (`#080808` gives `#0b0a09`, `#0a0a0a` gives `#1b1a19`). OUTLINE-COLOUR (2026-10-16): the owner
+asked for `#101010`; the brief's own check (the on-screen value must be the darker grey) wins over writing `#101010`
+literally, so the default is `#090909`. In the captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
+1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`), the outline pixels read about
+`#53524f` before and `#121413` after (vignette and fog included). The story's control is the written value.
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
 **Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,

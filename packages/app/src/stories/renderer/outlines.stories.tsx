@@ -49,7 +49,7 @@ const meta = {
       table: { category: "Outlines" },
     },
     maxWidthPx: { control: { type: "range", min: 0.5, max: 6, step: 0.25 }, description: "Widest stroke (CSS px): the cap zoomed in", table: { category: "Outlines" } },
-    color: { control: "color", description: "Outline colour on screen", table: { category: "Outlines" } },
+    color: { control: "color", description: "Outline colour written into the linear target; the finish pass (tone map, grade, sRGB) lifts it: #090909 shows as about #141313 in the Mockup look", table: { category: "Outlines" } },
     segmentOffDevicePx: {
       control: { type: "range", min: 0, max: 4, step: 0.25 },
       description: "Screen-size cut: a segment shorter on screen than this (device px) is not drawn. 0 with the next at 0: no cut",
