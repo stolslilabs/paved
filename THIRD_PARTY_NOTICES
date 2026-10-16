@@ -32,6 +32,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+composition-patterns skill (.claude/skills/composition-patterns/)
+-----------------------------------------------------------------
+
+Source:  https://github.com/vercel-labs/agent-skills
+Commit:  063bee94c3f4df8453406c830b0a7df0f2860278 (2026-08-28)
+Path:    skills/composition-patterns/ (SKILL.md rewritten for Paved; the eight rule files in rules/ kept,
+         trimmed and fitted for Paved)
+Licence: MIT. The repository has no LICENSE file at that commit: the licence is declared by "## License: MIT" in
+         its README.md and by "license: MIT" in the front matter of the skill's SKILL.md. Neither names a
+         copyright holder, so no copyright line is reproduced here.
+
 react-best-practices skill (.claude/skills/react-best-practices/)
 -----------------------------------------------------------------
 
