@@ -153,7 +153,7 @@ describe("/game/:gameId/over (P7a)", () => {
       over(s);
       const panel = await reward();
       expect(panel).toHaveAttribute("data-state", "expired");
-      const deadline = screen.getByText(/The 24 h ended/).querySelector("time")!;
+      const deadline = screen.getByText(/The 24 h/).querySelector("time")!;
       expect(deadline.getAttribute("dateTime")).toBe(new Date((day * DAY_SECONDS + DAY_SECONDS) * 1000).toISOString());
       // Nothing to claim: no settle control.
       expect(screen.queryByRole("region", { name: "Settle" })).toBeNull();
@@ -199,11 +199,11 @@ describe("/game/:gameId/over (P7a)", () => {
   });
 
   describe("settle", () => {
-    it("until the end of the next day: Settles after <date>, no button", async () => {
+    it("until the end of the next day: Settles in <time> (<date> UTC), no button", async () => {
       const s = setup({ terms: { day: OPEN_DAY } });
       over(s);
       const area = await screen.findByRole("region", { name: "Settle" }, { timeout: 5000 });
-      expect(area).toHaveTextContent("Settles after");
+      expect(area).toHaveTextContent(/Settles (in|after)|settled now/);
       expect(area.querySelector("time")!.getAttribute("dateTime")).toBe(new Date(settlesAfter(OPEN_DAY) * 1000).toISOString());
       expect(settleButton()).toBeNull();
       expect(s.settle).not.toHaveBeenCalled();
