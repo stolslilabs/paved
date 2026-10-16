@@ -1123,6 +1123,20 @@ at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per conf
 - Chrome exposes no per-context GPU memory to a page (`performance.measureUserAgentSpecificMemory` counts no GPU
   memory), so the browser figure is the GPU process's.
 
+**The reference bench, from now on: Q3-GPU's.** Frame times, memory and flicker on the Mac's GPU are measured with
+Q3-GPU's bench, whose scripts are kept in Q3-GPU's thread library (`q3gpu-lib.mjs`, `q3gpu-bench.mjs`,
+`q3gpu-summary.mjs`; not in this repository, like LIGHT-GPU's before them, which were not on the Mac). It follows
+DPR's, OUT-LOD's and LIGHT-GPU's method (above), and reads lower than LIGHT-GPU's bench: tied in 5.5, LIGHT-GPU's own
+build reads **2.78 ms lower at p95** (2.45 at p50) on it at the desktop profile, the opening view, cap 1.5, Medium.
+Earlier figures (P4, DPR, OUT-LOD, LIGHT-GPU) compare with each other, not with Q3-GPU's: compare within one bench, or
+re-run the older configuration on this one. To re-run: build the static Storybook (`bun run --filter @paved/app
+build-storybook`) and copy `storybook-static` out of the tree; then, from `packages/app` (where `playwright-core`
+resolves; Chrome for Testing 1217 from Playwright's cache), `node <library>/q3gpu-bench.mjs <mode> <storybook copy>
+<out.jsonl> <rounds>` with the mode `mem`, `time` (phone), `flicker`, `sweep`, `desk` (desktop caps), `deskab` (the
+canvas pairs) or `tie` (one configuration on several builds, `Q3_BUILDS=name=<dir>,name=<dir>`), and `node
+<library>/q3gpu-summary.mjs <mode> <out.jsonl>` for the pooled p50 / p95 per configuration. Every configuration waits for
+a 1-minute load under 6; the summary drops a configuration measured at 6 or more.
+
 The variants: "main" is P4's chain (4 samples, both targets swapped, the canvas multisampled), reproduced on this
 branch by setting the finish pass's `needsSwap` back on (it draws the same frames: the crop's mean luma is identical at
 181 poses, below) and the canvas's `antialias` forced by the bench; "one" is one target; "canvas off" is the canvas
@@ -1568,6 +1582,9 @@ the GPU figures by the PM's rules (LIGHT-GPU, below): each tier holds the effect
 | Medium | on | look's radius | off | render, AO, finish | 9.25 / 5.89 ms |
 | High | on | look's radius | on | render, AO, bloom, finish | 12.40 / 9.55 ms |
 
+The p95 column is LIGHT-GPU's bench; Q3-GPU's, the reference from now on, reads 2.78 ms lower at p95 on the same build
+(5.2, "The reference bench").
+
 `quality: "auto"` (the default) picks **Medium** on every device (a coarse pointer, a small screen or a desktop), and
 **Low** on `EffectsCapabilities.lowPowerDevice`; **High only when chosen by hand**. Medium is the richest tier under 12 ms
 on the desktop profile (High is 12.40). On the phone-like profile High fits the time (9.55, under 16.6) but its bloom
@@ -1597,7 +1614,9 @@ profile), then the variant's args: `preset:off;quality:high` for the Off preset,
 `keyShadowSoftness:3` for one effect alone; `quality:low`, `quality:medium` or `quality:high` for a tier; `forest:!true`
 for the skinned board. Wait for `[data-ready]`, then throttle the CPU (phone-like) and count the frames.
 
-CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95):
+CPU + GPU per frame, ms, pooled p50 / p95, and the cost against the Off preset (p95). LIGHT-GPU's bench, not the
+reference: Q3-GPU's reads 2.78 ms lower at p95 on the same build (5.2, "The reference bench"; the tie below, "The desktop
+cap, re-measured"):
 
 | Variant | Desktop, opening | cost | Desktop, zoomed | cost | Phone-like, opening | cost | Phone-like, zoomed | cost |
 |---|---|---|---|---|---|---|---|---|
@@ -1631,7 +1650,7 @@ phones by zero flicker alone. Medium itself passes with room (9.25 on the deskto
 with a tent upsample, at half resolution) would be its own task, measured the same way.
 
 **A fully skinned board** (Forest on all 19 plans, every tile its cell's variant: the board fetches 52 variant models; same method,
-two rounds each, `forest` on against off in the same round), p95 ms:
+two rounds each, `forest` on against off in the same round; LIGHT-GPU's bench, see the pointer above), p95 ms:
 
 | Tier | Desktop, opening: base / skinned | Desktop, zoomed | Phone-like, opening | Phone-like, zoomed |
 |---|---|---|---|---|
@@ -1741,11 +1760,23 @@ High, two rounds (13 of 48 dropped at a load of 6 or more): the pairs are within
 no measurable time, only memory), and cap 2 passes too (Medium 7.30 / 7.52, High 9.22 / 9.93, one round each kept for the
 branch's canvas).
 
-These figures read lower than LIGHT-GPU's at the same configurations (at cap 1.5, Medium 7.49 / 6.71 against 9.25 / 7.12,
-High 9.67 / 9.54 against 12.40 / 11.15). The method is the same, but the bench is a re-implementation (LIGHT-GPU's
-scripts were not on the Mac) and the machine's load differed; the gap is not explained by this branch's code (the
-canvas pairs above show no time effect, and one target draws the same passes as two). Every comparison here is made
-within these runs.
+**The two benches tied.** These figures read lower than LIGHT-GPU's at the same configurations (at cap 1.5, Medium 7.49 /
+6.71 against 9.25 / 7.12, High 9.67 / 9.54 against 12.40 / 11.15). To place the gap, Q3-GPU's bench re-ran
+LIGHT-GPU's configuration (desktop, the opening view, cap 1.5, Medium) on two builds, alternated within each round, the
+order rotated: LIGHT-GPU's own (its merge, `b064b2e5`) and this branch's head. Four rounds, every configuration at a
+1-minute load under 6, none dropped, loads 3.1 to 4.8. CPU + GPU, p50 / p95, ms:
+
+| Build | Q3-GPU's bench (per-round p95) | LIGHT-GPU's bench (5.5's table) |
+|---|---|---|
+| LIGHT-GPU (`b064b2e5`) | 4.45 / **6.47** (6.50, 5.72, 6.43, 6.99) | 6.90 / **9.25** |
+| This branch | 4.30 / **6.75** (5.95, 5.74, 7.42, 6.96) | |
+
+So the gap is the bench's, not the code's: on the same build, Q3-GPU's bench reads **2.45 ms lower at p50 and 2.78 at
+p95**, and the two builds are within its noise of each other. This run also reads 0.7 ms lower than the cap runs above
+(7.49), taken earlier the same day at loads up to 5.9: the bench's noise between sessions. Q3-GPU's bench is the
+reference from now on (5.2, "The reference bench"); its scripts are in Q3-GPU's library, LIGHT-GPU's were not on the Mac
+and are not re-run. The rule's comparisons above are all made within Q3-GPU's runs, and Medium at 1.75 stays under 12 ms
+even with the full 2.78 ms added (7.59 + 2.78 = 10.37).
 
 **Zero flicker at 1.75** (LIGHT-GPU's check on the desktop profile: the centre 800 x 500 CSS px; 1.5 against 1.75, Medium
 and High; loads 4.97 to 5.78, one configuration dropped): largest step (mean), opening pan 0.63 (0.22) at 1.5, 0.68 (0.21)
@@ -1760,8 +1791,9 @@ zoomed at 1.75 was the dropped configuration. So 1.75 adds no flicker over 1.5.
 **The rule applied** (the desktop cap is the highest under 12 ms at both views): 1.25, 1.5 and 1.75 pass at every tier,
 High included (9.97 at most), and 2 passes in the canvas run. Q3 kept 1.5 unless the figures said otherwise; they
 do, by more than 2 ms at the `"auto"` tier, so `PIXEL_RATIO_CAPS.fine` is **1.75** (`core/settings.ts`). Not 2: it was
-measured in one or two rounds only, against three for the others; it is a candidate for a later run. Even with
-LIGHT-GPU's higher readings (up to 2.7 ms more), Medium at 1.75 stays under 12 ms. The memory this costs is less than
+measured in one or two rounds only, against three for the others, and the PM ruled (2026-10-16): no cap-2 run, 1.75
+stands. Even with
+the 2.78 ms by which LIGHT-GPU's bench reads higher, Medium at 1.75 stays under 12 ms. The memory this costs is less than
 main's chain held at 1.5 (61 MiB against 155).
 
 ### 5.6 Tile skins (SKIN-RENDER)
