@@ -7,7 +7,11 @@ import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { SKIN_PLANS, activeThemes, ownsSkin } from "../src/skins";
 import { FakeGameViews, RpcGameViews, ViewError, type CallProvider } from "../src/views";
-import { SkinRefusedError, WriteError, type SkinRefusal } from "../src/writer";
+import { SkinPriceChangedError, SkinRefusedError, WriteError, type SkinRefusal } from "../src/writer";
+
+/** The price the card showed (75 Cobbles), and the `skin_price` read again at send. */
+const PRICE = { skinPrice: async () => 75 };
+const buy = (theme: number, plan: number) => ({ theme, plan, confirmedPrice: 75 });
 
 const SETUP = "0x3";
 const PLAYER = "0x5";
@@ -90,7 +94,7 @@ describe("the skins follow Setup.json", () => {
         events: [raw("SkinBought", [PLAYER], ["0x1", "0x7", "0x4b", "0xa5"]), raw("SkinsActivated", [PLAYER], [`0x${word.toString(16)}`])],
       },
     });
-    const { events } = await writer.buySkin(1, 7);
+    const { events } = await writer.buySkin(buy(1, 7), PRICE);
     expect(events.map((e) => [e.name, e.fields])).toEqual([
       ["SkinBought", { playerId: PLAYER, theme: 1, plan: 7, cobbles: 75, balance: 165 }],
       ["SkinsActivated", { playerId: PLAYER, active: `0x${word.toString(16)}` }],
@@ -104,8 +108,31 @@ describe("the skins follow Setup.json", () => {
 describe("the writes", () => {
   test("buy_skin is one call to Setup with the theme and the plan", async () => {
     const { writer, execute } = writerWith();
-    await writer.buySkin(1, 19);
+    await writer.buySkin(buy(1, 19), PRICE);
     expect(sent(execute)).toEqual([[3n, "buy_skin", [1, 19]]]);
+  });
+
+  test("skin_price is read again inside the serialised send: a changed price, a skin off sale or a failed read sends nothing", async () => {
+    const read = vi.fn(async (theme: number, plan: number) => (theme === 1 && plan === 7 ? 80 : 0));
+    const { writer, execute } = writerWith();
+    const changed = await writer.buySkin(buy(1, 7), { skinPrice: read }).catch((e: unknown) => e);
+    expect(changed).toBeInstanceOf(SkinPriceChangedError);
+    expect(changed).toBeInstanceOf(WriteError);
+    expect(changed).toMatchObject({ confirmed: 75, current: 80, message: "This skin's price changed: check the new price and buy again. Nothing was sent." });
+    expect(read).toHaveBeenCalledWith(1, 7);
+    const off = await writer.buySkin(buy(1, 8), { skinPrice: read }).catch((e: unknown) => e);
+    expect(off).toMatchObject({ name: "SkinPriceChangedError", current: 0, message: "This skin is not for sale any more. Nothing was sent." });
+    await expect(writer.buySkin(buy(1, 7), { skinPrice: () => Promise.reject(new Error("rpc down")) })).rejects.toThrow(/Cannot read the skin's price: rpc down/);
+    await expect(writer.buySkin({ theme: 1, plan: 7, confirmedPrice: 0 }, PRICE)).rejects.toThrow(/No confirmed price/);
+    expect(execute).not.toHaveBeenCalled();
+    // The read waits for an earlier write of the account: it is inside the serialisation, so a second send is refused meanwhile.
+    let release!: () => void;
+    const gate = new Promise<number>((resolve) => (release = () => resolve(75)));
+    const first = writer.buySkin(buy(1, 7), { skinPrice: () => gate });
+    await expect(writer.setSkins([{ plan: 7, theme: 1 }])).rejects.toThrow(/Another write is pending/);
+    release();
+    await first;
+    expect(sent(execute)).toEqual([[3n, "buy_skin", [1, 7]]]);
   });
 
   test("set_skins is one call: the batch's length, then each (plan, theme), in the order given", async () => {
@@ -123,11 +150,11 @@ describe("the writes", () => {
       await expect(writer.setSkins([change])).rejects.toMatchObject({ name: "SkinRefusedError", reason: "invalid-skin" });
     }
     for (const [theme, plan] of [[0, 7], [256, 7], [1, 0], [1, 20]]) {
-      await expect(writer.buySkin(theme!, plan!)).rejects.toMatchObject({ name: "SkinRefusedError", reason: "invalid-skin" });
+      await expect(writer.buySkin(buy(theme!, plan!), PRICE)).rejects.toMatchObject({ name: "SkinRefusedError", reason: "invalid-skin" });
     }
     const none = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
     const other = writerWith({ dep: none });
-    await expect(other.writer.buySkin(1, 7)).rejects.toThrow(/No Setup/);
+    await expect(other.writer.buySkin(buy(1, 7), PRICE)).rejects.toThrow(/No Setup/);
     await expect(other.writer.setSkins([{ plan: 7, theme: 1 }])).rejects.toThrow(/No Setup/);
     expect(execute).not.toHaveBeenCalled();
     expect(other.execute).not.toHaveBeenCalled();
@@ -143,7 +170,7 @@ describe("the writes", () => {
 
   test.each(REVERTS)("'%s' is a SkinRefusedError (%s), from the simulation, as text or as hex", async (reason, refusal) => {
     for (const message of [`Execution failed: ${reason}`, `Failure reason: ${shortString.encodeShortString(reason)}.`]) {
-      for (const send of [(w: ReturnType<typeof writerWith>["writer"]) => w.buySkin(1, 7), (w: ReturnType<typeof writerWith>["writer"]) => w.setSkins([{ plan: 7, theme: 1 }])]) {
+      for (const send of [(w: ReturnType<typeof writerWith>["writer"]) => w.buySkin(buy(1, 7), PRICE), (w: ReturnType<typeof writerWith>["writer"]) => w.setSkins([{ plan: 7, theme: 1 }])]) {
         const { writer } = writerWith({ execute: () => Promise.reject(new Error(message)) });
         const error = await send(writer).catch((e: unknown) => e);
         expect(error).toBeInstanceOf(SkinRefusedError);
@@ -159,7 +186,7 @@ describe("the writes", () => {
 
   test("another revert stays a WriteError", async () => {
     const { writer } = writerWith({ execute: () => Promise.reject(new Error("insufficient fee")) });
-    const error = await writer.buySkin(1, 7).catch((e: unknown) => e);
+    const error = await writer.buySkin(buy(1, 7), PRICE).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(WriteError);
     expect(error).not.toBeInstanceOf(SkinRefusedError);
   });

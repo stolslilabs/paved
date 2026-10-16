@@ -2,8 +2,9 @@ import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { addressKey } from "./keys";
 
-// A purchase whose outcome is unknown (P7b, review loop 2): it was sent, but its receipt could not tell whether it landed.
-// Until its receipt reads, the page holds Pay (or Buy) and offers only a deliberate Buy again: a game's second purchase
+// A purchase whose outcome is unknown (P7b, review loop 2): it was sent, but its receipt could not tell whether it landed,
+// or the wallet never answered (`PurchaseTimedOutError`: no hash, but the send may still land). Until its receipt reads, its
+// late answer arrives, or the player confirms that nothing landed, the page holds Pay (or Buy): a game's second purchase
 // would be signed without a prompt. The record outlives the component: `localStorage`, per player and kind, so a remount
 // ("Check my games" and back), a reload and a second tab all find it. With storage off, the query cache keeps it for the
 // session (its entry never expires).
@@ -11,9 +12,12 @@ import { addressKey } from "./keys";
 /** What was bought: a Challenge game, or a pack of Cobbles. */
 export type PurchaseKind = "game" | "pack";
 
-/** The unknown purchase of a player and kind: its transaction hash and when it was sent (seconds). */
+/**
+ * The unknown purchase of a player and kind: its transaction hash and when it was sent (seconds). `hash` null is a send the
+ * wallet never answered (timed out): sent at `at`, by this player, and it may still land; there is no receipt to read.
+ */
 export interface UnknownPurchase {
-  hash: string;
+  hash: string | null;
   at: number;
 }
 
@@ -51,6 +55,7 @@ function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | nul
     const raw = store.getItem(name);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<UnknownPurchase>;
+    if (parsed.hash === null && Number.isFinite(parsed.at)) return { hash: null, at: Number(parsed.at) };
     return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0) } : null;
   } catch {
     return undefined;
@@ -73,6 +78,21 @@ export function writeUnknownPurchase(client: QueryClient, playerId: string, kind
   client.setQueryData(unknownPurchaseKey(playerId, kind), record);
 }
 
+/** The player's record as the page would read it: the stored one, or the cache's copy when storage cannot be read. */
+function currentRecord(client: QueryClient, playerId: string, kind: PurchaseKind): UnknownPurchase | null {
+  const stored = readStored(playerId, kind);
+  return stored === undefined ? (client.getQueryData<UnknownPurchase | null>(unknownPurchaseKey(playerId, kind)) ?? null) : stored;
+}
+
+/**
+ * Clears the hold of a send the wallet never answered, once its late answer arrives: only the hash-less record of that send
+ * (`at`, its time of sending), never a record with a hash or a later send's.
+ */
+export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, at: number): void {
+  const record = currentRecord(client, playerId, kind);
+  if (record && record.hash === null && record.at === at) writeUnknownPurchase(client, playerId, kind, null);
+}
+
 /**
  * The player's unknown purchase of `kind`, or null. Read from storage at each mount (a reload, a second tab), and again
  * when another tab writes it (the `storage` event); with storage off, the cache's copy.
@@ -82,10 +102,7 @@ export function useUnknownPurchase(playerId: string | null, kind: PurchaseKind) 
   const key = unknownPurchaseKey(playerId ?? "0x0", kind);
   const query = useQuery({
     queryKey: key,
-    queryFn: () => {
-      const stored = readStored(playerId as string, kind);
-      return stored === undefined ? (client.getQueryData<UnknownPurchase | null>(key) ?? null) : stored;
-    },
+    queryFn: () => currentRecord(client, playerId as string, kind),
     enabled: playerId !== null,
     staleTime: 0,
     gcTime: Infinity,
@@ -100,7 +117,7 @@ export function useUnknownPurchase(playerId: string | null, kind: PurchaseKind) 
     return () => window.removeEventListener("storage", onStorage);
   }, [client, playerId, kind]);
   const record = useCallback(
-    (hash: string, at = Math.floor(Date.now() / 1000)) => playerId !== null && writeUnknownPurchase(client, playerId, kind, { hash, at }),
+    (hash: string | null, at = Math.floor(Date.now() / 1000)) => playerId !== null && writeUnknownPurchase(client, playerId, kind, { hash, at }),
     [client, playerId, kind],
   );
   // Read at each render: a write that fails sets it before the cache's copy is, which renders again.

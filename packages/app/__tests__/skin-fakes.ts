@@ -1,4 +1,4 @@
-import { SkinRefusedError, WriteError, type DecodedEvent, type FakeGameViews, type SkinChange, type WriteResult } from "@paved/chain";
+import { SkinPriceChangedError, SkinRefusedError, WriteError, type BuySkinRequest, type DecodedEvent, type FakeGameViews, type SkinChange, type SkinViews, type WriteResult } from "@paved/chain";
 
 /**
  * `Setup`'s skin writes (cobbles v1, part 3) in memory, on a `FakeGameViews` ledger (`cobblePlayer`, `skinPlayer`,
@@ -19,7 +19,10 @@ export class FakeSkinWriter {
     readonly address: string,
   ) {}
 
-  async buySkin(theme: number, plan: number): Promise<WriteResult> {
+  async buySkin({ theme, plan, confirmedPrice }: BuySkinRequest, views: Pick<SkinViews, "skinPrice">): Promise<WriteResult> {
+    // As the writer: `skin_price` read again before the send, and another price than the card's sends nothing.
+    const current = await views.skinPrice(theme, plan);
+    if (current !== confirmedPrice) throw new SkinPriceChangedError(confirmedPrice, current);
     this.sent.push({ buy: { theme, plan } });
     const hash = await this.begin();
     const price = this.views.skinPriceTable.get(`${theme}:${plan}`) ?? 0;
