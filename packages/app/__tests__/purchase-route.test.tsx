@@ -190,6 +190,10 @@ beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/purchase"), import("../src/routes/pages/home")]);
 }, 60_000);
 
+// A margin, after the causes above: the tests take 0.05 to 1.9 s (mean 0.1 to 1 s) over 40 runs, but a loaded machine
+// (load average 6 to 20 on 8 cores) stalled a whole run now and then, a 0.7 s test taking 4.5 to 4.9 s.
+vi.setConfig({ testTimeout: 15_000 });
+
 // A failed read is retried once after the cache's default 1 s (`retry: 1`): every test of a failing read waited that second in
 // real time (1.1 to 1.4 s each, the retry's wait included). The retry stays, without the wait.
 const defaultOptions = queryClient.getDefaultOptions();
