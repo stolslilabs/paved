@@ -38,7 +38,7 @@ const meta = {
       control: "inline-radio",
       options: LIT_STRUCTURES,
       type: { name: "enum", value: [...LIT_STRUCTURES] },
-      description: "One structure lit across its tiles (FEATURE-HL): the board's largest city or road, from the engine's union-find",
+      description: "One structure lit across its tiles (FEATURE-HL): the board's largest city, longest road or largest forest, from the engine's union-find",
     },
     force: {
       control: "inline-radio",
@@ -73,15 +73,27 @@ export const ZoomedIn: Story = { args: { view: "zoomed-in", distance: 30 } };
 
 /**
  * Every city of the board lit (FEATURE-HL): the voxels labelled city from their colours and the plan's layout
- * (`labelTileGeometry`) tinted and glowing, the rest dimmed. "Feature highlight" picks the feature and the strengths.
+ * (`labelTileColumns`) tinted and glowing, the rest dimmed. "Feature highlight" picks the feature and the strengths.
  */
-export const CitiesLit: Story = { args: { featureHighlightEnabled: true, highlights: false } };
+export const CitiesLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "city", highlights: false } };
+
+/** Every road of the board lit (FEATURE-HL), as `CitiesLit`. */
+export const RoadsLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "road", highlights: false } };
+
+/** Every forest of the board lit (FEATURE-HL): every column that is neither a city, a road nor a wonder, as `CitiesLit`. */
+export const ForestsLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "forest", highlights: false } };
 
 /**
  * One city lit across its tiles (FEATURE-HL): the board's largest city, its areas found by the engine's union-find
  * (`StructureBoard`) and lit on each of its tiles (`GameScene.setLitAreas`), the rest of the board dimmed.
  */
 export const LargestCityLit: Story = { args: { litStructure: "largest-city", highlights: false } };
+
+/** One road lit across its tiles (FEATURE-HL): the board's longest, as `LargestCityLit`. */
+export const LongestRoadLit: Story = { args: { litStructure: "longest-road", highlights: false } };
+
+/** One forest lit across its tiles (FEATURE-HL): the board's largest, as `LargestCityLit`. */
+export const LargestForestLit: Story = { args: { litStructure: "largest-forest", highlights: false } };
 
 const MOCKUPS = { "mockup-01": mockup01, "mockup-02": mockup02 } as const;
 

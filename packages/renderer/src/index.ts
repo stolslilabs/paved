@@ -9,11 +9,12 @@ export {
   FEATURE_CODE,
   classifyColumns,
   columnTops,
+  labelTileColumns,
   labelTileGeometry,
+  packLabels,
   planKeyOfModel,
-  setFeatureAttributes,
 } from "./core/features";
-export type { ColumnLabels, ColumnTops, FeatureName, PaletteClasses, TileLabels } from "./core/features";
+export type { ColumnLabels, ColumnTops, FeatureName, PaletteClasses, TileColumns, TileGrid, TileLabels } from "./core/features";
 export { CameraController } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";

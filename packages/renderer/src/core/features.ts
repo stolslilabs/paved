@@ -79,11 +79,23 @@ export interface ColumnLabels {
   readonly area: Uint8Array;
 }
 
-/** A model's labels: per vertex (the attributes' values) and per column. */
-export interface TileLabels {
+/** Where the grid lies in the model's frame: its north-west corner (x, z) and a column's width. */
+export interface TileGrid {
+  readonly minX: number;
+  readonly minZ: number;
+  readonly cell: number;
+}
+
+/** A model's column labels and where its grid lies (`labelTileColumns`). */
+export interface TileColumns {
+  readonly columns: ColumnLabels;
+  readonly grid: TileGrid;
+}
+
+/** A model's labels: per column, and per vertex (`labelTileGeometry`). */
+export interface TileLabels extends TileColumns {
   readonly feature: Uint8Array;
   readonly area: Uint8Array;
-  readonly columns: ColumnLabels;
 }
 
 /** The layout of a plan: each spot's category and area code, in plan-key order. */
@@ -384,10 +396,38 @@ export function classifyColumns(tops: ColumnTops, planKey: string, classes: Pale
 }
 
 /**
- * The labels of a tile model's mesh: each column's (`classifyColumns`), and each vertex's, the label of the voxel column
- * its triangles stand on (a triangle's centre stepped half a voxel inward along its normal, so a wall's side takes its own
- * column). A vertex shared by triangles of different columns takes the label covering most of their area.
- * `toModel` takes the geometry's positions to the model's frame (Y up, the north to -Z), as the loaded scene places it.
+ * The column labels of a tile model's mesh (`classifyColumns`) and where its grid lies in the model's frame: what the tile
+ * shader reads per fragment (`packLabels`, `TileRenderer`). `toModel` takes the geometry's positions to the model's frame
+ * (Y up, the north to -Z), as the loaded scene places it.
+ */
+export function labelTileColumns(
+  geometry: THREE.BufferGeometry,
+  planKey: string,
+  toModel = new THREE.Matrix4(),
+  classes: PaletteClasses = BASE_PALETTE_CLASSES,
+  size = TILE_VOXELS,
+): TileColumns {
+  return columnsOf(modelFrame(geometry, toModel, size), geometry, planKey, classes, size);
+}
+
+function columnsOf(frame: ModelFrame, geometry: THREE.BufferGeometry, planKey: string, classes: PaletteClasses, size: number): TileColumns {
+  const columns = classifyColumns(topsOf(geometry, frame, size), planKey, classes);
+  return { columns, grid: { minX: frame.minX, minZ: frame.minZ, cell: frame.cell } };
+}
+
+/**
+ * The column labels packed one byte a column, row by row from the north-west corner: `feature * 16 + area`. The tile
+ * shader's label map (an R8 texture, `TileRenderer`) holds them.
+ */
+export function packLabels(columns: ColumnLabels): Uint8Array {
+  return Uint8Array.from(columns.feature, (feature, k) => feature * 16 + columns.area[k]);
+}
+
+/**
+ * The labels of a tile model's mesh per column (`labelTileColumns`) and per vertex: the label of the voxel column its
+ * triangles stand on (a triangle's centre stepped half a voxel inward along its normal, so a wall's side takes its own
+ * column). A vertex shared by triangles of different columns takes the label covering most of their area. A merged face
+ * over columns of two labels cannot show both through its vertices: the tile shader reads the columns per fragment.
  */
 export function labelTileGeometry(
   geometry: THREE.BufferGeometry,
@@ -397,7 +437,7 @@ export function labelTileGeometry(
   size = TILE_VOXELS,
 ): TileLabels {
   const frame = modelFrame(geometry, toModel, size);
-  const columns = classifyColumns(topsOf(geometry, frame, size), planKey, classes);
+  const { columns, grid } = columnsOf(frame, geometry, planKey, classes, size);
   const { positions: p, minX, minZ, cell } = frame;
   const count = geometry.getAttribute("position").count;
   // Per vertex: the area of its triangles under each label (feature and area packed in one key).
@@ -429,11 +469,5 @@ export function labelTileGeometry(
     feature[v] = Math.floor(best / 16);
     area[v] = best % 16;
   }
-  return { feature, area, columns };
-}
-
-/** The labels as the geometry's `feature` and `area` attributes (one byte each per vertex), as the tile shader reads them. */
-export function setFeatureAttributes(geometry: THREE.BufferGeometry, labels: TileLabels): void {
-  geometry.setAttribute("feature", new THREE.BufferAttribute(labels.feature, 1));
-  geometry.setAttribute("area", new THREE.BufferAttribute(labels.area, 1));
+  return { feature, area, columns, grid };
 }

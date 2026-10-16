@@ -30,7 +30,7 @@ export interface LightingBoardProps {
   force?: "auto" | "on" | "off";
   /** The pixel-ratio cap: "auto" (the device's) or a number. */
   maxPixelRatio?: number | "auto";
-  /** One structure lit across its tiles (`GameScene.setLitAreas`): the board's largest city or road, or none. */
+  /** One structure lit across its tiles (`GameScene.setLitAreas`): the board's largest city, longest road or largest forest, or none. */
   litStructure?: LitStructure;
   /** The look's flat args (`lighting-look.ts`). */
   [arg: string]: unknown;
@@ -39,7 +39,7 @@ export interface LightingBoardProps {
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
 const FOREST = skinsFor("all");
 
-export const LIT_STRUCTURES = ["none", "largest-city", "largest-road"] as const;
+export const LIT_STRUCTURES = ["none", "largest-city", "longest-road", "largest-forest"] as const;
 export type LitStructure = (typeof LIT_STRUCTURES)[number];
 
 /**
@@ -55,7 +55,7 @@ const LIT: Record<LitStructure, LitTile[] | null> = (() => {
     const [first] = structures.filter((s) => s.category === category).sort((a, b) => b.size - a.size);
     return [...first.areas].map(([id, areas]) => ({ gameId: 1, id, areas }));
   };
-  return { none: null, "largest-city": largest(3), "largest-road": largest(2) };
+  return { none: null, "largest-city": largest(3), "longest-road": largest(2), "largest-forest": largest(1) };
 })();
 
 /** The board's bounds, the zoomed-in view's anchor on the lit structure's tiles (their centre) when one is lit. */
