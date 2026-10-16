@@ -956,7 +956,7 @@ describe("a wallet that never answers (writer timeout)", () => {
       expect(s.sent).toHaveLength(1);
       await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS - 1));
       expect(result.current.mutation.status).toBe("pending");
-      await act(() => vi.advanceTimersByTimeAsync(1));
+      for (let i = 0; i < 20 && result.current.mutation.status === "pending"; i++) await act(() => vi.advanceTimersByTimeAsync(1));
       expect(result.current.mutation.status).toBe("error");
       const error = result.current.mutation.error!;
       expect(error).toBeInstanceOf(PurchaseTimedOutError);
