@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
+import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PlanType, getPlanKey } from "@paved/game-core";
@@ -14,6 +16,7 @@ const KEYS = Object.values(PlanType)
 const APP = resolve(__dirname, "..");
 const MODELS = join(APP, "public/renderer-assets/models");
 const FOREST = join(MODELS, "forest");
+const TILES = join(APP, "public/renderer-assets/tiles");
 /** The base models' files (the theme folders aside). */
 const baseFiles = () => readdirSync(MODELS).filter((n) => n.endsWith(".glb"));
 
@@ -60,6 +63,115 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
   }, 120_000);
 });
 
+describe("the app's resized, content-hashed tile images (scripts/compress-tiles.ts)", () => {
+  it("lists a 256 px image per plan, each present with its hash in its name, and nothing else", () => {
+    const { tiles } = rendererManifest();
+    expect(Object.keys(tiles)).toEqual(["256"]);
+    const listed: string[] = [];
+    for (const [size, plans] of Object.entries(tiles)) {
+      expect(Object.keys(plans).sort()).toEqual([...KEYS].sort());
+      for (const key of KEYS) {
+        const path = plans[key]!;
+        expect(path).toMatch(new RegExp(`^tiles/${key}\\.${size}\\.[0-9a-f]{10}\\.png$`));
+        const png = readFileSync(join(APP, "public/renderer-assets", path));
+        // The hash in the name is the file's, and the image is `size` x `size`.
+        expect(createHash("sha256").update(png).digest("hex").slice(0, 10)).toBe(path.split(".")[2]);
+        expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([Number(size), Number(size)]);
+        listed.push(path.slice("tiles/".length));
+      }
+    }
+    expect(readdirSync(TILES).sort()).toEqual(listed.sort());
+  });
+
+  it("are exactly what the script writes from app-web's originals", () => {
+    const out = execFileSync(process.execPath, [join(APP, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" });
+    expect(out).toContain("19 plans:");
+  }, 120_000);
+
+  it("fail the check when a copy is stale", () => {
+    const [name] = readdirSync(TILES);
+    const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
+    // The check reads the script's own folders: a copy of the script and its sources beside a stale output.
+    const app = join(dir, "app");
+    const web = join(dir, "app-web/public/assets/tiles");
+    mkdirSync(join(app, "scripts"), { recursive: true });
+    mkdirSync(join(app, "public/renderer-assets/tiles"), { recursive: true });
+    mkdirSync(web, { recursive: true });
+    copyFileSync(join(APP, "scripts/compress-tiles.ts"), join(app, "scripts/compress-tiles.ts"));
+    const source = join(APP, "../app-web/public/assets/tiles", `${name!.slice(0, 9)}.png`);
+    copyFileSync(source, join(web, `${name!.slice(0, 9)}.png`));
+    // Nothing written yet: stale.
+    expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
+    execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts")], { stdio: "pipe" });
+    expect(execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("1 plans:");
+    const folder = join(app, "public/renderer-assets/tiles");
+    const run = () => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" });
+    const original = readFileSync(join(folder, readdirSync(folder)[0]!));
+    /** The file with its pixel data inflated, changed by `edit` and deflated at `level`, named by its new hash (the stream differs, the pixels may not). */
+    const rewrite = (level: number, edit: (raw: Buffer) => void) => {
+      const written = readdirSync(folder)[0]!;
+      const png = readFileSync(join(folder, written));
+      const parts: Buffer[] = [];
+      const others: Array<[string, Buffer]> = [];
+      for (let at = 8; at < png.length; ) {
+        const length = png.readUInt32BE(at);
+        const type = png.toString("latin1", at + 4, at + 8);
+        const body = png.subarray(at + 8, at + 8 + length);
+        if (type === "IDAT") parts.push(body);
+        else others.push([type, body]);
+        at += 12 + length;
+      }
+      const raw = inflateSync(Buffer.concat(parts));
+      edit(raw);
+      const chunk = (type: string, body: Buffer) => {
+        const head = Buffer.alloc(8);
+        head.writeUInt32BE(body.length, 0);
+        head.write(type, 4, "latin1");
+        const crc = Buffer.alloc(4);
+        crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), body])), 0);
+        return Buffer.concat([head, body, crc]);
+      };
+      const out = Buffer.concat([
+        png.subarray(0, 8),
+        ...others.filter(([t]) => t === "IHDR").map(([t, b]) => chunk(t, b)),
+        chunk("IDAT", deflateSync(raw, { level })),
+        chunk("IEND", Buffer.alloc(0)),
+      ]);
+      rmSync(join(folder, written));
+      const name = `${written.slice(0, 14)}${createHash("sha256").update(out).digest("hex").slice(0, 10)}.png`;
+      writeFileSync(join(folder, name), out);
+      return out;
+    };
+    // Another deflate level: a different file and hash, the same pixels: still current.
+    const other = rewrite(1, () => {});
+    expect(other.equals(original)).toBe(false);
+    expect(run().toString()).toContain("1 plans:");
+    // One pixel changed (a byte of the first row's data), the name still its file's hash: stale.
+    rewrite(9, (raw) => void (raw[5] = (raw[5]! + 1) & 0xff));
+    expect(() => run()).toThrow();
+    // A copy edited under its name, and one extra file: both stale.
+    const [current] = readdirSync(folder);
+    writeFileSync(join(folder, current!), "edited");
+    expect(() => run()).toThrow();
+  }, 120_000);
+
+  it("fails the manifest when a name's hash is not its file's, or a plan has two images of a size", () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
+    const models = join(dir, "models");
+    const tiles = join(dir, "tiles");
+    mkdirSync(models);
+    mkdirSync(tiles);
+    writeFileSync(join(tiles, "ccccccccc.256.0123456789.png"), "edited");
+    expect(() => rendererManifest(models, tiles)).toThrow(/hashes to/);
+    const real = readdirSync(TILES).filter((n) => n.includes(".256."));
+    rmSync(join(tiles, "ccccccccc.256.0123456789.png"));
+    copyFileSync(join(TILES, real[0]!), join(tiles, real[0]!));
+    // Another plan's image under this plan's key: its hash is right, the plan has two 256 px images.
+    copyFileSync(join(TILES, real[1]!), join(tiles, `${real[0]!.slice(0, 9)}${real[1]!.slice(9)}`));
+    expect(() => rendererManifest(models, tiles)).toThrow(/two 256 px images/);
+  });
+});
+
 describe("rendererManifest", () => {
   const dirWith = (files: Record<string, Buffer | string>) => {
     const dir = mkdtempSync(join(tmpdir(), "renderer-manifest-"));
@@ -73,7 +185,7 @@ describe("rendererManifest", () => {
     copyFileSync(join(MODELS, one), join(dir, one));
     writeFileSync(join(dir, "ccccccccc.glb"), "plain");
     writeFileSync(join(dir, "notes.txt"), "x");
-    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, themes: {} });
+    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {} });
   });
 
   it("fails when a name's hash is not its file's, or a plan has two files", () => {

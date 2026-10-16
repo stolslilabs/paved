@@ -9,14 +9,22 @@ import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
 /**
  * Where a host lists its renderer assets under content-hashed names: `<basePath>/manifest.json`, a plan key to its model's
  * path relative to `basePath` (`{ "models": { "ccccccccc": "models/ccccccccc.2bb7ca783c.glb" } }`), and each theme's
- * variants by its id on chain, then plan key, in variant order (`{ "themes": { "1": { "ccccccccc": ["models/forest/..."] } } }`).
+ * variants by its id on chain, then plan key, in variant order (`{ "themes": { "1": { "ccccccccc": ["models/forest/..."] } } }`),
+ * and the resized tile images by size in pixels, then plan key (`{ "tiles": { "256": { "ccccccccc": "tiles/ccccccccc.256.<hash>.png" } } }`).
  * The app's build writes it (`packages/app/vite/renderer-assets.ts`); a host without one (Storybook) serves
  * `models/<plan>.glb`, and draws no skin unless it hands the loader a manifest of its own.
  */
 export interface AssetManifest {
   models: Record<string, string>;
   themes?: Record<string, Record<string, string[]>>;
+  tiles?: Record<string, Record<string, string>>;
 }
+
+/**
+ * The side, in pixels, of the tile images the renderer draws, the placeholder quad's and the plan view's: one size serves
+ * both (the plan view at 256 and at 512 px differs by a mean 0.02 to 0.06 dE and 1.6 dE at most, at every zoom, `docs/client/v2-architecture.md`, 4.2).
+ */
+export const TILE_IMAGE_SIZE = 256;
 
 /** The plan keys of the 19 base models (`None` has none). */
 const PLAN_KEYS = Object.values(PlanType)
@@ -30,13 +38,14 @@ const manifests = new Map<string, Promise<AssetManifest | null>>();
 export const MANIFEST_RETRY_MS = [250, 1000];
 
 function isManifest(value: unknown): value is AssetManifest {
-  const { models, themes } = (value as { models?: unknown; themes?: unknown } | null) ?? {};
+  const { models, themes, tiles } = (value as { models?: unknown; themes?: unknown; tiles?: unknown } | null) ?? {};
   const record = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
   const paths = (v: unknown) => Array.isArray(v) && v.every((p) => typeof p === "string");
   return (
     record(models) &&
     Object.values(models).every((v) => typeof v === "string") &&
-    (themes === undefined || (record(themes) && Object.values(themes).every((t) => record(t) && Object.values(t).every(paths))))
+    (themes === undefined || (record(themes) && Object.values(themes).every((t) => record(t) && Object.values(t).every(paths)))) &&
+    (tiles === undefined || (record(tiles) && Object.values(tiles).every((t) => record(t) && Object.values(t).every((v) => typeof v === "string"))))
   );
 }
 
@@ -97,6 +106,14 @@ async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
 export function modelPath(manifest: AssetManifest | null, key: string): string {
   if (isVariant(key)) return key;
   return manifest?.models[key] ?? `models/${key}.glb`;
+}
+
+/**
+ * A plan's tile image, relative to `basePath`: the manifest's copy at `TILE_IMAGE_SIZE`, else the original
+ * `assets/tiles/<plan>.png`, what a host without a manifest (or one listing no tiles) serves.
+ */
+export function tilePath(manifest: AssetManifest | null, key: string): string {
+  return manifest?.tiles?.[String(TILE_IMAGE_SIZE)]?.[key] ?? `assets/tiles/${key}.png`;
 }
 
 /** Whether a model id names a theme's variant (a path) rather than a plan's base model (a plan key). */
@@ -301,14 +318,15 @@ export class AssetLoader {
   }
 
   /**
-   * Every plan's image for the plan view (strategy mode) and the placeholder quad, loaded once. A failure may be tried
-   * again: the next try asks only for the images not in yet.
+   * Every plan's image for the plan view (strategy mode) and the placeholder quad, loaded once, at `TILE_IMAGE_SIZE` (the
+   * manifest's copy). A failure may be tried again: the next try asks only for the images not in yet.
    */
   preloadTextures(): Promise<void> {
     if (!this.texturesLoad) {
       const load = Promise.all(
         PLAN_KEYS.filter((key) => !this.textures.has(`tile-${key}`)).map(async (key) => {
-          const texture = await this.textureLoader.loadAsync(`${this.basePath}/assets/tiles/${key}.png`);
+          const manifest = await this.readManifest();
+          const texture = await this.textureLoader.loadAsync(`${this.basePath}/${tilePath(manifest, key)}`);
           if (this.disposed) texture.dispose();
           else this.textures.set(`tile-${key}`, texture);
         })
