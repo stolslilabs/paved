@@ -1,4 +1,4 @@
-import type { IndexedGame, SplitView } from "@paved/chain";
+import type { SplitView } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -9,17 +9,20 @@ import { Notice } from "../elements/notice";
 import { formatBps, SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
 
-/** A paid game's terms as the indexer serves them (`GameRow.economy`, E3): `@paved/chain` types them on `IndexedGame`. */
-export type GameEconomy = NonNullable<IndexedGame["economy"]>;
-
-/** What the player's link earned: the purchases whose `referrer` is them (`GameRow.economy`, E3), read by referrer. */
-export interface ReferralEarnings {
-  /** USDC base units: the sum of their `referral`. */
-  total: bigint;
-  /** Purchases through the link, all time. */
+/** One part of what the link earned: the purchases that paid it and their referral, USDC base units. */
+export interface ReferralPart {
   count: number;
-  /** The latest, newest first. */
-  recent: GameEconomy[];
+  total: bigint;
+}
+
+/**
+ * What the player's link earned (the indexer's `/v1/players/:id/referrals`, IX-COBBLES2): the referral of every Challenge game
+ * and of every pack of Cobbles bought through it, USDC base units. `total` is the two together.
+ */
+export interface ReferralEarnings {
+  total: bigint;
+  games: ReferralPart;
+  packs: ReferralPart;
 }
 
 /** How long ago, in its largest unit: "45 min ago", "7 h ago", "2 d ago". */
@@ -37,21 +40,30 @@ export interface ReferralSceneProps {
   copied?: boolean;
   /** `Economy.split_bps()`; null when the economy is not deployed (no figure is shown then). */
   split: SplitView | null;
-  /** Null while it loads. */
+  /** `split` is still being read: neither the share nor "not deployed" is shown yet. */
+  splitPending?: boolean;
+  /** Null while it loads, or when its read failed (`earningsError`). */
   earnings: ReferralEarnings | null;
-  now: number;
+  /** The indexer's read failed: the earnings say so with Retry; the link stays. */
+  earningsError?: string | null;
   onCopy?: (link: string) => void;
+  /** The system's share sheet; left out where the browser has none (then only Copy). */
+  onShare?: (link: string) => void;
+  onRetry?: () => void;
   onConnect?: () => void;
   onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
+const plural = (count: number, one: string) => `${count.toLocaleString("en-US")} ${count === 1 ? one : `${one}s`}`;
+
 /**
- * Referral (`/referral`, from Settings and Home): the player's link to copy, their share (the split's referral, out of the
- * Vault's part, never a constant) and what it earned. A link only names a referrer: the buyer pays the same price.
+ * Referral (`/referral`, from Settings and Home): the player's link to copy or share, their share (the split's referral,
+ * out of the Vault's part, never a constant) and what it earned, games and packs. A link only names a referrer: the buyer
+ * pays the same price. A failed read of the earnings never hides the link.
  */
 export function ReferralScene(props: ReferralSceneProps) {
-  const { link, split, earnings, now } = props;
+  const { link, split, earnings } = props;
   return (
     <TabPage tab="settings" title="Referral" subtitle="Invite players, earn a share of their purchases" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
@@ -66,16 +78,25 @@ export function ReferralScene(props: ReferralSceneProps) {
                 <span className="text-xs text-muted-foreground">
                   {split ? (
                     <>
-                      You get <span className="numeric font-semibold text-primary">{formatBps(split.referral)}</span> of the price of every game bought through it.
+                      You get <span className="numeric font-semibold text-primary">{formatBps(split.referral)}</span> of the price of every game and
+                      pack bought through it.
                     </>
                   ) : (
-                    "You get a share of the price of every game bought through it."
+                    "You get a share of the price of every game and pack bought through it."
                   )}
                 </span>
               </div>
             </div>
             {link ? (
-              <CopyField value={link} label="Your referral link" copied={props.copied} onCopy={props.onCopy} />
+              <>
+                <CopyField value={link} label="Your referral link" copied={props.copied} onCopy={props.onCopy} />
+                {props.onShare && (
+                  <Button variant="outline" className="self-start" onClick={() => props.onShare?.(link)}>
+                    <Icon name="share-nodes" size="sm" />
+                    Share
+                  </Button>
+                )}
+              </>
             ) : (
               <Notice title="Connect to get your link" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
                 The link carries your address: it needs an account.
@@ -91,7 +112,7 @@ export function ReferralScene(props: ReferralSceneProps) {
                 The buyer pays the same price. Your share is paid out of the Vault's part, in USDC, when they buy; without a referrer the Vault keeps it.
               </p>
             </section>
-          ) : (
+          ) : props.splitPending ? null : (
             <Notice tone="warning" title="Economy not deployed">
               This network has no purchases yet: nothing to earn.
             </Notice>
@@ -101,34 +122,41 @@ export function ReferralScene(props: ReferralSceneProps) {
         {link && split && (
           <section aria-label="Earned" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
             <h2 className="font-display text-sm font-semibold">Earned</h2>
-            {earnings === null ? (
+            {props.earningsError ? (
+              <Notice tone="danger" title="The earnings cannot be read" action={<Button size="sm" onClick={props.onRetry}>Retry</Button>}>
+                {props.earningsError} Your link still works.
+              </Notice>
+            ) : earnings === null ? (
               <div role="status" aria-label="Loading the earnings" className="flex flex-col gap-3">
                 <Skeleton className="h-9 w-40" />
-                <Skeleton className="h-24" />
+                <Skeleton className="h-16" />
               </div>
             ) : (
               <>
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <Amount value={earnings.total} token="usdc" className="text-3xl text-foreground" />
                   <span className="text-xs whitespace-nowrap text-muted-foreground">
-                    <span className="numeric font-semibold text-foreground">{earnings.count}</span> {earnings.count === 1 ? "purchase" : "purchases"}
+                    <span className="numeric font-semibold text-foreground">{(earnings.games.count + earnings.packs.count).toLocaleString("en-US")}</span>{" "}
+                    {earnings.games.count + earnings.packs.count === 1 ? "purchase" : "purchases"}
                   </span>
                 </div>
-                {earnings.recent.length === 0 ? (
+                {earnings.games.count + earnings.packs.count === 0 ? (
                   <p className="rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground">No purchase through your link yet. Share it with a friend.</p>
                 ) : (
-                  <ul aria-label="Purchases through your link" className="flex flex-col divide-y divide-border">
-                    {earnings.recent.map((p, i) => (
-                      // The icon and the share on the first line; the stake and price wrap under each other when narrow (WRAP360).
-                      <li key={`${p.purchasedAt}-${i}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2">
+                  <ul aria-label="Earned through your link" className="flex flex-col divide-y divide-border">
+                    {(
+                      [
+                        ["ticket", "Challenge games", earnings.games, "game"],
+                        ["cubes-stacked", "Cobbles packs", earnings.packs, "pack"],
+                      ] as const
+                    ).map(([icon, label, part, one]) => (
+                      <li key={label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2">
                         <span className="inline-flex h-5 items-center">
-                          <Icon name="ticket" size="sm" className="text-muted-foreground" />
+                          <Icon name={icon} size="sm" className="text-muted-foreground" />
                         </span>
-                        <span className="flex flex-wrap items-baseline gap-x-1 text-sm leading-5">
-                          Stake <span className="numeric">{p.stake}</span> · <Amount value={BigInt(p.price)} token="usdc" />
-                        </span>
-                        <Amount value={BigInt(p.referral)} token="usdc" className="leading-5 text-success" />
-                        <span className="col-start-2 text-xs text-muted-foreground">{ago(now - p.purchasedAt)}</span>
+                        <span className="text-sm leading-5">{label}</span>
+                        <Amount value={part.total} token="usdc" className="leading-5 text-success" />
+                        <span className="col-start-2 text-xs text-muted-foreground">{plural(part.count, one)}</span>
                       </li>
                     ))}
                   </ul>

@@ -1,5 +1,5 @@
 import type { EconomyClient, IndexerClient, PavedClient } from "@paved/chain";
-import type { DataSources, Purchases, Settlements } from "../data/sources";
+import type { DataSources, Purchases, Settlements, VaultWrites } from "../data/sources";
 
 /** Why an indexer read fails in a build without one. */
 const NO_INDEXER = "No indexer: VITE_INDEXER_URL is not set in this build";
@@ -77,12 +77,20 @@ const lazySettlements = (signer: Parameters<NonNullable<DataSources["settlements
   settle: async (gameIds) => (await import("../data/settle-client")).settlementsOf(signer).settle(gameIds),
 });
 
+/** The Vault's writes of a signer (P10), built on the economy client at the first deposit or withdraw. */
+const lazyVault = (signer: Parameters<NonNullable<DataSources["vault"]>>[0]): VaultWrites => ({
+  deposit: async (amount, options) => (await import("../data/vault-client")).vaultWritesOf(signer).deposit(amount, options),
+  withdraw: async (amount, options) => (await import("../data/vault-client")).vaultWritesOf(signer).withdraw(amount, options),
+  withdrawAll: async (options) => (await import("../data/vault-client")).vaultWritesOf(signer).withdrawAll(options),
+});
+
 /**
  * The sources the app's `DataProvider` gives. Training needs only its save, `localStorage` (`store` left out:
  * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
  * loaded with the first read. The signer is `WalletProvider`'s (P6): null here, filled while a wallet is connected. The
  * indexer is the client on `VITE_INDEXER_URL` (P6). The economy's views, its pool quote and the purchases are
- * `EconomyClient`'s on the same deployment (P7b), loaded with the first read.
+ * `EconomyClient`'s on the same deployment (P7b), loaded with the first read; the settlement (P7a) and the Vault's writes
+ * (P10) are its writer's, loaded with the first write.
  */
 export const APP_SOURCES: DataSources = {
   views: lazyChain((c) => c.views),
@@ -93,4 +101,5 @@ export const APP_SOURCES: DataSources = {
   signer: null,
   purchases: lazyPurchases,
   settlements: lazySettlements,
+  vault: lazyVault,
 };

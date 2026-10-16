@@ -10,7 +10,7 @@ import type { AchievementsSceneProps } from "../components/scenes/achievements-s
 import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
 import type { PlayerSceneProps } from "../components/scenes/player-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
-import type { ReferralEarnings, ReferralSceneProps } from "../components/scenes/referral-scene";
+import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
 import type { ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
@@ -34,10 +34,10 @@ import {
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE } from "./quests";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
-import { REFERRAL_LINK, REFERRED_PURCHASES } from "./referral";
+import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { THEME_TILES } from "./settings";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
-import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE } from "./vault";
+import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -248,6 +248,7 @@ export const VAULT = {
   overMax: { ...vaultBase, mode: "withdraw", amount: "1300" },
   noPaved: { ...vaultBase, position: VAULT_NONE, balance: 0n },
   notDeployed: { ...vaultBase, deployed: false, position: null, balance: 0n, split: null },
+  ...VAULT_STATES,
   /** WRAP360: the largest position, balance, amount and preview; every description wraps. */
   stress: { ...vaultBase, position: STRESS_VAULT, balance: BIG_AMOUNT_18, amount: "123456789012.99", preview: BIG_AMOUNT_18 },
 } satisfies Record<string, Data<VaultSceneProps>>;
@@ -359,21 +360,19 @@ export const ACHIEVEMENTS = {
 
 // Referral
 
-// Every purchase through the link is listed: the count and the total are those of the list.
-const earned: ReferralEarnings = { total: REFERRED_PURCHASES.reduce((sum, p) => sum + BigInt(p.referral), 0n), count: REFERRED_PURCHASES.length, recent: REFERRED_PURCHASES };
-
 export const REFERRAL = {
-  earned: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: earned, now: MOCK_NOW },
-  copied: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: earned, copied: true, now: MOCK_NOW },
-  none: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: { total: 0n, count: 0, recent: [] }, now: MOCK_NOW },
-  loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
-  guest: { link: null, split: SPLIT_BPS, earnings: null, now: MOCK_NOW },
-  notDeployed: { link: REFERRAL_LINK, split: null, earnings: null, now: MOCK_NOW },
-  /** WRAP360: a link with a full address, the largest earnings and count; each purchase at the largest price (stake 10, 20 USDC). */
+  earned: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: REFERRAL_EARNINGS },
+  copied: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: REFERRAL_EARNINGS, copied: true },
+  none: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: REFERRAL_NONE },
+  loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null },
+  /** The indexer's read failed: the earnings have Retry, the link stays. */
+  error: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, earningsError: "Indexer unreachable: fetch failed" },
+  guest: { link: null, split: SPLIT_BPS, earnings: null },
+  notDeployed: { link: REFERRAL_LINK, split: null, earnings: null },
+  /** WRAP360: a link with a full address, the largest earnings and counts. */
   stress: {
     link: `${REFERRAL_LINK.split("?")[0]}?ref=${LONG_ADDRESS}`,
     split: SPLIT_BPS,
-    earnings: { total: BIG_AMOUNT_6, count: BIG_NUMBER, recent: REFERRED_PURCHASES.map((p) => ({ ...p, stake: MAX_STAKE, price: String(BigInt(MAX_STAKE) * 2_000_000n), referral: "1000000" })) },
-    now: MOCK_NOW,
+    earnings: { total: BIG_AMOUNT_6 * 2n, games: { count: BIG_NUMBER, total: BIG_AMOUNT_6 }, packs: { count: BIG_NUMBER, total: BIG_AMOUNT_6 } },
   },
 } satisfies Record<string, Data<ReferralSceneProps>>;
