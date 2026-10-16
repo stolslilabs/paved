@@ -783,6 +783,35 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     there would need `TileView` to load a model by path, a renderer change.
  (19, the plan view's and the tile chips'), from app-web's `public/` under their
     plain names, served in dev and copied at build.
+  - **Tile images, the app's own 256 px copy, content-hashed (TEX, 2026-10-16; PM ruling of that day: 1680 px was too
+    much):** `packages/app/scripts/compress-tiles.ts` (`node scripts/compress-tiles.ts`; `--check` fails when the committed
+    copy is stale, and a test runs it) reads app-web's 19 original 1680 x 1680 PNGs (left untouched) and writes
+    `public/renderer-assets/tiles/<plan>.256.<hash>.png`, the hash being the first 10 hex digits of the file's SHA-256.
+    No package: the script reads and writes PNG with `node:zlib` (an exact area-average resize on premultiplied alpha;
+    sharp and the WASM codecs are not dependencies of the repository, and `pngjs` is only a transitive one). PNG, not
+    WebP: no encoder is in the repository, and `TextureLoader` decodes through the browser, which reads PNG everywhere.
+    The manifest lists them by size, then plan (`tiles: { "256": { "<plan>": "tiles/<plan>.256.<hash>.png" } }`;
+    `checkHash` covers them), and `AssetLoader` asks for that path, or the original `assets/tiles/<plan>.png` when the
+    manifest lists none (Storybook's stories). **One size serves both uses**, the placeholder quad and the plan view:
+    the PM's suggestion was 256 px for the quad and 512 px for the plan view, but the plan view drawn from the 256 px
+    copy differs from the one drawn from the 512 px copy by a mean 0.02 dE at the default zoom and 0.05 to 0.06 dE at the
+    closest (maximum 1.6 dE, no pixel above 2 dE), at 360 and 1280 (headless Chromium, software WebGL), so no 512 px copy is
+    written. The 1680 px originals are not asked for by the renderer any more; the build still ships them for the tile
+    chips (`tile-chip.tsx`, a DOM `<img>`, which may move to the 256 px copy in a later task: 83,283 B for the 19 against
+    319,815 B). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
+    board; the phone profile is 360 x 740, device pixel ratio 2, touch and a coarse pointer, so the renderer's
+    small-screen path): the images the tile materials hold on the GPU, computed per texture (width x height x 4, times 4/3
+    with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read 27 before and after on the phone
+    profile) were, before and after, in the plan view 286.0 MB (19 x 15.05 MB) and 6.64 MB (19 x 0.350 MB), and in the
+    placeholder quads (18 quads, the board's first tile drawn from its model) 271.0 MB and 6.29 MB; both views resident
+    (a plan shown both ways is uploaded twice, 5.6) about 557 MB and 12.9 MB. The desktop profile (1280 x 800) gives the
+    same figures. Downloaded: 319,815 B raw for the 19 originals and 83,283 B for the 19 copies (3.8 times less; the
+    request count is the same, 19); gzipped at level 9, 60,549 B and 79,226 B: the originals are poorly deflated PNGs
+    that gzip squeezes further, so a host that gzips `image/png` (the usual one does not) sends fewer bytes for the
+    originals than for the copies. Captures `captures/tex-360-*.png` and `tex-1280-*.png`, `-before` and `-after`, of the
+    plan view, the placeholder quads and the plan view at its closest zoom; the plan view at the default zoom differs by a
+    mean 0.14 dE (360) and 0.24 dE (1280) from the original's (0.9 % and 1.8 % of its tile pixels above 2 dE, at the tile
+    edges), the quads by 0.30 and 0.57 dE, the closest zoom by 0.09 and 0.07 dE (maximum 2.3 dE).
   - **Load order** (`packages/renderer/src/core/load-order.ts`, `AssetLoader`): a scene's init waits only for the models of
     the tiles it is handed before its first frame (the board's tiles; the hand's own scene, its one tile), or for every
     model when it is handed none; the other models load after the first frame (the next animation frame, then an idle
@@ -835,7 +864,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     saves nothing: its base models are loaded, as the fallback of a read that had not come. That case is not measured.
   - **Cache headers for the host step** (the host config is not changed here): hashed models
     `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
-    (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.
+    (`AssetLoader` asks with `cache: "no-cache"` too); the hashed tile images `renderer-assets/tiles/*.png`, `Cache-Control: public, max-age=31536000, immutable`; the originals the chips load (`assets/tiles/`), plain names, `no-cache` or a short `max-age`.
     Compressing `model/gltf-binary` too (gzip or brotli) would take the 19 models from 1,089,624 B to 665,212 B (gzip
     level 6) or 618,540 B (brotli), measured on the files; `vite preview` compresses only text and JavaScript, so the
     figures below are the files as they are.
@@ -1473,12 +1502,16 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
     segment cut and software WebGL's "off" apply as on the models); a model's inner creases are not there. MSAA applies.
     LIGHT's look: the quad is lit and receives shadows (a `MeshStandardMaterial`, roughness 0.95), but casts none, and
     the water mask is not applied (the image is not the models' palette). It is flat: no relief, at the ground's height,
-    so the swap shows the buildings and trees rising out of it. GPU memory: an image is 1680 x 1680, so each plan's quad
-    uploads about 11.3 MB (15 MB with mipmaps; computed, not measured) while it is in use, as the plan view's tiles do.
+    so the swap shows the buildings and trees rising out of it. GPU memory (TEX, 2026-10-16): the image is the 256 px copy
+    (4.2), 0.350 MB with mipmaps against 15.05 MB for the 1680 px original (11.3 MB without): 18 quads hold 6.29 MB where
+    they held 271.0 MB (measured on the "Renderer/Tiles" story, 4.2).
     The quad reads its image as sRGB (its own copy of the loader's `Texture`, the same source); the plan view reads the
-    loader's texture with no colour space (a `MeshBasicMaterial`, as before), so one texture cannot serve both without
-    changing the plan view's colours, and a plan shown both ways is uploaded twice (about 11.3 MB more, computed). Left as
-    is: the plan view is not this task's, and its colours would need a capture to change.
+    loader's texture with no colour space (a `MeshBasicMaterial`, as before), and **one colour space cannot serve both**:
+    the plan view's texture set to sRGB (captured at 360 and 1280, software WebGL) differs from the current one by a mean
+    30 dE over the tile pixels (every pixel above 2 dE, the maximum 56 dE). So the clone stays, a plan
+    shown both ways is uploaded twice, and at 256 px that costs 0.350 MB a plan (6.6 MB for the 19), against 286 MB
+    for the 19 before. Matching the plan view's colours on a shared sRGB texture would take a shader patch of its
+    material (re-encoding the sampled value), which this task does not do for 6.6 MB.
   - **Story:** "Renderer/Skins", control `delayModels` (story `SlowModels`, 4 s): the story holds every model response
     (the page's `fetch` waits before answering a `.glb`), opens the board without its last 12 tiles, places them once it
     is drawn, and hovers a ghost on a cell whose Forest variant the opening board does not load. Captures
