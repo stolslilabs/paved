@@ -148,10 +148,6 @@ export class TileRenderer {
         : model
           ? this.createVoxelTile(tile, model)
           : this.createPlaceholder(tile.plan, tile.orientation);
-      if (existing && mesh) {
-        this.tileGroup.remove(existing.mesh);
-        this.tileMeshes.delete(key);
-      }
 
       if (mesh) {
         // Apply pending loading style
@@ -168,7 +164,9 @@ export class TileRenderer {
           0,
           tile.worldZ * this.squareSize
         );
+        // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
+        if (existing) this.tileGroup.remove(existing.mesh);
         this.tileMeshes.set(key, { mesh, pending, model });
         changed = true;
       }
