@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
+import { LOOK_PRESETS } from "../src/core/look";
 import { Effects, MSAA_SAMPLES, resolveFaceAntialiasing, type FaceAntialiasing } from "../src/core/Effects";
 import {
   CAMERA_NEAR,
@@ -28,9 +29,9 @@ function fakeRenderer(): THREE.WebGLRenderer {
   } as unknown as THREE.WebGLRenderer;
 }
 
-function composerFor(antialiasing: FaceAntialiasing) {
+function composerFor(antialiasing: FaceAntialiasing, samples?: number) {
   const effects = new Effects();
-  effects.init(fakeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera(), "play", antialiasing);
+  effects.init(fakeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera(), "play", antialiasing, samples);
   return { effects, composer: effects.getComposer()! };
 }
 
@@ -46,17 +47,40 @@ describe("face antialiasing", () => {
     expect(resolveFaceAntialiasing(true, { maxSamples: 16, software: true })).toBe("smaa");
     expect(resolveFaceAntialiasing(true, { ...gpu, supportsMultisampling: false })).toBe("smaa");
     expect(resolveFaceAntialiasing(false, { maxSamples: 0, software: true })).toBe("off");
+    // Fewer samples asked, fewer needed.
+    expect(resolveFaceAntialiasing(true, { maxSamples: 2, software: false }, 2)).toBe("msaa");
   });
 
-  it("draws the scene into a multisampled target for MSAA, whichever of the composer's two targets it lands in", () => {
+  it("draws the scene into a multisampled target for MSAA, the same target every frame", () => {
     const { composer } = composerFor("msaa");
     expect(MSAA_SAMPLES).toBe(4);
-    // The composer swaps its targets every frame: both must multisample, or every other frame loses the MSAA.
-    expect(composer.renderTarget1.samples).toBe(MSAA_SAMPLES);
-    expect(composer.renderTarget2.samples).toBe(MSAA_SAMPLES);
+    expect(composer.readBuffer.samples).toBe(MSAA_SAMPLES);
     expect(composer.passes.some((pass) => pass instanceof SMAAPass)).toBe(false);
+    // No pass swaps the composer's targets: the scene lands in its read buffer every frame, and the write buffer is never
+    // bound, so never allocated. A chain that swapped would draw every other frame into the other target.
+    expect(composer.passes.filter((pass) => pass.needsSwap)).toEqual([]);
     // The target is the drawing buffer's size.
-    expect([composer.renderTarget1.width, composer.renderTarget1.height]).toEqual([800, 600]);
+    expect([composer.readBuffer.width, composer.readBuffer.height]).toEqual([800, 600]);
+  });
+
+  it("swaps no target at any tier: the AO and the bloom draw beside the read buffer or into it", () => {
+    for (const tier of ["low", "medium", "high"] as const) {
+      const effects = new Effects();
+      effects.setLook(LOOK_PRESETS.mockup, tier);
+      effects.init(fakeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera(), "play", "msaa");
+      expect(effects.getComposer()!.passes.filter((pass) => pass.needsSwap)).toEqual([]);
+    }
+  });
+
+  it("takes the samples of the settings, and rebuilds the chain when they change", () => {
+    const { effects, composer } = composerFor("msaa", 2);
+    expect(composer.readBuffer.samples).toBe(2);
+    effects.setAntialiasing("msaa", 4);
+    expect(effects.getComposer()!.readBuffer.samples).toBe(4);
+    expect(DEFAULT_RENDERER_SETTINGS.msaaSamples).toBe(MSAA_SAMPLES);
+    expect(resolveRendererSettings({ msaaSamples: 2 }).msaaSamples).toBe(2);
+    // An unsupported count is the default.
+    expect(resolveRendererSettings({ msaaSamples: 3 }).msaaSamples).toBe(MSAA_SAMPLES);
   });
 
   it("ends the chain with SMAA instead, on a target with no samples", () => {
@@ -64,6 +88,8 @@ describe("face antialiasing", () => {
     const { composer } = composerFor("smaa");
     expect(composer.renderTarget1.samples).toBe(0);
     expect(composer.passes.at(-1)).toBeInstanceOf(SMAAPass);
+    // SMAA reads what the finish pass wrote: the finish pass swaps, and SMAA (three's) swaps back, two swaps a frame.
+    expect(composer.passes.filter((pass) => pass.needsSwap)).toEqual(composer.passes.slice(-2));
   });
 
   it("has neither when off, and rebuilds the chain when the mode changes", () => {
@@ -101,10 +127,10 @@ describe("face antialiasing", () => {
     (scene as any).webgl = { renderer: "Apple GPU", software: false, reason: "GPU renderer" };
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2 };
     scene.resize();
-    expect(setAntialiasing).toHaveBeenLastCalledWith("off");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("off", 4);
     size = { width: 360, height: 780 };
     scene.resize();
-    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa", 4);
     info.mockRestore();
   });
 

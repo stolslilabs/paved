@@ -1,4 +1,5 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
+import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import {
@@ -31,18 +32,21 @@ export interface RendererSettings {
    * (`resolveFaceAntialiasing`, `Effects.ts`). `"auto"` (the default) takes the device's (`resolveMultisampling`): on on
    * a coarse pointer or a small screen, off elsewhere. MSAA costs about 3.5 ms of p95 on the Mac profile, which breaks
    * the 12 ms rule at cap 1.5; the phone-like profile stays far under 16.6 ms with it (P4, `docs/client/v2-architecture.md`
-   * 5.2). The outlines antialias themselves and are stable without it. Memory (estimate, not measured): the composer's two
-   * targets both multisample, each a 4-sample RGBA half-float colour buffer (32 B/px), a 4-sample 24-bit depth buffer
-   * (16 B/px) and its resolve texture (8 B/px): about 112 B/px for the two, against 24 B/px without MSAA. About 126 MB
-   * (99 MB more) at a 720 x 1560 buffer (360 x 780 at DPR 2, or DPR 3 capped at 2); about 327 MB (257 MB more) at
-   * 2160 x 1350 (1440 x 900 at cap 1.5) when MSAA is forced on.
+   * 5.2). The outlines antialias themselves and are stable without it. Memory (measured, Q3-GPU, 5.2): one target
+   * multisamples, a 4-sample RGBA half-float colour buffer (32 B/px), a 4-sample depth buffer (16 B/px) and its resolve
+   * (12 B/px: colour 8, depth 4): 61.0 MiB at a 720 x 1480 buffer (360 x 740 at DPR 2), 48.8 MiB more than without.
    */
   multisampling: boolean | "auto";
+  /**
+   * The samples of MSAA's scene target, 2 or 4 (Q3-GPU). MSAA is taken only where the context multisamples that many.
+   * 4, the default: 2 saves 24 B/px (24.4 MiB at 720 x 1480) but shimmers under a zoom as much as no MSAA does.
+   */
+  msaaSamples: number;
   /**
    * The highest pixel ratio the board is drawn at: the renderer's is `min(devicePixelRatio, maxPixelRatio)`. Under the
    * screen's, the board is drawn at fewer pixels and upscaled, so a 1-device-pixel outline shows wider and soft.
    * `"auto"` (the default) takes the cap measured for the device (`resolveMaxPixelRatio`): 2 on a coarse pointer or a
-   * small screen, 1.5 elsewhere (DPR, then OUT-LOD, `docs/client/v2-architecture.md` 5.3).
+   * small screen, 1.75 elsewhere (DPR, OUT-LOD, then Q3-GPU, `docs/client/v2-architecture.md` 5.3 and 5.5).
    */
   maxPixelRatio: number | "auto";
   /** The preset the look starts from (`LOOK_PRESETS`): "mockup" (the default), "soft" or "off". */
@@ -78,6 +82,7 @@ export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
   multisampling?: boolean | "auto";
+  msaaSamples?: number;
   maxPixelRatio?: number | "auto";
   /** A preset: the look starts from it, then `look` overrides its fields. Unset, the base's look. */
   lookPreset?: LookPreset;
@@ -101,6 +106,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
   multisampling: "auto",
+  msaaSamples: MSAA_SAMPLES,
   maxPixelRatio: "auto",
   lookPreset: DEFAULT_LOOK_PRESET,
   look: LOOK_PRESETS[DEFAULT_LOOK_PRESET],
@@ -112,9 +118,10 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
  * The pixel-ratio caps of `"auto"`, set by a rule from measures on an M2 Max (headless Chrome, the 72-tile board):
  * on coarse pointers and small screens, the highest cap whose CPU + GPU p95 stays under 16.6 ms on the phone-like
  * profile (360 x 780 at DPR 3, CPU 4x): 2 (DPR); elsewhere, the highest cap under 12 ms on the Mac profile (1440 x 900
- * at DPR 2) at both views with the outlines on: 1.5 once the outline segments are cut by screen size (OUT-LOD; 2 misses).
+ * at DPR 2) at both views with the outlines on, at every quality tier: 1.75 (Q3-GPU, re-measured with the lighting tiers
+ * and one composer target; 1.25 to 2 all pass, 2 in fewer rounds, so 1.75 is the highest cap measured in full).
  */
-export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1.5 } as const;
+export const PIXEL_RATIO_CAPS = { coarse: 2, fine: 1.75 } as const;
 
 /**
  * A window or screen whose shorter side is at most this many CSS px is a small screen (a phone, held either way). The
@@ -164,6 +171,7 @@ export function resolveRendererSettings(
     outlines,
     camera: { ...base.camera, ...input.camera },
     multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
+    msaaSamples: MSAA_SAMPLE_COUNTS.includes(input.msaaSamples!) ? input.msaaSamples! : base.msaaSamples,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
     lookPreset: preset ?? base.lookPreset,
     look: mergeLookSettings(preset ? LOOK_PRESETS[preset] : base.look, input.look),
@@ -171,6 +179,9 @@ export function resolveRendererSettings(
     placement: resolvePlacementSettings(input.placement, base.placement),
   };
 }
+
+/** The sample counts `msaaSamples` takes: what WebGL 2 multisamples on every GPU that has MSAA. */
+export const MSAA_SAMPLE_COUNTS: readonly number[] = [2, 4];
 
 const MULTISAMPLING_VALUES: readonly RendererSettings["multisampling"][] = [true, false, "auto"];
 

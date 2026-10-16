@@ -42,22 +42,22 @@ describe("GameScene settings", () => {
     (scene as any).renderer = { capabilities: { maxSamples: 4 } };
     (scene as any).webgl = { renderer: "ANGLE (Apple, Metal)", software: false, reason: "GPU renderer" };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("msaa", 4);
     scene.setSettings({ multisampling: false });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("off");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("off", 4);
     // No WebGL 2 multisampling: SMAA.
     (scene as any).renderer = { capabilities: { maxSamples: 0 } };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa", 4);
     // Software WebGL multisamples on the CPU: SMAA.
     (scene as any).renderer = { capabilities: { maxSamples: 16 } };
     (scene as any).webgl = { renderer: "SwiftShader", software: true, reason: "software renderer" };
     scene.setSettings({ multisampling: true });
-    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa");
+    expect(setAntialiasing).toHaveBeenLastCalledWith("smaa", 4);
     // The path is logged once per change.
     scene.setSettings({ multisampling: true });
     expect(info.mock.calls.filter(([m]) => String(m).includes("face antialiasing")).map(([m]) => m)).toEqual([
-      "[renderer] face antialiasing msaa: 4 samples available on GPU renderer",
+      "[renderer] face antialiasing msaa: 4 samples, 4 available on GPU renderer",
       "[renderer] face antialiasing off: disabled by the settings",
       "[renderer] face antialiasing smaa: multisampling unavailable (0 samples)",
       "[renderer] face antialiasing smaa: software renderer",
