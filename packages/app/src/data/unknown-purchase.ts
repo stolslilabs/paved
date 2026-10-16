@@ -3,7 +3,8 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { addressKey } from "./keys";
 
 // A purchase whose outcome is unknown (P7b, review loop 2): it was sent, but its receipt could not tell whether it landed,
-// or the wallet never answered (`PurchaseTimedOutError`: no hash, but the send may still land). Until its receipt reads, its
+// or the wallet has not answered (no hash, but the send may still land). The hash-less record is written when the send
+// starts (SESSION-NOAPPROVE), so a reload while the wallet's prompt is open still holds Pay. Until its receipt reads, its
 // late answer arrives, or the player confirms that nothing landed, the page holds Pay (or Buy): a game's second purchase
 // would be signed without a prompt. The record outlives the component: `localStorage`, per player and kind, so a remount
 // ("Check my games" and back), a reload and a second tab all find it. With storage off, the query cache keeps it for the
@@ -19,7 +20,20 @@ export type PurchaseKind = "game" | "pack";
 export interface UnknownPurchase {
   hash: string | null;
   at: number;
+  /**
+   * The send's identity (`newSendId`: milliseconds and a random part), which tells two sends of the same second apart; a
+   * record stored before it existed has none, and is then no send's own.
+   */
+  id?: string;
 }
+
+/** A new send's identity: the time in milliseconds and a random part, unique across tabs and sends of the same second. */
+export function newSendId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Whether `record` is the send `id`'s own. */
+const ownedBy = (record: UnknownPurchase, id: string): boolean => record.id !== undefined && record.id === id;
 
 /** The storage key of a player's unknown purchase of `kind`: `paved:purchase-unknown:v1:<kind>:<player>`. */
 export const unknownPurchaseStorageKey = (playerId: string, kind: PurchaseKind): string => `paved:purchase-unknown:v1:${kind}:${addressKey(playerId)}`;
@@ -55,8 +69,9 @@ function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | nul
     const raw = store.getItem(name);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<UnknownPurchase>;
-    if (parsed.hash === null && Number.isFinite(parsed.at)) return { hash: null, at: Number(parsed.at) };
-    return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0) } : null;
+    const id = typeof parsed.id === "string" ? { id: parsed.id } : {};
+    if (parsed.hash === null && Number.isFinite(parsed.at)) return { hash: null, at: Number(parsed.at), ...id };
+    return typeof parsed.hash === "string" && /^0x[0-9a-fA-F]+$/.test(parsed.hash) ? { hash: parsed.hash, at: Number(parsed.at ?? 0), ...id } : null;
   } catch {
     return undefined;
   }
@@ -79,18 +94,36 @@ export function writeUnknownPurchase(client: QueryClient, playerId: string, kind
 }
 
 /** The player's record as the page would read it: the stored one, or the cache's copy when storage cannot be read. */
-function currentRecord(client: QueryClient, playerId: string, kind: PurchaseKind): UnknownPurchase | null {
+export function currentRecord(client: QueryClient, playerId: string, kind: PurchaseKind): UnknownPurchase | null {
   const stored = readStored(playerId, kind);
   return stored === undefined ? (client.getQueryData<UnknownPurchase | null>(unknownPurchaseKey(playerId, kind)) ?? null) : stored;
 }
 
 /**
  * Clears the hold of a send the wallet never answered, once its late answer arrives: only the hash-less record of that send
- * (`at`, its time of sending), never a record with a hash or a later send's.
+ * (`id`, its identity), never a record with a hash or a later send's.
  */
-export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, at: number): void {
-  const record = currentRecord(client, playerId, kind);
-  if (record && record.hash === null && record.at === at) writeUnknownPurchase(client, playerId, kind, null);
+export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, id: string): void {
+  restorePurchase(client, playerId, kind, id, null);
+}
+
+/**
+ * Writes the record of the send `record.id` (its hash-less hold, or the hash of its unknown outcome) only when the
+ * current record is that send's, or there is none: a late answer of an earlier send never overwrites a newer send's hold.
+ */
+export function recordOwnSend(client: QueryClient, playerId: string, kind: PurchaseKind, record: UnknownPurchase): void {
+  const current = currentRecord(client, playerId, kind);
+  if (current === null || (record.id !== undefined && ownedBy(current, record.id))) writeUnknownPurchase(client, playerId, kind, record);
+}
+
+/**
+ * Puts back `previous` (null clears) in place of the hash-less hold of the send `id`, when that hold is still the
+ * current record: a send that sent nothing (refused before sending, declined in the wallet, or the writer busy) leaves the
+ * record as it was before it.
+ */
+export function restorePurchase(client: QueryClient, playerId: string, kind: PurchaseKind, id: string, previous: UnknownPurchase | null): void {
+  const current = currentRecord(client, playerId, kind);
+  if (current && current.hash === null && ownedBy(current, id)) writeUnknownPurchase(client, playerId, kind, previous);
 }
 
 /**
