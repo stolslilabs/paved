@@ -422,7 +422,7 @@ describe("the base model as a fallback", () => {
     s.dispose();
   });
 
-  it("draws nothing for a tile whose variant is on its way and whose base model was never asked for", async () => {
+  it("draws the placeholder quad for a tile whose variant is on its way and whose base model was never asked for", async () => {
     const t = tile(1, 9);
     let arrive!: () => void;
     manifestBody = manifest;
@@ -437,9 +437,10 @@ describe("the base model as a fallback", () => {
     await s.init({ surface: surface(), basePath: at });
     s.updateTiles([t]);
     await settle();
-    expect(drawn(s)).toEqual({});
+    // Q-POLISH-R: the plan's image on a flat quad meanwhile (model null), the ghost likewise.
+    expect(drawn(s)).toEqual({ "1": null });
     s.setHoveredTile({ x: 0, y: 1, valid: true, idle: true, planIndex: 9, orientation: 1, cell: { x: t.x + 1, y: t.y, gameId: GAME } });
-    expect((s.tiles as any).previewContainer).toBeNull();
+    expect((s.tiles as any).previewKey).toMatch(/-quad$/);
     arrive();
     await settle();
     await settle();

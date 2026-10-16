@@ -785,8 +785,15 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     plain names, served in dev and copied at build.
   - **Load order** (`packages/renderer/src/core/load-order.ts`, `AssetLoader`): a scene's init waits only for the models of
     the tiles it is handed before its first frame (the board's tiles; the hand's own scene, its one tile), or for every
-    model when it is handed none; the other models and the tile images load after the first frame (the next animation
-    frame, then an idle callback). A failure among the first models stops the scene, so the page shows its plan view as
+    model when it is handed none; the other models load after the first frame (the next animation frame, then an idle
+    callback). The 19 tile images wait with the first models since Q-POLISH-R (2026-10-16, 5.6): they are the placeholder
+    a tile draws while its model is on its way. 319,815 B for the 19 (14,241 to 23,547 B each, 1680 x 1680 PNG; 60,205 B
+    gzipped at level 9 by Python's `gzip`, a compression the host may not apply to `image/png`), measured on the files;
+    before, they came after the first frame, so the whole first view is unchanged and the first frame's bytes grow by them.
+    The time this adds to the first frame is not measured (estimate: one parallel round of 19 small files beside the first
+    models). A failure there is logged, not fatal (the scene starts; the images not in are tried again after the first
+    frame, the others kept), unless the plan view asked for them: only the plan view's own request (`getTexture`) makes it
+    fatal, the placeholder reads an image with `peekTexture`, which asks for nothing. A failure among the first models stops the scene, so the page shows its plan view as
     before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
     model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
     (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
@@ -1429,8 +1436,8 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
   theme the manifest lists, nothing asks for its base model: not the first frame's models, not `preloadAll`'s rest after
   the first frame, not a scene handed no tiles (which used to load all 19). `preloadModels`, which `BoxRainScene` uses
   for its own models, is unchanged. Savings: the 4.2 table (all 19 skinned: 1,089,624 B raw, 653,324 B gzip, a quarter of
-  a typical board's bytes). **What a tile draws while its variant is on its way: nothing, when its base model was not
-  loaded.** A cheap placeholder would be a third model and a visible swap, and a delay before the base model would
+  a typical board's bytes). **What a tile drew while its variant was on its way: nothing, when its base model was not
+  loaded** (superseded by Q-POLISH-R below: the plan's image on a flat quad now). A cheap placeholder would be a third model and a visible swap, and a delay before the base model would
   re-download the thing this task spares on the connections where the variant is slow; a variant is one file (75,204 to 134,788 B, median 105,326 B, raw) fetched on the tile's placement, and the tile appears when it arrives, the shadow
   map and frame with it (as any late model already does). A tile that already draws a base model (its skin came later than
   its first draw) keeps it until the variant arrives, so no tile vanishes. The ghost follows the same rule, and a ghost with
@@ -1438,6 +1445,46 @@ board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/do
   Outlines, MSAA, the segment cut and LIGHT's look are untouched: the same variants and the same code draw them. Reversed
   by loading the skinned plans' base models after the first frame again (`skipsBase` always false), or by a delayed
   fallback if the placement latency turns out visible on a slow connection.
+- **A placed tile and the ghost are never empty (Q-POLISH-R, 2026-10-16; PM ruling of that day, which reverses SKIN-BASE's
+  "nothing while the variant loads").** On mobile data a just-placed tile must not leave its cell empty. While a tile's
+  model is not in (a variant or a base model on its way, at its first draw or after a placement), `TileRenderer` draws a
+  placeholder: the plan's 2D image (`assets/tiles/<plan>.png`, the plan view's) on a flat quad at the ground's top
+  (`PLACEHOLDER_HEIGHT`, 0.3: every base model's ground is 0.4 of its 4 units high), turned to the tile's orientation as
+  its model would be, with its square's outline. It downloads nothing: the 19 images now load with the first frame (4.2),
+  and the quad reads the loaded image (a copy of the `Texture`, sharing its source, read as sRGB). It covers every case
+  where SKIN-BASE drew nothing (a skinned plan's variant on its way, no base model loaded; the ghost in a live switch of
+  skins) and a tile whose base model is not loaded at all (a fresh board on a slow link, before the rest of the models
+  come after the first frame). SKIN-BASE's rule stays: a drawn model (a variant, or a base model) stays until the next one
+  is in; the quad is drawn only when the tile has no model drawn yet.
+  - **The swap.** When the model comes in, the loader tells the scene (`AssetLoader.onLoaded`), which draws the tiles again:
+    the model is added to the tile group, then the quad removed, in that one call, before the next frame (render on
+    demand), so no frame shows an empty cell or both. The shadow map and a frame follow, as for any late model.
+  - **Resources.** One quad geometry and one outline for every plan, one material per plan (its image's copy), made the
+    first time a plan needs a quad and kept until `TileRenderer.dispose()`, which disposes them and the image copies
+    (not the loader's images). A pending tile's quad takes the pending style (`pendingMaterial`, cached per source). The
+    ghost's quad has its own copy of the plan's material (disposed with the ghost, as the ghost's model materials are) and
+    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. A plan whose image is not
+    in (it failed to load) draws no quad: its tile waits for its model, as before, and gets its quad if the image comes
+    first (the loader's retry after the first frame; the ghost's key goes from "none" to "quad"). `tile-placeholder.test.ts`
+    checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, a failed
+    variant (the quad until its base model), a failed image (the scene starts, no quad, then the model) and a late one,
+    that no image or other file is requested for the quad, and the dispose counts after 50 swaps.
+  - **What differs on the quad.** Outlines: the square's four sides only, by the same shared material (width, fade, the
+    segment cut and software WebGL's "off" apply as on the models); a model's inner creases are not there. MSAA applies.
+    LIGHT's look: the quad is lit and receives shadows (a `MeshStandardMaterial`, roughness 0.95), but casts none, and
+    the water mask is not applied (the image is not the models' palette). It is flat: no relief, at the ground's height,
+    so the swap shows the buildings and trees rising out of it. GPU memory: an image is 1680 x 1680, so each plan's quad
+    uploads about 11.3 MB (15 MB with mipmaps; computed, not measured) while it is in use, as the plan view's tiles do.
+    The quad reads its image as sRGB (its own copy of the loader's `Texture`, the same source); the plan view reads the
+    loader's texture with no colour space (a `MeshBasicMaterial`, as before), so one texture cannot serve both without
+    changing the plan view's colours, and a plan shown both ways is uploaded twice (about 11.3 MB more, computed). Left as
+    is: the plan view is not this task's, and its colours would need a capture to change.
+  - **Story:** "Renderer/Skins", control `delayModels` (story `SlowModels`, 4 s): the story holds every model response
+    (the page's `fetch` waits before answering a `.glb`), opens the board without its last 12 tiles, places them once it
+    is drawn, and hovers a ghost on a cell whose Forest variant the opening board does not load. Captures
+    `captures/skins-placeholder-1280.webp`, `-360.webp` (during the hold) and `-after-1280.webp` (after it), headless
+    Chromium on software WebGL (SwiftShader), outlines off there: not a GPU render. The story's camera looks straight
+    down, so the quad's height does not show there.
 - **The device's theme** (`paved.theme.v1`, `useDeviceTheme`, "the board's look" at the top of the theme page) is not read
   by the board. The skins are the chain's and belong to a player: a Challenge board shows its player's choice to every
   viewer. What the device choice should do there is a product choice this task does not settle: a viewer's opt-out
