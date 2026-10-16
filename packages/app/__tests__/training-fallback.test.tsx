@@ -6,6 +6,7 @@ import { App } from "../src/App";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 
 // The renderer's canvas, as the page drives it: the test hands it the failure a model that does not load raises.
 const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null, webgl: true }));
@@ -28,6 +29,8 @@ const planView = () => screen.queryAllByRole("button", { name: /^Slot / });
 async function lightSlots() {
   for (let i = 0; i < 4 && planView().length === 0; i++) await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
 }
+
+preloadPages("board");
 
 beforeEach(() => {
   canvas.props = null;

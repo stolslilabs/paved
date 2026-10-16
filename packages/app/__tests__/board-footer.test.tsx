@@ -7,10 +7,13 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { preloadPages } from "./route-helpers";
 
 function open(path: string) {
   render(<App router={createTestRouter(path)} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
 }
+
+preloadPages("board", "play");
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,7 +29,7 @@ afterEach(() => {
 // jsdom has no layout: what keeps a board page inside the viewport is its structure. The board's root is the viewport's
 // height (`h-dvh`, overflow hidden) and the only element of the page in the flow, so nothing follows it to scroll to; the D-15
 // notice is inside it. The PR's captures measure it in a browser at 360 and 1280 px.
-describe("the board pages do not overflow the viewport (P6 review)", { timeout: 15_000 }, () => {
+describe("the board pages do not overflow the viewport (P6 review)", () => {
   // The Challenge board's own case is in `challenge-route.test.tsx`, on a game the fakes can replay.
   it.each(["/training", "/tutorial"])("%s: no footer after the board, the D-15 notice inside it", async (path) => {
     open(path);
