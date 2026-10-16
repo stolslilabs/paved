@@ -3,6 +3,7 @@ import { RouterProvider, type createBrowserRouter } from "react-router";
 import { Toaster } from "./components/ui/sonner";
 import { MotionProvider } from "./components/MotionProvider";
 import type { DataSources } from "./data/sources";
+import { usePageGestures } from "./lib/page-gestures";
 import { queryClient } from "./lib/query-client";
 import { router } from "./routes/router";
 import { APP_SOURCES } from "./routes/sources";
@@ -21,6 +22,7 @@ export function App({
   sources?: DataSources;
   connector?: LoadConnector;
 }) {
+  usePageGestures();
   return (
     <QueryClientProvider client={queryClient}>
       <WalletProvider sources={sources} load={connector}>

@@ -603,6 +603,19 @@ Playwright context with `locale: "de-DE"` and fails on a German separator or mon
 sweep, so the CI `client` job covers both. A date shows weekday, month
 then day, on a 24 h clock (the former en-GB order is gone).
 
+An app, not a page (APP-FEEL, P-69). Text, icons and images never highlight on a tap, a long press or a double click:
+`body` is `select-none` (`styles/theme.css`, the base layer), and only a copy target opts back in with `select-text` (the
+referral link, a full address, an error detail, and every input and textarea). Page zoom is off: the viewport meta is
+`width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover`; iOS Safari ignores
+`user-scalable`, so `touch-action: manipulation` stops the double-tap zoom and `usePageGestures` (`lib/page-gestures.ts`)
+cancels its `gesturestart` and `gesturechange`. The board's canvas has `touch-action: none` and owns its pinch, pan and
+rotate; its context menu is off. There is no long-press menu (`-webkit-touch-callout: none`), no tap flash, and images
+are not draggable. A board route (`RootLayout` sets `data-board` on `html`) has `overscroll-behavior: none`: no
+pull-to-refresh and no bounce; the other pages scroll as usual. The cost: a player with low vision cannot pinch the
+page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, and a layout in `rem`, so the browser's
+text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
+device context.
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,

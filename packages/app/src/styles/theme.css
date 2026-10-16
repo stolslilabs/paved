@@ -176,6 +176,19 @@
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground font-sans antialiased; }
 
+  /* APP-FEEL (P-69): the app feels native, not like a page. Text, icons and images never highlight on a tap, a long press
+     or a double click (`select-none`); only a copy target opts back in with `select-text`, and a field always does (iOS
+     Safari makes an input unusable under `user-select: none`). No page zoom (the viewport meta, and `touch-action:
+     manipulation` against the double-tap zoom: iOS Safari ignores `user-scalable`, its pinch is stopped in `main.tsx`),
+     no long-press menu, no grey tap flash. The board's canvas owns its pinch, pan and rotate (`touch-action: none`). */
+  html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { @apply select-none touch-manipulation; -webkit-touch-callout: none; }
+  input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
+  canvas { touch-action: none; -webkit-touch-callout: none; }
+  img, svg { -webkit-user-drag: none; user-drag: none; }
+  /* The board routes do not scroll: no pull-to-refresh and no bounce (`RootLayout` sets the flag). The other pages scroll as usual. */
+  html[data-board], html[data-board] body { overscroll-behavior: none; }
+
   /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
      `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
      second class. `data-input-surface` marks any other card or popover surface. */

@@ -29,7 +29,7 @@ export function WalletNotice({ base = import.meta.env.BASE_URL }: { base?: strin
 export function WalletFooter() {
   const wallet = useWallet();
   return (
-    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 py-2 text-center text-base text-muted-foreground">
+    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center text-base text-muted-foreground">
       <WalletNotice />
       {wallet.address && (
         <span className="flex items-center gap-2">
@@ -41,7 +41,7 @@ export function WalletFooter() {
           </Button>
         </span>
       )}
-      {wallet.error && !wallet.address && <span className="text-destructive-text wrap-anywhere">{wallet.error}</span>}
+      {wallet.error && !wallet.address && <span className="text-destructive-text wrap-anywhere select-text">{wallet.error}</span>}
     </footer>
   );
 }

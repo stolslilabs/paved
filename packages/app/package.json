@@ -17,7 +17,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "node scripts/storybook-static-dirs.ts && storybook build -o storybook-static && node scripts/storybook-guard.ts",
     "wrap-sweep": "node scripts/wrap-sweep.ts && node scripts/locale-check.ts",
-    "locale-check": "node scripts/locale-check.ts"
+    "locale-check": "node scripts/locale-check.ts",
+    "mobile-feel": "node scripts/mobile-feel.ts"
   },
   "dependencies": {
     "@fontsource-variable/rubik": "5.3.0",
