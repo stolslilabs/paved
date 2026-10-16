@@ -102,6 +102,7 @@ afterEach(() => {
   queryClient.clear();
   resetWelcomedForTests();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("/game/:gameId/over (P7a)", () => {
@@ -153,7 +154,9 @@ describe("/game/:gameId/over (P7a)", () => {
       over(s);
       const panel = await reward();
       expect(panel).toHaveAttribute("data-state", "expired");
-      const deadline = screen.getByText(/The 24 h/).querySelector("time")!;
+      const sentence = screen.getByText(/The 24 h/);
+      expect(sentence).toHaveTextContent(/The 24 h ended .* ago \(.* UTC\)\./);
+      const deadline = sentence.querySelector("time")!;
       expect(deadline.getAttribute("dateTime")).toBe(new Date((day * DAY_SECONDS + DAY_SECONDS) * 1000).toISOString());
       // Nothing to claim: no settle control.
       expect(screen.queryByRole("region", { name: "Settle" })).toBeNull();
@@ -200,10 +203,12 @@ describe("/game/:gameId/over (P7a)", () => {
 
   describe("settle", () => {
     it("until the end of the next day: Settles in <time> (<date> UTC), no button", async () => {
+      // Only Date is faked: 14 h 05 min before the settle time, whatever day the test runs.
+      vi.useFakeTimers({ toFake: ["Date"], now: (settlesAfter(OPEN_DAY) - 14 * 3600 - 5 * 60) * 1000 });
       const s = setup({ terms: { day: OPEN_DAY } });
       over(s);
       const area = await screen.findByRole("region", { name: "Settle" }, { timeout: 5000 });
-      expect(area).toHaveTextContent(/Settles (in|after)|settled now/);
+      expect(area).toHaveTextContent(/Settles in 14 h 05 min \(\w{3}, \w{3} \d+, 00:00 UTC\)\./);
       expect(area.querySelector("time")!.getAttribute("dateTime")).toBe(new Date(settlesAfter(OPEN_DAY) * 1000).toISOString());
       expect(settleButton()).toBeNull();
       expect(s.settle).not.toHaveBeenCalled();

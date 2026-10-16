@@ -71,7 +71,7 @@ export function Deadline({ expiresAt, now, className }: DeadlineProps) {
   const clock = useClock(now);
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-1.5", className)}>
-      {expiresAt > clock && <span>expires</span>}
+      {expiresAt >= clock && <span>expires</span>}
       <Boundary at={expiresAt} now={clock} ended />
     </span>
   );

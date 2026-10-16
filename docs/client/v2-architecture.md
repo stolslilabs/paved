@@ -604,7 +604,7 @@ sweep, so the CI `client` job covers both. A date shows weekday, month
 then day, on a 24 h clock (the former en-GB order is gone).
 Game-boundary times (UTC-BOUND, PM ruling 2026-10-16, replacing "local time plus a UTC tooltip"): a game boundary (the 24 h
 expiry, "Settles in") is shown in UTC with the "UTC" label, never local, and leads with the relative time, so the player
-never converts: "in 23 h 12 min · Thu, Oct 16, 17:00 UTC", "The 24 h ended 2 h ago (Thu, Oct 15, 17:00 UTC)". `formatRelative`
+never converts: "in 23 h 12 min · Fri, Oct 16, 17:00 UTC", "The 24 h ended 2 h ago (Thu, Oct 15, 17:00 UTC)". `formatRelative`
 and `formatBoundary` in `format.ts` write both (relative to the minute, hours up to 48 h, then days; no
 `Intl.RelativeTimeFormat`); nothing is only in a tooltip. The element (`Boundary`, `Deadline`) updates once a minute and is a
 `<time dateTime>` with an `aria-label`. `formatLocal` and `formatUtc` are gone.

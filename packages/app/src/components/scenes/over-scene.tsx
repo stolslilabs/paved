@@ -137,8 +137,9 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
                 onSettle={onSettle}
               />
               {reward.state === "expired" && deadline != null && (
+                {/* The chain says it expired; a slow browser clock must not read as "in 3 min": clamp to past. */}
                 <p className="-mt-2 px-1 text-sm text-muted-foreground">
-                  The 24 h <When at={deadline} now={clock} ended />.
+                  The 24 h <When at={deadline} now={Math.max(clock, deadline + 1)} ended />.
                 </p>
               )}
               {settle && <SettleArea {...settle} now={clock} />}

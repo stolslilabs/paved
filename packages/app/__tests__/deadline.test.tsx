@@ -19,6 +19,11 @@ describe("Deadline", () => {
     expect(time.closest("[title]")).toBeNull();
   });
 
+  it("at the very moment it expires: expires in less than a minute, not a bare relative", () => {
+    const { container } = render(<Deadline expiresAt={MOCK_NOW} now={MOCK_NOW} />);
+    expect(container).toHaveTextContent("expires in less than a minute");
+  });
+
   it("updates once a minute and stops on unmount", () => {
     const clear = vi.spyOn(globalThis, "clearInterval");
     const { unmount } = render(<Deadline expiresAt={MOCK_NOW + 12 * 60 + 30} now={MOCK_NOW} />);

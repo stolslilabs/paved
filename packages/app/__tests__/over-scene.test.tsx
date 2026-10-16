@@ -19,6 +19,11 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
     expect(within(area).queryByRole("button")).toBeNull();
   });
 
+  it("an expired game with a slow clock never reads in the future", () => {
+    show(<OverScene {...OVER.expired} now={MOCK_NOW - 3 * 60} deadline={MOCK_NOW} />);
+    expect(screen.getByText(/The 24 h/)).toHaveTextContent("The 24 h ended less than a minute ago (Wed, Oct 14, 15:00 UTC).");
+  });
+
   it("after, once the time has come: settle is offered as now", () => {
     show(<OverScene {...OVER.awaiting} now={MOCK_NOW + DAY} settle={{ state: "after", at: MOCK_NOW + DAY }} />);
     expect(settleArea()).toHaveTextContent("This game can be settled now.");
