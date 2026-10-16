@@ -44,6 +44,9 @@ type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 
 // Welcome
 
+/** A failed read's detail, as `errorDetail` builds it (P-67): no hash, the version and the time. */
+const READ_ERROR_DETAIL = { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) };
+
 export const WELCOME = {
   firstVisit: {},
   connecting: { connecting: true },
@@ -216,7 +219,7 @@ export const LEADERBOARD = {
   /** P-61: the second player's best game was a free one (`GameSpawned.price == 0`): marked Free, ranked like any other. */
   freeGame: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY, free: [BOARD_TODAY.entries[1].playerId] },
   loading: { ...ranks, day: TODAY, leaderboard: null },
-  error: { ...ranks, day: TODAY, leaderboard: null, error: "The indexer did not answer (unreachable). The ranking will show once it is back." },
+  error: { ...ranks, day: TODAY, leaderboard: null, error: "The indexer did not answer (unreachable). The ranking will show once it is back.", errorDetail: READ_ERROR_DETAIL },
   /** WRAP360: the longest usernames, a full address, the widest ranks and scores. */
   stress: { ...ranks, day: TODAY, leaderboard: { ...BOARD_TODAY, total: 99_999, entries: STRESS_ENTRIES.slice(0, 3) }, viewer: STRESS_ENTRIES[3], viewerId: STRESS_ENTRIES[3].playerId },
 } satisfies Record<string, Data<LeaderboardSceneProps>>;
@@ -226,6 +229,8 @@ export const PLAYER_PAGE = {
   self: { playerId: PLAYER_ID, profile: SELF_PROFILE, today: VIEWER_TODAY, games: PLAYER_GAMES, self: true },
   unknown: { playerId: "0x07a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f", profile: UNKNOWN_PROFILE, games: [] },
   loading: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null },
+  /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
+  failed: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null, error: "The indexer did not answer (HTTP 503).", errorDetail: READ_ERROR_DETAIL },
   /** WRAP360: the longest username beside "You", the widest rank, stats and games. */
   stress: {
     playerId: LONG_ADDRESS,
@@ -346,6 +351,8 @@ export const ACHIEVEMENTS = {
   all: { achievements: ACHIEVEMENTS_ALL, connected: true },
   guest: { achievements: null, connected: false },
   loading: { achievements: null, connected: true },
+  /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
+  failed: { achievements: null, connected: true, error: "The indexer did not answer (HTTP 503).", errorDetail: READ_ERROR_DETAIL },
   /** P-61: each achievement's Cobbles (its points); First Stone and Settler I claimed, Settler II and Grand Builder to claim. */
   cobbles: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: achievementRewards },
   /** Claim all on its way. */

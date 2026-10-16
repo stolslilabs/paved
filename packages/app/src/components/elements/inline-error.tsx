@@ -115,18 +115,13 @@ export function InlineError({ message, title, children, detail, action, onCopy =
               <Button
                 size="sm"
                 variant="outline"
+                aria-label={copied ? "Copied" : "Copy the error"}
                 onClick={() => {
                   void Promise.resolve(onCopy(text)).then(() => setCopied(true));
                 }}
               >
                 <Icon name={copied ? "check" : "copy"} size="xs" />
-                {copied ? (
-                  "Copied"
-                ) : (
-                  <>
-                    Copy<span className="sr-only"> the error</span>
-                  </>
-                )}
+                {copied ? "Copied" : "Copy"}
               </Button>
               <span role="status" className="sr-only">
                 {copied ? "The error is copied" : ""}

@@ -19,5 +19,7 @@ export const Unknown: Story = { args: PLAYER_PAGE.unknown };
 
 /** The profile and the games on their way. */
 export const Loading: Story = { args: PLAYER_PAGE.loading };
+/** The read failed: the one error component, with Retry and Copy (P-67). */
+export const Failed: Story = { args: PLAYER_PAGE.failed };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PLAYER_PAGE.stress };
