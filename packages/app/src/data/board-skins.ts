@@ -1,0 +1,36 @@
+import { useQuery } from "@tanstack/react-query";
+import { NO_SKINS, skinsOf, type TileSkins } from "@paved/renderer";
+import { skinKeys, skinViews } from "./skins";
+import { useDataSources } from "./sources";
+import type { BoardViewportProps } from "../components/containers/board-viewport";
+import type { TileViewProps } from "../components/containers/tile-view";
+
+// The board's skins (SKIN-RENDER): the active set of the player whose tiles the board draws, read from `Setup`'s
+// `active_skins` (the theme page's read, same key, so a save there moves the board too), as the renderer's per-plan map.
+// The board never waits for it: the base models until it answers, and for good when it fails.
+
+/**
+ * The tile skins of `playerId` (`active_skins(player)`, as `TileSkins`), for the board to draw: a Challenge game's player
+ * (anyone viewing that game sees its player's skins), or the connected player in Training and the tutorial. `NO_SKINS`
+ * (every tile on its base model) for a guest (null), without the skins views, while the read is on its way, and when it
+ * fails.
+ */
+export function useBoardSkins(playerId: string | null): TileSkins {
+  const { views } = useDataSources();
+  const skins = skinViews(views);
+  const read = useQuery({
+    queryKey: skinKeys.active(playerId ?? "0x0"),
+    queryFn: () => skins!.activeSkins(playerId!),
+    enabled: playerId !== null && skins !== null,
+    select: skinsOf,
+  });
+  return (playerId !== null && read.data) || NO_SKINS;
+}
+
+// Compile-time check, no runtime code (as `skins.ts`'s): the hook's map is what `BoardViewport` and `TileView` take.
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
+export type BoardSkinTypes = [
+  Expect<Equal<ReturnType<typeof useBoardSkins>, NonNullable<BoardViewportProps["skins"]>>>,
+  Expect<Equal<ReturnType<typeof useBoardSkins>, NonNullable<TileViewProps["skins"]>>>,
+];

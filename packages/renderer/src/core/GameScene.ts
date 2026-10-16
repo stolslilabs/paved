@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer } from "./TileRenderer";
+import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, isClick, createThrottled } from "./interaction";
@@ -124,6 +125,8 @@ export class GameScene {
   private isWebGPU = false;
   private disposed = false;
   private latestTiles: TileRenderData[] = [];
+  /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
+  private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
   private ambientLight: THREE.AmbientLight | null = null;
   private hemisphereLight: THREE.HemisphereLight | null = null;
@@ -176,6 +179,7 @@ export class GameScene {
       shadows = true,
       effectsCapabilities = {},
       settings,
+      manifest,
     } = config;
     if (settings) this.settings = resolveRendererSettings(settings);
 
@@ -193,10 +197,11 @@ export class GameScene {
 
     this.surface = surface;
 
-    // Set asset base path
-    if (basePath) {
-      this.assets = new AssetLoader(basePath);
+    // Set asset base path (and the host's manifest, when it gives one)
+    if (basePath || manifest) {
+      this.assets = new AssetLoader(basePath, manifest);
       this.tiles = new TileRenderer(this.assets);
+      this.tiles.setSkins(this.skins);
       // Re-add to scene group
       this.sceneGroup.clear();
       this.sceneGroup.add(this.tiles.getGroup());
@@ -266,9 +271,17 @@ export class GameScene {
     this.assets.onLoaded(() => this.drawLoadedTiles());
   }
 
-  /** Draws the last tiles given whose model (or plan-view image) has just come in, and the frame and shadows with them. */
+  /**
+   * Draws the last tiles given whose model (or plan-view image, or skin variant) has just come in, and the frame and
+   * shadows with them; and the ghost, if its model was the one.
+   */
   private drawLoadedTiles(): void {
-    if (this.disposed || !this.tiles.updateTiles(this.latestTiles)) return;
+    if (this.disposed) return;
+    const hover = this.tiles.refreshHover();
+    if (!this.tiles.updateTiles(this.latestTiles)) {
+      if (hover) this.requestRender();
+      return;
+    }
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -485,6 +498,19 @@ export class GameScene {
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
     }
+    this.requestShadowUpdate();
+    this.requestRender();
+  }
+
+  /**
+   * The theme of each plan (`TileSkins`, `skinsOf` for a chain's active set): the tiles of a skinned plan draw a variant of
+   * it, one per tile by its hash, each variant loaded when a tile first needs it. A tile keeps its base model until its
+   * variant is in; a theme or plan the manifest does not list, and a variant that fails to load, stay on the base model.
+   */
+  setSkins(skins: TileSkins): void {
+    this.skins = skins;
+    this.tiles.setSkins(skins);
+    this.tiles.updateTiles(this.latestTiles);
     this.requestShadowUpdate();
     this.requestRender();
   }

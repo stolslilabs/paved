@@ -6,6 +6,7 @@ import { applyOutlineStroke, createOutline, createOutlineMaterial, isOutline, ty
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
+import { NO_SKINS, skinRef, type TileSkins } from "./skins";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -53,16 +54,21 @@ export class TileRenderer {
   private tileGroup: THREE.Group; // placed tiles
   private emptyGroup: THREE.Group; // empty slots
   private previewGroup: THREE.Group; // hover preview
-  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean }> = new Map();
+  /** Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view). */
+  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
   private previewContainer: THREE.Group | null = null;
   private previewKey: string | null = null;
   private previewValid = false;
+  /** The last hover given: drawn again when its model comes in (`refreshHover`). */
+  private hoverState: HoverState | null = null;
+  /** The theme of each plan (`setSkins`): its tiles draw a variant of it. */
+  private skins: TileSkins = NO_SKINS;
 
   // Shared by every tile and owned here: tiles hold no geometry or material of their own.
-  // The model of each plan type, with its tuned materials (its geometry is the loader's).
+  // The model of each plan type, or of each variant of a skin, with its tuned materials (its geometry is the loader's).
   private tileTypes: Map<string, THREE.Group> = new Map();
   private pendingMaterials: Map<THREE.Material, THREE.Material> = new Map();
   private pendingFallbackMaterial: THREE.Material | null = null;
@@ -104,9 +110,10 @@ export class TileRenderer {
 
       const existing = this.tileMeshes.get(key);
       const pending = !!tile.pending;
+      const model = this.strategyMode ? null : this.modelOf(tile.plan, tile.x, tile.y, tile.game_id);
 
-      // Skip if already rendered with same pending state
-      if (existing && existing.pending === pending) continue;
+      // Skip if already rendered with same pending state and model (a model not in yet keeps what is drawn)
+      if (existing && existing.pending === pending && (this.strategyMode || model === null || existing.model === model)) continue;
 
       // Pending state changed — remove old mesh to recreate (a tile owns no geometry or material)
       if (existing) {
@@ -116,7 +123,7 @@ export class TileRenderer {
 
       const mesh = this.strategyMode
         ? this.createStrategyTile(tile)
-        : this.createVoxelTile(tile);
+        : model && this.createVoxelTile(tile, model);
 
       if (mesh) {
         // Apply pending loading style
@@ -134,7 +141,7 @@ export class TileRenderer {
           tile.worldZ * this.squareSize
         );
         this.tileGroup.add(mesh);
-        this.tileMeshes.set(key, { mesh, pending });
+        this.tileMeshes.set(key, { mesh, pending, model });
         changed = true;
       }
     }
@@ -148,6 +155,41 @@ export class TileRenderer {
       }
     }
     return changed;
+  }
+
+  /**
+   * The model a tile of `plan` at the contracts' (x, y) of game `gameId` draws from: its plan key (the base model), or the
+   * variant of its plan's skin (`setSkins`) that its hash picks. A variant not loaded yet is asked for, and the base model
+   * drawn meanwhile when it is in (null when neither is: the tile is drawn when one comes in). Null for plan 0.
+   */
+  private modelOf(plan: number, x: number, y: number, gameId: number): string | null {
+    const key = getPlanKey(Plan.from(plan).value);
+    if (key === "00") return null;
+    const skin = skinRef(this.skins, plan, x, y, gameId);
+    if (!skin) return key;
+    const id = this.assets.skinModel(key, skin);
+    if (id === key) return key;
+    if (id !== null) {
+      if (this.assets.has(id)) return id;
+      this.assets.want([id]);
+    }
+    return this.assets.has(key) ? key : null;
+  }
+
+  /**
+   * The theme of each plan (`TileSkins`): a tile of a skinned plan draws the variant its hash picks, loaded when a tile
+   * of it is first drawn. The caller draws the tiles again (`updateTiles`); the hover follows here.
+   */
+  setSkins(skins: TileSkins): void {
+    this.skins = skins;
+    this.refreshHover();
+  }
+
+  /** Draws the last hover again if its model changed (a variant came in, the skins changed); true when it did. */
+  refreshHover(): boolean {
+    const before = this.previewKey;
+    if (this.hoverState) this.setHover(this.hoverState);
+    return this.previewKey !== before;
   }
 
   /** The pending (translucent, blue glow) variant of a tile material, one per source material. */
@@ -175,7 +217,7 @@ export class TileRenderer {
     return this.pendingFallbackMaterial;
   }
 
-  /** The model of a plan type, its materials tuned once; tiles are clones that share them. */
+  /** The model of a plan type or a skin's variant, its materials tuned once; tiles are clones that share them. */
   private tileType(key: string): THREE.Group {
     let model = this.tileTypes.get(key);
     if (model) return model;
@@ -249,11 +291,7 @@ export class TileRenderer {
     }
   }
 
-  private createVoxelTile(tile: TileRenderData): THREE.Object3D | null {
-    const plan = Plan.from(tile.plan);
-    const key = getPlanKey(plan.value);
-    if (key === "00") return null;
-
+  private createVoxelTile(tile: TileRenderData, key: string): THREE.Object3D | null {
     try {
       // Shares the type's geometry, materials and edge outlines
       const model = this.tileType(key).clone();
@@ -341,6 +379,7 @@ export class TileRenderer {
   }
 
   setHover(state: HoverState | null): void {
+    this.hoverState = state;
     if (!state) {
       if (this.previewContainer) {
         this.previewGroup.remove(this.previewContainer);
@@ -351,7 +390,10 @@ export class TileRenderer {
       return;
     }
 
-    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}`;
+    // The ghost draws the variant of the cell it hovers (`HoverState.cell`); without one, the plan's base model.
+    const cell = state.cell;
+    const planModel = cell ? this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId) : getPlanKey(Plan.from(state.planIndex).value);
+    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${planModel}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(
         state.x * this.squareSize,
@@ -369,12 +411,10 @@ export class TileRenderer {
     this.previewKey = key;
 
     // Create preview mesh
-    const plan = Plan.from(state.planIndex);
-    const planKey = getPlanKey(plan.value);
-    if (planKey === "00") return;
+    if (planModel === null || planModel === "00") return;
 
     try {
-      const model = this.assets.getModel(planKey);
+      const model = this.assets.getModel(planModel);
 
       const orientation = Orientation.from(state.orientation);
       const rotationMap: Record<string, number> = {
@@ -509,6 +549,7 @@ export class TileRenderer {
     this.emptyGroup.clear();
     this.previewContainer = null;
     this.previewKey = null;
+    this.hoverState = null;
 
     for (const model of this.tileTypes.values()) {
       model.traverse((child) => {

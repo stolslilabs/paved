@@ -9,6 +9,7 @@ import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
+import { useBoardSkins } from "../../data/board-skins";
 import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { trainingStore, useDataSources } from "../../data/sources";
@@ -48,6 +49,8 @@ export default function Page() {
  */
 function TrainingBoard() {
   const { game, snapshot, board } = useTrainingSession();
+  // The connected player's skins; a guest's board draws the base models.
+  const skins = useBoardSkins(useDataSources().signer?.address ?? null);
   const go = useAppNavigate();
   const onBack = useBack();
   const [orientation, setOrientation] = useState(1);
@@ -119,7 +122,7 @@ function TrainingBoard() {
       hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: move !== null && preview !== null, preview, error: state.writeError }}
       lastScored={board.lastScored}
       tileArt={view === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} /> : undefined}
+      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       storageDisabled={snapshot.storage === "off"}
       saveDropped={snapshot.storage === "dropped"}
       slots={slots}
@@ -128,6 +131,7 @@ function TrainingBoard() {
       canvas={
         view === "3d" ? (
           <BoardViewport
+            skins={skins}
             tiles={board.tiles}
             basePath={RENDERER_ASSETS}
             slots={slots}
@@ -173,6 +177,8 @@ function challengeHand(state: PredictedState, expired: boolean): HandState {
  */
 function ChallengeBoard({ gameId }: { gameId: number }) {
   const { session, state, senders } = useChallengeSession(gameId);
+  // The game's player's skins, for whoever views the game; the base models until the game and the read answer.
+  const skins = useBoardSkins(state?.game?.playerId ?? null);
   const go = useAppNavigate();
   const onBack = useBack();
   const now = useNow();
@@ -312,7 +318,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       }}
       lastScored={state.lastScored}
       tileArt={view === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} /> : undefined}
+      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       slots={playable ? slots : []}
       ghost={ghost}
       onSlotClick={choose}
@@ -322,7 +328,9 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       canvas={
         view === "3d" ? (
           <BoardViewport
+            skins={skins}
             tiles={state.tiles}
+            gameId={gameId}
             basePath={RENDERER_ASSETS}
             slots={playable ? slots : []}
             ghost={ghost}
@@ -361,6 +369,8 @@ function storageOff(store: ReturnType<typeof trainingStore>): boolean {
 function TutorialBoard() {
   const { view, board, index, steps, play, back, restart } = useTutorialRun();
   const sources = useDataSources();
+  // The connected player's skins, as in Training.
+  const skins = useBoardSkins(sources.signer?.address ?? null);
   const onBack = useBack();
   const step = view.step;
   const [orientation, setOrientation] = useState(() => initialOrientation(step));
@@ -448,7 +458,7 @@ function TutorialBoard() {
       }}
       lastScored={board.lastScored}
       tileArt={view3d === "3d" ? RENDERER_ASSETS : undefined}
-      renderHandTile={view3d === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} /> : undefined}
+      renderHandTile={view3d === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       storageDisabled={storageOff(trainingStore(sources))}
       slots={slots}
       ghost={ghost}
@@ -458,6 +468,7 @@ function TutorialBoard() {
       canvas={
         view3d === "3d" ? (
           <BoardViewport
+            skins={skins}
             tiles={board.tiles}
             basePath={RENDERER_ASSETS}
             slots={slots}
