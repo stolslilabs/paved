@@ -1,0 +1,5 @@
+import { formatNumber } from "@paved/game-core";
+// Quoted in a comment: toLocaleString() and new Intl.NumberFormat() are not calls.
+/** Nor here: Intl.DateTimeFormat. */
+export const a = formatNumber(1234.5);
+export const url = "http://example.com/toLocale";

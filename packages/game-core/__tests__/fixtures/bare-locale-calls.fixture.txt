@@ -1,0 +1,9 @@
+// A fixture the guard must fail on (read as text, never compiled): one violation per line below.
+export const a = (1234.5).toLocaleString();
+export const b = new Date().toLocaleDateString();
+export const c = new Date().toLocaleTimeString();
+export const d = (1).toLocaleString("de-DE");
+export const e = new Intl.NumberFormat("en-US");
+export const f = new Intl.DateTimeFormat();
+export const g = new Intl.RelativeTimeFormat("en");
+export const h = Intl.NumberFormat("fr-FR").format(1);

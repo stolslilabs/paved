@@ -1,4 +1,5 @@
 import type { SplitView } from "@paved/chain";
+import { formatBps } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Separator } from "../ui/separator";
 import { Amount, TOKENS } from "../elements/amount";
@@ -18,7 +19,7 @@ export interface PriceBreakdownProps {
   className?: string;
 }
 
-const pct = (bps: number) => `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
+const pct = formatBps;
 const share = (price: bigint, bps: number) => (price * BigInt(bps)) / 10_000n;
 /** Cut to what `Amount` shows (cents of USDC), so the parts on screen add up to the price on screen. */
 const SHOWN = 10n ** BigInt(TOKENS.usdc.decimals - TOKENS.usdc.fraction);

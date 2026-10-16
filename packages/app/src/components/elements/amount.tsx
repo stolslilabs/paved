@@ -1,3 +1,4 @@
+import { formatUnits } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 
 /** The tokens a screen shows, with their decimals on chain. `PAVED` is the token's name on screen. */
@@ -10,15 +11,8 @@ export const TOKENS = {
 
 export type Token = keyof typeof TOKENS;
 
-/** Base units to a decimal string, cut (not rounded) to `fraction` digits, thousands with a comma. */
-export function formatUnits(amount: bigint, decimals: number, fraction: number): string {
-  const negative = amount < 0n;
-  const abs = negative ? -amount : amount;
-  const scale = 10n ** BigInt(decimals);
-  const whole = (abs / scale).toLocaleString("en-US");
-  const frac = (abs % scale).toString().padStart(decimals, "0").slice(0, fraction);
-  return `${negative ? "-" : ""}${whole}${fraction > 0 ? `.${frac}` : ""}`;
-}
+/** Base units to a decimal string, cut (not rounded) to `fraction` digits, thousands with a comma (the formatter module's). */
+export { formatUnits };
 
 export interface AmountProps {
   value: bigint;
