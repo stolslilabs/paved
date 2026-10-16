@@ -180,11 +180,14 @@ async function enabledPay(name?: RegExp) {
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n);
 
-// The lazy routes these tests reach, loaded once before the first test. A route's chunk is transformed on its first visit
-// (the board's pulls in the renderer and three): that was 1.1 to 1.4 s inside the first test on a loaded machine (several
-// times that under a load average of 15), and the first test hit its 5 s.
+// The board a spawn opens is not under test here (these tests assert the route it opens; `challenge-route.test.tsx` runs the
+// board on a challenge): a stand-in keeps the renderer and three out of this file. Their first transform came to 1.1 to 1.4 s
+// inside the first test on a loaded machine (several times that under a load average of 15), and it hit its 5 s.
+vi.mock("../src/routes/pages/board", () => ({ default: () => <h1>Board</h1> }));
+
+// The other lazy routes these tests reach, loaded once before the first test rather than inside it.
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/purchase"), import("../src/routes/pages/board"), import("../src/routes/pages/home")]);
+  await Promise.all([import("../src/routes/pages/purchase"), import("../src/routes/pages/home")]);
 }, 60_000);
 
 // A failed read is retried once after the cache's default 1 s (`retry: 1`): every test of a failing read waited that second in
