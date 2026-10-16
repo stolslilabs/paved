@@ -2214,6 +2214,27 @@ the manifest does not list, a failed skin read and a variant that fails to load 
 waits for the skins. Since P11a the device's theme (`paved.theme.v1`) is the viewer's opt-out of all of it ("As built (P11a)"). What a player's
 Forest set downloads is in 4.2.
 
+**As built (Q-POLISH-A).** The token is **PAVED** (symbol PAVED, "Paved Token") and the Vault's share **vPAVED**; the `$TILE` of D-2 is
+gone from every text, story, mock and test of the app (`TOKENS` in `elements/amount.tsx` repeats `PAVED_LABEL` and `VPAVED_LABEL`,
+and `tokens.test.ts` checks that they agree; `app-web`, the v1 client, keeps its own text). The notes the reviews deferred:
+
+- *Purchase.* An unknown purchase's "sent N min ago" counts from the send (`onMutate`'s time), not from the outcome. Retry and Dismiss
+  are disabled while Retry is fetching (`hold.retrying`). When storage is full or refused, the record holds in this tab only
+  (the cache's copy): the notice says so and which tab holds Pay, it does not try to reach other tabs. A send that lands after a change of
+  player is kept for its sender (`purchaseReady`, in the cache), and the page says "Your game is ready" with Open game. The wallet has
+  `PURCHASE_TIMEOUT_MS` = 5 minutes to answer (a prompt read, signed and included takes a minute or two; a shorter limit would call a slow
+  honest send unknown): past it the mutation rejects with `PurchaseTimedOutError`, shown as the unknown outcome with no hash (nothing to
+  record or to check by receipt), and the writer's own "Another write is pending" refuses a second send while the hung one holds the account. The send is not cancelled: its late answer is handled as an in-time one (an outcome-unknown hash is recorded under the sender and holds Pay; a success is kept as the sender's ready game; a refusal or success clears the timed-out state, only for its own send: each timeout is tagged with a send id, and a Buy again's busy refusal is cleared by the late answer of the send that held the writer). The ready game is kept without expiry until it is opened or a new purchase starts.
+- *Over.* The settle mutation stays pending until the terms are read again, so after a receipt with no `Settled` (someone settled first)
+  a second tap sends nothing.
+- *Theme.* After a save whose receipt could not be read, the active set read again drops the changes it already holds (`dropSavedChanges`).
+- *Settings.* The device store clears its in-memory twin after a later successful write. `data/settings.ts` no longer imports
+  `@paved/renderer`'s barrel as a value: measured at the build, it put three.js in the settings data chunk (805,777 bytes, now 1,134);
+  `SMALL_SCREEN_PX` and `autoTier` are repeated and `device-settings.test.ts` checks them against `resolveQuality`. Only `version` is read from `package.json`.
+- *Board.* The plan view (`BoardMap`) lights its slots only while the placement highlight is on; off, they stay buttons, drawn plain.
+- *Tutorial.* `useTutorialRun` builds its `TutorialRun` in a lazy state initialiser. A lazy initialiser does not stop React from rendering a first mount it then discards (two
+  inits and one commit, measured with the page preloaded, as with a `useRef`), so the test counts engines from the committed page.
+
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
 non-number is today, and the picker goes no earlier than the indexer's first tournament (`useFirstDay`, which walks

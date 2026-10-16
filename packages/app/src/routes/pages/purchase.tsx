@@ -24,14 +24,16 @@ import { useAppNavigate, useBack } from "../ref";
 function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles", now: number): PurchaseRefusal | null {
   if (hold.unknown) {
     const when = sentAgo(now - hold.unknown.at);
-    return { kind: "unknown", message: `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.` };
+    // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
+    const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
+    return { kind: "unknown", message: `Purchase sent ${when} (${hold.unknown.hash}), outcome unknown: check your ${what} before buying again.${unsaved}` };
   }
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
   return null;
 }
 
-/** How long ago a purchase was sent, from its record's `at`: "just now", "5 min ago", "3 h ago", "2 days ago". */
+/** How long ago a purchase was sent, from its record's `at` (the send's time): "just now", "5 min ago", "3 h ago", "2 days ago". */
 export function sentAgo(seconds: number): string {
   if (seconds < 60) return "just now";
   if (seconds < 3_600) return `${Math.floor(seconds / 60)} min ago`;
@@ -97,7 +99,9 @@ export default function Page() {
   const gameHold = purchase.hold;
   const packHold = buyPack.hold;
   const gameRefusal =
-    heldRefusal(gameHold, "games", now) ?? (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
+    heldRefusal(gameHold, "games", now) ??
+    (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed: your game is waiting." } : null) ??
+    (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
     heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
@@ -107,6 +111,7 @@ export default function Page() {
     // A deliberate Buy again: the earlier purchase is left to the player's check.
     if (gameHold.unknown) gameHold.clear();
     gameHold.dismiss();
+    purchase.ready.clear();
     purchase.mutation.mutate(
       {
         playerId,
@@ -116,7 +121,12 @@ export default function Page() {
         referrer: gameReferrer.referrer,
         acceptedLowQuote: gameRefusal?.kind === "low-quote",
       },
-      { onSuccess: ({ gameId }) => go(`/game/${gameId}`) },
+      {
+        onSuccess: ({ gameId }) => {
+          purchase.ready.clear();
+          go(`/game/${gameId}`);
+        },
+      },
     );
   };
   const buy = () => {
@@ -158,6 +168,7 @@ export default function Page() {
       refusal={purchase.mutation.isPending || purchase.sending ? null : gameRefusal}
       checking={gameHold.checking}
       checkFailed={gameHold.failed}
+      checkRetrying={gameHold.retrying}
       connected={connected}
       now={now}
       tab={tab}
@@ -175,6 +186,7 @@ export default function Page() {
               refusal: buyPack.mutation.isPending || buyPack.sending ? null : packRefusal,
               checking: packHold.checking,
               checkFailed: packHold.failed,
+              checkRetrying: packHold.retrying,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
             }
       }
@@ -202,6 +214,11 @@ export default function Page() {
           gameHold.clear();
           purchase.mutation.reset();
         }
+      }}
+      onOpenReady={() => {
+        const id = purchase.ready.gameId;
+        purchase.ready.clear();
+        if (id !== null) go(`/game/${id}`);
       }}
       onCheckGames={() => go("/")}
       onCheckCobbles={() => playerId && void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) })}

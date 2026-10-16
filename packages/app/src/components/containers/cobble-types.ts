@@ -70,3 +70,12 @@ export function toggleSkin(active: readonly number[], changes: Readonly<Record<n
   delete rest[plan];
   return next === active[plan - 1] ? rest : { ...rest, [plan]: next };
 }
+
+/**
+ * The batch without the plans whose saved value is now the change itself: after a save whose receipt could not be read the
+ * transaction may have landed, and the read of the active set that follows shows it. The same object when nothing drops.
+ */
+export function dropSavedChanges(active: readonly number[], changes: Readonly<Record<number, number>>): Record<number, number> {
+  const kept = Object.entries(changes).filter(([plan, theme]) => active[Number(plan) - 1] !== theme);
+  return kept.length === Object.keys(changes).length ? (changes as Record<number, number>) : Object.fromEntries(kept);
+}

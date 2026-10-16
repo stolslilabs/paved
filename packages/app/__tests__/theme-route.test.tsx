@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SKIN_REFUSAL_TEXT, SkinRefusedError } from "@paved/chain";
+import { SKIN_REFUSAL_TEXT, SkinRefusedError, WriteError } from "@paved/chain";
 import { App } from "../src/App";
 import { planCode } from "../src/components/elements/tile-chip";
 import type { GameSigner } from "../src/data";
@@ -161,6 +161,36 @@ describe("/settings/theme (P11b)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Skins saved", undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByText(SKIN_REFUSAL_TEXT["not-owned"])).not.toBeInTheDocument();
+  });
+
+  it("a save whose receipt cannot be read: once the active set is read again, the changes it already holds are dropped", async () => {
+    const s = setup();
+    s.skins.owned.set(FOREST, (1 << 7) | (1 << 9) | (1 << 13));
+    open(s);
+    await toggle(7);
+    await toggle(9);
+    expect(await screen.findByRole("region", { name: "Unsaved changes" })).toHaveTextContent("2 changes to save");
+    // The batch lands, but its receipt is unreadable: the writer says so.
+    const setSkins = s.writer.setSkins.bind(s.writer);
+    s.writer.setSkins = async (changes) => {
+      await setSkins(changes);
+      throw new WriteError("Transaction sent (0xfd1), receipt unreadable");
+    };
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    // The reconciling read shows both plans active: nothing is left to save.
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull(), { timeout: 3000 });
+    expect((await cell(7)).dataset.state).toBe("active");
+    expect((await cell(9)).dataset.state).toBe("active");
+  });
+
+  it("a save that did not land keeps its changes: the active set read again does not hold them", async () => {
+    const s = setup();
+    open(s);
+    await toggle(7);
+    s.writer.failNext = new WriteError("Transaction sent (0xfd1), receipt unreadable");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText(/receipt unreadable/, undefined, { timeout: 3000 });
+    expect(screen.getByRole("region", { name: "Unsaved changes" })).toHaveTextContent("1 change to save");
   });
 
   it("shows a refused purchase", async () => {

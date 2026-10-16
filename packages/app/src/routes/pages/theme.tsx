@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { PLANS, toggleSkin } from "../../components/containers/cobble-types";
+import { PLANS, dropSavedChanges, toggleSkin } from "../../components/containers/cobble-types";
 import { THEME_CODES } from "../../components/containers/skin-grid";
 import { THEMES } from "../../components/containers/theme-card";
 import { ThemeScene, type SkinsStatus, type ThemeSkins } from "../../components/scenes/theme-scene";
@@ -42,6 +42,12 @@ export default function Page() {
   const read = useThemeSkins(playerId, available ? code : null);
   const writes = useSkinWrites(playerId);
   const client = useQueryClient();
+
+  // The active set read again (after a save whose receipt could not be read, it may hold the batch): what it already holds is no change.
+  const active = read.data?.active;
+  useEffect(() => {
+    if (active) setChanges((c) => dropSavedChanges(active, c));
+  }, [active]);
 
   const skins: ThemeSkins | null = read.data
     ? {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, SETTINGS_KEY, createSettingsStore, parseSettings } from "../src/data/settings";
+import { SMALL_SCREEN_PX as RENDERER_SMALL_SCREEN_PX, resolveQuality } from "@paved/renderer";
+import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings } from "../src/data/settings";
 import { THEME_KEY, deviceTheme } from "../src/data/skins";
 
 // The device stores (P11a): the settings under one versioned key and the theme's, each with an in-memory twin.
@@ -48,6 +49,28 @@ describe("the device settings store", () => {
     expect(store.get().quality).toBe("low");
   });
 
+  it("clears its in-memory twin after a later successful write: storage is the truth again", () => {
+    let failing = true;
+    const mem = new Map<string, string>();
+    const flaky = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        if (failing) throw new Error("full");
+        mem.set(k, v);
+      },
+    };
+    const store = createSettingsStore(() => flaky);
+    store.set({ ...DEFAULT_SETTINGS, quality: "low" });
+    expect(store.get().quality).toBe("low");
+    expect(mem.size).toBe(0);
+    // Storage recovers: the next write is stored, and a second tab's later change is read, not shadowed by the twin.
+    failing = false;
+    store.set({ ...DEFAULT_SETTINGS, quality: "high" });
+    expect(store.get().quality).toBe("high");
+    mem.set(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, quality: "medium" }));
+    expect(store.get().quality).toBe("medium");
+  });
+
   it("keeps the choice when there is no storage at all", () => {
     const store = createSettingsStore(() => null);
     store.set({ ...DEFAULT_SETTINGS, sound: false });
@@ -82,5 +105,12 @@ describe("the device theme store (the viewer's skins switch)", () => {
   it("reads a value it does not know as nothing stored", () => {
     localStorage.setItem(THEME_KEY, "volcano");
     expect(deviceTheme.get()).toBe("forest");
+  });
+});
+
+describe("the renderer's constants repeated here (the settings chunk keeps three.js out)", () => {
+  it("agree with the renderer's: the small screen and what auto resolves to", () => {
+    expect(SMALL_SCREEN_PX).toBe(RENDERER_SMALL_SCREEN_PX);
+    for (const coarseOrSmall of [false, true]) expect(autoTier(coarseOrSmall)).toBe(resolveQuality("auto", coarseOrSmall));
   });
 });

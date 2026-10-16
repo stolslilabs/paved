@@ -44,13 +44,13 @@ export interface VaultDone {
 
 export interface VaultFormProps {
   mode: VaultMode;
-  /** The amount typed, in $TILE. */
+  /** The amount typed, in PAVED. */
   amount: string;
   /** PAVED in the wallet (`balance_of`), what a deposit can take. */
   balance: bigint;
   /** vPAVED held. */
   shares: bigint;
-  /** The vPAVED's $TILE at the rate, before the exit fee (`convert_to_assets`): with `maxWithdraw`, the fee of Withdraw all. */
+  /** The vPAVED's PAVED at the rate, before the exit fee (`convert_to_assets`): with `maxWithdraw`, the fee of Withdraw all. */
   value?: bigint;
   /** `max_withdraw`: the most PAVED a withdraw pays now, the exit fee taken. */
   maxWithdraw: bigint;
@@ -87,7 +87,7 @@ const BUSY_LINE: Record<VaultBusy, string> = {
 };
 
 /**
- * Deposit $TILE for vPAVED, or withdraw: the field, Max, the preview, the button; Withdraw all redeems every share. The exit
+ * Deposit PAVED for vPAVED, or withdraw: the field, Max, the preview, the button; Withdraw all redeems every share. The exit
  * fee is shown before an exit is sent: on top of a withdraw (`withdrawFee`), inside Withdraw all (its value less
  * `max_withdraw`). Refuses before any send what the contract would refuse: a deposit above the wallet, a withdraw above
  * `max_withdraw`.
@@ -148,10 +148,10 @@ export function VaultForm(props: VaultFormProps) {
       )}
 
       {over && (
-        <Notice tone="danger" title={mode === "deposit" ? "Not enough $TILE" : "Over max_withdraw"}>
+        <Notice tone="danger" title={mode === "deposit" ? "Not enough PAVED" : "Over max_withdraw"}>
           {mode === "deposit"
-            ? `More than your wallet holds: at most ${formatUnits(balance, tile.decimals, tile.fraction)} $TILE. Nothing was sent.`
-            : `More than you can withdraw: at most ${formatUnits(maxWithdraw, tile.decimals, tile.fraction)} $TILE now, the exit fee taken. Nothing was sent.`}
+            ? `More than your wallet holds: at most ${formatUnits(balance, tile.decimals, tile.fraction)} PAVED. Nothing was sent.`
+            : `More than you can withdraw: at most ${formatUnits(maxWithdraw, tile.decimals, tile.fraction)} PAVED now, the exit fee taken. Nothing was sent.`}
         </Notice>
       )}
 

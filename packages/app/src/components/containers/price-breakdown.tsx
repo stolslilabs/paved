@@ -46,7 +46,7 @@ export function PriceBreakdown({ stake, price, boostBps, split, referrer, classN
         </span>
       </div>
       <Separator />
-      <StatRow icon="arrow-trend-up" label="Burned" hint="Buys $TILE and burns it, boosted" value={<Amount value={burn} token="usdc" />} />
+      <StatRow icon="arrow-trend-up" label="Burned" hint="Buys PAVED and burns it, boosted" value={<Amount value={burn} token="usdc" />} />
       <StatRow icon="piggy-bank" label="Vault" hint="Paid to the vPAVED holders" value={<Amount value={vault} token="usdc" />} />
       <StatRow
         icon="user-group"

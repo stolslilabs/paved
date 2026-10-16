@@ -8,10 +8,10 @@ const meta = { title: "Scenes/Vault", component: VaultScene, args: { onModeChang
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** No vPAVED yet: a first deposit of 100 $TILE, its preview. */
+/** No vPAVED yet: a first deposit of 100 PAVED, its preview. */
 export const NoPosition: Story = { args: VAULT.noPosition };
 
-/** 1,250.40 vPAVED held; a withdraw of 500 $TILE, its preview. */
+/** 1,250.40 vPAVED held; a withdraw of 500 PAVED, its preview. */
 export const Position: Story = { args: VAULT.position };
 
 /** The deposit on its way. */
@@ -20,10 +20,10 @@ export const Depositing: Story = { args: VAULT.depositing };
 /** The withdraw on its way. */
 export const Withdrawing: Story = { args: VAULT.withdrawing };
 
-/** 1,300 $TILE asked, over `max_withdraw` (1,291.12): refused before any send. */
+/** 1,300 PAVED asked, over `max_withdraw` (1,291.12): refused before any send. */
 export const OverMaxWithdraw: Story = { args: VAULT.overMax };
 
-/** No vPAVED and no $TILE in the wallet. */
+/** No vPAVED and no PAVED in the wallet. */
 export const NoPaved: Story = { args: VAULT.noPaved };
 
 /** No economy on this network. */

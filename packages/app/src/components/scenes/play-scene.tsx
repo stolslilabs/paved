@@ -29,7 +29,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
           featured
           icon="trophy"
           title="Challenge"
-          description="The daily ranked game: stake 1 to 10, beat the threshold, earn $TILE."
+          description="The daily ranked game: stake 1 to 10, beat the threshold, earn PAVED."
           badge="Paid"
           disabled={spawnPaused}
           reason="Purchases are paused for now."
@@ -42,7 +42,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
           <ModeCard
             icon="ticket"
             title="Free Challenge"
-            description={`${credits} free ${credits === 1 ? "game" : "games"} from your quests: ranked, no $TILE at stake.`}
+            description={`${credits} free ${credits === 1 ? "game" : "games"} from your quests: ranked, no PAVED at stake.`}
             badge="Free"
             disabled={spawnPaused}
             reason="New games are paused for now."

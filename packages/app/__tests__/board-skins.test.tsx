@@ -94,7 +94,7 @@ describe("useBoardSkins", () => {
 const lastBoard = () => drawn.board.at(-1);
 const lastHand = () => drawn.hand.at(-1);
 
-describe("the board page's player", { timeout: 15_000 }, () => {
+describe("the board page's player", () => {
   it("a Challenge board draws its game's player's skins, for a viewer of another address too", async () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
     fakes.views.skinPlayer(GAME_PLAYING.playerId).active = active({ 7: 1 });

@@ -24,7 +24,7 @@ export const LONG_WORD = "Donaudampfschifffahrtsgesellschaftskapitänskajütensc
 /** A Cartridge username at its longest (31 characters). */
 export const LONG_NAME = "stonemaster_of_the_long_roads31";
 
-/** Large figures: a score, a count, a token amount in 18 decimals ($TILE, vPAVED), one in 6 (USDC). */
+/** Large figures: a score, a count, a token amount in 18 decimals (PAVED, vPAVED), one in 6 (USDC). */
 export const BIG_NUMBER = 987_654_321;
 /** A score beyond any real game (six digits): the HUD, the ranking and the over screen. */
 export const BIG_SCORE = 999_999;

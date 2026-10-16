@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { contrast, hexToRgb, oklchToRgb, parseOklch, rgbToHex } from "../src/styles/color-math";
@@ -62,5 +62,18 @@ describe("color-math", () => {
     const t = Object.fromEntries(semantic(css).map((x) => [x.name, x.oklch]));
     expect(contrast(t.foreground!, t.background!)).toBeGreaterThan(7);
     expect(contrast(t["primary-foreground"]!, t.primary!)).toBeGreaterThan(4.5);
+  });
+});
+
+describe("the token names on screen", () => {
+  it("agree with the chain's labels, and no source of the app names $TILE", async () => {
+    const { PAVED_LABEL, VPAVED_LABEL } = await import("@paved/chain");
+    const { TOKENS } = await import("../src/components/elements/amount");
+    expect(TOKENS.paved.symbol).toBe(PAVED_LABEL);
+    expect(TOKENS.vpaved.symbol).toBe(VPAVED_LABEL);
+    const dir = resolve(import.meta.dirname, "../src");
+    const sources = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.(tsx?|css|html)$/.test(f));
+    expect(sources.length).toBeGreaterThan(100);
+    expect(sources.filter((f) => readFileSync(resolve(dir, f), "utf8").includes("$TILE"))).toEqual([]);
   });
 });

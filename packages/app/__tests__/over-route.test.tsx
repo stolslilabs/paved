@@ -302,6 +302,32 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(screen.queryByText("Settled")).toBeNull();
     });
 
+    it("someone settled it first: Settle stays pending until the terms are read again, so a second tap sends nothing", async () => {
+      let gate: Promise<void> | null = null;
+      let release = () => {};
+      const settle = vi.fn(async (): Promise<WriteResult & { noReward: number[] }> => {
+        s.economy.terms_.set(GAME_ID, fakeTerms({ stake: 3, day: READY_DAY, player: PLAYER, settled: true, reward: 2n * PAVED }));
+        // The reconciling read of the terms is slow.
+        gate = new Promise<void>((r) => (release = r));
+        return { transactionHash: "0x1", events: [], noReward: [] };
+      });
+      const s = setup({ settle, indexed: null });
+      const terms = s.economy.terms.bind(s.economy);
+      s.economy.terms = async (id) => {
+        if (gate) await gate;
+        return terms(id);
+      };
+      over(s);
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await waitFor(() => expect(settle).toHaveBeenCalledTimes(1));
+      // The receipt is in; the terms still read unsettled: no button to press again.
+      await new Promise((r) => setTimeout(r, 200));
+      expect(settleButton()).toBeNull();
+      release();
+      expect(await screen.findByText("Already settled.", undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(settle).toHaveBeenCalledTimes(1);
+    });
+
     it("no settlement source (no economy to send it through): the player has no button to press", async () => {
       const s = setup();
       s.sources.settlements = null;

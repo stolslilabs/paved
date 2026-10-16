@@ -1,7 +1,7 @@
 import { SettingsScene, type Account, type Preferences } from "../../components/scenes/settings-scene";
 import { autoQuality, useDeviceSettings } from "../../data/settings";
 import { useDeviceTheme, useShowSkins } from "../../data/skins";
-import pkg from "../../../package.json";
+import { version } from "../../../package.json";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { useAppNavigate, useTabNavigate } from "../ref";
@@ -33,7 +33,7 @@ export default function Page() {
       theme={theme}
       autoQuality={autoQuality()}
       connecting={wallet.status === "connecting" || wallet.status === "restoring"}
-      version={pkg.version}
+      version={version}
       onChange={(key, value) => (key === "showSkins" ? setShowSkins(value as boolean) : set(key, value as never))}
       onConnect={() => void wallet.connect()}
       onDisconnect={() => {

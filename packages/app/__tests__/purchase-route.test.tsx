@@ -27,7 +27,7 @@ import { App } from "../src/App";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
-import { purchaseRefusal, referrerParam, usePurchase } from "../src/data/purchase";
+import { PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, usePurchase } from "../src/data/purchase";
 import { resetFailedWritesForTests, unknownPurchaseStorageKey } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
@@ -728,6 +728,70 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
   });
 
+  it("stamps the record with the time of the send, not of the outcome", async () => {
+    const s = setup();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={s.sources}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const { result } = renderHook(() => usePurchase(PLAYER), { wrapper });
+    vi.useFakeTimers({ toFake: ["Date"], now: 1_000_000_000_000 });
+    try {
+      let release = () => {};
+      s.state.gate = new Promise<void>((r) => (release = r));
+      s.state.noEvents = true;
+      act(() => result.current.mutation.mutate({ playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null }));
+      await vi.waitFor(() => expect(s.sent).toHaveLength(1));
+      // The receipt comes 10 minutes later.
+      vi.setSystemTime(1_000_000_600_000);
+      release();
+      await vi.waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"'));
+      expect(JSON.parse(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))!).at).toBe(1_000_000_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Retry fetching with an earlier answer in hand: the hold reports it, and the scene disables Retry and Dismiss", async () => {
+    const s = setup();
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) }));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={s.sources}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const { result } = renderHook(() => usePurchase(PLAYER).hold, { wrapper });
+    // The first check reads an unknown receipt and every read: an answer, not a failure.
+    await waitFor(() => expect(result.current.unknown?.hash).toBe("0x1"));
+    await waitFor(() => expect(result.current.checking).toBe(false), { timeout: 3000 });
+    expect(result.current.failed).toBe(false);
+    // A later check fails (the answer in hand is kept under the error).
+    s.state.receiptFail = "this node cannot read receipts";
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.failed).toBe(true), { timeout: 3000 });
+    expect(result.current.retrying).toBe(false);
+    // Retry: fetching, still failed until it answers.
+    let release = () => {};
+    s.state.receiptFail = null;
+    s.state.receiptGate = new Promise<void>((r) => (release = r));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.retrying).toBe(true));
+    expect(result.current.failed).toBe(true);
+    release();
+    await waitFor(() => expect(result.current.retrying).toBe(false), { timeout: 3000 });
+    expect(result.current.failed).toBe(false);
+  });
+
+  it("the scene disables Retry and Dismiss while Retry is fetching", () => {
+    const props = { ...PURCHASE.stake1, refusal: { kind: "unknown" as const, message: "Purchase sent." }, checkFailed: true, onRetryCheck: () => {}, onDismissCheck: () => {} };
+    const { rerender } = render(wrap(<PurchaseScene {...props} />));
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeEnabled();
+    rerender(wrap(<PurchaseScene {...props} checkRetrying />));
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeDisabled();
+  });
+
   it("says how long ago the purchase was sent, from the record's at", async () => {
     const s = setup();
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) - 300 }));
@@ -773,6 +837,14 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     remount(s);
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    // Another tab cannot read the record: the notice says so, and which tab holds Pay.
+    expect(screen.getByText(/could not save the record: only this tab holds Pay, so do not buy from another tab/)).toBeInTheDocument();
+  });
+
+  it("a record that was saved does not carry the storage warning", async () => {
+    const s = setup();
+    await unknownGame(s);
+    expect(screen.queryByText(/could not save the record/)).toBeNull();
   });
 
   it("storage off: the query cache keeps the record, so a remount still holds", async () => {
@@ -831,6 +903,262 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       await enabledPay();
       expect(router.state.location.pathname).toBe("/play/challenge");
       expect(s.sent).toHaveLength(1);
+      // The game was bought: the page says it is ready, and opens it.
+      expect(screen.getByText("Your game is ready")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Open game" }));
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}`);
+    });
+
+    it(`switch away (${via}) and back while a pack's send is pending: Buy stays disabled, nothing more is sent`, async () => {
+      const s = setup();
+      const other = s.client.writer({ address: "0xb0b", execute: async () => ({ transaction_hash: "0x99" }) });
+      const router = createTestRouter("/play/challenge?tab=cobbles");
+      const wallet = fakeWallet({ address: PLAYER });
+      const view = render(<App router={router} sources={s.sources} connector={wallet.load} />);
+      const as = (signer: GameSigner | null) => view.rerender(<App router={router} sources={{ ...s.sources, signer }} connector={wallet.load} />);
+      await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+      let release = () => {};
+      s.state.gate = new Promise<void>((r) => (release = r));
+      await userEvent.click(await enabledPay(/Pay \$9 for/));
+      await waitFor(() => expect(s.sent).toHaveLength(1));
+      as(via === "a guest" ? null : (other as unknown as GameSigner));
+      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: 3000 })).toBeInTheDocument();
+      as(s.writer as unknown as GameSigner);
+      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: 3000 });
+      expect(held).toBeDisabled();
+      expect(screen.queryByRole("button", { name: /Pay \$9 for/ })).toBeNull();
+      await userEvent.click(held);
+      expect(s.sent).toHaveLength(1);
+      release();
+      await waitFor(() => expect(screen.queryByRole("button", { name: /Confirm in your wallet/ })).toBeNull(), { timeout: 3000 });
+      expect(s.sent).toHaveLength(1);
+      expect(router.state.location.pathname).toBe("/play/challenge");
     });
   }
+});
+
+describe("a wallet that never answers (writer timeout)", () => {
+  function hook(s: ReturnType<typeof setup>) {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={s.sources}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    return renderHook(() => usePurchase(PLAYER), { wrapper });
+  }
+  const request = { playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
+  /** The fake clock only moves by hand: let the pending promises settle. */
+  const flush = async (until: () => boolean = () => false) => {
+    for (let i = 0; i < 60 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  };
+  /** A hung send, past its limit: the page has the timeout error. */
+  async function timedOut(s: ReturnType<typeof setup>, result: ReturnType<typeof hook>["result"]) {
+    let release = () => {};
+    s.state.gate = new Promise<void>((r) => (release = r));
+    act(() => result.current.mutation.mutate(request));
+    await flush(() => s.sent.length === 1);
+    expect(s.sent).toHaveLength(1);
+    await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+    await flush(() => result.current.mutation.status === "error");
+    expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+    return release;
+  }
+
+  it("rejects with the unknown outcome after the limit, and not before", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // The wallet's promise never settles.
+      s.state.gate = new Promise<void>(() => {});
+      act(() => result.current.mutation.mutate(request));
+      // The writer reads its quotes before signing: let those settle (the fake clock only moves by hand).
+      await flush(() => s.sent.length === 1);
+      expect(s.sent).toHaveLength(1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS - 1));
+      expect(result.current.mutation.status).toBe("pending");
+      for (let i = 0; i < 20 && result.current.mutation.status === "pending"; i++) await act(() => vi.advanceTimersByTimeAsync(1));
+      expect(result.current.mutation.status).toBe("error");
+      const error = result.current.mutation.error!;
+      expect(error).toBeInstanceOf(PurchaseTimedOutError);
+      expect(purchaseRefusal(error)).toEqual({ kind: "unknown", message: expect.stringContaining("did not answer in 5 minutes") });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Buy again is refused as busy while the hung send holds the writer, and works once it has answered", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => result.current.mutation.error !== null && !(result.current.mutation.error instanceof PurchaseTimedOutError));
+      expect(purchaseRefusal(result.current.mutation.error!).kind).toBe("busy");
+      expect(s.sent).toHaveLength(1);
+      // The wallet answers at last: the send lands (its game is ready, which the page shows before any refusal) and the writer is free.
+      s.state.gate = null;
+      release();
+      await flush(() => result.current.ready.gameId !== null);
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      expect(result.current.sending).toBe(false);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 2);
+      expect(s.sent).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an outcome-unknown hash that arrives after the limit is recorded, and Pay stays held on a remount", async () => {
+    const s = setup();
+    const { result, unmount } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let release = () => {};
+    try {
+      release = await timedOut(s, result);
+      s.state.noEvents = true;
+      release();
+      await flush(() => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game")) !== null);
+      expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"');
+    } finally {
+      vi.useRealTimers();
+    }
+    unmount();
+    open("/play/challenge", s);
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+  });
+
+  it("a success that arrives after the limit shows the game as ready, and clears the timed-out state", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      release();
+      await flush(() => result.current.ready.gameId !== null);
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a late refusal also clears the busy refusal that Buy again drew from the same send's hold", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => result.current.mutation.error !== null && !(result.current.mutation.error instanceof PurchaseTimedOutError));
+      expect(purchaseRefusal(result.current.mutation.error!).kind).toBe("busy");
+      s.state.gate = null;
+      s.state.revert = "Challenge: spawn paused";
+      release();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+      expect(result.current.mutation.error).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a late answer clears only its own send's timeout: player A's does not clear player B's, B's own does", async () => {
+    const s = setup();
+    s.economy.setBalance("usdc", "0xb0b", 100n * USDC_UNIT);
+    let releaseB = () => {};
+    const bGate = new Promise<void>((r) => (releaseB = r));
+    const other = s.client.writer({
+      address: "0xb0b",
+      execute: async (calls: Sent) => {
+        s.sent.push(calls);
+        await bGate;
+        return { transaction_hash: "0xb2" };
+      },
+    });
+    let current: DataSources = s.sources;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={current}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(({ player }: { player: string }) => usePurchase(player), { wrapper, initialProps: { player: PLAYER } });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // A's send hangs and times out.
+      let releaseA = () => {};
+      s.state.gate = new Promise<void>((r) => (releaseA = r));
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const aError = result.current.mutation.error as PurchaseTimedOutError;
+      expect(aError).toBeInstanceOf(PurchaseTimedOutError);
+      // The page switches to B, whose send hangs and times out too.
+      current = { ...s.sources, signer: other as unknown as GameSigner };
+      rerender({ player: "0xb0b" });
+      await flush(() => result.current.mutation.status === "idle");
+      act(() => result.current.mutation.mutate({ ...request, playerId: "0xb0b" }));
+      await flush(() => s.sent.length === 2);
+      expect(s.sent).toHaveLength(2);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const bError = result.current.mutation.error as PurchaseTimedOutError;
+      expect(bError).toBeInstanceOf(PurchaseTimedOutError);
+      expect(bError.sendId).not.toBe(aError.sendId);
+      // A's late answer (a success, in A's cache) leaves B's state as it is.
+      s.state.gate = null;
+      releaseA();
+      await flush(() => false);
+      expect(result.current.mutation.error).toBe(bError);
+      expect(result.current.mutation.status).toBe("error");
+      // B's own late answer clears it.
+      releaseB();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the game a late success bought is kept for the sender however long the page is gone", async () => {
+    const s = setup();
+    const first = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, first.result);
+      release();
+      await flush(() => first.result.current.ready.gameId !== null);
+      first.unmount();
+      // Longer than the query cache's default life (5 minutes) with no page watching it.
+      await act(() => vi.advanceTimersByTimeAsync(30 * 60_000));
+      const again = hook(s);
+      expect(again.result.current.ready.gameId).toBe(GAME_ID);
+      act(() => again.result.current.ready.clear());
+      await flush(() => again.result.current.ready.gameId === null);
+      expect(again.result.current.ready.gameId).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a refusal that arrives after the limit clears the timed-out state", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      s.state.revert = "Challenge: spawn paused";
+      release();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+      expect(result.current.ready.gameId).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
