@@ -96,7 +96,7 @@ describe("GameScene settings", () => {
     camera.position.set(0, 60, 0);
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(2);
-    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline, "#1f1f1f");
+    expect(setOutlineStroke).toHaveBeenLastCalledWith(scene.getZoom().outline, "#2a2928");
     scene.setSettings({ outlines: { maxWidthPx: 3, color: "#2a2a2a" } });
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(3);

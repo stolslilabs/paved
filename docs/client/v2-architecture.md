@@ -1144,8 +1144,19 @@ height, so on every screen the outlines are fully on at the opening view and off
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
-The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
-target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#2a2928`, the colour that SHOWS on screen (OUTLINE-COLOUR, PM ruling 2026-10-16: halfway
+between the old `#1f1f1f`, which showed as about `#53524f`, and black). The outlines are drawn into the linear target and the
+`FinishPass` then tone maps (ACES), grades, vignettes and sRGB-encodes the whole frame, outlines included, so a written
+dark grey is lifted a lot (the old "no sRGB encoding" line was stale since LIGHT). `screenColor` therefore converts the
+shown colour to the grey the outline pass writes (`outlineWrittenGrey`, a bisection on `outlineScreenOf`, the forward
+model: ACES at the Mockup exposure, the grade, the opening view's vignette and fog as one measured factor of 0.65 in
+linear light, sRGB). It matches the green channel and writes a grey, about `#0f0f0f` for the default. **It assumes the
+default look** (`mockup`) and the opening view: another look, or a corner under the vignette, shows a different value;
+the grade's warmth tints the grey a little. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
+captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
+1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
+`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible
+colour; black stays reachable.
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
 **Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,
