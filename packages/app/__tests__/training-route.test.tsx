@@ -114,8 +114,8 @@ describe("/training (P3)", () => {
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
     expect(saved.moves.some((m) => m.k === "b")).toBe(true);
-  // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under a
-  // load average of 24 to 29 (13.4 s on a quiet one).
+  // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under
+  // heavy load.
   }, 60_000);
 
   it("counts a discard as spent in the tiles left", async () => {

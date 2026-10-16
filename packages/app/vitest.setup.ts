@@ -48,7 +48,6 @@ window.matchMedia ??= (query: string) =>
 // second (1.1 to 1.4 s each, the retry included). The retry stays, without the wait; the app's own defaults are untouched.
 queryClient.setDefaultOptions({ ...queryClient.getDefaultOptions(), queries: { ...queryClient.getDefaultOptions().queries, retryDelay: 0 } });
 
-// `findBy` and `waitFor` wait 1 s by default: on a loaded machine (load average 20 to 30 on 8 cores) a render that takes 0.1 s
-// took more than that, and the lookup failed with the element absent (purchase-route and wallet-claims, one run in 3 at that
-// load). They return as soon as the element is there, so a longer ceiling costs a passing test nothing.
+// `findBy` and `waitFor` wait 1 s by default: under heavy load a render that takes 0.1 s took more than that, and the
+// lookup failed with the element absent (purchase-route and wallet-claims). They return as soon as the element is there, so a longer ceiling costs a passing test nothing.
 configure({ asyncUtilTimeout: 5000 });

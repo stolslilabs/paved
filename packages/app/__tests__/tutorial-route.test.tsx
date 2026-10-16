@@ -47,7 +47,7 @@ async function play(move: TutorialMove) {
   }
 }
 
-// The whole scripted game is real work on the real board: 5.9 to 12.3 s over 5 runs, 5.3 to 13.9 s over 10 more (load average 11 to 29), so 30 s.
+// The whole scripted game is real work on the real board: 5.9 to 12.3 s over 5 runs, 5.3 to 13.9 s over 10 more, so 30 s.
 describe("/tutorial (P6): the scripted game on the board scene", { timeout: 30_000 }, () => {
   it("runs to its end, its engine kept between steps, then claims First Stone once connected", async () => {
     const store = memoryStore();
