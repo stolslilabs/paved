@@ -17,7 +17,7 @@ The Cairo code worked well, but it has two problems:
 
 1. A **single-player daily game** (one shared seed per day) with a **leaderboard**.
 2. **Quests and achievements**, in the manner of Nums and Glitchbomb.
-3. A **token economy like Nums**: paid games in the game's native token (`$TILE` is hard-coded in the
+3. A **token economy like Nums**: paid games in the game's native token (`PAVED` is hard-coded in the
    client for now; the official name is decided later with the team). The protocol tracks a mean score
    and pays players on that basis, with one change: below the mean (the mean shifted by the
    profitability margin) the player loses the whole stake. Nums gives back part of the stake, and the

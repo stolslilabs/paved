@@ -152,7 +152,7 @@ achievement and is credited off the contract's report path (the indexer applies 
 
 1. The list, its titles and its targets: accepted as in the tables above.
 2. **Rewards: none in v1.** Achievement points are shown, never read by a rule; dailies give nothing. A reward
-   (a free Daily entry, `$TILE`) belongs with P8, which owns the economy and its audit. Reverse: the PM wants a reward
+   (a free Daily entry, `PAVED`) belongs with P8, which owns the economy and its audit. Reverse: the PM wants a reward
    now; then quests move to storage mode (below) and the reward is granted from the claim hook.
 3. Quest mode, achievements in event mode (the package has no other), and the integration shape (below).
 
