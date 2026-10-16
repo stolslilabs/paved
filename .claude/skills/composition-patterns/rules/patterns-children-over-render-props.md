@@ -7,7 +7,7 @@ impactDescription: cleaner composition, better readability
 tags: composition, children, render-props
 ---
 
-<!-- Paved: samples are React Native flavoured upstream; use DOM elements here. Scenes take data as props and `onX` callbacks only (`paved-ui`); a `renderX` prop is no way around that. -->
+<!-- Paved: samples are React Native flavoured upstream; use DOM elements here. Prefer children. A `renderX` prop is fine where the page injects a component that the scene may not import (the renderer's tile), as `BoardScene` (`renderHandTile`) and `HandPanel` (`renderTile`) do: that is the "pass data back" case below. -->
 
 ## Prefer Children Over Render Props
 
