@@ -15,7 +15,7 @@
     "test": "vitest run",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o storybook-static && node scripts/storybook-guard.ts",
+    "build-storybook": "node scripts/storybook-static-dirs.ts && storybook build -o storybook-static && node scripts/storybook-guard.ts",
     "wrap-sweep": "node scripts/wrap-sweep.ts"
   },
   "dependencies": {

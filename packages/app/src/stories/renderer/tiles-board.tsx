@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import type { AssetManifest, GameScene, TileRenderData } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
-import { RENDERER_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
 
 /** How a tile is drawn: the plan view's tile, or the placeholder quad of a tile whose model has not come. */
 export type TileView = "plan" | "quad";
@@ -15,10 +15,11 @@ export interface TilesBoardProps {
 }
 
 /**
- * The app's resized copies as its build's manifest lists them (`tiles`): Storybook serves the app's `public/` but no
- * `manifest.json`, so the story names the files from the folder and hands the renderer that manifest. The glob reads the
- * names only: nothing is imported or bundled.
+ * The app's models and resized copies as its build's manifest lists them (`models`, `tiles`): Storybook serves the app's
+ * `public/` at `APP_ASSETS` but no `manifest.json`, so the story names the files from the folder and hands the renderer that
+ * manifest. The globs read the names only: nothing is imported or bundled.
  */
+const MODEL_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/*.glb", { query: "?url" }));
 const TILE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/tiles/*.png", { query: "?url" }));
 const RESIZED: AssetManifest = (() => {
   const tiles: Record<string, Record<string, string>> = {};
@@ -26,9 +27,14 @@ const RESIZED: AssetManifest = (() => {
     const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
     if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${file.slice(file.lastIndexOf("/") + 1)}`;
   }
-  return { models: {}, tiles };
+  const models: Record<string, string> = {};
+  for (const file of MODEL_FILES) {
+    const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
+    if (match) models[match[1]!] = `models/${file.slice(file.lastIndexOf("/") + 1)}`;
+  }
+  return { models, tiles };
 })();
-/** No tiles listed: the loader asks for `assets/tiles/<plan>.png`, the originals (as before TEX). */
+/** No tiles listed: the loader asks for `assets/tiles/<plan>.png`, the originals (as before TEX), at `APP_WEB_ASSETS`. */
 const ORIGINAL: AssetManifest = { models: {} };
 
 /** The 19 plans, one tile each, on a 5 x 4 board. */
@@ -134,7 +140,7 @@ export function TilesBoard({ view, images }: TilesBoardProps) {
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={readout ? "" : undefined} data-bytes={readout?.bytes} data-uploaded={readout?.uploaded}>
-      <GameCanvas tiles={shown} strategyMode={view === "plan"} manifest={manifest} basePath={RENDERER_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas tiles={shown} strategyMode={view === "plan"} manifest={manifest} basePath={images === "resized" ? APP_ASSETS : APP_WEB_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
           {view} view, {images} images: {readout.images.length} images on the GPU, {(readout.bytes / 1e6).toFixed(2)} MB; three holds {readout.uploaded} textures

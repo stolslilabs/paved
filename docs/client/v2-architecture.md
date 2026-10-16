@@ -691,7 +691,7 @@ Storybook 10 with `@storybook/react-vite` (10.6.2 today), in the new app package
 ```
 packages/app/
 ├── .storybook/
-│   ├── main.ts          framework react-vite; stories: src/**/*.stories.tsx; addons: docs, a11y
+│   ├── main.ts          framework react-vite; stories: src/**/*.stories.tsx; addons: docs, a11y; staticDirs (below)
 │   ├── preview.tsx      imports src/styles/theme.css; MotionConfig; QueryClient with fixtures; MemoryRouter
 │   └── preview-head.html  font preloads
 └── src/
@@ -702,6 +702,13 @@ packages/app/
         ├── containers/  composites (hand panel, mode card, leaderboard table…) + stories
         └── scenes/      one per page, on fixture data + stories
 ```
+
+**Static dirs.** `main.ts` takes its `staticDirs` from `scripts/storybook-static-dirs.ts`: the app's `public/` at the root
+(Font Awesome scripts; `renderer-assets/`: the hashed models and 256 px tiles, which stories with a manifest of their own load
+from `/renderer-assets`) and app-web's `public/` at `/app-web-assets` (plain models, the original tile images, the Draco decoder:
+the stories with no manifest). Storybook copies the entries at once, and two copies creating one folder raced on `mkdir`
+(`EEXIST`, three CI failures, SB-COPY), so no two entries write a folder in common: `build-storybook` runs the check first and
+`__tests__/storybook-static-dirs.test.ts` covers it.
 
 The sidebar follows the tiers:
 

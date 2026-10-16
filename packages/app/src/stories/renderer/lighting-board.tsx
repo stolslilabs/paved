@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { TILE_SIZE, type GameScene, type HoverState, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { RENDERER_ASSETS } from "../../mocks/assets";
+import { APP_WEB_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { lookInput } from "./lighting-look";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
@@ -112,7 +112,7 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
         availableSlots={highlights ? SLOTS : []}
         // Once the models are in: a ghost handed over before then has no model to draw.
         hover={highlights && ready ? GHOST : null}
-        basePath={RENDERER_ASSETS}
+        basePath={APP_WEB_ASSETS}
         settings={settings}
         onReady={onReady}
         style={{ position: "absolute", inset: 0 }}
