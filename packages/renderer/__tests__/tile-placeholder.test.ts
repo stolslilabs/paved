@@ -310,28 +310,33 @@ describe("a tile image that fails or comes late", () => {
 });
 
 describe("the ghost while its model loads", () => {
-  it("draws the quad with the ghost's tint, red where the placement is invalid, then the model", async () => {
+  it("draws the quad under its veil, red where the rotation does not fit, then the model: the shared materials", async () => {
     const { s, at } = await boardWithOneTile();
     s.setHoveredTile(hover(5, { orientation: 4 }));
-    const quad = quadOf(ghost(s)!);
+    const quad = quadOf(ghost(s)!.children[0]!);
     expect((s.tiles as any).previewKey).toMatch(/-quad$/);
     expect(quad.position.y).toBeCloseTo(PLACEHOLDER_HEIGHT);
     expect(quad.rotation.y).toBeCloseTo(Math.PI / 2);
-    expect(quad.material.transparent).toBe(true);
-    expect(quad.material.opacity).toBeCloseTo(0.75);
-    // Its material is its own copy (disposed with the ghost); the image is shared.
+    // The plan's own material, shared: the ghost makes none (SLOTS); a pale veil lies over it.
     const shared = (s.tiles as any).placeholderTypes.get(keyOf(5)).material as THREE.MeshStandardMaterial;
-    expect(quad.material).not.toBe(shared);
-    expect(quad.material.map).toBe(shared.map);
+    expect(quad.material).toBe(shared);
+    const veil = ghost(s)!.children.find((c) => c.userData.veil)!;
+    const veilMaterial = meshOf(veil).material as unknown as THREE.MeshBasicMaterial;
+    expect(veilMaterial).not.toBe(shared);
+    expect(veilMaterial.polygonOffset).toBe(true);
+    const yellow = veilMaterial.color.clone();
 
+    // Red where the rotation does not fit (at once here: no frame has run the change).
     s.setHoveredTile(hover(5, { orientation: 4, valid: false }));
-    expect(quadOf(ghost(s)!).material.emissive.getHex()).toBe(0xff3b30);
+    s.tiles.update(performance.now() + 10_000);
+    const red = (meshOf(ghost(s)!.children.find((c) => c.userData.veil)!).material as unknown as THREE.MeshBasicMaterial).color;
+    expect(red.r).toBeGreaterThan(red.g);
+    expect(red.equals(yellow)).toBe(false);
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
     expect((s.tiles as any).previewKey).toContain(keyOf(5));
-    expect(meshOf(ghost(s)!).material.emissive.getHex()).toBe(0xff3b30);
-    expect(meshOf(ghost(s)!).geometry).not.toBe(quad.geometry);
+    expect(meshOf(ghost(s)!.children[0]!).geometry).not.toBe(quad.geometry);
     s.dispose();
   });
 });
@@ -485,27 +490,25 @@ describe("no leak after many swaps", () => {
     expect(maps.every((spy) => spy.mock.contexts[0] !== assets.image)).toBe(true);
   });
 
-  it("disposes every ghost material it made, quad or model, as the ghost swaps", () => {
+  it("makes no ghost material, quad or model, as the ghost swaps: the shared ones and the veil, each disposed once", () => {
     const assets = fakeAssets();
     const renderer = new TileRenderer(assets as any);
-    const made: Array<ReturnType<typeof vi.spyOn>> = [];
+    const seen = new Set<THREE.Material>();
     for (let round = 0; round < 40; round++) {
       if (round % 2) assets.inModels.add(keyOf(5));
       else assets.inModels.clear();
-      renderer.setHover(hover(5, { valid: round % 3 !== 0 }));
+      renderer.setHover(hover(5, { valid: round % 3 !== 0, placed: round % 4 === 0 }));
       const container = (renderer as any).previewContainer as THREE.Group;
       container.traverse((o) => {
-        if (o instanceof THREE.Mesh) made.push(vi.spyOn(o.material as THREE.Material, "dispose"));
+        if (o instanceof THREE.Mesh) seen.add(o.material as THREE.Material);
       });
     }
     renderer.setHover(null);
-    expect(made).toHaveLength(40);
-    for (const spy of made) expect(spy).toHaveBeenCalledTimes(1);
-    // The shared material of the plan's quad is not one of them.
-    const shared = (renderer as any).placeholderTypes.get(keyOf(5)).material as THREE.Material;
-    const sharedDispose = vi.spyOn(shared, "dispose");
-    expect(sharedDispose).not.toHaveBeenCalled();
+    // The plan's quad material, the model's (one source), the outline's, and the placement's veil, aura and border.
+    expect(seen.size).toBeLessThanOrEqual(6);
+    const spies = [...seen].map((m) => vi.spyOn(m, "dispose"));
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     renderer.dispose();
-    expect(sharedDispose).toHaveBeenCalledTimes(1);
+    for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
   });
 });

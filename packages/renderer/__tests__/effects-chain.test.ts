@@ -6,6 +6,7 @@ import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS, LOOK_PRESET_NAMES, QUALITY_TIERS, type LookSettings, type QualityTier } from "../src/core/look";
 import { AoPass, FinishPass } from "../src/core/post-shaders";
 import type { RenderSurfaceAdapter } from "../src/core/types";
+import { placementStubs } from "./helpers/placement-stubs";
 
 /** A renderer as far as the composer reads it before drawing: sizes and pixel ratio. */
 function fakeRenderer(): THREE.WebGLRenderer {
@@ -151,7 +152,7 @@ describe("the start-up builds the chain once", () => {
     };
     const scene = new GameScene({ createRenderer: vi.fn(() => renderer as any), createCameraController: vi.fn(() => controller as any) });
     (scene as any).assets.preloadAll = vi.fn(async () => {});
-    (scene as any).tiles = { setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), getGroup: () => new THREE.Group(), dispose: vi.fn() };
+    (scene as any).tiles = { ...placementStubs(), setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), getGroup: () => new THREE.Group(), dispose: vi.fn() };
     const builds = vi.spyOn(scene.effects as any, "disposePasses");
     scene.setSettings({ quality: "low" });
     await scene.init({ surface: adapter, effectsCapabilities: { supportsBloom: false } });

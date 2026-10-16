@@ -7,6 +7,8 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
+import { PlacementRenderer, type PlacementSettings, type PlacementSlot, type PlacementUpdate } from "./placement";
+import type { OutlineSettings } from "./outlines";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -14,17 +16,6 @@ const TILE_MAX_ROUGHNESS = 0.95;
 const TILE_MIN_METALNESS = 0.02;
 const TILE_MAX_METALNESS = 0.45;
 const STRATEGY_THICKNESS = 0.1;
-
-// Validity overlay colors & opacities
-const VALID_IDLE_COLOR = 0x00ff00; // green
-const VALID_IDLE_OPACITY = 0.5;
-const VALID_COLOR = 0xff0000; // red
-const VALID_OPACITY = 0.2;
-const INVALID_COLOR = 0xffa500; // orange
-const INVALID_OPACITY = 0.4;
-const HOVER_COLOR = 0xadd8e6; // light blue
-const HOVER_OPACITY = 0.004;
-const INVALID_GHOST_COLOR = 0xff3b30;
 
 /**
  * The top of a tile's ground: every base model's ground is 0.4 of its 4 units high (its upward faces, most at 0.4), and
@@ -41,14 +32,6 @@ const ROTATION: Record<string, number> = {
 };
 
 /**
- * The empty slot's outline: a square band just inside the tile's edge (a tile is `TILE_SIZE`, half 1.5), from 1.30 to
- * 1.42 of half-width. `RingGeometry` with 4 segments is a square standing on a corner: its radius is the half-width
- * times the square root of 2.
- */
-const SLOT_INNER = 1.3 * Math.SQRT2;
-const SLOT_OUTER = 1.42 * Math.SQRT2;
-
-/**
  * The water of the tile palettes: its texels are cyan-blue (blue above green above red, in linear colour: (0, 130, 167)
  * and (90, 157, 194) in sRGB, among others), the palette's roofs and banners are violet (green under red) and its
  * stone grey. The mask picks the first by hue and nothing else; `uWaterOn` at 0 turns it off. Its green-over-red ramp
@@ -63,7 +46,7 @@ export const WATER_MASK_GLSL = /* glsl */ `
   diffuseColor.rgb *= mix(1.0, uWaterBrightness, waterMask);
 `;
 
-/** The look's parts the tiles draw: the slots' and ghost's highlights, and the water. */
+/** The look's parts the tiles draw: the water (the highlights stay in the look for GLOW; the slots are `PlacementRenderer`'s). */
 export type TileLook = Pick<LookSettings, "highlights" | "water">;
 
 export class TileRenderer {
@@ -81,7 +64,10 @@ export class TileRenderer {
   private squareSize = TILE_SIZE;
   private previewContainer: THREE.Group | null = null;
   private previewKey: string | null = null;
-  private previewValid = false;
+  /** The confirm's key (`setConfirmed`): the same confirm given again does not start over. */
+  private confirmKey: string | null = null;
+  /** The placement visuals: the grid, the slots (drawn in `emptyGroup`), the ghost's aura and veil, the confirm. */
+  private placement: PlacementRenderer;
   /** The last hover given: drawn again when its model comes in (`refreshHover`). */
   private hoverState: HoverState | null = null;
   /** The theme of each plan (`setSkins`): its tiles draw a variant of it. */
@@ -103,8 +89,6 @@ export class TileRenderer {
   private placeholderGeometry: THREE.BufferGeometry | null = null;
   private placeholderOutline: THREE.Mesh | null = null;
   private placeholderTypes: Map<string, THREE.Mesh> = new Map();
-  private slotGeometry: THREE.BufferGeometry | null = null;
-  private slotMaterial: THREE.MeshBasicMaterial | null = null;
   private look: TileLook = LOOK_PRESETS.mockup;
   /** The water's uniforms, shared by every patched tile material (`patchWater`): a look change sets them, no recompile. */
   private waterUniforms = {
@@ -119,7 +103,8 @@ export class TileRenderer {
     this.tileGroup = new THREE.Group();
     this.emptyGroup = new THREE.Group();
     this.previewGroup = new THREE.Group();
-    this.group.add(this.tileGroup, this.emptyGroup, this.previewGroup);
+    this.placement = new PlacementRenderer(this.emptyGroup);
+    this.group.add(this.tileGroup, this.emptyGroup, this.previewGroup, this.placement.group);
   }
 
   getGroup(): THREE.Group {
@@ -183,6 +168,8 @@ export class TileRenderer {
         changed = true;
       }
     }
+    // The grid around the tiles given (built again only when their cells change).
+    this.placement.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     return changed;
   }
 
@@ -307,26 +294,20 @@ export class TileRenderer {
     this.waterUniforms.uWaterOn.value = water.enabled ? 1 : 0;
     this.waterUniforms.uWaterBrightness.value = water.brightness;
     this.waterUniforms.uWaterRoughness.value = water.roughness;
-    this.slotMaterial?.color.copy(slotColor(highlights));
-    if (this.previewContainer && this.previewKey) {
-      // The ghost's tint is set when it is made: make it again with the new one.
-      const container = this.previewContainer;
-      container.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial && this.previewValid) {
-          child.material.emissive.set(highlights.ghostColor);
-          child.material.emissiveIntensity = highlights.ghostIntensity;
-        }
-      });
-    }
   }
 
   private createVoxelTile(tile: TileRenderData, key: string): THREE.Object3D | null {
+    return this.placedModel(key, tile.orientation);
+  }
+
+  /** A tile of model `key` turned to `orientation`, in a container at the cell's origin: shares the type's everything. */
+  private placedModel(key: string, orientation: number): THREE.Object3D | null {
     try {
       // Shares the type's geometry, materials and edge outlines
       const model = this.tileType(key).clone();
 
       // Apply rotation based on orientation
-      model.rotation.y = ROTATION[Orientation.from(tile.orientation).value] ?? 0;
+      model.rotation.y = ROTATION[Orientation.from(orientation).value] ?? 0;
 
       // Scale model to fit tile size, then center at origin
       const box = new THREE.Box3().setFromObject(model);
@@ -440,15 +421,20 @@ export class TileRenderer {
     return type;
   }
 
+  /**
+   * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
+   * model loads), under a pale veil; `placed` adds the aura and the cell's solid border. `valid` false (its rotation does
+   * not fit there) turns them red (`placementTone`). It shares the type's geometry and materials: nothing to dispose.
+   */
   setHover(state: HoverState | null): void {
     this.hoverState = state;
     if (!state) {
       if (this.previewContainer) {
         this.previewGroup.remove(this.previewContainer);
-        this.disposePreview(this.previewContainer);
         this.previewContainer = null;
       }
       this.previewKey = null;
+      this.placement.clearGhost();
       return;
     }
 
@@ -458,124 +444,91 @@ export class TileRenderer {
     const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
     // No model in yet: the placeholder quad meanwhile, as a placed tile's (`createPlaceholder`), when its image is in.
     const quad = planModel === null ? this.placeholderType(state.planIndex) : null;
-    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${planModel ?? (quad ? "quad" : "none")}`;
+    const placed = !!state.placed;
+    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${placed ? "placed" : "hover"}-${planModel ?? (quad ? "quad" : "none")}`;
     if (this.previewContainer && this.previewKey === key) {
-      this.previewContainer.position.set(
-        state.x * this.squareSize,
-        0,
-        state.y * this.squareSize
-      );
+      this.previewContainer.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
+      this.placement.setGhostCell(placed ? { x: state.x, y: state.y } : null);
       return;
     }
 
     if (this.previewContainer) {
       this.previewGroup.remove(this.previewContainer);
-      this.disposePreview(this.previewContainer);
       this.previewContainer = null;
     }
     this.previewKey = key;
 
-    // Create preview mesh
-    if (planModel === null && !quad) return;
-
-    try {
-      // The model's materials are its own copies (its geometry is shared, see AssetLoader); the quad's its own copy of
-      // its plan's (the image and the quad shared), with no outline, as the ghost's model has none.
-      const model =
-        planModel !== null
-          ? this.assets.getModel(planModel)
-          : new THREE.Mesh(quad!.geometry, (quad!.material as THREE.Material).clone());
-      model.rotation.y = ROTATION[Orientation.from(state.orientation).value] ?? 0;
-
-      // Tint the ghost: its own materials, with the look's gold glow where it fits (red where it does not)
-      const { ghostColor, ghostIntensity } = this.look.highlights;
-      const tintColor = new THREE.Color(state.valid ? ghostColor : INVALID_GHOST_COLOR);
-      this.previewValid = state.valid;
-      model.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          if (child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.transparent = true;
-            child.material.opacity = 0.75;
-            child.material.emissive = tintColor;
-            child.material.emissiveIntensity = ghostIntensity;
-          } else {
-            disposeMaterials(child.material);
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0xffffff,
-              transparent: true,
-              opacity: 0.75,
-              emissive: tintColor,
-              emissiveIntensity: ghostIntensity,
-            });
-          }
-        }
-      });
-
-      if (planModel === null) {
-        // The quad is the tile's size already: at the ground's top
-        model.position.y = PLACEHOLDER_HEIGHT;
-      } else {
-        // Scale to fit tile size, then center
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.z);
-        if (maxDim > 0) {
-          const scale = this.squareSize / maxDim;
-          model.scale.setScalar(scale);
-        }
-
-        // Re-compute box after scaling, center XZ at origin, bottom at Y=0
-        const scaledBox = new THREE.Box3().setFromObject(model);
-        const center = scaledBox.getCenter(new THREE.Vector3());
-        model.position.set(-center.x, -scaledBox.min.y, -center.z);
-      }
-
-      // Wrap in container for grid positioning
-      const container = new THREE.Group();
-      container.add(model);
-      container.position.set(
-        state.x * this.squareSize,
-        0,
-        state.y * this.squareSize
-      );
-      this.previewGroup.add(container);
-      this.previewContainer = container;
-    } catch {
-      // Model not available
+    const model = this.ghostModel(state.planIndex, state.orientation, planModel);
+    if (!model) {
+      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`).
+      if (planModel === null && !quad) return;
       this.previewKey = null;
+      return;
     }
+    const container = new THREE.Group();
+    container.add(model);
+    container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
+    this.placement.dressGhost(container, model, { x: state.x, y: state.y }, placed, state.valid, now());
+    this.previewGroup.add(container);
+    this.previewContainer = container;
   }
 
-  /** Show subtle ground indicators at valid placement positions */
-  setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
-    // Clear previous indicators
-    this.emptyGroup.clear();
-
-    if (slots.length === 0) return;
-
-    // Shared geometry and material for all indicators
-    if (!this.slotGeometry) {
-      this.slotGeometry = new THREE.RingGeometry(SLOT_INNER, SLOT_OUTER, 4);
-      this.slotGeometry.rotateX(-Math.PI / 2); // lay flat on ground
-      this.slotGeometry.rotateY(Math.PI / 4); // rotate 45° so the sides follow the tile's
-    }
-    // Emissive gold, brighter than 1 in linear colour so the bloom picks it out; no fog, so it glows at every distance.
-    this.slotMaterial ??= new THREE.MeshBasicMaterial({
-      color: slotColor(this.look.highlights),
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      fog: false,
+  /**
+   * The ghost's model: the tile as the board draws it, from the shared type (or its placeholder quad), casting no shadow
+   * (the shadow map is the placed tiles'). Null when neither the model nor the image is in.
+   */
+  private ghostModel(plan: number, orientation: number, planModel: string | null): THREE.Object3D | null {
+    const model = planModel !== null ? this.placedModel(planModel, orientation) : this.createPlaceholder(plan, orientation);
+    model?.traverse((child) => {
+      child.castShadow = false;
     });
+    return model;
+  }
 
-    for (const slot of slots) {
-      const mesh = new THREE.Mesh(this.slotGeometry, this.slotMaterial);
-      mesh.position.set(
-        slot.x * this.squareSize,
-        0.05, // just above ground to avoid z-fighting
-        slot.y * this.squareSize,
-      );
-      this.emptyGroup.add(mesh);
+  /**
+   * The confirm of a placement (SLOTS): its veil and aura at the cell, turning green and fading out over the tile the
+   * board now draws there. The same confirm given again changes nothing; null removes it. `key` tells two confirms apart
+   * (a tile's id).
+   */
+  setConfirmed(state: (HoverState & { key?: string | number }) | null): void {
+    const key = state ? `${state.key ?? ""}:${state.x},${state.y}:${state.planIndex}:${state.orientation}` : null;
+    if (key === this.confirmKey) return;
+    this.confirmKey = key;
+    if (!state) {
+      this.placement.startConfirm(null, null, now());
+      return;
     }
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    const model = this.ghostModel(state.planIndex, state.orientation, this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId));
+    const container = new THREE.Group();
+    container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
+    // The model is the veil's shape only: the board draws the tile itself.
+    this.placement.startConfirm(container, model, now());
+  }
+
+  /** The legal slots of the tile in hand (any rotation), with whether the current rotation fits each (`PlacementRenderer`). */
+  setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
+    this.placement.setSlots(slots);
+  }
+
+  /** The placement visuals' settings, and the outlines' fade they follow on zoom-out. */
+  setPlacementSettings(settings: PlacementSettings, outlines: Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor">): void {
+    this.placement.setSettings(settings, outlines);
+  }
+
+  /** Reduced motion for the placement visuals. */
+  setReducedMotion(reduced: boolean): void {
+    this.placement.setReducedMotion(reduced);
+  }
+
+  /** The zoom the placement lines follow (their fade and the dashes). */
+  setPlacementZoom(tilePx: number, openingTilePx: number, pixelRatio: number): void {
+    this.placement.setZoom(tilePx, openingTilePx, pixelRatio);
+  }
+
+  /** Moves the placement effects to `time` (ms); `animating` while one still moves. */
+  update(time: number = now()): PlacementUpdate {
+    return this.placement.update(time);
   }
 
   /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
@@ -594,28 +547,18 @@ export class TileRenderer {
     this.tileMeshes.clear();
   }
 
-  /** The preview owns its materials, not its geometry (the loader's). */
-  private disposePreview(obj: THREE.Object3D): void {
-    obj.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        disposeMaterials(child.material);
-      }
-    });
-  }
-
   dispose(): void {
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
     }
     this.tileMeshes.clear();
-    if (this.previewContainer) {
-      this.disposePreview(this.previewContainer);
-    }
     this.previewGroup.clear();
     this.emptyGroup.clear();
     this.previewContainer = null;
     this.previewKey = null;
+    this.confirmKey = null;
     this.hoverState = null;
+    this.placement.dispose();
 
     for (const model of this.tileTypes.values()) {
       model.traverse((child) => {
@@ -648,16 +591,12 @@ export class TileRenderer {
     this.placeholderGeometry = null;
     this.placeholderOutline?.geometry.dispose();
     this.placeholderOutline = null;
-    this.slotGeometry?.dispose();
-    this.slotGeometry = null;
-    this.slotMaterial?.dispose();
-    this.slotMaterial = null;
   }
 }
 
-/** The slots' colour: the look's gold at its intensity (above 1 in linear colour: it blooms). */
-function slotColor(highlights: LookSettings["highlights"]): THREE.Color {
-  return new THREE.Color(highlights.slotColor).multiplyScalar(highlights.slotIntensity);
+/** The time the placement effects run on, ms. */
+function now(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
 
 function disposeMaterials(material: THREE.Material | THREE.Material[]): void {

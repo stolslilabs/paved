@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { GameScene } from "../src/core/GameScene";
+import { placementStubs } from "./helpers/placement-stubs";
 
 describe("GameScene camera mode wiring", () => {
   it("forwards camera mode to controller and requests render", () => {
@@ -30,6 +31,7 @@ describe("GameScene camera mode wiring", () => {
       focusBounds,
     };
     (scene as any).tiles = {
+      ...placementStubs(),
       updateTiles,
       setStrategyMode: vi.fn(),
     };

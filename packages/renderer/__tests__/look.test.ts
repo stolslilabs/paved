@@ -20,6 +20,8 @@ import {
 } from "../src/core/look";
 import { AoPass, FinishPass, finishDefines } from "../src/core/post-shaders";
 import { DEFAULT_RENDERER_SETTINGS, resolveRendererSettings } from "../src/core/settings";
+import { placementStubs } from "./helpers/placement-stubs";
+import { DEFAULT_PLACEMENT_SETTINGS } from "../src/core/placement";
 
 /** A renderer as far as the composer reads it before drawing: sizes and pixel ratio. */
 function fakeRenderer(): THREE.WebGLRenderer {
@@ -203,7 +205,7 @@ describe("the lights and the scene's effects", () => {
     const scene = new GameScene();
     const setLook = vi.fn();
     (scene as any).effects = { setLook, setAntialiasing: vi.fn() };
-    (scene as any).tiles = { setLook: vi.fn() };
+    (scene as any).tiles = { ...placementStubs(), setLook: vi.fn() };
     (scene as any).setupLighting();
     scene.setSettings({ look, quality: "high" });
     const lights = scene.scene.children.filter((c): c is THREE.Light => c instanceof THREE.Light);
@@ -260,15 +262,19 @@ describe("the bloom's threshold", () => {
 });
 
 describe("the tiles' part of the look", () => {
-  it("draws the slots in emissive gold, brighter than 1 so the bloom picks them, and follows a new look", () => {
+  it("draws the slots as neon frames (SLOTS), not the look's gold: solid and brighter where the rotation fits", () => {
     const tiles = new TileRenderer({} as never);
-    tiles.setAvailableSlots([{ x: 1, y: 0 }]);
-    const slot = (tiles.getGroup().children[1].children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
-    const { highlights } = LOOK_PRESETS.mockup;
-    expect(slot.color.equals(new THREE.Color(highlights.slotColor).multiplyScalar(highlights.slotIntensity))).toBe(true);
-    expect(Math.max(slot.color.r, slot.color.g, slot.color.b)).toBeGreaterThan(1);
-    tiles.setLook({ ...highlights, slotColor: "#ffffff", slotIntensity: 2 }, LOOK_PRESETS.mockup.water);
-    expect(slot.color.toArray()).toEqual([2, 2, 2]);
+    tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0, fits: false }]);
+    const [fit, other] = tiles.getGroup().children[1]!.children as THREE.Mesh[];
+    const solid = fit!.material as THREE.ShaderMaterial;
+    const dashed = other!.material as THREE.ShaderMaterial;
+    expect(solid.uniforms.dashed.value).toBe(0);
+    expect(dashed.uniforms.dashed.value).toBe(1);
+    expect(solid.uniforms.intensity.value).toBeGreaterThan(dashed.uniforms.intensity.value);
+    expect(solid.uniforms.color.value.equals(new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.yellow))).toBe(true);
+    // A new look changes the water, not the slots.
+    tiles.setLook({ ...LOOK_PRESETS.mockup.highlights, slotColor: "#ffffff", slotIntensity: 2 }, LOOK_PRESETS.mockup.water);
+    expect(solid.uniforms.color.value.equals(new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.yellow))).toBe(true);
     tiles.dispose();
   });
 

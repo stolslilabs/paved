@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
 import { DEFAULT_RENDERER_SETTINGS } from "../src/core/settings";
 import { openingTilePixels, tilePixels } from "../src/core/outlines";
+import { placementStubs } from "./helpers/placement-stubs";
 
 function sceneWithCamera() {
   const scene = new GameScene();
@@ -77,7 +78,7 @@ describe("GameScene settings", () => {
   it("sets the outlines' stroke on every frame it draws", () => {
     const { scene } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
+    (scene as any).tiles = { ...placementStubs(), setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
     (scene as any).effects = { setLook: vi.fn(), render: vi.fn() };
     scene.render();
@@ -87,7 +88,7 @@ describe("GameScene settings", () => {
   it("sets the stroke again only when the zoom or the settings change", () => {
     const { scene, camera } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
+    (scene as any).tiles = { ...placementStubs(), setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
     (scene as any).effects = { setLook: vi.fn(), render: vi.fn(), setAntialiasing: vi.fn() };
     scene.render();
@@ -110,7 +111,7 @@ describe("GameScene settings", () => {
   it("follows a resize: the opening tile size S is recomputed from the new height, and the stroke with it", () => {
     const { scene, camera } = sceneWithCamera();
     const setOutlineStroke = vi.fn();
-    (scene as any).tiles = { setOutlineStroke, setLook: vi.fn() };
+    (scene as any).tiles = { ...placementStubs(), setOutlineStroke, setLook: vi.fn() };
     (scene as any).renderer = { shadowMap: {} };
     (scene as any).effects = { setLook: vi.fn(), render: vi.fn() };
     camera.position.set(0, 240, 0); // the opening view

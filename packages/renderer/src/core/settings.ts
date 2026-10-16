@@ -1,5 +1,6 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
+import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import {
   DEFAULT_LOOK_PRESET,
   LOOK_PRESETS,
@@ -54,6 +55,8 @@ export interface RendererSettings {
    * chosen (set from the GPU figures, LIGHT-GPU).
    */
   quality: QualityTier | "auto";
+  /** The placement visuals (SLOTS, `placement.ts`): the grid, the slots, the placed tile's aura and veil, their colours. */
+  placement: PlacementSettings;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -80,6 +83,8 @@ export interface RendererSettingsInput {
   lookPreset?: LookPreset;
   look?: LookSettingsInput;
   quality?: QualityTier | "auto";
+  /** The placement visuals: each group's fields over the defaults'. */
+  placement?: PlacementSettingsInput;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -100,6 +105,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   lookPreset: DEFAULT_LOOK_PRESET,
   look: LOOK_PRESETS[DEFAULT_LOOK_PRESET],
   quality: "auto",
+  placement: DEFAULT_PLACEMENT_SETTINGS,
 };
 
 /**
@@ -162,6 +168,7 @@ export function resolveRendererSettings(
     lookPreset: preset ?? base.lookPreset,
     look: mergeLookSettings(preset ? LOOK_PRESETS[preset] : base.look, input.look),
     quality,
+    placement: resolvePlacementSettings(input.placement, base.placement),
   };
 }
 

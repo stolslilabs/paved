@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
 import type { RenderSurfaceAdapter, TileRenderData } from "../src/core/types";
+import { placementStubs } from "./helpers/placement-stubs";
 
 const adapter: RenderSurfaceAdapter = {
   getSize: () => ({ width: 320, height: 200 }),
@@ -37,7 +38,7 @@ function sceneWithPendingModels() {
   let loaded!: () => void;
   (scene as any).assets.preloadAll = vi.fn(() => new Promise<void>((r) => (loaded = r)));
   (scene as any).effects = { setLook: vi.fn(), init: vi.fn(), setCapabilities: vi.fn(), setProfile: vi.fn(), resize: vi.fn(), render: vi.fn(), dispose: vi.fn() };
-  const tiles = { setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), getGroup: () => new THREE.Group() };
+  const tiles = { ...placementStubs(), setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), getGroup: () => new THREE.Group() };
   (scene as any).tiles = tiles;
   return { scene, tiles, finishLoading: () => loaded() };
 }

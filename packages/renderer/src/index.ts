@@ -55,6 +55,25 @@ export {
   SMALL_SCREEN_PX,
 } from "./core/settings";
 export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, PixelRatioDevice } from "./core/settings";
+export {
+  DEFAULT_PLACEMENT_SETTINGS,
+  GRID_RINGS,
+  PlacementRenderer,
+  colorProgress,
+  confirmProgress,
+  gridLineOpacity,
+  gridRingOpacity,
+  placementFade,
+  placementTone,
+  prefersReducedMotion,
+  resolvePlacementSettings,
+  ringField,
+  slotDashBlend,
+  slotDashCount,
+} from "./core/placement";
+export type { PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
+export { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonLineCoverage, setNeonFrame } from "./core/neon";
+export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 
