@@ -19,6 +19,7 @@ import {
   outlinesAllowed,
   outlineWrittenGrey,
   outlineWrittenColor,
+  outlineWrittenColorOf,
   outlineFade,
   outlineOpacityAtOpening,
   outlineStroke,
@@ -265,6 +266,19 @@ describe("outline material", () => {
     // A grey stays grey, to the step.
     const grey = outlineWrittenColor([0x2a, 0x2a, 0x2a]);
     expect(Math.abs(grey[0] - grey[1]) + Math.abs(grey[1] - grey[2])).toBeLessThan(0.02);
+  });
+
+  it("memoizes the conversion on the colour: a zoom step re-applies the stroke without solving again", () => {
+    const first = outlineWrittenColorOf("#2a2928");
+    expect(outlineWrittenColorOf("#2a2928")).toBe(first);
+    expect(outlineWrittenColorOf("#a02828")).not.toBe(first);
+    expect([...first]).toEqual(outlineWrittenColor([0x2a, 0x29, 0x28]));
+    // The default writes about #0f0f0f in linear light, each channel converted (15.0, 15.1, 15.2 of 255).
+    for (const [k, want] of [15.0, 15.1, 15.2].entries()) expect(first[k] * 255).toBeCloseTo(want, 0);
+    const material = createOutlineMaterial();
+    const before = material.uniforms.diffuse.value.clone();
+    applyOutlineStroke(material, { width: 1, opacity: 1 }, "#2a2928");
+    expect(material.uniforms.diffuse.value.equals(before)).toBe(true);
   });
 
   it("converts the shown colour to the grey the finish pass needs: a round trip within one 8-bit step", () => {

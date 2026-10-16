@@ -1169,6 +1169,11 @@ off (preset 1.3 / preset 1.15). The default is 1.15.
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
 it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture.
+**Corrected (SLOTS):** "whole" holds for the edges along x only. From the play camera's 27 degree tilt an edge along z
+is foreshortened by cos 27 degrees (0.89): at the phone's 0.85 S at DPR 1 it is about 0.98 device px, just under the 1 px
+`segmentFullDevicePx`, so the cut draws it at about 0.96 of its opacity, above the 0.5 px cut. It is faded slightly, never
+dropped, and the factor changes continuously with the zoom, so it does not pop. At DPR 2 and above it is about 2 px or more,
+whole. A merged straight edge is several voxels long, so most such edges are far above the cut.
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
@@ -1178,7 +1183,21 @@ them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (
 0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step
 0.47 point, no jump that is not the opacity ramp (the luma's own largest step is 0.53 on, 0.57 off). **Pan**: the 12-drag
 run did not finish on the loaded VPS (the screenshots timed out under SwiftShader, twice); it is left to the GPU check on
-the Mac, which the coordinator schedules. Unit tests cover the ramp's per-step change (no kink at either end).
+the Mac, which the coordinator schedules. **Run on the Mac's GPU (SLOTS, 2026-10-16)**: headless Chrome (new headless) on
+ANGLE Metal (Apple M2 Max), the "Renderer/Outlines" story held, outlines forced on, main before OUT-FADE (`2cef09d0`) against
+OUT-FADE (`ef354596`), each a static Storybook; 12 mouse drags of 2 CSS px with a 1.5 s settle, the mean luma of the centre
+crop (800 x 500 at 1440 x 900, DPR 2, cap 1.5; 300 x 400 at 360 x 780, DPR 3, cap 2) after each; the 1-minute load 2.4 to 5.4.
+Largest step (mean step), before / after:
+
+| Distance (share of S) | Desktop | Phone-like |
+|---|---|---|
+| 209 (1.15 S) | 0.39 (0.08) / 0.39 (0.08) | 0.68 (0.34) / 0.68 (0.34) |
+| 240 (S, the opening) | 0.21 (0.10) / 0.24 (0.11) | 0.67 (0.36) / 0.69 (0.37) |
+| 260 (0.92 S) | 0.22 (0.16) / 0.23 (0.17) | 0.59 (0.29) / 0.63 (0.29) |
+| 275 (0.87 S) | 0.26 (0.13) / 0.26 (0.13) | 0.67 (0.32) / 0.69 (0.32) |
+
+The two builds differ by at most 0.04 levels, and the largest step falls on the same drag in both (content entering the
+crop, not flicker, which would not repeat): **no flicker from the fade**, nothing to fix. Unit tests cover the ramp's per-step change (no kink at either end).
 
 On software WebGL (a renderer string of SwiftShader,
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
@@ -1199,8 +1218,14 @@ profile, or a corner under the vignette, shows a different value; a colour above
 keeps 0.65 of the light) comes out as the nearest. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
 captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
-`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible
-colour; black stays reachable.
+`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`); those were taken with the green-only
+conversion. **Re-measured after the per-channel conversion (SLOTS, 2026-10-16)**, on the Mac's GPU (headless Chrome on ANGLE
+Metal), the Mockup at distance 200 (above 1.15 S, so the outlines are fully on), outlines on against off at the same pose,
+the centre crop, the pixels the stroke darkens most: the darkest read `#2a2a2b` at 1280 x 800, DPR 1, `#2b2a2b` at
+360 x 780, DPR 2, and `#262627` at DPR 1.5 (within two 8-bit steps of `#2a2928`; the median of those pixels, `#323232` to
+`#353435`, is a stroke covering most of a pixel, not all of it). The default writes 15.0, 15.1 and 15.2 of 255 in linear light
+(about `#0f0f0f`). The conversion is memoized on the colour and the modelled look (`outlineWrittenColorOf`), so a zoom step
+re-applies the stroke without solving again. The story's control takes the visible colour; black stays reachable.
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
 **Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,
