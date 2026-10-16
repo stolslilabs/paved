@@ -659,6 +659,19 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     scene.dispose();
   });
 
+  it("lights every area of a tile listed twice (two structures that share it)", async () => {
+    const { tiles } = renderer();
+    tiles.updateTiles([renderTile(1, PlanType.FFCFFFCFF, 1, 0, 0)]);
+    const [north, south] = [areaOf(PlanType.FFCFFFCFF, SpotType.North), areaOf(PlanType.FFCFFFCFF, SpotType.South)];
+    tiles.setLitAreas([
+      { gameId: 1, id: 1, areas: 1 << (north - 1) },
+      { gameId: 1, id: 1, areas: 1 << (south - 1) },
+    ]);
+    await tiles.whenLabelled();
+    expect(litAreas(tiles, "1-1").lit).toEqual(new Set([north, south]));
+    tiles.dispose();
+  });
+
   it("lights a tile given after the structure, when it comes", async () => {
     const { tiles } = renderer();
     tiles.setLitAreas([{ gameId: 1, id: 7, areas: 1 }]);

@@ -610,7 +610,12 @@ export class TileRenderer {
    * feature highlight, or to no highlight. The voxels are labelled on the first call, as for the feature highlight.
    */
   setLitAreas(lit: Iterable<LitTile> | null): void {
-    this.litAreas = lit === null ? null : new Map([...lit].map((t) => [`${t.gameId}-${t.id}`, t.areas]));
+    if (lit === null) this.litAreas = null;
+    else {
+      // A tile listed more than once (two structures that share it) lights the areas of each.
+      this.litAreas = new Map();
+      for (const { gameId, id, areas } of lit) this.litAreas.set(`${gameId}-${id}`, (this.litAreas.get(`${gameId}-${id}`) ?? 0) | areas);
+    }
     this.applyHighlight();
     this.buildLitMap();
   }
