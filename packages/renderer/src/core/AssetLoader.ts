@@ -324,8 +324,10 @@ export class AssetLoader {
    * What the scene's first frame needs, awaited; the rest after that frame (`load-order.ts`). First: the models of the
    * tiles handed over (`want`) by the time the manifest is in, which is all of them when the scene mounts with its tiles
    * (`GameCanvas` hands them over in the same commit as `init`); every model when none was handed over. A failure there
-   * rejects, so the scene does not start (the app shows its plan view). The plan view's images wait too when it asked for
-   * them. A later failure only leaves that plan's tiles undrawn.
+   * rejects, so the scene does not start (the app shows its plan view). The plan view's 19 images wait too, always: they
+   * are the placeholder a tile draws while its model is on its way (`TileRenderer`), so a tile placed after the first
+   * frame is never empty. Their failure rejects only when the plan view asked for them; otherwise it is logged, and tried
+   * again after the first frame. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
     const manifest = await this.readManifest();
@@ -345,7 +347,11 @@ export class AssetLoader {
     await Promise.all([
       ...first.map((key) => this.ensureModel(key, manifest)),
       ...variants.map((path) => this.ensureModel(path, manifest)),
-      this.wantTextures ? this.preloadTextures() : null,
+      this.wantTextures
+        ? this.preloadTextures()
+        : this.preloadTextures().catch((error: unknown) => {
+            if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
+          }),
     ]);
     afterFirstFrame(() => {
       if (this.disposed) return;

@@ -27,6 +27,20 @@ const HOVER_OPACITY = 0.004;
 const INVALID_GHOST_COLOR = 0xff3b30;
 
 /**
+ * The top of a tile's ground: every base model's ground is 0.4 of its 4 units high (its upward faces, most at 0.4), and
+ * a model is scaled to the tile's size. The placeholder quad (`createPlaceholder`) lies there.
+ */
+export const PLACEHOLDER_HEIGHT = 0.4 * (TILE_SIZE / 4);
+
+/** A tile's rotation about the vertical axis, by orientation: the model's, the plan view's image, the placeholder's. */
+const ROTATION: Record<string, number> = {
+  [OrientationType.North]: 0,
+  [OrientationType.East]: -Math.PI / 2,
+  [OrientationType.South]: Math.PI,
+  [OrientationType.West]: Math.PI / 2,
+};
+
+/**
  * The empty slot's outline: a square band just inside the tile's edge (a tile is `TILE_SIZE`, half 1.5), from 1.30 to
  * 1.42 of half-width. `RingGeometry` with 4 segments is a square standing on a corner: its radius is the half-width
  * times the square root of 2.
@@ -54,7 +68,10 @@ export class TileRenderer {
   private tileGroup: THREE.Group; // placed tiles
   private emptyGroup: THREE.Group; // empty slots
   private previewGroup: THREE.Group; // hover preview
-  /** Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view). */
+  /**
+   * Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view, and for the
+   * placeholder quad drawn while its model is on its way).
+   */
   private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
@@ -76,6 +93,13 @@ export class TileRenderer {
   private strategyGeometry: THREE.BoxGeometry | null = null;
   private strategySideMaterial: THREE.Material | null = null;
   private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
+  /**
+   * The placeholder quad (`createPlaceholder`): one flat square and its outline for every plan, and one material per plan
+   * that shows the plan view's image (already loaded: no download of its own).
+   */
+  private placeholderGeometry: THREE.BufferGeometry | null = null;
+  private placeholderOutline: THREE.Mesh | null = null;
+  private placeholderTypes: Map<string, THREE.Mesh> = new Map();
   private slotGeometry: THREE.BufferGeometry | null = null;
   private slotMaterial: THREE.MeshBasicMaterial | null = null;
   private look: TileLook = LOOK_PRESETS.mockup;
@@ -110,20 +134,24 @@ export class TileRenderer {
 
       const existing = this.tileMeshes.get(key);
       const pending = !!tile.pending;
-      const model = this.strategyMode ? null : this.modelOf(tile.plan, tile.x, tile.y, tile.game_id);
+      // A model not in yet keeps the model drawn (a variant until its base model comes, SKIN-BASE); with none drawn, the
+      // placeholder quad (null) until one comes, so a tile is never empty.
+      const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id) ?? existing?.model ?? null);
 
-      // Skip if already rendered with same pending state and model (a model not in yet keeps what is drawn)
-      if (existing && existing.pending === pending && (this.strategyMode || model === null || existing.model === model)) continue;
+      // Skip if already rendered with same pending state and model
+      if (existing && existing.pending === pending && existing.model === model) continue;
 
-      // Pending state changed — remove old mesh to recreate (a tile owns no geometry or material)
-      if (existing) {
+      // Pending state or model changed: the new mesh replaces the old one in this call, so no frame shows the cell empty
+      // or both at once (a tile owns no geometry or material)
+      const mesh = this.strategyMode
+        ? this.createStrategyTile(tile)
+        : model
+          ? this.createVoxelTile(tile, model)
+          : this.createPlaceholder(tile.plan, tile.orientation);
+      if (existing && mesh) {
         this.tileGroup.remove(existing.mesh);
         this.tileMeshes.delete(key);
       }
-
-      const mesh = this.strategyMode
-        ? this.createStrategyTile(tile)
-        : model && this.createVoxelTile(tile, model);
 
       if (mesh) {
         // Apply pending loading style
@@ -160,7 +188,8 @@ export class TileRenderer {
   /**
    * The model a tile of `plan` at the contracts' (x, y) of game `gameId` draws from: its plan key (the base model), or the
    * variant of its plan's skin (`setSkins`) that its hash picks. A variant not loaded yet is asked for, and the base model
-   * drawn meanwhile when it is in (null when neither is: the tile is drawn when one comes in). Null for plan 0.
+   * drawn meanwhile when it is in (null when neither is: the tile draws its placeholder quad until one comes in). Null for
+   * plan 0.
    */
   private modelOf(plan: number, x: number, y: number, gameId: number): string | null {
     const key = getPlanKey(Plan.from(plan).value);
@@ -296,14 +325,7 @@ export class TileRenderer {
       const model = this.tileType(key).clone();
 
       // Apply rotation based on orientation
-      const orientation = Orientation.from(tile.orientation);
-      const rotationMap: Record<string, number> = {
-        [OrientationType.North]: 0,
-        [OrientationType.East]: -Math.PI / 2,
-        [OrientationType.South]: Math.PI,
-        [OrientationType.West]: Math.PI / 2,
-      };
-      model.rotation.y = rotationMap[orientation.value] ?? 0;
+      model.rotation.y = ROTATION[Orientation.from(tile.orientation).value] ?? 0;
 
       // Scale model to fit tile size, then center at origin
       const box = new THREE.Box3().setFromObject(model);
@@ -338,12 +360,6 @@ export class TileRenderer {
 
       // Rotate texture based on orientation
       const orientation = Orientation.from(tile.orientation);
-      const rotationMap: Record<string, number> = {
-        [OrientationType.North]: 0,
-        [OrientationType.East]: -Math.PI / 2,
-        [OrientationType.South]: Math.PI,
-        [OrientationType.West]: Math.PI / 2,
-      };
 
       // One top material per plan type and orientation, shared by its tiles
       const topKey = `${key}-${orientation.value}`;
@@ -351,7 +367,7 @@ export class TileRenderer {
       if (!top) {
         const clonedTexture = texture.clone();
         clonedTexture.center.set(0.5, 0.5);
-        clonedTexture.rotation = rotationMap[orientation.value] ?? 0;
+        clonedTexture.rotation = ROTATION[orientation.value] ?? 0;
         clonedTexture.needsUpdate = true;
         top = new THREE.MeshBasicMaterial({ map: clonedTexture });
         this.strategyTopMaterials.set(topKey, top);
@@ -377,6 +393,53 @@ export class TileRenderer {
     }
   }
 
+  /**
+   * The placeholder of a tile whose model is not in yet (a variant or a base model on its way): the plan view's image of
+   * its plan on a flat quad at the ground's top (`PLACEHOLDER_HEIGHT`), turned to its orientation, with its square's
+   * outline. The image is the one the loader loads before the first frame (`AssetLoader.preloadAll`): nothing is
+   * downloaded for it. Null when that image is not in either (it failed to load) or for plan 0.
+   */
+  private createPlaceholder(plan: number, orientation: number): THREE.Object3D | null {
+    const type = this.placeholderType(plan);
+    if (!type) return null;
+    const quad = type.clone();
+    quad.rotation.y = ROTATION[Orientation.from(orientation).value] ?? 0;
+    quad.position.y = PLACEHOLDER_HEIGHT;
+    const container = new THREE.Group();
+    container.add(quad);
+    container.userData.placeholder = true;
+    return container;
+  }
+
+  /** The placeholder of a plan, made once: the shared quad and outline, the plan's own material. Tiles are clones. */
+  private placeholderType(plan: number): THREE.Mesh | null {
+    const key = getPlanKey(Plan.from(plan).value);
+    if (key === "00") return null;
+    let type = this.placeholderTypes.get(key);
+    if (type) return type;
+    let image: THREE.Texture;
+    try {
+      image = this.assets.getTexture(`tile-${key}`);
+    } catch {
+      return null;
+    }
+    if (!this.placeholderGeometry) {
+      // A flat square, its image's top edge to the north as on the plan view's tile (`createStrategyTile`)
+      this.placeholderGeometry = new THREE.PlaneGeometry(this.squareSize, this.squareSize).rotateX(-Math.PI / 2);
+      this.placeholderOutline = createOutline(buildEdgesGeometry(this.placeholderGeometry), this.edgeMaterial);
+    }
+    // Its own copy of the image to read it as sRGB, as the models' palettes are: the same picture, nothing fetched.
+    const map = image.clone();
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.needsUpdate = true;
+    const material = new THREE.MeshStandardMaterial({ map, roughness: TILE_MAX_ROUGHNESS, metalness: TILE_MIN_METALNESS });
+    type = new THREE.Mesh(this.placeholderGeometry, material);
+    type.receiveShadow = true;
+    type.add(this.placeholderOutline!.clone());
+    this.placeholderTypes.set(key, type);
+    return type;
+  }
+
   setHover(state: HoverState | null): void {
     this.hoverState = state;
     if (!state) {
@@ -393,7 +456,9 @@ export class TileRenderer {
     // hand's), so a skinned plan's base model is not asked for just for a ghost.
     const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
     const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
-    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${planModel}`;
+    // No model in yet: the placeholder quad meanwhile, as a placed tile's (`createPlaceholder`), when its image is in.
+    const quad = planModel === null ? this.placeholderType(state.planIndex) : null;
+    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${planModel ?? (quad ? "quad" : "none")}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(
         state.x * this.squareSize,
@@ -411,25 +476,21 @@ export class TileRenderer {
     this.previewKey = key;
 
     // Create preview mesh
-    if (planModel === null || planModel === "00") return;
+    if (planModel === null && !quad) return;
 
     try {
-      const model = this.assets.getModel(planModel);
-
-      const orientation = Orientation.from(state.orientation);
-      const rotationMap: Record<string, number> = {
-        [OrientationType.North]: 0,
-        [OrientationType.East]: -Math.PI / 2,
-        [OrientationType.South]: Math.PI,
-        [OrientationType.West]: Math.PI / 2,
-      };
-      model.rotation.y = rotationMap[orientation.value] ?? 0;
+      // The model's materials are its own copies (its geometry is shared, see AssetLoader); the quad's its own copy of
+      // its plan's (the image and the quad shared), with no outline, as the ghost's model has none.
+      const model =
+        planModel !== null
+          ? this.assets.getModel(planModel)
+          : new THREE.Mesh(quad!.geometry, (quad!.material as THREE.Material).clone());
+      model.rotation.y = ROTATION[Orientation.from(state.orientation).value] ?? 0;
 
       // Tint the ghost: its own materials, with the look's gold glow where it fits (red where it does not)
       const { ghostColor, ghostIntensity } = this.look.highlights;
       const tintColor = new THREE.Color(state.valid ? ghostColor : INVALID_GHOST_COLOR);
       this.previewValid = state.valid;
-      // The model's materials are its own copies (its geometry is shared, see AssetLoader)
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           if (child.material instanceof THREE.MeshStandardMaterial) {
@@ -450,19 +511,24 @@ export class TileRenderer {
         }
       });
 
-      // Scale to fit tile size, then center
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.z);
-      if (maxDim > 0) {
-        const scale = this.squareSize / maxDim;
-        model.scale.setScalar(scale);
-      }
+      if (planModel === null) {
+        // The quad is the tile's size already: at the ground's top
+        model.position.y = PLACEHOLDER_HEIGHT;
+      } else {
+        // Scale to fit tile size, then center
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.z);
+        if (maxDim > 0) {
+          const scale = this.squareSize / maxDim;
+          model.scale.setScalar(scale);
+        }
 
-      // Re-compute box after scaling, center XZ at origin, bottom at Y=0
-      const scaledBox = new THREE.Box3().setFromObject(model);
-      const center = scaledBox.getCenter(new THREE.Vector3());
-      model.position.set(-center.x, -scaledBox.min.y, -center.z);
+        // Re-compute box after scaling, center XZ at origin, bottom at Y=0
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        model.position.set(-center.x, -scaledBox.min.y, -center.z);
+      }
 
       // Wrap in container for grid positioning
       const container = new THREE.Group();
@@ -572,6 +638,16 @@ export class TileRenderer {
       material.dispose();
     });
     this.strategyTopMaterials.clear();
+    this.placeholderTypes.forEach((type) => {
+      const material = type.material as THREE.MeshStandardMaterial;
+      material.map?.dispose();
+      material.dispose();
+    });
+    this.placeholderTypes.clear();
+    this.placeholderGeometry?.dispose();
+    this.placeholderGeometry = null;
+    this.placeholderOutline?.geometry.dispose();
+    this.placeholderOutline = null;
     this.slotGeometry?.dispose();
     this.slotGeometry = null;
     this.slotMaterial?.dispose();
