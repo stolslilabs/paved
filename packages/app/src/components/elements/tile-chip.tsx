@@ -1,5 +1,6 @@
 import { PlanType } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
+import { useTileArt } from "../../data/tile-art";
 import { cn } from "../../lib/utils";
 
 /**
@@ -44,9 +45,10 @@ export interface TileChipProps extends VariantProps<typeof chipVariants> {
   /** Chain orientation, 1 North to 4 West; the chip turns a quarter per step. */
   orientation?: number;
   /**
-   * Where the board's tile art is served (`<artBase>/assets/tiles/<plan>.png`, the images the renderer loads): the chip
-   * then shows the same art as the board, so the player recognises the tile they place (the PM's ruling, 2026-10-14).
-   * Without it, or with `view="areas"`, the chip draws the plan's nine areas: a debug and accessibility view.
+   * Where the board's tile art is served (`<artBase>/manifest.json` lists the 256 px copies the renderer loads, `useTileArt`;
+   * without a manifest the chip asks for `<artBase>/assets/tiles/<plan>.png`): the chip then shows the same art as the
+   * board, so the player recognises the tile they place (the PM's ruling, 2026-10-14). Without it, with `view="areas"`, or
+   * while the manifest is read, the chip draws the plan's nine areas: a debug and accessibility view.
    */
   artBase?: string;
   view?: "art" | "areas";
@@ -58,12 +60,14 @@ export function TileChip({ plan, orientation = 1, artBase, view = "art", size, s
   const code = planCode(plan);
   const label = code ? `Tile ${code.toLowerCase()}, ${["north", "east", "south", "west"][(orientation - 1 + 4) % 4]}` : "No tile";
   const turn = { transform: `rotate(${(orientation - 1) * 90}deg)` };
-  const art = code && artBase != null && view === "art";
+  const wantsArt = code !== "" && artBase != null && view === "art";
+  const source = useTileArt(wantsArt ? artBase : undefined);
+  const art = wantsArt && source.status === "ready";
   return (
     <span role="img" aria-label={label} data-state={state ?? "default"} data-view={art ? "art" : "areas"} className={cn(chipVariants({ size, state }), className)}>
       {art && (
         <img
-          src={`${artBase}/assets/tiles/${code.toLowerCase()}.png`}
+          src={`${artBase}/${source.path(code.toLowerCase())}`}
           alt=""
           draggable={false}
           className="size-full object-cover transition-transform duration-200 motion-reduce:transition-none"

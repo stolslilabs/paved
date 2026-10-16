@@ -796,9 +796,12 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     the PM's suggestion was 256 px for the quad and 512 px for the plan view, but the plan view drawn from the 256 px
     copy differs from the one drawn from the 512 px copy by a mean 0.02 dE at the default zoom and 0.05 to 0.06 dE at the
     closest (maximum 1.6 dE, no pixel above 2 dE), at 360 and 1280 (headless Chromium, software WebGL), so no 512 px copy is
-    written. The 1680 px originals are not asked for by the renderer any more; the build still ships them for the tile
-    chips (`tile-chip.tsx`, a DOM `<img>`, which may move to the 256 px copy in a later task: 83,283 B for the 19 against
-    319,815 B). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
+    written. The 1680 px originals are asked for by neither the renderer nor the tile chips any more (TILE-CHIP: `TileChip`,
+    a DOM `<img>`, reads the same `manifest.json` once, `src/data/tile-art.ts`, and draws the 256 px copy, one cache entry
+    with the board; while the read is out it draws the plan's nine areas, and with no manifest or a failed read it asks for
+    `assets/tiles/<plan>.png`, so it is never blank), and the v2 build no longer ships them: `vite/renderer-assets.ts` neither
+    serves nor copies `assets/tiles/`, so `dist/` holds the 19 copies, 83,283 B, and no original (319,815 B less; Storybook
+    maps app-web's `public/` itself and still finds the originals for its manifest-less stories). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
     board; the phone profile is 360 x 740, device pixel ratio 2, touch and a coarse pointer, so the renderer's
     small-screen path): the images the tile materials hold on the GPU, computed per texture (width x height x 4, times 4/3
     with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read, before and after alike, 27 in the plan view
@@ -806,8 +809,9 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     placeholder quads (18 quads, the board's first tile drawn from its model) 271.0 MB and 6.29 MB; both views resident
     (a plan shown both ways is uploaded twice, 5.6) about 557 MB and 12.9 MB. The desktop profile (1280 x 800) gives the
     same figures. Downloaded: 319,815 B raw for the 19 originals and 83,283 B for the 19 copies (3.8 times less; the
-    request count is the same, 19; but the hand's `TileChip` still loads the 1680 px originals, so on a game page the download is
-    the copies plus the originals the hand shows, up to 403,098 B over a game, until `tile-chip.tsx` moves to the copy); gzipped at level 9, 60,549 B and 79,226 B: the originals are poorly deflated PNGs
+    request count is the same, 19). On a game page the download of tile images was the copies plus the originals the hand
+    shows, up to 403,098 B over a game (TEX alone), and is now the copies alone, 83,283 B at most (4.8 times less), the hand
+    included (TILE-CHIP; sizes of the built files, the host serving `image/png` uncompressed); gzipped at level 9, 60,549 B and 79,226 B: the originals are poorly deflated PNGs
     that gzip squeezes further, so a host that gzips `image/png` (the usual one does not) sends fewer bytes for the
     originals than for the copies. Captures `captures/tex-360-*.png` and `tex-1280-*.png`, `-before` and `-after`, of the
     plan view, the placeholder quads and the plan view at its closest zoom; the plan view at the default zoom differs by a
@@ -865,7 +869,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     saves nothing: its base models are loaded, as the fallback of a read that had not come. That case is not measured.
   - **Cache headers for the host step** (the host config is not changed here): hashed models
     `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
-    (`AssetLoader` asks with `cache: "no-cache"` too); the hashed tile images `renderer-assets/tiles/*.png`, `Cache-Control: public, max-age=31536000, immutable`; the originals the chips load (`assets/tiles/`), plain names, `no-cache` or a short `max-age`.
+    (`AssetLoader` asks with `cache: "no-cache"` too); the hashed tile images `renderer-assets/tiles/*.png`, `Cache-Control: public, max-age=31536000, immutable`; the build ships no original (`assets/tiles/`) any more.
     Compressing `model/gltf-binary` too (gzip or brotli) would take the 19 models from 1,089,624 B to 665,212 B (gzip
     level 6) or 618,540 B (brotli), measured on the files; `vite preview` compresses only text and JavaScript, so the
     figures below are the files as they are.
