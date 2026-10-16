@@ -23,6 +23,9 @@ const meta = {
     quality: {
       control: "inline-radio",
       options: ["auto", ...QUALITY_TIERS],
+      // An enum, so a URL can set it (`args=quality:high`): Storybook drops a URL arg its docgen type (an unresolved
+      // union here) does not validate.
+      type: { name: "enum", value: ["auto", ...QUALITY_TIERS] },
       description: "Graphics quality: low runs no extra pass, medium adds the bloom, high the ambient occlusion. auto: low on a coarse pointer or a small screen, medium elsewhere; high only by hand (provisional until measured on the GPU)",
     },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
