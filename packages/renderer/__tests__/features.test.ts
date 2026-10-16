@@ -433,6 +433,27 @@ describe("the feature highlight in the tile shader", () => {
     tiles.dispose();
   });
 
+  it("pays nothing per fragment while the highlight is off: every read and the colour change sit in one branch", () => {
+    const glsl = FEATURE_HIGHLIGHT_GLSL;
+    const open = glsl.indexOf("if (uFeatureOn > 0.5) {");
+    expect(open).toBeGreaterThan(-1);
+    // The branch's end: its matching brace.
+    let [depth, end] = [0, -1];
+    for (let i = glsl.indexOf("{", open); i < glsl.length; i++) {
+      if (glsl[i] === "{") depth++;
+      if (glsl[i] === "}" && --depth === 0) {
+        end = i;
+        break;
+      }
+    }
+    const inside = (at: number) => at > open && at < end;
+    const all = (needle: string) => [...glsl.matchAll(new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))].map((m) => m.index!);
+    expect(all("texelFetch").length).toBe(2);
+    for (const at of [...all("texelFetch"), ...all("diffuseColor.rgb =")]) expect(inside(at)).toBe(true);
+    // Before the branch, only the declaration the emissive term reads (0 while off).
+    expect(glsl.slice(0, open).trim()).toBe("float featureLit = 0.0;");
+  });
+
   it("lights the chosen feature through shared uniforms, its label read per fragment, with no recompile", () => {
     const { tiles } = renderer();
     tiles.updateTiles([tile("rfrfcccfr", 1)] as never);

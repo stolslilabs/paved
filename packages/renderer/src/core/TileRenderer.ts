@@ -84,31 +84,31 @@ export const WATER_MASK_GLSL = /* glsl */ `
  * (`GROUND_VOXELS` + `ABOVE_GROUND_VOXELS`, `vGrid.y` in voxels above the model's bottom) are the bridge's, none. With a
  * structure lit (`uStructureOn`, `TileRenderer.setLitAreas`) a voxel is lit instead when its area is in its tile's mask,
  * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
+ * Off (`uFeatureOn` 0, the default), it skips the whole block: the board pays no texture read and no label per fragment.
  */
 export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
-  vec3 labelAt = vGrid - normalize(vGridNormal) * 0.5;
-  ivec2 labelTexel = clamp(ivec2(floor(labelAt.xz)), ivec2(0), textureSize(uLabelMap, 0) - 1);
-  int label = int(texelFetch(uLabelMap, labelTexel, 0).r * 255.0 + 0.5);
-  int labelFeature = label / 16;
-  int labelArea = label - labelFeature * 16;
-  if (labelFeature == ${FEATURE_CODE.road} && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
-    labelFeature = 0;
-    labelArea = 0;
-  }
-  float featureLit = labelFeature == int(uFeature + 0.5) ? uFeatureOn : 0.0;
-  if (uStructureOn > 0.5) {
-    ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
-    int litMask = 0;
-    if (all(greaterThanEqual(litTexel, ivec2(0))) && all(lessThan(litTexel, ivec2(uLitRect.zw + 0.5)))) {
-      litMask = int(texelFetch(uLitMap, litTexel, 0).r + 0.5);
+  float featureLit = 0.0;
+  if (uFeatureOn > 0.5) {
+    vec3 labelAt = vGrid - normalize(vGridNormal) * 0.5;
+    ivec2 labelTexel = clamp(ivec2(floor(labelAt.xz)), ivec2(0), textureSize(uLabelMap, 0) - 1);
+    int label = int(texelFetch(uLabelMap, labelTexel, 0).r * 255.0 + 0.5);
+    int labelFeature = label / 16;
+    int labelArea = label - labelFeature * 16;
+    if (labelFeature == ${FEATURE_CODE.road} && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+      labelFeature = 0;
+      labelArea = 0;
     }
-    featureLit = labelArea > 0 && ((litMask >> (labelArea - 1)) & 1) == 1 ? uFeatureOn : 0.0;
+    featureLit = labelFeature == int(uFeature + 0.5) ? 1.0 : 0.0;
+    if (uStructureOn > 0.5) {
+      ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
+      int litMask = 0;
+      if (all(greaterThanEqual(litTexel, ivec2(0))) && all(lessThan(litTexel, ivec2(uLitRect.zw + 0.5)))) {
+        litMask = int(texelFetch(uLitMap, litTexel, 0).r + 0.5);
+      }
+      featureLit = labelArea > 0 && ((litMask >> (labelArea - 1)) & 1) == 1 ? 1.0 : 0.0;
+    }
+    diffuseColor.rgb = mix(diffuseColor.rgb * uFeatureDim, mix(diffuseColor.rgb, uFeatureColor, uFeatureTint), featureLit);
   }
-  diffuseColor.rgb = mix(
-    diffuseColor.rgb * mix(1.0, uFeatureDim, uFeatureOn),
-    mix(diffuseColor.rgb, uFeatureColor, uFeatureTint),
-    featureLit
-  );
 `;
 
 /** The look's parts the tiles draw: the slots' and ghost's highlights, the water and the feature highlight. */
