@@ -1,3 +1,4 @@
+import { formatNumber } from "@paved/game-core";
 import { Text, YStack } from "tamagui";
 const Stack = YStack as any;
 import { DialogOverlay, DialogContent, DialogTitle, DialogDescription } from "../components/Dialog";
@@ -32,7 +33,7 @@ export function GameCompleteDialog({
           color="$primary"
           textAlign="center"
         >
-          {score.toLocaleString()}
+          {formatNumber(score)}
         </Text>
         <Stack flexDirection="row" gap="$3" justifyContent="center">
           {onScreenshot && (

@@ -13,8 +13,8 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
   it("after: the date it settles from, in the viewer's zone with UTC on hover, and no button", () => {
     show(<OverScene {...OVER.awaiting} timeZone="Europe/Paris" settle={{ state: "after", at: MOCK_NOW + DAY }} />);
     const area = settleArea();
-    expect(area).toHaveTextContent("Settles after Thu 15 Oct, 17:00");
-    expect(within(area).getByText("Thu 15 Oct, 17:00")).toHaveAttribute("title", "2026-10-15 15:00 UTC");
+    expect(area).toHaveTextContent("Settles after Thu, Oct 15, 17:00");
+    expect(within(area).getByText("Thu, Oct 15, 17:00")).toHaveAttribute("title", "2026-10-15 15:00 UTC");
     expect(within(area).queryByRole("button")).toBeNull();
   });
 
@@ -61,7 +61,7 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
 
   it("an expired game says when its 24 h ended", () => {
     show(<OverScene {...OVER.expired} timeZone="UTC" deadline={MOCK_NOW} />);
-    expect(screen.getByText(/The 24 h ended/)).toHaveTextContent("The 24 h ended Wed 14 Oct, 15:00.");
+    expect(screen.getByText(/The 24 h ended/)).toHaveTextContent("The 24 h ended Wed, Oct 14, 15:00 UTC.");
   });
 
   it("the closings note replaces the empty list's sentence", () => {

@@ -15,7 +15,9 @@ import {
   isOutline,
   isSoftwareRenderer,
   openingTilePixels,
+  outlineScreenOf,
   outlinesAllowed,
+  outlineWrittenGrey,
   outlineStroke,
   probeMajorPerformanceCaveat,
   tilePixels,
@@ -125,7 +127,7 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
-      color: "#1f1f1f",
+      color: "#2a2928",
       segmentOffDevicePx: 0.5,
       segmentFullDevicePx: 1,
     });
@@ -208,15 +210,30 @@ describe("outline material", () => {
     expect(material.visible).toBe(true);
     expect(material.uniforms.linewidth.value).toBe(1.5);
     expect(material.uniforms.opacity.value).toBe(0.4);
-    // The CSS channels go to the shader as they are: the composer shows them without an sRGB encoding.
-    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x336699);
+    // The colour is the one shown: the shader gets the grey that shows the green channel after the finish pass.
+    const written = material.uniforms.diffuse.value;
+    expect(written.r).toBe(written.g);
+    expect(outlineScreenOf(written.g)[1]).toBe(0x66);
   });
 
-  it("starts dark grey, #1f1f1f, and antialiases in its shader (no multisampling needed)", () => {
+  it("starts dark grey, #2a2928 on screen (about #101010 written), and antialiases in its shader (no multisampling needed)", () => {
     const material = createOutlineMaterial();
-    expect(material.uniforms.diffuse.value.getHex(THREE.LinearSRGBColorSpace)).toBe(0x1f1f1f);
+    const written = material.uniforms.diffuse.value.g;
+    expect(Math.abs(written * 255 - 0x10)).toBeLessThan(1.5);
+    expect(outlineScreenOf(written)[1]).toBe(0x29);
     expect(material.fragmentShader).toContain("coverage");
     expect(material.fog).toBe(true);
+  });
+
+  it("converts the shown colour to the grey the finish pass needs: a round trip within one 8-bit step", () => {
+    for (const shown of [0, 8, 0x20, 0x29, 0x2a, 0x53, 0x80, 0xc0]) {
+      const back = outlineScreenOf(outlineWrittenGrey(shown))[1];
+      expect(Math.abs(back - shown)).toBeLessThanOrEqual(1);
+    }
+    expect(outlineWrittenGrey(0)).toBeLessThan(1e-9);
+    expect(outlineWrittenGrey(255)).toBeCloseTo(1, 9);
+    // The old default #1f1f1f, written as it was, showed lifted to about #53524f at the opening view.
+    expect(Math.abs(outlineScreenOf(0x1f / 255)[1] - 0x52)).toBeLessThanOrEqual(2);
   });
 
   it("is told the viewport it is drawn into, in device px, before each draw", () => {

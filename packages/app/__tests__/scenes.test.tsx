@@ -57,13 +57,13 @@ describe("element helpers", () => {
     expect(formatRelative(-5)).toBe("0 min");
     // 2026-10-15 15:00 UTC: 17:00 in Paris (summer time), 11:00 in New York.
     const t = MOCK_NOW + DAY;
-    expect(formatLocal(t, "Europe/Paris")).toBe("Thu 15 Oct, 17:00");
-    expect(formatLocal(t, "America/New_York")).toBe("Thu 15 Oct, 11:00");
+    expect(formatLocal(t, "Europe/Paris")).toBe("Thu, Oct 15, 17:00");
+    expect(formatLocal(t, "America/New_York")).toBe("Thu, Oct 15, 11:00");
     expect(formatUtc(t)).toBe("2026-10-15 15:00 UTC");
     // Across midnight: Auckland (NZDT, UTC+13) is already on Friday.
-    expect(formatLocal(t, "Pacific/Auckland")).toBe("Fri 16 Oct, 04:00");
+    expect(formatLocal(t, "Pacific/Auckland")).toBe("Fri, Oct 16, 04:00");
     // Midnight itself reads 00:00, not 24:00: 22:00 UTC is 00:00 in Paris.
-    expect(formatLocal(t + 7 * 3600, "Europe/Paris")).toBe("Fri 16 Oct, 00:00");
+    expect(formatLocal(t + 7 * 3600, "Europe/Paris")).toBe("Fri, Oct 16, 00:00");
   });
 
   it("reads a chain plan id as its nine letters", () => {
@@ -352,7 +352,7 @@ describe("Purchase", () => {
     expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("1.28");
     expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.30");
     expect(screen.getByText("expires in 24 h 0 min")).toBeInTheDocument();
-    expect(screen.getByText("Thu 15 Oct, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
+    expect(screen.getByText("Thu, Oct 15, 17:00")).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
     expect(screen.getByText(pts(1150))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
     // Keyboard: the value is the scene's (a prop), so each key moves one step from 3.

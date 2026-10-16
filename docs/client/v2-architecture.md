@@ -589,6 +589,20 @@ story at 360 and 320 px in headless Chromium and fails on text that leaves its b
 an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
 exception. The CI `client` job runs it.
 
+Numbers and dates in en-US (NUM-LOCALE, P-66). Every number, token amount, percentage and date on screen is written in
+en-US ("1,234.50", "73.68%", "Thu, Oct 15, 17:00"), not in the browser's locale, as long as the app is not multilingual.
+`packages/game-core/src/format.ts` is the one place that formats: a `LOCALE` constant and named functions (`formatNumber`,
+`formatInteger`, `formatUnits`, `formatBps`, `formatPercent`, `formatDate`, ...), the single point a future i18n replaces.
+It lives in `game-core` because the app, `packages/ui` and the other packages already depend on it, so no import cycle.
+No other file calls `toLocaleString` (with or without a locale) or builds an `Intl.NumberFormat`, `Intl.DateTimeFormat` or
+`Intl.RelativeTimeFormat`: `game-core/__tests__/locale-guard.test.ts` scans `app`, `ui`, `renderer`, `chain` and `game-core`
+sources (not app-web's own files) in `bun run test`, and is itself tested on a fixture that must fail. The tests of
+`game-core`, `ui` and `app` run under `fr_FR` and `Europe/Paris` (their `vitest.config.ts`; `process-locale.test.ts` proves
+the setting took). `scripts/locale-check.ts` opens six stories (amounts, a score, Cobbles, a deadline, the day picker) in a
+Playwright context with `locale: "de-DE"` and fails on a German separator or month; the `wrap-sweep` script runs it after the
+sweep, so the CI `client` job covers both. A date shows weekday, month
+then day, on a 24 h clock (the former en-GB order is gone).
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,
@@ -1144,8 +1158,19 @@ height, so on every screen the outlines are fully on at the opening view and off
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
 the outlines are off: there they cost about 11 times the frame (one Training game in the e2e: 24.7 s without,
 274 s with). `force` (`"auto"`, `"on"`, `"off"`) overrides the detection, and the console logs the path once.
-The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#1f1f1f` on screen (the composer copies its linear
-target to the canvas without an sRGB encoding, so the CSS channels go to the shader unchanged).
+The CI e2e runs on SwiftShader, so it does not draw the outlines; their unit tests and GPU captures cover them. The colour is `color`, `#2a2928`, the colour that SHOWS on screen (OUTLINE-COLOUR, PM ruling 2026-10-16: halfway
+between the old `#1f1f1f`, which showed as about `#53524f`, and black). The outlines are drawn into the linear target and the
+`FinishPass` then tone maps (ACES), grades, vignettes and sRGB-encodes the whole frame, outlines included, so a written
+dark grey is lifted a lot (the old "no sRGB encoding" line was stale since LIGHT). `screenColor` therefore converts the
+shown colour to the grey the outline pass writes (`outlineWrittenGrey`, a bisection on `outlineScreenOf`, the forward
+model: ACES at the Mockup exposure, the grade, the opening view's vignette and fog as one measured factor of 0.65 in
+linear light, sRGB). It matches the green channel and writes a grey, about `#0f0f0f` for the default. **It assumes the
+default look** (`mockup`) and the opening view: another look, or a corner under the vignette, shows a different value;
+the grade's warmth tints the grey a little. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
+captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
+1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
+`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible
+colour; black stays reachable.
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
 **Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,

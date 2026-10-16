@@ -1,4 +1,5 @@
 import type { SplitView } from "@paved/chain";
+import { formatBps, formatNumber } from "@paved/game-core";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -6,7 +7,7 @@ import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
 import { CopyField } from "../elements/copy-field";
 import { Notice } from "../elements/notice";
-import { formatBps, SplitBar } from "../containers/split-bar";
+import { SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
 
 /** One part of what the link earned: the purchases that paid it and their referral, USDC base units. */
@@ -55,7 +56,7 @@ export interface ReferralSceneProps {
   onNavigate?: (tab: Tab) => void;
 }
 
-const plural = (count: number, one: string) => `${count.toLocaleString("en-US")} ${count === 1 ? one : `${one}s`}`;
+const plural = (count: number, one: string) => `${formatNumber(count)} ${count === 1 ? one : `${one}s`}`;
 
 /**
  * Referral (`/referral`, from Settings and Home): the player's link to copy or share, their share (the split's referral,
@@ -136,7 +137,7 @@ export function ReferralScene(props: ReferralSceneProps) {
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <Amount value={earnings.total} token="usdc" className="text-3xl text-foreground" />
                   <span className="text-xs whitespace-nowrap text-muted-foreground">
-                    <span className="numeric font-semibold text-foreground">{(earnings.games.count + earnings.packs.count).toLocaleString("en-US")}</span>{" "}
+                    <span className="numeric font-semibold text-foreground">{formatNumber(earnings.games.count + earnings.packs.count)}</span>{" "}
                     {earnings.games.count + earnings.packs.count === 1 ? "purchase" : "purchases"}
                   </span>
                 </div>
