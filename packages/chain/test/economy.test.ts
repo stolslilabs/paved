@@ -375,6 +375,14 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
       expect((error as Error).message).toBe("You declined in your wallet: nothing was sent.");
       expect(execute).toHaveBeenCalledTimes(1);
     }
+    // Not a decline: a bare null, a node's "Transaction rejected" message. A plain refusal (no hash, nothing sent) as before.
+    for (const other of [null, new Error("Transaction rejected: insufficient max fee")]) {
+      const { econWriter } = setup({ execute: () => Promise.reject(other) });
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
+      expect(error, String(other)).toBeInstanceOf(WriteError);
+      expect(error).not.toBeInstanceOf(WalletRejectedError);
+      expect((error as WriteError).transactionHash).toBeUndefined();
+    }
     // A failure at fee estimation stays a plain refusal with the node's message.
     const { econWriter } = setup({ execute: () => Promise.reject(new Error("Fee estimation failed: insufficient balance")) });
     const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
@@ -592,6 +600,15 @@ describe("Vault (vPAVED, P-56): deposit, withdraw, withdraw all; no claim", () =
       [ECON.pavedToken, "approve", [ECON.vault, "0x1bc16d674ec80000", "0x0"]],
       [ECON.vault, "deposit", ["0x1bc16d674ec80000", "0x0", PLAYER]],
     ]);
+  });
+
+  test("a deposit whose prompt the player declines is a WalletRejectedError: nothing sent, no hash", async () => {
+    const { economy, econWriter, execute } = setup({ receiptEvents: [], execute: () => Promise.reject(undefined) });
+    economy.setBalance("paved", PLAYER, 5n * P);
+    const error = await econWriter.deposit(2n * P, { confirmedAmount: 2n * P }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WalletRejectedError);
+    expect((error as WriteError).transactionHash).toBeUndefined();
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   test("withdraw(amount, self, self) up to max_withdraw; withdraw all redeems every vPAVED held", async () => {

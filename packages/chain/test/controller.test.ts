@@ -135,9 +135,9 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 const GAME = [
   "tutorial claim", "play free", "quest claim", "achievement claim", "daily credit", "weekly credit", "claim all", "skin purchase", "skins saved", "challenge build", "challenge discard", "challenge surrender",
 ];
-/** The paid entry: approve + spawn in one multicall; `spawn` is a policy, the approve is not (P-65), so it prompts once. */
+/** The paid entry: approve + spawn in one multicall; neither is a policy (P-65), so it prompts once. */
 const PAID = ["purchase, stake 1", "purchase, stake 10"];
-/** A pack's purchase: `buy_pack` is in the session, its approve to Setup is not: one prompt. */
+/** A pack's purchase: approve + `buy_pack`, neither a policy (P-65): one prompt. */
 const PACKS = ["pack, 50 for $5", "pack, 1,000 for $70"];
 const PROMPTED = ["vault deposit", "vault withdraw", "vault withdraw all"];
 
@@ -165,6 +165,22 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(Object.values(CONTROLLER_ENTRY_POINTS).flat().filter((m) => /approve|allowance/i.test(m))).toEqual([]);
   });
 
+  test("P-65: no session policy targets a call that pulls a token: spawn, buy_pack, deposit", async () => {
+    const sent = await sentByEveryWrite();
+    const pulls = [...PAID, ...PACKS, "vault deposit"].flatMap((label) => sent[label]).filter((c) => ["spawn", "buy_pack", "deposit"].includes(c.entrypoint));
+    expect(pulls.map((c) => c.entrypoint).sort()).toEqual(["buy_pack", "buy_pack", "deposit", "spawn", "spawn"]);
+    for (const ps of [policies, ...onEveryNetwork()]) {
+      for (const call of pulls) expect(inSession(call, ps), call.entrypoint).toBe(false);
+      expect(ps.filter((p) => ["spawn", "buy_pack", "deposit"].includes(p.method))).toEqual([]);
+    }
+  });
+
+  test("P-65: a token method added to the policies (approve, increase_allowance, transfer_from...) is refused", () => {
+    for (const method of ["increase_allowance", "transfer_from", "transfer", "increaseAllowance", "transferFrom"]) {
+      expect(() => toControllerSessionPolicies([...policies, { target: ECON.usdc, method }]), method).toThrow(/P-65/);
+    }
+  });
+
   test("P-65: an approve added to the policies is refused before the controller sees it", () => {
     expect(() => toControllerSessionPolicies([...policies, { target: ECON.usdc, method: "approve" }])).toThrow(/No token approve in the session \(P-65\)/);
     expect(() => toControllerSessionPolicies([{ target: "0x4", method: "approve", description: "Entry" }])).toThrow(/P-65/);
@@ -181,7 +197,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect([BigInt(spawn.contractAddress), spawn.entrypoint]).toEqual([BigInt(deployment.addresses.Challenge), "spawn"]);
       for (const ps of [policies, ...onEveryNetwork()]) {
         expect(inSession(approve, ps), `${label}: approve`).toBe(false);
-        expect(inSession(spawn, ps), `${label}: spawn`).toBe(true);
+        expect(inSession(spawn, ps), `${label}: spawn`).toBe(false);
       }
     }
   });
@@ -208,10 +224,10 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(controllerPolicies(none).map((p) => p.method).filter((m) => m.startsWith("claim"))).toEqual([]);
   });
 
-  test("the policies hold exactly the game's calls, the paid entry's spawn, buy_pack and the faucet's mint, nothing else", async () => {
+  test("the policies hold exactly the game's calls and the faucet's mint, nothing else", async () => {
     const sent = await sentByEveryWrite();
     const keys = new Set(GAME.flatMap((label) => sent[label].map((c) => key(c.contractAddress, c.entrypoint))));
-    const expected = new Set([...keys, key("0x2", "spawn"), key("0x14", "mint"), key("0x3", "buy_pack")]);
+    const expected = new Set([...keys, key("0x14", "mint")]);
     expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(expected);
     // No registration since D-25 (E): no `Account.create`, nor any policy on the old Account address.
     expect(policies.map((p) => p.method)).not.toContain("create");
@@ -302,7 +318,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(inSession(sent.settle[0], controllerPolicies(deployment, { economy: "0x0" }))).toBe(false);
   });
 
-  test("a pack is one multicall of its approve to Setup, for exactly its price, and buy_pack: the approve prompts, buy_pack is in the session", async () => {
+  test("a pack is one multicall of its approve to Setup, for exactly its price, and buy_pack: neither is in the session, one prompt", async () => {
     const executions: Record<string, Call[][]> = {};
     const sent = await sentByEveryWrite(executions);
     for (const label of PACKS) {
@@ -312,7 +328,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect([BigInt(buy.contractAddress), buy.entrypoint]).toEqual([3n, "buy_pack"]);
       for (const ps of [policies, ...onEveryNetwork()]) {
         expect(inSession(approve, ps), `${label}: approve`).toBe(false);
-        expect(inSession(buy, ps), `${label}: buy_pack`).toBe(true);
+        expect(inSession(buy, ps), `${label}: buy_pack`).toBe(false);
       }
     }
     expect(u256((sent["pack, 1,000 for $70"][0].calldata as string[])[1], (sent["pack, 1,000 for $70"][0].calldata as string[])[2])).toBe(70_000_000n);
@@ -330,9 +346,9 @@ describe("controllerPolicies", () => {
 describe("toControllerSessionPolicies", () => {
   test("groups the policies by checksummed target, in order", () => {
     const session = toControllerSessionPolicies(policies);
-    expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "spawn_free", "build", "discard", "surrender"]);
+    expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn_free", "build", "discard", "surrender"]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual([
-      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins",
+      "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins",
     ]);
     expect(session.contracts[getChecksumAddress("0x14")].methods).toEqual([{ entrypoint: "mint", description: "Test USDC faucet" }]);
   });

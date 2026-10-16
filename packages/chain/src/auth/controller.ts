@@ -18,30 +18,32 @@ export interface ControllerConfig {
 }
 
 /**
- * The client's writes, by contract: what `PavedWriter` sends outside devnet. No token `approve` is a policy, on any token
- * (P-65): the controller matches a session call on (target, method) alone, never on its spender or amount, so every approve
- * prompts, in the multicall of the write that needs it. `Faucet.mint` (the faucet, `PavedWriter.mint`) is left out too: it
- * is a policy only where the deployment has a Faucet (Sepolia; `controllerPolicies`), never on mainnet.
+ * The client's writes signed in the session, by contract. No token `approve` is a policy, on any token (P-65): the
+ * controller matches a session call on (target, method) alone, never on its spender or amount, so every approve prompts, in
+ * the multicall of the write that needs it. Nor is a call that pulls a token (`Challenge.spawn`, `Setup.buy_pack`, the
+ * Vault's `deposit`): each is sent with its approve, which prompts anyway, and in the session a bare one could spend a
+ * standing allowance left by a connect from before P-65. `Faucet.mint` (the faucet, `PavedWriter.mint`) is left out here
+ * too: it is a policy only where the deployment has a Faucet (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
-  // `spawn_free` is Play free (a free-game credit spent): no token moves, so it is a session policy like the rest.
-  Challenge: ["spawn", "spawn_free", "build", "discard", "surrender"],
+  // `spawn_free` is Play free (a free-game credit spent): no token moves, so it is a session policy like the moves. The paid
+  // `spawn` pulls USDC: not a policy (P-65), it prompts with its approve.
+  Challenge: ["spawn_free", "build", "discard", "surrender"],
   // The tutorial claim (D-21) and the Cobbles claims (cobbles v1, part 1: a quest's, an achievement's, a day's and a week's
-  // free game; Claim all is a multicall of them), and a pack's purchase (cobbles v1, part 2): policies only where the
-  // deployment has a Setup (`controllerPolicies`). A pack's approve to Setup is not a policy (P-65: no token approve in the
-  // session): it prompts once per pack, with `buy_pack`. The skins (cobbles v1, part 3): `buy_skin` spends Cobbles, which
-  // no token carries, and `set_skins` spends nothing, so neither needs an approve.
-  Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_pack", "buy_skin", "set_skins"],
+  // free game; Claim all is a multicall of them): policies only where the deployment has a Setup (`controllerPolicies`). A
+  // pack's purchase (`buy_pack`, cobbles v1, part 2) pulls USDC: not a policy (P-65), it prompts with its approve. The skins
+  // (cobbles v1, part 3): `buy_skin` spends Cobbles, which no token carries, and `set_skins` spends nothing.
+  Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins"],
 } as const;
 
 /** The Economy's only entry point in the session (P7a): anyone may settle, and it pays the game's player. */
 export const ECONOMY_ENTRY_POINT = "settle";
 
 /**
- * Session policies for the game's writes, on the deployment's addresses. No token `approve` (P-65, superseding P-56): a paid
- * entry sends its approve and `spawn` in one multicall, which prompts once; a pack's approve and `buy_pack`, and the Vault's
- * approve and deposit, prompt the same way. `Setup.claim_tutorial`, the four Cobbles claims, `buy_pack` and the two skin
- * writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment
+ * Session policies for the game's writes, on the deployment's addresses. No token `approve` and no call that pulls a token
+ * (P-65, superseding P-56): a paid entry sends its approve and `spawn` in one multicall, which prompts once; a pack's approve
+ * and `buy_pack`, and the Vault's approve and deposit, prompt the same way. `Setup.claim_tutorial`, the four Cobbles claims
+ * and the two skin writes are policies when the deployment has a Setup. `Faucet.mint` is a policy when, and only when, the deployment
  * resolves a Faucet (`deployment.faucet`: Sepolia, where the player signs with the controller; never mainnet).
  *
  * `economy` is the Economy's address (the economy deployment's, not the game's): with it, `Economy.settle` is a policy, the
@@ -74,15 +76,19 @@ function isAddress(value: string): boolean {
   }
 }
 
+/** A token's approve, allowance or transfer method, refused as a session policy (P-65). */
+const TOKEN_METHOD = /approve|allowance|transfer/i;
+
 /**
- * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). An `approve` is refused (P-65): the
- * controller would execute it once at connect, leaving a standing allowance of its cap, and its session key is a wildcard
- * that the keychain filters by (target, method) alone, so the policy would sign any approve on that token.
+ * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). A token method is refused (P-65): any
+ * name with `approve`, `allowance` or `transfer` (`increase_allowance`, `transfer_from`...). The controller would execute an
+ * approve policy once at connect, leaving a standing allowance of its cap, and its session key is a wildcard that the
+ * keychain filters by (target, method) alone, so such a policy would sign that call to any spender or recipient.
  */
 export function toControllerSessionPolicies(policies: ControllerPolicy[]) {
   const contracts: Record<string, { methods: Array<{ entrypoint: string; description?: string }> }> = {};
   for (const p of policies) {
-    if (p.method === "approve") throw new Error("No token approve in the session (P-65): an approve prompts with its write");
+    if (TOKEN_METHOD.test(p.method)) throw new Error(`No token approve in the session (P-65): ${p.method} prompts with its write`);
     const target = getChecksumAddress(p.target);
     const method = { entrypoint: p.method, ...(p.description ? { description: p.description } : {}) };
     (contracts[target] ??= { methods: [] }).methods.push(method);

@@ -64,15 +64,17 @@ export class WalletRejectedError extends WriteError {
 }
 
 /**
- * Whether `account.execute`'s error is the player's refusal. `@cartridge/controller` 0.13.16 rejects a cancelled prompt with
- * its reply's `error`, which may be absent (`undefined`) or carry the code `CANCELED`; an injected wallet answers
- * `USER_REFUSED_OP` (code 113) or a "rejected by the user" message.
+ * Whether `account.execute`'s error is the player's refusal, by the documented cancel shapes only:
+ * `@cartridge/controller` 0.13.16 rejects a cancelled prompt with its reply's `error`, which is `undefined` when absent, or
+ * carries the code `CANCELED`; a wallet's `USER_REFUSED_OP` (code 113); a "User rejected" message. Anything else, `null` or a
+ * node's message such as "Transaction rejected" included, is not a decline: a plain `WriteError`. Either way nothing was sent.
  */
 export function isWalletRejection(error: unknown): boolean {
-  if (error === undefined || error === null) return true;
-  const { code, message } = (typeof error === "object" ? error : { message: String(error) }) as { code?: unknown; message?: unknown };
+  if (error === undefined) return true;
+  if (error === null || typeof error !== "object") return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
   if (code === "CANCELED" || code === 113 || code === "USER_REFUSED_OP") return true;
-  return typeof message === "string" && /USER_REFUSED_OP|user (rejected|refused|denied|cancel+ed|aborted)|rejected by (the )?user|(request|transaction) (was )?(rejected|cancel+ed)|^cancel+ed$/i.test(message.trim());
+  return typeof message === "string" && /USER_REFUSED_OP|\bUser rejected\b/i.test(message);
 }
 
 /** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */

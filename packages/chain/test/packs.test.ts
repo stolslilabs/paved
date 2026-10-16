@@ -6,7 +6,7 @@ import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { PACK_IDS, PackNotOnSaleError, PackPriceChangedError, packBuyerOf, packReferrer, packSwapInput, readPacks } from "../src/packs";
 import { FakeGameViews, MAX_PACK_ID, PACK_VIEW_FIELDS, RpcGameViews, type CallProvider } from "../src/views";
-import { PackOutcomeUnknownError, PackRefusedError, WriteError, buyPackArgs, type PackRefusal } from "../src/writer";
+import { PackOutcomeUnknownError, PackRefusedError, WalletRejectedError, WriteError, buyPackArgs, type PackRefusal } from "../src/writer";
 import {
   ChainMismatchError,
   PoolCannotFillError,
@@ -195,6 +195,14 @@ describe("PackBuyer: the fresh reads and checks before buyPack", () => {
     expect(packReferrer(null, PLAYER, economyDeployment, { router: "0xd3de", seller: "0x0" })).toBe("0x0");
     // The seller read from the chain (`Economy.seller()`) is ignored too, whatever the deployment names.
     expect(packReferrer(REFERRER, PLAYER, economyDeployment, { router: "0xd3de", seller: REFERRER })).toBe("0x0");
+  });
+
+  test("a pack whose prompt the player declines is a WalletRejectedError, not an unknown outcome", async () => {
+    const { buyer } = setup({ execute: () => Promise.reject({ code: "CANCELED", message: "Canceled" }) });
+    const error = await buyer.buy({ packId: 2, confirmedPrice: 9_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WalletRejectedError);
+    expect(error).not.toBeInstanceOf(PackOutcomeUnknownError);
+    expect((error as WriteError).transactionHash).toBeUndefined();
   });
 
   test("each refusal before sending is typed, and nothing is sent", async () => {
