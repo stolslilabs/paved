@@ -1,11 +1,11 @@
 /**
- * TEX: the app's copies of the 19 plans' 2D tile images at the sizes the renderer draws them, content-hashed, from
+ * TEX: the app's copies of the 19 plans' 2D tile images at the size the renderer draws them (256 px), content-hashed, from
  * app-web's 1680 x 1680 originals.
  *
  *   node scripts/compress-tiles.ts [--check]
  *
  * Reads `../app-web/public/assets/tiles/<plan>.png` (left untouched) and writes
- * `public/renderer-assets/tiles/<plan>.<size>.<hash>.png` for each size of `SIZES`. Each run removes the copies of an earlier
+ * `public/renderer-assets/tiles/<plan>.<size>.<hash>.png` for each size of `SIZES` (a list, so another size is one number). Each run removes the copies of an earlier
  * one. `--check` writes nothing and fails when the committed copies are not exactly what this run would write (same bytes,
  * so the same Node and zlib: the toolchain is pinned by `.tool-versions`). Node 24 runs it as is (type stripping): the
  * syntax stays erasable.
@@ -28,8 +28,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SOURCE = resolve(HERE, "../../app-web/public/assets/tiles");
 const OUT = resolve(HERE, "../public/renderer-assets/tiles");
 
-/** The sizes written (named as `vite/renderer-assets.ts`'s `TILE_SIZES`): the board's placeholder quad, the plan view. */
-const SIZES = [256, 512];
+/** The sizes written: one serves the placeholder quad and the plan view (the renderer's `TILE_IMAGE_SIZE`). */
+const SIZES = [256];
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 

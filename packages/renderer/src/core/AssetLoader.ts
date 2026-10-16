@@ -20,13 +20,11 @@ export interface AssetManifest {
   tiles?: Record<string, Record<string, string>>;
 }
 
-/** The side, in pixels, of the tile image a placeholder quad draws (a tile is a few hundred pixels wide at the closest zoom). */
-export const QUAD_TILE_SIZE = 256;
-/** The side, in pixels, of the tile image the plan view draws (its tiles fill the screen, so it takes the larger). */
-export const PLAN_TILE_SIZE = 512;
-/** What draws a tile image: the placeholder quad of a tile whose model is not in yet, or the plan view's tile. */
-export type TileUse = "quad" | "plan";
-const TILE_SIZES: Record<TileUse, number> = { quad: QUAD_TILE_SIZE, plan: PLAN_TILE_SIZE };
+/**
+ * The side, in pixels, of the tile images the renderer draws, the placeholder quad's and the plan view's: one size serves
+ * both (the plan view at 256 and at 512 px differs by under 1.2 dE at every zoom, `docs/client/v2-architecture.md`, 4.2).
+ */
+export const TILE_IMAGE_SIZE = 256;
 
 /** The plan keys of the 19 base models (`None` has none). */
 const PLAN_KEYS = Object.values(PlanType)
@@ -111,12 +109,11 @@ export function modelPath(manifest: AssetManifest | null, key: string): string {
 }
 
 /**
- * A plan's tile image for a use, relative to `basePath`: the manifest's copy at the use's size (`QUAD_TILE_SIZE`,
- * `PLAN_TILE_SIZE`), else the original `assets/tiles/<plan>.png`, what a host without a manifest (or one listing no tiles)
- * serves.
+ * A plan's tile image, relative to `basePath`: the manifest's copy at `TILE_IMAGE_SIZE`, else the original
+ * `assets/tiles/<plan>.png`, what a host without a manifest (or one listing no tiles) serves.
  */
-export function tilePath(manifest: AssetManifest | null, key: string, use: TileUse): string {
-  return manifest?.tiles?.[String(TILE_SIZES[use])]?.[key] ?? `assets/tiles/${key}.png`;
+export function tilePath(manifest: AssetManifest | null, key: string): string {
+  return manifest?.tiles?.[String(TILE_IMAGE_SIZE)]?.[key] ?? `assets/tiles/${key}.png`;
 }
 
 /** Whether a model id names a theme's variant (a path) rather than a plan's base model (a plan key). */
@@ -151,13 +148,10 @@ export class AssetLoader {
   private dracoLoader: DRACOLoader | null = null;
   /** A load per model key, started once (`ensureModel`). */
   private modelLoads: Map<string, Promise<void>> = new Map();
-  /** A load per use of the tile images (`loadTiles`): all 19 plans' images of that use. */
-  private tileLoads: Partial<Record<TileUse, Promise<void>>> = {};
-  /** The texture of each image url, loaded once: a use whose path is another's (no manifest) shares its texture. */
-  private imageLoads: Map<string, Promise<THREE.Texture>> = new Map();
+  private texturesLoad: Promise<void> | null = null;
   /** The plan keys the scene asked for before its first frame (`want`): `preloadAll` waits for these only. */
   private wanted: Set<string> = new Set();
-  /** Whether the strategy (plan) view asked for its images (`want`). */
+  /** Whether the strategy (plan) view asked for its images before the first frame. */
   private wantTextures = false;
   /** Set once `preloadAll` has chosen what the first frame waits for: a later `want` loads at once. */
   private chosen = false;
@@ -252,7 +246,7 @@ export class AssetLoader {
     }
     if (textures && !this.wantTextures) {
       this.wantTextures = true;
-      if (this.chosen) void this.preloadTextures("plan").catch(() => {});
+      if (this.chosen) void this.preloadTextures().catch(() => {});
     }
   }
 
@@ -324,59 +318,37 @@ export class AssetLoader {
   }
 
   /**
-   * Every plan's image for a use, loaded once: `quad`, the placeholder quad's (256 px), or `plan`, the plan view's (512 px);
-   * `preloadAll` loads both before the first frame (a texture is uploaded to the GPU only when a frame draws it). A failure may be tried again: the next try asks only for the
-   * images not in yet. The `textures` key is `quad-<plan>` or `tile-<plan>`.
+   * Every plan's image for the plan view (strategy mode) and the placeholder quad, loaded once, at `TILE_IMAGE_SIZE` (the
+   * manifest's copy). A failure may be tried again: the next try asks only for the images not in yet.
    */
-  preloadTextures(use: TileUse = "plan"): Promise<void> {
-    let load = this.tileLoads[use];
-    if (!load) {
-      const prefix = use === "quad" ? "quad" : "tile";
-      load = (async () => {
-        const manifest = await this.readManifest();
-        await Promise.all(
-          PLAN_KEYS.filter((key) => !this.textures.has(`${prefix}-${key}`)).map(async (key) => {
-            const texture = await this.loadImage(`${this.basePath}/${tilePath(manifest, key, use)}`);
-            if (!this.disposed) this.textures.set(`${prefix}-${key}`, texture);
-          })
-        );
+  preloadTextures(): Promise<void> {
+    if (!this.texturesLoad) {
+      const load = Promise.all(
+        PLAN_KEYS.filter((key) => !this.textures.has(`tile-${key}`)).map(async (key) => {
+          const manifest = await this.readManifest();
+          const texture = await this.textureLoader.loadAsync(`${this.basePath}/${tilePath(manifest, key)}`);
+          if (this.disposed) texture.dispose();
+          else this.textures.set(`tile-${key}`, texture);
+        })
+      ).then(() => {
         if (!this.disposed) this.loadedListener?.();
-      })();
-      this.tileLoads[use] = load;
+      });
+      this.texturesLoad = load;
       load.catch(() => {
-        if (this.tileLoads[use] === load) delete this.tileLoads[use];
+        if (this.texturesLoad === load) this.texturesLoad = null;
       });
     }
-    return load;
-  }
-
-  /** The texture of an image, loaded once per url; a failed load is asked again. */
-  private loadImage(url: string): Promise<THREE.Texture> {
-    let load = this.imageLoads.get(url);
-    if (!load) {
-      load = this.textureLoader.loadAsync(url);
-      this.imageLoads.set(url, load);
-      load.then(
-        (texture) => {
-          if (this.disposed) texture.dispose();
-        },
-        () => {
-          if (this.imageLoads.get(url) === load) this.imageLoads.delete(url);
-        }
-      );
-    }
-    return load;
+    return this.texturesLoad;
   }
 
   /**
    * What the scene's first frame needs, awaited; the rest after that frame (`load-order.ts`). First: the models of the
    * tiles handed over (`want`) by the time the manifest is in, which is all of them when the scene mounts with its tiles
    * (`GameCanvas` hands them over in the same commit as `init`); every model when none was handed over. A failure there
-   * rejects, so the scene does not start (the app shows its plan view). The 19 quad images (256 px) wait too, always: they
+   * rejects, so the scene does not start (the app shows its plan view). The plan view's 19 images wait too, always: they
    * are the placeholder a tile draws while its model is on its way (`TileRenderer`), so a tile placed after the first
-   * frame is never empty; their failure is logged, and tried again after the first frame. The plan view's 19 images
-   * (512 px) wait too, so the plan view is never empty: their failure rejects only when the plan view asked for them, else
-   * it is logged like the quad's. A later failure only leaves that plan's tiles undrawn.
+   * frame is never empty. Their failure rejects only when the plan view asked for them; otherwise it is logged, and tried
+   * again after the first frame. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
     const manifest = await this.readManifest();
@@ -396,13 +368,10 @@ export class AssetLoader {
     await Promise.all([
       ...first.map((key) => this.ensureModel(key, manifest)),
       ...variants.map((path) => this.ensureModel(path, manifest)),
-      this.preloadTextures("quad").catch((error: unknown) => {
-        if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
-      }),
       this.wantTextures
-        ? this.preloadTextures("plan")
-        : this.preloadTextures("plan").catch((error: unknown) => {
-            if (!this.disposed) console.warn("[AssetLoader] the plan view's images did not load:", error);
+        ? this.preloadTextures()
+        : this.preloadTextures().catch((error: unknown) => {
+            if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
           }),
     ]);
     afterFirstFrame(() => {
@@ -411,7 +380,7 @@ export class AssetLoader {
       const rest = PLAN_KEYS.filter((key) => !first.includes(key) && !this.skipsBase(key, manifest)).map((key) =>
         this.ensureModel(key, manifest)
       );
-      Promise.all([...rest, this.preloadTextures("quad"), this.preloadTextures("plan")]).catch((error: unknown) => {
+      Promise.all([...rest, this.preloadTextures()]).catch((error: unknown) => {
         if (!this.disposed) console.warn("[AssetLoader] an asset loaded after the first frame failed:", error);
       });
     });
@@ -442,9 +411,8 @@ export class AssetLoader {
   }
 
   /**
-   * A plan's quad image (`quad-<plan>`, 256 px) if it is in, else null, asking for nothing: the placeholder quad
-   * (`TileRenderer`) reads it this way, so that it never counts as the plan view asking (whose image failure stops the
-   * scene, `preloadAll`).
+   * A plan's image if it is in, else null, asking for nothing: the placeholder quad (`TileRenderer`) reads it this way, so
+   * that it never counts as the plan view asking (whose image failure stops the scene, `preloadAll`).
    */
   peekTexture(key: string): THREE.Texture | null {
     return this.textures.get(key) ?? null;
@@ -466,13 +434,12 @@ export class AssetLoader {
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();
     this.textures.clear();
-    this.imageLoads.clear();
     this.modelLoads.clear();
     this.wantedSkins = [];
     this.failedVariants.clear();
     this.variantPlans.clear();
     this.skins = NO_SKINS;
-    this.tileLoads = {};
+    this.texturesLoad = null;
     this.dracoLoader?.dispose();
     this.dracoLoader = null;
   }

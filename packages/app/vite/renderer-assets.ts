@@ -123,7 +123,7 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
 
 /**
  * The renderer's assets at `<base>renderer-assets/`. The models are the app's compressed, hashed copy in `public/`
- * (Vite serves and copies it), and so are the resized tile images the renderer draws (`tiles/`, 256 and 512 px); this adds
+ * (Vite serves and copies it), and so are the resized tile images the renderer draws (`tiles/`, 256 px); this adds
  * the manifest that names them, served in `vite` (dev, `no-cache`) and written into `dist/renderer-assets/manifest.json` at
  * build, and the 1680 px originals (`assets/tiles/`), which the renderer no longer asks for but the tile chips (a DOM
  * `<img>`) still do: served from app-web's `public/` in dev and copied into `dist/renderer-assets/assets/tiles/` at

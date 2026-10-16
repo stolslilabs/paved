@@ -63,9 +63,9 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
 });
 
 describe("the app's resized, content-hashed tile images (scripts/compress-tiles.ts)", () => {
-  it("lists a 256 and a 512 px image per plan, each present with its hash in its name, and nothing else", () => {
+  it("lists a 256 px image per plan, each present with its hash in its name, and nothing else", () => {
     const { tiles } = rendererManifest();
-    expect(Object.keys(tiles).sort()).toEqual(["256", "512"]);
+    expect(Object.keys(tiles)).toEqual(["256"]);
     const listed: string[] = [];
     for (const [size, plans] of Object.entries(tiles)) {
       expect(Object.keys(plans).sort()).toEqual([...KEYS].sort());
