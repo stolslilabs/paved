@@ -269,6 +269,21 @@ describe("Board", () => {
     expect(onSlotClick).toHaveBeenCalledWith(slot);
   });
 
+  it("the plan view lights its slots only while the placement highlight is on; off, they stay buttons", async () => {
+    const onSlotClick = vi.fn();
+    const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
+    const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} />));
+    expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
+    expect(screen.getByRole("button", { name: /^Slot / })).toHaveClass("border-dashed");
+    rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
+    const plain = screen.getByRole("button", { name: /^Slot / });
+    expect(plain).toHaveAttribute("data-lit", "false");
+    expect(plain).not.toHaveClass("border-dashed");
+    expect(plain.className).not.toMatch(/bg-primary/);
+    await userEvent.click(plain);
+    expect(onSlotClick).toHaveBeenCalledWith(slot);
+  });
+
   it("warns when storage is off, and a Training game shows no deadline", () => {
     render(wrap(<BoardScene {...BOARD.storageDisabled} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Storage is off");

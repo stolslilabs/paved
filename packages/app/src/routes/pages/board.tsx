@@ -130,6 +130,7 @@ function TrainingBoard() {
       slots={slots}
       ghost={ghost}
       onSlotClick={choose}
+      placementHighlight={boardSettings.placementHighlight}
       canvas={
         view === "3d" ? (
           <BoardViewport
@@ -331,6 +332,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       readOnly={!playable}
       notices={notices}
       promptSurrender={playable && expired}
+      placementHighlight={boardSettings.placementHighlight}
       canvas={
         view === "3d" ? (
           <BoardViewport
@@ -475,6 +477,7 @@ function TutorialBoard() {
       onSlotClick={choose}
       readOnly={view.over}
       notices={stage}
+      placementHighlight={boardSettings.placementHighlight}
       canvas={
         view3d === "3d" ? (
           <BoardViewport

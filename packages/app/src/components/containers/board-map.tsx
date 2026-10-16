@@ -13,6 +13,8 @@ export interface BoardMapProps {
   /** The tile in hand where it would go. */
   ghost?: BoardGhost | null;
   onSlotClick?: (slot: { x: number; y: number }) => void;
+  /** The slots are lit (dashed, tinted). Off (the player's placement highlight setting): they stay buttons, drawn plain. */
+  highlight?: boolean;
   className?: string;
 }
 
@@ -29,7 +31,7 @@ const slotName = (x: number, y: number) => {
  * it where the 3D canvas is not given or cannot start: in the render tests (jsdom has no WebGL), without WebGL, and as
  * a plan view. With `slots` it is playable: each legal slot is a button, the ghost shows the tile in hand.
  */
-export function BoardMap({ tiles, slots = [], ghost, onSlotClick, className }: BoardMapProps) {
+export function BoardMap({ tiles, slots = [], ghost, onSlotClick, highlight = true, className }: BoardMapProps) {
   if (tiles.length === 0) return null;
   const cells = [...tiles, ...slots];
   const xs = cells.map((t) => t.x);
@@ -68,7 +70,11 @@ export function BoardMap({ tiles, slots = [], ghost, onSlotClick, className }: B
               aria-pressed={chosen}
               onClick={() => onSlotClick?.(s)}
               style={at(s.x, s.y)}
-              className="block min-h-0 min-w-0 rounded-[2px] border border-dashed border-primary/70 bg-primary/10 outline-none hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring"
+              data-lit={highlight}
+              className={cn(
+                "block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                highlight ? "border border-dashed border-primary/70 bg-primary/10 hover:bg-primary/25" : "border border-transparent",
+              )}
             >
               {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="selected" className="size-full rounded-[2px] border opacity-80" />}
             </button>
