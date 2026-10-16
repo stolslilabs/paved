@@ -298,3 +298,39 @@ The controller notice (D-15) is shown at body size (1rem), in normal flow below 
 2026-10-15, Client v2 OUT-LOD: the outline segments are cut by their size on screen (a GPU fade from 1 to 0.5 device px, the risers skipped before the draw, collinear pieces merged, four-vertex quads). The outline load falls from 497k to about 240k instances a frame, with no flicker or popping against main. Mac p95 at cap 1.5 is 10.66 / 11.76 ms, so the desktop "auto" cap rises from 1 to 1.5; phones keep 2 (PR #447).
 
 2026-10-15, Client v2 ASSET-WEIGHT: the board's first view at 1.28 MB (fresh) / 2.22 MB (35 tiles), down from 16.5 MB: meshopt models under content-hashed names with a manifest, visible tiles first (PR #448).
+
+2026-10-15, Client v2 P5 (the Challenge board, predicted then confirmed): `/game/:gameId` runs on `PredictedSession` (`packages/game-core/src/sessions/predicted-session.ts`) over CORE's `initial_seed` view. The engine plays first and the move is sent after, with at most 2 unconfirmed; a refused write restores the engine and drops the queued moves, a result that differs from the receipt re-opens the session ("Board resynced"), and a failed replay check at open plays without prediction. Past `expiresAt` a build or a discard is refused and the Surrender dialog opens by itself. The board is read only until P6 fills the sources' `signer`. Detail: `v2-architecture.md` 9.5.
+
+2026-10-15, Client v2 P9 (quests, achievements, Cobbles claims and free-game credits) done on the chain's ledger and the indexer's definitions. The live pages wait for the indexer in `routes/sources.ts` and for P6's signer with the claims.
+
+2026-10-15, Client v2 P6: wallet connect (controller; devnet burner) fills the sources' signer; home and play on their data; `/tutorial` on the board scene with the First Stone claim.
+
+2026-10-15, Client v2 P4 (antialiased faces and the near plane): `RendererSettings.multisampling` (`true`, `false` or `"auto"`, the default) takes 4-sample MSAA on a GPU context and SMAA on software WebGL or fewer samples, on both composer targets; the camera's near plane goes from 1 to 5 and the closest zoom from 5 to 8 so the tallest tile is not cut. The Graphics quality setting moved to P11a and the order of bloom, vignette and tone mapping to Q-polish. Detail and frame times: `v2-architecture.md` 5.2.
+
+2026-10-15, Client v2 X6 (the Training e2e's Confirm flake): the page lights Confirm for a hovered slot, and the bot's zoom left the pointer over the board centre; the bot now parks the pointer off the board before asserting that Confirm is off, and a test shows the hover behaviour. X5 notes: closures counted only in the closure-seeking game, fallback to any legal cell, comments reworded. No app change.
+
+2026-10-15, Client v2 PLAYFREE: Play free on home and play (`spawnFree`, typed refusals, session policy) and the wallet restored on quests and achievements: done; the over page's "Free game" label is left to P7a.
+
+2026-10-15, Client v2 P8: the leaderboard and player pages on the indexer, with the Free mark (chain parses `free`).
+
+2026-10-16, Client v2 P7b done: `/play/challenge` on the chain. The stake goes through approve and `spawn`, then the board. The packs come from `Setup.pack` and go through approve and `buy_pack` with `PackBuyer`'s fresh checks, and `PackBought` updates the balance. `buy_pack` is a session policy; the pack's approve prompts (P-56).
+
+2026-10-16, Client v2 P11b done: `/settings/theme` buys and switches tile skins on `Setup` (Save sends only the changed plans); Forest's 72 models compressed and listed by theme in the manifest; next, the board draws the active skins (after LIGHT).
+
+2026-10-16, Client v2 LIGHT (PR #464): look settings, presets Mockup/Soft/Off, quality tiers, AO, bloom, finish pass (tone map + sRGB were missing), stories with the mockup side by side; "auto" Low on phones, Medium on desktops; GPU costs, tier defaults and the outline-on flicker check are LIGHT-GPU, a release gate.
+
+2026-10-16, Client v2 P7a done: `/game/:id/over` on the chain's `game`, `Economy.terms` and `Economy.day`, the indexer's record and the engine-replayed closings, with `Economy.settle` (all states) and `settle` in the controller session policies.
+
+2026-10-16, Client v2 X7: purchase-route test timeouts fixed at their causes (cold lazy routes, 1 s retry wait; 15 s margin); 40 of 40 runs green, whole @paved/app suite green.
+
+2026-10-16, Client v2 SKIN-RENDER: the board draws each tile in its player's active skin (Challenge: the game's player; Training/Tutorial: the connected player), a variant per tile by origin/dev's hash, loaded lazily with the base models as fallback; Forest set worst case 7.49 MB (3.94 MB gzip), a typical board about 3.2 MB (1.7 MB gzip).
+
+2026-10-16, Client v2 P10 done: /vault on the ERC4626 vPAVED (deposit, withdraw, withdraw all; typed reverts; no Vault call in the session), /referral on /v1/players/:id/referrals (games and packs).
+
+2026-10-16, Client v2 P11a done: `/settings` on its data (device settings, quality live on the board, account, links) and the viewer's skins opt-out; sound/music stored only, plan view still lights slots.
+
+2026-10-16, Client v2 SKIN-BASE: a skinned plan's base model loads only as a fallback; a fully skinned board saves 1,089,624 B raw (653,324 B gzip), a quarter of a typical board's bytes.
+
+2026-10-16, Client v2 X8: the app tests' cold-first-test timeouts fixed at their cause (retryDelay 0, findBy 5 s, one 15 s margin, route preloads, shared board stand-in): 10 of 10 full runs pass under heavy load.
+
+2026-10-16, Client v2 Q-POLISH-R: a placed tile and the ghost draw their plan's image on a flat quad while their model loads, then swap to the model in the same call; the 19 tile images (319,815 B) load with the first frame.
