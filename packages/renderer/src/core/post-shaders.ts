@@ -1,0 +1,257 @@
+import * as THREE from "three";
+import { Pass, FullScreenQuad } from "three/addons/postprocessing/Pass.js";
+import type { LookSettings, ToneMappingMode } from "./look";
+
+/**
+ * The passes LIGHT adds to the composer: the ambient occlusion (`AoPass`, its own pass, only when on) and the final pass
+ * (`FinishPass`, always: AO applied, exposure and tone map, grade, vignette, sRGB). The final pass replaces three's
+ * `OutputPass` and the former vignette pass: one full-screen pass whatever is on, each effect a `#define` so an effect
+ * that is off costs no instruction.
+ */
+
+/** Taps of the AO's spiral: fixed (no per-pixel noise), so a still or panning camera shows no dither. */
+export const AO_SAMPLES = 12;
+
+const AoShader = {
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDepth;
+    uniform vec2 resolution;
+    uniform mat4 cameraProjectionMatrix;
+    uniform mat4 cameraProjectionMatrixInverse;
+    uniform float radius;
+    varying vec2 vUv;
+
+    vec3 viewPosition(vec2 uv, float depth) {
+      vec4 p = cameraProjectionMatrixInverse * vec4(vec3(uv, depth) * 2.0 - 1.0, 1.0);
+      return p.xyz / p.w;
+    }
+    vec3 viewPositionAt(vec2 uv) {
+      return viewPosition(uv, texture2D(tDepth, uv).x);
+    }
+
+    void main() {
+      float depth = texture2D(tDepth, vUv).x;
+      if (depth >= 1.0) { gl_FragColor = vec4(1.0); return; }
+      vec3 p = viewPosition(vUv, depth);
+      // The normal from the depth: on each axis, the neighbour on the same face (the nearer in depth), so a silhouette
+      // does not bend it.
+      vec2 texel = 1.0 / resolution;
+      vec3 r = viewPositionAt(vUv + vec2(texel.x, 0.0)) - p;
+      vec3 l = p - viewPositionAt(vUv - vec2(texel.x, 0.0));
+      vec3 u = viewPositionAt(vUv + vec2(0.0, texel.y)) - p;
+      vec3 d = p - viewPositionAt(vUv - vec2(0.0, texel.y));
+      vec3 n = normalize(cross(abs(r.z) < abs(l.z) ? r : l, abs(u.z) < abs(d.z) ? u : d));
+      if (n.z < 0.0) n = -n;
+      // The radius on screen, in uv, at this depth; under about a texel the AO cannot show: skip it.
+      vec2 screen = radius * vec2(cameraProjectionMatrix[0][0], cameraProjectionMatrix[1][1]) * 0.5 / -p.z;
+      if (screen.y * resolution.y < 1.5) { gl_FragColor = vec4(1.0); return; }
+      float occlusion = 0.0;
+      for (int i = 0; i < ${AO_SAMPLES}; i++) {
+        float f = (float(i) + 0.5) / float(${AO_SAMPLES});
+        float angle = f * 7.0 * 6.2831853;
+        vec2 offset = vec2(cos(angle), sin(angle)) * f * screen;
+        vec3 v = viewPositionAt(vUv + offset) - p;
+        float distance = length(v);
+        // Occluders in front of the face, nearer than the radius, count by their angle above it (Alchemy's estimator).
+        float rangeCheck = 1.0 - smoothstep(radius * 0.5, radius, distance);
+        occlusion += max(dot(v, n) / (distance + 1e-4) - 0.1, 0.0) * rangeCheck;
+      }
+      gl_FragColor = vec4(vec3(1.0 - occlusion / float(${AO_SAMPLES})), 1.0);
+    }`,
+};
+
+/**
+ * Screen-space ambient occlusion from the scene's depth texture, into a target of its own at `resolution` of the
+ * drawing buffer. It does not draw the scene again (no normal pass: the normals come from the depth) and writes nothing
+ * to the composer's buffers (`needsSwap` false): `FinishPass` reads its texture.
+ */
+export class AoPass extends Pass {
+  readonly target: THREE.WebGLRenderTarget;
+  private readonly material: THREE.ShaderMaterial;
+  private readonly quad: FullScreenQuad;
+  private scale: number;
+
+  constructor(
+    private readonly camera: THREE.PerspectiveCamera,
+    settings: LookSettings["ao"],
+  ) {
+    super();
+    this.needsSwap = false;
+    this.scale = settings.resolution;
+    this.target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.UnsignedByteType, depthBuffer: false });
+    this.target.texture.name = "AoPass.ao";
+    this.material = new THREE.ShaderMaterial({
+      name: "AoShader",
+      uniforms: {
+        tDepth: { value: null },
+        resolution: { value: new THREE.Vector2(1, 1) },
+        cameraProjectionMatrix: { value: new THREE.Matrix4() },
+        cameraProjectionMatrixInverse: { value: new THREE.Matrix4() },
+        radius: { value: settings.radius },
+      },
+      vertexShader: AoShader.vertexShader,
+      fragmentShader: AoShader.fragmentShader,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.quad = new FullScreenQuad(this.material);
+  }
+
+  setRadius(radius: number): void {
+    this.material.uniforms.radius.value = radius;
+  }
+
+  setSize(width: number, height: number): void {
+    const w = Math.max(1, Math.round(width * this.scale));
+    const h = Math.max(1, Math.round(height * this.scale));
+    this.target.setSize(w, h);
+    this.material.uniforms.resolution.value.set(w, h);
+  }
+
+  render(renderer: THREE.WebGLRenderer, _writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget): void {
+    const u = this.material.uniforms;
+    u.tDepth.value = readBuffer.depthTexture;
+    u.cameraProjectionMatrix.value.copy(this.camera.projectionMatrix);
+    u.cameraProjectionMatrixInverse.value.copy(this.camera.projectionMatrixInverse);
+    renderer.setRenderTarget(this.target);
+    this.quad.render(renderer);
+  }
+
+  dispose(): void {
+    this.target.dispose();
+    this.material.dispose();
+    this.quad.dispose();
+  }
+}
+
+const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
+  agx: "AGX_TONE_MAPPING",
+  aces: "ACES_FILMIC_TONE_MAPPING",
+  neutral: "NEUTRAL_TONE_MAPPING",
+  none: null,
+};
+
+/** The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs). */
+export function finishDefines(look: LookSettings, ao: boolean): Record<string, string> {
+  const defines: Record<string, string> = { SRGB_TRANSFER: "" };
+  const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
+  if (tone) defines[tone] = "";
+  if (ao) defines.AO = "";
+  if (look.grade.enabled) defines.GRADE = "";
+  if (look.vignette.enabled) defines.VIGNETTE = "";
+  return defines;
+}
+
+const FinishShader = {
+  // A raw shader, as three's `OutputShader`: three adds no tone map or colour space of its own.
+  vertexShader: /* glsl */ `
+    precision highp float;
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    attribute vec3 position;
+    attribute vec2 uv;
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */ `
+    precision highp float;
+    uniform sampler2D tDiffuse;
+    uniform sampler2D tAo;
+    uniform float aoIntensity;
+    uniform float saturation;
+    uniform float contrast;
+    uniform float warmth;
+    uniform float vignetteOffset;
+    uniform float vignetteDarkness;
+    varying vec2 vUv;
+
+    #include <tonemapping_pars_fragment>
+    #include <colorspace_pars_fragment>
+
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      #ifdef AO
+        color.rgb *= mix(1.0, texture2D(tAo, vUv).r, aoIntensity);
+      #endif
+      // three's curves apply \`toneMappingExposure\` themselves.
+      #if defined( AGX_TONE_MAPPING )
+        color.rgb = AgXToneMapping(color.rgb);
+      #elif defined( ACES_FILMIC_TONE_MAPPING )
+        color.rgb = ACESFilmicToneMapping(color.rgb);
+      #elif defined( NEUTRAL_TONE_MAPPING )
+        color.rgb = NeutralToneMapping(color.rgb);
+      #else
+        color.rgb = clamp(color.rgb * toneMappingExposure, 0.0, 1.0);
+      #endif
+      #ifdef GRADE
+        float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+        color.rgb = mix(vec3(luma), color.rgb, saturation);
+        color.rgb = (color.rgb - 0.18) * contrast + 0.18;
+        color.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth);
+        color.rgb = clamp(color.rgb, 0.0, 1.0);
+      #endif
+      #ifdef VIGNETTE
+        vec2 centred = (vUv - 0.5) * vignetteOffset;
+        color.rgb *= mix(1.0 - vignetteDarkness, 1.0, clamp(1.0 - dot(centred, centred) * 2.0, 0.0, 1.0));
+      #endif
+      gl_FragColor = sRGBTransferOETF(color);
+    }`,
+};
+
+/**
+ * The last pass of the look (or the one before SMAA): the AO applied, the exposure and the tone map, the grade, the
+ * vignette, then the sRGB transfer. The tone-mapping functions read three's `toneMappingExposure` uniform.
+ */
+export class FinishPass extends Pass {
+  readonly material: THREE.RawShaderMaterial;
+  private readonly quad: FullScreenQuad;
+
+  constructor(look: LookSettings, ao: THREE.Texture | null) {
+    super();
+    this.material = new THREE.RawShaderMaterial({
+      name: "FinishShader",
+      defines: finishDefines(look, ao !== null),
+      uniforms: {
+        tDiffuse: { value: null },
+        tAo: { value: ao },
+        aoIntensity: { value: look.ao.intensity },
+        toneMappingExposure: { value: look.toneMapping.exposure },
+        saturation: { value: look.grade.saturation },
+        contrast: { value: look.grade.contrast },
+        warmth: { value: look.grade.warmth },
+        vignetteOffset: { value: look.vignette.offset },
+        vignetteDarkness: { value: look.vignette.darkness },
+      },
+      vertexShader: FinishShader.vertexShader,
+      fragmentShader: FinishShader.fragmentShader,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.quad = new FullScreenQuad(this.material);
+  }
+
+  /** The exposure, multiplied by the render profile's (`Effects.setExposure`). */
+  setExposure(exposure: number): void {
+    this.material.uniforms.toneMappingExposure.value = exposure;
+  }
+
+  render(renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget): void {
+    this.material.uniforms.tDiffuse.value = readBuffer.texture;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    if (this.clear) renderer.clear();
+    this.quad.render(renderer);
+  }
+
+  dispose(): void {
+    this.material.dispose();
+    this.quad.dispose();
+  }
+}

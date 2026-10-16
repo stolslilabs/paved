@@ -39,6 +39,7 @@ function createScene() {
   });
   (scene as any).assets.preloadAll = vi.fn().mockResolvedValue(undefined);
   const effects = {
+    setLook: vi.fn(),
     init: vi.fn(),
     setCapabilities: vi.fn(),
     setProfile: vi.fn(),

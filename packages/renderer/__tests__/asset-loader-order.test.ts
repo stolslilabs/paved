@@ -259,7 +259,7 @@ describe("GameScene with the load order, as GameCanvas drives it", () => {
       update: vi.fn(() => false), resize: vi.fn(), setMode: vi.fn(), setBoardBounds: vi.fn(), focusBounds: vi.fn(), dispose: vi.fn(),
     };
     const s = new GameScene({ createRenderer: () => renderer as any, createCameraController: () => controller as any });
-    (s as any).effects = { init: vi.fn(), setCapabilities: vi.fn(), setProfile: vi.fn(), resize: vi.fn(), render: vi.fn(), dispose: vi.fn() };
+    (s as any).effects = { setLook: vi.fn(), init: vi.fn(), setCapabilities: vi.fn(), setProfile: vi.fn(), resize: vi.fn(), render: vi.fn(), dispose: vi.fn() };
     return s;
   }
   const tile = (id: number, plan: number): TileRenderData => ({ game_id: 1, id, player_id: "0x1", plan, orientation: 1, x: id, y: 0, worldX: id, worldZ: 0 });

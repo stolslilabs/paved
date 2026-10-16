@@ -224,6 +224,11 @@ which the session is meant to avoid. It stays in the table and the JSON, and out
   fresh `starknet-devnet --seed 42`, `scripts/deploy.sh devnet`, the client with `VITE_PLAYER_*`). A devnet seals a block per transaction at once, so its figures prove
   the instrumentation and are not release figures.
 
+## Release gates
+
+- LIGHT-GPU: per-effect GPU frame times on both profiles, tier defaults set from them, and the flicker re-check with
+  outlines on. The v2 app is not published to players before it lands (PM, 2026-10-15).
+
 ## What "done" means
 
 All of:

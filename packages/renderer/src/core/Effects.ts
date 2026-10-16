@@ -2,40 +2,11 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
 import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import type { RenderProfile, EffectsCapabilities } from "./types";
-import { resolveEffectsProfile } from "./render-profiles";
-
-// Vignette shader (from postprocessing library, simplified)
-const VignetteShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    offset: { value: 0.1 },
-    darkness: { value: 0.8 },
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float offset;
-    uniform float darkness;
-    varying vec2 vUv;
-    void main() {
-      vec4 texel = texture2D(tDiffuse, vUv);
-      vec2 uv = (vUv - vec2(0.5)) * vec2(offset);
-      float vignette = clamp(1.0 - dot(uv, uv), 0.0, 1.0);
-      texel.rgb *= mix(1.0 - darkness, 1.0, vignette);
-      gl_FragColor = texel;
-    }
-  `,
-};
+import { getLightingProfile } from "./render-profiles";
+import { LOOK_PRESETS, resolveLook, type LookSettings, type QualityTier } from "./look";
+import { AoPass, FinishPass, finishDefines } from "./post-shaders";
 
 /** Samples of the multisampled scene target. */
 export const MSAA_SAMPLES = 4;
@@ -66,44 +37,40 @@ export function resolveFaceAntialiasing(on: boolean, device: FaceAntialiasingDev
   return msaa ? "msaa" : "smaa";
 }
 
+/** @deprecated The look (`LookSettings`, `look.ts`) carries the bloom and the vignette now. */
 export interface EffectsConfig {
-  bloom?: {
-    threshold?: number;
-    strength?: number;
-    radius?: number;
-  };
-  vignette?: {
-    offset?: number;
-    darkness?: number;
-  };
+  bloom?: { threshold?: number; strength?: number; radius?: number };
+  vignette?: { offset?: number; darkness?: number };
 }
 
-const DEFAULT_CONFIG: EffectsConfig = {
-  bloom: {
-    threshold: 3,
-    strength: 0.5,
-    radius: 0.4,
-  },
-  vignette: {
-    offset: 0.1,
-    darkness: 0.8,
-  },
-};
+/** The passes a look runs, in order: what decides whether the chain must be rebuilt. */
+export type EffectsPassName = "render" | "ao" | "bloom" | "finish" | "smaa";
 
+/**
+ * The post-processing chain of a look: `RenderPass` (into a half-float target, multisampled for MSAA, with a depth
+ * texture when the AO reads it), `AoPass` (when on), `UnrealBloomPass` (when on), `FinishPass` (always: AO applied, tone
+ * map, grade, vignette, sRGB), then `SMAAPass` where it antialiases the faces. An effect that is off adds no pass.
+ */
 export class Effects {
   private composer: EffectComposer | null = null;
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
   private camera: THREE.Camera | null = null;
-  private config: EffectsConfig;
   private profile: RenderProfile = "play";
-  private ssaoPass: SSAOPass | null = null;
   private capabilities: EffectsCapabilities = {};
   private antialiasing: FaceAntialiasing = "off";
+  private look: LookSettings = LOOK_PRESETS.mockup;
+  private tier: QualityTier = "high";
+  /** The look as drawn (`resolveLook` of the look, the tier and the capabilities). */
+  private drawn: LookSettings = LOOK_PRESETS.mockup;
+  /** What the current chain was built for (`chainKey`): a change of anything else only updates uniforms. */
+  private builtKey = "";
+  private bloomPass: UnrealBloomPass | null = null;
+  private aoPass: AoPass | null = null;
+  private finishPass: FinishPass | null = null;
+  private passNames: EffectsPassName[] = [];
 
-  constructor(config: EffectsConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-  }
+  constructor(_config: EffectsConfig = {}) {}
 
   init(
     renderer: THREE.WebGLRenderer,
@@ -117,23 +84,44 @@ export class Effects {
     this.scene = scene;
     this.camera = camera;
     this.profile = profile;
-    this.buildComposer();
+    this.rebuild();
   }
 
+  /** The render profile: it scales the look's exposure (`LightingProfile.exposure` against the play profile's). */
   setProfile(profile: RenderProfile): void {
     this.profile = profile;
-    this.buildComposer();
+    this.update();
   }
 
   /** The face antialiasing (`resolveFaceAntialiasing`). Rebuilds the passes when it changes. */
   setAntialiasing(antialiasing: FaceAntialiasing): void {
     if (this.antialiasing === antialiasing) return;
     this.antialiasing = antialiasing;
-    this.buildComposer();
+    this.rebuild();
   }
 
   getAntialiasing(): FaceAntialiasing {
     return this.antialiasing;
+  }
+
+  /**
+   * The look and the quality tier it is drawn at (`resolveLook`). The passes are rebuilt only when the set of passes or
+   * a target changes; a new value of an effect that stays on only updates its uniforms.
+   */
+  setLook(look: LookSettings, tier: QualityTier): void {
+    this.look = look;
+    this.tier = tier;
+    this.update();
+  }
+
+  /** The look as drawn: the tier's and the capabilities' effects only. */
+  getDrawnLook(): LookSettings {
+    return this.drawn;
+  }
+
+  /** The passes of the current chain, in order (tests, the bench). */
+  getPassNames(): readonly EffectsPassName[] {
+    return this.passNames;
   }
 
   /** The composer, for tests and the bench: its first target and its passes. */
@@ -143,17 +131,65 @@ export class Effects {
 
   setCapabilities(capabilities: EffectsCapabilities): void {
     this.capabilities = capabilities;
-    this.buildComposer();
+    this.update();
   }
 
-  private buildComposer(): void {
+  /** Re-resolve the look; rebuild the chain if its passes or targets changed, else only set the uniforms. */
+  private update(): void {
+    this.drawn = resolveLook(this.look, this.tier, this.capabilities);
+    if (this.chainKey() !== this.builtKey) this.rebuild();
+    else this.applyUniforms();
+  }
+
+  private chainKey(): string {
+    const look = this.drawn;
+    return JSON.stringify([
+      this.antialiasing,
+      look.ao.enabled && look.ao.resolution,
+      look.bloom.enabled,
+      finishDefines(look, look.ao.enabled),
+    ]);
+  }
+
+  private exposure(): number {
+    return (this.drawn.toneMapping.exposure * getLightingProfile(this.profile).exposure) / getLightingProfile("play").exposure;
+  }
+
+  private applyUniforms(): void {
+    const look = this.drawn;
+    if (this.bloomPass) {
+      this.bloomPass.strength = look.bloom.strength;
+      this.bloomPass.radius = look.bloom.radius;
+      this.bloomPass.threshold = look.bloom.threshold;
+    }
+    if (this.aoPass) this.aoPass.setRadius(look.ao.radius);
+    if (this.finishPass) {
+      const u = this.finishPass.material.uniforms;
+      u.aoIntensity.value = look.ao.intensity;
+      u.saturation.value = look.grade.saturation;
+      u.contrast.value = look.grade.contrast;
+      u.warmth.value = look.grade.warmth;
+      u.vignetteOffset.value = look.vignette.offset;
+      u.vignetteDarkness.value = look.vignette.darkness;
+      this.finishPass.setExposure(this.exposure());
+    }
+  }
+
+  private rebuild(): void {
+    this.drawn = resolveLook(this.look, this.tier, this.capabilities);
     if (!this.renderer || !this.scene || !this.camera) return;
 
     this.composer?.dispose();
-    this.ssaoPass = null;
+    this.aoPass?.dispose();
+    this.finishPass?.dispose();
+    this.bloomPass?.dispose();
+    this.aoPass = null;
+    this.finishPass = null;
+    this.bloomPass = null;
     const renderer = this.renderer;
     const scene = this.scene;
     const camera = this.camera;
+    const look = this.drawn;
     // The scene is drawn into the composer's target, not the canvas: the canvas's `antialias` does not reach it. The
     // target is multisampled itself for MSAA; the composer resolves it before the next pass reads it, and the outlines
     // (drawn in the same pass, with their own coverage) are multisampled with the faces.
@@ -162,58 +198,55 @@ export class Effects {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       samples: multisample ? MSAA_SAMPLES : 0,
+      // The AO reads the scene's depth: a texture instead of a renderbuffer, only then (the composer's clone gets its own).
+      ...(look.ao.enabled ? { depthTexture: new THREE.DepthTexture(size.x, size.y) } : {}),
     });
     target.texture.name = "EffectComposer.rt1";
-    // The composer clones the first target into its second and swaps the two every frame (the vignette pass swaps even
+    // The composer clones the first target into its second and swaps the two every frame (the final pass swaps even
     // when it draws to the screen), so the scene lands in each target in turn: both keep the samples, or every other
     // frame would be drawn without MSAA (a flicker, measured in P4).
     this.composer = new EffectComposer(renderer, target);
     // A given target makes the composer take its size as CSS pixels with a pixel ratio of 1: give it the renderer's
     // ratio first, so `setSize` (and every resize after) keeps the target at the drawing buffer's size.
     this.composer.setPixelRatio(renderer.getPixelRatio());
-    const css = renderer.getSize(new THREE.Vector2());
-    this.composer.setSize(css.x, css.y);
+    const names: EffectsPassName[] = ["render"];
 
-    // Render pass
-    const renderPass = new RenderPass(scene, camera);
-    this.composer.addPass(renderPass);
+    this.composer.addPass(new RenderPass(scene, camera));
 
-    const profileConfig = resolveEffectsProfile(this.profile, this.capabilities);
-
-    if (profileConfig.ssao.enabled) {
-      this.ssaoPass = new SSAOPass(
-        scene,
-        camera as THREE.PerspectiveCamera,
-        renderer.domElement.width,
-        renderer.domElement.height,
-      );
-      this.ssaoPass.kernelRadius = profileConfig.ssao.radius;
-      this.ssaoPass.minDistance = profileConfig.ssao.minDistance;
-      this.ssaoPass.maxDistance = profileConfig.ssao.maxDistance;
-      this.composer.addPass(this.ssaoPass);
+    if (look.ao.enabled) {
+      this.aoPass = new AoPass(camera as THREE.PerspectiveCamera, look.ao);
+      this.composer.addPass(this.aoPass);
+      names.push("ao");
     }
 
-    // Bloom
-    const bloomConfig = profileConfig.bloom;
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(renderer.domElement.width, renderer.domElement.height),
-      bloomConfig.strength ?? 0.5,
-      bloomConfig.radius ?? 0.4,
-      bloomConfig.threshold ?? 3
-    );
-    this.composer.addPass(bloomPass);
+    if (look.bloom.enabled) {
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(size.x, size.y),
+        look.bloom.strength,
+        look.bloom.radius,
+        look.bloom.threshold,
+      );
+      this.composer.addPass(this.bloomPass);
+      names.push("bloom");
+    }
 
-    // Vignette
-    const vignetteConfig = profileConfig.vignette;
-    const vignettePass = new ShaderPass(VignetteShader);
-    vignettePass.uniforms.offset.value = vignetteConfig.offset ?? 0.1;
-    vignettePass.uniforms.darkness.value = vignetteConfig.darkness ?? 0.8;
-    this.composer.addPass(vignettePass);
+    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null);
+    this.composer.addPass(this.finishPass);
+    names.push("finish");
 
-    // SMAA last, where MSAA is not used: it reads the final colour, so it smooths the faces' edges after bloom and
-    // vignette, in the same linear colour the passes before it write.
+    // SMAA last, where MSAA is not used: it reads the final, display-encoded colour (its edge detection is tuned for
+    // it), so it smooths the faces' edges after everything else.
     // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
-    if (this.antialiasing === "smaa" && typeof Image !== "undefined") this.composer.addPass(new SMAAPass());
+    if (this.antialiasing === "smaa" && typeof Image !== "undefined") {
+      this.composer.addPass(new SMAAPass());
+      names.push("smaa");
+    }
+
+    const css = renderer.getSize(new THREE.Vector2());
+    this.composer.setSize(css.x, css.y);
+    this.passNames = names;
+    this.builtKey = this.chainKey();
+    this.applyUniforms();
   }
 
   render(): void {
@@ -222,7 +255,7 @@ export class Effects {
 
   /**
    * Fit the composer's targets to a canvas of `width` x `height` CSS px at `pixelRatio` (the renderer's, by default).
-   * The composer sizes every pass, SSAO and bloom included, in device px.
+   * The composer sizes every pass, AO and bloom included, in device px.
    */
   resize(width: number, height: number, pixelRatio = this.renderer?.getPixelRatio() ?? 1): void {
     this.composer?.setPixelRatio(pixelRatio);
@@ -231,6 +264,12 @@ export class Effects {
 
   dispose(): void {
     this.composer?.dispose();
+    this.aoPass?.dispose();
+    this.finishPass?.dispose();
+    this.bloomPass?.dispose();
     this.composer = null;
+    this.aoPass = null;
+    this.finishPass = null;
+    this.bloomPass = null;
   }
 }
