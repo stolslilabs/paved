@@ -777,8 +777,8 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     `dist/` with the rest of `public/`. Kept on Draco's own grid instead (16-bit, exact to the decoded source): 13,131,712 B.
     **The manifest** gains `themes`, keyed by theme id on chain, then plan key, the variants in order:
     `{ "models": {...}, "themes": { "1": { "<plan>": ["models/forest/<plan>_HF_1.<hash>.glb", ...] } } }`, built from the file
-    names (`THEME_FOLDERS` in `vite/renderer-assets.ts`; a wrong hash fails the build); `AssetLoader` reads `models` only, so
-    the board is unchanged until the skins task reads `themes`. The tests list all 19 plans of Forest and keep `--check` exact
+    names (`THEME_FOLDERS` in `vite/renderer-assets.ts`; a wrong hash fails the build); `AssetLoader` reads `themes` too since
+    SKIN-RENDER (5.6), which draws each tile with its player's active skin. The tests list all 19 plans of Forest and keep `--check` exact
     for both sets. The theme page's tile chips use the base images (the plan view's art, PM ruling): showing the 3D Forest tile
     there would need `TileView` to load a model by path, a renderer change.
  (19, the plan view's and the tile chips'), from app-web's `public/` under their
@@ -790,6 +790,19 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     before; a later failure only leaves that plan undrawn, logged. A model asked for later loads at once; a tile whose
     model (or plan-view image) is not in yet is drawn as soon as it comes in: the loader tells the scene
     (`AssetLoader.onLoaded`), which draws the last tiles given, with a new frame and shadow map when a tile was added.
+    A theme's variants (SKIN-RENDER, 5.6) load only for the tiles that draw them: those handed before the first frame join
+    the first models (and a board drawn only in variants waits for no base model), the others when a tile first needs one;
+    the base models still all load after the first frame, as every tile's fallback.
+  - **What a player's Forest set downloads** (SKIN-RENDER, measured on the files, 2026-10-16; gzip level 9 by Python's
+    `gzip`, no brotli encoder on the machine; the host's own compression of `model/gltf-binary` is not measured, there is
+    no deployment to measure): the worst case, all 19 plans active and all 72 variants on the board, is 7,493,028 B
+    (3,941,654 B gzipped), on top of the 19 base models (1,089,624 B; 653,324 B gzipped), which load anyway. A typical
+    finished Challenge board (38 tiles), all 19 plans on Forest, simulated over 200 games of the engine (random legal
+    placements, the real hash, the game id varied): 25 to 36 variant files (median 31), 2,566,832 to 3,819,060 B (median
+    3,204,428 B), 1,348,794 to 2,007,262 B gzipped (median 1,690,905 B); the recorded 72-tile board of the stories
+    fetches 52 of the 72. The lazy load bounds it by the board: one file per (plan, variant) a tile shows, at most the
+    tiles on the board, and only the plans the player has skinned; the files are content-hashed, so a return visit
+    fetches none of them again under the immutable rule below.
   - **Cache headers for the host step** (the host config is not changed here): hashed models
     `renderer-assets/models/*.glb`, `Cache-Control: public, max-age=31536000, immutable`; the manifest, `no-cache`
     (`AssetLoader` asks with `cache: "no-cache"` too); the tile images, plain names, `no-cache` or a short `max-age`.
@@ -1357,6 +1370,45 @@ is a control over the preset (unset fields keep the preset's), with the quality 
 effect and the passes that run; the stories Mockup, Soft, Off and Zoomed in; and "Side by side with the mockup", the
 board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/docs`, which Vite serves: not copied).
 
+### 5.6 Tile skins (SKIN-RENDER)
+
+**As built (SKIN-RENDER, 2026-10-16).** The board draws each tile with its player's active skin for its plan (`Setup`'s
+`active_skins`, cobbles v1, part 3), one variant per tile.
+
+- **Which skins.** A Challenge board (`/game/:id`) reads the active set of the game's player (`game.playerId`), for anyone
+  who views that game; Training and the tutorial read the connected player's (the signer's address), and a guest's board
+  draws the base models. `useBoardSkins` (`packages/app/src/data/board-skins.ts`) reads `active_skins` under the theme
+  page's key (`skinKeys.active`), so a save on the theme page moves the board too, and gives the renderer's map
+  (`TileSkins`: plan key to theme id, the plans at 0 left out). The board never waits for it: no skin while the read is
+  on its way, and for good when it fails. The hand's tile (`TileView`) takes the same skins.
+- **The variant per tile** is origin/dev's `getVarietyModelPath` hash (`variantHash`, `packages/renderer/src/core/skins.ts`):
+  over `${plan}${x}${y}${gameId}`, the plan as its upper-case name and x and y the contracts' (centre 2147483647), each
+  character shifted in (`h * 31 + c`, 32-bit) then the word rotated left by 13. The variant is `abs(hash) % count`, the
+  count being the plan's own number of variants in that theme, so a plan with fewer variants takes the remainder by its
+  own count (one variant: always the first). Forest has only the high-forest set, so there is no LF/HF choice. Every viewer
+  and every reload sees the same board. Training's game id is 0 (a local game), so its variants follow the cells only.
+  The ghost draws the variant of the cell it hovers (`HoverState.cell`); the hand, which has no cell yet, the variant at
+  the board's centre of game 0.
+- **The renderer.** `AssetManifest` reads `themes`; `skinModelPath` picks the variant's path, or the plan's base model
+  when the manifest lists no variant of that theme and plan: theme 0, a theme not out (Snow, Desert, Volcano), a host with
+  no manifest. `GameScene.setSkins` (and `GameCanvas`'s `skins`) hands the map to `TileRenderer`, which keys its shared
+  models by model id (a plan key, or a variant's path): one variant loads once and is shared by its tiles, with its own
+  outline geometry, built the same way. A tile whose variant is not in yet keeps its base model meanwhile (when that is
+  in) and swaps when the variant comes in; a variant that fails to load is not asked again, and its tiles draw the base
+  model (logged once). Outlines, MSAA, the segment cut and LIGHT's look are unchanged on skinned tiles: the variants sit on
+  the same 0.1 voxel grid, and `renderer-models-edges.test.ts` checks that each of the 72 Forest models gives its Draco
+  source's outline segments, within the voxel snap (each source coordinate within 1.3e-4 of the grid). A host that serves
+  no `manifest.json` may hand one (`RendererConfig.manifest`, `GameCanvas`'s `manifest`): the stories do.
+- **The device's theme** (`paved.theme.v1`, `useDeviceTheme`, "the board's look" at the top of the theme page) is not read
+  by the board. The skins are the chain's and belong to a player: a Challenge board shows its player's choice to every
+  viewer. What the device choice should do there is a product choice this task does not settle: a viewer's opt-out
+  ("Default": draw every board in base models on this device), or the theme a guest's Training board shows. Left as is.
+- **Stories:** "Renderer/Skins" (`packages/app/src/stories/renderer/skins.stories.tsx`): the recorded 72-tile board with
+  Forest on none, every other plan, or all 19 (a control), and a readout of the variant files fetched. Captures in
+  `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chromium on software WebGL (outlines off there): not a GPU
+  render. No frame-time figure was measured; a skinned board has as many shared models as variants shown (up to 52 on the
+  72-tile board, against 19), so a bench run on the Mac's GPU is the way to know its cost.
+
 ---
 
 ## 6. The page map
@@ -1840,7 +1892,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 | P8 | The leaderboard and player scenes on the indexer. **Done** (2026-10-15; "As built (P8)" below) | 0.5 d |
 | P9 | The quests and achievements scenes on the indexer. With Cobbles part 1 (CORE #440): the claims and the free-game credits. **Done** (2026-10-15; "As built (P9)" below). **Play free done** (PLAYFREE): `PavedWriter.spawnFree` (`Challenge.spawn_free()`, typed `NoCreditError` and `FreeSpawnPausedError`, a session policy), `usePlayFree` (`data/play-free.ts`) on home and play: with a credit and a signer that can spend it, disabled while spawn is paused, absent for a guest; the receipt's `GameSpawned` id opens `/game/:id` and the credits in the cache go down by one. Quests and achievements look for an earlier wallet session as home and play do (`useAccount`). A free game is `GameSpawned.price == 0`; its over page's "Free game" label is left to P7a | 0.5 d |
 | P10 | The vault and referral scenes on their data (and the indexer's referral route) | 1.5 d |
-| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **Next: the board draws the active skins** (the renderer picks each tile's model from its player's active set and a variant per tile, as origin/dev's `getVarietyModelPath`; the manifest's `themes` is its input), a separate task after LIGHT | 0.5 d |
+| P11 | The settings and theme scenes (themes beyond Default shown "coming soon" until their art). **P11b done** (2026-10-16; "As built (P11b)" below): `/settings/theme` with Cobbles part 3's skins, bought and activated on chain, and the Forest models compressed. **SKIN-RENDER done** (2026-10-16; "As built (SKIN-RENDER)" below and 5.6): the board draws each tile with its player's active skin, a variant per tile by origin/dev's `getVarietyModelPath` hash | 0.5 d |
 | P12 | Cut-over: devnet e2e on the new app, publish it, remove `packages/app-web` | 1.5 d |
 
 **P9's note (SC2b).** The quests scene takes each quest with its schedule (`start`, `interval`, `duration`: `ScheduledQuest` in
@@ -1938,6 +1990,13 @@ Cobbles, never a token, so no approve is added (P-56). `set_skins` takes a `Span
 the writer writes its calldata (the length, then each plan and theme), a test holding it to the ABI. The board's look chosen at
 the top of the page is kept on this device (`paved.theme.v1`); the board does not read it yet.
 
+**As built (SKIN-RENDER).** The board draws each tile with its player's active skin (5.6): a Challenge board its game's
+player's, Training and the tutorial the connected player's (a guest's, the base models), one variant per tile by origin/dev's
+hash of the plan, the cell and the game. The variants load lazily, only those the board and the hand show; theme 0, a theme
+the manifest does not list, a failed skin read and a variant that fails to load all draw the base model, and the board never
+waits for the skins. The device's theme (`paved.theme.v1`) is still not read by the board (5.6 says why). What a player's
+Forest set downloads is in 4.2.
+
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
 non-number is today, and the picker goes no earlier than the indexer's first tournament (`useFirstDay`, which walks
@@ -1976,7 +2035,7 @@ gzipped); Q3's bundle budget counts it.
 | Q1 | Motion pass on every interaction; reduced motion checked | 1.5 d |
 | Q2 | Accessibility: Storybook a11y tests in CI, keyboard paths, focus | 1.5 d |
 | Q3 | Performance: bundle budget, route prefetch, the bench on the new app against P-7b (the Mac's headless rule). Added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; the first paint with the icons (F4's Font Awesome) | 2 d |
-| Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did) | 2 d |
+| Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did). **Done by SKIN-RENDER** (2026-10-16, 5.6) | 2 d |
 
 Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
 for the polish, one thread at a time; phases 1's F3–F6 and phase 2's SC2 and P2 can run in parallel threads.
