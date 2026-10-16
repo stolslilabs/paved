@@ -334,3 +334,9 @@ The controller notice (D-15) is shown at body size (1rem), in normal flow below 
 2026-10-16, Client v2 X8: the app tests' cold-first-test timeouts fixed at their cause (retryDelay 0, findBy 5 s, one 15 s margin, route preloads, shared board stand-in): 10 of 10 full runs pass under heavy load.
 
 2026-10-16, Client v2 Q-POLISH-R: a placed tile and the ghost draw their plan's image on a flat quad while their model loads, then swap to the model in the same call; the 19 tile images (319,815 B) load with the first frame.
+
+2026-10-16, Client v2 Q-POLISH-A: PAVED/vPAVED replace $TILE in the v2 app; the purchase, over, theme, settings, board and tutorial notes closed with tests; the settings chunk no longer carries three.js (805 kB to 1 kB).
+
+2026-10-16, Client v2 TEX: tile images 256 px, hashed and in the manifest; GPU for the 19 plans 286 MB -> 6.6 MB (plan view), 271 MB -> 6.3 MB (quads); one size, clone kept (sRGB on the plan view = 30 dE). Review pending.
+
+2026-10-16, Client v2 TILE-CHIP: the tile chips read the 256 px copies through the manifest and the v2 build ships no 1680 px original; tile images over a game page 403,098 B to 83,283 B at most.
