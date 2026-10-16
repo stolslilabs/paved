@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { errorDetail } from "../error-detail";
 import { parseUnits, type VaultMode } from "../../components/containers/vault-form";
 import { VaultScene, type VaultStatus } from "../../components/scenes/vault-scene";
 import { usePavedBalance, useSplit, useVaultPosition } from "../../data/chain";
@@ -42,7 +43,7 @@ export default function Page() {
         ? { kind: "loading" }
         : { kind: "guest" }
       : failed
-        ? { kind: "error", message: (failed.error as Error).message }
+        ? { kind: "error", message: (failed.error as Error).message, detail: errorDetail(failed.error) }
         : position.data === undefined || balance.data === undefined
           ? { kind: "loading" }
           : null;
@@ -66,6 +67,7 @@ export default function Page() {
       preview={preview.data ?? null}
       busy={control.busy}
       refused={control.refused}
+      refusedDetail={control.refused ? errorDetail(control.refusedError ?? control.refused) : undefined}
       done={control.done}
       onModeChange={(m) => {
         fresh();

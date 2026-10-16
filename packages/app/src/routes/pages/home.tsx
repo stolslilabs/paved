@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { toastError } from "../../components/containers/error-toast";
 import type { Leaderboard } from "@paved/chain";
 import type { PlayerStatusData } from "../../components/containers/player-status";
 import { HomeScene } from "../../components/scenes/home-scene";
@@ -9,6 +9,7 @@ import { usePlayerStatus, useTopThree } from "../../data/indexer";
 import { useTrainingSave } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { PrefetchOnIntent } from "../prefetch";
 import { useAppNavigate, useTabNavigate } from "../ref";
@@ -45,7 +46,7 @@ export default function Page() {
     free
       .spend()
       .then((id) => id !== null && go(`/game/${id}`))
-      .catch((e: unknown) => toast.error("The free game did not start", { description: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => toastError({ title: "The free game did not start", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }));
   };
 
   // A connected player the indexer has not answered for yet (or cannot) is shown by their address, with zero figures.

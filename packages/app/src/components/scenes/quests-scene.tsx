@@ -8,6 +8,7 @@ import type { Trackable } from "../../lib/quest-toasts";
 import { Countdown } from "../elements/countdown";
 import { DayPicker } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { useCompletionToasts, type CompletionMemory } from "../containers/completion-toasts";
 import { FreeGames } from "../containers/free-games";
@@ -51,6 +52,8 @@ export interface QuestsSceneProps {
   /** False: a guest, asked to connect. */
   connected: boolean;
   error?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  errorDetail?: ErrorDetail;
   now: number;
   /** The Cobbles and free games; omitted before Cobbles. */
   rewards?: QuestRewards | null;
@@ -132,9 +135,12 @@ export function QuestsScene(props: QuestsSceneProps) {
           Quests count your Challenge games: they need an account.
         </Notice>
       ) : error ? (
-        <Notice tone="danger" title="Could not load the quests" action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}>
-          {error}
-        </Notice>
+        <InlineError
+          title="Could not load the quests"
+          message={error}
+          detail={props.errorDetail}
+          action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}
+        />
       ) : quests === null ? (
         <div role="status" aria-label="Loading the quests" className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (

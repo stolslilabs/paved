@@ -1,7 +1,8 @@
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toastError } from "../../components/containers/error-toast";
 import type { CobbleClaim } from "@paved/chain";
+import { errorDetail } from "../error-detail";
 import { QuestsScene } from "../../components/scenes/quests-scene";
 import { isClaimed } from "../../components/containers/cobble-types";
 import { useDataSources } from "../../data/sources";
@@ -52,7 +53,7 @@ export default function Page() {
   const firstDay = definitions.data ? (firstQuestDay(definitions.data) ?? today) : today;
 
   const send = (target: ClaimTarget, batch: CobbleClaim[]) => {
-    claims.claim(target, batch).catch((e: unknown) => toast.error("The claim did not go through", { description: e instanceof Error ? e.message : String(e) }));
+    claims.claim(target, batch).catch((e: unknown) => toastError({ title: "The claim did not go through", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }));
   };
   const period = (questId: number): number | null => {
     const kind = rewards.data?.cobbles.find((c) => c.questId === questId)?.kind;
@@ -81,7 +82,7 @@ export default function Page() {
 
   if (today === null || day === null) {
     // The clock first: without it there is no day to show. Its failure is the page's error.
-    return <QuestsScene day={0} today={0} firstDay={0} quests={null} connected={playerId !== null} now={0} error={clock.error?.message ?? null} onNavigate={onNavigate} onRetry={retry} />;
+    return <QuestsScene day={0} today={0} firstDay={0} quests={null} connected={playerId !== null} now={0} error={clock.error?.message ?? null} errorDetail={clock.error ? errorDetail(clock.error) : undefined} onNavigate={onNavigate} onRetry={retry} />;
   }
 
   return (
@@ -92,6 +93,7 @@ export default function Page() {
       quests={quests.data ?? null}
       connected={playerId !== null}
       error={error?.message ?? null}
+      errorDetail={error ? errorDetail(error) : undefined}
       now={clock.now!}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming } : null}
       canClaim={claims.claimer !== null}

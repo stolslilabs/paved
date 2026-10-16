@@ -1,3 +1,4 @@
+import { errorDetail } from "../error-detail";
 import { WelcomeScene } from "../../components/scenes/welcome-scene";
 import { useWallet } from "../../wallet/wallet";
 import { useAppNavigate } from "../ref";
@@ -14,6 +15,7 @@ export default function Page() {
     <WelcomeScene
       connecting={wallet.status === "connecting"}
       error={wallet.error}
+      errorDetail={wallet.error ? errorDetail(wallet.error) : undefined}
       onConnect={async () => {
         if (!(await wallet.connect())) return;
         markWelcomed();

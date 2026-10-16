@@ -7,6 +7,7 @@ import { Separator } from "../ui/separator";
 import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { formatLocal, formatUtc } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
@@ -27,6 +28,8 @@ export interface SettleProps {
   at?: number;
   /** `refused`: why. */
   message?: string;
+  /** `refused`: its detail for support (typed name, hash, game, version, time). */
+  detail?: ErrorDetail;
   onSettle?: () => void;
   onConnect?: () => void;
 }
@@ -186,7 +189,7 @@ function When({ at, timeZone }: { at: number; timeZone?: string }) {
 }
 
 /** The settle area under the reward (P7a): when the day can be settled, then the button, its refusal and its outcome. */
-function SettleArea({ state, at, message, onSettle, onConnect, timeZone }: SettleProps & { timeZone?: string }) {
+function SettleArea({ state, at, message, detail, onSettle, onConnect, timeZone }: SettleProps & { timeZone?: string }) {
   return (
     <section aria-label="Settle" data-state={state} className="flex flex-col gap-3">
       {state === "after" && at != null && (
@@ -204,11 +207,7 @@ function SettleArea({ state, at, message, onSettle, onConnect, timeZone }: Settl
           {state === "pending" ? "Settling…" : "Settle and claim"}
         </Button>
       )}
-      {state === "refused" && (
-        <Notice tone="danger" title="Settle refused">
-          {message}
-        </Notice>
-      )}
+      <InlineError title="Settle refused" message={state === "refused" ? message : null} detail={detail} />
       {state === "settled" && (
         <p className="flex items-center gap-2 px-1 text-sm text-success">
           <Icon name="circle-check" size="sm" />

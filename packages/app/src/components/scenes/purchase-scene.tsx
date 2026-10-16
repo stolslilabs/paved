@@ -5,6 +5,7 @@ import { Amount, formatUnits, TOKENS } from "../elements/amount";
 import { GAME_VALIDITY_S } from "../elements/countdown";
 import { Deadline } from "../elements/deadline";
 import { Icon } from "../ui/icon";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { Cobbles } from "../elements/cobbles";
 import { formatPoints } from "../elements/score";
@@ -25,7 +26,16 @@ import { TopBar } from "../containers/top-bar";
 export interface PurchaseRefusal {
   kind: "moved" | "quote-moved" | "low-quote" | "paused" | "unknown" | "landed" | "ready" | "busy" | "refused";
   message: string;
+  /** The typed error's detail for support (`InlineError`): its name, its hash, the version, the time. */
+  detail?: ErrorDetail;
 }
+
+/**
+ * The refusals that are errors (P-67), shown by `InlineError`: the write was refused, or the price or the pool's quote
+ * moved under it. The others are states with a way on (paused, a low quote to accept, an outcome to check, a game
+ * ready, another write busy) and stay a `Notice`.
+ */
+const ERROR_KINDS: ReadonlySet<PurchaseRefusal["kind"]> = new Set(["refused", "moved", "quote-moved"]);
 
 const REFUSAL_TITLE: Record<PurchaseRefusal["kind"], string> = {
   moved: "The price moved",
@@ -58,7 +68,8 @@ interface Check {
 }
 
 function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
-  const tone = refusal.kind === "refused" ? "danger" : refusal.kind === "busy" || refusal.kind === "landed" || refusal.kind === "ready" ? "info" : "warning";
+  if (ERROR_KINDS.has(refusal.kind)) return <InlineError title={REFUSAL_TITLE[refusal.kind]} message={refusal.message} detail={refusal.detail} />;
+  const tone = refusal.kind === "busy" || refusal.kind === "landed" || refusal.kind === "ready" ? "info" : "warning";
   const checkable = (refusal.kind === "unknown" || refusal.kind === "landed") && check;
   const ready = refusal.kind === "ready" && check?.onOpen;
   return (
@@ -105,6 +116,11 @@ function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: C
         " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice."}
     </Notice>
   );
+}
+
+/** "Not enough USDC" as plain text, for the copy and the tooltip (the shown line draws the amounts with `Amount`). */
+function shortText(what: "stake" | "pack", price: bigint, balance: bigint): string {
+  return `This ${what} costs ${formatUnits(price, TOKENS.usdc.decimals, TOKENS.usdc.fraction)} USDC; the wallet holds ${formatUnits(balance, TOKENS.usdc.decimals, TOKENS.usdc.fraction)}.`;
 }
 
 /** The wallet's USDC could not be read: no "not enough" claim, Pay waits, and Retry reads it again. */
@@ -154,6 +170,7 @@ export interface CobbleShop {
   loading?: boolean;
   /** The packs could not be read: why (Retry reads them again). */
   error?: string | null;
+  errorDetail?: ErrorDetail;
   /** The last pack bought (its receipt's `PackBought`): its Cobbles. */
   bought?: { cobbles: number } | null;
 }
@@ -332,11 +349,9 @@ function GameTab(props: PurchaseSceneProps) {
             New Challenge games are paused for now. Try again later.
           </Notice>
         )}
-        {!spawnPaused && short && (
-          <Notice tone="danger" title="Not enough USDC">
-            This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance!} token="usdc" />.
-          </Notice>
-        )}
+        <InlineError title="Not enough USDC" message={!spawnPaused && short ? shortText("stake", quote.price, balance!) : null}>
+          This stake costs <Amount value={quote.price} token="usdc" />; the wallet holds <Amount value={balance ?? 0n} token="usdc" />.
+        </InlineError>
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
@@ -386,17 +401,16 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
           <p className="text-xs text-muted-foreground">Cobbles buy tile skins. They stay on your account: they cannot be sent or sold.</p>
         </div>
         {cobbles.error ? (
-          <Notice
-            tone="danger"
+          <InlineError
             title="The packs cannot be read"
+            message={cobbles.error}
+            detail={cobbles.errorDetail}
             action={
               <Button size="sm" variant="outline" onClick={props.onRetryPacks}>
                 Retry
               </Button>
             }
-          >
-            {cobbles.error}
-          </Notice>
+          />
         ) : cobbles.loading ? (
           <Notice title="Reading the packs…">The packs on sale and their prices.</Notice>
         ) : onSale.length === 0 ? (
@@ -415,11 +429,13 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
             </p>
           )}
         </section>
-        {short && pack && (
-          <Notice tone="danger" title="Not enough USDC">
-            This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance!} token="usdc" />.
-          </Notice>
-        )}
+        <InlineError title="Not enough USDC" message={short && pack ? shortText("pack", pack.price, balance!) : null}>
+          {pack && (
+            <>
+              This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance ?? 0n} token="usdc" />.
+            </>
+          )}
+        </InlineError>
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !cobbles.buying && (

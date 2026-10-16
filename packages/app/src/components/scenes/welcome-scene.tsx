@@ -1,6 +1,6 @@
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { Notice } from "../elements/notice";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Background } from "../elements/background";
 import { Wordmark } from "../elements/wordmark";
 
@@ -9,6 +9,8 @@ export interface WelcomeSceneProps {
   connecting?: boolean;
   /** The last connect failed. */
   error?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  errorDetail?: ErrorDetail;
   onConnect?: () => void;
   onTraining?: () => void;
 }
@@ -20,7 +22,7 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 ];
 
 /** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */
-export function WelcomeScene({ connecting, error, onConnect, onTraining }: WelcomeSceneProps) {
+export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining }: WelcomeSceneProps) {
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-board text-foreground">
       <Background />
@@ -49,11 +51,7 @@ export function WelcomeScene({ connecting, error, onConnect, onTraining }: Welco
             <h1 className="font-display text-xl font-semibold">Welcome to Paved</h1>
             <p className="text-sm text-muted-foreground">Connect to enter the daily Challenge, or try a game first: Training needs no wallet.</p>
           </div>
-          {error && (
-            <Notice tone="danger" title="Could not connect">
-              {error}
-            </Notice>
-          )}
+          <InlineError title="Could not connect" message={error} detail={errorDetail} />
           <Button size="lg" onClick={onConnect} loading={connecting}>
             <Icon name="wallet" size="sm" /> {connecting ? "Connecting…" : "Connect"}
           </Button>

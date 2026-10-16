@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import { Notice } from "../elements/notice";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Amount } from "../elements/amount";
 import { formatDay, DAY_S } from "../elements/day-picker";
 import { PlayerName } from "../elements/player-name";
@@ -30,6 +30,8 @@ export interface PlayerSceneProps {
   lag?: IndexerLagInfo | null;
   /** The read failed: what the indexer said. */
   error?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  errorDetail?: ErrorDetail;
   onRetry?: () => void;
   onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
@@ -68,17 +70,16 @@ export function PlayerScene(props: PlayerSceneProps) {
       </div>
 
       {props.error ? (
-        <Notice
-          tone="danger"
+        <InlineError
           title="Could not load the player"
+          message={props.error}
+          detail={props.errorDetail}
           action={
             <Button size="sm" variant="outline" onClick={props.onRetry}>
               Retry
             </Button>
           }
-        >
-          {props.error}
-        </Notice>
+        />
       ) : profile !== null && player === null ? (
         <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
           The indexer has seen no game from this address yet.

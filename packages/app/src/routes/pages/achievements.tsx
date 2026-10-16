@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toastError } from "../../components/containers/error-toast";
 import type { CobbleClaim } from "@paved/chain";
+import { errorDetail } from "../error-detail";
 import { AchievementsScene } from "../../components/scenes/achievements-scene";
 import { isClaimed } from "../../components/containers/cobble-types";
 import { useDataSources } from "../../data/sources";
@@ -29,7 +30,7 @@ export default function Page() {
   const client = useQueryClient();
 
   const send = (target: ClaimTarget, batch: CobbleClaim[]) => {
-    claims.claim(target, batch).catch((e: unknown) => toast.error("The claim did not go through", { description: e instanceof Error ? e.message : String(e) }));
+    claims.claim(target, batch).catch((e: unknown) => toastError({ title: "The claim did not go through", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }));
   };
   const claimAll = () => {
     const r = rewards.data;
@@ -48,6 +49,7 @@ export default function Page() {
       connected={playerId !== null}
       // The ledger's failure leaves the achievements shown, without their Cobbles.
       error={achievements.error?.message ?? null}
+      errorDetail={achievements.error ? errorDetail(achievements.error) : undefined}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming === "daily" || claims.claiming === "weekly" ? null : claims.claiming } : null}
       canClaim={claims.claimer !== null}
       toasts={toasts}

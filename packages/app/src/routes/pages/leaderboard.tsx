@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { errorDetail } from "../error-detail";
 import { LeaderboardScene } from "../../components/scenes/leaderboard-scene";
 import { useCurrentDay } from "../../data/chain";
 import { freePlayers } from "../../data/free";
@@ -54,6 +55,8 @@ export default function Page() {
       free={[...freePlayers(board.entries ?? []), ...(viewer.data ? freePlayers([viewer.data]) : [])]}
       error={board.error?.message ?? null}
       moreError={board.moreError?.message ?? null}
+      errorDetail={board.error ? errorDetail(board.error) : undefined}
+      moreErrorDetail={board.moreError ? errorDetail(board.moreError) : undefined}
       now={now}
       lag={lagInfo(lag)}
       hasMore={board.hasMore}

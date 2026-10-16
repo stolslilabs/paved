@@ -6,6 +6,7 @@ import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
 import { CopyField } from "../elements/copy-field";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
@@ -47,6 +48,8 @@ export interface ReferralSceneProps {
   earnings: ReferralEarnings | null;
   /** The indexer's read failed: the earnings say so with Retry; the link stays. */
   earningsError?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  earningsErrorDetail?: ErrorDetail;
   onCopy?: (link: string) => void;
   /** The system's share sheet; left out where the browser has none (then only Copy). */
   onShare?: (link: string) => void;
@@ -124,9 +127,12 @@ export function ReferralScene(props: ReferralSceneProps) {
           <section aria-label="Earned" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
             <h2 className="font-display text-sm font-semibold">Earned</h2>
             {props.earningsError ? (
-              <Notice tone="danger" title="The earnings cannot be read" action={<Button size="sm" onClick={props.onRetry}>Retry</Button>}>
-                {props.earningsError} Your link still works.
-              </Notice>
+              <InlineError
+                title="The earnings cannot be read"
+                message={`${props.earningsError} Your link still works.`}
+                detail={props.earningsErrorDetail}
+                action={<Button size="sm" onClick={props.onRetry}>Retry</Button>}
+              />
             ) : earnings === null ? (
               <div role="status" aria-label="Loading the earnings" className="flex flex-col gap-3">
                 <Skeleton className="h-9 w-40" />

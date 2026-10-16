@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MAX_STAKE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, boostBps } from "@paved/chain";
 import { PurchaseScene, type PurchaseRefusal, type PurchaseTab } from "../../components/scenes/purchase-scene";
 import { TopBar } from "../../components/containers/top-bar";
+import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { useSpawnPaused, useSplit, useUsdcBalance } from "../../data/chain";
@@ -14,6 +15,7 @@ import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useBack } from "../ref";
 
@@ -46,6 +48,11 @@ function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games"
   if (hold.resolved === "succeeded") return { kind: "landed", message: `Your earlier purchase went through: check your ${what} before buying again.` };
   if (hold.resolved === "reverted") return { kind: "refused", message: "Your earlier purchase did not go through: your USDC was not spent." };
   return null;
+}
+
+/** The refusal with its write's typed error for support (`InlineError` copies the name and the hash), when there is one. */
+function withDetail(refusal: PurchaseRefusal | null, error: Error | null): PurchaseRefusal | null {
+  return refusal && error ? { ...refusal, detail: errorDetail(error) } : refusal;
 }
 
 /** A refusal of a send that sent nothing (busy, declined, a moved price), never the earlier send's own unknown outcome; else null. */
@@ -116,7 +123,7 @@ export default function Page() {
   const error = quote.error ?? split.error;
   if (error || quote.data === null || split.data === null) {
     const retry = () => void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-    return <PurchaseStatus error={error?.message ?? "Purchases are off: the economy is not deployed on this network."} onBack={onBack} onRetry={retry} />;
+    return <PurchaseStatus error={error?.message ?? "Purchases are off: the economy is not deployed on this network."} detail={errorDetail(error)} onBack={onBack} onRetry={retry} />;
   }
   if (quote.data === undefined || split.data === undefined) return <PurchaseStatus error={null} onBack={onBack} />;
 
@@ -191,7 +198,7 @@ export default function Page() {
       spawnPaused={paused.data ?? false}
       buying={purchase.mutation.isPending || purchase.sending}
       quoting={stakeQuote.isPending || gameReferrer.isPending}
-      refusal={purchase.mutation.isPending || purchase.sending ? null : gameRefusal}
+      refusal={purchase.mutation.isPending || purchase.sending ? null : withDetail(gameRefusal, purchase.mutation.error)}
       checking={gameHold.checking}
       checkFailed={gameHold.failed}
       checkRetrying={gameHold.retrying}
@@ -208,9 +215,10 @@ export default function Page() {
               selected,
               loading: packs.isPending,
               error: packs.error?.message ?? null,
+              errorDetail: packs.error ? errorDetail(packs.error) : undefined,
               buying: buyPack.mutation.isPending || buyPack.sending,
               quoting: packQuote.isPending || packReferrer.isPending,
-              refusal: buyPack.mutation.isPending || buyPack.sending ? null : packRefusal,
+              refusal: buyPack.mutation.isPending || buyPack.sending ? null : withDetail(packRefusal, buyPack.mutation.error),
               checking: packHold.checking,
               checkFailed: packHold.failed,
               checkRetrying: packHold.retrying,
@@ -261,7 +269,7 @@ export default function Page() {
  * The page before its scene: the price being read (`error` null), or why it cannot be read (the economy not deployed, a
  * failed read), with Retry. The top bar keeps Back, as on every full-screen flow.
  */
-function PurchaseStatus({ error, onBack, onRetry }: { error: string | null; onBack: () => void; onRetry?: () => void }) {
+function PurchaseStatus({ error, detail, onBack, onRetry }: { error: string | null; detail?: ErrorDetail; onBack: () => void; onRetry?: () => void }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Challenge" onBack={onBack} />
@@ -270,9 +278,7 @@ function PurchaseStatus({ error, onBack, onRetry }: { error: string | null; onBa
           <Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>
         ) : (
           <>
-            <Notice tone="danger" title="The price cannot be read">
-              {error}
-            </Notice>
+            <InlineError title="The price cannot be read" message={error} detail={detail} />
             <Button onClick={onRetry}>Retry</Button>
           </>
         )}

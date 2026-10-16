@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
 
 /**
@@ -20,6 +21,8 @@ export interface HandPanelProps {
   preview?: number | null;
   /** Why the move was refused. */
   error?: string | null;
+  /** The refusal's detail for support (its typed name, hash, game, version, time): the page builds it. */
+  errorDetail?: ErrorDetail;
   /** Where the board's tile art is served (`TileChip`'s `art`, from `useTileArt`): the hand shows the tile as the board draws it. */
   tileArt?: TileArt;
   /** Draws the tile with the renderer (`TileView`), as the board does; the page gives it, tests leave it out (no WebGL). */
@@ -33,8 +36,10 @@ export interface HandPanelProps {
   className?: string;
 }
 
+const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
+
 /** The hand: the tile to place, rotate, confirm, discard, and surrender (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, className }: HandPanelProps) {
+export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -49,20 +54,12 @@ export function HandPanel({ tile, state, slotChosen, preview, error, tileArt, re
         className,
       )}
     >
-      {state === "refused" && (
-        // The reason wraps (a chain error can carry an address); the icon stays on its first line (WRAP360).
-        <p role="alert" className="flex items-start gap-2 text-xs text-destructive-text">
-          <span className="inline-flex h-4 items-center">
-            <Icon name="triangle-exclamation" size="sm" />
-          </span>
-          <span className="min-w-0 wrap-anywhere">{error ?? "Move refused. Choose another slot."}</span>
-        </p>
-      )}
-      {state === "expired" && (
-        <p role="alert" className="text-sm text-destructive-text">
-          This game expired: 24 h passed since its purchase. Surrender to close it.
-        </p>
-      )}
+      {/* Refused and expired say why in the one error component (P-67); always rendered, so its height animates. */}
+      <InlineError
+        title={state === "expired" ? "Game expired" : state === "refused" ? "Move refused" : undefined}
+        message={state === "refused" ? (error ?? "Choose another slot.") : state === "expired" ? EXPIRED_TEXT : null}
+        detail={errorDetail}
+      />
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-center gap-1.5">
           {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { errorDetail } from "../error-detail";
 import { PLANS, dropSavedChanges, toggleSkin } from "../../components/containers/cobble-types";
 import { THEME_CODES } from "../../components/containers/skin-grid";
 import { THEMES } from "../../components/containers/theme-card";
@@ -59,6 +60,7 @@ export default function Page() {
         buying: writes.buying,
         save: writes.saving ? "saving" : writes.saved && Object.keys(changes).length === 0 ? "saved" : "idle",
         refusal: writes.error?.message ?? null,
+        refusalDetail: writes.error ? errorDetail(writes.error) : undefined,
       }
     : null;
   // A deployment without the skins' views (`read.data` null) shows the board's look only.
@@ -66,7 +68,7 @@ export default function Page() {
     playerId === null
       ? { kind: "guest" }
       : read.error
-        ? { kind: "error", message: read.error.message }
+        ? { kind: "error", message: read.error.message, detail: errorDetail(read.error) }
         : read.data === undefined
           ? { kind: "loading" }
           : null;
