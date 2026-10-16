@@ -83,17 +83,17 @@ describe("the look's presets", () => {
 });
 
 describe("quality tiers", () => {
-  it("turn off what a tier cannot afford: low no extra pass, medium the bloom, high the AO too", () => {
+  it("hold the effects that fit their profile (LIGHT-GPU): low no extra pass, medium all but the bloom, high everything", () => {
     expect(TIER_EFFECTS).toEqual({
       low: { ao: false, bloom: false, softShadows: false },
-      medium: { ao: false, bloom: true, softShadows: true },
+      medium: { ao: true, bloom: false, softShadows: true },
       high: { ao: true, bloom: true, softShadows: true },
     });
     const look = LOOK_PRESETS.mockup;
     const low = resolveLook(look, "low");
     expect([low.ao.enabled, low.bloom.enabled, low.key.shadowSoftness]).toEqual([false, false, 1]);
     const medium = resolveLook(look, "medium");
-    expect([medium.ao.enabled, medium.bloom.enabled, medium.key.shadowSoftness]).toEqual([false, true, look.key.shadowSoftness]);
+    expect([medium.ao.enabled, medium.bloom.enabled, medium.key.shadowSoftness]).toEqual([true, false, look.key.shadowSoftness]);
     expect(resolveLook(look, "high")).toEqual(look);
     // A tier never turns an effect on.
     expect(resolveLook(LOOK_PRESETS.off, "high").bloom.enabled).toBe(false);
@@ -104,16 +104,17 @@ describe("quality tiers", () => {
     expect([look.ao.enabled, look.bloom.enabled, look.vignette.enabled]).toEqual([false, false, false]);
   });
 
-  it('"auto" picks conservatively: low on a coarse pointer, a small screen or a low-power device, medium elsewhere, never high', () => {
+  it('"auto" picks the richest tier under the rule: high on a coarse pointer or a small screen, medium elsewhere, low on a low-power device', () => {
     expect(DEFAULT_RENDERER_SETTINGS.quality).toBe("auto");
-    expect(AUTO_QUALITY).toEqual({ coarse: "low", fine: "medium" });
-    expect(resolveQuality("auto", true)).toBe("low");
+    // Desktop p95 under 12 ms at cap 1.5: medium (9.25), not high (12.40); phone-like under 16.6 at cap 2: high (9.55).
+    expect(AUTO_QUALITY).toEqual({ coarse: "high", fine: "medium" });
+    expect(resolveQuality("auto", true)).toBe("high");
     expect(resolveQuality("auto", false)).toBe("medium");
     expect(resolveQuality("auto", false, { lowPowerDevice: true })).toBe("low");
-    for (const coarse of [true, false]) expect(resolveQuality("auto", coarse)).not.toBe("high");
-    // Low on a phone: no AO and no bloom.
-    const phone = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", true));
-    expect([phone.ao.enabled, phone.bloom.enabled]).toEqual([false, false]);
+    expect(resolveQuality("auto", true, { lowPowerDevice: true })).toBe("low");
+    // No bloom on a desktop by default: it alone costs about 3 ms of p95 there.
+    const desktop = resolveLook(LOOK_PRESETS.mockup, resolveQuality("auto", false));
+    expect([desktop.ao.enabled, desktop.bloom.enabled]).toEqual([true, false]);
     for (const tier of QUALITY_TIERS) expect(resolveQuality(tier, true)).toBe(tier);
     expect(resolveRendererSettings({ quality: "x" as never }).quality).toBe("auto");
   });
@@ -123,16 +124,17 @@ describe("quality tiers", () => {
     let size = { width: 1440, height: 900 };
     (scene as any).surface = { getSize: () => size, getDevicePixelRatio: () => 2, hasCoarsePointer: () => false };
     expect(scene.getQuality()).toBe("medium");
-    size = { width: 360, height: 780 };
-    expect(scene.getQuality()).toBe("low");
     expect(scene.getLook().bloom.enabled).toBe(false);
+    size = { width: 360, height: 780 };
+    expect(scene.getQuality()).toBe("high");
+    expect(scene.getLook().bloom.enabled).toBe(true);
     (scene as any).surface.hasCoarsePointer = () => true;
     size = { width: 1440, height: 900 };
-    expect(scene.getQuality()).toBe("low");
-    // High only when chosen.
-    scene.setSettings({ quality: "high" });
     expect(scene.getQuality()).toBe("high");
-    expect(scene.getLook().ao.enabled).toBe(true);
+    // A tier chosen by hand wins.
+    scene.setSettings({ quality: "low" });
+    expect(scene.getQuality()).toBe("low");
+    expect(scene.getLook().ao.enabled).toBe(false);
   });
 });
 
@@ -164,7 +166,7 @@ describe("the chain of passes", () => {
     const look = LOOK_PRESETS.mockup;
     expect(effectsFor({ ...look, ao: { ...look.ao, enabled: false } }).getPassNames()).toEqual(["render", "bloom", "finish"]);
     expect(effectsFor({ ...look, bloom: { ...look.bloom, enabled: false } }).getPassNames()).toEqual(["render", "ao", "finish"]);
-    expect(effectsFor(look, "medium").getPassNames()).toEqual(["render", "bloom", "finish"]);
+    expect(effectsFor(look, "medium").getPassNames()).toEqual(["render", "ao", "finish"]);
     expect(effectsFor(look, "low").getPassNames()).toEqual(["render", "finish"]);
   });
 

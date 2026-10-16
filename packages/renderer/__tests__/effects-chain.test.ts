@@ -95,7 +95,7 @@ describe("the chain's resources", () => {
     const ao2 = effects.getComposer()!.passes.find((p) => p instanceof AoPass) as AoPass;
     const freed2 = vi.fn();
     ao2.target.addEventListener("dispose", freed2);
-    effects.setLook(look, "medium");
+    effects.setLook(look, "low");
     expect(freed2).toHaveBeenCalledTimes(1);
     expect(effects.getComposer()!.passes.some((p) => p instanceof AoPass)).toBe(false);
     effects.dispose();
