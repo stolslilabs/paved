@@ -61,7 +61,7 @@ export {
   PlacementRenderer,
   colorProgress,
   confirmProgress,
-  gridLineOpacity,
+  gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
   placementTone,

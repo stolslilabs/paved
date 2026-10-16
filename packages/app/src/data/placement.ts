@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_PLACEMENT_SETTINGS } from "@paved/renderer";
 import type { BoardGhost } from "../components/containers/board-viewport";
 
 /**
@@ -86,14 +87,20 @@ export function placementView({ plan, slots, chosen, hovered, orientation, orien
   return { phase: "in-hand", move, ghost: { ...move, plan, placed: false, fits: true }, canConfirm: false };
 }
 
-/** How long a confirm stays handed to the board: past the renderer's fade (700 ms) and its last frame. */
-export const CONFIRM_HOLD_MS = 1000;
+/** How long a confirm stays handed to the board after the renderer's fade (`motion.confirmMs`): its last frames. */
+export const CONFIRM_MARGIN_MS = 300;
+
+/** The confirm's hold for a fade of `confirmMs` (the renderer's default unless the board's settings change it). */
+export function confirmHoldMs(confirmMs: number = DEFAULT_PLACEMENT_SETTINGS.motion.confirmMs): number {
+  return Math.max(0, confirmMs) + CONFIRM_MARGIN_MS;
+}
 
 /**
- * The confirm's green fade: `flash(ghost)` hands the board the confirmed tile for `CONFIRM_HOLD_MS` (each flash a new
- * key, so the same cell twice fades twice), then null.
+ * The confirm's green fade: `flash(ghost)` hands the board the confirmed tile for `confirmHoldMs(confirmMs)` (each flash a
+ * new key, so the same cell twice fades twice), then null.
  */
-export function useConfirmFlash(): [(BoardGhost & { key: number }) | null, (ghost: BoardGhost) => void] {
+export function useConfirmFlash(confirmMs?: number): [(BoardGhost & { key: number }) | null, (ghost: BoardGhost) => void] {
+  const holdMs = confirmHoldMs(confirmMs);
   const [confirmed, setConfirmed] = useState<(BoardGhost & { key: number }) | null>(null);
   const count = useRef(0);
   const flash = useCallback((ghost: BoardGhost) => {
@@ -102,9 +109,9 @@ export function useConfirmFlash(): [(BoardGhost & { key: number }) | null, (ghos
   }, []);
   useEffect(() => {
     if (!confirmed) return;
-    const id = setTimeout(() => setConfirmed(null), CONFIRM_HOLD_MS);
+    const id = setTimeout(() => setConfirmed(null), holdMs);
     return () => clearTimeout(id);
-  }, [confirmed]);
+  }, [confirmed, holdMs]);
   return [confirmed, flash];
 }
 
@@ -119,6 +126,7 @@ export function usePlacement({
   orientationsAt,
   version,
   resetKey,
+  confirmMs,
 }: {
   plan: number | null;
   slotsAt: (orientation: number) => Slot[];
@@ -126,11 +134,13 @@ export function usePlacement({
   /** Changes whenever the session's state does (the slots are those of the tile now in hand). */
   version: unknown;
   resetKey: unknown;
+  /** The renderer's confirm fade (`placement.motion.confirmMs` of the board's settings); unset, the default. */
+  confirmMs?: number;
 }) {
   const [orientation, setOrientation] = useState(1);
   const [chosen, setChosen] = useState<Slot | null>(null);
   const [hovered, setHovered] = useState<Slot | null>(null);
-  const [confirmed, flash] = useConfirmFlash();
+  const [confirmed, flash] = useConfirmFlash(confirmMs);
 
   useEffect(() => {
     setChosen(null);
@@ -153,12 +163,18 @@ export function usePlacement({
     [orientationsAt, orientation],
   );
   const rotate = useCallback(() => setOrientation((o) => nextOrientation(o)), []);
-  /** The move is sent: the slot goes, the board flashes green. */
-  const confirmed_ = useCallback(() => {
-    if (view.ghost) flash(view.ghost);
-    setChosen(null);
-  }, [view.ghost, flash]);
+  /**
+   * The move was accepted (the page says when: Training once `place` resolves true, Challenge once the engine's prediction
+   * takes it): the slot goes, the board flashes green. A refusal calls nothing: the tile stays placed.
+   */
+  const accepted = useCallback(
+    (ghost: BoardGhost | null = view.ghost) => {
+      if (ghost) flash(ghost);
+      setChosen(null);
+    },
+    [view.ghost, flash],
+  );
   const clear = useCallback(() => setChosen(null), []);
 
-  return { orientation, setOrientation, chosen, hovered, setHovered, slots, ...view, confirmed, choose, rotate, sent: confirmed_, clear };
+  return { orientation, setOrientation, chosen, hovered, setHovered, slots, ...view, confirmed, choose, rotate, accepted, clear };
 }

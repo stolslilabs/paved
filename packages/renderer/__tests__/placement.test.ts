@@ -7,7 +7,7 @@ import {
   colorProgress,
   confirmProgress,
   createAuraGeometry,
-  gridLineOpacity,
+  gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
   placementTone,
@@ -41,19 +41,23 @@ describe("the grid's ring fade", () => {
     expect(rings[2]).toBeLessThanOrEqual(0.15);
   });
 
-  it("falls linearly from one ring to the next", () => {
+  it("draws each line at the nearer ring of its two cells: 1 at ring 1's outer edge, 0.4, 0.1, then 0; linear along a line", () => {
     const rings = DEFAULT_PLACEMENT_SETTINGS.grid.rings;
-    expect(gridLineOpacity(1.5)).toBeCloseTo((1 + rings[1]) / 2, 9);
-    expect(gridLineOpacity(2.25)).toBeCloseTo(rings[1] * 0.75 + rings[2] * 0.25, 9);
-    expect(gridLineOpacity(3.5)).toBeCloseTo(rings[2] / 2, 9);
-    // Monotone and continuous outward.
-    let previous = gridLineOpacity(1);
-    for (let r = 1; r <= GRID_RINGS; r += 0.01) {
-      const value = gridLineOpacity(r);
-      expect(value).toBeLessThanOrEqual(previous + 1e-12);
-      expect(previous - value).toBeLessThan(0.01);
-      previous = value;
-    }
+    const field = ringField([{ x: 0, y: 0 }])!;
+    // On the vertical lines east of the tile, on its row: x = 0.5 (tile and ring 1), 1.5 (ring 1 and 2), 2.5, 3.5, 4.5.
+    expect(gridLineOpacityAt(field, 0.5, 0)).toBe(1);
+    expect(gridLineOpacityAt(field, 1.5, 0)).toBe(1);
+    expect(gridLineOpacityAt(field, 2.5, 0)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 3.5, 0)).toBe(rings[2]);
+    expect(gridLineOpacityAt(field, 4.5, 0)).toBe(0);
+    // The horizontal lines north of it, the same (the grid is square).
+    expect(gridLineOpacityAt(field, 0, -2.5)).toBe(rings[1]);
+    // Along the line x = 2.5, from the row of ring 2 (y = 2) to the row of ring 3 (y = 3): linear.
+    expect(gridLineOpacityAt(field, 2.5, 2)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 2.5, 3)).toBe(rings[2]);
+    expect(gridLineOpacityAt(field, 2.5, 2.5)).toBeCloseTo((rings[1] + rings[2]) / 2, 9);
+    // Not the mean of the two cells (what a bilinear read at the line gives: 0.7 between rings 1 and 2).
+    expect(gridLineOpacityAt(field, 1.5, 0)).not.toBeCloseTo((1 + rings[1]) / 2, 2);
   });
 
   it("counts rings by Chebyshev distance: the diagonal neighbour is ring 1", () => {

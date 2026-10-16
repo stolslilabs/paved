@@ -2,7 +2,7 @@ import { act, render, renderHook, screen, waitFor, within } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
-import { CONFIRM_HOLD_MS, boardSlots, nextOrientation, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
+import { confirmHoldMs, boardSlots, nextOrientation, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -68,6 +68,19 @@ describe("the placement state (SLOTS, P-68)", () => {
     expect(placementView(input({ chosen: { x: 0, y: 1 }, orientation: 3 })).phase).toBe("placed");
   });
 
+  it("holds the confirm past the renderer's fade, a longer fade included", () => {
+    expect(confirmHoldMs()).toBeGreaterThan(700);
+    expect(confirmHoldMs(1500)).toBeGreaterThan(1500);
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useConfirmFlash(1500));
+    act(() => result.current[1]({ x: 0, y: 0, plan: 1, orientation: 1 }));
+    act(() => vi.advanceTimersByTime(1500));
+    expect(result.current[0]).not.toBeNull();
+    act(() => vi.advanceTimersByTime(confirmHoldMs(1500) - 1500));
+    expect(result.current[0]).toBeNull();
+    vi.useRealTimers();
+  });
+
   it("rotates through all four rotations", () => {
     expect([1, 2, 3, 4].map(nextOrientation)).toEqual([2, 3, 4, 1]);
   });
@@ -80,7 +93,7 @@ describe("the placement state (SLOTS, P-68)", () => {
     expect(result.current[0]).toMatchObject({ x: 3, y: 4, key: 1, placed: false });
     act(() => result.current[1](ghost));
     expect(result.current[0]!.key).toBe(2);
-    act(() => vi.advanceTimersByTime(CONFIRM_HOLD_MS - 1));
+    act(() => vi.advanceTimersByTime(confirmHoldMs() - 1));
     expect(result.current[0]).not.toBeNull();
     act(() => vi.advanceTimersByTime(1));
     expect(result.current[0]).toBeNull();
@@ -146,6 +159,6 @@ describe("the Training board's plan view, placing a tile", () => {
       return el!;
     });
     expect(flash.className).toMatch(/motion-reduce:duration-150/);
-    await waitFor(() => expect(document.querySelector("[data-confirm]")).toBeNull(), { timeout: CONFIRM_HOLD_MS + 1000 });
+    await waitFor(() => expect(document.querySelector("[data-confirm]")).toBeNull(), { timeout: confirmHoldMs() + 1000 });
   }, 20_000);
 });

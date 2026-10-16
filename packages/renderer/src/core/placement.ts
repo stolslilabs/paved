@@ -8,7 +8,7 @@ import { TILE_SIZE } from "./types";
  * tile placed on a slot before it is confirmed.
  *
  * - The grid: pale, thin lines all around the board, fading by ring distance from the placed tiles (Chebyshev: the
- *   8 cells around a tile are its first ring), linearly from one ring to the next.
+ *   8 cells around a tile are its first ring): a line takes the nearer ring of its two cells, linear along it.
  * - A legal slot (any rotation): a flat fill and a neon border along the grid lines, dashed; solid and brighter where the
  *   current rotation fits.
  * - The tile placed, not confirmed: an aura around its cell (a halo on the ground and a curtain up its sides, waves
@@ -28,7 +28,7 @@ export interface PlacementSettings {
     color: string;
     /** The lines' opacity one ring from a tile. */
     opacity: number;
-    /** The share of `opacity` at rings 1, 2 and 3; 0 from ring 4. Linear between rings. */
+    /** The share of `opacity` of a line whose nearer cell is at ring 1, 2 or 3; 0 from ring 4. Linear along a line. */
     rings: [number, number, number];
     /** The line's width, a share of a tile. */
     width: number;
@@ -137,17 +137,6 @@ export function gridRingOpacity(ring: number, rings: PlacementSettings["grid"]["
   return rings[Math.round(ring) - 1] ?? 0;
 }
 
-/**
- * The grid's opacity at a continuous ring distance: linear between whole rings (what the shader's bilinear lookup of
- * the per-cell values gives along a line from one ring to the next).
- */
-export function gridLineOpacity(ring: number, rings: PlacementSettings["grid"]["rings"] = DEFAULT_PLACEMENT_SETTINGS.grid.rings): number {
-  if (!(ring >= 0)) return 0;
-  const low = Math.floor(ring);
-  const t = ring - low;
-  return gridRingOpacity(low, rings) * (1 - t) + gridRingOpacity(low + 1, rings) * t;
-}
-
 /** The ring distances around a set of cells (Chebyshev), over their bounds and `GRID_RINGS` more on each side. */
 export interface RingField {
   minX: number;
@@ -187,6 +176,35 @@ export function ringField(cells: ReadonlyArray<{ x: number; y: number }>): RingF
     }
   }
   return { minX, minY, width, height, rings };
+}
+
+/** A cell's grid opacity (a share of `grid.opacity`), from its ring; 0 outside the field. */
+function cellOpacity(field: RingField, x: number, y: number, rings: PlacementSettings["grid"]["rings"]): number {
+  const i = x - field.minX;
+  const j = y - field.minY;
+  if (i < 0 || j < 0 || i >= field.width || j >= field.height) return 0;
+  return gridRingOpacity(field.rings[j * field.width + i]!, rings);
+}
+
+/**
+ * The opacity (a share of `grid.opacity`) of the grid line through the point (x, y), in cell units (a cell's centre at
+ * whole numbers, the lines at halves): the line the point is nearer. A line between two cells takes the nearer ring of the
+ * two (the smaller), so the outer edges of the first ring are fully visible, the second ring's perceptible, the third's
+ * almost gone; along the line it is linear from one row (or column) of cells to the next. The grid's shader computes the
+ * same.
+ */
+export function gridLineOpacityAt(field: RingField, x: number, y: number, rings: PlacementSettings["grid"]["rings"] = DEFAULT_PLACEMENT_SETTINGS.grid.rings): number {
+  const along = (line: number, at: number, cell: (a: number, b: number) => number) => {
+    const j = Math.floor(at);
+    const t = at - j;
+    const edge = (row: number) => Math.max(cell(line - 1, row), cell(line, row));
+    return edge(j) * (1 - t) + edge(j + 1) * t;
+  };
+  const lx = Math.floor(x + 0.5);
+  const ly = Math.floor(y + 0.5);
+  const vertical = along(lx, y, (a, b) => cellOpacity(field, a, b, rings));
+  const horizontal = along(ly, x, (a, b) => cellOpacity(field, b, a, rings));
+  return Math.abs(x - (lx - 0.5)) <= Math.abs(y - (ly - 0.5)) ? vertical : horizontal;
 }
 
 /**
@@ -276,16 +294,34 @@ uniform sampler2D rings;
 uniform vec4 field;
 varying vec2 vCell;
 ${NEON_LINE_GLSL}
+// A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
+float cellAt( float x, float y ) {
+  ivec2 size = ivec2( field.zw );
+  ivec2 at = clamp( ivec2( x - field.x, y - field.y ), ivec2( 0 ), size - 1 );
+  return texelFetch( rings, at, 0 ).r;
+}
+// The vertical line between cells line - 1 and line, at y: the larger of the two, linear between rows.
+float verticalLine( float line, float y ) {
+  float j = floor( y );
+  float t = y - j;
+  return mix( max( cellAt( line - 1.0, j ), cellAt( line, j ) ), max( cellAt( line - 1.0, j + 1.0 ), cellAt( line, j + 1.0 ) ), t );
+}
+float horizontalLine( float line, float x ) {
+  float i = floor( x );
+  float t = x - i;
+  return mix( max( cellAt( i, line - 1.0 ), cellAt( i, line ) ), max( cellAt( i + 1.0, line - 1.0 ), cellAt( i + 1.0, line ) ), t );
+}
 void main() {
   vec2 h = vCell + 0.5;
   // Distance to the nearest line on each axis, in cell units, and a device px in cell units.
   vec2 dist = 0.5 - abs( fract( h ) - 0.5 );
   vec2 px = max( fwidth( h ), vec2( 1e-6 ) );
-  float line = max( neonLine( dist.x, lineWidth, px.x, minPx ), neonLine( dist.y, lineWidth, px.y, minPx ) );
-  // Each cell's ring opacity at its centre, read bilinearly: linear from one ring to the next.
-  vec2 uv = ( vCell - field.xy + 0.5 ) / field.zw;
-  float ring = texture2D( rings, uv ).r;
-  float a = line * ring * opacity;
+  float lineX = neonLine( dist.x, lineWidth, px.x, minPx );
+  float lineY = neonLine( dist.y, lineWidth, px.y, minPx );
+  // Each line's opacity: the nearer ring of its two cells (the larger opacity), linear along it from one row of cells to
+  // the next (gridLineOpacityAt).
+  vec2 lines = floor( h + 0.5 );
+  float a = max( verticalLine( lines.x, vCell.y ) * lineX, horizontalLine( lines.y, vCell.x ) * lineY ) * opacity;
   if ( a <= 0.0 ) discard;
   gl_FragColor = vec4( color * a, a );
   #include <fog_fragment>
@@ -619,8 +655,9 @@ export class PlacementRenderer {
     }
     this.gridTexture?.dispose();
     this.gridTexture = new THREE.DataTexture(data, field.width, field.height, THREE.RGBAFormat);
-    this.gridTexture.magFilter = THREE.LinearFilter;
-    this.gridTexture.minFilter = THREE.LinearFilter;
+    // Read cell by cell (`texelFetch`): the shader interpolates along each line itself.
+    this.gridTexture.magFilter = THREE.NearestFilter;
+    this.gridTexture.minFilter = THREE.NearestFilter;
     this.gridTexture.needsUpdate = true;
     const material = (this.gridMaterial ??= this.createGridMaterial());
     material.uniforms.rings.value = this.gridTexture;

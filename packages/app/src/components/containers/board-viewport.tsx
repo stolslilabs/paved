@@ -78,7 +78,7 @@ export interface BoardViewportProps {
    * settings do not change; a new one is applied to the open board at once (`GameScene.setSettings`), no reload.
    */
   settings?: RendererSettingsInput;
-  /** Draw the ghost (the tile on the slot before it is placed). Default true; off: the tile is not shown on the slot. */
+  /** Draw the hover preview (the tile under the pointer before it is placed). Default true; off: only a placed tile shows. */
   tilePreview?: boolean;
   /** Light the legal slots. Default true; off: no slot is outlined. */
   placementHighlight?: boolean;
@@ -111,8 +111,9 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
     () => (placementHighlight ? (slots ?? []).map((s) => ({ ...toGridSlot(s.x, s.y), fits: s.fits !== false })) : []),
     [slots, placementHighlight],
   );
-  // The ghost draws the variant the tile would have in the cell it hovers.
-  const hover = useMemo<HoverState | null>(() => (ghost && tilePreview ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
+  // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
+  // preview: a placed tile is always drawn, with its aura, veil and colour (red: Confirm is disabled, the board says why).
+  const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   return (
     // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).

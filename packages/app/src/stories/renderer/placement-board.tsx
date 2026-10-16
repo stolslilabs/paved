@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DEFAULT_PLACEMENT_SETTINGS, TILE_SIZE, type GameScene, type HoverState, type PlacementSettingsInput, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
+import { DEFAULT_PLACEMENT_SETTINGS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_WEB_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -24,6 +24,9 @@ export interface PlacementBoardProps {
   readout?: boolean;
   force?: "auto" | "on" | "off";
   maxPixelRatio?: number | "auto";
+  /** The graphics quality ("auto": the device's) and the look's preset, as the game's settings give them. */
+  quality?: QualityTier | "auto";
+  lookPreset?: LookPreset;
   /** The placement settings, flat (`placementArgTypes`). */
   [arg: string]: unknown;
 }
@@ -138,18 +141,22 @@ export function placementArgTypes(): Record<string, object> {
  * of a tile in hand (dashed, or solid where the rotation fits), the tile placed on one (yellow, or red when its rotation
  * does not fit), and the confirm (green, fading out). `data-ready` is set once the board is drawn at the held view.
  */
-export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
   const [confirmKey, setConfirmKey] = useState(0);
   const input = placementInput(args);
-  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio]);
+  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset]);
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ outlines: { force }, maxPixelRatio, placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
+    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const onReady = useCallback((s: GameScene) => setScene(s), []);
+  // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances.
+  const onReady = useCallback((s: GameScene) => {
+    setScene(s);
+    (window as unknown as { __placementScene?: GameScene }).__placementScene = s;
+  }, []);
 
   useEffect(() => {
     if (!scene) return;

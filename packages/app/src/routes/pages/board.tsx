@@ -65,7 +65,7 @@ function TrainingBoard() {
   const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
   // The slots of every rotation, the slot chosen, the ghost (SLOTS). Another game (another tab's save followed, a new
   // game): the slot and orientation chosen for the old hand go. `snapshot` changes with every move.
-  const placement = usePlacement({ plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game });
+  const placement = usePlacement({ plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game, confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs });
   const { orientation, move, ghost, slots } = placement;
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
 
@@ -73,11 +73,15 @@ function TrainingBoard() {
     if (board.over) go("/training/over", { replace: true });
   }, [board.over, go]);
 
-  // Confirm only a placed tile whose rotation fits (red: disabled).
+  // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
+  // refused, the tile stays placed (its error in the hand).
   const confirm = useCallback(async () => {
     if (!placement.canConfirm || !move || preview === null) return;
-    placement.sent();
-    if (await game.place(move)) placement.setOrientation(1);
+    const ghost = placement.ghost;
+    if (await game.place(move)) {
+      placement.accepted(ghost);
+      placement.setOrientation(1);
+    }
   }, [game, placement, move, preview]);
 
   const discard = useCallback(() => {
@@ -181,7 +185,14 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const orientationsAt = useCallback((cell: Slot) => (session ? session.orientationsAt(cell) : []), [session]);
   // The slots of every rotation, the slot chosen, the ghost (SLOTS); a viewer who cannot play gets none. A new tile in
   // hand (a move predicted, a resync): the slot chosen for the last one goes. `state` changes with every move.
-  const placement = usePlacement({ plan: playable && hand ? hand.plan : null, slotsAt, orientationsAt, version: state, resetKey: tileId });
+  const placement = usePlacement({
+    plan: playable && hand ? hand.plan : null,
+    slotsAt,
+    orientationsAt,
+    version: state,
+    resetKey: tileId,
+    confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs,
+  });
   const { orientation, move, ghost, slots } = placement;
   const preview = useMemo(() => (session && move ? session.preview(move) : null), [session, state, move]);
 
@@ -195,11 +206,20 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     if (over && ready?.unconfirmed === 0) go(`/game/${gameId}/over`, { replace: true });
   }, [over, ready?.unconfirmed, gameId, go]);
 
-  // Confirm only a placed tile whose rotation fits (red: disabled).
+  // Confirm only a placed tile whose rotation fits (red: disabled). The green flash when the move is accepted: with
+  // prediction, at once when the engine takes it (`place` applies it before it resolves; the receipt can come seconds and
+  // moves later, and a refusal then rolls the board back with its error); without, once the chain confirms it. Refused,
+  // the tile stays placed.
   const confirm = useCallback(() => {
     if (!session || !senders || !placement.canConfirm || !move || preview === null) return;
-    placement.sent();
-    void session.place(move, () => senders.build(move));
+    const ghost = placement.ghost;
+    const done = session.place(move, () => senders.build(move));
+    const now = session.state;
+    if (now.status === "ready" && now.predicting) {
+      if (!now.writeError && now.tiles.some((t) => t.x === move.x && t.y === move.y)) placement.accepted(ghost);
+    } else {
+      void done.then((ok) => ok && placement.accepted(ghost));
+    }
   }, [session, senders, placement, move, preview]);
 
   const discard = useCallback(() => {

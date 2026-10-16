@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
 import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
@@ -33,9 +34,16 @@ const meta = {
       mapping: { auto: "auto", x1: 1, x1_5: 1.5, x2: 2 },
       description: "The pixel-ratio cap: auto is the device's",
     },
+    quality: {
+      control: "inline-radio",
+      options: ["auto", ...QUALITY_TIERS],
+      type: { name: "enum", value: ["auto", ...QUALITY_TIERS] },
+      description: "Graphics quality: auto is the device's (Medium on desktops and phones)",
+    },
+    lookPreset: { control: "inline-radio", options: LOOK_PRESET_NAMES, type: { name: "enum", value: [...LOOK_PRESET_NAMES] }, description: "The look the board is lit with" },
     ...placementArgTypes(),
   },
-  args: { state: "in-hand", view: "default", redraw: false, readout: true, force: "auto", maxPixelRatio: "auto", replayMs: 1600 },
+  args: { quality: "auto", lookPreset: "mockup", state: "in-hand", view: "default", redraw: false, readout: true, force: "auto", maxPixelRatio: "auto", replayMs: 1600 },
 } satisfies Meta<typeof PlacementBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
