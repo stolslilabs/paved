@@ -57,6 +57,8 @@ export interface OverSceneProps {
   settle?: SettleProps;
   /** A free Challenge game (`GameSpawned.price == 0`): the label "Free game" and no reward, no settle. */
   freeGame?: boolean;
+  /** The reward cannot be read (no economy on this network): a neutral line replaces the reward panel. */
+  rewardUnavailable?: boolean;
   /** `expired`: the 24 h deadline the game missed (`terms.time + 86400`), seconds since the epoch. */
   deadline?: number;
   /** Why the list of closings is not shown, when it could not be read. */
@@ -74,7 +76,7 @@ const duration = (seconds: number) => {
 };
 
 /** The end of a game (`/game/:id/over`, `/training/over`): the final score, its metrics, every closing, the reward. */
-export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, deadline, closingsNote, timeZone, onPlayAgain, onHome }: OverSceneProps) {
+export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, timeZone, onPlayAgain, onHome }: OverSceneProps) {
   const best = previousBest != null && game.score > previousBest;
   const byCategory = CLOSING_CATEGORIES.map((category) => {
     const of = closings.filter((c) => c.category === category);
@@ -120,6 +122,8 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
               </span>
               <p className="text-sm text-muted-foreground">A free game costs no stake and pays no reward: there is nothing to settle.</p>
             </section>
+          ) : rewardUnavailable ? (
+            <Notice title="Reward unavailable">The reward cannot be read on this network.</Notice>
           ) : (
             <>
               <RewardPanel

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { DayView, GameKey, GameView, IndexedGame, TermsView, TileView, WriteResult } from "@paved/chain";
 import { CENTER, CategoryType, EngineGame, OrientationType, PlanType } from "@paved/game-core";
@@ -161,7 +161,8 @@ export function useOverRead(gameId: number | null): OverRead {
   const failed = [game, terms, day].filter((q) => q.error);
   if (failed.length) return { status: "error", error: failed[0].error as Error, retry: () => failed.forEach((q) => void q.refetch()) };
   if (!game.data) return { status: "loading" };
-  if (!game.data.over) return { status: "playing" };
+  // A cached game that was in play, read again now: wait for the answer before sending the player back to the board.
+  if (!game.data.over) return game.isFetching ? { status: "loading" } : { status: "playing" };
   // The terms and the day of a bought game are read before the page is shown: its reward depends on them.
   if (terms.data === undefined || (terms.data !== null && terms.data.stake > 0 && day.data === undefined)) return { status: "loading" };
   return { status: "ready", game: game.data, terms: terms.data, day: day.data ?? null, indexed: indexed.data, closings };
@@ -190,7 +191,7 @@ export interface SettleControl {
   settle: () => Promise<void>;
   pending: boolean;
   error: Error | null;
-  /** This page sent the settle that is now in the cache. */
+  /** This page's settle is in the cache: its receipt held the game's `Settled`. */
   done: boolean;
 }
 
@@ -204,10 +205,13 @@ export function useSettle(gameId: number, playerId: string | null): SettleContro
   const client = useQueryClient();
   // Set at once, not by a render: a second tap before the page re-renders must not reach the writer.
   const sending = useRef(false);
+  // The receipt held this game's `Settled`: this page settled it. Without one the game was settled before (the contract skips it).
+  const [settledHere, setSettledHere] = useState(false);
   const mutation = useMutation<WriteResult, Error, void>({
     mutationFn: () => (signer && settlements ? settlements(signer).settle([gameId]) : Promise.reject(new Error("Connect to settle"))),
     onSuccess: (result) => {
       const settled = settledIn(result, gameId);
+      setSettledHere(settled !== null);
       if (settled) applySettled(client, gameId, settled);
     },
     onSettled: () => {
@@ -221,7 +225,7 @@ export function useSettle(gameId: number, playerId: string | null): SettleContro
     available: signer !== null && settlements !== null,
     pending: mutation.isPending,
     error: mutation.error,
-    done: mutation.isSuccess,
+    done: settledHere,
     settle: async () => {
       if (!signer || !settlements || sending.current) return;
       sending.current = true;

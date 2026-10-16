@@ -84,6 +84,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       closingsNote={closings.isPending ? "Reading the game's closings…" : closings.error ? "The closings of this game could not be read." : undefined}
       reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined }}
       freeGame={free}
+      rewardUnavailable={reward.kind === "none"}
       deadline={reward.kind === "expired" ? reward.deadline : undefined}
       settle={settle ?? undefined}
       onPlayAgain={() => go("/play/challenge")}

@@ -19,6 +19,7 @@ import { App } from "../src/App";
 import type { DataSources, GameSigner, Settlements } from "../src/data";
 import { settlementsFor } from "../src/data/settle-client";
 import { DAY_SECONDS, replayClosings, rewardOf, settlesAfter, thresholdOf } from "../src/data/over";
+import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -170,6 +171,17 @@ describe("/game/:gameId/over (P7a)", { timeout: 20_000 }, () => {
       expect(await reward()).toHaveAttribute("data-state", "free-game");
     });
 
+    it("no terms and not marked free (no economy, or a free game not indexed yet): a neutral line, never Training's copy", async () => {
+      const s = setup({ terms: null, indexed: null });
+      // A build with no economy deployment: the economy's reads answer null.
+      s.sources.economy = null;
+      over(s);
+      expect(await screen.findByText("Reward unavailable", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
+      expect(screen.queryByText(/Training plays for practice/)).toBeNull();
+      expect(screen.queryByRole("region", { name: "Settle" })).toBeNull();
+    });
+
     it("recorded, its day closed: the threshold from the day's mean and the game's sigma, before any settle", async () => {
       const s = setup({ terms: { sigmaBps: 500 }, day: { closed: true, mean: 1_000_000 }, indexed: null });
       over(s);
@@ -272,6 +284,18 @@ describe("/game/:gameId/over (P7a)", { timeout: 20_000 }, () => {
       expect(settleButton()).toBeNull();
     });
 
+    it("someone settled it first (no Settled in the receipt): after the reconcile it reads Already settled, not Settled", async () => {
+      const settle = vi.fn(async (): Promise<WriteResult & { noReward: number[] }> => {
+        s.economy.terms_.set(GAME_ID, fakeTerms({ stake: 3, day: READY_DAY, player: PLAYER, settled: true, reward: 2n * PAVED }));
+        return { transactionHash: "0x1", events: [], noReward: [] };
+      });
+      const s = setup({ settle, indexed: null });
+      over(s);
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      expect(await screen.findByText("Already settled.")).toBeInTheDocument();
+      expect(screen.queryByText("Settled")).toBeNull();
+    });
+
     it("no settlement source (no economy to send it through): the player has no button to press", async () => {
       const s = setup();
       s.sources.settlements = null;
@@ -288,6 +312,15 @@ describe("/game/:gameId/over (P7a)", { timeout: 20_000 }, () => {
       const { router } = over(s);
       await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}`), { timeout: 5000 });
       expect(router.state.historyAction).toBe("REPLACE");
+    });
+
+    it("a cached in-play game that is over now is not sent back to the board while it is read again", async () => {
+      const s = setup();
+      queryClient.setQueryData(queryKeys.chain.game(GAME_ID), { ...played.game, over: false });
+      const { router } = over(s);
+      expect(await reward()).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
+      expect(router.state.historyAction).not.toBe("REPLACE");
     });
 
     it("an unknown game is Game not found, with Back home", async () => {
