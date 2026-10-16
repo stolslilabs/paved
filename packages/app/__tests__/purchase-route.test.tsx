@@ -1047,6 +1047,105 @@ describe("a wallet that never answers (writer timeout)", () => {
     }
   });
 
+  it("a late refusal also clears the busy refusal that Buy again drew from the same send's hold", async () => {
+    const s = setup();
+    const { result } = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, result);
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => result.current.mutation.error !== null && !(result.current.mutation.error instanceof PurchaseTimedOutError));
+      expect(purchaseRefusal(result.current.mutation.error!).kind).toBe("busy");
+      s.state.gate = null;
+      s.state.revert = "Challenge: spawn paused";
+      release();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+      expect(result.current.mutation.error).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a late answer clears only its own send's timeout: player A's does not clear player B's, B's own does", async () => {
+    const s = setup();
+    s.economy.setBalance("usdc", "0xb0b", 100n * USDC_UNIT);
+    let releaseB = () => {};
+    const bGate = new Promise<void>((r) => (releaseB = r));
+    const other = s.client.writer({
+      address: "0xb0b",
+      execute: async (calls: Sent) => {
+        s.sent.push(calls);
+        await bGate;
+        return { transaction_hash: "0xb2" };
+      },
+    });
+    let current: DataSources = s.sources;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={current}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(({ player }: { player: string }) => usePurchase(player), { wrapper, initialProps: { player: PLAYER } });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // A's send hangs and times out.
+      let releaseA = () => {};
+      s.state.gate = new Promise<void>((r) => (releaseA = r));
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const aError = result.current.mutation.error as PurchaseTimedOutError;
+      expect(aError).toBeInstanceOf(PurchaseTimedOutError);
+      // The page switches to B, whose send hangs and times out too.
+      current = { ...s.sources, signer: other as unknown as GameSigner };
+      rerender({ player: "0xb0b" });
+      await flush(() => result.current.mutation.status === "idle");
+      act(() => result.current.mutation.mutate({ ...request, playerId: "0xb0b" }));
+      await flush(() => s.sent.length === 2);
+      expect(s.sent).toHaveLength(2);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const bError = result.current.mutation.error as PurchaseTimedOutError;
+      expect(bError).toBeInstanceOf(PurchaseTimedOutError);
+      expect(bError.sendId).not.toBe(aError.sendId);
+      // A's late answer (a success, in A's cache) leaves B's state as it is.
+      s.state.gate = null;
+      releaseA();
+      await flush(() => false);
+      expect(result.current.mutation.error).toBe(bError);
+      expect(result.current.mutation.status).toBe("error");
+      // B's own late answer clears it.
+      releaseB();
+      await flush(() => result.current.mutation.status === "idle");
+      expect(result.current.mutation.status).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the game a late success bought is kept for the sender however long the page is gone", async () => {
+    const s = setup();
+    const first = hook(s);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const release = await timedOut(s, first.result);
+      release();
+      await flush(() => first.result.current.ready.gameId !== null);
+      first.unmount();
+      // Longer than the query cache's default life (5 minutes) with no page watching it.
+      await act(() => vi.advanceTimersByTimeAsync(30 * 60_000));
+      const again = hook(s);
+      expect(again.result.current.ready.gameId).toBe(GAME_ID);
+      act(() => again.result.current.ready.clear());
+      await flush(() => again.result.current.ready.gameId === null);
+      expect(again.result.current.ready.gameId).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a refusal that arrives after the limit clears the timed-out state", async () => {
     const s = setup();
     const { result } = hook(s);

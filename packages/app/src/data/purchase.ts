@@ -150,7 +150,8 @@ export const PURCHASE_TIMEOUT_MS = 300_000;
  * again, which the writer refuses ("Another write is pending") while the hung send still holds the account's write.
  */
 export class PurchaseTimedOutError extends Error {
-  constructor() {
+  /** `sendId` tells which send timed out: its late answer clears this error and no other send's. */
+  constructor(readonly sendId = 0) {
     super(`Your wallet did not answer in ${PURCHASE_TIMEOUT_MS / 60_000} minutes: the purchase may still go through. Check your wallet and your balance before buying again.`);
     this.name = "PurchaseTimedOutError";
   }
@@ -160,16 +161,20 @@ export class PurchaseTimedOutError extends Error {
 export type LateAnswer<T> = { value: T } | { error: Error };
 
 /**
- * `send`'s answer, or `PurchaseTimedOutError` when it is still pending after `ms`. The send itself is not cancelled: its
- * late answer goes to `onLate` (a hash that arrives at minute 6 must still be recorded). The timer is not cleared on
- * unmount: it fires once and settles a promise nobody waits for, which is harmless.
+ * `send`'s answer, or `PurchaseTimedOutError` (tagged with `id`) when it is still pending after `ms`. `onTimeout` runs then.
+ * The send itself is not cancelled: its late answer goes to `onLate` (a hash that arrives at minute 6 must still be
+ * recorded). The timer is not cleared on unmount: it fires once and settles a promise nobody waits for, which is harmless.
  */
-export function withPurchaseTimeout<T>(send: Promise<T>, ms = PURCHASE_TIMEOUT_MS, onLate?: (answer: LateAnswer<T>) => void): Promise<T> {
+export function withPurchaseTimeout<T>(
+  send: Promise<T>,
+  { ms = PURCHASE_TIMEOUT_MS, id = 0, onTimeout, onLate }: { ms?: number; id?: number; onTimeout?: () => void; onLate?: (answer: LateAnswer<T>) => void } = {},
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      reject(new PurchaseTimedOutError());
+      onTimeout?.();
+      reject(new PurchaseTimedOutError(id));
     }, ms);
     send.then(
       (value) => {
@@ -298,14 +303,20 @@ function useSending(kind: PurchaseKind, playerId: string | null): boolean {
 /** The query key of the game a send opened for `playerId` and the page has not opened yet (`local`: the browser's state). */
 const readyKey = (kind: PurchaseKind, playerId: string) => ["local", "purchaseReady", kind, addressKey(playerId)] as const;
 
+/** Keeps the game a send bought for its sender, however long the player stays away: the entry never expires (as `unknown-purchase.ts`'s). */
+function setReady(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, gameId: number | null): void {
+  client.setQueryDefaults(["local", "purchaseReady"], { gcTime: Infinity });
+  client.setQueryData(readyKey(kind, playerId), gameId);
+}
+
 /**
  * The game bought by a send whose page was gone when it landed (a change of player resets the page's mutation, so its own
  * `onSuccess` never runs): its id until the player opens it (`open`) or buys again (`clear`). Null otherwise.
  */
 function useReady(kind: PurchaseKind, playerId: string | null) {
   const client = useQueryClient();
-  const { data } = useQuery({ queryKey: readyKey(kind, playerId ?? "0x0"), queryFn: () => null as number | null, enabled: false, initialData: null as number | null });
-  const clear = useCallback(() => playerId !== null && client.setQueryData(readyKey(kind, playerId), null), [client, kind, playerId]);
+  const { data } = useQuery({ queryKey: readyKey(kind, playerId ?? "0x0"), queryFn: () => null as number | null, enabled: false, initialData: null as number | null, gcTime: Infinity });
+  const clear = useCallback(() => playerId !== null && setReady(client, kind, playerId, null), [client, kind, playerId]);
   return { gameId: playerId === null ? null : data, clear };
 }
 
@@ -333,18 +344,51 @@ function reconcilePack(client: ReturnType<typeof useQueryClient>, error: Error |
   void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(sender) });
 }
 
-/** A mutation's latest error and `reset`, for the late answer of a timed-out send to clear the page's timed-out state. */
-type MutationHandle = { error: Error | null; reset: () => void };
+/**
+ * What a late answer needs of the page's mutation: its latest error, `reset`, the sender of its last send, and the sends
+ * that timed out and still hold their sender's writer (`hung`: sender to send id).
+ */
+interface TimeoutGuard {
+  error: Error | null;
+  reset: () => void;
+  sender: string | null;
+  hung: Map<string, number>;
+}
 
-/** Clears a mutation's state when it is the timed-out error, never a newer purchase's. */
-const clearTimedOut = (handle: { current: MutationHandle }): void => {
-  if (handle.current.error instanceof PurchaseTimedOutError) handle.current.reset();
-};
+let sendCounter = 0;
 
-/** Keeps `handle` on the mutation as rendered (an effect, not a write during render). */
-function useMutationHandle(mutation: MutationHandle, handle: { current: MutationHandle }): void {
+const isBusy = (error: Error | null): boolean => error instanceof WriteError && error.message === "Another write is pending";
+
+/**
+ * Clears the page's state when the late answer of send `id` settles it: its own timed-out error, or the busy refusal a Buy
+ * again drew from that same send's hold on the writer. Never another send's (a second player's timeout, a newer purchase).
+ */
+function clearTimedOut(guard: { current: TimeoutGuard }, id: number, sender: string): void {
+  const { error, reset, sender: last, hung } = guard.current;
+  const own = error instanceof PurchaseTimedOutError && error.sendId === id;
+  const busy = isBusy(error) && hung.get(addressKey(sender)) === id && last !== null && addressKey(last) === addressKey(sender);
+  if (own || busy) reset();
+}
+
+/** A purchase's send under the writer timeout, its late answer given to `onLate` and then clearing what it settles. */
+function guardedSend<T>(guard: { current: TimeoutGuard }, sender: string, send: Promise<T>, onLate: (late: LateAnswer<T>) => void): Promise<T> {
+  const id = ++sendCounter;
+  const key = addressKey(sender);
+  return withPurchaseTimeout(send, {
+    id,
+    onTimeout: () => guard.current.hung.set(key, id),
+    onLate: (late) => {
+      onLate(late);
+      if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(guard, id, sender);
+      if (guard.current.hung.get(key) === id) guard.current.hung.delete(key);
+    },
+  });
+}
+
+/** Keeps `guard` on the mutation as rendered (an effect, not a write during render). */
+function useTimeoutGuard(mutation: { error: Error | null; reset: () => void; variables?: { playerId?: string } }, guard: { current: TimeoutGuard }): void {
   useEffect(() => {
-    handle.current = { error: mutation.error, reset: mutation.reset };
+    Object.assign(guard.current, { error: mutation.error, reset: mutation.reset, sender: mutation.variables?.playerId ?? guard.current.sender });
   });
 }
 
@@ -358,26 +402,25 @@ export function usePurchase(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("game", playerId);
-  const handle = useRef<MutationHandle>({ error: null, reset: () => {} });
+  const guard = useRef<TimeoutGuard>({ error: null, reset: () => {}, sender: null, hung: new Map() });
   const mutation = useMutation<WriteResult & { gameId: number }, Error, Sent<PurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("game"),
     mutationFn: ({ playerId: sender, ...request }) => {
       const sentAt = nowSeconds();
-      return withPurchaseTimeout(buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy")), PURCHASE_TIMEOUT_MS, (late) => {
+      return guardedSend(guard, sender, buyer ? buyer.purchase(request) : Promise.reject(new Error("Connect to buy")), (late) => {
         // The wallet answered after the page gave up: as an in-time answer would have gone.
-        if ("value" in late) client.setQueryData(readyKey("game", sender), late.value.gameId);
+        if ("value" in late) setReady(client, "game", sender, late.value.gameId);
         else recordUnknown(client, "game", late.error, sender, sentAt);
         reconcileGame(client, "error" in late ? late.error : null, sender);
-        if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(handle);
       });
     },
     onMutate: () => ({ sentAt: nowSeconds() }),
     // The game is kept for its sender: a send that lands after a change of player has no page to open it (`ready`).
-    onSuccess: ({ gameId }, { playerId: sender }) => client.setQueryData(readyKey("game", sender), gameId),
+    onSuccess: ({ gameId }, { playerId: sender }) => setReady(client, "game", sender, gameId),
     onError: (error, { playerId: sender }, context) => recordUnknown(client, "game", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => reconcileGame(client, error, variables?.playerId),
   });
-  useMutationHandle(mutation, handle);
+  useTimeoutGuard(mutation, guard);
   // Another player: the last one's refusal or success is not theirs. The send itself stays pending in the mutation
   // cache, and `sending` keeps the sender's Pay held when they come back.
   const { reset } = mutation;
@@ -402,16 +445,15 @@ export function useBuyPack(playerId: string | null) {
   const buyer = usePurchases();
   const client = useQueryClient();
   const hold = usePurchaseHold("pack", playerId);
-  const handle = useRef<MutationHandle>({ error: null, reset: () => {} });
+  const guard = useRef<TimeoutGuard>({ error: null, reset: () => {}, sender: null, hung: new Map() });
   const mutation = useMutation<WriteResult & { bought: PackBought }, Error, Sent<PackPurchaseRequest>, { sentAt: number }>({
     mutationKey: purchaseMutationKey("pack"),
     mutationFn: ({ playerId: sender, ...request }) => {
       const sentAt = nowSeconds();
-      return withPurchaseTimeout(buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy")), PURCHASE_TIMEOUT_MS, (late) => {
+      return guardedSend(guard, sender, buyer ? buyer.buyPack(request) : Promise.reject(new Error("Connect to buy")), (late) => {
         if ("value" in late) applyPackBought(client, sender, late.value.bought);
         else recordUnknown(client, "pack", late.error, sender, sentAt);
         reconcilePack(client, "error" in late ? late.error : null, sender);
-        if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(handle);
       });
     },
     onMutate: () => ({ sentAt: nowSeconds() }),
@@ -419,7 +461,7 @@ export function useBuyPack(playerId: string | null) {
     onError: (error, { playerId: sender }, context) => recordUnknown(client, "pack", error, sender, context?.sentAt),
     onSettled: (_data, error, variables) => reconcilePack(client, error, variables?.playerId),
   });
-  useMutationHandle(mutation, handle);
+  useTimeoutGuard(mutation, guard);
   const { reset } = mutation;
   useEffect(() => reset(), [playerId, reset]);
   const sending = useSending("pack", playerId);
