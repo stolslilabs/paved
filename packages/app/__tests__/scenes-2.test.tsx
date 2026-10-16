@@ -320,7 +320,7 @@ describe("Settings", () => {
     expect(account).toHaveTextContent("bal7hazar");
     expect(account).toHaveTextContent("Connected 0x05f1…6e7f");
     await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
-    await userEvent.click(screen.getByRole("button", { name: /Theme.*Default/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Theme.*Forest/ }));
     await userEvent.click(screen.getByRole("button", { name: /Referral/ }));
     expect(onDisconnect).toHaveBeenCalledOnce();
     expect(onOpenTheme).toHaveBeenCalledOnce();
