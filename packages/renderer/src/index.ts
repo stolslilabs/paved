@@ -2,6 +2,17 @@
 export { GameScene } from "./core/GameScene";
 export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
+export {
+  BASE_PALETTE_CLASSES,
+  FEATURES,
+  FEATURE_CODE,
+  classifyColumns,
+  columnTops,
+  labelTileGeometry,
+  planKeyOfModel,
+  setFeatureAttributes,
+} from "./core/features";
+export type { ColumnLabels, ColumnTops, FeatureName, PaletteClasses, TileLabels } from "./core/features";
 export { CameraController } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";

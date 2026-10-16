@@ -371,7 +371,8 @@ export class GameScene {
 
   /**
    * Apply the settings' look (`look.ts`): the chain of effects at the tier in effect, the lights, the background and
-   * fog, the slots' and ghost's highlights and the water. A new key-light direction redraws the shadow map.
+   * fog, the slots' and ghost's highlights, the water and the feature highlight. A new key-light direction redraws the
+   * shadow map.
    */
   private applyLook(): void {
     this.effects.setLook(this.settings.look, this.getQuality());
@@ -409,7 +410,7 @@ export class GameScene {
       key.position.copy(position);
       key.shadow.radius = look.key.shadowSoftness;
     }
-    this.tiles.setLook(look.highlights, look.water);
+    this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.requestRender();
   }
 

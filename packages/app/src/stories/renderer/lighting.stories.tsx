@@ -65,6 +65,12 @@ export const Off: Story = { args: { preset: "off" } };
 /** Zoomed in at the play camera's steepest tilt, where the shadows, the AO and the water show most. */
 export const ZoomedIn: Story = { args: { view: "zoomed-in", distance: 30 } };
 
+/**
+ * Every city of the board lit (FEATURE-HL): the voxels labelled city from their colours and the plan's layout
+ * (`labelTileGeometry`) tinted and glowing, the rest dimmed. "Feature highlight" picks the feature and the strengths.
+ */
+export const CitiesLit: Story = { args: { featureHighlightEnabled: true, highlights: false } };
+
 const MOCKUPS = { "mockup-01": mockup01, "mockup-02": mockup02 } as const;
 
 interface SideBySideProps extends React.ComponentProps<typeof LightingBoard> {

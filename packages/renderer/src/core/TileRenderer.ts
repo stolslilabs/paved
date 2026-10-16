@@ -7,6 +7,7 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
+import { FEATURE_CODE, labelTileGeometry, planKeyOfModel, setFeatureAttributes } from "./features";
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -63,8 +64,22 @@ export const WATER_MASK_GLSL = /* glsl */ `
   diffuseColor.rgb *= mix(1.0, uWaterBrightness, waterMask);
 `;
 
-/** The look's parts the tiles draw: the slots' and ghost's highlights, and the water. */
-export type TileLook = Pick<LookSettings, "highlights" | "water">;
+/**
+ * The feature highlight (`LookSettings.featureHighlight`, FEATURE-HL): the voxels whose `feature` attribute
+ * (`features.ts`) is the lit feature are tinted and glow, the others are dimmed; `uFeatureOn` at 0 leaves every voxel as
+ * is. It runs after the water mask, on the palette's colour.
+ */
+export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
+  float featureLit = uFeatureOn * (1.0 - step(0.5, abs(vFeature - uFeature)));
+  diffuseColor.rgb = mix(
+    diffuseColor.rgb * mix(1.0, uFeatureDim, uFeatureOn),
+    mix(diffuseColor.rgb, uFeatureColor, uFeatureTint),
+    featureLit
+  );
+`;
+
+/** The look's parts the tiles draw: the slots' and ghost's highlights, the water and the feature highlight. */
+export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighlight">;
 
 export class TileRenderer {
   private group: THREE.Group;
@@ -106,12 +121,23 @@ export class TileRenderer {
   private slotGeometry: THREE.BufferGeometry | null = null;
   private slotMaterial: THREE.MeshBasicMaterial | null = null;
   private look: TileLook = LOOK_PRESETS.mockup;
-  /** The water's uniforms, shared by every patched tile material (`patchWater`): a look change sets them, no recompile. */
+  /** The water's uniforms, shared by every patched tile material (`patchTileShader`): a look change sets them, no recompile. */
   private waterUniforms = {
     uWaterOn: { value: 1 },
     uWaterBrightness: { value: 1 },
     uWaterRoughness: { value: 1 },
   };
+  /** The feature highlight's uniforms, shared as the water's (`FEATURE_HIGHLIGHT_GLSL`). */
+  private featureUniforms = {
+    uFeatureOn: { value: 0 },
+    uFeature: { value: FEATURE_CODE.city },
+    uFeatureColor: { value: new THREE.Color() },
+    uFeatureTint: { value: 0 },
+    uFeatureGlow: { value: 0 },
+    uFeatureDim: { value: 1 },
+  };
+  /** Whether the feature highlight is on: the models drawn get their voxels' labels (`labelFeatures`), once each. */
+  private featuresOn = false;
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -270,7 +296,7 @@ export class TileRenderer {
           TILE_MAX_METALNESS,
         );
         child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
-        this.patchWater(child.material);
+        this.patchTileShader(child.material);
       }
       child.castShadow = true;
       child.receiveShadow = true;
@@ -279,34 +305,94 @@ export class TileRenderer {
       child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
     }
     this.tileTypes.set(key, model);
+    if (this.featuresOn) this.labelFeatures(key, model);
     return model;
   }
 
   /**
-   * The water texels of a tile material brighter and glossier (`LookSettings.water`): the mask (`WATER_MASK_GLSL`) after
-   * the palette is read, the roughness after it is set. Every patched material compiles to one program.
+   * The `feature` and `area` attributes of a model's meshes (`features.ts`), computed once per geometry: the loader's
+   * geometry, shared by every tile of the model, gains them (the loader disposes them with it). A model id that names no
+   * plan is left as is. A Forest variant is labelled with the base palette's classes, which its palette mostly shares.
    */
-  private patchWater(material: THREE.MeshStandardMaterial): void {
-    const uniforms = this.waterUniforms;
+  private labelFeatures(key: string, model: THREE.Group): void {
+    const plan = planKeyOfModel(key);
+    if (!plan) return;
+    model.updateMatrixWorld(true);
+    const toRoot = model.matrixWorld.clone().invert();
+    model.traverse((child) => {
+      if (!(child instanceof THREE.Mesh) || isOutline(child) || child.geometry.getAttribute("feature")) return;
+      const toModel = toRoot.clone().multiply(child.matrixWorld);
+      setFeatureAttributes(child.geometry, labelTileGeometry(child.geometry, plan, toModel));
+    });
+  }
+
+  /**
+   * The tile shader: the water texels brighter and glossier (`LookSettings.water`), the mask (`WATER_MASK_GLSL`) after the
+   * palette is read, the roughness after it is set; then the feature highlight (`FEATURE_HIGHLIGHT_GLSL`), from the
+   * `feature` attribute, flat across each triangle. Every patched material compiles to one program.
+   */
+  private patchTileShader(material: THREE.MeshStandardMaterial): void {
+    const uniforms = { ...this.waterUniforms, ...this.featureUniforms };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader.replace(
+        "void main() {",
+        "attribute float feature;\nflat varying float vFeature;\nvoid main() {\n  vFeature = feature;",
+      );
       shader.fragmentShader = shader.fragmentShader
-        .replace("void main() {", "uniform float uWaterOn;\nuniform float uWaterBrightness;\nuniform float uWaterRoughness;\nvoid main() {")
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}`)
+        .replace(
+          "void main() {",
+          [
+            "uniform float uWaterOn;",
+            "uniform float uWaterBrightness;",
+            "uniform float uWaterRoughness;",
+            "uniform float uFeatureOn;",
+            "uniform float uFeature;",
+            "uniform vec3 uFeatureColor;",
+            "uniform float uFeatureTint;",
+            "uniform float uFeatureGlow;",
+            "uniform float uFeatureDim;",
+            "flat varying float vFeature;",
+            "void main() {",
+          ].join("\n"),
+        )
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;",
         );
     };
-    material.customProgramCacheKey = () => "paved-tile-water";
+    material.customProgramCacheKey = () => "paved-tile";
   }
 
-  /** The highlights' colours and the water (`LookSettings`): shared materials and uniforms, nothing rebuilt. */
-  setLook(highlights: LookSettings["highlights"], water: LookSettings["water"]): void {
-    this.look = { highlights, water };
+  /**
+   * The highlights' colours, the water and the feature highlight (`LookSettings`): shared materials and uniforms, nothing
+   * rebuilt. Turning the feature highlight on labels the models drawn (and those drawn later), once each.
+   */
+  setLook(
+    highlights: LookSettings["highlights"],
+    water: LookSettings["water"],
+    featureHighlight: LookSettings["featureHighlight"] = LOOK_PRESETS.mockup.featureHighlight,
+  ): void {
+    this.look = { highlights, water, featureHighlight };
     this.waterUniforms.uWaterOn.value = water.enabled ? 1 : 0;
     this.waterUniforms.uWaterBrightness.value = water.brightness;
     this.waterUniforms.uWaterRoughness.value = water.roughness;
+    const features = this.featureUniforms;
+    features.uFeatureOn.value = featureHighlight.enabled ? 1 : 0;
+    features.uFeature.value = FEATURE_CODE[featureHighlight.feature] ?? FEATURE_CODE.city;
+    features.uFeatureColor.value.set(featureHighlight.color);
+    features.uFeatureTint.value = featureHighlight.tint;
+    features.uFeatureGlow.value = featureHighlight.glow;
+    features.uFeatureDim.value = featureHighlight.dim;
+    if (featureHighlight.enabled && !this.featuresOn) {
+      for (const [key, model] of this.tileTypes) this.labelFeatures(key, model);
+    }
+    this.featuresOn = featureHighlight.enabled;
     this.slotMaterial?.color.copy(slotColor(highlights));
     if (this.previewContainer && this.previewKey) {
       // The ghost's tint is set when it is made: make it again with the new one.
