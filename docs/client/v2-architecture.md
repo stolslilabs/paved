@@ -803,14 +803,18 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
   ASSET-WEIGHT, 2026-10-15).** Under `<base>renderer-assets/` (Vite's `base`), no request leaving the app's origin:
   - **Models, the app's own copy, compressed and content-hashed:** `packages/app/scripts/compress-models.ts`
     (`node scripts/compress-models.ts`; `--check` fails when the committed copy is stale, and a test runs it) reads
-    the 19 base models (`packages/app/asset-sources/models/<plan>.glb`, unchanged) and writes
+    the 19 base models (`packages/app/asset-sources/models/<plan>.glb`, as modelled but for the P-78 fix below) and writes
     `packages/app/public/renderer-assets/models/<plan>.<hash>.glb`, the hash being the first 10 hex digits of the file's
     SHA-256. Per model: vertices renumbered by first use (triangles and their order kept); `KHR_mesh_quantization`, every
-    attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; `sfrfrfffr` has one vertex
-    off the grid and takes 16-bit positions, within 6.0e-5; normals 16-bit; UVs unsigned 16-bit); then
+    attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; normals 16-bit; UVs
+    unsigned 16-bit); then
     `EXT_meshopt_compression` (vertex and index codecs, no lossy filter). The script decodes each copy and checks it
     against its source (largest moves on the grid: position 6.1e-6, normal 0.001 degree, UV 7.6e-6), and a test checks
-    that the renderer's outline builder finds the same segments in every copy as in its original. Positions are
+    that the renderer's outline builder finds the same segments in every copy as in its original. Every model is on the
+    0.1 voxel grid and a closed solid: `node packages/app/scripts/voxel-parity.ts` (and a test) casts a ray down each of
+    a tile's 40 by 40 columns and finds every one crossed an even number of times, in the sources and in the shipped
+    copies, so a voxelizer needs no tolerance code (P-78 moved `sfrfrfffr`'s one stray vertex, a ramp across the tile,
+    to the corner it belongs to). Positions are
     normalized so that the outline builder (`edges.ts`) keys them by number: raw integers up to 40 sent it to its string
     keys, and the 35-tile board's first frame was then no faster than with the originals. Tools, pinned devDependencies
     of `@paved/app`: `@gltf-transform/core` and `@gltf-transform/extensions` 4.5.1, `meshoptimizer` 1.1.1 (`bun.lock`
