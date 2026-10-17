@@ -101,22 +101,19 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
 // hash, at which it switches on: as the night comes (`uNightLevel` from 0 to 1) the windows light one by one, each over
 // 0.15 of the ramp. It adds an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
 export const NIGHT_LIGHTS_GLSL = /* glsl */ `
-  float nightLit = 0.0;
-  if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
-    vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
-    ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
-    if (texelFetch(uLightMap, lightTexel, 0).r > 0.5) {
-      uvec2 cell = uvec2(ivec2(vCell) + 4096);
-      uint h = uint(lightTexel.x) * 73856093u ^ uint(lightTexel.y) * 19349663u ^ uint(int(floor(lightAt.y)) + 64) * 83492791u ^ cell.x * 2654435761u ^ cell.y * 40503u;
-      h ^= h >> 16;
-      h *= 0x7feb352du;
-      h ^= h >> 15;
-      h *= 0x846ca68bu;
-      h ^= h >> 16;
-      float at = float(h & 0xffffu) / 65535.0 * 0.85;
-      nightLit = smoothstep(at, at + 0.15, uNightLevel);
-    }
-  }
+float nightLit = 0.0;
+if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
+ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
+if (texelFetch(uLightMap, lightTexel, 0).r > 0.5) {
+uvec2 c = uvec2(ivec2(vCell) + 4096);
+uint h = (uint(lightTexel.x) | uint(lightTexel.y) << 6u | uint(int(floor(lightAt.y)) + 64) << 12u) ^ c.x * 73856093u ^ c.y * 19349663u;
+h = (h ^ h >> 16) * 0x7feb352du;
+h = (h ^ h >> 15) * 0x846ca68bu;
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 0.85;
+nightLit = smoothstep(at, at + 0.15, uNightLevel);
+}
+}
 `;
 
 /**

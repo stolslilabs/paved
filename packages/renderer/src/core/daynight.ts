@@ -1,5 +1,7 @@
 // The day and night cycle (DAYNIGHT, P-73): its own chunk, loaded by `GameScene` once the cycle is on. Pure functions of
-// time (no three, no DOM): the scene applies what they give to its lights, its backdrop and the tiles' night lights.
+// time (no three, no DOM), and `drawDayNight`, which sets what they give on the scene's lights, its backdrop and the
+// tiles' night lights (here, not in the board's chunk).
+import type { AmbientLight, DirectionalLight, Fog, FogExp2, HemisphereLight } from "three";
 import { lightDirection } from "./look";
 import { SEASONS, type DayPhase, type Season } from "./daynight-settings";
 
@@ -307,4 +309,58 @@ export function pageCycleTime(now: number, cycleMs: number): number {
 /** The seasons since a summer's dawn after `elapsedMs` of cycles of `cycleMs` that started at `season`'s dawn. */
 export function seasonsAt(elapsedMs: number, cycleMs: number, season: Season): number {
   return SEASONS.indexOf(season) + elapsedMs / cycleMs;
+}
+
+/**
+ * What `drawDayNight` sets: the scene's lights (null for one the look turns off: it stays dark), its fog, and the
+ * scene's hooks for the shadow map, the backdrop and the night lights' level.
+ */
+export interface DayNightTarget {
+  key: DirectionalLight | null;
+  fill: DirectionalLight | null;
+  sky: HemisphereLight | null;
+  ambient: AmbientLight | null;
+  fog: Fog | FogExp2 | null;
+  /** The key and fill lights' distance from the origin, their target. */
+  distance: number;
+  shadowMoved(): void;
+  backdrop(top: Vec3, bottom: Vec3): void;
+  lights(level: number): void;
+}
+
+/** three's linear sRGB colour space: the frame's colours are linear. */
+const LINEAR = "srgb-linear";
+
+/**
+ * Draws the cycle at `seasons` (`dayNightFrame`) on the scene: the key light (the sun, the shadows' light: a new direction
+ * redraws the shadow map), the fill (the moon at night), the sky light and ambient, the fog, the backdrop and the night
+ * lights' level. Only values change: no light, material or pass is made. Returns the point drawn.
+ */
+export function drawDayNight(target: DayNightTarget, seasons: number, floor: number): CyclePoint {
+  const frame = dayNightFrame(seasons, floor);
+  const { key, fill, sky, ambient, distance: d } = target;
+  if (key) {
+    key.color.setRGB(...frame.sun.color, LINEAR);
+    key.intensity = frame.sun.intensity;
+    const [x, y, z] = frame.sun.direction;
+    if (key.position.x !== x * d || key.position.y !== y * d || key.position.z !== z * d) {
+      key.position.set(x * d, y * d, z * d);
+      target.shadowMoved();
+    }
+  }
+  if (fill) {
+    fill.color.setRGB(...frame.fill.color, LINEAR);
+    fill.intensity = frame.fill.intensity;
+    fill.position.set(...frame.fill.direction).multiplyScalar(d);
+  }
+  if (sky) {
+    sky.color.setRGB(...frame.sky.color, LINEAR);
+    sky.groundColor.setRGB(...frame.sky.ground, LINEAR);
+    sky.intensity = frame.sky.intensity;
+  }
+  if (ambient) ambient.intensity = frame.sky.ambient;
+  target.fog?.color.setRGB(...frame.fog, LINEAR);
+  target.backdrop(frame.backdrop.top, frame.backdrop.bottom);
+  target.lights(frame.lights);
+  return frame.point;
 }

@@ -508,34 +508,22 @@ export class GameScene {
    * level. Only values change: no light, material or pass is made.
    */
   private applyDayNight(seasons: number): void {
-    const frame = this.dayNight!.dayNightFrame(seasons, this.settings.dayNight.brightnessFloor);
     const look = this.getLook();
-    this.dayNightPoint = frame.point;
-    const key = this.directionalLight;
-    if (key) {
-      key.color.setRGB(...frame.sun.color, THREE.LinearSRGBColorSpace);
-      key.intensity = look.key.enabled ? frame.sun.intensity : 0;
-      const [x, y, z] = frame.sun.direction;
-      const [tx, ty, tz] = DIRECTIONAL_TARGET;
-      if (key.position.x !== tx + x * KEY_DISTANCE || key.position.y !== ty + y * KEY_DISTANCE || key.position.z !== tz + z * KEY_DISTANCE) {
-        key.position.set(tx + x * KEY_DISTANCE, ty + y * KEY_DISTANCE, tz + z * KEY_DISTANCE);
-        this.requestShadowUpdate();
-      }
-    }
-    if (this.fillLight) {
-      this.fillLight.color.setRGB(...frame.fill.color, THREE.LinearSRGBColorSpace);
-      this.fillLight.intensity = look.fill.enabled ? frame.fill.intensity : 0;
-      this.fillLight.position.set(...frame.fill.direction).multiplyScalar(KEY_DISTANCE);
-    }
-    if (this.hemisphereLight) {
-      this.hemisphereLight.color.setRGB(...frame.sky.color, THREE.LinearSRGBColorSpace);
-      this.hemisphereLight.groundColor.setRGB(...frame.sky.ground, THREE.LinearSRGBColorSpace);
-      this.hemisphereLight.intensity = look.sky.enabled ? frame.sky.intensity : 0;
-    }
-    if (this.ambientLight) this.ambientLight.intensity = look.sky.enabled ? frame.sky.ambient : 0;
-    if (this.scene.fog) this.scene.fog.color.setRGB(...frame.fog, THREE.LinearSRGBColorSpace);
-    this.effects.setBackdrop(true, frame.backdrop.top, frame.backdrop.bottom);
-    this.tiles.setNightLevel(frame.lights);
+    this.dayNightPoint = this.dayNight!.drawDayNight(
+      {
+        key: look.key.enabled ? this.directionalLight : null,
+        fill: look.fill.enabled ? this.fillLight : null,
+        sky: look.sky.enabled ? this.hemisphereLight : null,
+        ambient: look.sky.enabled ? this.ambientLight : null,
+        fog: this.scene.fog,
+        distance: KEY_DISTANCE,
+        shadowMoved: () => this.requestShadowUpdate(),
+        backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
+        lights: (level) => this.tiles.setNightLevel(level),
+      },
+      seasons,
+      this.settings.dayNight.brightnessFloor,
+    );
     this.requestRender();
   }
 

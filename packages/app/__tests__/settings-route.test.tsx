@@ -61,9 +61,10 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 };
 
 describe("/settings", () => {
-  it("shows the defaults: Auto with what it resolves to, sound on, music off, preview and highlight on, skins shown", async () => {
+  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, sound on, music off, preview and highlight on, skins shown", async () => {
     open();
     expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
+    expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
@@ -75,11 +76,12 @@ describe("/settings", () => {
   it("changes each setting and keeps it on the device", async () => {
     open();
     await userEvent.click(await screen.findByRole("radio", { name: "Low" }));
+    await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     await userEvent.click(screen.getByRole("switch", { name: "Sound" }));
     await userEvent.click(screen.getByRole("switch", { name: "Music" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
-    expect(stored()).toEqual({ quality: "low", sound: false, music: true, tilePreview: false, placementHighlight: false });
+    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
     expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
   });
 
@@ -168,13 +170,15 @@ describe("/settings", () => {
 });
 
 describe("the board reads the settings", () => {
-  it("passes the quality to the renderer's settings, and a change applies to the open board without a reload", async () => {
+  it("passes the quality and the day and night cycle to the renderer's settings, and a change applies to the open board without a reload", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
-    expect(lastBoard()?.settings).toEqual({ quality: "auto" });
+    expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high" }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true } }));
+    act(() => deviceSettings.set({ ...deviceSettings.get(), dayNight: false }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false } }));
     // A render that changes nothing the renderer reads keeps the object, so the canvas does not call setSettings for nothing.
     const high = lastBoard()?.settings;
     act(() => deviceSettings.set({ ...deviceSettings.get(), sound: !deviceSettings.get().sound }));
