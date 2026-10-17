@@ -2261,8 +2261,8 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
   first. The 2D placeholders already show at once and stay until the models arrive (5.6).
 - **Where the time goes now** (app, desktop, cold): the board's code and React until the scenes start (about 0.4 to 0.5 s
   here), the first models and images (in by 0.75 s), then the two scenes' first frames; the board's waits on the main
-  thread behind the hand's compile and link (software). The bundle: entry +136 B raw (+56 gzip), the board's chunk +1,010 B
-  (+376), first-load JS +681 B (+416), against main 4598b6d3 (SLOTS merged); all within `bundle-budget.json`, unchanged.
+  thread behind the hand's compile and link (software). The bundle: entry +136 B raw (+55 gzip), the board's chunk +1,496 B
+  (+604), first-load JS +681 B (+429), against main 35871a0d; all within `bundle-budget.json`, unchanged.
 - **Targets.** On software WebGL, the first 3D tile (the hand's) comes at 0.93 s cold and 0.58 to 0.86 s warm on desktop:
   inside both targets. The board itself is drawn at 1.58 s cold (under 2 s) and 1.35 to 1.46 s warm (over 1 s): what is
   left is the compile stall, a GPU row. Phone profile: the first 3D tile at 3.2 s cold, 1.8 to 2.1 s warm; the board at 4.3
