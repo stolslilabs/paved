@@ -60,7 +60,7 @@ export interface RendererSettings {
    * chosen (set from the GPU figures, LIGHT-GPU).
    */
   quality: QualityTier | "auto";
-  /** The placement visuals (SLOTS, `placement.ts`): the grid, the slots, the placed tile's aura and veil, their colours. */
+  /** The placement visuals (PLATES, `placement.ts`): the plates, their auras, the placed tile's rim, the grid, their colours. */
   placement: PlacementSettings;
   /**
    * The day and night cycle (DAYNIGHT, `daynight-settings.ts`): off by default; the app's board turns it on from its
