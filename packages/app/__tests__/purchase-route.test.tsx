@@ -327,8 +327,8 @@ describe("/play/challenge: the game's stake", () => {
     const s = setup({ revert: "Challenge: spawn paused" });
     const { router } = open("/play/challenge", s);
     await userEvent.click(await enabledPay());
-    const notice = await screen.findByRole("alert", undefined, { timeout: 3000 });
-    expect(notice).toHaveTextContent(/paused/);
+    // Paused is a state (a `Notice`), not an error (P-67).
+    expect((await screen.findAllByText(/paused/, undefined, { timeout: 3000 })).length).toBeGreaterThan(0);
     expect(router.state.location.pathname).toBe("/play/challenge");
   });
 
@@ -664,7 +664,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     s.state.balanceFail = null;
     s.state.noEvents = false;
     // The outcome's own Retry (the balance's notice has one too).
-    const outcome = screen.getByText("Outcome unknown").closest("[role=alert]") as HTMLElement;
+    const outcome = screen.getByText("Outcome unknown").closest("[role=status]") as HTMLElement;
     await userEvent.click(within(outcome).getByRole("button", { name: "Retry" }));
     await confirmNone();
     const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });

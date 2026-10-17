@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
@@ -14,7 +15,7 @@ import { VaultPosition } from "../containers/vault-position";
  * Where the page stands before a position is shown: no account (`guest`, with Connect), the reads on their way
  * (`loading`), or one that failed (`error`, with Retry). Left out, the position (or "not deployed") is shown.
  */
-export type VaultStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string };
+export type VaultStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
 
 const SUBTITLE = "Deposit PAVED for vPAVED";
 
@@ -36,6 +37,7 @@ export interface VaultSceneProps {
   busy?: VaultBusy | null;
   /** The last write's refusal (the writer's typed message). */
   refused?: string | null;
+  refusedDetail?: ErrorDetail;
   /** The last write went through: its receipt's PAVED and vPAVED. */
   done?: VaultDone | null;
   /** `Vault.delegates(holder)`, read only: null when not delegated; left out, not shown. */
@@ -75,9 +77,7 @@ export function VaultScene(props: VaultSceneProps) {
               Your vPAVED, its worth and your PAVED are read for your account.
             </Notice>
           ) : status.kind === "error" ? (
-            <Notice tone="danger" title="The Vault cannot be read" action={<Button size="sm" onClick={props.onRetry}>Retry</Button>}>
-              {status.message}
-            </Notice>
+            <InlineError title="The Vault cannot be read" message={status.message} detail={status.detail} action={<Button size="sm" onClick={props.onRetry}>Retry</Button>} />
           ) : (
             <div role="status" aria-label="Reading the Vault" className="flex flex-col gap-3">
               <Skeleton className="h-32 rounded-xl" />
@@ -156,6 +156,7 @@ export function VaultScene(props: VaultSceneProps) {
               preview={props.preview}
               busy={props.busy}
               refused={props.refused}
+              refusedDetail={props.refusedDetail}
               done={props.done}
               onModeChange={props.onModeChange}
               onAmountChange={props.onAmountChange}

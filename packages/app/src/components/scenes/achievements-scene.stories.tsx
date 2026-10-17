@@ -22,6 +22,8 @@ export const Guest: Story = { args: ACHIEVEMENTS.guest };
 
 /** The achievements on their way. */
 export const Loading: Story = { args: ACHIEVEMENTS.loading };
+/** The read failed: the one error component, with Retry and Copy (P-67). */
+export const Failed: Story = { args: ACHIEVEMENTS.failed };
 /** P-61: each achievement's Cobbles (its points): two claimed, two to claim (Claim per row, Claim all); On the Podium gives none. */
 export const Cobbles: Story = { args: ACHIEVEMENTS.cobbles };
 /** Claim all on its way. */

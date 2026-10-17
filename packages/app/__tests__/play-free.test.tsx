@@ -11,7 +11,7 @@ import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { errorToastTexts, preloadPages } from "./route-helpers";
 import { FakeFreeSpawner, freeWallet } from "./free-fakes";
 
 // "Play free" on / and /play, and the earlier wallet session on /quests and /achievements (PLAYFREE), on the fakes.
@@ -97,24 +97,24 @@ describe("Play free on /", () => {
   });
 
   it("a refusal (the chain says no credit) is told, the player stays on home and the credits are read again", async () => {
-    const error = vi.spyOn(toast, "error");
+    const error = vi.spyOn(toast, "custom");
     const { router, spawner, views } = open("/", { credits: 1 });
     const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
     // The page read one credit; by the time of the tap another tab has spent it.
     views.cobblePlayer(PLAYER_ID).account.credits = 0;
     await userEvent.click(card);
-    await waitFor(() => expect(error).toHaveBeenCalledWith("The free game did not start", { description: "You have no free game left: earn one on the quests page." }));
+    await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringContaining("The free game did not start: You have no free game left: earn one on the quests page.")]));
     expect(router.state.location.pathname).toBe("/");
     expect(spawner.sent).toBe(1);
     await waitFor(() => expect(freeCard("Free game")).toBeNull());
   });
 
   it("a rejected signature is told and nothing opens", async () => {
-    const error = vi.spyOn(toast, "error");
+    const error = vi.spyOn(toast, "custom");
     const { router, spawner } = open("/", { credits: 1 });
     spawner.failNext = new Error("User rejected the request");
     await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 }));
-    await waitFor(() => expect(error).toHaveBeenCalledWith("The free game did not start", { description: "User rejected the request" }));
+    await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringContaining("The free game did not start: User rejected the request")]));
     expect(router.state.location.pathname).toBe("/");
   });
 
@@ -133,7 +133,7 @@ describe("Play free on /", () => {
 
 describe("two quick taps", () => {
   it("send one transaction and show no error, though the writer would refuse the second", async () => {
-    const error = vi.spyOn(toast, "error");
+    const error = vi.spyOn(toast, "custom");
     const { router, spawner } = open("/", { credits: 2 });
     const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
     // Both taps in one tick: no render lands between them.

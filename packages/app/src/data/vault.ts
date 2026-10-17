@@ -107,6 +107,8 @@ export interface VaultControl {
   busy: VaultBusy | null;
   /** The last refusal's message (a typed error of `@paved/chain`), until `reset` or the next write. */
   refused: string | null;
+  /** The refusal's typed error, for its name and hash (`InlineError`'s detail, P-67). */
+  refusedError: Error | null;
   /** The last write's receipt, until `reset` or the next write. */
   done: VaultDone | null;
   /** Sends; resolves once it is confirmed (true) or refused (false). A second call while one is on its way does nothing. */
@@ -151,6 +153,7 @@ export function useVaultWrites(account: string | null): VaultControl {
     available: signer !== null && vault !== null,
     busy: pending?.kind ?? null,
     refused: mutation.error?.message ?? null,
+    refusedError: mutation.error ?? null,
     done: mutation.data?.done ?? null,
     reset: mutation.reset,
     send: async (write) => {

@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { errorDetail } from "../error-detail";
 import { PlayerScene } from "../../components/scenes/player-scene";
 import { useCurrentDay } from "../../data/chain";
 import { addressKey, queryKeys } from "../../data/keys";
@@ -48,6 +49,7 @@ function PlayerPage({ id }: { id: string }) {
       games={games.data ?? null}
       self={viewerId !== null && addressKey(viewerId) === addressKey(id)}
       error={error?.message ?? null}
+      errorDetail={error ? errorDetail(error) : undefined}
       lag={lagInfo(lag)}
       onRetry={() => void client.invalidateQueries({ queryKey: queryKeys.indexer.all })}
       onBack={() => (canGoBack() ? navigate(-1) : go("/leaderboard", { replace: true }))}

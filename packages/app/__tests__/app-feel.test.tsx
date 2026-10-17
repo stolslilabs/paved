@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
+import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it } from "vitest";
+import { InlineError } from "../src/components/elements/inline-error";
 import { Notice } from "../src/components/elements/notice";
 import { CopyField } from "../src/components/elements/copy-field";
 import { RefusalNotice } from "../src/components/scenes/purchase-scene";
@@ -49,22 +51,23 @@ describe("the viewport meta", () => {
 describe("the copy targets opt back in with select-text", () => {
   it("the referral link, a full address, an error detail", () => {
     render(
-      <>
+      <LazyMotion features={domMax}>
         <CopyField value="https://paved.example/?ref=0xabc" label="Your referral link" />
         <ShortAddress address={"0x" + "5f".repeat(32)} />
-        <Notice tone="danger" title="Refused">The transaction was reverted: 0xdead</Notice>
-      </>,
+        {/* Every error is InlineError's (P-67): its text is a copy target. */}
+        <InlineError title="Refused" message="The transaction was reverted: 0xdead" />
+      </LazyMotion>,
     );
     expect(screen.getByLabelText("Your referral link").className).toContain("select-text");
     expect(screen.getByText("0x" + "5f".repeat(32)).closest("[title]")!.className).toContain("select-text");
-    expect(screen.getByText(/was reverted/).className).toContain("select-text");
+    expect(screen.getByText(/was reverted/).closest("p")!.className).toContain("select-text");
   });
 
   it("the transaction hash of an unknown purchase, and only the hash", () => {
     render(<RefusalNotice refusal={{ kind: "unknown", message: "Purchase sent 2 min ago (0xabc123), outcome unknown." }} />);
     const hash = screen.getByText("0xabc123");
     expect(hash.className).toContain("select-text");
-    expect(hash.closest("[role=alert]")!.querySelector("span.opacity-90")!.className).not.toContain("select-text");
+    expect(hash.closest("[role=status]")!.querySelector("span.opacity-90")!.className).not.toContain("select-text");
   });
 
   it("an info notice stays select-none", () => {
@@ -81,10 +84,9 @@ describe("the copy targets opt back in with select-text", () => {
       .sort();
     expect(found).toEqual([
       "components/elements/copy-field.tsx",
-      "components/elements/notice.tsx",
+      "components/elements/inline-error.tsx",
       "components/elements/short-address.tsx",
       "components/scenes/purchase-scene.tsx",
-      "wallet/notice.tsx",
     ]);
   });
 });

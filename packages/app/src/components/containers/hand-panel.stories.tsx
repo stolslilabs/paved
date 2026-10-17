@@ -24,7 +24,7 @@ export const Placing: Story = {};
 /** A slot chosen: Confirm shows the points the placement would score. */
 export const SlotChosen: Story = { args: { slotChosen: true, preview: 30 } };
 export const Pending: Story = { args: { state: "pending", slotChosen: true } };
-export const Refused: Story = { args: { state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } };
+export const Refused: Story = { args: { state: "refused", slotChosen: true, error: "The edges do not match.", errorDetail: { code: "WriteError", txHash: "0x05f16e7f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5", gameId: 42, version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) } } };
 /** The 24 h passed: only Surrender is left. */
 export const Expired: Story = { args: { state: "expired" } };
 /** No tile: the game is over. */

@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import type { GameView } from "@paved/chain";
 import { OverScene, type OverSceneProps } from "../../components/scenes/over-scene";
 import { TopBar } from "../../components/containers/top-bar";
+import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { rewardOf, settleProps, useOverRead, useSettle, type OverReward } from "../../data/over";
@@ -10,6 +11,7 @@ import { useDataSources } from "../../data/sources";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
+import { errorDetail } from "../error-detail";
 import { useRoutePage } from "../handle";
 import { useChainClock } from "../../data/clock";
 import { Placeholder } from "../Placeholder";
@@ -68,7 +70,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   }, [playing, gameId, go]);
 
   if (read.status === "not-found") return <NotFound />;
-  if (read.status === "error") return <OverStatus error={read.error.message} onBack={onBack} onRetry={read.retry} />;
+  if (read.status === "error") return <OverStatus error={read.error.message} detail={errorDetail(read.error, { gameId })} onBack={onBack} onRetry={read.retry} />;
   if (read.status === "loading") return <OverStatus error={null} onBack={onBack} />;
   if (read.status === "playing") return null;
 
@@ -86,7 +88,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       freeGame={free}
       rewardUnavailable={reward.kind === "none"}
       deadline={reward.kind === "expired" ? reward.deadline : undefined}
-      settle={settle ?? undefined}
+      settle={settle ? (control.error && settle.state === "refused" ? { ...settle, detail: errorDetail(control.error, { gameId }) } : settle) : undefined}
       now={now}
       onPlayAgain={() => go("/play/challenge")}
       onHome={() => go("/")}
@@ -95,7 +97,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
 }
 
 /** The page while the game and its terms are read, and when a read failed (Retry). */
-function OverStatus({ error, onBack, onRetry }: { error: string | null; onBack: () => void; onRetry?: () => void }) {
+function OverStatus({ error, detail, onBack, onRetry }: { error: string | null; detail?: ErrorDetail; onBack: () => void; onRetry?: () => void }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Final score" onBack={onBack} />
@@ -104,9 +106,7 @@ function OverStatus({ error, onBack, onRetry }: { error: string | null; onBack: 
           <Notice title="Reading the game…">Its score, its reward and its day.</Notice>
         ) : (
           <>
-            <Notice tone="danger" title="The game cannot be read">
-              {error}
-            </Notice>
+            <InlineError title="The game cannot be read" message={error} detail={detail} />
             <Button onClick={onRetry}>Retry</Button>
           </>
         )}

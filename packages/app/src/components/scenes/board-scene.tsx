@@ -9,6 +9,7 @@ import { BoardMap } from "../containers/board-map";
 import type { BoardGhost } from "../containers/board-viewport";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
+import type { ErrorDetail } from "../elements/inline-error";
 import { HandPanel, type HandState } from "../containers/hand-panel";
 
 export type BoardMode = "challenge" | "training" | "tutorial";
@@ -34,6 +35,8 @@ export interface BoardSceneProps {
     slotChosen?: boolean;
     preview?: number | null;
     error?: string | null;
+    /** The refusal's detail for support (`InlineError`). */
+    errorDetail?: ErrorDetail;
   };
   /** What the last move closed (`SessionState.lastScored`), shown as it arrives. */
   lastScored: ScoredStructure[];
@@ -125,6 +128,7 @@ export function BoardScene(props: BoardSceneProps) {
             slotChosen={hand.slotChosen}
             preview={hand.preview}
             error={hand.error}
+            errorDetail={hand.errorDetail}
             tileArt={props.tileArt}
             renderTile={props.renderHandTile}
             onRotate={props.onRotate}

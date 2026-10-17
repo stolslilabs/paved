@@ -1,3 +1,4 @@
+import { useErrorDetail } from "../error-detail";
 import { WelcomeScene } from "../../components/scenes/welcome-scene";
 import { useWallet } from "../../wallet/wallet";
 import { useAppNavigate } from "../ref";
@@ -10,10 +11,12 @@ import { markWelcomed } from "../welcomed";
 export default function Page() {
   const go = useAppNavigate();
   const wallet = useWallet();
+  const detail = useErrorDetail(wallet.error);
   return (
     <WelcomeScene
       connecting={wallet.status === "connecting"}
       error={wallet.error}
+      errorDetail={detail}
       onConnect={async () => {
         if (!(await wallet.connect())) return;
         markWelcomed();

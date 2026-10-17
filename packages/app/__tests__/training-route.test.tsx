@@ -58,6 +58,7 @@ describe("/training (P3)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: 5000 })).toBeInTheDocument();
     expect(await tilesOnBoard()).toBe(2);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
     first.unmount();
 
     // A reload: a new tab reads the same save (a new store function, so nothing is held from the first render).
@@ -130,9 +131,9 @@ describe("/training (P3)", () => {
 
   it("says when storage is off, and still plays", async () => {
     open("/training", null);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Storage is off");
+    expect(await screen.findByText("Storage is off")).toBeInTheDocument();
     await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Storage is off");
+    expect(screen.getByText("Storage is off")).toBeInTheDocument();
   });
 
   it("says when a save was dropped", async () => {
@@ -149,9 +150,10 @@ describe("/training (P3)", () => {
     open("/training", quota);
     await tilesOnBoard();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
     full = true;
     await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Last move not saved");
+    expect(await screen.findByText("Last move not saved")).toBeInTheDocument();
   });
 
   it("a dropped save never rewinds the game: the last moves unsaved, the game still ends on its over scene", async () => {
@@ -198,6 +200,7 @@ describe("/training (P3)", () => {
     expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
     expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
 
     await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
     expect(loadGame(() => store)!.moves).toEqual([...other, { k: "d" }]);

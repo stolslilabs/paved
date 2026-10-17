@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { LazyMotion, domMax } from "motion/react";
+import { describe, expect, it, vi } from "vitest";
 import { useDataSources } from "../src/data";
 import { WalletFooter } from "../src/wallet/notice";
 import { WalletProvider, useAccount, useWallet } from "../src/wallet/wallet";
@@ -91,6 +92,38 @@ describe("the wallet (P6)", () => {
     await act(async () => void (await userEvent.click(screen.getByRole("button", { name: "connect" }))));
     expect(await screen.findByText(/Challenge missing/)).toBeInTheDocument();
     expect(signerOf()).toBe("none");
+  });
+
+  it("the footer's wallet error keeps the time it was first shown across re-renders (P-67)", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      const tree = () => (
+        <LazyMotion features={domMax}>
+          <WalletProvider sources={sources} load={wallet.load}>
+            <Probe />
+          </WalletProvider>
+        </LazyMotion>
+      );
+      const wallet = fakeWallet({ refuse: "The player closed the window." });
+      const { sources } = fakeSources();
+      const { rerender } = render(tree());
+      await userEvent.click(screen.getByRole("button", { name: "connect" }));
+      await screen.findByRole("alert");
+      const shownAt = () => (writeText.mock.calls.at(-1) as unknown as [string])[0].match(/First shown \(UTC\): (.*)/)![1];
+      await userEvent.click(screen.getByRole("button", { name: "Copy the error" }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const first = shownAt();
+      await new Promise((r) => setTimeout(r, 5));
+      rerender(tree());
+      await userEvent.click(screen.getByRole("button", { name: /^(Copy the error|Copied)$/ }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+      expect(shownAt()).toBe(first);
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else delete (navigator as { clipboard?: unknown }).clipboard;
+    }
   });
 
   it("the footer carries the D-15 notice, linked to the notices file", () => {

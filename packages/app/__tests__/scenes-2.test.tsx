@@ -289,7 +289,7 @@ describe("Vault", () => {
 
   it("says when the economy is not deployed, and offers nothing to send", () => {
     render(wrap(<VaultScene {...VAULT.notDeployed} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Economy not deployed");
+    expect(screen.getByText("Economy not deployed")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 });
@@ -585,7 +585,7 @@ describe("Referral", () => {
 
   it("shows no share when the economy is not deployed", () => {
     render(wrap(<ReferralScene {...REFERRAL.notDeployed} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Economy not deployed");
+    expect(screen.getByText("Economy not deployed")).toBeInTheDocument();
     expect(screen.queryByText(/5%/)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Earned" })).not.toBeInTheDocument();
   });

@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Amount, formatUnits, TOKENS } from "../elements/amount";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { formatBps } from "./split-bar";
 
@@ -61,6 +62,8 @@ export interface VaultFormProps {
   busy?: VaultBusy | null;
   /** The last write's refusal, the writer's message (a typed error of `@paved/chain`). */
   refused?: string | null;
+  /** That refusal's detail for support (`InlineError`): its typed name, its hash, the version, the time. */
+  refusedDetail?: ErrorDetail;
   /** The last write went through. */
   done?: VaultDone | null;
   onModeChange?: (mode: VaultMode) => void;
@@ -147,19 +150,18 @@ export function VaultForm(props: VaultFormProps) {
         </dl>
       )}
 
-      {over && (
-        <Notice tone="danger" title={mode === "deposit" ? "Not enough PAVED" : "Over max_withdraw"}>
-          {mode === "deposit"
-            ? `More than your wallet holds: at most ${formatUnits(balance, tile.decimals, tile.fraction)} PAVED. Nothing was sent.`
-            : `More than you can withdraw: at most ${formatUnits(maxWithdraw, tile.decimals, tile.fraction)} PAVED now, the exit fee taken. Nothing was sent.`}
-        </Notice>
-      )}
-
-      {props.refused && !working && (
-        <Notice tone="danger" title={mode === "deposit" ? "Deposit refused" : "Withdraw refused"}>
-          {props.refused}
-        </Notice>
-      )}
+      {/* The amount's error and the write's refusal: one InlineError each, always rendered, so their height animates. */}
+      <InlineError
+        title={mode === "deposit" ? "Not enough PAVED" : "Over max_withdraw"}
+        message={
+          !over
+            ? null
+            : mode === "deposit"
+              ? `More than your wallet holds: at most ${formatUnits(balance, tile.decimals, tile.fraction)} PAVED. Nothing was sent.`
+              : `More than you can withdraw: at most ${formatUnits(maxWithdraw, tile.decimals, tile.fraction)} PAVED now, the exit fee taken. Nothing was sent.`
+        }
+      />
+      <InlineError title={mode === "deposit" ? "Deposit refused" : "Withdraw refused"} message={working ? null : props.refused} detail={props.refusedDetail} />
       {props.done && !working && (
         <Notice icon="circle-check" title={props.done.kind === "deposit" ? "Deposited" : "Withdrawn"}>
           {props.done.kind === "deposit"
