@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "cd ../.. && bun install --frozen-lockfile",
+  "ignoreCommand": "[ -f ../../scripts/vercel/ignore-build.sh ] && sh ../../scripts/vercel/ignore-build.sh client || exit 1",
   "buildCommand": "cd ../.. && bun run build --filter '@paved/app^...' && bun run --cwd packages/app build",
   "outputDirectory": "dist",
   "build": {

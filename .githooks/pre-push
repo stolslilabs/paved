@@ -1,0 +1,63 @@
+#!/bin/sh
+# The repository's pre-push hook (GUARDS, P-71): the cheap part of `bun run check`, on the commit being pushed.
+# The contracts' format (scarb fmt --check, when contracts/ changed and scarb is present), the typecheck and the
+# guard tests of the touched packages. No build of the apps, no browser; seconds when no package changed.
+#
+# Turn it on in a clone (every worktree of the clone follows): git config core.hooksPath .githooks
+# Skip it once:                                                   PAVED_SKIP_PREPUSH=1 git push ...
+#
+# A missing tool (node, bun, the installed node_modules) never blocks a push: the hook warns and lets it through,
+# and the CI checks the pull request anyway.
+
+if [ "${PAVED_SKIP_PREPUSH:-}" = "1" ]; then
+  echo "pre-push: skipped (PAVED_SKIP_PREPUSH=1)"
+  exit 0
+fi
+
+top=$(git rev-parse --show-toplevel) || exit 0
+cd "$top" || exit 0
+
+for tool in node bun; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "pre-push: warning: $tool is not on PATH; the checks are not run, the push goes through (the CI checks it)"
+    exit 0
+  fi
+done
+# check.mts is TypeScript that Node runs by type stripping: the repository's Node is 24 (engines); an older one may
+# not run it at all.
+node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)
+if [ -z "$node_major" ] || [ "$node_major" -lt 24 ] 2>/dev/null; then
+  echo "pre-push: warning: node ${node_major:-?} is older than the repository's 24; the checks are not run, the push goes through"
+  exit 0
+fi
+if [ ! -d node_modules ]; then
+  echo "pre-push: warning: no node_modules (run bun install --frozen-lockfile); the checks are not run, the push goes through"
+  exit 0
+fi
+
+zero=0000000000000000000000000000000000000000
+status=0
+ran=0
+# stdin: one line per ref pushed, "<local ref> <local sha> <remote ref> <remote sha>".
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  # A deleted ref pushes no commit.
+  [ "$local_sha" = "$zero" ] && continue
+  ran=1
+  # stdin stays the ref list: the check reads none of it. Exit 2 is a failed check; any other non-zero exit is the
+  # runner itself failing (a crash, a missing module), which never blocks a push.
+  node scripts/check/check.mts --pre-push --head "$local_sha" </dev/null
+  code=$?
+  if [ "$code" -eq 2 ]; then
+    status=1
+  elif [ "$code" -ne 0 ]; then
+    echo "pre-push: warning: the check runner exited $code (not a failed check); the push goes through"
+  fi
+done
+
+if [ "$ran" = "0" ]; then
+  exit 0
+fi
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: a check failed (above). Fix it, or push anyway with: PAVED_SKIP_PREPUSH=1 git push ..."
+fi
+exit "$status"

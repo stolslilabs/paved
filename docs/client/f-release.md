@@ -154,6 +154,17 @@ What the files set:
   Storybook adds `iframe.html`, `index.json` and `project.json` to the `no-cache` list. Everything else keeps Vercel's default.
 - **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it). A preview of the client
   shows no indexer data: its `*.vercel.app` origin is not in the indexer's `--allow-origin` (CORS refuses it; `indexer-hosting.md`).
+- **Ignore step (GUARDS, P-71).** Each file's `ignoreCommand` runs `scripts/vercel/ignore-build.sh client` or `storybook`: a
+  deployment builds only when one of its project's inputs changed since the merge base with `main` (a pull request) or the last
+  production build (`main`); on any doubt it builds. The Storybook's inputs are `packages/app`, `game-core`, `renderer`, `chain`,
+  `ui`, `packages/app-web/public`, `contracts/abis`, `contracts/deployments`, `bun.lock`, the root `package.json`, `turbo.json`,
+  `tsconfig.base.json` and the root `vercel.json`, without any `*.md`; the client's are the same without the stories
+  (`*.stories.tsx`, `src/stories/`, `.storybook/`) and the root `vercel.json` (`--paths <project>` prints them). Docs, the
+  indexer, Cairo sources, `.github/` and `.claude/` build neither; the docs project builds on `book/` only.
+  `scripts/vercel/ignore-build.test.sh` judges all three on real commits of `main`.
+- **Before the merge (GUARDS, P-71).** The CI job `Vercel build (Sepolia)` runs both projects' install and build commands, read from
+  these files with the client's `build.env`, on every pull request that touches their inputs; `bun run check` runs the same locally
+  (`node scripts/check/vercel-build.mts <client|storybook>`), then `bun run budget` (each limit, the measured size, the margin).
 
 **Release.** The client release is a Vercel production deploy of `packages/app` from `main`, after the release gates (the value
 re-check of the diff first). `paved.bal7hazar.com` is added to the `paved` project only after the first production deploy and that
