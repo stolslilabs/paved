@@ -2518,7 +2518,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, their strength, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
   - "Scenes/Board" has DayNight (×10) and DayNightAtNight.
 
-**Measured** (the Mac's GPU, M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
+**Measured** (the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
 
 *Frame time*, CPU + GPU per frame, ms.
 - Method: the tick's CPU plus `EXT_disjoint_timer_query_webgl2` around the rendered frame; every frame drawn; 120 warm-up and 600 measured frames; a fresh context per configuration; two rounds, the order rotated. The figure is the mean p50 / mean p95, with the worst round's p95 in brackets.
