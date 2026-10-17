@@ -1335,6 +1335,14 @@ The smoothstep of OUT-FADE is gone. A 360 x 780 phone opens at S = 52 (off at ab
 (off at about 51). The tile and S scale together with the height, so on every screen the outlines are off past distance
 240 / 0.85 (about 282): they vanish at the farthest zoom (300).
 
+**Follow-ups (SLOTS2, P-72, from OUT-FADE2's review).** `TileRenderer.setPlacementSettings` takes `OutlineFadeSettings`,
+so the exponent and the eased end reach the slot lines by type; a fade exponent that is not a finite number is the
+default's (`outlineFade`), never a NaN opacity; the doc of `fadeFullFactor` says what it is, the fade's start, 1.5 S by
+default; the "Renderer/Outlines" story's "max zoom-in" start is computed from the story's own `minDistance` and
+`maxDistance` controls (`fadeStartOf`, the opening distance over the closest), not the renderer's defaults. The
+placement grid no longer follows this curve by default: its hairlines hold at every zoom, the curve only on request and
+from the opening view out (`grid.farFade`, 5.7); the slots' borders keep it with their floor.
+
 **The start (PM ruling 2026-10-17).** The literal version, fully on only at the closest zoom ("max zoom-in", start 30 S),
 leaves the opening view almost off: S is only 0.18 of the way up the log range from 0.85 S to 30 S, t = ln 30 /
 ln(30 / 0.85) = 0.954, and the opacity at S is 4.6 % (linear), **8.9 %** (square), 13.1 % (cube). So the default start is
@@ -2171,6 +2179,101 @@ placed yellow, placed red, confirm green caught about 150 ms into its fade, redu
 - The player's "tile preview" setting hides only the hover preview (fix loop 1): a placed tile is always drawn, with its
   aura, veil and colour, red included, so the board says why Confirm is disabled.
 - The look's gold highlights (`look.highlights`) no longer draw the slots or the ghost; they stay in the look for GLOW.
+
+**SLOTS2 (P-72, the owner's second pass, 2026-10-17).** Points 1 to 6 of the owner's seven (point 7, DORF, is a task of
+its own). What changed over the text above, which it supersedes where they differ:
+
+1. **The grid's reach.** A line now takes the **farther** ring of its two cells (the smaller opacity; SLOTS took the
+   nearer): the board's edge and the lines inside ring 1 at 1, ring 2's at 0.5 (`rings` [1, 0.5, 0.1]), ring 3's at 0.1
+   (almost invisible), and nothing beyond ring 3: one line less than SLOTS, which drew the outer edge of ring 3. Linear
+   along a line as before; the ring metric stays Chebyshev. `gridLineOpacityAt` and the shader both take the `min`.
+2. **The grid's strokes.** A hairline of `grid.widthDevicePx` (1) device px at every zoom, antialiased by its coverage of
+   the pixel (`gridLineCoverage`: at most one px each side, the same total light at any sub-pixel offset), the device px
+   measured across each line by the length of its coordinate's screen gradient (not `fwidth`'s sum, which widens a line
+   seen at an angle). No world width any more, and **no fade on zoom**: the grid holds its ring opacities at every zoom.
+   `grid.farFade` (off) turns on the outlines' curve (`placementFade`, OUT-FADE2's function with its exponent and eased
+   end) from `grid.farFadeStart` (1 S, the opening view) out, the far end only.
+3. **The neon is inscribed in its cell.** The line runs inside the cell's edge (its half width and half a device px in,
+   plus `slots.inset`, 0), and the line and its glow are multiplied by the cell's antialiased coverage: nothing lights a
+   neighbour (two lit cells side by side show two borders). The dashes are capsules: the frame shader computes the
+   distance to the nearest rounded segment (`neonFrameDistance`), so a dash ends in a round cap and its glow, a
+   distance-field gaussian, wraps the end; the gap is lengthened by the caps so the visible gap stays `gap` of a period;
+   the corners stay whole L shapes. The frame's quad is the cell plus `NEON_FRAME_MARGIN` (0.02) for the clip's
+   antialiasing; the floor `slots.minWidthDevicePx` (1) is the slots' own now.
+4. **The veil** is the state's own colour, the neon's (`veil.whiten` 0, `opacity` 0.14), yellow, red and green alike;
+   the plan view's veil and confirm flash likewise (`bg-primary/15`, `bg-ember-500/15`, `bg-meadow-400/15`).
+5. **The pulse travels around the tile.** `aura.pulse`: `"rotating"` (the default, a wave of `arcs` (1) whole turns
+   round the cell, the angle around its centre, the phase over `periodMs`), `"rotating-noise"` (the same times an
+   interference of three sines of whole turns and of whole loops over 30 periods, `noise` 0.6: it does not jump and does
+   not seem to repeat), and `"radial"` (SLOTS' waves, in step all around). `waveAmount` 0.6. Reduced motion keeps a still,
+   even aura (no wave: a still wave would leave one side brighter).
+6. **Scenes/Board** passes the slots, the ghost and the confirm to the real renderer (`BoardViewport`), as the board page
+   does: the stories Placing (a tile in hand, its slots dashed and solid), Idle (a move on its way: the grid), PlacedLegal
+   (yellow, Confirm on) and PlacedIllegal (red, Confirm off), the slots computed on the recorded 38-tile board by the
+   rule the bench's boards were built with (`Layout.isCompatible`).
+
+Every new value is a setting and a control of "Renderer/Placement" (a "Placed noise" story added). From OUT-FADE2's review,
+in 5.3: `setPlacementSettings` typed `OutlineFadeSettings`, a non-finite exponent the default's, `fadeFullFactor`'s doc,
+the outlines story's "max zoom-in" from its own camera controls.
+
+**Frame time (SLOTS2, measured 2026-10-17).** The same method and configurations as SLOTS above (Chrome new headless on
+ANGLE Metal, never on screen, "Renderer/Placement" on the 72-tile board, redraw on, outlines forced on, quality and cap
+auto; CPU of every rAF callback of a frame plus the GPU timer query from its first callback to the next frame's; a
+fresh context per configuration, 120 warm-up and 600 measured frames; two rounds, order rotated; every run started at a
+1-minute load under 6), driven by this thread's own script (SLOTS' was not committed), on this branch's static
+Storybook and on main's (`6acb93ad`), each at its 1-minute loads (1.16 to 3.49 branch, 2.09 to 3.31 main). CPU + GPU per
+frame, ms, pooled p50 / p95:
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| none, SLOTS2 | 6.08 / 8.79 | 4.92 / 6.78 | 3.91 / 5.73 | 2.48 / 4.18 |
+| grid, SLOTS2 | 6.46 / 9.14 | 4.96 / 7.45 | 4.14 / 6.06 | 1.91 / 2.95 |
+| slots, SLOTS2 | 6.69 / 9.48 | 5.06 / 7.85 | 4.31 / 6.76 | 1.88 / 2.88 |
+| placed, SLOTS2 | 6.67 / 9.43 | 5.23 / 7.62 | 4.19 / 6.25 | 2.64 / 3.47 |
+| none, main | 6.33 / 9.09 | 4.66 / 6.67 | 5.92 / 7.23 | 2.68 / 3.75 |
+| grid, main | 6.53 / 9.30 | 5.54 / 7.13 | 5.38 / 6.88 | 2.63 / 4.10 |
+| slots, main | 6.63 / 9.25 | 5.59 / 7.56 | 4.90 / 6.68 | 3.01 / 4.27 |
+| placed, main | 6.97 / 9.53 | 5.36 / 7.63 | 5.82 / 7.35 | 2.47 / 3.56 |
+
+Every row is under the rules (12 ms desktop, 16.6 ms phone-like, p95): the worst is 9.48 (desktop, slots). Branch and
+main overlap within the runs' noise (the "none" rows, the same code on both, differ by up to 2 ms of phone-like p50): no
+cost of SLOTS2 stands out of it. This driver's absolute figures are not SLOTS' (its "none" desktop p95 is 8.79 to 9.09
+against 6.61): compare within this table.
+
+**Zero flicker (SLOTS2).** SLOTS' four measures, same views and profiles (top view at 240, the page's pixel ratio the
+renderer's: 1.75 desktop, 2 phone-like; "placed" under reduced motion), this branch against main, each at loads under 6
+(2.30 to 3.38, 2.02 to 3.71). The pans are moved by exactly 3 device px of the camera's view (its `zoom` of 5 included)
+and registered at the pan's own 3 px every time. Mean (max):
+
+| Tier, profile | Variant | Still | Pan residual | Sub-pixel step, SLOTS2 / main | Zoom step, SLOTS2 / main |
+|---|---|---|---|---|---|
+| Medium, desktop | none | 0 | 1.442 (1.47) | 0.016 / 0.016 | 0.067 / 0.067 |
+| Medium, desktop | slots | 0 | 1.444 (1.47); main 1.447 | 0.023 (0.04) / 0.040 (0.08) | 0.084 (0.19) / 0.094 (0.20) |
+| Medium, desktop | placed | 0 | 1.454 (1.48); main 1.458 | 0.023 (0.04) / 0.040 (0.08) | 0.083 (0.18) / 0.095 (0.19) |
+| Low, desktop | slots / placed | 0 | 0.372 / 0.371; main 0.375 / 0.374 | 0.024 / 0.040 | 0.081 / 0.092 |
+| Medium, phone-like | none | 0 | 1.547 (1.57) | 0.006 / 0.006 | 0.060 / 0.060 |
+| Medium, phone-like | slots | 0 | 1.558 (1.58); main 1.558 | 0.030 (0.06) / 0.019 (0.05) | 0.059 (0.12) / 0.060 (0.14) |
+| Medium, phone-like | placed | 0 | 1.582 (1.61); main 1.586 | 0.031 (0.07) / 0.019 (0.05) | 0.058 (0.12) / 0.061 (0.15) |
+| Low, phone-like | slots / placed | 0 | 0.471 / 0.469; main 0.472 / 0.471 | 0.026 / 0.018 | 0.056 / 0.061 |
+| High (control), desktop | slots | 0 | 3.303 (3.34); main 3.024 | 0.328 (0.52) / 0.285 (0.76) | 1.146 (3.27) / 1.024 (2.13) |
+| High (control), phone-like | slots | 0 | 2.940 (3.19); main 2.285 | 0.860 (1.50) / 0.377 (0.65) | 0.749 (2.13) / 0.685 (1.16) |
+
+Still frames are pixel-identical everywhere; over the "none" floor the lines add at most 0.04 of a level to the pan
+residual, as on main. The sub-pixel and zoom steps are lower than main's on the desktop (the hairline and the clipped
+glow); on the phone-like profile the sub-pixel step is 0.01 of a level higher than main's (0.07 at most), the zoom step
+lower: hundredths of one 8-bit level, far under a visible step. High's bloom, the positive control, is caught as before
+(sub-pixel steps 10 to 30 times the default tiers', zoom steps up to 3.3 levels): the default tiers show no flicker.
+
+**Captures** (`captures/slots2-<point>-<state>-<before|after>-<1280|360>.webp`, before = main `6acb93ad`, after = this
+branch; 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on the Mac's GPU, outlines on, quality and cap auto):
+`p1-grid` (idle, opening view), `p2-grid-zoomed-in` and `p2-grid-zoomed-out`, `p3-neon` (slots, distance 60),
+`p4-veil-yellow`, `-red` (reduced motion) and `-green` (about 150 ms into the confirm), `p5-pulse-a/b/c` (450 ms apart),
+`p5-pulse-noise-a/b/c` (after only), `p5-reduced`, and `p6-board-placing`, `-idle`, `-placed-legal`, `-placed-illegal`
+(Scenes/Board; main had none of the last three, so its before is PendingMove, SlotChosen and RefusedMove, without slots).
+
+**Where SLOTS2 decides a gap** (the thread's, reversible): "ring N" is read as a line taking the farther ring of its
+cells (reverse: `max` again in `gridLineOpacityAt` and the shader, and the reach comes back one line); the grid does not
+fade on zoom by default (`grid.farFade`); a dashed slot's gap keeps its visible length, the caps added to it.
 
 ### 5.8 Loading (LOAD-FAST)
 
