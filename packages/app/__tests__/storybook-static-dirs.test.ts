@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { STATIC_DIRS, sharedDirs, writtenDirs } from "../scripts/storybook-static-dirs";
+import { STORY_TRACKS } from "../src/mocks/music";
+import { PUBLIC_DIR, STATIC_DIRS, sharedDirs, writtenDirs } from "../scripts/storybook-static-dirs";
 
 /** A config dir with folders under it: `{ "a/x": ... }` makes `a/x/` (and a file in it, so the folder is not empty). */
 function tree(folders: string[]) {
@@ -23,9 +24,27 @@ describe("the Storybook static dirs", () => {
 
   it("puts asset-sources/ under a path of its own, away from the app's renderer-assets/", () => {
     const written = STATIC_DIRS.map((d) => writtenDirs(d));
-    expect(written[0]).toContain("/renderer-assets/models");
-    expect(written[1]).toContain("/asset-sources/models");
-    expect(written[1].some((p) => p.startsWith("/renderer-assets"))).toBe(false);
+    expect(written.some((w) => w.includes("/renderer-assets/models"))).toBe(true);
+    const sources = written.filter((w) => w.includes("/asset-sources/models"));
+    expect(sources).toHaveLength(1);
+    expect(sources[0]!.some((p) => p.startsWith("/renderer-assets"))).toBe(false);
+  });
+
+  it("carries only the tracks the stories play, not the 16 of public/music/", () => {
+    const staged = STATIC_DIRS.filter((d): d is string => typeof d === "string");
+    expect(staged).toHaveLength(1);
+    expect(readdirSync(join(staged[0]!, "music")).sort()).toEqual(STORY_TRACKS.map((t) => t.replace("/music/", "")).sort());
+    expect(readdirSync(PUBLIC_DIR)).toContain("music");
+    expect(readdirSync(join(PUBLIC_DIR, "music")).filter((n) => n.endsWith(".m4a"))).toHaveLength(16);
+    // The staged folder holds the root files too (the notices), and no other static dir is `public/` whole.
+    expect(readdirSync(staged[0]!)).toContain("THIRD_PARTY_NOTICES.txt");
+    expect(STATIC_DIRS.some((d) => typeof d !== "string" && d.from === PUBLIC_DIR)).toBe(false);
+  });
+
+  it("serves every folder of public/ but music/ at its own path", () => {
+    const tos = STATIC_DIRS.map((d) => (typeof d === "string" ? "/" : d.to));
+    for (const n of ["fontawesome", "renderer-assets", "backgrounds"]) expect(tos).toContain(`/${n}`);
+    expect(tos).not.toContain("/music");
   });
 
   it("finds two entries that create one folder, the failing case (both served under /renderer-assets)", () => {
