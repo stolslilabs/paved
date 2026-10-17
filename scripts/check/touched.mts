@@ -158,14 +158,14 @@ const git = (...args: string[]) => execFileSync("git", args, { cwd: ROOT, encodi
 
 /**
  * The files changed between the merge base of `base` (origin/main) and `head`, plus, when `head` is the working tree,
- * the uncommitted and untracked ones. Null when the merge base cannot be found: the caller then checks everything.
+ * the uncommitted and untracked ones. Without rename detection, so a moved file names both its old and new place. Null when the merge base cannot be found: the caller then checks everything.
  */
 export function changedFiles(base = process.env.PAVED_CHECK_BASE || "origin/main", head?: string): string[] | null {
   try {
     const mb = git("merge-base", base, head ?? "HEAD");
-    const files = new Set(git("diff", "--name-only", mb, head ?? "HEAD").split("\n"));
+    const files = new Set(git("diff", "--name-only", "--no-renames", mb, head ?? "HEAD").split("\n"));
     if (!head) {
-      for (const f of git("diff", "--name-only", "HEAD").split("\n")) files.add(f);
+      for (const f of git("diff", "--name-only", "--no-renames", "HEAD").split("\n")) files.add(f);
       for (const f of git("ls-files", "--others", "--exclude-standard").split("\n")) files.add(f);
     }
     files.delete("");

@@ -63,7 +63,7 @@ expect() {
   [ "$table" = 1 ] && echo "| \`$1\` | $5$row |"
 }
 
-expect 7d83480d skip skip skip "#502 DISCLOSE: docs/ and packages/app/public/backgrounds/README.md"
+expect 7d83480d build build skip "#502 DISCLOSE: docs/, and packages/app/public/backgrounds/README.md (copied to the output)"
 expect 4598b6d3 skip skip skip "#503: docs/measures only"
 expect 362ac8a0 skip skip skip "#505: .gitignore and .claude/ only"
 expect bc486b1f skip skip skip "CORE quests v2a: contracts/src, docs/, scripts/ (no ABI)"
@@ -87,6 +87,35 @@ if [ "$code" -eq 1 ]; then
 else
   echo "FAIL: an unknown project exits $code, not 1"; failed=$((failed + 1))
 fi
+
+# The ignoreCommand lines of the two vercel.json files, run as Vercel runs them (sh -c, from the project's root
+# directory): a skip (0) and a build (1) pass through; without the script the command builds (1), never 127.
+# command_exit <vercel.json dir> <commit> [<run dir>]
+command_exit() {
+  cmd=$(node -p "require('$top/$1/vercel.json').ignoreCommand")
+  (cd "${3:-$top/$1}" && VERCEL_GIT_COMMIT_REF=main VERCEL_GIT_PREVIOUS_SHA=$(git -C "$top" rev-parse "$2^") \
+    VERCEL_GIT_PULL_REQUEST_ID= IGNORE_BUILD_HEAD="$2" sh -c "$cmd" >/dev/null 2>&1)
+  echo $?
+}
+mkdir -p "$tmp/empty/packages/app"
+for case in ".:4598b6d3:0" ".:33971f92:1" "packages/app:4598b6d3:0" "packages/app:33971f92:1"; do
+  dir=${case%%:*}; rest=${case#*:}; commit=${rest%%:*}; want=${rest#*:}
+  git -C "$top" cat-file -e "$commit^^{commit}" 2>/dev/null || { echo "skip: $commit is not in this clone"; continue; }
+  got=$(command_exit "$dir" "$commit")
+  if [ "$got" = "$want" ]; then
+    [ "$table" = 1 ] || echo "ok: the ignoreCommand of $dir/vercel.json exits $got on $commit"
+  else
+    echo "FAIL: the ignoreCommand of $dir/vercel.json exits $got on $commit, expected $want"; failed=$((failed + 1))
+  fi
+done
+for dir in . packages/app; do
+  got=$(command_exit "$dir" 4598b6d3 "$tmp/empty/$dir")
+  if [ "$got" = 1 ]; then
+    [ "$table" = 1 ] || echo "ok: the ignoreCommand of $dir/vercel.json builds (1) when the script is absent"
+  else
+    echo "FAIL: the ignoreCommand of $dir/vercel.json exits $got when the script is absent, expected 1"; failed=$((failed + 1))
+  fi
+done
 
 echo "$ran judgement(s) on real commits, $failed failure(s)"
 [ "$failed" -eq 0 ]

@@ -17,11 +17,12 @@
 # Storybook: packages/app (stories included), the workspace packages its stories import or that the PM names
 # (game-core, renderer, chain, ui), the assets both builds copy from packages/app-web/public, the contracts' ABIs and
 # deployment files @paved/chain imports, the lockfile and the root manifests tsc and turbo read, and the root
-# vercel.json that holds its commands. Markdown is out everywhere: no build imports a .md file.
+# vercel.json that holds its commands. A package's own README.md and docs/ are out (no build reads them); a file
+# under a public/ folder is in, whatever its type, since the builds copy it to the output.
 # Client: the same without the stories (*.stories.tsx, src/stories/, .storybook/) and without the root vercel.json;
 # its own packages/app/vercel.json is in, under packages/app.
 # Out of both: docs/, book/, packages/indexer/, contracts/src/, .github/, .claude/, scripts/ (this script included),
-# every *.md.
+# the root *.md.
 common_paths() {
   printf '%s\n' \
     packages/app \
@@ -36,7 +37,8 @@ common_paths() {
     package.json \
     turbo.json \
     tsconfig.base.json \
-    ':(exclude,glob)**/*.md'
+    ':(exclude,glob)packages/*/README.md' \
+    ':(exclude,glob)packages/*/docs/**'
 }
 
 client_paths() {

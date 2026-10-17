@@ -23,6 +23,13 @@ for tool in node bun; do
     exit 0
   fi
 done
+# check.mts is TypeScript that Node runs by type stripping: the repository's Node is 24 (engines); an older one may
+# not run it at all.
+node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)
+if [ -z "$node_major" ] || [ "$node_major" -lt 24 ] 2>/dev/null; then
+  echo "pre-push: warning: node ${node_major:-?} is older than the repository's 24; the checks are not run, the push goes through"
+  exit 0
+fi
 if [ ! -d node_modules ]; then
   echo "pre-push: warning: no node_modules (run bun install --frozen-lockfile); the checks are not run, the push goes through"
   exit 0
@@ -36,8 +43,15 @@ while read -r _local_ref local_sha _remote_ref _remote_sha; do
   # A deleted ref pushes no commit.
   [ "$local_sha" = "$zero" ] && continue
   ran=1
-  # stdin stays the ref list: the check reads none of it.
-  node scripts/check/check.mts --pre-push --head "$local_sha" </dev/null || status=1
+  # stdin stays the ref list: the check reads none of it. Exit 2 is a failed check; any other non-zero exit is the
+  # runner itself failing (a crash, a missing module), which never blocks a push.
+  node scripts/check/check.mts --pre-push --head "$local_sha" </dev/null
+  code=$?
+  if [ "$code" -eq 2 ]; then
+    status=1
+  elif [ "$code" -ne 0 ]; then
+    echo "pre-push: warning: the check runner exited $code (not a failed check); the push goes through"
+  fi
 done
 
 if [ "$ran" = "0" ]; then

@@ -59,9 +59,15 @@ test("a stories-only change builds the Storybook, not the client", () => {
   assert.deepEqual(at(["packages/app/src/components/elements/button.tsx"]).vercel, ["client", "storybook"]);
 });
 
-test("Markdown, the indexer, Cairo sources, the CI and the guards build no Vercel project", () => {
+test("a file a build copies from a public/ folder builds both projects, Markdown included", () => {
+  assert.deepEqual(at(["packages/app/public/backgrounds/README.md"]).vercel, ["client", "storybook"]);
+  assert.deepEqual(at(["packages/app-web/public/draco/README.md"]).vercel, ["client", "storybook"]);
+});
+
+test("a package's README and docs, the root Markdown, the indexer, Cairo sources, the CI and the guards build no Vercel project", () => {
   for (const f of [
-    "packages/app/public/backgrounds/README.md",
+    "packages/renderer/README.md",
+    "packages/game-core/docs/rules.md",
     "readme.md",
     "packages/indexer/src/events.ts",
     "contracts/src/systems/setup.cairo",
@@ -73,11 +79,12 @@ test("Markdown, the indexer, Cairo sources, the CI and the guards build no Verce
 });
 
 test("isInput reads the excludes as git does", () => {
-  const specs = ["packages/app", ":(exclude,glob)**/*.md", ":(exclude,glob)packages/app/**/*.stories.tsx", ":(exclude)packages/app/.storybook"];
+  const specs = ["packages/app", ":(exclude,glob)packages/*/README.md", ":(exclude,glob)packages/app/**/*.stories.tsx", ":(exclude)packages/app/.storybook"];
   assert.equal(isInput("packages/app/src/a.tsx", specs), true);
   assert.equal(isInput("packages/app/a.stories.tsx", specs), false);
   assert.equal(isInput("packages/app/src/x/a.stories.tsx", specs), false);
   assert.equal(isInput("packages/app/README.md", specs), false);
+  assert.equal(isInput("packages/app/public/README.md", specs), true);
   assert.equal(isInput("packages/app/.storybook/main.ts", specs), false);
   assert.equal(isInput("packages/application/a.ts", specs), false);
 });

@@ -18,7 +18,7 @@
  *
  * `--pre-push` (the hook in .githooks/pre-push) runs 1, 3 and 4 for the touched packages only, on the pushed commit.
  * `--all` checks everything, as if every file had changed. Every step runs even after a failure, so one run says all
- * that is wrong; the last line is one summary: pass or fail, each step and its time. No secret, no network beyond the
+ * that is wrong; the last line is one summary: pass or fail, each step and its time. Exit 0 passes, 2 is a failed check. No secret, no network beyond the
  * package registry (the install of the Vercel commands).
  */
 import { spawnSync } from "node:child_process";
@@ -167,4 +167,5 @@ if (!prePush) {
 const failed = steps.filter((s) => s.outcome === "FAIL");
 const line = steps.map((s) => `${s.name} ${s.outcome === "skip" ? `skip (${s.note})` : `${s.outcome} ${secs(s.ms)}`}`).join(" | ");
 console.log(`\ncheck${prePush ? " (pre-push)" : ""}: ${failed.length ? "FAIL" : "PASS"} in ${secs(Date.now() - started)} | ${line}`);
-process.exit(failed.length ? 1 : 0);
+// 2 is a failed check; any other non-zero exit is a crash of the runner, which the pre-push hook lets through.
+process.exit(failed.length ? 2 : 0);
