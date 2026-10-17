@@ -18,7 +18,7 @@ import {
   veilOf,
 } from "../src/core/placement";
 import { neonLineCoverage } from "../src/core/neon";
-import { DEFAULT_OUTLINE_SETTINGS, createOutline, createOutlineMaterial, isOutline } from "../src/core/outlines";
+import { DEFAULT_OUTLINE_SETTINGS, outlineFade, createOutline, createOutlineMaterial, isOutline } from "../src/core/outlines";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { resolveRendererSettings } from "../src/core/settings";
 import { TileRenderer } from "../src/core/TileRenderer";
@@ -119,6 +119,37 @@ describe("the lines on zoom-out", () => {
     expect(placementFade(S, S, DEFAULT_OUTLINE_SETTINGS)).toBeCloseTo(0.4904, 3);
     const floor = DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor;
     expect(placementFade(0.5 * S, S, DEFAULT_OUTLINE_SETTINGS, floor)).toBe(floor);
+  });
+
+  it("share the outlines' fade: a custom exponent and the eased end reach the slot lines", () => {
+    const S = 60;
+    const px = 1.1 * S;
+    const at = (o: Partial<typeof DEFAULT_OUTLINE_SETTINGS>) => placementFade(px, S, { ...DEFAULT_OUTLINE_SETTINGS, ...o });
+    // The same number as the outlines' own, whatever the exponent, start and eased end.
+    for (const o of [{}, { fadeExponent: 1 }, { fadeExponent: 3.5 }, { fadeEasedEnd: true }, { fadeFullFactor: 30, fadeExponent: 4 }]) {
+      const s = { ...DEFAULT_OUTLINE_SETTINGS, ...o };
+      expect(at(o)).toBe(outlineFade(px, s.fadeOffFactor * S, s.fadeFullFactor * S, s.fadeExponent, s.fadeEasedEnd));
+    }
+    expect(at({ fadeExponent: 1 })).toBeLessThan(at({ fadeExponent: 3 }));
+    const near = placementFade(0.86 * S, S, { ...DEFAULT_OUTLINE_SETTINGS, fadeEasedEnd: true });
+    expect(near).toBeLessThan(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS));
+    // An unset exponent and eased end are the default's.
+    expect(placementFade(px, S, { fadeOffFactor: 0.85, fadeFullFactor: 1.5 })).toBe(at({}));
+
+    // Through the renderers: PlacementRenderer and TileRenderer.setPlacementSettings take the outlines' whole fade.
+    const lines = (r: PlacementRenderer) => ({ grid: (r as any).fade as number, border: (r as any).borderFade as number });
+    const placement = new PlacementRenderer();
+    const custom = { ...DEFAULT_OUTLINE_SETTINGS, fadeExponent: 3.5, fadeEasedEnd: true };
+    placement.setSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
+    placement.setZoom(0.86 * S, S, 1);
+    expect(lines(placement).grid).toBe(placementFade(0.86 * S, S, custom));
+    expect(lines(placement).grid).not.toBe(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS));
+    expect(lines(placement).border).toBe(placementFade(0.86 * S, S, custom, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
+    const tiles = new TileRenderer(fakeAssets() as any);
+    tiles.setPlacementSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
+    (tiles as any).placement.setZoom(px, S, 1);
+    expect(lines((tiles as any).placement).grid).toBe(placementFade(px, S, custom));
+    expect(lines((tiles as any).placement).grid).not.toBe(placementFade(px, S, DEFAULT_OUTLINE_SETTINGS));
   });
 
   it("keep a device-pixel floor: a line thinner than a pixel covers one pixel", () => {

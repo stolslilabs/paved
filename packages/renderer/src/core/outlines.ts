@@ -156,9 +156,8 @@ export function outlineStroke(
   openingTilePx = DEFAULT_OPENING_TILE_PX,
 ): OutlineStroke {
   const off = settings.fadeOffFactor * openingTilePx;
-  const full = settings.fadeFullFactor * openingTilePx;
   if (!settings.enabled || !(tilePx > off) || !(pixelRatio > 0)) return OFF;
-  const opacity = outlineFade(tilePx, off, full, settings.fadeExponent, settings.fadeEasedEnd);
+  const opacity = outlineFadeOf(tilePx, openingTilePx, settings);
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
@@ -197,6 +196,24 @@ export function outlineFade(tilePx: number, off: number, full: number, exponent 
   const p = Math.min(Math.max(exponent, MIN_FADE_EXPONENT), MAX_FADE_EXPONENT);
   const b = 1 - Math.pow(outlineFadeT(tilePx, off, full), p);
   return easedEnd ? easeFadeEnd(b) : b;
+}
+
+/** The fade settings `outlineFadeOf` reads: the outlines' off point and start, the exponent and the eased end. */
+export type OutlineFadeSettings = Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor"> & Partial<Pick<OutlineSettings, "fadeExponent" | "fadeEasedEnd">>;
+
+/**
+ * `outlineFade` for a tile `tilePx` wide on a board that opens at `openingTilePx` (S), with the fade settings: shared by
+ * the outlines and the placement lines, so the story's controls move both together. An unset exponent or eased end is
+ * the default's.
+ */
+export function outlineFadeOf(tilePx: number, openingTilePx: number, fade: OutlineFadeSettings): number {
+  return outlineFade(
+    tilePx,
+    fade.fadeOffFactor * openingTilePx,
+    fade.fadeFullFactor * openingTilePx,
+    fade.fadeExponent ?? DEFAULT_OUTLINE_SETTINGS.fadeExponent,
+    fade.fadeEasedEnd ?? DEFAULT_OUTLINE_SETTINGS.fadeEasedEnd,
+  );
 }
 
 /** The opacity at the opening view (tile size S) for fade factors `off` and `full` (shares of S): `outlineFade(1, off, full, ...)`. */

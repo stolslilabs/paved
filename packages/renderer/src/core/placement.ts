@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { isOutline, outlineFade, type OutlineSettings } from "./outlines";
+import { isOutline, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
 import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, setNeonFrame, type NeonFrameMaterial } from "./neon";
 import { TILE_SIZE } from "./types";
 
@@ -211,11 +211,11 @@ export function gridLineOpacityAt(field: RingField, x: number, y: number, rings:
 }
 
 /**
- * The share of the placement lines' opacity on zoom-out: OUT-FADE's curve (`outlineFade`, off at `fadeOffFactor` of the
- * opening tile size S, fully on from `fadeFullFactor` of it), never under `floor`.
+ * The share of the placement lines' opacity on zoom-out: the outlines' fade (`outlineFadeOf`: off at `fadeOffFactor` of the
+ * opening tile size S, fully on from `fadeFullFactor` of it, `1 - t^p` with their exponent and eased end), never under `floor`.
  */
-export function placementFade(tilePx: number, openingTilePx: number, outlines: Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor">, floor = 0): number {
-  const fade = outlineFade(tilePx, outlines.fadeOffFactor * openingTilePx, outlines.fadeFullFactor * openingTilePx);
+export function placementFade(tilePx: number, openingTilePx: number, outlines: OutlineFadeSettings, floor = 0): number {
+  const fade = outlineFadeOf(tilePx, openingTilePx, outlines);
   return floor + (1 - floor) * fade;
 }
 
@@ -603,7 +603,7 @@ export class PlacementRenderer {
   private zoomKey = "";
   private fade = 1;
   private borderFade = 1;
-  private outlines: Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor"> = { fadeOffFactor: 0.85, fadeFullFactor: 1.15 };
+  private outlines: OutlineFadeSettings = { fadeOffFactor: 0.85, fadeFullFactor: 1.5, fadeExponent: 2, fadeEasedEnd: false };
   private zoom = { tilePx: Number.NaN, openingTilePx: Number.NaN, pixelRatio: 1 };
 
   /** `slotGroup`: where the slot cells go (the tile renderer's group of empty slots); unset, a group of its own. */
@@ -617,9 +617,9 @@ export class PlacementRenderer {
   }
 
   /** New settings: every material set again, the aura's geometry rebuilt (its height and halo). */
-  setSettings(settings: PlacementSettings, outlines?: Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor">): void {
+  setSettings(settings: PlacementSettings, outlines?: OutlineFadeSettings): void {
     this.settings = settings;
-    if (outlines) this.outlines = { fadeOffFactor: outlines.fadeOffFactor, fadeFullFactor: outlines.fadeFullFactor };
+    if (outlines) this.outlines = { fadeOffFactor: outlines.fadeOffFactor, fadeFullFactor: outlines.fadeFullFactor, fadeExponent: outlines.fadeExponent, fadeEasedEnd: outlines.fadeEasedEnd };
     this.auraGeometry?.dispose();
     this.auraGeometry = null;
     this.slotGeometry?.dispose();
