@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "bun install --frozen-lockfile",
+  "buildCommand": "bun run build --filter @paved/app^... && NODE_OPTIONS=--max-old-space-size=3072 bun run --cwd packages/app build-storybook",
+  "outputDirectory": "packages/app/storybook-static",
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/renderer-assets/models/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/renderer-assets/tiles/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(|index.html|iframe.html|index.json|project.json|renderer-assets/manifest.json)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}
