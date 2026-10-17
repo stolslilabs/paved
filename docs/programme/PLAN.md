@@ -51,13 +51,13 @@ These are **estimates**, to be fixed after P2's native measure:
 - Simple move **at most 10 M L2 gas** (against 64.5 M today).
 - No move with unbounded cost.
 - At least 90 % line coverage of the contracts.
-- At 72 tiles on the Mac (M2 Max) under CDP CPU throttling 4x and a 60 Hz cadence unless said (P-7b):
+- At 72 tiles on the Mac under CDP CPU throttling 4x and a 60 Hz cadence unless said (P-7b):
   CPU + GPU time per frame p95 at most 16.7 ms and no frame over 1.5 intervals; time to interactive at
   most 2.0 s throttled and 0.5 s unthrottled; click to display p95 at most 50 ms and no long task over
   50 ms per placement, throttled; draw calls and triangles per median frame below baseline B.
 
 **CLIENT targets (P-7b): frozen on 2026-10-07 (D-7).** Client performance work is dropped; the figures
-below are the last measured, at 72 tiles on the M2 Max, Chrome on screen, from
+below are the last measured, at 72 tiles on the Mac's GPU, Chrome on screen, from
 `docs/measures/client-deps.md` (PR #195; renderer step before it in `docs/measures/client-renderer.md`,
 PR #194). No further measure is planned.
 
