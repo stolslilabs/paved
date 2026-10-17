@@ -118,38 +118,46 @@ were measured on the files, not over the network. `vite preview` compresses only
 
 ## Vercel
 
-Two Vercel projects build from this repository; their settings live in `vercel.json` files, changed by reviewed pull request. A Vercel
-project reads the `vercel.json` of **its own root directory**, so each file below touches only its project.
+Three Vercel projects exist; two build from this repository, and their settings live in `vercel.json` files, changed by reviewed pull
+request. A Vercel project reads the `vercel.json` of **its own root directory**, so each file below touches only its project.
 
-| Project | Root directory (dashboard) | Settings file | Builds |
-|---|---|---|---|
-| Storybook | empty (the repository root) | `vercel.json` | `bun run build --filter @paved/app^...`, then `build-storybook` with a 3072 MB heap; serves `packages/app/storybook-static` |
-| Web client | `packages/app-web` | `packages/app-web/vercel.json` | `bun run build --filter @paved/app-web` from the workspace root; serves `dist` |
+| Project | Root directory (dashboard) | Settings file | Builds | Production URL |
+|---|---|---|---|---|
+| `paved-storybook` | empty (the repository root) | `vercel.json` | `bun run build --filter @paved/app^...`, then `build-storybook` with a 3072 MB heap; serves `packages/app/storybook-static` | `https://paved-storybook.vercel.app` |
+| `paved` (web client) | `packages/app` | `packages/app/vercel.json` | the app's workspace dependencies, then the app's own `build` script (FA-subset check, `tsc -b`, `vite build`, bundle budget) from the workspace root; serves `dist` | `https://paved-bay.vercel.app` |
+| `paved-doc` (docs) | `book` | none from this repository | not touched: linked for reading only | `https://docs.paved.gg` |
 
-The docs project (`book/`, its own `book/vercel.json`) and the legacy `app/vercel.json` are other projects' files: neither is read by these two.
+The web client is the Client v2, `packages/app`. `packages/app-web` is the legacy client: it stays on `main`, is built by the VPS
+(`https://paved.bal7hazar.com`, "Building the client"), and no Vercel project builds it, so its `vercel.json` is gone. The legacy
+`app/vercel.json` is another project's file; neither is read by these two.
 
 What the files set:
 
-- **Install and build.** The Storybook's run from the repository root. The client's run from `packages/app-web`, so they
-  `cd ../..` first: bun resolves the workspaces (`workspace:*`) from the root `package.json` and `bun.lock`, and turbo builds the
-  client's packages (`game-core`, `chain`, `renderer`, `ui`) before it. This needs the dashboard setting **Include files outside of the
-  Root Directory in the Build Step** on (Vercel's default for new projects).
-- **Client build env, not secret:** `VITE_NETWORK=sepolia`, `VITE_INDEXER_URL=https://api.paved.bal7hazar.com`,
-  `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the three of "Building the client"). No other variable, and no secret, in
-  any file or in the dashboard.
-- **Client routes:** every path without a file extension, and outside `assets/`, `models/` and `draco/`, is rewritten to `/index.html`
-  (the single-page app); a missing asset is a 404, not the page.
-- **Cache-Control.** Hashed paths are `public, max-age=31536000, immutable`: Vite's `assets/*` (the client's plain-named
-  `assets/tiles/*` excepted), `renderer-assets/models/*` (the hashed models, `forest/` included) and `renderer-assets/tiles/*` (the
-  `<plan>.256.<hash>.png` images). `/`, `index.html`, `iframe.html`, `index.json`, `project.json` and `renderer-assets/manifest.json` are `no-cache`.
-  The client's build has no `renderer-assets/` yet (its models are plain names); those rules apply once it ships the app's assets.
-  Everything else keeps Vercel's default.
+- **Install and build.** The Storybook's run from the repository root. The client's run from `packages/app`, so they `cd ../..`
+  first: bun resolves the workspaces (`workspace:*`) from the root `package.json` and `bun.lock`, and turbo builds the client's
+  packages (`game-core`, `chain`, `renderer`) before the app's `build` script, which is not bypassed. This needs the dashboard
+  setting **Include files outside of the Root Directory in the Build Step** on (Vercel's default for new projects).
+- **Client build variables, public, in `build.env`:** `VITE_NETWORK=sepolia` (the app refuses a production build without a network),
+  `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` and `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the
+  deployment file's `rpc_url` is a placeholder). The Challenge and Setup addresses and the deployed block come from the committed
+  `contracts/deployments/sepolia.json`: `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` and `VITE_DEPLOYED_BLOCK` stay unset (each only
+  overrides the file). `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (the devnet burner) are never set, in a file or in the
+  dashboard; the app reads them only behind a devnet build, so a Sepolia bundle holds neither. No other variable, and no secret.
+- **Client routes:** every path without a file extension, and outside `assets/`, `renderer-assets/`, `fontawesome/` and `backgrounds/`,
+  is rewritten to `/index.html` (the single-page app); a missing file is a 404, not the page.
+- **Cache-Control.** Hashed paths are `public, max-age=31536000, immutable`: Vite's `assets/*`, `renderer-assets/models/*` (the
+  hashed models, `forest/` included) and `renderer-assets/tiles/*` (the `<plan>.256.<hash>.png` images). `/`, `index.html`,
+  `renderer-assets/manifest.json`, `THIRD_PARTY_NOTICES.txt`, `fontawesome/*` and `backgrounds/*` (unhashed) are `no-cache`. The
+  Storybook adds `iframe.html`, `index.json` and `project.json` to the `no-cache` list. Everything else keeps Vercel's default.
 - **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it).
 
 What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the Node.js
 version (24.x, from `engines`), the domains and the Git connection.
 
-**No secret env, anywhere. No `vercel` command (CLI or API) without the Overseer's go.**
+**No secret env, anywhere.** The `vercel` CLI may be used, by plain `vercel` from `PATH` only (no other binary path, no `--token`, no
+`--scope`, no credential file read). `vercel login`, `logout`, `teams` and `billing` are refused by the shim. Reserved to the owner,
+never done by an agent: deleting a project or a domain, billing, the team, DNS, adding a domain, any secret env var. A refused
+command is reported verbatim, not retried by another form.
 
 ## The order, with the indexer
 
