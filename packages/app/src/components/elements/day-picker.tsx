@@ -32,7 +32,7 @@ export function DayPicker({ day, today, first, onChange, className }: DayPickerP
       </Button>
       <span className="flex min-w-32 flex-1 flex-col items-center leading-tight" aria-live="polite">
         <span className="text-sm font-semibold">{isToday ? "Today" : formatDay(day)}</span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {isToday ? formatDay(day) : "Day"} · <span className="numeric">#{day}</span>
         </span>
       </span>

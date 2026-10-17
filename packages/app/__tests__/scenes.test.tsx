@@ -256,9 +256,13 @@ describe("Board", () => {
   it("the plan view lights its slots only while the placement highlight is on; off, they stay buttons", async () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
-    const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} />));
+    const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
+    // Dashed where the current rotation does not fit, solid where it does (SLOTS).
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveClass("border-dashed");
+    rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
+    expect(screen.getByRole("button", { name: /^Slot / })).not.toHaveClass("border-dashed");
+    expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });
     expect(plain).toHaveAttribute("data-lit", "false");

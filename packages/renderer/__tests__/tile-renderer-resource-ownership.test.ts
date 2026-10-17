@@ -88,8 +88,9 @@ describe("TileRenderer resource ownership", () => {
 
     renderer.updateTiles([makeTile({ id: 1 }), makeTile({ id: 2, worldX: 1, orientation: 2 })]);
 
+    // The placed tiles' group (the grid around them is the placement's, SLOTS).
     const meshes: THREE.Mesh[] = [];
-    renderer.getGroup().traverse((obj) => {
+    renderer.getGroup().children[0]!.traverse((obj) => {
       if (obj instanceof THREE.Mesh && !isOutline(obj)) meshes.push(obj);
     });
 

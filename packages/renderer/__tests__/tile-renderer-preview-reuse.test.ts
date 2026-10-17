@@ -55,9 +55,13 @@ describe("TileRenderer preview reuse", () => {
     const renderer = new TileRenderer(assets as any);
 
     renderer.setHover(hover({ x: 0, y: 0, planIndex: 9, orientation: 1, valid: true }));
+    const first = (renderer as any).previewContainer;
     renderer.setHover(hover({ x: 2, y: 2, planIndex: 9, orientation: 1, valid: true }));
+    expect((renderer as any).previewContainer).toBe(first);
     renderer.setHover(hover({ x: 2, y: 2, planIndex: 9, orientation: 2, valid: true }));
 
-    expect(getModelSpy).toHaveBeenCalledTimes(2);
+    // A new ghost for the new orientation, from the type's shared model: no second model read (SLOTS).
+    expect((renderer as any).previewContainer).not.toBe(first);
+    expect(getModelSpy).toHaveBeenCalledTimes(1);
   });
 });
