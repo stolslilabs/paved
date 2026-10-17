@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DEFAULT_PLACEMENT_SETTINGS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
@@ -217,7 +217,7 @@ export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, di
         availableSlots={slots}
         hover={hover}
         confirmed={confirmed}
-        basePath={APP_WEB_ASSETS}
+        basePath={APP_ASSETS}
         settings={settings}
         onReady={onReady}
         style={{ position: "absolute", inset: 0 }}
