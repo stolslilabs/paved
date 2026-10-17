@@ -2021,7 +2021,7 @@ main's chain held at 1.5 (61 MiB against 155).
   (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
   against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 1 ms, inside the noise).
 
-### 5.7 Placement visuals (SLOTS, P-68)
+### 5.7 Placement visuals (SLOTS, P-68; PLATES, P-74)
 
 The owner's brief (via the PM, 2026-10-16, P-68), with the PM's rulings on its gaps. No component drew these before: the
 gold slot rings (`RingGeometry`) and the ghost's emissive tint, red where invalid, are replaced by this system.
@@ -2290,6 +2290,70 @@ budget with the margin to 2,723 under.
 **Where SLOTS2 decides a gap** (the thread's, reversible): "ring N" is read as a line taking the farther ring of its
 cells (reverse: `max` again in `gridLineOpacityAt` and the shader, and the reach comes back one line); the grid does not
 fade on zoom by default (`grid.farFade`); a dashed slot's gap keeps its visible length, the caps added to it.
+
+**PLATES (P-74, the owner's third pass, 2026-10-17).** Every slot becomes a small platform, after Dorfromantik's. It
+replaces SLOTS' neon slots and takes the place of the DORF prototype; it supersedes the text above where they differ.
+The owner (amended ruling, 2026-10-17) "definitively abandons the yellow rings, solid and dashed, with their veil": the
+yellow neon (`neon.ts`, deleted), the solid and dashed strokes, the veil and the rotating pulse are gone from the code,
+in 3D and in the plan view; git history keeps them. The ring grid stays as a setting and a story control, **off by
+default** (`grid.enabled`).
+
+| State | When | The board draws |
+|---|---|---|
+| valid | the tile in hand fits there in its current rotation | the base plate under a slightly white aura |
+| possible | it fits there in another rotation | the base plate: a pale, neutral blue |
+| invalid | it fits there in no rotation | the plate greyscale and more transparent |
+| placed | the tile chosen there, not sent | its plate's aura becomes a rim around the tile: white while its rotation fits, red while not |
+| confirmed | the move accepted | the rim turns green in the first third of 700 ms and fades out |
+
+- **Which cells** (`boardPlates`, `data/placement.ts`): the slots the session gives (legal in some rotation: valid where
+  `fits`, possible where not), then every other free cell next to a tile, invalid. No slot (no tile in hand): no plate.
+  `BoardViewport` and `BoardMap` both compute it from the tiles and the slots, so the pages pass what they did before;
+  the renderer takes each cell with `fits` and `legal` (`PlacementSlot`, `plateStateOf`).
+- **The shape** (`createPlateGeometry`, all in voxels, a tile 40 wide, `RendererSettings.placement.plates`): a slab
+  `height` 2 high from the board's level, inset in its cell by half the `gap` (4: 2 each side, so two neighbouring plates
+  stand 4 voxels apart and never touch), its corners `radius` 5 round seen from above, its top edge rounded by `bevel` 1
+  (a quarter circle, smooth normals: no hard lit edge to alias), no bottom face. The gap is bounded to
+  `PLATE_GAP_VOXELS` (1 to 12) whatever the setting, the radius to half the plate, the bevel to the radius and the height;
+  a test checks that two neighbours never touch at every gap of the control's range and beyond it. A placed tile's plate
+  keeps the same inset (it lies inside the tile's 4-voxel ground). Lit like the tiles (`MeshStandardMaterial`, rough,
+  receiving the shadows), so the day and night cycle reaches them; opacity per instance (`aOpacity`).
+- **The aura** (`auraAt` is the shader in TypeScript): a flat layer `height` 1.5 voxels above the plate's top, 1 over
+  the plate, a smoothstep across `falloff` 2 voxels centred on its edge, so it ends at the cell's edge with no hard edge;
+  `intensity` 0.35, premultiplied over what is drawn. Placed: a gaussian rim on the cell's edge (`placedFalloff` 4 voxels
+  each way, `placedIntensity` 0.6) just over the tiles' ground top (4.5 voxels: over the tile's ground and its
+  neighbours', under their features), so the tile's middle keeps its own colour and the rim reads from every view,
+  the top view included. **The red and the green live there** (the PM's item 2, "another way"): the placed tile covers
+  its plate, so the plate's own tint (red too) is not seen from above; the rim is.
+- **Colours** (tokens in `theme.css`, the renderer's `colors` the same hex; `board-map-plates.test.tsx` keeps them in
+  step): plate `#B7CCDC` (`--color-plate`), invalid `#929292` (`--color-plate-off`, no hue), aura `#F5F9FC`
+  (`--color-plate-aura`); red ember-500 `#F85E4D`, green meadow-400 `#6ECA6F` as before. Invalid opacity 0.45 against 0.9.
+- **Motion**: every plate eases each value (colour, opacity, aura, rim) from where it is to its new state over
+  `motion.colorMs` (150 ms, a smoothstep), so a rotation, a choice or a red never pops; a new plate eases in from
+  nothing, a gone one out. Reduced motion: at once, and the confirm green at once with a 150 ms fade. Render on demand
+  holds: `update` asks for frames while a change runs, and one more to draw its end.
+- **Draw calls**: one `InstancedMesh` for every plate and one for every aura and rim (the confirm's included): two draw
+  calls whatever the number of slots (SLOTS drew one mesh per slot). The instances are rewritten only while a change runs.
+- **The plan view** (`BoardMap`): the same states on the same tokens: each plate inset 5 % of its cell, rounded, valid
+  under a white glow, invalid in `plate-off` at 0.45 and not a button; the placed tile's rim white or red, the confirm's
+  green fading over 700 ms; each change eased over 150 ms, none under reduced motion. Its ring outlines are a prop
+  (`grid`), off by default.
+- **Stories**: "Renderer/Placement": Plates, Plates alone (no tile: the shape and colours), Idle, Idle grid, Placed, Placed
+  red, Confirm green, Reduced motion; every setting a control (sizes in voxels). "Scenes/Board": Plates, the three states
+  at once on the 38-tile board with the tile in hand's rotation (and `placed`) as controls.
+- **Bundle** (the client build, this branch against main `f809b9a9`): the board's chunk 873,508 to 870,063 bytes raw
+  (-3,445), 250,111 to 249,665 gzip (-446); the CSS 68,861 to 68,394 raw (-467), 12,642 to 12,606 gzip (-36): the code
+  removed pays for the plates; no limit moves.
+- **Measured on the VPS only** (owner, 2026-10-17: the Mac is out of use): captures in SwiftShader, headless Chromium
+  (`captures/plates-<state>-<before|after>-<1280|360>-swiftshader.webp`, 1280 x 800 at DPR 1 and 360 x 780 at DPR 2).
+  **The GPU gate is deferred** (PM ruling, plan item GPU-BENCH-BACKLOG): the frame-time bench (CPU + GPU p95, under 12 ms
+  desktop, 16.6 ms phone-like) and SLOTS2's zero-flicker check (still frames, registered pans, a zoom sweep, High's bloom
+  as the positive control) on the Mac's GPU, desktop and phone-like, this branch against main, remain to run.
+
+**Where PLATES decides a gap** (the thread's, reversible): the placed tile's red and green are its plate's aura as a rim
+around the tile, not the plate's tint alone (reverse: lift the ghost onto its plate); the plates stand at the board's
+level, below the tiles' ground (2 voxels against 4); no tile in hand draws no plate; with the player's placement
+highlight off no plate is drawn (the slots stay clickable, as before).
 
 ### 5.8 Loading (LOAD-FAST)
 
