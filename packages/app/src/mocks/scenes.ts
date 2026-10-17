@@ -260,7 +260,7 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", dayNight: true, sound: true, music: false, tilePreview: true, placementHighlight: true, showSkins: true };
+export const PREFERENCES: Preferences = { quality: "high", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
   connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "forest", autoQuality: "medium", version: "0.1.0" },

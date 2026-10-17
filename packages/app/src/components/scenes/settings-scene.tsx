@@ -5,6 +5,7 @@ import { Icon } from "../ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { PlayerName } from "../elements/player-name";
 import { ShortAddress } from "../elements/short-address";
+import { MusicSetting } from "../elements/music-setting";
 import { SettingSwitch, ShowSkinsSwitch } from "../elements/setting-switch";
 import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
@@ -20,6 +21,8 @@ export interface Preferences {
   dayNight: boolean;
   sound: boolean;
   music: boolean;
+  /** The music volume, 0 to 1. */
+  musicVolume: number;
   /** Show the tile on a slot before it is placed. */
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
@@ -106,7 +109,7 @@ export function SettingsScene(props: SettingsSceneProps) {
             />
             <ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />
             <SettingSwitch label="Sound" icon="volume-high" checked={p.sound} onCheckedChange={(v) => onChange?.("sound", v)} />
-            <SettingSwitch label="Music" icon="music" checked={p.music} onCheckedChange={(v) => onChange?.("music", v)} />
+            <MusicSetting enabled={p.music} volume={p.musicVolume} onEnabledChange={(v) => onChange?.("music", v)} onVolumeChange={(v) => onChange?.("musicVolume", v)} />
           </SettingsGroup>
 
           <SettingsGroup title="Gameplay">

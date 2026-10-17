@@ -18,16 +18,23 @@ const off = () => ({
 describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
-  it("starts from the mockups' defaults: quality auto, sound on, music off, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, sound: true, music: false, tilePreview: true, placementHighlight: true });
+  it("starts from the mockups' defaults: quality auto, sound on, music on at 0.4, preview and highlight on", () => {
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
+  });
+
+  it("clamps a stored music volume to 0..1, and a value that is not a number is the default", () => {
+    expect(parseSettings(JSON.stringify({ musicVolume: 3 })).musicVolume).toBe(1);
+    expect(parseSettings(JSON.stringify({ musicVolume: -1 })).musicVolume).toBe(0);
+    expect(parseSettings(JSON.stringify({ musicVolume: "loud" })).musicVolume).toBe(0.4);
+    expect(parseSettings(JSON.stringify({ musicVolume: 0.25 })).musicVolume).toBe(0.25);
   });
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
+    a.set({ quality: "high", dayNight: false, sound: false, music: true, musicVolume: 0.7, tilePreview: false, placementHighlight: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, sound: false, music: true, musicVolume: 0.7, tilePreview: false, placementHighlight: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 
