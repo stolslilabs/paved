@@ -11,7 +11,7 @@ export { NativeCameraController } from "./core/NativeCameraController";
 export { NativeInputMapper } from "./core/native-input-mapper";
 export { NativeSurfaceAdapter } from "./core/NativeSurfaceAdapter";
 export type { NativeSurfaceHost } from "./core/NativeSurfaceAdapter";
-export { AssetLoader, modelPath, skinModelPath } from "./core/AssetLoader";
+export { AssetLoader, modelPath, provideManifest, skinModelPath } from "./core/AssetLoader";
 export type { AssetManifest } from "./core/AssetLoader";
 export { NO_SKINS, skinsOf, skinRef, variantHash, variantIndex } from "./core/skins";
 export type { TileSkins, SkinRef } from "./core/skins";

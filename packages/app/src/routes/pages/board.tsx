@@ -5,6 +5,8 @@ import { CENTER, MAX_UNCONFIRMED, WRONG_SQUARE, initialOrientation, orientationN
 import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import { useTileArt } from "../../data/tile-art";
+import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
+import { provideManifest } from "@paved/renderer";
 import type { HandState } from "../../components/containers/hand-panel";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
@@ -27,13 +29,10 @@ import { useAppNavigate, useBack } from "../ref";
 import { same, useConfirmFlash, usePlacement, type Slot } from "../../data/placement";
 
 /**
- * Where the renderer finds its assets, at this path in dev, preview and the build (`vite/renderer-assets.ts`): the app's own
- * `public/renderer-assets/` holds the meshopt-compressed models under content-hashed names, and the plugin serves (dev) or
- * writes (build) the `manifest.json` that lists them, which the renderer's `AssetLoader` reads; the tile art still comes
- * from app-web's `public/`. If a model does not load, or the browser has no WebGL, the board falls back to the plan view,
- * which plays the same game.
+ * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
+ * a model does not load, or the browser has no WebGL, the board falls back to the plan view, which plays the same game.
  */
-const RENDERER_ASSETS = `${import.meta.env.BASE_URL}renderer-assets`;
+provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 
 /** `/training` (P3), `/game/:gameId` (P5) and `/tutorial` (P6). */

@@ -12,14 +12,14 @@ vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
   },
 }));
 
-import { AssetLoader, MANIFEST_RETRY_MS, loadManifest, modelPath } from "../src/core/AssetLoader";
+import { AssetLoader, MANIFEST_RETRY_MS, loadManifest, modelPath, provideManifest } from "../src/core/AssetLoader";
 import { afterFirstFrame, firstModels } from "../src/core/load-order";
 import { GameScene } from "../src/core/GameScene";
 import type { RenderSurfaceAdapter, TileRenderData } from "../src/core/types";
 
 const box = () => {
   const scene = new THREE.Group();
-  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map: new THREE.Texture() })));
   return { scene };
 };
 const requested = () => net.loadAsync.mock.calls.map(([url]) => url as string);
@@ -101,6 +101,26 @@ describe("the manifest: a plan key to its content-hashed model", () => {
     await assets.preloadModels();
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(requested()).toContain(`${at}/models/ccccccccc.2bb7ca783c.glb`);
+  });
+
+  it("reads a manifest the host already asked for, with no request of its own, and falls back to its own on a failure (LOAD-FAST)", async () => {
+    const given = nextBase();
+    provideManifest(given, Promise.resolve({ models: { ccccccccc: "models/ccccccccc.2bb7ca783c.glb" } }));
+    // Too late: the base path's manifest is already in.
+    provideManifest(given, Promise.resolve({ models: {} }));
+    await new AssetLoader(given).preloadModels();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(requested()).toContain(`${given}/models/ccccccccc.2bb7ca783c.glb`);
+
+    const none = nextBase();
+    provideManifest(none, Promise.resolve(null));
+    expect(await loadManifest(none)).toBeNull();
+
+    const failed = nextBase();
+    manifestBody = { models: { ccccccccc: "models/ccccccccc.2bb7ca783c.glb" } };
+    provideManifest(failed, Promise.reject(new TypeError("network down")));
+    expect(await loadManifest(failed)).toEqual(manifestBody);
+    expect(fetch).toHaveBeenCalledWith(`${failed}/manifest.json`, { cache: "no-cache" });
   });
 
   it("rejects when the manifest still cannot be reached after its retries (the app shows its plan view), and asks again later", async () => {
@@ -222,6 +242,52 @@ describe("the load order: what the first frame shows, then the rest", () => {
     nextFrame();
     await settle();
     expect(requested()).toHaveLength(1);
+  });
+
+  it("loads a model once for every loader of the page, and disposes it when the last one lets it go (LOAD-FAST)", async () => {
+    const at = nextBase();
+    // The board's scene and the hand tile's scene, each with its own loader, at once.
+    const board = new AssetLoader(at);
+    const hand = new AssetLoader(at);
+    await Promise.all([board.preloadModels(), hand.preloadModels()]);
+    expect(requested()).toHaveLength(19);
+    const geometry = (board.getModel("ccccccccc").children[0] as THREE.Mesh).geometry;
+    expect((hand.getModel("ccccccccc").children[0] as THREE.Mesh).geometry).toBe(geometry);
+    const disposed = vi.spyOn(geometry, "dispose");
+    // The palette texture: the loaded material's map (each copy's material is a clone that shares it).
+    const map = ((board.getModel("ccccccccc").children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).map!;
+    const mapDisposed = vi.spyOn(map, "dispose");
+    hand.dispose();
+    await settle();
+    expect(disposed).not.toHaveBeenCalled();
+    expect(mapDisposed).not.toHaveBeenCalled();
+    expect(() => board.getModel("ccccccccc")).not.toThrow();
+    board.dispose();
+    await settle();
+    expect(disposed).toHaveBeenCalledTimes(1);
+    expect(mapDisposed).toHaveBeenCalledTimes(1);
+    // Let go by every loader: the next one loads it again.
+    await new AssetLoader(at).preloadModels();
+    expect(requested()).toHaveLength(38);
+  });
+
+  it("lets a model go when its loader is disposed while it loads, and forgets a failed one", async () => {
+    const at = nextBase();
+    const early = new AssetLoader(at);
+    const load = early.preloadModels();
+    early.dispose();
+    await load;
+    const failing = `${at}/models/ccccccccc.glb`;
+    net.failing.add(failing);
+    const failed = new AssetLoader(at);
+    await expect(failed.preloadModels()).rejects.toThrow("404");
+    await settle();
+    failed.dispose();
+    net.failing.clear();
+    net.loadAsync.mockClear();
+    await new AssetLoader(at).preloadModels();
+    // Neither the disposed loader's models nor the failure stay shared: all 19 load again.
+    expect(requested()).toHaveLength(19);
   });
 
   it("firstModels keeps the full order, and is everything when nothing is wanted", () => {

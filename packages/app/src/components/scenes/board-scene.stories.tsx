@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
 import { BoardViewport } from "../containers/board-viewport";
@@ -19,8 +19,8 @@ const meta = {
   render: (args) => (
     <BoardScene
       {...args}
-      canvas={<BoardViewport tiles={args.tiles} gameId={args.gameId} basePath={APP_WEB_ASSETS} />}
-      renderHandTile={(t) => <TileView {...t} basePath={APP_WEB_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />}
+      canvas={<BoardViewport tiles={args.tiles} gameId={args.gameId} basePath={APP_ASSETS} />}
+      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />}
     />
   ),
 } satisfies Meta<typeof BoardScene>;

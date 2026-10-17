@@ -1,7 +1,8 @@
 // Types only from three and the game: this module is its own chunk, loaded once a highlight is on (`TileRenderer`), and
-// shares nothing with the board's chunk but `feature-codes.ts`. `feature-layout.ts` reads what it needs of the game.
+// shares nothing with the board's chunk but `feature-codes.ts` and the load trace (`load-trace.ts`). `feature-layout.ts` reads what it needs of the game.
 import type { BufferGeometry } from "three";
 import type { PaletteName } from "./feature-layout";
+import { traceMeasure, traceStart } from "./load-trace";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, LABEL_COLUMNS, type FeatureName } from "./feature-codes";
 
 export { ABOVE_GROUND_VOXELS, FEATURE_CODE, FEATURES, GROUND_VOXELS, LABEL_COLUMNS, type FeatureName };
@@ -465,8 +466,10 @@ export function labelTileColumns(
   classes: PaletteClasses = BASE_PALETTE_CLASSES,
   size = LABEL_COLUMNS,
 ): TileColumns {
+  const start = traceStart();
   const frame = modelFrame(geometry, toModel, size);
   const columns = classifyColumns(topsOf(geometry, frame, size), layout, classes);
+  traceMeasure("labels", start);
   return { columns, grid: { minX: frame.minX, minY: frame.minY, minZ: frame.minZ, cell: frame.cell } };
 }
 

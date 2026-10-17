@@ -3,7 +3,7 @@ import { GameCanvas } from "@paved/renderer/react";
 import { CategoryType, StructureBoard } from "@paved/game-core";
 import { NO_SKINS, TILE_SIZE, type GameScene, type HoverState, type LitTile, type LookPreset, type QualityTier, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { lookInput } from "./lighting-look";
 import { SKINS_MANIFEST, skinsFor } from "./skins-board";
@@ -171,11 +171,10 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
         availableSlots={highlights ? SLOTS : []}
         // Once the models are in: a ghost handed over before then has no model to draw.
         hover={highlights && ready ? GHOST : null}
-        // Forest: the app's assets and the story's manifest of them (the base models, the variants, the tiles). Without it,
-        // app-web's assets and no manifest, as before; a new base path gives the canvas a fresh scene.
+        // The app's assets and its manifest (the base models, the variants, the tiles); Forest skins only when asked.
         skins={forest ? FOREST : NO_SKINS}
-        manifest={forest ? SKINS_MANIFEST : undefined}
-        basePath={forest ? APP_ASSETS : APP_WEB_ASSETS}
+        manifest={SKINS_MANIFEST}
+        basePath={APP_ASSETS}
         settings={settings}
         onReady={onReady}
         style={{ position: "absolute", inset: 0 }}

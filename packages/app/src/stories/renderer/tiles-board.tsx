@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import type { AssetManifest, GameScene, TileRenderData } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
-import { APP_ASSETS, APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, APP_MANIFEST, APP_WEB_ASSETS } from "../../mocks/assets";
 
 /** How a tile is drawn: the plan view's tile, or the placeholder quad of a tile whose model has not come. */
 export type TileView = "plan" | "quad";
@@ -14,26 +14,8 @@ export interface TilesBoardProps {
   images: TileImages;
 }
 
-/**
- * The app's models and resized copies as its build's manifest lists them (`models`, `tiles`): Storybook serves the app's
- * `public/` at `APP_ASSETS` but no `manifest.json`, so the story names the files from the folder and hands the renderer that
- * manifest. The globs read the names only: nothing is imported or bundled.
- */
-const MODEL_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/*.glb", { query: "?url" }));
-const TILE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/tiles/*.png", { query: "?url" }));
-const RESIZED: AssetManifest = (() => {
-  const tiles: Record<string, Record<string, string>> = {};
-  for (const file of TILE_FILES) {
-    const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
-    if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${file.slice(file.lastIndexOf("/") + 1)}`;
-  }
-  const models: Record<string, string> = {};
-  for (const file of MODEL_FILES) {
-    const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
-    if (match) models[match[1]!] = `models/${file.slice(file.lastIndexOf("/") + 1)}`;
-  }
-  return { models, tiles };
-})();
+/** The app's models and resized copies as its build's manifest lists them (`APP_MANIFEST`: `models`, `tiles`). */
+const RESIZED: AssetManifest = { models: APP_MANIFEST.models, tiles: APP_MANIFEST.tiles };
 /** No tiles listed: the loader asks for `assets/tiles/<plan>.png`, the originals (as before TEX), at `APP_WEB_ASSETS`. */
 const ORIGINAL: AssetManifest = { models: {} };
 

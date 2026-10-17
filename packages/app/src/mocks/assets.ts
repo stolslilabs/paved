@@ -1,17 +1,54 @@
+import type { AssetManifest } from "@paved/renderer";
+
 /**
- * Where the renderer finds its models (`<base>/models/<plan>.glb`), its Draco decoder (`<base>/draco/`) and, with no manifest,
- * its tile images: app-web's `public/`, which Storybook serves at this path (`staticDirs` in `.storybook/main.ts`). It has
- * a path of its own: the app's `public/renderer-assets/` (the hashed models and the 256 px tiles) is served at
- * `APP_ASSETS`, and no two static copies write one folder. The board stories load the models from it; the tile chips take
- * `originalTileArt` for their art.
+ * app-web's `public/`, which Storybook serves at this path (`staticDirs` in `.storybook/main.ts`): the source models
+ * (`models/<plan>.glb`, uncompressed, and `models/extended/`), the Draco decoder and the 1680 px tile originals. The tile
+ * browser reads the source models, and the tile chips take `originalTileArt` for their art; the board stories do not: they
+ * read the app's compressed models at `APP_ASSETS` (LOAD-FAST), so a board story downloads 1.1 MB of models, not 15 MB.
  */
 export const APP_WEB_ASSETS = "/app-web-assets";
 
 /**
- * The app's own `public/renderer-assets/`, at the path the app serves it (hashed models, Forest variants, 256 px tiles, no
- * `manifest.json`): a story that hands the renderer a manifest of its own loads from it.
+ * The app's own `public/renderer-assets/`, at the path the app serves it: the meshopt-compressed models under hashed names,
+ * the Forest variants and the 256 px tiles. Storybook serves no `manifest.json` there; the preview hands the renderer
+ * `APP_MANIFEST` for this path instead (`provideManifest`, `.storybook/preview.tsx`), so a story at this base path loads
+ * exactly what the app loads.
  */
 export const APP_ASSETS = "/renderer-assets";
+
+/**
+ * The manifest the app's build writes for `public/renderer-assets/` (`vite/renderer-assets.ts`, `rendererManifest`), read
+ * here from the file names: the base models by plan key, the 256 px tiles by size and plan key, and the Forest variants
+ * (theme 1) by plan key in variant order. The globs read the names only: no model or image is imported or bundled.
+ * `renderer-manifest.test.ts` checks it equals the build's.
+ */
+const MODEL_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/*.glb", { query: "?url" }));
+const FOREST_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
+const TILE_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/tiles/*.png", { query: "?url" }));
+const fileName = (file: string) => file.slice(file.lastIndexOf("/") + 1);
+export const APP_MANIFEST: AssetManifest & { tiles: Record<string, Record<string, string>>; themes: Record<string, Record<string, string[]>> } = (() => {
+  const models: Record<string, string> = {};
+  for (const file of [...MODEL_FILES].sort()) {
+    const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
+    if (match) models[match[1]!] = `models/${fileName(file)}`;
+  }
+  const plans: Record<string, Array<[number, string]>> = {};
+  for (const file of FOREST_FILES) {
+    const match = /\/([a-z]{9})_HF_(\d+)\.[0-9a-f]{10}\.glb$/.exec(file);
+    if (match) (plans[match[1]!] ??= []).push([Number(match[2]), `models/forest/${fileName(file)}`]);
+  }
+  const forest = Object.fromEntries(
+    Object.keys(plans)
+      .sort()
+      .map((key) => [key, plans[key]!.sort((a, b) => a[0] - b[0]).map(([, path]) => path)]),
+  );
+  const tiles: Record<string, Record<string, string>> = {};
+  for (const file of [...TILE_FILES].sort()) {
+    const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
+    if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${fileName(file)}`;
+  }
+  return { models, tiles, themes: { "1": forest } };
+})();
 
 /**
  * The tile chips' art in the stories and mocks: the 1680 px originals (`<base>/assets/tiles/<plan>.png`) Storybook serves from
