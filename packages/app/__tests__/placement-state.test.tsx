@@ -8,6 +8,14 @@ import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { preloadPages } from "./route-helpers";
 
+// A fixed Training seed (GUARDS, P-71): the first tile of a random seed fits every rotation at every lit slot about one
+// time in eleven (180 of 2000 seeds), and the search for a red rotation then finds none. Seed 1 deals a first tile that
+// fits two rotations of four at each slot.
+vi.mock("@paved/game-core", async (original) => ({
+  ...(await original<typeof import("@paved/game-core")>()),
+  randomSeed: () => 1n,
+}));
+
 // The engine's legality, as a table: at (0, 1) the tile fits rotations 1 and 3, at (1, 0) only 2.
 const FITS: Record<string, number[]> = { "0,1": [1, 3], "1,0": [2] };
 const orientationsAt = (c: { x: number; y: number }) => FITS[`${c.x},${c.y}`] ?? [];

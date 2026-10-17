@@ -27,6 +27,14 @@ vi.mock("../src/components/containers/tile-view", async (original) => ({
   hasWebGL: () => true,
 }));
 
+// A fixed Training seed (GUARDS, P-71): the first tile of a random seed fits every rotation at every lit slot about one
+// time in eleven (180 of 2000 seeds), and the search for a red rotation then finds none. Seed 1 deals a first tile that
+// fits two rotations of four at each slot.
+vi.mock("@paved/game-core", async (original) => ({
+  ...(await original<typeof import("@paved/game-core")>()),
+  randomSeed: () => 1n,
+}));
+
 preloadPages("board");
 
 beforeEach(() => {
