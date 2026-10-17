@@ -2,7 +2,7 @@ import { act, render, renderHook, screen, waitFor, within } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
-import { confirmHoldMs, boardSlots, nextOrientation, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
+import { confirmHoldMs, boardPlates, boardSlots, nextOrientation, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -31,6 +31,24 @@ const input = (over: Partial<PlacementInput> = {}): PlacementInput => ({
   orientation: 1,
   orientationsAt,
   ...over,
+});
+
+describe("the plates (PLATES, P-74)", () => {
+  it("are the slots, valid or possible, then every other free cell next to a tile, invalid; none with no slot", () => {
+    const tiles = [{ x: 0, y: 0 }, { x: 1, y: 0 }];
+    const plates = boardPlates(tiles, [{ x: 2, y: 0, fits: true }, { x: 0, y: 1, fits: false }, { x: 1, y: 1 }]);
+    expect(plates).toEqual([
+      { x: 2, y: 0, state: "valid" },
+      { x: 0, y: 1, state: "possible" },
+      { x: 1, y: 1, state: "valid" },
+      { x: -1, y: 0, state: "invalid" },
+      { x: 0, y: -1, state: "invalid" },
+      { x: 1, y: -1, state: "invalid" },
+    ]);
+    // A cell is never two plates, never a tile.
+    expect(new Set(plates.map((p) => `${p.x},${p.y}`)).size).toBe(plates.length);
+    expect(boardPlates(tiles, [])).toEqual([]);
+  });
 });
 
 describe("the placement state (SLOTS, P-68)", () => {
@@ -63,7 +81,7 @@ describe("the placement state (SLOTS, P-68)", () => {
     expect(placementView(input({ hovered: { x: 5, y: 5 } })).ghost).toBeNull();
   });
 
-  it("placed: yellow while the rotation fits, red while it does not, and Confirm disabled while red", () => {
+  it("placed: white while the rotation fits, red while it does not, and Confirm disabled while red", () => {
     const placed = placementView(input({ chosen: { x: 0, y: 1 }, orientation: 1 }));
     expect(placed.phase).toBe("placed");
     expect(placed.ghost).toMatchObject({ placed: true, fits: true });
@@ -122,7 +140,7 @@ afterEach(() => {
 });
 
 describe("the Training board's plan view, placing a tile", () => {
-  it("is red on a rotation that does not fit, with Place disabled, yellow again on one that does; then flashes green", async () => {
+  it("is red on a rotation that does not fit, with Place disabled, white again on one that does; then flashes green", async () => {
     const store = memoryStore();
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
     await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
@@ -139,7 +157,7 @@ describe("the Training board's plan view, placing a tile", () => {
       await userEvent.click(slots()[i]!);
       const label = slots()[i]!.getAttribute("aria-label");
       const chosen = () => screen.getByRole("button", { name: label! });
-      expect(chosen()).toHaveAttribute("data-placed", "yellow");
+      expect(chosen()).toHaveAttribute("data-placed", "aura");
       expect(place()).toBeEnabled();
       for (let turn = 0; turn < 4; turn++) {
         await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
@@ -150,10 +168,10 @@ describe("the Training board's plan view, placing a tile", () => {
         }
       }
       if (red) {
-        for (let turn = 0; turn < 4 && chosen().getAttribute("data-placed") !== "yellow"; turn++) {
+        for (let turn = 0; turn < 4 && chosen().getAttribute("data-placed") !== "aura"; turn++) {
           await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
         }
-        expect(chosen()).toHaveAttribute("data-placed", "yellow");
+        expect(chosen()).toHaveAttribute("data-placed", "aura");
         expect(place()).toBeEnabled();
       }
     }

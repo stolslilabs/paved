@@ -253,21 +253,21 @@ describe("Board", () => {
     expect(onSlotClick).toHaveBeenCalledWith(slot);
   });
 
-  it("the plan view lights its slots only while the placement highlight is on; off, they stay buttons", async () => {
+  it("the plan view draws its plates only while the placement highlight is on; off, the slots stay buttons", async () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
+    const plate = () => screen.getByRole("button", { name: /^Slot / }).querySelector("[data-plate]");
     const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
-    // Dashed where the current rotation does not fit, solid where it does (SLOTS).
-    expect(screen.getByRole("button", { name: /^Slot / })).toHaveClass("border-dashed");
+    // Possible where the current rotation does not fit, valid where it does (PLATES).
+    expect(plate()).toHaveAttribute("data-plate", "possible");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
-    expect(screen.getByRole("button", { name: /^Slot / })).not.toHaveClass("border-dashed");
+    expect(plate()).toHaveAttribute("data-plate", "valid");
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });
     expect(plain).toHaveAttribute("data-lit", "false");
-    expect(plain).not.toHaveClass("border-dashed");
-    expect(plain.className).not.toMatch(/bg-primary/);
+    expect(plain.querySelector("[data-plate]")).toBeNull();
     await userEvent.click(plain);
     expect(onSlotClick).toHaveBeenCalledWith(slot);
   });

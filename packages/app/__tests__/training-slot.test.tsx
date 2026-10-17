@@ -64,12 +64,15 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
       await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
     }
     const legal = engine.legalPlacements().filter((p) => p.orientation === ORIENTATIONS[orientation]);
-    const lit = canvas.props!.availableSlots!;
-    // Every legal cell in any rotation is lit (SLOTS); `fits` marks those of the hand's rotation. `0 - y`, not `-y`: the
-    // grid's y is +0 on the starter's row, never -0.
+    const plates = canvas.props!.availableSlots!;
+    const lit = plates.filter((s) => s.legal !== false);
+    // Every legal cell in any rotation is a plate (PLATES); `fits` marks those of the hand's rotation; every other free
+    // cell next to a tile is an invalid plate (`legal` false). `0 - y`, not `-y`: the grid's y is +0 on the starter's row,
+    // never -0.
     const cells = (list: { x: number; y: number }[]) => [...new Set(list.map((c) => `${c.x},${c.y}`))].sort();
     expect(cells(lit)).toEqual(cells(engine.legalPlacements().map((p) => ({ x: p.x, y: 0 - p.y }))));
     expect(lit.filter((s) => s.fits).map(({ x, y }) => ({ x, y }))).toEqual(legal.map((p) => ({ x: p.x, y: 0 - p.y })));
+    expect(plates.filter((s) => s.legal === false).every((s) => !s.fits)).toBe(true);
 
     // The player clicks the last slot the rotation fits, as the renderer reports it; the tile is placed on that cell.
     const fitting = lit.filter((s) => s.fits);

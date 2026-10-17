@@ -96,9 +96,10 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
 /**
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
- * reframes it. The board draws the placement visuals as the game does (SLOTS2, P-72): the grid, the legal slots of the
- * tile in hand (dashed, solid where its rotation fits), and the tile placed on a slot (yellow, or red where its rotation
- * does not fit), from the engine's rule on the recorded board.
+ * reframes it. The board draws the placement visuals as the game does (PLATES, P-74): a plate on every free cell next
+ * to a tile, valid under its aura where the tile in hand fits in its rotation, possible where another rotation fits,
+ * invalid (greyscale) where none does, and the tile placed on a plate (a white rim, or red where its rotation does not
+ * fit), from the engine's rule on the recorded board.
  */
 const meta = {
   title: "Scenes/Board",
@@ -109,17 +110,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand, no slot chosen: its legal slots on the board, dashed where only another rotation fits, solid where this one does. */
+/** A tile in hand, no slot chosen: its plates on the board, valid, possible and invalid. */
 export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) } };
 
-/** No tile to place (a move on its way): the grid alone around the board. */
+/** No tile to place (a move on its way): no plate. */
 export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
 
-/** The tile placed on a slot its rotation fits: yellow aura and veil, Confirm on. */
+/** The tile placed on a plate its rotation fits: a white rim, Confirm on. */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
-/** Turned to a rotation that does not fit its slot: red, Confirm off. */
+/** Turned to a rotation that does not fit its slot: its plate and rim red, Confirm off. */
 export const PlacedIllegal: Story = { args: { ...BOARD.placing, ...inHand(RED_ORIENTATION, CHOSEN) } };
+
+type PlatesArgs = BoardSceneProps & { rotation: number; placed: boolean };
+
+/**
+ * The three plate states at once on the partly filled 38-tile board, with the tile in hand's rotation as a control:
+ * each turn eases the plates to their new states (150 ms); `placed` puts the tile on the recorded move's slot.
+ */
+export const Plates: StoryObj<PlatesArgs> = {
+  args: { ...BOARD.placing, rotation: HAND.orientation, placed: false },
+  argTypes: {
+    rotation: { control: "inline-radio", options: [1, 2, 3, 4], description: "The tile in hand's rotation, 1 North to 4 West" },
+    placed: { control: "boolean", description: "The tile placed on the recorded move's slot (red where this rotation does not fit there)" },
+  },
+  render: ({ rotation, placed, ...args }) => renderBoard({ ...args, ...inHand(rotation, placed ? CHOSEN : null) }),
+};
 
 /** A slot chosen: Confirm shows the points. */
 export const SlotChosen: Story = { args: BOARD.slotChosen };
@@ -163,5 +179,5 @@ export const Board72: Story = { args: BOARD.large };
 /** A tile in hand under the day and night cycle (DAYNIGHT, P-73), ten times as fast: a day and a night every 12 s. */
 export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => renderBoard(args, DAY_NIGHT_FAST) };
 
-/** The same, held at a summer night: the cities and the road's buildings lit, the slots and the neon readable. */
+/** The same, held at a summer night: the cities and the road's buildings lit, the plates and the rim readable. */
 export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };
