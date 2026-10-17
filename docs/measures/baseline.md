@@ -397,7 +397,7 @@ Scenario f now also asserts its exact score (434) and that the Woodsman is back 
 
 The tournament ranking moved behind `LeaderboardTrait` (`contracts/src/leaderboard.cairo`,
 `docs/architecture/leaderboard.md`). Behaviour, events and `contracts/abis/*.json` are unchanged. Scarb 2.20.1 /
-snforge 0.64.0, Mac (aarch64), `RAYON_NUM_THREADS=1`, `--max-threads 2`; the Linux figures are those of the CI
+snforge 0.64.0, the Mac, `RAYON_NUM_THREADS=1`, `--max-threads 2`; the Linux figures are those of the CI
 log of the PR: the `Test game` job (run 37652684501, Linux) gave the same L2 gas, to the unit, as the Mac for g to j, a0 to f and the 22 bench cases, so the ceilings stand.
 
 **Closing moves, one external call.** `contracts/tests/gas.cairo` g to j: `get_available_gas()` right before
@@ -455,10 +455,10 @@ run). Full tables (both profiles, sizes): `docs/architecture/class-headroom.md`,
 
 ## Line coverage of `contracts/src`
 
-Measured on the Mac (aarch64, scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;
+Measured on the Mac (scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;
 line coverage does not depend on the machine). Command: `scripts/measure.sh coverage-split`. It runs
 `snforge test --coverage --max-threads 2 <filter>` once per group below (`RAYON_NUM_THREADS=1`, peak
-printed with `/usr/bin/time -l` on Darwin; on Linux `prlimit` 8 GiB and `time -f`), keeps each
+printed with `/usr/bin/time -l` on the Mac; on Linux `prlimit` 8 GiB and `time -f`), keeps each
 `coverage.lcov` under `contracts/target/coverage-split/`, merges them by summing the hits of each
 `SF`/`DA` line with awk (`lcov -a` is not used, so that every machine gives the same file), then prints
 the table (`tests/` and `mocks/` excluded). One run of everything (`scripts/measure.sh coverage`) aborted
@@ -1332,7 +1332,7 @@ take a neighbour at x = 2 and x = `MAX - 1`.
 
 `Economy.swap` refuses a PAVED leg that is not paid out (`'Economy: wrong delta'`), and `Economy.purchase` ignores a
 referrer that is the Vault, the router, `Economy` or the game (`docs/architecture/economy.md`, "The referral rule since
-P-58"). Same tests: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, **the Mac** (aarch64), 2026-10-14,
+P-58"). Same tests: `contracts/tests/gas.cairo`, scarb 2.20.1 / snforge 0.64.0, **the Mac**, 2026-10-14,
 `RAYON_NUM_THREADS=1`, `--max-threads 2`. Before is main 56c4e237 (an export of `contracts/` by `git archive`, with the
 repository's `.tool-versions`), after is this branch; both measured in the same session. Peak RSS 7,183,433,728 bytes
 (before) and 6,108,397,568 bytes (after), by `/usr/bin/time -l`. Committed figures should be re-measured on Linux (CI or
