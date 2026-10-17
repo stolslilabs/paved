@@ -3,6 +3,17 @@
 Dated 2026-10-14. F5 of Client v2 (`docs/client/v2-architecture.md`, section 4.2). The Storybook of `packages/app` is
 served at `https://storybook.paved.bal7hazar.com`, a static site: fixtures only, no secret, no RPC URL, no controller.
 
+## Now: Vercel (2026-10-17)
+
+The Storybook is published by Vercel, from the `paved-storybook` project (settings in the root `vercel.json`, see
+`docs/client/f-release.md`, "Vercel"): a production deployment of `main` on every merge, and a preview per pull request.
+`storybook.paved.bal7hazar.com` is added to that project; it serves from Vercel once the owner's DNS record points to it.
+
+**The VPS publish is retired** once the DNS points to Vercel: `deploy/indexer/publish.sh` for the Storybook, the Caddy site
+`deploy/storybook/paved-storybook.caddy` and the sections below ("The one-time install" to "The Caddy site against
+`deploy/indexer/Caddyfile`") describe the old host and are kept for history. Until the DNS moves, the old host serves its last
+release and nothing new is published there. No `deploy/**` file is changed by this document; the PM's root block retires them.
+
 ## The one-time install (done by the owner's root block)
 
 The web root, the Caddy site and the first release were installed once, as root, by the owner's block

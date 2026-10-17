@@ -394,6 +394,14 @@ The Sepolia build env, from what `packages/app-web` reads today (`src/utils/netw
 | not set | `VITE_*_ADDRESS` | The file supplies them; an override is for an operator patch only. |
 | not set | `VITE_SUPPORTS_TOKEN_MINT` | Unset means the faucet is offered on devnet and Sepolia (the test-USDC faucet, D-16, P-39), and `resolveDeployment` resolves a Faucet for those two networks only, never mainnet. The controller's session holds `Faucet.mint` on Sepolia. |
 
+### The client is served by Vercel (2026-10-17)
+
+The client (`https://paved.bal7hazar.com`) and the Storybook move from the VPS to Vercel; only `api.paved.bal7hazar.com` (this
+proxy and the indexer) stays on the VPS. The indexer's `--allow-origin` **stays `https://paved.bal7hazar.com`**: the same name, now
+served by Vercel, so the app on that domain reaches the API. Vercel preview URLs (`*.vercel.app`) are not in `--allow-origin`, so
+the browser refuses their reads by CORS: **preview builds show no indexer data** (the leaderboard and the player page say the
+indexer is unavailable). An origin is added to `--allow-origin` only by the owner's service-file change.
+
 ### Cartridge controller: does it need this origin registered?
 
 **Finding: no registration, allow-list or redirect entry is required to connect the controller with the client's own

@@ -19,3 +19,5 @@ contracts/coverage/
 dist/
 *.tsbuildinfo
 .turbo/
+# Vercel CLI links (one folder per linked project)
+.vercel
