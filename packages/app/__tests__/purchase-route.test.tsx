@@ -1541,11 +1541,12 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
 
   it("the open prompt's hold turns into the usual one when the limit passes, without a reload", async () => {
     const s = setup();
-    // 299.9 s old: the limit passes 100 ms after the page opens.
-    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: (Date.now() - PURCHASE_TIMEOUT_MS + 100) / 1000, id: "other-tab" }));
+    // 298 s old: the limit passes 2 s after the page opens. Not 100 ms (GUARDS, P-71): a loaded machine took longer than
+    // that to draw the page, which then opened on the expired hold and never showed the waiting one.
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: (Date.now() - PURCHASE_TIMEOUT_MS + 2000) / 1000, id: "other-tab" }));
     open("/play/challenge", s);
-    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText(/your wallet did not answer/)).toBeInTheDocument();
   });
 
