@@ -16,7 +16,7 @@ export interface TileLabels extends TileColumns {
  * the shader reads per fragment.
  */
 export function labelTileGeometry(geometry: THREE.BufferGeometry, planKey: string, toModel = new THREE.Matrix4(), classes: PaletteClasses = BASE_PALETTE_CLASSES): TileLabels {
-  const { columns, grid } = labelTileColumns(geometry, planLayout(planKey), toModel, classes);
+  const { columns, grid, lights } = labelTileColumns(geometry, planLayout(planKey), toModel, classes);
   const position = geometry.getAttribute("position");
   const index = geometry.getIndex()!.array;
   const weights: Map<number, number>[] = Array.from({ length: position.count }, () => new Map());
@@ -44,5 +44,5 @@ export function labelTileGeometry(geometry: THREE.BufferGeometry, planKey: strin
     feature[v] = best >> 4;
     area[v] = best & 15;
   });
-  return { feature, area, columns, grid };
+  return { feature, area, columns, grid, lights };
 }

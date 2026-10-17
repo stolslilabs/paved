@@ -1,6 +1,7 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
 import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
+import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightSettings } from "./daynight-settings";
 import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import {
   DEFAULT_LOOK_PRESET,
@@ -61,6 +62,11 @@ export interface RendererSettings {
   quality: QualityTier | "auto";
   /** The placement visuals (SLOTS, `placement.ts`): the grid, the slots, the placed tile's aura and veil, their colours. */
   placement: PlacementSettings;
+  /**
+   * The day and night cycle (DAYNIGHT, `daynight-settings.ts`): off by default; the app's board turns it on from its
+   * settings row ("Day/night cycle").
+   */
+  dayNight: DayNightSettings;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -90,6 +96,8 @@ export interface RendererSettingsInput {
   quality?: QualityTier | "auto";
   /** The placement visuals: each group's fields over the defaults'. */
   placement?: PlacementSettingsInput;
+  /** The day and night cycle: its fields over the defaults'. */
+  dayNight?: Partial<DayNightSettings>;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -112,6 +120,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   look: LOOK_PRESETS[DEFAULT_LOOK_PRESET],
   quality: "auto",
   placement: DEFAULT_PLACEMENT_SETTINGS,
+  dayNight: DEFAULT_DAYNIGHT_SETTINGS,
 };
 
 /**
@@ -177,6 +186,7 @@ export function resolveRendererSettings(
     look: mergeLookSettings(preset ? LOOK_PRESETS[preset] : base.look, input.look),
     quality,
     placement: resolvePlacementSettings(input.placement, base.placement),
+    dayNight: resolveDayNightSettings(input.dayNight, base.dayNight),
   };
 }
 

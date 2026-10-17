@@ -96,6 +96,27 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   }
 `;
 
+// The night lights (DAYNIGHT): a voxel of a lit column (a city's, or a structure by a road: `features.ts`, `lightColumns`),
+// above the ground, is a window. Each window (its column and voxel level, on its tile's cell) has a level of its own, a
+// hash, at which it switches on: as the night comes (`uNightLevel` from 0 to 1) the windows light one by one, each over
+// 0.15 of the ramp, until about half of them are lit (the levels run to 1.6). A wall glows fully, a roof at 0.35. It adds
+// an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
+export const NIGHT_LIGHTS_GLSL = /* glsl */ `
+float nightLit = 0.0;
+if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
+ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
+if (texelFetch(uLightMap, lightTexel, 0).r > 0.0) {
+uvec2 c = uvec2(ivec2(vCell) + 4096);
+uint h = (uint(lightTexel.x) | uint(lightTexel.y) << 6u | uint(int(floor(lightAt.y)) + 64) << 12u) ^ c.x * 73856093u ^ c.y * 19349663u;
+h = (h ^ h >> 16) * 0x7feb352du;
+h = (h ^ h >> 15) * 0x846ca68bu;
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
+nightLit = smoothstep(at, at + 0.15, uNightLevel) * (normalize(vGridNormal).y > 0.5 ? 0.35 : 1.0);
+}
+}
+`;
+
 /**
  * The look's parts the tiles draw: the water and the feature highlight (the highlights stay in the look for GLOW; the
  * slots are `PlacementRenderer`'s).
@@ -110,6 +131,8 @@ export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighl
 interface LabelUniforms {
   uLabelMap: { value: THREE.DataTexture };
   uGridMatrix: { value: THREE.Matrix4 };
+  /** The night lights' columns (`lightColumns`): 1 where a column's voxels above the ground are windows. */
+  uLightMap: { value: THREE.DataTexture };
 }
 
 /**
@@ -194,6 +217,15 @@ export class TileRenderer {
     // frame, so a turned compass (`GameScene.setCompassRotation`) does not move the lit cells.
     uBoardInverse: { value: new THREE.Matrix4() },
   };
+  /** The night lights' uniforms, shared as the others (`NIGHT_LIGHTS_GLSL`, `setNightLights`, `setNightLevel`). */
+  private nightUniforms = {
+    uNightOn: { value: 0 },
+    uNightLevel: { value: 0 },
+    uNightColor: { value: new THREE.Color() },
+    uNightGlow: { value: 0 },
+  };
+  /** Whether the night lights are on: the models drawn then are labelled, as for a highlight. */
+  private nightLights = false;
   /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
   private litAreas: Map<string, number> | null = null;
   /** The grid cell of each tile given (`updateTiles`), by tile key: where the lit map puts its mask. */
@@ -412,7 +444,7 @@ export class TileRenderer {
   private labelUniformsOf(geometry: THREE.BufferGeometry): LabelUniforms {
     let uniforms = this.labelMaps.get(geometry);
     if (!uniforms) {
-      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() } };
+      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() }, uLightMap: { value: this.emptyLabelMap } };
       this.labelMaps.set(geometry, uniforms);
     }
     return uniforms;
@@ -490,8 +522,9 @@ export class TileRenderer {
       const uniforms = this.labelUniformsOf(child.geometry);
       if (uniforms.uLabelMap.value !== this.emptyLabelMap) return;
       const toModel = toRoot.clone().multiply(child.matrixWorld);
-      const { columns, grid } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
+      const { columns, grid, lights } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
       uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
+      uniforms.uLightMap.value = labelMapTexture(lights, columns.size);
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
         .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
@@ -509,7 +542,7 @@ export class TileRenderer {
   private patchTileShader(material: THREE.MeshStandardMaterial, geometry: THREE.BufferGeometry, labels: LabelUniforms): void {
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     const footprint = { value: geometry.boundingBox!.getCenter(new THREE.Vector3()) };
-    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, ...labels, uFootprint: footprint };
+    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, ...this.nightUniforms, ...labels, uFootprint: footprint };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace(
@@ -545,20 +578,25 @@ export class TileRenderer {
             "uniform sampler2D uLitMap;",
             "uniform vec4 uLitRect;",
             "uniform sampler2D uLabelMap;",
+            "uniform float uNightOn;",
+            "uniform float uNightLevel;",
+            "uniform vec3 uNightColor;",
+            "uniform float uNightGlow;",
+            "uniform sampler2D uLightMap;",
             "varying vec3 vGrid;",
             "varying vec3 vGridNormal;",
             "flat varying vec2 vCell;",
             "void main() {",
           ].join("\n"),
         )
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}`)
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_LIGHTS_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
         )
         .replace(
           "#include <emissivemap_fragment>",
-          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;",
+          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;",
         );
     };
     material.customProgramCacheKey = () => "paved-tile";
@@ -604,15 +642,34 @@ export class TileRenderer {
   }
 
   /**
-   * The highlight's switches from the look and the lit structure; when one comes on, the models drawn are queued for
-   * their labels (`scheduleLabels`): each lights when its turn comes.
+   * The night lights of the day and night cycle (DAYNIGHT, `NIGHT_LIGHTS_GLSL`): on, the city voxels and the structures by
+   * the roads glow `color` (sRGB hex) at `intensity` as the night's level rises (`setNightLevel`). Turning them on labels
+   * the models drawn, and those drawn later, once each, as a highlight does.
+   */
+  setNightLights(on: boolean, color: string, intensity: number): void {
+    this.nightLights = on;
+    this.nightUniforms.uNightOn.value = on ? 1 : 0;
+    this.nightUniforms.uNightColor.value.set(color);
+    this.nightUniforms.uNightGlow.value = intensity;
+    this.applyHighlight();
+  }
+
+  /** The night's level for the night lights, 0 (day: none lit) to 1 (every window lit): a uniform, set each step of the cycle. */
+  setNightLevel(level: number): void {
+    this.nightUniforms.uNightLevel.value = level;
+  }
+
+  /**
+   * The highlight's switches from the look and the lit structure; when one comes on (or the night lights), the models
+   * drawn are queued for their labels (`scheduleLabels`): each lights when its turn comes.
    */
   private applyHighlight(): void {
     const on = this.look.featureHighlight.enabled || this.litAreas !== null;
     this.featureUniforms.uFeatureOn.value = on ? 1 : 0;
     this.structureUniforms.uStructureOn.value = this.litAreas !== null ? 1 : 0;
-    if (on && !this.labelling) for (const [key, model] of this.tileTypes) this.queueLabels(key, model);
-    this.labelling = on;
+    const labelling = on || this.nightLights;
+    if (labelling && !this.labelling) for (const [key, model] of this.tileTypes) this.queueLabels(key, model);
+    this.labelling = labelling;
   }
 
   /**
@@ -855,6 +912,7 @@ export class TileRenderer {
       ghost.onBeforeCompile = (shader, renderer) => {
         patch.call(material, shader, renderer);
         shader.uniforms.uFeatureOn = GHOST_FEATURE_OFF;
+        shader.uniforms.uNightOn = GHOST_FEATURE_OFF;
       };
       ghost.customProgramCacheKey = material.customProgramCacheKey;
       this.ghostMaterials.set(material, ghost);
@@ -971,10 +1029,14 @@ export class TileRenderer {
     this.placeholderOutline?.geometry.dispose();
     this.placeholderOutline = null;
     this.structureUniforms.uLitMap.value.dispose();
-    for (const { uLabelMap } of this.labelMaps.values()) if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
+    for (const { uLabelMap, uLightMap } of this.labelMaps.values()) {
+      if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
+      if (uLightMap.value !== this.emptyLabelMap) uLightMap.value.dispose();
+    }
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();
     this.labelling = false;
+    this.nightLights = false;
     this.disposed = true;
     this.labelQueue = [];
     this.labelledListener = null;

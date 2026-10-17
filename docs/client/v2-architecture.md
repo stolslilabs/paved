@@ -2471,6 +2471,163 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
 - **Reversed** by giving each loader its own models again (`sharedModels`), or by dropping `provideManifest` (each loader
   then asks for its own manifest).
 
+### 5.9 Day and night (DAYNIGHT, P-73)
+
+The owner's request (2026-10-17, via the PM, P-73): an animated, coloured background instead of the flat dark one. A gradient in summer colours turns to a summer night, then to an autumn day, and so on round the seasons. The cycle is progressive, two minutes long, and starts on a random season. The light moves east to west over the day, so the shadows turn. At night the cities and the buildings along the roads light up progressively, using FEATURE-HL's labels, to make up for the fading light. The PM's rulings fill the gaps (a cycle is a day then a night of one season; OKLab; stable shadows; staggered lights; a brightness floor; story controls; a Settings row; a still scene for reduced motion and the Low tier; its own lazy chunk).
+
+**As built.**
+
+- **The chunk.** `core/daynight.ts` is a chunk of its own, loaded by `GameScene` the first time the cycle is on (`loadDayNight`). It is 7.8 kB raw, 3.2 kB gzip in the app's build. It holds:
+  - the clock and the keyframes;
+  - OKLab;
+  - the sun and the moon;
+  - `drawDayNight`, which sets a frame on the scene's lights.
+  The board's chunk keeps only the settings (`core/daynight-settings.ts`), the backdrop's GLSL in the final pass, the night lights' GLSL in the tile shader, and a little glue. No budget limit moved. Before BOARD-CHUNK (#510) the board chunk was 903,056 B raw, 112 bytes under its 903,168 limit. Merged with it, the chunk is 873,508 B raw and 250,111 gzip against 888,320 and 254,464.
+- **The clock.** Time is measured in seasons since a summer's dawn: 1.3 is an autumn noon. The cycle is pure and seeded:
+  - `cycleAt` gives the season, the phase and the blend;
+  - `DayNightClock` steps by `frameMs` (33 ms) of real time, times `speed`;
+  - `startSeason` gives the season named, or a seed's, or one drawn once per page.
+  A cycle lasts `cycleMs` 120,000: the sun is up for 0.625 of it (75 s, dawn and dusk included), then 45 s of night. The keyframes hold over dawn [0, 0.03], day [0.12, 0.46], dusk [0.55, 0.59] and night [0.68, 0.93] of a cycle, with a smoothstep between two holds. The night eases into the next season's dawn. A page's cycle starts at the day's hold (`START_POSITION`), and every board of the page shares the page's clock. Tests: `daynight.test.ts`.
+- **The keyframes** (`KEYFRAMES`, season × dawn/day/dusk/night). For each: the backdrop's two ends, which are Tailwind tokens (a test reads `theme.css`); the sun's colour and strength; the fill, which is the moon at night; the sky and ground colours, the sky light's strength and its ambient; and the night lights' level. Colours blend in OKLab, strengths linearly. Summer's day is the Mockup look's lights. The sun's noon elevation is 62° in summer, 42° in autumn, 28° in winter and 50° in spring.
+- **The backdrop.**
+  - The scene is cleared to transparent. The final pass (`FinishPass`, `BACKDROP`) lays a vertical gradient between two OKLab colours under what the scene left uncovered (its alpha), after the tone map and the grade. The tokens therefore reach the screen as given, under the vignette.
+  - The gradient is computed per pixel in OKLab and dithered (interleaved gradient noise, ±0.5 of an 8-bit level, only where the scene is uncovered): there is no banding.
+  - Under the backdrop the bloom keeps three's colour blend (`SRC_ALPHA, ONE`) and adds nothing to the alpha. Without the backdrop the stock blend is untouched: the chain is rebuilt when the backdrop toggles.
+  - The fog takes the backdrop's middle colour.
+  - Off, the look's flat background and its single sRGB transfer are unchanged.
+- **The sun and the moon.**
+  - The key light runs the arc east (azimuth 90, +X) → south (0) → west (−90), with an elevation of `max · sin(πu)`. It fades in over its first 8° and out over its last. Its shadows are drawn from at least 8°.
+  - Below the horizon it stays at its setting place, dark: the shadow map is not drawn through the night.
+  - The fill sits opposite the sun by day and follows the moon's own arc by night (dim and cool, no shadow).
+  - The sky light and ambient are at least `brightnessFloor` (0.85) of the season's day, so the board stays readable at night.
+- **Stable shadows: a crossfade a step of the arc apart.**
+  - The first build drew the shadow map from the sun at every 33 ms step. Measured with the sweep below, it boiled: at a summer noon, at ×1, pixels went up and back by 15.6 levels in total over 24 steps (desktop, Medium). With the shadows off, or the map frozen, it was 0. The fixed frustum was not the cause: every redraw from a light turned by a fraction of a degree re-aliased every small shadow edge (trees, voxels). Neither PCF radius 1 (18.7) nor VSM (9.6) fixed it.
+  - The fix (`drawDayNight`, in the cycle's chunk): the sun's shadows are held at steps of `SHADOW_STEP` (1° of the arc) and crossfaded between the key light and a twin, a clone of the key with its shadow, added while the cycle is on.
+  - Each light holds one step: the key the even ones, the twin the odd ones. The weight moves linearly, so each pixel moves linearly within a step. A light jumps two steps on only while its weight is 0.
+  - The maps are drawn again only at a step: about every 0.42 s at ×1, two maps each time. The boil fell to 0.77 at noon (Low: 0.98).
+  - **Only while the cycle moves** (fix loop 1). A still scene (reduced motion, the Low tier), a held moment (`freezeAt`) and the cycle off draw with the key light alone. The twin is not made, or is released and its shadow map disposed, so there is one shadow map and one lookup compiled. `dispose` releases the twin too, with the context kept or not.
+  - Cost while it moves: two shadow lookups per fragment. A program recompile happens when the cycle starts or stops moving (the light count changes).
+- **The night lights.**
+  - FEATURE-HL's classifier gives each model a light map beside its label map (`lightColumns`): a city's columns, and the structures labelled none (stops, houses, arches, bridges) within 2 columns (`ROAD_LIGHT_REACH`) of a road column.
+  - The tile shader (`NIGHT_LIGHTS_GLSL`, its own branch, one `texelFetch`, nothing while off) lights a lit column's voxels above the ground. Each window (its column × its voxel level × its tile's cell, by an integer hash) has its own level at which it switches on over 0.15 of the night's ramp. The levels run to 1.6, so about half of the windows are lit at full night.
+  - A wall glows fully and a roof at 0.35. The colour is amber-300 `#ffb57a`, the strength 0.4.
+  - The level rises with the keyframes: 0 by day, 0.3 to 0.45 at dawn, 0.6 to 0.7 at dusk, 1 at night.
+  - Turning the lights on labels the models drawn, once each, in idle slices, as a highlight does.
+  - The ghost holds them off, as it holds the highlight.
+- **Still.** Under reduced motion (the setting, or the device's for "auto", followed live) and on the Low tier, the scene shows the start season's noon: no clock, no moving shadow, no night lights, and no labelling.
+- **Settings.** `RendererSettings.dayNight` (off in the renderer). The app's Settings has a row, "Day/night cycle", on by default (`paved.settings.v1`, `dayNight`). The board's renderer gets `{ dayNight: { enabled } }`; the hand's tile (`TileView`) does not run the cycle.
+- **Stories.** "Renderer/DayNight":
+  - Cycle, Fast (×10), SummerDay, SummerNight, AutumnDusk, WinterDawn, NightNoLights, ReducedMotion, SlotsAtNight, PlacedAtDusk and ForestAtNight.
+  - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, their strength, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
+  - "Scenes/Board" has DayNight (×10) and DayNightAtNight.
+
+**Measured** (the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
+
+*Frame time*, CPU + GPU per frame, ms.
+- Method: the tick's CPU plus `EXT_disjoint_timer_query_webgl2` around the rendered frame; every frame drawn; 120 warm-up and 600 measured frames; a fresh context per configuration; two rounds, the order rotated. The figure is the mean p50 / mean p95, with the worst round's p95 in brackets.
+- Profiles: desktop 1440 × 900 at DPR 2; phone-like 360 × 780 at DPR 3, CPU throttled 4×.
+- Variants: "off" is the cycle off; "day" a running summer day at ×1; "night" a held autumn night with its lights; "×10" the fast cycle, with the most map redraws.
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| off | 6.11 / 8.96 (9.12) | 5.13 / 7.26 (7.29) | 4.75 / 6.93 (7.60) | 2.26 / 3.13 (3.17) |
+| day | 7.63 / 10.34 (10.66) | 5.65 / 8.00 (8.03) | 5.23 / 7.79 (8.28) | 2.77 / 4.39 (4.72) |
+| night | 7.49 / 9.85 (10.13) | 5.22 / 7.40 (7.80) | 4.97 / 7.08 (7.38) | 2.64 / 3.94 (4.08) |
+| ×10 | 7.63 / 10.38 (10.42) | 5.60 / 8.09 (8.09) | 5.13 / 8.13 (8.24) | 3.06 / 5.21 (5.40) |
+
+Every row is under the rules (12 ms desktop, 16.6 ms phone-like); the worst is 10.66. The cycle costs up to 1.4 ms of mean p95 (desktop, 240: the second shadow lookup and the backdrop). The bench ran at `1e52aafa`; the later commits changed only the keyframes' moon strengths and the floor's default (uniform values: the same shaders and passes).
+
+*Zero flicker.*
+- Method: SLOTS' method on "Renderer/DayNight" with a tile in hand (its slots; the placed tile's aura still, under reduced motion). Top view at 240; the page's pixel ratio is the renderer's.
+- Moments: each phase held, and four points inside the transitions (dawn→day, day→dusk, dusk→night, night→next dawn).
+- Measures:
+  - still frames;
+  - 12 pans of 3 device px, registered within ±5 px;
+  - 16 sub-pixel pans of 0.25 px;
+  - the zoom 240 → 230 in steps of 0.5;
+  - a **sweep** of the cycle with the camera still: 24 steps of ×1's (33 ms) or ×10's step. It gives the crop's mean-luma step and the **back-and-forth**: per pixel, its total variation less its net change, which is 0 under a smoothly moving edge and grows with a swim or a shimmer. It also gives the 99.9th percentile of the per-pixel change between two frames.
+- High's bloom is the positive control.
+
+| Tier, profile | Still | Pan residual | Sub-pixel step | Zoom step | Sweep ×1, back-and-forth (worst moment) | Sweep ×1, per-frame change, p99.9 |
+|---|---|---|---|---|---|---|
+| Medium, desktop | 0 | 0.70 to 1.58 | 0.038 to 0.079 | 0.112 to 0.131 | 0.77 (noon) | ≤ 1.4 levels |
+| Medium, phone-like | 0 | 0.69 to 1.54 | 0.020 to 0.025 | 0.072 to 0.089 | 0.76 (noon) | ≤ 1.4 |
+| Low, desktop | 0 | 0.26 to 0.57 | 0.031 to 0.066 | 0.107 to 0.134 | 0.98 (noon) | ≤ 2.1 |
+| Low, phone-like | 0 | 0.27 to 0.57 | 0.024 to 0.033 | 0.072 to 0.087 | 0.93 (noon) | ≤ 2.1 |
+| High (control), desktop, first build's bloom blend | 0 | 2.35 to 3.65 | 0.31 to 0.64 | 0.99 to 1.89 | 0.67 | ≤ 1.1 |
+| High (control), phone-like, first build's bloom blend | 0 | 2.32 to 3.60 | 0.53 to 1.21 | 0.73 to 1.65 | 0.69 | ≤ 1.1 |
+
+- **Still and moving camera.** Still frames are pixel-identical at every moment, and every pan registers at its own 3 px.
+- **The floor of each measure.**
+  - Pan residuals are the AO's floor at Medium, as in 5.7; they move with the moment's brightness.
+  - The default tiers' sub-pixel and zoom steps are SLOTS2's (0.02 to 0.08 and 0.07 to 0.13), at every phase and in the transitions. High's bloom was caught there 6 to 60 times higher; that margin was inflated by the first build's bloom blend (fix loop 1 below: 1.2 to 5.7 times with three's blend).
+- **The ×1 sweep.** No pixel moves more than 2.1 levels between two frames. The back-and-forth stays under 1 level over 24 frames: the crossfade's piecewise-linear path.
+- **Before the crossfade**, the noon sweep was 15.6 (Medium) and 18.9 (Low), with a 512-texel map 10.7.
+- **At ×10** (the story's fast forward, 0.8° of arc a frame) the noon back-and-forth is 10.3. These are real shadows crossing a step every 1.3 frames, not a game speed.
+- **What does not shimmer.** The night lights (a fixed set of lit windows at a held level) show no step: the night moment's sweep is 0.000 at ×1. The backdrop's dither is fixed to the screen and identical between frames (still 0).
+
+*The night's floor.* The board's mean luma (centre crop, desktop) at day and night:
+
+| Season | Day | Night | Night / day |
+|---|---|---|---|
+| Summer | 117.8 | 39.7 | 0.34 |
+| Autumn | 106.6 | 30.3 | 0.28 |
+| Winter | 99.2 | 43.7 | 0.44 |
+| Spring | 133.6 | 36.3 | 0.27 |
+
+At a floor of 0.6 the autumn night was 22.2 (0.21), with the forests near black; 0.85 and a stronger moon keep them readable. The slots, the neon, the placed tile's aura and the outlines stay legible at every phase (`daynight-slots-autumn-<phase>-1280.webp`, `daynight-placed-summer-<day|night>-1280.webp`).
+
+**Captures** (`packages/app/src/stories/renderer/captures/`; headless Chrome on the Mac's GPU; outlines on; quality and cap auto):
+- `daynight-<season>-<phase>-<1280|360>.webp`: the 16 season × phase moments at 1280 × 800, DPR 2, and 360 × 780, DPR 3, saved at their CSS size.
+- `daynight-strip-x10.webp`: one cycle at ×10, 16 frames 0.75 s apart: a summer day, dusk, night, then autumn's dawn and day.
+- `daynight-forest-skin-night-1280.webp`: the Forest skins at night.
+
+**Fix loop 1 (review t-0517).**
+
+Measured on the Mac's GPU as above, at this branch's head, loads 1.7 to 4.3.
+
+1. **No twin in a still scene.**
+   - On the GPU, a moving cycle has 2 shadow-casting lights, and the tile program is compiled with 2 shadow maps (`directionalShadowMap[2]`). The still scene and the cycle off have 1 and 1.
+   - Tests in `game-scene-daynight.test.ts` and `daynight.test.ts`: a still scene and Low have no twin; going from moving to still, turning the cycle off, and `dispose({ releaseContext: false })` each release the twin and dispose its shadow.
+2. **The bloom's stock blend, cycle off.**
+   - "Renderer/Placement", Slots, at 1280 × 800, DPR 1.75, outlines on, reduced motion, a fixed view. Main's static Storybook (`7ccaefc5`, built from `git archive`) and this branch's, each at High, Medium and Low: **pixel-identical** (PSNR infinite on every channel).
+   - The comparison sees a change: main's High against main's Medium is 17.0 dB.
+3. **The twin's map is freed on `dispose`** (above).
+
+*Frame time, the still scene* (method as above, two rounds; mean p50 / mean p95, worst round in brackets):
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| off | 6.48 / 9.04 (9.63) | 5.16 / 6.69 (6.73) | 5.96 / 7.38 (8.58) | 2.47 / 3.14 (3.18) |
+| still | 6.51 / 9.13 (9.23) | 6.08 / 7.66 (8.41) | 5.70 / 6.42 (6.81) | 2.39 / 3.23 (3.73) |
+| day (moving) | 7.12 / 10.52 (11.28) | 6.07 / 8.11 (8.13) | 5.96 / 7.69 (8.31) | 3.10 / 4.39 (4.96) |
+
+The still scene costs what the cycle off costs, within the runs' noise (one shadow map, no clock). The moving day stays under 12 ms (worst 11.28).
+
+*Zero flicker, the still scene and High.*
+- **The still scene** (Medium, Low and High; desktop and phone-like):
+  - still frames pixel-identical;
+  - pans registered at their own 3 px;
+  - residuals 1.58 / 0.57 / 1.72 desktop and 1.54 / 0.57 / 1.68 phone-like;
+  - sub-pixel steps 0.038 / 0.031 / 0.074 and 0.023 / 0.024 / 0.062;
+  - zoom steps 0.129 / 0.129 / 0.257 and 0.083 / 0.084 / 0.102.
+  It has nothing to sweep: it does not move.
+- **The moving cycle at High**, every moment:
+  - still 0;
+  - ×1 sweep back-and-forth 0.76 at noon and at most 0.34 elsewhere, p99.9 ≤ 1.4 levels;
+  - Medium's re-run at noon gives the same figures as before (0.765).
+- **High as a control is weaker than first reported.** The first campaign's High figures (sub-pixel 0.31 to 1.21, zoom 0.73 to 1.89) were inflated: the first build composited the bloom without its alpha factor, so its glow was stronger for every High user (the review's point 2). With three's blend, High's steps over the cycle are 0.06 to 0.14 sub-pixel and 0.10 to 0.44 zoom. That is 1.7 to 3.3 times Medium's on the desktop and 1.2 to 5.7 times on the phone-like profile: still caught, by a smaller margin.
+- The first campaign's Medium and Low rows stand: the moving path is unchanged.
+
+**Where this differs from the brief, or decides a gap** (the thread's, reversible):
+- *Forest skins.* FEATURE-HL already labels the Forest variants with their own palette table (`FOREST_PALETTE_CLASSES`), so a Forest tile gets night lights like a base tile. The brief expected none until a Later item; nothing waits for that item.
+- *A twin light* for the crossfade (a second shadow-casting light while the cycle is on). The brief named "a texel-snapped shadow camera, stable cascades or a fixed frustum". The frustum is fixed, but the boil came from re-rasterising a turned light, which none of those removes.
+- *The night's look.* About half of the windows are lit at full night, roofs at 0.35, a floor of 0.85: chosen on the captures. Each is a setting or a constant.
+- *The ghost* (the tile in hand) holds the night lights off, as it holds the highlight.
+- *The renderer's default* is off: only the app's board turns the cycle on from its row, so the hand's tile, the other stories and the bench keep the look.
+- *Reverse* by turning the row off (or `dayNight.enabled`). The crossfade goes back to one light by `SHADOW_STEP` → 0 and dropping the twin.
+
+
 ---
 
 ## 6. The page map

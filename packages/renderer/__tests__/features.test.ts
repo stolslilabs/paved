@@ -20,7 +20,7 @@ import { TILE_VOXELS } from "../src/core/outlines";
 import { labelTileGeometry, type TileLabels } from "./helpers/per-vertex";
 import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-variants";
 import { decodePng } from "./helpers/png";
-import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
+import { FEATURE_HIGHLIGHT_GLSL, NIGHT_LIGHTS_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS } from "../src/core/look";
 
@@ -797,6 +797,67 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     tiles.updateTiles([renderTile(7, PlanType.CCCCCCCCC, 1, 5, 5)]);
     await tiles.whenLabelled();
     expect(litAreas(tiles, "1-7").lit).toEqual(new Set([1]));
+    tiles.dispose();
+  });
+});
+
+describe("the night lights (DAYNIGHT)", () => {
+  const nightTile = (plan: string, id: number) => ({ game_id: 1, id, plan: Object.values(PlanType).indexOf(plan.toUpperCase() as PlanType), orientation: 1, x: id, y: 0, worldX: id, worldZ: 0 });
+
+  it("lights every city column, the structures by a road, and no road, forest or open ground", () => {
+    let structures = 0;
+    for (const [key, { columns, lights }] of labelled) {
+      for (let k = 0; k < lights.length; k++) {
+        const feature = columns.feature[k];
+        if (feature === FEATURE_CODE.city) expect(lights[k], `${key} column ${k}`).toBe(1);
+        if (feature === FEATURE_CODE.road || feature === FEATURE_CODE.forest || feature === FEATURE_CODE.wonder) expect(lights[k]).toBe(0);
+        if (feature === FEATURE_CODE.none && lights[k]) structures++;
+      }
+    }
+    // The stops, houses and arches by the roads: some lit on the base models.
+    expect(structures).toBeGreaterThan(0);
+    // A plan with no city and no road (all forest) lights nothing.
+    const forest = labelled.get("fffffffff");
+    if (forest) expect(forest.lights.every((v) => v === 0)).toBe(true);
+  });
+
+  it("labels the models drawn once the night lights are on, and gives each geometry its light map", async () => {
+    const { tiles } = renderer();
+    tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+    const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
+    expect(uniforms.uNightOn.value).toBe(0);
+    tiles.setNightLights(true, "#ffb57a", 0.4);
+    await tiles.whenLabelled();
+    expect(uniforms.uNightOn.value).toBe(1);
+    expect(uniforms.uNightGlow.value).toBe(0.4);
+    const map = uniforms.uLightMap.value as THREE.DataTexture;
+    expect((map.image as { width: number }).width).toBe(LABEL_COLUMNS);
+    tiles.setNightLevel(0.7);
+    expect(uniforms.uNightLevel.value).toBe(0.7);
+    tiles.dispose();
+  });
+
+  it("reads nothing while off, lights only above the ground, and adds its glow to the emissive term", () => {
+    const glsl = NIGHT_LIGHTS_GLSL;
+    expect(glsl.trim().startsWith("float nightLit = 0.0;")).toBe(true);
+    expect(glsl).toContain(`if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {`);
+    expect(glsl.split("texelFetch").length - 1).toBe(1);
+    const { tiles } = renderer();
+    tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+    const { fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
+    expect(fragmentShader).toContain("totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;");
+    tiles.dispose();
+  });
+
+  it("holds the night lights off on the ghost, as the highlight", () => {
+    const { tiles } = renderer();
+    const plan = nightTile("ffcfffcff", 1).plan;
+    tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+    tiles.setNightLights(true, "#ffb57a", 0.4);
+    tiles.setHover({ x: 3, y: 0, planIndex: plan, orientation: 1, valid: true, placed: true } as never);
+    const ghosts = [...((tiles as any).ghostMaterials as Map<THREE.Material, THREE.Material>).values()];
+    expect(ghosts.length).toBeGreaterThan(0);
+    for (const ghost of ghosts) expect(shaderOf(ghost).uniforms.uNightOn.value).toBe(0);
     tiles.dispose();
   });
 });

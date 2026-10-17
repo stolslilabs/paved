@@ -19,15 +19,15 @@ describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
   it("starts from the mockups' defaults: quality auto, sound on, music off, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", sound: true, music: false, tilePreview: true, placementHighlight: true });
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, sound: true, music: false, tilePreview: true, placementHighlight: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
   });
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", sound: false, music: true, tilePreview: false, placementHighlight: false });
+    a.set({ quality: "high", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", sound: false, music: true, tilePreview: false, placementHighlight: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 

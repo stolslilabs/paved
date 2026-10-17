@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
+import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
@@ -66,18 +67,9 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
   };
 }
 
-/**
- * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
- * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
- * reframes it. The board draws the placement visuals as the game does (SLOTS2, P-72): the grid, the legal slots of the
- * tile in hand (dashed, solid where its rotation fits), and the tile placed on a slot (yellow, or red where its rotation
- * does not fit), from the engine's rule on the recorded board.
- */
-const meta = {
-  title: "Scenes/Board",
-  component: BoardScene,
-  args: { onBack: fn(), onRotate: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
-  render: (args) => (
+/** The board scene over the real renderer, with the renderer's settings (the day and night cycle's stories). */
+function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
+  return (
     <BoardScene
       {...args}
       canvas={
@@ -89,11 +81,30 @@ const meta = {
           ghost={args.ghost}
           confirmed={args.confirmed}
           placementHighlight={args.placementHighlight}
+          settings={settings}
         />
       }
       renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
     />
-  ),
+  );
+}
+
+/** The day and night cycle as the game turns it on (Settings, "Day/night cycle"), ten times as fast; and held at a night. */
+const DAY_NIGHT_FAST: RendererSettingsInput = { dayNight: { enabled: true, speed: 10 } };
+const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
+
+/**
+ * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
+ * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
+ * reframes it. The board draws the placement visuals as the game does (SLOTS2, P-72): the grid, the legal slots of the
+ * tile in hand (dashed, solid where its rotation fits), and the tile placed on a slot (yellow, or red where its rotation
+ * does not fit), from the engine's rule on the recorded board.
+ */
+const meta = {
+  title: "Scenes/Board",
+  component: BoardScene,
+  args: { onBack: fn(), onRotate: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
+  render: (args) => renderBoard(args),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -148,3 +159,9 @@ export const SaveDropped: Story = { args: { ...BOARD.storageDisabled, storageDis
 
 /** The 72-tile recorded board. */
 export const Board72: Story = { args: BOARD.large };
+
+/** A tile in hand under the day and night cycle (DAYNIGHT, P-73), ten times as fast: a day and a night every 12 s. */
+export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => renderBoard(args, DAY_NIGHT_FAST) };
+
+/** The same, held at a summer night: the cities and the road's buildings lit, the slots and the neon readable. */
+export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };

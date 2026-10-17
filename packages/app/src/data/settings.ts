@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import type { QualityTier, RendererSettingsInput } from "@paved/renderer";
 import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-store";
 
-// The device settings (P11a, section 6.4): graphics quality, sound, music, tile preview and placement highlight, kept on
-// this device under one versioned key. The theme choice (`paved.theme.v1`, the viewer's skins opt-out) is `skins.ts`'s.
+// The device settings (P11a, section 6.4): graphics quality, the day and night cycle, sound, music, tile preview and
+// placement highlight, kept on this device under one versioned key. The theme choice (`paved.theme.v1`, the viewer's skins opt-out) is `skins.ts`'s.
 
 /**
  * `@paved/renderer`'s `SMALL_SCREEN_PX`, repeated: the renderer's barrel is one module that pulls three.js, and the `/settings`
@@ -28,6 +28,8 @@ export const QUALITIES: readonly GraphicsQuality[] = ["auto", "low", "medium", "
 
 export interface DeviceSettings {
   quality: GraphicsQuality;
+  /** The board's day and night cycle (DAYNIGHT, P-73): a moving sky, the sun's shadows, the city lights at night. */
+  dayNight: boolean;
   /** Stored only: the app plays no audio yet. */
   sound: boolean;
   /** Stored only: the app plays no audio yet. */
@@ -38,8 +40,8 @@ export interface DeviceSettings {
   placementHighlight: boolean;
 }
 
-/** The mockups' defaults: quality "auto", sound on, music off, preview and highlight on. */
-export const DEFAULT_SETTINGS: DeviceSettings = { quality: "auto", sound: true, music: false, tilePreview: true, placementHighlight: true };
+/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), sound on, music off, preview and highlight on. */
+export const DEFAULT_SETTINGS: DeviceSettings = { quality: "auto", dayNight: true, sound: true, music: false, tilePreview: true, placementHighlight: true };
 
 /** The stored text as settings: each field that is missing or of the wrong kind takes its default; text that is not an object, all defaults. */
 export function parseSettings(raw: string): DeviceSettings {
@@ -51,9 +53,10 @@ export function parseSettings(raw: string): DeviceSettings {
   }
   if (typeof json !== "object" || json === null || Array.isArray(json)) return DEFAULT_SETTINGS;
   const o = json as Record<string, unknown>;
-  const flag = (k: "sound" | "music" | "tilePreview" | "placementHighlight") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const flag = (k: "dayNight" | "sound" | "music" | "tilePreview" | "placementHighlight") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
   return {
     quality: QUALITIES.includes(o.quality as GraphicsQuality) ? (o.quality as GraphicsQuality) : DEFAULT_SETTINGS.quality,
+    dayNight: flag("dayNight"),
     sound: flag("sound"),
     music: flag("music"),
     tilePreview: flag("tilePreview"),
@@ -85,9 +88,12 @@ export function autoQuality(): QualityTier {
   return autoTier(coarse || (shorter > 0 && shorter <= SMALL_SCREEN_PX));
 }
 
-/** What the board takes of the settings: the renderer's settings (quality, memoised so a change applies and a render does not), and the two board switches. */
+/**
+ * What the board takes of the settings: the renderer's settings (quality and the day and night cycle, memoised so a change
+ * applies and a render does not), and the two board switches.
+ */
 export function useBoardSettings(): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean } {
-  const [{ quality, tilePreview, placementHighlight }] = useDeviceSettings();
-  const renderer = useMemo<RendererSettingsInput>(() => ({ quality }), [quality]);
+  const [{ quality, dayNight, tilePreview, placementHighlight }] = useDeviceSettings();
+  const renderer = useMemo<RendererSettingsInput>(() => ({ quality, dayNight: { enabled: dayNight } }), [quality, dayNight]);
   return { renderer, tilePreview, placementHighlight };
 }
