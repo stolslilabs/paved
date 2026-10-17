@@ -9,6 +9,9 @@ const config: StorybookConfig = {
   // Draco decoder) is served at a path of its own, `/asset-sources`, for the tile browser and the original tile art
   // (`src/mocks/assets.ts`). No two entries write one folder: `scripts/storybook-static-dirs.ts` checks it.
   staticDirs: STATIC_DIRS,
+  // Vite would also copy the whole `public/` into `storybook-static/` (its own `publicDir`): off, `staticDirs` is the one way
+  // in, and it leaves out `public/music/` but for the tracks the stories play (P-81).
+  viteFinal: (config) => ({ ...config, publicDir: false }),
   core: { disableTelemetry: true },
   addons: ["@storybook/addon-docs", "@storybook/addon-a11y"],
 };

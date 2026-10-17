@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import { MusicPlayerControls } from "./music-player";
 import { MusicProvider, useMusic } from "./music-provider";
 import { DEFAULT_SETTINGS } from "../../data/settings";
-import { TRACKS } from "../../lib/music/tracks";
+import { STORY_TRACKS } from "../../mocks/music";
 
 const meta = {
   title: "Containers/MusicPlayer",
@@ -30,14 +30,14 @@ function Live_() {
   const [enabled, setEnabled] = useState(DEFAULT_SETTINGS.music);
   const [volume, setVolume] = useState(DEFAULT_SETTINGS.musicVolume);
   return (
-    <MusicProvider enabled={enabled} volume={volume} tracks={TRACKS}>
+    <MusicProvider enabled={enabled} volume={volume} tracks={STORY_TRACKS}>
       <Controls enabled={enabled} volume={volume} onEnabledChange={setEnabled} onVolumeChange={setVolume} />
     </MusicProvider>
   );
 }
 
 /**
- * The real player (the 16 tracks of `public/music/`, streamed; the shuffle, the 2 s crossfade, paused while the tab is
+ * The real player (two tracks of `public/music/`, streamed: the Storybook carries only these; the shuffle, the 2 s crossfade, paused while the tab is
  * hidden). Nothing loads until you click or press a key; "Next track" jumps to the crossfade.
  */
 export const Live: Story = { render: () => <Live_ /> };

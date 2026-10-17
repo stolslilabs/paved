@@ -45,6 +45,11 @@ export interface SettingsSceneProps {
   theme: ThemeId;
   /** The tier "auto" resolves to on this device: "Auto (Medium)". */
   autoQuality?: Exclude<GraphicsQuality, "auto">;
+  /**
+   * Show the Music row (switch and volume). Off by default: no route mounts the player yet, so the live page has no
+   * control that does nothing (P-81). The stories turn it on.
+   */
+  showMusic?: boolean;
   connecting?: boolean;
   /** The app's version, at the foot of the page. */
   version?: string;
@@ -109,7 +114,7 @@ export function SettingsScene(props: SettingsSceneProps) {
             />
             <ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />
             <SettingSwitch label="Sound" icon="volume-high" checked={p.sound} onCheckedChange={(v) => onChange?.("sound", v)} />
-            <MusicSetting enabled={p.music} volume={p.musicVolume} onEnabledChange={(v) => onChange?.("music", v)} onVolumeChange={(v) => onChange?.("musicVolume", v)} />
+            {props.showMusic && <MusicSetting enabled={p.music} volume={p.musicVolume} onEnabledChange={(v) => onChange?.("music", v)} onVolumeChange={(v) => onChange?.("musicVolume", v)} />}
           </SettingsGroup>
 
           <SettingsGroup title="Gameplay">

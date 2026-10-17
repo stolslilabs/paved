@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_SKINS, type RendererSettingsInput, type TileSkins } from "@paved/renderer";
@@ -66,8 +66,9 @@ describe("/settings", () => {
     expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Music" })).toBeChecked();
-    expect(screen.getByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "40");
+    // No control that does nothing: the Music row stays out of the live page until the player is wired (P-81).
+    expect(screen.queryByRole("switch", { name: "Music" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "Music volume" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Placement highlight/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Show players' skins/ })).toBeChecked();
@@ -79,22 +80,10 @@ describe("/settings", () => {
     await userEvent.click(await screen.findByRole("radio", { name: "Low" }));
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     await userEvent.click(screen.getByRole("switch", { name: "Sound" }));
-    await userEvent.click(screen.getByRole("switch", { name: "Music" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
-    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: false, musicVolume: 0.4, tilePreview: false, placementHighlight: false });
+    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: true, musicVolume: 0.4, tilePreview: false, placementHighlight: false });
     expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
-  });
-
-  it("keeps the music volume on the device, and a reload shows it", async () => {
-    open();
-    const slider = await screen.findByRole("slider", { name: "Music volume" });
-    slider.focus();
-    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
-    expect(stored().musicVolume).toBe(0.42);
-    cleanup();
-    open();
-    expect(await screen.findByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "42");
   });
 
   it("warns that High is heavier, in the row, once High is picked", async () => {
@@ -116,8 +105,8 @@ describe("/settings", () => {
       throw new Error("blocked");
     });
     open();
-    await userEvent.click(await screen.findByRole("switch", { name: "Music" }));
-    expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
+    await userEvent.click(await screen.findByRole("switch", { name: "Sound" }));
+    expect(screen.getByRole("switch", { name: "Sound" })).not.toBeChecked();
     vi.restoreAllMocks();
   });
 
