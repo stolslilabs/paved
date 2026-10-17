@@ -99,7 +99,7 @@ export function ProgressCard(props: ProgressCardProps) {
         <TaskProgress key={t.taskId} unit={taskUnit(t.taskId)} count={t.count} total={t.total} />
       ))}
       {(state === "complete" && completedAt != null) || retired ? (
-        <p className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+        <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
           {state === "complete" && completedAt != null && (
             <span>
               {kind === "quest" ? "Completed" : "Earned"} {formatDay(Math.floor(completedAt / DAY_S))}

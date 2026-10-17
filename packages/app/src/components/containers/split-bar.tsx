@@ -44,7 +44,7 @@ export function SplitBar({ split, highlight, className }: SplitBarProps) {
               {formatBps(p.key === "vault" ? split.vault : p.bps)}
             </dd>
             {/* The description wraps (WRAP360): a third of a phone is too narrow for one line, and a cut sentence says nothing. */}
-            <dd className="text-[11px] leading-snug wrap-anywhere text-muted-foreground">{p.hint}</dd>
+            <dd className="text-xs leading-snug wrap-anywhere text-muted-foreground">{p.hint}</dd>
           </div>
         ))}
       </dl>

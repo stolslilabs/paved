@@ -66,7 +66,7 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
             </Button>
           )}
           {reason && (
-            <span id={reasonId} className="text-[11px] text-warning">
+            <span id={reasonId} className="text-xs text-warning">
               Need {short} more
             </span>
           )}
@@ -76,7 +76,7 @@ export function SkinCell({ plan, theme, price, state, replaces, balance, buying,
         <label className="flex min-h-11 cursor-pointer flex-col items-start gap-1.5 text-xs">
           <span className="flex min-w-0 flex-col">
             <span className={state === "active" ? "text-primary" : "text-muted-foreground"}>{state === "active" ? "Active" : "Owned"}</span>
-            {replaces && state !== "active" && <span className="text-[11px] text-muted-foreground">Replaces {THEMES.find((t) => t.id === replaces)?.name}</span>}
+            {replaces && state !== "active" && <span className="text-xs text-muted-foreground">Replaces {THEMES.find((t) => t.id === replaces)?.name}</span>}
           </span>
           <Switch checked={state === "active"} disabled={busy} onCheckedChange={() => onToggle?.(plan)} aria-label={`${name} skin active`} />
         </label>

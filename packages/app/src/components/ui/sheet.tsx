@@ -52,7 +52,7 @@ const SIDE_CLASS: Record<Side, string> = {
   right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
   left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
   top: "inset-x-0 top-0 h-auto border-b",
-  bottom: "inset-x-0 bottom-0 h-auto rounded-t-xl border-t",
+  bottom: "inset-x-0 bottom-0 h-auto rounded-t-xl border-t pb-[max(1.5rem,env(safe-area-inset-bottom))]",
 };
 
 export function SheetContent({ className, children, side = "right", ...props }: ComponentProps<typeof SheetPrimitive.Content> & { side?: Side }) {
