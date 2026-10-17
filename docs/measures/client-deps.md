@@ -88,7 +88,7 @@ One commit per family; build and all tests green after each.
 
 ## Targets (P-7b)
 
-At 72 tiles on the M2 Max, under CDP CPU throttling 4x and a 60 Hz cadence unless said. Medians of
+At 72 tiles on the Mac, under CDP CPU throttling 4x and a 60 Hz cadence unless said. Medians of
 runs, unless the row says pooled. CPU + GPU per frame is computed from each run's raw `cpuMs` and
 `gpuMs` as in #194 (p95 per run, median of the 5 runs); the script reproduces #194's 6.31 and 6.70 ms
 from its raw files.
@@ -203,7 +203,7 @@ cache:
 
 ## Machine and load
 
-The machine of #194: Mac14,6, Apple M2 Max, 64 GB, macOS 27.0.1 (26A434), on AC power, Chrome
+The machine of #194: the Mac (12 cores), Chrome
 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display, a desktop session in normal use.
 The bench ran from a fresh copy of this branch (`git archive`) with its own `node_modules`, so no
 module left over from an older install could be picked up. The 1-minute load average after the runs

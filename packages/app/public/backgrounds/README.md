@@ -26,7 +26,7 @@ A browser takes AVIF, else WebP, else the JPEG fallback (`<picture>`, `srcset` w
 
 ## Reproduce
 
-Tools: macOS `sips` 316 (macOS 27.0.1, resize, AVIF and JPEG) and `cwebp` 1.6.0 (libwebp). No npm dependency.
+Tools: macOS `sips` 316 (resize, AVIF and JPEG) and `cwebp` 1.6.0 (libwebp). No npm dependency.
 
 ```sh
 SRC=app/public/assets/placeholder.png   # from the repository root

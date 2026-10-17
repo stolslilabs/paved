@@ -9,13 +9,13 @@
  "runs": 3,
  "warmup": 1,
  "machine": {
-  "model": "Mac14,6",
-  "chip": "Apple M2 Max",
+  "model": "the Mac",
+  "chip": "the Mac's GPU",
   "cpuCores": 12,
-  "memoryGiB": 64,
-  "macOS": "27.0.1 (26A434)",
+  "memoryGiB": null,
+  "macOS": "macOS",
   "chrome": "154.0.8037.98",
-  "power": "Now drawing from 'AC Power'",
+  "power": null,
   "loadAvgAtStart": [
    5.38,
    5.02,
@@ -31,21 +31,21 @@
   ],
   "displays": [
    {
-    "name": "Color LCD",
-    "type": "spdisplays_built-in-liquid-retina-xdr",
+    "name": null,
+    "type": null,
     "pixels": "3456 x 2234",
     "mode": "1728 x 1117 @ 120.00Hz",
     "main": true
    },
    {
-    "name": "BenQ PD2725U",
+    "name": null,
     "type": null,
     "pixels": "3840 x 2160",
     "mode": "1920 x 1080 @ 60.00Hz",
     "main": false
    },
    {
-    "name": "BenQ PD2725U",
+    "name": null,
     "type": null,
     "pixels": "3840 x 2160",
     "mode": "1920 x 1080 @ 60.00Hz",
@@ -268,7 +268,7 @@
     }
    },
    "gl": {
-    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: the Mac's GPU, Unspecified Version)",
     "vendor": "Google Inc. (Apple)",
     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
    },

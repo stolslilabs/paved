@@ -21,7 +21,7 @@ Instancing was tried and dropped: it did not pay.
 
 ## Targets (P-7b)
 
-At 72 tiles on the M2 Max, under CDP CPU throttling 4x and a 60 Hz cadence unless said. "Before" is
+At 72 tiles on the Mac, under CDP CPU throttling 4x and a 60 Hz cadence unless said. "Before" is
 baseline C (throttled) or B (unthrottled), "after" is this step, with the same commands, profiles and
 run counts. Medians of runs, unless the row says pooled.
 
@@ -236,7 +236,7 @@ are unchanged.
 ## Machine and load
 
 The machine of baselines B and C:
-- Mac14,6, Apple M2 Max, 64 GB, macOS 27.0.1 (26A434), on AC power;
+- the Mac (12 cores);
 - Chrome 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display;
 - a desktop session in normal use.
 
