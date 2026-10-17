@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { errorDetail } from "../error-detail";
+import { errorDetail, useErrorDetail } from "../error-detail";
 import { parseUnits, type VaultMode } from "../../components/containers/vault-form";
 import { VaultScene, type VaultStatus } from "../../components/scenes/vault-scene";
 import { usePavedBalance, useSplit, useVaultPosition } from "../../data/chain";
@@ -35,6 +35,7 @@ export default function Page() {
   const typed = parseUnits(amount, 18);
   const preview = useVaultPreview(mode, typed);
   const control = useVaultWrites(account);
+  const refusedDetail = useErrorDetail(control.refused ? (control.refusedError ?? control.refused) : null);
 
   const failed = [position, balance].find((q) => q.error);
   const status: VaultStatus | null =
@@ -67,7 +68,7 @@ export default function Page() {
       preview={preview.data ?? null}
       busy={control.busy}
       refused={control.refused}
-      refusedDetail={control.refused ? errorDetail(control.refusedError ?? control.refused) : undefined}
+      refusedDetail={refusedDetail}
       done={control.done}
       onModeChange={(m) => {
         fresh();

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -10,7 +10,7 @@ import { PAVED_BALANCE } from "../src/mocks/economy";
 import { EXIT_FEE_BPS, PREVIEW_DEPOSIT_100, VAULT_HELD } from "../src/mocks/vault";
 import { PlayerScene } from "../src/components/scenes/player-scene";
 import { PLAYER_PAGE } from "../src/mocks/scenes";
-import { errorDetail } from "../src/routes/error-detail";
+import { errorDetail, useErrorDetail } from "../src/routes/error-detail";
 import { version } from "../package.json";
 
 const wrap = (node: ReactNode) => <LazyMotion features={domMax}>{node}</LazyMotion>;
@@ -62,6 +62,34 @@ describe("InlineError (P-67)", () => {
     render(wrap(<InlineError message="Too early." onCopy={onCopy} />));
     await userEvent.click(screen.getByRole("button", { name: "Copy the error" }));
     expect(await screen.findByText("Copy failed: select the text")).toBeInTheDocument();
+  });
+
+  it("a new error starts clean: a failed copy is not carried to the next error, closed or not in between", async () => {
+    const onCopy = vi.fn(() => Promise.reject(new Error("NotAllowedError")));
+    const view = (message: string | null) => wrap(<InlineError title="Settle refused" message={message} detail={DETAIL} onCopy={onCopy} />);
+    const { rerender } = render(view("Too early."));
+    await userEvent.click(screen.getByRole("button", { name: "Copy the error" }));
+    expect(await screen.findByText("Copy failed: select the text")).toBeInTheDocument();
+    rerender(view(null));
+    rerender(view("Game 42 is already settled."));
+    expect(screen.getByRole("alert")).toHaveTextContent("Game 42 is already settled.");
+    expect(screen.queryByText("Copy failed: select the text")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "The error, to copy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy the error" })).toBeInTheDocument();
+    // Changed in place, with no close between.
+    await userEvent.click(screen.getByRole("button", { name: "Copy the error" }));
+    expect(await screen.findByText("Copy failed: select the text")).toBeInTheDocument();
+    rerender(view("Another refusal."));
+    expect(screen.queryByText("Copy failed: select the text")).not.toBeInTheDocument();
+  });
+
+  it("a Copied is not carried to the next error either", async () => {
+    const view = (message: string) => wrap(<InlineError message={message} onCopy={() => undefined} />);
+    const { rerender } = render(view("Too early."));
+    await userEvent.click(screen.getByRole("button", { name: "Copy the error" }));
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    rerender(view("Too late."));
+    expect(screen.getByRole("button", { name: "Copy the error" })).toBeInTheDocument();
   });
 
   it("without the Clipboard API, the default copy fails and shows the text to select", async () => {
@@ -150,6 +178,18 @@ describe("errorDetail", () => {
     const first = errorDetail(error, { gameId: 7 });
     expect(first).toMatchObject({ code: "SpawnPausedError", txHash: "0x1", gameId: 7, version });
     expect(errorDetail(error).at).toBe(first.at);
+  });
+
+  it("a string error keeps the time it was first shown across re-renders, and a new one after it clears", async () => {
+    const { result, rerender } = renderHook(({ error }: { error: string | null }) => useErrorDetail(error), { initialProps: { error: "Connect refused" as string | null } });
+    const first = result.current!.at;
+    await new Promise((r) => setTimeout(r, 5));
+    rerender({ error: "Connect refused" });
+    expect(result.current!.at).toBe(first);
+    rerender({ error: null });
+    expect(result.current).toBeUndefined();
+    rerender({ error: "Connect refused" });
+    expect(result.current!.at).toBeGreaterThan(first!);
   });
 
   it("leaves out a plain Error's name", () => {

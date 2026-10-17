@@ -88,6 +88,13 @@ export function InlineError({ message, title, children, detail, action, onCopy =
   }, [shown !== null, mounted]);
 
   const [copy, setCopy] = useState<CopyState>(defaultCopy);
+  // A new error, a changed detail or a closed one starts clean: no "Copied" or "Copy failed" carried over from the last.
+  const report = open ? errorReport({ title, message, detail }) : null;
+  const [copyFor, setCopyFor] = useState(report);
+  if (report !== copyFor) {
+    setCopyFor(report);
+    if (copy !== "idle") setCopy("idle");
+  }
   useEffect(() => {
     if (copy !== "copied" || defaultCopy === "copied") return;
     const id = setTimeout(() => setCopy("idle"), COPIED_MS);
