@@ -42,6 +42,8 @@ describe("AssetLoader Draco decoder", () => {
     expect(mocks.loadAsync).toHaveBeenCalledTimes(19);
     expect(mocks.dracoCtor).not.toHaveBeenCalled();
     expect(mocks.setDRACOLoader).not.toHaveBeenCalled();
+    // The page's loaders share their models (`AssetLoader`): let them go, so the next test loads its own.
+    assets.dispose();
   });
 
   it("decodes a Draco model with the decoder at <basePath>/draco/, created once, and disposes it", async () => {

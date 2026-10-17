@@ -224,6 +224,47 @@ describe("the load order: what the first frame shows, then the rest", () => {
     expect(requested()).toHaveLength(1);
   });
 
+  it("loads a model once for every loader of the page, and disposes it when the last one lets it go (LOAD-FAST)", async () => {
+    const at = nextBase();
+    // The board's scene and the hand tile's scene, each with its own loader, at once.
+    const board = new AssetLoader(at);
+    const hand = new AssetLoader(at);
+    await Promise.all([board.preloadModels(), hand.preloadModels()]);
+    expect(requested()).toHaveLength(19);
+    const geometry = (board.getModel("ccccccccc").children[0] as THREE.Mesh).geometry;
+    expect((hand.getModel("ccccccccc").children[0] as THREE.Mesh).geometry).toBe(geometry);
+    const disposed = vi.spyOn(geometry, "dispose");
+    hand.dispose();
+    await settle();
+    expect(disposed).not.toHaveBeenCalled();
+    expect(() => board.getModel("ccccccccc")).not.toThrow();
+    board.dispose();
+    await settle();
+    expect(disposed).toHaveBeenCalledTimes(1);
+    // Let go by every loader: the next one loads it again.
+    await new AssetLoader(at).preloadModels();
+    expect(requested()).toHaveLength(38);
+  });
+
+  it("lets a model go when its loader is disposed while it loads, and forgets a failed one", async () => {
+    const at = nextBase();
+    const early = new AssetLoader(at);
+    const load = early.preloadModels();
+    early.dispose();
+    await load;
+    const failing = `${at}/models/ccccccccc.glb`;
+    net.failing.add(failing);
+    const failed = new AssetLoader(at);
+    await expect(failed.preloadModels()).rejects.toThrow("404");
+    await settle();
+    failed.dispose();
+    net.failing.clear();
+    net.loadAsync.mockClear();
+    await new AssetLoader(at).preloadModels();
+    // Neither the disposed loader's models nor the failure stay shared: all 19 load again.
+    expect(requested()).toHaveLength(19);
+  });
+
   it("firstModels keeps the full order, and is everything when nothing is wanted", () => {
     expect(firstModels(["a", "b", "c"], new Set(["c", "a", "x"]))).toEqual(["a", "c"]);
     expect(firstModels(["a", "b"], new Set())).toEqual(["a", "b"]);

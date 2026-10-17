@@ -139,6 +139,42 @@ export function skinModelPath(manifest: AssetManifest | null, key: string, skin:
   return variants?.length ? variants[variantIndex(skin!.hash, variants.length)]! : key;
 }
 
+/**
+ * The models loaded on this page, by URL, shared by every loader (LOAD-FAST): the board and the hand tile's scene each have
+ * a loader, and each used to download and parse every model. A model is parsed once; each loader that stores it counts as
+ * a user, and the last one to let it go (`dispose`) disposes its geometry and materials. A failed load is forgotten, so
+ * the next asks again.
+ */
+const sharedModels = new Map<string, { users: number; load: Promise<THREE.Group> }>();
+
+/** Takes `url`'s shared model, loading it with `load` when no loader has it. */
+async function acquireModel(url: string, load: () => Promise<THREE.Group>): Promise<THREE.Group> {
+  let shared = sharedModels.get(url);
+  if (!shared) {
+    const entry = { users: 0, load: load() };
+    sharedModels.set(url, entry);
+    entry.load.catch(() => {
+      if (sharedModels.get(url) === entry) sharedModels.delete(url);
+    });
+    shared = entry;
+  }
+  shared.users++;
+  try {
+    return await shared.load;
+  } catch (error) {
+    shared.users--;
+    throw error;
+  }
+}
+
+/** Lets `url`'s shared model go: the last user disposes it. */
+function releaseModel(url: string): void {
+  const shared = sharedModels.get(url);
+  if (!shared || --shared.users > 0) return;
+  sharedModels.delete(url);
+  void shared.load.then(disposeModel, () => {});
+}
+
 let workersStarted = false;
 
 /** meshopt decodes off the main thread where the browser gives workers (started from an inline script, no fetch), once. */
@@ -152,6 +188,8 @@ function startDecoderWorkers(): void {
 
 export class AssetLoader {
   private models: Map<string, THREE.Group> = new Map();
+  /** The URL of each model stored, the key of its shared copy (`sharedModels`), let go at `dispose`. */
+  private modelUrls: Map<string, string> = new Map();
   private textures: Map<string, THREE.Texture> = new Map();
   private gltfLoader: GLTFLoader;
   private textureLoader: THREE.TextureLoader;
@@ -287,11 +325,12 @@ export class AssetLoader {
         const paths = manifest === undefined ? await this.readManifest() : manifest;
         const url = `${this.basePath}/${modelPath(paths, key)}`;
         const start = traceStart();
-        const gltf = await this.loadModel(url);
+        const model = await acquireModel(url, async () => (await this.loadModel(url)).scene);
         traceMeasure(`model ${url}`, start);
-        if (this.disposed) disposeModel(gltf.scene);
+        if (this.disposed) releaseModel(url);
         else {
-          this.models.set(key, gltf.scene);
+          this.models.set(key, model);
+          this.modelUrls.set(key, url);
           this.loadedListener?.();
         }
       })();
@@ -406,7 +445,7 @@ export class AssetLoader {
 
   /**
    * A copy of a model with its own materials. Its geometry is the loaded one, shared by every
-   * copy and owned by the loader: read it, do not change or dispose it.
+   * copy and every loader of the page (`sharedModels`): read it, do not change or dispose it.
    */
   getModel(key: string): THREE.Group {
     const model = this.models.get(key);
@@ -448,7 +487,8 @@ export class AssetLoader {
   dispose(): void {
     this.disposed = true;
     this.loadedListener = null;
-    this.models.forEach(disposeModel);
+    this.modelUrls.forEach(releaseModel);
+    this.modelUrls.clear();
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();
     this.textures.clear();
