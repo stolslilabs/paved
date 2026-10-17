@@ -1320,22 +1320,30 @@ so a straight edge split into many segments covers each pixel once. The width is
 `widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
 zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
-the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: off at
-`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.15) x S, and between a smoothstep of
-`ln(tile px / off) / ln(full / off)` (OUT-FADE, PM ruling 2026-10-16: the toggle at a zoom-out level read as odd, so the
-opacity falls as the camera zooms out, ending where the old cut was). On the log of the tile size a wheel step changes
-the opacity by about the same amount, and the smoothstep has no kink at either end. The material is hidden below 1/255.
-A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile and S
-scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
-vanish at the farthest zoom (300). **Consequence: at the opening view (S) the opacity is no longer 1**: it is
-smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85) = 0.538) = **0.556** (readout of the story: 56 %). The PM's ruling (2026-10-16)
-made 1.15 S the default, since the owner called the outline at the opening view perfect and losing two thirds of it would be
-the larger change; the other candidate, 1.3 S (`fadeFullFactor` 1.3), gives 0.327 at S (33 %) and stays a preset; it is on at 80 % at 1.15 S. Both are presets of the
-story ("fade 1.3", "fade 1.15") next to the two factor controls. Captures
-(`captures/out-fade-1_3-*` and `out-fade-1_15-*`, for 1.3 S, 1.15 S, 1.0 S (the opening view), 0.9 S and 0.85 S: the
-Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**, `force: "on"`);
-opacity read from the story: 1.3 S: 100 % / 100 %; 1.15 S: 80 % / 100 %; S: 33 % / 56 %; 0.9 S: 5 % / 9 %; 0.85 S: off /
-off (preset 1.3 / preset 1.15). The default is 1.15.
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized, and spans **the whole
+zoom range** (OUT-FADE2, owner 2026-10-17: OUT-FADE's range was too short): fully on at the closest zoom
+(`CLOSEST_DISTANCE`, 8), off at `fadeOffFactor` (0.85) x S, the historic threshold. The tile size is inversely
+proportional to the camera distance, so the tile at the closest zoom is 240 / 8 = **30 S** (about 1,600 px, 1,608 measured, at S = 54 on a
+1280 x 800 window; `OUTLINE_CLOSEST_FACTOR`, `fadeFullFactor` 30). The opacity is `1 - t^p`, with
+`t = ln(full / tile px) / ln(full / off)`: 0 at the closest zoom, 1 at 0.85 S, measured on the log of the tile size so
+every wheel step moves t by the same amount; clamped to 1 above and 0 below, and 0 under 1/255 (not drawn). The exponent
+`fadeExponent` p is in [1, 4]; the story's presets are **linear** (p = 1), **square** (p = 2, the default: gentle at the
+start of the zoom-out, faster near the threshold, as the owner described) and **cube** (p = 3), and `fadeEasedEnd` (off by
+default, because the owner asked for an acceleration into the threshold) eases the last quarter of the opacity with a cubic
+that meets `1 - t^p` with its slope and reaches 0 with a zero slope: no kink at the threshold. The smoothstep of OUT-FADE
+is gone. A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile
+and S scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
+vanish at the farthest zoom (300). **Consequence: the opening view (S) is almost off.** The opening distance is 240 of a
+range of 8 to 300, so S is only 0.18 of the way from the off point to the closest zoom in the log: t = ln 30 / ln(30 / 0.85)
+= 0.954, and the opacity at S is **4.6 % (linear), 8.9 % (square), 13.1 % (cube)**; at 1.15 S 8.5 %, 16.2 %, 23.3 %; at
+0.92 S 2.2 %, 4.4 %, 6.5 %; at 0.87 S 0.7 %, 1.3 %, 1.9 % (readouts of the story match, rounded). Square reaches 50 % at 2.4 S
+(distance about 100, 130 px a tile at S = 54). The
+OUT-FADE ranges stay in the story as the "range" option ("fade 1.3", "fade 1.15", fully on from 1.3 S or 1.15 S, with the
+chosen power curve instead of the smoothstep) next to "whole range" (the default) and a custom full factor. Captures
+(`captures/out-fade2-<curve>-<view>.webp`, curve linear, square, cube; views max-zoom-in, S, 0.92-S, 0.87-S; the
+Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**,
+`force: "on"`), and a frame strip of a zoom-out sweep (10 frames, log-spaced from the closest zoom to 0.85 S, square):
+`captures/out-fade2-square-sweep.webp`.
 **The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
