@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* A touch device in a browser tab (not an installed app): Safari's floating toolbar overlays the page's bottom; `env(safe-area-inset-bottom)` is 0 there. */
+@custom-variant browser-tab (@media (display-mode: browser) and (pointer: coarse));
 
 /* 1. Base scales: the standard 50-950 declension. */
 @theme {

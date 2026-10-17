@@ -74,7 +74,7 @@ export function SheetContent({ className, children, side = "right", ...props }: 
             <m.div
               data-slot="sheet-content"
               data-side={side}
-              className={cn("fixed z-50 flex flex-col gap-4 border-border bg-popover p-6 text-popover-foreground shadow-lg outline-none", SIDE_CLASS[side], className)}
+              className={cn("fixed z-50 flex flex-col gap-4 border-border bg-popover p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-popover-foreground shadow-lg outline-none", SIDE_CLASS[side], className)}
               initial={OFFSCREEN[side]}
               animate={{ x: 0, y: 0 }}
               exit={OFFSCREEN[side]}

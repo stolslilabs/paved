@@ -32,7 +32,7 @@ export function WalletFooter() {
   const wallet = useWallet();
   const detail = useErrorDetail(wallet.error);
   return (
-    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center text-base text-muted-foreground">
+    <footer className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-ink-950 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] browser-tab:pb-[calc(max(0.5rem,env(safe-area-inset-bottom))+4rem)] text-center text-base text-muted-foreground">
       <WalletNotice />
       {wallet.address && (
         <span className="flex items-center gap-2">

@@ -29,7 +29,7 @@ export function LagNotice({ lag }: { lag: IndexerLagInfo }) {
           {label}: scores may be late.
         </Notice>
       ) : (
-        <p role="status" className="text-center text-[11px] text-muted-foreground">
+        <p role="status" className="text-center text-xs text-muted-foreground">
           {label}
         </p>
       )}
@@ -78,16 +78,16 @@ function Summary({ board, open, now }: { board: Leaderboard; open: boolean; now:
     // Three figures from 360 px; under it (320) the countdown takes its own row, a third being narrower than its figure (WRAP360).
     <div data-slot="card" className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 mobile:grid-cols-3 desktop:grid-cols-2">
       <div className="flex flex-col gap-0.5">
-        <span className="text-[11px] text-muted-foreground">Players</span>
+        <span className="text-xs text-muted-foreground">Players</span>
         <span className="numeric text-lg font-semibold">{board.total}</span>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[11px] text-muted-foreground">Best</span>
+        <span className="text-xs text-muted-foreground">Best</span>
         <span className="numeric text-lg font-semibold text-primary">{best == null ? "–" : formatPoints(best)}</span>
       </div>
       {/* The caption names the countdown: its own label is hidden (its timer keeps the sentence); in the 16 rem side card (from `desktop`) it takes the whole row. */}
       <div className="col-span-2 flex flex-col items-start gap-1 mobile:col-span-1 desktop:col-span-2">
-        <span className="text-[11px] text-muted-foreground">{open ? "Closes in" : "Day"}</span>
+        <span className="text-xs text-muted-foreground">{open ? "Closes in" : "Day"}</span>
         {open ? (
           <Countdown expiresAt={board.endTime} now={now} label="Closes in" hideLabel className="text-sm text-foreground" />
         ) : (

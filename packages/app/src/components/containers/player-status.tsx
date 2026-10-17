@@ -29,7 +29,7 @@ export interface PlayerStatusProps {
 function Figure({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
-      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm">{children}</span>
     </div>
   );
