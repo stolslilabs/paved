@@ -107,7 +107,7 @@ export function VoxelizerReadout({ plan, layer }: VoxelizerReadoutProps) {
 
   return (
     <div className="flex min-h-dvh flex-wrap items-start gap-6 bg-background p-6 text-foreground" data-ready={shown ? "" : undefined}>
-      <output className="font-mono text-xs leading-6" aria-live="off">
+      <output className="min-w-0 max-w-full break-words font-mono text-xs leading-6" aria-live="off">
         {!loader && "loading the models"}
         {shown && !grid && `${plan}: no voxels (logged)`}
         {grid && (
@@ -120,7 +120,7 @@ export function VoxelizerReadout({ plan, layer }: VoxelizerReadoutProps) {
           </>
         )}
       </output>
-      <canvas ref={canvas} className="border border-border" aria-label={`Layer ${at} of ${plan}`} />
+      <canvas ref={canvas} className="h-auto max-w-full border border-border" aria-label={`Layer ${at} of ${plan}`} />
     </div>
   );
 }
@@ -143,29 +143,20 @@ export function VoxelizerTable() {
   }, [loader]);
   return (
     <div className="min-h-dvh bg-background p-6 text-foreground" data-ready={rows ? "" : undefined}>
-      <table className="font-mono text-xs">
-        <thead>
-          <tr className="text-left">
-            {["plan", "solid", "visible", "slab", "above", "layers", "first ms", "best of 10 ms"].map((h) => (
-              <th key={h} className="pr-4">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows?.map(({ plan, grid, best }) => (
-            <tr key={plan}>
-              <td className="pr-4">{plan}</td>
-              <td className="pr-4">{grid?.count}</td>
-              <td className="pr-4">{grid?.visibleCount}</td>
-              <td className="pr-4">{grid?.slabCount}</td>
-              <td className="pr-4">{grid ? grid.count - grid.slabCount : ""}</td>
-              <td className="pr-4">{grid?.layers}</td>
-              <td className="pr-4">{grid?.buildMs.toFixed(1)}</td>
-              <td className="pr-4">{best.toFixed(1)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ul className="flex flex-col gap-2 font-mono text-xs">
+        {rows?.map(({ plan, grid, best }) => (
+          <li key={plan} className="flex flex-wrap gap-x-4 break-words">
+            <span className="w-24">{plan}</span>
+            <span>solid {grid?.count}</span>
+            <span>visible {grid?.visibleCount}</span>
+            <span>slab {grid?.slabCount}</span>
+            <span>above {grid ? grid.count - grid.slabCount : ""}</span>
+            <span>layers {grid?.layers}</span>
+            <span>first {grid?.buildMs.toFixed(1)} ms</span>
+            <span>best of 10 {best.toFixed(1)} ms</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
