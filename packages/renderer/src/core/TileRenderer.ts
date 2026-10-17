@@ -7,6 +7,18 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
+import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
+import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
+// The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
+// does not light anything.
+import type * as Classifier from "./features";
+
+/** Runs `task` when the main thread is idle (`requestIdleCallback`), or on the next task where there is none. */
+function whenIdle(task: () => void): void {
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+  if (idle) idle(task, { timeout: 250 });
+  else setTimeout(task, 0);
+}
 
 // Material constants from TileTexture
 const TILE_MIN_ROUGHNESS = 0.35;
@@ -63,8 +75,66 @@ export const WATER_MASK_GLSL = /* glsl */ `
   diffuseColor.rgb *= mix(1.0, uWaterBrightness, waterMask);
 `;
 
-/** The look's parts the tiles draw: the slots' and ghost's highlights, and the water. */
-export type TileLook = Pick<LookSettings, "highlights" | "water">;
+/**
+ * The feature highlight (`LookSettings.featureHighlight`, FEATURE-HL): the voxels of the lit feature are tinted and glow,
+ * the others are dimmed; `uFeatureOn` at 0 leaves every voxel as is. A fragment's label is its voxel column's, read per
+ * fragment from the model's label map (`features.ts`, `packLabels`) at its place on the model's grid (`vGrid`), half a
+ * voxel inward along its face's normal: a merged face over columns of two labels shows each on its own columns. A road
+ * column is labelled from its ground (the road runs on under a bridge): its fragments above the ground's top
+ * (`GROUND_VOXELS` + `ABOVE_GROUND_VOXELS`, `vGrid.y` in voxels above the model's bottom) are the bridge's, none. With a
+ * structure lit (`uStructureOn`, `TileRenderer.setLitAreas`) a voxel is lit instead when its area is in its tile's mask,
+ * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
+ * Off (`uFeatureOn` 0, the default), it skips the whole block: the board pays no texture read and no label per fragment.
+ * A pending tile's material is patched as its model's; the placeholder quad (a plan's image, no voxels to label) and the
+ * ghost (the tile in hand, tinted gold or red) are drawn as they are, neither lit nor dimmed.
+ */
+export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
+  float featureLit = 0.0;
+  if (uFeatureOn > 0.5) {
+    vec3 labelAt = vGrid - normalize(vGridNormal) * 0.5;
+    ivec2 labelTexel = clamp(ivec2(floor(labelAt.xz)), ivec2(0), textureSize(uLabelMap, 0) - 1);
+    int label = int(texelFetch(uLabelMap, labelTexel, 0).r * 255.0 + 0.5);
+    int labelFeature = label / 16;
+    int labelArea = label - labelFeature * 16;
+    if (labelFeature == ${FEATURE_CODE.road} && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+      labelFeature = 0;
+      labelArea = 0;
+    }
+    featureLit = labelFeature == int(uFeature + 0.5) ? 1.0 : 0.0;
+    if (uStructureOn > 0.5) {
+      ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
+      int litMask = 0;
+      if (all(greaterThanEqual(litTexel, ivec2(0))) && all(lessThan(litTexel, ivec2(uLitRect.zw + 0.5)))) {
+        litMask = int(texelFetch(uLitMap, litTexel, 0).r + 0.5);
+      }
+      featureLit = labelArea > 0 && ((litMask >> (labelArea - 1)) & 1) == 1 ? 1.0 : 0.0;
+    }
+    diffuseColor.rgb = mix(diffuseColor.rgb * uFeatureDim, mix(diffuseColor.rgb, uFeatureColor, uFeatureTint), featureLit);
+  }
+`;
+
+/** The look's parts the tiles draw: the slots' and ghost's highlights, the water and the feature highlight. */
+export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighlight">;
+
+/**
+ * A model geometry's labels as its materials read them (`FEATURE_HIGHLIGHT_GLSL`): the label map, one byte a column
+ * (`packLabels`), and the matrix from the geometry's positions to the grid (a voxel a unit, x and z the map's, y up
+ * from the model's bottom).
+ */
+interface LabelUniforms {
+  uLabelMap: { value: THREE.DataTexture };
+  uGridMatrix: { value: THREE.Matrix4 };
+}
+
+/**
+ * The areas of a placed tile to light (`TileRenderer.setLitAreas`): its game and id, as `TileRenderData` names it, and a
+ * mask of its areas, bit `area - 1` (the plan's own areas, A to I, as `StructureBoard.structures` gives them).
+ */
+export interface LitTile {
+  gameId: number;
+  id: number;
+  areas: number;
+}
 
 export class TileRenderer {
   private group: THREE.Group;
@@ -73,9 +143,9 @@ export class TileRenderer {
   private previewGroup: THREE.Group; // hover preview
   /**
    * Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view, and for the
-   * placeholder quad drawn while its model is on its way).
+   * placeholder quad drawn while its model is on its way), and the plan and orientation it was drawn in.
    */
-  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null }> = new Map();
+  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null; plan: number; orientation: number }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
@@ -106,12 +176,58 @@ export class TileRenderer {
   private slotGeometry: THREE.BufferGeometry | null = null;
   private slotMaterial: THREE.MeshBasicMaterial | null = null;
   private look: TileLook = LOOK_PRESETS.mockup;
-  /** The water's uniforms, shared by every patched tile material (`patchWater`): a look change sets them, no recompile. */
+  /** The water's uniforms, shared by every patched tile material (`patchTileShader`): a look change sets them, no recompile. */
   private waterUniforms = {
     uWaterOn: { value: 1 },
     uWaterBrightness: { value: 1 },
     uWaterRoughness: { value: 1 },
   };
+  /** The feature highlight's uniforms, shared as the water's (`FEATURE_HIGHLIGHT_GLSL`). */
+  private featureUniforms = {
+    uFeatureOn: { value: 0 },
+    uFeature: { value: FEATURE_CODE.city },
+    uFeatureColor: { value: new THREE.Color() },
+    uFeatureTint: { value: 0 },
+    uFeatureGlow: { value: 0 },
+    uFeatureDim: { value: 1 },
+  };
+  /**
+   * The structure's lit areas (`setLitAreas`): a board map, one texel per cell from `uLitRect.xy`, `uLitRect.zw` wide
+   * and deep, each the mask of its tile's lit areas. Shared by every tile material, as the other uniforms: a tile finds
+   * its cell from its own model matrix (`uFootprint`, per material), so no tile has state of its own.
+   */
+  private structureUniforms = {
+    uStructureOn: { value: 0 },
+    uLitMap: { value: emptyLitMap() },
+    uLitRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uTileSize: { value: TILE_SIZE },
+    // The inverse of the placed tiles' group's world matrix (`updateBoardFrame`): a tile's cell is read in the board's
+    // frame, so a turned compass (`GameScene.setCompassRotation`) does not move the lit cells.
+    uBoardInverse: { value: new THREE.Matrix4() },
+  };
+  /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
+  private litAreas: Map<string, number> | null = null;
+  /** The grid cell of each tile given (`updateTiles`), by tile key: where the lit map puts its mask. */
+  private tileCells: Map<string, [number, number]> = new Map();
+  /** The lit map's content as last built: rebuilt only when it changes. */
+  private litKey = "";
+  /** Whether a highlight is on: the models drawn then are labelled (`labelFeatures`), each once. */
+  private labelling = false;
+  /** The classifier (`features.ts`), loaded the first time a model is to be labelled. */
+  private classifier: Promise<typeof Classifier> | null = null;
+  /** The models waiting for their labels, one labelled per idle slice (`scheduleLabels`). */
+  private labelQueue: Array<[string, THREE.Group]> = [];
+  /** Whether a slice is on its way. */
+  private labelScheduled = false;
+  /** Told after each model labelled (`onLabelled`): the scene draws again. */
+  private labelledListener: (() => void) | null = null;
+  /** Waiting for the queue to empty (`whenLabelled`). */
+  private labelWaiters: Array<() => void> = [];
+  private disposed = false;
+  /** The labels of each model geometry drawn (`labelFeatures`), owned here: an empty map until it is labelled. */
+  private labelMaps: Map<THREE.BufferGeometry, LabelUniforms> = new Map();
+  /** The label map of a geometry not labelled yet: one empty column (the sampler is always bound). */
+  private emptyLabelMap = labelMapTexture(new Uint8Array(1), 1);
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -126,6 +242,15 @@ export class TileRenderer {
     return this.group;
   }
 
+  /**
+   * The board's frame as the tile shader reads a tile's cell in it (`uBoardInverse`): the inverse of the placed tiles'
+   * group's world matrix. The scene calls it when that group's parents move (the compass, `GameScene.setCompassRotation`).
+   */
+  updateBoardFrame(): void {
+    this.tileGroup.updateWorldMatrix(true, false);
+    this.structureUniforms.uBoardInverse.value.copy(this.tileGroup.matrixWorld).invert();
+  }
+
   /** Draws the tiles given; true when it added or removed one (a tile whose model is not in yet is added later). */
   updateTiles(tiles: TileRenderData[]): boolean {
     const currentKeys = new Set<string>();
@@ -134,6 +259,7 @@ export class TileRenderer {
     for (const tile of tiles) {
       const key = `${tile.game_id}-${tile.id}`;
       currentKeys.add(key);
+      this.tileCells.set(key, [tile.worldX, tile.worldZ]);
 
       const existing = this.tileMeshes.get(key);
       const pending = !!tile.pending;
@@ -141,11 +267,13 @@ export class TileRenderer {
       // placeholder quad (null) until one comes, so a tile is never empty.
       const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id) ?? existing?.model ?? null);
 
-      // Skip if already rendered with same pending state and model
-      if (existing && existing.pending === pending && existing.model === model) continue;
+      // Skip if already drawn as given: same pending state, model, plan and orientation (the hand's tile, `TileView`, is
+      // one tile turned in place: its model stays, its orientation changes)
+      const drawn = existing && existing.pending === pending && existing.model === model;
+      if (drawn && existing.plan === tile.plan && existing.orientation === tile.orientation) continue;
 
-      // Pending state or model changed: the new mesh replaces the old one in this call, so no frame shows the cell empty
-      // or both at once (a tile owns no geometry or material)
+      // Pending state, model, plan or orientation changed: the new mesh replaces the old one in this call, so no frame shows
+      // the cell empty or both at once (a tile owns no geometry or material)
       const mesh = this.strategyMode
         ? this.createStrategyTile(tile)
         : model
@@ -170,7 +298,7 @@ export class TileRenderer {
         // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
         if (existing) this.tileGroup.remove(existing.mesh);
-        this.tileMeshes.set(key, { mesh, pending, model });
+        this.tileMeshes.set(key, { mesh, pending, model, plan: tile.plan, orientation: tile.orientation });
         changed = true;
       }
     }
@@ -183,6 +311,8 @@ export class TileRenderer {
         changed = true;
       }
     }
+    for (const key of this.tileCells.keys()) if (!currentKeys.has(key)) this.tileCells.delete(key);
+    this.buildLitMap();
     return changed;
   }
 
@@ -227,6 +357,9 @@ export class TileRenderer {
       let pending = this.pendingMaterials.get(material);
       if (!pending) {
         const clone = material.clone();
+        // `Material.copy` leaves the shader patch out: a pending tile has the water and dims or lights as the others.
+        clone.onBeforeCompile = material.onBeforeCompile;
+        clone.customProgramCacheKey = material.customProgramCacheKey;
         clone.transparent = true;
         clone.opacity = 0.55;
         clone.emissive = new THREE.Color(0x4488ff);
@@ -270,7 +403,7 @@ export class TileRenderer {
           TILE_MAX_METALNESS,
         );
         child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
-        this.patchWater(child.material);
+        this.patchTileShader(child.material, child.geometry, this.labelUniformsOf(child.geometry));
       }
       child.castShadow = true;
       child.receiveShadow = true;
@@ -279,34 +412,186 @@ export class TileRenderer {
       child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
     }
     this.tileTypes.set(key, model);
+    if (this.labelling) this.queueLabels(key, model);
     return model;
   }
 
+  /** The label uniforms of a model geometry, made once (an empty map until `labelFeatures` fills it). */
+  private labelUniformsOf(geometry: THREE.BufferGeometry): LabelUniforms {
+    let uniforms = this.labelMaps.get(geometry);
+    if (!uniforms) {
+      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() } };
+      this.labelMaps.set(geometry, uniforms);
+    }
+    return uniforms;
+  }
+
   /**
-   * The water texels of a tile material brighter and glossier (`LookSettings.water`): the mask (`WATER_MASK_GLSL`) after
-   * the palette is read, the roughness after it is set. Every patched material compiles to one program.
+   * Calls `listener` after each model labelled (`labelFeatures`, one per idle slice): the scene draws its tiles again
+   * with their labels. One listener; null removes it.
    */
-  private patchWater(material: THREE.MeshStandardMaterial): void {
-    const uniforms = this.waterUniforms;
+  onLabelled(listener: (() => void) | null): void {
+    this.labelledListener = listener;
+  }
+
+  /** Resolves once every model asked for is labelled (or the classifier failed to load): for tests and captures. */
+  whenLabelled(): Promise<void> {
+    if (!this.labelQueue.length && !this.labelScheduled) return Promise.resolve();
+    return new Promise((resolve) => this.labelWaiters.push(resolve));
+  }
+
+  /** A model to label, in its turn (`scheduleLabels`); one with no plan or no known palette is never labelled. */
+  private queueLabels(key: string, model: THREE.Group): void {
+    if (!planKeyOfModel(key) || !paletteOfModel(key)) return;
+    this.labelQueue.push([key, model]);
+    this.scheduleLabels();
+  }
+
+  /**
+   * Labels the next model in the queue when the main thread is idle, one model a slice (about 6 to 18 ms each), the
+   * classifier loaded first (its own chunk). A classifier that fails to load leaves every model unlabelled (nothing
+   * lights), with a warning.
+   */
+  private scheduleLabels(): void {
+    if (this.labelScheduled || this.disposed) return;
+    if (!this.labelQueue.length) {
+      for (const resolve of this.labelWaiters.splice(0)) resolve();
+      return;
+    }
+    this.labelScheduled = true;
+    this.classifier ??= import("./features");
+    this.classifier.then(
+      (classifier) =>
+        whenIdle(() => {
+          this.labelScheduled = false;
+          if (this.disposed) return;
+          const next = this.labelQueue.shift();
+          if (next) {
+            this.labelFeatures(classifier, ...next);
+            this.labelledListener?.();
+          }
+          this.scheduleLabels();
+        }),
+      (error: unknown) => {
+        console.warn("[TileRenderer] the feature classifier did not load, nothing is labelled:", error);
+        this.labelScheduled = false;
+        this.labelQueue = [];
+        this.scheduleLabels();
+      },
+    );
+  }
+
+  /**
+   * The label map of each of a model's meshes (`features.ts`), once per geometry: its columns' labels and the matrix from
+   * the geometry to its grid, which every tile of the model reads, with its palette's classes (`paletteOfModel`). A model
+   * id that names no plan, or a palette with no class table, is left unlabelled: its tiles never light.
+   */
+  private labelFeatures(classifier: typeof Classifier, key: string, model: THREE.Group): void {
+    const plan = planKeyOfModel(key);
+    const palette = paletteOfModel(key);
+    if (!plan || !palette) return;
+    const layout = planLayout(plan);
+    model.updateMatrixWorld(true);
+    const toRoot = model.matrixWorld.clone().invert();
+    model.traverse((child) => {
+      if (!(child instanceof THREE.Mesh) || isOutline(child)) return;
+      const uniforms = this.labelUniformsOf(child.geometry);
+      if (uniforms.uLabelMap.value !== this.emptyLabelMap) return;
+      const toModel = toRoot.clone().multiply(child.matrixWorld);
+      const { columns, grid } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
+      uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
+      uniforms.uGridMatrix.value
+        .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
+        .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
+        .multiply(toModel);
+    });
+  }
+
+  /**
+   * The tile shader: the water texels brighter and glossier (`LookSettings.water`), the mask (`WATER_MASK_GLSL`) after the
+   * palette is read, the roughness after it is set; then the feature highlight (`FEATURE_HIGHLIGHT_GLSL`), from the
+   * fragment's place on the model's grid (`uGridMatrix`, `uLabelMap`) and the tile's cell, from its model matrix and the
+   * footprint's centre (`uFootprint`): those three are the geometry's own, the rest shared. Every patched material
+   * compiles to one program.
+   */
+  private patchTileShader(material: THREE.MeshStandardMaterial, geometry: THREE.BufferGeometry, labels: LabelUniforms): void {
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    const footprint = { value: geometry.boundingBox!.getCenter(new THREE.Vector3()) };
+    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, ...labels, uFootprint: footprint };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader.replace(
+        "void main() {",
+        [
+          "uniform vec3 uFootprint;",
+          "uniform float uTileSize;",
+          "uniform mat4 uGridMatrix;",
+          "uniform mat4 uBoardInverse;",
+          "varying vec3 vGrid;",
+          "varying vec3 vGridNormal;",
+          "flat varying vec2 vCell;",
+          "void main() {",
+          "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
+          "  vGridNormal = mat3(uGridMatrix) * normal;",
+          "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
+        ].join("\n"),
+      );
       shader.fragmentShader = shader.fragmentShader
-        .replace("void main() {", "uniform float uWaterOn;\nuniform float uWaterBrightness;\nuniform float uWaterRoughness;\nvoid main() {")
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}`)
+        .replace(
+          "void main() {",
+          [
+            "uniform float uWaterOn;",
+            "uniform float uWaterBrightness;",
+            "uniform float uWaterRoughness;",
+            "uniform float uFeatureOn;",
+            "uniform float uFeature;",
+            "uniform vec3 uFeatureColor;",
+            "uniform float uFeatureTint;",
+            "uniform float uFeatureGlow;",
+            "uniform float uFeatureDim;",
+            "uniform float uStructureOn;",
+            "uniform sampler2D uLitMap;",
+            "uniform vec4 uLitRect;",
+            "uniform sampler2D uLabelMap;",
+            "varying vec3 vGrid;",
+            "varying vec3 vGridNormal;",
+            "flat varying vec2 vCell;",
+            "void main() {",
+          ].join("\n"),
+        )
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;",
         );
     };
-    material.customProgramCacheKey = () => "paved-tile-water";
+    material.customProgramCacheKey = () => "paved-tile";
   }
 
-  /** The highlights' colours and the water (`LookSettings`): shared materials and uniforms, nothing rebuilt. */
-  setLook(highlights: LookSettings["highlights"], water: LookSettings["water"]): void {
-    this.look = { highlights, water };
+  /**
+   * The highlights' colours, the water and the feature highlight (`LookSettings`): shared materials and uniforms, nothing
+   * rebuilt. Turning the feature highlight on labels the models drawn (and those drawn later), once each.
+   */
+  setLook(
+    highlights: LookSettings["highlights"],
+    water: LookSettings["water"],
+    featureHighlight: LookSettings["featureHighlight"] = LOOK_PRESETS.mockup.featureHighlight,
+  ): void {
+    this.look = { highlights, water, featureHighlight };
     this.waterUniforms.uWaterOn.value = water.enabled ? 1 : 0;
     this.waterUniforms.uWaterBrightness.value = water.brightness;
     this.waterUniforms.uWaterRoughness.value = water.roughness;
+    const features = this.featureUniforms;
+    features.uFeature.value = FEATURE_CODE[featureHighlight.feature] ?? FEATURE_CODE.city;
+    features.uFeatureColor.value.set(featureHighlight.color);
+    features.uFeatureTint.value = featureHighlight.tint;
+    features.uFeatureGlow.value = featureHighlight.glow;
+    features.uFeatureDim.value = featureHighlight.dim;
+    this.applyHighlight();
     this.slotMaterial?.color.copy(slotColor(highlights));
     if (this.previewContainer && this.previewKey) {
       // The ghost's tint is set when it is made: make it again with the new one.
@@ -318,6 +603,64 @@ export class TileRenderer {
         }
       });
     }
+  }
+
+  /**
+   * Lights one structure across its tiles (FEATURE-HL): each tile's areas in `lit` are tinted and glow with the look's
+   * feature highlight (`LookSettings.featureHighlight`: colour, tint, glow, dim; its `enabled` and `feature` do not
+   * apply), the rest of the board dimmed. A tile not drawn yet is lit when it comes. Null goes back to the look's
+   * feature highlight, or to no highlight. The voxels are labelled on the first call, as for the feature highlight.
+   */
+  setLitAreas(lit: Iterable<LitTile> | null): void {
+    if (lit === null) this.litAreas = null;
+    else {
+      // A tile listed more than once (two structures that share it) lights the areas of each.
+      this.litAreas = new Map();
+      for (const { gameId, id, areas } of lit) this.litAreas.set(`${gameId}-${id}`, (this.litAreas.get(`${gameId}-${id}`) ?? 0) | areas);
+    }
+    this.applyHighlight();
+    this.buildLitMap();
+  }
+
+  /**
+   * The highlight's switches from the look and the lit structure; when one comes on, the models drawn are queued for
+   * their labels (`scheduleLabels`): each lights when its turn comes.
+   */
+  private applyHighlight(): void {
+    const on = this.look.featureHighlight.enabled || this.litAreas !== null;
+    this.featureUniforms.uFeatureOn.value = on ? 1 : 0;
+    this.structureUniforms.uStructureOn.value = this.litAreas !== null ? 1 : 0;
+    if (on && !this.labelling) for (const [key, model] of this.tileTypes) this.queueLabels(key, model);
+    this.labelling = on;
+  }
+
+  /**
+   * The lit map (`structureUniforms`): the lit tiles' masks at their cells, over the smallest rectangle that holds them.
+   * Built again only when the lit tiles, their masks or their cells change; a lit tile not given yet has no cell.
+   */
+  private buildLitMap(): void {
+    const cells: [number, number, number][] = [];
+    for (const [key, mask] of this.litAreas ?? []) {
+      const cell = this.tileCells.get(key);
+      if (cell && mask) cells.push([cell[0], cell[1], mask]);
+    }
+    const key = JSON.stringify(cells);
+    if (key === this.litKey) return;
+    this.litKey = key;
+    const uniforms = this.structureUniforms;
+    uniforms.uLitMap.value.dispose();
+    if (!cells.length) {
+      uniforms.uLitMap.value = emptyLitMap();
+      uniforms.uLitRect.value.set(0, 0, 0, 0);
+      return;
+    }
+    const [minX, minZ] = [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))];
+    const width = Math.max(...cells.map((c) => c[0])) - minX + 1;
+    const depth = Math.max(...cells.map((c) => c[1])) - minZ + 1;
+    const data = new Float32Array(width * depth);
+    for (const [x, z, mask] of cells) data[(z - minZ) * width + (x - minX)] = mask;
+    uniforms.uLitMap.value = litMap(data, width, depth);
+    uniforms.uLitRect.value.set(minX, minZ, width, depth);
   }
 
   private createVoxelTile(tile: TileRenderData, key: string): THREE.Object3D | null {
@@ -652,7 +995,45 @@ export class TileRenderer {
     this.slotGeometry = null;
     this.slotMaterial?.dispose();
     this.slotMaterial = null;
+    this.structureUniforms.uLitMap.value.dispose();
+    for (const { uLabelMap } of this.labelMaps.values()) if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
+    this.labelMaps.clear();
+    this.emptyLabelMap.dispose();
+    this.labelling = false;
+    this.disposed = true;
+    this.labelQueue = [];
+    this.labelledListener = null;
+    for (const resolve of this.labelWaiters.splice(0)) resolve();
+    this.litAreas = null;
+    this.tileCells.clear();
+    this.litKey = "";
   }
+}
+
+/** A lit map (`TileRenderer.buildLitMap`): one float texel per cell, the cell's mask, read exactly (`texelFetch`). */
+function litMap(data: Float32Array, width: number, depth: number): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, width, depth, THREE.RedFormat, THREE.FloatType);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** A model's label map (`packLabels`): one byte a column, `size` columns a side, read exactly (`texelFetch`). */
+function labelMapTexture(data: Uint8Array, size: number): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.UnsignedByteType);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** The lit map with no lit tile: one empty texel (the sampler is always bound). */
+function emptyLitMap(): THREE.DataTexture {
+  return litMap(new Float32Array(1), 1, 1);
 }
 
 /** The slots' colour: the look's gold at its intensity (above 1 in linear colour: it blooms). */

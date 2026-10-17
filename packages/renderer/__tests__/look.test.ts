@@ -221,7 +221,7 @@ describe("the lights and the scene's effects", () => {
     const fill = lights.find((l): l is THREE.DirectionalLight => l instanceof THREE.DirectionalLight && !l.castShadow)!;
     expect(fill.intensity).toBe(LOOK_PRESETS.mockup.fill.intensity);
     expect(scene.scene.fog).toBeInstanceOf(THREE.FogExp2);
-    expect(tiles.setLook).toHaveBeenLastCalledWith(LOOK_PRESETS.mockup.highlights, LOOK_PRESETS.mockup.water);
+    expect(tiles.setLook).toHaveBeenLastCalledWith(LOOK_PRESETS.mockup.highlights, LOOK_PRESETS.mockup.water, LOOK_PRESETS.mockup.featureHighlight);
   });
 
   it("turns every light and effect off", () => {
@@ -275,13 +275,13 @@ describe("the tiles' part of the look", () => {
   it("brightens the water through shared uniforms, and turns it off without a recompile", () => {
     const tiles = new TileRenderer({} as never);
     const material = new THREE.MeshStandardMaterial();
-    (tiles as any).patchWater(material);
+    (tiles as any).patchTileShader(material, new THREE.BoxGeometry());
     const shader = { uniforms: {}, fragmentShader: THREE.ShaderLib.standard.fragmentShader, vertexShader: "" } as never;
     material.onBeforeCompile(shader, {} as never);
     const { uniforms, fragmentShader } = shader as { uniforms: Record<string, { value: number }>; fragmentShader: string };
     expect(fragmentShader).toContain("waterMask");
     expect(fragmentShader).toContain("roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask)");
-    expect(material.customProgramCacheKey()).toBe("paved-tile-water");
+    expect(material.customProgramCacheKey()).toBe("paved-tile");
     tiles.setLook(LOOK_PRESETS.mockup.highlights, LOOK_PRESETS.mockup.water);
     expect([uniforms.uWaterOn.value, uniforms.uWaterBrightness.value]).toEqual([1, LOOK_PRESETS.mockup.water.brightness]);
     tiles.setLook(LOOK_PRESETS.mockup.highlights, { ...LOOK_PRESETS.mockup.water, enabled: false });

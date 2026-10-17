@@ -8,8 +8,8 @@
       "gzip": 86016
     },
     "largestRoute": {
-      "raw": 872448,
-      "gzip": 249856
+      "raw": 884736,
+      "gzip": 254976
     },
     "firstLoadJs": {
       "raw": 663552,

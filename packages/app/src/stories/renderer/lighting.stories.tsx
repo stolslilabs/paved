@@ -3,7 +3,7 @@ import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
 // The owner's target images, read where they are kept (not copied): Vite serves the workspace.
 import mockup01 from "../../../../../app/docs/mockup-01.png";
 import mockup02 from "../../../../../app/docs/mockup-02.png";
-import { LightingBoard } from "./lighting-board";
+import { LIT_STRUCTURES, LightingBoard } from "./lighting-board";
 import { lookArgTypes } from "./lighting-look";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
@@ -34,6 +34,12 @@ const meta = {
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the tier in effect and the passes that run" },
     forest: { control: "boolean", description: "Forest on all 19 plans: every tile draws its cell's variant (SKIN-RENDER)" },
+    litStructure: {
+      control: "inline-radio",
+      options: LIT_STRUCTURES,
+      type: { name: "enum", value: [...LIT_STRUCTURES] },
+      description: "One structure lit across its tiles (FEATURE-HL): the board's largest city, longest road or largest forest, from the engine's union-find",
+    },
     force: {
       control: "inline-radio",
       options: ["auto", "on", "off"],
@@ -62,7 +68,7 @@ const meta = {
     },
     ...lookArgTypes(),
   },
-  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto", multisampling: "auto" },
+  args: { preset: "mockup", quality: "auto", view: "default", highlights: true, redraw: false, readout: true, forest: false, force: "auto", maxPixelRatio: "auto", multisampling: "auto", litStructure: "none" },
 } satisfies Meta<typeof LightingBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -78,6 +84,30 @@ export const Off: Story = { args: { preset: "off" } };
 
 /** Zoomed in at the play camera's steepest tilt, where the shadows, the AO and the water show most. */
 export const ZoomedIn: Story = { args: { view: "zoomed-in", distance: 30 } };
+
+/**
+ * Every city of the board lit (FEATURE-HL): the voxels labelled city from their colours and the plan's layout
+ * (`labelTileColumns`) tinted and glowing, the rest dimmed. "Feature highlight" picks the feature and the strengths.
+ */
+export const CitiesLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "city", highlights: false } };
+
+/** Every road of the board lit (FEATURE-HL), as `CitiesLit`. */
+export const RoadsLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "road", highlights: false } };
+
+/** Every forest of the board lit (FEATURE-HL): every column that is neither a city, a road nor a wonder, as `CitiesLit`. */
+export const ForestsLit: Story = { args: { featureHighlightEnabled: true, featureHighlightFeature: "forest", highlights: false } };
+
+/**
+ * One city lit across its tiles (FEATURE-HL): the board's largest city, its areas found by the engine's union-find
+ * (`StructureBoard`) and lit on each of its tiles (`GameScene.setLitAreas`), the rest of the board dimmed.
+ */
+export const LargestCityLit: Story = { args: { litStructure: "largest-city", highlights: false } };
+
+/** One road lit across its tiles (FEATURE-HL): the board's longest, as `LargestCityLit`. */
+export const LongestRoadLit: Story = { args: { litStructure: "longest-road", highlights: false } };
+
+/** One forest lit across its tiles (FEATURE-HL): the board's largest, as `LargestCityLit`. */
+export const LargestForestLit: Story = { args: { litStructure: "largest-forest", highlights: false } };
 
 const MOCKUPS = { "mockup-01": mockup01, "mockup-02": mockup02 } as const;
 

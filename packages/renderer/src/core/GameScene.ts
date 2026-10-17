@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
-import { TileRenderer } from "./TileRenderer";
+import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
@@ -168,6 +168,8 @@ export class GameScene {
     this.scene.add(this.sceneGroup);
     this.assets = new AssetLoader();
     this.tiles = new TileRenderer(this.assets);
+    // The tiles' labels come in idle slices once a highlight is on: each draws the board again.
+    this.tiles.onLabelled(() => this.requestRender());
     this.effects = new Effects();
 
     this.sceneGroup.add(this.tiles.getGroup());
@@ -204,6 +206,7 @@ export class GameScene {
     if (basePath || manifest) {
       this.assets = new AssetLoader(basePath, manifest);
       this.tiles = new TileRenderer(this.assets);
+      this.tiles.onLabelled(() => this.requestRender());
       this.tiles.setSkins(this.skins);
       // Re-add to scene group
       this.sceneGroup.clear();
@@ -374,7 +377,8 @@ export class GameScene {
 
   /**
    * Apply the settings' look (`look.ts`): the chain of effects at the tier in effect, the lights, the background and
-   * fog, the slots' and ghost's highlights and the water. A new key-light direction redraws the shadow map.
+   * fog, the slots' and ghost's highlights, the water and the feature highlight. A new key-light direction redraws the
+   * shadow map.
    */
   private applyLook(): void {
     this.effects.setLook(this.settings.look, this.getQuality());
@@ -412,7 +416,7 @@ export class GameScene {
       key.position.copy(position);
       key.shadow.radius = look.key.shadowSoftness;
     }
-    this.tiles.setLook(look.highlights, look.water);
+    this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.requestRender();
   }
 
@@ -533,6 +537,15 @@ export class GameScene {
     this.requestRender();
   }
 
+  /**
+   * Light one structure across its tiles: each tile's areas (a mask, bit `area - 1`, as `StructureBoard.structures`
+   * gives them), with the look's feature highlight; the rest of the board dimmed. Null turns it off.
+   */
+  setLitAreas(lit: Iterable<LitTile> | null): void {
+    this.tiles.setLitAreas(lit);
+    this.requestRender();
+  }
+
   /** Switch between 3D voxel and 2D strategy rendering */
   setStrategyMode(on: boolean): void {
     this.tiles.setStrategyMode(on);
@@ -544,6 +557,8 @@ export class GameScene {
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    // The tile shader reads a tile's cell in the board's frame, not the world's (the lit structure).
+    this.tiles.updateBoardFrame();
     this.requestShadowUpdate();
     this.requestRender();
   }
