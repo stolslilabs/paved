@@ -1,15 +1,16 @@
 # The client release at F (the fresh Sepolia deployment)
 
-> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history. Until 2026-10-17 the VPS
+> served the client and the Storybook (see git history).
 
 Written 2026-10-14 (F0, track CLIENT). P-53: one fresh Sepolia deployment after D-23b (#354). At F the Sepolia client and the
 indexer are released **together**, against F's deployment file, with a single indexer rebuild at schema 11. This is the
 checklist of that release. It is a description: **nothing is sent, deployed or changed on the VPS until CORE's F part B has merged**
 and the PM gives the go. The PM copies the commands into the one root script for the owner; each says who runs it (root, or the
-deploy user `paved-deploy`). No line holds a secret.
+indexer's operator). No line holds a secret.
 
-Related: the indexer's commands are "Release at F" in `docs/client/indexer-hosting.md`; the hosting layout, the build env and
-`publish.sh` are in the same file.
+Related: the indexer's commands are "Release at F" in `docs/client/indexer-hosting.md`; the client is served by Vercel ("Vercel"
+below).
 
 ## Inputs
 
@@ -64,9 +65,10 @@ checks 4 to 6 are the ones that a wrong `Setup` or `Economy` wiring fails, and t
 
 ## Building the client
 
-Done by the deploy user (`paved-deploy`) from a checkout of F's commit; see "Commands for the deploy user" in `indexer-hosting.md`.
+Vercel builds the client (`packages/app`, project `paved`); there is no build or publish step on the VPS ("Vercel" below). Until
+2026-10-17 the VPS served the client and the Storybook (see git history).
 
-Env (nothing here is secret; the bundle is public):
+Env (nothing here is secret; the bundle is public). It is set in `packages/app/vercel.json`, `build.env`:
 
 | Variable | Value |
 |---|---|
@@ -75,34 +77,9 @@ Env (nothing here is secret; the bundle is public):
 | `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`; without this the build is "not connected") |
 
 Leave every `VITE_*_ADDRESS` and `VITE_SUPPORTS_TOKEN_MINT` unset: the file supplies the addresses, and the faucet is offered on
-Sepolia by default.
-
-> History: until 2026-10-17 the commands and checks below built and published `@paved/app-web`, removed in P-70; they no
-> longer work on main. VPS-WEB-CLEAN (P-76) rewrites this section for `packages/app`.
-
-```bash
-# (deploy user)
-cd ~/paved && git fetch --all --prune && git checkout --detach <F-commit>
-git log -1 --format=%H -- contracts/deployments/sepolia.json          # (read) F's file is in this commit
-bun install --frozen-lockfile
-VITE_NETWORK=sepolia \
-VITE_INDEXER_URL=https://api.paved.bal7hazar.com \
-VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10 \
-  bun run build --filter @paved/app-web
-grep -rl 'api.paved.bal7hazar.com' packages/app-web/dist/assets | head -1   # must print a file: the URL is in the bundle
-grep -rlF "$(jq -r .contracts.Challenge.address contracts/deployments/sepolia.json)" packages/app-web/dist/assets | head -1   # must print a file: F's Challenge is in the bundle
-```
-
-Expected: the build ends without error (Sepolia production build, VPS, 2026-10-11, commit 1235607: peak RSS 1.06 GB, 8 s, measured by
-the owner); both `grep` lines print a file. If the first prints nothing, turbo dropped the `VITE_*` variables: rebuild with
-`bun x turbo build --filter @paved/app-web --env-mode=loose` and the same variables. If the second prints nothing, the build read
-another file (a stale checkout, or an address written in another form).
-
-**Where it is published:** `/usr/local/lib/paved/publish.sh packages/app-web/dist "$(date +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"` (deploy
-user), which copies the build to `/var/www/paved/releases/<name>` and swaps `/var/www/paved/current` in one atomic rename. Caddy serves
-`https://paved.bal7hazar.com` from `current`. Rollback is `/usr/local/lib/paved/switch.sh <older-release>` (list with `--list`); it
-needs no Caddy reload. Check: `curl -sI https://paved.bal7hazar.com/ | head -1` is `200`; `readlink /var/www/paved/current` is the new release.
-Rolling the client back to a release built for the old contracts does not help once the indexer is rebuilt for F: the two go together.
+Sepolia by default. A production deploy of `main` at F's commit carries F's `contracts/deployments/sepolia.json`; a rollback is a
+promotion of an earlier production deployment in Vercel (the owner's dashboard). Rolling the client back to a build made for the old
+contracts does not help once the indexer is rebuilt for F: the two go together.
 
 ## Host compression of the renderer assets
 
@@ -172,11 +149,11 @@ What the files set:
   (`node scripts/check/vercel-build.mts <client|storybook>`), then `bun run budget` (each limit, the measured size, the margin).
 
 **Release.** The client release is a Vercel production deploy of `packages/app` from `main`, after the release gates (the value
-re-check of the diff first). `paved.bal7hazar.com` is added to the `paved` project only after the first production deploy and that
-re-check, and moves to Vercel with the owner's DNS change; the VPS's static client (`/var/www/paved`, "Where it is published" above)
-is retired with it. `storybook.paved.bal7hazar.com` is added to `paved-storybook` (published from `main` on every merge, previews
-per pull request; `storybook-hosting.md`). Only `api.paved.bal7hazar.com` stays on the VPS. Domains are never deleted by an agent and
-DNS is the owner's.
+re-check of the diff first). `paved.bal7hazar.com` is served by the `paved` project and `storybook.paved.bal7hazar.com` by
+`paved-storybook` (published from `main` on every merge, previews per pull request; `storybook-hosting.md`). Only
+`api.paved.bal7hazar.com` stays on the VPS. CORS: the indexer's `--allow-origin` is `https://paved.bal7hazar.com`; a preview's
+`*.vercel.app` origin is not in it, so previews show no indexer data. Domains are never deleted by an agent and DNS is the owner's.
+Until 2026-10-17 the VPS served the client and the Storybook (see git history).
 
 What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the
 production branch, the preview deployments, the Node.js version (24.x, from `engines`; the docs project is on 18.x), the domains and
@@ -198,10 +175,10 @@ The client and the indexer read the same file from the same commit, and the lead
 3. **Indexer** ("Release at F" in `indexer-hosting.md`): stop the service and the watch, release F's commit, `bun install --frozen-lockfile`,
    move the schema 6 database aside, `rebuild` in the foreground until `/v1/head` says `status ok`, `state ok` and `behind 0`, start
    the service and the watch. The single rebuild is this one, at schema 11 (it covers schemas 7 to 11: D-20, step E's 9, N1's 10, D-23b's 11).
-4. **Client:** build from the same commit, with the env above, and publish. Done only after step 3 is done: a client published first
+4. **Client:** the Vercel production deploy of `main` at the same commit, with the env above. Done only after step 3 is done: a client published first
    would show "unavailable" for the leaderboard, the player pages and the quests.
 5. **Smoke** in a browser (below), against `https://paved.bal7hazar.com`.
-6. **Done** (below). Report to the PM with the commit, the release name and the smoke result.
+6. **Done** (below). Report to the PM with the commit, the deployment and the smoke result.
 
 ## Smoke in a browser
 
@@ -315,9 +292,9 @@ All of:
 - the checks above pass on F's file, and `check-deployment.mjs` ends `every check passed; nothing was sent`;
 - the indexer is `active`, `/v1/head` says `status ok`, `state ok`, a small `behind`, `chain_id` and `from_block` as the file's, and the
   names lookup is reachable (details in "Release at F");
-- `readlink /var/www/paved/current` is the release built from F's commit, and both bundle `grep` lines printed a file;
+- the Vercel production deployment of the `paved` project is F's commit (Ready);
 - the smoke steps 1 to 9 pass, with the leaderboard showing a name;
-- the PM has the commit, the release name, the head block of the indexer and the smoke result.
+- the PM has the commit, the deployment, the head block of the indexer and the smoke result.
 
 ## Open points
 
