@@ -295,12 +295,15 @@ describe("Vault", () => {
 });
 
 describe("Settings", () => {
-  it("sets the graphics, sound, music, tile preview and placement highlight", async () => {
+  it("sets the graphics, the day and night cycle, sound, music, tile preview and placement highlight", async () => {
     const onChange = vi.fn();
     render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} />));
     expect(screen.getByRole("radio", { name: "High" })).toHaveAttribute("data-state", "on");
     await userEvent.click(screen.getByRole("radio", { name: "Low" }));
     expect(onChange).toHaveBeenCalledWith("quality", "low");
+    expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
+    await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
+    expect(onChange).toHaveBeenCalledWith("dayNight", false);
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: "Music" }));

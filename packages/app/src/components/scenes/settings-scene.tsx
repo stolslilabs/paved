@@ -16,6 +16,8 @@ export type GraphicsQuality = "auto" | "low" | "medium" | "high";
 /** The player's preferences, kept on this device (section 6.4: local storage). */
 export interface Preferences {
   quality: GraphicsQuality;
+  /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
+  dayNight: boolean;
   sound: boolean;
   music: boolean;
   /** Show the tile on a slot before it is placed. */
@@ -58,7 +60,7 @@ const QUALITY: { value: GraphicsQuality; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
-/** Settings (`/settings`): graphics quality, sound, music, tile preview and placement highlight (the mockups); the account; theme and referral. */
+/** Settings (`/settings`): graphics quality, the day and night cycle, sound, music, tile preview and placement highlight (the mockups); the account; theme and referral. */
 export function SettingsScene(props: SettingsSceneProps) {
   const { preferences: p, account, theme, onChange } = props;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
@@ -95,6 +97,13 @@ export function SettingsScene(props: SettingsSceneProps) {
               </ToggleGroup>
               {p.quality === "high" && <p className="text-xs text-muted-foreground">High is heavier: it can slow the board and drain a battery faster.</p>}
             </div>
+            <SettingSwitch
+              label="Day/night cycle"
+              hint="The sky changes with the seasons, the shadows turn, the cities light up at night"
+              icon="sun"
+              checked={p.dayNight}
+              onCheckedChange={(v) => onChange?.("dayNight", v)}
+            />
             <ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />
             <SettingSwitch label="Sound" icon="volume-high" checked={p.sound} onCheckedChange={(v) => onChange?.("sound", v)} />
             <SettingSwitch label="Music" icon="music" checked={p.music} onCheckedChange={(v) => onChange?.("music", v)} />

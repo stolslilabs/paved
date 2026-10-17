@@ -33,6 +33,8 @@ import {
   type WebGLDetection,
 } from "./outlines";
 import { prefersReducedMotion } from "./placement";
+// The day and night cycle is its own chunk: loaded only once the cycle is first on (`loadDayNight`).
+import type * as DayNight from "./daynight";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -165,6 +167,15 @@ export class GameScene {
   private unbindResize: (() => void) | null = null;
   /** Stops following the device's reduced-motion setting (`matchMedia`). */
   private unbindReducedMotion: (() => void) | null = null;
+  /** The day and night cycle (`daynight.ts`), once loaded; its load, started the first time the cycle is on. */
+  private dayNight: typeof DayNight | null = null;
+  private dayNightLoad: Promise<void> | null = null;
+  /** The cycle's clock (`DayNightClock`), made when the cycle first draws. */
+  private dayNightClock: DayNight.DayNightClock | null = null;
+  /** Whether the cycle draws the board now: its lights, backdrop and night lights over the look's. */
+  private dayNightOn = false;
+  /** The cycle's point last drawn (`getDayNight`). */
+  private dayNightPoint: DayNight.CyclePoint | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -423,7 +434,99 @@ export class GameScene {
       key.shadow.radius = look.key.shadowSoftness;
     }
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
+    this.syncDayNight();
     this.requestRender();
+  }
+
+  /**
+   * The day and night cycle (DAYNIGHT) over the look just applied: when it is on, its chunk loaded, it draws the backdrop,
+   * the sun, the moon, the sky and the night lights; off, the look's own stay. Still (reduced motion, the Low tier) it
+   * holds its first season's noon; frozen (`freezeAt`), that moment. The look's values were set just before: turning the
+   * cycle off leaves them.
+   */
+  private syncDayNight(): void {
+    const settings = this.settings.dayNight;
+    if (!settings.enabled || !this.renderer) {
+      if (this.dayNightOn) {
+        this.dayNightOn = false;
+        this.dayNightPoint = null;
+        this.effects.setBackdrop(false);
+        this.dayNight?.releaseDayNight(this.directionalLight);
+        this.renderer?.setClearColor(0x000000, 1);
+        this.tiles.setNightLights(false, settings.nightLightColor, settings.nightLightIntensity);
+      }
+      return;
+    }
+    if (!this.dayNight) {
+      this.loadDayNight();
+      return;
+    }
+    this.dayNightOn = true;
+    // The scene is cleared to transparent: the finish pass lays the backdrop under what it leaves uncovered.
+    this.scene.background = null;
+    this.renderer.setClearColor(0x000000, 0);
+    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.nightLightIntensity);
+    const now = performance.now();
+    this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
+    this.applyDayNight(this.dayNightSeasons());
+  }
+
+  /** Loads the cycle's chunk once; the look is applied again when it is in (a failed load leaves the look's lights). */
+  private loadDayNight(): void {
+    this.dayNightLoad ??= import("./daynight").then(
+      (module) => {
+        this.dayNight = module;
+        if (!this.disposed) this.applyLook();
+      },
+      (error: unknown) => console.warn("[renderer] the day and night cycle did not load, the look's lights stay:", error),
+    );
+  }
+
+  /** A still cycle: reduced motion (the setting, or the device's for "auto") or the Low tier. */
+  private dayNightStill(): boolean {
+    const { reducedMotion } = this.settings.dayNight;
+    return (reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion) || this.getQuality() === "low";
+  }
+
+  /** The cycle's moment to draw, in seasons since a summer's dawn: frozen, still (the first season's noon) or running. */
+  private dayNightSeasons(): number {
+    return this.dayNight!.momentOf(this.settings.dayNight, this.dayNightClock!.time, this.dayNightStill());
+  }
+
+  /** Whether the cycle moves on its own (neither frozen nor still): the loop then draws it in steps (`frameMs`). */
+  private dayNightRuns(): boolean {
+    return this.dayNightOn && this.settings.dayNight.freezeAt === null && !this.dayNightStill();
+  }
+
+  /**
+   * Draws the cycle at `seasons` (`dayNightFrame`): the key light (the sun, the shadows' light: a new direction redraws
+   * the shadow map), the fill (the moon at night), the sky light and ambient, the fog, the backdrop and the night lights'
+   * level. Only values change: no light, material or pass is made.
+   */
+  private applyDayNight(seasons: number): void {
+    const look = this.getLook();
+    this.dayNightPoint = this.dayNight!.drawDayNight(
+      {
+        key: look.key.enabled ? this.directionalLight : null,
+        fill: look.fill.enabled ? this.fillLight : null,
+        sky: look.sky.enabled ? this.hemisphereLight : null,
+        ambient: look.sky.enabled ? this.ambientLight : null,
+        fog: this.scene.fog,
+        distance: KEY_DISTANCE,
+        crossfade: this.dayNightRuns(),
+        shadowMoved: () => this.requestShadowUpdate(),
+        backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
+        lights: (level) => this.tiles.setNightLevel(level),
+      },
+      seasons,
+      this.settings.dayNight.brightnessFloor,
+    );
+    this.requestRender();
+  }
+
+  /** Where the day and night cycle is (its season, phase and blend), or null while it does not draw the board. */
+  getDayNight(): DayNight.CyclePoint | null {
+    return this.dayNightOn ? this.dayNightPoint : null;
   }
 
   private setupInteraction(surface: RenderSurfaceAdapter): void {
@@ -571,6 +674,7 @@ export class GameScene {
       const query = matchMedia("(prefers-reduced-motion: reduce)");
       const onChange = () => {
         this.applyPlacementSettings();
+        this.syncDayNight();
         this.requestRender();
       };
       query.addEventListener?.("change", onChange);
@@ -813,7 +917,13 @@ export class GameScene {
         this.needsRender = true;
       }
       // The placement effects that move (a colour change, the aura's waves, the confirm's fade) draw while they do.
-      if (this.tiles.update(performance.now()).animating) this.needsRender = true;
+      const now = performance.now();
+      if (this.tiles.update(now).animating) this.needsRender = true;
+      // The day and night cycle moves in steps of `frameMs`: each step draws a frame (`applyDayNight` requests it).
+      if (this.dayNightRuns()) {
+        const { speed, frameMs } = this.settings.dayNight;
+        if (this.dayNightClock!.advance(now, speed, frameMs)) this.applyDayNight(this.dayNightSeasons());
+      }
 
       if (this.needsRender) {
         observer?.beforeRender?.();
@@ -880,6 +990,7 @@ export class GameScene {
     this.controls?.dispose();
     this.assets.dispose();
     this.directionalLight?.shadow.dispose();
+    this.dayNight?.releaseDayNight(this.directionalLight);
     this.scene.clear();
     this.latestTiles = [];
     this.onTileClickCallback = null;
@@ -892,6 +1003,9 @@ export class GameScene {
     this.directionalLight = null;
     this.fillLight = null;
     this.directionalTargetObject = null;
+    this.dayNightOn = false;
+    this.dayNightClock = null;
+    this.dayNightPoint = null;
 
     if (this.renderer) {
       this.renderer.dispose();

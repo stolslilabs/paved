@@ -80,6 +80,9 @@ export {
 export type { PlacementPulse, PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
 export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonFrameMargin, neonLineCoverage, setNeonFrame } from "./core/neon";
 export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
+// The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
+export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, SEASONS, resolveDayNightSettings } from "./core/daynight-settings";
+export type { DayNightSettings, DayPhase, Season } from "./core/daynight-settings";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 
