@@ -1,0 +1,49 @@
+#!/bin/sh
+# The repository's pre-push hook (GUARDS, P-71): the cheap part of `bun run check`, on the commit being pushed.
+# The contracts' format (scarb fmt --check, when contracts/ changed and scarb is present), the typecheck and the
+# guard tests of the touched packages. No build of the apps, no browser; seconds when no package changed.
+#
+# Turn it on in a clone (every worktree of the clone follows): git config core.hooksPath .githooks
+# Skip it once:                                                   PAVED_SKIP_PREPUSH=1 git push ...
+#
+# A missing tool (node, bun, the installed node_modules) never blocks a push: the hook warns and lets it through,
+# and the CI checks the pull request anyway.
+
+if [ "${PAVED_SKIP_PREPUSH:-}" = "1" ]; then
+  echo "pre-push: skipped (PAVED_SKIP_PREPUSH=1)"
+  exit 0
+fi
+
+top=$(git rev-parse --show-toplevel) || exit 0
+cd "$top" || exit 0
+
+for tool in node bun; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "pre-push: warning: $tool is not on PATH; the checks are not run, the push goes through (the CI checks it)"
+    exit 0
+  fi
+done
+if [ ! -d node_modules ]; then
+  echo "pre-push: warning: no node_modules (run bun install --frozen-lockfile); the checks are not run, the push goes through"
+  exit 0
+fi
+
+zero=0000000000000000000000000000000000000000
+status=0
+ran=0
+# stdin: one line per ref pushed, "<local ref> <local sha> <remote ref> <remote sha>".
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  # A deleted ref pushes no commit.
+  [ "$local_sha" = "$zero" ] && continue
+  ran=1
+  # stdin stays the ref list: the check reads none of it.
+  node scripts/check/check.mts --pre-push --head "$local_sha" </dev/null || status=1
+done
+
+if [ "$ran" = "0" ]; then
+  exit 0
+fi
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: a check failed (above). Fix it, or push anyway with: PAVED_SKIP_PREPUSH=1 git push ..."
+fi
+exit "$status"

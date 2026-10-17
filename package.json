@@ -10,7 +10,10 @@
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "check": "node scripts/check/check.mts",
+    "check:pr": "node scripts/check/check.mts",
+    "budget": "node scripts/check/budget.mts"
   },
   "devDependencies": {
     "turbo": "^2.11.7",
