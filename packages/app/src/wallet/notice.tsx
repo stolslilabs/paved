@@ -8,7 +8,7 @@ import { useWallet } from "./wallet";
 export const NOTICES_PATH = "THIRD_PARTY_NOTICES.txt";
 
 /**
- * The notice Cartridge's licence asks of every copy of the client (D-15, made prominent by D-16; app-web's
+ * The notice Cartridge's licence asks of every copy of the client (D-15, made prominent by D-16; the legacy client's
  * `WalletNotice.tsx`): Cartridge Controller is used and is Cartridge's copyright, with a link to the full notices and
  * licence text. The footer shows it at body size, in normal flow below the page so it covers nothing, on an opaque bar;
  * the board routes, which have no footer, show it compact under the board's header (`BoardScene`'s `footnote`).

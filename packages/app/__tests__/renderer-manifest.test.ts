@@ -56,7 +56,7 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
     }
   });
 
-  it("are exactly what the script writes from app-web's originals", () => {
+  it("are exactly what the script writes from the originals in asset-sources/", () => {
     const out = execFileSync(process.execPath, [join(APP, "scripts/compress-models.ts"), "--check"], { encoding: "utf8" });
     expect(out).toContain("base: 19 models");
     expect(out).toContain("forest: 72 models");
@@ -83,7 +83,7 @@ describe("the app's resized, content-hashed tile images (scripts/compress-tiles.
     expect(readdirSync(TILES).sort()).toEqual(listed.sort());
   });
 
-  it("are exactly what the script writes from app-web's originals", () => {
+  it("are exactly what the script writes from the originals in asset-sources/", () => {
     const out = execFileSync(process.execPath, [join(APP, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" });
     expect(out).toContain("19 plans:");
   }, 120_000);
@@ -93,13 +93,13 @@ describe("the app's resized, content-hashed tile images (scripts/compress-tiles.
     const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
     // The check reads the script's own folders: a copy of the script and its sources beside a stale output.
     const app = join(dir, "app");
-    const web = join(dir, "app-web/public/assets/tiles");
+    const sources = join(app, "asset-sources/assets/tiles");
     mkdirSync(join(app, "scripts"), { recursive: true });
     mkdirSync(join(app, "public/renderer-assets/tiles"), { recursive: true });
-    mkdirSync(web, { recursive: true });
+    mkdirSync(sources, { recursive: true });
     copyFileSync(join(APP, "scripts/compress-tiles.ts"), join(app, "scripts/compress-tiles.ts"));
-    const source = join(APP, "../app-web/public/assets/tiles", `${name!.slice(0, 9)}.png`);
-    copyFileSync(source, join(web, `${name!.slice(0, 9)}.png`));
+    const source = join(APP, "asset-sources/assets/tiles", `${name!.slice(0, 9)}.png`);
+    copyFileSync(source, join(sources, `${name!.slice(0, 9)}.png`));
     // Nothing written yet: stale.
     expect(() => execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts"), "--check"], { stdio: "pipe" })).toThrow();
     execFileSync(process.execPath, [join(app, "scripts/compress-tiles.ts")], { stdio: "pipe" });

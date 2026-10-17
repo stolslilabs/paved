@@ -20,7 +20,7 @@ export function toGridSlot(x: number, y: number): { x: number; y: number } {
   return { x: x - CENTER, y: CENTER - y };
 }
 
-/** The session's tiles as the renderer draws them (world x east, world z south): app-web's `toRenderBoard`. */
+/** The session's tiles as the renderer draws them (world x east, world z south), as the removed legacy client's `toRenderBoard` drew them. */
 export function toRenderTiles(tiles: BoardTile[], gameId: number): TileRenderData[] {
   return tiles.map((t) => {
     const grid = toGridSlot(t.x, t.y);
@@ -62,7 +62,7 @@ export interface BoardViewportProps {
   skins?: TileSkins;
   /**
    * Where the renderer finds `manifest.json`, which lists its hashed models and tile images (`models/<plan>.glb` and
-   * `assets/tiles/<plan>.png` without one, as in Storybook, which maps app-web's `public/`).
+   * `assets/tiles/<plan>.png` without one, as in Storybook, which maps `asset-sources/`).
    */
   basePath?: string;
   /**

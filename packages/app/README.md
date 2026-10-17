@@ -1,6 +1,6 @@
 # @paved/app
 
-Client v2: the app of `docs/client/v2-architecture.md`, beside `app-web` (which stays until the cut-over).
+Client v2: the app of `docs/client/v2-architecture.md`.
 Vite 8, React 19, TypeScript strict, Tailwind v4, React Router 7, TanStack Query, zustand, Motion.
 
 F1 is the scaffold: the token file (`src/styles/theme.css`, section 2.2), the self-hosted fonts, the route

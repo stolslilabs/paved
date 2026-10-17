@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { WATER_MASK_GLSL } from "../src/core/TileRenderer";
 import { decodePng } from "./helpers/png";
 
-/** The base models (app-web) and the Forest variants (the app's compressed copies): every palette the board draws. */
-const FOLDERS = ["../../app-web/public/models", "../../app/public/renderer-assets/models/forest"].map((p) => fileURLToPath(new URL(p, import.meta.url)));
+/** The base models (the app's `asset-sources/`) and the Forest variants (the app's compressed copies): every palette the board draws. */
+const FOLDERS = ["../../app/asset-sources/models", "../../app/public/renderer-assets/models/forest"].map((p) => fileURLToPath(new URL(p, import.meta.url)));
 
 /** The palette entries that are water, in sRGB: brightened and glossier, and nothing else. */
 const WATER = ["0,130,167", "56,113,149", "90,157,194", "73,125,158", "102,142,167"];

@@ -1,12 +1,12 @@
 import type { AssetManifest } from "@paved/renderer";
 
 /**
- * app-web's `public/`, which Storybook serves at this path (`staticDirs` in `.storybook/main.ts`): the source models
+ * The app's `asset-sources/`, which Storybook serves at this path (`staticDirs` in `.storybook/main.ts`): the source models
  * (`models/<plan>.glb`, uncompressed, and `models/extended/`), the Draco decoder and the 1680 px tile originals. The tile
  * browser reads the source models, and the tile chips take `originalTileArt` for their art; the board stories do not: they
  * read the app's compressed models at `APP_ASSETS` (LOAD-FAST), so a board story downloads 1.1 MB of models, not 15 MB.
  */
-export const APP_WEB_ASSETS = "/app-web-assets";
+export const SOURCE_ASSETS = "/asset-sources";
 
 /**
  * The app's own `public/renderer-assets/`, at the path the app serves it: the meshopt-compressed models under hashed names,
@@ -52,7 +52,7 @@ export const APP_MANIFEST: AssetManifest & { tiles: Record<string, Record<string
 
 /**
  * The tile chips' art in the stories and mocks: the 1680 px originals (`<base>/assets/tiles/<plan>.png`) Storybook serves from
- * app-web's `public/`, which has no manifest. The app's pages resolve the 256 px copies instead (`useTileArt`), and its build
+ * `asset-sources/`, which has no manifest. The app's pages resolve the 256 px copies instead (`useTileArt`), and its build
  * ships no original.
  */
 export const originalTileArt = (base: string) => (key: string) => `${base}/assets/tiles/${key}.png`;

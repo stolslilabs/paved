@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { APP_ASSETS, APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { TileView } from "./tile-view";
 
@@ -8,7 +8,7 @@ const meta = {
   title: "Containers/TileView",
   component: TileView,
   parameters: { layout: "centered" },
-  args: { plan: BOARD_38.next.plan, orientation: 1, basePath: APP_ASSETS, tileArt: originalTileArt(APP_WEB_ASSETS) },
+  args: { plan: BOARD_38.next.plan, orientation: 1, basePath: APP_ASSETS, tileArt: originalTileArt(SOURCE_ASSETS) },
   decorators: [(Story) => <div className="size-48 overflow-hidden rounded-lg border border-border"><Story /></div>],
 } satisfies Meta<typeof TileView>;
 export default meta;

@@ -1,5 +1,7 @@
 # D-25: Paved against Glitchbomb (gap analysis)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 D-25 (owner, via the PM, 2026-10-13): Paved's architecture and macro features follow Glitchbomb as the reference.
 P-52 (PM) fixes the target systems: Challenge, Setup, Token, Vault, Faucet, Collection and Treasury (provisional);
 `Account` goes to the mocks; Governor comes after mainnet. This note maps Glitchbomb's systems and components onto

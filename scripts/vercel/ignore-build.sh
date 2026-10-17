@@ -15,7 +15,7 @@
 # The inputs, as git pathspecs: what each build really reads, nothing else (GUARDS, P-71; the PM's strict sets).
 #
 # Storybook: packages/app (stories included), the workspace packages its stories import or that the PM names
-# (game-core, renderer, chain, ui), the assets both builds copy from packages/app-web/public, the contracts' ABIs and
+# (game-core, renderer, chain, ui; packages/app holds the source assets, asset-sources/), the contracts' ABIs and
 # deployment files @paved/chain imports, the lockfile and the root manifests tsc and turbo read, and the root
 # vercel.json that holds its commands. A package's own README.md and docs/ are out (no build reads them); a file
 # under a public/ folder is in, whatever its type, since the builds copy it to the output.
@@ -30,7 +30,6 @@ common_paths() {
     packages/renderer \
     packages/chain \
     packages/ui \
-    packages/app-web/public \
     contracts/abis \
     contracts/deployments \
     bun.lock \

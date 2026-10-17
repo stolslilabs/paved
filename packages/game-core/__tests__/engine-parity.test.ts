@@ -88,11 +88,6 @@ describe("the frozen Tutorial golden (D-21: its Cairo sources left at 38f1c95)",
     expect(engine.score).toBe(score);
     expect(engine.over).toBe(true);
   });
-
-  it("is the score U1's off-chain /tutorial page test ends on", () => {
-    const page = readRepository("packages/app-web/__tests__/tutorial-page.test.tsx");
-    expect(page).toContain(`toBe("Final score: ${score}")`);
-  });
 });
 
 describe.each(fixture.games.map((game) => [game.name, game] as const))("parity: %s", (_, game) => {
