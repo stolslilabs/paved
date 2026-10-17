@@ -43,20 +43,20 @@ const RING_OPACITY = [0, 0.32, 0.13];
 
 /**
  * A plate in its cell, as the board's (`DEFAULT_PLACEMENT_SETTINGS.plates`): inset by half the 4-voxel gap of a 40-voxel
- * tile (5 %) on each side, its corners 5 voxels round (14 % of the plate), each change eased over 150 ms.
+ * tile (5 %) on each side, its corners rounded, each change eased over 150 ms.
  */
-const PLATE = "pointer-events-none absolute inset-[5%] block rounded-[14%] transition-[background-color,box-shadow,opacity] duration-150 ease-out motion-reduce:transition-none";
+const PLATE = "pointer-events-none absolute inset-[5%] block rounded-sm transition duration-150 ease-out motion-reduce:transition-none";
 /** The three states, on the tokens the renderer's colours are pinned to. */
 const PLATE_STATE: Record<PlateState, string> = {
-  valid: "bg-plate/90 shadow-[0_0_8px_var(--color-plate-aura)] ring-1 ring-plate-aura/70",
+  valid: "bg-plate/90 shadow-[0_0_8px_var(--color-plate-aura)]",
   possible: "bg-plate/90",
   invalid: "bg-plate-off/45",
 };
 /** The placed tile's rim: white while its rotation fits, red while not. */
-const RIM = "pointer-events-none absolute inset-0 block rounded-[2px] ring-2 transition-[box-shadow] duration-150 ease-out motion-reduce:transition-none";
+const RIM = "pointer-events-none absolute inset-0 block rounded-[2px] ring-2 transition duration-150 ease-out motion-reduce:transition-none";
 const RIM_TONE = {
-  aura: "ring-plate-aura shadow-[0_0_10px_var(--color-plate-aura)]",
-  red: "ring-ember-500 shadow-[0_0_10px_var(--color-ember-500)]",
+  aura: "ring-plate-aura shadow-[0_0_8px_var(--color-plate-aura)]",
+  red: "ring-ember-500 shadow-[0_0_8px_var(--color-ember-500)]",
 };
 
 /** The cell's rim on confirm: green, fading to nothing over 700 ms (150 ms under reduced motion). */
@@ -72,7 +72,7 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
       data-confirm
       style={style}
       className={cn(
-        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] ring-2 ring-meadow-400 shadow-[0_0_10px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
+        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] ring-2 ring-meadow-400 shadow-[0_0_8px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
         faded && "opacity-0",
       )}
     />
@@ -162,7 +162,7 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
               data-placed={placed ? (red ? "red" : "aura") : undefined}
               className="relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state], "hover:brightness-110")} />}
+              {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
               {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}
               {placed && highlight && <span aria-hidden data-rim={red ? "red" : "aura"} className={cn(RIM, RIM_TONE[red ? "red" : "aura"])} />}
             </button>
