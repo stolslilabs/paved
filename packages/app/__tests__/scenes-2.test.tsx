@@ -305,9 +305,12 @@ describe("Settings", () => {
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     expect(onChange).toHaveBeenCalledWith("dayNight", false);
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Music" })).toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: "Music" }));
-    expect(onChange).toHaveBeenCalledWith("music", true);
+    expect(onChange).toHaveBeenCalledWith("music", false);
+    screen.getByRole("slider", { name: "Music volume" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledWith("musicVolume", 0.41);
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     expect(onChange).toHaveBeenCalledWith("tilePreview", false);
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));

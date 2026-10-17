@@ -3345,18 +3345,30 @@ the top of the page is kept on this device (`paved.theme.v1`); the board reads i
 **As built (P11a).** `/settings` keeps the device settings under one versioned key, `paved.settings.v1` (`data/settings.ts`, on
 `data/device-store.ts`: `localStorage` read with try/catch, an in-memory twin once storage throws, one store shared by every
 component that reads it, so a change applies at once). It holds `quality` (`"auto"` by default, `"low"`, `"medium"`,
-`"high"`), `sound` (on), `music` (off), `tilePreview` (on) and `placementHighlight` (on); a text that does not parse, or a
+`"high"`), `sound` (on), `music` (on, P-81), `musicVolume` (0.4), `tilePreview` (on) and `placementHighlight` (on); a text that does not parse, or a
 field of the wrong kind, is that field's default. *Graphics quality* is a row of Auto, Low, Medium and High: Auto shows what
 it resolves to on this device: Auto (Medium) on every device (Low on a low-power one); High only by hand, and
 High carries a line that it is heavier. The three board pages pass `{ quality }` to `BoardViewport`'s `settings`, kept as one
 object while the quality does not change; `GameCanvas` calls `GameScene.setSettings` when it changes, which re-applies the
 look, the antialiasing and the pixel-ratio cap, so an open board changes without a reload. *Tile preview* and *placement highlight* are wired in the board, not the renderer (which has
 no switch, and none was added): off, `BoardViewport` hands the canvas no ghost, or no lit slot. The plan view (the fallback
-without WebGL) still lights its slots. *Sound* and *music* are stored only: the app plays no audio yet. *The account* is the
+without WebGL) still lights its slots. *Sound* is stored only: the app plays no sound effects yet. *Music* is the player below (P-81), not yet mounted in the app. *The account* is the
 wallet's: the controller username, or the short address, with Disconnect (the wallet's own, then Home with `?ref=` kept), and
 a guest sees Connect; the links to Theme and Referral keep `?ref=`; the version line is the package's, bundled by the build.
 The shell's footer keeps its Disconnect: it is on every page that has a footer, Settings is one tab away, and removing it is a
 product call, not this page's; the D-15 notice stays where it is.
+
+**Music (P-81, components first).** The 16 tracks live in `packages/app/public/music/` (URL-safe names, `00-endless-kingdom.m4a`),
+served as static files and streamed: never imported, bundled or prefetched. `lib/music/player.ts` (its own lazy chunk, loaded
+by `MusicProvider` when it mounts) makes two `<audio>` elements with `preload="none"` and no `src`; the first track is
+requested only after the first user gesture (`pointerdown`, `keydown`, `touchend` or `click`, the autoplay rule). The playlist
+is a shuffled pass over all tracks, then another whose first track is never the one just played (`createShuffle`). The next
+track starts 2 s before the end on the idle element and the two `volume`s cross, driven by the outgoing track's own clock
+(no Web Audio graph; iOS Safari keeps `volume` at 1, so there the fade is a cut and the slider has no effect). A hidden tab pauses
+both elements and a visible one resumes them. Reduced motion has no effect on music. `music` (on) and `musicVolume` (0.4)
+sit in `paved.settings.v1`; the Settings "Music" row is a switch with a volume slider (`elements/music-setting.tsx`), and
+`containers/music-player.tsx` is the player (play or pause, next, volume, the title from the file name, the time). No route or
+shell mounts the provider yet: only the stories do.
 
 *The viewer's opt-out (PM, 2026-10-16).* `paved.theme.v1` is the switch of the players' skins: `"default"` shows every board
 (Challenge, Training, the tutorial, the hand) on the base models, whoever's game it is, and `useBoardSkins` then returns
