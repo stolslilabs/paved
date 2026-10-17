@@ -2334,8 +2334,10 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
     `app-web-assets/draco/*`, `app-web-assets/assets/tiles/*`), `THIRD_PARTY_NOTICES.txt`.
   - VERCEL-CFG (#500) wrote such rules for the Storybook's Vercel project (`vercel.json` at the root): they match this list
     (`assets/*`, `renderer-assets/models/*` and `renderer-assets/tiles/*` immutable; the HTML, `index.json`, `project.json`
-    and the manifest `no-cache`; the rest keeps Vercel's default, which revalidates). The host that serves `storybook.paved.bal7hazar.com` still sent `no-cache` for everything on
-    2026-10-17 (measured with `curl -I`).
+    and the manifest `no-cache`; the rest keeps Vercel's default, which revalidates), and VERCEL-APP (#504) for the
+    client's (`packages/app/vercel.json`: the same, with `fontawesome/*`, `backgrounds/*` and `THIRD_PARTY_NOTICES.txt`
+    `no-cache`). The host that served `storybook.paved.bal7hazar.com` still sent `no-cache` for everything on 2026-10-17
+    (measured with `curl -I`).
   - **Measured** (the warm rows above, `nocache` against `immutable`): on the app, immutable caching saves the
     revalidations (21 requests, about 5.7 kB, but one round trip each): desktop, the first 3D tile 859 → 584 ms; phone,
     2123 → 1822 ms. On Storybook the board's models were unhashed (app-web's), so immutable caching did not reach them;
