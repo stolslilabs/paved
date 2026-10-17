@@ -2205,10 +2205,28 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
      before the scene starts (desktop cold: 639 ms → 280 ms after navigation; phone cold: 2351 → 1565 ms). Tests:
      `packages/app/__tests__/renderer-manifest-early.test.ts`, `asset-loader-order.test.ts` ("reads a manifest the host
      already asked for…").
-  3. **Storybook's board stories on the compressed models** is the largest item for the owner's story, and it is **not in
-     this task's files** (the stories under `src/components/`, `mocks/assets.ts`, `.storybook/`): measured on a scratch copy
-     of the built Storybook whose plain models are the compressed ones (the same loader path), a cold visit is 2.63 MB
-     instead of 16.5 MB, and the phone profile draws the board in 12.8 s instead of 21.3 s. Left as an escalation.
+  3. **Storybook's board stories on the app's compressed models** (the coordinator widened the task's files for it): the
+     stories at `APP_ASSETS` (`/renderer-assets`, the app's `public/renderer-assets/`) get the app's manifest before any
+     scene asks (`.storybook/preview.tsx`, `provideManifest(APP_ASSETS, APP_MANIFEST)`). `APP_MANIFEST`
+     (`src/mocks/assets.ts`) is read from the file names and equals the build's `rendererManifest()`
+     (`__tests__/storybook-assets.test.ts`). The board scene, `BoardViewport`, `TileView`, and the renderer boards
+     (outlines, lighting, skins, placement) read it. A guard in the same test fails when a story hands the renderer
+     app-web's folder, except three named readers: the tile browser (the source models, `models/extended/` among them,
+     which only app-web holds), "Renderer/Tiles" with its original images (as before TEX), and `hand-panel.stories.tsx`'s
+     `Rendered` (not in this task's files). So app-web's folder stays in the Storybook build (48.4 MB in all, about the
+     same), until those three move. Measured on the built Storybook (5 runs; the warm rows run alternately, 6 runs each,
+     since the load moved between the first runs):
+
+     | `scenes-board--board-72`, no-cache | Page bytes | First 3D tile | **Board drawn** |
+     |---|---|---|---|
+     | desktop, cold: before / after | 16.51 MB / 2.40 MB | 1462 / 1528 | **2178 / 2426** |
+     | phone, cold: before / after | 16.51 MB / 2.40 MB | 21894 / 7817 | **25378 / 10546** |
+     | desktop, warm: before / after | 3.9 kB / 3.9 kB | 1268 / 1171 | **1908 / 1886** |
+     | phone, warm: before / after | 4.0 kB / 4.0 kB | 4802 / 4538 | **7172 / 7551** |
+
+     Cold on the phone profile, the board comes 14.8 s sooner (2.4x); on the desktop profile the network is local, so the
+     download was never the cost there, and the difference is inside the noise. Warm, nothing is downloaded either way:
+     the compressed models' meshopt decode costs no more than the plain models' parse, within the noise.
 - **Not done, and why.** Decode in a worker and the decoder at app start: meshopt already decodes in two workers
   (`MeshoptDecoder.useWorkers(2)`, ready in 70 to 380 ms, before the manifest is in), and the decode's tail is the wait for
   the main thread, not the decode. Merging the 19 models into one binary: the models download in parallel over HTTP/2 in
@@ -2218,8 +2236,8 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
   first. The 2D placeholders already show at once and stay until the models arrive (5.6).
 - **Where the time goes now** (app, desktop, cold): the board's code and React until the scenes start (about 0.4 to 0.5 s
   here), the first models and images (in by 0.75 s), then the two scenes' first frames; the board's waits on the main
-  thread behind the hand's compile and link (software). The bundle: entry +136 B raw (+48 gzip), the board's chunk +1,014 B
-  (+441), first-load JS +681 B (+411), against main 97859343; all within `bundle-budget.json`, unchanged.
+  thread behind the hand's compile and link (software). The bundle: entry +136 B raw (+56 gzip), the board's chunk +1,010 B
+  (+376), first-load JS +681 B (+416), against main 4598b6d3 (SLOTS merged); all within `bundle-budget.json`, unchanged.
 - **Targets.** On software WebGL, the first 3D tile (the hand's) comes at 0.93 s cold and 0.58 to 0.86 s warm on desktop:
   inside both targets. The board itself is drawn at 1.58 s cold (under 2 s) and 1.35 to 1.46 s warm (over 1 s): what is
   left is the compile stall, a GPU row. Phone profile: the first 3D tile at 3.2 s cold, 1.8 to 2.1 s warm; the board at 4.3
@@ -2283,8 +2301,9 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
     2026-10-17 (measured with `curl -I`).
   - **Measured** (the warm rows above, `nocache` against `immutable`): on the app, immutable caching saves the
     revalidations (21 requests, about 5.7 kB, but one round trip each): desktop, the first 3D tile 859 → 584 ms; phone,
-    2123 → 1822 ms. On Storybook the board's models are unhashed (app-web's), so immutable caching does not reach them
-    until the stories read the compressed, hashed copies (fix 3).
+    2123 → 1822 ms. On Storybook the board's models were unhashed (app-web's), so immutable caching did not reach them;
+    the stories now read the hashed copies (fix 3), which the rules above cover (not measured on Storybook with immutable
+    headers).
 - **Zero flicker and 12 ms.** No per-frame code changed: the render loop, the materials, the outlines and the effects are
   untouched; the changes are in the loading path only. The bench ran as a smoke run here (headless, software WebGL, 72
   tiles: 74 draw calls a frame, as before) and its frame time is not a figure: the frame-time and flicker re-run is a GPU
