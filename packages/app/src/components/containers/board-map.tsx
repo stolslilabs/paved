@@ -50,7 +50,7 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
       data-confirm
       style={style}
       className={cn(
-        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] border-2 border-meadow-400 bg-meadow-200/30 shadow-[0_0_12px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
+        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] border-2 border-meadow-400 bg-meadow-400/15 shadow-[0_0_12px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
         faded && "opacity-0",
       )}
     />
@@ -143,8 +143,8 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
               {chosen && ghost && (
                 <>
                   <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="size-full rounded-[2px] border opacity-90" />
-                  {/* The veil: pale, the state's colour. */}
-                  <span aria-hidden className={cn("absolute inset-0 rounded-[2px]", red ? "bg-ember-200/30" : "bg-gold-100/25")} />
+                  {/* The veil: the state's own colour, the neon's, at a low opacity (SLOTS2). */}
+                  <span aria-hidden className={cn("absolute inset-0 rounded-[2px]", red ? "bg-ember-500/15" : "bg-primary/15")} />
                 </>
               )}
             </button>
