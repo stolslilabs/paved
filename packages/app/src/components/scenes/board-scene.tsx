@@ -1,8 +1,10 @@
 import type { TileArt } from "../elements/tile-chip";
 import { useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { toast } from "sonner";
+import { toastError } from "../containers/error-toast";
+import { errorDetail } from "../../routes/error-detail";
 import { Notice } from "../elements/notice";
+import { BoardMap } from "../containers/board-map";
 import { useDeferred } from "../../lib/deferred";
 import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import type { BoardGhost } from "../containers/board-viewport";
@@ -13,10 +15,11 @@ import { HandPanel, type HandState } from "../containers/hand-panel";
 
 export type BoardMode = "challenge" | "training" | "tutorial";
 
-// The plan view and the Surrender dialog are not the first frame's: their modules load when first needed, and in the browser's
-// idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`).
-const loadBoardMap = () => import("../containers/board-map");
+// The Surrender dialog (and Radix under it) is not the first frame's: its module loads at the first Surrender, and in the
+// browser's idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`). The plan view stays: it is
+// the board where the canvas cannot start, and 1.6 KB gzip does not buy a second fetch there.
 const loadSurrenderDialog = () => import("../containers/surrender-dialog");
+const PREFETCH_AFTER_MS = 3000;
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
 
@@ -92,34 +95,24 @@ export function BoardScene(props: BoardSceneProps) {
   useEffect(() => {
     if (promptSurrender) setSurrendering(true);
   }, [promptSurrender]);
-  const hasCanvas = props.canvas != null;
-  // After the first frame, when the browser is idle: the modules a tap or a failure of the canvas would ask for.
+  // Once the board has had its models and its first frame (`PREFETCH_AFTER_MS`), and the browser is idle: the module the
+  // Surrender button would ask for. Sooner, its request would queue with the models'.
   useEffect(() => {
     if (!prefetchAllowed()) return;
-    return whenIdle(() => {
-      void loadSurrenderDialog().catch(() => {});
-      if (hasCanvas) void loadBoardMap().catch(() => {});
-    });
-  }, [hasCanvas]);
-  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering, () => {
+    let cancel = () => {};
+    const timer = setTimeout(() => (cancel = whenIdle(() => void loadSurrenderDialog().catch(() => {}))), PREFETCH_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      cancel();
+    };
+  }, []);
+  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering, (e) => {
     setSurrendering(false);
-    toast.error("The Surrender dialog could not load", { description: "Check your connection and try again." });
+    toastError({ title: "Surrender", message: "The Surrender dialog could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
-  // Without the 3D canvas the scene draws the plan view: its module is asked for now, and a failure says so in its place.
-  const [mapFailed, setMapFailed] = useState(false);
-  const boardMap = useDeferred(loadBoardMap, !hasCanvas, () => setMapFailed(true));
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ??
-        (boardMap ? (
-          <boardMap.BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />
-        ) : (
-          mapFailed && (
-            <Notice tone="warning" title="The board could not load" className="pointer-events-auto absolute inset-x-2 top-24 mx-auto max-w-2xl">
-              Its plan view did not load. Check your connection and reload the page.
-            </Notice>
-          )
-        ))}
+      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud

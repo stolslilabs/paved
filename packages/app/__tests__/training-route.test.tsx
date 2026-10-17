@@ -229,13 +229,13 @@ describe("/training (P3)", () => {
     const { router } = open("/training", store);
     await tilesOnBoard();
     await userEvent.click(within(hand()).getByRole("button", { name: /Surrender/ }));
-    expect(screen.getByRole("dialog", { name: "Surrender this game?" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Surrender this game?" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(loadGame(() => store)!.moves).toEqual([]);
 
     await userEvent.click(within(hand()).getByRole("button", { name: /Surrender/ }));
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Surrender" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Surrender" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"));
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     expect(loadGame(() => store)!.moves).toEqual([{ k: "s" }]);

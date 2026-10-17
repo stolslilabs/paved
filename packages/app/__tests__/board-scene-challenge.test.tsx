@@ -16,9 +16,9 @@ describe("BoardScene, Challenge (P5)", () => {
     expect(screen.getByText("Connect to play")).toBeInTheDocument();
   });
 
-  it("promptSurrender opens the Surrender dialog, which says why", () => {
+  it("promptSurrender opens the Surrender dialog, which says why", async () => {
     render(wrap(<BoardScene {...BOARD.expired} promptSurrender />));
-    const dialog = screen.getByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/24 hours are over/)).toBeInTheDocument();
   });
 

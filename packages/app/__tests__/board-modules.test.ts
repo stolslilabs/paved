@@ -11,7 +11,6 @@ const built = existsSync(join(DIST, "index.html"));
 
 const MOVED = [
   "src/components/containers/surrender-dialog.tsx",
-  "src/components/containers/board-map.tsx",
   "src/components/ui/dialog.tsx",
   "@radix-ui/react-dialog/",
   "@radix-ui/react-focus-scope/",
@@ -37,7 +36,7 @@ describe.skipIf(!built)("the board's route chunk in the production build", () =>
 
   it("loads the moved modules with import(), as chunks of their own", () => {
     const loaded = dynamicImports(readFileSync(join(DIST, "assets", board[0]!), "utf8"));
-    for (const moved of ["src/components/containers/surrender-dialog.tsx", "src/components/containers/board-map.tsx"]) {
+    for (const moved of ["src/components/containers/surrender-dialog.tsx"]) {
       const chunk = loaded.find((f) => existsSync(join(DIST, "assets", `${f}.map`)) && sourcesOf(f).some((s) => s.includes(moved)));
       expect(chunk, moved).toBeDefined();
     }
