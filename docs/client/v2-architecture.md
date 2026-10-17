@@ -1,5 +1,7 @@
 # Client v2: the benchmark and the architecture proposal
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 Dated 2026-10-14. Track CLIENT, programme "Client v2" (PM ruling P-57). The specification is
 [`spec-v1.md`](spec-v1.md): section A is the owner's text, section B the PM's rulings. This document is
 the step (a) of P-57 B2: the benchmark of the reference clients and the architecture proposal, before
@@ -757,7 +759,7 @@ packages/app/
 
 **Static dirs.** `main.ts` takes its `staticDirs` from `scripts/storybook-static-dirs.ts`: the app's `public/` at the root
 (Font Awesome scripts; `renderer-assets/`: the hashed models and 256 px tiles, which stories with a manifest of their own load
-from `/renderer-assets`) and app-web's `public/` at `/app-web-assets` (plain models, the original tile images, the Draco decoder:
+from `/renderer-assets`) and `asset-sources/` at `/asset-sources` (plain models, the original tile images, the Draco decoder:
 the stories with no manifest). Storybook copies the entries at once, and two copies creating one folder raced on `mkdir`
 (`EEXIST`, three CI failures, SB-COPY), so no two entries write a folder in common: `build-storybook` runs the check first and
 `__tests__/storybook-static-dirs.test.ts` covers it.
@@ -769,8 +771,8 @@ The sidebar follows the tiers:
 | **Foundations** | Colors (every scale 50–950 with its hex and OKLCH, then the semantic tokens on their real backgrounds, with the contrast ratio), Typography (each family, weight and size step, the tabular numbers), Icons (the Font Awesome set in use), Motion (button press, tab indicator, sheet, toast, with reduced motion on and off), Spacing and radius, Breakpoints |
 | **UI** | every shadcn primitive in every variant and state (default, hover, focus, disabled, loading) |
 | **Elements** / **Containers** | every game component, one story per state (for example the hand panel: empty, a tile, pending, refused) |
-| **Tiles / Base** | the 19 base tiles of `packages/app-web/public/models/` (the models the game plays), each rendered by the real renderer in a small canvas, rotatable through the four orientations, with its plan code and its 2D PNG beside it |
-| **Tiles / Extended** | the 144 variant models of `origin/dev` (`<plan>_LF_<n>` and `<plan>_HF_<n>`: low and high forest density, 1 to 9 variants per plan, PR #162, 2024; to be brought over from that branch, never merged) and the 18 2D tiles of `app/public/assets/tiles/` that the 19-model set lacks; grouped by plan. Folder: `packages/app-web/public/models/extended/` (the 2D tiles in its `tiles/`). The variants are Draco-compressed: the renderer's `AssetLoader` decodes them lazily, with the decoder self-hosted at `<basePath>/draco/` (`packages/app-web/public/draco/`). `origin/dev` has 38 2D tiles, 20 of them in the 19-model set (`00.png` included), so 18 lack a model. |
+| **Tiles / Base** | the 19 base tiles of `packages/app/asset-sources/models/` (the models the game plays), each rendered by the real renderer in a small canvas, rotatable through the four orientations, with its plan code and its 2D PNG beside it |
+| **Tiles / Extended** | the 144 variant models of `origin/dev` (`<plan>_LF_<n>` and `<plan>_HF_<n>`: low and high forest density, 1 to 9 variants per plan, PR #162, 2024; to be brought over from that branch, never merged) and the 18 2D tiles of `app/public/assets/tiles/` that the 19-model set lacks; grouped by plan. Folder: `packages/app/asset-sources/models/extended/` (the 2D tiles in its `tiles/`). The variants are Draco-compressed: the renderer's `AssetLoader` decodes them lazily, with the decoder self-hosted at `<basePath>/draco/` (`packages/app/asset-sources/draco/`). `origin/dev` has 38 2D tiles, 20 of them in the 19-model set (`00.png` included), so 18 lack a model. |
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
 | **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
@@ -801,7 +803,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
   ASSET-WEIGHT, 2026-10-15).** Under `<base>renderer-assets/` (Vite's `base`), no request leaving the app's origin:
   - **Models, the app's own copy, compressed and content-hashed:** `packages/app/scripts/compress-models.ts`
     (`node scripts/compress-models.ts`; `--check` fails when the committed copy is stale, and a test runs it) reads
-    app-web's 19 base models (`packages/app-web/public/models/<plan>.glb`, unchanged) and writes
+    app-web's 19 base models (`packages/app/asset-sources/models/<plan>.glb`, unchanged) and writes
     `packages/app/public/renderer-assets/models/<plan>.<hash>.glb`, the hash being the first 10 hex digits of the file's
     SHA-256. Per model: vertices renumbered by first use (triangles and their order kept); `KHR_mesh_quantization`, every
     attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; `sfrfrfffr` has one vertex
@@ -820,14 +822,14 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     `packages/app/vite/renderer-assets.ts` from the file names (the build fails when a name's hash is not its file's, or a
     plan has two files): served in dev, written into `dist/` at build. `AssetLoader` reads `<basePath>/manifest.json` once
     per base path; a plan it does not list, or no manifest (a 404 or a body that is not one: Storybook, which still maps
-    app-web's folder whole), loads `models/<plan>.glb`. A network or server error is tried twice more (after 250 and
-    1000 ms), then the scene does not start and the page shows its plan view. Dev still answers those plain names from app-web; the build ships no original model and no Draco
+    `asset-sources/` whole), loads `models/<plan>.glb`. A network or server error is tried twice more (after 250 and
+    1000 ms), then the scene does not start and the page shows its plan view. Dev still answers those plain names from `asset-sources/`; the build ships no original model and no Draco
     decoder.
   - **The Forest models (P11b, 2026-10-16),** theme 1 on chain (`Setup`'s skins, cobbles v1, part 3): the 72 high-forest
-    variants of `packages/app-web/public/models/extended/<plan>_HF_<n>.glb` (every plan has one to nine), written by the same
+    variants of `packages/app/asset-sources/models/extended/<plan>_HF_<n>.glb` (every plan has one to nine), written by the same
     script into `packages/app/public/renderer-assets/models/forest/<plan>_HF_<n>.<hash>.glb`. The low-forest set (`_LF_`) is
-    kept for a later theme and not written. Those sources are Draco-compressed: the script decodes them with app-web's
-    self-hosted Draco decoder (`public/draco/draco_decoder.js`, the renderer's own copy, run in Node: no package added). They
+    kept for a later theme and not written. Those sources are Draco-compressed: the script decodes them with the
+    self-hosted Draco decoder (`asset-sources/draco/draco_decoder.js`, the renderer's own copy, run in Node: no package added). They
     sit on Draco's 14-bit grid, off the origin (a tile spans x -54.9 to -50.9); every coordinate is within Draco's half step
     (1.2e-4) of the 0.1 voxel grid, so each is snapped back to it and stored as an 8-bit integer about the model's centre,
     the offset joining the node's translation: the art's positions exactly, each within 1.3e-4 of the decoded source, which
@@ -840,7 +842,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     SKIN-RENDER (5.6), which draws each tile with its player's active skin. The tests list all 19 plans of Forest and keep `--check` exact
     for both sets. The theme page's tile chips use the base images (the plan view's art, PM ruling): showing the 3D Forest tile
     there would need `TileView` to load a model by path, a renderer change.
- (19, the plan view's and the tile chips'), from app-web's `public/` under their
+ (19, the plan view's and the tile chips'), from `asset-sources/` under their
     plain names, served in dev and copied at build.
   - **Tile images, the app's own 256 px copy, content-hashed (TEX, 2026-10-16; PM ruling of that day: 1680 px was too
     much):** `packages/app/scripts/compress-tiles.ts` (`node scripts/compress-tiles.ts`; `--check` fails when a committed
@@ -861,7 +863,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     and the time before the read ends draw the plan's nine areas, never a request for a file the build does not ship; a read
     that ended earlier is answered in the first render), and the v2 build no longer ships them: `vite/renderer-assets.ts` neither
     serves nor copies `assets/tiles/`, so `dist/` holds the 19 copies, 83,283 B, and no original (319,815 B less). Storybook
-    maps app-web's `public/` itself and still has the originals, which its stories name explicitly (`originalTileArt`). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
+    maps `asset-sources/` itself and still has the originals, which its stories name explicitly (`originalTileArt`). Measured (headless Chromium, software WebGL (SwiftShader), the "Renderer/Tiles" story, 19 plans on one
     board; the phone profile is 360 x 740, device pixel ratio 2, touch and a coarse pointer, so the renderer's
     small-screen path): the images the tile materials hold on the GPU, computed per texture (width x height x 4, times 4/3
     with mipmaps; `renderer.info.memory.textures` counts textures, not bytes, and read, before and after alike, 27 in the plan view
@@ -2449,8 +2451,8 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
   - **`no-cache`:** `index.html`, `iframe.html`, `index.json`, `project.json`, `renderer-assets/manifest.json`; every
     unhashed file: `fontawesome/js/{fontawesome,solid,thin}.min.js` (the subset, no hash in its name), `backgrounds/*`,
     `favicon*.svg`, the `nunito-sans-*.woff2` and `sb-common-assets/*`, `sb-manager/*`, `sb-addons/*`,
-    `vite-inject-mocker-entry.js`, and app-web's folder in Storybook (`app-web-assets/models/<plan>.glb`,
-    `app-web-assets/draco/*`, `app-web-assets/assets/tiles/*`), `THIRD_PARTY_NOTICES.txt`.
+    `vite-inject-mocker-entry.js`, and `asset-sources/` in Storybook (`asset-sources/models/<plan>.glb`,
+    `asset-sources/draco/*`, `asset-sources/assets/tiles/*`), `THIRD_PARTY_NOTICES.txt`.
   - VERCEL-CFG (#500) wrote such rules for the Storybook's Vercel project (`vercel.json` at the root): they match this list
     (`assets/*`, `renderer-assets/models/*` and `renderer-assets/tiles/*` immutable; the HTML, `index.json`, `project.json`
     and the manifest `no-cache`; the rest keeps Vercel's default, which revalidates), and VERCEL-APP (#504) for the

@@ -9,7 +9,7 @@ const fixture = (name: string) => readFileSync(join(dirname(fileURLToPath(import
 
 /**
  * P-66: no number or date is formatted by the user's locale. Every call goes through `packages/game-core/src/format.ts`.
- * app-web's own files are not scanned (its code is out of this guard's scope); the overlays of `packages/ui` are.
+ * The overlays of `packages/ui` are scanned too.
  */
 describe("locale guard (P-66)", () => {
   it("fails on a fixture of bare calls: every line is found", () => {

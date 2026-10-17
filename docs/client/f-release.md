@@ -1,5 +1,7 @@
 # The client release at F (the fresh Sepolia deployment)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 Written 2026-10-14 (F0, track CLIENT). P-53: one fresh Sepolia deployment after D-23b (#354). At F the Sepolia client and the
 indexer are released **together**, against F's deployment file, with a single indexer rebuild at schema 11. This is the
 checklist of that release. It is a description: **nothing is sent, deployed or changed on the VPS until CORE's F part B has merged**
@@ -127,8 +129,8 @@ request. A Vercel project reads the `vercel.json` of **its own root directory**,
 | `paved` (web client) | `packages/app` | `packages/app/vercel.json` | the app's workspace dependencies, then the app's own `build` script (FA-subset check, `tsc -b`, `vite build`, bundle budget) from the workspace root; serves `dist` | `https://paved-bay.vercel.app` |
 | `paved-doc` (docs) | `book` | `book/vercel.json` | `npm ci`, `npm run build`; serves `docs/dist`; an ignore step (`vercel-ignore-build.sh`); deploys of `main` only. Not touched: linked for reading only | `https://docs.paved.gg` (alias `https://paved-doc.vercel.app`) |
 
-The web client is the Client v2, `packages/app`. `packages/app-web` is the legacy client: it stays on `main`, is built by the VPS
-(`https://paved.bal7hazar.com`, "Building the client"), and no Vercel project builds it, so its `vercel.json` is gone. The docs
+The web client is the Client v2, `packages/app`. The legacy client, `packages/app-web`, was removed in P-70 (see git history); no Vercel
+project built it. The docs
 project's `book/vercel.json` and the legacy `app/vercel.json` are other projects' files; neither is read by these two.
 
 What the files set:
@@ -157,7 +159,7 @@ What the files set:
 - **Ignore step (GUARDS, P-71).** Each file's `ignoreCommand` runs `scripts/vercel/ignore-build.sh client` or `storybook`: a
   deployment builds only when one of its project's inputs changed since the merge base with `main` (a pull request) or the last
   production build (`main`); on any doubt it builds. The Storybook's inputs are `packages/app`, `game-core`, `renderer`, `chain`,
-  `ui`, `packages/app-web/public`, `contracts/abis`, `contracts/deployments`, `bun.lock`, the root `package.json`, `turbo.json`,
+  `ui`, `contracts/abis`, `contracts/deployments`, `bun.lock`, the root `package.json`, `turbo.json`,
   `tsconfig.base.json` and the root `vercel.json`, without any `*.md`; the client's are the same without the stories
   (`*.stories.tsx`, `src/stories/`, `.storybook/`) and the root `vercel.json` (`--paths <project>` prints them). Docs, the
   indexer, Cairo sources, `.github/` and `.claude/` build neither; the docs project builds on `book/` only.

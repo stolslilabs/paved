@@ -6,7 +6,7 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
 # paved-ui
 
 `packages/app` is the v2 client (`docs/client/v2-architecture.md` is the design; `packages/app/README.md` the layout).
-`packages/app-web` is the old client and `app/` is deprecated: build nothing new there. Paths below are relative to
+`app/` is deprecated: build nothing new there. Paths below are relative to
 `packages/app/`.
 
 ## Tiers

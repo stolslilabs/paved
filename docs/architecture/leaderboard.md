@@ -1,5 +1,7 @@
 # Leaderboard behind an interface (P6, design)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 Design of the on-chain leaderboard of the Daily tournaments as an interface that the game flow calls, so that the
 current implementation can be replaced by a published package without a change to the game flow, the public views
 or the events. Part 1, stage A is implemented (`contracts/src/leaderboard.cairo`, PR "refactor: P6 leaderboard behind an interface (stage A)"); the measured figures below replace the estimates the first version of this document gave.

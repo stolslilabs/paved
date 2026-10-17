@@ -1,5 +1,7 @@
 # Public read-only interface
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 The views that `Challenge` (named `Daily` before D-23) and `Tutorial` expose so that a client can show a game, its board, the
 characters of its player and the Daily tournaments without an indexer. Events give the lists ("my
 games", history); views give the current state of one game or one tournament.

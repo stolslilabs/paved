@@ -1,5 +1,7 @@
 # Client economy (P8)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 How the web client buys a paid Challenge game in USDC, settles it after the day, and deposits PAVED in the Vault for
 vPAVED (P-56: "The Vault as vPAVED" below). The
 contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are

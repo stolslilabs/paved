@@ -98,7 +98,7 @@ export function useTutorialRun(): {
 export const TUTORIAL_TASK = 10;
 
 /**
- * The outcome of one `Setup.claim_tutorial()` (app-web's `TutorialClaim.tsx`). The call is idempotent (D-21, P-49): the
+ * The outcome of one `Setup.claim_tutorial()` (the legacy client's `TutorialClaim.tsx`). The call is idempotent (D-21, P-49): the
  * first emits `AchievementProgressed { task 10 }`, a later one nothing, so the receipt tells them apart.
  */
 export function claimOutcome(result: WriteResult): "claimed" | "already-claimed" {

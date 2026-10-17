@@ -1,5 +1,7 @@
 # Hosting the indexer for the Sepolia client
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 Dated 2026-10-10. Decision D-16 (public test deployment of Paved on Starknet Sepolia, for playtests). This is what
 `packages/indexer` needs to serve the public client. It is a description, not a deployment: nothing here is running, and
 **where it runs is the owner's choice** (section 5; the exact procedure for this VPS is "Runbook: this VPS (Sepolia)" below). Options and rules of the process: `packages/indexer/README.md`; design:

@@ -21,7 +21,7 @@ sh scripts/contracts.sh
 ### Terminal 3 - Local stack
 
 The Dojo and Torii scripts (`scripts/indexer.sh`, `scripts/dev-stack.sh`) were removed with the Dojo
-contracts (P2). The client (`packages/app-web`) reads `contracts/deployments/<network>.json`
+contracts (P2). The client (`packages/app`) reads `contracts/deployments/<network>.json`
 (`VITE_NETWORK`, default `devnet`), written by CORE's deploy script; each `VITE_*` variable set
 overrides it: `VITE_RPC_URL`, `VITE_DEPLOYED_BLOCK`, `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`
 (`VITE_TOKEN_ADDRESS` is gone: the entry token is the Faucet, read from `Challenge.entry_price`, and the faucet is `contracts.Faucet` of the file, with no env override; no `Account` since D-25 E: a player is the wallet address, with no registration, and the
