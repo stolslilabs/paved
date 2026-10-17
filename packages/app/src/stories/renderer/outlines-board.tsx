@@ -25,11 +25,10 @@ export interface OutlinesBoardProps {
   /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
   force?: "auto" | "on" | "off";
   /**
-   * The fade's range (OUT-FADE2): "whole range" fully on at the closest zoom (30 S), off at 0.85 S; "fade 1.3" and
-   * "fade 1.15" (OUT-FADE's) fully on from 1.3 S or 1.15 S, also off at 0.85 S. A range sets the full factor below;
-   * "custom" leaves it to its control.
+   * Where the fade starts (OUT-FADE2): "1.5 S" (the default) fully on from 1.5 x the opening tile size S; "max zoom-in"
+   * the closest zoom (30 S), the literal whole-range fade; "custom" leaves it to the start control below.
    */
-  fadeRange?: FadeRange;
+  fadeStart?: FadeStart;
   /** The curve 1 - t^p: "linear" p = 1, "square" p = 2 (the default), "cube" p = 3; "custom" leaves p to its control. */
   fadeCurve?: FadeCurve;
   fadeExponent?: number;
@@ -54,24 +53,23 @@ export interface OutlinesBoardProps {
   maxPixelRatio?: number | "auto";
 }
 
-export type FadeRange = "whole range" | "fade 1.3" | "fade 1.15" | "custom";
+export type FadeStart = "1.5 S" | "max zoom-in" | "custom";
 export type FadeCurve = "linear" | "square" | "cube" | "custom";
 
 /** The curves' exponents p of 1 - t^p (the renderer's `OUTLINE_FADE_PRESETS`, which its index does not export). */
 const FADE_CURVES = { linear: 1, square: 2, cube: 3 } as const;
 
-/** The ranges' full factors (shares of the opening tile size S); all are off at 0.85 S. */
-export const FADE_RANGES = {
-  "whole range": { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor },
-  "fade 1.3": { fadeFullFactor: 1.3 },
-  "fade 1.15": { fadeFullFactor: 1.15 },
+/** The starts' full factors (shares of the opening tile size S); the fade is off at 0.85 S. 30 is the closest zoom. */
+export const FADE_STARTS = {
+  "1.5 S": { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor },
+  "max zoom-in": { fadeFullFactor: (DEFAULT_RENDERER_SETTINGS.camera.maxDistance * 0.8) / DEFAULT_RENDERER_SETTINGS.camera.minDistance },
 } as const;
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
-  fadeRange: "whole range" as FadeRange,
+  fadeStart: "1.5 S" as FadeStart,
   fadeCurve: "square" as FadeCurve,
   fadeExponent: OUTLINES.fadeExponent,
   fadeEasedEnd: OUTLINES.fadeEasedEnd,
@@ -142,7 +140,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const merged = { ...SETTINGS_DEFAULTS, ...rest };
   const o = {
     ...merged,
-    ...(merged.fadeRange === "custom" ? {} : FADE_RANGES[merged.fadeRange]),
+    ...(merged.fadeStart === "custom" ? {} : FADE_STARTS[merged.fadeStart]),
     ...(merged.fadeCurve === "custom" ? {} : { fadeExponent: FADE_CURVES[merged.fadeCurve] }),
   };
   const settings = useMemo<RendererSettingsInput>(

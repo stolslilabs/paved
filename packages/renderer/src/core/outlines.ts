@@ -16,8 +16,8 @@ import { TILE_SIZE } from "./types";
  *
  * The width is set in the world, as a fraction of a voxel (`widthVoxels`), converted to device pixels at the camera's
  * target, kept to at least `minWidthDevicePx` (a hairline) and capped at `maxWidthPx` CSS px when zoomed in. Zoomed out
- * the outlines fade over the whole zoom range (OUT-FADE2): fully on at the closest zoom (`fadeFullFactor` of the tile size
- * S the board opens at on this viewport, `OUTLINE_CLOSEST_FACTOR` x S) to off at `fadeOffFactor` x S, as `1 - t^p` where
+ * the outlines fade (OUT-FADE2): fully on from `fadeFullFactor` of the tile size S the board opens at on this viewport (the fade's
+ * start: 1.5 S, up to the closest zoom, `OUTLINE_CLOSEST_FACTOR` x S) to off at `fadeOffFactor` x S, as `1 - t^p` where
  * t runs from 0 to 1 on the logarithm of the tile size: a wheel step multiplies the tile size by a constant, so each step
  * moves t by the same amount. They are drawn after the faces with a depth bias towards the camera: an outline lies
  * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
@@ -45,7 +45,7 @@ export interface OutlineSettings {
   /**
    * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is
    * `1 - t^p` of the logarithm of the tile size (`outlineFade`). The default is the closest zoom's share
-   * (`OUTLINE_CLOSEST_FACTOR`): the fade spans the whole zoom range.
+   * (`OUTLINE_FADE_START`, 1.5 S): the fade's start, from `MIN_FADE_START` (1.5) up to `OUTLINE_CLOSEST_FACTOR` (the closest zoom, 30 S).
    */
   fadeFullFactor: number;
   /** The exponent p of the fade `1 - t^p`, in [1, 4]: 1 linear, 2 square (gentle at first, faster near the threshold), 3 cube. */
@@ -83,6 +83,11 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
  */
 export const OUTLINE_CLOSEST_FACTOR = OPENING_DISTANCE / CLOSEST_DISTANCE;
 
+/** The fade's default start (PM ruling 2026-10-17): fully on from 1.5 S; about 0.49 at the opening view with the square curve. */
+export const OUTLINE_FADE_START = 1.5;
+/** The lowest start the story offers. */
+export const MIN_FADE_START = 1.5;
+
 /** The exponent's range in the story's control. */
 export const MIN_FADE_EXPONENT = 1;
 export const MAX_FADE_EXPONENT = 4;
@@ -93,12 +98,12 @@ const EASED_END_SPAN = 0.25;
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
   force: "auto",
-  // The fade follows the opening tile size S: off at 0.85 S (the historic threshold), fully on at the closest zoom
-  // (30 S), `1 - t^p` of log(tile px) between (OUT-FADE2), p = 2. A 360 x 780 phone opens at about 52 px a tile (off at
+  // The fade follows the opening tile size S: off at 0.85 S (the historic threshold), fully on from the start
+  // (1.5 S; up to the closest zoom, 30 S), `1 - t^p` of log(tile px) between (OUT-FADE2), p = 2. A 360 x 780 phone opens at about 52 px a tile (off at
   // 44), a 900 px high window at about 60 (off at 51, over the farthest zoom's 48 px: the outlines vanish zoomed out).
   // At S itself the opacity is no longer 1: see `outlineOpacityAtOpening`.
   fadeOffFactor: 0.85,
-  fadeFullFactor: OUTLINE_CLOSEST_FACTOR,
+  fadeFullFactor: OUTLINE_FADE_START,
   fadeExponent: 2,
   fadeEasedEnd: false,
   // 1.5 % of a voxel, in the 1 to 2 % that keeps the stroke thin. That is under a device pixel until a voxel is about 33 CSS px wide
@@ -139,7 +144,7 @@ const OFF: OutlineStroke = { width: 0, opacity: 0 };
 /**
  * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px, where the board
  * opens at `openingTilePx` (S, `openingTilePixels`). The opacity is 0 at or below `fadeOffFactor` x S, 1 at or above
- * `fadeFullFactor` x S (the closest zoom), `outlineFade` between, and 0 below `MIN_OUTLINE_OPACITY`. The width
+ * `fadeFullFactor` x S (the start), `outlineFade` between, and 0 below `MIN_OUTLINE_OPACITY`. The width
  * is `widthVoxels` of a voxel at that zoom, in device px, at least `minWidthDevicePx` and at most `maxWidthPx` CSS px.
  * Width and opacity never decrease as the camera zooms in.
  */
