@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "bun install --frozen-lockfile",
+  "ignoreCommand": "[ -f scripts/vercel/ignore-build.sh ] && sh scripts/vercel/ignore-build.sh storybook || exit 1",
   "buildCommand": "bun run build --filter @paved/app^... && NODE_OPTIONS=--max-old-space-size=3072 bun run --cwd packages/app build-storybook",
   "outputDirectory": "packages/app/storybook-static",
   "headers": [

@@ -112,6 +112,16 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - Record the peak in each PR.
 - Committed figures stay measured on Linux (CI or VPS): gas, pins, baselines.
 
+## Before you push
+
+- `check-run -- bun run check` (alias `check:pr`) mirrors the CI's fast jobs on what the branch touches since its merge base with
+  `origin/main`: the contracts' format (`scarb fmt --check`, skipped when scarb is absent), lint, typecheck, the guard tests, the
+  unit tests of the touched packages and their dependents (heap caps of the table above), the Vercel builds of the projects whose
+  inputs changed (Sepolia env), and `bun run budget` (limit, measured size, margin). Its last line is the summary. A CORE change of
+  `contracts/abis` or `contracts/deployments` runs the indexer's, chain's and game-core's tests: most failed CI jobs came from there.
+- The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
+  on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
+
 ## Skills
 
 Agent skills follow the Overseer's ruling (2026-10-14):
