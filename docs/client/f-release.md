@@ -116,6 +116,41 @@ The 19 models are 1,089,624 B as files; gzip (level 6) takes them to about 665,2
 were measured on the files, not over the network. `vite preview` compresses only text and JavaScript, so the figures in
 `v2-architecture.md` 4.2 are the files as they are. The cache headers are those of 4.2.
 
+## Vercel
+
+Two Vercel projects build from this repository; their settings live in `vercel.json` files, changed by reviewed pull request. A Vercel
+project reads the `vercel.json` of **its own root directory**, so each file below touches only its project.
+
+| Project | Root directory (dashboard) | Settings file | Builds |
+|---|---|---|---|
+| Storybook | empty (the repository root) | `vercel.json` | `bun run build --filter @paved/app^...`, then `build-storybook` with a 3072 MB heap; serves `packages/app/storybook-static` |
+| Web client | `packages/app-web` | `packages/app-web/vercel.json` | `bun run build --filter @paved/app-web` from the workspace root; serves `dist` |
+
+The docs project (`book/`, its own `book/vercel.json`) and the legacy `app/vercel.json` are other projects' files: neither is read by these two.
+
+What the files set:
+
+- **Install and build.** The Storybook's run from the repository root. The client's run from `packages/app-web`, so they
+  `cd ../..` first: bun resolves the workspaces (`workspace:*`) from the root `package.json` and `bun.lock`, and turbo builds the
+  client's packages (`game-core`, `chain`, `renderer`, `ui`) before it. This needs the dashboard setting **Include files outside of the
+  Root Directory in the Build Step** on (Vercel's default for new projects).
+- **Client build env, not secret:** `VITE_NETWORK=sepolia`, `VITE_INDEXER_URL=https://api.paved.bal7hazar.com`,
+  `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the three of "Building the client"). No other variable, and no secret, in
+  any file or in the dashboard.
+- **Client routes:** every path without a file extension, and outside `assets/`, `models/` and `draco/`, is rewritten to `/index.html`
+  (the single-page app); a missing asset is a 404, not the page.
+- **Cache-Control.** Hashed paths are `public, max-age=31536000, immutable`: Vite's `assets/*` (the client's plain-named
+  `assets/tiles/*` excepted), `renderer-assets/models/*` (the hashed models, `forest/` included) and `renderer-assets/tiles/*` (the
+  `<plan>.256.<hash>.png` images). `/`, `index.html`, `iframe.html`, `index.json`, `project.json` and `renderer-assets/manifest.json` are `no-cache`.
+  The client's build has no `renderer-assets/` yet (its models are plain names); those rules apply once it ships the app's assets.
+  Everything else keeps Vercel's default.
+- **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it).
+
+What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the Node.js
+version (24.x, from `engines`), the domains and the Git connection.
+
+**No secret env, anywhere. No `vercel` command (CLI or API) without the Overseer's go.**
+
 ## The order, with the indexer
 
 The client and the indexer read the same file from the same commit, and the leaderboard needs both, so the order is:
