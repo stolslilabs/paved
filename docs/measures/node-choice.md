@@ -1,6 +1,6 @@
 # Local node choice (P0)
 
-Date: 2026-10-06. Machine: Linux x86_64, 8 cores. Localhost only, nothing on a public network.
+Date: 2026-10-06. Machine: the VPS. Localhost only, nothing on a public network.
 
 Question: which local node accepts Cairo 2.20 classes (Scarb 2.20.1, Sierra 1.9.3) without Dojo,
 for Paved's tests and MVP?

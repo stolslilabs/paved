@@ -6,7 +6,7 @@ No test asserts them, and `contracts/tests/gas.cairo` is untouched.
 
 ## Method
 
-- Code: main `82193903` (the branch of this thread is main plus the brief). Machine: the Mac (aarch64, Darwin),
+- Code: main `82193903` (the branch of this thread is main plus the brief). Machine: the Mac,
   2026-10-14.
 - Toolchain: scarb 2.20.1 (cairo 2.20.0, sierra 1.9.3), snforge 0.64.0, from `~/.asdf/shims` put ahead of
   `~/.local/bin` in the shell (`export PATH=$HOME/.asdf/shims:$PATH`), because `~/.local/bin/scarb` is a stray
