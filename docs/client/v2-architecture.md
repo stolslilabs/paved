@@ -2490,7 +2490,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
 - **The backdrop.**
   - The scene is cleared to transparent. The final pass (`FinishPass`, `BACKDROP`) lays a vertical gradient between two OKLab colours under what the scene left uncovered (its alpha), after the tone map and the grade. The tokens therefore reach the screen as given, under the vignette.
   - The gradient is computed per pixel in OKLab and dithered (interleaved gradient noise, ±0.5 of an 8-bit level, only where the scene is uncovered): there is no banding.
-  - The bloom no longer adds to the alpha (its blend is custom: colour added, alpha kept).
+  - Under the backdrop the bloom keeps three's colour blend (`SRC_ALPHA, ONE`) and adds nothing to the alpha. Without the backdrop the stock blend is untouched: the chain is rebuilt when the backdrop toggles.
   - The fog takes the backdrop's middle colour.
   - Off, the look's flat background and its single sRGB transfer are unchanged.
 - **The sun and the moon.**
@@ -2503,7 +2503,8 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - The fix (`drawDayNight`, in the cycle's chunk): the sun's shadows are held at steps of `SHADOW_STEP` (1° of the arc) and crossfaded between the key light and a twin, a clone of the key with its shadow, added while the cycle is on.
   - Each light holds one step: the key the even ones, the twin the odd ones. The weight moves linearly, so each pixel moves linearly within a step. A light jumps two steps on only while its weight is 0.
   - The maps are drawn again only at a step: about every 0.42 s at ×1, two maps each time. The boil fell to 0.77 at noon (Low: 0.98).
-  - Cost: two shadow lookups per fragment, and a program recompile when the cycle turns on or off (the light count changes).
+  - **Only while the cycle moves** (fix loop 1). A still scene (reduced motion, the Low tier), a held moment (`freezeAt`) and the cycle off draw with the key light alone. The twin is not made, or is released and its shadow map disposed, so there is one shadow map and one lookup compiled. `dispose` releases the twin too, with the context kept or not.
+  - Cost while it moves: two shadow lookups per fragment. A program recompile happens when the cycle starts or stops moving (the light count changes).
 - **The night lights.**
   - FEATURE-HL's classifier gives each model a light map beside its label map (`lightColumns`): a city's columns, and the structures labelled none (stops, houses, arches, bridges) within 2 columns (`ROAD_LIGHT_REACH`) of a road column.
   - The tile shader (`NIGHT_LIGHTS_GLSL`, its own branch, one `texelFetch`, nothing while off) lights a lit column's voxels above the ground. Each window (its column × its voxel level × its tile's cell, by an integer hash) has its own level at which it switches on over 0.15 of the night's ramp. The levels run to 1.6, so about half of the windows are lit at full night.
@@ -2551,13 +2552,13 @@ Every row is under the rules (12 ms desktop, 16.6 ms phone-like); the worst is 1
 | Medium, phone-like | 0 | 0.69 to 1.54 | 0.020 to 0.025 | 0.072 to 0.089 | 0.76 (noon) | ≤ 1.4 |
 | Low, desktop | 0 | 0.26 to 0.57 | 0.031 to 0.066 | 0.107 to 0.134 | 0.98 (noon) | ≤ 2.1 |
 | Low, phone-like | 0 | 0.27 to 0.57 | 0.024 to 0.033 | 0.072 to 0.087 | 0.93 (noon) | ≤ 2.1 |
-| High (control), desktop | 0 | 2.35 to 3.65 | 0.31 to 0.64 | 0.99 to 1.89 | 0.67 | ≤ 1.1 |
-| High (control), phone-like | 0 | 2.32 to 3.60 | 0.53 to 1.21 | 0.73 to 1.65 | 0.69 | ≤ 1.1 |
+| High (control), desktop, first build's bloom blend | 0 | 2.35 to 3.65 | 0.31 to 0.64 | 0.99 to 1.89 | 0.67 | ≤ 1.1 |
+| High (control), phone-like, first build's bloom blend | 0 | 2.32 to 3.60 | 0.53 to 1.21 | 0.73 to 1.65 | 0.69 | ≤ 1.1 |
 
 - **Still and moving camera.** Still frames are pixel-identical at every moment, and every pan registers at its own 3 px.
 - **The floor of each measure.**
   - Pan residuals are the AO's floor at Medium, as in 5.7; they move with the moment's brightness.
-  - The default tiers' sub-pixel and zoom steps are SLOTS2's (0.02 to 0.08 and 0.07 to 0.13), at every phase and in the transitions. High's bloom is caught there, 6 to 60 times higher.
+  - The default tiers' sub-pixel and zoom steps are SLOTS2's (0.02 to 0.08 and 0.07 to 0.13), at every phase and in the transitions. High's bloom was caught there 6 to 60 times higher; that margin was inflated by the first build's bloom blend (fix loop 1 below: 1.2 to 5.7 times with three's blend).
 - **The ×1 sweep.** No pixel moves more than 2.1 levels between two frames. The back-and-forth stays under 1 level over 24 frames: the crossfade's piecewise-linear path.
 - **Before the crossfade**, the noon sweep was 15.6 (Medium) and 18.9 (Low), with a 512-texel map 10.7.
 - **At ×10** (the story's fast forward, 0.8° of arc a frame) the noon back-and-forth is 10.3. These are real shadows crossing a step every 1.3 frames, not a game speed.
@@ -2578,6 +2579,43 @@ At a floor of 0.6 the autumn night was 22.2 (0.21), with the forests near black;
 - `daynight-<season>-<phase>-<1280|360>.webp`: the 16 season × phase moments at 1280 × 800, DPR 2, and 360 × 780, DPR 3, saved at their CSS size.
 - `daynight-strip-x10.webp`: one cycle at ×10, 16 frames 0.75 s apart: a summer day, dusk, night, then autumn's dawn and day.
 - `daynight-forest-skin-night-1280.webp`: the Forest skins at night.
+
+**Fix loop 1 (review t-0517).**
+
+Measured on the Mac's GPU as above, at this branch's head, loads 1.7 to 4.3.
+
+1. **No twin in a still scene.**
+   - On the GPU, a moving cycle has 2 shadow-casting lights, and the tile program is compiled with 2 shadow maps (`directionalShadowMap[2]`). The still scene and the cycle off have 1 and 1.
+   - Tests in `game-scene-daynight.test.ts` and `daynight.test.ts`: a still scene and Low have no twin; going from moving to still, turning the cycle off, and `dispose({ releaseContext: false })` each release the twin and dispose its shadow.
+2. **The bloom's stock blend, cycle off.**
+   - "Renderer/Placement", Slots, at 1280 × 800, DPR 1.75, outlines on, reduced motion, a fixed view. Main's static Storybook (`7ccaefc5`, built from `git archive`) and this branch's, each at High, Medium and Low: **pixel-identical** (PSNR infinite on every channel).
+   - The comparison sees a change: main's High against main's Medium is 17.0 dB.
+3. **The twin's map is freed on `dispose`** (above).
+
+*Frame time, the still scene* (method as above, two rounds; mean p50 / mean p95, worst round in brackets):
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| off | 6.48 / 9.04 (9.63) | 5.16 / 6.69 (6.73) | 5.96 / 7.38 (8.58) | 2.47 / 3.14 (3.18) |
+| still | 6.51 / 9.13 (9.23) | 6.08 / 7.66 (8.41) | 5.70 / 6.42 (6.81) | 2.39 / 3.23 (3.73) |
+| day (moving) | 7.12 / 10.52 (11.28) | 6.07 / 8.11 (8.13) | 5.96 / 7.69 (8.31) | 3.10 / 4.39 (4.96) |
+
+The still scene costs what the cycle off costs, within the runs' noise (one shadow map, no clock). The moving day stays under 12 ms (worst 11.28).
+
+*Zero flicker, the still scene and High.*
+- **The still scene** (Medium, Low and High; desktop and phone-like):
+  - still frames pixel-identical;
+  - pans registered at their own 3 px;
+  - residuals 1.58 / 0.57 / 1.72 desktop and 1.54 / 0.57 / 1.68 phone-like;
+  - sub-pixel steps 0.038 / 0.031 / 0.074 and 0.023 / 0.024 / 0.062;
+  - zoom steps 0.129 / 0.129 / 0.257 and 0.083 / 0.084 / 0.102.
+  It has nothing to sweep: it does not move.
+- **The moving cycle at High**, every moment:
+  - still 0;
+  - ×1 sweep back-and-forth 0.76 at noon and at most 0.34 elsewhere, p99.9 ≤ 1.4 levels;
+  - Medium's re-run at noon gives the same figures as before (0.765).
+- **High as a control is weaker than first reported.** The first campaign's High figures (sub-pixel 0.31 to 1.21, zoom 0.73 to 1.89) were inflated: the first build composited the bloom without its alpha factor, so its glow was stronger for every High user (the review's point 2). With three's blend, High's steps over the cycle are 0.06 to 0.14 sub-pixel and 0.10 to 0.44 zoom. That is 1.7 to 3.3 times Medium's on the desktop and 1.2 to 5.7 times on the phone-like profile: still caught, by a smaller margin.
+- The first campaign's Medium and Low rows stand: the moving path is unchanged.
 
 **Where this differs from the brief, or decides a gap** (the thread's, reversible):
 - *Forest skins.* FEATURE-HL already labels the Forest variants with their own palette table (`FOREST_PALETTE_CLASSES`), so a Forest tile gets night lights like a base tile. The brief expected none until a Later item; nothing waits for that item.
