@@ -55,7 +55,7 @@ const CHOSEN: Slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
 /** A rotation that does not fit there: the placed tile turns red. */
 const RED_ORIENTATION = [1, 2, 3, 4].find((o) => !fitsAt(CHOSEN, o)) ?? HAND.orientation;
 
-function inHand(orientation: number, chosen: Slot | null): Partial<BoardSceneProps> {
+function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps, "tiles" | "slots" | "ghost" | "hand"> {
   const slots: BoardSlot[] = boardSlots(slotsAt, orientation);
   const fits = chosen ? fitsAt(chosen, orientation) : true;
   return {
