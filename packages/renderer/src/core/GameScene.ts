@@ -33,7 +33,6 @@ import {
   type WebGLDetection,
 } from "./outlines";
 import { prefersReducedMotion } from "./placement";
-import { DAY_PHASE_AT, SEASONS } from "./daynight-settings";
 // The day and night cycle is its own chunk: loaded only once the cycle is first on (`loadDayNight`).
 import type * as DayNight from "./daynight";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
@@ -491,11 +490,7 @@ export class GameScene {
 
   /** The cycle's moment to draw, in seasons since a summer's dawn: frozen, still (the first season's noon) or running. */
   private dayNightSeasons(): number {
-    const settings = this.settings.dayNight;
-    if (settings.freezeAt !== null) return settings.freezeAt;
-    const start = this.dayNight!.startSeason(settings.season, settings.seed);
-    if (this.dayNightStill()) return SEASONS.indexOf(start) + DAY_PHASE_AT.day;
-    return this.dayNight!.seasonsAt(this.dayNightClock!.time, settings.cycleMs, start);
+    return this.dayNight!.momentOf(this.settings.dayNight, this.dayNightClock!.time, this.dayNightStill());
   }
 
   /** Whether the cycle moves on its own (neither frozen nor still): the loop then draws it in steps (`frameMs`). */
@@ -994,7 +989,6 @@ export class GameScene {
     this.controls?.dispose();
     this.assets.dispose();
     this.directionalLight?.shadow.dispose();
-    this.dayNight?.releaseDayNight(this.directionalLight);
     this.scene.clear();
     this.latestTiles = [];
     this.onTileClickCallback = null;

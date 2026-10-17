@@ -179,7 +179,7 @@ describe("the cycle's settings", () => {
     expect(resolveRendererSettings().dayNight).toEqual(DEFAULT_DAYNIGHT_SETTINGS);
     expect(DEFAULT_DAYNIGHT_SETTINGS.enabled).toBe(false);
     const set = resolveDayNightSettings({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: -1, brightnessFloor: 4 });
-    expect(set).toMatchObject({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: 120_000, brightnessFloor: 0.6 });
+    expect(set).toMatchObject({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: 120_000, brightnessFloor: 0.85 });
     expect(resolveDayNightSettings({ season: "monsoon" as never, reducedMotion: "sometimes" as never })).toMatchObject({ season: "random", reducedMotion: "auto" });
     expect(resolveRendererSettings({ dayNight: { enabled: true } }).dayNight.enabled).toBe(true);
   });

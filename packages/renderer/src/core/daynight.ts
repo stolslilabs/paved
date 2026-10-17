@@ -3,7 +3,7 @@
 // tiles' night lights (here, not in the board's chunk).
 import type { AmbientLight, DirectionalLight, Fog, FogExp2, HemisphereLight } from "three";
 import { lightDirection } from "./look";
-import { SEASONS, type DayPhase, type Season } from "./daynight-settings";
+import { DAY_PHASE_AT, SEASONS, type DayNightSettings, type DayPhase, type Season } from "./daynight-settings";
 
 /** A colour in OKLab (L, a, b), or in linear sRGB (r, g, b). */
 export type Vec3 = [number, number, number];
@@ -76,7 +76,7 @@ export const KEYFRAMES: Record<Season, Record<DayPhase, Keyframe>> = {
     // river-900 to ember-500; the sun ember-400.
     dusk: { top: "#083559", bottom: "#f85e4d", sun: "#ff8b7b", sunIntensity: 2.4, fill: "#9a9cff", fillIntensity: 0.6, sky: "#c9a8c8", ground: "#2e2620", skyIntensity: 0.85, ambient: 0.2, lights: 0.6 },
     // ink-950 to river-900; the moon river-200.
-    night: { top: "#0a141c", bottom: "#083559", sun: "#ffd8a0", sunIntensity: 0, fill: "#c2e0ff", fillIntensity: 0.9, sky: "#7f9cd0", ground: "#141a24", skyIntensity: 0.55, ambient: 0.14, lights: 1 },
+    night: { top: "#0a141c", bottom: "#083559", sun: "#ffd8a0", sunIntensity: 0, fill: "#c2e0ff", fillIntensity: 1.2, sky: "#7f9cd0", ground: "#141a24", skyIntensity: 0.55, ambient: 0.14, lights: 1 },
   },
   autumn: {
     // ink-800 to amber-500; the sun amber-300.
@@ -86,7 +86,7 @@ export const KEYFRAMES: Record<Season, Record<DayPhase, Keyframe>> = {
     // ember-900 to amber-600.
     dusk: { top: "#5f110c", bottom: "#b66403", sun: "#ff9a60", sunIntensity: 2.2, fill: "#9090e0", fillIntensity: 0.55, sky: "#c09080", ground: "#2a1c14", skyIntensity: 0.8, ambient: 0.18, lights: 0.65 },
     // ink-950 to ember-950.
-    night: { top: "#0a141c", bottom: "#3e0503", sun: "#ffc890", sunIntensity: 0, fill: "#b8c8f0", fillIntensity: 0.8, sky: "#8a86b0", ground: "#1a1410", skyIntensity: 0.5, ambient: 0.13, lights: 1 },
+    night: { top: "#0a141c", bottom: "#3e0503", sun: "#ffc890", sunIntensity: 0, fill: "#b8c8f0", fillIntensity: 1.2, sky: "#8a86b0", ground: "#1a1410", skyIntensity: 0.5, ambient: 0.13, lights: 1 },
   },
   winter: {
     // ink-800 to river-200; the sun gold-100.
@@ -96,7 +96,7 @@ export const KEYFRAMES: Record<Season, Record<DayPhase, Keyframe>> = {
     // ink-900 to river-700.
     dusk: { top: "#172129", bottom: "#1f65a1", sun: "#ffb0a0", sunIntensity: 2, fill: "#a0b0ff", fillIntensity: 0.65, sky: "#a8b4d8", ground: "#3a4250", skyIntensity: 0.85, ambient: 0.2, lights: 0.7 },
     // ink-950 to ink-800; the moon ink-100.
-    night: { top: "#0a141c", bottom: "#23303a", sun: "#f3f7fb", sunIntensity: 0, fill: "#e8ecef", fillIntensity: 1, sky: "#8ca0c8", ground: "#2a3240", skyIntensity: 0.6, ambient: 0.16, lights: 1 },
+    night: { top: "#0a141c", bottom: "#23303a", sun: "#f3f7fb", sunIntensity: 0, fill: "#e8ecef", fillIntensity: 1.2, sky: "#8ca0c8", ground: "#2a3240", skyIntensity: 0.6, ambient: 0.16, lights: 1 },
   },
   spring: {
     // river-800 to gold-200; the sun gold-200.
@@ -106,7 +106,7 @@ export const KEYFRAMES: Record<Season, Record<DayPhase, Keyframe>> = {
     // river-900 to ember-300.
     dusk: { top: "#083559", bottom: "#ffb0a4", sun: "#ffa890", sunIntensity: 2.3, fill: "#a0a8ff", fillIntensity: 0.6, sky: "#d0b0c8", ground: "#2a3020", skyIntensity: 0.85, ambient: 0.2, lights: 0.6 },
     // ink-950 to meadow-950.
-    night: { top: "#0a141c", bottom: "#012604", sun: "#fff0c8", sunIntensity: 0, fill: "#c8e0d8", fillIntensity: 0.85, sky: "#7f9cc0", ground: "#142018", skyIntensity: 0.55, ambient: 0.14, lights: 1 },
+    night: { top: "#0a141c", bottom: "#012604", sun: "#fff0c8", sunIntensity: 0, fill: "#c8e0d8", fillIntensity: 1.2, sky: "#7f9cc0", ground: "#142018", skyIntensity: 0.55, ambient: 0.14, lights: 1 },
   },
 };
 
@@ -407,4 +407,15 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
   target.backdrop(frame.backdrop.top, frame.backdrop.bottom);
   target.lights(frame.lights);
   return frame.point;
+}
+
+/**
+ * The cycle's moment to draw for the settings, in seasons since a summer's dawn: `freezeAt` when frozen, the first
+ * season's noon when still, else where `elapsedMs` of the clock has run it to.
+ */
+export function momentOf(settings: DayNightSettings, elapsedMs: number, still: boolean): number {
+  if (settings.freezeAt !== null) return settings.freezeAt;
+  const start = startSeason(settings.season, settings.seed);
+  if (still) return SEASONS.indexOf(start) + DAY_PHASE_AT.day;
+  return seasonsAt(elapsedMs, settings.cycleMs, start);
 }

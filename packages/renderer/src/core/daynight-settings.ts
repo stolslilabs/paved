@@ -64,7 +64,7 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",
   nightLightIntensity: 0.4,
-  brightnessFloor: 0.6,
+  brightnessFloor: 0.85,
   frameMs: 33,
   reducedMotion: "auto",
 };

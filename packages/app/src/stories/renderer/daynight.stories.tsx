@@ -21,7 +21,7 @@ const meta = {
     speed: { control: "inline-radio", options: [1, 10], description: "x1: real time; x10: a cycle in 12 s" },
     nightLights: { control: "boolean", description: "The city and road lights at night" },
     nightLightIntensity: { control: { type: "range", min: 0, max: 2, step: 0.05 }, description: "The night lights' strength (default 0.4)" },
-    brightnessFloor: { control: { type: "range", min: 0, max: 1, step: 0.05 }, description: "The night's floor: the sky light at least this share of the day's (default 0.6)" },
+    brightnessFloor: { control: { type: "range", min: 0, max: 1, step: 0.05 }, description: "The night's floor: the sky light at least this share of the day's (default 0.85)" },
     reducedMotion: { control: "boolean", description: "Reduced motion: a still day (unset: the device's)" },
     quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Graphics quality: Low is a still day too" },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
@@ -29,6 +29,7 @@ const meta = {
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
     readout: { control: "boolean", description: "Show the season, the phase and the place in the cycle" },
     force: { control: "inline-radio", options: ["auto", "on", "off"], description: "Outlines: auto turns them off on software WebGL" },
+    forest: { control: "boolean", description: "Every plan on its Forest variants (their night lights come from FEATURE-HL's Forest palette)" },
     placement: { control: "inline-radio", options: ["none", "slots", "placed"], description: "The placement visuals over the cycle: a tile in hand, or placed" },
   },
   args: { cycleSeconds: 120, phase: "running", season: "random", speed: 1, nightLights: true, quality: "auto", view: "default", redraw: false, readout: true, force: "auto", placement: "none" },
@@ -65,3 +66,6 @@ export const SlotsAtNight: Story = { args: { phase: "night", season: "autumn", p
 
 /** A tile placed on a slot at an autumn dusk: its aura and veil over the warm light. */
 export const PlacedAtDusk: Story = { args: { phase: "dusk", season: "autumn", placement: "placed" } };
+
+/** The Forest skins at a summer night: the variants are labelled with their own palette, so their cities and roads light too. */
+export const ForestAtNight: Story = { args: { phase: "night", season: "summer", forest: true } };

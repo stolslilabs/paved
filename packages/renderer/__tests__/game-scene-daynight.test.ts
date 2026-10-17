@@ -111,7 +111,7 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     const { scene, renderer, effects, tiles, key } = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
     expect(scene.scene.background).toBeNull();
     expect(renderer.setClearColor).toHaveBeenLastCalledWith(0x000000, 0);
-    const frame = dayNightFrame(2 + DAY_PHASE_AT.night, 0.6);
+    const frame = dayNightFrame(2 + DAY_PHASE_AT.night, 0.85);
     expect(effects.setBackdrop).toHaveBeenLastCalledWith(true, frame.backdrop.top, frame.backdrop.bottom);
     expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", 0.4);
     expect(tiles.setNightLevel).toHaveBeenLastCalledWith(1);
