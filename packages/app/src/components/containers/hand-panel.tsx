@@ -33,13 +33,15 @@ export interface HandPanelProps {
   onSurrender?: () => void;
   /** Surrender is offered: not in the tutorial, which has nothing to give up (P6). */
   canSurrender?: boolean;
+  /** The Surrender dialog's module is on its way (BOARD-CHUNK): the button shows it is busy. */
+  surrenderPending?: boolean;
   className?: string;
 }
 
 const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
 
 /** The hand: the tile to place, rotate, confirm, discard, and surrender (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, className }: HandPanelProps) {
+export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -94,6 +96,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail
               size="sm"
               onClick={onSurrender}
               disabled={busy || state === "empty"}
+              loading={surrenderPending}
               className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
             >
               <Icon name="flag" size="sm" /> Surrender

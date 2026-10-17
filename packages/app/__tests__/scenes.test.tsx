@@ -225,7 +225,7 @@ describe("Board", () => {
     expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /Surrender/ }));
     expect(onSurrender).not.toHaveBeenCalled();
-    await userEvent.click(within(screen.getByRole("dialog", { name: "Surrender this game?" })).getByRole("button", { name: "Surrender" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Surrender this game?" })).getByRole("button", { name: "Surrender" }));
     expect(onSurrender).toHaveBeenCalledOnce();
   });
 
@@ -234,11 +234,11 @@ describe("Board", () => {
     render(wrap(<BoardScene {...BOARD.placing} onSurrender={onSurrender} />));
     const surrender = screen.getByRole("button", { name: /Surrender/ });
     await userEvent.click(surrender);
-    expect(screen.getByRole("dialog", { name: "Surrender this game?" })).toHaveTextContent(pts(BOARD.placing.score));
+    expect(await screen.findByRole("dialog", { name: "Surrender this game?" })).toHaveTextContent(pts(BOARD.placing.score));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await userEvent.click(surrender);
-    await userEvent.click(screen.getByRole("button", { name: "Keep playing" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Keep playing" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(onSurrender).not.toHaveBeenCalled();
   });

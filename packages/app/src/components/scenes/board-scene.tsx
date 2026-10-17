@@ -1,11 +1,12 @@
 import type { TileArt } from "../elements/tile-chip";
 import { useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { Button } from "../ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { toastError } from "../containers/error-toast";
+import { errorDetail } from "../../routes/error-detail";
 import { Notice } from "../elements/notice";
-import { formatPoints } from "../elements/score";
 import { BoardMap } from "../containers/board-map";
+import { useDeferred } from "../../lib/deferred";
+import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import type { BoardGhost } from "../containers/board-viewport";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
@@ -13,6 +14,12 @@ import type { ErrorDetail } from "../elements/inline-error";
 import { HandPanel, type HandState } from "../containers/hand-panel";
 
 export type BoardMode = "challenge" | "training" | "tutorial";
+
+// The Surrender dialog (and Radix under it) is not the first frame's: its module loads at the first Surrender, and in the
+// browser's idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`). The plan view stays: it is
+// the board where the canvas cannot start, and 1.6 KB gzip does not buy a second fetch there.
+const loadSurrenderDialog = () => import("../containers/surrender-dialog");
+const PREFETCH_AFTER_MS = 3000;
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
 
@@ -88,6 +95,21 @@ export function BoardScene(props: BoardSceneProps) {
   useEffect(() => {
     if (promptSurrender) setSurrendering(true);
   }, [promptSurrender]);
+  // Once the board has had its models and its first frame (`PREFETCH_AFTER_MS`), and the browser is idle: the module the
+  // Surrender button would ask for. Sooner, its request would queue with the models'.
+  useEffect(() => {
+    if (!prefetchAllowed()) return;
+    let cancel = () => {};
+    const timer = setTimeout(() => (cancel = whenIdle(() => void loadSurrenderDialog().catch(() => {}))), PREFETCH_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      cancel();
+    };
+  }, []);
+  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering, (e) => {
+    setSurrendering(false);
+    toastError({ title: "Surrender", message: "The Surrender dialog could not load. Check your connection and try again.", detail: errorDetail(e) });
+  });
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
@@ -136,36 +158,14 @@ export function BoardScene(props: BoardSceneProps) {
             onDiscard={props.onDiscard}
             onSurrender={() => setSurrendering(true)}
             canSurrender={mode !== "tutorial"}
+            surrenderPending={surrendering && !surrenderDialog}
           />
         </div>
       )}
 
-      {/* Radix closes it on Esc and on a click outside (P3); the game goes on. */}
-      <Dialog open={surrendering} onOpenChange={setSurrendering}>
-        <DialogContent showClose={false}>
-          <DialogHeader>
-            <DialogTitle>Surrender this game?</DialogTitle>
-            <DialogDescription>
-              {promptSurrender && "Its 24 hours are over: it takes no more moves, and only a surrender closes it. "}
-              It ends now with your score of <span className="numeric">{formatPoints(props.score)}</span>. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Keep playing</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setSurrendering(false);
-                props.onSurrender?.();
-              }}
-            >
-              Surrender
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {surrenderDialog && (
+        <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
+      )}
     </div>
   );
 }

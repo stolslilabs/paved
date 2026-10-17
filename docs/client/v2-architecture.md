@@ -3451,6 +3451,26 @@ whole barrel), and an `import("@paved/game-core")` is never written in the first
 with it the engine): a lazy module names what it needs. `__tests__/first-load-modules.test.ts` reads the source maps of the
 first load of a build and fails when the engine, the hashing or the chain libraries are in it.
 
+**What is lazy on the board** (BOARD-CHUNK). The board's route chunk (`board`, the biggest page) is 870,731 B raw and 249,379 B
+gzip, from 900,445 and 259,490: its limit is the new figure plus 2 %, rounded up to 256 B (888,320 / 254,464). By module (gzip,
+from the build's source maps), the chunk is three (`three.core`, `three.module`: 112 kB), `SMAAPass` (34 kB: its two lookup
+images), `GLTFLoader` (13 kB), the meshopt decoder (7 kB), then the renderer's own code (`TileRenderer`, `placement`,
+`GameScene`, `outlines`: 20 kB) and the page (4 kB). Moved out: the Surrender dialog (`containers/surrender-dialog.tsx`, with
+`ui/dialog` and Radix's dialog, focus scope, dismissable layer and scroll lock under it: 10.7 kB gzip), which `BoardScene`
+`import()`s through `lib/deferred.ts` when the player first taps Surrender, or when an expired game opens it by itself, and
+fetches 3 s after it mounts, once the browser is idle and the connection allows it (`prefetchAllowed`), so a tap finds it in
+the cache. A load that fails (`useDeferred`) closes the dialog and says so in an error toast, not in the route's error boundary.
+Kept: the plan view (`containers/board-map.tsx`, 1.6 kB gzip), because it is the board where the canvas cannot start, and a
+second fetch there would fail with the models; nothing else of the app's own code is large (the tutorial's end and the closing
+feed are under 1 kB each). The largest block left is the renderer's, which `packages/app` cannot split: `SMAAPass` is imported
+statically by `Effects.ts` and used only where multisampling is missing (software WebGL), and loading it on that path is a
+change of `packages/renderer` (a follow-up, after DAYNIGHT). `__tests__/board-modules.test.ts` reads the board chunk's source
+map in a build and fails when the dialog or Radix's dialog is in it. The load trace (5.8, `/training`, cold, VPS, software
+WebGL, medians): desktop, 20 runs a side in ABBA order, the first 3D tile 964 ms before and 982 after, the board's first frame
+1,891 and 1,825; phone profile, 9 runs a side, 4,102 and 4,170, 5,057 and 5,382. The same within the run-to-run noise (a
+side measured second in a pair read 100 to 400 ms slower in every pair measured, which the ABBA order removed). The build
+re-chunks the shared motion code (first load +709 B gzip, 182,344 against 181,635, within its limit).
+
 Route prefetch (`src/routes/prefetch.tsx`, `page-loaders.ts`): the pages' `import()`s are one table, shared by the router's
 `lazy` and the prefetch, so a prefetch is the page's own fetch. (1) Once the shell has rendered and the browser is idle
 (`requestIdleCallback`, or 200 ms later where it cannot tell), the five tab pages' chunks are fetched, one per idle slot. (2)
