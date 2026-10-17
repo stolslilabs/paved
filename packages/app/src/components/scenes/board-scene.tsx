@@ -48,10 +48,12 @@ export interface BoardSceneProps {
   storageDisabled?: boolean;
   /** Storage is there but the last move's save did not land (quota, a refusal): a reload resumes an older move. */
   saveDropped?: boolean;
-  /** The legal slots of the tile in hand (the contracts' coordinates): the plan view draws them as buttons. */
-  slots?: { x: number; y: number }[];
+  /** The legal slots of the tile in hand in any rotation (the contracts' coordinates), `fits` at the current one: the plan view draws them as buttons. */
+  slots?: { x: number; y: number; fits?: boolean }[];
   /** The tile in hand on its chosen slot, as the plan view draws it (the page gives the canvas its own). */
   ghost?: BoardGhost | null;
+  /** A move just sent: the plan view flashes its cell green. */
+  confirmed?: (BoardGhost & { key: number }) | null;
   /** The player's placement highlight setting: off, the plan view draws its slots plain (they stay clickable). On when omitted. */
   placementHighlight?: boolean;
   /** A slot of the plan view was chosen. */
@@ -88,7 +90,7 @@ export function BoardScene(props: BoardSceneProps) {
   }, [promptSurrender]);
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
+      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud

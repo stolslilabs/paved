@@ -9,6 +9,6 @@ export function PlayerName({ name, address, className }: { name: string | null; 
   return name ? (
     <span title={name} className={cn("truncate", className)}>{name}</span>
   ) : (
-    <span title={address} className={cn("truncate font-mono text-[0.9em]", className)}>{shortAddress(address)}</span>
+    <span title={address} className={cn("truncate font-mono text-[max(12px,0.85em)]", className)}>{shortAddress(address)}</span>
   );
 }

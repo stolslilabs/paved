@@ -45,6 +45,10 @@ export interface BoardGhost {
   y: number;
   plan: number;
   orientation: number;
+  /** Placed on its slot, not yet sent (SLOTS): the aura and a solid border. Unset: a hover preview. */
+  placed?: boolean;
+  /** Its rotation fits the slot. False: red, and Confirm is disabled. Unset: it fits. */
+  fits?: boolean;
 }
 
 export interface BoardViewportProps {
@@ -61,15 +65,20 @@ export interface BoardViewportProps {
    * `assets/tiles/<plan>.png` without one, as in Storybook, which maps app-web's `public/`).
    */
   basePath?: string;
-  /** The legal slots of the tile in hand, lit on the board (the contracts' coordinates). */
-  slots?: { x: number; y: number }[];
+  /**
+   * The legal slots of the tile in hand in any rotation, lit on the board (the contracts' coordinates): `fits` false where
+   * the current rotation does not fit (a dashed border), solid where it does (the default).
+   */
+  slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
+  /** A move just sent (`useConfirmFlash`): its effects turn green and fade out. A new `key` fades again. */
+  confirmed?: (BoardGhost & { key: number }) | null;
   /**
    * The renderer's settings (`RendererSettingsInput`: the graphics quality). Keep the object between renders while the
    * settings do not change; a new one is applied to the open board at once (`GameScene.setSettings`), no reload.
    */
   settings?: RendererSettingsInput;
-  /** Draw the ghost (the tile on the slot before it is placed). Default true; off: the tile is not shown on the slot. */
+  /** Draw the hover preview (the tile under the pointer before it is placed). Default true; off: only a placed tile shows. */
   tilePreview?: boolean;
   /** Light the legal slots. Default true; off: no slot is outlined. */
   placementHighlight?: boolean;
@@ -82,18 +91,30 @@ export interface BoardViewportProps {
   className?: string;
 }
 
+/** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
+function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
+  return {
+    ...toGridSlot(ghost.x, ghost.y),
+    valid: ghost.fits !== false,
+    idle: true,
+    placed: !!ghost.placed,
+    planIndex: ghost.plan,
+    orientation: ghost.orientation,
+    cell: { x: ghost.x, y: ghost.y, gameId },
+  };
+}
+
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, settings, tilePreview = true, placementHighlight = true, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
-  const gridSlots = useMemo(() => (placementHighlight ? (slots ?? []).map((s) => toGridSlot(s.x, s.y)) : []), [slots, placementHighlight]);
-  const hover = useMemo<HoverState | null>(
-    // The ghost draws the variant the tile would have in the cell it hovers.
-    () =>
-      ghost && tilePreview
-        ? { ...toGridSlot(ghost.x, ghost.y), valid: true, idle: true, planIndex: ghost.plan, orientation: ghost.orientation, cell: { x: ghost.x, y: ghost.y, gameId } }
-        : null,
-    [ghost, gameId, tilePreview],
+  const gridSlots = useMemo(
+    () => (placementHighlight ? (slots ?? []).map((s) => ({ ...toGridSlot(s.x, s.y), fits: s.fits !== false })) : []),
+    [slots, placementHighlight],
   );
+  // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
+  // preview: a placed tile is always drawn, with its aura, veil and colour (red: Confirm is disabled, the board says why).
+  const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
+  const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   return (
     // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).
     <div className={cn("absolute inset-0 touch-none bg-board", className)} onContextMenu={(e) => e.preventDefault()}>
@@ -104,6 +125,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         settings={settings}
         availableSlots={gridSlots}
         hover={hover}
+        confirmed={confirm}
         onError={onError}
         onTileClick={onCellClick && ((gx, gy) => onCellClick(toChainSlot(gx, gy)))}
         onTileHover={onCellHover && ((gx, gy) => onCellHover(toChainSlot(gx, gy)))}

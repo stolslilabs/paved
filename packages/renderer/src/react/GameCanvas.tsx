@@ -5,6 +5,7 @@ import { traceMark, traceMeasure, traceStart } from "../core/load-trace";
 import type { RendererSettingsInput } from "../core/settings";
 import type { AssetManifest } from "../core/AssetLoader";
 import { NO_SKINS, type TileSkins } from "../core/skins";
+import type { PlacementSlot } from "../core/placement";
 import type {
   TileRenderData,
   HoverState,
@@ -14,7 +15,13 @@ import type {
 export interface GameCanvasProps {
   tiles?: TileRenderData[];
   hover?: HoverState | null;
-  availableSlots?: Array<{ x: number; y: number }>;
+  /** The legal slots of the tile in hand (any rotation); `fits` false: the current rotation does not fit (dashed). */
+  availableSlots?: ReadonlyArray<PlacementSlot>;
+  /**
+   * A placement just confirmed (`GameScene.setConfirmedTile`): its effects turn green and fade out. A new `key` (or cell)
+   * starts a new fade; null removes it.
+   */
+  confirmed?: (HoverState & { key?: string | number }) | null;
   strategyMode?: boolean;
   compassRotation?: number;
   cameraMode?: CameraMode;
@@ -35,10 +42,14 @@ export interface GameCanvasProps {
   onHoverLeave?: () => void;
 }
 
+/** No slot: one array, so an unset prop does not set the slots again on every render. */
+const NO_SLOTS: ReadonlyArray<PlacementSlot> = [];
+
 export function GameCanvas({
   tiles = [],
   hover = null,
-  availableSlots = [],
+  availableSlots = NO_SLOTS,
+  confirmed = null,
   strategyMode = false,
   compassRotation = 0,
   cameraMode = "play",
@@ -136,6 +147,10 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.setAvailableSlots(availableSlots);
   }, [availableSlots]);
+
+  useEffect(() => {
+    sceneRef.current?.setConfirmedTile(confirmed);
+  }, [confirmed]);
 
   useEffect(() => {
     sceneRef.current?.setStrategyMode(strategyMode);

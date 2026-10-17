@@ -17,6 +17,7 @@ import type {
   EffectsCapabilities,
 } from "./types";
 import { TILE_SIZE } from "./types";
+import type { PlacementSlot } from "./placement";
 import {
   getLightingProfile,
   getRenderProfileForCameraMode,
@@ -31,6 +32,7 @@ import {
   type OutlineStroke,
   type WebGLDetection,
 } from "./outlines";
+import { prefersReducedMotion } from "./placement";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -161,6 +163,8 @@ export class GameScene {
   private boundInputHandler: ((event: SurfaceInputEvent) => void) | null = null;
   private surface: RenderSurfaceAdapter | null = null;
   private unbindResize: (() => void) | null = null;
+  /** Stops following the device's reduced-motion setting (`matchMedia`). */
+  private unbindReducedMotion: (() => void) | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -252,6 +256,8 @@ export class GameScene {
 
     // Lighting
     this.setupLighting();
+    this.applyPlacementSettings();
+    this.followReducedMotion();
 
     // Post-processing
     // The capabilities and the look go to the effects before `init`, so the chain is built once, for the tier in effect
@@ -531,10 +537,47 @@ export class GameScene {
     this.requestRender();
   }
 
-  /** Show available placement slots on the board */
-  setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
+  /**
+   * The legal slots of the tile in hand on the board (grid coordinates), any rotation; `fits` false where the current
+   * rotation does not fit (a dashed border; solid and brighter where it fits, the default).
+   */
+  setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
     this.tiles.setAvailableSlots(slots);
     this.requestRender();
+  }
+
+  /**
+   * A placement confirmed (SLOTS): the effects at its cell turn green and fade out over the tile placed there. The same
+   * confirm again does nothing; null removes it. `key` tells two confirms of the same cell apart.
+   */
+  setConfirmedTile(state: (HoverState & { key?: string | number }) | null): void {
+    this.tiles.setConfirmed(state);
+    this.requestRender();
+  }
+
+  /** The placement visuals' settings and reduced motion, from the renderer's settings. */
+  private applyPlacementSettings(): void {
+    this.tiles.setPlacementSettings(this.settings.placement, this.settings.outlines);
+    const { reducedMotion } = this.settings.placement.motion;
+    this.tiles.setReducedMotion(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion);
+  }
+
+  /** Follows the device's `prefers-reduced-motion` while the setting is "auto". */
+  private followReducedMotion(): void {
+    this.unbindReducedMotion?.();
+    this.unbindReducedMotion = null;
+    if (typeof matchMedia !== "function") return;
+    try {
+      const query = matchMedia("(prefers-reduced-motion: reduce)");
+      const onChange = () => {
+        this.applyPlacementSettings();
+        this.requestRender();
+      };
+      query.addEventListener?.("change", onChange);
+      this.unbindReducedMotion = () => query.removeEventListener?.("change", onChange);
+    } catch {
+      // No media queries here: reduced motion stays as the settings say.
+    }
   }
 
   /**
@@ -591,6 +634,7 @@ export class GameScene {
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
+    this.applyPlacementSettings();
     // A new cap refits the drawing buffer and the composer's targets at once.
     if (this.surface && this.renderer && this.cappedPixelRatio() !== this.pixelRatio) this.resize();
     this.requestRender();
@@ -746,6 +790,7 @@ export class GameScene {
       this.outlineOpeningTilePx = openingTilePx;
       const outlines = this.outlineSettings();
       this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio, openingTilePx), outlines.color);
+      this.tiles.setPlacementZoom(tilePx, openingTilePx, this.pixelRatio);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -767,6 +812,8 @@ export class GameScene {
       if (controlsChanged) {
         this.needsRender = true;
       }
+      // The placement effects that move (a colour change, the aura's waves, the confirm's fade) draw while they do.
+      if (this.tiles.update(performance.now()).animating) this.needsRender = true;
 
       if (this.needsRender) {
         observer?.beforeRender?.();
@@ -824,6 +871,8 @@ export class GameScene {
       this.unbindResize();
       this.unbindResize = null;
     }
+    this.unbindReducedMotion?.();
+    this.unbindReducedMotion = null;
 
     this.stop();
     this.tiles.dispose();

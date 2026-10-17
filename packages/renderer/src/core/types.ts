@@ -83,8 +83,14 @@ export interface TileRenderData extends TileData {
 export interface HoverState {
   x: number;
   y: number;
+  /** The tile's rotation fits the cell: yellow; false, red (`placementTone`). */
   valid: boolean;
   idle: boolean;
+  /**
+   * Placed on the cell, not yet confirmed (SLOTS): the aura and the cell's solid border with the veil. Unset: a hover
+   * preview, the veil only.
+   */
+  placed?: boolean;
   planIndex: number;
   orientation: number;
   /**

@@ -88,12 +88,13 @@ describe("TileRenderer.setHover — position caching", () => {
     const tr = new TileRenderer(assets as any);
 
     tr.setHover(makeHoverState({ x: 0, y: 0, orientation: 1 }));
-    const callsAfterFirst = getModelSpy.mock.calls.length;
+    const first = (tr as any).previewContainer;
 
     tr.setHover(makeHoverState({ x: 0, y: 0, orientation: 2 }));
-    const callsAfterSecond = getModelSpy.mock.calls.length;
 
-    expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+    // A new ghost, from the type's shared model (read once: SLOTS).
+    expect((tr as any).previewContainer).not.toBe(first);
+    expect(getModelSpy).toHaveBeenCalledTimes(1);
   });
 
   it("rebuilds mesh when valid state changes at same position", () => {
@@ -102,12 +103,12 @@ describe("TileRenderer.setHover — position caching", () => {
     const tr = new TileRenderer(assets as any);
 
     tr.setHover(makeHoverState({ x: 0, y: 0, valid: true }));
-    const callsAfterFirst = getModelSpy.mock.calls.length;
+    const first = (tr as any).previewContainer;
 
     tr.setHover(makeHoverState({ x: 0, y: 0, valid: false }));
-    const callsAfterSecond = getModelSpy.mock.calls.length;
 
-    expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+    expect((tr as any).previewContainer).not.toBe(first);
+    expect(getModelSpy).toHaveBeenCalledTimes(1);
   });
 
   it("clears preview when called with null", () => {

@@ -65,13 +65,17 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     }
     const legal = engine.legalPlacements().filter((p) => p.orientation === ORIENTATIONS[orientation]);
     const lit = canvas.props!.availableSlots!;
-    // `0 - y`, not `-y`: the grid's y is +0 on the starter's row, never -0.
-    expect(lit).toEqual(legal.map((p) => ({ x: p.x, y: 0 - p.y })));
+    // Every legal cell in any rotation is lit (SLOTS); `fits` marks those of the hand's rotation. `0 - y`, not `-y`: the
+    // grid's y is +0 on the starter's row, never -0.
+    const cells = (list: { x: number; y: number }[]) => [...new Set(list.map((c) => `${c.x},${c.y}`))].sort();
+    expect(cells(lit)).toEqual(cells(engine.legalPlacements().map((p) => ({ x: p.x, y: 0 - p.y }))));
+    expect(lit.filter((s) => s.fits).map(({ x, y }) => ({ x, y }))).toEqual(legal.map((p) => ({ x: p.x, y: 0 - p.y })));
 
-    // The player clicks the last lit slot, as the renderer reports it; the ghost is drawn on that cell.
-    const cell = lit[lit.length - 1]!;
+    // The player clicks the last slot the rotation fits, as the renderer reports it; the tile is placed on that cell.
+    const fitting = lit.filter((s) => s.fits);
+    const cell = { x: fitting[fitting.length - 1]!.x, y: fitting[fitting.length - 1]!.y };
     act(() => canvas.props!.onTileClick!(cell.x, cell.y));
-    await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation }));
+    await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation, placed: true, valid: true }));
 
     await userEvent.click(within(screen.getByRole("region", { name: "Your tile" })).getByRole("button", { name: /Place tile/ }));
     // The move saved is that cell in the engine's coordinates (y north), and the renderer now draws a tile on it.

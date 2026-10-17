@@ -26,6 +26,7 @@ import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
+import { same, useConfirmFlash, usePlacement, type Slot } from "../../data/placement";
 
 /**
  * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
@@ -33,8 +34,6 @@ import { useAppNavigate, useBack } from "../ref";
  */
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
-type Slot = { x: number; y: number };
-const same = (a: Slot | null, b: Slot | null) => a !== null && b !== null && a.x === b.x && a.y === b.y;
 
 /** `/training` (P3), `/game/:gameId` (P5) and `/tutorial` (P6). */
 export default function Page() {
@@ -57,61 +56,40 @@ function TrainingBoard() {
   const boardSettings = useBoardSettings();
   const go = useAppNavigate();
   const onBack = useBack();
-  const [orientation, setOrientation] = useState(1);
-  const [chosen, setChosen] = useState<Slot | null>(null);
-  const [hovered, setHovered] = useState<Slot | null>(null);
   // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
   const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
 
   const hand = board.hand;
-  // `snapshot` changes with every move: the slots are those of the tile now in hand.
-  const slots = useMemo(() => (hand ? game.slots(orientation) : []), [game, snapshot, hand, orientation]);
-  const target = chosen ?? (hovered && slots.some((s) => same(s, hovered)) ? hovered : null);
-  const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
+  const slotsAt = useCallback((o: number) => game.slots(o), [game]);
+  const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
+  // The slots of every rotation, the slot chosen, the ghost (SLOTS). Another game (another tab's save followed, a new
+  // game): the slot and orientation chosen for the old hand go. `snapshot` changes with every move.
+  const placement = usePlacement({ plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game, confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs });
+  const { orientation, move, ghost, slots } = placement;
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const handErrorDetail = useErrorDetail(snapshot.state.writeError);
-  const ghost = move && hand && preview !== null ? { ...move, plan: hand.plan } : null;
-
-  // Another game (another tab's save followed, a new game): the slot and orientation chosen for the old hand go.
-  useEffect(() => {
-    setChosen(null);
-    setOrientation(1);
-  }, [game]);
 
   useEffect(() => {
     if (board.over) go("/training/over", { replace: true });
   }, [board.over, go]);
 
-  // A cell is chosen in any orientation the tile fits there: the first one, unless the current one fits.
-  const choose = useCallback(
-    (cell: Slot) => {
-      const fits = game.orientationsAt(cell);
-      if (fits.length === 0) return;
-      setChosen(cell);
-      if (!fits.includes(orientation)) setOrientation(fits[0]!);
-    },
-    [game, orientation],
-  );
-
-  // On a chosen slot the tile turns through the orientations that fit there; otherwise through all four.
-  const rotate = useCallback(() => {
-    const fits = chosen ? game.orientationsAt(chosen) : [1, 2, 3, 4];
-    const next = fits.find((o) => o > orientation) ?? fits[0];
-    if (next !== undefined) setOrientation(next);
-  }, [game, chosen, orientation]);
-
+  // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
+  // refused, the tile stays placed (its error in the hand).
   const confirm = useCallback(async () => {
-    if (!move || preview === null) return;
-    setChosen(null);
-    if (await game.place(move)) setOrientation(1);
-  }, [game, move, preview]);
+    if (!placement.canConfirm || !move || preview === null) return;
+    const ghost = placement.ghost;
+    if (await game.place(move)) {
+      placement.accepted(ghost);
+      placement.setOrientation(1);
+    }
+  }, [game, placement, move, preview]);
 
   const discard = useCallback(() => {
-    setChosen(null);
+    placement.clear();
     void game.discard();
-  }, [game]);
+  }, [game, placement]);
 
   const surrender = useCallback(() => void game.surrender(), [game]);
 
@@ -126,7 +104,7 @@ function TrainingBoard() {
       remaining={board.remaining}
       expiresAt={null}
       now={Math.floor(Date.now() / 1000)}
-      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: move !== null && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
+      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: placement.canConfirm && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
       lastScored={board.lastScored}
       tileArt={tileArt}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
@@ -134,7 +112,8 @@ function TrainingBoard() {
       saveDropped={snapshot.storage === "dropped"}
       slots={slots}
       ghost={ghost}
-      onSlotClick={choose}
+      confirmed={placement.confirmed}
+      onSlotClick={placement.choose}
       placementHighlight={boardSettings.placementHighlight}
       canvas={
         view === "3d" ? (
@@ -147,15 +126,16 @@ function TrainingBoard() {
             basePath={RENDERER_ASSETS}
             slots={slots}
             ghost={ghost}
-            onCellClick={choose}
-            onCellHover={setHovered}
+            confirmed={placement.confirmed}
+            onCellClick={placement.choose}
+            onCellHover={placement.setHovered}
             onError={() => setView("plan")}
           />
         ) : undefined
       }
       footnote={<WalletNotice />}
       onBack={onBack}
-      onRotate={rotate}
+      onRotate={placement.rotate}
       onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
@@ -194,9 +174,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const go = useAppNavigate();
   const onBack = useBack();
   const now = useNow();
-  const [orientation, setOrientation] = useState(1);
-  const [chosen, setChosen] = useState<Slot | null>(null);
-  const [hovered, setHovered] = useState<Slot | null>(null);
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
   const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
@@ -206,20 +183,22 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const handErrorDetail = useErrorDetail(ready?.writeError, gameId);
   const readErrorDetail = useErrorDetail(state?.status === "error" ? state : null, gameId);
   const tileId = hand?.tileId ?? null;
-  // The slots are those of the tile now in hand: `state` changes with every move.
-  const slots = useMemo(() => (session && hand ? session.slots(orientation) : []), [session, state, hand, orientation]);
-  const target = chosen ?? (hovered && slots.some((s) => same(s, hovered)) ? hovered : null);
-  const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
-  const preview = useMemo(() => (session && move ? session.preview(move) : null), [session, state, move]);
-  const ghost = move && hand && preview !== null ? { ...move, plan: hand.plan } : null;
   const expired = ready !== null && ready.expiresAt !== 0 && !ready.game?.over && now >= ready.expiresAt;
   const playable = ready !== null && !ready.readonly && senders !== null;
-
-  // A new tile in hand (a move predicted, a resync): the slot chosen for the last one goes.
-  useEffect(() => {
-    setChosen(null);
-    setOrientation(1);
-  }, [tileId]);
+  const slotsAt = useCallback((o: number) => (session ? session.slots(o) : []), [session]);
+  const orientationsAt = useCallback((cell: Slot) => (session ? session.orientationsAt(cell) : []), [session]);
+  // The slots of every rotation, the slot chosen, the ghost (SLOTS); a viewer who cannot play gets none. A new tile in
+  // hand (a move predicted, a resync): the slot chosen for the last one goes. `state` changes with every move.
+  const placement = usePlacement({
+    plan: playable && hand ? hand.plan : null,
+    slotsAt,
+    orientationsAt,
+    version: state,
+    resetKey: tileId,
+    confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs,
+  });
+  const { orientation, move, ghost, slots } = placement;
+  const preview = useMemo(() => (session && move ? session.preview(move) : null), [session, state, move]);
 
   const resynced = ready?.resynced ?? 0;
   useEffect(() => {
@@ -231,34 +210,27 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     if (over && ready?.unconfirmed === 0) go(`/game/${gameId}/over`, { replace: true });
   }, [over, ready?.unconfirmed, gameId, go]);
 
-  const choose = useCallback(
-    (cell: Slot) => {
-      if (!session) return;
-      const fits = session.orientationsAt(cell);
-      if (fits.length === 0) return;
-      setChosen(cell);
-      if (!fits.includes(orientation)) setOrientation(fits[0]!);
-    },
-    [session, orientation],
-  );
-
-  const rotate = useCallback(() => {
-    const fits = chosen && session ? session.orientationsAt(chosen) : [1, 2, 3, 4];
-    const next = fits.find((o) => o > orientation) ?? fits[0];
-    if (next !== undefined) setOrientation(next);
-  }, [session, chosen, orientation]);
-
+  // Confirm only a placed tile whose rotation fits (red: disabled). The green flash when the move is accepted: with
+  // prediction, at once when the engine takes it (`place` applies it before it resolves; the receipt can come seconds and
+  // moves later, and a refusal then rolls the board back with its error); without, once the chain confirms it. Refused,
+  // the tile stays placed.
   const confirm = useCallback(() => {
-    if (!session || !senders || !move || preview === null) return;
-    setChosen(null);
-    void session.place(move, () => senders.build(move));
-  }, [session, senders, move, preview]);
+    if (!session || !senders || !placement.canConfirm || !move || preview === null) return;
+    const ghost = placement.ghost;
+    const done = session.place(move, () => senders.build(move));
+    const now = session.state;
+    if (now.status === "ready" && now.predicting) {
+      if (!now.writeError && now.tiles.some((t) => t.x === move.x && t.y === move.y)) placement.accepted(ghost);
+    } else {
+      void done.then((ok) => ok && placement.accepted(ghost));
+    }
+  }, [session, senders, placement, move, preview]);
 
   const discard = useCallback(() => {
     if (!session || !senders) return;
-    setChosen(null);
+    placement.clear();
     void session.discard(() => senders.discard());
-  }, [session, senders]);
+  }, [session, senders, placement]);
 
   const surrender = useCallback(() => {
     if (session && senders) void session.surrender(() => senders.surrender());
@@ -330,7 +302,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       hand={{
         tile: hand && { plan: hand.plan, orientation },
         state: challengeHand(state, expired),
-        slotChosen: move !== null && preview !== null,
+        slotChosen: placement.canConfirm && preview !== null,
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
@@ -338,9 +310,10 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       lastScored={state.lastScored}
       tileArt={tileArt}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
-      slots={playable ? slots : []}
+      slots={slots}
       ghost={ghost}
-      onSlotClick={choose}
+      confirmed={placement.confirmed}
+      onSlotClick={placement.choose}
       readOnly={!playable}
       notices={notices}
       promptSurrender={playable && expired}
@@ -355,17 +328,18 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             tiles={state.tiles}
             gameId={gameId}
             basePath={RENDERER_ASSETS}
-            slots={playable ? slots : []}
+            slots={slots}
             ghost={ghost}
-            onCellClick={choose}
-            onCellHover={setHovered}
+            confirmed={placement.confirmed}
+            onCellClick={placement.choose}
+            onCellHover={placement.setHovered}
             onError={() => setView("plan")}
           />
         ) : undefined
       }
       footnote={<WalletNotice />}
       onBack={onBack}
-      onRotate={rotate}
+      onRotate={placement.rotate}
       onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
@@ -414,8 +388,14 @@ function TutorialBoard() {
   }, [index, step]);
 
   const preset = step?.kind === "build" && step.placement ? { x: CENTER + step.placement.x, y: CENTER + step.placement.y } : null;
-  const slots = useMemo(() => (preset ? [preset] : []), [preset?.x, preset?.y]);
+  // The step's one slot, solid where the current rotation fits it (SLOTS).
+  const presetFits = useMemo(
+    () => preset !== null && view.game.canPlace({ orientation: orientationName(orientation), x: preset.x - CENTER, y: preset.y - CENTER }),
+    [view, preset?.x, preset?.y, orientation],
+  );
+  const slots = useMemo(() => (preset ? [{ ...preset, fits: presetFits }] : []), [preset?.x, preset?.y, presetFits]);
   const hand = board.hand;
+  const [confirmed, flash] = useConfirmFlash();
   const target = chosen ?? (hovered && same(hovered, preset) ? hovered : null);
   const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
   // Where the tile may go in this orientation (the engine's rules), and its points when it is the step's own placement
@@ -424,7 +404,8 @@ function TutorialBoard() {
   const legal = useMemo(() => placement !== null && view.game.canPlace(placement), [view, placement?.orientation, placement?.x, placement?.y]);
   const scripted = placement !== null && step?.placement?.orientation === placement.orientation;
   const preview = useMemo(() => (legal && scripted ? view.game.clone().build(placement!).points : null), [view, legal, scripted]);
-  const ghost = move && hand && legal ? { ...move, plan: hand.plan } : null;
+  // Placed (chosen): yellow, or red while the rotation does not fit; a hover shows only a rotation that fits.
+  const ghost = move && hand && (legal || chosen) ? { ...move, plan: hand.plan, placed: chosen !== null, fits: legal } : null;
 
   const choose = useCallback(
     (cell: Slot) => {
@@ -440,8 +421,10 @@ function TutorialBoard() {
   const rotate = useCallback(() => setOrientation((o) => (o % 4) + 1), []);
   const confirm = useCallback(() => {
     if (!move) return;
-    setRefusal(play({ kind: "build", orientation: move.orientation, x: move.x - CENTER, y: move.y - CENTER }));
-  }, [move, play]);
+    const refused = play({ kind: "build", orientation: move.orientation, x: move.x - CENTER, y: move.y - CENTER });
+    setRefusal(refused);
+    if (!refused && ghost) flash(ghost);
+  }, [move, play, ghost, flash]);
   const discard = useCallback(() => setRefusal(play({ kind: "discard" })), [play]);
 
   const stage = (
@@ -490,6 +473,7 @@ function TutorialBoard() {
       storageDisabled={storageOff(trainingStore(sources))}
       slots={slots}
       ghost={ghost}
+      confirmed={confirmed}
       onSlotClick={choose}
       readOnly={view.over}
       notices={stage}
@@ -505,6 +489,7 @@ function TutorialBoard() {
             basePath={RENDERER_ASSETS}
             slots={slots}
             ghost={ghost}
+            confirmed={confirmed}
             onCellClick={choose}
             onCellHover={setHovered}
             onError={() => setView("plan")}
