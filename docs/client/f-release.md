@@ -137,6 +137,9 @@ What the files set:
   first: bun resolves the workspaces (`workspace:*`) from the root `package.json` and `bun.lock`, and turbo builds the client's
   packages (`game-core`, `chain`, `renderer`) before the app's `build` script, which is not bypassed. This needs the dashboard
   setting **Include files outside of the Root Directory in the Build Step** on (Vercel's default for new projects).
+- **The file wins over the dashboard.** `installCommand`, `buildCommand`, `outputDirectory` and `framework` in `vercel.json` override
+  the project's settings of the same names (Vercel: <https://vercel.com/docs/project-configuration>, "vercel.json" overrides the
+  Project Settings). The client's file sets `"framework": null`, so the dashboard's preset and build override cannot shadow it.
 - **Client build variables, public, in `build.env`:** `VITE_NETWORK=sepolia` (the app refuses a production build without a network),
   `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` and `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the
   deployment file's `rpc_url` is a placeholder). The Challenge and Setup addresses and the deployed block come from the committed
@@ -151,8 +154,9 @@ What the files set:
   Storybook adds `iframe.html`, `index.json` and `project.json` to the `no-cache` list. Everything else keeps Vercel's default.
 - **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it).
 
-What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the Node.js
-version (24.x, from `engines`), the domains and the Git connection.
+What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the
+production branch, the preview deployments, the Node.js version (24.x, from `engines`; the docs project is on 18.x), the domains and
+the Git connection.
 
 **No secret env, anywhere.** The `vercel` CLI may be used, by plain `vercel` from `PATH` only (no other binary path, no `--token`, no
 `--scope`, no credential file read). `vercel login`, `logout`, `teams` and `billing` are refused by the shim. Reserved to the owner,
