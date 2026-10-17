@@ -295,17 +295,17 @@ describe("GameScene with skins", () => {
     s.updateTiles([tile(1, 9)]);
     await init;
     const cell = tile(2, 9, C, C - 1);
-    const getModel = vi.spyOn(s.assets, "getModel");
     s.setHoveredTile({ x: 0, y: 1, valid: true, idle: true, planIndex: 9, orientation: 1, cell: { x: cell.x, y: cell.y, gameId: GAME } });
     await settle();
     await settle();
-    expect(getModel).toHaveBeenLastCalledWith(variantOf(cell));
+    // The ghost draws the variant's shared model (SLOTS: as a placed tile does).
     expect((s.tiles as any).previewKey).toContain(variantOf(cell));
+    expect((s.tiles as any).tileTypes.has(variantOf(cell))).toBe(true);
     // Without a cell: the variant at the board's centre of game 0, as the hand's tile, not the base model.
     s.setHoveredTile({ x: 0, y: 1, valid: true, idle: true, planIndex: 9, orientation: 2 });
     await settle();
     await settle();
-    expect(getModel).toHaveBeenLastCalledWith(variantOf({ ...cell, x: C, y: C, game_id: 0 }));
+    expect((s.tiles as any).previewKey).toContain(variantOf({ ...cell, x: C, y: C, game_id: 0 }));
     expect(requested()).not.toContain(`${at}/models/${keyOf(9)}.glb`);
     s.dispose();
   });

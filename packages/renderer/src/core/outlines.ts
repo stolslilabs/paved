@@ -87,7 +87,8 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   minWidthDevicePx: 1,
   maxWidthPx: 2,
   // The colour on screen, halfway between the old #1f1f1f (which showed as about #53524f, the finish pass lifting it) and
-  // black. `screenColor` converts it to the grey the pass writes (about #101010) for the default look.
+  // black. `screenColor` converts each channel to what the pass writes for the default look: about 15.0, 15.1 and 15.2 of
+  // 255 in linear light (#0f0f0f). On the Mac's GPU, fully on (1.15 S), the covered pixels show about #2a2a2b (SLOTS).
   color: "#2a2928",
   // Under a device pixel a segment covers a pixel only where a pixel's centre falls within its span, so it shows as a
   // stray dot that comes and goes as the camera moves; at 0.5 px it covers at most half a pixel's row. It fades out
@@ -476,9 +477,35 @@ function solve3(m: number[][], b: number[]): number[] | null {
  * shifts the visible value.
  */
 function screenColor(css: string, target = new THREE.Color()): THREE.Color {
-  target.setStyle(css, THREE.LinearSRGBColorSpace);
-  const [r, g, b] = outlineWrittenColor([Math.round(target.r * 255), Math.round(target.g * 255), Math.round(target.b * 255)]);
+  const [r, g, b] = outlineWrittenColorOf(css);
   return target.setRGB(r, g, b, THREE.LinearSRGBColorSpace);
+}
+
+/** Converted colours, by CSS colour and the modelled look (`writtenColorKey`): the conversion is a bisection and Newton steps. */
+const writtenColors = new Map<string, readonly [number, number, number]>();
+/** Enough for a story's colour picker; past it the cache starts over. */
+const WRITTEN_COLORS_MAX = 64;
+
+/** The cache key: the CSS colour and the look values `outlineScreenOf` models. */
+function writtenColorKey(css: string): string {
+  const { toneMapping, grade } = LOOK_PRESETS.mockup;
+  return `${css}|${toneMapping.exposure}|${grade.enabled}|${grade.saturation}|${grade.contrast}|${grade.warmth}`;
+}
+
+/**
+ * `outlineWrittenColor` of a CSS colour (the colour that shows), memoized on the colour and the look it models: the
+ * stroke is applied on every frame the zoom changes, and the colour seldom does. The same tuple comes back for the same
+ * colour and look.
+ */
+export function outlineWrittenColorOf(css: string): readonly [number, number, number] {
+  const key = writtenColorKey(css);
+  const cached = writtenColors.get(key);
+  if (cached) return cached;
+  const c = new THREE.Color().setStyle(css, THREE.LinearSRGBColorSpace);
+  const written = outlineWrittenColor([Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]);
+  if (writtenColors.size >= WRITTEN_COLORS_MAX) writtenColors.clear();
+  writtenColors.set(key, written);
+  return written;
 }
 
 /** The outline material: `diffuse` its colour, `opacity`, `linewidth` in device px. */

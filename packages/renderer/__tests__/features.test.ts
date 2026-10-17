@@ -512,6 +512,36 @@ describe("the feature highlight in the tile shader", () => {
     tiles.dispose();
   });
 
+  it("draws the ghost (SLOTS) neither lit nor dimmed: its own copy of the tile material, the highlight held off", () => {
+    const { tiles } = renderer();
+    const plan = tile("rfrfcccfr", 1).plan;
+    tiles.updateTiles([tile("rfrfcccfr", 1)] as never);
+    lightUp(tiles);
+    const ghostMaterials = () => {
+      const found: THREE.MeshStandardMaterial[] = [];
+      (tiles as any).previewContainer.traverse((child: THREE.Object3D) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) found.push(child.material);
+      });
+      return found;
+    };
+    tiles.setHover({ x: 2, y: 0, planIndex: plan, orientation: 1, valid: true } as never);
+    const ghosts = ghostMaterials();
+    const model = typeMesh(tiles, "rfrfcccfr").material as THREE.MeshStandardMaterial;
+    expect(ghosts).toHaveLength(1);
+    expect(ghosts[0]).not.toBe(model);
+    const [own, its] = [shaderOf(ghosts[0]), shaderOf(model)];
+    // The same program and the same water; the highlight's switch its own, and off while the board's is on.
+    expect(ghosts[0].customProgramCacheKey()).toBe("paved-tile");
+    expect(own.fragmentShader).toBe(its.fragmentShader);
+    expect(own.uniforms.uWaterOn).toBe(its.uniforms.uWaterOn);
+    expect(its.uniforms.uFeatureOn.value).toBe(1);
+    expect(own.uniforms.uFeatureOn.value).toBe(0);
+    // One copy per type material, kept across ghosts.
+    tiles.setHover({ x: 3, y: 0, planIndex: plan, orientation: 2, valid: false } as never);
+    expect(ghostMaterials()).toEqual([ghosts[0]]);
+    tiles.dispose();
+  });
+
   it("lights the chosen feature through shared uniforms, its label read per fragment, with no recompile", () => {
     const { tiles } = renderer();
     tiles.updateTiles([tile("rfrfcccfr", 1)] as never);

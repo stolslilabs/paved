@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { GameScene } from "../src/core/GameScene";
 import type { TileRenderData } from "../src/core/types";
+import { placementStubs } from "./helpers/placement-stubs";
 
 function makeTile(overrides: Partial<TileRenderData> = {}): TileRenderData {
   return {
@@ -23,7 +24,7 @@ describe("GameScene strategy mode refresh", () => {
 
     const updateTiles = vi.fn();
     const setStrategyMode = vi.fn();
-    (scene as any).tiles = { updateTiles, setStrategyMode };
+    (scene as any).tiles = { ...placementStubs(), updateTiles, setStrategyMode };
 
     const tiles = [makeTile()];
     scene.updateTiles(tiles);

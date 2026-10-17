@@ -1057,7 +1057,7 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
   units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
 
-**Frame time** (DPR's and OUT-LOD's method: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen; the
+**Frame time** (DPR's and OUT-LOD's method: the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; the
 "Renderer/Outlines" story Held with `redraw` and the outlines forced on, on the recorded 72-tile board; per frame the
 CPU time of every rAF callback plus the GPU time of `EXT_disjoint_timer_query_webgl2` around each; a fresh context per
 configuration, 120 warm-up and 600 measured frames; nearest-rank percentiles over the pooled frames). Mac profile:
@@ -1340,6 +1340,11 @@ off (preset 1.3 / preset 1.15). The default is 1.15.
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
 it fades over a factor of two in length, a small step per zoom step (`outline-segment-cut.test.ts`). No change, no capture.
+**Corrected (SLOTS):** "whole" holds for the edges along x only. From the play camera's 27 degree tilt an edge along z
+is foreshortened by cos 27 degrees (0.89): at the phone's 0.85 S at DPR 1 it is about 0.98 device px, just under the 1 px
+`segmentFullDevicePx`, so the cut draws it at about 0.96 of its opacity, above the 0.5 px cut. It is faded slightly, never
+dropped, and the factor changes continuously with the zoom, so it does not pop. At DPR 2 and above it is about 2 px or more,
+whole. A merged straight edge is several voxels long, so most such edges are far above the cut.
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
@@ -1349,7 +1354,21 @@ them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (
 0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step
 0.47 point, no jump that is not the opacity ramp (the luma's own largest step is 0.53 on, 0.57 off). **Pan**: the 12-drag
 run did not finish on the loaded VPS (the screenshots timed out under SwiftShader, twice); it is left to the GPU check on
-the Mac, which the coordinator schedules. Unit tests cover the ramp's per-step change (no kink at either end).
+the Mac, which the coordinator schedules. **Run on the Mac's GPU (SLOTS, 2026-10-16)**: headless Chrome (new headless) on
+ANGLE Metal (the Mac's GPU), the "Renderer/Outlines" story held, outlines forced on, main before OUT-FADE (`2cef09d0`) against
+OUT-FADE (`ef354596`), each a static Storybook; 12 mouse drags of 2 CSS px with a 1.5 s settle, the mean luma of the centre
+crop (800 x 500 at 1440 x 900, DPR 2, cap 1.5; 300 x 400 at 360 x 780, DPR 3, cap 2) after each; the 1-minute load 2.4 to 5.4.
+Largest step (mean step), before / after:
+
+| Distance (share of S) | Desktop | Phone-like |
+|---|---|---|
+| 209 (1.15 S) | 0.39 (0.08) / 0.39 (0.08) | 0.68 (0.34) / 0.68 (0.34) |
+| 240 (S, the opening) | 0.21 (0.10) / 0.24 (0.11) | 0.67 (0.36) / 0.69 (0.37) |
+| 260 (0.92 S) | 0.22 (0.16) / 0.23 (0.17) | 0.59 (0.29) / 0.63 (0.29) |
+| 275 (0.87 S) | 0.26 (0.13) / 0.26 (0.13) | 0.67 (0.32) / 0.69 (0.32) |
+
+The two builds differ by at most 0.04 levels, and the largest step falls on the same drag in both (content entering the
+crop, not flicker, which would not repeat): **no flicker from the fade**, nothing to fix. Unit tests cover the ramp's per-step change (no kink at either end).
 
 On software WebGL (a renderer string of SwiftShader,
 llvmpipe, softpipe, "Software" or "Basic Render", or a context refused with `failIfMajorPerformanceCaveat`)
@@ -1370,8 +1389,14 @@ profile, or a corner under the vignette, shows a different value; a colour above
 keeps 0.65 of the light) comes out as the nearest. Written `#1f1f1f` shows as about `#53524f` by the model too. In the
 captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
-`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`). The story's control takes the visible
-colour; black stays reachable.
+`#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`); those were taken with the green-only
+conversion. **Re-measured after the per-channel conversion (SLOTS, 2026-10-16)**, on the Mac's GPU (headless Chrome on ANGLE
+Metal), the Mockup at distance 200 (above 1.15 S, so the outlines are fully on), outlines on against off at the same pose,
+the centre crop, the pixels the stroke darkens most: the darkest read `#2a2a2b` at 1280 x 800, DPR 1, `#2b2a2b` at
+360 x 780, DPR 2, and `#262627` at DPR 1.5 (within two 8-bit steps of `#2a2928`; the median of those pixels, `#323232` to
+`#353435`, is a stroke covering most of a pixel, not all of it). The default writes 15.0, 15.1 and 15.2 of 255 in linear light
+(about `#0f0f0f`). The conversion is memoized on the colour and the modelled look (`outlineWrittenColorOf`), so a zoom step
+re-applies the stroke without solving again. The story's control takes the visible colour; black stays reachable.
 `fadeThresholdTilePx`, `fadeRangeTilePx`, `minWidthPx` and `maxWidthTilePx` are gone.
 
 **Shading (R-VIS).** The diagonal, aliased tint bands on lit faces were shadow acne: the light had no bias,
@@ -1966,6 +1991,165 @@ main's chain held at 1.5 (61 MiB against 155).
   `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on
   (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
   against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 1 ms, inside the noise).
+
+### 5.7 Placement visuals (SLOTS, P-68)
+
+The owner's brief (via the PM, 2026-10-16, P-68), with the PM's rulings on its gaps. No component drew these before: the
+gold slot rings (`RingGeometry`) and the ghost's emissive tint, red where invalid, are replaced by this system.
+
+**The states** (`data/placement.ts`, `usePlacement`; the board page wires Training and Challenge through it, the
+Tutorial its one scripted slot the same way):
+
+| State | The board draws | Confirm |
+|---|---|---|
+| idle (no tile in hand) | the grid | off |
+| in hand | the grid; every legal slot in any rotation: a flat yellow fill and a neon border, dashed, solid and brighter where the current rotation fits | off |
+| placed, the rotation fits | the tile on its slot under a pale yellow veil, an aura (a halo on the ground and a curtain up its sides, waves running out and up) and the cell's solid border | on |
+| placed, the rotation does not fit | the same in red (the PM's reading of item 4: red means "this rotation does not fit here") | **off** |
+| confirmed (the move accepted) | the veil and aura turn green over the placed tile, then fade to nothing | (sent) |
+
+- Rotating on a placed tile turns through all four rotations (it turned only through the fitting ones before), so the
+  red state is reachable; choosing a slot still picks a rotation that fits there, so a placement starts yellow. A hover
+  (the pointer, not a choice) previews the rotation a click would choose: never red, no aura.
+- **The green flash comes when the move is accepted**, not when Confirm is pressed: Training once the session's `place`
+  resolves true; Challenge when the engine's prediction takes the move (`place` applies it before it resolves; the
+  receipt can come seconds and moves later, and a refusal then rolls the board back with its error), or, without
+  prediction, once the chain confirms it. A refused move flashes nothing: the tile stays placed, its error in the hand.
+  The board holds the confirm for the renderer's fade (`motion.confirmMs`) plus 300 ms (`confirmHoldMs`).
+- **The rule lives in one place**, `placementTone(fits)` in `core/placement.ts` (and `placementView` in the app, which
+  computes `fits` from the engine's `orientationsAt`): red on any rotation would be a change there.
+- The plan view (`BoardMap`) draws the same states flat: faint cell outlines around the tiles by ring (two rings there,
+  to keep the tiles large), dashed or solid slot borders, the placed tile with a yellow or red ring and a pale veil, and a
+  green flash that fades on confirm (`motion-reduce` shortens it).
+
+**The renderer** (`core/placement.ts`, `PlacementRenderer`, owned by `TileRenderer`; `core/neon.ts`):
+
+- **The grid**: one plane over the tiles' bounds and four rings around, its shader drawing the cell lines antialiased by
+  their distance in device px (`fwidth`), at least `minWidthDevicePx` (1) wide, `width` 1.2 % of a tile. Its fade by
+  ring is **Chebyshev** (the eight cells around a tile are ring 1, so the band around the board is square and even). A
+  small texture holds each cell's ring opacity (ring 1: 1, ring 2: 0.4, ring 3: 0.1, from ring 4: 0, times `opacity`
+  0.32), read cell by cell (`texelFetch`): **a line takes the nearer ring of its two cells** (the larger opacity), so the
+  outer edges of the first ring are fully visible, the second ring's perceptible (0.4), the third's almost gone (0.1),
+  then nothing; along a line the opacity is linear from one row of cells to the next. `gridLineOpacityAt` is the reference
+  in TypeScript: it picks the nearest vertical and horizontal lines as the shader does (`floor(h + 0.5)`) and returns the
+  nearer one's opacity; the shader draws each line at that opacity times its pixel coverage and keeps the larger, the same
+  value on a line (fix loop 2, review t-0484: the reference read the left edge of the point's cell; the tests now read
+  between the lines too). Fix loop 1 (review t-0479): a bilinear read of the cell centres gave each line the mean
+  of its two cells (1, 0.7, 0.25, 0.05). It is rebuilt only when the tiles' cells change. Colour ink-200 `#d1d9df`.
+- **The neon** (`neon.ts`, the reusable piece GLOW can take for the gold slots): `NEON_LINE_GLSL` (a line's coverage at
+  a distance, with a pixel floor; dashes along a side with whole corners; a gaussian halo) and a cell-frame material
+  (`createNeonFrameMaterial`, `setNeonFrame`): the line's core whitened, the halo in the colour, a flat fill, premultiplied
+  (`ONE, ONE_MINUS_SRC_ALPHA`) so the neon adds light and the fill covers in one draw. **Not the bloom pass**: LIGHT-GPU
+  found it High-only and shimmering on thin bands. One frame geometry and two materials (dashed, solid) serve every
+  slot.
+- **Dashes**: long dashes, smaller gaps (`gap` 0.28 of a period), the corners whole L shapes; 2 a side on a small cell, 3
+  on a large one, blended over 16 CSS px around 80 px a tile (`slotDashBlend`), so a zoom step never pops.
+- **Lines on zoom-out** fade on OUT-FADE's curve (`placementFade`: the outlines' `outlineFade` against the opening tile
+  size S): the grid to nothing, the slots' borders down to `fadeFloor` (0.6), so the legal slots stay findable zoomed out.
+- **The aura**: one shared geometry around a cell, a halo on the ground just above a tile's ground top (it lies over
+  the neighbours' ground, not under it) and a curtain up the four sides, `aV` from 0 at the cell's edge to 1 at the far
+  end: bright at the edge, falling to 0, so no hard edge to alias; waves `sin(2π(v · waves − phase))` with the phase looping
+  over `periodMs` (1800). The curtain fades out edge-on and on its far side; the aura and the placed cell's border are
+  drawn without the depth test (a glow over the neighbours' trees, which would cut it into pieces).
+- **The veil**: the tile's own model clone with every mesh drawn in a pale colour (the state's mixed 50 % with white, at
+  0.16), its outlines dropped; it shares the model's geometry and uses the outlines' depth bias (factor −1, units −4) to lie
+  on the faces without fighting them, drawn after the faces and before the outlines. The ghost itself is now the tile as
+  the board draws it (the type's shared model and materials, no shadow): the ghost makes no material of its own.
+- **Colours** (the Tailwind tokens): yellow `#f0bf5b` (primary, gold-300), red `#f85e4d` (ember-500), green `#6eca6f`
+  (meadow-400).
+- **Motion**: a change of tone runs 220 ms, the confirm 700 ms (green in its first third, a smoothstep fade); render on
+  demand holds: `TileRenderer.update(now)` reports when an effect still moves (a colour change, the aura's waves, the
+  confirm), and `GameScene`'s tick draws a frame only then. **Reduced motion** (`motion.reducedMotion`, "auto" follows
+  `prefers-reduced-motion` and its changes): a still aura (no continuous frames), colours at once, a 150 ms fade.
+- Every value is a setting (`RendererSettings.placement`, a partial per group) and a control of the story.
+
+**Stories**: "Renderer/Placement" (`packages/app/src/stories/renderer/placement.stories.tsx`): Idle grid, Slots, Placed
+yellow, Placed red, Confirm green (played again every 1.6 s) and Reduced motion, every setting a control.
+
+**Frame time (measured, 2026-10-16).** The Mac's GPU, Chrome in new headless mode on ANGLE Metal, never
+on screen; this branch's static Storybook, "Renderer/Placement" on the recorded 72-tile board, `redraw` on, outlines
+forced on, quality and pixel-ratio cap "auto" (Medium; 1.75 on the desktop since Q3-GPU, 2 on the phone-like profile);
+per frame the CPU time of every rAF callback of the frame plus the GPU time (`EXT_disjoint_timer_query_webgl2`) from its
+first callback to the next frame's; a fresh context per configuration, 120 warm-up and 600 measured frames; two rounds,
+the variants alternated and their order rotated; each run started at a 1-minute load under 6 (2.3 to 5.2). **Re-run at
+the final head** (`b8db97e5`: main merged with FEATURE-HL #496, TILE-TURN #497 and ERR-UI #495 beside the placement layer,
+then fix loop 2, whose shader is unchanged). Main's own changes raised the "none" baseline by up to about 0.65 ms at the
+desktop's opening view over the fix-loop-1 run (`8249a74e`, loads 5.4 to 6.0: none 5.96, placed 6.43 there); the
+placement visuals' cost stays inside the noise.
+Desktop: 1440 x 900 at DPR 2 (2520 x 1575). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x (720 x 1560). Variants:
+"none" (no grid, no slot), "grid" (idle), "slots" (a tile in hand: every empty cell next to a tile, dashed and solid), "placed" (the slots, the
+placed tile's aura and veil, its waves moving). CPU + GPU per frame, ms, pooled p50 / p95:
+
+| Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
+|---|---|---|---|---|
+| none | 5.01 / 6.61 | 4.00 / 5.43 | 3.94 / 5.52 | 2.40 / 4.12 |
+| grid | 5.07 / 6.70 | 4.00 / 5.32 | 4.02 / 5.70 | 2.34 / 3.94 |
+| slots | 5.13 / 6.79 | 4.04 / 5.37 | 4.03 / 5.64 | 2.41 / 3.84 |
+| placed | 5.16 / 6.81 | 2.99 / 5.19 | 4.13 / 5.69 | 2.40 / 3.73 |
+
+The "placed" desktop-60 p50 (2.99 against 4.00 for "none") is run noise, not a saving: the claim rests on the p95.
+
+The placement visuals cost at most 0.2 ms of p95 (desktop and phone-like, opening, the aura moving), inside the runs'
+noise elsewhere (worst round: 6.82 desktop, 5.75 phone-like); every row is far
+under the rules (12 ms desktop, 16.6 ms phone-like). This driver times the frame from the first callback to the next
+frame's and the story's board, so its absolute figures are not those of LIGHT-GPU's table (5.5): compare within this table.
+
+**Zero flicker (outlines on).** Redone in fix loop 1 (review t-0479: the first method's shift search was saturated, so
+its residual was the floor of a misaligned comparison). Same machine and mode; "Renderer/Placement" in the top view at
+240, its scene driven directly (the story exposes it to the script), the page's pixel ratio equal to the renderer's (1.75
+desktop, 2 phone-like: no resampling); "none" (no grid, no slot) against "slots" and "placed" (reduced motion, the aura
+still), at the auto tier (Medium) and at Low. Four measures:
+- **Still**: 10 frames redrawn 250 ms apart: every variant **pixel-identical** (largest difference 0).
+- **Whole-pixel pans**: 12 moves of the camera by exactly 3 device px; each frame against the previous one shifted by
+  the offset found within ±5 px (always the pan's own, −3 px: registered, not saturated); the mean absolute residual
+  (0 to 255), mean (max) over the steps.
+- **Sub-pixel pans**: 16 moves of 0.25 device px: the centre crop's mean-luma step.
+- **Zoom**: the distance 240 to 230 in steps of 0.5, the target held: the crop's mean-luma step.
+
+| Tier, profile | Variant | Pan residual | Sub-pixel step | Zoom step |
+|---|---|---|---|---|
+| Medium, desktop | none / slots / placed | 1.58 / 1.59 / 1.61 (1.62 / 1.63 / 1.65) | 0.015 / 0.052 / 0.052 (0.04 / 0.10 / 0.10) | 0.042 / 0.093 / 0.092 (0.11 / 0.30 / 0.29) |
+| Medium, phone-like | none / slots / placed | 1.54 / 1.56 / 1.58 (1.61 / 1.62 / 1.65) | 0.010 / 0.041 / 0.042 (0.02 / 0.09 / 0.08) | 0.020 / 0.039 / 0.040 (0.04 / 0.09 / 0.10) |
+| Low, desktop | none / slots / placed | 0.39 / 0.40 / 0.40 (0.41 / 0.43 / 0.43) | 0.016 / 0.051 / 0.052 (0.04 / 0.10 / 0.10) | 0.041 / 0.090 / 0.089 (0.11 / 0.30 / 0.28) |
+| Low, phone-like | none / slots / placed | 0.44 / 0.46 / 0.46 (0.47 / 0.49 / 0.48) | 0.008 / 0.042 / 0.043 (0.02 / 0.08 / 0.08) | 0.014 / 0.040 / 0.043 (0.04 / 0.09 / 0.10) |
+
+- **What the method sees.** The pans' floor is what moves under a screen-fixed pattern: at Medium the AO's noise, which
+  stays on the screen while the board moves (1.6 levels; at Low, without the AO, 0.4; with the look off, 0.31). Over that
+  floor the slots and the placed tile add at most 0.04 of a level: the lines move with the board. The sub-pixel and zoom
+  steps of "none" are near 0 (0.01 to 0.04); the lines add about 0.04 of a level on average, 0.3 at most.
+- **A positive control**: the High tier's bloom, which shimmers on thin bright bands (LIGHT-GPU), on the slots: the
+  sub-pixel step 0.39 (desktop) and 0.46 (phone-like) on average, 7 and 11 times the slots' at Medium, up to 0.95; the zoom step up to
+  2.5 levels; the pan residual 3.05 and 3.12 against Medium's 1.59. The method catches it; the default tiers show none.
+  High is not a default tier (5.5); its bloom shimmers on the neon as it did on the gold rings.
+- 1-minute load 4.2 to 5.9 (every run started under 6). **Re-run at the final head** (`b8db97e5`, loads 2.7 to 5.3):
+  every figure above came out the same to the third decimal, the High control included: the measure is deterministic, and
+  main's merges (FEATURE-HL's highlight is off by default) changed nothing it sees.
+
+**With FEATURE-HL (#496): a placed tile on a lit board.** The six "… lit" stories of "Renderer/Lighting" (Cities, Roads,
+Forests, Largest city, Longest road, Largest forest) and the Mockup, on the Mac's GPU, 1280 x 800 at DPR 1.75, distance 90,
+the story's ghost placed on its slot (yellow, then red), the aura still (reduced motion), loads under 6:
+- The ghost cell's inner 60 % reads the same mean colour, to the hundredth of a level, in all six lit stories as in the
+  Mockup (yellow 147.58, 132.00, 98.90; red 148.94, 122.13, 97.46), while the whole frame's mean luma moves from 72.4
+  (Mockup) to between 45.4 (Largest city) and 83.2 (Forests) as the board is lit and dimmed: the label glow and dimming
+  never reach the placed tile (SLOTS-MERGE's `ghostMaterial`, which holds the feature highlight off), so the veil and aura
+  sit on the tile's own colour, with no double tint.
+- No z-fighting: still frames are pixel-identical, and 8 pans of 0.25 device px move the cell's mean luma by 0.05 (0.14 at
+  most) on average, the same in every story as in the Mockup.
+- Captures: `captures/slots-largest-city-lit-yellow.webp`, `-red` and `slots-cities-lit-yellow.webp`.
+
+**Captures** (`packages/app/src/stories/renderer/captures/slots-<state>-<width>.webp`): each story (idle grid, slots,
+placed yellow, placed red, confirm green caught about 150 ms into its fade, reduced motion) at 1280 x 800, DPR 2, and
+360 x 780, DPR 3, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on, quality and cap "auto".
+
+**Where this differs from the brief, or decides a gap** (the PM's rulings stand; these are the thread's, reversible):
+- The aura and the placed cell's border are drawn without the depth test (the neighbours' trees cut them otherwise); the
+  curtain's far side is not drawn, so the aura never shows through the tile.
+- The slots' borders keep 0.6 of their opacity when zoomed out past the outlines' fade (the grid fades to nothing): a
+  slot must stay findable at the farthest zoom.
+- A hover previews the rotation a click would pick (never red); the aura and Confirm are for a placed tile only.
+- The player's "tile preview" setting hides only the hover preview (fix loop 1): a placed tile is always drawn, with its
+  aura, veil and colour, red included, so the board says why Confirm is disabled.
+- The look's gold highlights (`look.highlights`) no longer draw the slots or the ghost; they stay in the look for GLOW.
 
 ---
 

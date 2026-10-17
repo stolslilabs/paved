@@ -60,6 +60,7 @@ export function createFakeSceneClass(scenes: unknown[]) {
     updateTiles = vi.fn();
     setHoveredTile = vi.fn();
     setAvailableSlots = vi.fn();
+    setConfirmedTile = vi.fn();
     setStrategyMode = vi.fn();
     setCompassRotation = vi.fn();
     setCameraMode = vi.fn();

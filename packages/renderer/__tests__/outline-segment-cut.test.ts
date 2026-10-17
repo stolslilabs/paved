@@ -57,6 +57,18 @@ describe("the screen-size cut", () => {
     expect(segmentFade(0, 0, 0)).toBe(1);
   });
 
+  it("fades a voxel's edge along z slightly at the phone's 0.85 S, DPR 1, from the 27 degree tilt: never dropped", () => {
+    // A 360 x 780 phone opens at about 52 px a tile; at 0.85 S a voxel is 52 * 0.85 / 40 = 1.1 px along x, and along z
+    // foreshortened by cos 27 degrees: about 0.98 px, just under the full length.
+    const alongX = (52 * DEFAULT_OUTLINE_SETTINGS.fadeOffFactor) / 40;
+    const alongZ = alongX * Math.cos((27 * Math.PI) / 180);
+    expect(alongX).toBeGreaterThan(FULL);
+    expect(alongZ).toBeCloseTo(0.98, 2);
+    expect(segmentFade(alongX, OFF, FULL)).toBe(1);
+    expect(segmentFade(alongZ, OFF, FULL)).toBeGreaterThan(0.95);
+    expect(segmentFade(alongZ, OFF, FULL)).toBeLessThan(1);
+  });
+
   it("at the game's opening view, drops a voxel's vertical edge and keeps a horizontal one", () => {
     // 1440 x 900 at DPR 1 and 2, straight down from 240: a tile is about 60 CSS px, a voxel about 1.5.
     for (const ratio of [1, 2]) {
