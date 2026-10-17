@@ -97,7 +97,6 @@ jobs:
               - 'packages/game-core/**'
               - 'packages/renderer/**'
               - 'packages/ui/**'
-              - 'packages/app-web/public/**'
               - 'contracts/abis/**'
               - 'contracts/deployments/**'
               - 'bun.lock'

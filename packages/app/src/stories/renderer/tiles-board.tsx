@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import type { AssetManifest, GameScene, TileRenderData } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
-import { APP_ASSETS, APP_MANIFEST, APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, APP_MANIFEST, SOURCE_ASSETS } from "../../mocks/assets";
 
 /** How a tile is drawn: the plan view's tile, or the placeholder quad of a tile whose model has not come. */
 export type TileView = "plan" | "quad";
@@ -16,7 +16,7 @@ export interface TilesBoardProps {
 
 /** The app's models and resized copies as its build's manifest lists them (`APP_MANIFEST`: `models`, `tiles`). */
 const RESIZED: AssetManifest = { models: APP_MANIFEST.models, tiles: APP_MANIFEST.tiles };
-/** No tiles listed: the loader asks for `assets/tiles/<plan>.png`, the originals (as before TEX), at `APP_WEB_ASSETS`. */
+/** No tiles listed: the loader asks for `assets/tiles/<plan>.png`, the originals (as before TEX), at `SOURCE_ASSETS`. */
 const ORIGINAL: AssetManifest = { models: {} };
 
 /** The 19 plans, one tile each, on a 5 x 4 board. */
@@ -122,7 +122,7 @@ export function TilesBoard({ view, images }: TilesBoardProps) {
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={readout ? "" : undefined} data-bytes={readout?.bytes} data-uploaded={readout?.uploaded}>
-      <GameCanvas tiles={shown} strategyMode={view === "plan"} manifest={manifest} basePath={images === "resized" ? APP_ASSETS : APP_WEB_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas tiles={shown} strategyMode={view === "plan"} manifest={manifest} basePath={images === "resized" ? APP_ASSETS : SOURCE_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
           {view} view, {images} images: {readout.images.length} images on the GPU, {(readout.bytes / 1e6).toFixed(2)} MB; three holds {readout.uploaded} textures

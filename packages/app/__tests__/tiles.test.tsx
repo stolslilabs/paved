@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { BaseExplorer, BasePlanGrid, ExtendedExplorer, ExtendedIndex, ExtraTiles } from "../src/stories/tiles/tile-browser";
 import { BASE_PLANS, EXTENDED_MODELS, EXTRA_TILES, planFile } from "../src/stories/tiles/tiles-data";
 
-const PUBLIC = join(__dirname, "../../app-web/public");
-const names = (dir: string, ext: string) => readdirSync(join(PUBLIC, dir)).filter((f) => f.endsWith(ext)).map((f) => f.slice(0, -ext.length)).sort();
+const SOURCES = join(__dirname, "../asset-sources");
+const names = (dir: string, ext: string) => readdirSync(join(SOURCES, dir)).filter((f) => f.endsWith(ext)).map((f) => f.slice(0, -ext.length)).sort();
 
 describe("Tiles/Base", () => {
   it("lists every base model of the folder: the 19 the game plays, each with its PNG", () => {

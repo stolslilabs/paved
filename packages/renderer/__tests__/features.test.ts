@@ -24,7 +24,7 @@ import { FEATURE_HIGHLIGHT_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS } from "../src/core/look";
 
-const MODELS = fileURLToPath(new URL("../../app-web/public/models", import.meta.url));
+const MODELS = fileURLToPath(new URL("../../app/asset-sources/models", import.meta.url));
 const KEYS = readdirSync(MODELS)
   .filter((f) => f.endsWith(".glb"))
   .map((f) => f.slice(0, -4));

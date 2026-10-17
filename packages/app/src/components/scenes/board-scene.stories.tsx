@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
-import { APP_ASSETS, APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
@@ -91,7 +91,7 @@ const meta = {
           placementHighlight={args.placementHighlight}
         />
       }
-      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />}
+      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
     />
   ),
 } satisfies Meta<typeof BoardScene>;

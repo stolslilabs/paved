@@ -8,7 +8,7 @@ import { KHRDracoMeshCompression } from "@gltf-transform/extensions";
 // The renderer's own outline builder, from its source: the outlines are the part of a tile a quantization could change.
 import { buildEdgesGeometry } from "../../renderer/src/core/edges";
 
-const ORIGINALS = resolve(__dirname, "../../app-web/public/models");
+const ORIGINALS = resolve(__dirname, "../asset-sources/models");
 const COMPRESSED = resolve(__dirname, "../public/renderer-assets/models");
 
 type Gltf = {
@@ -98,13 +98,13 @@ describe("the compressed models draw the same outlines as the originals", () => 
 });
 
 // P11b's review note: the Forest models (theme 1) against the Draco sources the compress script read
-// (`app-web/public/models/extended/<plan>_HF_<n>.glb`). The script snapped each source position to the 0.1 voxel grid, within
+// (`asset-sources/models/extended/<plan>_HF_<n>.glb`). The script snapped each source position to the 0.1 voxel grid, within
 // Draco's half step; the outlines are the part of a tile that snap could change, so they are compared here.
 const EXTENDED = join(ORIGINALS, "extended");
 const FOREST = join(COMPRESSED, "forest");
 const GRID = 0.1;
 
-/** app-web's self-hosted Draco decoder (its JavaScript build, no WebAssembly to fetch), run as the compress script runs it. */
+/** The self-hosted Draco decoder (its JavaScript build, no WebAssembly to fetch), run as the compress script runs it. */
 async function dracoDecoder(): Promise<unknown> {
   const file = resolve(ORIGINALS, "../draco/draco_decoder.js");
   const module = { exports: {} as unknown };
