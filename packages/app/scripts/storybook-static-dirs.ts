@@ -17,10 +17,10 @@ export const CONFIG_DIR = resolve(HERE, "../.storybook");
 
 /**
  * The app's `public/` at the root of the Storybook (the Font Awesome scripts, `renderer-assets/`: hashed models and 256 px
- * tiles), and app-web's `public/` at a path of its own (plain models, original tile images, the Draco decoder): see
+ * tiles), and the app's `asset-sources/` at a path of its own (plain models, original tile images, the Draco decoder): see
  * `src/mocks/assets.ts`.
  */
-export const STATIC_DIRS: StaticDir[] = ["../public", { from: "../../app-web/public", to: "/app-web-assets" }];
+export const STATIC_DIRS: StaticDir[] = ["../public", { from: "../asset-sources", to: "/asset-sources" }];
 
 /** The directories one static dir creates under `storybook-static/`, as `/`-separated paths from its root (never the root). */
 export function writtenDirs(dir: StaticDir, configDir = CONFIG_DIR): string[] {

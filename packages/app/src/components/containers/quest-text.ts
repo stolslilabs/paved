@@ -1,6 +1,6 @@
-// What the screens say about quests and achievements, from app-web's `utils/quests-view.ts` (the accepted list,
+// What the screens say about quests and achievements, from the legacy client's `utils/quests-view.ts` (the accepted list,
 // docs/architecture/quests.md, P-22, and its v2a section). The titles and texts of quests 1 and 5 to 16 and achievements 1 to 16
-// are copied from there (app-web is not a dependency of this package), with an icon each: keep the two in step. Quests 2 to 4
+// are copied from there (app-web, removed in P-70; see git history), with an icon each. Quests 2 to 4
 // are not here: v1's, never defined at the fresh deployment, which is the only one this app knows.
 // Titles, descriptions and icons are not on chain: they are keyed by id. Targets are
 // not written here: the screens show the totals the indexer serves. An id the list does not know shows its number.

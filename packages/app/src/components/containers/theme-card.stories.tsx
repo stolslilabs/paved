@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
+import { SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
 import { THEME_TILES } from "../../mocks/settings";
 import { THEMES, ThemeCard } from "./theme-card";
 import { LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
@@ -9,7 +9,7 @@ const meta = {
   title: "Containers/ThemeCard",
   component: ThemeCard,
   parameters: { layout: "padded" },
-  args: { theme: THEMES[0], selected: true, tiles: THEME_TILES, tileArt: originalTileArt(APP_WEB_ASSETS), onSelect: fn() },
+  args: { theme: THEMES[0], selected: true, tiles: THEME_TILES, tileArt: originalTileArt(SOURCE_ASSETS), onSelect: fn() },
   decorators: [(Story) => <div role="radiogroup" aria-label="Theme" className="max-w-xs"><Story /></div>],
 } satisfies Meta<typeof ThemeCard>;
 export default meta;

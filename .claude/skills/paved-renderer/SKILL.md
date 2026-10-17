@@ -150,18 +150,18 @@ design is 5.5 (LIGHT) and the MSAA part of 5.2 (P4) of `docs/client/v2-architect
 ## Assets: self-hosted, no CDN
 
 Models, tile images and the Draco decoder (`draco/`) load from `<basePath>` (`core/AssetLoader.ts`). Storybook serves
-`packages/app-web/public/` at `/renderer-assets` (`packages/app/.storybook/main.ts`, `src/mocks/assets.ts`): plain
+`packages/app/asset-sources/` at `/asset-sources` (`packages/app/.storybook/main.ts`, `src/mocks/assets.ts`): plain
 `models/<key>.glb` and `assets/tiles/<key>.png`, no manifest unless a story hands one (`manifest` of `GameCanvas`).
 `asset-loader-draco.test.ts` checks that the decoder loads only for a model that needs it. Add no remote URL for a model,
 texture, decoder or font, in code or stories. Section 4.2 has the sizes and the measures; this is what to get right.
 
 **The pipeline** (`packages/app`, committed outputs, each script has `--check` and a test that runs it):
 
-- `packages/app/scripts/compress-models.ts`: app-web's base models and the Forest variants, meshopt-compressed, to
+- `packages/app/scripts/compress-models.ts`: the base models of `asset-sources/models/` and the Forest variants, meshopt-compressed, to
   `public/renderer-assets/models/<key>.<hash>.glb` and `models/forest/<plan>_HF_<n>.<hash>.glb`. The hash is the first 10 hex
   digits of the file's SHA-256.
 - `packages/app/scripts/compress-tiles.ts`: the 19 plan images, 256 px, to `tiles/<plan>.256.<hash>.png`. `--check` compares decoded
-  pixels, not bytes. The 1680 px originals stay in app-web for Storybook; the v2 build ships none.
+  pixels, not bytes. The 1680 px originals stay in `asset-sources/` for Storybook; the v2 build ships none.
 - `packages/app/vite/renderer-assets.ts` builds `manifest.json` from the file names, in dev and at build, and fails on a wrong hash:
   `{ models: { plan: path }, themes: { "<theme id>": { plan: [variant paths in order] } }, tiles: { "256": { plan: path } } }`.
   `AssetLoader` reads it once per base path (`loadManifest`); no manifest, or a plan it does not list, means the plain names.
@@ -221,8 +221,8 @@ Design: section 5.6 of `docs/client/v2-architecture.md`.
 ## The bench
 
 Frame time is measured with the bench, not by eye or by rAF intervals (a rAF figure cannot pass the display's refresh).
-Method: `docs/measures/client-baseline.md`; driver `scripts/bench/run.ts`; run `cd packages/app-web && bun run bench` (it
-drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no bench page).
+Method: `docs/measures/client-baseline.md`. Its driver and bench page left with app-web (removed in P-70; see git history):
+`packages/app` has no bench page yet, so a frame-time run needs one first (report the need).
 
 - A figure states: the machine, the **window mode** (on screen, off screen, headless), the GPU or software rendering, the
   profile (`unthrottled`, or `throttled`: CPU 4x and a 60 Hz cap), the tile count (38, 72), the run count, the window size,
@@ -234,7 +234,7 @@ drives `app-web`'s bench page through `setFrameObserver`; `packages/app` has no 
 - `--headless` is software rendering: a smoke run on Linux or any machine with no GPU. Its figures are not measures, and the
   driver refuses `--out` under `docs/measures/`. A figure needs a GPU run on the Mac. A capture taken on software WebGL
   (SwiftShader) is marked as such, with the outlines off there: it shows layout and colour, never a frame time or the
-  outlines. The CI e2e runs on it too.
+  outlines.
 - On the Mac a run opens no visible window while the owner uses the machine, and the driver has no hidden GPU mode
   (`--offscreen` still opens windows; `--headless` is software rendering): do not start a Mac run yourself; report the need.
   `docs/measures/client-baseline.md` and the bench driver's header still name `--offscreen` for the Mac, which is out of
@@ -255,7 +255,7 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --filter @paved/app build-storybo
 ```
 
 Storybook takes 2048 MB (what the briefs use; `packages/app/README.md` still says 1536). Run the package you touched; the
-whole suite is the CI's, and so is the Training e2e (`packages/app-web/e2e/`), which runs when `packages/renderer` changes.
+whole suite is the CI's.
 
 `bun run build --filter @paved/app` ends with the bundle budget (`packages/app/scripts/bundle-budget.ts`, limits in
 `packages/app/scripts/bundle-budget.json`): it fails when a metric passes its limit. The `board` chunk, which holds the renderer and

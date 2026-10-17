@@ -4,8 +4,11 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
 
-/** app-web's `public/`: the source of the renderer's tile images and original models, the folder Storybook maps to `/renderer-assets`. */
-const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../app-web/public");
+/**
+ * `asset-sources/`: the original models, the 1680 px tile images and the Draco decoder, the inputs of the compress scripts.
+ * Not in `public/`, so the build never copies them; Storybook maps the folder to `/asset-sources`.
+ */
+const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../asset-sources");
 /**
  * The app's own copy of the models, compressed and content-hashed (`scripts/compress-models.ts`): in `public/`, so Vite
  * serves it in dev and copies it into `dist/` at build, at `<base>renderer-assets/models/<plan>.<hash>.glb`.
@@ -30,7 +33,7 @@ const VARIANT = /^([a-z]{9})_[A-Z]{2}_(\d+)\.([0-9a-f]{10})\.glb$/;
 export const THEME_FOLDERS: Record<string, number> = { forest: 1 };
 
 /**
- * What the renderer requests from app-web's folder (`AssetLoader`): a base model, the Draco decoder. The tile images are the
+ * What the renderer requests from `asset-sources/` (`AssetLoader`): a base model, the Draco decoder. The tile images are the
  * app's own copies (`tiles/`), not this folder's. Anything else in it (`models/extended/`, the `assets/tiles/` originals, the
  * notices, the decoder's README) is never served nor copied.
  */
@@ -130,7 +133,7 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
  * through the manifest) draw the 256 px copies, so those are the only tile images in `dist/`. In dev it also answers the
  * original names (`models/<plan>.glb`, `draco/`), what the loader asks for when no manifest lists a plan; the build ships
  * neither. `vite preview` serves `dist` as a static host does, so the built copy is what it shows. Storybook maps
- * app-web's folder itself (`staticDirs`), whole, with no manifest: the plugin stays out of its builds.
+ * `asset-sources/` itself (`staticDirs`), whole, with no manifest: the plugin stays out of its builds.
  */
 export function rendererAssets(source = SOURCE, models = MODELS, tiles: string | null = models === MODELS ? TILES : null): Plugin {
   let prefix = "/renderer-assets/";

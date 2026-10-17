@@ -7,3 +7,5 @@ export const e = new Intl.NumberFormat("en-US");
 export const f = new Intl.DateTimeFormat();
 export const g = new Intl.RelativeTimeFormat("en");
 export const h = Intl.NumberFormat("fr-FR").format(1);
+export const i = formatInteger(1270).replaceAll(",", " ");
+export const j = formatPoints(1270).replace(",", "\u00a0");

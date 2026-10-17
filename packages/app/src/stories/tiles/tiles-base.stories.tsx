@@ -3,7 +3,7 @@ import { BaseExplorer, BasePlanGrid } from "./tile-browser";
 import { BASE_PLANS, planFile } from "./tiles-data";
 
 /**
- * The 19 base tiles the game plays (`app-web/public/models/<plan>.glb`), through the real renderer. One live canvas per
+ * The 19 base tiles the game plays (`asset-sources/models/<plan>.glb`), through the real renderer. One live canvas per
  * story: the grid switches the tile, and the grid itself is PNGs (the browser keeps about 16 WebGL contexts per page).
  */
 const meta = {

@@ -1,11 +1,11 @@
 /**
- * ASSET-WEIGHT: the app's copy of the board's 19 base models, compressed and content-hashed, from app-web's originals; and
+ * ASSET-WEIGHT: the app's copy of the board's 19 base models, compressed and content-hashed, from the originals in `asset-sources/`; and
  * (P11b) the Forest theme's, the high-forest set.
  *
  *   node scripts/compress-models.ts [--check]
  *
- * Reads `../app-web/public/models/<plan>.glb` (left untouched) and writes `public/renderer-assets/models/<plan>.<hash>.glb`;
- * reads the high-forest variants `../app-web/public/models/extended/<plan>_HF_<n>.glb` (theme 1, Forest, on chain) and writes
+ * Reads `asset-sources/models/<plan>.glb` (left untouched) and writes `public/renderer-assets/models/<plan>.<hash>.glb`;
+ * reads the high-forest variants `asset-sources/models/extended/<plan>_HF_<n>.glb` (theme 1, Forest, on chain) and writes
  * `public/renderer-assets/models/forest/<plan>_HF_<n>.<hash>.glb`. Each run removes the copies of an earlier one. The
  * low-forest set (`_LF_`) is kept for a later theme and not written. `--check` writes nothing and fails when the committed
  * copies are not exactly what this run would write. Node 24 runs it as is (type stripping): the syntax stays erasable.
@@ -37,7 +37,7 @@ import { EXTMeshoptCompression, KHRDracoMeshCompression, KHRMeshQuantization } f
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SOURCE = resolve(HERE, "../../app-web/public/models");
+const SOURCE = resolve(HERE, "../asset-sources/models");
 const OUT = resolve(HERE, "../public/renderer-assets/models");
 
 /**
@@ -53,8 +53,8 @@ const SETS: Array<{ label: string; source: string; out: string; match: (file: st
 const GRID = 0.1;
 
 /**
- * The Draco decoder the high-forest sources need (they are `KHR_draco_mesh_compression`): app-web's self-hosted copy,
- * Google's glTF build as three ships it (`public/draco/README.md`), the one the renderer loads. Its JavaScript build (no
+ * The Draco decoder the high-forest sources need (they are `KHR_draco_mesh_compression`): the self-hosted copy,
+ * Google's glTF build as three ships it (`asset-sources/draco/README.md`), the one the renderer loads. Its JavaScript build (no
  * WebAssembly file to fetch) is a CommonJS factory: it runs here with a `module` of its own, so no package is added.
  */
 async function dracoDecoder(): Promise<unknown> {

@@ -9,12 +9,12 @@ const fixture = (name: string) => readFileSync(join(dirname(fileURLToPath(import
 
 /**
  * P-66: no number or date is formatted by the user's locale. Every call goes through `packages/game-core/src/format.ts`.
- * app-web's own files are not scanned (its code is out of this guard's scope); the overlays of `packages/ui` are.
+ * The overlays of `packages/ui` are scanned too.
  */
 describe("locale guard (P-66)", () => {
   it("fails on a fixture of bare calls: every line is found", () => {
     const found = scanSource("fixtures/bare-locale-calls.fixture.txt", fixture("bare-locale-calls.fixture.txt"));
-    expect(found.map((v) => v.line)).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(found.map((v) => v.line)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("passes on a fixture that uses the formatter, with the rules quoted in comments and strings", () => {

@@ -17,7 +17,7 @@ import { DEFAULT_RENDERER_SETTINGS, SMALL_SCREEN_PX, resolveMultisampling, resol
 import { GameScene } from "../src/core/GameScene";
 import { TILE_SIZE } from "../src/core/types";
 
-const MODELS = fileURLToPath(new URL("../../app-web/public/models", import.meta.url));
+const MODELS = fileURLToPath(new URL("../../app/asset-sources/models", import.meta.url));
 
 /** A renderer as far as the composer reads it before drawing: sizes and pixel ratio. */
 function fakeRenderer(): THREE.WebGLRenderer {

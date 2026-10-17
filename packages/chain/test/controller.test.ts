@@ -30,7 +30,7 @@ const mainnet = resolveDeployment({
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Challenge entry is paid in USDC. */
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x14" };
-/** The cap app-web's connector still passes (`entryApprove`): ignored since P-65. */
+/** The cap a legacy caller may still pass (`entryApprove`): ignored since P-65. */
 const LEGACY_APPROVE = { token: ECON.usdc, cap: BigInt(MAX_STAKE) * FAKE_UNIT };
 /** The session of each network the client signs with a controller, with and without the Economy. */
 const onEveryNetwork = () =>
@@ -152,7 +152,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
   });
 
-  test("P-65: no policy holds an approve, on any target, on every network, whatever app-web's connector passes", () => {
+  test("P-65: no policy holds an approve, on any target, on every network, whatever a caller passes", () => {
     for (const ps of [policies, ...onEveryNetwork()]) {
       expect(ps.filter((p) => p.method === "approve")).toEqual([]);
       const methods = Object.values(toControllerSessionPolicies(ps).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));

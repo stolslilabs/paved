@@ -61,7 +61,6 @@ test("a stories-only change builds the Storybook, not the client", () => {
 
 test("a file a build copies from a public/ folder builds both projects, Markdown included", () => {
   assert.deepEqual(at(["packages/app/public/backgrounds/README.md"]).vercel, ["client", "storybook"]);
-  assert.deepEqual(at(["packages/app-web/public/draco/README.md"]).vercel, ["client", "storybook"]);
 });
 
 test("a package's README and docs, the root Markdown, the indexer, Cairo sources, the CI and the guards build no Vercel project", () => {

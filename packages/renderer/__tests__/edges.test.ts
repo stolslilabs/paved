@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 import { buildEdgesGeometry } from "../src/core/edges";
 
-const MODELS = fileURLToPath(new URL("../../app-web/public/models", import.meta.url));
+const MODELS = fileURLToPath(new URL("../../app/asset-sources/models", import.meta.url));
 
 /** Position and index of the single primitive of a tile model (GLB), without a loader. */
 function readTileGeometry(file: string): THREE.BufferGeometry {

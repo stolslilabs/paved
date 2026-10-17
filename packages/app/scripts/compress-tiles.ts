@@ -1,10 +1,10 @@
 /**
  * TEX: the app's copies of the 19 plans' 2D tile images at the size the renderer draws them (256 px), content-hashed, from
- * app-web's 1680 x 1680 originals.
+ * the 1680 x 1680 originals in `asset-sources/`.
  *
  *   node scripts/compress-tiles.ts [--check]
  *
- * Reads `../app-web/public/assets/tiles/<plan>.png` (left untouched) and writes
+ * Reads `asset-sources/assets/tiles/<plan>.png` (left untouched) and writes
  * `public/renderer-assets/tiles/<plan>.<size>.<hash>.png` for each size of `SIZES` (a list, so another size is one number). Each run removes the copies of an earlier
  * one. `--check` writes nothing and fails when a committed copy is not what this run would write, compared by pixels, not
  * bytes (the deflate stream depends on the Node and zlib that wrote it, which nothing pins): each copy's name must carry
@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { deflateSync, inflateSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SOURCE = resolve(HERE, "../../app-web/public/assets/tiles");
+const SOURCE = resolve(HERE, "../asset-sources/assets/tiles");
 const OUT = resolve(HERE, "../public/renderer-assets/tiles");
 
 /** The sizes written: one serves the placeholder quad and the plan view (the renderer's `TILE_IMAGE_SIZE`). */

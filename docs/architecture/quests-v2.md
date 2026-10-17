@@ -1,5 +1,7 @@
 # Quests and achievements v2: benchmark and options
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 Documents only: no contract change. Brief: `docs/briefs/quests-v2-benchmark.md` (track CORE, the PM's go of
 2026-10-14). v1 is `docs/architecture/quests.md` (the accepted list of P-22, the Setup contract of D-24/D-25), with
 its indexer (`docs/architecture/indexer.md`, "As built (P7 indexer, quests and achievements)") and its client page.

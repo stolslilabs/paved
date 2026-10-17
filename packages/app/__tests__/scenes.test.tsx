@@ -22,7 +22,7 @@ import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
-import { APP_WEB_ASSETS, originalTileArt } from "../src/mocks/assets";
+import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
@@ -30,12 +30,12 @@ import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mock
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
-/** Points as Testing Library reads them: its matchers collapse the no-break space to a space. */
-const pts = (n: number) => formatPoints(n).replace("\u00a0", " ");
+/** Points as the Score writes them. */
+const pts = (n: number) => formatPoints(n);
 
 describe("element helpers", () => {
-  it("writes points with a no-break space every three digits", () => {
-    expect(formatPoints(1270)).toBe("1 270");
+  it("writes points with a comma every three digits", () => {
+    expect(formatPoints(1270)).toBe("1,270");
     expect(formatPoints(980)).toBe("980");
   });
 
@@ -162,19 +162,19 @@ describe("Board", () => {
     const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAttribute("data-view", "art");
     const art = chip.querySelector("img");
-    expect(art).toHaveAttribute("src", `${APP_WEB_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
+    expect(art).toHaveAttribute("src", `${SOURCE_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(art?.style.transform).toBe(`rotate(${(BOARD_38.next.orientation - 1) * 90}deg)`);
   });
 
   it("falls back to the tile art when there is no WebGL, without an error", () => {
     // jsdom has no WebGL: the renderer's tile view and the board scene's hand both show the PNG chip.
-    const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={APP_WEB_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />));
+    const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={SOURCE_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />));
     const chip = screen.getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAttribute("data-view", "art");
-    expect(chip.querySelector("img")).toHaveAttribute("src", `${APP_WEB_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
+    expect(chip.querySelector("img")).toHaveAttribute("src", `${SOURCE_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(document.querySelector("canvas")).toBeNull();
     unmount();
-    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={APP_WEB_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />} />));
+    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={SOURCE_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />} />));
     const hand = screen.getByRole("region", { name: "Your tile" });
     expect(within(hand).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "art");
   });
