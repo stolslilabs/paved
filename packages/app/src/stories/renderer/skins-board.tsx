@@ -3,7 +3,7 @@ import { GameCanvas } from "@paved/renderer/react";
 import { NO_SKINS, variantHash, variantIndex, type AssetManifest, type GameScene, type TileSkins } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { APP_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, APP_MANIFEST } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 
 /** Which plans the story's player has Forest active on. */
@@ -22,35 +22,10 @@ export interface SkinsBoardProps {
   delayModels?: number;
 }
 
-/**
- * The base models and the Forest variants as the app's manifest lists them (`models`, `tiles`, `themes["1"]`): Storybook serves the
- * app's `public/` (where the compressed models are) at `APP_ASSETS` but no `manifest.json`, so the story names the files from
- * the folder, in variant order, and hands the renderer that manifest (`GameCanvas`'s `manifest`). The globs read the names
- * only: no model is imported or bundled.
- */
-const TILE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/tiles/*.png", { query: "?url" }));
-const BASE_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/*.glb", { query: "?url" }));
-const FOREST_FILES = Object.keys(import.meta.glob("../../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
-export const SKINS_MANIFEST: AssetManifest = (() => {
-  const plans: Record<string, Array<[number, string]>> = {};
-  for (const file of FOREST_FILES) {
-    const match = /\/([a-z]{9})_HF_(\d+)\.[0-9a-f]{10}\.glb$/.exec(file);
-    if (match) (plans[match[1]!] ??= []).push([Number(match[2]), `models/forest/${file.slice(file.lastIndexOf("/") + 1)}`]);
-  }
-  const forest = Object.fromEntries(Object.entries(plans).map(([key, v]) => [key, v.sort((a, b) => a[0] - b[0]).map(([, path]) => path)]));
-  const models: Record<string, string> = {};
-  for (const file of BASE_FILES) {
-    const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
-    if (match) models[match[1]!] = `models/${file.slice(file.lastIndexOf("/") + 1)}`;
-  }
-  // The 256 px tile images, as the app's build lists them: the app ships no original (`assets/tiles/`) to ask for.
-  const tiles: Record<string, Record<string, string>> = {};
-  for (const file of TILE_FILES) {
-    const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
-    if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${file.slice(file.lastIndexOf("/") + 1)}`;
-  }
-  return { models, tiles, themes: { "1": forest } };
-})();
+/** The base models, the Forest variants and the tiles as the app's manifest lists them (`APP_MANIFEST`). */
+export const SKINS_MANIFEST: AssetManifest = APP_MANIFEST;
+/** The Forest variant files the manifest lists, for the readout. */
+const FOREST_COUNT = Object.values(APP_MANIFEST.themes["1"] ?? {}).flat().length;
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
 
@@ -154,7 +129,7 @@ export function SkinsBoard({ forest, readout = true, delayModels = 0 }: SkinsBoa
       <GameCanvas tiles={shown} hover={delayModels > 0 && placed ? GHOST : null} skins={skins} manifest={SKINS_MANIFEST} basePath={APP_ASSETS} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
-          Forest variants fetched: {fetched} of {FOREST_FILES.length}
+          Forest variants fetched: {fetched} of {FOREST_COUNT}
         </output>
       )}
     </div>

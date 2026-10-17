@@ -2172,6 +2172,184 @@ placed yellow, placed red, confirm green caught about 150 ms into its fade, redu
   aura, veil and colour, red included, so the board says why Confirm is disabled.
 - The look's gold highlights (`look.highlights`) no longer draw the slots or the ghost; they stay in the look for GLOW.
 
+### 5.8 Loading (LOAD-FAST)
+
+**As built (LOAD-FAST, 2026-10-17).** The owner: "in the board scene's story, it takes several seconds before the assets
+show". Targets (to confirm by measure): the first 3D tile under 1 s warm and under 2 s cold on desktop.
+
+- **Method.** `packages/app/scripts/load-trace.ts` opens a page, cold (a fresh browser) or warm (the page loaded once in the
+  same browser context, then again), with the renderer's load trace on: `globalThis.__PAVED_LOAD_TRACE__ = true` turns on
+  the `performance` marks and measures named `paved:<step>` (`packages/renderer/src/core/load-trace.ts`; off, each costs a
+  flag read). It gives, per run, the time from navigation to each step: the manifest, each model's download (resource
+  timing) and its decode (from the download's end to the load's end: GLTFLoader's parse and the meshopt workers, plus any
+  wait for the main thread), the meshopt decoder's workers, the 19 tile images, the outline edges, the labels, each scene's
+  first frame (drawn inside `GameScene.start()`: compiles and uploads included), and every model in. It also reads the
+  network log (protocol, bytes, cache), and can take a CPU profile (`--cpuprofile`).
+  - **Where:** the VPS, headless Chromium, **software WebGL (SwiftShader)**, outlines off by the software rule (5.3); on a
+    loaded, shared machine, so a figure moves by about 300 ms run to run. Three runs per cell, the median.
+    The pages were served by a local Caddy (HTTP/2, TLS trusted by its key's hash, gzip and zstd for text, none for
+    `.glb`, as the hosts do), either with `Cache-Control: no-cache` everywhere (what the Storybook host sends) or with
+    `public, max-age=31536000, immutable` on the content-hashed paths (the list below). Builds: `before` is main plus the
+    trace alone (4d0b07b0), `after` is this branch.
+  - **Profiles.** Desktop: 1440 x 900 at DPR 2, no throttling, the network local. Phone (approximation): 360 x 780 at DPR
+    3, the CPU slowed 4x, the network shaped to 9 Mbit/s down and a 170 ms round trip; the GPU is still the machine's
+    software one.
+  - **What the software figures cannot give.** The first frame's shader compiles and texture uploads are GPU work: on
+    SwiftShader they run on the CPU, and the main thread waits for them (`(program)` in the profile: 470 ms after the
+    hand's first frame on the app, desktop). Those two rows are **GPU: to measure on the Mac** (the load trace and the
+    driver run there unchanged, headless, with the GPU).
+- **What the board's load is** (main, before this task). The app's board page mounts **two scenes**: the board and the
+  hand's tile (`TileView`, a second `GameCanvas`, its own WebGL context). Each had its own `AssetLoader`, so each fetched
+  and parsed the manifest and every model it drew, and after its first frame each loaded the other models (18 more): the
+  page asked for 37 model files where it needed 19. The first frame waits for the manifest, then for the models of the tiles
+  handed over and the 19 tile images (4.2, 5.6), then draws. The manifest was asked for by the tile chips (`useTileArt`)
+  and by each loader, twice in all, and only once the scene had mounted, after the board's code had loaded and React had
+  rendered the page. In Storybook the board stories (`Scenes/Board`, `BoardViewport`, `TileView`) read **app-web's plain
+  models** (`/app-web-assets/models/<plan>.glb`, 653 to 934 kB each, 14.96 MB for the 19), not the app's compressed ones
+  (1.10 MB): 16.5 MB a cold visit (measured on the published Storybook too, from the VPS: 16.5 MB over HTTP/3, and 86
+  revalidations, all `304`, on a warm visit).
+- **The FEATURE-HL labels** (`features.ts`) do not run at load by default: the highlight is off (`featureHighlight.enabled`
+  false), and they run only once a highlight is on, one model per idle slice, after the first frame. With a highlight on
+  ("Renderer/Lighting", "Cities lit"): 39 to 77 ms per model on desktop, 110 to 164 ms on the phone profile (software
+  CPU). Off the first frame's path: not precomputed (a build-time asset per model would add 19 to 91 requests or a
+  manifest field for idle CPU only).
+- **The fixes** (each in the table below, before and after):
+  1. **One model load per page** (`AssetLoader`, `sharedModels`): a model URL is downloaded and parsed once, shared by
+     every loader of the page (the board's and the hand's); each loader that stores it counts as a user, and the last to
+     let go disposes it. 37 model requests become 19 (Storybook), 21 become 19 (app, cold), 38 become 19 (app, warm).
+     The geometry is shared, as it already was among a scene's tiles; each scene still builds its own outline edges and
+     materials. A model is parsed by the loader that asked first (its owner); disposed while that load is pending, the owner
+     abandons it, and the loaders waiting on it load their own (a Draco decode dies with its owner's workers). The last
+     user disposes the geometry, the materials and their palette maps. Tests: `asset-loader-order.test.ts` ("loads a model
+     once for every loader of the page…", "lets a model go…"), `asset-loader-draco.test.ts` ("never leaves a loader
+     hanging on a shared Draco load whose owner was disposed mid-decode").
+  2. **One manifest request, started with the board's code** (`packages/app/src/data/renderer-manifest.ts`): the board's
+     route loader (`routes/page-loaders.ts`) asks for `renderer-assets/manifest.json` when it imports the board's chunk;
+     the board page hands that request to the renderer (`provideManifest`, before any scene mounts), and the tile chips
+     read their images from it. A failed read falls back to the loader's own (with its retries). The manifest is now in
+     before the scene starts (desktop cold: 639 ms → 280 ms after navigation; phone cold: 2351 → 1565 ms). Tests:
+     `packages/app/__tests__/renderer-manifest-early.test.ts`, `asset-loader-order.test.ts` ("reads a manifest the host
+     already asked for…").
+  3. **Storybook's board stories on the app's compressed models** (the coordinator widened the task's files for it): the
+     stories at `APP_ASSETS` (`/renderer-assets`, the app's `public/renderer-assets/`) get the app's manifest before any
+     scene asks (`.storybook/preview.tsx`, `provideManifest(APP_ASSETS, APP_MANIFEST)`). `APP_MANIFEST`
+     (`src/mocks/assets.ts`) is read from the file names and equals the build's `rendererManifest()`
+     (`__tests__/storybook-assets.test.ts`). The board scene, `BoardViewport`, `TileView`, and the renderer boards
+     (outlines, lighting, skins, placement) read it. A guard in the same test fails when a story hands the renderer
+     app-web's folder, except three named readers: the tile browser (the source models, `models/extended/` among them,
+     which only app-web holds), "Renderer/Tiles" with its original images (as before TEX), and `hand-panel.stories.tsx`'s
+     `Rendered` (not in this task's files). So app-web's folder stays in the Storybook build (48.4 MB in all, about the
+     same), until those three move. Measured on the built Storybook (5 runs; the warm rows run alternately, 6 runs each,
+     since the load moved between the first runs):
+
+     | `scenes-board--board-72`, no-cache | Page bytes | First 3D tile | **Board drawn** |
+     |---|---|---|---|
+     | desktop, cold: before / after | 16.51 MB / 2.40 MB | 1462 / 1528 | **2178 / 2426** |
+     | phone, cold: before / after | 16.51 MB / 2.40 MB | 21894 / 7817 | **25378 / 10546** |
+     | desktop, warm: before / after | 3.9 kB / 3.9 kB | 1268 / 1171 | **1908 / 1886** |
+     | phone, warm: before / after | 4.0 kB / 4.0 kB | 4802 / 4538 | **7172 / 7551** |
+
+     Cold on the phone profile, the board comes 14.8 s sooner (2.4x); on the desktop profile the network is local, so the
+     download was never the cost there, and the difference is inside the noise. Warm, nothing is downloaded either way:
+     the compressed models' meshopt decode costs no more than the plain models' parse, within the noise.
+- **Not done, and why.** Decode in a worker and the decoder at app start: meshopt already decodes in two workers
+  (`MeshoptDecoder.useWorkers(2)`, ready in 70 to 380 ms, before the manifest is in), and the decode's tail is the wait for
+  the main thread, not the decode. Merging the 19 models into one binary: the models download in parallel over HTTP/2 in
+  10 to 40 ms locally; the request count is not the cost. Compiling the shaders ahead (`renderer.compileAsync` on a
+  warm-up scene, with `KHR_parallel_shader_compile`): the stall it would remove is the largest left on software WebGL,
+  but it is `GameScene`'s (closed to this task until SLOTS merges) and its size is a GPU figure: to measure on the Mac
+  first. The 2D placeholders already show at once and stay until the models arrive (5.6).
+- **Where the time goes now** (app, desktop, cold): the board's code and React until the scenes start (about 0.4 to 0.5 s
+  here), the first models and images (in by 0.75 s), then the two scenes' first frames; the board's waits on the main
+  thread behind the hand's compile and link (software). The bundle: entry +136 B raw (+55 gzip), the board's chunk +1,496 B
+  (+604), first-load JS +681 B (+429), against main 35871a0d; all within `bundle-budget.json`, unchanged.
+- **Targets.** On software WebGL, the first 3D tile (the hand's) comes at 0.93 s cold and 0.58 to 0.86 s warm on desktop:
+  inside both targets. The board itself is drawn at 1.58 s cold (under 2 s) and 1.35 to 1.46 s warm (over 1 s): what is
+  left is the compile stall, a GPU row. Phone profile: the first 3D tile at 3.2 s cold, 1.8 to 2.1 s warm; the board at 4.3
+  s cold, 3.0 to 3.1 s warm. **The Storybook board is not inside the targets yet on software WebGL**: warm, it is drawn at
+  1.89 s on desktop (over 1 s), and desktop cold did not improve with fix 3 (2.18 s before, 2.43 s after, inside the
+  noise): on the desktop profile the network is local, so the 15 MB were never its cost; the main thread is (Storybook's
+  own code, the two scenes' compiles). Fix 3's gain is on a real network: the phone profile, cold, 25.4 s to 10.5 s.
+- **The timeline** (ms from navigation, median of 3; "decode" from a model's download end to its load's end; "first frame"
+  is that frame's own duration):
+
+  **The app, `/training` (the built app, a guest: the base models)**
+
+  | Profile, cache, headers | Build | Manifest in | Models: requests / bytes | meshopt ready | Decode median / max | Tile images in | Edges (sum) | First frame: hand / board (GPU: Mac) | **First 3D tile** | **Board drawn** | All models in | Page bytes |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | desktop, cold, nocache | before | 639 | 21 / 1.10 MB | 131 | 193 / 1425 | 685 | 70 | 116 / 79 | **870** | **1534** | 1969 | 1.86 MB |
+  | desktop, cold, nocache | after | 280 | 19 / 1.10 MB | 86 | 205 / 1380 | 750 | 60 | 111 / 99 | **929** | **1575** | 1973 | 1.86 MB |
+  | desktop, warm, nocache | before | 641 | 21 / 6.3 kB | 88 | 195 / 1526 | 686 | 57 | 133 / 118 | **901** | **1669** | 2185 | 3.7 kB |
+  | desktop, warm, nocache | after | 234 | 19 / 5.7 kB | 112 | 557 / 1343 | 681 | 45 | 92 / 90 | **859** | **1455** | 1937 | 3.7 kB |
+  | desktop, warm, immutable | before | 693 | 38 / 0.0 kB | 213 | 231 / 1430 | 728 | 69 | 100 / 119 | **951** | **1575** | 1965 | 0.2 kB |
+  | desktop, warm, immutable | after | 162 | 19 / 0.0 kB | 82 | 446 / 1384 | 406 | 41 | 95 / 100 | **584** | **1351** | 1756 | 0.2 kB |
+  | phone, cold, nocache | before | 2351 | 21 / 1.10 MB | 266 | 422 / 2643 | 2723 | 127 | 252 / 206 | **3267** | **4638** | 6666 | 1.86 MB |
+  | phone, cold, nocache | after | 1565 | 19 / 1.10 MB | 260 | 338 / 2147 | 2618 | 183 | 392 / 258 | **3177** | **4332** | 6105 | 1.86 MB |
+  | phone, warm, nocache | before | 1623 | 21 / 6.3 kB | 202 | 595 / 2501 | 1856 | 103 | 220 / 221 | **2234** | **2945** | 4228 | 3.7 kB |
+  | phone, warm, nocache | after | 904 | 19 / 5.7 kB | 219 | 399 / 2001 | 1662 | 117 | 293 / 196 | **2123** | **3039** | 3898 | 3.6 kB |
+  | phone, warm, immutable | before | 1433 | 21 / 0.0 kB | 338 | 941 / 4730 | 1480 | 204 | 656 / 356 | **2425** | **4582** | 6330 | 0.2 kB |
+  | phone, warm, immutable | after | 1192 | 19 / 0.0 kB | 251 | 1075 / 2528 | 1239 | 172 | 294 / 213 | **1822** | **3089** | 3967 | 0.2 kB |
+
+  **Storybook, `scenes-board--board-72`**
+
+  | Profile, cache, headers | Build | Manifest in | Models: requests / bytes | meshopt ready | Decode median / max | Tile images in | Edges (sum) | First frame: hand / board (GPU: Mac) | **First 3D tile** | **Board drawn** | All models in | Page bytes |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | desktop, cold, nocache | before | 1233 | 37 / 14.97 MB | 185 | 480 / 5400 | 1353 | 185 | 118 / 195 | **2380** | **3173** | 6680 | 16.51 MB |
+  | desktop, cold, nocache | after | 1187 | 19 / 14.96 MB | 131 | 1183 / 4410 | 1327 | 236 | 142 / 123 | **2209** | **3286** | 5858 | 16.51 MB |
+  | desktop, cold, nocache | after, compressed models (scratch) | 1153 | 19 / 1.10 MB | 200 | 1267 / 4422 | 1257 | 347 | 149 / 161 | **2662** | **3728** | 6214 | 2.63 MB |
+  | desktop, warm, nocache | before | 851 | 37 / 11.1 kB | 91 | 942 / 3460 | 959 | 182 | 94 / 120 | **1544** | **2467** | 6222 | 4.2 kB |
+  | desktop, warm, nocache | after | 721 | 19 / 5.7 kB | 97 | 963 / 4756 | 821 | 296 | 142 / 133 | **1443** | **2466** | 5559 | 3.9 kB |
+  | desktop, warm, nocache | after, compressed models (scratch) | 762 | 19 / 5.7 kB | 69 | 731 / 4122 | 857 | 232 | 121 / 164 | **1341** | **2252** | 4902 | 3.9 kB |
+  | desktop, warm, immutable | before | 505 | 37 / 11.1 kB | 75 | 836 / 3799 | 644 | 195 | 92 / 103 | **1109** | **1959** | 4109 | 1.4 kB |
+  | desktop, warm, immutable | after | 571 | 19 / 5.7 kB | 91 | 1167 / 3688 | 747 | 260 | 158 / 115 | **1553** | **2526** | 4282 | 1.2 kB |
+  | phone, cold, nocache | before | 3860 | 19 / 14.96 MB | 304 | 328 / 1452 | 4941 | 657 | 302 / 331 | **18701** | **21280** | 23267 | 16.51 MB |
+  | phone, cold, nocache | after | 3908 | 19 / 14.96 MB | 371 | 1096 / 6769 | 4900 | 612 | 326 / 318 | **19771** | **20841** | 22687 | 16.51 MB |
+  | phone, cold, nocache | after, compressed models (scratch) | 4763 | 19 / 1.10 MB | 375 | 4326 / 9738 | 5714 | 1137 | 512 / 456 | **8544** | **12800** | 16172 | 2.63 MB |
+  | phone, warm, nocache | before (re-run later, at a lower load) | 2054 | 19 / 5.7 kB | 182 | 2182 / 2201 | 2790 | 687 | 213 / 228 | **4036** | **6063** | 7445 | 4.1 kB |
+  | phone, warm, nocache | after | 4260 | 19 / 5.7 kB | 508 | 5656 / 6974 | 4809 | 1229 | 548 / 655 | **12499** | **16515** | 13411 | 4.0 kB |
+  | phone, warm, nocache | after, compressed models (scratch) | 3811 | 19 / 5.7 kB | 767 | 2814 / 2994 | 4329 | 1036 | 318 / 491 | **6462** | **8801** | 7023 | 4.0 kB |
+  | phone, warm, immutable | before | 1846 | 19 / 5.7 kB | 287 | 2752 / 2847 | 2596 | 631 | 304 / 339 | **4346** | **6510** | 8508 | 1.1 kB |
+  | phone, warm, immutable | after | 2255 | 19 / 5.7 kB | 376 | 3019 / 3114 | 2827 | 655 | 272 / 485 | **4409** | **7312** | 5391 | 1.4 kB |
+
+  **Reading the tables.** "Models: requests" counts the model requests the page's resource timing holds when the capture
+  ends (a frame after the first loader has every model it asked for): the second scene's requests after its first frame are
+  not always in yet, so a cell shows 19, 21, 37 or 38 for the same page (38: both scenes' cache hits, before fix 1). "All
+  models in" is that first loader's moment, usually the hand's, so it can come before "Board drawn". A row's cells are
+  medians taken one by one, not one run. The Storybook "phone, warm, nocache, after" row (16.5 s) is slower than its
+  "before" row, measured at another time under another load: the alternated comparison under fix 3 (6 runs each, both
+  builds in turn) puts warm before and after within the noise. The rows marked "scratch" are the copy described in fix 3,
+  before it was built.
+
+- **Caching rules** (for the hosts; this task changes no host's configuration). The Storybook host sends
+  `Cache-Control: no-cache` for everything, so a warm visit revalidates every file. A content-hashed name changes with its
+  content, so it may be cached for a year; a fixed name must be revalidated.
+  - **`public, max-age=31536000, immutable`:** `renderer-assets/models/<plan>.<hash>.glb` (19),
+    `renderer-assets/models/forest/<plan>_HF_<n>.<hash>.glb` (72), `renderer-assets/tiles/<plan>.256.<hash>.png` (19); Vite's
+    `assets/<name>-<hash>.{js,css,wasm,woff2}` (the app: 87 scripts, 1 stylesheet, 2 wasm, 4 fonts) and their `.map`
+    files; Storybook's `assets/<name>-<hash>.*` (239 scripts, images, fonts, wasm, the captures' `.webp`).
+  - **`no-cache`:** `index.html`, `iframe.html`, `index.json`, `project.json`, `renderer-assets/manifest.json`; every
+    unhashed file: `fontawesome/js/{fontawesome,solid,thin}.min.js` (the subset, no hash in its name), `backgrounds/*`,
+    `favicon*.svg`, the `nunito-sans-*.woff2` and `sb-common-assets/*`, `sb-manager/*`, `sb-addons/*`,
+    `vite-inject-mocker-entry.js`, and app-web's folder in Storybook (`app-web-assets/models/<plan>.glb`,
+    `app-web-assets/draco/*`, `app-web-assets/assets/tiles/*`), `THIRD_PARTY_NOTICES.txt`.
+  - VERCEL-CFG (#500) wrote such rules for the Storybook's Vercel project (`vercel.json` at the root): they match this list
+    (`assets/*`, `renderer-assets/models/*` and `renderer-assets/tiles/*` immutable; the HTML, `index.json`, `project.json`
+    and the manifest `no-cache`; the rest keeps Vercel's default, which revalidates), and VERCEL-APP (#504) for the
+    client's (`packages/app/vercel.json`: the same, with `fontawesome/*`, `backgrounds/*` and `THIRD_PARTY_NOTICES.txt`
+    `no-cache`). The host that served `storybook.paved.bal7hazar.com` still sent `no-cache` for everything on 2026-10-17
+    (measured with `curl -I`).
+  - **Measured** (the warm rows above, `nocache` against `immutable`): on the app, immutable caching saves the
+    revalidations (21 requests, about 5.7 kB, but one round trip each): desktop, the first 3D tile 859 → 584 ms; phone,
+    2123 → 1822 ms. On Storybook the board's models were unhashed (app-web's), so immutable caching did not reach them;
+    the stories now read the hashed copies (fix 3), which the rules above cover (not measured on Storybook with immutable
+    headers).
+- **Zero flicker and 12 ms.** No per-frame code changed: the render loop, the materials, the outlines and the effects are
+  untouched; the changes are in the loading path only. The bench ran as a smoke run here (headless, software WebGL, 72
+  tiles: 74 draw calls a frame, as before) and its frame time is not a figure: the frame-time and flicker re-run is a GPU
+  run on the Mac, with the two GPU rows above.
+- **Reversed** by giving each loader its own models again (`sharedModels`), or by dropping `provideManifest` (each loader
+  then asks for its own manifest).
+
 ---
 
 ## 6. The page map

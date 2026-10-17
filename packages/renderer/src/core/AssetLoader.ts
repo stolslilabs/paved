@@ -4,6 +4,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { PlanType, getPlanKey } from "@paved/game-core";
 import { afterFirstFrame, firstModels } from "./load-order";
+import { traceMark, traceMeasure, traceStart } from "./load-trace";
 import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
 
 /**
@@ -67,7 +68,36 @@ export function loadManifest(basePath: string): Promise<AssetManifest | null> {
   return manifest;
 }
 
+/**
+ * Hands the loader the manifest's body at `basePath` that the host has already asked for (LOAD-FAST): the app starts that
+ * request with the board's code, before any scene mounts, so `loadManifest` does not wait for its own round trip. A body
+ * that is not a manifest (null: a 404) means none; a failed request falls back to the loader's own, with its retries.
+ * Ignored once `basePath`'s manifest is asked for.
+ */
+export function provideManifest(basePath: string, body: Promise<unknown>): void {
+  if (manifests.has(basePath)) return;
+  const start = traceStart();
+  const manifest = body.then(
+    (value) => (isManifest(value) ? value : null),
+    () => fetchManifest(basePath),
+  );
+  void manifest.then(() => traceMeasure("manifest", start), () => {});
+  manifests.set(basePath, manifest);
+  manifest.catch(() => {
+    if (manifests.get(basePath) === manifest) manifests.delete(basePath);
+  });
+}
+
 async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
+  const start = traceStart();
+  try {
+    return await fetchManifestOnce(basePath);
+  } finally {
+    traceMeasure("manifest", start);
+  }
+}
+
+async function fetchManifestOnce(basePath: string): Promise<AssetManifest | null> {
   let url: string;
   try {
     url = new URL(`${basePath}/manifest.json`, (globalThis as { location?: { href: string } }).location?.href).href;
@@ -129,17 +159,94 @@ export function skinModelPath(manifest: AssetManifest | null, key: string, skin:
   return variants?.length ? variants[variantIndex(skin!.hash, variants.length)]! : key;
 }
 
+/**
+ * The models loaded on this page, by URL, shared by every loader (LOAD-FAST): the board and the hand tile's scene each have
+ * a loader, and each used to download and parse every model. A model is parsed once, by the loader that asked first (its
+ * owner); each loader that stores it counts as a user, and the last one to let it go (`dispose`) disposes its geometry,
+ * materials and textures. A failed load is forgotten, so the next asks again. An owner disposed while its load is pending
+ * abandons it (`abandonModels`): its Draco workers may be gone with it, so the loaders waiting on that load stop waiting
+ * and load the model themselves.
+ */
+interface SharedModel {
+  users: number;
+  load: Promise<THREE.Group>;
+  owner: object;
+  settled: boolean;
+  /** Rejects with `ABANDONED` when the owner is disposed before the load ends. */
+  abandoned: Promise<never>;
+  abandon: () => void;
+}
+const sharedModels = new Map<string, SharedModel>();
+const ABANDONED = new Error("AssetLoader: the shared load's owner was disposed");
+
+function sharedModel(url: string, owner: object, load: Promise<THREE.Group>): SharedModel {
+  let abandon = () => {};
+  const abandoned = new Promise<never>((_, reject) => (abandon = () => reject(ABANDONED)));
+  abandoned.catch(() => {});
+  const entry: SharedModel = { users: 0, load, owner, settled: false, abandoned, abandon };
+  load.then(
+    () => (entry.settled = true),
+    () => {
+      entry.settled = true;
+      if (sharedModels.get(url) === entry) sharedModels.delete(url);
+    },
+  );
+  return entry;
+}
+
+/**
+ * Takes `url`'s shared model for `owner` (a loader), loading it with `load` when no loader has it. The owner waits for its
+ * own load; another loader also stops waiting when the owner abandons it, and then starts its own.
+ */
+async function acquireModel(url: string, owner: object, load: () => Promise<THREE.Group>): Promise<{ model: THREE.Group; entry: SharedModel }> {
+  for (;;) {
+    let entry = sharedModels.get(url);
+    if (!entry) {
+      entry = sharedModel(url, owner, load());
+      sharedModels.set(url, entry);
+    }
+    entry.users++;
+    try {
+      const model = await (entry.owner === owner ? entry.load : Promise.race([entry.load, entry.abandoned]));
+      return { model, entry };
+    } catch (error) {
+      entry.users--;
+      if (error !== ABANDONED) throw error;
+    }
+  }
+}
+
+/** Lets a shared model go: the last user disposes it (and forgets it, if it is still the page's copy of `url`). */
+function releaseModel(url: string, entry: SharedModel): void {
+  if (--entry.users > 0) return;
+  if (sharedModels.get(url) === entry) sharedModels.delete(url);
+  void entry.load.then(disposeModel, () => {});
+}
+
+/** The loads `owner` started that are still pending: forgotten, and their waiters told to load their own. */
+function abandonModels(owner: object): void {
+  for (const [url, entry] of sharedModels) {
+    if (entry.owner !== owner || entry.settled) continue;
+    sharedModels.delete(url);
+    entry.abandon();
+  }
+}
+
 let workersStarted = false;
 
 /** meshopt decodes off the main thread where the browser gives workers (started from an inline script, no fetch), once. */
 function startDecoderWorkers(): void {
   if (workersStarted || typeof Worker === "undefined") return;
   workersStarted = true;
+  const start = traceStart();
   MeshoptDecoder.useWorkers(2);
+  void MeshoptDecoder.ready.then(() => traceMeasure("meshopt-ready", start));
 }
 
 export class AssetLoader {
   private models: Map<string, THREE.Group> = new Map();
+  /** The shared copy of each model stored (`sharedModels`) and its URL, let go at `dispose`. */
+  private modelEntries: Map<string, { url: string; entry: SharedModel }> = new Map();
   private textures: Map<string, THREE.Texture> = new Map();
   private gltfLoader: GLTFLoader;
   private textureLoader: THREE.TextureLoader;
@@ -273,10 +380,14 @@ export class AssetLoader {
     if (!load) {
       load = (async () => {
         const paths = manifest === undefined ? await this.readManifest() : manifest;
-        const gltf = await this.loadModel(`${this.basePath}/${modelPath(paths, key)}`);
-        if (this.disposed) disposeModel(gltf.scene);
+        const url = `${this.basePath}/${modelPath(paths, key)}`;
+        const start = traceStart();
+        const { model, entry } = await acquireModel(url, this, async () => (await this.loadModel(url)).scene);
+        traceMeasure(`model ${url}`, start);
+        if (this.disposed) releaseModel(url, entry);
         else {
-          this.models.set(key, gltf.scene);
+          this.models.set(key, model);
+          this.modelEntries.set(key, { url, entry });
           this.loadedListener?.();
         }
       })();
@@ -331,6 +442,7 @@ export class AssetLoader {
           else this.textures.set(`tile-${key}`, texture);
         })
       ).then(() => {
+        traceMark("tiles-loaded");
         if (!this.disposed) this.loadedListener?.();
       });
       this.texturesLoad = load;
@@ -351,6 +463,7 @@ export class AssetLoader {
    * again after the first frame. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
+    traceMark("preload-start");
     const manifest = await this.readManifest();
     // The skins asked for before the manifest was in: their variants (or base models) join the first models.
     for (const { key, skin } of this.wantedSkins.splice(0)) this.wanted.add(this.resolveSkin(manifest, key, skin));
@@ -374,13 +487,14 @@ export class AssetLoader {
             if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
           }),
     ]);
+    traceMark("first-models-loaded");
     afterFirstFrame(() => {
       if (this.disposed) return;
       // A skin that came in meanwhile spares its plans' base models too.
       const rest = PLAN_KEYS.filter((key) => !first.includes(key) && !this.skipsBase(key, manifest)).map((key) =>
         this.ensureModel(key, manifest)
       );
-      Promise.all([...rest, this.preloadTextures()]).catch((error: unknown) => {
+      Promise.all([...rest, this.preloadTextures()]).then(() => traceMark("all-loaded")).catch((error: unknown) => {
         if (!this.disposed) console.warn("[AssetLoader] an asset loaded after the first frame failed:", error);
       });
     });
@@ -388,7 +502,7 @@ export class AssetLoader {
 
   /**
    * A copy of a model with its own materials. Its geometry is the loaded one, shared by every
-   * copy and owned by the loader: read it, do not change or dispose it.
+   * copy and every loader of the page (`sharedModels`): read it, do not change or dispose it.
    */
   getModel(key: string): THREE.Group {
     const model = this.models.get(key);
@@ -430,7 +544,10 @@ export class AssetLoader {
   dispose(): void {
     this.disposed = true;
     this.loadedListener = null;
-    this.models.forEach(disposeModel);
+    this.modelEntries.forEach(({ url, entry }) => releaseModel(url, entry));
+    this.modelEntries.clear();
+    // Before the Draco decoder goes: a loader waiting on one of this loader's pending loads then loads its own.
+    abandonModels(this);
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();
     this.textures.clear();
@@ -445,14 +562,14 @@ export class AssetLoader {
   }
 }
 
+/** Disposes a loaded model's geometry, materials and their colour maps (the palette textures). */
 function disposeModel(model: THREE.Object3D): void {
   model.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       child.geometry?.dispose();
-      if (Array.isArray(child.material)) {
-        child.material.forEach(m => m.dispose());
-      } else {
-        child.material?.dispose();
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        (material as THREE.MeshStandardMaterial | undefined)?.map?.dispose();
+        material?.dispose();
       }
     }
   });
