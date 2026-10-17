@@ -2480,7 +2480,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - OKLab;
   - the sun and the moon;
   - `drawDayNight`, which sets a frame on the scene's lights.
-  The board's chunk keeps only the settings (`core/daynight-settings.ts`), the backdrop's GLSL in the final pass, the night lights' GLSL in the tile shader, and a little glue. No budget limit moved: the board chunk is 903,056 B raw, 112 bytes under `largestRoute` (903,168 raw).
+  The board's chunk keeps only the settings (`core/daynight-settings.ts`), the backdrop's GLSL in the final pass, the night lights' GLSL in the tile shader, and a little glue. No budget limit moved. Before BOARD-CHUNK (#510) the board chunk was 903,056 B raw, 112 bytes under its 903,168 limit. Merged with it, the chunk is 873,406 B raw and 250,090 gzip against 888,320 and 254,464.
 - **The clock.** Time is measured in seasons since a summer's dawn: 1.3 is an autumn noon. The cycle is pure and seeded:
   - `cycleAt` gives the season, the phase and the blend;
   - `DayNightClock` steps by `frameMs` (33 ms) of real time, times `speed`;
