@@ -3194,12 +3194,24 @@ files of `dist/assets` (not the source maps). The limits are the measured sizes 
 |---|---|---|---|
 | `entry` | the module script of `index.html` | 273,124 / 83,701 | 279,552 / 86,016 |
 | `largestRoute` | the biggest page chunk of `src/routes/pages` (`board`) | 854,735 / 244,650 | 872,448 / 249,856 |
-| `firstLoadJs` | the entry, the chunks `index.html` preloads, the `home` chunk and what those import statically | 649,978 / 208,981 | 663,552 / 214,016 |
+| `firstLoadJs` | the entry, the chunks `index.html` preloads, the `home` chunk and what those import statically | 537,586 / 181,633 | 548,352 / 185,344 |
 | `css` | the stylesheets of `dist/assets` | 65,462 / 11,961 | 67,584 / 12,288 |
 | `fontAwesome` | the three scripts of `dist/fontawesome/js` | 92,910 / 33,332 | 95,232 / 34,816 |
 
 A limit moves in the pull request that needs it, with the reason; a smaller build does not move it by itself (lower it by hand
 when a cut lands). `board` is the renderer, three and the engine, and is fetched only for a game.
+
+**What is lazy, and why** (FIRST-LOAD). The first load of `/` fetches no game engine, no hashing under it (`@scure`, `@noble`)
+and no chain or wallet library: 181,633 B gzip (537,586 raw), from 213,838 (657,850 raw), and its limit is the new figure plus 2 %. The chain client, the economy, the wallet connector and the controller are
+`import()`ed at the first read or connect (`routes/sources.ts`, `wallet/wallet.tsx`). The engine is the one chunk `engine`
+(`vite.config.ts`: `@paved/game-core` apart from its formatters, its barrel and the Training save's storage): the boards, the
+Training and the end screen share it. The home card's Training save (`data/training-save.ts`) reads the save at once and
+replays it through `data/training-resume.ts`, which names `LocalSession` and is `import()`ed, so the card shows its
+"Resume" line a chunk fetch after the first paint, and a player without a save fetches nothing. Two settings keep it so: the
+bundler treats `game-core/dist` as free of side effects (the package declares none, and one imported name would keep its
+whole barrel), and an `import("@paved/game-core")` is never written in the first load (it makes the barrel's namespace and
+with it the engine): a lazy module names what it needs. `__tests__/first-load-modules.test.ts` reads the source maps of the
+first load of a build and fails when the engine, the hashing or the chain libraries are in it.
 
 Route prefetch (`src/routes/prefetch.tsx`, `page-loaders.ts`): the pages' `import()`s are one table, shared by the router's
 `lazy` and the prefetch, so a prefetch is the page's own fetch. (1) Once the shell has rendered and the browser is idle

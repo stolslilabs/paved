@@ -6,7 +6,7 @@ import { useActiveGame, useCurrentDay, useSpawnPaused } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
 import { usePlayFree } from "../../data/play-free";
 import { usePlayerStatus, useTopThree } from "../../data/indexer";
-import { useTrainingSave } from "../../data/training";
+import { useTrainingSave } from "../../data/training-save";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
