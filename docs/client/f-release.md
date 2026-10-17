@@ -125,11 +125,11 @@ request. A Vercel project reads the `vercel.json` of **its own root directory**,
 |---|---|---|---|---|
 | `paved-storybook` | empty (the repository root) | `vercel.json` | `bun run build --filter @paved/app^...`, then `build-storybook` with a 3072 MB heap; serves `packages/app/storybook-static` | `https://paved-storybook.vercel.app` |
 | `paved` (web client) | `packages/app` | `packages/app/vercel.json` | the app's workspace dependencies, then the app's own `build` script (FA-subset check, `tsc -b`, `vite build`, bundle budget) from the workspace root; serves `dist` | `https://paved-bay.vercel.app` |
-| `paved-doc` (docs) | `book` | none from this repository | not touched: linked for reading only | `https://docs.paved.gg` |
+| `paved-doc` (docs) | `book` | `book/vercel.json` | `npm ci`, `npm run build`; serves `docs/dist`; an ignore step (`vercel-ignore-build.sh`); deploys of `main` only. Not touched: linked for reading only | `https://docs.paved.gg` (alias `https://paved-doc.vercel.app`) |
 
 The web client is the Client v2, `packages/app`. `packages/app-web` is the legacy client: it stays on `main`, is built by the VPS
-(`https://paved.bal7hazar.com`, "Building the client"), and no Vercel project builds it, so its `vercel.json` is gone. The legacy
-`app/vercel.json` is another project's file; neither is read by these two.
+(`https://paved.bal7hazar.com`, "Building the client"), and no Vercel project builds it, so its `vercel.json` is gone. The docs
+project's `book/vercel.json` and the legacy `app/vercel.json` are other projects' files; neither is read by these two.
 
 What the files set:
 
@@ -140,7 +140,7 @@ What the files set:
 - **The file wins over the dashboard.** `installCommand`, `buildCommand`, `outputDirectory` and `framework` in `vercel.json` override
   the project's settings of the same names (Vercel: <https://vercel.com/docs/project-configuration>, "vercel.json" overrides the
   Project Settings). The client's file sets `"framework": null`, so the dashboard's preset and build override cannot shadow it.
-- **Client build variables, public, in `build.env`:** `VITE_NETWORK=sepolia` (the app refuses a production build without a network),
+- **Client build variables, public, in `build.env`:** `VITE_NETWORK=sepolia` (nothing in the build checks it: without it a production build has no network and its pages say "Not connected"),
   `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` and `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the
   deployment file's `rpc_url` is a placeholder). The Challenge and Setup addresses and the deployed block come from the committed
   `contracts/deployments/sepolia.json`: `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` and `VITE_DEPLOYED_BLOCK` stay unset (each only
