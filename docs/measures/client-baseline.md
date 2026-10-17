@@ -5,7 +5,7 @@ part B. Observations only: nothing was optimised.
 
 ## Result in one paragraph
 
-On this machine (Apple M2 Max, 120 Hz built-in display) the current client holds 120 fps on both
+On this machine (the Mac, 120 Hz built-in display) the current client holds 120 fps on both
 boards along a scripted camera path: frame interval p95 9.2 ms, no frame over 1.5 refresh intervals.
 The estimated target of the programme (p95 <= 16.7 ms at 72 tiles) is therefore **already met here**,
 and a requestAnimationFrame figure cannot show more, because it is capped by the refresh rate. The
@@ -94,9 +94,9 @@ The driver is standalone for its own two packages only. Its in-play mock imports
 
 ## Machine
 
-Mac14,6, Apple M2 Max (12 cores, 38 GPU cores), 64 GB, macOS 27.0.1 (26A434), on AC power. Google
-Chrome 154.0.8037.98, WebGL 2 through ANGLE Metal (`ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max)`),
-so a real GPU. Window 1440 x 900 on the built-in Liquid Retina XDR display (3456 x 2234, 1728 x 1117
+The Mac (12 cores). Google
+Chrome 154.0.8037.98, WebGL 2 through ANGLE Metal (`ANGLE (Apple, ANGLE Metal Renderer)`),
+so a real GPU. Window 1440 x 900 on the built-in display (3456 x 2234, 1728 x 1117
 at 120 Hz); two 60 Hz external displays were attached. The idle refresh interval measured by the page
 is 8.3 ms: 120 Hz. `devicePixelRatio` is 2, but the renderer clamps its pixel ratio to at most 1, so
 the canvas is 1440 x 813 pixels. The Mac was not otherwise idle (a desktop session with other
@@ -164,7 +164,7 @@ top 30 functions by self and inclusive time) and the counters above. Observation
 
 ## Limits
 
-- One machine, one very strong GPU, one 120 Hz display. The M2 Max hides what a weaker GPU or a phone
+- One machine, one very strong GPU, one 120 Hz display. The Mac's GPU hides what a weaker GPU or a phone
   would show; the next step could rerun at CDP CPU throttling and a smaller canvas, and on another
   machine. A rAF figure cannot exceed the refresh rate, which is why CPU and GPU time are reported.
 - The Mac was in normal use during the runs (load average about 4); spreads are small (see ranges),
@@ -301,7 +301,7 @@ one profile per run (its own output folder), so the two board profiles are two i
 
 ## Machine and load
 
-The same Mac as baseline B: Mac14,6, Apple M2 Max, 64 GB, macOS 27.0.1 (26A434), AC power, Chrome
+The same Mac as baseline B: the Mac (12 cores), Chrome
 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display (two 60 Hz external displays
 attached, not used). A desktop session in normal use. The 1-minute load average, recorded after
 every run (`driver.loadAvg` in each raw file, `machine.json` per folder): 3.5-5.3 for the throttled

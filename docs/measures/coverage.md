@@ -44,7 +44,7 @@ A re-measure after T1, T2, P-58 and #395 is at the end of this file, section "Re
 
 ## Command and toolchain
 
-- Machine: the Mac (aarch64, macOS, Darwin 27.0.0, 64 GB). One Cairo run at a time; no other Cairo run was
+- Machine: the Mac (aarch64). One Cairo run at a time; no other Cairo run was
   active.
 - Toolchain, from the asdf shims on the PATH:
   - scarb 2.20.1 (dd18779a1 2026-08-21), cairo 2.20.0, sierra 1.9.3;

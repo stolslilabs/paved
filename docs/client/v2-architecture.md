@@ -1320,22 +1320,43 @@ so a straight edge split into many segments covers each pixel once. The width is
 `widthVoxels` (0.015, 1.5 % of a voxel; a tile is 40 voxels of 0.075 world units) at the
 camera's target, at least `minWidthDevicePx` (1, a hairline) and at most `maxWidthPx` (2 CSS px, the cap
 zoomed in). The fade follows the tile size S the board opens at on this viewport (`openingTilePixels`: a tile's size at
-the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized: off at
-`fadeOffFactor` (0.85) x S, fully on from `fadeFullFactor` (1.15) x S, and between a smoothstep of
-`ln(tile px / off) / ln(full / off)` (OUT-FADE, PM ruling 2026-10-16: the toggle at a zoom-out level read as odd, so the
-opacity falls as the camera zooms out, ending where the old cut was). On the log of the tile size a wheel step changes
-the opacity by about the same amount, and the smoothstep has no kink at either end. The material is hidden below 1/255.
-A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60 (off at about 51). The tile and S
-scale together with the height, so on every screen the outlines are off past distance 240 / 0.85 (about 282): they
-vanish at the farthest zoom (300). **Consequence: at the opening view (S) the opacity is no longer 1**: it is
-smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85) = 0.538) = **0.556** (readout of the story: 56 %). The PM's ruling (2026-10-16)
-made 1.15 S the default, since the owner called the outline at the opening view perfect and losing two thirds of it would be
-the larger change; the other candidate, 1.3 S (`fadeFullFactor` 1.3), gives 0.327 at S (33 %) and stays a preset; it is on at 80 % at 1.15 S. Both are presets of the
-story ("fade 1.3", "fade 1.15") next to the two factor controls. Captures
-(`captures/out-fade-1_3-*` and `out-fade-1_15-*`, for 1.3 S, 1.15 S, 1.0 S (the opening view), 0.9 S and 0.85 S: the
-Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines forced on**, `force: "on"`);
-opacity read from the story: 1.3 S: 100 % / 100 %; 1.15 S: 80 % / 100 %; S: 33 % / 56 %; 0.9 S: 5 % / 9 %; 0.85 S: off /
-off (preset 1.3 / preset 1.15). The default is 1.15.
+the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized. It is `1 - t^p`
+(OUT-FADE2, owner 2026-10-17: OUT-FADE's range was too short): off at `fadeOffFactor` (0.85) x S, the historic threshold,
+and fully on from `fadeFullFactor`, **the fade's start**, a setting and a story control from 1.5 S up to the closest zoom
+(`CLOSEST_DISTANCE`, 8). The tile size is inversely proportional to the camera distance, so the tile at the closest zoom
+is 240 / 8 = **30 S** (`OUTLINE_CLOSEST_FACTOR`; 1,608 px measured at S = 54 on a 1280 x 800 window). With
+`t = ln(full / tile px) / ln(full / off)`: 0 at the start and above, 1 at 0.85 S, on the log of the tile size so every
+wheel step moves t by the same amount; the opacity is clamped to 1 above the start and 0 below 0.85 S, and hidden under
+1/255. The exponent `fadeExponent` p is in [1, 4]; the story's presets are **linear** (p = 1), **square** (p = 2, the
+default: gentle at the start of the zoom-out, faster near the threshold, as the owner described) and **cube** (p = 3);
+`fadeEasedEnd` (off by default, because the owner asked for an acceleration into the threshold) eases the last quarter of
+the opacity with a cubic that meets `1 - t^p` with its slope and reaches 0 with a zero slope: no kink at the threshold.
+The smoothstep of OUT-FADE is gone. A 360 x 780 phone opens at S = 52 (off at about 44), a 900 px high window at about 60
+(off at about 51). The tile and S scale together with the height, so on every screen the outlines are off past distance
+240 / 0.85 (about 282): they vanish at the farthest zoom (300).
+
+**The start (PM ruling 2026-10-17).** The literal version, fully on only at the closest zoom ("max zoom-in", start 30 S),
+leaves the opening view almost off: S is only 0.18 of the way up the log range from 0.85 S to 30 S, t = ln 30 /
+ln(30 / 0.85) = 0.954, and the opacity at S is 4.6 % (linear), **8.9 %** (square), 13.1 % (cube). So the default start is
+**1.5 S**: t = ln 1.5 / ln(1.5 / 0.85) = 0.714 and the opacity at the opening view is **0.490** with square. Opacity by
+curve at the default start (readouts of the story, software WebGL, match the formula):
+
+| | linear | square | cube |
+|---|---|---|---|
+| S (opening view) | 28.6 % | **49.0 %** | 63.6 % |
+| 1.15 S | 53.2 % | 78.1 % | 89.8 % |
+| 0.92 S | 13.9 % | 25.9 % | 36.3 % |
+| 0.87 S | 4.1 % | 8.0 % | 11.8 % |
+
+and at the "max zoom-in" start: S 4.6 / 8.9 / 13.1 %, 1.15 S 8.5 / 16.2 / 23.3 %, 0.92 S 2.2 / 4.4 / 6.5 %, 0.87 S 0.7 /
+1.3 / 1.9 %. OUT-FADE's "fade 1.15" and "fade 1.3" range presets are **replaced by the start control**: they were two
+values of the same parameter (1.15 S and 1.3 S), now below the control's 1.5 S minimum, and the ruling set the default
+above them. Captures (Outlines story, 1280 x 800, DPR 1, headless Chrome on **software WebGL (SwiftShader), outlines
+forced on**, `force: "on"`, in `captures/`): `out-fade2-square-S.webp` (default start) against `out-fade2-max-square-S.webp`
+("max zoom-in" start) at the opening view, and the frame strip of a zoom-out sweep of the default, 10 frames log-spaced
+from 1.6 S (just above the start) to 0.85 S, `out-fade2-square-sweep.webp` (opacity 100, 100, 98, 93, 85, 74, 60, 43, 23 %,
+off; the default is fully on at every zoom above 1.5 S, so a sweep from the closest zoom would show it unchanged). The `out-fade2-max-<curve>-<view>.webp` set (linear,
+square, cube at the closest zoom, S, 0.92 S, 0.87 S) and `out-fade2-max-square-sweep.webp` (closest zoom to 0.85 S) are the "max zoom-in" start's.
 **The segment cut does not pop there** (OUT-LOD's `segmentOffDevicePx` 0.5 / `segmentFullDevicePx` 1, kept as is): a
 voxel's horizontal edge is `tilePx / 40` device px long at least, 1.1 px at the phone's 0.85 S, so it is whole across the
 fade; seen from above a vertical edge is under 0.5 px at every zoom, so it is always dropped; from the 27 degree tilt
