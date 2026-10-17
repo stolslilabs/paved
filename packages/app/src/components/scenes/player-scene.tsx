@@ -63,7 +63,7 @@ export function PlayerScene(props: PlayerSceneProps) {
         </div>
         {today && (
           <div className="flex flex-col items-end">
-            <span className="text-[11px] text-muted-foreground">Today</span>
+            <span className="text-xs text-muted-foreground">Today</span>
             <span className="numeric text-xl font-semibold text-primary">#{today.rank}</span>
           </div>
         )}

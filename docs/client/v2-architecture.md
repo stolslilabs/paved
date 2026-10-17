@@ -1057,7 +1057,7 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
   units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
 
-**Frame time** (DPR's and OUT-LOD's method: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen; the
+**Frame time** (DPR's and OUT-LOD's method: the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; the
 "Renderer/Outlines" story Held with `redraw` and the outlines forced on, on the recorded 72-tile board; per frame the
 CPU time of every rAF callback plus the GPU time of `EXT_disjoint_timer_query_webgl2` around each; a fresh context per
 configuration, 120 warm-up and 600 measured frames; nearest-rank percentiles over the pooled frames). Mac profile:
@@ -2086,6 +2086,8 @@ placed tile's aura and veil, its waves moving). CPU + GPU per frame, ms, pooled 
 | grid | 5.07 / 6.70 | 4.00 / 5.32 | 4.02 / 5.70 | 2.34 / 3.94 |
 | slots | 5.13 / 6.79 | 4.04 / 5.37 | 4.03 / 5.64 | 2.41 / 3.84 |
 | placed | 5.16 / 6.81 | 2.99 / 5.19 | 4.13 / 5.69 | 2.40 / 3.73 |
+
+The "placed" desktop-60 p50 (2.99 against 4.00 for "none") is run noise, not a saving: the claim rests on the p95.
 
 The placement visuals cost at most 0.2 ms of p95 (desktop and phone-like, opening, the aura moving), inside the runs'
 noise elsewhere (worst round: 6.82 desktop, 5.75 phone-like); every row is far

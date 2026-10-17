@@ -45,7 +45,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
             aria-current={isActive ? "page" : undefined}
             onClick={() => onNavigate?.(tab.id)}
             className={cn(
-              "relative flex flex-1 cursor-pointer flex-col items-center gap-1 py-2.5 text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative flex flex-1 cursor-pointer flex-col items-center gap-1 py-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring",
               "desktop:flex-none desktop:flex-row desktop:gap-3 desktop:rounded-md desktop:px-3 desktop:py-2.5 desktop:text-sm",
               isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
             )}
