@@ -5,21 +5,30 @@
 #   sh scripts/vercel/ignore-build.sh --paths <project>     prints the project's inputs, one pathspec a line
 #
 # Vercel runs the ignoreCommand from the project's root directory (the repository root for the Storybook,
-# packages/app for the client): the script moves to the top level of the clone first. It skips only when it has
+# packages/app for the client): the script moves to the top level of the clone first. Exit 0 and 1 are its only
+# exit codes in the ignore step (Vercel fails a deployment whose ignore step exits with another). It skips only when it has
 # proven that none of the project's inputs changed since the comparison commit; on any doubt (no comparison
 # commit, a shallow clone without it, a git error) it builds. The logic is that of book/vercel-ignore-build.sh,
 # with a list of paths instead of book/. It echoes which branch it took, so the build log says why.
 # Vercel's exit codes: https://vercel.com/docs/project-configuration/git-settings#ignored-build-step
 
-# The client: packages/app, the workspace packages it builds from (chain, game-core, renderer), the assets both
-# builds copy from packages/app-web/public, the contracts' ABIs and deployment files @paved/chain imports, the
-# lockfile and the root manifests, its vercel.json and this script.
-client_paths() {
+# The inputs, as git pathspecs: what each build really reads, nothing else (GUARDS, P-71; the PM's strict sets).
+#
+# Storybook: packages/app (stories included), the workspace packages its stories import or that the PM names
+# (game-core, renderer, chain, ui), the assets both builds copy from packages/app-web/public, the contracts' ABIs and
+# deployment files @paved/chain imports, the lockfile and the root manifests tsc and turbo read, and the root
+# vercel.json that holds its commands. Markdown is out everywhere: no build imports a .md file.
+# Client: the same without the stories (*.stories.tsx, src/stories/, .storybook/) and without the root vercel.json;
+# its own packages/app/vercel.json is in, under packages/app.
+# Out of both: docs/, book/, packages/indexer/, contracts/src/, .github/, .claude/, scripts/ (this script included),
+# every *.md.
+common_paths() {
   printf '%s\n' \
     packages/app \
-    packages/chain \
     packages/game-core \
     packages/renderer \
+    packages/chain \
+    packages/ui \
     packages/app-web/public \
     contracts/abis \
     contracts/deployments \
@@ -27,13 +36,19 @@ client_paths() {
     package.json \
     turbo.json \
     tsconfig.base.json \
-    scripts/vercel
+    ':(exclude,glob)**/*.md'
 }
 
-# The Storybook: the same inputs (its stories are packages/app/src/**/*.stories.tsx), plus the root vercel.json
-# that holds its commands.
+client_paths() {
+  common_paths
+  printf '%s\n' \
+    ':(exclude,glob)packages/app/**/*.stories.tsx' \
+    ':(exclude)packages/app/src/stories' \
+    ':(exclude)packages/app/.storybook'
+}
+
 storybook_paths() {
-  client_paths
+  common_paths
   printf '%s\n' vercel.json
 }
 
@@ -57,9 +72,15 @@ top=$(git rev-parse --show-toplevel 2>/dev/null) && cd "$top" || { echo "ignore 
 head="${IGNORE_BUILD_HEAD:-HEAD}"
 
 # Succeeds (exit 0) when none of the inputs differs: `git diff --quiet` exits 1 on a difference and >1 on an
-# error, and both must build. The paths are read one a line, so none of them may hold a space.
-# shellcheck disable=SC2086
-unchanged() { git diff --quiet "$1" "$2" -- $list 2>/dev/null; }
+# error, and both must build. The pathspecs are split on new lines (none holds a space), with globbing off so that
+# the shell leaves their `*` to git.
+unchanged() (
+  set -f
+  IFS='
+'
+  # shellcheck disable=SC2086
+  git diff --quiet "$1" "$2" -- $list 2>/dev/null
+)
 
 # Prints the merge base of the base branch and the head, deepening the shallow clone until it exists (Vercel
 # clones the branch at a small depth). Empty when it cannot be found.

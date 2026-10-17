@@ -1,7 +1,7 @@
 /** The touched set of scripts/check/touched.mts (GUARDS, P-71): `node --test scripts/check/touched.test.mts`. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GUARD_TESTS, TEST_HEAP_MB, plan, vercelInputs, workspace, type Pkg } from "./touched.mts";
+import { GUARD_TESTS, TEST_HEAP_MB, isInput, plan, vercelInputs, workspace, type Pkg } from "./touched.mts";
 
 const PKGS: Pkg[] = [
   { name: "@paved/game-core", dir: "packages/game-core", deps: [] },
@@ -50,6 +50,36 @@ test("the lockfile touches every package", () => {
 test("the root vercel.json builds the Storybook only", () => {
   assert.deepEqual(at(["vercel.json"]).vercel, ["storybook"]);
   assert.deepEqual(at(["packages/app/vercel.json"]).vercel, ["client", "storybook"]);
+});
+
+test("a stories-only change builds the Storybook, not the client", () => {
+  assert.deepEqual(at(["packages/app/src/components/elements/button.stories.tsx"]).vercel, ["storybook"]);
+  assert.deepEqual(at(["packages/app/src/stories/renderer/placement-board.tsx"]).vercel, ["storybook"]);
+  assert.deepEqual(at(["packages/app/.storybook/main.ts"]).vercel, ["storybook"]);
+  assert.deepEqual(at(["packages/app/src/components/elements/button.tsx"]).vercel, ["client", "storybook"]);
+});
+
+test("Markdown, the indexer, Cairo sources, the CI and the guards build no Vercel project", () => {
+  for (const f of [
+    "packages/app/public/backgrounds/README.md",
+    "readme.md",
+    "packages/indexer/src/events.ts",
+    "contracts/src/systems/setup.cairo",
+    ".github/workflows/test.yaml",
+    ".claude/skills/paved-ui/SKILL.md",
+    "scripts/vercel/ignore-build.sh",
+  ])
+    assert.deepEqual(at([f]).vercel, [], f);
+});
+
+test("isInput reads the excludes as git does", () => {
+  const specs = ["packages/app", ":(exclude,glob)**/*.md", ":(exclude,glob)packages/app/**/*.stories.tsx", ":(exclude)packages/app/.storybook"];
+  assert.equal(isInput("packages/app/src/a.tsx", specs), true);
+  assert.equal(isInput("packages/app/a.stories.tsx", specs), false);
+  assert.equal(isInput("packages/app/src/x/a.stories.tsx", specs), false);
+  assert.equal(isInput("packages/app/README.md", specs), false);
+  assert.equal(isInput("packages/app/.storybook/main.ts", specs), false);
+  assert.equal(isInput("packages/application/a.ts", specs), false);
 });
 
 test("a change of the guards runs their own tests", () => {

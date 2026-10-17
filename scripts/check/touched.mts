@@ -93,6 +93,22 @@ export interface Plan {
 
 const under = (file: string, path: string) => file === path || file.startsWith(path.endsWith("/") ? path : `${path}/`);
 
+/**
+ * Whether a file is among a project's inputs, read as git reads the ignore step's pathspecs: a plain entry is a path
+ * and everything under it; `:(exclude)<path>` and `:(exclude,glob)<pattern>` take files back out (in a glob, `**` spans
+ * directories, `*` stays within one).
+ */
+export function isInput(file: string, pathspecs: string[]): boolean {
+  const glob = (pattern: string) =>
+    new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\//g, "\u0000").replace(/\*/g, "[^/]*").replace(/\u0000/g, "(?:.*/)?")}$`);
+  const excluded = pathspecs.some((spec) => {
+    const m = /^:\(exclude(,glob)?\)(.*)$/.exec(spec);
+    if (!m) return false;
+    return m[1] ? glob(m[2]!).test(file) : under(file, m[2]!);
+  });
+  return !excluded && pathspecs.some((spec) => !spec.startsWith(":(") && under(file, spec));
+}
+
 /** The inputs of a Vercel project, from the ignore step, so the two never disagree. */
 export function vercelInputs(project: "client" | "storybook", root = ROOT): string[] {
   return execFileSync("sh", [join(root, "scripts/vercel/ignore-build.sh"), "--paths", project], { encoding: "utf8" })
@@ -121,7 +137,7 @@ export function plan(files: string[], pkgs: Pkg[] = workspace(), inputs = { clie
     touched: [...touched].sort(),
     reach: [...reach].sort(),
     contracts: files.some((f) => f.startsWith("contracts/")),
-    vercel: (["client", "storybook"] as const).filter((v) => files.some((f) => inputs[v].some((i) => under(f, i)))),
+    vercel: (["client", "storybook"] as const).filter((v) => files.some((f) => isInput(f, inputs[v]))),
     guards: files.some((f) => f.startsWith("scripts/check/") || f.startsWith("scripts/vercel/") || f.startsWith(".githooks/")),
   };
 }

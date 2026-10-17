@@ -88,14 +88,15 @@ jobs:
               - 'bun.lock'
               - 'package.json'
               - '.github/workflows/test.yaml'
-            # The inputs of the two Vercel projects (GUARDS, P-71): the list of scripts/vercel/ignore-build.sh
-            # --paths storybook (the client's inputs and the root vercel.json), plus the guards' scripts. Keep the two
-            # lists together.
+            # The inputs of the two Vercel projects (GUARDS, P-71): the includes of scripts/vercel/ignore-build.sh
+            # --paths storybook (the client's inputs and the root vercel.json; its Markdown excludes are not repeated
+            # here), plus the guards' scripts. Keep the two lists together.
             vercel:
               - 'packages/app/**'
               - 'packages/chain/**'
               - 'packages/game-core/**'
               - 'packages/renderer/**'
+              - 'packages/ui/**'
               - 'packages/app-web/public/**'
               - 'contracts/abis/**'
               - 'contracts/deployments/**'
