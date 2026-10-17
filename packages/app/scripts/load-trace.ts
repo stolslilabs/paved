@@ -4,15 +4,19 @@
  * time from navigation to each step: the manifest, the models (count, bytes, parallelism, protocol, the decode of each
  * after its download), the meshopt decoder, the tile images, the edges, the labels, the first frame (the first 3D tiles)
  * and every model in. Headless Chromium: software WebGL (SwiftShader) unless the machine gives it a GPU, so the first
- * frame's shader compiles and uploads are not a GPU figure. Method and figures: `docs/client/v2-architecture.md`, "Loading".
+ * frame's shader compiles and uploads are not a GPU figure. A page with two scenes (the board and the hand's tile) gives the
+ * first 3D tile (`firstTileDrawn`, either scene) and the board's first frame (`boardDrawn`, the last scene drawn). Method and figures: `docs/client/v2-architecture.md`, "Loading".
  *
  *   node scripts/load-trace.ts --url '<page>' [--runs 5] [--cache cold|warm] [--profile desktop|phone] [--json <file>]
  *     [--cpuprofile <file>]   (the measured load's CPU profile, DevTools' format, last run)
+ *     [--network-only]        (a page without the load trace, such as a published build: waits for the network to be
+ *                              idle and gives the requests only)
  *
  * `desktop`: 1440 x 900 at DPR 2, no throttling. `phone`: 360 x 780 at DPR 3, the CPU slowed 4x and the network shaped to
  * 9 Mbit/s down, 170 ms round trip (an approximation of a phone on 4G: the CPU and the GPU are still this machine's).
  * Warm: the page is loaded once in the same browser context (same HTTP cache), then measured on a second navigation.
- * A local HTTPS server with a self-signed certificate (to get HTTP/2) is accepted. Needs `bunx playwright-core install
+ * A local HTTPS server (HTTP/2 needs TLS) is trusted by its certificate's SPKI hash (`--spki <base64 sha256>`): Chrome
+ * keeps no HTTP cache for a page whose certificate it refuses, so a warm run needs it. Needs `bunx playwright-core install
  * chromium-headless-shell` once.
  */
 import { writeFileSync } from "node:fs";
@@ -28,6 +32,8 @@ const { values: args } = parseArgs({
     json: { type: "string" },
     timeout: { type: "string", default: "90000" },
     cpuprofile: { type: "string" },
+    spki: { type: "string" },
+    "network-only": { type: "boolean", default: false },
   },
 });
 if (!args.url) throw new Error("load-trace: --url <page> is required");
@@ -106,7 +112,8 @@ function watchRequests(cdp: CDPSession): Request[] {
 
 async function load(page: Page, url: string, timeout: number): Promise<Capture> {
   await page.goto(url, { waitUntil: "load", timeout });
-  await page.waitForFunction(() => performance.getEntriesByName("paved:all-loaded").length > 0, undefined, { timeout, polling: 100 });
+  if (args["network-only"]) await page.waitForLoadState("networkidle", { timeout });
+  else await page.waitForFunction(() => performance.getEntriesByName("paved:all-loaded").length > 0, undefined, { timeout, polling: 100 });
   // One frame more: the last model's tiles are drawn in the frame after it comes in.
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   return page.evaluate(() => {
@@ -150,7 +157,10 @@ function summarise(c: Capture) {
       return resource ? end(m) - resource.responseEnd : undefined;
     })
     .filter((d): d is number => d !== undefined);
-  const firstFrame = measures("first-frame")[0];
+  // One first frame per scene: the hand's tile (one model) is usually drawn first, the board last.
+  const firstFrames = measures("first-frame").sort((a, b) => end(a) - end(b));
+  const firstFrame = firstFrames[0];
+  const boardFrame = firstFrames[firstFrames.length - 1];
   const sum = (xs: Entry[]) => xs.reduce((t, m) => t + m.duration, 0);
   const sorted = [...decodes].sort((a, b) => a - b);
   const modelRequests = c.requests.filter((r) => isModel(r.url));
@@ -179,6 +189,9 @@ function summarise(c: Capture) {
     firstModelsLoaded: round(mark("first-models-loaded")),
     firstFrameMs: round(firstFrame?.duration),
     firstTileDrawn: round(firstFrame && end(firstFrame)),
+    boardFrameMs: round(boardFrame?.duration),
+    boardDrawn: round(boardFrame && end(boardFrame)),
+    scenes: firstFrames.length,
     allLoaded: round(mark("all-loaded")),
     longTasksOver50: c.longTasks.length,
     requests: c.requests.length,
@@ -189,9 +202,12 @@ function summarise(c: Capture) {
 const timeout = Number(args.timeout);
 const runs: Array<ReturnType<typeof summarise> & { capture: Capture }> = [];
 for (let run = 0; run < Number(args.runs); run++) {
-  const browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", ...(args.spki ? [`--ignore-certificate-errors-spki-list=${args.spki}`] : [])],
+  });
   try {
-    const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr, ignoreHTTPSErrors: true });
+    const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr });
     await context.addInitScript(() => {
       (globalThis as { __PAVED_LOAD_TRACE__?: boolean }).__PAVED_LOAD_TRACE__ = true;
       const tasks: PerformanceEntry[] = [];
