@@ -63,3 +63,24 @@ describe("formatter (P-66, en-US)", () => {
     expect(formatBoundary(Date.UTC(2026, 9, 17, 0, 0) / 1000)).toBe("Sat, Oct 17, 00:00 UTC");
   });
 });
+
+// P-82: a grouping separator is a comma, never a space, a no-break space (U+00A0) or a narrow no-break space (U+202F).
+describe("no space as a grouping separator (P-82)", () => {
+  const SPACES = /[\s\u00a0\u202f]/;
+  const outputs: [string, string][] = [
+    ["formatNumber large", formatNumber(123456789012.345)],
+    ["formatNumber negative", formatNumber(-1234567.891)],
+    ["formatNumber decimals", formatNumber(1234.5, { minFractionDigits: 3 })],
+    ["formatNumber bigint", formatNumber(-12345678901234567890n)],
+    ["formatInteger large", formatInteger(9_876_543_210)],
+    ["formatInteger negative", formatInteger(-1_270)],
+    ["formatFixed", formatFixed(-1234567.5, 2)],
+    ["formatCompact", formatCompact(-1_250_000)],
+    ["formatPercent", formatPercent(12345.678, { maxFractionDigits: 2 })],
+    ["formatBps", formatBps(-1_234_567)],
+    ["formatUnits", formatUnits(-12_345_678_900_000n, 6, 2)],
+  ];
+  it.each(outputs)("%s", (_name, text) => {
+    expect(text).not.toMatch(SPACES);
+  });
+});

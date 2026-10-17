@@ -20,7 +20,7 @@ import { chromium } from "playwright-core";
 const EXPECTED: { story: string; shows: (string | RegExp)[] }[] = [
   { story: "elements-amount--large", shows: ["12,345.67"] },
   { story: "elements-amount--tile", shows: ["8.42"] },
-  { story: "elements-score--final", shows: ["4 820"] },
+  { story: "elements-score--final", shows: ["4,820"] },
   { story: "elements-cobbles--large", shows: ["1,000"] },
   { story: "elements-deadline--hours-left", shows: [/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{2}:\d{2}/] },
   { story: "elements-daypicker--today", shows: ["Wed, Oct 14 UTC"] },

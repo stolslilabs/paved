@@ -16,6 +16,11 @@ const RULES: { rule: string; pattern: RegExp }[] = [
   // `toLocaleString()` with no locale formats by the user's; with one it is a locale named at the call site: both belong to the formatter.
   { rule: "toLocaleString, toLocaleDateString or toLocaleTimeString", pattern: /\.toLocale(?:String|DateString|TimeString)\s*\(/ },
   { rule: "Intl.NumberFormat, Intl.DateTimeFormat or Intl.RelativeTimeFormat", pattern: /\bIntl\s*\.\s*(?:NumberFormat|DateTimeFormat|RelativeTimeFormat)\b/ },
+  // A formatter's output is final: a `.replace` on it swaps its separators (the no-break space of "1 270", P-82).
+  {
+    rule: "replace or replaceAll on a formatter's output",
+    pattern: /\bformat(?:Number|Integer|Fixed|Compact|Percent|Bps|Units|Points|Date|Boundary|Relative)\s*\(.*\)\s*\.replace(?:All)?\s*\(/,
+  },
 ];
 
 const EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/;

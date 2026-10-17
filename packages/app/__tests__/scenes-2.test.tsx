@@ -30,8 +30,8 @@ import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
-/** Points as Testing Library reads them: its matchers collapse the no-break space to a space. */
-const pts = (n: number) => formatPoints(n).replace(" ", " ");
+/** Points as the Score writes them. */
+const pts = (n: number) => formatPoints(n);
 
 describe("SC2 helpers", () => {
   it("dates a day id in UTC", () => {
