@@ -238,7 +238,15 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
       if (!wants() || index === null || fading) return;
       // The fade follows the outgoing track's clock: jump it to the last CROSSFADE_S seconds.
       const a = cur();
-      if (Number.isFinite(a.duration) && a.duration > CROSSFADE_S) a.currentTime = Math.max(a.currentTime, a.duration - CROSSFADE_S);
+      if (!Number.isFinite(a.duration) || a.duration <= 0) {
+        // The metadata has not loaded: no clock to jump, so the fade could never end. Cut to the next track at once.
+        crossfade();
+        finishFade();
+        start();
+        emit();
+        return;
+      }
+      if (a.duration > CROSSFADE_S) a.currentTime = Math.max(a.currentTime, a.duration - CROSSFADE_S);
       crossfade();
       emit();
     },

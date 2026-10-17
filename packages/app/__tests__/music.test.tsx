@@ -157,6 +157,27 @@ describe("the crossfade", () => {
     player.destroy();
   });
 
+  it("skip before the metadata loads cuts to the next track, and a second skip still works", () => {
+    const { player, a, b } = make({ volume: 0.4 });
+    document.dispatchEvent(new Event("click"));
+    expect(Number.isNaN(a.duration)).toBe(true);
+    const first = a.src;
+    player.skip();
+    // The incoming track is the current one, at the set volume; the outgoing one is silent.
+    expect(b.src).not.toBe("");
+    expect(b.src).not.toBe(first);
+    expect(a.src).toBe("");
+    expect(b.volume).toBeCloseTo(0.4);
+    expect(player.getState().title).toBe(trackTitle(b.src));
+    const second = b.src;
+    player.skip();
+    expect(a.src).not.toBe("");
+    expect(a.src).not.toBe(second);
+    expect(a.volume).toBeCloseTo(0.4);
+    expect(player.getState().title).toBe(trackTitle(a.src));
+    player.destroy();
+  });
+
   it("follows the volume setting", () => {
     const { player, a } = make({ volume: 0.4 });
     document.dispatchEvent(new Event("click"));
