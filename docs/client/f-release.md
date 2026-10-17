@@ -77,6 +77,9 @@ Env (nothing here is secret; the bundle is public):
 Leave every `VITE_*_ADDRESS` and `VITE_SUPPORTS_TOKEN_MINT` unset: the file supplies the addresses, and the faucet is offered on
 Sepolia by default.
 
+> History: until 2026-10-17 the commands and checks below built and published `@paved/app-web`, removed in P-70; they no
+> longer work on main. VPS-WEB-CLEAN (P-76) rewrites this section for `packages/app`.
+
 ```bash
 # (deploy user)
 cd ~/paved && git fetch --all --prune && git checkout --detach <F-commit>

@@ -803,7 +803,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
   ASSET-WEIGHT, 2026-10-15).** Under `<base>renderer-assets/` (Vite's `base`), no request leaving the app's origin:
   - **Models, the app's own copy, compressed and content-hashed:** `packages/app/scripts/compress-models.ts`
     (`node scripts/compress-models.ts`; `--check` fails when the committed copy is stale, and a test runs it) reads
-    app-web's 19 base models (`packages/app/asset-sources/models/<plan>.glb`, unchanged) and writes
+    the 19 base models (`packages/app/asset-sources/models/<plan>.glb`, unchanged) and writes
     `packages/app/public/renderer-assets/models/<plan>.<hash>.glb`, the hash being the first 10 hex digits of the file's
     SHA-256. Per model: vertices renumbered by first use (triangles and their order kept); `KHR_mesh_quantization`, every
     attribute normalized (positions 8-bit, one voxel step per integer, exact on the 0.1 grid; `sfrfrfffr` has one vertex
@@ -846,7 +846,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     plain names, served in dev and copied at build.
   - **Tile images, the app's own 256 px copy, content-hashed (TEX, 2026-10-16; PM ruling of that day: 1680 px was too
     much):** `packages/app/scripts/compress-tiles.ts` (`node scripts/compress-tiles.ts`; `--check` fails when a committed
-    copy is stale, comparing decoded pixels and not bytes, so a zlib update cannot fail it, and a test runs it) reads app-web's 19 original 1680 x 1680 PNGs (left untouched) and writes
+    copy is stale, comparing decoded pixels and not bytes, so a zlib update cannot fail it, and a test runs it) reads the 19 original 1680 x 1680 PNGs (left untouched) and writes
     `public/renderer-assets/tiles/<plan>.256.<hash>.png`, the hash being the first 10 hex digits of the file's SHA-256.
     No package: the script reads and writes PNG with `node:zlib` (an exact area-average resize on premultiplied alpha;
     sharp and the WASM codecs are not dependencies of the repository, and `pngjs` is only a transitive one). PNG, not

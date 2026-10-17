@@ -270,7 +270,8 @@ shows there), `chain_id` is `0x534e5f5345504f4c4941`. `halted` needs a person: r
 
 ## 7. How the client points at it, and when it is down
 
-`packages/app-web` reads **`VITE_INDEXER_URL`** (`src/utils/network.ts` into `createIndexerClient` of `@paved/chain`). It is the
+Until 2026-10-17, `packages/app-web` read **`VITE_INDEXER_URL`** (`src/utils/network.ts` into `createIndexerClient` of `@paved/chain`); `packages/app`
+reads the same variable (`src/routes/sources.ts`). It is the
 base URL **without `/v1`** and without a trailing slash, e.g. `VITE_INDEXER_URL=https://indexer.example.org`. It is a Vite
 build-time variable: it is baked into the bundle, so changing the indexer's address means building and serving the app again.
 Unset or blank, the client has no indexer and the screens say "unavailable" without asking anything. Use an `https://` URL: a
@@ -385,7 +386,7 @@ the value and strips trailing slashes, then calls `${base}/v1/...` with `fetch`;
 the indexer answers `access-control-allow-origin: https://paved.bal7hazar.com` because of `--allow-origin`, and Caddy adds no
 CORS header of its own. The client's plain `GET` with an `Accept` header is not preflighted.
 
-The Sepolia build env, from what `packages/app-web` reads today (`src/utils/network.ts`, `economy-network.ts`, `main.tsx`):
+The Sepolia build env, from what `packages/app-web` read until 2026-10-17 (`src/utils/network.ts`, `economy-network.ts`, `main.tsx`):
 
 | Variable | Value | Note |
 |---|---|---|
@@ -627,6 +628,9 @@ ends in `429`s when the defaults are low enough to trip, and the same loop with 
 The deploy user is `paved-deploy`; the owner gives it access once (`sudo -iu paved-deploy`, or an `authorized_keys` line for
 `ssh paved-deploy@…`; its home is `/var/lib/paved-deploy`). It never needs root: it writes only `/var/www/paved` and its home.
 Caddy only reads `/var/www/paved`. A release is a directory; `current` is a symlink swapped in one atomic rename.
+
+> History: until 2026-10-17 the commands and checks below built and published `@paved/app-web`, removed in P-70; they no
+> longer work on main. VPS-WEB-CLEAN (P-76) rewrites this section for `packages/app`.
 
 ```bash
 # First time: the source
