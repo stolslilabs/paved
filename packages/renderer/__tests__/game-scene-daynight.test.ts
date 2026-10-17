@@ -85,7 +85,12 @@ async function createScene(settings: RendererSettingsInput) {
     now += ms;
     queue.shift()?.();
   };
-  return { scene, renderer, effects, tiles, renders, shadows, frame, key: () => (scene as any).directionalLight as THREE.DirectionalLight };
+  return {
+    scene, renderer, effects, tiles, renders, shadows, frame,
+    key: () => (scene as any).directionalLight as THREE.DirectionalLight,
+    /** The scene's shadow-casting lights: the key alone, or the key and its twin while the cycle moves. */
+    casters: () => scene.scene.children.filter((c): c is THREE.DirectionalLight => c instanceof THREE.DirectionalLight && c.castShadow),
+  };
 }
 
 /** The key light's direction toward its light, from its position (the target is the origin). */
@@ -202,5 +207,46 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), expect.any(Number));
     expect(scene.getDayNight()).toBeNull();
     scene.dispose();
+  });
+
+  it("still or on Low, draws with the key light alone: no twin, one shadow map", async () => {
+    for (const settings of [{ dayNight: { enabled: true, reducedMotion: true } }, { quality: "low", dayNight: { enabled: true, reducedMotion: false } }] as RendererSettingsInput[]) {
+      const { scene, casters, frame, key } = await createScene(settings);
+      for (let i = 0; i < 5; i++) frame(50);
+      expect(casters()).toEqual([key()]);
+      scene.dispose();
+    }
+  });
+
+  it("moving, adds the twin; going still releases it and frees its shadow map", async () => {
+    const { scene, casters, frame, key } = await createScene({ dayNight: { enabled: true, season: "summer", reducedMotion: false } });
+    frame(50);
+    expect(casters()).toHaveLength(2);
+    const twin = casters().find((l) => l !== key())!;
+    const disposed = vi.spyOn(twin.shadow, "dispose");
+    scene.setSettings({ dayNight: { enabled: true, season: "summer", reducedMotion: true } });
+    expect(casters()).toEqual([key()]);
+    expect(disposed).toHaveBeenCalled();
+    scene.dispose();
+  });
+
+  it("turned off, takes the twin out and frees its shadow map", async () => {
+    const { scene, casters, frame, key } = await createScene({ dayNight: { enabled: true, season: "summer", reducedMotion: false } });
+    frame(50);
+    const twin = casters().find((l) => l !== key())!;
+    const disposed = vi.spyOn(twin.shadow, "dispose");
+    scene.setSettings({ dayNight: { enabled: false } });
+    expect(casters()).toEqual([key()]);
+    expect(disposed).toHaveBeenCalled();
+    scene.dispose();
+  });
+
+  it("disposed with its context kept, frees the twin's shadow map", async () => {
+    const { scene, casters, frame, key } = await createScene({ dayNight: { enabled: true, season: "summer", reducedMotion: false } });
+    frame(50);
+    const twin = casters().find((l) => l !== key())!;
+    const disposed = vi.spyOn(twin.shadow, "dispose");
+    scene.dispose({ releaseContext: false });
+    expect(disposed).toHaveBeenCalled();
   });
 });

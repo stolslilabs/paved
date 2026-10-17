@@ -193,7 +193,7 @@ describe("drawing the cycle (drawDayNight)", () => {
     key.shadow.radius = 3;
     scene.add(key);
     const hooks = { shadowMoved: vi.fn(), backdrop: vi.fn(), lights: vi.fn() };
-    return { scene, key, hooks, t: { key, fill: null, sky: null, ambient: null, fog: null, distance: 100, ...hooks } };
+    return { scene, key, hooks, t: { key, fill: null, sky: null, ambient: null, fog: null, distance: 100, crossfade: true, ...hooks } };
   }
   const twinOf = (scene: THREE.Scene, key: THREE.DirectionalLight) => scene.children.find((c) => c !== key && c instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
 
@@ -231,6 +231,21 @@ describe("drawing the cycle (drawDayNight)", () => {
     releaseDayNight(key);
   });
 
+  it("draws a still or held cycle with the key light alone, and releases a twin made while it moved", () => {
+    const { scene, key, t } = target();
+    const lights = () => scene.children.filter((c) => c instanceof THREE.DirectionalLight && c.castShadow);
+    drawDayNight({ ...t, crossfade: false }, 0.3125, 0);
+    expect(lights()).toEqual([key]);
+    expect(key.intensity).toBeCloseTo(dayNightFrame(0.3125, 0).sun.intensity, 9);
+    drawDayNight(t, 0.3125, 0);
+    expect(lights()).toHaveLength(2);
+    const twin = twinOf(scene, key);
+    const disposed = vi.spyOn(twin.shadow, "dispose");
+    drawDayNight({ ...t, crossfade: false }, 0.3125, 0);
+    expect(lights()).toEqual([key]);
+    expect(disposed).toHaveBeenCalled();
+  });
+
   it("asks for the shadow map only when a light moved: never through a still night", () => {
     const { key, hooks, t } = target();
     drawDayNight(t, 0.7, 0);
@@ -260,13 +275,18 @@ describe("the backdrop pass", () => {
     effects.dispose();
   });
 
-  it("keeps the scene's alpha through the bloom: its light goes to the colour only", () => {
+  it("keeps the bloom's stock blend without the backdrop; under it, the same colour and the scene's alpha kept", () => {
     const effects = new Effects();
     effects.setLook(LOOK_PRESETS.mockup, "high");
     const renderer = { getPixelRatio: () => 1, getSize: (v: THREE.Vector2) => v.set(400, 300), getDrawingBufferSize: (v: THREE.Vector2) => v.set(400, 300), domElement: { width: 400, height: 300 } };
     effects.init(renderer as never, new THREE.Scene(), new THREE.PerspectiveCamera());
-    const blend = (effects as any).bloomPass.blendMaterial as THREE.ShaderMaterial;
-    expect([blend.blending, blend.blendSrcAlpha, blend.blendDstAlpha]).toEqual([THREE.CustomBlending, THREE.ZeroFactor, THREE.OneFactor]);
+    const blend = () => (effects as any).bloomPass.blendMaterial as THREE.ShaderMaterial;
+    expect(blend().blending).toBe(THREE.AdditiveBlending);
+    effects.setBackdrop(true, [0.5, 0, 0], [0.2, 0, 0]);
+    // Three's additive blend is (SRC_ALPHA, ONE) on the colour: kept; the alpha takes nothing from the bloom.
+    expect([blend().blending, blend().blendSrc, blend().blendDst, blend().blendSrcAlpha, blend().blendDstAlpha]).toEqual([THREE.CustomBlending, THREE.SrcAlphaFactor, THREE.OneFactor, THREE.ZeroFactor, THREE.OneFactor]);
+    effects.setBackdrop(false);
+    expect(blend().blending).toBe(THREE.AdditiveBlending);
     effects.dispose();
   });
 });

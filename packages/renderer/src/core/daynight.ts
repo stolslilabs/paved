@@ -323,6 +323,11 @@ export interface DayNightTarget {
   fog: Fog | FogExp2 | null;
   /** The key and fill lights' distance from the origin, their target. */
   distance: number;
+  /**
+   * The cycle moves: the sun's shadows crossfade between the key light and its twin. False (still, or held at a moment):
+   * the key light alone, and the twin, if any, is released.
+   */
+  crossfade: boolean;
   shadowMoved(): void;
   backdrop(top: Vec3, bottom: Vec3): void;
   lights(level: number): void;
@@ -365,7 +370,17 @@ const LINEAR = "srgb-linear";
 export function drawDayNight(target: DayNightTarget, seasons: number, floor: number): CyclePoint {
   const frame = dayNightFrame(seasons, floor);
   const { key, fill, sky, ambient, distance: d } = target;
-  if (key) {
+  if (key && !target.crossfade) {
+    // A still or held cycle: the key light alone, at the sun's own place (no twin, no second shadow map or lookup).
+    releaseDayNight(key);
+    key.color.setRGB(...frame.sun.color, LINEAR);
+    key.intensity = frame.sun.intensity;
+    const [x, y, z] = frame.sun.direction;
+    if (key.position.x !== x * d || key.position.y !== y * d || key.position.z !== z * d) {
+      key.position.set(x * d, y * d, z * d);
+      target.shadowMoved();
+    }
+  } else if (key) {
     // The sun's shadows in steps of `SHADOW_STEP` of its arc, crossfaded between the key light and its twin (`twinOf`): a
     // shadow map drawn again from a light turned by a fraction of a degree re-aliases every small shadow's edge, and the
     // board boils. Each light holds one step (the key the even ones, the twin the odd ones), the weight moves linearly

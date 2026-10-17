@@ -249,14 +249,17 @@ export class Effects {
         look.bloom.radius,
         look.bloom.threshold,
       );
-      // The bloom adds its light to the scene's colour, never to its alpha: the backdrop is laid under what the alpha leaves
-      // uncovered, and an added alpha would cover it.
-      const blend = this.bloomPass.blendMaterial;
-      blend.blending = THREE.CustomBlending;
-      blend.blendSrc = THREE.OneFactor;
-      blend.blendDst = THREE.OneFactor;
-      blend.blendSrcAlpha = THREE.ZeroFactor;
-      blend.blendDstAlpha = THREE.OneFactor;
+      // Under the backdrop the bloom adds its light to the scene's colour as three's additive blend does (its colour times
+      // its alpha), never to the alpha: the backdrop is laid under what the alpha leaves uncovered, and an added alpha
+      // would cover it. Without the backdrop the stock blend stays (the chain is rebuilt when the backdrop toggles).
+      if (this.backdrop) {
+        const blend = this.bloomPass.blendMaterial;
+        blend.blending = THREE.CustomBlending;
+        blend.blendSrc = THREE.SrcAlphaFactor;
+        blend.blendDst = THREE.OneFactor;
+        blend.blendSrcAlpha = THREE.ZeroFactor;
+        blend.blendDstAlpha = THREE.OneFactor;
+      }
       this.composer.addPass(this.bloomPass);
       names.push("bloom");
     }

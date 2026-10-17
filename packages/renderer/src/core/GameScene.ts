@@ -513,6 +513,7 @@ export class GameScene {
         ambient: look.sky.enabled ? this.ambientLight : null,
         fog: this.scene.fog,
         distance: KEY_DISTANCE,
+        crossfade: this.dayNightRuns(),
         shadowMoved: () => this.requestShadowUpdate(),
         backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
         lights: (level) => this.tiles.setNightLevel(level),
@@ -989,6 +990,7 @@ export class GameScene {
     this.controls?.dispose();
     this.assets.dispose();
     this.directionalLight?.shadow.dispose();
+    this.dayNight?.releaseDayNight(this.directionalLight);
     this.scene.clear();
     this.latestTiles = [];
     this.onTileClickCallback = null;
