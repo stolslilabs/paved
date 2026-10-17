@@ -2030,8 +2030,11 @@ Tutorial its one scripted slot the same way):
   small texture holds each cell's ring opacity (ring 1: 1, ring 2: 0.4, ring 3: 0.1, from ring 4: 0, times `opacity`
   0.32), read cell by cell (`texelFetch`): **a line takes the nearer ring of its two cells** (the larger opacity), so the
   outer edges of the first ring are fully visible, the second ring's perceptible (0.4), the third's almost gone (0.1),
-  then nothing; along a line the opacity is linear from one row of cells to the next (`gridLineOpacityAt`, which the test
-  reads at the lines themselves). Fix loop 1 (review t-0479): a bilinear read of the cell centres gave each line the mean
+  then nothing; along a line the opacity is linear from one row of cells to the next. `gridLineOpacityAt` is the reference
+  in TypeScript: it picks the nearest vertical and horizontal lines as the shader does (`floor(h + 0.5)`) and returns the
+  nearer one's opacity; the shader draws each line at that opacity times its pixel coverage and keeps the larger, the same
+  value on a line (fix loop 2, review t-0484: the reference read the left edge of the point's cell; the tests now read
+  between the lines too). Fix loop 1 (review t-0479): a bilinear read of the cell centres gave each line the mean
   of its two cells (1, 0.7, 0.25, 0.05). It is rebuilt only when the tiles' cells change. Colour ink-200 `#d1d9df`.
 - **The neon** (`neon.ts`, the reusable piece GLOW can take for the gold slots): `NEON_LINE_GLSL` (a line's coverage at
   a distance, with a pixel floor; dashes along a side with whole corners; a gaussian halo) and a cell-frame material

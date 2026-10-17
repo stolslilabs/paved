@@ -808,7 +808,9 @@ export class TileRenderer {
 
     const model = this.ghostModel(state.planIndex, state.orientation, planModel);
     if (!model) {
-      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`).
+      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`), and no aura or veil left at the
+      // last ghost's cell.
+      this.placement.clearGhost();
       if (planModel === null && !quad) return;
       this.previewKey = null;
       return;

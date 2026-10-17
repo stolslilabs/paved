@@ -56,6 +56,18 @@ describe("the grid's ring fade", () => {
     expect(gridLineOpacityAt(field, 2.5, 2)).toBe(rings[1]);
     expect(gridLineOpacityAt(field, 2.5, 3)).toBe(rings[2]);
     expect(gridLineOpacityAt(field, 2.5, 2.5)).toBeCloseTo((rings[1] + rings[2]) / 2, 9);
+    // Between lines: the nearest line, as the shader picks it (floor(x + 1), the line at L - 0.5).
+    expect(gridLineOpacityAt(field, 1.2, 0)).toBe(1); // nearest x = 1.5
+    expect(gridLineOpacityAt(field, 2.3, 0)).toBe(rings[1]); // nearest x = 2.5, not 1.5
+    expect(gridLineOpacityAt(field, 2.7, 0)).toBe(rings[1]); // nearest x = 2.5
+    expect(gridLineOpacityAt(field, 3.2, 0)).toBe(rings[2]); // nearest x = 3.5, not 2.5
+    expect(gridLineOpacityAt(field, 3.8, 0)).toBe(rings[2]); // nearest x = 3.5
+    expect(gridLineOpacityAt(field, 0, -2.3)).toBe(rings[1]); // nearest y = -2.5
+    expect(gridLineOpacityAt(field, 0, 3.4)).toBe(rings[2]); // nearest y = 3.5
+    // Nearer a horizontal line than a vertical one: the horizontal one. At (0, 2.45) the line y = 2.5 (rings 2 and 3) is
+    // 0.05 away and reads 0.4; the vertical x = 0.5, 0.5 away, would read 0.4 * 0.55 + 0.1 * 0.45 there.
+    expect(gridLineOpacityAt(field, 0, 2.45)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 0.47, 2.4)).toBeCloseTo(rings[1] * 0.6 + rings[2] * 0.4, 9); // x = 0.5, 0.03 away
     // Not the mean of the two cells (what a bilinear read at the line gives: 0.7 between rings 1 and 2).
     expect(gridLineOpacityAt(field, 1.5, 0)).not.toBeCloseTo((1 + rings[1]) / 2, 2);
   });
@@ -212,6 +224,26 @@ describe("the tile placed on a slot", () => {
     expect(slotCells(tiles)).toEqual([{ x: 1, y: 0, fits: true }]);
     tiles.setHover(null);
     expect(slotCells(tiles)).toHaveLength(2);
+    tiles.dispose();
+  });
+
+  it("hovering a plan with no model and no image yet drops the last ghost's aura, veil and cell", () => {
+    const assets = { ...fakeAssets(), has: (key: string) => key !== "missing", peekTexture: () => null };
+    const tiles = new TileRenderer(assets as any);
+    tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
+    tiles.setHover(ghostAt(1, 0, { placed: true }));
+    expect(slotCells(tiles)).toEqual([{ x: 2, y: 0, fits: true }]);
+    expect((tiles as any).placement.ghostCell).toEqual({ x: 1, y: 0 });
+    // A plan whose model is not in (and whose image is not either): no ghost at all.
+    (tiles as any).modelOf = () => null;
+    tiles.setHover(ghostAt(2, 0, { placed: true, planIndex: 5 }));
+    expect(preview(tiles)).toBeNull();
+    expect(tiles.getGroup().children[2]!.children).toHaveLength(0);
+    expect((tiles as any).placement.ghostCell).toBeNull();
+    expect((tiles as any).placement.ghostTone).toBeNull();
+    // Both slots draw their borders again; nothing moves, so no frame is asked for.
+    expect(slotCells(tiles)).toHaveLength(2);
+    expect(tiles.update(performance.now() + 10_000).animating).toBe(false);
     tiles.dispose();
   });
 

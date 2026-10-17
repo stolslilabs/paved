@@ -187,11 +187,12 @@ function cellOpacity(field: RingField, x: number, y: number, rings: PlacementSet
 }
 
 /**
- * The opacity (a share of `grid.opacity`) of the grid line through the point (x, y), in cell units (a cell's centre at
- * whole numbers, the lines at halves): the line the point is nearer. A line between two cells takes the nearer ring of the
- * two (the smaller), so the outer edges of the first ring are fully visible, the second ring's perceptible, the third's
- * almost gone; along the line it is linear from one row (or column) of cells to the next. The grid's shader computes the
- * same.
+ * The opacity (a share of `grid.opacity`) of the grid line nearest the point (x, y), in cell units (a cell's centre at
+ * whole numbers, the lines at halves): the nearest vertical and horizontal lines, as the shader picks them, and of the two
+ * the nearer. A line between two cells takes the nearer ring of the two (the smaller), so the outer edges of the first
+ * ring are fully visible, the second ring's perceptible, the third's almost gone; along the line it is linear from one row
+ * (or column) of cells to the next. The shader draws each of the two lines at this opacity times its coverage of the pixel
+ * and keeps the larger, which on a line is the value here.
  */
 export function gridLineOpacityAt(field: RingField, x: number, y: number, rings: PlacementSettings["grid"]["rings"] = DEFAULT_PLACEMENT_SETTINGS.grid.rings): number {
   const along = (line: number, at: number, cell: (a: number, b: number) => number) => {
@@ -200,8 +201,10 @@ export function gridLineOpacityAt(field: RingField, x: number, y: number, rings:
     const edge = (row: number) => Math.max(cell(line - 1, row), cell(line, row));
     return edge(j) * (1 - t) + edge(j + 1) * t;
   };
-  const lx = Math.floor(x + 0.5);
-  const ly = Math.floor(y + 0.5);
+  // The nearest line on each axis, as the shader's `floor(h + 0.5)` with h = x + 0.5: line L lies at L - 0.5, between
+  // cells L - 1 and L.
+  const lx = Math.floor(x + 1);
+  const ly = Math.floor(y + 1);
   const vertical = along(lx, y, (a, b) => cellOpacity(field, a, b, rings));
   const horizontal = along(ly, x, (a, b) => cellOpacity(field, b, a, rings));
   return Math.abs(x - (lx - 0.5)) <= Math.abs(y - (ly - 0.5)) ? vertical : horizontal;
