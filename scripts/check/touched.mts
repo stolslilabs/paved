@@ -77,6 +77,18 @@ const OUTSIDE: Array<{ prefix: string; packages: string[] }> = [
 /** Root files every package reads: a change of one touches them all. */
 const EVERYTHING = ["bun.lock", "package.json", "turbo.json", "tsconfig.base.json"];
 
+/** `names` with every package after the workspace packages it depends on (ties by name). */
+export function topological(names: string[], pkgs: Pkg[]): string[] {
+  const out: string[] = [];
+  const visit = (name: string, path: string[]) => {
+    if (out.includes(name) || path.includes(name)) return;
+    for (const dep of [...(pkgs.find((x) => x.name === name)?.deps ?? [])].sort()) if (names.includes(dep)) visit(dep, [...path, name]);
+    out.push(name);
+  };
+  for (const name of [...names].sort()) visit(name, []);
+  return out;
+}
+
 export interface Plan {
   files: string[];
   /** The packages the change is in (or reaches from outside packages/), sorted. */

@@ -23,7 +23,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, workspace, type Plan } from "./touched.mts";
+import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, topological, workspace, type Plan } from "./touched.mts";
 import { PROJECTS, ROOT, vercelBuild } from "./vercel-build.mts";
 
 type Outcome = "ok" | "FAIL" | "skip";
@@ -88,7 +88,8 @@ step("changes", () => {
   console.log(`contracts: ${p.contracts ? "changed" : "unchanged"}; Vercel projects: ${p.vercel.join(", ") || "none"}; guard tooling: ${p.guards ? "changed" : "unchanged"}`);
   return { outcome: "ok", note: `${p.touched.length} pkg` };
 });
-const typed = prePush ? p.touched : p.reach;
+// In dependency order: `tsc -b` of a package rewrites the dist/ its dependents' types import.
+const typed = topological(prePush ? p.touched : p.reach, pkgs);
 
 // 1. Format.
 step("format", () => {

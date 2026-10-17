@@ -1,7 +1,7 @@
 /** The touched set of scripts/check/touched.mts (GUARDS, P-71): `node --test scripts/check/touched.test.mts`. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GUARD_TESTS, TEST_HEAP_MB, isInput, plan, vercelInputs, workspace, type Pkg } from "./touched.mts";
+import { GUARD_TESTS, TEST_HEAP_MB, isInput, plan, topological, vercelInputs, workspace, type Pkg } from "./touched.mts";
 
 const PKGS: Pkg[] = [
   { name: "@paved/game-core", dir: "packages/game-core", deps: [] },
@@ -92,4 +92,13 @@ test("every package of the workspace has a heap cap, and every guard test names 
   const names = workspace().map((x) => x.name);
   for (const n of names) assert.ok(TEST_HEAP_MB[n], `${n} has no heap cap in TEST_HEAP_MB`);
   for (const n of Object.keys(GUARD_TESTS)) assert.ok(names.includes(n), `${n} is not a workspace package`);
+});
+
+test("topological puts each package after its dependencies", () => {
+  assert.deepEqual(topological(["@paved/app", "@paved/renderer", "@paved/game-core", "@paved/indexer"], PKGS), [
+    "@paved/game-core",
+    "@paved/renderer",
+    "@paved/app",
+    "@paved/indexer",
+  ]);
 });
