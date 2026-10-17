@@ -113,7 +113,7 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     expect(renderer.setClearColor).toHaveBeenLastCalledWith(0x000000, 0);
     const frame = dayNightFrame(2 + DAY_PHASE_AT.night, 0.5);
     expect(effects.setBackdrop).toHaveBeenLastCalledWith(true, frame.backdrop.top, frame.backdrop.bottom);
-    expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, "#f6d8a1", 0.55);
+    expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", 0.4);
     expect(tiles.setNightLevel).toHaveBeenLastCalledWith(1);
     expect(key().intensity).toBe(0);
     expect(scene.getDayNight()).toMatchObject({ season: "winter", phase: "night" });

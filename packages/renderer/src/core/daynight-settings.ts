@@ -61,9 +61,9 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   seed: null,
   freezeAt: null,
   nightLights: true,
-  // gold-200: a warm window.
-  nightLightColor: "#f6d8a1",
-  nightLightIntensity: 0.55,
+  // amber-300: a warm window.
+  nightLightColor: "#ffb57a",
+  nightLightIntensity: 0.4,
   brightnessFloor: 0.5,
   frameMs: 33,
   reducedMotion: "auto",

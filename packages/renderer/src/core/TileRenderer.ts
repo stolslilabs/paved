@@ -99,19 +99,20 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
 // The night lights (DAYNIGHT): a voxel of a lit column (a city's, or a structure by a road: `features.ts`, `lightColumns`),
 // above the ground, is a window. Each window (its column and voxel level, on its tile's cell) has a level of its own, a
 // hash, at which it switches on: as the night comes (`uNightLevel` from 0 to 1) the windows light one by one, each over
-// 0.15 of the ramp. It adds an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
+// 0.15 of the ramp, until about half of them are lit (the levels run to 1.6). A wall glows fully, a roof at 0.35. It adds
+// an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
 export const NIGHT_LIGHTS_GLSL = /* glsl */ `
 float nightLit = 0.0;
 if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
 vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
 ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
-if (texelFetch(uLightMap, lightTexel, 0).r > 0.5) {
+if (texelFetch(uLightMap, lightTexel, 0).r > 0.0) {
 uvec2 c = uvec2(ivec2(vCell) + 4096);
 uint h = (uint(lightTexel.x) | uint(lightTexel.y) << 6u | uint(int(floor(lightAt.y)) + 64) << 12u) ^ c.x * 73856093u ^ c.y * 19349663u;
 h = (h ^ h >> 16) * 0x7feb352du;
 h = (h ^ h >> 15) * 0x846ca68bu;
-float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 0.85;
-nightLit = smoothstep(at, at + 0.15, uNightLevel);
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
+nightLit = smoothstep(at, at + 0.15, uNightLevel) * (normalize(vGridNormal).y > 0.5 ? 0.35 : 1.0);
 }
 }
 `;
