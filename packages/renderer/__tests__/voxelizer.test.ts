@@ -355,4 +355,20 @@ describe("VoxelCache", () => {
     expect(cache.peek("a")).toBe(grid);
     expect(await cache.request("a", source())).toBe(grid);
   });
+
+  it("does not reuse or keep a build requested before forget or clear", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cache = new VoxelCache();
+    const empty = { geometry: new THREE.BufferGeometry() };
+    const [stale, , fresh] = [cache.request("a", source()), cache.forget("a"), cache.request("a", empty)] as const;
+    expect(fresh).not.toBe(stale);
+    expect((await stale)?.count).toBe(40 * 40 * 4 + 27); // its callers still get the grid of the source they gave
+    expect(await fresh).toBeNull(); // the new request built the new source
+    expect(cache.peek("a")).toBeNull();
+
+    const cleared = cache.request("b", source());
+    cache.clear();
+    expect((await cleared)?.count).toBe(40 * 40 * 4 + 27);
+    expect(cache.size).toBe(0); // the cache did not refill after clear
+  });
 });

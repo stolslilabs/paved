@@ -348,12 +348,17 @@ export class VoxelCache {
     if (known !== undefined) return Promise.resolve(known);
     let pending = this.pending.get(key);
     if (!pending) {
-      pending = new Promise<VoxelGrid | null>((resolve) => {
+      const created: Promise<VoxelGrid | null> = new Promise<VoxelGrid | null>((resolve) => {
         whenIdle(() => {
-          this.pending.delete(key);
-          resolve(this.get(key, source));
+          // Still the current request: build and keep. Forgotten or cleared meanwhile: the callers of this request get their
+          // grid, but it is not kept, and a later request for the type starts its own build from its own source.
+          if (this.pending.get(key) === created) {
+            this.pending.delete(key);
+            resolve(this.get(key, source));
+          } else resolve(voxelize(source, { name: key }));
         });
       });
+      pending = created;
       this.pending.set(key, pending);
     }
     return pending;
@@ -362,11 +367,13 @@ export class VoxelCache {
   /** Lets go of one type's grid. */
   forget(key: string): void {
     this.grids.delete(key);
+    this.pending.delete(key);
   }
 
   /** Lets go of every grid. */
   clear(): void {
     this.grids.clear();
+    this.pending.clear();
   }
 
   /** The types with a grid (or a logged failure) so far. */
