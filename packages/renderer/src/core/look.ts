@@ -1,3 +1,4 @@
+import type { FeatureName } from "./feature-codes";
 import type { EffectsCapabilities } from "./types";
 
 /**
@@ -56,6 +57,12 @@ export interface LookSettings {
   highlights: { slotColor: string; slotIntensity: number; ghostColor: string; ghostIntensity: number };
   /** Water texels of the tile palettes (blue), brightened and made glossier in the tile shader. */
   water: { enabled: boolean; brightness: number; roughness: number };
+  /**
+   * Every voxel of one feature lit across the board (FEATURE-HL, `features.ts`): tinted toward `color` by `tint` (0: none,
+   * 1: flat colour) and glowing by `glow`, the rest dimmed to `dim` of its colour (1: as is). Off by default: the tiles'
+   * voxels are labelled only once it is on.
+   */
+  featureHighlight: { enabled: boolean; feature: Exclude<FeatureName, "none">; color: string; tint: number; glow: number; dim: number };
 }
 
 /** A partial look: each group may name only some of its fields. */
@@ -116,6 +123,8 @@ const MOCKUP: LookSettings = {
   bloom: { enabled: true, strength: 0.15, radius: 0.2, threshold: 0.9 },
   highlights: { slotColor: "#ffc23d", slotIntensity: 1.6, ghostColor: "#ffc23d", ghostIntensity: 0.25 },
   water: { enabled: true, brightness: 1.25, roughness: 0.15 },
+  // Picked by eye on the 72-tile board (Storybook, Renderer/Lighting, CitiesLit): a stronger tint or glow flattens the roofs.
+  featureHighlight: { enabled: false, feature: "city", color: "#ffc23d", tint: 0.3, glow: 0.12, dim: 0.4 },
 };
 
 /** Named looks: "mockup" (the default, toward the mockups), "soft" (gentler), "off" (plain lights, no effect). */
@@ -147,6 +156,7 @@ export const LOOK_PRESETS: Record<LookPreset, LookSettings> = {
     bloom: { ...MOCKUP.bloom, enabled: false },
     highlights: { slotColor: "#ffc23d", slotIntensity: 1, ghostColor: "#ffc23d", ghostIntensity: 0.2 },
     water: { ...MOCKUP.water, enabled: false },
+    featureHighlight: { ...MOCKUP.featureHighlight },
   },
 };
 

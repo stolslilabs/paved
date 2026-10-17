@@ -76,6 +76,9 @@ const preview: Preview = {
     // are the options (`Foundations/Breakpoints` pins them).
     viewport: { options: VIEWPORT_OPTIONS },
     controls: { matchers: { color: /(background|color)$/i } },
+    // The tiers top down first, then the other sections; the rest keeps the order the stories load in (`main.ts`), sections
+    // and stories alike. A plain object: Storybook reads it without running the preview.
+    options: { storySort: { order: ["Scenes", "Containers", "Elements", "UI"] } },
   },
 };
 

@@ -2,6 +2,9 @@
 export { GameScene } from "./core/GameScene";
 export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
+export type { LitTile } from "./core/TileRenderer";
+export { FEATURES } from "./core/feature-codes";
+export type { FeatureName } from "./core/feature-codes";
 export { CameraController } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";

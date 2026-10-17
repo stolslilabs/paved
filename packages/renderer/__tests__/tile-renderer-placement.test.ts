@@ -69,4 +69,35 @@ describe("TileRenderer placement", () => {
     expect(after[0]).toBe(first);
     expect(after[1]).not.toBe(pendingTile);
   });
+
+  // The hand's tile (`TileView`) is one tile, id 1, turned by its buttons: the same tile given again with another
+  // orientation, the same model.
+  it("turns a drawn tile when only its orientation changes, and keeps the others", () => {
+    const renderer = new TileRenderer(createMockAssetLoader() as any);
+    const other = makeTile({ id: 2, worldX: 1 });
+    const turn = (tile: THREE.Object3D) => tile.children[0].rotation.y;
+    const expected = [0, -Math.PI / 2, Math.PI, Math.PI / 2]; // North, East, South, West
+
+    renderer.updateTiles([makeTile({ orientation: 1 }), other]);
+    const kept = placed(renderer)[1];
+    for (const [i, rotation] of expected.entries()) {
+      expect(renderer.updateTiles([makeTile({ orientation: i + 1 }), other])).toBe(i > 0);
+      const tiles = placed(renderer);
+      expect(tiles).toHaveLength(2);
+      expect(tiles).toContain(kept);
+      expect(turn(tiles.find((t) => t !== kept)!)).toBeCloseTo(rotation);
+    }
+  });
+
+  it("turns a drawn tile's image in the plan view when only its orientation changes", () => {
+    const renderer = new TileRenderer(createMockAssetLoader() as any);
+    renderer.setStrategyMode(true);
+    const top = (tile: THREE.Object3D) => ((tile as THREE.Mesh).material as THREE.MeshBasicMaterial[])[2].map!.rotation;
+
+    renderer.updateTiles([makeTile({ orientation: 1 })]);
+    expect(top(placed(renderer)[0])).toBeCloseTo(0);
+    renderer.updateTiles([makeTile({ orientation: 3 })]);
+    expect(placed(renderer)).toHaveLength(1);
+    expect(top(placed(renderer)[0])).toBeCloseTo(Math.PI);
+  });
 });

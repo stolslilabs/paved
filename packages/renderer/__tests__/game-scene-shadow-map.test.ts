@@ -57,7 +57,7 @@ async function createScene() {
     }),
     dispose: vi.fn(),
   };
-  (scene as any).tiles = { ...placementStubs(), setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn(), setOutlineStroke: vi.fn() };
+  (scene as any).tiles = { ...placementStubs(), setLook: vi.fn(), updateTiles: vi.fn(), setStrategyMode: vi.fn(), setHover: vi.fn(), setAvailableSlots: vi.fn(), setOutlineStroke: vi.fn(), updateBoardFrame: vi.fn() };
   await scene.init({ surface: adapter });
   return { scene, renderer, shadowDrawn, moveCamera: () => onCameraChange() };
 }
