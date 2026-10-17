@@ -8,11 +8,17 @@ import { preloadFonts } from "../src/styles/fonts";
 import "../src/styles/theme.css";
 import { VIEWPORT_OPTIONS } from "../src/components/scenes/viewports";
 import { board } from "../src/styles/tokens";
+import { provideManifest } from "@paved/renderer";
+import { APP_ASSETS, APP_MANIFEST } from "../src/mocks/assets";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
 
 preloadFonts();
+
+// The renderer's manifest for the app's assets: Storybook serves `renderer-assets/` without one, so the stories at
+// `APP_ASSETS` get the app's (`APP_MANIFEST`) before any scene asks, and load the app's compressed models (LOAD-FAST).
+provideManifest(APP_ASSETS, Promise.resolve(APP_MANIFEST));
 
 /** Query data a story seeds: `parameters.queryFixtures = [[queryKey, data], ...]`. */
 type QueryFixtures = ReadonlyArray<readonly [QueryKey, unknown]>;

@@ -3,7 +3,7 @@ import { useReducedMotionConfig } from "motion/react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DEFAULT_RENDERER_SETTINGS, TILE_SIZE, type GameScene, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { APP_WEB_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { tourPose, viewPose, type Bounds, type Pose, type View } from "./outlines-tour";
 
@@ -193,7 +193,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
 
   return (
     <div className="relative h-dvh w-full bg-board" data-ready={ready || undefined}>
-      <GameCanvas tiles={tiles} basePath={APP_WEB_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas tiles={tiles} basePath={APP_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && zoom && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground" aria-live="off">
           distance {zoom.distance} · tile {zoom.tilePx} px (opens at {zoom.openingTilePx}) · outline {zoom.opacity > 0 ? `${zoom.width} device px at ${Math.round(zoom.opacity * 100)}%` : "off"}
