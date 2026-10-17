@@ -1,11 +1,10 @@
 import type { TileArt } from "../elements/tile-chip";
 import { useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { Button } from "../ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { toast } from "sonner";
 import { Notice } from "../elements/notice";
-import { formatPoints } from "../elements/score";
-import { BoardMap } from "../containers/board-map";
+import { useDeferred } from "../../lib/deferred";
+import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import type { BoardGhost } from "../containers/board-viewport";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
@@ -13,6 +12,11 @@ import type { ErrorDetail } from "../elements/inline-error";
 import { HandPanel, type HandState } from "../containers/hand-panel";
 
 export type BoardMode = "challenge" | "training" | "tutorial";
+
+// The plan view and the Surrender dialog are not the first frame's: their modules load when first needed, and in the browser's
+// idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`).
+const loadBoardMap = () => import("../containers/board-map");
+const loadSurrenderDialog = () => import("../containers/surrender-dialog");
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
 
@@ -88,9 +92,34 @@ export function BoardScene(props: BoardSceneProps) {
   useEffect(() => {
     if (promptSurrender) setSurrendering(true);
   }, [promptSurrender]);
+  const hasCanvas = props.canvas != null;
+  // After the first frame, when the browser is idle: the modules a tap or a failure of the canvas would ask for.
+  useEffect(() => {
+    if (!prefetchAllowed()) return;
+    return whenIdle(() => {
+      void loadSurrenderDialog().catch(() => {});
+      if (hasCanvas) void loadBoardMap().catch(() => {});
+    });
+  }, [hasCanvas]);
+  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering, () => {
+    setSurrendering(false);
+    toast.error("The Surrender dialog could not load", { description: "Check your connection and try again." });
+  });
+  // Without the 3D canvas the scene draws the plan view: its module is asked for now, and a failure says so in its place.
+  const [mapFailed, setMapFailed] = useState(false);
+  const boardMap = useDeferred(loadBoardMap, !hasCanvas, () => setMapFailed(true));
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
+      {props.canvas ??
+        (boardMap ? (
+          <boardMap.BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />
+        ) : (
+          mapFailed && (
+            <Notice tone="warning" title="The board could not load" className="pointer-events-auto absolute inset-x-2 top-24 mx-auto max-w-2xl">
+              Its plan view did not load. Check your connection and reload the page.
+            </Notice>
+          )
+        ))}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud
@@ -140,32 +169,9 @@ export function BoardScene(props: BoardSceneProps) {
         </div>
       )}
 
-      {/* Radix closes it on Esc and on a click outside (P3); the game goes on. */}
-      <Dialog open={surrendering} onOpenChange={setSurrendering}>
-        <DialogContent showClose={false}>
-          <DialogHeader>
-            <DialogTitle>Surrender this game?</DialogTitle>
-            <DialogDescription>
-              {promptSurrender && "Its 24 hours are over: it takes no more moves, and only a surrender closes it. "}
-              It ends now with your score of <span className="numeric">{formatPoints(props.score)}</span>. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Keep playing</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setSurrendering(false);
-                props.onSurrender?.();
-              }}
-            >
-              Surrender
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {surrenderDialog && (
+        <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
+      )}
     </div>
   );
 }
