@@ -15,6 +15,7 @@ import {
   type WriteResult,
 } from "@paved/chain";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, fakeTerms } from "@paved/chain/testing";
+import { formatPoints } from "../src/components/elements/score";
 import { App } from "../src/App";
 import type { DataSources, GameSigner, Settlements } from "../src/data";
 import { settlementsFor } from "../src/data/settle-client";
@@ -115,7 +116,7 @@ describe("/game/:gameId/over (P7a)", () => {
     expect(await screen.findByTestId("score-value", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
     expect(screen.getByText(`Challenge #${GAME_ID}`)).toBeInTheDocument();
-    expect(screen.getByTestId("score-value")).toHaveTextContent(played.game.score.toLocaleString("en-US").replace(",", " "));
+    expect(screen.getByTestId("score-value")).toHaveTextContent(formatPoints(played.game.score));
     const metrics = screen.getByRole("region", { name: "Game metrics" });
     expect(within(metrics).getByText("Tiles placed").closest("div")).toHaveTextContent(String(played.game.placedCount));
     // Every closing the moves scored, in move order, as the engine counted them.
@@ -200,7 +201,7 @@ describe("/game/:gameId/over (P7a)", () => {
       const panel = await reward();
       expect(panel).toHaveAttribute("data-state", "awaiting");
       // 1,000,000 x (10,000 + 500) / 10,000 = 1,050,000 milli-points: 1,050 points.
-      expect(panel).toHaveTextContent(/Threshold\s*1\s*050/);
+      expect(panel).toHaveTextContent(/Threshold\s*1,050/);
     });
   });
 

@@ -14,9 +14,9 @@ const scoreVariants = cva("numeric font-semibold leading-none", {
   defaultVariants: { size: "md", tone: "default" },
 });
 
-/** Points with a space every three digits, as the mockups write them ("1 240"); no-break, one cell wide in the mono font. */
+/** Points with a comma every three digits, in en-US like every number (P-66): "1,270". The owner's word wins over the mockups' "1 240". */
 export function formatPoints(points: number): string {
-  return formatInteger(points).replaceAll(",", "\u00a0");
+  return formatInteger(points);
 }
 
 /** The icon beside each size's figure (Font Awesome sizes an icon as its font size). */

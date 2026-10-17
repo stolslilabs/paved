@@ -30,12 +30,12 @@ import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mock
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
-/** Points as Testing Library reads them: its matchers collapse the no-break space to a space. */
-const pts = (n: number) => formatPoints(n).replace("\u00a0", " ");
+/** Points as the Score writes them. */
+const pts = (n: number) => formatPoints(n);
 
 describe("element helpers", () => {
-  it("writes points with a no-break space every three digits", () => {
-    expect(formatPoints(1270)).toBe("1 270");
+  it("writes points with a comma every three digits", () => {
+    expect(formatPoints(1270)).toBe("1,270");
     expect(formatPoints(980)).toBe("980");
   });
 
