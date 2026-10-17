@@ -61,10 +61,10 @@ export const NightNoLights: Story = { args: { phase: "night", season: "spring", 
 /** Reduced motion: a still day of the start season, no moving shadow. */
 export const ReducedMotion: Story = { args: { reducedMotion: true } };
 
-/** A tile in hand at a night: its slots and neon over the dark backdrop. */
+/** A tile in hand at a night: its plates over the dark backdrop. */
 export const SlotsAtNight: Story = { args: { phase: "night", season: "autumn", placement: "slots" } };
 
-/** A tile placed on a slot at an autumn dusk: its aura and veil over the warm light. */
+/** A tile placed on a plate at an autumn dusk: its rim over the warm light. */
 export const PlacedAtDusk: Story = { args: { phase: "dusk", season: "autumn", placement: "placed" } };
 
 /** The Forest skins at a summer night: the variants are labelled with their own palette, so their cities and roads light too. */

@@ -3,20 +3,58 @@ import { DEFAULT_PLACEMENT_SETTINGS } from "@paved/renderer";
 import type { BoardGhost } from "../components/containers/board-viewport";
 
 /**
- * The board's placement state (SLOTS, P-68), for the Training and Challenge boards: which slots are lit, where the tile
- * in hand stands, and whether Confirm may send it.
+ * The board's placement state (SLOTS, P-68; PLATES, P-74), for the Training and Challenge boards: the plates of the
+ * tile in hand, where it stands, and whether Confirm may send it.
  *
- * - idle: no tile in hand. The board draws the grid only.
- * - in-hand: every legal slot of the tile, whatever the rotation; `fits` where the current rotation fits (solid border).
- * - placed: the tile chosen on a slot, not yet sent. Yellow while its rotation fits there, red while it does not
- *   (`fits`, the renderer's `placementTone`); Confirm is disabled while red. Rotating turns through all four rotations.
- * - confirmed: the move sent; the board's effects turn green and fade out (`useConfirmFlash`).
+ * - idle: no tile in hand. The board draws no plate.
+ * - in-hand: a plate on every free cell next to a tile (`boardPlates`): valid where the current rotation fits, possible
+ *   where another does, invalid where none does.
+ * - placed: the tile chosen on a slot, not yet sent. Its plate's rim is white while its rotation fits there, red while it
+ *   does not (`fits`, the renderer's `placementTone`); Confirm is disabled while red. Rotating turns through all four.
+ * - confirmed: the move sent; the rim turns green and fades out (`useConfirmFlash`).
  */
 export type Slot = { x: number; y: number };
 export type BoardSlot = Slot & { fits: boolean };
 export type PlacementPhase = "idle" | "in-hand" | "placed" | "placed-red";
 
 export const same = (a: Slot | null | undefined, b: Slot | null | undefined) => !!a && !!b && a.x === b.x && a.y === b.y;
+
+/** A plate's state: the current rotation fits (valid), another does (possible), none does (invalid). */
+export type PlateState = "valid" | "possible" | "invalid";
+export type BoardPlate = Slot & { state: PlateState };
+
+/** The cells next to a cell: north, east, south, west. */
+const SIDES = [
+  [0, 1],
+  [1, 0],
+  [0, -1],
+  [-1, 0],
+] as const;
+
+/**
+ * The plates of the tile in hand: every slot given (valid where `fits`, unset meaning it does; possible where not), then
+ * every other free cell next to a tile, invalid (no rotation fits there), in reading order. No slot (no tile in hand):
+ * no plate. Coordinates are the caller's, the same for the tiles and the slots.
+ */
+export function boardPlates(tiles: ReadonlyArray<Slot>, slots: ReadonlyArray<Slot & { fits?: boolean }>): BoardPlate[] {
+  if (slots.length === 0) return [];
+  const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const plates = new Map<string, BoardPlate>();
+  for (const s of slots) plates.set(`${s.x},${s.y}`, { x: s.x, y: s.y, state: s.fits === false ? "possible" : "valid" });
+  const invalid: BoardPlate[] = [];
+  for (const t of tiles) {
+    for (const [dx, dy] of SIDES) {
+      const [x, y] = [t.x + dx, t.y + dy];
+      const key = `${x},${y}`;
+      if (taken.has(key) || plates.has(key)) continue;
+      const plate: BoardPlate = { x, y, state: "invalid" };
+      plates.set(key, plate);
+      invalid.push(plate);
+    }
+  }
+  invalid.sort((a, b) => b.y - a.y || a.x - b.x);
+  return [...[...plates.values()].filter((p) => p.state !== "invalid"), ...invalid];
+}
 
 /** The four rotations, 1 North to 4 West. */
 export const ORIENTATIONS = [1, 2, 3, 4] as const;

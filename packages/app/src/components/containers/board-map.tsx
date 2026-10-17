@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { BoardTile } from "@paved/chain";
+import { boardPlates, type PlateState } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import { TileChip } from "../elements/tile-chip";
 import type { BoardGhost } from "./board-viewport";
@@ -10,17 +11,20 @@ const CENTER = 2_147_483_647;
 export interface BoardMapProps {
   tiles: BoardTile[];
   /**
-   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): dashed, solid where the
-   * current rotation fits (`fits`, unset: it fits).
+   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a plate each, valid
+   * under its aura where the current rotation fits (`fits`, unset: it fits), possible where not. Every other free cell
+   * next to a tile gets an invalid plate, not a button (`boardPlates`).
    */
   slots?: { x: number; y: number; fits?: boolean }[];
-  /** The tile in hand where it would go: placed (a yellow ring, red while its rotation does not fit) or a preview. */
+  /** The tile in hand where it would go: placed (a white rim, red while its rotation does not fit) or a preview. */
   ghost?: BoardGhost | null;
-  /** A move just sent: its cell flashes green and fades (`useConfirmFlash`). */
+  /** A move just sent: its rim turns green and fades (`useConfirmFlash`). */
   confirmed?: (BoardGhost & { key: number }) | null;
   onSlotClick?: (slot: { x: number; y: number }) => void;
-  /** The slots are lit (dashed, tinted). Off (the player's placement highlight setting): they stay buttons, drawn plain. */
+  /** The plates are drawn. Off (the player's placement highlight setting): the slots stay buttons, drawn plain. */
   highlight?: boolean;
+  /** The faint cell outlines around the tiles by ring (SLOTS' grid): off by default, as the board's (PLATES). */
+  grid?: boolean;
   className?: string;
 }
 
@@ -37,7 +41,25 @@ const MAP_RINGS = 2;
 /** A ring's grid opacity, as the board's (`gridRingOpacity`): full next to a tile, fainter one ring out. */
 const RING_OPACITY = [0, 0.32, 0.13];
 
-/** The cell's flash on confirm: green, fading to nothing over 700 ms (150 ms under reduced motion). */
+/**
+ * A plate in its cell, as the board's (`DEFAULT_PLACEMENT_SETTINGS.plates`): inset by half the 4-voxel gap of a 40-voxel
+ * tile (5 %) on each side, its corners rounded, each change eased over 150 ms.
+ */
+const PLATE = "pointer-events-none absolute inset-[5%] block rounded-sm transition duration-150 ease-out motion-reduce:transition-none";
+/** The three states, on the tokens the renderer's colours are pinned to. */
+const PLATE_STATE: Record<PlateState, string> = {
+  valid: "bg-plate/90 shadow-[0_0_8px_var(--color-plate-aura)]",
+  possible: "bg-plate/90",
+  invalid: "bg-plate-off/45",
+};
+/** The placed tile's rim: white while its rotation fits, red while not. */
+const RIM = "pointer-events-none absolute inset-0 block rounded-[2px] ring-2 transition duration-150 ease-out motion-reduce:transition-none";
+const RIM_TONE = {
+  aura: "ring-plate-aura shadow-[0_0_8px_var(--color-plate-aura)]",
+  red: "ring-ember-500 shadow-[0_0_8px_var(--color-ember-500)]",
+};
+
+/** The cell's rim on confirm: green, fading to nothing over 700 ms (150 ms under reduced motion). */
 function ConfirmFlash({ style }: { style: CSSProperties }) {
   const [faded, setFaded] = useState(false);
   useEffect(() => {
@@ -50,7 +72,7 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
       data-confirm
       style={style}
       className={cn(
-        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] border-2 border-meadow-400 bg-meadow-400/14 shadow-[0_0_12px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
+        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] ring-2 ring-meadow-400 shadow-[0_0_8px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
         faded && "opacity-0",
       )}
     />
@@ -60,14 +82,16 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
 /**
  * The board seen from above, one tile chip per tile (x east, y north as the contracts count). The board scene draws
  * it where the 3D canvas is not given or cannot start: in the render tests (jsdom has no WebGL), without WebGL, and as
- * a plan view. With `slots` it is playable: each legal slot is a button, the ghost shows the tile in hand.
+ * a plan view. With `slots` it is playable: each legal slot is a button on its plate, the ghost shows the tile in hand.
  */
-export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, highlight = true, className }: BoardMapProps) {
+export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, className }: BoardMapProps) {
   if (tiles.length === 0) return null;
-  const cells = [...tiles, ...slots];
+  const plates = highlight ? boardPlates(tiles, slots) : [];
+  const invalid = plates.filter((p) => p.state === "invalid");
+  const cells = [...tiles, ...slots, ...invalid];
   const xs = cells.map((t) => t.x);
   const ys = cells.map((t) => t.y);
-  // The grid's rings around the tiles widen the map.
+  // The grid's rings around the tiles widen the map (drawn or not, the map keeps its frame).
   const minX = Math.min(...xs) - MAP_RINGS;
   const maxY = Math.max(...ys) + MAP_RINGS;
   const cols = Math.max(...xs) + MAP_RINGS - minX + 1;
@@ -75,13 +99,16 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
   // The empty cells within the rings, each with its ring (Chebyshev, as the board's grid): faint outlines.
   const taken = new Set(cells.map((c) => `${c.x},${c.y}`));
   const grid: { x: number; y: number; ring: number }[] = [];
-  for (let x = minX; x < minX + cols; x++) {
-    for (let y = maxY - rows + 1; y <= maxY; y++) {
-      if (taken.has(`${x},${y}`)) continue;
-      const ring = Math.min(...tiles.map((t) => Math.max(Math.abs(t.x - x), Math.abs(t.y - y))));
-      if (ring <= MAP_RINGS) grid.push({ x, y, ring });
+  if (showGrid) {
+    for (let x = minX; x < minX + cols; x++) {
+      for (let y = maxY - rows + 1; y <= maxY; y++) {
+        if (taken.has(`${x},${y}`)) continue;
+        const ring = Math.min(...tiles.map((t) => Math.max(Math.abs(t.x - x), Math.abs(t.y - y))));
+        if (ring <= MAP_RINGS) grid.push({ x, y, ring });
+      }
     }
   }
+  const stateOf = new Map(plates.map((p) => [`${p.x},${p.y}`, p.state]));
   const at = (x: number, y: number) => ({ gridColumn: x - minX + 1, gridRow: maxY - y + 1 });
   return (
     <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)}>
@@ -111,11 +138,17 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
             />
           </span>
         ))}
+        {invalid.map((p) => (
+          <span key={`i${p.x},${p.y}`} aria-hidden style={at(p.x, p.y)} className="relative block min-h-0 min-w-0">
+            <span data-plate="invalid" className={cn(PLATE, PLATE_STATE.invalid)} />
+          </span>
+        ))}
         {slots.map((s) => {
           const chosen = ghost?.x === s.x && ghost.y === s.y;
           // A ghost given without `placed` is the chosen slot (the plan view has no hover).
           const placed = chosen && ghost?.placed !== false;
           const red = placed && ghost?.fits === false;
+          const state = stateOf.get(`${s.x},${s.y}`);
           return (
             <button
               key={`${s.x},${s.y}`}
@@ -126,27 +159,12 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
               style={at(s.x, s.y)}
               data-lit={highlight}
               data-fits={s.fits !== false}
-              data-placed={placed ? (red ? "red" : "yellow") : undefined}
-              className={cn(
-                "relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                !highlight
-                  ? "border border-transparent"
-                  : placed
-                    ? red
-                      ? "border-2 border-ember-500 shadow-[0_0_12px_var(--color-ember-500)] transition-colors duration-200 motion-reduce:transition-none"
-                      : "border-2 border-primary shadow-[0_0_12px_var(--color-primary)] transition-colors duration-200 motion-reduce:transition-none"
-                    : s.fits === false
-                      ? "border border-dashed border-primary/70 bg-primary/10 hover:bg-primary/25"
-                      : "border border-primary bg-primary/10 shadow-[0_0_6px_var(--color-primary)] hover:bg-primary/25",
-              )}
+              data-placed={placed ? (red ? "red" : "aura") : undefined}
+              className="relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {chosen && ghost && (
-                <>
-                  <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="size-full rounded-[2px] border opacity-90" />
-                  {/* The veil: the state's own colour, the neon's (the renderer's pinned tokens), at its 0.14 (SLOTS2). */}
-                  <span aria-hidden data-veil={red ? "red" : "yellow"} className={cn("absolute inset-0 rounded-[2px]", red ? "bg-ember-500/14" : "bg-gold-300/14")} />
-                </>
-              )}
+              {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
+              {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}
+              {placed && highlight && <span aria-hidden data-rim={red ? "red" : "aura"} className={cn(RIM, RIM_TONE[red ? "red" : "aura"])} />}
             </button>
           );
         })}

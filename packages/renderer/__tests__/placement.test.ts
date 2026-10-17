@@ -3,26 +3,24 @@ import * as THREE from "three";
 import {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
-  PLACEMENT_PULSES,
+  PLATE_GAP_VOXELS,
   PlacementRenderer,
+  auraAt,
   colorProgress,
   confirmProgress,
-  createAuraGeometry,
+  createPlateGeometry,
   gridFade,
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
-  placementFade,
   placementTone,
+  plateShapeOf,
+  plateStateOf,
   resolvePlacementSettings,
   ringField,
-  slotDashBlend,
-  slotDashCount,
-  veilOf,
+  type PlacementSlot,
 } from "../src/core/placement";
-import { NEON_FRAME_MARGIN, neonFrameAt, neonFrameMargin, neonLineCoverage } from "../src/core/neon";
-import { DEFAULT_OUTLINE_SETTINGS, outlineFade, createOutline, createOutlineMaterial, isOutline } from "../src/core/outlines";
-import { buildEdgesGeometry } from "../src/core/edges";
+import { DEFAULT_OUTLINE_SETTINGS, VOXEL_SIZE, outlineFade } from "../src/core/outlines";
 import { resolveRendererSettings } from "../src/core/settings";
 import { TileRenderer } from "../src/core/TileRenderer";
 import { TILE_SIZE } from "../src/core/types";
@@ -30,7 +28,16 @@ import type { HoverState } from "../src/core/types";
 
 const { motion } = DEFAULT_PLACEMENT_SETTINGS;
 
-describe("the grid's ring fade", () => {
+describe("the grid's ring fade (a setting, off by default since PLATES)", () => {
+  it("is off by default", () => {
+    expect(DEFAULT_PLACEMENT_SETTINGS.grid.enabled).toBe(false);
+    const placement = new PlacementRenderer();
+    placement.setTileCells([{ x: 0, y: 0 }]);
+    expect(placement.group.children.some((c) => c.userData.grid)).toBe(false);
+    placement.dispose();
+  });
+
+
   it("is full at ring 1, half at ring 2, almost gone at ring 3, and off from ring 4 (SLOTS2)", () => {
     const rings = DEFAULT_PLACEMENT_SETTINGS.grid.rings;
     expect(rings).toEqual([1, 0.5, 0.1]);
@@ -115,10 +122,11 @@ describe("the grid's ring fade", () => {
     expect(gridFade(mid, S, far, DEFAULT_OUTLINE_SETTINGS)).toBe(outlineFade(mid, 0.85 * S, grid.farFadeStart * S, DEFAULT_OUTLINE_SETTINGS.fadeExponent));
     // Through the renderer: the grid's opacity holds at every zoom by default.
     const placement = new PlacementRenderer();
+    placement.setSettings(resolvePlacementSettings({ grid: { enabled: true } }));
     placement.setTileCells([{ x: 0, y: 0 }]);
     const material = () => (placement.group.children.find((c) => c.userData.grid) as THREE.Mesh).material as THREE.ShaderMaterial;
     for (const px of [0.5 * S, S, 10 * S]) {
-      placement.setZoom(px, S, 2);
+      placement.setZoom(px, S);
       expect(material().uniforms.opacity.value).toBe(grid.opacity);
       expect(material().uniforms.widthPx.value).toBe(1);
     }
@@ -141,335 +149,376 @@ describe("the grid's ring fade", () => {
   });
 });
 
-describe("the slots' dashes", () => {
-  it("are 2 a side on a small cell, 3 on a large one, blended so a zoom step never pops", () => {
-    const { dashesAtTilePx, dashBlendPx } = DEFAULT_PLACEMENT_SETTINGS.slots;
-    // A phone's opening (about 52 px a tile) and a desktop's (about 60): 2 a side.
-    expect(slotDashCount(52)).toBe(2);
-    expect(slotDashCount(60)).toBe(2);
-    expect(slotDashCount(dashesAtTilePx + dashBlendPx)).toBe(3);
-    expect(slotDashCount(400)).toBe(3);
-    expect(slotDashBlend(dashesAtTilePx)).toBeCloseTo(0.5, 9);
-    let previous = 0;
-    for (let px = 20; px < 200; px += 0.5) {
-      const blend = slotDashBlend(px);
-      expect(blend).toBeGreaterThanOrEqual(previous);
-      expect(blend - previous).toBeLessThanOrEqual(0.5 / dashBlendPx + 1e-9);
-      previous = blend;
+
+describe("the plates' shape (PLATES)", () => {
+  it("is a low slab inset in its cell, in voxels: the defaults", () => {
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, height: 2, radius: 5, bevel: 1, opacity: 0.9, invalidOpacity: 0.45 });
+    const shape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
+    expect(shape.size).toBeCloseTo(TILE_SIZE - 4 * VOXEL_SIZE, 9);
+    expect(shape.height).toBeCloseTo(2 * VOXEL_SIZE, 9);
+    expect(shape.radius).toBeCloseTo(5 * VOXEL_SIZE, 9);
+    expect(shape.bevel).toBeCloseTo(VOXEL_SIZE, 9);
+    const box = createPlateGeometry(shape).boundingBox!;
+    expect(box.min.y).toBe(0);
+    expect(box.max.y).toBeCloseTo(shape.height, 6);
+    expect(box.max.x - box.min.x).toBeCloseTo(shape.size, 6);
+    expect(box.max.z - box.min.z).toBeCloseTo(shape.size, 6);
+  });
+
+  it("has rounded corners: the corner is cut, the middle of a side reaches the edge", () => {
+    const shape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
+    const position = createPlateGeometry(shape).getAttribute("position");
+    const half = shape.size / 2;
+    let corner = 0;
+    let side = 0;
+    for (let i = 0; i < position.count; i++) {
+      const [x, z] = [position.getX(i), position.getZ(i)];
+      corner = Math.max(corner, Math.min(Math.abs(x), Math.abs(z)));
+      side = Math.max(side, Math.abs(x));
     }
-    // No blend width: a step at the size.
-    expect(slotDashBlend(79, { dashesAtTilePx: 80, dashBlendPx: 0 })).toBe(0);
-    expect(slotDashBlend(80, { dashesAtTilePx: 80, dashBlendPx: 0 })).toBe(1);
+    // The farthest point along the diagonal is the arc's: (half - r) + r cos 45°.
+    expect(corner).toBeCloseTo(half - shape.radius + shape.radius * Math.SQRT1_2, 6);
+    expect(side).toBeCloseTo(half, 6);
   });
-});
 
-describe("the lines on zoom-out", () => {
-  it("fade on the outlines' curve (OUT-FADE2), the slots' borders keeping their floor", () => {
-    // A non-finite exponent is the default's: never a NaN opacity on the slot lines.
-    for (const fadeExponent of [Number.NaN, Infinity, -Infinity]) {
-      expect(placementFade(1.1 * 60, 60, { ...DEFAULT_OUTLINE_SETTINGS, fadeExponent })).toBe(placementFade(1.1 * 60, 60, DEFAULT_OUTLINE_SETTINGS));
+  it("faces outward and up, with smooth normals: every triangle's winding agrees with its vertices' normals", () => {
+    for (const plates of [DEFAULT_PLACEMENT_SETTINGS.plates, { gap: 2, height: 4, radius: 0, bevel: 0 }, { gap: 8, height: 1, radius: 12, bevel: 3 }]) {
+      const geometry = createPlateGeometry(plateShapeOf(plates));
+      const p = geometry.getAttribute("position");
+      const n = geometry.getAttribute("normal");
+      const index = geometry.getIndex()!;
+      const v = (i: number) => new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i));
+      let faces = 0;
+      for (let t = 0; t < index.count; t += 3) {
+        const [a, b, c] = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
+        const face = v(b).sub(v(a)).cross(v(c).sub(v(a)));
+        if (face.lengthSq() < 1e-14) continue;
+        const normal = new THREE.Vector3(n.getX(a) + n.getX(b) + n.getX(c), n.getY(a) + n.getY(b) + n.getY(c), n.getZ(a) + n.getZ(b) + n.getZ(c));
+        expect(face.dot(normal)).toBeGreaterThan(0);
+        faces++;
+      }
+      expect(faces).toBeGreaterThan(0);
+      // No bottom face: nothing faces down.
+      for (let i = 0; i < n.count; i++) expect(n.getY(i)).toBeGreaterThanOrEqual(-1e-9);
     }
-    const S = 60;
-    expect(placementFade(1.5 * S, S, DEFAULT_OUTLINE_SETTINGS)).toBe(1);
-    expect(placementFade(0.85 * S, S, DEFAULT_OUTLINE_SETTINGS)).toBe(0);
-    // At the opening view, the outlines' 0.490 (start 1.5 S, square).
-    expect(placementFade(S, S, DEFAULT_OUTLINE_SETTINGS)).toBeCloseTo(0.4904, 3);
-    const floor = DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor;
-    expect(placementFade(0.5 * S, S, DEFAULT_OUTLINE_SETTINGS, floor)).toBe(floor);
   });
 
-  it("share the outlines' fade: a custom exponent and the eased end reach the slot lines", () => {
-    const S = 60;
-    const px = 1.1 * S;
-    const at = (o: Partial<typeof DEFAULT_OUTLINE_SETTINGS>) => placementFade(px, S, { ...DEFAULT_OUTLINE_SETTINGS, ...o });
-    // The same number as the outlines' own, whatever the exponent, start and eased end.
-    for (const o of [{}, { fadeExponent: 1 }, { fadeExponent: 3.5 }, { fadeEasedEnd: true }, { fadeFullFactor: 30, fadeExponent: 4 }]) {
-      const s = { ...DEFAULT_OUTLINE_SETTINGS, ...o };
-      expect(at(o)).toBe(outlineFade(px, s.fadeOffFactor * S, s.fadeFullFactor * S, s.fadeExponent, s.fadeEasedEnd));
-    }
-    expect(at({ fadeExponent: 1 })).toBeLessThan(at({ fadeExponent: 3 }));
-    const near = placementFade(0.86 * S, S, { ...DEFAULT_OUTLINE_SETTINGS, fadeEasedEnd: true });
-    expect(near).toBeLessThan(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS));
-    // An unset exponent and eased end are the default's.
-    expect(placementFade(px, S, { fadeOffFactor: 0.85, fadeFullFactor: 1.5 })).toBe(at({}));
-
-    // Through the renderers: PlacementRenderer and TileRenderer.setPlacementSettings take the outlines' whole fade.
-    const lines = (r: PlacementRenderer) => ({ grid: (r as any).fade as number, border: (r as any).borderFade as number });
-    const placement = new PlacementRenderer();
-    const custom = { ...DEFAULT_OUTLINE_SETTINGS, fadeExponent: 3.5, fadeEasedEnd: true };
-    placement.setSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
-    placement.setZoom(0.86 * S, S, 1);
-    expect(lines(placement).border).toBe(placementFade(0.86 * S, S, custom, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
-    expect(lines(placement).border).not.toBe(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
-    // The grid, with its far fade on, takes the same exponent and eased end.
-    const farGrid = resolvePlacementSettings({ grid: { farFade: true } });
-    placement.setSettings(farGrid, custom);
-    placement.setZoom(0.9 * S, S, 1);
-    expect(lines(placement).grid).toBe(gridFade(0.9 * S, S, farGrid.grid, custom));
-    expect(lines(placement).grid).not.toBe(gridFade(0.9 * S, S, farGrid.grid, DEFAULT_OUTLINE_SETTINGS));
-    // TileRenderer.setPlacementSettings takes the outlines' whole fade (OutlineFadeSettings).
-    const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.setPlacementSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
-    (tiles as any).placement.setZoom(px, S, 1);
-    expect(lines((tiles as any).placement).border).toBe(placementFade(px, S, custom, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
-    expect(lines((tiles as any).placement).border).not.toBe(placementFade(px, S, DEFAULT_OUTLINE_SETTINGS, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
-  });
-
-  it("keep a device-pixel floor: a line thinner than a pixel covers one pixel", () => {
-    expect(neonLineCoverage(0, 0.2)).toBe(1);
-    expect(neonLineCoverage(1, 0.2)).toBe(0);
-    expect(neonLineCoverage(0.5, 1)).toBe(0.5);
-    expect(neonLineCoverage(0, 3)).toBe(1);
-    expect(neonLineCoverage(1.75, 3)).toBeCloseTo(0.25, 9);
-  });
-});
-
-describe("the slots' neon (SLOTS2)", () => {
-  const { slots } = DEFAULT_PLACEMENT_SETTINGS;
-  const frame = (dashed: boolean) => ({ lineWidth: slots.width, glowWidth: slots.glow, minPx: slots.minWidthDevicePx, inset: slots.inset, gap: slots.gap, dashed });
-  // A tile 60 CSS px wide at DPR 2: a device px is 1/120 of a cell.
-  const px = 1 / 120;
-
-  it("is inscribed in its cell: the line and its glow are clipped to the cell, nothing lights a neighbour", () => {
-    for (const dashed of [false, true]) {
-      for (const n of [2, 3] as const) {
-        for (let t = -0.5; t <= 0.5; t += 0.01) {
-          // Just outside the cell's edge (by a device px or more), on every side: nothing.
-          for (const out of [0.5 + px, 0.5 + 2 * px, 0.5 + slots.glow, 0.5 + NEON_FRAME_MARGIN]) {
-            for (const [x, y] of [[out, t], [-out, t], [t, out], [t, -out]] as const) {
-              const at = neonFrameAt(x, y, frame(dashed), px, n);
-              expect(at.line).toBe(0);
-              expect(at.glow).toBe(0);
-            }
+  it("leaves a gap between two neighbouring plates at every setting the controls allow, and beyond them", () => {
+    const gaps: number[] = [];
+    for (let g = PLATE_GAP_VOXELS.min; g <= PLATE_GAP_VOXELS.max; g += 0.25) gaps.push(g);
+    // Out of the controls' range too: a 0, a negative, a non-number, a huge gap, all bounded.
+    gaps.push(0, -4, Number.NaN, 0.1, 1000);
+    for (const gap of gaps) {
+      for (const radius of [0, 5, 40]) {
+        for (const height of [0.5, 2, 6]) {
+          const shape = plateShapeOf({ gap, height, radius, bevel: 1 });
+          const box = createPlateGeometry(shape).boundingBox!;
+          // Two plates a cell apart (side by side, and diagonally): the space between them is at least the least gap.
+          for (const [dx, dz] of [[1, 0], [0, 1], [1, 1], [-1, 1]] as const) {
+            const other = box.clone().translate(new THREE.Vector3(dx * TILE_SIZE, 0, dz * TILE_SIZE));
+            expect(box.intersectsBox(other)).toBe(false);
           }
+          expect(TILE_SIZE - (box.max.x - box.min.x)).toBeGreaterThanOrEqual(PLATE_GAP_VOXELS.min * VOXEL_SIZE - 1e-9);
         }
       }
     }
-    // The line's own antialiased edge ends at the cell's edge: its coverage there is 0, so the clip never cuts it.
-    expect(neonFrameAt(0.5, 0, frame(false), px).line).toBeCloseTo(0, 9);
-    expect(neonFrameAt(0.5 - 0.5 * px, 0, frame(false), px).line).toBeCloseTo(0.5 * neonFrameAt(0.5 - 0.5 * px, 0, frame(false), px).cell, 9);
-    // The line itself is fully drawn inside the cell, its core one line width in.
-    const core = neonFrameAt(0.5 - 0.5 * px - 0.5 * Math.max(slots.width, px), 0, frame(false), px);
-    expect(core.line).toBe(1);
-    // The quad's margin, for the clip's antialiasing, covers at least half a device px (one, for the perspective) at every
-    // zoom: the farthest on a desktop or a portrait phone (42 to 48 CSS px a tile), a landscape phone (19 CSS px), and a
-    // short window at DPR 1 (under 20), where the fixed 0.02 alone would not.
-    for (const [tilePx, ratio] of [[48.25, 1.75], [42.9, 1], [41.8, 2], [19.3, 2], [26.8, 1], [12, 1], [5, 1]] as const) {
-      const margin = neonFrameMargin(tilePx, ratio);
-      expect(margin).toBeGreaterThanOrEqual(NEON_FRAME_MARGIN);
-      expect(margin).toBeGreaterThanOrEqual(1 / (tilePx * ratio));
-    }
-    expect(neonFrameMargin(12, 1)).toBeGreaterThan(NEON_FRAME_MARGIN);
-    expect(neonFrameMargin(Number.NaN, 1)).toBe(NEON_FRAME_MARGIN);
-    // Through the renderer: the slots' and the placed border's margin follow the zoom.
+    expect(PLATE_GAP_VOXELS.min).toBeGreaterThan(0);
+  });
+
+  it("keeps the same inset under the placed tile: the plate under it is the same shape", () => {
     const placement = new PlacementRenderer();
-    placement.setSlots([{ x: 1, y: 0 }]);
-    placement.dressGhost(new THREE.Group(), null, { x: 2, y: 0 }, true, true, 0);
-    placement.setZoom(12, 54, 1);
-    const slotMaterial = (placement.group.children[0]!.children[0] as THREE.Mesh).material as THREE.ShaderMaterial;
-    expect(slotMaterial.uniforms.margin.value).toBeCloseTo(1 / 12, 9);
-    expect((placement as any).ghostBorder.uniforms.margin.value).toBeCloseTo(1 / 12, 9);
-    placement.setZoom(60, 54, 2);
-    expect(slotMaterial.uniforms.margin.value).toBe(NEON_FRAME_MARGIN);
-    placement.dispose();
-  });
-
-  it("draws round-capped dashes with a glow that wraps their ends: no glow cut square at a gap", () => {
-    const f = frame(true);
-    const r = 0.5 * Math.max(f.lineWidth, f.minPx * px);
-    const s = 0.5 - f.inset - r - 0.5 * px;
-    // On the east side (x = s), along it. Two dashes a side: a period of s, a gap centred in each (y = -s/2 and s/2),
-    // the corners and the middle dashed.
-    const along = (y: number, x = s) => neonFrameAt(x, y, f, px, 2);
-    const c = -s / 2;
-    const gapHalf = 0.5 * (f.gap * s + 2 * r);
-    // In the middle of the gap, on the line: no line, and the glow is the end caps' (a distance of half the gap).
-    expect(along(c).line).toBe(0);
-    expect(along(c).distance).toBeCloseTo(gapHalf, 9);
-    expect(along(0).distance).toBe(0);
-    // The glow falls continuously from the dash end into the gap: no step (a glow normal to the dash only would drop to 0).
-    let previous = along(c - gapHalf - 0.02).glow;
-    for (let y = c - gapHalf - 0.02; y <= c; y += 0.001) {
-      const g = along(y).glow;
-      expect(Math.abs(g - previous)).toBeLessThan(0.05);
-      expect(g).toBeLessThanOrEqual(previous + 1e-12);
-      previous = g;
-    }
-    expect(along(c - gapHalf + 0.25 * f.glowWidth).glow).toBeGreaterThan(0.5);
-    // A round cap: past the dash's end, the distance is the distance to its end point (a capsule), off the line too.
-    const end = c - gapHalf;
-    for (const [dy, dx] of [[0.01, 0], [0.01, 0.01], [0.02, -0.005]]) {
-      expect(along(end + dy!, s + dx!).distance).toBeCloseTo(Math.hypot(dy!, dx!), 9);
-    }
-    // The visible gap is the setting's share of a period: the caps do not shorten it.
-    const visible = 2 * gapHalf - 2 * r;
-    expect(visible).toBeCloseTo(f.gap * s, 9);
-    // The corners stay whole L shapes: the corner point is on the line.
-    expect(neonFrameAt(s, s, f, px, 2).distance).toBe(0);
-    expect(neonFrameAt(s, s, f, px, 3).distance).toBe(0);
-  });
-
-  it("solid, is a closed square inside the cell with its glow all along", () => {
-    const f = frame(false);
-    const r = 0.5 * Math.max(f.lineWidth, f.minPx * px);
-    const s = 0.5 - f.inset - r - 0.5 * px;
-    for (let t = -s; t <= s; t += 0.01) {
-      expect(neonFrameAt(s, t, f, px).line).toBe(1);
-      expect(neonFrameAt(t, -s, f, px).line).toBe(1);
-    }
-  });
-
-  it("sets the material from the settings: the floor, the inset, a frame quad with only the clip's margin", () => {
-    const placement = new PlacementRenderer();
-    placement.setSettings(resolvePlacementSettings({ slots: { inset: 0.02, minWidthDevicePx: 1.5 } }));
-    placement.setSlots([{ x: 1, y: 0, fits: false }, { x: 2, y: 0 }]);
-    const meshes = placement.group.children[0]!.children as THREE.Mesh[];
-    const material = meshes[0]!.material as THREE.ShaderMaterial;
-    expect(material.uniforms.inset.value).toBe(0.02);
-    expect(material.uniforms.minPx.value).toBe(1.5);
-    const box = new THREE.Box3().setFromBufferAttribute(meshes[0]!.geometry.getAttribute("position") as THREE.BufferAttribute);
-    expect(box.max.x).toBeCloseTo(0.5 + NEON_FRAME_MARGIN, 6);
+    placement.setSlots([{ x: 0, y: 0 }]);
+    placement.setGhost({ x: 0, y: 0, fits: true }, 0);
+    const box = placement.getPlateMesh()!.geometry.boundingBox!;
+    expect(box.max.x - box.min.x).toBeCloseTo(plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates).size, 6);
     placement.dispose();
   });
 });
 
-describe("the aura's pulse (SLOTS2)", () => {
-  const auraOf = (tiles: TileRenderer) => (preview(tiles).children.find((c) => c.userData.aura) as THREE.Mesh).material as THREE.ShaderMaterial;
+describe("the plates' aura", () => {
+  const shape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
+  const falloff = DEFAULT_PLACEMENT_SETTINGS.aura.falloff * VOXEL_SIZE;
 
-  it("rotates around the cell by default; the presets are rotating, rotating with noise, and SLOTS' radial", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.aura.pulse).toBe("rotating");
-    expect(PLACEMENT_PULSES).toEqual(["rotating", "rotating-noise", "radial"]);
-    const tiles = new TileRenderer(fakeAssets() as any);
-    const period = DEFAULT_PLACEMENT_SETTINGS.aura.periodMs;
-    vi.spyOn(performance, "now").mockReturnValue(1000);
-    tiles.setHover(ghostAt(0, 1, { placed: true }));
-    tiles.update(1000 + period / 4);
-    const aura = auraOf(tiles);
-    expect(aura.uniforms.pulse.value).toBe(1);
-    expect(aura.uniforms.arcs.value).toBe(1);
-    // The phase runs over the period: a quarter of the way round after a quarter of it.
-    expect(aura.uniforms.phase.value).toBeCloseTo(((1000 + period / 4) % period) / period, 9);
-    const codes: Record<string, number> = { rotating: 1, "rotating-noise": 2, radial: 0 };
-    for (const pulse of PLACEMENT_PULSES) {
-      tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse, arcs: 2.4 } }), DEFAULT_OUTLINE_SETTINGS);
-      tiles.setHover(ghostAt(0, 1, { placed: true }));
-      tiles.update(5000);
-      expect(auraOf(tiles).uniforms.pulse.value).toBe(codes[pulse]);
-      // A whole number of arcs: the wave meets itself at the turn.
-      expect(auraOf(tiles).uniforms.arcs.value).toBe(2);
+  it("over a plate: full inside, half on its edge, nothing past half the falloff, and no step anywhere", () => {
+    expect(auraAt(0, 0, shape, falloff, 0)).toBe(1);
+    expect(auraAt(shape.size / 2, 0, shape, falloff, 0)).toBeCloseTo(0.5, 6);
+    expect(auraAt(shape.size / 2 + falloff / 2, 0, shape, falloff, 0)).toBe(0);
+    // The default falloff keeps a plate's aura within its own cell.
+    expect(shape.size / 2 + falloff / 2).toBeLessThanOrEqual(TILE_SIZE / 2 + 1e-9);
+    let last = auraAt(0, 0, shape, falloff, 0);
+    for (let x = 0; x <= TILE_SIZE; x += VOXEL_SIZE / 20) {
+      const a = auraAt(x, 0.3 * x, shape, falloff, 0);
+      expect(Math.abs(a - last)).toBeLessThan(0.05);
+      last = a;
     }
-    // The noise moves on its own long loop, never jumping within it.
-    tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse: "rotating-noise" } }), DEFAULT_OUTLINE_SETTINGS);
-    tiles.setHover(ghostAt(0, 1, { placed: true }));
-    tiles.update(period * 3);
-    const n1 = auraOf(tiles).uniforms.noisePhase.value as number;
-    tiles.update(period * 3 + 16);
-    const n2 = auraOf(tiles).uniforms.noisePhase.value as number;
-    expect(n2).toBeGreaterThan(n1);
-    expect(n2 - n1).toBeLessThan(0.001);
-    vi.restoreAllMocks();
-    tiles.dispose();
   });
 
-  it("under reduced motion, keeps a still aura, even all around", () => {
+  it("placed: a rim on the tile's edge, falling off both ways, the tile's middle left alone", () => {
+    const f = DEFAULT_PLACEMENT_SETTINGS.aura.placedFalloff * VOXEL_SIZE;
+    expect(auraAt(TILE_SIZE / 2, 0, shape, f, 1)).toBeCloseTo(1, 6);
+    expect(auraAt(0, 0, shape, f, 1)).toBeLessThan(1e-6);
+    expect(auraAt(TILE_SIZE / 2 + f, 0, shape, f, 1)).toBeLessThan(0.02);
+    expect(auraAt(TILE_SIZE / 2 - f, 0, shape, f, 1)).toBeLessThan(0.02);
+  });
+});
+
+/** The plates' instances: each one's cell, colour, opacity, and its aura (strength, falloff, placed) when it has one. */
+function instances(placement: PlacementRenderer) {
+  const plate = placement.getPlateMesh()!;
+  const aura = placement.getAuraMesh()!;
+  const m = new THREE.Matrix4();
+  const at = (mesh: THREE.InstancedMesh, i: number) => {
+    mesh.getMatrixAt(i, m);
+    const p = new THREE.Vector3().setFromMatrixPosition(m);
+    return { x: Math.round(p.x / TILE_SIZE), y: Math.round(p.z / TILE_SIZE), height: p.y };
+  };
+  const opacity = plate.geometry.getAttribute("aOpacity");
+  const plates = Array.from({ length: plate.count }, (_, i) => ({ ...at(plate, i), color: plate.getColorAt(i, new THREE.Color()), opacity: opacity.getX(i) }));
+  const attr = aura.geometry.getAttribute("aAura");
+  const auras = Array.from({ length: aura.count }, (_, i) => ({ ...at(aura, i), color: aura.getColorAt(i, new THREE.Color()), strength: attr.getX(i), falloff: attr.getY(i), placed: attr.getZ(i) }));
+  return { plates, auras, plateAt: (x: number, y: number) => plates.find((p) => p.x === x && p.y === y), auraAt: (x: number, y: number) => auras.find((a) => a.x === x && a.y === y) };
+}
+
+const close = (a: THREE.Color, hex: string, digits = 5) => {
+  const b = new THREE.Color(hex);
+  for (const k of ["r", "g", "b"] as const) expect(a[k]).toBeCloseTo(b[k], digits);
+};
+
+const SLOTS: PlacementSlot[] = [
+  { x: 1, y: 0, fits: true },
+  { x: 2, y: 0, fits: false },
+  { x: 3, y: 0, legal: false, fits: false },
+];
+
+describe("the plates' states", () => {
+  it("are valid where the current rotation fits, possible where another does, invalid where none does", () => {
+    expect(plateStateOf({})).toBe("valid");
+    expect(plateStateOf({ fits: true })).toBe("valid");
+    expect(plateStateOf({ fits: false })).toBe("possible");
+    expect(plateStateOf({ legal: false })).toBe("invalid");
+    expect(plateStateOf({ legal: false, fits: true })).toBe("invalid");
+  });
+
+  it("draw the base plate, the aura over a valid one, and the greyscale, more transparent invalid one", () => {
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(true);
+    placement.setSlots(SLOTS, 0);
+    const { colors, plates, aura } = DEFAULT_PLACEMENT_SETTINGS;
+    const { plateAt, auras } = instances(placement);
+    close(plateAt(1, 0)!.color, colors.plate);
+    close(plateAt(2, 0)!.color, colors.plate);
+    close(plateAt(3, 0)!.color, colors.invalid);
+    expect(plateAt(1, 0)!.opacity).toBeCloseTo(plates.opacity, 6);
+    expect(plateAt(3, 0)!.opacity).toBeCloseTo(plates.invalidOpacity, 6);
+    expect(plates.invalidOpacity).toBeLessThan(plates.opacity);
+    // One aura, over the valid plate, white and above its top.
+    expect(auras).toHaveLength(1);
+    expect(auras[0]).toMatchObject({ x: 1, y: 0, placed: 0 });
+    expect(auras[0]!.strength).toBeCloseTo(aura.intensity, 6);
+    close(auras[0]!.color, colors.aura);
+    expect(auras[0]!.height).toBeCloseTo((plates.height + aura.height) * VOXEL_SIZE, 6);
+    placement.dispose();
+  });
+
+  it("are the app's tokens: a pale neutral blue, a grey with no hue, a near white; the red and green of SLOTS", () => {
+    const { colors } = DEFAULT_PLACEMENT_SETTINGS;
+    expect(colors).toEqual({ plate: "#b7ccdc", invalid: "#929292", aura: "#f5f9fc", red: "#f85e4d", green: "#6eca6f" });
+    const hsl = new THREE.Color(colors.plate).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace);
+    expect(hsl.h * 360).toBeGreaterThan(190);
+    expect(hsl.h * 360).toBeLessThan(230);
+    expect(hsl.l).toBeGreaterThan(0.6);
+    const grey = new THREE.Color(colors.invalid);
+    expect(grey.r).toBe(grey.g);
+    expect(grey.g).toBe(grey.b);
+  });
+
+  it("is one instanced mesh for the plates and one for the auras, whatever the number of slots", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.setReducedMotion(true);
-    tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse: "rotating-noise" } }), DEFAULT_OUTLINE_SETTINGS);
-    tiles.setHover(ghostAt(0, 1, { placed: true }));
-    expect(tiles.update(performance.now() + 1234).animating).toBe(false);
-    const aura = auraOf(tiles);
-    expect(aura.uniforms.phase.value).toBe(0);
-    expect(aura.uniforms.noisePhase.value).toBe(0);
-    expect(aura.uniforms.waveAmount.value).toBe(0);
-    expect(aura.uniforms.opacity.value).toBe(1);
+    for (const count of [1, 12, 80, 200]) {
+      tiles.setAvailableSlots(Array.from({ length: count }, (_, i) => ({ x: i + 1, y: 0, fits: i % 2 === 0, legal: i % 3 !== 0 })));
+      const empty = tiles.getGroup().children[1]!;
+      expect(empty.children).toHaveLength(1);
+      const mesh = empty.children[0] as THREE.InstancedMesh;
+      expect(mesh).toBeInstanceOf(THREE.InstancedMesh);
+      expect(mesh.count).toBe(count);
+      const auras = (tiles.getGroup().children[3]!.children as THREE.Object3D[]).filter((c) => c.userData.auras);
+      expect(auras).toHaveLength(1);
+    }
     tiles.dispose();
   });
 });
 
-describe("the veil (SLOTS2)", () => {
-  it("is the state's own colour, the neon's, at a low opacity: yellow, red and green", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.veil.whiten).toBe(0);
-    expect(DEFAULT_PLACEMENT_SETTINGS.veil.opacity).toBeLessThanOrEqual(0.2);
-    const tiles = new TileRenderer(fakeAssets() as any);
-    const t0 = 100;
-    vi.spyOn(performance, "now").mockReturnValue(t0);
-    const veil = () => {
-      let material: THREE.MeshBasicMaterial | null = null;
-      preview(tiles).traverse((o) => o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial && (material = o.material));
-      return material! as THREE.MeshBasicMaterial;
-    };
-    for (const [valid, tone] of [[true, "yellow"], [false, "red"]] as const) {
-      tiles.setHover(null);
-      tiles.setHover(ghostAt(0, 1, { placed: true, valid }));
-      tiles.update(t0 + 10_000);
-      const want = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors[tone]);
-      for (const k of ["r", "g", "b"] as const) expect(veil().color[k]).toBeCloseTo(want[k], 6);
-      expect(veil().opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.veil.opacity, 9);
-    }
-    // Green: the confirm's veil, once its colour has turned (the first third of confirmMs), at 0.14 times the fade.
-    tiles.setHover(null);
-    tiles.setConfirmed({ ...ghostAt(0, 1), key: 3 });
-    tiles.update(t0 + motion.confirmMs / 3);
-    const confirm = tiles.getGroup().children[3]!.children.find((c) => c.children[0]?.userData.confirm)!;
-    const veils: THREE.MeshBasicMaterial[] = [];
-    confirm.traverse((o) => o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial && veils.push(o.material));
-    const green = veils[0]!;
-    const want = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.green);
-    for (const k of ["r", "g", "b"] as const) expect(green.color[k]).toBeCloseTo(want[k], 6);
-    const { opacity } = confirmProgress(motion.confirmMs / 3, motion, false);
-    expect(green.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.veil.opacity * opacity, 9);
-    vi.restoreAllMocks();
-    tiles.dispose();
-  });
-});
-
-describe("the state colours", () => {
-  it("yellow while the rotation fits, red while it does not", () => {
-    expect(placementTone(true)).toBe("yellow");
-    expect(placementTone(false)).toBe("red");
+describe("the plates' changes", () => {
+  it("ease over 150 ms as the tile in hand rotates, and ask for frames only while they do", () => {
+    expect(motion.colorMs).toBe(150);
+    const placement = new PlacementRenderer();
+    const t0 = 1000;
+    placement.setSlots([{ x: 1, y: 0, fits: true }], t0);
+    expect(placement.update(t0 + motion.colorMs).animating).toBe(true);
+    expect(placement.update(t0 + motion.colorMs + 1).animating).toBe(false);
+    // Turned: the plate is possible now, its aura fades out.
+    const t1 = t0 + 1000;
+    placement.setSlots([{ x: 1, y: 0, fits: false }], t1);
+    expect(placement.update(t1 + motion.colorMs / 2).animating).toBe(true);
+    const half = instances(placement).auraAt(1, 0)!.strength;
+    expect(half).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.intensity / 2, 6);
+    // Its end is drawn once more, then nothing moves.
+    expect(placement.update(t1 + motion.colorMs).animating).toBe(true);
+    expect(instances(placement).auraAt(1, 0)).toBeUndefined();
+    expect(placement.update(t1 + motion.colorMs + 16).animating).toBe(false);
+    placement.dispose();
   });
 
-  it("change over colorMs, at once under reduced motion", () => {
+  it("change at once under reduced motion, with no frame asked for", () => {
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(true);
+    placement.setSlots([{ x: 1, y: 0, fits: true }], 0);
+    expect(placement.update(0).animating).toBe(false);
+    placement.setSlots([{ x: 1, y: 0, legal: false }], 10);
+    expect(placement.update(10).animating).toBe(false);
+    close(instances(placement).plateAt(1, 0)!.color, DEFAULT_PLACEMENT_SETTINGS.colors.invalid);
+    expect(colorProgress(0, motion, true)).toBe(1);
+    placement.dispose();
+  });
+
+  it("fade a new plate in and a gone one out, then drop it: no pop", () => {
+    const placement = new PlacementRenderer();
+    const t0 = 0;
+    placement.setSlots([{ x: 1, y: 0, fits: false }], t0);
+    expect(instances(placement).plateAt(1, 0)!.opacity).toBe(0);
+    placement.update(t0 + motion.colorMs / 2);
+    expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.opacity / 2, 6);
+    placement.update(t0 + motion.colorMs);
+    placement.setSlots([], t0 + 500);
+    placement.update(t0 + 500 + motion.colorMs / 2);
+    expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.opacity / 2, 6);
+    placement.update(t0 + 500 + motion.colorMs);
+    expect(placement.getPlateMesh()!.count).toBe(0);
+    expect(placement.update(t0 + 2000).animating).toBe(false);
+    placement.dispose();
+  });
+
+  it("follow the eased smoothstep, from the value they had when the change came", () => {
     expect(colorProgress(0, motion, false)).toBe(0);
     expect(colorProgress(motion.colorMs / 2, motion, false)).toBeCloseTo(0.5, 9);
     expect(colorProgress(motion.colorMs, motion, false)).toBe(1);
-    expect(colorProgress(0, motion, true)).toBe(1);
+    const placement = new PlacementRenderer();
+    placement.setSlots([{ x: 1, y: 0, fits: true }], 0);
+    placement.update(1000);
+    placement.setSlots([{ x: 1, y: 0, fits: false }], 1000);
+    // Turned back before the end: it eases back from where it was, not from the end.
+    placement.update(1000 + motion.colorMs / 2);
+    placement.setSlots([{ x: 1, y: 0, fits: true }], 1000 + motion.colorMs / 2);
+    placement.update(1000 + motion.colorMs / 2);
+    expect(instances(placement).auraAt(1, 0)!.strength).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.intensity / 2, 6);
+    placement.dispose();
+  });
+});
+
+describe("the tile placed on a plate", () => {
+  it("is white while its rotation fits, red while it does not: its plate tinted, its aura a rim at the tiles' ground top", () => {
+    expect(placementTone(true)).toBe("aura");
+    expect(placementTone(false)).toBe("red");
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(true);
+    placement.setSlots(SLOTS, 0);
+    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
+    const { colors, aura } = DEFAULT_PLACEMENT_SETTINGS;
+    let rim = instances(placement).auraAt(1, 0)!;
+    expect(rim.placed).toBe(1);
+    expect(rim.strength).toBeCloseTo(aura.placedIntensity, 6);
+    expect(rim.falloff).toBeCloseTo(aura.placedFalloff * VOXEL_SIZE, 6);
+    // Just over a tile's ground (4 voxels): over its own and its neighbours', under their features.
+    expect(rim.height).toBeCloseTo(4.5 * VOXEL_SIZE, 6);
+    close(rim.color, colors.aura);
+    close(instances(placement).plateAt(1, 0)!.color, colors.plate);
+    placement.setGhost({ x: 1, y: 0, fits: false }, 10);
+    rim = instances(placement).auraAt(1, 0)!;
+    close(rim.color, colors.red);
+    close(instances(placement).plateAt(1, 0)!.color, colors.red);
+    // The other plates keep their states.
+    close(instances(placement).plateAt(3, 0)!.color, colors.invalid);
+    placement.setGhost(null, 20);
+    expect(instances(placement).auraAt(1, 0)!.placed).toBe(0);
+    placement.dispose();
   });
 
-  it("confirm: green in the first third, a fade to nothing over 600 to 800 ms; short and instant under reduced motion", () => {
-    expect(motion.confirmMs).toBeGreaterThanOrEqual(600);
-    expect(motion.confirmMs).toBeLessThanOrEqual(800);
-    const start = confirmProgress(0, motion, false);
-    expect(start).toEqual({ color: 0, opacity: 1, done: false });
-    expect(confirmProgress(motion.confirmMs / 3, motion, false).color).toBeCloseTo(1, 9);
-    expect(confirmProgress(motion.confirmMs / 2, motion, false).opacity).toBeCloseTo(0.5, 9);
-    expect(confirmProgress(motion.confirmMs, motion, false)).toEqual({ color: 1, opacity: 0, done: true });
-    const reduced = confirmProgress(0, motion, true);
-    expect(reduced.color).toBe(1);
-    expect(motion.reducedConfirmMs).toBeLessThan(motion.confirmMs / 2);
+  it("turns red over 150 ms, between the two colours halfway", () => {
+    const placement = new PlacementRenderer();
+    placement.setSlots([{ x: 1, y: 0 }], 0);
+    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
+    placement.update(1000);
+    placement.setGhost({ x: 1, y: 0, fits: false }, 1000);
+    placement.update(1000 + motion.colorMs / 2);
+    const mid = instances(placement).auraAt(1, 0)!.color;
+    const [white, red] = [new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.aura), new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.red)];
+    expect(mid.g).toBeCloseTo((white.g + red.g) / 2, 5);
+    placement.update(1000 + motion.colorMs);
+    close(instances(placement).auraAt(1, 0)!.color, DEFAULT_PLACEMENT_SETTINGS.colors.red);
+    placement.dispose();
+  });
+
+  it("stands on a plate even where no slot was given", () => {
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(true);
+    placement.setGhost({ x: 5, y: 5, fits: true }, 0);
+    expect(instances(placement).plateAt(5, 5)).toBeDefined();
+    expect(instances(placement).auraAt(5, 5)!.placed).toBe(1);
+    placement.dispose();
+  });
+
+  it("on confirm: the rim turns green in the first third and fades out in confirmMs, then goes", () => {
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(false);
+    placement.setSlots([{ x: 1, y: 0 }], 0);
+    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
+    placement.update(500);
+    // The move accepted: the slots go, the confirm rim stays at the cell.
+    placement.setGhost(null, 1000);
+    placement.setSlots([], 1000);
+    placement.startConfirm({ x: 1, y: 0 }, 1000);
+    expect(placement.isConfirming()).toBe(true);
+    placement.update(1000 + motion.confirmMs / 3);
+    const rims = instances(placement).auras.filter((a) => a.placed === 1);
+    expect(rims).toHaveLength(1);
+    close(rims[0]!.color, DEFAULT_PLACEMENT_SETTINGS.colors.green);
+    const { opacity } = confirmProgress(motion.confirmMs / 3, motion, false);
+    expect(rims[0]!.strength).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.placedIntensity * opacity, 5);
+    expect(placement.update(1000 + motion.confirmMs).animating).toBe(true);
+    expect(placement.isConfirming()).toBe(false);
+    expect(placement.update(1000 + motion.confirmMs + 16).animating).toBe(false);
+    expect(placement.getAuraMesh()!.count).toBe(0);
+    placement.dispose();
+  });
+
+  it("under reduced motion, confirms green at once with a short fade", () => {
+    expect(confirmProgress(0, motion, true).color).toBe(1);
     expect(confirmProgress(motion.reducedConfirmMs, motion, true).done).toBe(true);
-  });
-
-  it("are the Tailwind tokens: primary gold-300, ember-500, meadow-400; the grid a pale ink-200", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.colors).toEqual({ yellow: "#f0bf5b", red: "#f85e4d", green: "#6eca6f" });
-    expect(DEFAULT_PLACEMENT_SETTINGS.grid.color).toBe("#d1d9df");
-  });
-
-  it("the aura's waves loop in 1.5 to 2 s", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.aura.periodMs).toBeGreaterThanOrEqual(1500);
-    expect(DEFAULT_PLACEMENT_SETTINGS.aura.periodMs).toBeLessThanOrEqual(2000);
+    expect(confirmProgress(motion.confirmMs / 3, motion, false).color).toBeCloseTo(1, 9);
+    expect(confirmProgress(motion.confirmMs, motion, false)).toEqual({ color: 1, opacity: 0, done: true });
   });
 });
 
 describe("the settings", () => {
   it("take each group's fields over the defaults, and ride in the renderer's settings", () => {
-    const s = resolvePlacementSettings({ grid: { opacity: 0.5 }, motion: { reducedMotion: true } });
+    const s = resolvePlacementSettings({ grid: { opacity: 0.5 }, plates: { gap: 6 }, motion: { reducedMotion: true } });
     expect(s.grid.opacity).toBe(0.5);
     expect(s.grid.rings).toEqual(DEFAULT_PLACEMENT_SETTINGS.grid.rings);
+    expect(s.plates.gap).toBe(6);
+    expect(s.plates.height).toBe(DEFAULT_PLACEMENT_SETTINGS.plates.height);
     expect(s.motion.reducedMotion).toBe(true);
-    expect(s.motion.confirmMs).toBe(motion.confirmMs);
-    expect(resolveRendererSettings({ placement: { aura: { waves: 3 } } }).placement.aura.waves).toBe(3);
+    expect(resolveRendererSettings({ placement: { aura: { intensity: 0.5 } } }).placement.aura.intensity).toBe(0.5);
     expect(resolveRendererSettings().placement).toEqual(DEFAULT_PLACEMENT_SETTINGS);
+  });
+
+  it("rebuild the plates at a new shape and colour, at once", () => {
+    const placement = new PlacementRenderer();
+    placement.setSlots([{ x: 1, y: 0, fits: false }], 0);
+    placement.setSettings(resolvePlacementSettings({ plates: { gap: 10 }, colors: { plate: "#336699" } }));
+    const box = placement.getPlateMesh()!.geometry.boundingBox!;
+    expect(box.max.x - box.min.x).toBeCloseTo(TILE_SIZE - 10 * VOXEL_SIZE, 6);
+    close(instances(placement).plateAt(1, 0)!.color, "#336699");
+    placement.dispose();
   });
 });
 
@@ -494,206 +543,68 @@ function fakeAssets() {
 }
 
 const ghostAt = (x: number, y: number, extra: Partial<HoverState> = {}): HoverState => ({ x, y, valid: true, idle: true, planIndex: 9, orientation: 1, ...extra });
-const preview = (tiles: TileRenderer) => (tiles as any).previewContainer as THREE.Group;
-const slotCells = (tiles: TileRenderer) => (tiles.getGroup().children[1]!.children as THREE.Mesh[]).map((m) => m.userData.slot);
+const placementOf = (tiles: TileRenderer) => (tiles as any).placement as PlacementRenderer;
 
-describe("the tile placed on a slot", () => {
-  it("is the tile under a veil; placed, it gets the aura and a solid border, and its slot's own border goes", () => {
+describe("the tile renderer's ghost", () => {
+  it("is the tile alone on a hover; placed, its plate's rim; moved, the rim follows; gone, no rim", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     tiles.setAvailableSlots([{ x: 1, y: 0, fits: true }, { x: 2, y: 0, fits: false }]);
     tiles.setHover(ghostAt(1, 0));
-    // A hover: the veil, no aura; the slot keeps its border.
-    expect(preview(tiles).children.some((c) => c.userData.veil)).toBe(true);
-    expect(preview(tiles).children.some((c) => c.userData.aura)).toBe(false);
-    expect(slotCells(tiles)).toHaveLength(2);
-
+    expect((tiles as any).previewContainer).not.toBeNull();
+    expect(placementOf(tiles).getGhost()).toBeNull();
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    expect(preview(tiles).children.some((c) => c.userData.aura)).toBe(true);
-    expect(preview(tiles).children.some((c) => c.userData.auraBorder)).toBe(true);
-    expect(slotCells(tiles)).toEqual([{ x: 2, y: 0, fits: false }]);
-
-    // Moved to the other slot: that one's border goes, the first comes back.
-    tiles.setHover(ghostAt(2, 0, { placed: true }));
-    expect(slotCells(tiles)).toEqual([{ x: 1, y: 0, fits: true }]);
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, fits: true });
+    tiles.setHover(ghostAt(2, 0, { placed: true, valid: false }));
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 2, y: 0, fits: false });
     tiles.setHover(null);
-    expect(slotCells(tiles)).toHaveLength(2);
+    expect(placementOf(tiles).getGhost()).toBeNull();
     tiles.dispose();
   });
 
-  it("hovering a plan with no model and no image yet drops the last ghost's aura, veil and cell", () => {
+  it("hovering a plan with no model and no image yet drops the last ghost's rim", () => {
     const assets = { ...fakeAssets(), has: (key: string) => key !== "missing", peekTexture: () => null };
     const tiles = new TileRenderer(assets as any);
     tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    expect(slotCells(tiles)).toEqual([{ x: 2, y: 0, fits: true }]);
-    expect((tiles as any).placement.ghostCell).toEqual({ x: 1, y: 0 });
-    // A plan whose model is not in (and whose image is not either): no ghost at all.
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, fits: true });
     (tiles as any).modelOf = () => null;
     tiles.setHover(ghostAt(2, 0, { placed: true, planIndex: 5 }));
-    expect(preview(tiles)).toBeNull();
-    expect(tiles.getGroup().children[2]!.children).toHaveLength(0);
-    expect((tiles as any).placement.ghostCell).toBeNull();
-    expect((tiles as any).placement.ghostTone).toBeNull();
-    // Both slots draw their borders again; nothing moves, so no frame is asked for.
-    expect(slotCells(tiles)).toHaveLength(2);
-    expect(tiles.update(performance.now() + 10_000).animating).toBe(false);
+    expect((tiles as any).previewContainer).toBeNull();
+    expect(placementOf(tiles).getGhost()).toBeNull();
+    // The plates' last change drawn, nothing moves: no frame is asked for.
+    tiles.update(performance.now() + 10_000);
+    expect(tiles.update(performance.now() + 10_016).animating).toBe(false);
     tiles.dispose();
   });
 
-  it("turns red over colorMs when its rotation does not fit, and back", () => {
+  it("confirms at a cell: the same confirm again changes nothing, null removes it", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
-    const t0 = 1000;
-    vi.spyOn(performance, "now").mockReturnValue(t0);
-    tiles.setHover(ghostAt(0, 1, { placed: true }));
-    const aura = () => (preview(tiles).children.find((c) => c.userData.aura) as THREE.Mesh).material as THREE.ShaderMaterial;
-    const yellow = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.yellow);
-    const red = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.red);
-    expect(aura().uniforms.color.value.equals(yellow)).toBe(true);
-    tiles.setHover(ghostAt(0, 1, { placed: true, valid: false }));
-    // Halfway through the change: between the two.
-    tiles.update(t0 + motion.colorMs / 2);
-    const mid = aura().uniforms.color.value as THREE.Color;
-    expect(mid.r).toBeGreaterThan(Math.min(yellow.r, red.r) - 1e-9);
-    expect(mid.equals(yellow) || mid.equals(red)).toBe(false);
-    tiles.update(t0 + motion.colorMs);
-    for (const k of ["r", "g", "b"] as const) expect(aura().uniforms.color.value[k]).toBeCloseTo(red[k], 6);
-    vi.restoreAllMocks();
-    tiles.dispose();
-  });
-
-  it("asks for frames while its aura moves; none under reduced motion, where the aura is still", () => {
-    const tiles = new TileRenderer(fakeAssets() as any);
-    expect(tiles.update(0).animating).toBe(false);
-    tiles.setHover(ghostAt(0, 1));
-    // A hover has no aura: once its colour is set, nothing moves.
-    expect(tiles.update(performance.now() + 10_000).animating).toBe(false);
-    tiles.setHover(ghostAt(0, 1, { placed: true }));
-    expect(tiles.update(performance.now() + 10_000).animating).toBe(true);
-    tiles.setReducedMotion(true);
-    expect(tiles.update(performance.now() + 20_000).animating).toBe(false);
-    const aura = (preview(tiles).children.find((c) => c.userData.aura) as THREE.Mesh).material as THREE.ShaderMaterial;
-    expect(aura.uniforms.phase.value).toBe(0);
-    tiles.dispose();
-  });
-
-  it("on confirm: the veil and aura over the placed tile turn green and fade out in confirmMs, then go", () => {
-    const tiles = new TileRenderer(fakeAssets() as any);
-    const t0 = 5000;
-    vi.spyOn(performance, "now").mockReturnValue(t0);
-    tiles.setHover(ghostAt(3, 0, { placed: true }));
-    tiles.setHover(null);
-    tiles.setConfirmed({ ...ghostAt(3, 0), key: 7 });
-    const placement = tiles.getGroup().children[3]!;
-    const confirm = () => placement.children.find((c) => c.children[0]?.userData.confirm)?.children[0];
-    expect(confirm()).toBeDefined();
-    // The tile's shape under the veil, not the tile: the board draws it.
-    const meshes: THREE.Mesh[] = [];
-    confirm()!.traverse((o) => o instanceof THREE.Mesh && !o.userData.aura && !o.userData.auraBorder && meshes.push(o));
-    expect(meshes.every((m) => m.material instanceof THREE.MeshBasicMaterial)).toBe(true);
-    const aura = (confirm()!.children.find((c) => c.userData.aura) as THREE.Mesh).material as THREE.ShaderMaterial;
-    expect(tiles.update(t0 + motion.confirmMs / 3).animating).toBe(true);
-    const green = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.green);
-    for (const k of ["r", "g", "b"] as const) expect(aura.uniforms.color.value[k]).toBeCloseTo(green[k], 6);
-    expect(aura.uniforms.opacity.value).toBeGreaterThan(0);
-    // The same confirm again does not start over.
-    tiles.setConfirmed({ ...ghostAt(3, 0), key: 7 });
-    tiles.update(t0 + motion.confirmMs);
-    expect(confirm()).toBeUndefined();
-    vi.restoreAllMocks();
-    tiles.dispose();
-  });
-
-  it("under reduced motion, confirms green at once with a short fade", () => {
-    const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.setReducedMotion(true);
-    const t0 = 100;
-    vi.spyOn(performance, "now").mockReturnValue(t0);
-    tiles.setConfirmed({ ...ghostAt(0, 1), key: 1 });
-    const placement = tiles.getGroup().children[3]!;
-    tiles.update(t0 + 1);
-    expect(placement.children.length).toBeGreaterThan(0);
-    tiles.update(t0 + motion.reducedConfirmMs);
-    expect(placement.children.some((c) => c.children[0]?.userData.confirm)).toBe(false);
-    vi.restoreAllMocks();
+    const spy = vi.spyOn(placementOf(tiles), "startConfirm");
+    tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
+    tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toEqual({ x: 1, y: 0 });
+    tiles.setConfirmed(null);
+    expect(spy.mock.calls[1]![0]).toBeNull();
+    expect(placementOf(tiles).isConfirming()).toBe(false);
     tiles.dispose();
   });
 });
 
 describe("the placement's resources", () => {
-  it("draws the grid around the tiles, one shared frame geometry and two materials for every slot", () => {
-    const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.updateTiles([{ game_id: 0, id: 1, player_id: "0x0", plan: 9, orientation: 1, x: 0, y: 0, worldX: 0, worldZ: 0 }]);
-    const placement = tiles.getGroup().children[3]!;
-    const grid = placement.children.find((c) => c.userData.grid) as THREE.Mesh;
-    expect(grid.visible).toBe(true);
-    // The tile and four rings on each side.
-    const size = new THREE.Box3().setFromObject(grid).getSize(new THREE.Vector3());
-    expect(size.x).toBeCloseTo((1 + 2 * GRID_RINGS) * TILE_SIZE, 6);
-    tiles.setAvailableSlots(Array.from({ length: 12 }, (_, i) => ({ x: i + 1, y: 0, fits: i % 2 === 0 })));
-    const slots = tiles.getGroup().children[1]!.children as THREE.Mesh[];
-    expect(new Set(slots.map((m) => m.geometry)).size).toBe(1);
-    expect(new Set(slots.map((m) => m.material)).size).toBe(2);
-    const spies = [grid.geometry, grid.material as THREE.Material, slots[0]!.geometry, slots[0]!.material as THREE.Material, slots[1]!.material as THREE.Material].map((r) =>
-      vi.spyOn(r, "dispose"),
-    );
-    tiles.dispose();
-    for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
-  });
-
-  it("makes a veil of a model that shares its geometry, without its outlines or shadows", () => {
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.castShadow = true;
-    mesh.add(createOutline(buildEdgesGeometry(geometry), createOutlineMaterial()));
-    const model = new THREE.Group().add(mesh);
-    const material = new THREE.MeshBasicMaterial();
-    const veil = veilOf(model, material);
-    const meshes: THREE.Mesh[] = [];
-    veil.traverse((o) => o instanceof THREE.Mesh && meshes.push(o));
-    expect(meshes).toHaveLength(1);
-    expect(meshes[0]!.geometry).toBe(geometry);
-    expect(meshes[0]!.material).toBe(material);
-    expect(meshes[0]!.castShadow).toBe(false);
-    expect(meshes.some(isOutline)).toBe(false);
-    // The model keeps its own.
-    expect(mesh.material).not.toBe(material);
-    expect(mesh.children.some(isOutline)).toBe(true);
-  });
-
-  it("builds the aura from the cell's edge outward and up, with no hard far edge", () => {
-    const geometry = createAuraGeometry(0.45, 0.2);
-    const v = geometry.getAttribute("aV");
-    const wall = geometry.getAttribute("aWall");
-    // Four ground trapezoids and four walls, four corners each.
-    expect(v.count).toBe(32);
-    let walls = 0;
-    for (let i = 0; i < v.count; i++) {
-      expect([0, 1]).toContain(v.getX(i));
-      walls += wall.getX(i);
-    }
-    expect(walls).toBe(16);
-    const box = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute("position") as THREE.BufferAttribute);
-    expect(box.max.y).toBeCloseTo(0.3 + 0.45 * TILE_SIZE, 6);
-    expect(box.max.x).toBeCloseTo(TILE_SIZE / 2 + 0.2 * TILE_SIZE, 6);
-  });
-
   it("disposes what it made, once", () => {
     const placement = new PlacementRenderer();
+    placement.setSettings(resolvePlacementSettings({ grid: { enabled: true } }));
     placement.setTileCells([{ x: 0, y: 0 }]);
-    placement.setSlots([{ x: 1, y: 0 }]);
-    const container = new THREE.Group();
-    placement.dressGhost(container, new THREE.Group().add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())), { x: 1, y: 0 }, true, true, 0);
-    const owned = new Set<{ dispose(): void }>();
-    for (const root of [placement.group, container]) {
-      root.traverse((o) => {
-        if (o instanceof THREE.Mesh && !(o.material instanceof THREE.MeshStandardMaterial)) {
-          owned.add(o.material as THREE.Material);
-          if (o.userData.aura || o.userData.grid || o.userData.auraBorder) owned.add(o.geometry);
-        }
-      });
-    }
-    const spies = [...owned].map((r) => vi.spyOn(r, "dispose"));
+    placement.setSlots([{ x: 1, y: 0 }], 0);
+    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
+    const plate = placement.getPlateMesh()!;
+    const aura = placement.getAuraMesh()!;
+    const grid = placement.group.children.find((c) => c.userData.grid) as THREE.Mesh;
+    const owned = [plate.geometry, plate.material as THREE.Material, aura.geometry, aura.material as THREE.Material, grid.geometry, grid.material as THREE.Material];
+    const spies = owned.map((r) => vi.spyOn(r, "dispose"));
     placement.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
+    expect(placement.getPlateMesh()).toBeNull();
   });
 });
