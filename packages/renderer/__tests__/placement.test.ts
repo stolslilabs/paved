@@ -3,10 +3,13 @@ import * as THREE from "three";
 import {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
+  PLACEMENT_PULSES,
   PlacementRenderer,
   colorProgress,
   confirmProgress,
   createAuraGeometry,
+  gridFade,
+  gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
@@ -17,7 +20,7 @@ import {
   slotDashCount,
   veilOf,
 } from "../src/core/placement";
-import { neonLineCoverage } from "../src/core/neon";
+import { NEON_FRAME_MARGIN, neonFrameAt, neonLineCoverage } from "../src/core/neon";
 import { DEFAULT_OUTLINE_SETTINGS, outlineFade, createOutline, createOutlineMaterial, isOutline } from "../src/core/outlines";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { resolveRendererSettings } from "../src/core/settings";
@@ -28,48 +31,98 @@ import type { HoverState } from "../src/core/types";
 const { motion } = DEFAULT_PLACEMENT_SETTINGS;
 
 describe("the grid's ring fade", () => {
-  it("is visible one ring from a tile, perceptible at two, almost gone at three, and off from four", () => {
+  it("is full at ring 1, half at ring 2, almost gone at ring 3, and off from ring 4 (SLOTS2)", () => {
     const rings = DEFAULT_PLACEMENT_SETTINGS.grid.rings;
+    expect(rings).toEqual([1, 0.5, 0.1]);
     expect(gridRingOpacity(0)).toBe(1);
     expect(gridRingOpacity(1)).toBe(1);
-    expect(gridRingOpacity(2)).toBe(rings[1]);
+    expect(gridRingOpacity(2)).toBe(0.5);
     expect(gridRingOpacity(3)).toBe(rings[2]);
     expect(gridRingOpacity(GRID_RINGS)).toBe(0);
     expect(gridRingOpacity(9)).toBe(0);
-    expect(rings[1]).toBeGreaterThan(rings[2]);
     expect(rings[2]).toBeGreaterThan(0);
     expect(rings[2]).toBeLessThanOrEqual(0.15);
   });
 
-  it("draws each line at the nearer ring of its two cells: 1 at ring 1's outer edge, 0.4, 0.1, then 0; linear along a line", () => {
+  it("draws each line at the farther ring of its two cells: 1 at the board's edge, 0.5, 0.1, then 0; linear along a line", () => {
     const rings = DEFAULT_PLACEMENT_SETTINGS.grid.rings;
     const field = ringField([{ x: 0, y: 0 }])!;
     // On the vertical lines east of the tile, on its row: x = 0.5 (tile and ring 1), 1.5 (ring 1 and 2), 2.5, 3.5, 4.5.
     expect(gridLineOpacityAt(field, 0.5, 0)).toBe(1);
-    expect(gridLineOpacityAt(field, 1.5, 0)).toBe(1);
-    expect(gridLineOpacityAt(field, 2.5, 0)).toBe(rings[1]);
-    expect(gridLineOpacityAt(field, 3.5, 0)).toBe(rings[2]);
+    expect(gridLineOpacityAt(field, 1.5, 0)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 2.5, 0)).toBe(rings[2]);
+    expect(gridLineOpacityAt(field, 3.5, 0)).toBe(0);
     expect(gridLineOpacityAt(field, 4.5, 0)).toBe(0);
-    // The horizontal lines north of it, the same (the grid is square).
-    expect(gridLineOpacityAt(field, 0, -2.5)).toBe(rings[1]);
-    // Along the line x = 2.5, from the row of ring 2 (y = 2) to the row of ring 3 (y = 3): linear.
-    expect(gridLineOpacityAt(field, 2.5, 2)).toBe(rings[1]);
+    // Inside a ring, the lines between two of its cells take that ring: ring 1's full, ring 2's half, ring 3's almost gone.
+    expect(gridLineOpacityAt(field, 0.5, 1)).toBe(1);
+    expect(gridLineOpacityAt(field, 1.5, 2)).toBe(rings[1]);
     expect(gridLineOpacityAt(field, 2.5, 3)).toBe(rings[2]);
-    expect(gridLineOpacityAt(field, 2.5, 2.5)).toBeCloseTo((rings[1] + rings[2]) / 2, 9);
+    // Nothing beyond ring 3: every line between cells of ring 4 or more is 0.
+    for (let y = -4; y <= 4; y += 0.25) expect(gridLineOpacityAt(field, 3.5, y)).toBe(0);
+    // The horizontal lines north of it, the same (the grid is square).
+    expect(gridLineOpacityAt(field, 0, -1.5)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 0, -2.5)).toBe(rings[2]);
+    // Along the line x = 1.5, from the row of ring 1 (y = 1) to the row of ring 2 (y = 2): linear.
+    expect(gridLineOpacityAt(field, 1.5, 1)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 2.5, 2)).toBe(rings[2]);
+    expect(gridLineOpacityAt(field, 2.5, 2.5)).toBeCloseTo(rings[2], 9);
+    expect(gridLineOpacityAt(field, 0.5, 1.5)).toBeCloseTo((1 + rings[1]) / 2, 9);
     // Between lines: the nearest line, as the shader picks it (floor(x + 1), the line at L - 0.5).
-    expect(gridLineOpacityAt(field, 1.2, 0)).toBe(1); // nearest x = 1.5
-    expect(gridLineOpacityAt(field, 2.3, 0)).toBe(rings[1]); // nearest x = 2.5, not 1.5
-    expect(gridLineOpacityAt(field, 2.7, 0)).toBe(rings[1]); // nearest x = 2.5
-    expect(gridLineOpacityAt(field, 3.2, 0)).toBe(rings[2]); // nearest x = 3.5, not 2.5
-    expect(gridLineOpacityAt(field, 3.8, 0)).toBe(rings[2]); // nearest x = 3.5
-    expect(gridLineOpacityAt(field, 0, -2.3)).toBe(rings[1]); // nearest y = -2.5
-    expect(gridLineOpacityAt(field, 0, 3.4)).toBe(rings[2]); // nearest y = 3.5
-    // Nearer a horizontal line than a vertical one: the horizontal one. At (0, 2.45) the line y = 2.5 (rings 2 and 3) is
-    // 0.05 away and reads 0.4; the vertical x = 0.5, 0.5 away, would read 0.4 * 0.55 + 0.1 * 0.45 there.
-    expect(gridLineOpacityAt(field, 0, 2.45)).toBe(rings[1]);
-    expect(gridLineOpacityAt(field, 0.47, 2.4)).toBeCloseTo(rings[1] * 0.6 + rings[2] * 0.4, 9); // x = 0.5, 0.03 away
-    // Not the mean of the two cells (what a bilinear read at the line gives: 0.7 between rings 1 and 2).
-    expect(gridLineOpacityAt(field, 1.5, 0)).not.toBeCloseTo((1 + rings[1]) / 2, 2);
+    expect(gridLineOpacityAt(field, 1.2, 0)).toBe(rings[1]); // nearest x = 1.5
+    expect(gridLineOpacityAt(field, 0.8, 0)).toBe(1); // nearest x = 0.5
+    expect(gridLineOpacityAt(field, 2.3, 0)).toBe(rings[2]); // nearest x = 2.5, not 1.5
+    expect(gridLineOpacityAt(field, 1.7, 0)).toBe(rings[1]); // nearest x = 1.5
+    expect(gridLineOpacityAt(field, 0, 2.4)).toBe(rings[2]); // nearest y = 2.5
+    // Nearer a horizontal line than a vertical one: the horizontal one. At (0, 1.45) the line y = 1.5 (rings 1 and 2) is
+    // 0.05 away and reads 0.5; the vertical x = 0.5, 0.5 away, would read 1 * 0.55 + 0.5 * 0.45 there.
+    expect(gridLineOpacityAt(field, 0, 1.45)).toBe(rings[1]);
+    expect(gridLineOpacityAt(field, 0.47, 1.4)).toBeCloseTo(1 * 0.6 + rings[1] * 0.4, 9); // x = 0.5, 0.03 away
+  });
+
+  it("draws a hairline: about one device px at every zoom, antialiased, the same light whatever its offset", () => {
+    const width = DEFAULT_PLACEMENT_SETTINGS.grid.widthDevicePx;
+    expect(width).toBe(1);
+    // The coverage of the pixels across a line, for a line at any sub-pixel offset from their centres: it never reaches
+    // further than one px each side, and its sum (the light the line puts on screen) is the same, so a pan does not
+    // flicker. Device px, so the zoom does not enter it: the same hairline zoomed in and out.
+    for (let offset = 0; offset < 1; offset += 0.05) {
+      let sum = 0;
+      for (let k = -3; k <= 3; k++) {
+        const c = gridLineCoverage(Math.abs(k + offset), width);
+        if (Math.abs(k + offset) >= 1) expect(c).toBe(0);
+        sum += c;
+      }
+      expect(sum).toBeCloseTo(width, 9);
+    }
+    expect(gridLineCoverage(0)).toBe(1);
+    expect(gridLineCoverage(0.5)).toBe(0.5);
+    // A wider hairline, the same rule.
+    expect(gridLineCoverage(0, 2)).toBe(1);
+    expect(gridLineCoverage(1.25, 2)).toBeCloseTo(0.25, 9);
+  });
+
+  it("does not fade on zoom unless asked, and then on the outlines' curve, at the far end only", () => {
+    const S = 60;
+    const grid = DEFAULT_PLACEMENT_SETTINGS.grid;
+    expect(grid.farFade).toBe(false);
+    for (const px of [5, 0.5 * S, 0.85 * S, S, 2 * S, 30 * S]) expect(gridFade(px, S, grid, DEFAULT_OUTLINE_SETTINGS)).toBe(1);
+    const far = { ...grid, farFade: true };
+    // Fully on from the start (the opening view by default), off at the outlines' off point, their curve between.
+    expect(gridFade(S, S, far, DEFAULT_OUTLINE_SETTINGS)).toBe(1);
+    expect(gridFade(2 * S, S, far, DEFAULT_OUTLINE_SETTINGS)).toBe(1);
+    expect(gridFade(0.85 * S, S, far, DEFAULT_OUTLINE_SETTINGS)).toBe(0);
+    const mid = 0.92 * S;
+    expect(gridFade(mid, S, far, DEFAULT_OUTLINE_SETTINGS)).toBe(outlineFade(mid, 0.85 * S, grid.farFadeStart * S, DEFAULT_OUTLINE_SETTINGS.fadeExponent));
+    // Through the renderer: the grid's opacity holds at every zoom by default.
+    const placement = new PlacementRenderer();
+    placement.setTileCells([{ x: 0, y: 0 }]);
+    const material = () => (placement.group.children.find((c) => c.userData.grid) as THREE.Mesh).material as THREE.ShaderMaterial;
+    for (const px of [0.5 * S, S, 10 * S]) {
+      placement.setZoom(px, S, 2);
+      expect(material().uniforms.opacity.value).toBe(grid.opacity);
+      expect(material().uniforms.widthPx.value).toBe(1);
+    }
+    placement.dispose();
   });
 
   it("counts rings by Chebyshev distance: the diagonal neighbour is ring 1", () => {
@@ -112,6 +165,10 @@ describe("the slots' dashes", () => {
 
 describe("the lines on zoom-out", () => {
   it("fade on the outlines' curve (OUT-FADE2), the slots' borders keeping their floor", () => {
+    // A non-finite exponent is the default's: never a NaN opacity on the slot lines.
+    for (const fadeExponent of [Number.NaN, Infinity, -Infinity]) {
+      expect(placementFade(1.1 * 60, 60, { ...DEFAULT_OUTLINE_SETTINGS, fadeExponent })).toBe(placementFade(1.1 * 60, 60, DEFAULT_OUTLINE_SETTINGS));
+    }
     const S = 60;
     expect(placementFade(1.5 * S, S, DEFAULT_OUTLINE_SETTINGS)).toBe(1);
     expect(placementFade(0.85 * S, S, DEFAULT_OUTLINE_SETTINGS)).toBe(0);
@@ -142,14 +199,20 @@ describe("the lines on zoom-out", () => {
     const custom = { ...DEFAULT_OUTLINE_SETTINGS, fadeExponent: 3.5, fadeEasedEnd: true };
     placement.setSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
     placement.setZoom(0.86 * S, S, 1);
-    expect(lines(placement).grid).toBe(placementFade(0.86 * S, S, custom));
-    expect(lines(placement).grid).not.toBe(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS));
     expect(lines(placement).border).toBe(placementFade(0.86 * S, S, custom, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
+    expect(lines(placement).border).not.toBe(placementFade(0.86 * S, S, DEFAULT_OUTLINE_SETTINGS, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
+    // The grid, with its far fade on, takes the same exponent and eased end.
+    const farGrid = resolvePlacementSettings({ grid: { farFade: true } });
+    placement.setSettings(farGrid, custom);
+    placement.setZoom(0.9 * S, S, 1);
+    expect(lines(placement).grid).toBe(gridFade(0.9 * S, S, farGrid.grid, custom));
+    expect(lines(placement).grid).not.toBe(gridFade(0.9 * S, S, farGrid.grid, DEFAULT_OUTLINE_SETTINGS));
+    // TileRenderer.setPlacementSettings takes the outlines' whole fade (OutlineFadeSettings).
     const tiles = new TileRenderer(fakeAssets() as any);
     tiles.setPlacementSettings(DEFAULT_PLACEMENT_SETTINGS, custom);
     (tiles as any).placement.setZoom(px, S, 1);
-    expect(lines((tiles as any).placement).grid).toBe(placementFade(px, S, custom));
-    expect(lines((tiles as any).placement).grid).not.toBe(placementFade(px, S, DEFAULT_OUTLINE_SETTINGS));
+    expect(lines((tiles as any).placement).border).toBe(placementFade(px, S, custom, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
+    expect(lines((tiles as any).placement).border).not.toBe(placementFade(px, S, DEFAULT_OUTLINE_SETTINGS, DEFAULT_PLACEMENT_SETTINGS.slots.fadeFloor));
   });
 
   it("keep a device-pixel floor: a line thinner than a pixel covers one pixel", () => {
@@ -158,6 +221,174 @@ describe("the lines on zoom-out", () => {
     expect(neonLineCoverage(0.5, 1)).toBe(0.5);
     expect(neonLineCoverage(0, 3)).toBe(1);
     expect(neonLineCoverage(1.75, 3)).toBeCloseTo(0.25, 9);
+  });
+});
+
+describe("the slots' neon (SLOTS2)", () => {
+  const { slots } = DEFAULT_PLACEMENT_SETTINGS;
+  const frame = (dashed: boolean) => ({ lineWidth: slots.width, glowWidth: slots.glow, minPx: slots.minWidthDevicePx, inset: slots.inset, gap: slots.gap, dashed });
+  // A tile 60 CSS px wide at DPR 2: a device px is 1/120 of a cell.
+  const px = 1 / 120;
+
+  it("is inscribed in its cell: the line and its glow are clipped to the cell, nothing lights a neighbour", () => {
+    for (const dashed of [false, true]) {
+      for (const n of [2, 3] as const) {
+        for (let t = -0.5; t <= 0.5; t += 0.01) {
+          // Just outside the cell's edge (by a device px or more), on every side: nothing.
+          for (const out of [0.5 + px, 0.5 + 2 * px, 0.5 + slots.glow, 0.5 + NEON_FRAME_MARGIN]) {
+            for (const [x, y] of [[out, t], [-out, t], [t, out], [t, -out]] as const) {
+              const at = neonFrameAt(x, y, frame(dashed), px, n);
+              expect(at.line).toBe(0);
+              expect(at.glow).toBe(0);
+            }
+          }
+        }
+      }
+    }
+    // The line's own antialiased edge ends at the cell's edge: its coverage there is 0, so the clip never cuts it.
+    expect(neonFrameAt(0.5, 0, frame(false), px).line).toBeCloseTo(0, 9);
+    expect(neonFrameAt(0.5 - 0.5 * px, 0, frame(false), px).line).toBeCloseTo(0.5 * neonFrameAt(0.5 - 0.5 * px, 0, frame(false), px).cell, 9);
+    // The line itself is fully drawn inside the cell, its core one line width in.
+    const core = neonFrameAt(0.5 - 0.5 * px - 0.5 * Math.max(slots.width, px), 0, frame(false), px);
+    expect(core.line).toBe(1);
+    // The quad's margin, for the clip's antialiasing, is at least half a device px at the farthest zoom (48 CSS px a tile, DPR 1).
+    expect(NEON_FRAME_MARGIN).toBeGreaterThanOrEqual(0.5 / 48);
+  });
+
+  it("draws round-capped dashes with a glow that wraps their ends: no glow cut square at a gap", () => {
+    const f = frame(true);
+    const r = 0.5 * Math.max(f.lineWidth, f.minPx * px);
+    const s = 0.5 - f.inset - r - 0.5 * px;
+    // On the east side (x = s), along it. Two dashes a side: a period of s, a gap centred in each (y = -s/2 and s/2),
+    // the corners and the middle dashed.
+    const along = (y: number, x = s) => neonFrameAt(x, y, f, px, 2);
+    const c = -s / 2;
+    const gapHalf = 0.5 * (f.gap * s + 2 * r);
+    // In the middle of the gap, on the line: no line, and the glow is the end caps' (a distance of half the gap).
+    expect(along(c).line).toBe(0);
+    expect(along(c).distance).toBeCloseTo(gapHalf, 9);
+    expect(along(0).distance).toBe(0);
+    // The glow falls continuously from the dash end into the gap: no step (a glow normal to the dash only would drop to 0).
+    let previous = along(c - gapHalf - 0.02).glow;
+    for (let y = c - gapHalf - 0.02; y <= c; y += 0.001) {
+      const g = along(y).glow;
+      expect(Math.abs(g - previous)).toBeLessThan(0.05);
+      expect(g).toBeLessThanOrEqual(previous + 1e-12);
+      previous = g;
+    }
+    expect(along(c - gapHalf + 0.25 * f.glowWidth).glow).toBeGreaterThan(0.5);
+    // A round cap: past the dash's end, the distance is the distance to its end point (a capsule), off the line too.
+    const end = c - gapHalf;
+    for (const [dy, dx] of [[0.01, 0], [0.01, 0.01], [0.02, -0.005]]) {
+      expect(along(end + dy!, s + dx!).distance).toBeCloseTo(Math.hypot(dy!, dx!), 9);
+    }
+    // The visible gap is the setting's share of a period: the caps do not shorten it.
+    const visible = 2 * gapHalf - 2 * r;
+    expect(visible).toBeCloseTo(f.gap * s, 9);
+    // The corners stay whole L shapes: the corner point is on the line.
+    expect(neonFrameAt(s, s, f, px, 2).distance).toBe(0);
+    expect(neonFrameAt(s, s, f, px, 3).distance).toBe(0);
+  });
+
+  it("solid, is a closed square inside the cell with its glow all along", () => {
+    const f = frame(false);
+    const r = 0.5 * Math.max(f.lineWidth, f.minPx * px);
+    const s = 0.5 - f.inset - r - 0.5 * px;
+    for (let t = -s; t <= s; t += 0.01) {
+      expect(neonFrameAt(s, t, f, px).line).toBe(1);
+      expect(neonFrameAt(t, -s, f, px).line).toBe(1);
+    }
+  });
+
+  it("sets the material from the settings: the floor, the inset, a frame quad with only the clip's margin", () => {
+    const placement = new PlacementRenderer();
+    placement.setSettings(resolvePlacementSettings({ slots: { inset: 0.02, minWidthDevicePx: 1.5 } }));
+    placement.setSlots([{ x: 1, y: 0, fits: false }, { x: 2, y: 0 }]);
+    const meshes = placement.group.children[0]!.children as THREE.Mesh[];
+    const material = meshes[0]!.material as THREE.ShaderMaterial;
+    expect(material.uniforms.inset.value).toBe(0.02);
+    expect(material.uniforms.minPx.value).toBe(1.5);
+    const box = new THREE.Box3().setFromBufferAttribute(meshes[0]!.geometry.getAttribute("position") as THREE.BufferAttribute);
+    expect(box.max.x).toBeCloseTo(0.5 + NEON_FRAME_MARGIN, 6);
+    placement.dispose();
+  });
+});
+
+describe("the aura's pulse (SLOTS2)", () => {
+  const auraOf = (tiles: TileRenderer) => (preview(tiles).children.find((c) => c.userData.aura) as THREE.Mesh).material as THREE.ShaderMaterial;
+
+  it("rotates around the cell by default; the presets are rotating, rotating with noise, and SLOTS' radial", () => {
+    expect(DEFAULT_PLACEMENT_SETTINGS.aura.pulse).toBe("rotating");
+    expect(PLACEMENT_PULSES).toEqual(["rotating", "rotating-noise", "radial"]);
+    const tiles = new TileRenderer(fakeAssets() as any);
+    const period = DEFAULT_PLACEMENT_SETTINGS.aura.periodMs;
+    vi.spyOn(performance, "now").mockReturnValue(1000);
+    tiles.setHover(ghostAt(0, 1, { placed: true }));
+    tiles.update(1000 + period / 4);
+    const aura = auraOf(tiles);
+    expect(aura.uniforms.pulse.value).toBe(1);
+    expect(aura.uniforms.arcs.value).toBe(1);
+    // The phase runs over the period: a quarter of the way round after a quarter of it.
+    expect(aura.uniforms.phase.value).toBeCloseTo(((1000 + period / 4) % period) / period, 9);
+    const codes: Record<string, number> = { rotating: 1, "rotating-noise": 2, radial: 0 };
+    for (const pulse of PLACEMENT_PULSES) {
+      tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse, arcs: 2.4 } }), DEFAULT_OUTLINE_SETTINGS);
+      tiles.setHover(ghostAt(0, 1, { placed: true }));
+      tiles.update(5000);
+      expect(auraOf(tiles).uniforms.pulse.value).toBe(codes[pulse]);
+      // A whole number of arcs: the wave meets itself at the turn.
+      expect(auraOf(tiles).uniforms.arcs.value).toBe(2);
+    }
+    // The noise moves on its own long loop, never jumping within it.
+    tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse: "rotating-noise" } }), DEFAULT_OUTLINE_SETTINGS);
+    tiles.setHover(ghostAt(0, 1, { placed: true }));
+    tiles.update(period * 3);
+    const n1 = auraOf(tiles).uniforms.noisePhase.value as number;
+    tiles.update(period * 3 + 16);
+    const n2 = auraOf(tiles).uniforms.noisePhase.value as number;
+    expect(n2).toBeGreaterThan(n1);
+    expect(n2 - n1).toBeLessThan(0.001);
+    vi.restoreAllMocks();
+    tiles.dispose();
+  });
+
+  it("under reduced motion, keeps a still aura, even all around", () => {
+    const tiles = new TileRenderer(fakeAssets() as any);
+    tiles.setReducedMotion(true);
+    tiles.setPlacementSettings(resolvePlacementSettings({ aura: { pulse: "rotating-noise" } }), DEFAULT_OUTLINE_SETTINGS);
+    tiles.setHover(ghostAt(0, 1, { placed: true }));
+    expect(tiles.update(performance.now() + 1234).animating).toBe(false);
+    const aura = auraOf(tiles);
+    expect(aura.uniforms.phase.value).toBe(0);
+    expect(aura.uniforms.noisePhase.value).toBe(0);
+    expect(aura.uniforms.waveAmount.value).toBe(0);
+    expect(aura.uniforms.opacity.value).toBe(1);
+    tiles.dispose();
+  });
+});
+
+describe("the veil (SLOTS2)", () => {
+  it("is the state's own colour, the neon's, at a low opacity: yellow, red and green", () => {
+    expect(DEFAULT_PLACEMENT_SETTINGS.veil.whiten).toBe(0);
+    expect(DEFAULT_PLACEMENT_SETTINGS.veil.opacity).toBeLessThanOrEqual(0.2);
+    const tiles = new TileRenderer(fakeAssets() as any);
+    const t0 = 100;
+    vi.spyOn(performance, "now").mockReturnValue(t0);
+    const veil = () => {
+      let material: THREE.MeshBasicMaterial | null = null;
+      preview(tiles).traverse((o) => o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial && (material = o.material));
+      return material! as THREE.MeshBasicMaterial;
+    };
+    for (const [valid, tone] of [[true, "yellow"], [false, "red"]] as const) {
+      tiles.setHover(null);
+      tiles.setHover(ghostAt(0, 1, { placed: true, valid }));
+      tiles.update(t0 + 10_000);
+      const want = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors[tone]);
+      for (const k of ["r", "g", "b"] as const) expect(veil().color[k]).toBeCloseTo(want[k], 6);
+      expect(veil().opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.veil.opacity, 9);
+    }
+    vi.restoreAllMocks();
+    tiles.dispose();
   });
 });
 

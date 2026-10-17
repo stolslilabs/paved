@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DEFAULT_RENDERER_SETTINGS, TILE_SIZE, type GameScene, type RendererSettingsInput } from "@paved/renderer";
+import { DEFAULT_RENDERER_SETTINGS, OPENING_DISTANCE_FACTOR, TILE_SIZE, type GameScene, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -59,11 +59,15 @@ export type FadeCurve = "linear" | "square" | "cube" | "custom";
 /** The curves' exponents p of 1 - t^p (the renderer's `OUTLINE_FADE_PRESETS`, which its index does not export). */
 const FADE_CURVES = { linear: 1, square: 2, cube: 3 } as const;
 
-/** The starts' full factors (shares of the opening tile size S); the fade is off at 0.85 S. 30 is the closest zoom. */
-export const FADE_STARTS = {
-  "1.5 S": { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor },
-  "max zoom-in": { fadeFullFactor: (DEFAULT_RENDERER_SETTINGS.camera.maxDistance * 0.8) / DEFAULT_RENDERER_SETTINGS.camera.minDistance },
-} as const;
+/**
+ * The starts' full factors (shares of the opening tile size S); the fade is off at 0.85 S. "max zoom-in" is the closest
+ * zoom of the story's own camera (its `minDistance` and `maxDistance` controls): the opening distance (0.8 of the
+ * farthest) over the closest, 30 with the renderer's defaults.
+ */
+export function fadeStartOf(start: Exclude<FadeStart, "custom">, camera: { minDistance: number; maxDistance: number }): { fadeFullFactor: number } {
+  if (start === "1.5 S") return { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor };
+  return { fadeFullFactor: (camera.maxDistance * OPENING_DISTANCE_FACTOR) / camera.minDistance };
+}
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
@@ -140,7 +144,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const merged = { ...SETTINGS_DEFAULTS, ...rest };
   const o = {
     ...merged,
-    ...(merged.fadeStart === "custom" ? {} : FADE_STARTS[merged.fadeStart]),
+    ...(merged.fadeStart === "custom" ? {} : fadeStartOf(merged.fadeStart, merged)),
     ...(merged.fadeCurve === "custom" ? {} : { fadeExponent: FADE_CURVES[merged.fadeCurve] }),
   };
   const settings = useMemo<RendererSettingsInput>(

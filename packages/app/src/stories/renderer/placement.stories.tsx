@@ -4,11 +4,12 @@ import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
- * The placement visuals (SLOTS, P-68) on the recorded 72-tile board. The grid: pale, thin lines around the placed tiles,
- * fading ring by ring. With a tile in hand, every legal slot (any rotation) is a yellow cell with a neon border: dashed,
- * or solid and brighter where the current rotation fits. The tile placed on a slot: an aura with waves running up and
- * out, and a pale veil; red while its rotation does not fit there; green on confirm, then a fade to nothing. Every
- * setting is a control; under reduced motion the aura is still and the confirm short.
+ * The placement visuals (SLOTS, P-68; SLOTS2, P-72) on the recorded 72-tile board. The grid: pale hairlines around the
+ * placed tiles, ring 1 full, ring 2 half, ring 3 almost gone, nothing beyond. With a tile in hand, every legal slot (any
+ * rotation) is a yellow cell with a neon border inscribed in it: dashed with round caps, or solid and brighter where the
+ * current rotation fits. The tile placed on a slot: an aura with a wave running around the cell ("rotating", or "rotating
+ * + noise"), and a veil in the neon's colour; red while its rotation does not fit there; green on confirm, then a fade to
+ * nothing. Every setting is a control; under reduced motion the aura is still and the confirm short.
  */
 const meta = {
   title: "Renderer/Placement",
@@ -62,6 +63,9 @@ export const PlacedRed: Story = { args: { state: "placed-red" } };
 
 /** Confirmed: green, then a fade to the tile's own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };
+
+/** The pulse with an interference that never quite repeats ("rotating + noise"). */
+export const PlacedNoise: Story = { args: { state: "placed", auraPulse: "rotating-noise" } };
 
 /** Reduced motion: the placed tile's aura still; the confirm green at once with a short fade. */
 export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: true } };

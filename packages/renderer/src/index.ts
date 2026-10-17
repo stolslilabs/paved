@@ -5,7 +5,7 @@ export { TileRenderer } from "./core/TileRenderer";
 export type { LitTile } from "./core/TileRenderer";
 export { FEATURES } from "./core/feature-codes";
 export type { FeatureName } from "./core/feature-codes";
-export { CameraController } from "./core/CameraController";
+export { CameraController, OPENING_DISTANCE_FACTOR } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";
 export { NativeInputMapper } from "./core/native-input-mapper";
@@ -61,9 +61,12 @@ export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, Pixel
 export {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
+  PLACEMENT_PULSES,
   PlacementRenderer,
   colorProgress,
   confirmProgress,
+  gridFade,
+  gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
@@ -74,8 +77,8 @@ export {
   slotDashBlend,
   slotDashCount,
 } from "./core/placement";
-export type { PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
-export { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonLineCoverage, setNeonFrame } from "./core/neon";
+export type { PlacementPulse, PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
+export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonLineCoverage, setNeonFrame } from "./core/neon";
 export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
