@@ -4,6 +4,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { PlanType, getPlanKey } from "@paved/game-core";
 import { afterFirstFrame, firstModels } from "./load-order";
+import { traceMark, traceMeasure, traceStart } from "./load-trace";
 import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
 
 /**
@@ -68,6 +69,15 @@ export function loadManifest(basePath: string): Promise<AssetManifest | null> {
 }
 
 async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
+  const start = traceStart();
+  try {
+    return await fetchManifestOnce(basePath);
+  } finally {
+    traceMeasure("manifest", start);
+  }
+}
+
+async function fetchManifestOnce(basePath: string): Promise<AssetManifest | null> {
   let url: string;
   try {
     url = new URL(`${basePath}/manifest.json`, (globalThis as { location?: { href: string } }).location?.href).href;
@@ -135,7 +145,9 @@ let workersStarted = false;
 function startDecoderWorkers(): void {
   if (workersStarted || typeof Worker === "undefined") return;
   workersStarted = true;
+  const start = traceStart();
   MeshoptDecoder.useWorkers(2);
+  void MeshoptDecoder.ready.then(() => traceMeasure("meshopt-ready", start));
 }
 
 export class AssetLoader {
@@ -273,7 +285,10 @@ export class AssetLoader {
     if (!load) {
       load = (async () => {
         const paths = manifest === undefined ? await this.readManifest() : manifest;
-        const gltf = await this.loadModel(`${this.basePath}/${modelPath(paths, key)}`);
+        const url = `${this.basePath}/${modelPath(paths, key)}`;
+        const start = traceStart();
+        const gltf = await this.loadModel(url);
+        traceMeasure(`model ${url}`, start);
         if (this.disposed) disposeModel(gltf.scene);
         else {
           this.models.set(key, gltf.scene);
@@ -331,6 +346,7 @@ export class AssetLoader {
           else this.textures.set(`tile-${key}`, texture);
         })
       ).then(() => {
+        traceMark("tiles-loaded");
         if (!this.disposed) this.loadedListener?.();
       });
       this.texturesLoad = load;
@@ -351,6 +367,7 @@ export class AssetLoader {
    * again after the first frame. A later failure only leaves that plan's tiles undrawn.
    */
   async preloadAll(): Promise<void> {
+    traceMark("preload-start");
     const manifest = await this.readManifest();
     // The skins asked for before the manifest was in: their variants (or base models) join the first models.
     for (const { key, skin } of this.wantedSkins.splice(0)) this.wanted.add(this.resolveSkin(manifest, key, skin));
@@ -374,13 +391,14 @@ export class AssetLoader {
             if (!this.disposed) console.warn("[AssetLoader] the tile images did not load, a tile waits for its model:", error);
           }),
     ]);
+    traceMark("first-models-loaded");
     afterFirstFrame(() => {
       if (this.disposed) return;
       // A skin that came in meanwhile spares its plans' base models too.
       const rest = PLAN_KEYS.filter((key) => !first.includes(key) && !this.skipsBase(key, manifest)).map((key) =>
         this.ensureModel(key, manifest)
       );
-      Promise.all([...rest, this.preloadTextures()]).catch((error: unknown) => {
+      Promise.all([...rest, this.preloadTextures()]).then(() => traceMark("all-loaded")).catch((error: unknown) => {
         if (!this.disposed) console.warn("[AssetLoader] an asset loaded after the first frame failed:", error);
       });
     });

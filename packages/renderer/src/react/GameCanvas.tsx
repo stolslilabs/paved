@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { GameScene } from "../core/GameScene";
 import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
+import { traceMark, traceMeasure, traceStart } from "../core/load-trace";
 import type { RendererSettingsInput } from "../core/settings";
 import type { AssetManifest } from "../core/AssetLoader";
 import { NO_SKINS, type TileSkins } from "../core/skins";
@@ -90,6 +91,7 @@ export function GameCanvas({
     sceneRef.current = gameScene;
     let cancelled = false;
 
+    traceMark("init-start");
     gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath, settings: settingsRef.current, manifest: manifestRef.current }).then(
       () => {
         // Unmounted while init was pending: never start the scene.
@@ -97,7 +99,10 @@ export function GameCanvas({
         gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
         gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        // The first frame is drawn inside `start()`: the load trace times it (shader compiles and uploads included).
+        const firstFrame = traceStart();
         gameScene.start();
+        traceMeasure("first-frame", firstFrame);
         onReadyRef.current?.(gameScene);
       },
       (error: unknown) => {

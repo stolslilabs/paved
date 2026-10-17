@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { traceMeasure, traceStart } from "./load-trace";
 
 const PRECISION = 1e4; // EdgesGeometry's precisionPoints = 4
 
@@ -9,6 +10,13 @@ const PRECISION = 1e4; // EdgesGeometry's precisionPoints = 4
  * most of the board's load time (docs/measures/client-baseline.md, "Top costs observed").
  */
 export function buildEdgesGeometry(geometry: THREE.BufferGeometry, thresholdAngle = 1): THREE.BufferGeometry {
+  const start = traceStart();
+  const edges = edgesGeometry(geometry, thresholdAngle);
+  traceMeasure("edges", start);
+  return edges;
+}
+
+function edgesGeometry(geometry: THREE.BufferGeometry, thresholdAngle: number): THREE.BufferGeometry {
   const thresholdDot = Math.cos(THREE.MathUtils.DEG2RAD * thresholdAngle);
   const indexAttr = geometry.getIndex();
   const positionAttr = geometry.getAttribute("position");
