@@ -1,2 +1,0 @@
-packages/renderer
-packages/app-web

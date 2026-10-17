@@ -19,5 +19,8 @@ contracts/coverage/
 dist/
 *.tsbuildinfo
 .turbo/
+# Agent cache files
+.claude/tsc-cache/
+
 # Vercel CLI links (one folder per linked project)
 .vercel
