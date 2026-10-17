@@ -137,9 +137,13 @@ const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
   none: null,
 };
 
-/** The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs). */
-export function finishDefines(look: LookSettings, ao: boolean): Record<string, string> {
+/**
+ * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), and the
+ * backdrop when the day and night cycle draws one (`backdrop`).
+ */
+export function finishDefines(look: LookSettings, ao: boolean, backdrop = false): Record<string, string> {
   const defines: Record<string, string> = {};
+  if (backdrop) defines.BACKDROP = "";
   const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
   if (tone) defines[tone] = "";
   if (ao) defines.AO = "";
@@ -171,10 +175,28 @@ const FinishShader = {
     uniform float warmth;
     uniform float vignetteOffset;
     uniform float vignetteDarkness;
+    uniform vec3 backdropTop;
+    uniform vec3 backdropBottom;
     varying vec2 vUv;
 
     #include <tonemapping_pars_fragment>
     #include <colorspace_pars_fragment>
+
+    #ifdef BACKDROP
+      vec3 oklabToLinear(vec3 c) {
+        vec3 lms = vec3(
+          c.x + 0.3963377774 * c.y + 0.2158037573 * c.z,
+          c.x - 0.1055613458 * c.y - 0.0638541728 * c.z,
+          c.x - 0.0894841775 * c.y - 1.2914855480 * c.z
+        );
+        lms = lms * lms * lms;
+        return max(vec3(
+          4.0767416621 * lms.x - 3.3077115913 * lms.y + 0.2309699292 * lms.z,
+          -1.2684380046 * lms.x + 2.6097574011 * lms.y - 0.3413193965 * lms.z,
+          -0.0041960863 * lms.x - 0.7034186147 * lms.y + 1.7076147010 * lms.z
+        ), 0.0);
+      }
+    #endif
 
     void main() {
       vec4 color = texture2D(tDiffuse, vUv);
@@ -198,11 +220,20 @@ const FinishShader = {
         color.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth);
         color.rgb = clamp(color.rgb, 0.0, 1.0);
       #endif
+      #ifdef BACKDROP
+        float uncovered = 1.0 - clamp(color.a, 0.0, 1.0);
+        color.rgb += oklabToLinear(mix(backdropBottom, backdropTop, vUv.y)) * uncovered;
+        color.a = 1.0;
+      #endif
       #ifdef VIGNETTE
         vec2 centred = (vUv - 0.5) * vignetteOffset;
         color.rgb *= mix(1.0 - vignetteDarkness, 1.0, clamp(1.0 - dot(centred, centred) * 2.0, 0.0, 1.0));
       #endif
       gl_FragColor = sRGBTransferOETF(color);
+      #ifdef BACKDROP
+        float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        gl_FragColor.rgb += (dither - 0.5) / 255.0 * uncovered;
+      #endif
     }`,
 };
 
@@ -214,11 +245,11 @@ export class FinishPass extends Pass {
   readonly material: THREE.RawShaderMaterial;
   private readonly quad: FullScreenQuad;
 
-  constructor(look: LookSettings, ao: THREE.Texture | null) {
+  constructor(look: LookSettings, ao: THREE.Texture | null, backdrop = false) {
     super();
     this.material = new THREE.RawShaderMaterial({
       name: "FinishShader",
-      defines: finishDefines(look, ao !== null),
+      defines: finishDefines(look, ao !== null, backdrop),
       uniforms: {
         tDiffuse: { value: null },
         tAo: { value: ao },
@@ -229,6 +260,8 @@ export class FinishPass extends Pass {
         warmth: { value: look.grade.warmth },
         vignetteOffset: { value: look.vignette.offset },
         vignetteDarkness: { value: look.vignette.darkness },
+        backdropTop: { value: new THREE.Vector3() },
+        backdropBottom: { value: new THREE.Vector3() },
       },
       vertexShader: FinishShader.vertexShader,
       fragmentShader: FinishShader.fragmentShader,
@@ -236,6 +269,12 @@ export class FinishPass extends Pass {
       depthWrite: false,
     });
     this.quad = new FullScreenQuad(this.material);
+  }
+
+  /** The backdrop's two ends, the screen's top and bottom, in OKLab (`BACKDROP`). */
+  setBackdrop(top: readonly number[], bottom: readonly number[]): void {
+    this.material.uniforms.backdropTop.value.fromArray(top);
+    this.material.uniforms.backdropBottom.value.fromArray(bottom);
   }
 
   /** The exposure, multiplied by the render profile's (`Effects.setExposure`). */

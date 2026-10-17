@@ -72,6 +72,10 @@ export class Effects {
   private finishPass: FinishPass | null = null;
   private smaaPass: SMAAPass | null = null;
   private passNames: EffectsPassName[] = [];
+  /** The day and night cycle's backdrop (`setBackdrop`): composited by the finish pass under what the scene left uncovered. */
+  private backdrop = false;
+  private backdropTop: readonly number[] = [0, 0, 0];
+  private backdropBottom: readonly number[] = [0, 0, 0];
 
   constructor(_config: EffectsConfig = {}) {}
 
@@ -135,6 +139,21 @@ export class Effects {
     return this.composer;
   }
 
+  /**
+   * The backdrop of the day and night cycle (DAYNIGHT): on, the finish pass lays a vertical gradient between two OKLab
+   * colours (`top`, `bottom`) under what the scene left uncovered (its alpha: the scene is cleared to transparent),
+   * after the tone map and the grade, so the gradient's colours reach the screen as given, dithered. Turning it on or off
+   * rebuilds the chain; new colours only set uniforms.
+   */
+  setBackdrop(on: boolean, top: readonly number[] = this.backdropTop, bottom: readonly number[] = this.backdropBottom): void {
+    this.backdropTop = top;
+    this.backdropBottom = bottom;
+    if (on !== this.backdrop) {
+      this.backdrop = on;
+      this.update();
+    } else this.finishPass?.setBackdrop(top, bottom);
+  }
+
   setCapabilities(capabilities: EffectsCapabilities): void {
     this.capabilities = capabilities;
     this.update();
@@ -154,7 +173,7 @@ export class Effects {
       this.antialiasing === "msaa" && this.samples,
       look.ao.enabled && look.ao.resolution,
       look.bloom.enabled,
-      finishDefines(look, look.ao.enabled),
+      finishDefines(look, look.ao.enabled, this.backdrop),
     ]);
   }
 
@@ -179,6 +198,7 @@ export class Effects {
       u.vignetteOffset.value = look.vignette.offset;
       u.vignetteDarkness.value = look.vignette.darkness;
       this.finishPass.setExposure(this.exposure());
+      this.finishPass.setBackdrop(this.backdropTop, this.backdropBottom);
     }
   }
 
@@ -229,6 +249,14 @@ export class Effects {
         look.bloom.radius,
         look.bloom.threshold,
       );
+      // The bloom adds its light to the scene's colour, never to its alpha: the backdrop is laid under what the alpha leaves
+      // uncovered, and an added alpha would cover it.
+      const blend = this.bloomPass.blendMaterial;
+      blend.blending = THREE.CustomBlending;
+      blend.blendSrc = THREE.OneFactor;
+      blend.blendDst = THREE.OneFactor;
+      blend.blendSrcAlpha = THREE.ZeroFactor;
+      blend.blendDstAlpha = THREE.OneFactor;
       this.composer.addPass(this.bloomPass);
       names.push("bloom");
     }
@@ -238,7 +266,7 @@ export class Effects {
     // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
     const smaa = this.antialiasing === "smaa" && typeof Image !== "undefined";
 
-    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null);
+    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null, this.backdrop);
     this.finishPass.needsSwap = smaa;
     this.composer.addPass(this.finishPass);
     names.push("finish");
