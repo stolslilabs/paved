@@ -152,7 +152,15 @@ What the files set:
   hashed models, `forest/` included) and `renderer-assets/tiles/*` (the `<plan>.256.<hash>.png` images). `/`, `index.html`,
   `renderer-assets/manifest.json`, `THIRD_PARTY_NOTICES.txt`, `fontawesome/*` and `backgrounds/*` (unhashed) are `no-cache`. The
   Storybook adds `iframe.html`, `index.json` and `project.json` to the `no-cache` list. Everything else keeps Vercel's default.
-- **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it).
+- **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it). A preview of the client
+  shows no indexer data: its `*.vercel.app` origin is not in the indexer's `--allow-origin` (CORS refuses it; `indexer-hosting.md`).
+
+**Release.** The client release is a Vercel production deploy of `packages/app` from `main`, after the release gates (the value
+re-check of the diff first). `paved.bal7hazar.com` is added to the `paved` project only after the first production deploy and that
+re-check, and moves to Vercel with the owner's DNS change; the VPS's static client (`/var/www/paved`, "Where it is published" above)
+is retired with it. `storybook.paved.bal7hazar.com` is added to `paved-storybook` (published from `main` on every merge, previews
+per pull request; `storybook-hosting.md`). Only `api.paved.bal7hazar.com` stays on the VPS. Domains are never deleted by an agent and
+DNS is the owner's.
 
 What only the dashboard can hold (the owner sets it): the root directory itself, the Include-files-outside-the-root setting, the
 production branch, the preview deployments, the Node.js version (24.x, from `engines`; the docs project is on 18.x), the domains and
