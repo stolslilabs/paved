@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest";
  * TEXT-12 (P-69): no text under 12 px. Page zoom is off, so the text size is the only help a reader has: nothing in
  * `src` sets a font size below 12 px. Enforced on the source:
  *
- * - an arbitrary Tailwind size `text-[Npx]` or `text-[Nrem]` / `text-[Nem]` (also `text-[length:...]`) under 12 px
- *   (1 rem = 16 px);
+ * - an arbitrary Tailwind size `text-[Npx]` or `text-[Nrem]` (also `text-[length:...]`) under 12 px (1 rem = 16 px);
+ * - a relative size, `text-[0.85em]` or `text-[85%]`: it follows its parent, which can be `text-xs`, so one under 1 em
+ *   (100 %) is suspect and flagged. `text-[max(12px,0.85em)]` keeps the floor and passes;
  * - a `font-size` in a stylesheet, or a `fontSize` in a style object, under 12 px.
  *
  * Icon sizes (`ui/icon.tsx`: 0.75 rem and up) are 12 px or more and pass.
@@ -22,13 +23,21 @@ export interface Finding {
   text: string;
 }
 
-const UNIT_PX: Record<string, number> = { px: 1, rem: 16, em: 16 };
-const SIZE = String.raw`(\d*\.?\d+)(px|rem|em)`;
+const UNIT_PX: Record<string, number> = { px: 1, rem: 16 };
+const SIZE = String.raw`(\d*\.?\d+)(px|rem|em|%)`;
+
+/** Small: under 12 px; a relative size (`em`, `%`) is small when under 1 em (100 %), as it follows a parent that can be `text-xs`. */
+function isSmall(value: number, unit: string): boolean {
+  if (unit === "em") return value < 1;
+  if (unit === "%") return value < 100;
+  return value * (UNIT_PX[unit] ?? 1) < MIN_PX;
+}
 
 /** The font sizes under 12 px set in one source file. */
 export function smallText(file: string, src: string): Finding[] {
   const out: Finding[] = [];
   const patterns = [
+    // `text-[max(12px,0.85em)]` does not match: it does not start with a number. That is the way to a relative size.
     new RegExp(String.raw`\btext-\[(?:length:)?${SIZE}\]`, "g"),
     new RegExp(String.raw`\bfont-size\s*:\s*${SIZE}`, "g"),
     new RegExp(String.raw`\bfontSize\s*:\s*["'\x60]?${SIZE}`, "g"),
@@ -36,8 +45,7 @@ export function smallText(file: string, src: string): Finding[] {
   ];
   for (const re of patterns) {
     for (const m of src.matchAll(re)) {
-      const px = Number(m[1]) * (UNIT_PX[m[2] ?? "px"] ?? 1);
-      if (px < MIN_PX) out.push({ file, line: src.slice(0, m.index).split("\n").length, text: m[0] });
+      if (isSmall(Number(m[1]), m[2] ?? "px")) out.push({ file, line: src.slice(0, m.index).split("\n").length, text: m[0] });
     }
   }
   return out;
@@ -59,14 +67,15 @@ describe("text size guard (TEXT-12)", () => {
       "a { font-size: 11px; }",
       "const s = { fontSize: 10 };",
       'const t = { fontSize: "0.7rem" };',
+      '<span className="text-[0.85em] text-[90%]">c</span>',
     ].join("\n");
     expect(smallText("fixture.tsx", fixture).map((f) => f.text)).toEqual(
-      expect.arrayContaining(["text-[11px]", "text-[10px]", "text-[0.6rem]", "text-[length:9px]", "font-size: 11px", "fontSize: 10", 'fontSize: "0.7rem']),
+      expect.arrayContaining(["text-[11px]", "text-[10px]", "text-[0.6rem]", "text-[length:9px]", "text-[0.85em]", "text-[90%]", "font-size: 11px", "fontSize: 10", 'fontSize: "0.7rem']),
     );
   });
 
   it("passes 12 px and above", () => {
-    const fixture = '<p className="text-xs text-[12px] text-[0.75rem] text-[1rem]">ok</p>\na { font-size: 12px; font-size: 1rem }\nconst s = { fontSize: 14 };';
+    const fixture = '<p className="text-xs text-[12px] text-[0.75rem] text-[1rem] text-[max(12px,0.85em)] text-[1em]">ok</p>\na { font-size: 12px; font-size: 1rem }\nconst s = { fontSize: 14 };';
     expect(smallText("fixture.tsx", fixture)).toEqual([]);
   });
 

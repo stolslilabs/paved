@@ -2,8 +2,16 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-/* A touch device in a browser tab (not an installed app): Safari's floating toolbar overlays the page's bottom; `env(safe-area-inset-bottom)` is 0 there. */
-@custom-variant browser-tab (@media (display-mode: browser) and (pointer: coarse));
+/* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
+   `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
+   browsers and the installed app (`display-mode: standalone`) never match; the width keeps iPad out. */
+@custom-variant iphone-tab {
+  @supports (-webkit-touch-callout: none) {
+    @media (display-mode: browser) and (max-width: 40rem) {
+      @slot;
+    }
+  }
+}
 
 /* 1. Base scales: the standard 50-950 declension. */
 @theme {

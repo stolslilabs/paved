@@ -29,7 +29,7 @@ export function Amount({ value, token, className }: AmountProps) {
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-1", className)}>
       <span className="numeric font-semibold whitespace-nowrap">{formatUnits(value, t.decimals, t.fraction)}</span>
-      <span className="text-[0.85em] whitespace-nowrap text-muted-foreground">{t.symbol}</span>
+      <span className="text-[max(12px,0.85em)] whitespace-nowrap text-muted-foreground">{t.symbol}</span>
     </span>
   );
 }
