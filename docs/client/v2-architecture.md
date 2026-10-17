@@ -622,6 +622,25 @@ page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, 
 text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
 device context.
 
+One error component (ERR-UI, P-67). Every error the app shows, a failed read, a refused write, a refused input, an error
+toast, goes through `InlineError` (`src/components/elements/inline-error.tsx`): the `triangle-exclamation` icon, `text-sm`
+in the body font, the `destructive-text` token, two lines at most then an ellipsis (the whole text in its `title` and for
+screen readers), and a Copy button that puts the message and its detail on the clipboard as plain text for support: the
+typed error's name, the transaction hash, the game id, the app version and the time the error was first shown, in UTC.
+"Copied" follows only a copy that succeeded; without the Clipboard API, or when it refuses, the component says "Copy failed:
+select the text" and shows the whole text, selected, to copy by hand. The component reads nothing: the
+route builds the detail (`src/routes/error-detail.ts`, from a `@paved/chain` error's `name` and `transactionHash`) and the
+scene passes it down as a prop. A host renders it always, with `message` null when there is no error, so its height
+animates as the error appears, changes or goes (Motion, 0.18 s, none under reduced motion); once the fold ends it renders
+nothing, so a flex or grid parent adds no gap for it. An error that replaces a page's content mounts with the same
+animation. An error with no place on its page (a failed claim, a free game that did not
+start, the wallet's connect) is a toast that holds `InlineError` (`containers/error-toast.tsx`), never Sonner's own error
+style; inside a toast it starts at its height (`animateIn={false}`), since Sonner measures a custom toast on mount. A `Notice` is a state (a guest, purchases paused, the economy not deployed, storage off, an outcome to check) and has
+no danger tone. `__tests__/error-guard.test.ts` fails on an error role, an assertive live region, a `toast.error` or
+`toast.warning`, a danger `Notice` (on one line or several), or an error colour (`text-destructive*`,
+`border-destructive*`) outside `InlineError` and a listed, counted set of non-error uses, under `src/components`,
+`src/routes` and `src/wallet`, and is tested on a fixture that must fail.
+
 ### 3.5 Animated components: chosen sources
 
 F3b (2026-10-14), from the owner's list through the PM: animate-ui.com, motion-primitives.com, magicui.design,

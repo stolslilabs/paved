@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { errorDetail } from "../error-detail";
 import { ReferralScene } from "../../components/scenes/referral-scene";
 import { useSplit } from "../../data/chain";
 import { referralLink, useReferralEarnings } from "../../data/referral";
@@ -44,6 +45,7 @@ export default function Page() {
       splitPending={split.isPending}
       earnings={earnings.data ?? null}
       earningsError={earnings.error ? earnings.error.message : null}
+      earningsErrorDetail={earnings.error ? errorDetail(earnings.error) : undefined}
       onCopy={(value) => {
         navigator.clipboard?.writeText(value).then(
           () => setCopied(true),

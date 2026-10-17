@@ -5,6 +5,7 @@ import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { PLANS, applySkinChanges } from "../containers/cobble-types";
 import { SkinGrid, THEME_CODES } from "../containers/skin-grid";
@@ -38,10 +39,12 @@ export interface ThemeSkins {
   save?: "idle" | "saving" | "saved";
   /** The last write refused or failed (`SkinRefusedError`'s text): shown until dismissed or the next write. */
   refusal?: string | null;
+  /** That refusal's detail for support (`InlineError`). */
+  refusalDetail?: ErrorDetail;
 }
 
 /** Why the skins are not shown: a guest (Connect), the reads on their way, or a failed read (Retry). */
-export type SkinsStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string };
+export type SkinsStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
 
 export interface ThemeSceneProps {
   /** The theme in use, kept on this device. */
@@ -133,17 +136,16 @@ function SkinsStatusSection({ status, onConnect, onRetry }: { status: SkinsStatu
           Skins are bought with the Cobbles of your account and kept on it.
         </Notice>
       ) : status.kind === "error" ? (
-        <Notice
-          tone="danger"
+        <InlineError
           title="The skins could not be read"
+          message={status.message}
+          detail={status.detail}
           action={
             <Button size="sm" variant="outline" onClick={onRetry}>
               Retry
             </Button>
           }
-        >
-          {status.message}
-        </Notice>
+        />
       ) : (
         <div role="status" aria-label="Loading the skins" className="grid grid-cols-3 gap-2 tablet:grid-cols-4 desktop:grid-cols-6">
           {Array.from({ length: 6 }, (_, i) => (
@@ -214,21 +216,18 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
               A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from quests and achievements, or buy a pack.
             </Notice>
           )}
-          {skins.refusal && (
-            <Notice
-              tone="danger"
-              title="Not done"
-              action={
-                onDismissRefusal && (
-                  <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
-                    Dismiss
-                  </Button>
-                )
-              }
-            >
-              {skins.refusal}
-            </Notice>
-          )}
+          <InlineError
+            title="Not done"
+            message={skins.refusal}
+            detail={skins.refusalDetail}
+            action={
+              onDismissRefusal && (
+                <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                  Dismiss
+                </Button>
+              )
+            }
+          />
           <SkinGrid
             theme={skins.theme}
             prices={skins.prices}

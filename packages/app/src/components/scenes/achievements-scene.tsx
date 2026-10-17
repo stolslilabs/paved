@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { Skeleton } from "../ui/skeleton";
 import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { isClaimed, type AchievementCobbles } from "../containers/cobble-types";
 import { useCompletionToasts, type CompletionMemory } from "../containers/completion-toasts";
@@ -33,6 +34,8 @@ export interface AchievementsSceneProps {
   achievements: PlayerAchievements | null;
   connected: boolean;
   error?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  errorDetail?: ErrorDetail;
   /** The Cobbles; omitted before Cobbles. */
   rewards?: AchievementRewards | null;
   /** False: the player is known but cannot sign (P6): the rewards show, each claim says "Connect to claim". */
@@ -84,9 +87,12 @@ export function AchievementsScene(props: AchievementsSceneProps) {
           Achievements count your games over time: they need an account.
         </Notice>
       ) : error ? (
-        <Notice tone="danger" title="Could not load the achievements" action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}>
-          {error}
-        </Notice>
+        <InlineError
+          title="Could not load the achievements"
+          message={error}
+          detail={props.errorDetail}
+          action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}
+        />
       ) : achievements === null ? (
         <div role="status" aria-label="Loading the achievements" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (

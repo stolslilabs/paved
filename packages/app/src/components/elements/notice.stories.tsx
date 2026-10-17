@@ -15,7 +15,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Info: Story = {};
 export const Warning: Story = { args: { tone: "warning", title: "Storage is off", children: "This game is not saved and ends if the page closes." } };
-export const Danger: Story = { args: { tone: "danger", title: "Not enough USDC", children: "This stake costs 10.00 USDC; the wallet holds 3.00." } };
 /** WRAP360: a long title and body, an unbroken address and compound; the icon stays on the first line, the action keeps its size. */
 export const Stress: Story = {
   args: {

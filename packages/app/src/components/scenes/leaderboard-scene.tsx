@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Countdown } from "../elements/countdown";
 import { DayPicker } from "../elements/day-picker";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { RankingList, RankingSkeleton } from "../containers/ranking-list";
@@ -32,11 +33,7 @@ export function LagNotice({ lag }: { lag: IndexerLagInfo }) {
           {label}
         </p>
       )}
-      {lag.stale && (
-        <Notice tone="danger" title="Showing the last answer">
-          Stale: {lag.stale}
-        </Notice>
-      )}
+      <InlineError title="Showing the last answer" message={lag.stale ? `Stale: ${lag.stale}` : null} />
     </>
   );
 }
@@ -55,6 +52,8 @@ export interface LeaderboardSceneProps {
   viewer?: LeaderboardEntry | null;
   /** The read failed: what the indexer said. */
   error?: string | null;
+  /** That failure's detail for support (`InlineError`). */
+  errorDetail?: ErrorDetail;
   /** The players whose best game of the day was free (P-61: ranked like any other, marked "Free", PM ruling). */
   free?: readonly string[];
   now: number;
@@ -65,6 +64,7 @@ export interface LeaderboardSceneProps {
   loadingMore?: boolean;
   /** A page after the first failed: the rows read stay, a notice with Retry follows them. */
   moreError?: string | null;
+  moreErrorDetail?: ErrorDetail;
   onMore?: () => void;
   onDayChange?: (day: number) => void;
   onSelectPlayer?: (playerId: string) => void;
@@ -118,17 +118,16 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
       end={<DayPicker day={day} today={today} first={props.firstDay} onChange={props.onDayChange} className="w-full tablet:w-auto" />}
     >
       {error ? (
-        <Notice
-          tone="danger"
+        <InlineError
           title="Could not load the ranking"
+          message={error}
+          detail={props.errorDetail}
           action={
             <Button size="sm" variant="outline" onClick={props.onRetry}>
               Retry
             </Button>
           }
-        >
-          {error}
-        </Notice>
+        />
       ) : leaderboard === null ? (
         <RankingSkeleton />
       ) : (
@@ -156,19 +155,16 @@ export function LeaderboardScene(props: LeaderboardSceneProps) {
                 free={props.free}
                 onSelectPlayer={props.onSelectPlayer}
               />
-              {props.moreError && (
-                <Notice
-                  tone="danger"
-                  title="Could not load more of the ranking"
-                  action={
-                    <Button size="sm" variant="outline" onClick={props.onRetry}>
-                      Retry
-                    </Button>
-                  }
-                >
-                  {props.moreError}
-                </Notice>
-              )}
+              <InlineError
+                title="Could not load more of the ranking"
+                message={props.moreError}
+                detail={props.moreErrorDetail}
+                action={
+                  <Button size="sm" variant="outline" onClick={props.onRetry}>
+                    Retry
+                  </Button>
+                }
+              />
               {props.hasMore && (
                 <div className="flex justify-center">
                   <Button variant="outline" size="sm" disabled={props.loadingMore} onClick={props.onMore}>

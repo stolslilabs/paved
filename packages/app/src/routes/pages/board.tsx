@@ -6,6 +6,7 @@ import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import { useTileArt } from "../../data/tile-art";
 import type { HandState } from "../../components/containers/hand-panel";
+import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
@@ -18,6 +19,7 @@ import { trainingStore, useDataSources } from "../../data/sources";
 import { useTutorialClaim, useTutorialClaimed, useTutorialRun } from "../../data/tutorial";
 import { WalletNotice } from "../../wallet/notice";
 import { useAccount, type WalletState } from "../../wallet/wallet";
+import { errorDetail, useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
@@ -70,6 +72,7 @@ function TrainingBoard() {
   const target = chosen ?? (hovered && slots.some((s) => same(s, hovered)) ? hovered : null);
   const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
+  const handErrorDetail = useErrorDetail(snapshot.state.writeError);
   const ghost = move && hand && preview !== null ? { ...move, plan: hand.plan } : null;
 
   // Another game (another tab's save followed, a new game): the slot and orientation chosen for the old hand go.
@@ -124,7 +127,7 @@ function TrainingBoard() {
       remaining={board.remaining}
       expiresAt={null}
       now={Math.floor(Date.now() / 1000)}
-      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: move !== null && preview !== null, preview, error: state.writeError }}
+      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: move !== null && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
       lastScored={board.lastScored}
       tileArt={tileArt}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
@@ -201,6 +204,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
 
   const ready = state?.status === "ready" ? state : null;
   const hand = ready?.hand ?? null;
+  const handErrorDetail = useErrorDetail(ready?.writeError, gameId);
+  const readErrorDetail = useErrorDetail(state?.status === "error" ? state : null, gameId);
   const tileId = hand?.tileId ?? null;
   // The slots are those of the tile now in hand: `state` changes with every move.
   const slots = useMemo(() => (session && hand ? session.slots(orientation) : []), [session, state, hand, orientation]);
@@ -267,9 +272,11 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         <TopBar title={`Challenge #${gameId}`} onBack={onBack} />
         <main aria-busy={state?.status !== "error"} className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4">
           {state?.status === "error" ? (
-            <Notice tone="danger" title={state.error === "game-not-found" ? "No such game" : "This game cannot be read"}>
-              {state.error === "game-not-found" ? `There is no Challenge game #${gameId}.` : state.message}
-            </Notice>
+            <InlineError
+              title={state.error === "game-not-found" ? "No such game" : "This game cannot be read"}
+              message={state.error === "game-not-found" ? `There is no Challenge game #${gameId}.` : state.message}
+              detail={readErrorDetail && { ...readErrorDetail, code: state.error ?? undefined }}
+            />
           ) : (
             <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
           )}
@@ -327,6 +334,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         slotChosen: move !== null && preview !== null,
         preview,
         error: state.writeError,
+        errorDetail: handErrorDetail,
       }}
       lastScored={state.lastScored}
       tileArt={tileArt}
@@ -394,6 +402,7 @@ function TutorialBoard() {
   const [chosen, setChosen] = useState<Slot | null>(null);
   const [hovered, setHovered] = useState<Slot | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const refusalDetail = useErrorDetail(refusal);
   const [view3d, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
   const tileArt = useTileArt(view3d === "3d" ? RENDERER_ASSETS : undefined);
@@ -474,6 +483,7 @@ function TutorialBoard() {
         slotChosen: legal,
         preview,
         error: refusal,
+        errorDetail: refusalDetail,
       }}
       lastScored={board.lastScored}
       tileArt={tileArt}
@@ -551,11 +561,7 @@ function TutorialClaim({ wallet, score }: { wallet: WalletState; score: number }
         <Button size="sm" className="self-start" onClick={() => claim.mutate()} loading={claim.isPending}>
           Claim First Stone
         </Button>
-        {claim.error && (
-          <p role="alert" className="text-destructive-text wrap-anywhere">
-            The claim was refused: {claim.error.message}
-          </p>
-        )}
+        <InlineError title="The claim was refused" message={claim.error?.message} detail={claim.error ? errorDetail(claim.error) : undefined} />
       </div>
     );
   }

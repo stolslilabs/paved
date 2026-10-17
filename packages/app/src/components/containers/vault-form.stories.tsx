@@ -40,3 +40,10 @@ export const Withdrawing: Story = { args: { mode: "withdraw", amount: "500", pre
 export const WithdrawingAll: Story = { args: { mode: "withdraw", amount: "", preview: null, busy: "withdrawAll" } };
 /** WRAP360: the largest balance, amount and preview. */
 export const Stress: Story = { args: { amount: "123456789012.99", balance: BIG_AMOUNT_18, preview: BIG_AMOUNT_18, shares: BIG_AMOUNT_18, maxWithdraw: BIG_AMOUNT_18 } };
+/** The write came back refused: the one error component (P-67), its typed name and hash to copy. */
+export const DepositRefused: Story = {
+  args: {
+    refused: "The exit fee changed: confirm again.",
+    refusedDetail: { code: "VaultExitFeeChangedError", txHash: "0x05f16e7f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5", version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) },
+  },
+};
