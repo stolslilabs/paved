@@ -27,3 +27,12 @@ describe("useDeferred (BOARD-CHUNK)", () => {
     expect(onError).toHaveBeenCalledOnce();
   });
 });
+
+describe("useDeferred, a module that is a function", () => {
+  it("stores a loader's function value, not its result", async () => {
+    const fn = vi.fn(() => "called");
+    const { result } = renderHook(() => useDeferred(async () => fn, true));
+    await waitFor(() => expect(result.current).toBe(fn));
+    expect(fn).not.toHaveBeenCalled();
+  });
+});

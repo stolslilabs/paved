@@ -11,7 +11,7 @@ export function useDeferred<T>(load: () => Promise<T>, wanted: boolean, onError?
     if (!wanted || loaded !== null) return;
     let live = true;
     load().then(
-      (m) => live && setLoaded(m),
+      (m) => live && setLoaded(() => m),
       (e) => live && onError?.(e),
     );
     return () => {

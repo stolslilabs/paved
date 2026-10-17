@@ -158,6 +158,7 @@ export function BoardScene(props: BoardSceneProps) {
             onDiscard={props.onDiscard}
             onSurrender={() => setSurrendering(true)}
             canSurrender={mode !== "tutorial"}
+            surrenderPending={surrendering && !surrenderDialog}
           />
         </div>
       )}
