@@ -4,7 +4,9 @@ import {
   DEFAULT_OUTLINE_SETTINGS,
   DEFAULT_OPENING_TILE_PX,
   MIN_OUTLINE_OPACITY,
+  OUTLINE_CLOSEST_FACTOR,
   OUTLINE_DEPTH_BIAS,
+  OUTLINE_FADE_PRESETS,
   TILE_VOXELS,
   VOXEL_SIZE,
   applyOutlineStroke,
@@ -19,7 +21,9 @@ import {
   outlinesAllowed,
   outlineWrittenGrey,
   outlineWrittenColor,
+  easeFadeEnd,
   outlineFade,
+  outlineFadeT,
   outlineOpacityAtOpening,
   outlineStroke,
   probeMajorPerformanceCaveat,
@@ -38,7 +42,7 @@ import {
 } from "../src/core/settings";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { TILE_SIZE } from "../src/core/types";
-import { OPENING_DISTANCE } from "../src/core/CameraController";
+import { CLOSEST_DISTANCE, OPENING_DISTANCE } from "../src/core/CameraController";
 
 const S: OutlineSettings = {
   enabled: true,
@@ -46,6 +50,8 @@ const S: OutlineSettings = {
   // With the default opening tile size (60 px): off at 60 px, fully on at 90.
   fadeOffFactor: 1,
   fadeFullFactor: 1.5,
+  fadeExponent: 2,
+  fadeEasedEnd: false,
   widthVoxels: 0.02,
   minWidthDevicePx: 1,
   maxWidthPx: 2.5,
@@ -64,33 +70,96 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     expect(outlineStroke(Number.NaN, S).opacity).toBe(0);
   });
 
-  it("fades in between the off and the full sizes as a smoothstep of log(tile px), from nothing, without a pop", () => {
+  it("fades 1 - t^p between the off and the full sizes, t on log(tile px), from nothing, without a pop", () => {
     expect(outlineStroke(60.01, S).opacity).toBe(0); // under 1/255: not drawn
-    // The middle of the log range (the geometric mean, 60 x sqrt(1.5)) is half; a quarter of it is 5/32 (smoothstep).
+    // The middle of the log range (the geometric mean, 60 x sqrt(1.5)) is t = 0.5: 1 - 0.25 with p = 2.
     expect(outlineStroke(60 * Math.sqrt(1.5), S)).toMatchObject({ width: 1 });
-    expect(outlineStroke(60 * Math.sqrt(1.5), S).opacity).toBeCloseTo(0.5, 9);
-    expect(outlineStroke(60 * Math.pow(1.5, 0.25), S).opacity).toBeCloseTo(0.15625, 9);
+    expect(outlineStroke(60 * Math.sqrt(1.5), S).opacity).toBeCloseTo(0.75, 9);
+    // A quarter of the log range from the full end (t = 0.25): 1 - 0.0625.
+    expect(outlineStroke(60 * Math.pow(1.5, 0.75), S).opacity).toBeCloseTo(0.9375, 9);
     expect(outlineStroke(89.99, S).opacity).toBeGreaterThan(0.999);
     expect(outlineStroke(90, S)).toMatchObject({ width: 1, opacity: 1 });
   });
 
-  it("changes by about the same share of the opacity at each wheel step, and has no kink at either end", () => {
-    // A wheel step is a constant factor of the tile size. In log space the ramp is a smoothstep: slope 0 at both ends.
+  it("measures t on the logarithm of the tile size: 0 at the full size and above, 1 at the off size and below", () => {
+    expect(outlineFadeT(90, 60, 90)).toBe(0);
+    expect(outlineFadeT(1e6, 60, 90)).toBe(0);
+    expect(outlineFadeT(60, 60, 90)).toBe(1);
+    expect(outlineFadeT(1, 60, 90)).toBe(1);
+    expect(outlineFadeT(60 * Math.sqrt(1.5), 60, 90)).toBeCloseTo(0.5, 9);
+    // Each wheel step (a constant factor) moves t by the same amount.
+    const d1 = outlineFadeT(70, 60, 90) - outlineFadeT(70 * 1.05, 60, 90);
+    const d2 = outlineFadeT(80, 60, 90) - outlineFadeT(80 * 1.05, 60, 90);
+    expect(d1).toBeCloseTo(d2, 9);
+  });
+
+  it("is 1 - t^p for p in [1, 4], clamped outside the range and of the exponent", () => {
+    const px = 60 * Math.pow(1.5, 0.5); // t = 0.5
+    for (const p of [1, 1.5, 2, 3, 4]) expect(outlineFade(px, 60, 90, p)).toBeCloseTo(1 - Math.pow(0.5, p), 9);
+    expect(outlineFade(px, 60, 90, 0.2)).toBeCloseTo(0.5, 9); // clamped to 1
+    expect(outlineFade(px, 60, 90, 9)).toBeCloseTo(1 - 0.5 ** 4, 9); // clamped to 4
+    for (const p of [1, 2, 3, 4]) {
+      expect(outlineFade(60, 60, 90, p)).toBe(0);
+      expect(outlineFade(10, 60, 90, p)).toBe(0);
+      expect(outlineFade(90, 60, 90, p)).toBe(1);
+      expect(outlineFade(900, 60, 90, p)).toBe(1);
+    }
+  });
+
+  it("starts gently and accelerates into the threshold: the slope grows as the camera zooms out (p > 1)", () => {
     const step = 1.02;
-    const at = (px: number) => outlineFade(px, 60, 90);
-    // The first step off either end moves the opacity by 3 t^2 (t = a step's share of the log range, 0.049): under 0.008.
-    expect(at(60 * step)).toBeLessThan(0.008);
-    expect(1 - at(90 / step)).toBeLessThan(0.008);
+    const deltas: number[] = [];
+    for (let px = 90; px / step > 60; px /= step) deltas.push(outlineFade(px, 60, 90, 2) - outlineFade(px / step, 60, 90, 2));
+    for (let i = 1; i < deltas.length; i++) expect(deltas[i]).toBeGreaterThan(deltas[i - 1]);
+    // Linear: every step weighs the same.
+    const lin = outlineFade(85, 60, 90, 1) - outlineFade(85 / step, 60, 90, 1);
+    const lin2 = outlineFade(65, 60, 90, 1) - outlineFade(65 / step, 60, 90, 1);
+    expect(lin).toBeCloseTo(lin2, 9);
+  });
+
+  it("eases the end when asked: the same curve above the span, a zero slope at the off size, no kink", () => {
+    expect(easeFadeEnd(0)).toBe(0);
+    expect(easeFadeEnd(1)).toBe(1);
+    expect(easeFadeEnd(0.25)).toBeCloseTo(0.25, 12);
+    expect(easeFadeEnd(0.5)).toBe(0.5);
+    // C1 at the span's edge, flat at 0, never above the plain curve, monotone.
+    const h = 1e-6;
+    expect((easeFadeEnd(0.25) - easeFadeEnd(0.25 - h)) / h).toBeCloseTo(1, 4);
+    expect(easeFadeEnd(h) / h).toBeLessThan(1e-4);
+    let prev = 0;
+    for (let b = 0; b <= 0.25; b += 0.005) {
+      expect(easeFadeEnd(b)).toBeLessThanOrEqual(b + 1e-12);
+      expect(easeFadeEnd(b)).toBeGreaterThanOrEqual(prev);
+      prev = easeFadeEnd(b);
+    }
+    // Through outlineFade: identical away from the end, flatter near it.
+    expect(outlineFade(85, 60, 90, 2, true)).toBe(outlineFade(85, 60, 90, 2, false));
+    const near = 60 * 1.02;
+    expect(outlineFade(near, 60, 90, 2, true)).toBeLessThan(outlineFade(near, 60, 90, 2, false));
+    expect(outlineFade(near, 60, 90, 2, true)).toBeGreaterThan(0);
+    expect(outlineStroke(near, { ...S, fadeEasedEnd: true }).opacity).toBe(outlineFade(near, 60, 90, 2, true) >= MIN_OUTLINE_OPACITY ? outlineFade(near, 60, 90, 2, true) : 0);
+  });
+
+  it("has the presets linear 1, square 2 and cube 3, square being the default", () => {
+    expect(OUTLINE_FADE_PRESETS).toEqual({ linear: 1, square: 2, cube: 3 });
+    expect(DEFAULT_OUTLINE_SETTINGS.fadeExponent).toBe(OUTLINE_FADE_PRESETS.square);
+    expect(DEFAULT_OUTLINE_SETTINGS.fadeEasedEnd).toBe(false);
+  });
+
+  it("changes by a bounded share of the opacity at each wheel step", () => {
+    const step = 1.02;
+    const at = (px: number) => outlineFade(px, 60, 90, 1);
     const deltas: number[] = [];
     for (let px = 60; px * step < 90; px *= step) deltas.push(at(px * step) - at(px));
-    // The largest step is the smoothstep's steepest slope (1.5 per ramp) times a step's share of the log range.
-    expect(Math.max(...deltas)).toBeLessThan(1.5 * (Math.log(step) / Math.log(1.5)) * 1.01);
-    expect(Math.max(...deltas)).toBeLessThan(0.08);
+    // Linear: the slope is 1 per log range, a step's share of it is ln(1.02) / ln(1.5).
+    expect(Math.max(...deltas)).toBeLessThan((Math.log(step) / Math.log(1.5)) * 1.01);
   });
 
   it("hides the stroke below an opacity of 1/255", () => {
     expect(MIN_OUTLINE_OPACITY).toBe(1 / 255);
-    const justUnder = 60 + (30 / 255) * 0.99;
+    // 1 - t^2 = 1/255 at t = sqrt(254 / 255); just above the off size, on the log scale.
+    const justUnder = 60 * Math.pow(1.5, 1 - Math.sqrt(254 / 255) - 1e-4);
+    expect(outlineFade(justUnder, 60, 90)).toBeLessThan(MIN_OUTLINE_OPACITY);
     expect(outlineStroke(justUnder, S)).toMatchObject({ width: 0, opacity: 0 });
   });
 
@@ -139,12 +208,16 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     expect(outlineStroke(60.5, step)).toMatchObject({ width: 1, opacity: 1 });
   });
 
-  it("defaults: off at 0.85 S, fully on from 1.15 S, a hairline, dark grey", () => {
+  it("defaults: off at 0.85 S, fully on at the closest zoom (30 S), square, a hairline, dark grey", () => {
+    expect(OUTLINE_CLOSEST_FACTOR).toBe(30);
+    expect(OUTLINE_CLOSEST_FACTOR).toBe(OPENING_DISTANCE / CLOSEST_DISTANCE);
     expect(DEFAULT_OUTLINE_SETTINGS).toEqual({
       enabled: true,
       force: "auto",
       fadeOffFactor: 0.85,
-      fadeFullFactor: 1.15,
+      fadeFullFactor: 30,
+      fadeExponent: 2,
+      fadeEasedEnd: false,
       widthVoxels: 0.015,
       minWidthDevicePx: 1,
       maxWidthPx: 2,
@@ -153,17 +226,22 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
       segmentFullDevicePx: 1,
     });
     for (const s of [52, 60, 75]) {
-      expect(outlineStroke(1.15 * s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ width: 1, opacity: 1 });
+      expect(outlineStroke(30 * s, DEFAULT_OUTLINE_SETTINGS, 1, s)).toMatchObject({ opacity: 1 });
       expect(outlineStroke(0.85 * s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBe(0);
-      // The opening view is no longer fully on: smoothstep(ln(1 / 0.85) / ln(1.15 / 0.85)) = 0.5565.
-      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.5565, 3);
+      // The opening view is almost off: t = ln(30) / ln(30 / 0.85) = 0.9543, 1 - t^2 = 0.0891.
+      expect(outlineStroke(s, DEFAULT_OUTLINE_SETTINGS, 1, s).opacity).toBeCloseTo(0.0891, 3);
     }
-    expect(outlineOpacityAtOpening()).toBeCloseTo(0.5565, 3);
-    // The 1.3 S preset.
-    expect(outlineOpacityAtOpening(0.85, 1.3)).toBeCloseTo(0.3268, 3);
+    // The tile size at the closest zoom is the opening one times 240 / 8, seen from the camera.
+    const cam = new THREE.PerspectiveCamera(50, 1, 5, 2000);
+    expect(tilePixels(cam, CLOSEST_DISTANCE, 900) / openingTilePixels(cam, 900)).toBeCloseTo(OUTLINE_CLOSEST_FACTOR, 9);
+    // The opacity at S and at 1.15 S for each preset.
+    const at = (m: number, p: number) => outlineFade(m, 0.85, 30, p);
+    expect([1, 2, 3].map((p) => Number(at(1, p).toFixed(4)))).toEqual([0.0456, 0.0891, 0.1307]);
+    expect([1, 2, 3].map((p) => Number(at(1.15, p).toFixed(4)))).toEqual([0.0848, 0.1624, 0.2335]);
     // Without an opening size, a 900 px high window's (60 px).
     expect(DEFAULT_OPENING_TILE_PX).toBe(60);
-    expect(outlineStroke(70)).toMatchObject({ width: 1, opacity: 1 });
+    expect(outlineStroke(70).opacity).toBeCloseTo(outlineFade(70, 51, 1800), 9);
+    expect(outlineStroke(1800)).toMatchObject({ width: 1, opacity: 1 });
     expect(outlineStroke(51).opacity).toBe(0);
   });
 });
@@ -178,12 +256,12 @@ describe("the opening tile size S", () => {
     expect(openingTilePixels(camera, 900)).toBeCloseTo(60.3, 1);
   });
 
-  it("puts the fade at the same distances on every screen: 0.56 at the opening view, fully on from 240 / 1.15, off past 240 / 0.85", () => {
+  it("puts the fade at the same distances on every screen: 0.089 at the opening view, fully on at the closest zoom (8), off past 240 / 0.85", () => {
     for (const height of [780, 900, 1300]) {
       const s = openingTilePixels(camera, height);
       const at = (distance: number) => outlineStroke(tilePixels(camera, distance, height), DEFAULT_OUTLINE_SETTINGS, 1, s);
-      expect(at(240).opacity).toBeCloseTo(0.5565, 3);
-      expect(at(240 / 1.15)).toMatchObject({ width: 1, opacity: 1 });
+      expect(at(240).opacity).toBeCloseTo(0.0891, 3);
+      expect(at(CLOSEST_DISTANCE)).toMatchObject({ width: 1, opacity: 1 });
       expect(at(240 / 0.85 + 0.01).opacity).toBe(0);
       // The farthest zoom (300) is past the off distance (about 282): the outlines vanish zoomed out.
       expect(at(300).opacity).toBe(0);

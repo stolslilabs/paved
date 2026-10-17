@@ -117,14 +117,14 @@ describe("GameScene settings", () => {
     const desktop = scene.getZoom();
     expect(desktop.openingTilePx).toBeCloseTo(openingTilePixels(camera, 900), 9);
     expect(desktop.openingTilePx).toBeCloseTo(60.3, 1);
-    // The opening view is at 0.56 of the fade (OUT-FADE), the same on every screen.
-    expect(desktop.outline.opacity).toBeCloseTo(0.5565, 2);
+    // The opening view is at 0.089 of the fade (OUT-FADE2, square), the same on every screen.
+    expect(desktop.outline.opacity).toBeCloseTo(0.0893, 2);
     scene.render();
     (scene as any).surface = { getSize: () => ({ width: 360, height: 780 }) };
     const phone = scene.getZoom();
     expect(phone.openingTilePx).toBeCloseTo(52.3, 1);
     // The opening view keeps its opacity: the tile and S shrink together.
-    expect(phone.outline.opacity).toBeCloseTo(0.5565, 2);
+    expect(phone.outline.opacity).toBeCloseTo(0.0893, 2);
     scene.render();
     expect(setOutlineStroke).toHaveBeenCalledTimes(2);
   });

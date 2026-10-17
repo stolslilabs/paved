@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
-import { OPENING_DISTANCE } from "./CameraController";
+import { CLOSEST_DISTANCE, OPENING_DISTANCE } from "./CameraController";
 import { mergeCollinearSegments } from "./edges";
 import { LOOK_PRESETS } from "./look";
 import { TILE_SIZE } from "./types";
@@ -16,10 +16,10 @@ import { TILE_SIZE } from "./types";
  *
  * The width is set in the world, as a fraction of a voxel (`widthVoxels`), converted to device pixels at the camera's
  * target, kept to at least `minWidthDevicePx` (a hairline) and capped at `maxWidthPx` CSS px when zoomed in. Zoomed out
- * the outlines fade from fully on at `fadeFullFactor` of the tile size the board opens at on this viewport to off at
- * `fadeOffFactor` of it, on the logarithm of the tile size with a smoothstep (OUT-FADE): a wheel step multiplies the
- * tile size by a constant, so each step changes the opacity by about the same amount, and the ramp has no kink at
- * either end. They are drawn after the faces with a depth bias towards the camera: an outline lies
+ * the outlines fade over the whole zoom range (OUT-FADE2): fully on at the closest zoom (`fadeFullFactor` of the tile size
+ * S the board opens at on this viewport, `OUTLINE_CLOSEST_FACTOR` x S) to off at `fadeOffFactor` x S, as `1 - t^p` where
+ * t runs from 0 to 1 on the logarithm of the tile size: a wheel step multiplies the tile size by a constant, so each step
+ * moves t by the same amount. They are drawn after the faces with a depth bias towards the camera: an outline lies
  * exactly on the faces it borders, and without the bias it wins or loses the depth test by rounding (the flicker R-OUT
  * removed).
  *
@@ -43,10 +43,15 @@ export interface OutlineSettings {
   /** At or below this share of the opening tile size (`openingTilePx`) the outlines are off. */
   fadeOffFactor: number;
   /**
-   * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is a
-   * smoothstep of the logarithm of the tile size (`outlineFade`).
+   * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is
+   * `1 - t^p` of the logarithm of the tile size (`outlineFade`). The default is the closest zoom's share
+   * (`OUTLINE_CLOSEST_FACTOR`): the fade spans the whole zoom range.
    */
   fadeFullFactor: number;
+  /** The exponent p of the fade `1 - t^p`, in [1, 4]: 1 linear, 2 square (gentle at first, faster near the threshold), 3 cube. */
+  fadeExponent: number;
+  /** Ease the end of the fade: the opacity reaches 0 with a zero slope (no kink at the off point). Off by default. */
+  fadeEasedEnd: boolean;
   /** The stroke's width in the world, as a fraction of a voxel's width (`VOXEL_SIZE`). */
   widthVoxels: number;
   /** The thinnest stroke, in device px: the world width never draws thinner than this. */
@@ -72,15 +77,30 @@ export const VOXEL_SIZE = TILE_SIZE / TILE_VOXELS;
 /** Below this opacity (one step of an 8-bit channel) the outlines are not drawn at all. */
 export const MIN_OUTLINE_OPACITY = 1 / 255;
 
+/**
+ * The tile size at the closest zoom (`CLOSEST_DISTANCE`) as a multiple of the opening tile size S: the tile size is
+ * inversely proportional to the camera distance, so it is `OPENING_DISTANCE / CLOSEST_DISTANCE` = 240 / 8 = 30.
+ */
+export const OUTLINE_CLOSEST_FACTOR = OPENING_DISTANCE / CLOSEST_DISTANCE;
+
+/** The exponent's range in the story's control. */
+export const MIN_FADE_EXPONENT = 1;
+export const MAX_FADE_EXPONENT = 4;
+
+/** The opacity under which the eased end takes over (`easeFadeEnd`). */
+const EASED_END_SPAN = 0.25;
+
 export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
   force: "auto",
-  // The fade follows the opening tile size S: off at 0.85 S, fully on from 1.15 S, a smoothstep of log(tile px) between
-  // (OUT-FADE). A 360 x 780 phone opens at about 52 px a tile (off at 44), a 900 px high window at about 60 (off at 51,
-  // over the farthest zoom's 48 px: the outlines vanish zoomed out). At S itself the opacity is no longer 1: see
-  // `outlineOpacityAtOpening`.
+  // The fade follows the opening tile size S: off at 0.85 S (the historic threshold), fully on at the closest zoom
+  // (30 S), `1 - t^p` of log(tile px) between (OUT-FADE2), p = 2. A 360 x 780 phone opens at about 52 px a tile (off at
+  // 44), a 900 px high window at about 60 (off at 51, over the farthest zoom's 48 px: the outlines vanish zoomed out).
+  // At S itself the opacity is no longer 1: see `outlineOpacityAtOpening`.
   fadeOffFactor: 0.85,
-  fadeFullFactor: 1.15,
+  fadeFullFactor: OUTLINE_CLOSEST_FACTOR,
+  fadeExponent: 2,
+  fadeEasedEnd: false,
   // 1.5 % of a voxel, in the 1 to 2 % that keeps the stroke thin. That is under a device pixel until a voxel is about 33 CSS px wide
   // at DPR 2 (a tile about 1,300 px), so over most of the zoom range the outlines are one-device-pixel hairlines.
   widthVoxels: 0.015,
@@ -119,7 +139,7 @@ const OFF: OutlineStroke = { width: 0, opacity: 0 };
 /**
  * The stroke for a tile shown `tilePx` CSS px wide on a screen of `pixelRatio` device px per CSS px, where the board
  * opens at `openingTilePx` (S, `openingTilePixels`). The opacity is 0 at or below `fadeOffFactor` x S, 1 at or above
- * `fadeFullFactor` x S, `outlineFade` between, and 0 below `MIN_OUTLINE_OPACITY`. The width
+ * `fadeFullFactor` x S (the closest zoom), `outlineFade` between, and 0 below `MIN_OUTLINE_OPACITY`. The width
  * is `widthVoxels` of a voxel at that zoom, in device px, at least `minWidthDevicePx` and at most `maxWidthPx` CSS px.
  * Width and opacity never decrease as the camera zooms in.
  */
@@ -132,7 +152,7 @@ export function outlineStroke(
   const off = settings.fadeOffFactor * openingTilePx;
   const full = settings.fadeFullFactor * openingTilePx;
   if (!settings.enabled || !(tilePx > off) || !(pixelRatio > 0)) return OFF;
-  const opacity = outlineFade(tilePx, off, full);
+  const opacity = outlineFade(tilePx, off, full, settings.fadeExponent, settings.fadeEasedEnd);
   if (!(opacity >= MIN_OUTLINE_OPACITY)) return OFF;
   const world = settings.widthVoxels * VOXEL_SIZE * (tilePx / TILE_SIZE) * pixelRatio;
   const width = Math.min(Math.max(world, settings.minWidthDevicePx), settings.maxWidthPx * pixelRatio);
@@ -140,21 +160,51 @@ export function outlineStroke(
 }
 
 /**
- * The outlines' opacity for a tile `tilePx` wide, off at `off` px and fully on from `full` px: a smoothstep of the
- * position of `tilePx` between them on a log scale, `ln(tilePx / off) / ln(full / off)`. 0 at or below `off`, 1 at or
- * above `full` (a step when the two are equal).
+ * The position of a tile `tilePx` wide in the fade, t: 0 at `full` px (the closest zoom) and above, 1 at `off` px and
+ * below, `ln(full / tilePx) / ln(full / off)` between, so every wheel step moves it by the same amount.
  */
-export function outlineFade(tilePx: number, off: number, full: number): number {
-  if (!(tilePx > off)) return 0;
-  if (!(tilePx < full)) return 1;
-  const t = Math.log(tilePx / off) / Math.log(full / off);
-  return t * t * (3 - 2 * t);
+export function outlineFadeT(tilePx: number, off: number, full: number): number {
+  if (!(tilePx > off)) return 1;
+  if (!(tilePx < full)) return 0;
+  return Math.log(full / tilePx) / Math.log(full / off);
 }
 
-/** The opacity at the opening view (tile size S) for fade factors `off` and `full` (shares of S): `outlineFade(1, off, full)`. */
-export function outlineOpacityAtOpening(off = DEFAULT_OUTLINE_SETTINGS.fadeOffFactor, full = DEFAULT_OUTLINE_SETTINGS.fadeFullFactor): number {
-  return outlineFade(1, off, full);
+/**
+ * The eased end of the fade: the opacity `b` unchanged from `EASED_END_SPAN` up, and below it a cubic that meets it with
+ * the same slope and reaches 0 with a zero slope (`2 b^2 / E - b^3 / E^2`), so the fade has no kink at the off point.
+ */
+export function easeFadeEnd(b: number): number {
+  const e = EASED_END_SPAN;
+  if (!(b < e)) return b;
+  if (!(b > 0)) return 0;
+  return (2 * b * b) / e - (b * b * b) / (e * e);
 }
+
+/**
+ * The outlines' opacity for a tile `tilePx` wide, off at `off` px and fully on from `full` px: `1 - t^p`, t being
+ * `outlineFadeT` (the position on a log scale), p the exponent clamped to [1, 4]. 0 at or below `off`, 1 at or above
+ * `full` (a step when the two are equal). With `easedEnd` the end is eased (`easeFadeEnd`).
+ */
+export function outlineFade(tilePx: number, off: number, full: number, exponent = 2, easedEnd = false): number {
+  if (!(tilePx > off)) return 0;
+  if (!(tilePx < full)) return 1;
+  const p = Math.min(Math.max(exponent, MIN_FADE_EXPONENT), MAX_FADE_EXPONENT);
+  const b = 1 - Math.pow(outlineFadeT(tilePx, off, full), p);
+  return easedEnd ? easeFadeEnd(b) : b;
+}
+
+/** The opacity at the opening view (tile size S) for fade factors `off` and `full` (shares of S): `outlineFade(1, off, full, ...)`. */
+export function outlineOpacityAtOpening(
+  off = DEFAULT_OUTLINE_SETTINGS.fadeOffFactor,
+  full = DEFAULT_OUTLINE_SETTINGS.fadeFullFactor,
+  exponent = DEFAULT_OUTLINE_SETTINGS.fadeExponent,
+  easedEnd = DEFAULT_OUTLINE_SETTINGS.fadeEasedEnd,
+): number {
+  return outlineFade(1, off, full, exponent, easedEnd);
+}
+
+/** The curve presets of the story: the exponent p of `1 - t^p`. */
+export const OUTLINE_FADE_PRESETS = { linear: 1, square: 2, cube: 3 } as const;
 
 /** The opening tile size `outlineStroke` assumes when it is not given one: a 900 px high window's, about 60 px. */
 export const DEFAULT_OPENING_TILE_PX = 60;

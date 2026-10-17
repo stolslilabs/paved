@@ -25,10 +25,16 @@ export interface OutlinesBoardProps {
   /** Outlines on software WebGL: "auto" turns them off there; "on" and "off" force them whatever the detection says. */
   force?: "auto" | "on" | "off";
   /**
-   * The two fade candidates (OUT-FADE): "fade 1.3" fully on from 1.3 S, "fade 1.15" from 1.15 S, both off at 0.85 S. A
-   * preset sets the two factors below; "custom" leaves them to their controls.
+   * The fade's range (OUT-FADE2): "whole range" fully on at the closest zoom (30 S), off at 0.85 S; "fade 1.3" and
+   * "fade 1.15" (OUT-FADE's) fully on from 1.3 S or 1.15 S, also off at 0.85 S. A range sets the full factor below;
+   * "custom" leaves it to its control.
    */
-  fadePreset?: FadePreset;
+  fadeRange?: FadeRange;
+  /** The curve 1 - t^p: "linear" p = 1, "square" p = 2 (the default), "cube" p = 3; "custom" leaves p to its control. */
+  fadeCurve?: FadeCurve;
+  fadeExponent?: number;
+  /** Ease the end of the fade: the opacity reaches 0 with a zero slope. */
+  fadeEasedEnd?: boolean;
   fadeOffFactor?: number;
   fadeFullFactor?: number;
   widthVoxels?: number;
@@ -48,19 +54,27 @@ export interface OutlinesBoardProps {
   maxPixelRatio?: number | "auto";
 }
 
-export type FadePreset = "custom" | "fade 1.3" | "fade 1.15";
+export type FadeRange = "whole range" | "fade 1.3" | "fade 1.15" | "custom";
+export type FadeCurve = "linear" | "square" | "cube" | "custom";
 
-/** The fade candidates' factors (shares of the opening tile size S): off at 0.85, fully on at 1.3 or 1.15. */
-export const FADE_PRESETS = {
-  "fade 1.3": { fadeOffFactor: 0.85, fadeFullFactor: 1.3 },
-  "fade 1.15": { fadeOffFactor: 0.85, fadeFullFactor: 1.15 },
+/** The curves' exponents p of 1 - t^p (the renderer's `OUTLINE_FADE_PRESETS`, which its index does not export). */
+const FADE_CURVES = { linear: 1, square: 2, cube: 3 } as const;
+
+/** The ranges' full factors (shares of the opening tile size S); all are off at 0.85 S. */
+export const FADE_RANGES = {
+  "whole range": { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor },
+  "fade 1.3": { fadeFullFactor: 1.3 },
+  "fade 1.15": { fadeFullFactor: 1.15 },
 } as const;
 
 const { outlines: OUTLINES, camera: CAMERA } = DEFAULT_RENDERER_SETTINGS;
 
 /** The story's defaults: the renderer's. */
 export const SETTINGS_DEFAULTS = {
-  fadePreset: "custom" as FadePreset,
+  fadeRange: "whole range" as FadeRange,
+  fadeCurve: "square" as FadeCurve,
+  fadeExponent: OUTLINES.fadeExponent,
+  fadeEasedEnd: OUTLINES.fadeEasedEnd,
   force: OUTLINES.force,
   fadeOffFactor: OUTLINES.fadeOffFactor,
   fadeFullFactor: OUTLINES.fadeFullFactor,
@@ -126,13 +140,19 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
   const startedAt = useRef<number | null>(null);
   const [zoom, setZoom] = useState<Zoom | null>(null);
   const merged = { ...SETTINGS_DEFAULTS, ...rest };
-  const o = merged.fadePreset === "custom" ? merged : { ...merged, ...FADE_PRESETS[merged.fadePreset] };
+  const o = {
+    ...merged,
+    ...(merged.fadeRange === "custom" ? {} : FADE_RANGES[merged.fadeRange]),
+    ...(merged.fadeCurve === "custom" ? {} : { fadeExponent: FADE_CURVES[merged.fadeCurve] }),
+  };
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       outlines: {
         force: o.force,
         fadeOffFactor: o.fadeOffFactor,
         fadeFullFactor: o.fadeFullFactor,
+        fadeExponent: o.fadeExponent,
+        fadeEasedEnd: o.fadeEasedEnd,
         widthVoxels: o.widthVoxels,
         minWidthDevicePx: o.minWidthDevicePx,
         maxWidthPx: o.maxWidthPx,
@@ -144,7 +164,7 @@ export function OutlinesBoard({ tour, view, distance, redraw = false, readout = 
       multisampling: o.multisampling,
       maxPixelRatio: o.maxPixelRatio,
     }),
-    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.segmentOffDevicePx, o.segmentFullDevicePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
+    [o.force, o.fadeOffFactor, o.fadeFullFactor, o.fadeExponent, o.fadeEasedEnd, o.widthVoxels, o.minWidthDevicePx, o.maxWidthPx, o.color, o.segmentOffDevicePx, o.segmentFullDevicePx, o.minDistance, o.maxDistance, o.capZoomOut, o.zoomOutCapDistance, o.multisampling, o.maxPixelRatio],
   );
 
   // The readout follows the camera, whoever moves it (the tour, a drag, the wheel).

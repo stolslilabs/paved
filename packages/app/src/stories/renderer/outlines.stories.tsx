@@ -4,9 +4,9 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
  * The voxel tiles' outlines on the recorded 72-tile board (R-OUT, R-VIS): dark grey antialiased strokes whose width is a
- * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out as the camera zooms out (a smoothstep
- * of the log of the tile size: off at 0.85 of the tile size the board opens at on this screen, fully on from 1.15 of it, or
- * 1.3 with the other preset), and never flickering while it pans. The
+ * share of a voxel (a hairline over most of the zoom range, capped zoomed in), fading out over the whole zoom range
+ * (OUT-FADE2): fully on at the closest zoom, off at 0.85 of the tile size the board opens at on this screen, as 1 - t^p
+ * with t on the log of the tile size (curve presets linear, square, cube; p on a control), and never flickering while it pans. The
  * tour goes through the views where the old 1-pixel lines failed; stop it to hold one view and set its distance. Under
  * reduced motion nothing moves by itself.
  */
@@ -29,22 +29,38 @@ const meta = {
       description: "Outlines on software WebGL (SwiftShader, llvmpipe...): auto turns them off there; on and off force them whatever the detection says. The console logs the path taken",
       table: { category: "Outlines" },
     },
-    fadePreset: {
-      // Keys without a dot, so a URL can name one (`args=fadePreset:fade_1_3`); `mapping` gives the board the preset.
-      control: { type: "inline-radio", labels: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" } },
-      options: ["custom", "fade_1_3", "fade_1_15"],
-      mapping: { custom: "custom", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15" },
-      description: "The two fade candidates, both off at 0.85 of the opening tile size S and fully on from 1.3 S or 1.15 S (a smoothstep of log(tile px) between; the opacity at S is 0.33 and 0.56; the default, custom, is 1.15). Custom: the two factor controls below",
+    fadeRange: {
+      // Keys without a dot, so a URL can name one (`args=fadeRange:fade_1_3`); `mapping` gives the board the range.
+      control: { type: "inline-radio", labels: { whole_range: "whole range", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15", custom: "custom" } },
+      options: ["whole_range", "fade_1_3", "fade_1_15", "custom"],
+      mapping: { whole_range: "whole range", fade_1_3: "fade 1.3", fade_1_15: "fade 1.15", custom: "custom" },
+      description: "Where the outlines are fully on: whole range (the default) is the closest zoom, 30 x the opening tile size S; fade 1.3 and fade 1.15 are OUT-FADE's 1.3 S and 1.15 S. All are off at 0.85 S. Custom: the full factor control below",
+      table: { category: "Outlines" },
+    },
+    fadeCurve: {
+      control: { type: "inline-radio", labels: { linear: "linear", square: "square", cube: "cube", custom: "custom" } },
+      options: ["linear", "square", "cube", "custom"],
+      description: "The fade is 1 - t^p, t running 0 to 1 on log(tile px) from fully on to off. linear p = 1; square p = 2 (the default): gentle at first, faster near the threshold; cube p = 3. Custom: the exponent control below",
+      table: { category: "Outlines" },
+    },
+    fadeExponent: {
+      control: { type: "range", min: 1, max: 4, step: 0.05 },
+      description: "The exponent p of 1 - t^p, 1 to 4, used with the custom curve",
+      table: { category: "Outlines" },
+    },
+    fadeEasedEnd: {
+      control: "boolean",
+      description: "Ease the end of the fade: the opacity reaches 0 at the threshold with a zero slope (no kink). Off by default: the owner asked for an acceleration into the threshold",
       table: { category: "Outlines" },
     },
     fadeFullFactor: {
-      control: { type: "range", min: 0.5, max: 2, step: 0.01 },
-      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\"); with a preset, the preset's",
+      control: { type: "range", min: 0.5, max: 30, step: 0.01 },
+      description: "Outlines fully on from this share of the tile size the board opens at on this screen (the readout's \"opens at\"; 30 is the closest zoom); with a range preset, the preset's",
       table: { category: "Outlines" },
     },
     fadeOffFactor: {
       control: { type: "range", min: 0.3, max: 2, step: 0.01 },
-      description: "Outlines off at or below this share of the opening tile size; a smoothstep of log(tile px) up to the fully-on share (with a preset, the preset's)",
+      description: "Outlines off at or below this share of the opening tile size; 1 - t^p of log(tile px) up to the fully-on share",
       table: { category: "Outlines" },
     },
     widthVoxels: {
