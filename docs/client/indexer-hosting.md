@@ -297,7 +297,7 @@ build.
 Dated 2026-10-10. Decisions D-16 and P-41. This is the owner's exact procedure to serve the Sepolia indexer's API
 from this VPS. **Nothing here is done or running**: the agents prepared it and ran no root act. It replaces, for this VPS,
 the nginx block of section 3 and the unit of section 6 (the files below are the unit and the proxy of record). Files:
-`deploy/indexer/` (`paved-indexer.service`, `Caddyfile`, `watch.sh`, `paved-indexer-watch.{service,timer}`)..
+`deploy/indexer/` (`paved-indexer.service`, `Caddyfile`, `watch.sh`, `paved-indexer-watch.{service,timer}`).
 
 **The indexer unit starts only once `contracts/deployments/sepolia.json` is merged** (CORE, task S-1): the indexer reads its
 addresses and `deployed_block`, and the client build reads the same file. Everything before step 8 can be done earlier.
@@ -787,6 +787,10 @@ systemctl reload caddy          # with `admin off`: restart instead, at a moment
 rm -rf /opt/paved-indexer /var/lib/paved-indexer
 rm -f /usr/local/bin/bun                                  # installed in step 2; skip if something else on this VPS uses it
 userdel paved-indexer
+# Leftovers of the retired web hosting (root's). Root block 11 (2026-10-17) retired the deploy user, its two scripts and the web roots;
+# a VPS where block 11 did not run, or only partly, may still have them. Remove what is left, by these exact names:
+# userdel -r paved-deploy ; rm -f /usr/local/lib/paved/publish.sh /usr/local/lib/paved/switch.sh ; rmdir /usr/local/lib/paved
+# rm -rf /var/www/paved.retired-20261017-135147 /var/www/paved-storybook.retired-20261017-135147    # the roots block 11 moved aside
 # ufw: delete a rule only if step 6 printed "Rule added" for it ("Skipping adding existing rule" means it was there before):
 # ufw delete allow 80/tcp ; ufw delete allow 443/tcp ; ufw delete deny 8787/tcp
 ```

@@ -175,8 +175,17 @@ The client and the indexer read the same file from the same commit, and the lead
 3. **Indexer** ("Release at F" in `indexer-hosting.md`): stop the service and the watch, release F's commit, `bun install --frozen-lockfile`,
    move the schema 6 database aside, `rebuild` in the foreground until `/v1/head` says `status ok`, `state ok` and `behind 0`, start
    the service and the watch. The single rebuild is this one, at schema 11 (it covers schemas 7 to 11: D-20, step E's 9, N1's 10, D-23b's 11).
-4. **Client:** the Vercel production deploy of `main` at the same commit, with the env above. Done only after step 3 is done: a client published first
-   would show "unavailable" for the leaderboard, the player pages and the quests.
+4. **Client:** the Vercel production deploy of `main` at the same commit, with the env above. Done only after step 3 is done: a client published
+   first would show "unavailable" for the leaderboard, the player pages and the quests. Every merge to `main` deploys production through
+   Vercel's Git integration, and step 1 merges F's `sepolia.json`, a client input, so step 4 is held like this:
+   1. **Before step 1** (the owner, in the dashboard): on the `paved` project, Settings, Environments, Production, Branch Tracking, turn off
+      "Auto-assign Custom Production Domains". Vercel then builds the production deployment of F's merge commit as staged, without moving
+      `paved.bal7hazar.com` (https://vercel.com/docs/deployments/environments, https://vercel.com/docs/deployments/promoting-a-deployment).
+      If the dashboard names the setting differently, the owner uses its name and tells the PM.
+   2. **After step 3** (a session allowed to run `vercel`, plain `vercel` from `PATH`): find the deployment of F's merge commit with
+      `vercel api /v6/deployments` filtered to the `paved` project, target `production`, that commit's SHA and state `READY` (never
+      `vercel ls`), then `vercel promote <deployment url>`.
+   3. **After the promote** (the owner): turn "Auto-assign Custom Production Domains" back on. Until then no merge to `main` reaches the domain.
 5. **Smoke** in a browser (below), against `https://paved.bal7hazar.com`.
 6. **Done** (below). Report to the PM with the commit, the deployment and the smoke result.
 
