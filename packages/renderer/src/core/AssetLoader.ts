@@ -68,6 +68,26 @@ export function loadManifest(basePath: string): Promise<AssetManifest | null> {
   return manifest;
 }
 
+/**
+ * Hands the loader the manifest's body at `basePath` that the host has already asked for (LOAD-FAST): the app starts that
+ * request with the board's code, before any scene mounts, so `loadManifest` does not wait for its own round trip. A body
+ * that is not a manifest (null: a 404) means none; a failed request falls back to the loader's own, with its retries.
+ * Ignored once `basePath`'s manifest is asked for.
+ */
+export function provideManifest(basePath: string, body: Promise<unknown>): void {
+  if (manifests.has(basePath)) return;
+  const start = traceStart();
+  const manifest = body.then(
+    (value) => (isManifest(value) ? value : null),
+    () => fetchManifest(basePath),
+  );
+  void manifest.then(() => traceMeasure("manifest", start), () => {});
+  manifests.set(basePath, manifest);
+  manifest.catch(() => {
+    if (manifests.get(basePath) === manifest) manifests.delete(basePath);
+  });
+}
+
 async function fetchManifest(basePath: string): Promise<AssetManifest | null> {
   const start = traceStart();
   try {

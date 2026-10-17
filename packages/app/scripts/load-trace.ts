@@ -12,7 +12,8 @@
  * `desktop`: 1440 x 900 at DPR 2, no throttling. `phone`: 360 x 780 at DPR 3, the CPU slowed 4x and the network shaped to
  * 9 Mbit/s down, 170 ms round trip (an approximation of a phone on 4G: the CPU and the GPU are still this machine's).
  * Warm: the page is loaded once in the same browser context (same HTTP cache), then measured on a second navigation.
- * Needs `bunx playwright-core install chromium-headless-shell` once.
+ * A local HTTPS server with a self-signed certificate (to get HTTP/2) is accepted. Needs `bunx playwright-core install
+ * chromium-headless-shell` once.
  */
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -190,7 +191,7 @@ const runs: Array<ReturnType<typeof summarise> & { capture: Capture }> = [];
 for (let run = 0; run < Number(args.runs); run++) {
   const browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
   try {
-    const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr });
+    const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr, ignoreHTTPSErrors: true });
     await context.addInitScript(() => {
       (globalThis as { __PAVED_LOAD_TRACE__?: boolean }).__PAVED_LOAD_TRACE__ = true;
       const tasks: PerformanceEntry[] = [];

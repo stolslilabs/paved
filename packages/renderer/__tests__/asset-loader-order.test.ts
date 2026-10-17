@@ -12,7 +12,7 @@ vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
   },
 }));
 
-import { AssetLoader, MANIFEST_RETRY_MS, loadManifest, modelPath } from "../src/core/AssetLoader";
+import { AssetLoader, MANIFEST_RETRY_MS, loadManifest, modelPath, provideManifest } from "../src/core/AssetLoader";
 import { afterFirstFrame, firstModels } from "../src/core/load-order";
 import { GameScene } from "../src/core/GameScene";
 import type { RenderSurfaceAdapter, TileRenderData } from "../src/core/types";
@@ -101,6 +101,26 @@ describe("the manifest: a plan key to its content-hashed model", () => {
     await assets.preloadModels();
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(requested()).toContain(`${at}/models/ccccccccc.2bb7ca783c.glb`);
+  });
+
+  it("reads a manifest the host already asked for, with no request of its own, and falls back to its own on a failure (LOAD-FAST)", async () => {
+    const given = nextBase();
+    provideManifest(given, Promise.resolve({ models: { ccccccccc: "models/ccccccccc.2bb7ca783c.glb" } }));
+    // Too late: the base path's manifest is already in.
+    provideManifest(given, Promise.resolve({ models: {} }));
+    await new AssetLoader(given).preloadModels();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(requested()).toContain(`${given}/models/ccccccccc.2bb7ca783c.glb`);
+
+    const none = nextBase();
+    provideManifest(none, Promise.resolve(null));
+    expect(await loadManifest(none)).toBeNull();
+
+    const failed = nextBase();
+    manifestBody = { models: { ccccccccc: "models/ccccccccc.2bb7ca783c.glb" } };
+    provideManifest(failed, Promise.reject(new TypeError("network down")));
+    expect(await loadManifest(failed)).toEqual(manifestBody);
+    expect(fetch).toHaveBeenCalledWith(`${failed}/manifest.json`, { cache: "no-cache" });
   });
 
   it("rejects when the manifest still cannot be reached after its retries (the app shows its plan view), and asks again later", async () => {

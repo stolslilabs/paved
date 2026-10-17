@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TileArt } from "../components/elements/tile-chip";
+import { manifestBody, resetManifestBodies } from "./renderer-manifest";
 
 /** The side, in pixels, of the tile copy the chips draw: the one the renderer draws (`TILE_IMAGE_SIZE`), so both share one cache entry. */
 const CHIP_IMAGE_SIZE = "256";
@@ -20,18 +21,9 @@ const isTiles = (value: unknown): value is Tiles =>
   typeof value === "object" && value !== null && !Array.isArray(value) && Object.values(value).every((v) => typeof v === "string");
 
 async function read(artBase: string): Promise<Tiles | null> {
-  try {
-    const url = new URL(`${artBase}/manifest.json`, (globalThis as { location?: { href: string } }).location?.href).href;
-    // Revalidated, as the renderer's loader does: the manifest is the one file whose name does not change with its content.
-    const response = await fetch(url, { cache: "no-cache" });
-    if (!response.ok) return response.status === 404 ? null : Promise.reject(new Error(String(response.status)));
-    const tiles = ((await response.json()) as { tiles?: Record<string, unknown> } | null)?.tiles?.[CHIP_IMAGE_SIZE];
-    return isTiles(tiles) ? tiles : null;
-  } catch (error) {
-    // A body that is not JSON is no manifest (a dev server's index.html for an unknown path); a network error is retried later.
-    if (error instanceof SyntaxError) return null;
-    throw error;
-  }
+  // The one manifest request of the page, shared with the board's renderer (`renderer-manifest.ts`).
+  const tiles = ((await manifestBody(artBase)) as { tiles?: Record<string, unknown> } | null)?.tiles?.[CHIP_IMAGE_SIZE];
+  return isTiles(tiles) ? tiles : null;
 }
 
 /** The 256 px copies the manifest at `artBase` lists, read once; a failed read resolves to null and is not kept. */
@@ -58,6 +50,7 @@ export function loadTileArt(artBase: string): Promise<Tiles | null> {
 export function resetTileArt(): void {
   reads.clear();
   answers.clear();
+  resetManifestBodies();
 }
 
 /**

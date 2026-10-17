@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { RENDERER_ASSETS, manifestBody } from "../data/renderer-manifest";
 
 /** A page's module: what `lazy` and the prefetch both call. The browser fetches a module once, so calling it twice is free. */
 export type PageLoader = () => Promise<{ default: ComponentType }>;
@@ -8,7 +9,11 @@ export type PageLoader = () => Promise<{ default: ComponentType }>;
  * `prefetch.ts`), so none of it is in the first bundle. Paths that share a scene share the loader. A wiring PR changes the
  * module's body, not this table.
  */
-const board: PageLoader = () => import("./pages/board");
+// The board's manifest is asked for with the board's code, so the scene finds it in (`renderer-manifest.ts`, LOAD-FAST).
+const board: PageLoader = () => {
+  void manifestBody(RENDERER_ASSETS).catch(() => {});
+  return import("./pages/board");
+};
 const over: PageLoader = () => import("./pages/over");
 
 export const PAGE_LOADERS: Record<string, PageLoader> = {
