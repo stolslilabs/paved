@@ -78,7 +78,7 @@ export {
   slotDashCount,
 } from "./core/placement";
 export type { PlacementPulse, PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
-export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonLineCoverage, setNeonFrame } from "./core/neon";
+export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonFrameMargin, neonLineCoverage, setNeonFrame } from "./core/neon";
 export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";

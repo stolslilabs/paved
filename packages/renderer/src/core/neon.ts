@@ -18,18 +18,25 @@ import * as THREE from "three";
  */
 
 /** GLSL: the share of a pixel a line `width` wide covers at distance `dist` from its centre, both in the units of `px` (one device px). */
+/*
+ * In the shader:
+ * - A soft halo around a line: 1 on it, falling to about 0.02 at 'width' (a gaussian).
+ * - The distance along a side from -s to s (the coordinate u) to its dashes: n periods, a gap 'g' long centred in each. The
+ *   side's ends are always dashed, so a frame's corners are whole L shapes; beyond an end, the distance past it.
+ * - A gap's length on a side from -s to s cut in n periods: 'share' of a period as the eye sees it, the round caps of radius
+ *   r eating into it at each end; never the whole period.
+ * - The distance from q to a square frame of half side s, its sides cut in n dashes with gaps g long (0: solid): the
+ *   distance to the nearest rounded segment, so a dash ends in a round cap and its glow wraps the end.
+ */
 export const NEON_LINE_GLSL = /* glsl */ `
 float neonLine( float dist, float width, float px, float minPx ) {
   float w = max( width / max( px, 1e-6 ), minPx );
   return clamp( w * 0.5 + 0.5 - dist / max( px, 1e-6 ), 0.0, 1.0 );
 }
-// A soft halo around a line: 1 on it, falling to about 0.02 at 'width' (a gaussian).
 float neonGlow( float dist, float width ) {
   float x = dist / max( width, 1e-6 );
   return exp( -4.0 * x * x );
 }
-// The distance along a side from -s to s (the coordinate u) to its dashes: n periods, a gap 'g' long centred in each. The
-// side's ends are always dashed, so a frame's corners are whole L shapes; beyond an end, the distance past it.
 float neonDashAlong( float u, float s, float n, float g ) {
   float period = 2.0 * s / n;
   float uc = clamp( u, -s, s );
@@ -37,14 +44,10 @@ float neonDashAlong( float u, float s, float n, float g ) {
   float c = -s + ( k + 0.5 ) * period;
   return max( max( 0.5 * g - abs( uc - c ), 0.0 ), abs( u ) - s );
 }
-// A gap's length on a side from -s to s cut in n periods: 'share' of a period as the eye sees it, the round caps of radius
-// r eating into it at each end; never the whole period.
 float neonGap( float share, float s, float n, float r ) {
   float period = 2.0 * s / n;
   return min( share * period + 2.0 * r, 0.95 * period );
 }
-// The distance from q to a square frame of half side s, its sides cut in n dashes with gaps g long (0: solid): the
-// distance to the nearest rounded segment, so a dash ends in a round cap and its glow wraps the end.
 float neonFrameDistance( vec2 q, float s, float n, float g ) {
   float alongY = neonDashAlong( q.y, s, n, g );
   float alongX = neonDashAlong( q.x, s, n, g );
@@ -53,15 +56,28 @@ float neonFrameDistance( vec2 q, float s, float n, float g ) {
 }
 `;
 
+/*
+ * In the shader:
+ * - The quad lies flat, centred on its cell: its x and z in cell units (the cell from -0.5 to 0.5), its corners the cell
+ *   and 'margin' around it, for the clip's antialiasing at the zoom (`neonFrameMargin`).
+ */
 const frameVertex = /* glsl */ `
+uniform float margin;
 varying vec2 vLocal;
 void main() {
-  // The quad lies flat, centred on its cell: its x and z in cell units (the cell from -0.5 to 0.5).
-  vLocal = position.xz;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+  vec2 xz = sign( position.xz ) * ( 0.5 + margin );
+  vLocal = xz;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4( xz.x, position.y, xz.y, 1.0 );
 }
 `;
 
+/*
+ * In the shader:
+ * - A device px in cell units: the larger of the two axes' gradients (isotropic, unlike fwidth's sum).
+ * - The cell, antialiased: everything the frame draws is clipped to it.
+ * - The line inside the cell's edge: its half width and its antialiasing half pixel in from the edge.
+ * - The line's core whitens, as a neon tube does; the halo keeps the colour.
+ */
 const frameFragment = /* glsl */ `
 uniform vec3 color;
 uniform float opacity;
@@ -79,22 +95,18 @@ varying vec2 vLocal;
 ${NEON_LINE_GLSL}
 void main() {
   vec2 q = vLocal;
-  // A device px in cell units: the larger of the two axes' gradients (isotropic, unlike fwidth's sum).
   vec2 gx = vec2( dFdx( q.x ), dFdy( q.x ) );
   vec2 gy = vec2( dFdx( q.y ), dFdy( q.y ) );
   float px = max( max( length( gx ), length( gy ) ), 1e-6 );
-  // The cell, antialiased: everything the frame draws is clipped to it.
   vec2 a = abs( q ) - 0.5;
   float sdCell = length( max( a, 0.0 ) ) + min( max( a.x, a.y ), 0.0 );
   float cell = clamp( 0.5 - sdCell / px, 0.0, 1.0 );
-  // The line inside the cell's edge: its half width and its antialiasing half pixel in from the edge.
   float r = 0.5 * max( lineWidth, minPx * px );
   float s = max( 0.5 - inset - r - 0.5 * px, 0.0 );
   float d2 = neonFrameDistance( q, s, 2.0, dashed * neonGap( gap, s, 2.0, r ) );
   float d3 = neonFrameDistance( q, s, 3.0, dashed * neonGap( gap, s, 3.0, r ) );
   float line = mix( neonLine( d2, lineWidth, px, minPx ), neonLine( d3, lineWidth, px, minPx ), dashBlend );
   float glow = mix( neonGlow( d2, glowWidth ), neonGlow( d3, glowWidth ), dashBlend );
-  // The line's core whitens, as a neon tube does; the halo keeps the colour.
   vec3 core = mix( color, vec3( 1.0 ), 0.35 );
   vec3 light = ( core * line * intensity + color * glow * glowIntensity ) * cell * opacity;
   float fill = cell * fillOpacity;
@@ -117,6 +129,7 @@ export type NeonFrameMaterial = THREE.ShaderMaterial & {
     dashed: THREE.IUniform<number>;
     dashBlend: THREE.IUniform<number>;
     gap: THREE.IUniform<number>;
+    margin: THREE.IUniform<number>;
   };
 };
 
@@ -146,17 +159,30 @@ export interface NeonFrame {
   dashBlend: number;
   /** A gap's share of a dash period, as the eye sees it (the round caps do not shorten it). */
   gap: number;
+  /** The quad's margin around the cell, cell units (`neonFrameMargin` of the zoom). */
+  margin: number;
 }
 
 /**
- * The quad's margin around the cell, in cell units: the frame draws nothing beyond the cell, but the pixels on its edge
- * need a fragment for the clip's antialiasing (half a device px is under 0.01 of a cell at the farthest zoom).
+ * The quad's least margin around the cell, in cell units: the frame draws nothing beyond the cell, but the pixels on its
+ * edge need a fragment for the clip's antialiasing. Half a device px is about 0.006 of a cell at the farthest zoom on a
+ * desktop or a portrait phone (a tile 42 to 48 CSS px), 0.013 on a landscape phone (19 CSS px); the margin grows with the
+ * device px beyond that (`neonFrameMargin`).
  */
 export const NEON_FRAME_MARGIN = 0.02;
 
 /**
+ * The quad's margin at a zoom: at least `NEON_FRAME_MARGIN`, and at least one device px (twice the half px the clip's
+ * antialiasing reaches out, for the perspective across the board) for a tile `tilePx` CSS px wide at `pixelRatio`.
+ */
+export function neonFrameMargin(tilePx: number, pixelRatio: number): number {
+  const devicePx = tilePx * pixelRatio;
+  return devicePx > 0 && Number.isFinite(devicePx) ? Math.max(NEON_FRAME_MARGIN, 1 / devicePx) : NEON_FRAME_MARGIN;
+}
+
+/**
  * The quad a frame is drawn on: a cell's square and `margin` cell units around it, flat (x, z), in cell units. A mesh
- * scales it to the cell's size (`TILE_SIZE`).
+ * scales it to the cell's size (`TILE_SIZE`). The vertex shader moves its corners to the material's `margin`.
  */
 export function createNeonFrameGeometry(margin = NEON_FRAME_MARGIN): THREE.BufferGeometry {
   const side = 1 + 2 * Math.max(0, margin);
@@ -179,6 +205,7 @@ export function createNeonFrameMaterial(frame?: Partial<NeonFrame>): NeonFrameMa
       dashed: { value: 0 },
       dashBlend: { value: 0 },
       gap: { value: 0.3 },
+      margin: { value: NEON_FRAME_MARGIN },
     },
     vertexShader: frameVertex,
     fragmentShader: frameFragment,
@@ -208,6 +235,7 @@ export function setNeonFrame(material: NeonFrameMaterial, frame: Partial<NeonFra
   if (frame.dashed !== undefined) u.dashed.value = frame.dashed ? 1 : 0;
   if (frame.dashBlend !== undefined) u.dashBlend.value = frame.dashBlend;
   if (frame.gap !== undefined) u.gap.value = frame.gap;
+  if (frame.margin !== undefined) u.margin.value = frame.margin;
 }
 
 /**

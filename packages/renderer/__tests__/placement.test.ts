@@ -20,7 +20,7 @@ import {
   slotDashCount,
   veilOf,
 } from "../src/core/placement";
-import { NEON_FRAME_MARGIN, neonFrameAt, neonLineCoverage } from "../src/core/neon";
+import { NEON_FRAME_MARGIN, neonFrameAt, neonFrameMargin, neonLineCoverage } from "../src/core/neon";
 import { DEFAULT_OUTLINE_SETTINGS, outlineFade, createOutline, createOutlineMaterial, isOutline } from "../src/core/outlines";
 import { buildEdgesGeometry } from "../src/core/edges";
 import { resolveRendererSettings } from "../src/core/settings";
@@ -251,8 +251,27 @@ describe("the slots' neon (SLOTS2)", () => {
     // The line itself is fully drawn inside the cell, its core one line width in.
     const core = neonFrameAt(0.5 - 0.5 * px - 0.5 * Math.max(slots.width, px), 0, frame(false), px);
     expect(core.line).toBe(1);
-    // The quad's margin, for the clip's antialiasing, is at least half a device px at the farthest zoom (48 CSS px a tile, DPR 1).
-    expect(NEON_FRAME_MARGIN).toBeGreaterThanOrEqual(0.5 / 48);
+    // The quad's margin, for the clip's antialiasing, covers at least half a device px (one, for the perspective) at every
+    // zoom: the farthest on a desktop or a portrait phone (42 to 48 CSS px a tile), a landscape phone (19 CSS px), and a
+    // short window at DPR 1 (under 20), where the fixed 0.02 alone would not.
+    for (const [tilePx, ratio] of [[48.25, 1.75], [42.9, 1], [41.8, 2], [19.3, 2], [26.8, 1], [12, 1], [5, 1]] as const) {
+      const margin = neonFrameMargin(tilePx, ratio);
+      expect(margin).toBeGreaterThanOrEqual(NEON_FRAME_MARGIN);
+      expect(margin).toBeGreaterThanOrEqual(1 / (tilePx * ratio));
+    }
+    expect(neonFrameMargin(12, 1)).toBeGreaterThan(NEON_FRAME_MARGIN);
+    expect(neonFrameMargin(Number.NaN, 1)).toBe(NEON_FRAME_MARGIN);
+    // Through the renderer: the slots' and the placed border's margin follow the zoom.
+    const placement = new PlacementRenderer();
+    placement.setSlots([{ x: 1, y: 0 }]);
+    placement.dressGhost(new THREE.Group(), null, { x: 2, y: 0 }, true, true, 0);
+    placement.setZoom(12, 54, 1);
+    const slotMaterial = (placement.group.children[0]!.children[0] as THREE.Mesh).material as THREE.ShaderMaterial;
+    expect(slotMaterial.uniforms.margin.value).toBeCloseTo(1 / 12, 9);
+    expect((placement as any).ghostBorder.uniforms.margin.value).toBeCloseTo(1 / 12, 9);
+    placement.setZoom(60, 54, 2);
+    expect(slotMaterial.uniforms.margin.value).toBe(NEON_FRAME_MARGIN);
+    placement.dispose();
   });
 
   it("draws round-capped dashes with a glow that wraps their ends: no glow cut square at a gap", () => {
@@ -387,6 +406,18 @@ describe("the veil (SLOTS2)", () => {
       for (const k of ["r", "g", "b"] as const) expect(veil().color[k]).toBeCloseTo(want[k], 6);
       expect(veil().opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.veil.opacity, 9);
     }
+    // Green: the confirm's veil, once its colour has turned (the first third of confirmMs), at 0.14 times the fade.
+    tiles.setHover(null);
+    tiles.setConfirmed({ ...ghostAt(0, 1), key: 3 });
+    tiles.update(t0 + motion.confirmMs / 3);
+    const confirm = tiles.getGroup().children[3]!.children.find((c) => c.children[0]?.userData.confirm)!;
+    const veils: THREE.MeshBasicMaterial[] = [];
+    confirm.traverse((o) => o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial && veils.push(o.material));
+    const green = veils[0]!;
+    const want = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.green);
+    for (const k of ["r", "g", "b"] as const) expect(green.color[k]).toBeCloseTo(want[k], 6);
+    const { opacity } = confirmProgress(motion.confirmMs / 3, motion, false);
+    expect(green.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.veil.opacity * opacity, 9);
     vi.restoreAllMocks();
     tiles.dispose();
   });

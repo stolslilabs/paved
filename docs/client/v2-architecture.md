@@ -2198,10 +2198,13 @@ its own). What changed over the text above, which it supersedes where they diffe
    neighbour (two lit cells side by side show two borders). The dashes are capsules: the frame shader computes the
    distance to the nearest rounded segment (`neonFrameDistance`), so a dash ends in a round cap and its glow, a
    distance-field gaussian, wraps the end; the gap is lengthened by the caps so the visible gap stays `gap` of a period;
-   the corners stay whole L shapes. The frame's quad is the cell plus `NEON_FRAME_MARGIN` (0.02) for the clip's
-   antialiasing; the floor `slots.minWidthDevicePx` (1) is the slots' own now.
+   the corners stay whole L shapes. The frame's quad is the cell plus a margin for the clip's antialiasing,
+   `neonFrameMargin`: `NEON_FRAME_MARGIN` (0.02) or one device px, whichever is larger, set per zoom (the vertex shader
+   places the corners); the floor `slots.minWidthDevicePx` (1) is the slots' own now.
 4. **The veil** is the state's own colour, the neon's (`veil.whiten` 0, `opacity` 0.14), yellow, red and green alike;
-   the plan view's veil and confirm flash likewise (`bg-primary/15`, `bg-ember-500/15`, `bg-meadow-400/15`).
+   the plan view's veil and confirm flash likewise, on the tokens the renderer's colours are pinned to, at the same
+   0.14 and no UI token (`bg-gold-300/14`, `bg-ember-500/14`, `bg-meadow-400/14`; a test reads `theme.css` and checks
+   their hex against `DEFAULT_PLACEMENT_SETTINGS.colors`).
 5. **The pulse travels around the tile.** `aura.pulse`: `"rotating"` (the default, a wave of `arcs` (1) whole turns
    round the cell, the angle around its centre, the phase over `periodMs`), `"rotating-noise"` (the same times an
    interference of three sines of whole turns and of whole loops over 30 periods, `noise` 0.6: it does not jump and does
@@ -2270,6 +2273,19 @@ branch; 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on the Mac's
 `p4-veil-yellow`, `-red` (reduced motion) and `-green` (about 150 ms into the confirm), `p5-pulse-a/b/c` (450 ms apart),
 `p5-pulse-noise-a/b/c` (after only), `p5-reduced`, and `p6-board-placing`, `-idle`, `-placed-legal`, `-placed-illegal`
 (Scenes/Board; main had none of the last three, so its before is PendingMove, SlotChosen and RefusedMove, without slots).
+
+**Fix loop 1 (review t-0510).** Measured on the Mac's GPU (headless), the story at the camera's farthest distance (300):
+the smallest tile is 48.3 CSS px on a 1440 x 900 desktop, 42.9 at 1280 x 800, 41.8 on a 360 x 780 phone; a landscape
+phone (780 x 360) goes down to **19.3** and a 1280 x 500 window to 26.8 (the tile size follows the viewport's height).
+Half a device px is then 0.006 to 0.013 of a cell at the renderer's pixel ratios (1.75 desktop, 2 phone), and 0.019 at
+DPR 1 in a 500 px high window, at the fixed margin's 0.02: hence the margin now grows with the device px
+(`neonFrameMargin`, tested from 48 down to 5 CSS px); `slots2-p3-neon-far-after-780x360.webp` shows the slots clean at
+19 CSS px. At the far limit the grid's ring-3 hairlines stay discrete lines 42 CSS px apart, no wash
+(`slots2-p2-grid-far-<before|after>-<1280|360>.webp`): `grid.farFade` stays off. On a phone the renderer's pixel ratio
+is capped at 2, so the hairline is 0.5 CSS px, not 0.33; it stays visible in every 360 px capture: no change. The
+plan view's veil is on the renderer's pinned tokens at 0.14 (point 4 above). The shaders' comments moved out of their
+GLSL strings into the code's comments (the strings ship in the board's chunk): the chunk went from 276 bytes over its raw
+budget with the margin to 2,723 under.
 
 **Where SLOTS2 decides a gap** (the thread's, reversible): "ring N" is read as a line taking the farther ring of its
 cells (reverse: `max` again in `gridLineOpacityAt` and the shader, and the reach comes back one line); the grid does not

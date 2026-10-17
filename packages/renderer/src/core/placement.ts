@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { isOutline, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
-import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonLineCoverage, setNeonFrame, type NeonFrameMaterial } from "./neon";
+import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameMargin, neonLineCoverage, setNeonFrame, type NeonFrameMaterial } from "./neon";
 import { TILE_SIZE } from "./types";
 
 /**
@@ -312,12 +312,15 @@ export function colorProgress(elapsed: number, motion: PlacementSettings["motion
   return t * t * (3 - 2 * t);
 }
 
+/*
+ * In the shader:
+ * - Cell units: a tile's centre at whole numbers, the lines between cells at halves.
+ */
 const gridVertex = /* glsl */ `
 #include <fog_pars_vertex>
 varying vec2 vCell;
 void main() {
   vec4 world = modelMatrix * vec4( position, 1.0 );
-  // Cell units: a tile's centre at whole numbers, the lines between cells at halves.
   vCell = world.xz / ${TILE_SIZE.toFixed(1)};
   vec4 mvPosition = viewMatrix * world;
   gl_Position = projectionMatrix * mvPosition;
@@ -325,6 +328,17 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - The field's first cell (grid coordinates) and its size in cells.
+ * - A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
+ * - The vertical line between cells line - 1 and line, at y: the smaller of the two (the farther ring), linear between rows.
+ * - Distance to the nearest line on each axis, in cell units, and a device px in cell units across each line: the length
+ *   of the coordinate's screen gradient (fwidth's sum would widen a line seen at an angle).
+ * - A hairline: widthPx device px at every zoom, its coverage of the pixel (gridLineCoverage).
+ * - Each line's opacity: the farther ring of its two cells (the smaller opacity), linear along it from one row of cells
+ *   to the next (gridLineOpacityAt).
+ */
 const gridFragment = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
@@ -332,17 +346,14 @@ uniform vec3 color;
 uniform float opacity;
 uniform float widthPx;
 uniform sampler2D rings;
-// The field's first cell (grid coordinates) and its size in cells.
 uniform vec4 field;
 varying vec2 vCell;
 ${NEON_LINE_GLSL}
-// A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
 float cellAt( float x, float y ) {
   ivec2 size = ivec2( field.zw );
   ivec2 at = clamp( ivec2( x - field.x, y - field.y ), ivec2( 0 ), size - 1 );
   return texelFetch( rings, at, 0 ).r;
 }
-// The vertical line between cells line - 1 and line, at y: the smaller of the two (the farther ring), linear between rows.
 float verticalLine( float line, float y ) {
   float j = floor( y );
   float t = y - j;
@@ -355,15 +366,10 @@ float horizontalLine( float line, float x ) {
 }
 void main() {
   vec2 h = vCell + 0.5;
-  // Distance to the nearest line on each axis, in cell units, and a device px in cell units across each line: the length
-  // of the coordinate's screen gradient (fwidth's sum would widen a line seen at an angle).
   vec2 dist = 0.5 - abs( fract( h ) - 0.5 );
   vec2 px = max( vec2( length( vec2( dFdx( h.x ), dFdy( h.x ) ) ), length( vec2( dFdx( h.y ), dFdy( h.y ) ) ) ), vec2( 1e-6 ) );
-  // A hairline: widthPx device px at every zoom, its coverage of the pixel (gridLineCoverage).
   float lineX = neonLine( dist.x, 0.0, px.x, widthPx );
   float lineY = neonLine( dist.y, 0.0, px.y, widthPx );
-  // Each line's opacity: the farther ring of its two cells (the smaller opacity), linear along it from one row of cells
-  // to the next (gridLineOpacityAt).
   vec2 lines = floor( h + 0.5 );
   float a = max( verticalLine( lines.x, vCell.y ) * lineX, horizontalLine( lines.y, vCell.x ) * lineY ) * opacity;
   if ( a <= 0.0 ) discard;
@@ -372,6 +378,10 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - The geometry is centred on its cell: x and z place the point around it.
+ */
 const auraVertex = /* glsl */ `
 attribute float aV;
 attribute float aWall;
@@ -383,7 +393,6 @@ varying vec3 vViewPosition;
 void main() {
   vV = aV;
   vWall = aWall;
-  // The geometry is centred on its cell: x and z place the point around it.
   vAround = position.xz;
   vNormalView = normalize( normalMatrix * normal );
   vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
@@ -392,6 +401,17 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - `pulse`: 0 radial, 1 rotating, 2 rotating with the interference.
+ * - Bright at the cell's edge, falling to 0 at the far end: no hard edge to alias.
+ * - In step all around: rings running outward and up.
+ * - Around the cell, 0 to 1 (a whole number of arcs, so the seam at the turn does not show), the wave running round.
+ * - An interference: sines of whole numbers of turns around the cell and of loops over the noise's long period, so it
+ *   never jumps, at speeds that share no small period (it does not seem to repeat).
+ * - The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
+ *   which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
+ */
 const auraFragment = /* glsl */ `
 uniform vec3 color;
 uniform float opacity;
@@ -399,7 +419,6 @@ uniform float intensity;
 uniform float phase;
 uniform float waves;
 uniform float waveAmount;
-// 0: radial, 1: rotating, 2: rotating with the interference.
 uniform float pulse;
 uniform float arcs;
 uniform float noise;
@@ -411,19 +430,14 @@ varying vec3 vNormalView;
 varying vec3 vViewPosition;
 const float TAU = 6.28318530718;
 void main() {
-  // Bright at the cell's edge, falling to 0 at the far end: no hard edge to alias.
   float base = ( 1.0 - vV ) * ( 1.0 - vV );
   float wave;
   if ( pulse < 0.5 ) {
-    // In step all around: rings running outward and up.
     wave = 0.5 + 0.5 * sin( TAU * ( vV * waves - phase ) );
   } else {
-    // Around the cell, 0 to 1 (a whole number of arcs, so the seam at the turn does not show), the wave running round.
     float u = atan( vAround.y, vAround.x ) / TAU;
     wave = 0.5 + 0.5 * cos( TAU * ( u * arcs - phase ) );
     if ( pulse > 1.5 ) {
-      // An interference: sines of whole numbers of turns around the cell and of loops over the noise's long period, so it
-      // never jumps, at speeds that share no small period (it does not seem to repeat).
       float t = noisePhase;
       float n = 0.5 * sin( TAU * ( 3.0 * u + 7.0 * t ) + 1.3 )
         + 0.3 * sin( TAU * ( 5.0 * u - 11.0 * t ) + 4.1 )
@@ -432,8 +446,6 @@ void main() {
     }
   }
   float a = base * mix( 1.0, wave, waveAmount ) * intensity * opacity;
-  // The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
-  // which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
   float facing = dot( normalize( vNormalView ), normalize( -vViewPosition ) );
   a *= mix( 1.0, smoothstep( 0.15, 0.5, facing ), vWall );
   gl_FragColor = vec4( color * a, 0.0 );
@@ -878,6 +890,9 @@ export class PlacementRenderer {
     this.borderFade = known ? placementFade(tilePx, openingTilePx, this.outlines, this.settings.slots.fadeFloor) : 1;
     this.applyGrid();
     this.applySlots();
+    // The placed cell's border and the confirm's: their quad's margin follows the device px even when nothing moves.
+    const margin = neonFrameMargin(tilePx, pixelRatio);
+    for (const border of [this.ghostBorder, this.confirmBorder]) if (border) setNeonFrame(border, { margin });
   }
 
   private applyGrid(): void {
@@ -894,6 +909,7 @@ export class PlacementRenderer {
     const { slots, colors } = this.settings;
     const dashBlend = Number.isFinite(this.zoom.tilePx) ? slotDashBlend(this.zoom.tilePx, slots) : 0;
     const common = {
+      margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
       color: colors.yellow,
       opacity: this.borderFade,
       lineWidth: slots.width,
@@ -958,6 +974,7 @@ export class PlacementRenderer {
         glowWidth: slots.glow,
         minPx: slots.minWidthDevicePx,
         inset: slots.inset,
+        margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
         intensity: auraSettings.borderIntensity,
         glowIntensity: slots.glowIntensity,
         fillOpacity: 0,
