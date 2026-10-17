@@ -2071,21 +2071,24 @@ on screen; this branch's static Storybook, "Renderer/Placement" on the recorded 
 forced on, quality and pixel-ratio cap "auto" (Medium; 1.75 on the desktop since Q3-GPU, 2 on the phone-like profile);
 per frame the CPU time of every rAF callback of the frame plus the GPU time (`EXT_disjoint_timer_query_webgl2`) from its
 first callback to the next frame's; a fresh context per configuration, 120 warm-up and 600 measured frames; two rounds,
-the variants alternated and their order rotated; each run started at a 1-minute load under 6 (5.4 to 6.0). Re-run in fix
-loop 1, after the grid's per-line fade (`8249a74e`); the first run (`7fb6e04e`, loads 3.9 to 5.8) was within 0.2 ms of it
-in every cell.
+the variants alternated and their order rotated; each run started at a 1-minute load under 6 (2.3 to 5.2). **Re-run at
+the final head** (`b8db97e5`: main merged with FEATURE-HL #496, TILE-TURN #497 and ERR-UI #495 beside the placement layer,
+then fix loop 2, whose shader is unchanged). Main's own changes raised the "none" baseline by up to about 0.65 ms at the
+desktop's opening view over the fix-loop-1 run (`8249a74e`, loads 5.4 to 6.0: none 5.96, placed 6.43 there); the
+placement visuals' cost stays inside the noise.
 Desktop: 1440 x 900 at DPR 2 (2520 x 1575). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x (720 x 1560). Variants:
 "none" (no grid, no slot), "grid" (idle), "slots" (a tile in hand: every empty cell next to a tile, dashed and solid), "placed" (the slots, the
 placed tile's aura and veil, its waves moving). CPU + GPU per frame, ms, pooled p50 / p95:
 
 | Variant | Desktop, 240 | Desktop, 60 | Phone-like, 240 | Phone-like, 60 |
 |---|---|---|---|---|
-| none | 4.52 / 5.96 | 3.94 / 5.37 | 3.51 / 5.21 | 2.43 / 4.35 |
-| grid | 4.68 / 6.25 | 3.98 / 5.30 | 3.68 / 5.53 | 2.46 / 4.30 |
-| slots | 4.68 / 6.25 | 4.03 / 5.44 | 3.64 / 5.38 | 2.44 / 4.21 |
-| placed | 4.81 / 6.43 | 4.12 / 5.48 | 3.69 / 5.36 | 2.58 / 4.16 |
+| none | 5.01 / 6.61 | 4.00 / 5.43 | 3.94 / 5.52 | 2.40 / 4.12 |
+| grid | 5.07 / 6.70 | 4.00 / 5.32 | 4.02 / 5.70 | 2.34 / 3.94 |
+| slots | 5.13 / 6.79 | 4.04 / 5.37 | 4.03 / 5.64 | 2.41 / 3.84 |
+| placed | 5.16 / 6.81 | 2.99 / 5.19 | 4.13 / 5.69 | 2.40 / 3.73 |
 
-The placement visuals cost at most 0.5 ms of p95 (desktop, opening, the aura moving), inside the runs' noise elsewhere; every row is far
+The placement visuals cost at most 0.2 ms of p95 (desktop and phone-like, opening, the aura moving), inside the runs'
+noise elsewhere (worst round: 6.82 desktop, 5.75 phone-like); every row is far
 under the rules (12 ms desktop, 16.6 ms phone-like). This driver times the frame from the first callback to the next
 frame's and the story's board, so its absolute figures are not those of LIGHT-GPU's table (5.5): compare within this table.
 
@@ -2116,7 +2119,21 @@ still), at the auto tier (Medium) and at Low. Four measures:
   sub-pixel step 0.39 (desktop) and 0.46 (phone-like) on average, 7 and 11 times the slots' at Medium, up to 0.95; the zoom step up to
   2.5 levels; the pan residual 3.05 and 3.12 against Medium's 1.59. The method catches it; the default tiers show none.
   High is not a default tier (5.5); its bloom shimmers on the neon as it did on the gold rings.
-- 1-minute load 4.2 to 5.9 (every run started under 6).
+- 1-minute load 4.2 to 5.9 (every run started under 6). **Re-run at the final head** (`b8db97e5`, loads 2.7 to 5.3):
+  every figure above came out the same to the third decimal, the High control included: the measure is deterministic, and
+  main's merges (FEATURE-HL's highlight is off by default) changed nothing it sees.
+
+**With FEATURE-HL (#496): a placed tile on a lit board.** The six "… lit" stories of "Renderer/Lighting" (Cities, Roads,
+Forests, Largest city, Longest road, Largest forest) and the Mockup, on the Mac's GPU, 1280 x 800 at DPR 1.75, distance 90,
+the story's ghost placed on its slot (yellow, then red), the aura still (reduced motion), loads under 6:
+- The ghost cell's inner 60 % reads the same mean colour, to the hundredth of a level, in all six lit stories as in the
+  Mockup (yellow 147.58, 132.00, 98.90; red 148.94, 122.13, 97.46), while the whole frame's mean luma moves from 72.4
+  (Mockup) to between 45.4 (Largest city) and 83.2 (Forests) as the board is lit and dimmed: the label glow and dimming
+  never reach the placed tile (SLOTS-MERGE's `ghostMaterial`, which holds the feature highlight off), so the veil and aura
+  sit on the tile's own colour, with no double tint.
+- No z-fighting: still frames are pixel-identical, and 8 pans of 0.25 device px move the cell's mean luma by 0.05 (0.14 at
+  most) on average, the same in every story as in the Mockup.
+- Captures: `captures/slots-largest-city-lit-yellow.webp`, `-red` and `slots-cities-lit-yellow.webp`.
 
 **Captures** (`packages/app/src/stories/renderer/captures/slots-<state>-<width>.webp`): each story (idle grid, slots,
 placed yellow, placed red, confirm green caught about 150 ms into its fade, reduced motion) at 1280 x 800, DPR 2, and
