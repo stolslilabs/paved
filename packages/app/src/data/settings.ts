@@ -30,18 +30,20 @@ export interface DeviceSettings {
   quality: GraphicsQuality;
   /** The board's day and night cycle (DAYNIGHT, P-73): a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
-  /** Stored only: the app plays no audio yet. */
+  /** Stored only: the app plays no sound effects yet. */
   sound: boolean;
-  /** Stored only: the app plays no audio yet. */
+  /** The music (P-81): on by default. */
   music: boolean;
+  /** The music volume, 0 to 1. */
+  musicVolume: number;
   /** Show the tile on a slot before it is placed (the board's ghost). */
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
   placementHighlight: boolean;
 }
 
-/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), sound on, music off, preview and highlight on. */
-export const DEFAULT_SETTINGS: DeviceSettings = { quality: "auto", dayNight: true, sound: true, music: false, tilePreview: true, placementHighlight: true };
+/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), sound on, music on at 0.4 (the owner's, P-81), preview and highlight on. */
+export const DEFAULT_SETTINGS: DeviceSettings = { quality: "auto", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true };
 
 /** The stored text as settings: each field that is missing or of the wrong kind takes its default; text that is not an object, all defaults. */
 export function parseSettings(raw: string): DeviceSettings {
@@ -59,6 +61,7 @@ export function parseSettings(raw: string): DeviceSettings {
     dayNight: flag("dayNight"),
     sound: flag("sound"),
     music: flag("music"),
+    musicVolume: typeof o.musicVolume === "number" && Number.isFinite(o.musicVolume) ? Math.min(1, Math.max(0, o.musicVolume)) : DEFAULT_SETTINGS.musicVolume,
     tilePreview: flag("tilePreview"),
     placementHighlight: flag("placementHighlight"),
   };

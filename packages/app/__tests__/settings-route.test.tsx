@@ -61,12 +61,14 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 };
 
 describe("/settings", () => {
-  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, sound on, music off, preview and highlight on, skins shown", async () => {
+  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, sound on, music on at 40 %, preview and highlight on, skins shown", async () => {
     open();
     expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Music" })).not.toBeChecked();
+    // No control that does nothing: the Music row stays out of the live page until the player is wired (P-81).
+    expect(screen.queryByRole("switch", { name: "Music" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "Music volume" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Placement highlight/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Show players' skins/ })).toBeChecked();
@@ -78,10 +80,9 @@ describe("/settings", () => {
     await userEvent.click(await screen.findByRole("radio", { name: "Low" }));
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     await userEvent.click(screen.getByRole("switch", { name: "Sound" }));
-    await userEvent.click(screen.getByRole("switch", { name: "Music" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
-    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: true, tilePreview: false, placementHighlight: false });
+    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: true, musicVolume: 0.4, tilePreview: false, placementHighlight: false });
     expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
   });
 
@@ -104,8 +105,8 @@ describe("/settings", () => {
       throw new Error("blocked");
     });
     open();
-    await userEvent.click(await screen.findByRole("switch", { name: "Music" }));
-    expect(screen.getByRole("switch", { name: "Music" })).toBeChecked();
+    await userEvent.click(await screen.findByRole("switch", { name: "Sound" }));
+    expect(screen.getByRole("switch", { name: "Sound" })).not.toBeChecked();
     vi.restoreAllMocks();
   });
 
