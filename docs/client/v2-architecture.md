@@ -2164,8 +2164,8 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
   wait for the main thread), the meshopt decoder's workers, the 19 tile images, the outline edges, the labels, each scene's
   first frame (drawn inside `GameScene.start()`: compiles and uploads included), and every model in. It also reads the
   network log (protocol, bytes, cache), and can take a CPU profile (`--cpuprofile`).
-  - **Where:** the VPS, headless Chromium, **software WebGL (SwiftShader)**, outlines off by the software rule (5.3); the
-    load average was 6 to 33 on 8 cores, so a figure moves by about 300 ms run to run. Three runs per cell, the median.
+  - **Where:** the VPS, headless Chromium, **software WebGL (SwiftShader)**, outlines off by the software rule (5.3); on a
+    loaded, shared machine, so a figure moves by about 300 ms run to run. Three runs per cell, the median.
     The pages were served by a local Caddy (HTTP/2, TLS trusted by its key's hash, gzip and zstd for text, none for
     `.glb`, as the hosts do), either with `Cache-Control: no-cache` everywhere (what the Storybook host sends) or with
     `public, max-age=31536000, immutable` on the content-hashed paths (the list below). Builds: `before` is main plus the
@@ -2197,7 +2197,11 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
      every loader of the page (the board's and the hand's); each loader that stores it counts as a user, and the last to
      let go disposes it. 37 model requests become 19 (Storybook), 21 become 19 (app, cold), 38 become 19 (app, warm).
      The geometry is shared, as it already was among a scene's tiles; each scene still builds its own outline edges and
-     materials. Test: `asset-loader-order.test.ts` ("loads a model once for every loader of the page…", "lets a model go…").
+     materials. A model is parsed by the loader that asked first (its owner); disposed while that load is pending, the owner
+     abandons it, and the loaders waiting on it load their own (a Draco decode dies with its owner's workers). The last
+     user disposes the geometry, the materials and their palette maps. Tests: `asset-loader-order.test.ts` ("loads a model
+     once for every loader of the page…", "lets a model go…"), `asset-loader-draco.test.ts` ("never leaves a loader
+     hanging on a shared Draco load whose owner was disposed mid-decode").
   2. **One manifest request, started with the board's code** (`packages/app/src/data/renderer-manifest.ts`): the board's
      route loader (`routes/page-loaders.ts`) asks for `renderer-assets/manifest.json` when it imports the board's chunk;
      the board page hands that request to the renderer (`provideManifest`, before any scene mounts), and the tile chips
@@ -2241,7 +2245,10 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
 - **Targets.** On software WebGL, the first 3D tile (the hand's) comes at 0.93 s cold and 0.58 to 0.86 s warm on desktop:
   inside both targets. The board itself is drawn at 1.58 s cold (under 2 s) and 1.35 to 1.46 s warm (over 1 s): what is
   left is the compile stall, a GPU row. Phone profile: the first 3D tile at 3.2 s cold, 1.8 to 2.1 s warm; the board at 4.3
-  s cold, 3.0 to 3.1 s warm.
+  s cold, 3.0 to 3.1 s warm. **The Storybook board is not inside the targets yet on software WebGL**: warm, it is drawn at
+  1.89 s on desktop (over 1 s), and desktop cold did not improve with fix 3 (2.18 s before, 2.43 s after, inside the
+  noise): on the desktop profile the network is local, so the 15 MB were never its cost; the main thread is (Storybook's
+  own code, the two scenes' compiles). Fix 3's gain is on a real network: the phone profile, cold, 25.4 s to 10.5 s.
 - **The timeline** (ms from navigation, median of 3; "decode" from a model's download end to its load's end; "first frame"
   is that frame's own duration):
 
@@ -2277,11 +2284,20 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
   | phone, cold, nocache | before | 3860 | 19 / 14.96 MB | 304 | 328 / 1452 | 4941 | 657 | 302 / 331 | **18701** | **21280** | 23267 | 16.51 MB |
   | phone, cold, nocache | after | 3908 | 19 / 14.96 MB | 371 | 1096 / 6769 | 4900 | 612 | 326 / 318 | **19771** | **20841** | 22687 | 16.51 MB |
   | phone, cold, nocache | after, compressed models (scratch) | 4763 | 19 / 1.10 MB | 375 | 4326 / 9738 | 5714 | 1137 | 512 / 456 | **8544** | **12800** | 16172 | 2.63 MB |
-  | phone, warm, nocache | before | the run failed (a timeout under load); not re-run | | | | | | | | | | |
+  | phone, warm, nocache | before (re-run later, at a lower load) | 2054 | 19 / 5.7 kB | 182 | 2182 / 2201 | 2790 | 687 | 213 / 228 | **4036** | **6063** | 7445 | 4.1 kB |
   | phone, warm, nocache | after | 4260 | 19 / 5.7 kB | 508 | 5656 / 6974 | 4809 | 1229 | 548 / 655 | **12499** | **16515** | 13411 | 4.0 kB |
   | phone, warm, nocache | after, compressed models (scratch) | 3811 | 19 / 5.7 kB | 767 | 2814 / 2994 | 4329 | 1036 | 318 / 491 | **6462** | **8801** | 7023 | 4.0 kB |
   | phone, warm, immutable | before | 1846 | 19 / 5.7 kB | 287 | 2752 / 2847 | 2596 | 631 | 304 / 339 | **4346** | **6510** | 8508 | 1.1 kB |
   | phone, warm, immutable | after | 2255 | 19 / 5.7 kB | 376 | 3019 / 3114 | 2827 | 655 | 272 / 485 | **4409** | **7312** | 5391 | 1.4 kB |
+
+  **Reading the tables.** "Models: requests" counts the model requests the page's resource timing holds when the capture
+  ends (a frame after the first loader has every model it asked for): the second scene's requests after its first frame are
+  not always in yet, so a cell shows 19, 21, 37 or 38 for the same page (38: both scenes' cache hits, before fix 1). "All
+  models in" is that first loader's moment, usually the hand's, so it can come before "Board drawn". A row's cells are
+  medians taken one by one, not one run. The Storybook "phone, warm, nocache, after" row (16.5 s) is slower than its
+  "before" row, measured at another time under another load: the alternated comparison under fix 3 (6 runs each, both
+  builds in turn) puts warm before and after within the noise. The rows marked "scratch" are the copy described in fix 3,
+  before it was built.
 
 - **Caching rules** (for the hosts; this task changes no host's configuration). The Storybook host sends
   `Cache-Control: no-cache` for everything, so a warm visit revalidates every file. A content-hashed name changes with its

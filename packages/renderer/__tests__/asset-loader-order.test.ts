@@ -19,7 +19,7 @@ import type { RenderSurfaceAdapter, TileRenderData } from "../src/core/types";
 
 const box = () => {
   const scene = new THREE.Group();
-  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map: new THREE.Texture() })));
   return { scene };
 };
 const requested = () => net.loadAsync.mock.calls.map(([url]) => url as string);
@@ -254,13 +254,18 @@ describe("the load order: what the first frame shows, then the rest", () => {
     const geometry = (board.getModel("ccccccccc").children[0] as THREE.Mesh).geometry;
     expect((hand.getModel("ccccccccc").children[0] as THREE.Mesh).geometry).toBe(geometry);
     const disposed = vi.spyOn(geometry, "dispose");
+    // The palette texture: the loaded material's map (each copy's material is a clone that shares it).
+    const map = ((board.getModel("ccccccccc").children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).map!;
+    const mapDisposed = vi.spyOn(map, "dispose");
     hand.dispose();
     await settle();
     expect(disposed).not.toHaveBeenCalled();
+    expect(mapDisposed).not.toHaveBeenCalled();
     expect(() => board.getModel("ccccccccc")).not.toThrow();
     board.dispose();
     await settle();
     expect(disposed).toHaveBeenCalledTimes(1);
+    expect(mapDisposed).toHaveBeenCalledTimes(1);
     // Let go by every loader: the next one loads it again.
     await new AssetLoader(at).preloadModels();
     expect(requested()).toHaveLength(38);

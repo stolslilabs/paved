@@ -161,38 +161,75 @@ export function skinModelPath(manifest: AssetManifest | null, key: string, skin:
 
 /**
  * The models loaded on this page, by URL, shared by every loader (LOAD-FAST): the board and the hand tile's scene each have
- * a loader, and each used to download and parse every model. A model is parsed once; each loader that stores it counts as
- * a user, and the last one to let it go (`dispose`) disposes its geometry and materials. A failed load is forgotten, so
- * the next asks again.
+ * a loader, and each used to download and parse every model. A model is parsed once, by the loader that asked first (its
+ * owner); each loader that stores it counts as a user, and the last one to let it go (`dispose`) disposes its geometry,
+ * materials and textures. A failed load is forgotten, so the next asks again. An owner disposed while its load is pending
+ * abandons it (`abandonModels`): its Draco workers may be gone with it, so the loaders waiting on that load stop waiting
+ * and load the model themselves.
  */
-const sharedModels = new Map<string, { users: number; load: Promise<THREE.Group> }>();
+interface SharedModel {
+  users: number;
+  load: Promise<THREE.Group>;
+  owner: object;
+  settled: boolean;
+  /** Rejects with `ABANDONED` when the owner is disposed before the load ends. */
+  abandoned: Promise<never>;
+  abandon: () => void;
+}
+const sharedModels = new Map<string, SharedModel>();
+const ABANDONED = new Error("AssetLoader: the shared load's owner was disposed");
 
-/** Takes `url`'s shared model, loading it with `load` when no loader has it. */
-async function acquireModel(url: string, load: () => Promise<THREE.Group>): Promise<THREE.Group> {
-  let shared = sharedModels.get(url);
-  if (!shared) {
-    const entry = { users: 0, load: load() };
-    sharedModels.set(url, entry);
-    entry.load.catch(() => {
+function sharedModel(url: string, owner: object, load: Promise<THREE.Group>): SharedModel {
+  let abandon = () => {};
+  const abandoned = new Promise<never>((_, reject) => (abandon = () => reject(ABANDONED)));
+  abandoned.catch(() => {});
+  const entry: SharedModel = { users: 0, load, owner, settled: false, abandoned, abandon };
+  load.then(
+    () => (entry.settled = true),
+    () => {
+      entry.settled = true;
       if (sharedModels.get(url) === entry) sharedModels.delete(url);
-    });
-    shared = entry;
-  }
-  shared.users++;
-  try {
-    return await shared.load;
-  } catch (error) {
-    shared.users--;
-    throw error;
+    },
+  );
+  return entry;
+}
+
+/**
+ * Takes `url`'s shared model for `owner` (a loader), loading it with `load` when no loader has it. The owner waits for its
+ * own load; another loader also stops waiting when the owner abandons it, and then starts its own.
+ */
+async function acquireModel(url: string, owner: object, load: () => Promise<THREE.Group>): Promise<{ model: THREE.Group; entry: SharedModel }> {
+  for (;;) {
+    let entry = sharedModels.get(url);
+    if (!entry) {
+      entry = sharedModel(url, owner, load());
+      sharedModels.set(url, entry);
+    }
+    entry.users++;
+    try {
+      const model = await (entry.owner === owner ? entry.load : Promise.race([entry.load, entry.abandoned]));
+      return { model, entry };
+    } catch (error) {
+      entry.users--;
+      if (error !== ABANDONED) throw error;
+    }
   }
 }
 
-/** Lets `url`'s shared model go: the last user disposes it. */
-function releaseModel(url: string): void {
-  const shared = sharedModels.get(url);
-  if (!shared || --shared.users > 0) return;
-  sharedModels.delete(url);
-  void shared.load.then(disposeModel, () => {});
+/** Lets a shared model go: the last user disposes it (and forgets it, if it is still the page's copy of `url`). */
+function releaseModel(url: string, entry: SharedModel): void {
+  if (--entry.users > 0) return;
+  if (sharedModels.get(url) === entry) sharedModels.delete(url);
+  void entry.load.then(disposeModel, () => {});
+}
+
+/** The loads `owner` started that are still pending: forgotten, and their waiters told to load their own. */
+function abandonModels(owner: object): void {
+  for (const [url, entry] of sharedModels) {
+    if (entry.owner !== owner || entry.settled) continue;
+    sharedModels.delete(url);
+    entry.abandon();
+  }
 }
 
 let workersStarted = false;
@@ -208,8 +245,8 @@ function startDecoderWorkers(): void {
 
 export class AssetLoader {
   private models: Map<string, THREE.Group> = new Map();
-  /** The URL of each model stored, the key of its shared copy (`sharedModels`), let go at `dispose`. */
-  private modelUrls: Map<string, string> = new Map();
+  /** The shared copy of each model stored (`sharedModels`) and its URL, let go at `dispose`. */
+  private modelEntries: Map<string, { url: string; entry: SharedModel }> = new Map();
   private textures: Map<string, THREE.Texture> = new Map();
   private gltfLoader: GLTFLoader;
   private textureLoader: THREE.TextureLoader;
@@ -345,12 +382,12 @@ export class AssetLoader {
         const paths = manifest === undefined ? await this.readManifest() : manifest;
         const url = `${this.basePath}/${modelPath(paths, key)}`;
         const start = traceStart();
-        const model = await acquireModel(url, async () => (await this.loadModel(url)).scene);
+        const { model, entry } = await acquireModel(url, this, async () => (await this.loadModel(url)).scene);
         traceMeasure(`model ${url}`, start);
-        if (this.disposed) releaseModel(url);
+        if (this.disposed) releaseModel(url, entry);
         else {
           this.models.set(key, model);
-          this.modelUrls.set(key, url);
+          this.modelEntries.set(key, { url, entry });
           this.loadedListener?.();
         }
       })();
@@ -507,8 +544,10 @@ export class AssetLoader {
   dispose(): void {
     this.disposed = true;
     this.loadedListener = null;
-    this.modelUrls.forEach(releaseModel);
-    this.modelUrls.clear();
+    this.modelEntries.forEach(({ url, entry }) => releaseModel(url, entry));
+    this.modelEntries.clear();
+    // Before the Draco decoder goes: a loader waiting on one of this loader's pending loads then loads its own.
+    abandonModels(this);
     this.textures.forEach((texture) => texture.dispose());
     this.models.clear();
     this.textures.clear();
@@ -523,14 +562,14 @@ export class AssetLoader {
   }
 }
 
+/** Disposes a loaded model's geometry, materials and their colour maps (the palette textures). */
 function disposeModel(model: THREE.Object3D): void {
   model.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       child.geometry?.dispose();
-      if (Array.isArray(child.material)) {
-        child.material.forEach(m => m.dispose());
-      } else {
-        child.material?.dispose();
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        (material as THREE.MeshStandardMaterial | undefined)?.map?.dispose();
+        material?.dispose();
       }
     }
   });

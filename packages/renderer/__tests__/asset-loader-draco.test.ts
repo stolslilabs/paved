@@ -60,6 +60,29 @@ describe("AssetLoader Draco decoder", () => {
     expect(mocks.dispose).toHaveBeenCalledTimes(1);
   });
 
+  it("never leaves a loader hanging on a shared Draco load whose owner was disposed mid-decode (LOAD-FAST)", async () => {
+    let ownerDisposed = false;
+    mocks.loadAsync.mockImplementation(async () => {
+      if (!mocks.setDRACOLoader.mock.calls.length) throw new Error("THREE.GLTFLoader: No DRACOLoader instance provided.");
+      // The owner's decode never ends: its Draco workers are terminated with it.
+      if (!ownerDisposed) return new Promise(() => {});
+      return model();
+    });
+    const owner = new AssetLoader("/shared-draco");
+    void owner.preloadModels();
+    await vi.waitFor(() => expect(mocks.setDRACOLoader).toHaveBeenCalled());
+    // A second scene's loader joins the owner's pending loads.
+    const joiner = new AssetLoader("/shared-draco");
+    const joined = joiner.preloadModels();
+    await new Promise((done) => setTimeout(done, 0));
+    ownerDisposed = true;
+    owner.dispose();
+    // The joiner stops waiting on the abandoned loads and loads its own: it settles, and has every model.
+    await expect(joined).resolves.toBeUndefined();
+    expect(() => joiner.getModel("ccccccccc")).not.toThrow();
+    joiner.dispose();
+  });
+
   it("does not hide another load error", async () => {
     mocks.loadAsync.mockRejectedValue(new Error("404"));
     await expect(new AssetLoader().preloadModels()).rejects.toThrow("404");
