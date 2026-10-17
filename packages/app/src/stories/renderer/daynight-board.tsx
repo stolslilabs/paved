@@ -5,6 +5,7 @@ import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
+import { PLACED, SLOTS } from "./placement-board";
 
 export interface DayNightBoardProps {
   /** One cycle (a day and a night of one season), in seconds: 120 in the game. */
@@ -30,6 +31,8 @@ export interface DayNightBoardProps {
   redraw?: boolean;
   readout?: boolean;
   force?: "auto" | "on" | "off";
+  /** The placement visuals over the cycle: none, a tile in hand (its slots), or a tile placed on a slot (its aura). */
+  placement?: "none" | "slots" | "placed";
 }
 
 const tiles = toRenderTiles(BOARD_72.tiles, 1);
@@ -54,7 +57,7 @@ export function freezeAt(season: Season | "random", phase: DayPhase): number {
  * west with its shadows, the moon, and the city and road lights at night. `data-ready` is set once the board is drawn at
  * the held view. The scene is exposed to the measuring scripts as `window.__dayNightScene`.
  */
-export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights, nightLightIntensity, brightnessFloor, reducedMotion, quality = "auto", view, distance, redraw = false, readout = true, force = "auto" }: DayNightBoardProps) {
+export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights, nightLightIntensity, brightnessFloor, reducedMotion, quality = "auto", view, distance, redraw = false, readout = true, force = "auto", placement = "none" }: DayNightBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [where, setWhere] = useState("");
@@ -118,7 +121,15 @@ export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights,
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
-      <GameCanvas tiles={tiles} basePath={APP_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
+      <GameCanvas
+        tiles={tiles}
+        availableSlots={placement === "none" ? NO_SLOTS : SLOTS}
+        hover={placement === "placed" && ready ? PLACED : null}
+        basePath={APP_ASSETS}
+        settings={settings}
+        onReady={onReady}
+        style={{ position: "absolute", inset: 0 }}
+      />
       {readout && where && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground numeric" aria-live="off">
           {where}
@@ -127,3 +138,5 @@ export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights,
     </div>
   );
 }
+
+const NO_SLOTS: typeof SLOTS = [];

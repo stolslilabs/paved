@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as THREE from "three";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
@@ -7,8 +8,11 @@ import {
   HOLDS,
   KEYFRAMES,
   START_POSITION,
+  SHADOW_STEP,
   cycleAt,
   dayNightFrame,
+  drawDayNight,
+  releaseDayNight,
   hexToLinear,
   linearToOklab,
   oklabToLinear,
@@ -20,6 +24,8 @@ import {
 } from "../src/core/daynight";
 import { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, SEASONS, resolveDayNightSettings } from "../src/core/daynight-settings";
 import { resolveRendererSettings } from "../src/core/settings";
+import { Effects } from "../src/core/Effects";
+import { LOOK_PRESETS } from "../src/core/look";
 
 const CYCLE_MS = DEFAULT_DAYNIGHT_SETTINGS.cycleMs;
 
@@ -173,8 +179,94 @@ describe("the cycle's settings", () => {
     expect(resolveRendererSettings().dayNight).toEqual(DEFAULT_DAYNIGHT_SETTINGS);
     expect(DEFAULT_DAYNIGHT_SETTINGS.enabled).toBe(false);
     const set = resolveDayNightSettings({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: -1, brightnessFloor: 4 });
-    expect(set).toMatchObject({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: 120_000, brightnessFloor: 0.5 });
+    expect(set).toMatchObject({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: 120_000, brightnessFloor: 0.6 });
     expect(resolveDayNightSettings({ season: "monsoon" as never, reducedMotion: "sometimes" as never })).toMatchObject({ season: "random", reducedMotion: "auto" });
     expect(resolveRendererSettings({ dayNight: { enabled: true } }).dayNight.enabled).toBe(true);
+  });
+});
+
+describe("drawing the cycle (drawDayNight)", () => {
+  function target() {
+    const scene = new THREE.Scene();
+    const key = new THREE.DirectionalLight();
+    key.castShadow = true;
+    key.shadow.radius = 3;
+    scene.add(key);
+    const hooks = { shadowMoved: vi.fn(), backdrop: vi.fn(), lights: vi.fn() };
+    return { scene, key, hooks, t: { key, fill: null, sky: null, ambient: null, fog: null, distance: 100, ...hooks } };
+  }
+  const twinOf = (scene: THREE.Scene, key: THREE.DirectionalLight) => scene.children.find((c) => c !== key && c instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
+
+  it("crossfades the sun's shadows between two lights a step of the arc apart, their strengths summing to the sun's", () => {
+    const { scene, key, t } = target();
+    const seasons = 0.2;
+    drawDayNight(t, seasons, 0.6);
+    const twin = twinOf(scene, key);
+    expect(twin.castShadow).toBe(true);
+    expect(twin.shadow.radius).toBe(3);
+    expect(key.intensity + twin.intensity).toBeCloseTo(dayNightFrame(seasons, 0.6).sun.intensity, 9);
+    // The two lights are one step apart.
+    expect(THREE.MathUtils.radToDeg(key.position.angleTo(twin.position))).toBeLessThan(1.5);
+    drawDayNight(t, seasons, 0.6);
+    expect(scene.children.filter((c) => c instanceof THREE.DirectionalLight)).toHaveLength(2);
+    releaseDayNight(key);
+    expect(scene.children.filter((c) => c instanceof THREE.DirectionalLight)).toHaveLength(1);
+  });
+
+  it("moves a light to a new step only while its weight is 0: the shadows change smoothly, never jump", () => {
+    const { scene, key, t } = target();
+    const day = DAY_SHARE * SHADOW_STEP;
+    let before: { key: THREE.Vector3; twin: THREE.Vector3; weights: [number, number] } | null = null;
+    for (let i = 0; i < 400; i++) {
+      drawDayNight(t, 0.2 + (i * day) / 37, 0);
+      const twin = twinOf(scene, key);
+      const total = key.intensity + twin.intensity;
+      const now = { key: key.position.clone(), twin: twin.position.clone(), weights: [key.intensity / total, twin.intensity / total] as [number, number] };
+      if (before) {
+        if (!now.key.equals(before.key)) expect(Math.min(now.weights[0], before.weights[0])).toBeLessThan(0.03);
+        if (!now.twin.equals(before.twin)) expect(Math.min(now.weights[1], before.weights[1])).toBeLessThan(0.03);
+      }
+      before = now;
+    }
+    releaseDayNight(key);
+  });
+
+  it("asks for the shadow map only when a light moved: never through a still night", () => {
+    const { key, hooks, t } = target();
+    drawDayNight(t, 0.7, 0);
+    hooks.shadowMoved.mockClear();
+    for (let i = 1; i < 50; i++) drawDayNight(t, 0.7 + i * 0.004, 0);
+    expect(hooks.shadowMoved).not.toHaveBeenCalled();
+    expect(key.intensity).toBe(0);
+    releaseDayNight(key);
+  });
+});
+
+describe("the backdrop pass", () => {
+  it("adds the BACKDROP define and its colours to the finish pass only while the cycle draws it", () => {
+    const effects = new Effects();
+    effects.setLook(LOOK_PRESETS.mockup, "medium");
+    const renderer = { getPixelRatio: () => 1, getSize: (v: THREE.Vector2) => v.set(400, 300), getDrawingBufferSize: (v: THREE.Vector2) => v.set(400, 300), domElement: { width: 400, height: 300 } };
+    effects.init(renderer as never, new THREE.Scene(), new THREE.PerspectiveCamera());
+    const finish = () => (effects as any).finishPass.material as THREE.RawShaderMaterial;
+    expect("BACKDROP" in finish().defines).toBe(false);
+    effects.setBackdrop(true, [0.5, 0.1, 0], [0.2, 0, -0.1]);
+    expect("BACKDROP" in finish().defines).toBe(true);
+    expect(finish().uniforms.backdropTop.value.toArray()).toEqual([0.5, 0.1, 0]);
+    effects.setBackdrop(true, [0.6, 0, 0], [0.1, 0, 0]);
+    expect(finish().uniforms.backdropBottom.value.toArray()).toEqual([0.1, 0, 0]);
+    effects.setBackdrop(false);
+    expect("BACKDROP" in finish().defines).toBe(false);
+    effects.dispose();
+  });
+
+  it("keeps the scene's alpha through the bloom: its light goes to the colour only", () => {
+    const effects = new Effects();
+    effects.setLook(LOOK_PRESETS.mockup, "high");
+    const renderer = { getPixelRatio: () => 1, getSize: (v: THREE.Vector2) => v.set(400, 300), getDrawingBufferSize: (v: THREE.Vector2) => v.set(400, 300), domElement: { width: 400, height: 300 } };
+    effects.init(renderer as never, new THREE.Scene(), new THREE.PerspectiveCamera());
+    const blend = (effects as any).bloomPass.blendMaterial as THREE.ShaderMaterial;
+    expect([blend.blending, blend.blendSrcAlpha, blend.blendDstAlpha]).toEqual([THREE.CustomBlending, THREE.ZeroFactor, THREE.OneFactor]);
+    effects.dispose();
   });
 });

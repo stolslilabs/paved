@@ -452,6 +452,7 @@ export class GameScene {
         this.dayNightOn = false;
         this.dayNightPoint = null;
         this.effects.setBackdrop(false);
+        this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
         this.tiles.setNightLights(false, settings.nightLightColor, settings.nightLightIntensity);
       }
@@ -993,6 +994,7 @@ export class GameScene {
     this.controls?.dispose();
     this.assets.dispose();
     this.directionalLight?.shadow.dispose();
+    this.dayNight?.releaseDayNight(this.directionalLight);
     this.scene.clear();
     this.latestTiles = [];
     this.onTileClickCallback = null;

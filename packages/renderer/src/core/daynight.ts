@@ -191,7 +191,7 @@ export function sunAt(season: Season, position: number): { azimuth: number; elev
   const u = Math.min(1, position / DAY_SHARE);
   const elevation = position < DAY_SHARE ? SUN_ELEVATION[season] * Math.sin(Math.PI * u) : 0;
   // Azimuth 90 is east (+X, the board's east), 0 the south (+Z, the screen's bottom), -90 the west.
-  return { azimuth: 90 - 180 * u, elevation, up: smoothstep((elevation - 2) / 12) };
+  return { azimuth: 90 - 180 * u, elevation, up: smoothstep(elevation / 8) };
 }
 
 /** The fill's compass angle and height: opposite the sun by day, the moon's arc by night, eased at sunset and sunrise. */
@@ -328,6 +328,32 @@ export interface DayNightTarget {
   lights(level: number): void;
 }
 
+/** The steps the sun's shadows are held at: 1 degree of its 180 degree arc. */
+export const SHADOW_STEP = 1 / 180;
+
+/** The key light's twin (`drawDayNight`): a copy of it, its shadow included, in the same scene, made once a key. */
+const TWINS = new WeakMap<DirectionalLight, DirectionalLight>();
+
+function twinOf(key: DirectionalLight): DirectionalLight {
+  let twin = TWINS.get(key);
+  if (!twin) {
+    twin = key.clone();
+    twin.target = key.target;
+    key.parent?.add(twin);
+    TWINS.set(key, twin);
+  }
+  return twin;
+}
+
+/** Takes the key light's twin out of its scene and frees its shadow map: the cycle is off. */
+export function releaseDayNight(key: DirectionalLight | null): void {
+  const twin = key && TWINS.get(key);
+  if (!twin) return;
+  twin.removeFromParent();
+  twin.shadow.dispose();
+  TWINS.delete(key);
+}
+
 /** three's linear sRGB colour space: the frame's colours are linear. */
 const LINEAR = "srgb-linear";
 
@@ -340,13 +366,31 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
   const frame = dayNightFrame(seasons, floor);
   const { key, fill, sky, ambient, distance: d } = target;
   if (key) {
-    key.color.setRGB(...frame.sun.color, LINEAR);
-    key.intensity = frame.sun.intensity;
-    const [x, y, z] = frame.sun.direction;
-    if (key.position.x !== x * d || key.position.y !== y * d || key.position.z !== z * d) {
-      key.position.set(x * d, y * d, z * d);
-      target.shadowMoved();
+    // The sun's shadows in steps of `SHADOW_STEP` of its arc, crossfaded between the key light and its twin (`twinOf`): a
+    // shadow map drawn again from a light turned by a fraction of a degree re-aliases every small shadow's edge, and the
+    // board boils. Each light holds one step (the key the even ones, the twin the odd ones), the weight moves linearly
+    // from one to the next, and a light jumps two steps on only while its weight is 0. Under the horizon both are dark.
+    const twin = twinOf(key);
+    const { season, position } = frame.point;
+    const q = Math.min(1, position / DAY_SHARE) / SHADOW_STEP;
+    const k = Math.floor(q);
+    const even = k % 2 === 0;
+    const toTwin = even ? q - k : 1 - (q - k);
+    twin.color.setRGB(...frame.sun.color, LINEAR);
+    twin.shadow.radius = key.shadow.radius;
+    twin.visible = key.visible;
+    let moved = false;
+    for (const [light, step, weight] of [[key, even ? k : k + 1, 1 - toTwin], [twin, even ? k + 1 : k, toTwin]] as const) {
+      light.intensity = frame.sun.intensity * weight;
+      const sun = sunAt(season, Math.min(1, step * SHADOW_STEP) * DAY_SHARE);
+      const [x, y, z] = lightDirection(sun.azimuth, Math.max(SHADOW_MIN_ELEVATION, sun.elevation));
+      if (light.position.x !== x * d || light.position.y !== y * d || light.position.z !== z * d) {
+        light.position.set(x * d, y * d, z * d);
+        moved = true;
+      }
     }
+    key.color.setRGB(...frame.sun.color, LINEAR);
+    if (moved) target.shadowMoved();
   }
   if (fill) {
     fill.color.setRGB(...frame.fill.color, LINEAR);

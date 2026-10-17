@@ -51,7 +51,7 @@ export interface DayNightSettings {
 }
 
 /** The moment of each phase in a cycle (0 a dawn, 1 the next): where a frozen phase holds, the middle of its keyframe. */
-export const DAY_PHASE_AT: Record<DayPhase, number> = { dawn: 0.015, day: 0.3125, dusk: 0.57, night: 0.805 };
+export const DAY_PHASE_AT: Record<DayPhase, number> = { dawn: 0.025, day: 0.3125, dusk: 0.57, night: 0.805 };
 
 export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   enabled: false,
@@ -64,7 +64,7 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",
   nightLightIntensity: 0.4,
-  brightnessFloor: 0.5,
+  brightnessFloor: 0.6,
   frameMs: 33,
   reducedMotion: "auto",
 };

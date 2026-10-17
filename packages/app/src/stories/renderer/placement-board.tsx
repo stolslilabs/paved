@@ -47,7 +47,7 @@ const BOUNDS = boundsOf();
  * The empty cells next to a tile, as the legal slots of a tile in hand (any rotation): about two in three fit the
  * current rotation (solid), the others only in another (dashed). A story's stand-in for the engine's legality.
  */
-const SLOTS: PlacementSlot[] = (() => {
+export const SLOTS: PlacementSlot[] = (() => {
   const taken = new Set(tiles.map((t) => `${t.worldX},${t.worldZ}`));
   const slots = new Map<string, PlacementSlot>();
   for (const t of tiles) {
@@ -60,7 +60,7 @@ const SLOTS: PlacementSlot[] = (() => {
 })();
 
 /** The slot nearest the board's centre that fits: where the tile is placed, with a plan already on the board (its model is in). */
-const PLACED: HoverState = (() => {
+export const PLACED: HoverState = (() => {
   const cx = (BOUNDS.minX + BOUNDS.maxX) / 2 / TILE_SIZE;
   const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
   const slot = SLOTS.filter((s) => s.fits).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
