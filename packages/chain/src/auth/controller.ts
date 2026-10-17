@@ -50,7 +50,7 @@ export const ECONOMY_ENTRY_POINT = "settle";
  * one entry point of the Economy in the session (P7a). It moves no token from the player and takes no approve; it mints the
  * reward to the game's player whoever sends it. The Vault, the purchase and every other Economy write still prompt.
  *
- * `approve` is ignored (P-65): app-web's connector still passes the entry's cap, and no approve is built from it.
+ * `approve` is ignored (P-65): a caller may still pass the entry's cap, and no approve is built from it.
  */
 export function controllerPolicies(
   deployment: Deployment,

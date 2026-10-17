@@ -63,8 +63,8 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
   migration, never an edit in place.
 - **game-core imports nothing from `@paved/chain`**: the chain depends on game-core. `packages/game-core/src/sessions/types.ts` holds structural
   copies (`BoardTile`, `PlaceMove`, `ScoredStructure`, `PageState`, `PageSession`); the chain's `GameSession` satisfies
-  `PageSession` unchanged. A drift is caught by `tsc` where a `GameSession` is passed as a `PageSession`
-  (app-web's `pages/Game.tsx`), through the state and the senders: change a copy when the chain's shape changes.
+  `PageSession` unchanged. No code passes a `GameSession` as a `PageSession` since app-web left (P-70), so `tsc` no
+  longer catches a drift: change a copy when the chain's shape changes.
 
 ## Tests and fakes
 

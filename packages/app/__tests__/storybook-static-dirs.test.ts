@@ -17,14 +17,14 @@ function tree(folders: string[]) {
 }
 
 describe("the Storybook static dirs", () => {
-  it("write no folder in common (the app's and app-web's public/)", () => {
+  it("write no folder in common (the app's public/ and asset-sources/)", () => {
     expect(sharedDirs(STATIC_DIRS)).toEqual([]);
   });
 
-  it("puts app-web's public/ under a path of its own, away from the app's renderer-assets/", () => {
+  it("puts asset-sources/ under a path of its own, away from the app's renderer-assets/", () => {
     const written = STATIC_DIRS.map((d) => writtenDirs(d));
     expect(written[0]).toContain("/renderer-assets/models");
-    expect(written[1]).toContain("/app-web-assets/models");
+    expect(written[1]).toContain("/asset-sources/models");
     expect(written[1].some((p) => p.startsWith("/renderer-assets"))).toBe(false);
   });
 

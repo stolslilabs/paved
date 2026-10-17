@@ -4,7 +4,7 @@ import { chainClient } from "../data/chain-client";
 import { economyClient } from "../data/economy-client";
 import type { WalletConnector } from "./wallet";
 
-// The app's connector (P6), loaded with its own chunk by `WalletProvider`: app-web's `WalletProvider.tsx` and
+// The app's connector (P6), loaded with its own chunk by `WalletProvider`: the legacy client's `WalletProvider.tsx` and
 // `utils/network.ts` brought over. Outside devnet the Cartridge controller with the game's session policies; on devnet
 // the env's burner (a predeployed account), which no other network takes: a key in a built bundle is public.
 
@@ -61,7 +61,7 @@ export function connectorFor(
 ): WalletConnector {
   const { deployment } = client;
   if (deployment.network === "devnet") {
-    // starknet.js's tip estimate stalls on devnet: no tip there (as app-web).
+    // starknet.js's tip estimate stalls on devnet: no tip there (as the legacy client did).
     const signer = (account: WriteAccount) => client.writer(account, { tip: 0n });
     if (!burner) throw new Error("no devnet account: set VITE_PLAYER_ADDRESS and VITE_PLAYER_PRIVATE_KEY");
     let account: WriteAccount | null = null;

@@ -533,7 +533,7 @@ glTF build shipped in three 0.186.1, examples/jsm/libs/draco/gltf/)
 https://github.com/google/draco
 ================================================================================
 
-Served by packages/app-web at /draco/, where the renderer loads it to decode
+Kept in packages/app/asset-sources/draco/, where the renderer loads it to decode
 Draco-compressed tile models. Licensed under the Apache License, Version 2.0:
 https://www.apache.org/licenses/LICENSE-2.0 (the project's LICENSE file:
 https://github.com/google/draco/blob/master/LICENSE). The files are unchanged

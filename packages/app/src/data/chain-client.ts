@@ -8,7 +8,7 @@ import { ViewError, createPavedClient, resolveDeployment, type DeploymentFile, t
 const FILES = import.meta.glob<{ default: DeploymentFile }>("../../../../contracts/deployments/*.json", { eager: true });
 
 /**
- * The network of the build: `VITE_NETWORK`. The dev server defaults to devnet (as app-web); a production build without
+ * The network of the build: `VITE_NETWORK`. The dev server defaults to devnet (as the legacy client did); a production build without
  * it has none, and the chain client refuses (`chainClient`) instead of falling back to devnet.
  */
 export const network = (): string => import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : "");

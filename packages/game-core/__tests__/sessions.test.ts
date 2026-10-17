@@ -17,7 +17,7 @@ import {
   type KeyValueStore,
 } from "../src";
 
-// Written by the app-web code before the move (P2), byte for byte: a Training game of 9 builds, and a whole tutorial
+// Written by the legacy client (app-web, removed in P-70; see git history) before the move (P2), byte for byte: a Training game of 9 builds, and a whole tutorial
 // (8 stages and the burned tile). A game saved by today's app must resume on the moved sessions.
 const OLD_TRAINING_SAVE =
   '{"v":1,"seed":"0x5eed1234abcd","moves":[{"k":"b","o":1,"x":0,"y":1},{"k":"b","o":3,"x":0,"y":-1},{"k":"b","o":2,"x":1,"y":0},{"k":"b","o":1,"x":-1,"y":0},{"k":"b","o":1,"x":0,"y":2},{"k":"b","o":3,"x":-1,"y":1},{"k":"b","o":1,"x":-2,"y":0},{"k":"b","o":1,"x":0,"y":3},{"k":"b","o":1,"x":1,"y":-1}]}';

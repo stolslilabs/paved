@@ -5,7 +5,7 @@ import { PLAYER_ID } from "./players";
 /** The mocks' origin: a page builds the link from its own (`location.origin`). */
 export const MOCK_ORIGIN = "https://paved.example";
 
-/** The player's link: the app's `?ref=` with their address, as app-web's `referralLink` writes it (`0x` and the hex, no padding). */
+/** The player's link: the app's `?ref=` with their address, as the legacy client's `referralLink` wrote it (`0x` and the hex, no padding). */
 export const REFERRAL_LINK = `${MOCK_ORIGIN}/?ref=0x${BigInt(PLAYER_ID).toString(16)}`;
 
 /** The referral of a price in USDC base units, at the split's `referral` bps (`curve::split`, rounded down). */

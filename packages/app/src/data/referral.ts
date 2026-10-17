@@ -12,7 +12,7 @@ import { useDataSources } from "./sources";
 export const referralKey = (playerId: string) => ["indexer", "referrals", addressKey(playerId)] as const;
 
 /**
- * The player's link: the app's origin with `?ref=` and the address, `0x` and the hex without padding (as app-web's
+ * The player's link: the app's origin with `?ref=` and the address, `0x` and the hex without padding (as the legacy client's
  * `referralLink` and the purchase's referrer read it; `withRef` keeps it on every link of the app).
  */
 export function referralLink(origin: string, address: string): string {

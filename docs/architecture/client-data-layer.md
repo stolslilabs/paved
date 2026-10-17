@@ -1,5 +1,7 @@
 # Client data layer (P-10)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history.
+
 How the web client reads and writes the native contracts (`contracts/`, since P2). No Torii, no
 Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 `public-interface.md` (views). The code is `packages/chain`.

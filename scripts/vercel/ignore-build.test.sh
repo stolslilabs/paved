@@ -10,6 +10,9 @@
 # commit (a shallow CI checkout) skips its case and says so. --table prints the results as a Markdown table.
 
 here=$(cd "$(dirname "$0")" && pwd)
+# A git hook (the pre-push hook runs this test) exports GIT_DIR, which would make every git command below, the clone's
+# included, act on the repository of the push: the clone then fails. Unset, git finds the repository from the script's folder.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 top=$(git -C "$here" rev-parse --show-toplevel) || exit 1
 script="$here/ignore-build.sh"
 table=0
