@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DEFAULT_PLACEMENT_SETTINGS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
+import { DEFAULT_PLACEMENT_SETTINGS, PLACEMENT_PULSES, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -107,6 +107,12 @@ export function placementArgTypes(): Record<string, object> {
     width: range(0.002, 0.1, 0.001),
     glow: range(0, 0.3, 0.005),
     minWidthDevicePx: range(0.25, 3, 0.25),
+    widthDevicePx: range(0.5, 3, 0.25),
+    inset: range(0, 0.1, 0.005),
+    farFadeStart: range(0.85, 3, 0.05),
+    pulse: { control: "inline-radio", options: PLACEMENT_PULSES },
+    arcs: range(1, 4, 1),
+    noise: range(0, 1, 0.05),
     intensity: range(0, 6, 0.05),
     fitIntensity: range(0, 6, 0.05),
     glowIntensity: range(0, 3, 0.05),

@@ -1,23 +1,25 @@
 import * as THREE from "three";
 import { isOutline, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
-import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, setNeonFrame, type NeonFrameMaterial } from "./neon";
+import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameMargin, neonLineCoverage, setNeonFrame, type NeonFrameMaterial } from "./neon";
 import { TILE_SIZE } from "./types";
 
 /**
- * The placement visuals (SLOTS, P-68): the grid around the placed tiles, the legal slots of the tile in hand, and the
- * tile placed on a slot before it is confirmed.
+ * The placement visuals (SLOTS, P-68; SLOTS2, P-72): the grid around the placed tiles, the legal slots of the tile in
+ * hand, and the tile placed on a slot before it is confirmed.
  *
- * - The grid: pale, thin lines all around the board, fading by ring distance from the placed tiles (Chebyshev: the
- *   8 cells around a tile are its first ring): a line takes the nearer ring of its two cells, linear along it.
- * - A legal slot (any rotation): a flat fill and a neon border along the grid lines, dashed; solid and brighter where the
- *   current rotation fits.
- * - The tile placed, not confirmed: an aura around its cell (a halo on the ground and a curtain up its sides, waves
- *   running outward and up) and a pale veil over the tile. Yellow while its rotation fits, red while it does not (the
- *   one place that rule lives: `placementTone`), green on confirm, then a fade to nothing.
+ * - The grid: pale hairlines (about one device px, antialiased, the same on screen at every zoom) around the board,
+ *   fading by ring distance from the placed tiles (Chebyshev: the 8 cells around a tile are its first ring): a line takes
+ *   the farther ring of its two cells, linear along it; ring 1 full, ring 2 half, ring 3 almost gone, nothing beyond.
+ * - A legal slot (any rotation): a flat fill and a neon border inscribed in the cell (line and glow clipped to it), dashed
+ *   with round caps; solid and brighter where the current rotation fits.
+ * - The tile placed, not confirmed: an aura around its cell (a halo on the ground and a curtain up its sides, a wave
+ *   running around the cell, `aura.pulse`) and a veil over the tile in the state's colour. Yellow while its rotation
+ *   fits, red while it does not (the one place that rule lives: `placementTone`), green on confirm, then a fade to nothing.
  *
- * Lines are a share of a tile wide in world units with a device-px floor, antialiased in their shaders (`neon.ts`), and
- * fade like the outlines on zoom-out (OUT-FADE's curve, `placementFade`). The waves loop; under reduced motion the aura
- * is still, a colour changes at once, and the confirm fade is short.
+ * The slots' lines are a share of a tile wide in world units with a device-px floor, antialiased in their shaders
+ * (`neon.ts`), and fade like the outlines on zoom-out (OUT-FADE's curve, `placementFade`). The grid's hairlines do not
+ * fade on zoom (`grid.farFade` turns the outlines' curve on, from `grid.farFadeStart`). The waves loop; under reduced
+ * motion the aura is still and even, a colour changes at once, and the confirm fade is short.
  */
 export interface PlacementSettings {
   /** The state colours, CSS hex (the app's Tailwind tokens: primary gold-300, ember-500, meadow-400). */
@@ -26,14 +28,16 @@ export interface PlacementSettings {
     enabled: boolean;
     /** A pale neutral (ink-200). */
     color: string;
-    /** The lines' opacity one ring from a tile. */
+    /** The lines' opacity at ring 1. */
     opacity: number;
-    /** The share of `opacity` of a line whose nearer cell is at ring 1, 2 or 3; 0 from ring 4. Linear along a line. */
+    /** The share of `opacity` of a line whose farther cell is at ring 1, 2 or 3; 0 from ring 4. Linear along a line. */
     rings: [number, number, number];
-    /** The line's width, a share of a tile. */
-    width: number;
-    /** The thinnest line, in device px. */
-    minWidthDevicePx: number;
+    /** The hairline's width in device px, at every zoom (antialiased: its coverage of each pixel). */
+    widthDevicePx: number;
+    /** Fade the grid on zoom-out with the outlines' curve (`placementFade`); off, it holds its opacity at every zoom. */
+    farFade: boolean;
+    /** With `farFade`: fully on from this share of the opening tile size S, off at the outlines' `fadeOffFactor`. */
+    farFadeStart: number;
   };
   slots: {
     enabled: boolean;
@@ -41,7 +45,11 @@ export interface PlacementSettings {
     fillOpacity: number;
     /** The border's width, a share of a tile. */
     width: number;
-    /** The border's halo on each side, a share of a tile. */
+    /** The thinnest border, in device px. */
+    minWidthDevicePx: number;
+    /** The border's outer edge this far in from the cell's edge, a share of a tile (the border and glow never leave the cell). */
+    inset: number;
+    /** The border's halo on each side, a share of a tile (clipped to the cell). */
     glow: number;
     /** The border's brightness where the current rotation does not fit (dashed). */
     intensity: number;
@@ -59,12 +67,21 @@ export interface PlacementSettings {
   };
   aura: {
     enabled: boolean;
+    /**
+     * The pulse: `"rotating"`, a wave running around the cell; `"rotating-noise"`, the same with an interference that
+     * never quite repeats; `"radial"`, SLOTS' waves running outward and up, in step all around.
+     */
+    pulse: PlacementPulse;
+    /** The waves around the cell (rotating pulses). */
+    arcs: number;
+    /** How much the interference changes the rotating wave, 0 to 1 (`"rotating-noise"`). */
+    noise: number;
     intensity: number;
     /** The curtain's height, a share of a tile. */
     height: number;
     /** The halo's reach on the ground beyond the cell, a share of a tile. */
     halo: number;
-    /** Waves along the aura's height (and along the halo, outward). */
+    /** Waves along the aura's height (and along the halo, outward), the radial pulse. */
     waves: number;
     /** How deep the waves cut, 0 (none) to 1. */
     waveAmount: number;
@@ -74,9 +91,9 @@ export interface PlacementSettings {
     borderIntensity: number;
   };
   veil: {
-    /** The veil's opacity over the tile. */
+    /** The veil's opacity over the tile, in the state's own colour (the neon's). */
     opacity: number;
-    /** How pale: the state colour mixed with white by this share. */
+    /** How pale: the state colour mixed with white by this share (0: the neon's colour itself). */
     whiten: number;
   };
   motion: {
@@ -91,15 +108,21 @@ export interface PlacementSettings {
   };
 }
 
+/** The aura's pulse (`PlacementSettings.aura.pulse`). */
+export type PlacementPulse = "rotating" | "rotating-noise" | "radial";
+export const PLACEMENT_PULSES: readonly PlacementPulse[] = ["rotating", "rotating-noise", "radial"];
+
 export type PlacementSettingsInput = { [K in keyof PlacementSettings]?: Partial<PlacementSettings[K]> };
 
 export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
   colors: { yellow: "#f0bf5b", red: "#f85e4d", green: "#6eca6f" },
-  grid: { enabled: true, color: "#d1d9df", opacity: 0.32, rings: [1, 0.4, 0.1], width: 0.012, minWidthDevicePx: 1 },
+  grid: { enabled: true, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
   slots: {
     enabled: true,
     fillOpacity: 0.03,
     width: 0.025,
+    minWidthDevicePx: 1,
+    inset: 0,
     glow: 0.07,
     intensity: 1.3,
     fitIntensity: 2.4,
@@ -109,8 +132,8 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     dashBlendPx: 16,
     fadeFloor: 0.6,
   },
-  aura: { enabled: true, intensity: 1.6, height: 0.45, halo: 0.2, waves: 2, waveAmount: 0.5, periodMs: 1800, borderIntensity: 2.8 },
-  veil: { opacity: 0.16, whiten: 0.5 },
+  aura: { enabled: true, pulse: "rotating", arcs: 1, noise: 0.6, intensity: 1.6, height: 0.45, halo: 0.2, waves: 2, waveAmount: 0.6, periodMs: 1800, borderIntensity: 2.8 },
+  veil: { opacity: 0.14, whiten: 0 },
   motion: { colorMs: 220, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 
@@ -189,16 +212,16 @@ function cellOpacity(field: RingField, x: number, y: number, rings: PlacementSet
 /**
  * The opacity (a share of `grid.opacity`) of the grid line nearest the point (x, y), in cell units (a cell's centre at
  * whole numbers, the lines at halves): the nearest vertical and horizontal lines, as the shader picks them, and of the two
- * the nearer. A line between two cells takes the nearer ring of the two (the smaller), so the outer edges of the first
- * ring are fully visible, the second ring's perceptible, the third's almost gone; along the line it is linear from one row
- * (or column) of cells to the next. The shader draws each of the two lines at this opacity times its coverage of the pixel
- * and keeps the larger, which on a line is the value here.
+ * the nearer. A line between two cells takes the farther ring of the two (the smaller opacity, SLOTS2): the board's edge
+ * and the lines inside ring 1 are full, ring 2's half, ring 3's almost gone, and nothing reaches beyond ring 3; along the
+ * line it is linear from one row (or column) of cells to the next. The shader draws each of the two lines at this
+ * opacity times its coverage of the pixel and keeps the larger, which on a line is the value here.
  */
 export function gridLineOpacityAt(field: RingField, x: number, y: number, rings: PlacementSettings["grid"]["rings"] = DEFAULT_PLACEMENT_SETTINGS.grid.rings): number {
   const along = (line: number, at: number, cell: (a: number, b: number) => number) => {
     const j = Math.floor(at);
     const t = at - j;
-    const edge = (row: number) => Math.max(cell(line - 1, row), cell(line, row));
+    const edge = (row: number) => Math.min(cell(line - 1, row), cell(line, row));
     return edge(j) * (1 - t) + edge(j + 1) * t;
   };
   // The nearest line on each axis, as the shader's `floor(h + 0.5)` with h = x + 0.5: line L lies at L - 0.5, between
@@ -208,6 +231,23 @@ export function gridLineOpacityAt(field: RingField, x: number, y: number, rings:
   const vertical = along(lx, y, (a, b) => cellOpacity(field, a, b, rings));
   const horizontal = along(ly, x, (a, b) => cellOpacity(field, b, a, rings));
   return Math.abs(x - (lx - 0.5)) <= Math.abs(y - (ly - 0.5)) ? vertical : horizontal;
+}
+
+/**
+ * A grid hairline's coverage of a pixel whose centre is `distPx` device px from the line: `widthDevicePx` wide, the same
+ * on screen at every zoom (the shader's `neonLine` with no world width).
+ */
+export function gridLineCoverage(distPx: number, widthDevicePx: number = DEFAULT_PLACEMENT_SETTINGS.grid.widthDevicePx): number {
+  return neonLineCoverage(distPx, 0, widthDevicePx);
+}
+
+/**
+ * The grid's share of its opacity at a zoom: 1 at every zoom, unless `farFade`, then the outlines' curve fully on from
+ * `farFadeStart` x S (the far end of the zoom only, by default from the opening view out).
+ */
+export function gridFade(tilePx: number, openingTilePx: number, grid: Pick<PlacementSettings["grid"], "farFade" | "farFadeStart">, outlines: OutlineFadeSettings): number {
+  if (!grid.farFade || !(tilePx > 0 && openingTilePx > 0)) return 1;
+  return placementFade(tilePx, openingTilePx, { ...outlines, fadeFullFactor: Math.max(grid.farFadeStart, outlines.fadeOffFactor) });
 }
 
 /**
@@ -272,12 +312,15 @@ export function colorProgress(elapsed: number, motion: PlacementSettings["motion
   return t * t * (3 - 2 * t);
 }
 
+/*
+ * In the shader:
+ * - Cell units: a tile's centre at whole numbers, the lines between cells at halves.
+ */
 const gridVertex = /* glsl */ `
 #include <fog_pars_vertex>
 varying vec2 vCell;
 void main() {
   vec4 world = modelMatrix * vec4( position, 1.0 );
-  // Cell units: a tile's centre at whole numbers, the lines between cells at halves.
   vCell = world.xz / ${TILE_SIZE.toFixed(1)};
   vec4 mvPosition = viewMatrix * world;
   gl_Position = projectionMatrix * mvPosition;
@@ -285,44 +328,48 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - The field's first cell (grid coordinates) and its size in cells.
+ * - A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
+ * - The vertical line between cells line - 1 and line, at y: the smaller of the two (the farther ring), linear between rows.
+ * - Distance to the nearest line on each axis, in cell units, and a device px in cell units across each line: the length
+ *   of the coordinate's screen gradient (fwidth's sum would widen a line seen at an angle).
+ * - A hairline: widthPx device px at every zoom, its coverage of the pixel (gridLineCoverage).
+ * - Each line's opacity: the farther ring of its two cells (the smaller opacity), linear along it from one row of cells
+ *   to the next (gridLineOpacityAt).
+ */
 const gridFragment = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 uniform vec3 color;
 uniform float opacity;
-uniform float lineWidth;
-uniform float minPx;
+uniform float widthPx;
 uniform sampler2D rings;
-// The field's first cell (grid coordinates) and its size in cells.
 uniform vec4 field;
 varying vec2 vCell;
 ${NEON_LINE_GLSL}
-// A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
 float cellAt( float x, float y ) {
   ivec2 size = ivec2( field.zw );
   ivec2 at = clamp( ivec2( x - field.x, y - field.y ), ivec2( 0 ), size - 1 );
   return texelFetch( rings, at, 0 ).r;
 }
-// The vertical line between cells line - 1 and line, at y: the larger of the two, linear between rows.
 float verticalLine( float line, float y ) {
   float j = floor( y );
   float t = y - j;
-  return mix( max( cellAt( line - 1.0, j ), cellAt( line, j ) ), max( cellAt( line - 1.0, j + 1.0 ), cellAt( line, j + 1.0 ) ), t );
+  return mix( min( cellAt( line - 1.0, j ), cellAt( line, j ) ), min( cellAt( line - 1.0, j + 1.0 ), cellAt( line, j + 1.0 ) ), t );
 }
 float horizontalLine( float line, float x ) {
   float i = floor( x );
   float t = x - i;
-  return mix( max( cellAt( i, line - 1.0 ), cellAt( i, line ) ), max( cellAt( i + 1.0, line - 1.0 ), cellAt( i + 1.0, line ) ), t );
+  return mix( min( cellAt( i, line - 1.0 ), cellAt( i, line ) ), min( cellAt( i + 1.0, line - 1.0 ), cellAt( i + 1.0, line ) ), t );
 }
 void main() {
   vec2 h = vCell + 0.5;
-  // Distance to the nearest line on each axis, in cell units, and a device px in cell units.
   vec2 dist = 0.5 - abs( fract( h ) - 0.5 );
-  vec2 px = max( fwidth( h ), vec2( 1e-6 ) );
-  float lineX = neonLine( dist.x, lineWidth, px.x, minPx );
-  float lineY = neonLine( dist.y, lineWidth, px.y, minPx );
-  // Each line's opacity: the nearer ring of its two cells (the larger opacity), linear along it from one row of cells to
-  // the next (gridLineOpacityAt).
+  vec2 px = max( vec2( length( vec2( dFdx( h.x ), dFdy( h.x ) ) ), length( vec2( dFdx( h.y ), dFdy( h.y ) ) ) ), vec2( 1e-6 ) );
+  float lineX = neonLine( dist.x, 0.0, px.x, widthPx );
+  float lineY = neonLine( dist.y, 0.0, px.y, widthPx );
   vec2 lines = floor( h + 0.5 );
   float a = max( verticalLine( lines.x, vCell.y ) * lineX, horizontalLine( lines.y, vCell.x ) * lineY ) * opacity;
   if ( a <= 0.0 ) discard;
@@ -331,16 +378,22 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - The geometry is centred on its cell: x and z place the point around it.
+ */
 const auraVertex = /* glsl */ `
 attribute float aV;
 attribute float aWall;
 varying float vV;
 varying float vWall;
+varying vec2 vAround;
 varying vec3 vNormalView;
 varying vec3 vViewPosition;
 void main() {
   vV = aV;
   vWall = aWall;
+  vAround = position.xz;
   vNormalView = normalize( normalMatrix * normal );
   vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
   vViewPosition = mvPosition.xyz;
@@ -348,6 +401,17 @@ void main() {
 }
 `;
 
+/*
+ * In the shader:
+ * - `pulse`: 0 radial, 1 rotating, 2 rotating with the interference.
+ * - Bright at the cell's edge, falling to 0 at the far end: no hard edge to alias.
+ * - In step all around: rings running outward and up.
+ * - Around the cell, 0 to 1 (a whole number of arcs, so the seam at the turn does not show), the wave running round.
+ * - An interference: sines of whole numbers of turns around the cell and of loops over the noise's long period, so it
+ *   never jumps, at speeds that share no small period (it does not seem to repeat).
+ * - The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
+ *   which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
+ */
 const auraFragment = /* glsl */ `
 uniform vec3 color;
 uniform float opacity;
@@ -355,17 +419,33 @@ uniform float intensity;
 uniform float phase;
 uniform float waves;
 uniform float waveAmount;
+uniform float pulse;
+uniform float arcs;
+uniform float noise;
+uniform float noisePhase;
 varying float vV;
 varying float vWall;
+varying vec2 vAround;
 varying vec3 vNormalView;
 varying vec3 vViewPosition;
+const float TAU = 6.28318530718;
 void main() {
-  // Bright at the cell's edge, falling to 0 at the far end: no hard edge to alias.
   float base = ( 1.0 - vV ) * ( 1.0 - vV );
-  float wave = 0.5 + 0.5 * sin( 6.28318530718 * ( vV * waves - phase ) );
+  float wave;
+  if ( pulse < 0.5 ) {
+    wave = 0.5 + 0.5 * sin( TAU * ( vV * waves - phase ) );
+  } else {
+    float u = atan( vAround.y, vAround.x ) / TAU;
+    wave = 0.5 + 0.5 * cos( TAU * ( u * arcs - phase ) );
+    if ( pulse > 1.5 ) {
+      float t = noisePhase;
+      float n = 0.5 * sin( TAU * ( 3.0 * u + 7.0 * t ) + 1.3 )
+        + 0.3 * sin( TAU * ( 5.0 * u - 11.0 * t ) + 4.1 )
+        + 0.2 * sin( TAU * ( 2.0 * u + 23.0 * t + 0.7 * vV ) + 2.2 );
+      wave *= mix( 1.0, 0.5 + 0.5 * n, noise );
+    }
+  }
   float a = base * mix( 1.0, wave, waveAmount ) * intensity * opacity;
-  // The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
-  // which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
   float facing = dot( normalize( vNormalView ), normalize( -vViewPosition ) );
   a *= mix( 1.0, smoothstep( 0.15, 0.5, facing ), vWall );
   gl_FragColor = vec4( color * a, 0.0 );
@@ -380,6 +460,10 @@ type AuraMaterial = THREE.ShaderMaterial & {
     phase: THREE.IUniform<number>;
     waves: THREE.IUniform<number>;
     waveAmount: THREE.IUniform<number>;
+    pulse: THREE.IUniform<number>;
+    arcs: THREE.IUniform<number>;
+    noise: THREE.IUniform<number>;
+    noisePhase: THREE.IUniform<number>;
   };
 };
 
@@ -387,8 +471,7 @@ type GridMaterial = THREE.ShaderMaterial & {
   uniforms: {
     color: THREE.IUniform<THREE.Color>;
     opacity: THREE.IUniform<number>;
-    lineWidth: THREE.IUniform<number>;
-    minPx: THREE.IUniform<number>;
+    widthPx: THREE.IUniform<number>;
     rings: THREE.IUniform<THREE.DataTexture | null>;
     field: THREE.IUniform<THREE.Vector4>;
   };
@@ -403,6 +486,10 @@ function createAuraMaterial(): AuraMaterial {
       phase: { value: 0 },
       waves: { value: 2 },
       waveAmount: { value: 0.5 },
+      pulse: { value: 1 },
+      arcs: { value: 1 },
+      noise: { value: 0 },
+      noisePhase: { value: 0 },
     },
     vertexShader: auraVertex,
     fragmentShader: auraFragment,
@@ -492,6 +579,12 @@ export function createAuraGeometry(height: number, halo: number): THREE.BufferGe
  * just above it, over the neighbours' ground and the tile's own, not under them.
  */
 const GROUND_TOP = 0.4 * (TILE_SIZE / 4);
+
+/** The aura shader's `pulse` for each setting. */
+const AURA_PULSE_CODES: Record<PlacementPulse, number> = { radial: 0, rotating: 1, "rotating-noise": 2 };
+
+/** The interference's loop (`"rotating-noise"`), in periods of the wave: long enough not to be seen to repeat. */
+const AURA_NOISE_LOOP = 30;
 
 /** The veil's draw order: after the faces, before the outlines (1), so the outlines stay dark on top. */
 const VEIL_ORDER = 0.5;
@@ -688,7 +781,7 @@ export class PlacementRenderer {
   private rebuildSlots(): void {
     this.slotGroup.clear();
     if (!this.settings.slots.enabled || this.slots.length === 0) return;
-    const geometry = (this.slotGeometry ??= this.frameGeometry(this.settings.slots.glow));
+    const geometry = (this.slotGeometry ??= createNeonFrameGeometry());
     const dashed = (this.dashedMaterial ??= createNeonFrameMaterial());
     const solid = (this.solidMaterial ??= createNeonFrameMaterial());
     this.applySlots();
@@ -701,11 +794,6 @@ export class PlacementRenderer {
       mesh.userData.slot = { x: slot.x, y: slot.y, fits: slot.fits !== false };
       this.slotGroup.add(mesh);
     }
-  }
-
-  /** A frame's quad in cell units (the shader reads them): a cell and its halo's margin. Its mesh is scaled to the tile. */
-  private frameGeometry(margin: number): THREE.BufferGeometry {
-    return createNeonFrameGeometry(margin);
   }
 
   /**
@@ -778,7 +866,7 @@ export class PlacementRenderer {
     mesh.renderOrder = AURA_ORDER;
     mesh.userData.aura = true;
     container.add(mesh);
-    const frame = new THREE.Mesh((this.slotGeometry ??= this.frameGeometry(this.settings.slots.glow)), border);
+    const frame = new THREE.Mesh((this.slotGeometry ??= createNeonFrameGeometry()), border);
     frame.position.y = GROUND_TOP + 0.025;
     frame.scale.set(TILE_SIZE, 1, TILE_SIZE);
     frame.renderOrder = AURA_ORDER;
@@ -798,10 +886,13 @@ export class PlacementRenderer {
     if (key === this.zoomKey) return;
     this.zoomKey = key;
     const known = tilePx > 0 && openingTilePx > 0;
-    this.fade = known ? placementFade(tilePx, openingTilePx, this.outlines) : 1;
+    this.fade = known ? gridFade(tilePx, openingTilePx, this.settings.grid, this.outlines) : 1;
     this.borderFade = known ? placementFade(tilePx, openingTilePx, this.outlines, this.settings.slots.fadeFloor) : 1;
     this.applyGrid();
     this.applySlots();
+    // The placed cell's border and the confirm's: their quad's margin follows the device px even when nothing moves.
+    const margin = neonFrameMargin(tilePx, pixelRatio);
+    for (const border of [this.ghostBorder, this.confirmBorder]) if (border) setNeonFrame(border, { margin });
   }
 
   private applyGrid(): void {
@@ -810,20 +901,21 @@ export class PlacementRenderer {
     const { grid } = this.settings;
     material.uniforms.color.value.set(grid.color);
     material.uniforms.opacity.value = grid.opacity * this.fade;
-    material.uniforms.lineWidth.value = grid.width;
-    material.uniforms.minPx.value = grid.minWidthDevicePx;
+    material.uniforms.widthPx.value = grid.widthDevicePx;
     if (this.gridMesh) this.gridMesh.visible = grid.enabled && this.fade > 0 && this.gridKey !== "";
   }
 
   private applySlots(): void {
-    const { slots, colors, grid } = this.settings;
+    const { slots, colors } = this.settings;
     const dashBlend = Number.isFinite(this.zoom.tilePx) ? slotDashBlend(this.zoom.tilePx, slots) : 0;
     const common = {
+      margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
       color: colors.yellow,
       opacity: this.borderFade,
       lineWidth: slots.width,
       glowWidth: slots.glow,
-      minPx: grid.minWidthDevicePx,
+      minPx: slots.minWidthDevicePx,
+      inset: slots.inset,
       glowIntensity: slots.glowIntensity,
       fillOpacity: slots.fillOpacity,
       gap: slots.gap,
@@ -853,7 +945,7 @@ export class PlacementRenderer {
   }
 
   private applyEffects(color: THREE.Color, opacity: number, now: number, veil: THREE.MeshBasicMaterial | null, aura: AuraMaterial | null, border: NeonFrameMaterial | null): void {
-    const { veil: veilSettings, aura: auraSettings, slots, grid } = this.settings;
+    const { veil: veilSettings, aura: auraSettings, slots } = this.settings;
     if (veil) {
       // The colour is linear (`THREE.Color.set` converts the CSS sRGB); a pale veil is that colour towards white.
       veil.color.copy(color).lerp(new THREE.Color(1, 1, 1), veilSettings.whiten);
@@ -865,15 +957,24 @@ export class PlacementRenderer {
       aura.uniforms.opacity.value = opacity;
       aura.uniforms.intensity.value = auraSettings.intensity;
       aura.uniforms.waves.value = auraSettings.waves;
-      aura.uniforms.waveAmount.value = auraSettings.waveAmount;
-      aura.uniforms.phase.value = this.reduced || !(auraSettings.periodMs > 0) ? 0 : (now % auraSettings.periodMs) / auraSettings.periodMs;
+      // Reduced motion: a still aura, even all around (a still wave would leave one side brighter for good).
+      aura.uniforms.waveAmount.value = this.reduced ? 0 : auraSettings.waveAmount;
+      aura.uniforms.pulse.value = AURA_PULSE_CODES[auraSettings.pulse] ?? 1;
+      aura.uniforms.arcs.value = Math.max(1, Math.round(auraSettings.arcs) || 1);
+      aura.uniforms.noise.value = auraSettings.noise;
+      const moving = !this.reduced && auraSettings.periodMs > 0;
+      aura.uniforms.phase.value = moving ? (now % auraSettings.periodMs) / auraSettings.periodMs : 0;
+      const noiseLoop = auraSettings.periodMs * AURA_NOISE_LOOP;
+      aura.uniforms.noisePhase.value = moving ? (now % noiseLoop) / noiseLoop : 0;
     }
     if (border) {
       setNeonFrame(border, {
         opacity: opacity * this.borderFade,
         lineWidth: slots.width,
         glowWidth: slots.glow,
-        minPx: grid.minWidthDevicePx,
+        minPx: slots.minWidthDevicePx,
+        inset: slots.inset,
+        margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
         intensity: auraSettings.borderIntensity,
         glowIntensity: slots.glowIntensity,
         fillOpacity: 0,
@@ -917,8 +1018,7 @@ export class PlacementRenderer {
         {
           color: { value: new THREE.Color() },
           opacity: { value: 1 },
-          lineWidth: { value: 0.012 },
-          minPx: { value: 1 },
+          widthPx: { value: 1 },
           rings: { value: null },
           field: { value: new THREE.Vector4() },
         },

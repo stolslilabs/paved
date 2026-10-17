@@ -44,11 +44,14 @@ export interface OutlineSettings {
   fadeOffFactor: number;
   /**
    * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is
-   * `1 - t^p` of the logarithm of the tile size (`outlineFade`). The default is the closest zoom's share
-   * (`OUTLINE_FADE_START`, 1.5 S): the fade's start, from `MIN_FADE_START` (1.5) up to `OUTLINE_CLOSEST_FACTOR` (the closest zoom, 30 S).
+   * `1 - t^p` of the logarithm of the tile size (`outlineFade`). This is the fade's start: 1.5 S by default
+   * (`OUTLINE_FADE_START`), settable from `MIN_FADE_START` (1.5) up to `OUTLINE_CLOSEST_FACTOR` (the closest zoom, 30 S).
    */
   fadeFullFactor: number;
-  /** The exponent p of the fade `1 - t^p`, in [1, 4]: 1 linear, 2 square (gentle at first, faster near the threshold), 3 cube. */
+  /**
+   * The exponent p of the fade `1 - t^p`, in [1, 4]: 1 linear, 2 square (gentle at first, faster near the threshold), 3 cube.
+   * A value that is not a finite number is the default's.
+   */
   fadeExponent: number;
   /** Ease the end of the fade: the opacity reaches 0 with a zero slope (no kink at the off point). Off by default. */
   fadeEasedEnd: boolean;
@@ -187,13 +190,13 @@ export function easeFadeEnd(b: number): number {
 
 /**
  * The outlines' opacity for a tile `tilePx` wide, off at `off` px and fully on from `full` px: `1 - t^p`, t being
- * `outlineFadeT` (the position on a log scale), p the exponent clamped to [1, 4]. 0 at or below `off`, 1 at or above
+ * `outlineFadeT` (the position on a log scale), p the exponent clamped to [1, 4] (not finite: the default's). 0 at or below `off`, 1 at or above
  * `full` (a step when the two are equal). With `easedEnd` the end is eased (`easeFadeEnd`).
  */
 export function outlineFade(tilePx: number, off: number, full: number, exponent = 2, easedEnd = false): number {
   if (!(tilePx > off)) return 0;
   if (!(tilePx < full)) return 1;
-  const p = Math.min(Math.max(exponent, MIN_FADE_EXPONENT), MAX_FADE_EXPONENT);
+  const p = Number.isFinite(exponent) ? Math.min(Math.max(exponent, MIN_FADE_EXPONENT), MAX_FADE_EXPONENT) : DEFAULT_OUTLINE_SETTINGS.fadeExponent;
   const b = 1 - Math.pow(outlineFadeT(tilePx, off, full), p);
   return easedEnd ? easeFadeEnd(b) : b;
 }

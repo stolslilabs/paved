@@ -8,7 +8,7 @@ import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
 import { PlacementRenderer, type PlacementSettings, type PlacementSlot, type PlacementUpdate } from "./placement";
-import type { OutlineSettings } from "./outlines";
+import type { OutlineFadeSettings } from "./outlines";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
 import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
 // The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
@@ -889,7 +889,7 @@ export class TileRenderer {
   }
 
   /** The placement visuals' settings, and the outlines' fade they follow on zoom-out. */
-  setPlacementSettings(settings: PlacementSettings, outlines: Pick<OutlineSettings, "fadeOffFactor" | "fadeFullFactor">): void {
+  setPlacementSettings(settings: PlacementSettings, outlines: OutlineFadeSettings): void {
     this.placement.setSettings(settings, outlines);
   }
 

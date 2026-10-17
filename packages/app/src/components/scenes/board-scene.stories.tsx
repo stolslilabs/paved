@@ -1,16 +1,77 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import type { BoardTile } from "@paved/chain";
+import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
+import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { APP_ASSETS, APP_WEB_ASSETS, originalTileArt } from "../../mocks/assets";
+import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
 import { BoardViewport } from "../containers/board-viewport";
 import { TileView } from "../containers/tile-view";
-import { BoardScene } from "./board-scene";
+import { BoardScene, type BoardSceneProps } from "./board-scene";
+
+/** The cells next to a cell (the contracts' coordinates, y north) and the side of the new tile that faces each. */
+const NEIGHBORS: ReadonlyArray<readonly [number, number, DirectionType]> = [
+  [0, 1, DirectionType.North],
+  [1, 0, DirectionType.East],
+  [0, -1, DirectionType.South],
+  [-1, 0, DirectionType.West],
+];
+
+/**
+ * The legal slots of `plan` at `orientation` on `tiles`: a free cell next to a tile, every touching edge matching (the
+ * rule the bench's boards were built with, `Layout.isCompatible`, the engine's on these plans). A story's stand-in for
+ * the session's `slots`, so the board shows the real possible and valid positions of the tile in hand.
+ */
+function slotsOf(tiles: BoardTile[], plan: number, orientation: number): Slot[] {
+  const byPos = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+  const layout = Layout.from(Plan.from(plan), Orientation.from(orientation).value);
+  const seen = new Set<string>();
+  const slots: Slot[] = [];
+  for (const t of tiles) {
+    for (const [dx, dy] of NEIGHBORS) {
+      const [x, y] = [t.x + dx, t.y + dy];
+      const key = `${x},${y}`;
+      if (byPos.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      const fits = NEIGHBORS.every(([nx, ny, side]) => {
+        const n = byPos.get(`${x + nx},${y + ny}`);
+        return !n || layout.isCompatible(Layout.from(Plan.from(n.plan), Orientation.from(n.orientation).value), new Direction(side));
+      });
+      if (fits) slots.push({ x, y });
+    }
+  }
+  return slots;
+}
+
+/** The tile in hand on the 38-tile board (the recorded next move) and its slots in every rotation. */
+const TILES = BOARD_38.tiles;
+const HAND = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation };
+const slotsAt = (orientation: number) => slotsOf(TILES, HAND.plan, orientation);
+const fitsAt = (slot: Slot, orientation: number) => slotsAt(orientation).some((s) => s.x === slot.x && s.y === slot.y);
+/** The slot the recorded move takes: its rotation fits there. */
+const CHOSEN: Slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
+/** A rotation that does not fit there: the placed tile turns red. */
+const RED_ORIENTATION = [1, 2, 3, 4].find((o) => !fitsAt(CHOSEN, o)) ?? HAND.orientation;
+
+function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps, "tiles" | "slots" | "ghost" | "hand"> {
+  const slots: BoardSlot[] = boardSlots(slotsAt, orientation);
+  const fits = chosen ? fitsAt(chosen, orientation) : true;
+  return {
+    tiles: TILES,
+    slots,
+    ghost: chosen ? { ...chosen, plan: HAND.plan, orientation, placed: true, fits } : null,
+    hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, preview: chosen && fits ? 30 : null },
+  };
+}
 
 /**
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
- * reframes it.
+ * reframes it. The board draws the placement visuals as the game does (SLOTS2, P-72): the grid, the legal slots of the
+ * tile in hand (dashed, solid where its rotation fits), and the tile placed on a slot (yellow, or red where its rotation
+ * does not fit), from the engine's rule on the recorded board.
  */
 const meta = {
   title: "Scenes/Board",
@@ -19,7 +80,17 @@ const meta = {
   render: (args) => (
     <BoardScene
       {...args}
-      canvas={<BoardViewport tiles={args.tiles} gameId={args.gameId} basePath={APP_ASSETS} />}
+      canvas={
+        <BoardViewport
+          tiles={args.tiles}
+          gameId={args.gameId}
+          basePath={APP_ASSETS}
+          slots={args.slots}
+          ghost={args.ghost}
+          confirmed={args.confirmed}
+          placementHighlight={args.placementHighlight}
+        />
+      }
       renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(APP_WEB_ASSETS)} />}
     />
   ),
@@ -27,8 +98,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand, no slot chosen. */
-export const Placing: Story = { args: BOARD.placing };
+/** A tile in hand, no slot chosen: its legal slots on the board, dashed where only another rotation fits, solid where this one does. */
+export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) } };
+
+/** No tile to place (a move on its way): the grid alone around the board. */
+export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
+
+/** The tile placed on a slot its rotation fits: yellow aura and veil, Confirm on. */
+export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
+
+/** Turned to a rotation that does not fit its slot: red, Confirm off. */
+export const PlacedIllegal: Story = { args: { ...BOARD.placing, ...inHand(RED_ORIENTATION, CHOSEN) } };
 
 /** A slot chosen: Confirm shows the points. */
 export const SlotChosen: Story = { args: BOARD.slotChosen };
