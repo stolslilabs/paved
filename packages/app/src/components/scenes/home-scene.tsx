@@ -2,11 +2,11 @@ import type { GameView, Leaderboard } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
-import { Cobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { Wordmark } from "../elements/wordmark";
+import { BalancesSlot } from "../containers/balances-context";
 import { AppNav } from "../containers/app-nav";
 import { ModeCard } from "../containers/mode-card";
 import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
@@ -62,10 +62,7 @@ export function HomeScene(props: HomeSceneProps) {
         <header className="flex items-center justify-between">
           <h1 className="sr-only">Home</h1>
           <Wordmark size="md" />
-          <span className="flex items-center gap-3 text-xs text-muted-foreground">
-            {cobbles && <Cobbles value={cobbles.balance} />}
-            <span>Day {leaderboard.tournamentId}</span>
-          </span>
+          <BalancesSlot layout="pill" />
         </header>
 
         <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
@@ -125,17 +122,14 @@ export function HomeScene(props: HomeSceneProps) {
             featured
             icon="trophy"
             title="Challenge"
-            description="Today's ranked game. Beat the threshold to earn PAVED."
-            badge="Daily"
+            description="A ranked game. Beat the threshold to earn PAVED."
+            badge="Ranked"
             disabled={spawnPaused}
             reason="Purchases paused"
             onSelect={props.onChallenge}
           >
             <div className="flex flex-col gap-2 pt-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Today's top 3</span>
-                <Countdown expiresAt={leaderboard.endTime} now={now} label="Ends in" />
-              </div>
+              <span className="text-xs text-muted-foreground">Top 3</span>
               <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
             </div>
           </ModeCard>

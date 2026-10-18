@@ -3,14 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
 import { useDataSources } from "../src/data";
-import { WalletFooter } from "../src/wallet/notice";
 import { WalletProvider, useAccount, useWallet } from "../src/wallet/wallet";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { InlineError } from "../src/components/elements/inline-error";
+import { useErrorDetail } from "../src/routes/error-detail";
 
 /** What a page reads: the wallet's state and the data hooks' signer. */
 function Probe() {
   const wallet = useWallet();
+  const detail = useErrorDetail(wallet.error);
   const { signer = null } = useDataSources();
   return (
     <div>
@@ -22,7 +24,7 @@ function Probe() {
       <button type="button" onClick={wallet.disconnect}>
         disconnect
       </button>
-      <WalletFooter />
+      <InlineError title="Wallet" message={wallet.address ? null : wallet.error} detail={detail} />
     </div>
   );
 }
@@ -49,9 +51,8 @@ describe("the wallet (P6)", () => {
     await userEvent.click(screen.getByRole("button", { name: "connect" }));
     await waitFor(() => expect(signerOf()).toBe("0x5f1"));
     expect(screen.getByTestId("status").textContent).toBe("connected");
-    expect(screen.getByText(/Connected as/)).toHaveTextContent("0x5f1");
 
-    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await userEvent.click(screen.getByRole("button", { name: "disconnect" }));
     expect(signerOf()).toBe("none");
     expect(screen.getByTestId("status").textContent).toBe("disconnected");
     await waitFor(() => expect(wallet.calls).toEqual(["connect", "disconnect"]));
@@ -94,7 +95,7 @@ describe("the wallet (P6)", () => {
     expect(signerOf()).toBe("none");
   });
 
-  it("the footer's wallet error keeps the time it was first shown across re-renders (P-67)", async () => {
+  it("the wallet error keeps the time it was first shown across re-renders (P-67)", async () => {
     const writeText = vi.fn(() => Promise.resolve());
     const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -126,13 +127,4 @@ describe("the wallet (P6)", () => {
     }
   });
 
-  it("the footer carries the D-15 notice, linked to the notices file", () => {
-    render(
-      <WalletProvider sources={fakeSources().sources} load={fakeWallet().load}>
-        <WalletFooter />
-      </WalletProvider>,
-    );
-    expect(screen.getByText(/Uses Cartridge Controller, © Cartridge Gaming Company/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
-  });
 });

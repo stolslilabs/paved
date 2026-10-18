@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
+import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates } from "../../data/placement";
 import { cn } from "../../lib/utils";
+import { LazyTileBubble } from "./lazy-tile-bubble";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
 const CENTER = 2_147_483_647;
@@ -89,9 +90,19 @@ export interface BoardViewportProps {
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
+  /** The tile placed and not yet sent: the Rotate and Cancel bubble follows its corner. Unset: none. */
+  bubble?: BoardBubble | null;
   /** The renderer could not start (no WebGL, a model that does not load). */
   onError?: (error: unknown) => void;
   className?: string;
+}
+
+/** The bubble on the placed tile (`TileBubble`): `cell` is the tile's, in the contracts' coordinates. */
+export interface BoardBubble {
+  cell: { x: number; y: number };
+  rotations: number;
+  onRotate: () => void;
+  onClose: () => void;
 }
 
 /** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
@@ -108,7 +119,8 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+  const [scene, setScene] = useState<GameScene | null>(null);
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
   // A plate on every free cell next to a tile: playable or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
@@ -133,11 +145,17 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         availableSlots={gridSlots}
         hover={hover}
         confirmed={confirm}
+        onReady={setScene}
         onError={onError}
         onTileClick={onCellClick && ((gx, gy) => onCellClick(toChainSlot(gx, gy)))}
         onTileHover={onCellHover && ((gx, gy) => onCellHover(toChainSlot(gx, gy)))}
         onHoverLeave={onCellHover && (() => onCellHover(null))}
       />
+      {bubble && scene && (
+        <Suspense fallback={null}>
+          <LazyTileBubble scene={scene} cell={toGridSlot(bubble.cell.x, bubble.cell.y)} rotations={bubble.rotations} onRotate={bubble.onRotate} onClose={bubble.onClose} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -99,23 +99,18 @@ describe("the indexer's hooks, on the fixture indexer", () => {
     expect(achievements.achievements.find((a) => a.achievementId === 2)?.completed).toBe(true);
   });
 
-  it("usePlayerStatus joins profile, today's row and balances; a new player gets an empty profile; a guest null", async () => {
+  it("usePlayerStatus joins profile and today's row; a new player gets an empty profile; a guest null", async () => {
     const f = fakeSources();
-    f.economy.setBalance("usdc", FIXTURE_ADA, 48_500_000n);
     const ada = renderData(() => usePlayerStatus(FIXTURE_ADA, FIXTURE_TOURNAMENT), f.sources);
     const status = await dataOf(ada.result);
     expect(status?.player.playerId).toBe(FIXTURE_ADA);
     expect(status?.today?.rank).toBe(1);
-    expect(status?.usdc).toBe(48_500_000n);
-    expect(status?.paved).toBe(0n);
 
     const fresh = renderData(() => usePlayerStatus(NEWCOMER, FIXTURE_TOURNAMENT), f.sources);
     expect(await dataOf(fresh.result)).toEqual({
       player: { playerId: NEWCOMER, name: null, created: null },
       stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
       today: null,
-      usdc: 0n,
-      paved: 0n,
     });
 
     const guest = renderData(() => usePlayerStatus(null, FIXTURE_TOURNAMENT), f.sources);

@@ -30,11 +30,8 @@ const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
 
-/** Turns the tile until a slot is lit, then chooses the first one. */
+/** Chooses the first lit slot: the tile turns to a rotation that fits there. */
 async function chooseSlot() {
-  for (let i = 0; i < 4 && screen.queryAllByRole("button", { name: /^Slot / }).length === 0; i++) {
-    await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
-  }
   await userEvent.click(screen.getAllByRole("button", { name: /^Slot / })[0]!);
 }
 
@@ -78,10 +75,14 @@ describe("/training (P3)", () => {
 
     const chip = within(hand()).getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAccessibleName(/north$/);
-    await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
-    expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/east$/);
+    expect(within(hand()).queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
 
     expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    await chooseSlot();
+    // The bubble: Cancel always; Rotate only with several valid rotations, and only through those.
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel placement" }));
+    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
     await chooseSlot();
     const place = within(hand()).getByRole("button", { name: /Place tile/ });
     expect(place).toBeEnabled();

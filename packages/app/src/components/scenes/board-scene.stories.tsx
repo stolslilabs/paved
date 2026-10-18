@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
@@ -53,10 +53,10 @@ const slotsAt = (orientation: number) => slotsOf(TILES, HAND.plan, orientation);
 const fitsAt = (slot: Slot, orientation: number) => slotsAt(orientation).some((s) => s.x === slot.x && s.y === slot.y);
 /** The slot the recorded move takes: its rotation fits there. */
 const CHOSEN: Slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
-/** A rotation that does not fit there: the placed tile turns red. */
-const RED_ORIENTATION = [1, 2, 3, 4].find((o) => !fitsAt(CHOSEN, o)) ?? HAND.orientation;
+/** The rotations that fit there: the bubble's Rotate goes through these only. */
+const VALID = [1, 2, 3, 4].filter((o) => fitsAt(CHOSEN, o));
 
-function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps, "tiles" | "slots" | "ghost" | "hand"> {
+function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps, "tiles" | "slots" | "ghost" | "hand" | "bubble"> {
   const slots: BoardSlot[] = boardSlots(slotsAt, orientation);
   const fits = chosen ? fitsAt(chosen, orientation) : true;
   return {
@@ -64,6 +64,7 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
     slots,
     ghost: chosen ? { ...chosen, plan: HAND.plan, orientation, placed: true, fits } : null,
     hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, preview: chosen && fits ? 30 : null },
+    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn() } : null,
   };
 }
 
@@ -80,6 +81,7 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
           slots={args.slots}
           ghost={args.ghost}
           confirmed={args.confirmed}
+          bubble={args.bubble}
           placementHighlight={args.placementHighlight}
           settings={settings}
         />
@@ -97,30 +99,36 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
  * reframes it. The board draws the placement visuals as the game does (PLATES, P-74): a plate on every free cell next
- * to a tile, blue where some rotation of the tile in hand fits,
- * invalid (grey) where none does, and the tile placed on a plate (tinted yellow, or red where its rotation does not
+ * to a tile, playable (blue) where a rotation of the tile in hand fits,
+ * invalid (greyscale) where none does, and the tile placed on a plate (a yellow tint, or red where its rotation does not
  * fit), from the engine's rule on the recorded board.
  */
 const meta = {
   title: "Scenes/Board",
   component: BoardScene,
-  args: { onBack: fn(), onRotate: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { onBack: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
   render: (args) => renderBoard(args),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand, no slot chosen: its plates on the board, valid, possible and invalid. */
+/** A tile in hand, no slot chosen: its plates on the board, playable and invalid. */
 export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) } };
 
 /** No tile to place (a move on its way): no plate. */
 export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
 
-/** The tile placed on a plate its rotation fits: tinted yellow, Confirm on. */
+/** The tile placed on a plate its rotation fits: a yellow tint, Confirm on, the bubble (Rotate when several rotations fit, Close) on its corner. */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
-/** Turned to a rotation that does not fit its slot: the tile tinted red, Confirm off. */
-export const PlacedIllegal: Story = { args: { ...BOARD.placing, ...inHand(RED_ORIENTATION, CHOSEN) } };
+/** The gear opened: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a desktop (1440 px). */
+export const SettingsOpen: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null) },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+  },
+};
 
 type PlatesArgs = BoardSceneProps & { rotation: number; placed: boolean };
 

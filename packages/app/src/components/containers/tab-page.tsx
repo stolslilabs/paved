@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { AppNav } from "./app-nav";
+import { BalancesSlot } from "./balances-context";
 
 export interface TabPageProps {
   /** The tab shown as active (the route map's `nav`). */
@@ -41,6 +42,7 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>
           </div>
+          <BalancesSlot layout="pill" className="ml-auto" />
           {end}
         </header>
         {children}

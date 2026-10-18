@@ -58,12 +58,7 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
 
     // The lit slots are the engine's legal placements at the hand's orientation, in the renderer's grid.
     const engine = replayTraining(SEED, []);
-    let orientation = 1;
-    while (!engine.legalPlacements().some((p) => p.orientation === ORIENTATIONS[orientation])) {
-      orientation += 1;
-      await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
-    }
-    const legal = engine.legalPlacements().filter((p) => p.orientation === ORIENTATIONS[orientation]);
+    const orientation = 1;
     const plates = canvas.props!.availableSlots!;
     const lit = plates.filter((s) => s.legal !== false);
     // Every legal cell in any rotation is a plate (PLATES); every other free
@@ -72,16 +67,17 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     const cells = (list: { x: number; y: number }[]) => [...new Set(list.map((c) => `${c.x},${c.y}`))].sort();
     expect(cells(lit)).toEqual(cells(engine.legalPlacements().map((p) => ({ x: p.x, y: 0 - p.y }))));
 
-    // The player clicks the last slot the rotation fits, as the renderer reports it; the tile is placed on that cell.
-    // The cells where the hand's rotation fits.
-    const fitting = legal.map((p) => ({ x: p.x, y: 0 - p.y }));
-    const cell = { x: fitting[fitting.length - 1]!.x, y: fitting[fitting.length - 1]!.y };
+    // The player clicks the last lit slot, as the renderer reports it; the tile is placed on that cell in the first
+    // rotation that fits there (the current one when it does), never in one that does not.
+    const cell = { x: lit[lit.length - 1]!.x, y: lit[lit.length - 1]!.y };
+    const turns = engine.legalPlacements().filter((p) => p.x === cell.x && 0 - p.y === cell.y).map((p) => ORIENTATIONS.indexOf(p.orientation));
+    const chosen = turns.includes(orientation) ? orientation : Math.min(...turns);
     act(() => canvas.props!.onTileClick!(cell.x, cell.y));
-    await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation, placed: true, valid: true }));
+    await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation: chosen, placed: true, valid: true }));
 
     await userEvent.click(within(screen.getByRole("region", { name: "Your tile" })).getByRole("button", { name: /Place tile/ }));
     // The move saved is that cell in the engine's coordinates (y north), and the renderer now draws a tile on it.
-    expect(loadGame(() => store)!.moves).toEqual([{ k: "b", o: orientation, x: cell.x, y: 0 - cell.y }]);
+    expect(loadGame(() => store)!.moves).toEqual([{ k: "b", o: chosen, x: cell.x, y: 0 - cell.y }]);
     await waitFor(() => expect(canvas.props!.tiles).toHaveLength(2));
     const placed = canvas.props!.tiles!.find((t) => t.id !== 1)!;
     expect({ x: placed.worldX, y: placed.worldZ }).toEqual(cell);
