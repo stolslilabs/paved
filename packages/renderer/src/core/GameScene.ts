@@ -444,7 +444,7 @@ export class GameScene {
   /**
    * The day and night cycle (DAYNIGHT) over the look just applied: when it is on, its chunk loaded, it draws the backdrop,
    * the sun, the moon, the sky and the night lights; off, the look's own stay. Still (reduced motion, the Low tier) it
-   * holds its first season's noon; frozen (`freezeAt`), that moment. The look's values were set just before: turning the
+   * holds its first season's noon, even when frozen (`freezeAt`, a night included); else a frozen cycle holds that moment. The look's values were set just before: turning the
    * cycle off leaves them.
    */
   private syncDayNight(): void {
