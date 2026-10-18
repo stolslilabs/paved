@@ -236,7 +236,7 @@ are unchanged.
 ## Machine and load
 
 The machine of baselines B and C:
-- the Mac (12 cores);
+- the Mac;
 - Chrome 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display;
 - a desktop session in normal use.
 
