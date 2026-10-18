@@ -30,6 +30,10 @@ export interface BalancesProps {
   state: BalancesState;
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
+  /** The network has a test-USDC faucet (devnet, Sepolia): USDC's action mints; without it USDC has no action here. */
+  faucet?: boolean;
+  /** The faucet mint is on its way. */
+  minting?: boolean;
   /** Starts the sheet open (stories). */
   defaultOpen?: boolean;
   className?: string;
@@ -49,14 +53,17 @@ function Figure({ kind, state }: { kind: BalanceKind; state: Extract<BalancesSta
 }
 
 /** One balance: its figure, and a tap (at least 44 px high) to the place that acts on it. */
-function Row({ kind, state, onAction }: { kind: BalanceKind; state: BalancesState; onAction?: (kind: BalanceKind) => void }) {
-  const row = ROWS.find((r) => r.kind === kind)!;
+function Row({ kind, state, onAction, faucet, minting }: { kind: BalanceKind; state: BalancesState; onAction?: (kind: BalanceKind) => void; faucet?: boolean; minting?: boolean }) {
+  const base = ROWS.find((r) => r.kind === kind)!;
+  const row = kind === "usdc" ? { ...base, action: minting ? "Minting…" : faucet ? "Get test USDC" : "" } : base;
+  const inert = kind === "usdc" && (!faucet || minting);
   return (
     <button
       type="button"
       onClick={() => onAction?.(kind)}
-      aria-label={`${row.label}: ${row.action}`}
-      className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+      disabled={inert}
+      aria-label={row.action ? `${row.label}: ${row.action}` : row.label}
+      className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left outline-none enabled:hover:bg-accent disabled:cursor-default focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
       <span className="flex min-w-0 flex-1 flex-col">
@@ -65,13 +72,13 @@ function Row({ kind, state, onAction }: { kind: BalanceKind; state: BalancesStat
       </span>
       <span className="flex items-center gap-1 text-xs text-muted-foreground">
         {row.action}
-        <Icon name="chevron-right" size="xs" />
+        {row.action && !inert && <Icon name="chevron-right" size="xs" />}
       </span>
     </button>
   );
 }
 
-function Rows({ state, onAction, onConnect }: Pick<BalancesProps, "state" | "onAction" | "onConnect">) {
+function Rows({ state, onAction, onConnect, faucet, minting }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet" | "minting">) {
   if (state.status === "disconnected") {
     return (
       <div className="flex flex-col gap-2 px-3 py-2">
@@ -86,7 +93,7 @@ function Rows({ state, onAction, onConnect }: Pick<BalancesProps, "state" | "onA
   return (
     <div className="flex flex-col">
       {ROWS.map((r) => (
-        <Row key={r.kind} kind={r.kind} state={state} onAction={onAction} />
+        <Row key={r.kind} kind={r.kind} state={state} onAction={onAction} faucet={faucet} minting={minting} />
       ))}
     </div>
   );
@@ -110,12 +117,12 @@ function PillFace({ state }: { state: BalancesState }) {
  * three balances at the bottom of the left rail, each a link. Disconnected: a Connect call; loading: skeletons; error: a
  * short inline error, never a toast.
  */
-export function Balances({ layout, state, onAction, onConnect, defaultOpen = false, className }: BalancesProps) {
+export function Balances({ layout, state, onAction, onConnect, faucet, minting, defaultOpen = false, className }: BalancesProps) {
   const [open, setOpen] = useState(defaultOpen);
   if (layout === "rail") {
     return (
       <section aria-label="Balances" className={cn("hidden flex-col gap-1 border-t border-border pt-3 desktop:flex", className)}>
-        <Rows state={state} onAction={onAction} onConnect={onConnect} />
+        <Rows state={state} onAction={onAction} onConnect={onConnect} faucet={faucet} minting={minting} />
       </section>
     );
   }
@@ -141,10 +148,12 @@ export function Balances({ layout, state, onAction, onConnect, defaultOpen = fal
           <Rows
             state={state}
             onAction={(kind) => {
-              setOpen(false);
+              if (kind !== "usdc") setOpen(false);
               onAction?.(kind);
             }}
             onConnect={onConnect}
+            faucet={faucet}
+            minting={minting}
           />
         </SheetContent>
       </Sheet>

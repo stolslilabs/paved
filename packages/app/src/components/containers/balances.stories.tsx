@@ -8,7 +8,7 @@ import { TabPage } from "./tab-page";
 const meta = {
   title: "Containers/Balances",
   component: Balances,
-  args: { layout: "pill", onAction: fn(), onConnect: fn(), state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
+  args: { layout: "pill", onAction: fn(), onConnect: fn(), faucet: true, state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
 } satisfies Meta<typeof Balances>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -17,9 +17,9 @@ const MOBILE = { viewport: { value: "mobile", isRotated: false } } as const;
 const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 
 /** In a tab page, as the shell lays it out: the pill in the header below `desktop`, the three balances at the rail's bottom from it. */
-function InPage({ state, ...rest }: Pick<BalancesProps, "state" | "onAction" | "onConnect">) {
+function InPage({ state, onAction, onConnect, faucet }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet">) {
   return (
-    <BalancesProvider value={{ state, ...rest }}>
+    <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
       <TabPage tab="ranks" title="Ranks">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>

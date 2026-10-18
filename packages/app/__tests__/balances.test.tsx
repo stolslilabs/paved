@@ -32,15 +32,28 @@ describe("Balances (#538)", () => {
 
   it("rail: three links to their destinations; Cobble shop for the Cobbles", async () => {
     const onAction = vi.fn();
-    render(wrap(<Balances layout="rail" state={READY} onAction={onAction} />));
+    render(wrap(<Balances layout="rail" state={READY} onAction={onAction} faucet />));
     await userEvent.click(screen.getByRole("button", { name: "Cobbles: Cobble shop" }));
     expect(onAction).toHaveBeenCalledWith("cobbles");
-    expect(screen.getByRole("button", { name: "USDC: Get USDC" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "USDC: Get test USDC" }));
+    expect(onAction).toHaveBeenCalledWith("usdc");
+  });
+
+  it("rail: without a faucet USDC has no action; while minting it is busy", () => {
+    const { rerender } = render(wrap(<Balances layout="rail" state={READY} />));
+    expect(screen.getByRole("button", { name: "USDC" })).toBeDisabled();
+    rerender(wrap(<Balances layout="rail" state={READY} faucet minting />));
+    expect(screen.getByRole("button", { name: "USDC: Minting…" })).toBeDisabled();
   });
 
   it("an error is inline, not a toast", () => {
     render(wrap(<Balances layout="rail" state={{ status: "error", message: "RPC down" }} />));
     expect(screen.getByRole("alert")).toHaveTextContent("RPC down");
+  });
+
+  it("rail: the slot lays out the rail even when its value says pill (stories' bug)", async () => {
+    render(wrap(<BalancesProvider value={{ state: READY, faucet: true }}><HomeScene {...HOME.connected} /></BalancesProvider>));
+    expect(await screen.findByRole("region", { name: "Balances" })).toBeInTheDocument();
   });
 
   it("a page's header carries the pill through the shell's provider, and none without it", async () => {

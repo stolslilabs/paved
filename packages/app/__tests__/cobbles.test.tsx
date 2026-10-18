@@ -354,7 +354,7 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
 
   it("marks a free game in Home's top 3, as the Leaderboard does", () => {
     render(wrap(<HomeScene {...HOME.freeGame} />));
-    const podium = within(screen.getByRole("list", { name: "Today's top 3" })).getAllByRole("listitem");
+    const podium = within(screen.getByRole("list", { name: "Top 3" })).getAllByRole("listitem");
     expect(podium[1]).toHaveTextContent("Free");
     expect(podium.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
   });

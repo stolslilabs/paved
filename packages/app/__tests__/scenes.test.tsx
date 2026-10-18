@@ -93,7 +93,7 @@ describe("Home", () => {
     const onResume = vi.fn();
     render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
     expect(screen.getAllByText("bal7hazar").length).toBeGreaterThan(0);
-    const podium = screen.getByRole("list", { name: "Today's top 3" });
+    const podium = screen.getByRole("list", { name: "Top 3" });
     expect(within(podium).getAllByRole("listitem")).toHaveLength(4);
     expect(within(podium).getByText("stonemaster")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));

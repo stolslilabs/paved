@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
-/** The connected player as the home page reads them: indexer profile, today's row, wallet balances. */
+/** The connected player as the home page reads them: indexer profile (the day belongs to Ranks, #538). */
 export interface PlayerStatusData {
   player: IndexedPlayer;
   stats: PlayerStats;
@@ -21,15 +21,6 @@ export interface PlayerStatusProps {
   className?: string;
 }
 
-function Figure({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm">{children}</span>
-    </div>
-  );
-}
-
 /** The player's status on Home: who, today's rank and best, the balances; or the connect call for a guest. */
 export function PlayerStatus({ data, onConnect, connecting, className }: PlayerStatusProps) {
   if (!data) {
@@ -43,7 +34,7 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
       </div>
     );
   }
-  const { player, stats, today } = data;
+  const { player, stats } = data;
   const initial = (player.name ?? player.playerId.slice(2, 3)).slice(0, 1).toUpperCase();
   return (
     <div data-slot="card" className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-4", className)}>
@@ -58,14 +49,6 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
             {stats.challengeFinished} games · best {formatPoints(stats.bestScore)}
           </span>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Figure label="Today's rank">
-          <span className="numeric font-semibold">{today ? `#${today.rank}` : "–"}</span>
-        </Figure>
-        <Figure label="Today's best">
-          <span className="numeric font-semibold">{today ? formatPoints(today.bestScore) : "–"}</span>
-        </Figure>
       </div>
     </div>
   );

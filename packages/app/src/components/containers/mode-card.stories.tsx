@@ -28,7 +28,7 @@ export const WithContent: Story = {
     icon: "trophy",
     title: "Challenge",
     badge: "Ranked",
-    description: "Today's ranked game.",
+    description: "A ranked game.",
     children: <TopThree entries={LEADERBOARD_TODAY.entries} />,
   },
 };

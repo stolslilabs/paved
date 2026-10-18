@@ -129,10 +129,7 @@ export function HomeScene(props: HomeSceneProps) {
             onSelect={props.onChallenge}
           >
             <div className="flex flex-col gap-2 pt-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Today's top 3</span>
-                <Countdown expiresAt={leaderboard.endTime} now={now} label="Ends in" />
-              </div>
+              <span className="text-xs text-muted-foreground">Top 3</span>
               <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
             </div>
           </ModeCard>

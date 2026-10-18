@@ -27,6 +27,7 @@ export type GameSigner = Pick<
   | "spawnFree"
   | "buySkin"
   | "setSkins"
+  | "mint"
 >;
 
 /**

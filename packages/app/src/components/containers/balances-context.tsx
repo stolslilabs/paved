@@ -20,7 +20,7 @@ export function BalancesSlot({ layout, className }: { layout: BalancesProps["lay
   const hold = layout === "pill" ? <Skeleton className={cn("h-10 w-24 rounded-full desktop:hidden", className)} /> : <Skeleton className={cn("hidden h-32 w-full desktop:block", className)} />;
   return (
     <Suspense fallback={hold}>
-      <Balances layout={layout} className={className} {...value} />
+      <Balances {...value} layout={layout} className={className} />
     </Suspense>
   );
 }

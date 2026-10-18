@@ -87,7 +87,7 @@ export function TopThree({ entries, viewer, free, className }: TopThreeProps) {
   }
   const showViewer = viewer && !podium.some((e) => e.playerId === viewer.playerId);
   return (
-    <ol className={cn("flex flex-col gap-1.5", className)} aria-label="Today's top 3">
+    <ol className={cn("flex flex-col gap-1.5", className)} aria-label="Top 3">
       {podium.map((e) => (
         <TopThreeRow key={e.playerId} entry={e} self={viewer?.playerId === e.playerId} free={free?.includes(e.playerId)} />
       ))}
