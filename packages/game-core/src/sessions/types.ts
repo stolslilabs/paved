@@ -46,6 +46,8 @@ export interface PageState {
     discardedCount: number;
   } | null;
   tiles: BoardTile[];
+  /** Chain plan ids of the discarded tiles (the deck sheet crosses them out); absent when the session does not give them. */
+  discardedPlans?: number[];
   hand: { tileId: number; plan: number } | null;
   lastScored: ScoredStructure[];
   readonly: boolean;

@@ -28,7 +28,6 @@ export interface DeckSheetProps {
 export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side }: DeckSheetProps) {
   const wide = useSidePanel();
   const where = side ?? (wide ? "left" : "bottom");
-  const left = counts.total - counts.placed;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -44,10 +43,12 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side 
           {counts.plans.map((plan) => (
             <li key={plan.plan} className="flex gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
               {Array.from({ length: plan.total }, (_, i) => {
-                const out = i < plan.placed;
-                const inHand = !out && i === plan.placed && handPlan === plan.plan;
+                const placed = i < plan.placed;
+                const discarded = !placed && i < plan.placed + plan.discarded;
+                const out = placed || discarded;
+                const inHand = !out && i === plan.placed + plan.discarded && handPlan === plan.plan;
                 return (
-                  <span key={i} data-out={out} className={cn("relative inline-flex", out && "opacity-40")}>
+                  <span key={i} data-out={out} data-discarded={discarded} title={discarded ? "Discarded" : placed ? "Played" : undefined} className={cn("relative inline-flex rounded-md", out && "opacity-40", discarded && "outline-2 -outline-offset-2 outline-dashed outline-foreground")}>
                     <TileChip plan={plan.plan} size="sm" art={tileArt} state={inHand ? "selected" : "default"} />
                     {out && <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-foreground before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />}
                   </span>
@@ -57,8 +58,7 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side 
           ))}
         </ul>
         <p className="numeric text-sm text-muted-foreground" data-testid="deck-summary">
-          {counts.placed} of {counts.total} on the board, {left} not yet.
-          {counts.discarded > 0 && ` ${counts.discarded} discarded.`}
+          {counts.placed} played, {counts.discarded} discarded (dashed), {counts.total - counts.placed - counts.discarded} not yet.
         </p>
       </SheetContent>
     </Sheet>
@@ -70,11 +70,11 @@ export default function BoardDeckSheet({
   open,
   onOpenChange,
   tiles,
-  discarded,
+  discardedPlans,
   deck,
   handPlan,
   tileArt,
-}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt"> & { tiles: readonly BoardTile[]; discarded: number; deck?: readonly PlanType[] }) {
-  const counts = deckSheetCounts(deck ?? baseDeckPlans(), tiles.map((t) => t.plan), discarded);
+}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; deck?: readonly PlanType[] }) {
+  const counts = deckSheetCounts(deck ?? baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans);
   return <DeckSheet open={open} onOpenChange={onOpenChange} counts={counts} handPlan={handPlan} tileArt={tileArt} />;
 }

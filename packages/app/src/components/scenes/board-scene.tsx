@@ -40,8 +40,8 @@ export interface BoardSceneProps {
   delta?: number | null;
   /** `GameView.remainingCount`: discards count against the tiles left (P3), and are not shown. */
   remaining: number;
-  /** `GameView.discardedCount`: the deck sheet says how many tiles were discarded. */
-  discarded?: number;
+  /** Chain plan ids of the tiles discarded: the deck sheet crosses them out too. */
+  discardedPlans?: number[];
   /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
   expiresAt?: number | null;
   now: number;
@@ -202,7 +202,7 @@ export function BoardScene(props: BoardSceneProps) {
       )}
 
       {deckSheet && (
-        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discarded={props.discarded ?? 0} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
       )}
 
       {settingsSheet && <settingsSheet.default open={settingsOpen} onOpenChange={setSettingsOpen} />}

@@ -8,16 +8,17 @@ import { TilesLeft } from "../src/components/elements/tiles-left";
 const id = (plan: PlanType) => Object.values(PlanType).indexOf(plan);
 
 describe("DeckSheet", () => {
-  const counts = deckSheetCounts(baseDeckPlans(), [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.CCCCCCCCC)], 2);
+  const counts = deckSheetCounts(baseDeckPlans(), [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.CCCCCCCCC)], [id(PlanType.FFFFFFCFF), id(PlanType.FFFFFFCFF)]);
 
   it("shows 72 chips and crosses out the played ones", () => {
     render(<DeckSheet open onOpenChange={() => {}} counts={counts} handPlan={id(PlanType.CCCCCFFFC)} side="bottom" />);
     const plans = screen.getByTestId("deck-plans");
     expect(within(plans).getAllByRole("img")).toHaveLength(72);
-    expect(plans.querySelectorAll("[data-out='true']")).toHaveLength(3);
+    expect(plans.querySelectorAll("[data-out='true']")).toHaveLength(5);
+    expect(plans.querySelectorAll("[data-discarded='true']")).toHaveLength(2);
     expect(plans.querySelectorAll("[data-state='selected']")).toHaveLength(1);
     expect(screen.getByText(/some never come/)).toBeInTheDocument();
-    expect(screen.getByTestId("deck-summary")).toHaveTextContent("3 of 72 on the board, 69 not yet. 2 discarded.");
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent("3 played, 2 discarded (dashed), 67 not yet.");
   });
 
   it("opens from the Tiles left button", async () => {

@@ -39,7 +39,7 @@ export function tutorialBoard(view: TutorialView): SessionBoard {
     score: g.score,
     // As Training: the starter counts as placed, a discard as spent.
     remaining: Math.max(0, g.tileLimit - (g.built + 1) - g.discarded),
-    discarded: g.discarded,
+    discardedPlans: [...g.discardedPlans],
     lastScored: closuresOf(view.last) ?? [],
     hand: hand ? { plan: PLANS.indexOf(hand.plan) } : null,
     over: view.over,

@@ -22,8 +22,20 @@ describe("deckSheetCounts", () => {
   });
 
   it("keeps the discards as a count and takes the deck as an input", () => {
-    const counts = deckSheetCounts([PlanType.CCCCCCCCC, PlanType.CCCCCFFFC], [id(PlanType.CCCCCFFFC)], 2);
-    expect(counts).toMatchObject({ total: 2, placed: 1, discarded: 2 });
+    const counts = deckSheetCounts([PlanType.CCCCCCCCC, PlanType.CCCCCFFFC], [id(PlanType.CCCCCFFFC)], [id(PlanType.CCCCCCCCC), id(PlanType.CCCCCFFFC)]);
+    expect(counts).toMatchObject({ total: 2, placed: 1, discarded: 1 });
+    expect(counts.plans.find((p) => p.code === PlanType.CCCCCCCCC)?.discarded).toBe(1);
     expect(counts.plans.map((p) => p.code)).toEqual([PlanType.CCCCCCCCC, PlanType.CCCCCFFFC]);
+  });
+});
+
+describe("discarded plans of a session", () => {
+  it("the engine keeps the plan of each discard", async () => {
+    const { EngineGame } = await import("../src");
+    const game = EngineGame.start({ deck: "simple", seed: 7n });
+    const first = Object.values(PlanType).indexOf(game.hand!.plan);
+    game.discard();
+    expect(game.discardedPlans).toEqual([first]);
+    expect(game.clone().discardedPlans).toEqual([first]);
   });
 });

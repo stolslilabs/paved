@@ -23,7 +23,7 @@ import { trainingStore, useDataSources } from "./sources";
 export { remainingOf, useTrainingSave } from "./training-save";
 
 /** The board scene's data a session gives (the hand's orientation and state are the page's). */
-export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining" | "discarded" | "lastScored"> & {
+export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining" | "discardedPlans" | "lastScored"> & {
   /** The tile in hand, null once the game is over. */
   hand: { plan: number } | null;
   over: boolean;
@@ -35,7 +35,7 @@ export function boardOf(state: PageState): SessionBoard {
     tiles: state.tiles,
     score: state.game?.score ?? 0,
     remaining: state.game ? remainingOf(state.game) : 0,
-    discarded: state.game?.discardedCount ?? 0,
+    discardedPlans: state.discardedPlans ?? [],
     lastScored: state.lastScored,
     hand: state.hand ? { plan: state.hand.plan } : null,
     over: state.game?.over ?? false,

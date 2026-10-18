@@ -102,7 +102,7 @@ function TrainingBoard() {
       score={board.score}
       delta={snapshot.delta}
       remaining={board.remaining}
-      discarded={board.discarded}
+      discardedPlans={board.discardedPlans}
       expiresAt={null}
       now={Math.floor(Date.now() / 1000)}
       hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: placement.canConfirm && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
@@ -295,7 +295,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       score={game?.score ?? 0}
       delta={state.delta}
       remaining={game ? remainingOf(game) : 0}
-      discarded={game?.discardedCount ?? 0}
+      discardedPlans={state.discardedPlans}
       expiresAt={state.expiresAt || null}
       now={now}
       hand={{
@@ -460,7 +460,7 @@ function TutorialBoard() {
       tiles={board.tiles}
       score={board.score}
       remaining={board.remaining}
-      discarded={board.discarded}
+      discardedPlans={board.discardedPlans}
       now={0}
       hand={{
         tile: hand && { plan: hand.plan, orientation },

@@ -12,7 +12,7 @@ const meta = {
   title: "Containers/DeckSheet",
   component: DeckSheet,
   parameters: { layout: "fullscreen" },
-  args: { open: true, onOpenChange: fn(), counts: deckSheetCounts(deck, played, 1), handPlan: id(PlanType.CCCCCFFFC) },
+  args: { open: true, onOpenChange: fn(), counts: deckSheetCounts(deck, played, [id(PlanType.FFFFFFCFF)]), handPlan: id(PlanType.CCCCCFFFC) },
 } satisfies Meta<typeof DeckSheet>;
 export default meta;
 type Story = StoryObj<typeof meta>;
