@@ -51,6 +51,8 @@ export interface QuestsSceneProps {
   /** False: a guest, asked to connect. */
   connected: boolean;
   error?: string | null;
+  /** Why the Cobbles ledger cannot be read (e.g. "Not available on this network yet."); the quests still show. */
+  rewardsUnavailable?: string | null;
   /** That failure's detail for support (`InlineError`). */
   errorDetail?: ErrorDetail;
   now: number;
@@ -196,6 +198,9 @@ export function QuestsScene(props: QuestsSceneProps) {
               onPlayFree={props.onPlayFree}
             />
           )}
+          {props.rewardsUnavailable && (
+            <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>
+          )}
           {missions.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No limited mission live today.</p>
           ) : (
@@ -222,7 +227,9 @@ export function QuestsScene(props: QuestsSceneProps) {
           <p className="text-xs text-muted-foreground">
             {rewards
               ? "Counted by the indexer from the games the chain reports; only paid games count. A completed mission's Cobbles are claimed any time: past days stay claimable. A daily starts over at 00:00 UTC."
-              : "Counted by the indexer from the games the chain reports. No reward in this version: a mission is for the record. A daily starts over at 00:00 UTC."}
+              : props.rewardsUnavailable
+                ? "Counted by the indexer from the games the chain reports. Rewards are not shown here. A daily starts over at 00:00 UTC."
+                : "Counted by the indexer from the games the chain reports. No reward in this version: a mission is for the record. A daily starts over at 00:00 UTC."}
           </p>
         </>
       )}

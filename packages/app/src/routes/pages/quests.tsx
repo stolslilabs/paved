@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toastError } from "../../components/containers/error-toast";
-import type { CobbleClaim } from "@paved/chain";
+import { ViewError, type CobbleClaim } from "@paved/chain";
 import { errorDetail } from "../error-detail";
 import { QuestsScene } from "../../components/scenes/quests-scene";
 import { isClaimed } from "../../components/containers/cobble-types";
@@ -50,6 +50,7 @@ export default function Page() {
 
   // The ledger's failure (a deployment without Setup, a dropped RPC) leaves the quests shown, without their Cobbles.
   const error = clock.error ?? quests.error ?? definitions.error;
+  const rewardsUnavailable = rewards.error instanceof ViewError && rewards.error.kind === "not-available" ? rewards.error.message : null;
   const firstDay = definitions.data ? (firstQuestDay(definitions.data) ?? today) : today;
 
   const send = (target: ClaimTarget, batch: CobbleClaim[]) => {
@@ -93,6 +94,7 @@ export default function Page() {
       quests={quests.data ?? null}
       connected={playerId !== null}
       error={error?.message ?? null}
+      rewardsUnavailable={rewardsUnavailable}
       errorDetail={error ? errorDetail(error) : undefined}
       now={clock.now!}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming } : null}

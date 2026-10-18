@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { QuestCobbles } from "@paved/chain";
+import { NOT_AVAILABLE_MESSAGE, ViewError, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { toast } from "../src/components/ui/sonner";
@@ -131,7 +131,7 @@ describe("/missions/:day? (P9)", () => {
 
   it("a past day stays claimable: its claim names that day", async () => {
     const s = setup();
-    open(`/quests/${PAST}`, s);
+    open(`/missions/${PAST}`, s);
     expect(await screen.findByText("Closed day", {}, { timeout: 3000 })).toBeInTheDocument();
     await userEvent.click(await claimButton(5, "Daily Run"));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: PAST }]]));
@@ -155,6 +155,16 @@ describe("/missions/:day? (P9)", () => {
     expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByText("Could not load the missions")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
+  });
+
+  it("a ledger not deployed on the network says so, the quests stay shown (#549)", async () => {
+    const s = setup();
+    s.views.cobblesFail = new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    open("/missions", s);
+    expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Rewards unavailable")).toBeInTheDocument();
+    expect((await screen.findAllByText(NOT_AVAILABLE_MESSAGE)).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
   });
 
   it("with no signer: a guest, asked to connect, nothing to claim", async () => {
