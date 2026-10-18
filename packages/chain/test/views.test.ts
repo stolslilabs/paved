@@ -60,6 +60,8 @@ describe("a view the deployed class does not have", () => {
 
   test("the node's ENTRYPOINT_NOT_FOUND code maps the same; another failure stays rpc", () => {
     expect(toViewError(new Error("ENTRYPOINT_NOT_FOUND")).kind).toBe("not-available");
+    // A live Sepolia node words it "entry point" (two words); another node "entrypoint".
+    expect(toViewError(new Error("21: Requested entry point does not exist in the contract")).kind).toBe("not-available");
     expect(toViewError(new Error("fetch failed")).kind).toBe("rpc");
   });
 

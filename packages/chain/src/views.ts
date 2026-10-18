@@ -109,7 +109,7 @@ export type ViewErrorKind = "game-not-found" | "not-player" | "not-configured" |
 export const NOT_AVAILABLE_MESSAGE = "Not available on this network yet.";
 
 // The node's text for a call to a selector the class does not have (Starknet: ENTRYPOINT_NOT_FOUND).
-const NO_ENTRYPOINT = /entrypoint does not exist|entry point .*not found|ENTRYPOINT_NOT_FOUND/i;
+const NO_ENTRYPOINT = /entry ?point does not exist|entry ?point .*not found|ENTRYPOINT_NOT_FOUND/i;
 
 /** A view that failed, with the reason the UI shows. */
 export class ViewError extends Error {
