@@ -185,6 +185,16 @@ describe("the cycle's settings", () => {
   });
 });
 
+describe("the night lights' source (NIGHT-WINDOWS, #513)", () => {
+  it("is the columns by default, so the board is unchanged, and takes only a known source", () => {
+    expect(DEFAULT_DAYNIGHT_SETTINGS.lights).toBe("columns");
+    expect(resolveRendererSettings().dayNight.lights).toBe("columns");
+    expect(resolveDayNightSettings({ lights: "windows" }).lights).toBe("windows");
+    expect(resolveDayNightSettings({ lights: "lasers" as never }).lights).toBe("columns");
+    expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ lights: "windows" })).lights).toBe("windows");
+  });
+});
+
 describe("drawing the cycle (drawDayNight)", () => {
   function target() {
     const scene = new THREE.Scene();

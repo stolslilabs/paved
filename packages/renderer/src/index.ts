@@ -81,11 +81,15 @@ export type { PlacementPulse, PlacementSettings, PlacementSettingsInput, Placeme
 export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonFrameMargin, neonLineCoverage, setNeonFrame } from "./core/neon";
 export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
 // The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
-export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, SEASONS, resolveDayNightSettings } from "./core/daynight-settings";
-export type { DayNightSettings, DayPhase, Season } from "./core/daynight-settings";
+export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, NIGHT_LIGHT_SOURCES, SEASONS, resolveDayNightSettings } from "./core/daynight-settings";
+export type { DayNightSettings, DayPhase, NightLightSource, Season } from "./core/daynight-settings";
 // The voxel grid of a tile model, once per model type (VOXELIZER, P-84): the voxel drop and the night windows build on it.
 export { PALETTE_SIZE, VoxelCache, cellIndex, paletteU, voxelize } from "./core/voxelizer";
 export type { VoxelFailure, VoxelGrid, VoxelSource, VoxelizeOptions } from "./core/voxelizer";
+export { DEFAULT_LIGHT_VOLUME, WALL_DIRECTIONS, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, windowCells } from "./core/windows";
+export type { BakedWindows, LightVolume, LightVolumeOptions, OpeningKind, VolumeMethod, Window } from "./core/windows";
+export { PALETTE_CLASSES, labelTileColumns } from "./core/features";
+export { paletteOfModel, planKeyOfModel, planLayout } from "./core/feature-layout";
 export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 
