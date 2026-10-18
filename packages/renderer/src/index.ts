@@ -45,6 +45,7 @@ export {
   DEFAULT_OPENING_TILE_PX,
   tilePixels,
   distanceForTilePixels,
+  OUTLINE_CLOSEST_FACTOR,
 } from "./core/outlines";
 export type { OutlineSettings, OutlineStroke, WebGLDetection } from "./core/outlines";
 export {
