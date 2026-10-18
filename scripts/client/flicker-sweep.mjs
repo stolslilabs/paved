@@ -79,9 +79,21 @@ const step = (kind, k, i) =>
   page.evaluate(
     async ([kind, k, i, control]) => {
       const s = window.__placementScene, c = s.controls.controls, cam = s.camera;
+      // Where a ground point (the sweep's first target, and one 10 units to its side) is on screen, in the crop's pixels.
+      const proj = (v) => {
+        cam.updateMatrixWorld();
+        cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+        const q = v.clone().project(cam);
+        return [((q.x + 1) / 2) * innerWidth - 30, ((1 - q.y) / 2) * innerHeight - 170];
+      };
+      const P0 = (window.__P0 ??= c.target.clone()), P1 = (window.__P1 ??= c.target.clone().add({ x: 10, y: 0, z: 0 }));
+      const before = [proj(P0), proj(P1)];
       if (kind === "pan") {
-        const d = cam.position.distanceTo(c.target);
-        const w = ((2 * Math.tan((cam.fov * Math.PI) / 360) * d) / innerHeight) * k;
+        // k is in screen pixels: the pixels per world unit come from the projection itself (the camera's zoom included).
+        cam.lookAt(c.target);
+        const here = proj(c.target), next = c.target.clone().add({ x: 1, y: 0, z: 0 });
+        const ppu = Math.abs(proj(next)[0] - here[0]);
+        const w = k / ppu;
         cam.position.x += w;
         c.target.x += w;
       } else if (kind === "zoom") cam.position.sub(c.target).multiplyScalar(1 + k).add(c.target);
@@ -93,6 +105,12 @@ const step = (kind, k, i) =>
       }
       s.requestRender();
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (kind) {
+        // The registration of this frame onto the previous one: the ground point's move and the zoom about it, from the projection.
+        const after = [proj(P0), proj(P1)];
+        const len = (a) => Math.hypot(a[1][0] - a[0][0], a[1][1] - a[0][1]);
+        (window.__regs ??= []).push({ s: len(after) / len(before), tx: after[0][0] - before[0][0], ty: after[0][1] - before[0][1], cx: before[0][0], cy: before[0][1] });
+      }
     },
     [kind, k, i, control],
   );
@@ -129,6 +147,38 @@ const analyse = (key) =>
     return { frames: f.length, step_pct_mean: pct(stepPx, pairs), step_pct_max: pct(stepMax, 1), flip_pct_mean: pct(flipPx, Math.max(1, triples)), flip_pct_max: pct(flipMax, 1), flip_px_total: flipPx, absdiff_mean: +(sum / pairs / n).toFixed(4) };
   }, [key, T]);
 
+// Registered residual: frame B is sampled (bilinear) where the projection puts each pixel of frame A, then |B' - A| per pixel.
+// The registration is the projection's (a move of the ground point, a scale about it), nothing is fitted to the frames.
+const analyseReg = (key) =>
+  page.evaluate(([key, T, W, H]) => {
+    const f = window[key], regs = window.__regs.splice(0);
+    let sum = 0, over = 0, cnt = 0, maxPx = 0, p99s = 0, shiftMax = 0, scaleMax = 0, perFrameMax = 0;
+    for (let a = 0; a + 1 < f.length; a++) {
+      const A = f[a], B = f[a + 1], r = regs[a];
+      shiftMax = Math.max(shiftMax, Math.hypot(r.tx, r.ty));
+      scaleMax = Math.max(scaleMax, Math.abs(r.s - 1));
+      const hist = new Uint32Array(256);
+      let fs = 0, fc = 0;
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          // A(x) = B(c + (x - c) * s + t) with c the ground point's place in frame A (the zoom's centre)... the move t is the point's move
+          const bx = r.cx + (x - r.cx) * r.s + r.tx, by = r.cy + (y - r.cy) * r.s + r.ty;
+          const x0 = Math.floor(bx), y0 = Math.floor(by);
+          if (x0 < 0 || y0 < 0 || x0 + 1 >= W || y0 + 1 >= H) continue;
+          const fx = bx - x0, fy = by - y0;
+          const v = B[y0 * W + x0] * (1 - fx) * (1 - fy) + B[y0 * W + x0 + 1] * fx * (1 - fy) + B[(y0 + 1) * W + x0] * (1 - fx) * fy + B[(y0 + 1) * W + x0 + 1] * fx * fy;
+          const d = Math.abs(v - A[y * W + x]);
+          fs += d; fc++; if (d > T) over++; if (d > maxPx) maxPx = d; hist[Math.min(255, Math.round(d))]++;
+        }
+      let acc = 0, q = 0;
+      for (; q < 256; q++) { acc += hist[q]; if (acc >= 0.99 * fc) break; }
+      sum += fs; cnt += fc; p99s += q;
+      perFrameMax = Math.max(perFrameMax, fs / fc);
+    }
+    const nf = f.length - 1;
+    return { frames: nf, step_px_max: +shiftMax.toFixed(3), scale_step_max: +scaleMax.toFixed(5), reg_absdiff_mean: +(sum / cnt).toFixed(4), reg_absdiff_max_frame_mean: +perFrameMax.toFixed(4), reg_p99_mean: +(p99s / nf).toFixed(2), reg_over_T_pct: +((over / cnt) * 100).toFixed(4), reg_max_px: +maxPx.toFixed(1) };
+  }, [key, T, CLIP.width, CLIP.height]);
+
 const out = { label, quality, control, renderer: "SwiftShader (software GL, not a GPU)", T, crop: `${CLIP.width}x${CLIP.height}` };
 
 // Still: the same pose drawn 8 times.
@@ -137,19 +187,23 @@ await page.evaluate(() => window.__placementScene.requestRender());
 for (let i = 0; i < 8; i++) { await step(null, 0, i); await grab("still"); }
 out.still = await analyse("still");
 
-// Pan: a quarter pixel of ground per step, 24 steps, drawn without waiting for anything to settle.
+// Pan: 2 pixels of ground per step (the projection gives the pixels per world unit, camera zoom included), 24 steps, drawn without waiting for anything to settle.
 await reset("pan");
 await grab("pan");
-for (let i = 0; i < 24; i++) { await step("pan", 0.25, i); await grab("pan"); }
+await page.evaluate(() => (window.__regs = []));
+for (let i = 0; i < 24; i++) { await step("pan", 2, i); await grab("pan"); }
 out.pan = await analyse("pan");
+out.pan_registered = await analyseReg("pan");
 
 // Zoom sweep in (0.3% of the distance per step, 40 frames), then out along the same poses; the revisit compares the frames
 // of the two ways at the same pose.
 const poses = [await poseOf()];
 await reset("zin");
 await grab("zin");
+await page.evaluate(() => (window.__regs = []));
 for (let i = 0; i < 40; i++) { await step("zoom", -0.003, i); poses.push(await poseOf()); await grab("zin"); }
 out.zoom_in = await analyse("zin");
+out.zoom_registered = await analyseReg("zin");
 await reset("zout");
 for (let i = 39; i >= 0; i--) { await setPose(poses[i], 39 - i); await grab("zout"); }
 out.zoom_revisit = await page.evaluate(([T]) => {
