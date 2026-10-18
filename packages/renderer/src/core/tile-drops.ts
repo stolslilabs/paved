@@ -55,6 +55,7 @@ function meshOf(root: THREE.Object3D): THREE.Mesh | null {
 export class TileDrops {
   private readonly active = new Map<string, Active>();
   private chunk: Promise<typeof import("./voxel-drop")> | null = null;
+  private loaded: typeof import("./voxel-drop") | null = null;
   private cache: VoxelCache | null = null;
   private settings: VoxelDropSettings = DEFAULT_VOXEL_DROP_SETTINGS;
   private reduced = false;
@@ -72,38 +73,64 @@ export class TileDrops {
     this.reduced = reduced;
   }
 
-  /** Drops tile `key`: its model is hidden and its voxels fall; the model comes back when the last one lands. */
-  async start(key: string): Promise<DropResult> {
-    const tile = this.host.tile(key);
-    if (!tile) return { status: "skipped", reason: "no-tile" };
-    if (!tile.model) return { status: "skipped", reason: "no-model" };
-    if (this.reduced) return { status: "skipped", reason: "reduced-motion" };
-    const type = this.host.type(tile.model);
+  /** The source of a model's grid: the type's mesh, its loader frame given by the matrix. */
+  private typeMesh(model: string): THREE.Mesh | null {
+    const type = this.host.type(model);
     type.updateMatrixWorld(true);
-    const typeMesh = meshOf(type);
-    if (!typeMesh || !(typeMesh.material instanceof THREE.MeshStandardMaterial)) return { status: "skipped", reason: "no-model" };
+    const mesh = meshOf(type);
+    return mesh && mesh.material instanceof THREE.MeshStandardMaterial ? mesh : null;
+  }
 
+  /**
+   * Loads what a drop of tile `key` needs (the chunk, and the grid of its model) so that `start` begins in the same call: the
+   * first drop would otherwise show the real model for the frames the chunk takes. True when it is ready.
+   */
+  async prepare(key: string): Promise<boolean> {
+    const tile = this.host.tile(key);
+    const mesh = tile?.model ? this.typeMesh(tile.model) : null;
+    if (!tile?.model || !mesh) return false;
     this.chunk ??= import("./voxel-drop");
     const chunk = await this.chunk;
-    if (this.disposed) return { status: "skipped", reason: "disposed" };
+    if (this.disposed) return false;
+    this.loaded = chunk;
     this.cache ??= new chunk.VoxelCache();
-    const grid: VoxelGrid | null = await this.cache.request(tile.model, { geometry: typeMesh.geometry, toModel: typeMesh.matrixWorld });
-    if (this.disposed) return { status: "skipped", reason: "disposed" };
-    if (!grid) return { status: "skipped", reason: "no-voxels" };
+    return !!(await this.cache.request(tile.model, { geometry: mesh.geometry, toModel: mesh.matrixWorld }));
+  }
 
+  /**
+   * Drops tile `key`: its model is hidden and its voxels fall; the model comes back when the last one lands. Begins in this call
+   * when the chunk and the grid are ready (`prepare`, or an earlier drop of the model), else once they are.
+   */
+  start(key: string): Promise<DropResult> {
+    const tile = this.host.tile(key);
+    if (!tile) return Promise.resolve({ status: "skipped", reason: "no-tile" });
+    if (!tile.model) return Promise.resolve({ status: "skipped", reason: "no-model" });
+    if (this.reduced) return Promise.resolve({ status: "skipped", reason: "reduced-motion" });
+    const known = this.cache?.peek(tile.model);
+    if (this.loaded && known) return Promise.resolve(this.begin(key, tile, known));
+    return this.prepare(key).then((ready) => {
+      if (this.disposed) return { status: "skipped", reason: "disposed" } as const;
+      const grid = ready && tile.model ? this.cache?.peek(tile.model) : null;
+      return grid ? this.begin(key, tile, grid) : ({ status: "skipped", reason: "no-voxels" } as const);
+    });
+  }
+
+  private begin(key: string, expected: { container: THREE.Object3D; model: string | null }, grid: VoxelGrid): DropResult {
     // The tile may have changed while the chunk and the grid were coming: the same container, still drawing the same model.
-    const now = this.host.tile(key);
-    if (!now || now.container !== tile.container || now.model !== tile.model) return { status: "skipped", reason: "no-tile" };
+    const tile = this.host.tile(key);
+    if (!tile || tile.container !== expected.container || tile.model !== expected.model) return { status: "skipped", reason: "no-tile" };
+    const chunk = this.loaded;
+    const typeMesh = tile.model ? this.typeMesh(tile.model) : null;
+    const model = tile.container.children[0];
+    const placed = model && meshOf(model);
+    if (!chunk || !typeMesh || !placed) return { status: "skipped", reason: "no-model" };
     this.end(key);
 
-    const { container } = now;
-    const model = container.children[0];
-    const placed = model && meshOf(model);
-    if (!model || !placed) return { status: "skipped", reason: "no-model" };
+    const { container } = tile;
     container.updateMatrixWorld(true);
     // The grid's frame (the type model's mesh) to the container's: the placed mesh's matrix, undoing the type's own.
     const toContainer = new THREE.Matrix4().copy(container.matrixWorld).invert().multiply(placed.matrixWorld).multiply(typeMesh.matrixWorld.clone().invert());
-    const drop = new chunk.VoxelDrop(grid, typeMesh.material, toContainer, this.settings);
+    const drop = new chunk.VoxelDrop(grid, typeMesh.material as THREE.MeshStandardMaterial, toContainer, this.settings);
 
     // The drop in and the model out in this one call: no frame has the cell empty or shows both.
     container.add(drop.object);
@@ -165,6 +192,7 @@ export class TileDrops {
     for (const key of [...this.active.keys()]) this.end(key);
     this.cache?.clear();
     this.cache = null;
+    this.loaded = null;
     this.disposed = true;
   }
 }

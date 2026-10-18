@@ -669,6 +669,11 @@ export class GameScene {
     return result;
   }
 
+  /** Loads the drop's chunk and the grid of a drawn tile's model, so that its `dropTile` begins in the call: true when ready. */
+  prepareDrop(tile: { id: number | string; game_id?: number }): Promise<boolean> {
+    return this.tiles.prepareDrop(`${tile.game_id ?? 1}-${tile.id}`);
+  }
+
   /** The placement visuals' settings and reduced motion, from the renderer's settings. */
   private applyPlacementSettings(): void {
     this.tiles.setVoxelDropSettings(this.settings.voxelDrop);

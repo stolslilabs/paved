@@ -985,6 +985,11 @@ export class TileRenderer {
     return this.drops.start(key);
   }
 
+  /** Loads what the drop of tile `key` needs, so that its `dropTile` begins in the call (the board prepares when a tile is picked). */
+  prepareDrop(key: string): Promise<boolean> {
+    return this.drops.prepare(key);
+  }
+
   /** The zoom the placement lines follow (their fade and the dashes). */
   setPlacementZoom(tilePx: number, openingTilePx: number, pixelRatio: number): void {
     this.placement.setZoom(tilePx, openingTilePx, pixelRatio);

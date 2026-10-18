@@ -212,6 +212,18 @@ describe("the drop of a placed tile", () => {
     renderer.dispose();
   });
 
+  it("begins in the call once prepared, so the first drop shows the real model for no frame", async () => {
+    const renderer = await rendererWithModel();
+    renderer.updateTiles([tile()]);
+    const model = container(renderer).children[0]!;
+    expect(await renderer.prepareDrop("1-1")).toBe(true);
+    const pending = renderer.dropTile("1-1");
+    expect(model.visible).toBe(false);
+    expect(dropMeshes(renderer)).toHaveLength(1);
+    expect((await pending).status).toBe("started");
+    renderer.dispose();
+  });
+
   it("plays at the clock's speed: slow motion lasts longer", async () => {
     const renderer = await rendererWithModel();
     renderer.setVoxelDropSettings(resolveVoxelDropSettings({ speed: 0.5 }));
