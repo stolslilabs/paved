@@ -17,11 +17,13 @@ export interface GameHudProps {
   onBack?: () => void;
   /** The gear: opens the device settings over the board (#541). */
   onSettings?: () => void;
+  /** The deck sheet (#540): "Tiles left" becomes a button. */
+  onDeck?: () => void;
   className?: string;
 }
 
 /** The board's header over the scene: Back and the mode, the tiles left, the time left, the score, the settings gear. */
-export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, onSettings, className }: GameHudProps) {
+export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, onSettings, onDeck, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -40,7 +42,7 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
         <h1 title={title} className="w-0 min-w-full truncate font-display text-sm font-semibold">{title}</h1>
         {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
       </div>
-      <TilesLeft remaining={remaining} />
+      <TilesLeft remaining={remaining} onClick={onDeck} />
       <div className="mobile:border-l mobile:border-border mobile:pl-3">
         <Score value={score} delta={delta} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>
