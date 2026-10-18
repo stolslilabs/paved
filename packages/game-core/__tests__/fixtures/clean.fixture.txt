@@ -3,3 +3,6 @@ import { formatNumber } from "@paved/game-core";
 /** Nor here: Intl.DateTimeFormat. */
 export const a = formatNumber(1234.5);
 export const url = "http://example.com/toLocale";
+export const chain = formatPoints(a) + " " + label.trim().replace(/-/g, " ");
+export const two = `${formatInteger(n)}` + name.replace("a", "b");
+export const sep = formatNumber(n, { max: 2 }) + other.replaceAll(",", ".");
