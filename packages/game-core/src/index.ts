@@ -46,6 +46,8 @@ export { Configuration as WfffffffrLayout } from "./layouts/wfffffffr";
 // Decks
 export { Base } from "./elements/decks/base";
 export { Tutorial } from "./elements/decks/tutorial";
+export { baseDeckPlans, deckSheetCounts } from "./deck-sheet";
+export type { DeckSheetCounts, DeckSheetPlan } from "./deck-sheet";
 
 // Game logic
 export { Store } from "./store";

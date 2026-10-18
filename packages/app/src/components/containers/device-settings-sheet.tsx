@@ -1,22 +1,7 @@
-import { useEffect, useState } from "react";
+import { useSidePanel } from "../../lib/side-panel";
 import { autoQuality, deviceSettings, useDeviceSettings, withVolume } from "../../data/settings";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { DeviceSettingsPanel, type DeviceSettingsPanelProps } from "./device-settings-panel";
-
-/** The side panel from this width (`--breakpoint-tablet`), the bottom sheet under it. */
-const SIDE_PANEL_QUERY = "(min-width: 40rem)";
-
-function useSidePanel(): boolean {
-  const [side, setSide] = useState(() => typeof matchMedia === "function" && matchMedia(SIDE_PANEL_QUERY).matches);
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const query = matchMedia(SIDE_PANEL_QUERY);
-    const on = () => setSide(query.matches);
-    query.addEventListener("change", on);
-    return () => query.removeEventListener("change", on);
-  }, []);
-  return side;
-}
 
 export interface DeviceSettingsSheetProps extends DeviceSettingsPanelProps {
   open: boolean;
