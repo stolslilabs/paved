@@ -79,11 +79,11 @@ export interface TopThreeProps {
   className?: string;
 }
 
-/** Today's Challenge top 3 (`/v1/tournaments/:day/leaderboard`), then the viewer's own rank if lower. */
+/** The Challenge top 3 (`/v1/tournaments/:day/leaderboard`), then the viewer's own rank if lower. */
 export function TopThree({ entries, viewer, free, className }: TopThreeProps) {
   const podium = entries.slice(0, 3);
   if (podium.length === 0) {
-    return <p className={cn("rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground", className)}>No finished game today yet. The first score takes the crown.</p>;
+    return <p className={cn("rounded-lg bg-secondary/60 px-3 py-3 text-sm text-muted-foreground", className)}>No finished game yet. The first score takes the crown.</p>;
   }
   const showViewer = viewer && !podium.some((e) => e.playerId === viewer.playerId);
   return (

@@ -111,7 +111,7 @@ describe("Home", () => {
 
   it("says the podium is empty on a day nobody finished", () => {
     render(wrap(<HomeScene {...HOME.firstOfDay} />));
-    expect(screen.getByText(/No finished game today yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No finished game yet/)).toBeInTheDocument();
   });
 
   it("disables the Challenge while purchases are paused", () => {
