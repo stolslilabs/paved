@@ -10,7 +10,7 @@ export const Default: Story = {
   render: () => (
     <Card className="max-w-sm">
       <CardHeader>
-        <CardTitle>Daily quest</CardTitle>
+        <CardTitle>Daily mission</CardTitle>
         <CardDescription>Place 20 tiles today.</CardDescription>
       </CardHeader>
       <CardContent>12 of 20 placed.</CardContent>

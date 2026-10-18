@@ -4,11 +4,11 @@ import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "./balances-context";
 
-/** The five destinations of section 6.1, Home · Ranks · Quests · Vault · Settings (the route map's `TABS`, with icons). */
+/** The five destinations of section 6.1, Home · Ranks · Missions · Vault · Settings (the route map's `TABS`, with icons). */
 export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "house" },
   { id: "ranks", label: "Ranks", icon: "ranking-star" },
-  { id: "quests", label: "Quests", icon: "scroll" },
+  { id: "quests", label: "Missions", icon: "scroll" },
   { id: "vault", label: "Vault", icon: "piggy-bank" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];

@@ -3,8 +3,8 @@ import { fn } from "storybook/test";
 import { ACHIEVEMENTS } from "../../mocks/scenes";
 import { AchievementsScene } from "./achievements-scene";
 
-/** The achievements (`/achievements`, a tab beside Quests): earned, in progress and locked. One story per state; the viewport is the toolbar's (VP). */
-const meta = { title: "Scenes/Achievements", component: AchievementsScene, args: { onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn() } } satisfies Meta<typeof AchievementsScene>;
+/** The achievements (`/missions/lifetime`, the Lifetime tab): earned, in progress and locked. One story per state; the viewport is the toolbar's (VP). */
+const meta = { title: "Scenes/Missions (Lifetime)", component: AchievementsScene, args: { onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn() } } satisfies Meta<typeof AchievementsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

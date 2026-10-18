@@ -42,7 +42,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
           <ModeCard
             icon="ticket"
             title="Free Challenge"
-            description={`${credits} free ${credits === 1 ? "game" : "games"} from your quests: ranked, no PAVED at stake.`}
+            description={`${credits} free ${credits === 1 ? "game" : "games"} from your missions: ranked, no PAVED at stake.`}
             badge="Free"
             disabled={spawnPaused}
             reason="New games are paused for now."

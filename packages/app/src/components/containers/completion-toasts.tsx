@@ -26,7 +26,7 @@ export interface CompletionMemory {
 }
 
 /**
- * A toast when a quest or an achievement completes between two reads of `entries`: "Quest completed: <title>" with its
+ * A toast when a quest or an achievement completes between two reads of `entries`: "Mission completed: <title>" with its
  * icon, once per (id, interval) (`lib/quest-toasts.ts` decides which). `null` is a read on its way and changes nothing.
  * The `Toaster` is the app's, mounted once above the pages (`App.tsx`); without one the call shows nothing. The route
  * passes the indexer's list on each refresh. Reduced motion is the Toaster's.
@@ -68,7 +68,7 @@ export function useCompletionToasts<T extends Trackable>(
     else for (const key of keys) announced.current.add(key);
     fresh.forEach((entry, i) => {
       const { title, icon, description } = describeRef.current(entry);
-      toast.success(`${kind === "quest" ? "Quest completed" : "Achievement earned"}: ${title}`, {
+      toast.success(`${kind === "quest" ? "Mission completed" : "Lifetime mission earned"}: ${title}`, {
         id: keys[i],
         description,
         icon: <Icon name={icon} size="md" />,

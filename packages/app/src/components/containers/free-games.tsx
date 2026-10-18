@@ -27,7 +27,7 @@ export interface FreeGamesProps {
   className?: string;
 }
 
-const KIND = { daily: { name: "Daily", quests: "dailies", period: "day" }, weekly: { name: "Weekly", quests: "weeklies", period: "week" } } as const;
+const KIND = { daily: { name: "Daily", quests: "daily missions", period: "day" }, weekly: { name: "Weekly", quests: "weekly missions", period: "week" } } as const;
 
 function ClaimRow({ kind, claim, busy, onClaim }: { kind: "daily" | "weekly"; claim: FreeGameClaim; busy?: boolean; onClaim?: (kind: "daily" | "weekly") => void }) {
   const k = KIND[kind];
@@ -37,7 +37,7 @@ function ClaimRow({ kind, claim, busy, onClaim }: { kind: "daily" | "weekly"; cl
       <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
         <span className="text-sm font-semibold">{k.name} free game</span>
         <span className="text-xs text-muted-foreground">
-          {claim.claimed ? `Claimed for this ${k.period}` : ready ? `Every ${k.name.toLowerCase()} quest done` : (
+          {claim.claimed ? `Claimed for this ${k.period}` : ready ? `Every ${k.name.toLowerCase()} mission done` : (
             <>
               <span className="numeric">{claim.done}</span> of <span className="numeric">{claim.total}</span> {k.quests} done
             </>

@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import { QuestsTabs } from "./quests-tabs";
 
 const meta = {
-  title: "Containers/QuestsTabs",
+  title: "Containers/MissionsTabs",
   component: QuestsTabs,
   parameters: { layout: "padded" },
   args: { active: "quests", onSelect: fn() },

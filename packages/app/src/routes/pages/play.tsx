@@ -2,7 +2,7 @@ import { toastError } from "../../components/containers/error-toast";
 import { PlayScene } from "../../components/scenes/play-scene";
 import { useSpawnPaused } from "../../data/chain";
 import { useFreeCredits } from "../../data/cobbles";
-import { usePlayFree } from "../../data/play-free";
+import { freeGameMessage, usePlayFree } from "../../data/play-free";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -27,7 +27,7 @@ export default function Page() {
     free
       .spend()
       .then((id) => id !== null && go(`/game/${id}`))
-      .catch((e: unknown) => toastError({ title: "The free game did not start", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }));
+      .catch((e: unknown) => toastError({ title: "The free game did not start", message: freeGameMessage(e), detail: errorDetail(e) }));
   };
   return (
     <PrefetchOnIntent routes={["/play/challenge"]}>

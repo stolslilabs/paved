@@ -266,7 +266,7 @@ describe("Quests: Cobbles and free games", () => {
     expect(within(screen.getByRole("article", { name: "Strong Day" })).queryByRole("button")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
     expect(onClaim).toHaveBeenCalledWith(1);
-    expect(screen.getByRole("region", { name: "Free games" })).toHaveTextContent("1 of 4 dailies done");
+    expect(screen.getByRole("region", { name: "Free games" })).toHaveTextContent("1 of 4 daily missions done");
     expect(screen.getByRole("button", { name: "Claim the daily free game" })).toBeDisabled();
   });
 
@@ -345,7 +345,7 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
     const onPlayFree = vi.fn();
     const { unmount } = render(wrap(<HomeScene {...HOME.freeGame} onPlayFree={onPlayFree} />));
     await userEvent.click(screen.getByRole("button", { name: /Free game/ }));
-    expect(screen.getByText("2 free Challenge games from your quests.")).toBeInTheDocument();
+    expect(screen.getByText("2 free Challenge games from your missions.")).toBeInTheDocument();
     unmount();
     render(wrap(<PlayScene {...PLAY.freeGame} onPlayFree={onPlayFree} />));
     await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));

@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { QuestCobbles } from "@paved/chain";
+import { NOT_AVAILABLE_MESSAGE, ViewError, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { toast } from "../src/components/ui/sonner";
@@ -14,7 +14,7 @@ import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { errorToastTexts, preloadPages } from "./route-helpers";
 
-// `/quests/:day?` and `/achievements` (P9) on `@paved/chain`'s fakes: the fixture indexer (its clock is `now`), the Cobbles
+// `/missions/:day?` and `/achievements` (P9) on `@paved/chain`'s fakes: the fixture indexer (its clock is `now`), the Cobbles
 // ledger of `FakeGameViews` and `FakeClaimer`'s claims, through the app's own query client and store.
 
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
@@ -82,11 +82,11 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/quests/:day? (P9)", () => {
+describe("/missions/:day? (P9)", () => {
   it("shows the day's quests on the indexer's clock, each reward in Cobbles, and the balance", async () => {
-    open("/quests", setup());
+    open("/missions", setup());
     // The page's module is loaded with the first visit: in jsdom it can take longer than findBy's 1 s.
-    expect(await screen.findByRole("heading", { level: 1, name: "Quests" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: 5000 })).toBeInTheDocument();
     expect(await balance(240)).toBeInTheDocument();
     // Quest 1 done today, its 5 Cobbles to claim; quest 4 not done, its 15 shown.
     expect(await claimButton(5, "Daily Run")).toBeEnabled();
@@ -96,7 +96,7 @@ describe("/quests/:day? (P9)", () => {
 
   it("a claim goes through the signer for today, and the balance follows its receipt", async () => {
     const s = setup();
-    open("/quests", s);
+    open("/missions", s);
     await userEvent.click(await claimButton(5, "Daily Run"));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
     expect(await balance(245)).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("/quests/:day? (P9)", () => {
 
   it("Claim all is one multicall of every completed, unclaimed quest of the page", async () => {
     const s = setup({ counts: { 1: 1, 3: 1, 4: 2_700 } });
-    open("/quests", s);
+    open("/missions", s);
     await userEvent.click(await screen.findByRole("button", { name: /^Claim all/ }, { timeout: 3000 }));
     await waitFor(() => expect(s.claimer.sent).toHaveLength(1));
     expect(s.claimer.sent[0]).toEqual([
@@ -117,7 +117,7 @@ describe("/quests/:day? (P9)", () => {
 
   it("the daily and the weekly free games: claimed once every quest of the kind is done, then counted", async () => {
     const s = setup({ counts: { 1: 1, 2: 6, 3: 1, 4: 3_000, 14: 3 }, weekly: true });
-    open("/quests", s);
+    open("/missions", s);
     await userEvent.click(await screen.findByRole("button", { name: "Claim the daily free game" }, { timeout: 3000 }));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "credit", credit: "daily", period: TODAY }]]));
     expect(await screen.findByLabelText("1 free game left")).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("/quests/:day? (P9)", () => {
 
   it("a past day stays claimable: its claim names that day", async () => {
     const s = setup();
-    open(`/quests/${PAST}`, s);
+    open(`/missions/${PAST}`, s);
     expect(await screen.findByText("Closed day", {}, { timeout: 3000 })).toBeInTheDocument();
     await userEvent.click(await claimButton(5, "Daily Run"));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: PAST }]]));
@@ -142,7 +142,7 @@ describe("/quests/:day? (P9)", () => {
     const s = setup();
     s.ada.days.set(TODAY, { games: 0, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
     const error = vi.spyOn(toast, "custom");
-    open("/quests", s);
+    open("/missions", s);
     await userEvent.click(await claimButton(5, "Daily Run"));
     await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringMatching(/^The claim did not go through: .*Not completed yet/)]));
     expect(await balance(240)).toBeInTheDocument();
@@ -151,20 +151,30 @@ describe("/quests/:day? (P9)", () => {
   it("a failed ledger read leaves the quests shown, without their Cobbles", async () => {
     const s = setup();
     s.views.cobblesFail = new Error("Setup address is not configured");
-    open("/quests", s);
+    open("/missions", s);
     expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not load the missions")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
+  it("a ledger not deployed on the network says so, the quests stay shown (#549)", async () => {
+    const s = setup();
+    s.views.cobblesFail = new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    open("/missions", s);
+    expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Rewards unavailable")).toBeInTheDocument();
+    expect((await screen.findAllByText(NOT_AVAILABLE_MESSAGE)).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
+  });
+
   it("with no signer: a guest, asked to connect, nothing to claim", async () => {
-    open("/quests", setup({ signer: "none" }));
-    expect(await screen.findByText("Connect to see your quests", {}, { timeout: 3000 })).toBeInTheDocument();
+    open("/missions", setup({ signer: "none" }));
+    expect(await screen.findByText("Connect to see your missions", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
   it("with a signer that cannot claim: read only, Connect to claim", async () => {
-    open("/quests", setup({ signer: "board" }));
+    open("/missions", setup({ signer: "board" }));
     expect(await screen.findByText("Connect to claim", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(await claimButton(5, "Daily Run")).toBeDisabled();
     expect(screen.queryByRole("button", { name: /^Claim all/ })).not.toBeInTheDocument();
@@ -175,7 +185,7 @@ describe("the completion toast, once per completion (P9's note)", () => {
   it("survives a remount: a cached-then-fresh read toasts nothing twice, and a completion made away is announced on return", async () => {
     const s = setup();
     const success = vi.spyOn(toast, "success");
-    const router = open("/quests", s);
+    const router = open("/missions", s);
     await claimButton(5, "Daily Run");
     expect(success).not.toHaveBeenCalled();
 
@@ -185,17 +195,17 @@ describe("the completion toast, once per completion (P9's note)", () => {
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
 
     // Away and back: the cache answers first, then the fresh read; neither is news.
-    await act(() => router.navigate("/achievements"));
-    await screen.findByRole("heading", { level: 1, name: "Achievements" });
+    await act(() => router.navigate("/missions/lifetime"));
+    await screen.findByRole("heading", { level: 1, name: "Missions" });
     // Quest 3 completes while the page is closed.
     s.fixture.progress.get(FIXTURE_ADA)!.quests.set(3, { count: 1, completed_at: FIXTURE_HEAD.timestamp });
-    await act(() => router.navigate("/quests"));
-    await screen.findByRole("heading", { level: 1, name: "Quests" });
+    await act(() => router.navigate("/missions"));
+    await screen.findByRole("heading", { level: 1, name: "Missions" });
     await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
     await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
     await new Promise((r) => setTimeout(r, 100));
     expect(success).toHaveBeenCalledTimes(2);
-    expect(success.mock.calls.map(([title]) => title)).toEqual([expect.stringMatching(/^Quest completed/), expect.stringMatching(/^Quest completed/)]);
+    expect(success.mock.calls.map(([title]) => title)).toEqual([expect.stringMatching(/^Mission completed/), expect.stringMatching(/^Mission completed/)]);
   });
 });
 
@@ -203,7 +213,7 @@ describe("/achievements (P9)", () => {
   it("shows each achievement's Cobbles; a claim, then Claim all as one multicall", async () => {
     const s = setup({ achievements: { 2: 1, 3: 10 } });
     s.ada.account.games = 10;
-    open("/achievements", s);
+    open("/missions/lifetime", s);
     expect(await balance(240)).toBeInTheDocument();
     await userEvent.click(await claimButton(10, "Settler I"));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "achievement", achievementId: 2 }]]));
@@ -216,7 +226,7 @@ describe("/achievements (P9)", () => {
   });
 
   it("with a signer that cannot claim: read only", async () => {
-    open("/achievements", setup({ signer: "board" }));
+    open("/missions/lifetime", setup({ signer: "board" }));
     expect(await screen.findByText("Connect to claim", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(await claimButton(10, "Settler I")).toBeDisabled();
   });

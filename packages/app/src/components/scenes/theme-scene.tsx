@@ -213,7 +213,7 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
                 </Button>
               }
             >
-              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from quests and achievements, or buy a pack.
+              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from missions, or buy a pack.
             </Notice>
           )}
           <InlineError
