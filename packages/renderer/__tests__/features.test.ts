@@ -889,6 +889,7 @@ describe("the night lights (DAYNIGHT)", () => {
       expect((tiles as any).voxelGrids?.size ?? 0).toBe(0);
       expect((tiles as any).windowBakes?.size ?? 0).toBe(0);
       // Back on, and back to the columns again before it builds: nothing either.
+      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
       tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
       tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
       await new Promise((resolve) => setTimeout(resolve, 600));
@@ -904,6 +905,18 @@ describe("the night lights (DAYNIGHT)", () => {
       }
       expect(tiles.windowVolumeCount).toBe(1);
       expect((tiles as any).windowTextures[0]).toBe(first);
+      tiles.dispose();
+    });
+
+    it("builds after a rapid off and on: the skipped request is asked again, not left unbuilt", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      expect((tiles as any).windowAsked.size).toBe(1);
       tiles.dispose();
     });
 

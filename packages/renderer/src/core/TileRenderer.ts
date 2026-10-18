@@ -751,9 +751,20 @@ export class TileRenderer {
           this.voxelGrids ??= new voxelizer.VoxelCache();
           this.windowBakes ??= new windows.WindowCache();
           const grid = await this.voxelGrids.request(source.key, { geometry, toModel: source.toModel }, stale);
-          if (!grid || stale()) return;
+          // A null that is not a kept failure came from an earlier request that was skipped (the lights went off and on again
+          // before its idle slice): this one is still wanted, so it is asked again.
+          const retry = () => {
+            this.windowAsked.delete(geometry);
+            this.bakeWindowLights();
+          };
+          if (stale()) return;
+          if (!grid) {
+            if (this.voxelGrids.peek(source.key) === undefined) retry();
+            return;
+          }
           const baked = await this.windowBakes.request(source.key, grid, source.lights, {}, stale);
-          if (!baked || stale()) return;
+          if (stale()) return;
+          if (!baked) return retry();
           // One texture per model type, kept across mode switches: a type already uploaded is bound again, not allocated again.
           let texture = this.windowTextureOf.get(source.key);
           if (!texture) {
