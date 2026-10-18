@@ -33,6 +33,7 @@ import {
   type WebGLDetection,
 } from "./outlines";
 import { prefersReducedMotion } from "./placement";
+import type { DropResult } from "./tile-drops";
 // The day and night cycle is its own chunk: loaded only once the cycle is first on (`loadDayNight`).
 import type * as DayNight from "./daynight";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
@@ -658,8 +659,19 @@ export class GameScene {
     this.requestRender();
   }
 
+  /**
+   * Drops a tile placed on the board (`TileRenderer.dropTile`): its voxels fall and land layer by layer, then its model is back.
+   * Explicit, for the stories for now: the board does not call it. Resolves when the drop has started, or was skipped.
+   */
+  async dropTile(tile: { id: number | string; game_id?: number }): Promise<DropResult> {
+    const result = await this.tiles.dropTile(`${tile.game_id ?? 1}-${tile.id}`);
+    if (result.status === "started" && !this.disposed) this.requestRender();
+    return result;
+  }
+
   /** The placement visuals' settings and reduced motion, from the renderer's settings. */
   private applyPlacementSettings(): void {
+    this.tiles.setVoxelDropSettings(this.settings.voxelDrop);
     this.tiles.setPlacementSettings(this.settings.placement, this.settings.outlines);
     const { reducedMotion } = this.settings.placement.motion;
     this.tiles.setReducedMotion(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion);
@@ -918,7 +930,9 @@ export class GameScene {
       }
       // The placement effects that move (a colour change, the aura's waves, the confirm's fade) draw while they do.
       const now = performance.now();
-      if (this.tiles.update(now).animating) this.needsRender = true;
+      const moved = this.tiles.update(now);
+      if (moved.animating) this.needsRender = true;
+      if (moved.shadow) this.requestShadowUpdate();
       // The day and night cycle moves in steps of `frameMs`: each step draws a frame (`applyDayNight` requests it).
       if (this.dayNightRuns()) {
         const { speed, frameMs } = this.settings.dayNight;
