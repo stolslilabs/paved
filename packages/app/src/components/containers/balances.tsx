@@ -63,14 +63,14 @@ function Row({ kind, state, onAction, faucet, minting }: { kind: BalanceKind; st
       onClick={() => onAction?.(kind)}
       disabled={inert}
       aria-label={row.action ? `${row.label}: ${row.action}` : row.label}
-      className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left outline-none enabled:hover:bg-accent disabled:cursor-default focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-3 py-2 text-left outline-none enabled:hover:bg-accent disabled:cursor-default focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 flex-1 flex-col basis-40">
         <span className="text-xs text-muted-foreground">{row.label}</span>
         {state.status === "ready" ? <Figure kind={kind} state={state} /> : <Skeleton className="mt-1 h-4 w-20" />}
       </span>
-      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
         {row.action}
         {row.action && !inert && <Icon name="chevron-right" size="xs" />}
       </span>
