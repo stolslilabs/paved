@@ -334,7 +334,7 @@ export function bakeWindows(grid: VoxelGrid, lit?: Uint8Array, options: Partial<
  */
 export class WindowCache {
   private readonly baked = new Map<string, BakedWindows>();
-  private readonly pending = new Map<string, Promise<BakedWindows>>();
+  private readonly pending = new Map<string, Promise<BakedWindows | null>>();
 
   peek(key: string): BakedWindows | undefined {
     return this.baked.get(key);
