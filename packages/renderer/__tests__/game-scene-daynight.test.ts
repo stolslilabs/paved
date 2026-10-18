@@ -207,6 +207,14 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     }
   });
 
+  it("the Low tier's still noon wins over a frozen night: never a night it is meant to skip", async () => {
+    const { scene, tiles } = await createScene({ quality: "low", dayNight: { enabled: true, season: "spring", freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
+    expect(scene.getDayNight()).toMatchObject({ season: "spring", phase: "day" });
+    expect(scene.getDayNight()!.position).toBe(DAY_PHASE_AT.day);
+    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), expect.any(Number), "columns");
+    scene.dispose();
+  });
+
   it("turned off, gives the look back: its background, an opaque clear, no backdrop, no night lights", async () => {
     const { scene, renderer, effects, tiles } = await createScene({ dayNight: { enabled: true, freezeAt: 0.8, reducedMotion: false } });
     scene.setSettings({ dayNight: { enabled: false } });
