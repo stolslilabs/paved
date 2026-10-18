@@ -68,9 +68,11 @@ export function dropSettings(args: DropArgs, force: "auto" | "on" | "off"): Rend
 /** The numbers of a started drop, or why it was skipped. */
 export type Readout = { plan: string; result: DropResult } | null;
 
-function DropReadout({ rows }: { rows: Array<{ plan: string; result: DropResult }> }) {
+/** `overlay` floats over the canvas; `below` is a strip under it, so no tile is covered (text stays 12 px). */
+function DropReadout({ rows, placement = "overlay" }: { rows: Array<{ plan: string; result: DropResult }>; placement?: "overlay" | "below" }) {
+  const where = placement === "below" ? "max-h-48 shrink-0 overflow-auto border-t border-border bg-background px-3 py-2" : "pointer-events-none absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2";
   return (
-    <output className={`pointer-events-none absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2 font-mono text-foreground numeric ${rows.length > 3 ? "text-xs leading-4" : "text-xs leading-5"}`} aria-live="off">
+    <output className={`${where} font-mono text-foreground numeric ${rows.length > 3 ? "text-xs leading-4" : "text-xs leading-5"}`} aria-live="off">
       {rows.length === 0 && "waiting for the first drop"}
       {rows.map(({ plan, result }) => (
         <div key={plan} className="whitespace-nowrap">
@@ -237,10 +239,12 @@ export function VoxelDropAllTiles({ stagger, forest, replayMs, force, distance, 
   }, [scene, run, stagger]);
 
   return (
-    <div className="relative h-full min-h-dvh w-full bg-board" data-ready={rows.length === ALL.length || undefined}>
-      <GameCanvas tiles={ALL} skins={skins} basePath={APP_ASSETS} manifest={APP_MANIFEST} settings={settings} onReady={setScene} style={{ position: "absolute", inset: 0 }} />
-      <DropReadout rows={rows} />
-      <Replay onClick={replay} />
+    <div className="flex h-full min-h-dvh w-full flex-col bg-board" data-ready={rows.length === ALL.length || undefined}>
+      <div className="relative min-h-0 flex-1">
+        <GameCanvas tiles={ALL} skins={skins} basePath={APP_ASSETS} manifest={APP_MANIFEST} settings={settings} onReady={setScene} style={{ position: "absolute", inset: 0 }} />
+        <Replay onClick={replay} />
+      </div>
+      <DropReadout rows={rows} placement="below" />
     </div>
   );
 }
