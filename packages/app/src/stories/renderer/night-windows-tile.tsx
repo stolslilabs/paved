@@ -69,19 +69,29 @@ function modelId(plan: string, skin: TileSkin, variant: number): string {
 /** The number of Forest variants a plan has. */
 export const forestVariantCount = (plan: string): number => APP_MANIFEST.themes?.["1"]?.[plan]?.length ?? 0;
 
-function useLoader(): AssetLoader | null {
+/**
+ * The loader of a story. The models in `wanted` (Forest variants) are asked for before `preloadAll`, which is what makes the
+ * loader choose them: a `want` after `preloadModels` alone would queue them and never load them. With none wanted, the 19 base models.
+ */
+function useLoader(wanted: readonly string[] = []): AssetLoader | null {
   const [loader, setLoader] = useState<AssetLoader | null>(null);
+  const key = wanted.join(",");
   useEffect(() => {
     const assets = new AssetLoader(APP_ASSETS, APP_MANIFEST);
     let alive = true;
-    void assets.preloadModels().then(() => alive && setLoader(assets));
+    setLoader(null);
+    if (key) assets.want(key.split(","));
+    void (key ? assets.preloadAll() : assets.preloadModels()).then(() => alive && setLoader(assets));
     return () => {
       alive = false;
       assets.dispose();
     };
-  }, []);
+  }, [key]);
   return loader;
 }
+
+/** The ids of a plan's Forest variants, or of every plan's. */
+const forestIds = (plans: readonly string[]): string[] => plans.flatMap((plan) => Array.from({ length: forestVariantCount(plan) }, (_, i) => modelId(plan, "forest", i + 1)));
 
 /** Loads one model by id (a Forest variant loads on demand) and detects its windows; `null` while it comes. */
 function useBaked(loader: AssetLoader | null, id: string, plan: string): Baked | null {
@@ -144,7 +154,8 @@ function summary(windows: readonly Window[]): string[] {
 /** One tile: the isometric view with the marks and the light, the counts, the times and the volume's size. */
 export function NightWindowsTile(props: NightWindowsTileProps) {
   const { plan, skin, variant, rotation, step, marks, method, reach, falloff, intensity, lightColor, doorsLight, layer, night } = props;
-  const loader = useLoader();
+  const wanted = useMemo(() => (skin === "forest" ? forestIds([plan]) : []), [plan, skin]);
+  const loader = useLoader(wanted);
   const id = modelId(plan, skin, variant);
   const baked = useBaked(loader, id, plan);
   const iso = useRef<HTMLCanvasElement>(null);
@@ -227,7 +238,8 @@ export interface WindowsTableRow {
 
 /** Every plan, one row each: what the detection found and the cost of the bake in this browser (the readout, #513's item 4). */
 export function NightWindowsTable({ skin }: { skin: TileSkin }) {
-  const loader = useLoader();
+  const wanted = useMemo(() => (skin === "forest" ? forestIds(VOXELIZER_PLANS) : []), [skin]);
+  const loader = useLoader(wanted);
   const [rows, setRows] = useState<WindowsTableRow[] | null>(null);
   useEffect(() => {
     if (!loader) return;

@@ -11,7 +11,9 @@ import { NIGHT_WINDOW_PLANS, NightWindowsTable, NightWindowsTile } from "./night
  *    in magenta, the openings that are neither (gaps) in grey, and the candidates the lit columns drop in orange; the counts.
  * 2. "LightVolume": the same tile at night, step by step: the windows glowing alone, then the light volume, with the falloff, the
  *    reach, the intensity, the flood or the rays, and slices of the volume.
- * 3. "Readout": the windows per model, the volume's size and the build times in this browser.
+ * 3. "Board…": the recorded board at a held dusk or night, "columns" against "windows", side by side or with a toggle, at the game's
+ *    views, or running through the ramp so the windows' stagger shows. A capture on software WebGL is not a frame time.
+ * 4. "Readout": the windows per model, the volume's size and the build times in this browser.
  */
 const meta = {
   title: "Renderer/Night windows",

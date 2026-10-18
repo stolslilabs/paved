@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DAY_PHASE_AT, SEASONS, TILE_SIZE, type DayPhase, type GameScene, type QualityTier, type RendererSettingsInput, type Season } from "@paved/renderer";
+import { DAY_PHASE_AT, SEASONS, TILE_SIZE, type DayPhase, type NightLightSource, type GameScene, type QualityTier, type RendererSettingsInput, type Season } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -19,6 +19,8 @@ export interface DayNightBoardProps {
   speed: number;
   /** The city and road lights at night. */
   nightLights: boolean;
+  /** Where the night lights come from (`dayNight.lights`): the columns (the game's), or the windows (NIGHT-WINDOWS, #513). */
+  lights?: NightLightSource;
   /** The night lights' strength (an emissive radiance). */
   nightLightIntensity?: number;
   /** The night's floor: the sky light and ambient at least this share of the day's. */
@@ -60,11 +62,11 @@ export function freezeAt(season: Season | "random", phase: DayPhase): number {
  * west with its shadows, the moon, and the city and road lights at night. `data-ready` is set once the board is drawn at
  * the held view. The scene is exposed to the measuring scripts as `window.__dayNightScene`.
  */
-export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights, nightLightIntensity, brightnessFloor, reducedMotion, quality = "auto", view, distance, redraw = false, readout = true, force = "auto", placement = "none", forest = false }: DayNightBoardProps) {
+export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights, lights = "columns", nightLightIntensity, brightnessFloor, reducedMotion, quality = "auto", view, distance, redraw = false, readout = true, force = "auto", placement = "none", forest = false }: DayNightBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [where, setWhere] = useState("");
-  const key = JSON.stringify([cycleSeconds, phase, season, speed, nightLights, nightLightIntensity, brightnessFloor, reducedMotion, quality, force]);
+  const key = JSON.stringify([cycleSeconds, phase, season, speed, nightLights, lights, nightLightIntensity, brightnessFloor, reducedMotion, quality, force]);
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       quality,
@@ -76,6 +78,7 @@ export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights,
         season,
         freezeAt: phase === "running" ? null : freezeAt(season, phase),
         nightLights,
+        lights,
         ...(nightLightIntensity === undefined ? {} : { nightLightIntensity }),
         ...(brightnessFloor === undefined ? {} : { brightnessFloor }),
         ...(reducedMotion === undefined ? {} : { reducedMotion }),
