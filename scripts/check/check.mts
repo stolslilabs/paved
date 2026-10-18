@@ -20,9 +20,16 @@
  * `--all` checks everything, as if every file had changed. Every step runs even after a failure, so one run says all
  * that is wrong; the last line is one summary: pass or fail, each step and its time. Exit 0 passes, 2 is a failed check. No secret, no network beyond the
  * package registry (the install of the Vercel commands).
+ *
+ * One full run per worktree at a time: the builds write shared folders (`packages/app/storybook-static`, `dist`, the
+ * Storybook's staged public folder), so two runs in one worktree clobber each other. A lock file in the worktree's git dir
+ * holds the pid of the running check; a second run exits 1 at once, naming it (a dead pid's lock is taken over). To wait
+ * for a run, poll the pid in the message (`kill -0 <pid>`), never `pgrep -f check`: that matches its own shell. The
+ * `--pre-push` run builds nothing shared and takes no lock.
  */
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, topological, workspace, type Plan } from "./touched.mts";
 import { PROJECTS, ROOT, vercelBuild } from "./vercel-build.mts";
 
@@ -42,6 +49,37 @@ const head = headAt >= 0 ? args[headAt + 1] : undefined;
 
 const steps: Step[] = [];
 const started = Date.now();
+
+/** Takes the worktree's lock, or exits 1 naming the run that holds it. Released on exit. */
+function lockWorktree(): void {
+  const git = spawnSync("git", ["rev-parse", "--git-dir"], { cwd: ROOT, encoding: "utf8" });
+  if (git.status !== 0) return; // not a git checkout: nothing to key a lock on
+  const dir = git.stdout.trim();
+  const file = join(isAbsolute(dir) ? dir : join(ROOT, dir), "check-run.lock");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      writeFileSync(file, String(process.pid), { flag: "wx" });
+      process.on("exit", () => rmSync(file, { force: true }));
+      for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => process.exit(130));
+      return;
+    } catch {
+      const pid = Number(readFileSync(file, "utf8").trim());
+      let alive = false;
+      try {
+        process.kill(pid, 0);
+        alive = pid > 0;
+      } catch (e) {
+        alive = (e as NodeJS.ErrnoException).code === "EPERM";
+      }
+      if (alive) {
+        console.error(`check: another check is running in this worktree (pid ${pid}); wait for it (poll \`kill -0 ${pid}\`) instead of starting a second one.`);
+        process.exit(1);
+      }
+      rmSync(file, { force: true }); // stale lock of a dead run
+    }
+  }
+}
+if (!prePush) lockWorktree();
 
 function step(name: string, run: () => Outcome | { outcome: Outcome; note?: string }): void {
   console.log(`\n=== check: ${name}`);

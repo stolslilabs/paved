@@ -116,6 +116,9 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   unit tests of the touched packages and their dependents (heap caps of the table above), the Vercel builds of the projects whose
   inputs changed (Sepolia env), and `bun run budget` (limit, measured size, margin). Its last line is the summary. A CORE change of
   `contracts/abis` or `contracts/deployments` runs the indexer's, chain's and game-core's tests: most failed CI jobs came from there.
+- One `check` at a time per worktree: its builds write shared folders (`packages/app/storybook-static`, `dist`), so a second run clobbers the
+  first. A lock in the worktree's git dir makes the second run exit 1 at once, naming the pid of the first. To wait, poll that pid
+  (`while kill -0 <pid> 2>/dev/null; do sleep 5; done`); never `pgrep -f check-run`, whose pattern matches its own shell.
 - The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
   on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
 
