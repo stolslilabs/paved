@@ -38,11 +38,18 @@ export function RootLayout() {
     // The audio engine is its own chunk and starts on the first gesture; the provider only carries the two volumes.
     <AudioProvider musicVolume={musicVolume} sfxVolume={sfxVolume}>
       <HistoryTracker>
-        <BalancesHost>
+        {/* A board shows no balances: it reads none (a board is the heaviest page, and its tests the most timing-bound). */}
+        {onBoard ? (
           <Suspense fallback={bootScreen}>
             <Outlet />
           </Suspense>
-        </BalancesHost>
+        ) : (
+          <BalancesHost>
+            <Suspense fallback={bootScreen}>
+              <Outlet />
+            </Suspense>
+          </BalancesHost>
+        )}
       </HistoryTracker>
     </AudioProvider>
   );
