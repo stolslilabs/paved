@@ -895,6 +895,15 @@ describe("the night lights (DAYNIGHT)", () => {
       expect(tiles.windowVolumeCount).toBe(0);
       tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      // Switching off and on again reuses the type's texture: no second one for the same model.
+      const first = (tiles as any).windowTextures[0];
+      for (let i = 0; i < 2; i++) {
+        tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+        tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      expect(tiles.windowVolumeCount).toBe(1);
+      expect((tiles as any).windowTextures[0]).toBe(first);
       tiles.dispose();
     });
 

@@ -270,6 +270,8 @@ export class TileRenderer {
   private windowEpoch = 0;
   /** The light volumes' textures (one per model type drawn at night), freed by `dispose`. */
   private windowTextures: THREE.Data3DTexture[] = [];
+  /** The texture of each model type, by its key: reused when the windows' light is switched off and on again. */
+  private windowTextureOf = new Map<string, THREE.Data3DTexture>();
   /** The volume the sampler is bound to until a type's is baked: one dark texel. */
   private emptyWindowLight = emptyWindowLight();
   /** Whether the night lights are on: the models drawn then are labelled, as for a highlight. */
@@ -738,17 +740,22 @@ export class TileRenderer {
           if (!grid || stale()) return;
           const baked = await this.windowBakes.request(source.key, grid, source.lights, {}, stale);
           if (!baked || stale()) return;
-          const { volume } = baked;
-          const texture = new THREE.Data3DTexture(volume.data, volume.sizeX, volume.sizeY, volume.layers);
-          texture.format = THREE.RGFormat;
-          texture.type = THREE.UnsignedByteType;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.wrapR = texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-          texture.generateMipmaps = false;
-          texture.unpackAlignment = 1;
-          texture.needsUpdate = true;
-          this.windowTextures.push(texture);
+          // One texture per model type, kept across mode switches: a type already uploaded is bound again, not allocated again.
+          let texture = this.windowTextureOf.get(source.key);
+          if (!texture) {
+            const { volume } = baked;
+            texture = new THREE.Data3DTexture(volume.data, volume.sizeX, volume.sizeY, volume.layers);
+            texture.format = THREE.RGFormat;
+            texture.type = THREE.UnsignedByteType;
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.wrapR = texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.generateMipmaps = false;
+            texture.unpackAlignment = 1;
+            texture.needsUpdate = true;
+            this.windowTextureOf.set(source.key, texture);
+            this.windowTextures.push(texture);
+          }
           const uniforms = this.labelMaps.get(geometry);
           if (uniforms) uniforms.uWindowLight.value = texture;
           this.labelledListener?.();
@@ -1140,6 +1147,7 @@ export class TileRenderer {
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();
     for (const texture of this.windowTextures.splice(0)) texture.dispose();
+    this.windowTextureOf.clear();
     this.emptyWindowLight.dispose();
     this.windowBakes?.clear();
     this.voxelGrids?.clear();
