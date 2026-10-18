@@ -4,12 +4,13 @@ import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
- * The placement visuals (PLATES, P-74) on the recorded 72-tile board: with a tile in hand, a platform on every free cell
- * next to a tile, Dorfromantik's, a low slab with rounded corners inset in its cell (a gap between neighbours). Valid
- * (the current rotation fits): the pale blue plate under a slightly white aura; possible (another rotation fits): the
- * plate alone; invalid (none fits): greyscale, more transparent. The tile placed: a white rim around it, red while its
- * rotation does not fit, green on confirm then a fade to nothing. Each change eases over 150 ms (at once under reduced
- * motion). Every setting is a control (sizes in voxels, a tile is 40); the ring grid is one, off by default.
+ * The placement visuals (PLACEMENT-TINTS) on the recorded 72-tile board: with a tile in hand, a flat plate on every free
+ * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours). Playable (some rotation
+ * fits): blue and transparent; invalid (none fits): grey, more transparent. The tile in hand is tinted on the model
+ * itself: blue at 50 % opacity on a hover, yellow at 90 % once placed, a temporary green on confirm fading to none.
+ * No rim, no aura. Each change eases over 150 ms (at once under reduced
+ * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
+ * in voxels, a tile is 40); the ring grid is one, off by default.
  */
 const meta = {
   title: "Renderer/Placement",
@@ -20,7 +21,7 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: no plate; in-hand: the plates; placed: on a plate, a white rim; placed-red: its rotation does not fit; confirm: green, fading out",
+      description: "idle: no plate; in-hand: the plates; hover: blue, half opacity; placed: yellow; confirm: green tint fading out; tour: hover, placed, confirm in turn",
     },
     board: { control: "boolean", description: "The board's tiles under the plates; off, the plates alone" },
     reducedMotion: { control: "boolean", description: "Reduced motion: an instant change of state, a short fade (unset: the device's)" },
@@ -50,7 +51,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand: its plates, valid under their aura, possible, and invalid (greyscale, more transparent). */
+/** A tile in hand: its plates, playable (blue, transparent) and invalid (grey, more transparent). */
 export const Plates: Story = { args: { state: "in-hand" } };
 
 /** The plates alone, no tile: their shape and colours, every one a control. */
@@ -62,14 +63,17 @@ export const Idle: Story = { args: { state: "idle" } };
 /** The ring grid of SLOTS2, a setting now off by default, turned on. */
 export const IdleGrid: Story = { args: { state: "idle", gridEnabled: true } };
 
-/** The tile placed on a plate its rotation fits: a white rim. */
+/** The tile hovering a plate: the model blue at half opacity, no inner face showing through. */
+export const Hover: Story = { args: { state: "hover" } };
+
+/** Hover, placed, confirm in turn: the states of the owner's feedback, for a capture. */
+export const Tour: Story = { args: { state: "tour" } };
+
+/** The tile placed on a plate its rotation fits: the model yellow at 90 % opacity. */
 export const Placed: Story = { args: { state: "placed" } };
 
-/** Rotated so it no longer fits: its plate and rim red. Confirm is disabled. */
-export const PlacedRed: Story = { args: { state: "placed-red" } };
-
-/** Confirmed: the rim green, then a fade to the tile's own look (played again every 1.6 s). */
+/** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };
 
-/** Reduced motion: every change at once, the confirm green at once with a short fade. */
+/** Reduced motion: every change at once, the confirm a short fade. */
 export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: true } };

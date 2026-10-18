@@ -1,3 +1,4 @@
+import { DEFAULT_PLACEMENT_SETTINGS } from "../src/core/placement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { Plan, getPlanKey } from "@paved/game-core";
@@ -310,26 +311,74 @@ describe("a tile image that fails or comes late", () => {
 });
 
 describe("the ghost while its model loads", () => {
-  it("draws the quad, red on its plate where the rotation does not fit, then the model: the shared materials", async () => {
+  it("draws the quad, then the model: the shared materials", async () => {
     const { s, at } = await boardWithOneTile();
     s.setHoveredTile(hover(5, { orientation: 4 }));
     const quad = quadOf(ghost(s)!.children[0]!);
     expect((s.tiles as any).previewKey).toMatch(/-quad$/);
     expect(quad.position.y).toBeCloseTo(PLACEHOLDER_HEIGHT);
     expect(quad.rotation.y).toBeCloseTo(Math.PI / 2);
-    // The plan's own material, shared: the ghost makes none (SLOTS), and nothing lies over it (PLATES: no veil).
+    // The plan's own material, copied once and tinted translucent (pending feedback does not wait for the model); the
+    // copy is the tiles renderer's, one per plan material, and the shared one is untouched.
     const shared = (s.tiles as any).placeholderTypes.get(keyOf(5)).material as THREE.MeshStandardMaterial;
-    expect(quad.material).toBe(shared);
-    expect(ghost(s)!.children).toHaveLength(1);
+    const tinted = quad.material as THREE.MeshStandardMaterial;
+    expect(tinted).not.toBe(shared);
+    expect(tinted.transparent).toBe(true);
+    expect(shared.transparent).toBe(false);
+    expect(tinted.customProgramCacheKey()).toBe("paved-quad-ghost");
+    expect((s.tiles as any).ghostMaterials.hand.get(shared)).toBe(tinted);
 
-    // Placed where the rotation does not fit: its plate's rim turns red.
-    s.setHoveredTile(hover(5, { orientation: 4, valid: false, placed: true }));
-    expect((s.tiles as any).placement.getGhost()).toMatchObject({ fits: false });
+    // Placed: its tint turns pending (yellow), on the quad too.
+    s.setHoveredTile(hover(5, { orientation: 4, placed: true }));
+    expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "pending" });
+    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.pendingOpacity, 6);
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
     expect((s.tiles as any).previewKey).toContain(keyOf(5));
     expect(meshOf(ghost(s)!.children[0]!).geometry).not.toBe(quad.geometry);
+    s.dispose();
+  });
+});
+
+describe("the confirm while its model loads", () => {
+  it("overlays the quad, then the model once it is in", async () => {
+    const { s, at } = await boardWithOneTile();
+    s.setConfirmedTile(hover(5, { orientation: 4, placed: true, key: 7 }));
+    const tiles = s.tiles as any;
+    expect(tiles.confirmPlaceholder).toBe(true);
+    const before = tiles.confirmContainer;
+    expect(before).not.toBeNull();
+    expect(before.children[0].userData.placeholder ?? quadOf(before.children[0]!)).toBeTruthy();
+
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    // The model arrived: the overlay is rebuilt on it, tinted, with no restart of the fade.
+    expect(tiles.confirmPlaceholder).toBe(false);
+    expect(tiles.confirmContainer).not.toBeNull();
+    expect(tiles.confirmContainer).not.toBe(before);
+    expect(s.tiles.placement ?? tiles.placement).toBeDefined();
+    expect(tiles.placement.isConfirming()).toBe(true);
+    s.dispose();
+  });
+});
+
+describe("the hover and the confirm of one plan, both on the quad", () => {
+  it("one refresh upgrades both to the model", async () => {
+    const { s, at } = await boardWithOneTile();
+    s.setHoveredTile(hover(5, { orientation: 4 }));
+    s.setConfirmedTile(hover(5, { orientation: 4, placed: true, key: 8 }));
+    const tiles = s.tiles as any;
+    expect(tiles.previewKey).toMatch(/-quad$/);
+    expect(tiles.confirmPlaceholder).toBe(true);
+    const overlay = tiles.confirmContainer;
+
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    // The one asset callback that delivered the model leaves neither on the placeholder.
+    expect(tiles.previewKey).toContain(keyOf(5));
+    expect(tiles.confirmPlaceholder).toBe(false);
+    expect(tiles.confirmContainer).not.toBe(overlay);
     s.dispose();
   });
 });
@@ -497,8 +546,8 @@ describe("no leak after many swaps", () => {
       });
     }
     renderer.setHover(null);
-    // The plan's quad material, the model's (one source) and the outline's: the placement draws nothing on the ghost.
-    expect(seen.size).toBeLessThanOrEqual(3);
+    // The plan's quad material, the model's (one source), the outline's, and the model's one tinted copy (kept across swaps).
+    expect(seen.size).toBeLessThanOrEqual(4);
     const spies = [...seen].map((m) => vi.spyOn(m, "dispose"));
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     renderer.dispose();

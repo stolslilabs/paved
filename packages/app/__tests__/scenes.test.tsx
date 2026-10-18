@@ -286,10 +286,10 @@ describe("Board", () => {
     const plate = () => screen.getByRole("button", { name: /^Slot / }).querySelector("[data-plate]");
     const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
-    // Possible where the current rotation does not fit, valid where it does (PLATES).
-    expect(plate()).toHaveAttribute("data-plate", "possible");
+    // One playable plate whether or not the current rotation fits (PLACEMENT-TINTS).
+    expect(plate()).toHaveAttribute("data-plate", "playable");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
-    expect(plate()).toHaveAttribute("data-plate", "valid");
+    expect(plate()).toHaveAttribute("data-plate", "playable");
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });

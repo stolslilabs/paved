@@ -34,13 +34,13 @@ const input = (over: Partial<PlacementInput> = {}): PlacementInput => ({
 });
 
 describe("the plates (PLATES, P-74)", () => {
-  it("are the slots, valid or possible, then every other free cell next to a tile, invalid; none with no slot", () => {
+  it("are the slots, playable whatever the rotation, then every other free cell next to a tile, invalid; none with no slot", () => {
     const tiles = [{ x: 0, y: 0 }, { x: 1, y: 0 }];
     const plates = boardPlates(tiles, [{ x: 2, y: 0, fits: true }, { x: 0, y: 1, fits: false }, { x: 1, y: 1 }]);
     expect(plates).toEqual([
-      { x: 2, y: 0, state: "valid" },
-      { x: 0, y: 1, state: "possible" },
-      { x: 1, y: 1, state: "valid" },
+      { x: 2, y: 0, state: "playable" },
+      { x: 0, y: 1, state: "playable" },
+      { x: 1, y: 1, state: "playable" },
       { x: -1, y: 0, state: "invalid" },
       { x: 0, y: -1, state: "invalid" },
       { x: 1, y: -1, state: "invalid" },
@@ -167,12 +167,12 @@ describe("the Training board's plan view, placing a tile", () => {
       await userEvent.click(slots()[i]!);
       const label = slots()[i]!.getAttribute("aria-label");
       const chosen = () => screen.getByRole("button", { name: label! });
-      expect(chosen()).toHaveAttribute("data-placed", "aura");
+      expect(chosen()).toHaveAttribute("data-placed", "pending");
       expect(place()).toBeEnabled();
       await screen.findByRole("button", { name: "Cancel placement" });
       for (let turn = 0; turn < 4 && screen.queryByRole("button", { name: "Rotate tile" }); turn++) {
         await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
-        expect(chosen()).toHaveAttribute("data-placed", "aura");
+        expect(chosen()).toHaveAttribute("data-placed", "pending");
         expect(place()).toBeEnabled();
       }
       // Close: the tile is back in hand, nothing is placed.
