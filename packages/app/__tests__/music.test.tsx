@@ -4,7 +4,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MusicPlayerControls, formatTime } from "../src/components/containers/music-player";
-import { MusicProvider, useMusic } from "../src/components/containers/music-provider";
+import { AudioProvider, useMusic } from "../src/components/containers/audio-provider";
 import { CROSSFADE_S, createMusicPlayer } from "../src/lib/music/player";
 import { TRACKS, createShuffle, trackTitle } from "../src/lib/music/tracks";
 
@@ -248,9 +248,9 @@ describe("the provider and the player", () => {
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
     const created = vi.spyOn(document, "createElement");
     render(
-      <MusicProvider enabled volume={0.4}>
+      <AudioProvider musicVolume={0.4} sfxVolume={0.7}>
         <Probe />
-      </MusicProvider>,
+      </AudioProvider>,
     );
     await waitFor(() => expect(created.mock.calls.filter(([tag]) => tag === "audio")).toHaveLength(2));
     const audios = created.mock.results.filter((r, i) => created.mock.calls[i]![0] === "audio").map((r) => r.value as HTMLAudioElement);

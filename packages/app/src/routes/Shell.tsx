@@ -1,5 +1,7 @@
 import { Suspense, useEffect } from "react";
 import { Outlet } from "react-router";
+import { AudioProvider } from "../components/containers/audio-provider";
+import { useDeviceSettings } from "../data/settings";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
@@ -22,6 +24,7 @@ const BOARD_PATHS = new Set(["game/:gameId", "training", "tutorial"]);
 export function RootLayout() {
   const page = useRoutePage();
   usePrefetchTabs();
+  const [{ musicVolume, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
   // A board route does not scroll: no pull-to-refresh, no bounce (`html[data-board]`, styles/theme.css; APP-FEEL, P-69).
   useEffect(() => {
@@ -32,12 +35,15 @@ export function RootLayout() {
     };
   }, [onBoard]);
   return (
-    <HistoryTracker>
-      <BalancesHost>
-        <Suspense fallback={bootScreen}>
-          <Outlet />
-        </Suspense>
-      </BalancesHost>
-    </HistoryTracker>
+    // The audio engine is its own chunk and starts on the first gesture; the provider only carries the two volumes.
+    <AudioProvider musicVolume={musicVolume} sfxVolume={sfxVolume}>
+      <HistoryTracker>
+        <BalancesHost>
+          <Suspense fallback={bootScreen}>
+            <Outlet />
+          </Suspense>
+        </BalancesHost>
+      </HistoryTracker>
+    </AudioProvider>
   );
 }

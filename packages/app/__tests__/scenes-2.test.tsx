@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
@@ -295,7 +295,7 @@ describe("Vault", () => {
 });
 
 describe("Settings", () => {
-  it("sets the graphics, the day and night cycle, sound, music, tile preview and placement highlight", async () => {
+  it("sets the graphics, the day and night cycle, the volumes, tile preview and placement highlight", async () => {
     const onChange = vi.fn();
     render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} />));
     expect(screen.getByRole("radio", { name: "High" })).toHaveAttribute("data-state", "on");
@@ -304,13 +304,14 @@ describe("Settings", () => {
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     expect(onChange).toHaveBeenCalledWith("dayNight", false);
-    expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Music" })).toBeChecked();
-    await userEvent.click(screen.getByRole("switch", { name: "Music" }));
-    expect(onChange).toHaveBeenCalledWith("music", false);
-    screen.getByRole("slider", { name: "Music volume" }).focus();
+    const onVolumeChange = vi.fn();
+    cleanup();
+    render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} onVolumeChange={onVolumeChange} />));
+    await userEvent.click(screen.getByRole("button", { name: "Mute music" }));
+    expect(onVolumeChange).toHaveBeenCalledWith("music", 0);
+    screen.getByRole("slider", { name: "Sound effects volume" }).focus();
     await userEvent.keyboard("{ArrowRight}");
-    expect(onChange).toHaveBeenCalledWith("musicVolume", 0.41);
+    expect(onVolumeChange).toHaveBeenCalledWith("sfx", 0.71);
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     expect(onChange).toHaveBeenCalledWith("tilePreview", false);
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));

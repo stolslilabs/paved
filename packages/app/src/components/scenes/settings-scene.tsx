@@ -2,31 +2,16 @@ import type { Tab } from "../../routes/pages";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { PlayerName } from "../elements/player-name";
 import { ShortAddress } from "../elements/short-address";
-import { MusicSetting } from "../elements/music-setting";
-import { SettingSwitch, ShowSkinsSwitch } from "../elements/setting-switch";
+import { ShowSkinsSwitch } from "../elements/setting-switch";
+import { DeviceSettingsPanel, type DevicePreferences, type DeviceSettingsPanelProps, type GraphicsQuality, type VolumeChannel } from "../containers/device-settings-panel";
 import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, type ThemeId } from "../containers/theme-card";
 
-/** "auto" picks by device: Medium on every device, Low on a low-power one; High only by hand. */
-export type GraphicsQuality = "auto" | "low" | "medium" | "high";
-
-/** The player's preferences, kept on this device (section 6.4: local storage). */
-export interface Preferences {
-  quality: GraphicsQuality;
-  /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
-  dayNight: boolean;
-  sound: boolean;
-  music: boolean;
-  /** The music volume, 0 to 1. */
-  musicVolume: number;
-  /** Show the tile on a slot before it is placed. */
-  tilePreview: boolean;
-  /** Outline the slots where the tile in hand fits. */
-  placementHighlight: boolean;
+/** The player's preferences, kept on this device (section 6.4: local storage): the device settings of the panel, and the skins switch. */
+export interface Preferences extends DevicePreferences {
   /** Show the players' skins on the boards (off: the base models, nothing downloaded). Kept with the theme. */
   showSkins: boolean;
 }
@@ -45,15 +30,11 @@ export interface SettingsSceneProps {
   theme: ThemeId;
   /** The tier "auto" resolves to on this device: "Auto (Medium)". */
   autoQuality?: Exclude<GraphicsQuality, "auto">;
-  /**
-   * Show the Music row (switch and volume). Off by default: no route mounts the player yet, so the live page has no
-   * control that does nothing (P-81). The stories turn it on.
-   */
-  showMusic?: boolean;
   connecting?: boolean;
   /** The app's version, at the foot of the page. */
   version?: string;
   onChange?: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
+  onVolumeChange?: (channel: VolumeChannel, volume: number) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onOpenTheme?: () => void;
@@ -62,79 +43,20 @@ export interface SettingsSceneProps {
   onNavigate?: (tab: Tab) => void;
 }
 
-const QUALITY: { value: GraphicsQuality; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-];
-
-/** Settings (`/settings`): graphics quality, the day and night cycle, sound, music, tile preview and placement highlight (the mockups); the account; theme and referral. */
+/** Settings (`/settings`): the device settings (the shared panel), the account, theme, referral and credits. */
 export function SettingsScene(props: SettingsSceneProps) {
   const { preferences: p, account, theme, onChange } = props;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
   return (
     <TabPage tab="settings" title="Settings" onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
-        <div className="flex flex-col gap-4">
-          <SettingsGroup title="Visuals">
-            <div className="flex flex-col gap-2 py-2.5">
-              <span id="quality-label" className="flex items-center gap-3 text-sm">
-                <Icon name="display" className="text-muted-foreground" size="sm" fixedWidth />
-                Graphics quality
-              </span>
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                aria-labelledby="quality-label"
-                value={p.quality}
-                onValueChange={(v) => v && onChange?.("quality", v as GraphicsQuality)}
-                className="w-full"
-              >
-                {QUALITY.map((q) => (
-                  // "Auto (Medium)" is the one long label: Auto gets double width so it fits at 320 px (WRAP360).
-                  <ToggleGroupItem key={q.value} value={q.value} className={`h-auto min-h-9 min-w-0 ${q.value === "auto" ? "flex-[2]" : "flex-1"} px-1 py-1 text-center text-xs leading-tight whitespace-normal`}>
-                    {q.value === "auto" && props.autoQuality ? (
-                      <>
-                        Auto <span className="inline-block">({QUALITY.find((o) => o.value === props.autoQuality)?.label})</span>
-                      </>
-                    ) : (
-                      q.label
-                    )}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              {p.quality === "high" && <p className="text-xs text-muted-foreground">High is heavier: it can slow the board and drain a battery faster.</p>}
-            </div>
-            <SettingSwitch
-              label="Day/night cycle"
-              hint="The sky changes with the seasons, the shadows turn, the cities light up at night"
-              icon="sun"
-              checked={p.dayNight}
-              onCheckedChange={(v) => onChange?.("dayNight", v)}
-            />
-            <ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />
-            <SettingSwitch label="Sound" icon="volume-high" checked={p.sound} onCheckedChange={(v) => onChange?.("sound", v)} />
-            {props.showMusic && <MusicSetting enabled={p.music} volume={p.musicVolume} onEnabledChange={(v) => onChange?.("music", v)} onVolumeChange={(v) => onChange?.("musicVolume", v)} />}
-          </SettingsGroup>
-
-          <SettingsGroup title="Gameplay">
-            <SettingSwitch
-              label="Tile preview"
-              hint="Show the tile on a slot before you place it"
-              icon="eye"
-              checked={p.tilePreview}
-              onCheckedChange={(v) => onChange?.("tilePreview", v)}
-            />
-            <SettingSwitch
-              label="Placement highlight"
-              hint="Outline the slots where your tile fits"
-              icon="highlighter"
-              checked={p.placementHighlight}
-              onCheckedChange={(v) => onChange?.("placementHighlight", v)}
-            />
-          </SettingsGroup>
-        </div>
+        <DeviceSettingsPanel
+          preferences={p}
+          autoQuality={props.autoQuality}
+          onChange={onChange as DeviceSettingsPanelProps["onChange"]}
+          onVolumeChange={props.onVolumeChange}
+          visualsExtra={<ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />}
+        />
 
         <div className="flex flex-col gap-4">
           <SettingsGroup title="Account">
