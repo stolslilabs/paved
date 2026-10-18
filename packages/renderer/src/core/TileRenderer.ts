@@ -11,6 +11,8 @@ import { PlacementRenderer, type PlacementSettings, type PlacementSlot, type Pla
 import type { OutlineFadeSettings } from "./outlines";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
 import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
+import { TileDrops, type DropResult } from "./tile-drops";
+import type { VoxelDropSettings } from "./voxel-drop-settings";
 // The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
 // does not light anything.
 import type * as Classifier from "./features";
@@ -295,6 +297,14 @@ export class TileRenderer {
   /** Waiting for the queue to empty (`whenLabelled`). */
   private labelWaiters: Array<() => void> = [];
   private disposed = false;
+  /** The voxel drop of a placed tile (`dropTile`): explicit, never at a first load. */
+  private drops = new TileDrops({
+    tile: (key) => {
+      const entry = this.tileMeshes.get(key);
+      return entry && { container: entry.mesh, model: entry.model };
+    },
+    type: (model) => this.tileType(model),
+  });
   /** The labels of each model geometry drawn (`labelFeatures`), owned here: an empty map until it is labelled. */
   private labelMaps: Map<THREE.BufferGeometry, LabelUniforms> = new Map();
   /** The label map of a geometry not labelled yet: one empty column (the sampler is always bound). */
@@ -369,7 +379,10 @@ export class TileRenderer {
         );
         // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
-        if (existing) this.tileGroup.remove(existing.mesh);
+        if (existing) {
+          this.drops.end(key);
+          this.tileGroup.remove(existing.mesh);
+        }
         this.tileMeshes.set(key, { mesh, pending, model, plan: tile.plan, orientation: tile.orientation });
         changed = true;
       }
@@ -378,6 +391,7 @@ export class TileRenderer {
     // Remove tiles no longer present
     for (const [key, entry] of this.tileMeshes) {
       if (!currentKeys.has(key)) {
+        this.drops.end(key);
         this.tileGroup.remove(entry.mesh);
         this.tileMeshes.delete(key);
         changed = true;
@@ -1065,6 +1079,26 @@ export class TileRenderer {
   /** Reduced motion for the placement visuals. */
   setReducedMotion(reduced: boolean): void {
     this.placement.setReducedMotion(reduced);
+    this.drops.setReducedMotion(reduced);
+  }
+
+  /** The voxel drop's settings (`dropTile`). */
+  setVoxelDropSettings(settings: VoxelDropSettings): void {
+    this.drops.setSettings(settings);
+  }
+
+  /**
+   * Drops the tile `key` (`${game_id}-${id}`): its voxels fall from the sky, layer by layer from the bottom and from the centre
+   * outwards, and its model replaces them when the last lands. Explicit: nothing drops at a first load. Skipped (with the reason)
+   * for a tile not drawn, one on its placeholder quad, one whose model is no closed solid, and under reduced motion.
+   */
+  dropTile(key: string): Promise<DropResult> {
+    return this.drops.start(key);
+  }
+
+  /** Loads what the drop of tile `key` needs, so that its `dropTile` begins in the call (the board prepares when a tile is picked). */
+  prepareDrop(key: string): Promise<boolean> {
+    return this.drops.prepare(key);
   }
 
   /** The zoom the placement grid follows (its fade, `grid.farFade`). */
@@ -1073,8 +1107,10 @@ export class TileRenderer {
   }
 
   /** Moves the placement effects to `time` (ms); `animating` while one still moves. */
-  update(time: number = now()): PlacementUpdate {
-    return this.placement.update(time);
+  update(time: number = now()): PlacementUpdate & { shadow: boolean } {
+    const drops = this.drops.update(time);
+    const placement = this.placement.update(time);
+    return { animating: placement.animating || drops.animating, shadow: drops.shadow };
   }
 
   /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
@@ -1094,6 +1130,7 @@ export class TileRenderer {
   }
 
   dispose(): void {
+    this.drops.dispose();
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
     }
