@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import { HOME } from "../../mocks/scenes";
 import { HomeScene } from "./home-scene";
 
-/** Home (`/`): the player's status, the game to resume, the modes, today's Challenge top 3, the five tabs. One story per state; the Viewport control reframes it. */
+/** Home (`/`): the player's status, the game to resume, the modes, the Challenge top 3, the five tabs. One story per state; the Viewport control reframes it. */
 const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onTutorial: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() } } satisfies Meta<typeof HomeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -14,7 +14,7 @@ export const Connected: Story = { args: HOME.connected };
 /** No wallet: the connect call, Training and the Tutorial open. */
 export const Guest: Story = { args: HOME.guest };
 
-/** Nobody has finished a game today: an empty podium, no rank yet. */
+/** Nobody has finished a game: an empty podium, no rank yet. */
 export const FirstOfDay: Story = { args: HOME.firstOfDay };
 
 /** `spawn_paused`: the Challenge card is disabled, the running game still resumes. */

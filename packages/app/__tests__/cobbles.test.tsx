@@ -253,7 +253,8 @@ describe("Theme: skins", () => {
 
   it("renders its stress state", () => {
     render(wrap(<ThemeScene {...THEME.skinsStress} />));
-    expect(screen.getByRole("img", { name: "987,654,321 Cobbles" })).toBeInTheDocument();
+    // The balance is the header pill's (`Balances`), not the page's.
+    expect(screen.getByRole("heading", { level: 1, name: "Theme" })).toBeInTheDocument();
   });
 });
 
@@ -333,9 +334,10 @@ describe("Achievements: Cobbles", () => {
 });
 
 describe("Home, Play and Leaderboard: Cobbles", () => {
-  it("shows the balance on Home", () => {
+  it("keeps the free-game card on Home, with no day or Daily wording", () => {
     render(wrap(<HomeScene {...HOME.cobbles} />));
-    expect(screen.getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
+    expect(screen.queryByText(/^Day \d+/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Daily")).not.toBeInTheDocument();
     expect(screen.queryByText("Free game")).not.toBeInTheDocument();
   });
 
@@ -352,7 +354,7 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
 
   it("marks a free game in Home's top 3, as the Leaderboard does", () => {
     render(wrap(<HomeScene {...HOME.freeGame} />));
-    const podium = within(screen.getByRole("list", { name: "Today's top 3" })).getAllByRole("listitem");
+    const podium = within(screen.getByRole("list", { name: "Top 3" })).getAllByRole("listitem");
     expect(podium[1]).toHaveTextContent("Free");
     expect(podium.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
   });
