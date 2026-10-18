@@ -55,6 +55,24 @@ export function checks(p: Palette): Check[] {
       if (surfaceName !== "raised") pair(`primary on ${surfaceName}`, state, p.primary, bg);
     }
   }
+  // The second voices (accent, danger) on the same surfaces, and the glass card of C (white 6% over the page).
+  const glass = mix(p.bg, "#FFFFFF", 0.06);
+  for (const [surfaceName, surface] of [["page", p.bg], ["card", p.surface], ["glass", glass]] as const) {
+    for (const state of STATE_NAMES) {
+      const bg = underState(surface, state);
+      pair(`accent on ${surfaceName}`, state, p.accent, bg);
+      pair(`danger on ${surfaceName}`, state, p.danger, bg);
+    }
+  }
+  // A chip (white 10%) nested on a card under each state: its text colours on the card's overlay plus its own.
+  for (const [surfaceName, surface] of [["card", p.surface], ["glass", glass]] as const) {
+    for (const state of STATE_NAMES) {
+      const bg = mix(underState(surface, state), "#FFFFFF", 0.1);
+      pair(`chip muted on ${surfaceName}`, state, p.muted, bg);
+    }
+  }
   for (const state of STATE_NAMES) pair("on-primary on primary", state, p.onPrimary, underState(p.primary, state));
+  // The accent chip is a solid accent fill with dark text, like the primary one.
+  pair("on-primary on accent chip", "rest", p.onPrimary, p.accent);
   return out;
 }

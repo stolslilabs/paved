@@ -140,7 +140,7 @@ export function DCardButton({ on, force, className, type = "button", ...rest }: 
 /** A small label: a badge, a count. */
 export function DChip({ children, tone = "plain", className }: { children: ReactNode; tone?: "plain" | "primary" | "accent"; className?: string }) {
   const d = useDir();
-  const toneClass = { plain: "bg-white/10 text-(color:--d-muted)", primary: "bg-(--d-primary) text-(color:--d-on-primary)", accent: "bg-white/10 text-(color:--d-accent)" }[tone];
+  const toneClass = { plain: "bg-white/10 text-(color:--d-muted)", primary: "bg-(--d-primary) text-(color:--d-on-primary)", accent: "bg-(--d-accent) text-(color:--d-on-primary)" }[tone];
   return <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-xs leading-none font-semibold tracking-wide uppercase", d === "a" ? "rounded-[2px]" : "rounded-full", toneClass, className)}>{children}</span>;
 }
 
@@ -153,6 +153,7 @@ export function DSwitch({ checked, label, force, onChange }: { checked: boolean;
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      data-on={checked ? "true" : undefined}
       data-force={force}
       onClick={() => onChange?.(!checked)}
       className={clsx("relative h-8 w-14 shrink-0 cursor-pointer", OVERLAY, d === "a" ? "rounded-[3px]" : "rounded-full", checked ? "bg-(--d-primary)" : "bg-(--d-raised) ring-1 ring-white/25")}
