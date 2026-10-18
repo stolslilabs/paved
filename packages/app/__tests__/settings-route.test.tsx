@@ -6,7 +6,7 @@ import type { GameCanvasProps } from "@paved/renderer/react";
 import { getPlanKey, Plan } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
-import { SETTINGS_KEY, deviceSettings } from "../src/data/settings";
+import { SETTINGS_KEY, deviceSettings, withVolume } from "../src/data/settings";
 import { THEME_KEY, deviceTheme } from "../src/data/skins";
 import { queryClient } from "../src/lib/query-client";
 import { GAME_PLAYING } from "../src/mocks/games";
@@ -61,14 +61,13 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 };
 
 describe("/settings", () => {
-  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, sound on, music on at 40 %, preview and highlight on, skins shown", async () => {
+  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, music at 40 %, sound effects at 70 %, preview and highlight on, skins shown", async () => {
     open();
     expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Sound" })).toBeChecked();
-    // No control that does nothing: the Music row stays out of the live page until the player is wired (P-81).
-    expect(screen.queryByRole("switch", { name: "Music" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("slider", { name: "Music volume" })).not.toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "70");
+    expect(screen.getByRole("button", { name: "Mute music" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Placement highlight/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Show players' skins/ })).toBeChecked();
@@ -79,10 +78,10 @@ describe("/settings", () => {
     open();
     await userEvent.click(await screen.findByRole("radio", { name: "Low" }));
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
-    await userEvent.click(screen.getByRole("switch", { name: "Sound" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mute sound effects" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
-    expect(stored()).toEqual({ quality: "low", dayNight: false, sound: false, music: true, musicVolume: 0.4, tilePreview: false, placementHighlight: false });
+    expect(stored()).toEqual({ quality: "low", dayNight: false, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7, tilePreview: false, placementHighlight: false });
     expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
   });
 
@@ -94,10 +93,12 @@ describe("/settings", () => {
   });
 
   it("shows a saved setting after a reload: the stores read the device again", async () => {
+    // The first shape: the Sound switch off is a muted sound effects slider.
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "medium", sound: false }));
     open();
     expect(await screen.findByRole("radio", { name: "Medium" })).toHaveAttribute("data-state", "on");
-    expect(screen.getByRole("switch", { name: "Sound" })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Mute sound effects" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "0");
   });
 
   it("holds the choices for the visit when storage is off", async () => {
@@ -105,8 +106,8 @@ describe("/settings", () => {
       throw new Error("blocked");
     });
     open();
-    await userEvent.click(await screen.findByRole("switch", { name: "Sound" }));
-    expect(screen.getByRole("switch", { name: "Sound" })).not.toBeChecked();
+    await userEvent.click(await screen.findByRole("button", { name: "Mute sound effects" }));
+    expect(screen.getByRole("button", { name: "Mute sound effects" })).toHaveAttribute("aria-pressed", "true");
     vi.restoreAllMocks();
   });
 
@@ -182,9 +183,9 @@ describe("the board reads the settings", () => {
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false } }));
     // A render that changes nothing the renderer reads keeps the object, so the canvas does not call setSettings for nothing.
     const high = lastBoard()?.settings;
-    act(() => deviceSettings.set({ ...deviceSettings.get(), sound: !deviceSettings.get().sound }));
+    act(() => deviceSettings.set(withVolume(deviceSettings.get(), "sfx", 0)));
     expect(lastBoard()?.settings).toBe(high);
-    act(() => deviceSettings.set({ ...deviceSettings.get(), music: !deviceSettings.get().music }));
+    act(() => deviceSettings.set(withVolume(deviceSettings.get(), "music", 0)));
     expect(lastBoard()?.settings).toBe(high);
   });
 

@@ -53,12 +53,11 @@ afterEach(() => {
 });
 
 describe("the Cobbles' claims through the wallet", () => {
-  it("a connected wallet enables Claim on /quests, and the claim goes through its signer", async () => {
+  it("a connected wallet enables Claim on /missions, and the claim goes through its signer", async () => {
     const s = setup();
     render(<App router={createTestRouter("/")} sources={s.sources} connector={s.load} />);
     // Home restores the session; the Quests tab then reads the connected player.
-    expect(await screen.findByText(/Connected as/, {}, { timeout: 5000 })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Quests" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Missions" }, { timeout: 5000 }));
     const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 });
     expect(claim).toBeEnabled();
     expect(screen.queryByText(/Connect to claim/)).toBeNull();

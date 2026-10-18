@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MusicPlayerControls } from "./music-player";
-import { MusicProvider, useMusic } from "./music-provider";
+import { AudioProvider, useMusic } from "./audio-provider";
 import { DEFAULT_SETTINGS } from "../../data/settings";
 import { STORY_TRACKS } from "../../mocks/music";
 
@@ -27,12 +27,13 @@ function Controls({ enabled, volume, onEnabledChange, onVolumeChange }: { enable
 }
 
 function Live_() {
-  const [enabled, setEnabled] = useState(DEFAULT_SETTINGS.music);
   const [volume, setVolume] = useState(DEFAULT_SETTINGS.musicVolume);
+  const [on, setOn] = useState(true);
+  // The player's play button is the mute: off is a volume of 0.
   return (
-    <MusicProvider enabled={enabled} volume={volume} tracks={STORY_TRACKS}>
-      <Controls enabled={enabled} volume={volume} onEnabledChange={setEnabled} onVolumeChange={setVolume} />
-    </MusicProvider>
+    <AudioProvider musicVolume={on ? volume : 0} sfxVolume={DEFAULT_SETTINGS.sfxVolume} tracks={STORY_TRACKS}>
+      <Controls enabled={on && volume > 0} volume={volume} onEnabledChange={setOn} onVolumeChange={setVolume} />
+    </AudioProvider>
   );
 }
 

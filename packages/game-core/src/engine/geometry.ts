@@ -90,8 +90,15 @@ export function wonderArea(plan: number): number {
  * 6 or 8): what two facing edges must share (`placement::edge_category`).
  */
 export function edgeCategory(plan: number, orientation: number, direction: number): number {
-  return categoryOf(plan, areaAt(plan, orientation, direction + 1));
+  const key = (plan * 5 + orientation) * 9 + direction;
+  let category = EDGE_CACHE[key];
+  if (category === undefined) {
+    category = categoryOf(plan, areaAt(plan, orientation, direction + 1));
+    EDGE_CACHE[key] = category;
+  }
+  return category;
 }
+const EDGE_CACHE: number[] = [];
 
 /** The position next to `(x, y)` in `direction` (y grows to the north). */
 export function toward(x: number, y: number, direction: number): [number, number] {

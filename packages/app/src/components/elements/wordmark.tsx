@@ -1,4 +1,5 @@
 import { cn } from "../../lib/utils";
+import banner from "../../assets/banner.svg";
 
 export interface WordmarkProps {
   size?: "md" | "lg";
@@ -7,18 +8,21 @@ export interface WordmarkProps {
   className?: string;
 }
 
-/** The game's name in the display font token, gold on the board, as the mockups' title screens set it. */
+/**
+ * The game's name: the official wordmark (`assets/banner.svg`, the file the book uses, whitespace-trimmed), self-hosted as an
+ * image with the accessible name "Paved". Its box is 1940 x 500, so the width sets the height.
+ */
 export function Wordmark({ size = "lg", tagline, className }: WordmarkProps) {
   return (
     <div className={cn("flex flex-col items-center gap-2 text-center", className)}>
-      <span
-        className={cn(
-          "font-display leading-none tracking-wider text-primary [text-shadow:0_3px_0_var(--accent),0_10px_30px_var(--accent)]",
-          size === "lg" ? "text-5xl tablet:text-7xl" : "text-3xl",
-        )}
-      >
-        PAVED
-      </span>
+      <img
+        src={banner}
+        alt="Paved"
+        draggable={false}
+        width={1940}
+        height={500}
+        className={cn("h-auto max-w-full", size === "lg" ? "w-72 tablet:w-96" : "w-44")}
+      />
       {tagline && <span className="text-xs tracking-[0.3em] text-muted-foreground uppercase">{tagline}</span>}
     </div>
   );

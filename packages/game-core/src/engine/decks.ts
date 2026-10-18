@@ -1,12 +1,13 @@
 // The decks of the contracts (`contracts/src/types/deck.cairo`, `elements/decks/{base,simple,tutorial}.cairo`):
-// `simple` is the Challenge's (the 72 cards of the base deck, 38 played), `tutorial` is the scripted one.
+// `simple` is the Challenge's (the 72 cards of the base deck, 38 played), `tutorial` is the scripted one,
+// `story` plays a fixed sequence given at start (no withdrawal, no reseed).
 
 import { Base } from "../elements/decks/base";
 import { Tutorial } from "../elements/decks/tutorial";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
 
-export type EngineDeck = "simple" | "tutorial";
+export type EngineDeck = "simple" | "tutorial" | "story";
 
 export interface DeckRules {
   /** Cards of the deck (`total_count`). */
@@ -38,5 +39,13 @@ export const DECKS: Record<EngineDeck, DeckRules> = {
       const parameters = Tutorial.parameters(index);
       return parameters.orientation === OrientationType.None ? null : parameters;
     },
+  },
+  // Story levels: the draw order is the config's `sequence`, so the deck has no cards of its own.
+  story: {
+    total: 0,
+    count: 0,
+    plan: () => PlanType.None,
+    starter: 0,
+    placement: () => null,
   },
 };

@@ -38,12 +38,13 @@ interface StructureRecord {
   tiles: Set<number>;
 }
 
-export function positionKey(x: number, y: number): string {
-  return `${x},${y}`;
+/** A number per position (a game spans at most 255 tiles), cheaper to hash than a string. */
+export function positionKey(x: number, y: number): number {
+  return (x + 1024) * 4096 + (y + 1024);
 }
 
 export class Board {
-  readonly byPosition = new Map<string, BoardTile>();
+  readonly byPosition = new Map<number, BoardTile>();
   readonly byId = new Map<number, BoardTile>();
   private readonly records = new Map<number, StructureRecord>();
 

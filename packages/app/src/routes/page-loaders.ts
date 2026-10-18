@@ -28,10 +28,11 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "training/over": over,
   "leaderboard/:day?": () => import("./pages/leaderboard"),
   "player/:id": () => import("./pages/player"),
-  "quests/:day?": () => import("./pages/quests"),
-  achievements: () => import("./pages/achievements"),
+  "missions/:day?": () => import("./pages/quests"),
+  "missions/lifetime": () => import("./pages/achievements"),
   vault: () => import("./pages/vault"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
+  "settings/credits": () => import("./pages/credits"),
   settings: () => import("./pages/settings"),
 };

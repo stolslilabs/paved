@@ -112,3 +112,44 @@ export function computeHoverState(
     orientation,
   };
 }
+
+/** A board cell's top-right corner on screen, in CSS px from the surface's top-left (`cellCorner`). */
+export interface CellCorner {
+  x: number;
+  y: number;
+  /** The corner is in front of the camera and inside the surface. */
+  visible: boolean;
+}
+
+/**
+ * The inverse of `screenToGrid`: the screen position of the top-right corner of a grid cell's tile, at `height` world
+ * units above the ground. The corner is the one of the cell's four top corners that lies furthest up and to the right on
+ * screen, so it stays the top-right one whatever the compass turn or the camera's orbit.
+ *
+ * @param camera - Its matrices must be current (`updateMatrixWorld`)
+ * @param sceneGroupMatrix - The compass rotation's world matrix
+ * @param size - The surface's size in CSS px
+ */
+export function cellCorner(
+  cell: { x: number; y: number },
+  camera: THREE.Camera,
+  sceneGroupMatrix: THREE.Matrix4,
+  size: { width: number; height: number },
+  tileSize: number,
+  height: number,
+): CellCorner {
+  const half = tileSize / 2;
+  let best: CellCorner | null = null;
+  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+    const point = new THREE.Vector3(cell.x * tileSize + dx * half, height, cell.y * tileSize + dz * half).applyMatrix4(sceneGroupMatrix);
+    const behind = new THREE.Vector3().copy(point).applyMatrix4(camera.matrixWorldInverse).z >= 0;
+    const ndc = point.project(camera);
+    const corner: CellCorner = {
+      x: ((ndc.x + 1) / 2) * size.width,
+      y: ((1 - ndc.y) / 2) * size.height,
+      visible: !behind && Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1,
+    };
+    if (!best || corner.x - corner.y > best.x - best.y) best = corner;
+  }
+  return best!;
+}

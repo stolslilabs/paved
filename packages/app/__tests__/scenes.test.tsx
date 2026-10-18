@@ -93,7 +93,7 @@ describe("Home", () => {
     const onResume = vi.fn();
     render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
     expect(screen.getAllByText("bal7hazar").length).toBeGreaterThan(0);
-    const podium = screen.getByRole("list", { name: "Today's top 3" });
+    const podium = screen.getByRole("list", { name: "Top 3" });
     expect(within(podium).getAllByRole("listitem")).toHaveLength(4);
     expect(within(podium).getByText("stonemaster")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));
@@ -111,7 +111,7 @@ describe("Home", () => {
 
   it("says the podium is empty on a day nobody finished", () => {
     render(wrap(<HomeScene {...HOME.firstOfDay} />));
-    expect(screen.getByText(/No finished game today yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No finished game yet/)).toBeInTheDocument();
   });
 
   it("disables the Challenge while purchases are paused", () => {
@@ -189,12 +189,39 @@ describe("Board", () => {
     expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
     unmount();
     const onConfirm = vi.fn();
-    const onRotate = vi.fn();
-    render(wrap(<BoardScene {...BOARD.slotChosen} onConfirm={onConfirm} onRotate={onRotate} />));
+    render(wrap(<BoardScene {...BOARD.slotChosen} onConfirm={onConfirm} />));
     await userEvent.click(screen.getByRole("button", { name: /Place tile.*\+30/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
     expect(onConfirm).toHaveBeenCalledOnce();
-    expect(onRotate).toHaveBeenCalledOnce();
+    // The hand has no Rotate: the rotation is the bubble's, on the tile.
+    expect(screen.queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
+  });
+
+  it("the bubble (plan view): Rotate only with several valid rotations, Close always, and the R and Escape keys", async () => {
+    const onRotate = vi.fn();
+    const onClose = vi.fn();
+    const cell = { x: 0, y: 0 };
+    const { unmount } = render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ cell, rotations: 1, onRotate, onClose }} />));
+    await screen.findByRole("button", { name: "Cancel placement" });
+    expect(screen.queryByRole("button", { name: "Rotate tile" })).not.toBeInTheDocument();
+    await userEvent.keyboard("r");
+    expect(onRotate).not.toHaveBeenCalled();
+    unmount();
+
+    render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ cell, rotations: 2, onRotate, onClose }} />));
+    await userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
+    await userEvent.keyboard("R");
+    expect(onRotate).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("the hand: Place tile full width, Discard and Surrender on one row", () => {
+    render(wrap(<BoardScene {...BOARD.slotChosen} />));
+    const discard = screen.getByRole("button", { name: /Discard/ });
+    const surrender = screen.getByRole("button", { name: /Surrender/ });
+    expect(discard.parentElement).toBe(surrender.parentElement);
+    expect(screen.getByRole("button", { name: /Place tile/ })).toHaveClass("w-full");
   });
 
   it("shows the closing points of the last move", () => {

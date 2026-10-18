@@ -13,9 +13,9 @@ import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useTabNavigate } from "../ref";
 
 /**
- * `/achievements` (P9): the player's achievements from the indexer, their Cobbles and the claimed ones from `Setup`'s ledger
+ * `/missions/lifetime` (P9): the player's achievements from the indexer, their Cobbles and the claimed ones from `Setup`'s ledger
  * (`useAchievementRewards`); Claim and Claim all (one multicall) through the signer, the cache following the receipt's
- * events. Guest and read only as on `/quests`. * A wallet approved earlier is looked for here too (`useAccount`), so a returning player can claim at once.
+ * events. Guest and read only as on `/missions`. * A wallet approved earlier is looked for here too (`useAccount`), so a returning player can claim at once.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -55,7 +55,7 @@ export default function Page() {
       toasts={toasts}
       onClaim={(achievementId) => send(achievementId, [{ kind: "achievement", achievementId }])}
       onClaimAll={claimAll}
-      onTab={(tab) => go(tab === "quests" ? "/quests" : "/achievements")}
+      onTab={(tab) => go(tab === "quests" ? "/missions" : "/missions/lifetime")}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: queryKeys.indexer.all });
