@@ -117,7 +117,7 @@ export const DIRECTIONS: Record<DirectionId, Direction> = {
       raised: "#3A2520",
       line: "#6A4A41",
       text: "#FBF1EC",
-      muted: "#F1E4DD",
+      muted: "#F8EFEA",
       primary: "#FAC9B4",
       onPrimary: "#1F0E09",
       accent: "#A9D6EE",

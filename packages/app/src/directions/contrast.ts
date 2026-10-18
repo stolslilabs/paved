@@ -45,9 +45,10 @@ export interface Check {
  */
 export function checks(p: Palette, glass = false): Check[] {
   const out: Check[] = [];
-  // Glass (C): white 6% (a card) or 10% (the dock, the hand card) over the blurred tile art. The art is bounded from above: a tile
-  // as bright as white at the mosaic's 50% opacity (Mosaic in shells.tsx), under the page-colour veil at its lightest (85%, at the top).
-  const backdrop = mix(mix(p.bg, "#FFFFFF", 0.5), p.bg, 0.85);
+  // Glass (C): white 6% (a card) or 10% (the dock, the hand card) over the blurred tile art. The art is bounded from above: white at
+  // most 8% over the page colour. Enforced by the mosaic (tiles at 50% under a veil of 85% or more: at most 7.5%) and, on the HUD,
+  // by the 92% veil behind each glass card (Veiled in screens.tsx: a white tile gives 8%).
+  const backdrop = mix(p.bg, "#FFFFFF", 0.08);
   const glass6 = mix(backdrop, "#FFFFFF", 0.06);
   const glass10 = mix(backdrop, "#FFFFFF", 0.1);
   const pair = (label: string, state: StateName, fg: string, bg: string) => out.push({ label, state, fg, bg, ratio: contrastHex(fg, bg), min: state === "pressed" ? 3 : 4.5 });

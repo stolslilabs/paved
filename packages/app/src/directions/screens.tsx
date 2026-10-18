@@ -310,6 +310,15 @@ export function SettingsScreen() {
 
 const BOARD_COLS = 7;
 
+/**
+ * C's glass over the full-strength board: a page-colour veil at 92% sits behind the card, so the glass never lies on bare tile art.
+ * The same bound as the mosaic's (see `checks()`): white at most 8% over the page colour. A and B have no glass and take no veil.
+ */
+function Veiled({ className, children }: { className?: string; children: ReactNode }) {
+  const d = useDir();
+  return d === "c" ? <div className={clsx("rounded-3xl bg-(--d-bg)/92", className)}>{children}</div> : <div className={className}>{children}</div>;
+}
+
 /** The board with its HUD and the hand panel: the tiles are the app's own art laid on a grid; the free slot is the dashed one. */
 export function HudScreen() {
   const d = useDir();
@@ -335,7 +344,8 @@ export function HudScreen() {
         <DButton variant="secondary" size="square" aria-label="Menu">
           <Icon name="gear" size="md" />
         </DButton>
-        <DCard className="flex flex-1 items-center justify-around gap-2 px-3 py-2">
+        <Veiled className="flex-1">
+        <DCard className="flex items-center justify-around gap-2 px-3 py-2">
           <Stat icon="crown" label="Score">
             1,270
           </Stat>
@@ -346,9 +356,11 @@ export function HudScreen() {
             18:04
           </Stat>
         </DCard>
+        </Veiled>
       </header>
 
       <div className="relative mt-auto p-3 desktop:ml-auto desktop:w-96 desktop:p-6">
+        <Veiled>
         <DCard className={clsx("flex flex-col gap-3 p-4", d === "c" && "bg-white/10")}>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -377,6 +389,7 @@ export function HudScreen() {
             <Icon name="flag" size="xs" /> Surrender
           </DButton>
         </DCard>
+        </Veiled>
       </div>
     </div>
   );
