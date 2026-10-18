@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { Brand, DButton, DCard, DCardButton, DChip, DSwitch, DTitle, Icon, Muted, TileArt, useDir } from "./kit";
+import { formatInteger } from "@paved/game-core";
 import { FlowShell, TabShell } from "./shells";
 
 /*
@@ -21,7 +22,7 @@ const RANKS = [
   { rank: 9, name: "pebble", score: 1105 },
   { rank: 10, name: "orchard", score: 980 },
 ];
-const pts = (n: number) => n.toLocaleString("en-US");
+const pts = (n: number) => formatInteger(n);
 
 function Segmented({ options, value }: { options: readonly string[]; value: string }) {
   const [v, setV] = useState(value);
