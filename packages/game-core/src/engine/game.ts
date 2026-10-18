@@ -64,7 +64,21 @@ export interface EngineConfig {
   readonly player?: bigint;
   /** The tile limit, the starter included. Default: the deck's count (38 Simple, 10 Tutorial). */
   readonly tileLimit?: number;
+  /**
+   * Deck `story` only: the plans drawn after the starter, in draw order. The game has no random
+   * draw (no withdrawal, no reseed) and plays `sequence.length + 1` tiles, the starter included.
+   */
+  readonly sequence?: readonly PlanType[];
+  /**
+   * Deck `story` only: tiles already on the board when the level starts (written without a move, as
+   * `write` does, owned by the player, ids from `PREPLACED_ID`). They are not drawn and do not count
+   * against the tile limit.
+   */
+  readonly placed?: readonly ({ plan: PlanType } & Placement)[];
 }
+
+/** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
+export const PREPLACED_ID = 200;
 
 export interface Placement {
   readonly orientation: OrientationType;
@@ -158,6 +172,7 @@ export class EngineGame {
   readonly player: bigint;
   readonly tileLimit: number;
   private readonly rules: DeckRules;
+  private readonly sequence: readonly PlanType[] = [];
   private board = new Board();
   private _seed: bigint;
   private _tiles = 0n;
@@ -174,7 +189,15 @@ export class EngineGame {
     this.rules = DECKS[config.deck];
     if (!this.rules) throw new EngineError("Game: invalid mode");
     this.player = config.player ?? 1n;
-    this.tileLimit = config.tileLimit ?? this.rules.count;
+    if (config.deck === "story") {
+      if (!config.sequence?.length) throw new EngineError("Game: a story needs a sequence");
+      this.sequence = config.sequence;
+      if (config.tileLimit !== undefined && config.tileLimit > config.sequence.length + 1) {
+        throw new EngineError("Game: the tile limit exceeds the sequence");
+      }
+    }
+    this.tileLimit =
+      config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
     this._seed = config.seed;
   }
@@ -194,10 +217,11 @@ export class EngineGame {
       y: 0,
       owner: game.player,
     });
-    game._tiles = bit(game.rules.starter);
+    game._tiles = game.deck === "story" ? 0n : bit(game.rules.starter);
     if (game.deck === "simple") {
       game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
     }
+    config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
     game.draw();
     return game;
   }
@@ -337,6 +361,8 @@ export class EngineGame {
 
   /** Every legal placement of `plan` (the tile in hand by default), by position then orientation. */
   legalPlacements(plan?: PlanType): Placement[] {
+    const code = plan ? planCode(plan) : (this.held?.plan ?? 0);
+    if (code === 0) return [];
     const seen = new Set<string>();
     const placements: Placement[] = [];
     const tiles = [...this.board.byId.values()].sort((a, b) => a.id - b.id);
@@ -346,9 +372,17 @@ export class EngineGame {
         const key = `${x},${y}`;
         if (seen.has(key) || this.board.at(x, y)) continue;
         seen.add(key);
-        for (const orientation of ORIENTATIONS.slice(1) as OrientationType[]) {
-          const placement = { orientation, x, y };
-          if (this.canPlace(placement, plan)) placements.push(placement);
+        // The neighbours' facing edges, once per cell
+        const facing: [number, number][] = [];
+        for (const side of [NORTH, EAST, SOUTH, WEST]) {
+          const [nx, ny] = toward(x, y, side);
+          const neighbor = this.board.at(nx, ny);
+          if (neighbor) facing.push([side, edgeCategory(neighbor.plan, neighbor.orientation, opposite(side))]);
+        }
+        for (let orientation = 1; orientation <= 4; orientation++) {
+          if (facing.every(([side, category]) => edgeCategory(code, orientation, side) === category)) {
+            placements.push({ orientation: ORIENTATIONS[orientation] as OrientationType, x, y });
+          }
         }
       }
     }
@@ -397,7 +431,7 @@ export class EngineGame {
     // [Effect] Assess game over, then draw a new tile if relevant (Challenge reseeds from the position)
     this.assessOver();
     if (!this._over) {
-      if (this.deck !== "tutorial") this.reseed(CENTER + tile.x, CENTER + tile.y);
+      if (this.deck === "simple") this.reseed(CENTER + tile.x, CENTER + tile.y);
       this.draw();
     }
 
@@ -428,7 +462,7 @@ export class EngineGame {
     this.assessOver();
     if (!this._over) {
       // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
-      this.reseed(CENTER, CENTER);
+      if (this.deck === "simple") this.reseed(CENTER, CENTER);
       this.draw();
     }
     this._discarded += 1;
@@ -460,7 +494,9 @@ export class EngineGame {
   /** `Game::draw_plan`. */
   private draw(): void {
     let plan: PlanType;
-    if (this.deck === "tutorial") {
+    if (this.deck === "story") {
+      plan = this.sequence[this._tileCount - 1] as PlanType;
+    } else if (this.deck === "tutorial") {
       const index = this._tiles === 0n ? 0 : 1 + mostSignificantBit(this._tiles);
       plan = this.rules.plan(index);
       this._tiles = this._tiles === 0n ? 1n : this._tiles | bit(index);
@@ -471,7 +507,7 @@ export class EngineGame {
     }
     this._tileCount += 1;
     this.held = { id: this._tileCount, plan: planCode(plan) };
-    this._seed = poseidon(this._seed, this._tileCount);
+    if (this.deck !== "story") this._seed = poseidon(this._seed, this._tileCount);
   }
 
   /**
