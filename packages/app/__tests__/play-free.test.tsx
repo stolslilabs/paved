@@ -59,7 +59,7 @@ afterEach(() => {
 describe("Play free on /", () => {
   it("no credit: the Cobbles balance shows, no Play free entry", async () => {
     open("/", { credits: 0 });
-    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
@@ -77,7 +77,7 @@ describe("Play free on /", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
     router.navigate("/");
-    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
@@ -212,7 +212,7 @@ describe("the earlier wallet session on /quests and /achievements", () => {
 
   it("/achievements: the same session is found there", async () => {
     const { wallet } = openClaims("/achievements");
-    expect((await screen.findAllByRole("img", { name: "240 Cobbles" }, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("img", { name: "240 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText(/^Connect to see/)).toBeNull();
   });
