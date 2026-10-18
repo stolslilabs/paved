@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import type { HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
+import { boardPlates } from "../../data/placement";
 import { cn } from "../../lib/utils";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
@@ -45,7 +46,7 @@ export interface BoardGhost {
   y: number;
   plan: number;
   orientation: number;
-  /** Placed on its slot, not yet sent (SLOTS): the aura and a solid border. Unset: a hover preview. */
+  /** Placed on its slot, not yet sent (SLOTS): its plate's rim around it (PLATES). Unset: a hover preview. */
   placed?: boolean;
   /** Its rotation fits the slot. False: red, and Confirm is disabled. Unset: it fits. */
   fits?: boolean;
@@ -66,12 +67,14 @@ export interface BoardViewportProps {
    */
   basePath?: string;
   /**
-   * The legal slots of the tile in hand in any rotation, lit on the board (the contracts' coordinates): `fits` false where
-   * the current rotation does not fit (a dashed border), solid where it does (the default).
+   * The legal slots of the tile in hand in any rotation (the contracts' coordinates): `fits` false where the current
+   * rotation does not fit (a possible plate), where it does a valid one under its aura (the default). Every other free
+   * cell next to a tile gets an invalid plate (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile that
+   * fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
-  /** A move just sent (`useConfirmFlash`): its effects turn green and fade out. A new `key` fades again. */
+  /** A move just sent (`useConfirmFlash`): its rim turns green and fades out. A new `key` fades again. */
   confirmed?: (BoardGhost & { key: number }) | null;
   /**
    * The renderer's settings (`RendererSettingsInput`: the graphics quality). Keep the object between renders while the
@@ -80,7 +83,7 @@ export interface BoardViewportProps {
   settings?: RendererSettingsInput;
   /** Draw the hover preview (the tile under the pointer before it is placed). Default true; off: only a placed tile shows. */
   tilePreview?: boolean;
-  /** Light the legal slots. Default true; off: no slot is outlined. */
+  /** Draw the plates. Default true; off: no plate is drawn. */
   placementHighlight?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
@@ -107,12 +110,16 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
 export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
+  // A plate on every free cell next to a tile: valid, possible or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
-    () => (placementHighlight ? (slots ?? []).map((s) => ({ ...toGridSlot(s.x, s.y), fits: s.fits !== false })) : []),
-    [slots, placementHighlight],
+    () =>
+      placementHighlight
+        ? boardPlates(tiles, slots).map((p) => ({ ...toGridSlot(p.x, p.y), fits: p.state === "valid", ...(p.state === "invalid" ? { legal: false } : {}) }))
+        : [],
+    [tiles, slots, placementHighlight],
   );
   // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
-  // preview: a placed tile is always drawn, with its aura, veil and colour (red: Confirm is disabled, the board says why).
+  // preview: a placed tile is always drawn, with its rim and colour (red: Confirm is disabled, the board says why).
   const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   return (

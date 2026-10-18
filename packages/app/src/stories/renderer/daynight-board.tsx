@@ -32,7 +32,7 @@ export interface DayNightBoardProps {
   redraw?: boolean;
   readout?: boolean;
   force?: "auto" | "on" | "off";
-  /** The placement visuals over the cycle: none, a tile in hand (its slots), or a tile placed on a slot (its aura). */
+  /** The placement visuals over the cycle: none, a tile in hand (its plates), or a tile placed on a plate (its rim). */
   placement?: "none" | "slots" | "placed";
   /** Every plan on its Forest variants (theme 1, the app's manifest), or the base models. */
   forest?: boolean;

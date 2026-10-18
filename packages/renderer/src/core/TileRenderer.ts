@@ -71,7 +71,7 @@ export const WATER_MASK_GLSL = /* glsl */ `
  * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
  * Off (`uFeatureOn` 0, the default), it skips the whole block: the board pays no texture read and no label per fragment.
  * A pending tile's material is patched as its model's; the placeholder quad (a plan's image, no voxels to label) and the
- * ghost (the tile in hand, under its placement veil: `ghostMaterial`) are drawn as they are, neither lit nor dimmed.
+ * ghost (the tile in hand: `ghostMaterial`) are drawn as they are, neither lit nor dimmed.
  */
 export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   float featureLit = 0.0;
@@ -164,7 +164,7 @@ export class TileRenderer {
   private previewKey: string | null = null;
   /** The confirm's key (`setConfirmed`): the same confirm given again does not start over. */
   private confirmKey: string | null = null;
-  /** The placement visuals: the grid, the slots (drawn in `emptyGroup`), the ghost's aura and veil, the confirm. */
+  /** The placement visuals: the grid, the plates (drawn in `emptyGroup`), their auras, the placed tile's rim, the confirm. */
   private placement: PlacementRenderer;
   /** The last hover given: drawn again when its model comes in (`refreshHover`). */
   private hoverState: HoverState | null = null;
@@ -842,8 +842,8 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads), under a pale veil; `placed` adds the aura and the cell's solid border. `valid` false (its rotation does
-   * not fit there) turns them red (`placementTone`). It shares the type's geometry and materials: nothing to dispose.
+   * model loads); `placed` turns its plate's aura into a rim around it, red while `valid` is false (its rotation does not
+   * fit there, `placementTone`). It shares the type's geometry and materials: nothing to dispose.
    */
   setHover(state: HoverState | null): void {
     this.hoverState = state;
@@ -853,7 +853,7 @@ export class TileRenderer {
         this.previewContainer = null;
       }
       this.previewKey = null;
-      this.placement.clearGhost();
+      this.placement.setGhost(null, now());
       return;
     }
 
@@ -867,7 +867,7 @@ export class TileRenderer {
     const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${placed ? "placed" : "hover"}-${planModel ?? (quad ? "quad" : "none")}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
-      this.placement.setGhostCell(placed ? { x: state.x, y: state.y } : null);
+      this.placement.setGhost(placed ? { x: state.x, y: state.y, fits: state.valid } : null, now());
       return;
     }
 
@@ -879,9 +879,9 @@ export class TileRenderer {
 
     const model = this.ghostModel(state.planIndex, state.orientation, planModel);
     if (!model) {
-      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`), and no aura or veil left at the
-      // last ghost's cell.
-      this.placement.clearGhost();
+      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`), and no rim left at the last
+      // ghost's cell.
+      this.placement.setGhost(null, now());
       if (planModel === null && !quad) return;
       this.previewKey = null;
       return;
@@ -889,7 +889,7 @@ export class TileRenderer {
     const container = new THREE.Group();
     container.add(model);
     container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
-    this.placement.dressGhost(container, model, { x: state.x, y: state.y }, placed, state.valid, now());
+    this.placement.setGhost(placed ? { x: state.x, y: state.y, fits: state.valid } : null, now());
     this.previewGroup.add(container);
     this.previewContainer = container;
   }
@@ -912,7 +912,7 @@ export class TileRenderer {
 
   /**
    * A tile material as the ghost draws it (FEATURE-HL with SLOTS): the type's own, with its water, but the feature
-   * highlight held off (`uFeatureOn` 0), so the tile in hand is neither lit nor dimmed under its veil. One copy per type
+   * highlight held off (`uFeatureOn` 0), so the tile in hand is neither lit nor dimmed. One copy per type
    * material, owned here; the same program (`paved-tile`), so no recompile. A material with no tile patch (the
    * placeholder quad's) is the type's own.
    */
@@ -935,29 +935,20 @@ export class TileRenderer {
   }
 
   /**
-   * The confirm of a placement (SLOTS): its veil and aura at the cell, turning green and fading out over the tile the
-   * board now draws there. The same confirm given again changes nothing; null removes it. `key` tells two confirms apart
-   * (a tile's id).
+   * The confirm of a placement (SLOTS): the rim at the cell, turning green and fading out around the tile the board now
+   * draws there. The same confirm given again changes nothing; null removes it. `key` tells two confirms apart (a tile's
+   * id).
    */
   setConfirmed(state: (HoverState & { key?: string | number }) | null): void {
     const key = state ? `${state.key ?? ""}:${state.x},${state.y}:${state.planIndex}:${state.orientation}` : null;
     if (key === this.confirmKey) return;
     this.confirmKey = key;
-    if (!state) {
-      this.placement.startConfirm(null, null, now());
-      return;
-    }
-    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
-    const model = this.ghostModel(state.planIndex, state.orientation, this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId));
-    const container = new THREE.Group();
-    container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
-    // The model is the veil's shape only: the board draws the tile itself.
-    this.placement.startConfirm(container, model, now());
+    this.placement.startConfirm(state && { x: state.x, y: state.y }, now());
   }
 
-  /** The legal slots of the tile in hand (any rotation), with whether the current rotation fits each (`PlacementRenderer`). */
+  /** The slots of the tile in hand, each with its plate's state (`plateStateOf`: valid, possible or invalid). */
   setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
-    this.placement.setSlots(slots);
+    this.placement.setSlots(slots, now());
   }
 
   /** The placement visuals' settings, and the outlines' fade they follow on zoom-out. */
@@ -990,9 +981,9 @@ export class TileRenderer {
     return this.drops.prepare(key);
   }
 
-  /** The zoom the placement lines follow (their fade and the dashes). */
-  setPlacementZoom(tilePx: number, openingTilePx: number, pixelRatio: number): void {
-    this.placement.setZoom(tilePx, openingTilePx, pixelRatio);
+  /** The zoom the placement grid follows (its fade, `grid.farFade`). */
+  setPlacementZoom(tilePx: number, openingTilePx: number): void {
+    this.placement.setZoom(tilePx, openingTilePx);
   }
 
   /** Moves the placement effects to `time` (ms); `animating` while one still moves. */

@@ -61,25 +61,26 @@ export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, Pixel
 export {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
-  PLACEMENT_PULSES,
+  PLATE_GAP_VOXELS,
   PlacementRenderer,
+  auraAt,
   colorProgress,
   confirmProgress,
+  createPlateGeometry,
   gridFade,
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
   placementTone,
+  plateShapeOf,
+  plateStateOf,
   prefersReducedMotion,
   resolvePlacementSettings,
   ringField,
-  slotDashBlend,
-  slotDashCount,
+  roundedSquareDistance,
 } from "./core/placement";
-export type { PlacementPulse, PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, RingField } from "./core/placement";
-export { NEON_FRAME_MARGIN, NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameAt, neonFrameMargin, neonLineCoverage, setNeonFrame } from "./core/neon";
-export type { NeonFrame, NeonFrameMaterial } from "./core/neon";
+export type { PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, PlateShape, PlateState, RingField } from "./core/placement";
 // The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
 export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, SEASONS, resolveDayNightSettings } from "./core/daynight-settings";
 export type { DayNightSettings, DayPhase, Season } from "./core/daynight-settings";

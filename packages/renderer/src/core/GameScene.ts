@@ -911,7 +911,7 @@ export class GameScene {
       this.outlineOpeningTilePx = openingTilePx;
       const outlines = this.outlineSettings();
       this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio, openingTilePx), outlines.color);
-      this.tiles.setPlacementZoom(tilePx, openingTilePx, this.pixelRatio);
+      this.tiles.setPlacementZoom(tilePx, openingTilePx);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -933,7 +933,7 @@ export class GameScene {
       if (controlsChanged) {
         this.needsRender = true;
       }
-      // The placement effects that move (a colour change, the aura's waves, the confirm's fade) draw while they do.
+      // The placement effects that move (a plate's change of state, the confirm's fade) draw while they do.
       const now = performance.now();
       const moved = this.tiles.update(now);
       if (moved.animating) this.needsRender = true;

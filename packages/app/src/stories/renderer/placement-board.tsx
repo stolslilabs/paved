@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DEFAULT_PLACEMENT_SETTINGS, PLACEMENT_PULSES, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
+import { DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
-/** The placement states the story shows (SLOTS, P-68). */
+/** The placement states the story shows (SLOTS, P-68; PLATES, P-74). */
 export const PLACEMENT_STATES = ["idle", "in-hand", "placed", "placed-red", "confirm"] as const;
 export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
-  /** idle: the grid only; in-hand: the slots; placed: the tile on a slot (yellow, or red: its rotation does not fit); confirm: green, fading. */
+  /** idle: no plate; in-hand: the plates; placed: the tile on a plate (a white rim, or red: its rotation does not fit); confirm: green, fading. */
   state: PlacementStoryState;
-  /** Reduced motion: a still aura, an instant colour change, a short fade (`prefers-reduced-motion` when unset). */
+  /** The board's tiles under the plates; off, the plates alone. */
+  board?: boolean;
+  /** Reduced motion: an instant change of state, a short fade (`prefers-reduced-motion` when unset). */
   reducedMotion?: boolean;
   /** The confirm plays again every this many ms (0: once). */
   replayMs?: number;
@@ -44,8 +46,8 @@ function boundsOf(): Bounds {
 export const BOUNDS = boundsOf();
 
 /**
- * The empty cells next to a tile, as the legal slots of a tile in hand (any rotation): about two in three fit the
- * current rotation (solid), the others only in another (dashed). A story's stand-in for the engine's legality.
+ * The empty cells next to a tile, each a plate of the tile in hand: about a third valid (the current rotation fits), a
+ * third possible (another does), a third invalid (none does). A story's stand-in for the engine's legality.
  */
 export const SLOTS: PlacementSlot[] = (() => {
   const taken = new Set(tiles.map((t) => `${t.worldX},${t.worldZ}`));
@@ -53,7 +55,8 @@ export const SLOTS: PlacementSlot[] = (() => {
   for (const t of tiles) {
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const [x, y] = [t.worldX + dx, t.worldZ + dz];
-      if (!taken.has(`${x},${y}`)) slots.set(`${x},${y}`, { x, y, fits: (((x * 7 + y * 3) % 3) + 3) % 3 !== 0 });
+      const k = (((x * 7 + y * 3) % 3) + 3) % 3;
+      if (!taken.has(`${x},${y}`)) slots.set(`${x},${y}`, k === 0 ? { x, y, fits: false, legal: false } : { x, y, fits: k === 2 });
     }
   }
   return [...slots.values()];
@@ -63,7 +66,7 @@ export const SLOTS: PlacementSlot[] = (() => {
 export const PLACED: HoverState = (() => {
   const cx = (BOUNDS.minX + BOUNDS.maxX) / 2 / TILE_SIZE;
   const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
-  const slot = SLOTS.filter((s) => s.fits).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
+  const slot = SLOTS.filter((s) => s.fits && s.legal !== false).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
   return { x: slot.x, y: slot.y, valid: true, idle: true, placed: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
 })();
 
@@ -96,45 +99,35 @@ export function placementInput(args: Record<string, unknown>): PlacementSettings
   return input as PlacementSettingsInput;
 }
 
-/** Storybook controls for every placement setting, in groups. */
+/** Storybook controls for every placement setting, in groups; the plates' and the aura's sizes in voxels. */
 export function placementArgTypes(): Record<string, object> {
   const types: Record<string, object> = {};
   const range = (min: number, max: number, step: number) => ({ control: { type: "range", min, max, step } });
+  // By `group.field`, then by field.
   const spec: Record<string, object> = {
-    color: { control: "color" },
     opacity: range(0, 1, 0.01),
-    fillOpacity: range(0, 0.6, 0.01),
-    width: range(0.002, 0.1, 0.001),
-    glow: range(0, 0.3, 0.005),
-    minWidthDevicePx: range(0.25, 3, 0.25),
     widthDevicePx: range(0.5, 3, 0.25),
-    inset: range(0, 0.1, 0.005),
     farFadeStart: range(0.85, 3, 0.05),
-    pulse: { control: "inline-radio", options: PLACEMENT_PULSES },
-    arcs: range(1, 4, 1),
-    noise: range(0, 1, 0.05),
-    intensity: range(0, 6, 0.05),
-    fitIntensity: range(0, 6, 0.05),
-    glowIntensity: range(0, 3, 0.05),
-    borderIntensity: range(0, 6, 0.05),
-    gap: range(0, 0.9, 0.01),
-    dashesAtTilePx: range(20, 300, 1),
-    dashBlendPx: range(0, 80, 1),
-    fadeFloor: range(0, 1, 0.05),
-    height: range(0, 1.5, 0.01),
-    halo: range(0, 0.6, 0.01),
-    waves: range(0, 6, 0.5),
-    waveAmount: range(0, 1, 0.05),
-    periodMs: range(200, 5000, 50),
-    whiten: range(0, 1, 0.05),
+    "plates.gap": range(PLATE_GAP_VOXELS.min, PLATE_GAP_VOXELS.max, 0.5),
+    "plates.height": range(0.5, 8, 0.25),
+    "plates.radius": range(0, 20, 0.5),
+    "plates.bevel": range(0, 4, 0.25),
+    invalidOpacity: range(0, 1, 0.01),
+    "aura.height": range(0, 6, 0.25),
+    falloff: range(0.5, 8, 0.25),
+    intensity: range(0, 1, 0.01),
+    placedFalloff: range(0.5, 10, 0.25),
+    placedIntensity: range(0, 1, 0.01),
     colorMs: range(0, 1000, 10),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
+  const units: Record<string, string> = { plates: " voxels", aura: " voxels" };
   for (const [arg, [group, field]] of Object.entries(FIELDS)) {
     const value = (DEFAULT_PLACEMENT_SETTINGS[group] as Record<string, unknown>)[field];
-    const control = typeof value === "boolean" ? { control: "boolean" } : group === "colors" ? { control: "color" } : (spec[field] ?? { control: "number" });
-    types[arg] = { ...control, description: `${group}.${field} (default ${String(value)})`, table: { category: group } };
+    const control = typeof value === "boolean" ? { control: "boolean" } : group === "colors" || field === "color" ? { control: "color" } : (spec[`${group}.${field}`] ?? spec[field] ?? { control: "number" });
+    const unit = typeof value === "number" && units[group] && !/opacity|intensity/i.test(field) ? units[group] : "";
+    types[arg] = { ...control, description: `${group}.${field} (default ${String(value)}${unit})`, table: { category: group } };
   }
   for (const k of [1, 2, 3]) {
     types[`gridRing${k}`] = { ...range(0, 1, 0.01), description: `grid.rings[${k - 1}]: the share at ring ${k} (default ${DEFAULT_PLACEMENT_SETTINGS.grid.rings[k - 1]})`, table: { category: "grid" } };
@@ -143,11 +136,12 @@ export function placementArgTypes(): Record<string, object> {
 }
 
 /**
- * The recorded 72-tile board with the placement visuals in one state (SLOTS, P-68): the grid around it, the legal slots
- * of a tile in hand (dashed, or solid where the rotation fits), the tile placed on one (yellow, or red when its rotation
- * does not fit), and the confirm (green, fading out). `data-ready` is set once the board is drawn at the held view.
+ * The recorded 72-tile board with the placement visuals in one state (PLATES, P-74): the plates of a tile in hand (valid
+ * under their aura, possible, invalid), the tile placed on one (a white rim, or red when its rotation does not fit), and
+ * the confirm (green, fading out); `board` off shows the plates alone. `data-ready` is set once the board is drawn at the
+ * held view.
  */
-export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
@@ -214,7 +208,7 @@ export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, di
   );
   const confirmed = useMemo(() => (state === "confirm" && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [state, ready, confirmKey]);
   // Confirmed, the tile is on the board (as the game draws it after a move); the effects fade over it.
-  const shown = state === "confirm" ? WITH_PLACED : tiles;
+  const shown = !board ? NO_TILES : state === "confirm" ? WITH_PLACED : tiles;
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
@@ -238,3 +232,4 @@ export function PlacementBoard({ state, reducedMotion, replayMs = 1600, view, di
 }
 
 const NO_SLOTS: PlacementSlot[] = [];
+const NO_TILES: typeof tiles = [];
