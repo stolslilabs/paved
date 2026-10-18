@@ -6,12 +6,12 @@ const rect = (left: number, top: number, width: number, height: number) => ({ le
 
 describe("the tile bubble's position", () => {
   it("has 44 px touch targets", () => {
-    expect(bubbleSize(2)).toEqual({ width: 108, height: 52 });
+    expect(bubbleSize(2)).toEqual({ width: 100, height: 52 });
     expect(bubbleSize(1)).toEqual({ width: 52, height: 52 });
   });
 
   it("stands above and right of the tile's corner, overlapping it", () => {
-    const limits = bubbleLimits(box, [], 0, 108);
+    const limits = bubbleLimits(box, [], 0, 100);
     expect(placeBubble({ x: 150, y: 300 }, bubbleSize(2), limits)).toEqual({ x: 140, y: 258 });
   });
 
