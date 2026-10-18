@@ -343,13 +343,19 @@ export class VoxelCache {
   }
 
   /** The grid of a type, built in an idle slice if it is not (the same promise for every caller of a type). */
-  request(key: string, source: VoxelSource): Promise<VoxelGrid | null> {
+  request(key: string, source: VoxelSource, skip?: () => boolean): Promise<VoxelGrid | null> {
     const known = this.grids.get(key);
     if (known !== undefined) return Promise.resolve(known);
     let pending = this.pending.get(key);
     if (!pending) {
       const created: Promise<VoxelGrid | null> = new Promise<VoxelGrid | null>((resolve) => {
         whenIdle(() => {
+          // A reader that no longer wants the grid (`skip`, asked when the slice runs) builds nothing.
+          if (skip?.()) {
+            if (this.pending.get(key) === created) this.pending.delete(key);
+            resolve(null);
+            return;
+          }
           // Still the current request: build and keep. Forgotten or cleared meanwhile: the callers of this request get their
           // grid, but it is not kept, and a later request for the type starts its own build from its own source.
           if (this.pending.get(key) === created) {

@@ -14,7 +14,7 @@ export interface VoxelizerReadoutProps {
 }
 
 /** What the readout needs of a loaded model: the mesh's geometry and matrix, and its palette image. */
-interface Loaded {
+export interface Loaded {
   source: VoxelSource;
   palette: CanvasImageSource | null;
 }
@@ -27,7 +27,7 @@ interface MeshLike {
 }
 
 /** The mesh of a loaded model, as the renderer keeps it per model type (`TileRenderer.tileType`), its world matrix set. */
-function loadedOf(loader: AssetLoader, key: string): Loaded {
+export function loadedOf(loader: AssetLoader, key: string): Loaded {
   const model = loader.getModel(key);
   model.updateMatrixWorld(true);
   let mesh: MeshLike | null = null;
@@ -40,7 +40,7 @@ function loadedOf(loader: AssetLoader, key: string): Loaded {
 }
 
 /** The 256 colours of a model's palette image, as `rgb(...)` strings (a grey ramp where the image did not come). */
-function paletteColors(image: CanvasImageSource | null): string[] {
+export function paletteColors(image: CanvasImageSource | null): string[] {
   const grey = Array.from({ length: PALETTE_SIZE }, (_, i) => `rgb(${i},${i},${i})`);
   if (!image) return grey;
   const canvas = document.createElement("canvas");
@@ -73,7 +73,7 @@ function drawSlice(canvas: HTMLCanvasElement, grid: VoxelGrid, layer: number, co
 }
 
 /** Loads the 19 models once (the app's compressed copies); `null` until they are in. */
-function useModels(): AssetLoader | null {
+export function useModels(): AssetLoader | null {
   const [loader, setLoader] = useState<AssetLoader | null>(null);
   useEffect(() => {
     const assets = new AssetLoader(APP_ASSETS, APP_MANIFEST);

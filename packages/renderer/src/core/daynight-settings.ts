@@ -12,6 +12,10 @@ export type Season = (typeof SEASONS)[number];
 export const DAY_PHASES = ["dawn", "day", "dusk", "night"] as const;
 export type DayPhase = (typeof DAY_PHASES)[number];
 
+/** The sources of the night lights. */
+export const NIGHT_LIGHT_SOURCES = ["columns", "windows"] as const;
+export type NightLightSource = (typeof NIGHT_LIGHT_SOURCES)[number];
+
 export interface DayNightSettings {
   /**
    * The cycle on the board: a gradient behind it, the sun and moon moving over it, the night lights. Off (the renderer's
@@ -33,6 +37,12 @@ export interface DayNightSettings {
   freezeAt: number | null;
   /** The city and road lights at night (FEATURE-HL's labels): off, the night is lit by the moon and the floor alone. */
   nightLights: boolean;
+  /**
+   * Where the night lights come from (NIGHT-WINDOWS, #513): "columns", every voxel of a lit column picked by a hash (the
+   * default, the board as it is), or "windows", the buildings' windows found in the model, with the light they cast baked per
+   * model type. Only the stories set "windows" for now.
+   */
+  lights: NightLightSource;
   /** The night lights' colour (sRGB hex) and strength, an emissive radiance added to the lit voxels. */
   nightLightColor: string;
   nightLightIntensity: number;
@@ -61,6 +71,7 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   seed: null,
   freezeAt: null,
   nightLights: true,
+  lights: "columns",
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",
   nightLightIntensity: 0.4,
@@ -81,6 +92,7 @@ export function resolveDayNightSettings(input: Partial<DayNightSettings> = {}, b
     seed: input.seed === null || Number.isFinite(input.seed) ? (input.seed as number | null) : base.seed,
     freezeAt: input.freezeAt === null || Number.isFinite(input.freezeAt) ? (input.freezeAt as number | null) : base.freezeAt,
     nightLights: typeof input.nightLights === "boolean" ? input.nightLights : base.nightLights,
+    lights: NIGHT_LIGHT_SOURCES.includes(input.lights!) ? input.lights! : base.lights,
     nightLightColor: typeof input.nightLightColor === "string" ? input.nightLightColor : base.nightLightColor,
     nightLightIntensity: typeof input.nightLightIntensity === "number" && input.nightLightIntensity >= 0 ? input.nightLightIntensity : base.nightLightIntensity,
     brightnessFloor: share(input.brightnessFloor, base.brightnessFloor),

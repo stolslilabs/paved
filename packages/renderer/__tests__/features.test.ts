@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,7 @@ import { TILE_VOXELS } from "../src/core/outlines";
 import { labelTileGeometry, type TileLabels } from "./helpers/per-vertex";
 import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-variants";
 import { decodePng } from "./helpers/png";
-import { FEATURE_HIGHLIGHT_GLSL, NIGHT_LIGHTS_GLSL, TileRenderer } from "../src/core/TileRenderer";
+import { FEATURE_HIGHLIGHT_GLSL, NIGHT_LIGHTS_GLSL, NIGHT_WINDOWS_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
 import { LOOK_PRESETS } from "../src/core/look";
 
@@ -840,13 +840,118 @@ describe("the night lights (DAYNIGHT)", () => {
   it("reads nothing while off, lights only above the ground, and adds its glow to the emissive term", () => {
     const glsl = NIGHT_LIGHTS_GLSL;
     expect(glsl.trim().startsWith("float nightLit = 0.0;")).toBe(true);
-    expect(glsl).toContain(`if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {`);
+    expect(glsl).toContain(`if (uNightOn > 0.5 && uNightWindows < 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {`);
     expect(glsl.split("texelFetch").length - 1).toBe(1);
     const { tiles } = renderer();
     tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
     const { fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
     expect(fragmentShader).toContain("totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;");
     tiles.dispose();
+  });
+
+  describe("the windows' light (NIGHT-WINDOWS, #513)", () => {
+    const volumeOf = (tiles: TileRenderer, key: string) => shaderOf(typeMesh(tiles, key).material as THREE.Material).uniforms.uWindowLight.value as THREE.Data3DTexture;
+
+    it("keeps the columns by default: no window chunk, no voxel grid, no volume", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4);
+      await tiles.whenLabelled();
+      const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
+      expect(uniforms.uNightWindows.value).toBe(0);
+      expect(tiles.windowVolumeCount).toBe(0);
+      expect((tiles as any).windowsChunk).toBeNull();
+      expect((tiles as any).voxelGrids).toBeNull();
+      tiles.dispose();
+    });
+
+    it("builds nothing while the night lights are off, even set to windows", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      expect((tiles as any).windowsChunk).toBeNull();
+      expect(tiles.windowVolumeCount).toBe(0);
+      tiles.dispose();
+    });
+
+    it("stops the builds queued when the lights are switched off, and builds again when they come back", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      // Asked, not built: the chunk and the idle slices are still to come.
+      expect((tiles as any).windowAsked.size).toBe(1);
+      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      expect((tiles as any).windowAsked.size).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(tiles.windowVolumeCount).toBe(0);
+      expect((tiles as any).voxelGrids?.size ?? 0).toBe(0);
+      expect((tiles as any).windowBakes?.size ?? 0).toBe(0);
+      // Back on, and back to the columns again before it builds: nothing either.
+      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(tiles.windowVolumeCount).toBe(0);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      // Switching off and on again reuses the type's texture: no second one for the same model.
+      const first = (tiles as any).windowTextures[0];
+      for (let i = 0; i < 2; i++) {
+        tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+        tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      expect(tiles.windowVolumeCount).toBe(1);
+      expect((tiles as any).windowTextures[0]).toBe(first);
+      tiles.dispose();
+    });
+
+    it("builds after a rapid off and on: the skipped request is asked again, not left unbuilt", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      expect((tiles as any).windowAsked.size).toBe(1);
+      tiles.dispose();
+    });
+
+    it("bakes one volume per model type once on, binds it to the type's geometry, and frees it on dispose", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1), nightTile("ffcfffcff", 2), nightTile("ccccccccc", 3)] as never);
+      let frames = 0;
+      tiles.onLabelled(() => frames++);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(2), { timeout: 20_000 });
+      const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
+      expect(uniforms.uNightWindows.value).toBe(1);
+      const volume = volumeOf(tiles, "ffcfffcff");
+      expect([volume.image.width, volume.image.height]).toEqual([40, 40]);
+      expect(volume.image.depth).toBeGreaterThan(10);
+      expect(volume.format).toBe(THREE.RGFormat);
+      expect(volume.magFilter).toBe(THREE.LinearFilter);
+      expect(frames).toBeGreaterThan(0);
+      const dispose = vi.spyOn(volume, "dispose");
+      tiles.dispose();
+      expect(dispose).toHaveBeenCalled();
+      expect((tiles as any).windowSources.size).toBe(0);
+    });
+
+    it("reads the volume at the air cell in front of the face, and keeps the columns' branch off in this mode", () => {
+      expect(NIGHT_WINDOWS_GLSL).toContain("vGrid + normalize(vGridNormal) * 0.5");
+      expect(NIGHT_WINDOWS_GLSL).toContain("uNightWindows > 0.5");
+      expect(NIGHT_WINDOWS_GLSL.split("texture(uWindowLight").length - 1).toBe(1);
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      const { fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
+      expect(fragmentShader).toContain("uniform highp sampler3D uWindowLight;");
+      tiles.dispose();
+    });
   });
 
   it("holds the night lights off on the ghost, as the highlight", () => {
