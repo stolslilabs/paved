@@ -6,7 +6,7 @@ import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
 
 /**
- * Where the hand is: `placing` (choose a slot, rotate, confirm), `pending` (a move sent, its receipt awaited),
+ * Where the hand is: `placing` (choose a slot, confirm), `pending` (a move sent, its receipt awaited),
  * `refused` (the last move came back refused), `expired` (the 24 h passed: only surrender), `empty` (no tile: over).
  */
 export type HandState = "placing" | "pending" | "refused" | "expired" | "empty";
@@ -27,7 +27,6 @@ export interface HandPanelProps {
   tileArt?: TileArt;
   /** Draws the tile with the renderer (`TileView`), as the board does; the page gives it, tests leave it out (no WebGL). */
   renderTile?: (tile: { plan: number; orientation: number }) => ReactNode;
-  onRotate?: () => void;
   onConfirm?: () => void;
   onDiscard?: () => void;
   onSurrender?: () => void;
@@ -40,8 +39,8 @@ export interface HandPanelProps {
 
 const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
 
-/** The hand: the tile to place, rotate, confirm, discard, and surrender (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onRotate, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, className }: HandPanelProps) {
+/** The hand: the tile to place, confirm, discard, and surrender; the rotation is the bubble's, on the tile (the mockups' "Place tile" panel). */
+export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -63,48 +62,45 @@ export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail
         detail={errorDetail}
       />
       <div className="flex items-center gap-3">
-        <div className="flex flex-col items-center gap-1.5">
-          {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}
-          {renderTile && tile ? (
-            <span data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
-              {renderTile(tile)}
-            </span>
-          ) : (
-            <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="lg" state={chipState} />
-          )}
-          <Button variant="ghost" size="sm" onClick={onRotate} disabled={locked || !tile} aria-label="Rotate tile">
-            <Icon name="rotate-right" size="sm" /> Rotate
-          </Button>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Button size="lg" onClick={onConfirm} disabled={locked || !slotChosen} loading={busy}>
-            {busy ? (
-              "Placing…"
-            ) : (
-              <>
-                <Icon name="check" size="sm" /> Place tile
-                {slotChosen && preview != null && <span className="numeric">+{preview}</span>}
-              </>
-            )}
-          </Button>
-          <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile}>
-            <Icon name="trash" size="sm" /> Discard
-          </Button>
-          {canSurrender && (
-            <Button
-              variant={state === "expired" ? "destructive" : "ghost"}
-              size="sm"
-              onClick={onSurrender}
-              disabled={busy || state === "empty"}
-              loading={surrenderPending}
-              className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
-            >
-              <Icon name="flag" size="sm" /> Surrender
-            </Button>
-          )}
-        </div>
+        {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}
+        {renderTile && tile ? (
+          <span data-view="render" className={chipVariants({ size: "xl", state: chipState })}>
+            {renderTile(tile)}
+          </span>
+        ) : (
+          <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="xl" state={chipState} />
+        )}
+        {/* What to do next: the rotation and the cancel are the bubble's, on the tile. */}
+        {state === "placing" && (
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground">{slotChosen ? "Place it, or tap the cross on the tile to take it back." : "Tap a lit slot on the board."}</p>
+        )}
       </div>
-      {state === "placing" && !slotChosen && <p className="text-center text-xs text-muted-foreground">Tap a lit slot on the board.</p>}
+      <Button size="lg" onClick={onConfirm} disabled={locked || !slotChosen} loading={busy} className="w-full">
+        {busy ? (
+          "Placing…"
+        ) : (
+          <>
+            <Icon name="check" size="sm" /> Place tile
+            {slotChosen && preview != null && <span className="numeric">+{preview}</span>}
+          </>
+        )}
+      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn(!canSurrender && "col-span-2")}>
+          <Icon name="trash" size="sm" /> Discard
+        </Button>
+        {canSurrender && (
+          <Button
+            variant={state === "expired" ? "destructive" : "ghost"}
+            onClick={onSurrender}
+            disabled={busy || state === "empty"}
+            loading={surrenderPending}
+            className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
+          >
+            <Icon name="flag" size="sm" /> Surrender
+          </Button>
+        )}
+      </div>
     </section>
   );
 }

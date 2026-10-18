@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
-import { CameraController } from "./CameraController";
+import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
-import { screenToGrid, isClick, createThrottled } from "./interaction";
+import { screenToGrid, cellCorner, isClick, createThrottled, type CellCorner } from "./interaction";
 import type {
   RendererConfig,
   TileRenderData,
@@ -127,6 +127,7 @@ export class GameScene {
   private sceneGroup: THREE.Group;
   private animationId: number | null = null;
   private frameObserver: FrameObserver | null = null;
+  private readonly cameraListeners = new Set<() => void>();
   private needsRender = true;
   /** The shadow casters changed since the shadow map was last drawn. */
   private shadowsDirty = true;
@@ -266,6 +267,7 @@ export class GameScene {
     // Re-render when camera moves (orbit, pan, zoom)
     this.controls.controls.addEventListener("change", () => {
       this.requestRender();
+      this.notifyCamera();
     });
 
     // Lighting
@@ -346,6 +348,7 @@ export class GameScene {
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
     this.effects.resize(width, height, this.pixelRatio);
+    this.notifyCamera();
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
@@ -724,9 +727,35 @@ export class GameScene {
     this.requestRender();
   }
 
+  /**
+   * The top-right corner of a board cell's tile on screen (CSS px from the surface's top-left), at the tiles' top, for a
+   * DOM overlay that follows the board. `visible` is false when the corner is off the surface or behind the camera.
+   * Null before `init`.
+   */
+  projectCell(gridX: number, gridY: number): CellCorner | null {
+    if (!this.surface || !this.camera) return null;
+    this.camera.updateMatrixWorld();
+    this.sceneGroup.updateMatrixWorld();
+    return cellCorner({ x: gridX, y: gridY }, this.camera, this.sceneGroup.matrixWorld, this.surface.getSize(), TILE_SIZE, TALLEST_TILE_HEIGHT);
+  }
+
+  /**
+   * `cb` is called whenever what `projectCell` returns may have changed: the camera moved (pan, zoom, orbit, damping), the
+   * surface was resized, the compass turned. It forces no frame. Returns the unsubscribe.
+   */
+  onCameraChange(cb: () => void): () => void {
+    this.cameraListeners.add(cb);
+    return () => this.cameraListeners.delete(cb);
+  }
+
+  private notifyCamera(): void {
+    for (const cb of this.cameraListeners) cb();
+  }
+
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    this.notifyCamera();
     // The tile shader reads a tile's cell in the board's frame, not the world's (the lit structure).
     this.tiles.updateBoardFrame();
     this.requestShadowUpdate();
@@ -1022,6 +1051,7 @@ export class GameScene {
     this.dayNight?.releaseDayNight(this.directionalLight);
     this.scene.clear();
     this.latestTiles = [];
+    this.cameraListeners.clear();
     this.onTileClickCallback = null;
     this.onTileHoverCallback = null;
     this.onHoverLeaveCallback = null;

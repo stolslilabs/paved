@@ -1,5 +1,5 @@
 import type { TileArt } from "../elements/tile-chip";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
@@ -7,7 +7,8 @@ import { Notice } from "../elements/notice";
 import { BoardMap } from "../containers/board-map";
 import { useDeferred } from "../../lib/deferred";
 import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
-import type { BoardGhost } from "../containers/board-viewport";
+import type { BoardBubble, BoardGhost } from "../containers/board-viewport";
+import { LazyTileBubble } from "../containers/lazy-tile-bubble";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
 import type { ErrorDetail } from "../elements/inline-error";
@@ -70,8 +71,12 @@ export interface BoardSceneProps {
    * plan view (`BoardMap`), as in the render tests where jsdom has no WebGL.
    */
   canvas?: ReactNode;
+  /**
+   * The Rotate and Cancel bubble of the tile placed and not yet sent. The page also gives it to the 3D canvas, where it
+   * follows the tile; the scene draws it itself only in the plan view (no `canvas`), above the hand panel.
+   */
+  bubble?: BoardBubble | null;
   onBack?: () => void;
-  onRotate?: () => void;
   onConfirm?: () => void;
   onDiscard?: () => void;
   /** Called once the player confirms in the Surrender dialog the hand's Surrender opens. */
@@ -112,7 +117,7 @@ export function BoardScene(props: BoardSceneProps) {
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+      <div data-bubble-avoid className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud
           title={title}
           score={props.score}
@@ -138,7 +143,12 @@ export function BoardScene(props: BoardSceneProps) {
       </div>
 
       {!props.readOnly && (
-        <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] tablet:inset-x-auto tablet:right-4 tablet:bottom-4 tablet:w-96">
+        <div data-bubble-avoid className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-2 tablet:inset-x-auto tablet:right-4 tablet:bottom-4 tablet:w-96">
+          {!props.canvas && props.bubble && (
+            <Suspense fallback={null}>
+              <LazyTileBubble rotations={props.bubble.rotations} onRotate={props.bubble.onRotate} onClose={props.bubble.onClose} />
+            </Suspense>
+          )}
           <HandPanel
             tile={hand.tile}
             state={hand.state}
@@ -148,7 +158,6 @@ export function BoardScene(props: BoardSceneProps) {
             errorDetail={hand.errorDetail}
             tileArt={props.tileArt}
             renderTile={props.renderHandTile}
-            onRotate={props.onRotate}
             onConfirm={props.onConfirm}
             onDiscard={props.onDiscard}
             onSurrender={() => setSurrendering(true)}
