@@ -1,4 +1,5 @@
 import type { EconomyClient, IndexerClient, PavedClient } from "@paved/chain";
+import { MOCKED } from "../data/data-source";
 import type { DataSources, Purchases, Settlements, VaultWrites } from "../data/sources";
 
 /** Why an indexer read fails in a build without one. */
@@ -17,7 +18,14 @@ function lazyIndexer(): IndexerClient {
         ? undefined
         : async (...args: unknown[]) => {
             const { createIndexerClient } = await import("@paved/chain");
-            indexerClient ??= createIndexerClient(import.meta.env.VITE_INDEXER_URL);
+            if (!indexerClient) {
+              const real = createIndexerClient(import.meta.env.VITE_INDEXER_URL);
+              // The data source `mock` (#549): the definitions' Cobbles and the referrals come from the device's ledger.
+              if (real && MOCKED) {
+                const [{ mockIndexer }, { mockLedger }] = await Promise.all([import("../data/mock/overlay"), import("../data/chain-client")]);
+                indexerClient ??= mockIndexer(real, mockLedger());
+              } else indexerClient = real;
+            }
             if (!indexerClient) throw new Error(NO_INDEXER);
             const target = indexerClient as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
             return target[key]!(...args);
