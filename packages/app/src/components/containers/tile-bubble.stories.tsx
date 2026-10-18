@@ -14,7 +14,7 @@ const meta = {
   title: "Containers/TileBubble",
   component: TileBubble,
   args: { rotations: 2, onRotate: fn(), onClose: fn() },
-  decorators: [(Story) => <div className="w-[375px] p-4"><Story /></div>],
+  decorators: [(Story) => <div className="w-full max-w-[375px] p-4"><Story /></div>],
 } satisfies Meta<typeof TileBubble>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -28,7 +28,7 @@ export const FourRotations: Story = { args: { rotations: 4 } };
 
 /** On the board at 375 px: the bubble stands on the top-right corner of the cell, and follows it when the board is panned or zoomed. */
 export const OnTheBoard: Story = {
-  decorators: [(Story) => <div className="relative h-[812px] w-[375px]"><Story /></div>],
+  decorators: [(Story) => <div className="relative h-[812px] w-full max-w-[375px]"><Story /></div>],
   render: function Render(args) {
     const [open, setOpen] = useState(true);
     const cell = { x: BOARD_38.next.x, y: BOARD_38.next.y };

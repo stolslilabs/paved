@@ -49,6 +49,6 @@ export const Interactive: Story = {
   },
 };
 /** The mobile frame: 375 px wide, the panel across the screen. */
-export const Mobile: Story = { args: { slotChosen: true, preview: 30 }, decorators: [(Story) => <div className="w-[375px] p-2"><Story /></div>], parameters: { viewport: { defaultViewport: "mobile1" } } };
+export const Mobile: Story = { args: { slotChosen: true, preview: 30 }, decorators: [(Story) => <div className="w-full max-w-[375px] p-2"><Story /></div>], parameters: { viewport: { defaultViewport: "mobile1" } } };
 /** WRAP360: a long refusal with an unbroken address wraps inside the panel. */
 export const Stress: Story = { args: { state: "refused", error: `${LONG_SENTENCE} ${LONG_ADDRESS}`, slotChosen: true, preview: 9_999 } };
