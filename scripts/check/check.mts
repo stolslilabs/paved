@@ -20,9 +20,18 @@
  * `--all` checks everything, as if every file had changed. Every step runs even after a failure, so one run says all
  * that is wrong; the last line is one summary: pass or fail, each step and its time. Exit 0 passes, 2 is a failed check. No secret, no network beyond the
  * package registry (the install of the Vercel commands).
+ *
+ * One full run per worktree at a time: the builds write shared folders (`packages/app/storybook-static`, `dist`, the
+ * Storybook's staged public folder), so two runs in one worktree clobber each other. A ticket file in the worktree's git
+ * dir (a bakery lock, see lockWorktree) holds the place of the running check; a second run exits 1 at once, naming it (the
+ * files of a dead run are removed). To wait
+ * for a run, poll the pid in the message (`kill -0 <pid>`), never `pgrep -f check`: that matches its own shell. The
+ * `--pre-push` run takes the same lock (its typecheck builds the shared `dist` folders); when a check holds it, the hook
+ * gets exit 1, a crash of the runner, which lets the push through.
  */
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { readdirSync, rmSync, writeFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, topological, workspace, type Plan } from "./touched.mts";
 import { PROJECTS, ROOT, vercelBuild } from "./vercel-build.mts";
 
@@ -42,6 +51,75 @@ const head = headAt >= 0 ? args[headAt + 1] : undefined;
 
 const steps: Step[] = [];
 const started = Date.now();
+
+/**
+ * Takes the worktree's lock, or exits 1 naming the run that holds it. Released on exit.
+ *
+ * Lamport's bakery, on files in the worktree's git dir, so that no file is ever removed on the strength of a stale read:
+ * a run only removes its own files, or those of a pid that is dead. A run raises `check-run.choosing.<pid>`, takes a ticket
+ * one above the largest it sees (`check-run.ticket.<n>.<pid>`), lowers its flag, then looks at the other runs: it waits
+ * for any run that is still choosing, and gives up (exit 1) when a live run holds a smaller ticket (ties go to the lower
+ * pid). The holder of the smallest live ticket runs. No clock or age is read, so a run paused anywhere cannot let two in.
+ * A pid reused by an unrelated process is the one case that reads as live.
+ */
+function lockWorktree(): void {
+  const git = spawnSync("git", ["rev-parse", "--git-dir"], { cwd: ROOT, encoding: "utf8" });
+  if (git.status !== 0) return; // not a git checkout: nothing to key a lock on
+  const gitDir = git.stdout.trim();
+  const dir = isAbsolute(gitDir) ? gitDir : join(ROOT, gitDir);
+  const choosing = join(dir, `check-run.choosing.${process.pid}`);
+  let ticketFile = "";
+  const release = () => {
+    rmSync(choosing, { force: true });
+    if (ticketFile) rmSync(ticketFile, { force: true });
+  };
+  const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  const isAlive = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+      return pid > 0;
+    } catch (e) {
+      return (e as NodeJS.ErrnoException).code === "EPERM";
+    }
+  };
+  /** The live runs' files, as { kind, n, pid }; a dead run's files are removed on the way. */
+  const entries = () => {
+    const out: Array<{ kind: "choosing" | "ticket"; n: number; pid: number }> = [];
+    for (const name of readdirSync(dir)) {
+      const m = /^check-run\.(?:(choosing)\.(\d+)|ticket\.(\d+)\.(\d+))$/.exec(name);
+      if (!m) continue;
+      const pid = Number(m[2] ?? m[4]);
+      if (pid !== process.pid && !isAlive(pid)) rmSync(join(dir, name), { force: true });
+      else out.push({ kind: m[1] ? "choosing" : "ticket", n: Number(m[3] ?? 0), pid });
+    }
+    return out;
+  };
+  process.on("exit", release);
+  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => process.exit(130));
+
+  writeFileSync(choosing, "");
+  const n = 1 + Math.max(0, ...entries().filter((e) => e.kind === "ticket").map((e) => e.n));
+  ticketFile = join(dir, `check-run.ticket.${n}.${process.pid}`);
+  writeFileSync(ticketFile, "");
+  rmSync(choosing, { force: true });
+
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const others = entries().filter((e) => e.pid !== process.pid);
+    const ahead = others.find((e) => e.kind === "ticket" && (e.n < n || (e.n === n && e.pid < process.pid)));
+    if (ahead) {
+      console.error(`check: another check is running in this worktree (pid ${ahead.pid}); wait for it (poll \`kill -0 ${ahead.pid}\`) instead of starting a second one.`);
+      process.exit(1);
+    }
+    if (!others.some((e) => e.kind === "choosing")) return;
+    if (Date.now() > deadline) {
+      console.error("check: another check has been starting for 60 s; not taking the worktree lock.");
+      process.exit(1);
+    }
+    pause(20);
+  }
+}
+lockWorktree();
 
 function step(name: string, run: () => Outcome | { outcome: Outcome; note?: string }): void {
   console.log(`\n=== check: ${name}`);
