@@ -1,5 +1,7 @@
 # Client renderer step: shared geometry and materials, no per-tile edges (P-7b)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history. Its steps and figures are dated records.
+
 Measured on 2026-10-06, on the owner's Mac, with the bench of baselines B and C
 (`docs/measures/client-baseline.md`), unchanged. Track CLIENT, objective 2. What the player sees is
 unchanged (see Visual parity).
