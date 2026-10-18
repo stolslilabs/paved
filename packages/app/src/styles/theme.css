@@ -96,6 +96,12 @@
   /* The board: the 3D scene's clear colour and the Storybook background; measured #07111A. */
   --color-board: oklch(0.173 0.024 246.1); /* #07111A */
 
+  /* The placement plates (PLATES, P-74): a pale neutral blue, a grey with no hue (a slot no rotation fits), the aura's near
+     white. The renderer's colours (`DEFAULT_PLACEMENT_SETTINGS.colors`) are these hex values; a test keeps them in step. */
+  --color-plate: oklch(0.834 0.032 240.7); /* #B7CCDC */
+  --color-plate-off: oklch(0.660 0.000 0.0); /* #929292 */
+  --color-plate-aura: oklch(0.980 0.006 239.8); /* #F5F9FC */
+
   /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
   --font-sans: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Almendra", ui-serif, Georgia, "Times New Roman", serif;

@@ -4,12 +4,12 @@ import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
- * The placement visuals (SLOTS, P-68; SLOTS2, P-72) on the recorded 72-tile board. The grid: pale hairlines around the
- * placed tiles, ring 1 full, ring 2 half, ring 3 almost gone, nothing beyond. With a tile in hand, every legal slot (any
- * rotation) is a yellow cell with a neon border inscribed in it: dashed with round caps, or solid and brighter where the
- * current rotation fits. The tile placed on a slot: an aura with a wave running around the cell ("rotating", or "rotating
- * + noise"), and a veil in the neon's colour; red while its rotation does not fit there; green on confirm, then a fade to
- * nothing. Every setting is a control; under reduced motion the aura is still and the confirm short.
+ * The placement visuals (PLATES, P-74) on the recorded 72-tile board: with a tile in hand, a platform on every free cell
+ * next to a tile, Dorfromantik's, a low slab with rounded corners inset in its cell (a gap between neighbours). Valid
+ * (the current rotation fits): the pale blue plate under a slightly white aura; possible (another rotation fits): the
+ * plate alone; invalid (none fits): greyscale, more transparent. The tile placed: a white rim around it, red while its
+ * rotation does not fit, green on confirm then a fade to nothing. Each change eases over 150 ms (at once under reduced
+ * motion). Every setting is a control (sizes in voxels, a tile is 40); the ring grid is one, off by default.
  */
 const meta = {
   title: "Renderer/Placement",
@@ -20,9 +20,10 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: the grid only; in-hand: the slots; placed: on a slot, yellow; placed-red: its rotation does not fit; confirm: green, fading out",
+      description: "idle: no plate; in-hand: the plates; placed: on a plate, a white rim; placed-red: its rotation does not fit; confirm: green, fading out",
     },
-    reducedMotion: { control: "boolean", description: "Reduced motion: a still aura, an instant colour change, a short fade (unset: the device's)" },
+    board: { control: "boolean", description: "The board's tiles under the plates; off, the plates alone" },
+    reducedMotion: { control: "boolean", description: "Reduced motion: an instant change of state, a short fade (unset: the device's)" },
     replayMs: { control: { type: "range", min: 0, max: 4000, step: 100 }, description: "The confirm plays again every this many ms (0: once)" },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
     distance: { control: { type: "range", min: MIN_DISTANCE, max: MAX_DISTANCE, step: 1 }, description: "Camera distance; unset, the view's own" },
@@ -44,28 +45,31 @@ const meta = {
     lookPreset: { control: "inline-radio", options: LOOK_PRESET_NAMES, type: { name: "enum", value: [...LOOK_PRESET_NAMES] }, description: "The look the board is lit with" },
     ...placementArgTypes(),
   },
-  args: { quality: "auto", lookPreset: "mockup", state: "in-hand", view: "default", redraw: false, readout: true, force: "auto", maxPixelRatio: "auto", replayMs: 1600 },
+  args: { quality: "auto", lookPreset: "mockup", state: "in-hand", board: true, view: "default", redraw: false, readout: true, force: "auto", maxPixelRatio: "auto", replayMs: 1600 },
 } satisfies Meta<typeof PlacementBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** No tile in hand: the grid alone, around the board. */
-export const IdleGrid: Story = { args: { state: "idle" } };
+/** A tile in hand: its plates, valid under their aura, possible, and invalid (greyscale, more transparent). */
+export const Plates: Story = { args: { state: "in-hand" } };
 
-/** A tile in hand: its legal slots, dashed, solid where the current rotation fits. */
-export const Slots: Story = { args: { state: "in-hand" } };
+/** The plates alone, no tile: their shape and colours, every one a control. */
+export const PlatesAlone: Story = { args: { state: "in-hand", board: false, view: "top", distance: 90 } };
 
-/** The tile placed on a slot its rotation fits: yellow aura and veil. */
-export const PlacedYellow: Story = { args: { state: "placed" } };
+/** No tile in hand: no plate. */
+export const Idle: Story = { args: { state: "idle" } };
 
-/** Rotated so it no longer fits: red. Confirm is disabled. */
+/** The ring grid of SLOTS2, a setting now off by default, turned on. */
+export const IdleGrid: Story = { args: { state: "idle", gridEnabled: true } };
+
+/** The tile placed on a plate its rotation fits: a white rim. */
+export const Placed: Story = { args: { state: "placed" } };
+
+/** Rotated so it no longer fits: its plate and rim red. Confirm is disabled. */
 export const PlacedRed: Story = { args: { state: "placed-red" } };
 
-/** Confirmed: green, then a fade to the tile's own look (played again every 1.6 s). */
+/** Confirmed: the rim green, then a fade to the tile's own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };
 
-/** The pulse with an interference that never quite repeats ("rotating + noise"). */
-export const PlacedNoise: Story = { args: { state: "placed", auraPulse: "rotating-noise" } };
-
-/** Reduced motion: the placed tile's aura still; the confirm green at once with a short fade. */
+/** Reduced motion: every change at once, the confirm green at once with a short fade. */
 export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: true } };

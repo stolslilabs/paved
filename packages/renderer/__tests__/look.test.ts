@@ -262,19 +262,16 @@ describe("the bloom's threshold", () => {
 });
 
 describe("the tiles' part of the look", () => {
-  it("draws the slots as neon frames (SLOTS), not the look's gold: solid and brighter where the rotation fits", () => {
+  it("draws the slots as plates (PLATES), not the look's gold: a new look changes the water, not the plates", () => {
     const tiles = new TileRenderer({} as never);
     tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0, fits: false }]);
-    const [fit, other] = tiles.getGroup().children[1]!.children as THREE.Mesh[];
-    const solid = fit!.material as THREE.ShaderMaterial;
-    const dashed = other!.material as THREE.ShaderMaterial;
-    expect(solid.uniforms.dashed.value).toBe(0);
-    expect(dashed.uniforms.dashed.value).toBe(1);
-    expect(solid.uniforms.intensity.value).toBeGreaterThan(dashed.uniforms.intensity.value);
-    expect(solid.uniforms.color.value.equals(new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.yellow))).toBe(true);
-    // A new look changes the water, not the slots.
+    const plates = tiles.getGroup().children[1]!.children[0] as THREE.InstancedMesh;
+    const color = () => plates.getColorAt(0, new THREE.Color());
+    const before = color();
+    const plate = new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.plate);
+    for (const k of ["r", "g", "b"] as const) expect(before[k]).toBeCloseTo(plate[k], 5);
     tiles.setLook({ ...LOOK_PRESETS.mockup.highlights, slotColor: "#ffffff", slotIntensity: 2 }, LOOK_PRESETS.mockup.water);
-    expect(solid.uniforms.color.value.equals(new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.yellow))).toBe(true);
+    expect(color().equals(before)).toBe(true);
     tiles.dispose();
   });
 
