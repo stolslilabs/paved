@@ -9,8 +9,8 @@ import type { BoardGhost } from "../components/containers/board-viewport";
  * - idle: no tile in hand. The board draws no plate.
  * - in-hand: a plate on every free cell next to a tile (`boardPlates`): valid where the current rotation fits, possible
  *   where another does, invalid where none does.
- * - placed: the tile chosen on a slot, not yet sent. Its plate's rim is white while its rotation fits there, red while it
- *   does not (`fits`, the renderer's `placementTone`); Confirm is disabled while red. Rotating turns through all four.
+ * - placed: the tile chosen on a slot, not yet sent. A cell is chosen in a rotation that fits, and Rotate turns only through
+ *   the rotations that fit there (`nextValid`), so the red state (`placed-red`) is unreachable; Cancel (`clear`) puts the tile back.
  * - confirmed: the move sent; the rim turns green and fades out (`useConfirmFlash`).
  */
 export type Slot = { x: number; y: number };
@@ -60,9 +60,21 @@ export function boardPlates(tiles: ReadonlyArray<Slot>, slots: ReadonlyArray<Slo
 /** The four rotations, 1 North to 4 West. */
 export const ORIENTATIONS = [1, 2, 3, 4] as const;
 
-/** The next rotation: all four in turn, so a placed tile can turn to one that does not fit (red). */
+/** The next rotation: all four in turn. Only the Tutorial uses it (its own rules, until #546); the boards use `nextValid`. */
 export function nextOrientation(orientation: number): number {
   return (orientation % 4) + 1;
+}
+
+/**
+ * The next of the `valid` rotations after `orientation`, clockwise (1 North to 4 West, then round): the first valid one
+ * after it, or `orientation` itself when it is the only one. Empty `valid`: `orientation` unchanged.
+ */
+export function nextValid(orientation: number, valid: ReadonlyArray<number>): number {
+  for (let step = 1; step <= 4; step++) {
+    const o = ((orientation - 1 + step) % 4) + 1;
+    if (valid.includes(o)) return o;
+  }
+  return orientation;
 }
 
 /**
@@ -203,7 +215,10 @@ export function usePlacement({
     },
     [orientationsAt, orientation],
   );
-  const rotate = useCallback(() => setOrientation((o) => nextOrientation(o)), []);
+  // The rotations the tile fits at the chosen cell: the bubble shows Rotate when there is more than one.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const rotations = useMemo(() => (chosen ? orientationsAt(chosen) : []), [chosen, orientationsAt, version]);
+  const rotate = useCallback(() => setOrientation((o) => nextValid(o, rotations)), [rotations]);
   /**
    * The move was accepted (the page says when: Training once `place` resolves true, Challenge once the engine's prediction
    * takes it): the slot goes, the board flashes green. A refusal calls nothing: the tile stays placed.
@@ -217,5 +232,5 @@ export function usePlacement({
   );
   const clear = useCallback(() => setChosen(null), []);
 
-  return { orientation, setOrientation, chosen, hovered, setHovered, slots, ...view, confirmed, choose, rotate, accepted, clear };
+  return { orientation, setOrientation, rotations, chosen, hovered, setHovered, slots, ...view, confirmed, choose, rotate, accepted, clear };
 }

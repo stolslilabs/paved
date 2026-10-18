@@ -25,9 +25,9 @@ const open = () => render(<App router={createTestRouter("/training")} sources={f
 // The plan view lights the slots as buttons; the 3D board lights them in its canvas.
 const planView = () => screen.queryAllByRole("button", { name: /^Slot / });
 
-/** Turns the tile until it fits somewhere: the slots are lit for the orientation in hand. */
-async function lightSlots() {
-  for (let i = 0; i < 4 && planView().length === 0; i++) await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
+/** The plan view lights every slot the tile fits in any rotation: choosing one places it and shows the bubble. */
+async function chooseFirstSlot() {
+  await userEvent.click(planView()[0]!);
 }
 
 preloadPages("board");
@@ -51,9 +51,9 @@ describe("/training: the plan view is the fallback of the 3D board (ASSETS)", ()
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     act(() => canvas.props!.onError!(new Error("GLTFLoader: Couldn't load /renderer-assets/models/ccccccccc.glb (404)")));
     expect(screen.queryByTestId("renderer")).not.toBeInTheDocument();
-    await lightSlots();
     expect(planView().length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Rotate tile" })).toBeEnabled();
+    await chooseFirstSlot();
+    expect(await screen.findByRole("button", { name: "Cancel placement" })).toBeEnabled();
   });
 
   it("shows the plan view at once, and starts no renderer, when the browser has no WebGL", async () => {
@@ -62,7 +62,6 @@ describe("/training: the plan view is the fallback of the 3D board (ASSETS)", ()
     expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByTestId("renderer")).not.toBeInTheDocument();
     expect(canvas.props).toBeNull();
-    await lightSlots();
     expect(planView().length).toBeGreaterThan(0);
   });
 });
