@@ -76,7 +76,7 @@ function NavB({ active, force }: NavProps) {
                 data-on={on ? "true" : undefined}
                 data-force={force?.tab === tab.id ? force.state : undefined}
                 className={clsx(
-                  "flex w-14 cursor-pointer flex-col items-center gap-1 rounded-2xl py-1 text-xs font-semibold desktop:w-auto desktop:flex-row desktop:gap-2 desktop:rounded-full desktop:py-1.5 desktop:pr-4 desktop:pl-1.5 desktop:text-xs",
+                  "flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-1 rounded-2xl py-1 text-xs font-semibold desktop:w-auto desktop:flex-none desktop:flex-row desktop:gap-2 desktop:rounded-full desktop:py-1.5 desktop:pr-4 desktop:pl-1.5 desktop:text-xs",
                   on ? "text-(color:--d-primary)" : "text-(color:--d-text)",
                   OVERLAY,
                 )}
@@ -120,7 +120,7 @@ function NavC({ active, force }: NavProps) {
             className={clsx("flex h-12 min-w-12 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-sm font-medium text-(color:--d-text)", OVERLAY)}
           >
             <Icon name={tab.icon} size="md" className={on ? "text-(--d-primary)" : undefined} />
-            {on && <span className="desktop:hidden">{label(tab)}</span>}
+            {on && <span className="hidden mobile:inline desktop:hidden">{label(tab)}</span>}
           </button>
         );
       })}

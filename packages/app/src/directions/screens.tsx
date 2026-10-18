@@ -215,13 +215,13 @@ export function RanksScreen() {
     <TabShell active="ranks">
       <h1 className="font-display text-3xl tracking-wide">Ranks</h1>
       <Segmented options={["Today", "Yesterday", "All time"]} value="Today" />
-      <div className="grid grid-cols-3 items-end gap-2">
+      <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] items-end gap-2">
         {[RANKS[1]!, RANKS[0]!, RANKS[2]!].map((r) => (
-          <DCard key={r.rank} className={clsx("flex flex-col items-center gap-1 overflow-hidden p-3 text-center", r.rank === 1 && "pb-6")}>
+          <DCard key={r.rank} className={clsx("flex min-w-0 flex-col items-center gap-1 p-2 text-center mobile:p-3", r.rank === 1 && "pb-6")}>
             <TileArt index={r.rank * 3} className="size-12 rounded-[inherit]" />
             <Icon name={r.rank === 1 ? "crown" : "medal"} size="sm" className="text-(--d-primary)" />
             <span title={r.name} className="w-full truncate text-sm font-semibold">{r.name}</span>
-            <span className="font-mono text-xs text-(color:--d-muted)">{pts(r.score)}</span>
+            <span title={pts(r.score)} className="w-full truncate font-mono text-xs text-(color:--d-muted)">{pts(r.score)}</span>
           </DCard>
         ))}
       </div>
@@ -378,10 +378,10 @@ export function HudScreen() {
             <DButton variant="secondary" size="square" aria-label="Rotate">
               <Icon name="rotate-right" size="md" />
             </DButton>
-            <DButton variant="ghost" className="px-3">
+            <DButton variant="ghost" className="min-w-0 px-2">
               Discard
             </DButton>
-            <DButton className="flex-1">
+            <DButton className="min-w-0 flex-1 px-3">
               <Icon name="check" size="sm" /> Confirm
             </DButton>
           </div>
