@@ -7,11 +7,11 @@ import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
 /** The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm in turn. */
-export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "placed-red", "confirm", "tour"] as const;
+export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "confirm", "tour"] as const;
 export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
-  /** idle: no plate; in-hand: the plates; hover: the tile blue at half opacity; placed: yellow (or red: its rotation does not fit); confirm: green, fading; tour: all three in turn. */
+  /** idle: no plate; in-hand: the plates; hover: the tile blue at half opacity; placed: yellow; confirm: green, fading; tour: all three in turn. */
   state: PlacementStoryState;
   /** The board's tiles under the plates; off, the plates alone. */
   board?: boolean;
@@ -114,7 +114,6 @@ export function placementArgTypes(): Record<string, object> {
     colorMs: range(0, 1000, 10),
     hoverMs: range(0, 1000, 10),
     pendingMs: range(0, 1000, 10),
-    redMs: range(0, 1000, 10),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
@@ -133,7 +132,7 @@ export function placementArgTypes(): Record<string, object> {
 
 /**
  * The recorded 72-tile board with the placement visuals in one state (PLACEMENT-TINTS): the plates of a tile in hand
- * (playable, invalid), the tile hovering (blue), placed (yellow, or red when its rotation does not fit), and the confirm
+ * (playable, invalid), the tile hovering (blue), placed (yellow), and the confirm
  * (green, fading out); `board` off shows the plates alone. `data-ready` is set once the board is drawn at the
  * held view.
  */
@@ -214,7 +213,7 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
     if (!ready) return null;
     if (state === "hover" || (state === "tour" && phase === 0)) return { ...PLACED, placed: false };
     if (state === "placed" || (state === "tour" && phase === 1)) return PLACED;
-    return state === "placed-red" ? { ...PLACED, valid: false } : null;
+    return null;
   }, [state, ready, phase]);
   const confirmed = useMemo(() => (confirming && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [confirming, ready, confirmKey]);
   // Confirmed, the tile is on the board (as the game draws it after a move); the tint fades over it.

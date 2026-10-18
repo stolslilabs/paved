@@ -2361,8 +2361,8 @@ plate-state text above where they differ.
 
 - **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
   blue at 50 % opacity; pre-validation (placed, waiting for Place tile) yellow at 90 %; confirm a temporary green tint on the
-  tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. Red stays as a fallback for
-  a rotation that does not fit, to remove when #544 makes it unreachable. Each change of look eases over `motion.colorMs`.
+  tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
+  the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
   Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.
 - **How it is drawn.** The ghost's material is the tile's own program plus two lines before tone mapping (`mix` to the tint,
   alpha times the ghost's opacity), a program of its own (`paved-tile-ghost`), tint uniforms shared per role. A translucent

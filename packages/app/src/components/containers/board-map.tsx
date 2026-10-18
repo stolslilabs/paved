@@ -17,7 +17,7 @@ export interface BoardMapProps {
    * that fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
-  /** The tile in hand where it would go: placed (tinted yellow, red while its rotation does not fit) or a preview. */
+  /** The tile in hand where it would go: placed (tinted yellow) or a preview. */
   ghost?: BoardGhost | null;
   /** A move just sent: a green tint fades (`useConfirmFlash`). */
   confirmed?: (BoardGhost & { key: number }) | null;
@@ -52,12 +52,9 @@ const PLATE_STATE: Record<PlateState, string> = {
   playable: "bg-plate/60",
   invalid: "bg-plate-off/25",
 };
-/** The placed tile's tint, over the tile: yellow while its rotation fits (gold-300, the renderer's), red while not. */
+/** The placed tile's tint, over the tile: yellow (gold-300, the renderer's). */
 const TINT = "pointer-events-none absolute inset-0 block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
-const TINT_TONE = {
-  pending: "bg-gold-300/40",
-  red: "bg-ember-500/50",
-};
+const TINT_TONE = "bg-gold-300/40";
 
 /** The cell's green tint on confirm, fading to nothing over 700 ms (150 ms under reduced motion). */
 function ConfirmFlash({ style }: { style: CSSProperties }) {
@@ -148,7 +145,6 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
           const chosen = ghost?.x === s.x && ghost.y === s.y;
           // A ghost given without `placed` is the chosen slot (the plan view has no hover).
           const placed = chosen && ghost?.placed !== false;
-          const red = placed && ghost?.fits === false;
           const state = stateOf.get(`${s.x},${s.y}`);
           return (
             <button
@@ -160,12 +156,12 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
               style={at(s.x, s.y)}
               data-lit={highlight}
               data-fits={s.fits !== false}
-              data-placed={placed ? (red ? "red" : "pending") : undefined}
+              data-placed={placed ? "pending" : undefined}
               className="relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
               {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}
-              {placed && highlight && <span aria-hidden data-tint={red ? "red" : "pending"} className={cn(TINT, TINT_TONE[red ? "red" : "pending"])} />}
+              {placed && highlight && <span aria-hidden data-tint="pending" className={cn(TINT, TINT_TONE)} />}
             </button>
           );
         })}

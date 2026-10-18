@@ -13,8 +13,8 @@ import { TILE_SIZE } from "./types";
  *   draw call for any number of slots. A plate under the tile in hand fades out (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
  *   a hover preview is blue at 50 % opacity, a tile placed and not confirmed (pending) yellow at 90 %, a confirm a
- *   temporary green that fades to no tint on the tile the board now draws. Red stays as a fallback for a rotation that does
- *   not fit, until the board can no longer reach one (#544). No rim, no aura.
+ *   temporary green that fades to no tint on the tile the board now draws. There is no red: the board offers
+ *   only the rotations that fit (#544). No rim, no aura.
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
  * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
  */
@@ -38,12 +38,6 @@ export interface PlacementSettings {
     confirmStrength: number;
     confirmOpacity: number;
     /** (The confirm's ease is its fade: `motion.confirmMs`.) */
-    /** The fallback for a rotation that does not fit (to remove with #544). */
-    redColor: string;
-    redStrength: number;
-    redOpacity: number;
-    /** The ease into the red look, ms. */
-    redMs: number;
   };
   grid: {
     enabled: boolean;
@@ -105,10 +99,6 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     confirmColor: "#6eca6f",
     confirmStrength: 0.6,
     confirmOpacity: 1,
-    redColor: "#f85e4d",
-    redStrength: 0.5,
-    redOpacity: 0.9,
-    redMs: 150,
   },
   grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
   plates: { enabled: true, gap: 4, radius: 3, opacity: 0.6, invalidOpacity: 0.25, hideUnderTile: true },
@@ -240,8 +230,8 @@ export function placementFade(tilePx: number, openingTilePx: number, outlines: O
 /** A plate's state for the tile in hand: some rotation fits there (playable), or none does (invalid). */
 export type PlateState = "playable" | "invalid";
 
-/** The tile in hand's look: hovering a cell, placed there and waiting for confirmation (pending), or red (the fallback). */
-export type TintKind = "hover" | "pending" | "red";
+/** The tile in hand's look: hovering a cell, or placed there and waiting for confirmation (pending). */
+export type TintKind = "hover" | "pending";
 
 /** The tile in hand's tint at a moment: a linear rgb colour, how far the model goes to it, and the model's opacity. */
 export interface GhostTint {
@@ -261,19 +251,17 @@ const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v))
 
 /** The ease into a state's look, ms (`tints.*Ms`). */
 export function tintEaseMs(kind: TintKind, tints: PlacementSettings["tints"]): number {
-  return kind === "hover" ? tints.hoverMs : kind === "pending" ? tints.pendingMs : tints.redMs;
+  return kind === "hover" ? tints.hoverMs : tints.pendingMs;
 }
 
 /** The tint of a state, from the settings. */
 export function tintForKind(kind: TintKind, tints: PlacementSettings["tints"]): GhostTint {
   if (kind === "hover") return tintOf(tints.hoverColor, tints.hoverStrength, tints.hoverOpacity);
-  if (kind === "pending") return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingOpacity);
-  return tintOf(tints.redColor, tints.redStrength, tints.redOpacity);
+  return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingOpacity);
 }
 
-/** Which look the tile in hand has: red when its rotation does not fit, pending once placed, else hover. */
-export function tintKindOf(ghost: { placed: boolean; fits: boolean }): TintKind {
-  if (!ghost.fits) return "red";
+/** Which look the tile in hand has: pending once placed, else hover. */
+export function tintKindOf(ghost: { placed: boolean }): TintKind {
   return ghost.placed ? "pending" : "hover";
 }
 
@@ -535,7 +523,7 @@ export class PlacementRenderer {
   }
 
   /**
-   * The tile in hand drawn on a cell (null: none): its look is hover, pending or red (`tintKindOf`), easing over
+   * The tile in hand drawn on a cell (null: none): its look is hover or pending (`tintKindOf`), easing over
    * `motion.colorMs` from the last one while it stays drawn; a tile newly drawn starts at its look.
    */
   setGhost(ghost: { x: number; y: number; kind: TintKind } | null, now: number = performance.now()): void {

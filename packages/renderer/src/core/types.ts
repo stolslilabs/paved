@@ -83,7 +83,7 @@ export interface TileRenderData extends TileData {
 export interface HoverState {
   x: number;
   y: number;
-  /** The tile's rotation fits the cell; false: the red tint (a fallback, `tintKindOf`). */
+  /** The tile's rotation fits the cell. Not drawn: the board offers only rotations that fit (#544). */
   valid: boolean;
   idle: boolean;
   /**

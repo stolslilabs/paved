@@ -15,7 +15,6 @@ describe("the plates' colours (PLATES)", () => {
     const { colors, tints } = DEFAULT_PLACEMENT_SETTINGS;
     expect(hexOf("plate")).toBe(colors.plate);
     expect(hexOf("plate-off")).toBe(colors.invalid);
-    expect(hexOf("ember-500")).toBe(tints.redColor);
     expect(hexOf("gold-300")).toBe(tints.pendingColor);
     expect(hexOf("meadow-400")).toBe(tints.confirmColor);
     // No aura token any more.
@@ -53,21 +52,20 @@ describe("the plan view's plates", () => {
     expect(Object.keys(plates(container))).toHaveLength(4);
   });
 
-  it("tints the placed tile yellow while its rotation fits, red while not, and flashes a green tint on confirm: no rim", () => {
+  it("tints the placed tile yellow and flashes a green tint on confirm: no rim", () => {
     const slot = { x: 1, y: 0 };
     const ghost = { ...slot, plan: 1, orientation: 1, placed: true };
-    const tint = (fits: boolean) => {
-      const { container, unmount } = render(<BoardMap tiles={tiles} slots={[{ ...slot, fits }]} ghost={{ ...ghost, fits }} />);
+    const tint = () => {
+      const { container, unmount } = render(<BoardMap tiles={tiles} slots={[slot]} ghost={ghost} />);
       const span = container.querySelector("[data-tint]")!;
       const out = { tone: span.getAttribute("data-tint"), className: span.className, rim: container.querySelectorAll("[data-rim]").length };
       unmount();
       return out;
     };
-    expect(tint(true).tone).toBe("pending");
-    expect(tint(true).className).toContain("bg-gold-300");
-    expect(tint(false).tone).toBe("red");
-    expect(tint(false).className).toContain("bg-ember-500");
-    expect(tint(true).rim).toBe(0);
+    const out = tint();
+    expect(out.tone).toBe("pending");
+    expect(out.className).toContain("bg-gold-300");
+    expect(out.rim).toBe(0);
     const { container } = render(<BoardMap tiles={tiles} confirmed={{ ...ghost, key: 1 }} />);
     expect(container.querySelector("[data-confirm]")!.className).toContain("bg-meadow-400");
     expect(container.querySelector("[data-confirm]")!.className).not.toContain("ring");

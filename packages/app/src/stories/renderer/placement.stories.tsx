@@ -7,8 +7,8 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * The placement visuals (PLACEMENT-TINTS) on the recorded 72-tile board: with a tile in hand, a flat plate on every free
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours). Playable (some rotation
  * fits): blue and transparent; invalid (none fits): grey, more transparent. The tile in hand is tinted on the model
- * itself: blue at 50 % opacity on a hover, yellow at 90 % once placed, a temporary green on confirm fading to none (red,
- * a fallback, where its rotation does not fit). No rim, no aura. Each change eases over 150 ms (at once under reduced
+ * itself: blue at 50 % opacity on a hover, yellow at 90 % once placed, a temporary green on confirm fading to none.
+ * No rim, no aura. Each change eases over 150 ms (at once under reduced
  * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
  * in voxels, a tile is 40); the ring grid is one, off by default.
  */
@@ -21,7 +21,7 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: no plate; in-hand: the plates; hover: blue, half opacity; placed: yellow; placed-red: its rotation does not fit; confirm: green tint fading out; tour: hover, placed, confirm in turn",
+      description: "idle: no plate; in-hand: the plates; hover: blue, half opacity; placed: yellow; confirm: green tint fading out; tour: hover, placed, confirm in turn",
     },
     board: { control: "boolean", description: "The board's tiles under the plates; off, the plates alone" },
     reducedMotion: { control: "boolean", description: "Reduced motion: an instant change of state, a short fade (unset: the device's)" },
@@ -71,9 +71,6 @@ export const Tour: Story = { args: { state: "tour" } };
 
 /** The tile placed on a plate its rotation fits: the model yellow at 90 % opacity. */
 export const Placed: Story = { args: { state: "placed" } };
-
-/** Rotated so it no longer fits: the model red (a fallback until the board cannot reach it). Confirm is disabled. */
-export const PlacedRed: Story = { args: { state: "placed-red" } };
 
 /** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };

@@ -100,8 +100,8 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
  * reframes it. The board draws the placement visuals as the game does (PLATES, P-74): a plate on every free cell next
  * to a tile, playable (blue) where a rotation of the tile in hand fits,
- * invalid (greyscale) where none does, and the tile placed on a plate (a yellow tint, or red where its rotation does not
- * fit), from the engine's rule on the recorded board.
+ * invalid (greyscale) where none does, and the tile placed on a plate (a yellow tint), from
+ * the engine's rule on the recorded board.
  */
 const meta = {
   title: "Scenes/Board",
@@ -140,7 +140,7 @@ export const Plates: StoryObj<PlatesArgs> = {
   args: { ...BOARD.placing, rotation: HAND.orientation, placed: false },
   argTypes: {
     rotation: { control: "inline-radio", options: [1, 2, 3, 4], description: "The tile in hand's rotation, 1 North to 4 West" },
-    placed: { control: "boolean", description: "The tile placed on the recorded move's slot (red where this rotation does not fit there)" },
+    placed: { control: "boolean", description: "The tile placed on the recorded move's slot" },
   },
   render: ({ rotation, placed, ...args }) => renderBoard({ ...args, ...inHand(rotation, placed ? CHOSEN : null) }),
 };

@@ -367,10 +367,9 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(Object.keys(DEFAULT_PLACEMENT_SETTINGS).sort()).toEqual(["colors", "grid", "motion", "plates", "tints"]);
   });
 
-  it("is red only when the rotation does not fit; placed is pending, else hover", () => {
-    expect(tintKindOf({ placed: false, fits: true })).toBe("hover");
-    expect(tintKindOf({ placed: true, fits: true })).toBe("pending");
-    expect(tintKindOf({ placed: true, fits: false })).toBe("red");
+  it("placed is pending, else hover", () => {
+    expect(tintKindOf({ placed: false })).toBe("hover");
+    expect(tintKindOf({ placed: true })).toBe("pending");
     expect(tintForKind("hover", tints)).toMatchObject({ opacity: 0.5 });
     expect(tintForKind("pending", tints)).toMatchObject({ opacity: 0.9 });
   });
@@ -393,17 +392,15 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.dispose();
   });
 
-  it("eases into each look over its own time: hoverMs, pendingMs, redMs", () => {
+  it("eases into each look over its own time: hoverMs, pendingMs", () => {
     const placement = new PlacementRenderer();
-    placement.setSettings(resolvePlacementSettings({ tints: { pendingMs: 400, redMs: 40 } }));
+    placement.setSettings(resolvePlacementSettings({ tints: { pendingMs: 400 } }));
     placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
     // 200 ms of a 400 ms ease: halfway.
     expect(placement.ghostTint(1200)[4]).toBeCloseTo(0.7, 6);
     expect(placement.update(1399).animating).toBe(true);
     expect(placement.ghostTint(1400)[4]).toBeCloseTo(0.9, 9);
-    placement.setGhost({ x: 1, y: 0, kind: "red" }, 2000);
-    expect(placement.ghostTint(2040)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.redOpacity, 9);
     // The default eases are the 150 ms of before.
     expect(DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs).toBe(150);
     expect(tintEaseMs("hover", DEFAULT_PLACEMENT_SETTINGS.tints)).toBe(150);
@@ -525,7 +522,7 @@ const ghostAt = (x: number, y: number, extra: Partial<HoverState> = {}): HoverSt
 const placementOf = (tiles: TileRenderer) => (tiles as any).placement as PlacementRenderer;
 
 describe("the tile renderer's ghost", () => {
-  it("is tinted: hover, then pending once placed, red where it does not fit; moved, the tint follows; gone, none", () => {
+  it("is tinted: hover, then pending once placed; moved, the tint follows; gone, none", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
     tiles.setHover(ghostAt(1, 0));
@@ -533,8 +530,8 @@ describe("the tile renderer's ghost", () => {
     expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, kind: "hover" });
     tiles.setHover(ghostAt(1, 0, { placed: true }));
     expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, kind: "pending" });
-    tiles.setHover(ghostAt(2, 0, { placed: true, valid: false }));
-    expect(placementOf(tiles).getGhost()).toEqual({ x: 2, y: 0, kind: "red" });
+    tiles.setHover(ghostAt(2, 0, { placed: true }));
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 2, y: 0, kind: "pending" });
     tiles.setHover(null);
     expect(placementOf(tiles).getGhost()).toBeNull();
     tiles.dispose();

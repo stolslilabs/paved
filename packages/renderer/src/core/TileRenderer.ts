@@ -978,8 +978,7 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads), tinted on the model itself: blue at half opacity on a hover, yellow at 90 % once `placed`, red while
-   * `valid` is false (its rotation does not fit there; the fallback until #544). It shares the type's geometry: nothing to
+   * model loads), tinted on the model itself: blue at half opacity on a hover, yellow at 90 % once `placed`. It shares the type's geometry: nothing to
    * dispose.
    */
   setHover(state: HoverState | null): void {
@@ -993,7 +992,7 @@ export class TileRenderer {
       this.placement.setGhost(null, now());
       return;
     }
-    const kind = tintKindOf({ placed: !!state.placed, fits: state.valid });
+    const kind = tintKindOf({ placed: !!state.placed });
 
     // The ghost draws the variant of the cell it hovers (`HoverState.cell`); without one, the board's centre of game 0 (the
     // hand's), so a skinned plan's base model is not asked for just for a ghost.
@@ -1002,7 +1001,7 @@ export class TileRenderer {
     // No model in yet: the placeholder quad meanwhile, as a placed tile's (`createPlaceholder`), when its image is in.
     const quad = planModel === null ? this.placeholderType(state.planIndex) : null;
     const placed = !!state.placed;
-    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${placed ? "placed" : "hover"}-${planModel ?? (quad ? "quad" : "none")}`;
+    const key = `${state.planIndex}-${state.orientation}-${placed ? "placed" : "hover"}-${planModel ?? (quad ? "quad" : "none")}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
       this.setGhostTint({ x: state.x, y: state.y, kind });
@@ -1117,7 +1116,7 @@ export class TileRenderer {
   }
 
   /** The tile in hand's tint now (its ease runs in `update`). */
-  private setGhostTint(ghost: { x: number; y: number; kind: "hover" | "pending" | "red" } | null): void {
+  private setGhostTint(ghost: { x: number; y: number; kind: "hover" | "pending" } | null): void {
     const t = now();
     this.placement.setGhost(ghost, t);
     this.applyLook("hand", this.placement.ghostTint(t));
@@ -1163,7 +1162,7 @@ export class TileRenderer {
     this.applyLook("confirm", confirm.tint);
   }
 
-  /** The slots of the tile in hand, each with its plate's state (`plateStateOf`: valid, possible or invalid). */
+  /** The slots of the tile in hand, each with its plate's state (`plateStateOf`: playable or invalid). */
   setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
     this.placement.setSlots(slots, now());
   }

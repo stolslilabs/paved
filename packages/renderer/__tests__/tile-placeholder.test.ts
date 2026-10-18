@@ -311,7 +311,7 @@ describe("a tile image that fails or comes late", () => {
 });
 
 describe("the ghost while its model loads", () => {
-  it("draws the quad, red on its plate where the rotation does not fit, then the model: the shared materials", async () => {
+  it("draws the quad, then the model: the shared materials", async () => {
     const { s, at } = await boardWithOneTile();
     s.setHoveredTile(hover(5, { orientation: 4 }));
     const quad = quadOf(ghost(s)!.children[0]!);
@@ -328,10 +328,10 @@ describe("the ghost while its model loads", () => {
     expect(tinted.customProgramCacheKey()).toBe("paved-quad-ghost");
     expect((s.tiles as any).ghostMaterials.hand.get(shared)).toBe(tinted);
 
-    // Placed where the rotation does not fit: its tint turns red (the fallback), on the quad too.
-    s.setHoveredTile(hover(5, { orientation: 4, valid: false, placed: true }));
-    expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "red" });
-    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.redOpacity, 6);
+    // Placed: its tint turns pending (yellow), on the quad too.
+    s.setHoveredTile(hover(5, { orientation: 4, placed: true }));
+    expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "pending" });
+    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.pendingOpacity, 6);
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
