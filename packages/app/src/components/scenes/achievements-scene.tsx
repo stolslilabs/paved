@@ -79,7 +79,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
   const claimable = list.map((a) => ({ a, r: rewardOf(a) })).filter(({ a, r }) => a.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
   return (
-    <TabPage tab="quests" title="Achievements" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
+    <TabPage tab="quests" title="Achievements" onNavigate={props.onNavigate}>
       <QuestsTabs active="achievements" onSelect={props.onTab} />
 
       {!connected ? (

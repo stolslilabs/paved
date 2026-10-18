@@ -63,7 +63,7 @@ describe("/settings/theme (P11b)", () => {
   it("shows each Forest skin's price, owned and active state, the balance and N of 19 active", async () => {
     open(setup());
     expect(await screen.findByRole("heading", { level: 1, name: "Theme" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: "240 Cobbles" }, { timeout: 3000 })).toBeInTheDocument();
+    expect((await screen.findAllByRole("img", { name: "240 Cobbles" }, { timeout: 3000 })).length).toBeGreaterThan(0);
     expect((await cell(13)).dataset.state).toBe("active");
     expect((await cell(7)).dataset.state).toBe("owned");
     expect((await cell(10)).dataset.state).toBe("none");
@@ -73,7 +73,8 @@ describe("/settings/theme (P11b)", () => {
 
   it("asks a guest to connect, and Connect goes to the welcome", async () => {
     const router = open(setup({ signer: false }));
-    const connect = await screen.findByRole("button", { name: "Connect" }, { timeout: 5000 });
+    // Beside the page's own call: the rail's and the pill's Connect come first in the DOM.
+    const connect = (await screen.findAllByRole("button", { name: "Connect" }, { timeout: 5000 })).at(-1)!;
     // A first visit, so that the welcome stays open rather than sending a welcomed player home.
     resetWelcomedForTests();
     localStorage.clear();
@@ -110,7 +111,7 @@ describe("/settings/theme (P11b)", () => {
     const s = setup();
     open(s);
     await userEvent.click(await buyButton(10));
-    expect(await screen.findByRole("img", { name: "185 Cobbles" }, { timeout: 3000 })).toBeInTheDocument();
+    expect((await screen.findAllByRole("img", { name: "185 Cobbles" }, { timeout: 3000 })).length).toBeGreaterThan(0);
     await waitFor(async () => expect((await cell(10)).dataset.state).toBe("owned"));
     expect(s.writer.sent).toEqual([{ buy: { theme: FOREST, plan: 10 } }]);
     expect(activeCount().textContent).toBe("1 of 19 active");

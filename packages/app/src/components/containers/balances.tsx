@@ -15,10 +15,10 @@ export type BalancesState =
   | { status: "error"; message: string }
   | {
       status: "ready";
-      /** Null: not deployed on this network, shown as a dash. */
-      usdc: bigint | null;
-      paved: bigint | null;
-      cobbles: number | null;
+      /** Null: no source on this network, shown as a dash; undefined: the read is still out, a skeleton. */
+      usdc: bigint | null | undefined;
+      paved: bigint | null | undefined;
+      cobbles: number | null | undefined;
     };
 
 /** Where each balance leads: USDC to where it is got, PAVED to the Vault, Cobbles to the Cobble shop. */
@@ -42,9 +42,10 @@ const ROWS: readonly { kind: BalanceKind; label: string; icon: string; action: s
 ];
 
 function Figure({ kind, state }: { kind: BalanceKind; state: Extract<BalancesState, { status: "ready" }> }) {
-  if (kind === "cobbles") return state.cobbles === null ? <span className="numeric">–</span> : <Cobbles value={state.cobbles} />;
-  const value = kind === "usdc" ? state.usdc : state.paved;
-  return value === null ? <span className="numeric">–</span> : <Amount value={value} token={kind} className="text-sm" />;
+  const value = kind === "cobbles" ? state.cobbles : kind === "usdc" ? state.usdc : state.paved;
+  if (value === undefined) return <Skeleton className="mt-1 h-4 w-20" />;
+  if (kind === "cobbles") return value === null ? <span className="numeric">–</span> : <Cobbles value={value as number} />;
+  return value === null ? <span className="numeric">–</span> : <Amount value={value as bigint} token={kind as "usdc" | "paved"} className="text-sm" />;
 }
 
 /** One balance: its figure, and a tap (at least 44 px high) to the place that acts on it. */
@@ -93,9 +94,10 @@ function Rows({ state, onAction, onConnect }: Pick<BalancesProps, "state" | "onA
 
 /** The pill's one figure: the Cobbles (the balance a player spends most). */
 function PillFace({ state }: { state: BalancesState }) {
+  if (state.status === "ready" && state.cobbles === undefined) return <Skeleton className="h-4 w-12" />;
   if (state.status === "ready") return state.cobbles === null ? <span>Balances</span> : <Cobbles value={state.cobbles} size="sm" />;
   if (state.status === "loading") return <Skeleton className="h-4 w-12" />;
-  if (state.status === "error") return <Icon name="triangle-exclamation" size="sm" label="Balances unavailable" className="text-destructive-text" />;
+  if (state.status === "error") return <Icon name="triangle-exclamation" size="sm" label="Balances unavailable" className="text-muted-foreground" />;
   return <span>Connect</span>;
 }
 

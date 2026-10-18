@@ -253,7 +253,8 @@ describe("Theme: skins", () => {
 
   it("renders its stress state", () => {
     render(wrap(<ThemeScene {...THEME.skinsStress} />));
-    expect(screen.getByRole("img", { name: "987,654,321 Cobbles" })).toBeInTheDocument();
+    // The balance is the header pill's (`Balances`), not the page's.
+    expect(screen.getByRole("heading", { level: 1, name: "Theme" })).toBeInTheDocument();
   });
 });
 
