@@ -46,7 +46,7 @@ async function play(move: TutorialMove) {
     const place = screen.getByRole("button", { name: /Place tile/ });
     if (!place.hasAttribute("disabled")) await userEvent.click(place);
     if (stepLabel() !== before) return;
-    await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
   }
 }
 

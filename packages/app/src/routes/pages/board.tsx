@@ -26,7 +26,7 @@ import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
-import { same, useConfirmFlash, usePlacement, type Slot } from "../../data/placement";
+import { nextOrientation, same, useConfirmFlash, usePlacement, type Slot } from "../../data/placement";
 
 /**
  * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
@@ -95,6 +95,7 @@ function TrainingBoard() {
 
   const state = snapshot.state;
   const handState = !hand || board.over ? "empty" : state.writeError ? "refused" : "placing";
+  const bubble = placement.chosen ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear } : null;
   return (
     <BoardScene
       mode="training"
@@ -113,6 +114,7 @@ function TrainingBoard() {
       slots={slots}
       ghost={ghost}
       confirmed={placement.confirmed}
+      bubble={bubble}
       onSlotClick={placement.choose}
       placementHighlight={boardSettings.placementHighlight}
       canvas={
@@ -127,6 +129,7 @@ function TrainingBoard() {
             slots={slots}
             ghost={ghost}
             confirmed={placement.confirmed}
+            bubble={bubble}
             onCellClick={placement.choose}
             onCellHover={placement.setHovered}
             onError={() => setView("plan")}
@@ -135,7 +138,6 @@ function TrainingBoard() {
       }
       footnote={<WalletNotice />}
       onBack={onBack}
-      onRotate={placement.rotate}
       onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
@@ -289,6 +291,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       )}
     </>
   );
+  const bubble = placement.chosen && playable && challengeHand(state, expired) !== "pending" && challengeHand(state, expired) !== "expired" ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear } : null;
   return (
     <BoardScene
       mode="challenge"
@@ -313,6 +316,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       slots={slots}
       ghost={ghost}
       confirmed={placement.confirmed}
+      bubble={bubble}
       onSlotClick={placement.choose}
       readOnly={!playable}
       notices={notices}
@@ -331,6 +335,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             slots={slots}
             ghost={ghost}
             confirmed={placement.confirmed}
+            bubble={bubble}
             onCellClick={placement.choose}
             onCellHover={placement.setHovered}
             onError={() => setView("plan")}
@@ -339,7 +344,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       }
       footnote={<WalletNotice />}
       onBack={onBack}
-      onRotate={placement.rotate}
       onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
@@ -419,7 +423,8 @@ function TutorialBoard() {
     },
     [preset?.x, preset?.y],
   );
-  const rotate = useCallback(() => setOrientation((o) => (o % 4) + 1), []);
+  const rotate = useCallback(() => setOrientation((o) => nextOrientation(o)), []);
+  const cancel = useCallback(() => setChosen(null), []);
   const confirm = useCallback(() => {
     if (!move) return;
     const refused = play({ kind: "build", orientation: move.orientation, x: move.x - CENTER, y: move.y - CENTER });
@@ -453,6 +458,7 @@ function TutorialBoard() {
     </section>
   );
 
+  const bubble = chosen && hand && !view.over ? { cell: chosen, rotations: 4, onRotate: rotate, onClose: cancel } : null;
   return (
     <BoardScene
       mode="tutorial"
@@ -475,6 +481,7 @@ function TutorialBoard() {
       slots={slots}
       ghost={ghost}
       confirmed={confirmed}
+      bubble={bubble}
       onSlotClick={choose}
       readOnly={view.over}
       notices={stage}
@@ -491,6 +498,7 @@ function TutorialBoard() {
             slots={slots}
             ghost={ghost}
             confirmed={confirmed}
+            bubble={bubble}
             onCellClick={choose}
             onCellHover={setHovered}
             onError={() => setView("plan")}
@@ -499,7 +507,6 @@ function TutorialBoard() {
       }
       footnote={<WalletNotice />}
       onBack={onBack}
-      onRotate={rotate}
       onConfirm={confirm}
       onDiscard={discard}
     />

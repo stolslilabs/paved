@@ -13,7 +13,7 @@ const meta = {
   title: "Containers/HandPanel",
   component: HandPanel,
   parameters: { layout: "padded" },
-  args: { tile, state: "placing", tileArt: originalTileArt(SOURCE_ASSETS), onRotate: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { tile, state: "placing", tileArt: originalTileArt(SOURCE_ASSETS), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
   decorators: [(Story) => <div className="max-w-sm"><Story /></div>],
 } satisfies Meta<typeof HandPanel>;
 export default meta;
@@ -36,12 +36,19 @@ export const Rendered: Story = { args: { renderTile: (t) => <TileView {...t} bas
 /** Without the art: the plan's nine areas (the debug and accessibility view). */
 export const AreasView: Story = { args: { tileArt: undefined } };
 
-/** Rotate turns the tile a quarter. */
+/** The hand has no Rotate: the bubble on the board turns the tile (see Containers/TileBubble). Discard and Surrender share a row. */
 export const Interactive: Story = {
   render: function Render(args) {
     const [orientation, setOrientation] = useState(1);
-    return <HandPanel {...args} tile={{ plan: tile.plan, orientation }} slotChosen onRotate={() => setOrientation((o) => (o % 4) + 1)} />;
+    return (
+      <div className="flex flex-col gap-2">
+        <button type="button" className="text-xs underline" onClick={() => setOrientation((o) => (o % 4) + 1)}>Turn the tile (what the bubble does)</button>
+        <HandPanel {...args} tile={{ plan: tile.plan, orientation }} slotChosen preview={30} />
+      </div>
+    );
   },
 };
+/** The mobile frame: 375 px wide, the panel across the screen. */
+export const Mobile: Story = { args: { slotChosen: true, preview: 30 }, decorators: [(Story) => <div className="w-[375px] p-2"><Story /></div>], parameters: { viewport: { defaultViewport: "mobile1" } } };
 /** WRAP360: a long refusal with an unbroken address wraps inside the panel. */
 export const Stress: Story = { args: { state: "refused", error: `${LONG_SENTENCE} ${LONG_ADDRESS}`, slotChosen: true, preview: 9_999 } };

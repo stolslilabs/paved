@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,6 +20,8 @@ const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null }));
 vi.mock("@paved/renderer/react", () => ({
   GameCanvas: (props: GameCanvasProps) => {
     canvas.props = props;
+    // The scene the bubble follows: a fixed corner, no camera moves.
+    useEffect(() => props.onReady?.({ projectCell: () => ({ x: 200, y: 300, visible: true }), onCameraChange: () => () => {} } as never), []);
     return <canvas data-testid="renderer" />;
   },
 }));
@@ -51,42 +54,57 @@ afterEach(() => {
 
 const hand = () => screen.getByRole("region", { name: "Your tile" });
 const place = () => within(hand()).getByRole("button", { name: /Place tile/ });
-const rotate = () => userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
-
-/** Chooses, on the canvas, a lit slot where some rotation does not fit, and turns the tile there until it is red. */
-async function placeRed(): Promise<{ x: number; y: number }> {
-  // The legal plates only: an invalid one (no rotation fits) cannot be chosen.
-  for (const slot of canvas.props!.availableSlots!.filter((s) => s.legal !== false)) {
-    act(() => canvas.props!.onTileClick!(slot.x, slot.y));
-    await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true }));
-    for (let turn = 0; turn < 4; turn++) {
-      await rotate();
-      if (canvas.props!.hover?.valid === false) return { x: slot.x, y: slot.y };
-    }
-  }
-  throw new Error("every slot fits every rotation");
-}
+const bubble = () => screen.findByRole("toolbar", { name: "Tile" });
+const rotate = async () => userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
+/** A plate the tile can take in some rotation, as the canvas lights it. */
+const legalSlots = () => canvas.props!.availableSlots!.filter((s) => s.legal !== false);
 
 describe("the 3D board's placement (SLOTS, P-68)", () => {
-  it("hands the canvas a red placement (valid false) with Confirm disabled; white again once it fits", async () => {
+  it("never hands the canvas a red placement: a chosen slot gets a rotation that fits, Rotate keeps to them, Close puts the tile back", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     await act(async () => {});
-    const cell = await placeRed();
-    expect(canvas.props!.hover).toMatchObject({ ...cell, placed: true, valid: false });
+    let rotated = 0;
+    for (const slot of legalSlots()) {
+      act(() => canvas.props!.onTileClick!(slot.x, slot.y));
+      await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true }));
+      expect(place()).toBeEnabled();
+      await bubble();
+      const seen = new Set<number>([canvas.props!.hover!.orientation!]);
+      while (screen.queryByRole("button", { name: "Rotate tile" }) && seen.size < 4) {
+        await rotate();
+        rotated++;
+        expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true });
+        expect(place()).toBeEnabled();
+        const before = seen.size;
+        seen.add(canvas.props!.hover!.orientation!);
+        if (seen.size === before) break;
+      }
+      await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
+      expect(canvas.props!.hover).toBeNull();
+      expect(place()).toBeDisabled();
+    }
+    // This seed deals a tile that fits two rotations at some slots: Rotate was offered.
+    expect(rotated).toBeGreaterThan(0);
+  }, 30_000);
+
+  it("Escape cancels and R rotates, from the keyboard", async () => {
+    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
+    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await act(async () => {});
+    const slot = legalSlots()[0]!;
+    act(() => canvas.props!.onTileClick!(slot.x, slot.y));
+    await bubble();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvas.props!.hover).toBeNull());
     expect(place()).toBeDisabled();
-    for (let turn = 0; turn < 4 && canvas.props!.hover?.valid === false; turn++) await rotate();
-    expect(canvas.props!.hover).toMatchObject({ ...cell, placed: true, valid: true });
-    expect(place()).toBeEnabled();
-  }, 20_000);
+  });
 
   it("Training: flashes green once the session took the move; refused, the tile stays placed and nothing flashes", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     await act(async () => {});
-    const fitting = () => canvas.props!.availableSlots!.filter((s) => s.fits);
-    for (let i = 0; i < 4 && fitting().length === 0; i++) await rotate();
-    const slot = fitting()[0]!;
+    const slot = legalSlots()[0]!;
 
     // Refused: no flash, the tile still placed on its slot.
     const refused = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
@@ -135,9 +153,7 @@ describe("the Challenge board's confirm", () => {
     render(<App router={createTestRouter(`/game/${GAME_ID}`)} sources={challengeSources()} />);
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     await waitFor(() => expect(canvas.props!.availableSlots!.length).toBeGreaterThan(0));
-    const fitting = () => canvas.props!.availableSlots!.filter((s) => s.fits);
-    for (let i = 0; i < 4 && fitting().length === 0; i++) await rotate();
-    const slot = fitting()[0]!;
+    const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
     await waitFor(() => expect(place()).toBeEnabled());
 

@@ -2,7 +2,7 @@ import { act, render, renderHook, screen, waitFor, within } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
-import { confirmHoldMs, boardPlates, boardSlots, nextOrientation, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
+import { confirmHoldMs, boardPlates, boardSlots, nextOrientation, nextValid, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -111,8 +111,15 @@ describe("the placement state (SLOTS, P-68)", () => {
     vi.useRealTimers();
   });
 
-  it("rotates through all four rotations", () => {
+  it("rotates through all four rotations (the Tutorial's own rules)", () => {
     expect([1, 2, 3, 4].map(nextOrientation)).toEqual([2, 3, 4, 1]);
+  });
+
+  it("rotates clockwise through the valid rotations only", () => {
+    expect([1, 2, 3, 4].map((o) => nextValid(o, [1, 3]))).toEqual([3, 3, 1, 1]);
+    expect([1, 2, 3, 4].map((o) => nextValid(o, [2]))).toEqual([2, 2, 2, 2]);
+    expect(nextValid(4, [1, 2, 3, 4])).toBe(1);
+    expect(nextValid(3, [])).toBe(3);
   });
 
   it("confirm: the board gets the tile for the fade, a new key each time, then nothing", () => {
@@ -144,7 +151,7 @@ afterEach(() => {
 });
 
 describe("the Training board's plan view, placing a tile", () => {
-  it("is red on a rotation that does not fit, with Place disabled, white again on one that does; then flashes green", async () => {
+  it("never goes red: Rotate stays on valid rotations, Close puts the tile back; Place flashes the cell green", async () => {
     const store = memoryStore();
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
     await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
@@ -155,32 +162,27 @@ describe("the Training board's plan view, placing a tile", () => {
     expect(slots().length).toBeGreaterThan(0);
     expect(slots().some((s) => s.getAttribute("data-fits") === "true") || slots().some((s) => s.getAttribute("data-fits") === "false")).toBe(true);
 
-    // Find a slot where some rotation does not fit: choose it, then turn until it is red.
-    let red = false;
-    for (let i = 0; i < slots().length && !red; i++) {
+    // Every slot: chosen, it is placed in a rotation that fits; Rotate (when offered) never turns it red.
+    for (let i = 0; i < slots().length; i++) {
       await userEvent.click(slots()[i]!);
       const label = slots()[i]!.getAttribute("aria-label");
       const chosen = () => screen.getByRole("button", { name: label! });
       expect(chosen()).toHaveAttribute("data-placed", "aura");
       expect(place()).toBeEnabled();
-      for (let turn = 0; turn < 4; turn++) {
-        await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
-        if (chosen().getAttribute("data-placed") === "red") {
-          red = true;
-          expect(place()).toBeDisabled();
-          break;
-        }
-      }
-      if (red) {
-        for (let turn = 0; turn < 4 && chosen().getAttribute("data-placed") !== "aura"; turn++) {
-          await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
-        }
+      await screen.findByRole("button", { name: "Cancel placement" });
+      for (let turn = 0; turn < 4 && screen.queryByRole("button", { name: "Rotate tile" }); turn++) {
+        await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
         expect(chosen()).toHaveAttribute("data-placed", "aura");
         expect(place()).toBeEnabled();
       }
+      // Close: the tile is back in hand, nothing is placed.
+      await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
+      expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
+      expect(place()).toBeDisabled();
+      expect(slots()[i]).not.toHaveAttribute("data-placed");
     }
-    expect(red).toBe(true);
 
+    await userEvent.click(slots()[0]!);
     await userEvent.click(place());
     // The placed cell flashes green, then the flash goes; under reduced motion its fade is short.
     const flash = await waitFor(() => {
