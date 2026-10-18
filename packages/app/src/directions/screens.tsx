@@ -332,7 +332,7 @@ export function HudScreen() {
       </div>
 
       <header className="relative flex w-full max-w-xl items-center gap-2 p-3 desktop:p-6">
-        <DButton variant="secondary" size="icon" aria-label="Menu">
+        <DButton variant="secondary" size="square" aria-label="Menu">
           <Icon name="gear" size="md" />
         </DButton>
         <DCard className="flex flex-1 items-center justify-around gap-2 px-3 py-2">
@@ -363,7 +363,7 @@ export function HudScreen() {
             </div>
           </div>
           <div className="flex gap-2">
-            <DButton variant="secondary" size="icon" aria-label="Rotate">
+            <DButton variant="secondary" size="square" aria-label="Rotate">
               <Icon name="rotate-right" size="md" />
             </DButton>
             <DButton variant="ghost" className="px-3">

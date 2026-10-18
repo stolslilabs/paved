@@ -59,7 +59,7 @@ export const OVERLAY = clsx(
 export type Force = "hover" | "active" | "pressed";
 
 export type Variant = "solid" | "secondary" | "outline" | "ghost" | "danger";
-type Size = "sm" | "md" | "lg" | "icon";
+type Size = "sm" | "md" | "lg" | "square";
 
 const VARIANT: Record<Variant, string> = {
   solid: "bg-(--d-primary) text-(color:--d-on-primary)",
@@ -72,7 +72,7 @@ const SIZE: Record<Size, string> = {
   sm: "h-10 px-3.5 text-xs",
   md: "h-11 px-5 text-sm",
   lg: "h-14 px-6 text-base",
-  icon: "size-11",
+  square: "size-11",
 };
 /** The shape of a direction: its corner and its press. A sinks like a key; B is a pebble; C is glass. */
 const SHAPE: Record<DirectionId, string> = {
@@ -141,7 +141,7 @@ export function DCardButton({ on, force, className, type = "button", ...rest }: 
 export function DChip({ children, tone = "plain", className }: { children: ReactNode; tone?: "plain" | "primary" | "accent"; className?: string }) {
   const d = useDir();
   const toneClass = { plain: "bg-white/10 text-(color:--d-muted)", primary: "bg-(--d-primary) text-(color:--d-on-primary)", accent: "bg-white/10 text-(color:--d-accent)" }[tone];
-  return <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-[0.6875rem] leading-none font-semibold tracking-wide uppercase", d === "a" ? "rounded-[2px]" : "rounded-full", toneClass, className)}>{children}</span>;
+  return <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-xs leading-none font-semibold tracking-wide uppercase", d === "a" ? "rounded-[2px]" : "rounded-full", toneClass, className)}>{children}</span>;
 }
 
 /** A switch: a button with the overlay states, a track and a knob. */

@@ -37,7 +37,7 @@ function NavA({ active, force }: NavProps) {
               data-on={on ? "true" : undefined}
               data-force={force?.tab === tab.id ? force.state : undefined}
               className={clsx(
-                "flex flex-1 cursor-pointer flex-col items-center gap-1 rounded-[3px] bg-(--d-raised) py-2 text-[0.6875rem] font-bold tracking-wider text-(color:--d-text) uppercase shadow-[0_3px_0_var(--d-shadow)]",
+                "flex flex-1 cursor-pointer flex-col items-center gap-1 rounded-[3px] bg-(--d-raised) py-2 text-xs font-bold tracking-wider text-(color:--d-text) uppercase shadow-[0_3px_0_var(--d-shadow)]",
                 "active:translate-y-[3px] active:shadow-none data-[on=true]:translate-y-[3px] data-[on=true]:shadow-none",
                 "desktop:flex-none desktop:flex-row desktop:gap-2 desktop:px-4 desktop:py-2.5 desktop:text-xs",
                 OVERLAY,
@@ -76,7 +76,7 @@ function NavB({ active, force }: NavProps) {
                 data-on={on ? "true" : undefined}
                 data-force={force?.tab === tab.id ? force.state : undefined}
                 className={clsx(
-                  "flex w-14 cursor-pointer flex-col items-center gap-1 rounded-2xl py-1 text-[0.6875rem] font-semibold desktop:w-auto desktop:flex-row desktop:gap-2 desktop:rounded-full desktop:py-1.5 desktop:pr-4 desktop:pl-1.5 desktop:text-xs",
+                  "flex w-14 cursor-pointer flex-col items-center gap-1 rounded-2xl py-1 text-xs font-semibold desktop:w-auto desktop:flex-row desktop:gap-2 desktop:rounded-full desktop:py-1.5 desktop:pr-4 desktop:pl-1.5 desktop:text-xs",
                   on ? "text-(color:--d-primary)" : "text-(color:--d-text)",
                   OVERLAY,
                 )}
@@ -177,7 +177,7 @@ export function FlowShell({ title, children }: { title: string; children: ReactN
     <div className="relative flex min-h-dvh flex-col">
       {d === "c" && <Mosaic />}
       <header className="relative mx-auto flex w-full max-w-md items-center gap-2 px-2 pt-3 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pt-6">
-        <DButton variant="ghost" size="icon" aria-label="Back">
+        <DButton variant="ghost" size="square" aria-label="Back">
           <Icon name="chevron-left" size="md" />
         </DButton>
         <h1 className="font-display text-2xl tracking-wide">{title}</h1>
