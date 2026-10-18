@@ -416,8 +416,8 @@ started before its upgrade (D-17's path).
   - A build would then neither read nor pre-write the slot.
   - A discard keeps writing the discarded tile's slot, so that the `tiles` view still lists it.
   - The views (`game`, `tiles`, `builder`) read the held tile's plan from `GameState`.
-- **Gain.** -305,355 per build; -116,205 per discard; -182,650 per spawn. Mostly syscalls, so most of it holds in
-  release (1.4).
+- **Gain.** -305,355 per build; -116,205 per discard; -182,650 per spawn. Mostly syscalls, so the larger part of it
+  should hold in release; the share is not measured (1.4).
 - **Risk.** Low to medium. Every test that forces a plan by writing the held tile's slot (`gas.cairo`, the e2e and
   golden harnesses) must write it into `GameState` instead. That churn is the main risk.
 - **Changes.** The storage layout (the slot of a held tile is no longer written), not the ABI (the views return the
@@ -495,13 +495,13 @@ Mac. No contract change.
    | g, i, k, s | 2,716,928 to 3,608,648 | unchanged | 0 |
    | m, n | 17,644,657, 18,497,677 | about 15,580,000, 16,440,000 | -2.06M (-11.7 %, -11.1 %) |
 
-2. **The second PR: C4** (the held tile in `GameState`). Mostly syscalls, so most of its gain holds in release. It changes the
+2. **The second PR: C4** (the held tile in `GameState`). Mostly syscalls, so the larger part of its gain should hold in release (the share is not measured). It changes the
    layout: rule that it ships before the fresh Sepolia deployment (D-27), so that no migration is written.
 3. **C6** (positions by blocks), the largest storage cut, after C4, with an audit plan of its own. Rule whether it is
    wanted before the fresh Sepolia deployment.
 4. **C8** changes P-53's wiring (the economy address kept by `Challenge`): yours to rule.
 5. **C9 and the release measure**: rule whether the gas figures and targets refer to release, measured in CI or on
-   the Mac. That decides the order of the later cuts, since a storage cut keeps most of its gain in release (its bare
+   the Mac. That decides the order of the later cuts, since a storage cut should keep the larger part of its gain in release (its bare
    syscalls) and a compute cut keeps less.
 6. **None of the cuts above changes a rule.** The ones that would (a 128-bit seed, fewer quest entries, a lazy deck
    walk) are rejected in section 3.
