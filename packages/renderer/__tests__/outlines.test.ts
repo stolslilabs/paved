@@ -108,6 +108,12 @@ describe("outlineStroke: the zoom-to-stroke function", () => {
     }
   });
 
+  it("falls back to the default exponent when it is not finite", () => {
+    const px = 60 * Math.pow(1.5, 0.5);
+    const expected = outlineFade(px, 60, 90, 2);
+    for (const p of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) expect(outlineFade(px, 60, 90, p)).toBe(expected);
+  });
+
   it("takes t from a variable start: the same position in the log range, whatever the start", () => {
     // Off at 60 px, start at 90 / 900 / 1800 px: the middle of each log range is t = 0.5.
     for (const full of [90, 900, 1800]) {
