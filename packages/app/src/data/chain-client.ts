@@ -1,4 +1,8 @@
-import { ViewError, createPavedClient, resolveDeployment, type DeploymentFile, type PavedClient } from "@paved/chain";
+import { PavedClient, ViewError, createPavedClient, resolveDeployment, type DeploymentFile } from "@paved/chain";
+import { browserStore } from "@paved/game-core";
+import { DATA_SOURCE } from "./data-source";
+import { MockLedger } from "./mock/ledger";
+import { mockGameViews } from "./mock/overlay";
 
 // The chain client of the app (P5): `PavedClient` on the deployment the build names. Imported only through a dynamic
 // `import()` (`routes/sources.ts`), so starknet.js is fetched with the first page that reads the chain, never in the
@@ -14,6 +18,20 @@ const FILES = import.meta.glob<{ default: DeploymentFile }>("../../../../contrac
 export const network = (): string => import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : "");
 
 let client: PavedClient | null = null;
+let ledger: MockLedger | null = null;
+
+/**
+ * The mock ledger of this device (#549), on `localStorage`: one for the app, shared by every overlay (the views here, the
+ * economy's, the indexer's, the wallet's writes). Its seller is the deployment's `Setup`, as the fresh deployment sets it.
+ */
+export function mockLedger(): MockLedger {
+  return ledgerOf(chainClient());
+}
+
+function ledgerOf({ deployment }: Pick<PavedClient, "deployment">): MockLedger {
+  ledger ??= new MockLedger({ store: browserStore, seller: deployment.addresses.Setup || "0x0" });
+  return ledger;
+}
 
 /**
  * The client on `contracts/deployments/<VITE_NETWORK>.json`, each `VITE_*` value set overriding the file (`VITE_RPC_URL`,
@@ -36,6 +54,9 @@ export function chainClient(): PavedClient {
       addresses: { Challenge: import.meta.env.VITE_CHALLENGE_ADDRESS, Setup: import.meta.env.VITE_SETUP_ADDRESS },
     },
   });
-  client = createPavedClient(deployment);
+  const real = createPavedClient(deployment);
+  // The data source `mock` (`data-source.ts`): the views the deployed classes lack come from the device's ledger, the games
+  // and every write stay the chain's.
+  client = DATA_SOURCE === "mock" ? new PavedClient(real.deployment, real.provider, real.codecs, mockGameViews(real.views, ledgerOf(real))) : real;
   return client;
 }

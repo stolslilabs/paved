@@ -546,8 +546,12 @@ function parseQuestDefinition(v: unknown, what: string): QuestDefinition {
   };
 }
 
-/** A quest's Cobbles and their kind go together: a kind with Cobbles, null without. */
+/**
+ * A quest's Cobbles and their kind go together: a kind with Cobbles, null without. An indexer that predates cobbles v1
+ * sends neither field: a quest with none (0, null), as `name` and `free` read from such an indexer (#549).
+ */
 function questCobbles(o: Obj, what: string): { cobbles: number; cobblesKind: "daily" | "weekly" | null } {
+  if (o.cobbles === undefined && o.cobbles_kind === undefined) return { cobbles: 0, cobblesKind: null };
   const cobbles = num(o, "cobbles", what);
   const kind = o.cobbles_kind;
   if (kind !== null && kind !== "daily" && kind !== "weekly") bad(`${what}.cobbles_kind is not daily, weekly or null`);
@@ -569,7 +573,8 @@ function parseAchievementDefinition(v: unknown, what: string): AchievementDefini
     definedAt: num(o, "defined_at", what),
     retired,
     retiredAt,
-    cobbles: num(o, "cobbles", what),
+    // Absent from an indexer that predates cobbles v1: none (#549).
+    cobbles: o.cobbles === undefined ? 0 : num(o, "cobbles", what),
   };
 }
 

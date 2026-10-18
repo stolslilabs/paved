@@ -1,7 +1,9 @@
 import { Account, RpcProvider } from "starknet";
 import { controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
-import { chainClient } from "../data/chain-client";
+import { chainClient, mockLedger } from "../data/chain-client";
+import { DATA_SOURCE } from "../data/data-source";
 import { economyClient } from "../data/economy-client";
+import { mockSigner } from "../data/mock/overlay";
 import type { WalletConnector } from "./wallet";
 
 // The app's connector (P6), loaded with its own chunk by `WalletProvider`: the legacy client's `WalletProvider.tsx` and
@@ -36,7 +38,9 @@ export const BUILD_BURNER: Burner | null = DEVNET_BUILD
 
 /** The connector of this build's deployment (`chainClient`, `BUILD_BURNER`). Rejects when the deployment is not configured. */
 export async function appConnector(): Promise<WalletConnector> {
-  return connectorFor(chainClient(), BUILD_BURNER, createControllerConnector, economyAddress());
+  const connector = connectorFor(chainClient(), BUILD_BURNER, createControllerConnector, economyAddress());
+  // The data source `mock` (#549): the claims and the skin writes go to the device's ledger, the rest to the chain.
+  return DATA_SOURCE === "mock" ? { ...connector, signer: (account) => mockSigner(connector.signer(account), mockLedger()) } : connector;
 }
 
 /** The Economy's address in this build's deployment, or null without one: `Economy.settle` is a session policy only with it (P7a). */

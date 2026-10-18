@@ -1,0 +1,313 @@
+import { act, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import {
+  ClaimRefusedError,
+  PavedWriter,
+  SkinRefusedError,
+  WriteError,
+  type DecodedEvent,
+  type FakeGameViews,
+  type PackPurchaseRequest,
+  type WriteResult,
+} from "@paved/chain";
+import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer, type FakeEconomy } from "@paved/chain/testing";
+import type { DataSources, GameSigner } from "../src/data";
+import { useAchievementRewards, useClaims, useCobbleAccount, useQuestRewards } from "../src/data";
+import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/chain";
+import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
+import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger } from "../src/data/mock/ledger";
+import { FREE_SPAWN_MOCKED, mockEconomyViews, mockGameViews, mockIndexer, mockPurchases, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
+import { useBuyPack, usePacks } from "../src/data/purchase";
+import { referralKey, useReferralEarnings } from "../src/data/referral";
+import { useSkinWrites, useThemeSkins } from "../src/data/skins";
+import { useVaultWrites } from "../src/data/vault";
+import type { Purchases, VaultWrites } from "../src/data/sources";
+import { PACKS, SKIN_PRICES } from "../src/mocks/cobbles";
+import { PAGES } from "../src/routes/pages";
+import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
+import { FakeSkinWriter } from "./skin-fakes";
+
+// The mock data layer (#549, MOCK-FIRST): the same hooks, through the same `DataSources`, on the two implementations of the
+// reads and writes the Sepolia classes lack. `chain`: `@paved/chain`'s fakes of the chain path (`FakeGameViews`,
+// `FakeEconomy`, `FakeClaimer`, the skins' writer) with the contracts' rules. `mock`: the mock ledger's overlays
+// (`data/mock/overlay.ts`) over a chain whose Setup, Vault and indexer predate cobbles v1, as Sepolia's do. Each flow
+// completes on both and moves the same balances.
+
+const PLAYER = FIXTURE_ADA;
+const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
+const P = 10n ** 18n;
+const USDC = 1_000_000n;
+
+/** The chain path's pack buyer and Vault writes for the test, on the fakes, with the receipts' events the contracts emit. */
+function chainWrites(views: FakeGameViews, economy: FakeEconomy) {
+  let transactions = 0;
+  const receipt = (events: DecodedEvent[]): WriteResult => ({ transactionHash: `0xfe${++transactions}`, events });
+  const purchases: Purchases = {
+    purchase: () => Promise.reject(new WriteError("not in this test")),
+    referrer: async () => null,
+    receipt: async () => "succeeded",
+    buyPack: async (request: PackPurchaseRequest) => {
+      const pack = await views.pack(request.packId);
+      const usdc = await economy.usdcBalance(PLAYER);
+      if (usdc < pack.price) throw new WriteError("Not enough USDC");
+      economy.setBalance("usdc", PLAYER, usdc - pack.price);
+      const player = views.cobblePlayer(PLAYER);
+      player.account = { ...player.account, cobbles: player.account.cobbles + pack.cobbles };
+      const bought = { playerId: PLAYER, packId: pack.packId, cobbles: pack.cobbles, price: pack.price, referrer: "0x0", balance: player.account.cobbles };
+      return { ...receipt([{ name: "PackBought", fields: bought, fromAddress: "0x3" }]), bought };
+    },
+  };
+  const vault: VaultWrites = {
+    deposit: async (amount) => {
+      const shares = await economy.previewDeposit(amount);
+      economy.setBalance("paved", PLAYER, (await economy.pavedBalance(PLAYER)) - amount);
+      economy.vaultAssets += amount;
+      economy.vaultSupply += shares;
+      economy.shares.set(BigInt(PLAYER).toString(16), ((await economy.vault(PLAYER)).shares ?? 0n) + shares);
+      return receipt([{ name: "Deposit", fields: { sender: PLAYER, owner: PLAYER, assets: amount, shares }, fromAddress: "0x12" }]);
+    },
+    withdraw: () => Promise.reject(new WriteError("not in this test")),
+    withdrawAll: async () => {
+      const { shares, maxWithdraw } = await economy.vault(PLAYER);
+      economy.setBalance("paved", PLAYER, (await economy.pavedBalance(PLAYER)) + maxWithdraw);
+      economy.vaultAssets -= maxWithdraw;
+      economy.vaultSupply -= shares;
+      economy.shares.set(BigInt(PLAYER).toString(16), 0n);
+      return receipt([{ name: "Withdraw", fields: { sender: PLAYER, receiver: PLAYER, owner: PLAYER, assets: maxWithdraw, shares }, fromAddress: "0x12" }]);
+    },
+  };
+  return { purchases, vault };
+}
+
+/** The chain path: the fresh deployment's figures on the fakes (the packs, Forest's prices, the Vault, the split). */
+function chainImplementation() {
+  const f = fakeSources();
+  const { views, economy, fixture } = f;
+  for (const q of fixture.quests) views.questRates.set(Number(q.quest_id), { questId: Number(q.quest_id), cobbles: Number(q.cobbles), kind: "daily", task: 1, total: 1, start: 0, interval: 86_400 });
+  views.achievementRates.set(2, { achievementId: 2, cobbles: 10, task: 1, total: 1 });
+  const ada = views.cobblePlayer(PLAYER);
+  ada.account = { ...ada.account, games: 1 };
+  ada.days.set(TODAY, { games: 1, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
+  for (const p of PACKS) views.packs.set(p.packId, { ...p });
+  views.priceSkins(1, SKIN_PRICES);
+  economy.split_ = { ...MOCK_SPLIT };
+  economy.vaultAssets = MOCK_VAULT.assets;
+  economy.vaultSupply = MOCK_VAULT.supply;
+  economy.setBalance("paved", PLAYER, MOCK_STARTING_PAVED);
+  economy.setBalance("usdc", PLAYER, 100n * USDC);
+  const claimer = new FakeClaimer(views, PLAYER);
+  const skins = new FakeSkinWriter(views, PLAYER);
+  const signer = {
+    address: PLAYER,
+    claim: claimer.claim.bind(claimer),
+    claimQuest: claimer.claimQuest.bind(claimer),
+    claimAchievement: claimer.claimAchievement.bind(claimer),
+    claimDailyCredit: claimer.claimDailyCredit.bind(claimer),
+    claimWeeklyCredit: claimer.claimWeeklyCredit.bind(claimer),
+    buySkin: skins.buySkin.bind(skins),
+    setSkins: skins.setSkins.bind(skins),
+  } as unknown as GameSigner;
+  const writes = chainWrites(views, economy);
+  const sources: DataSources = { ...f.sources, signer, purchases: () => writes.purchases, vault: () => writes.vault };
+  return { sources };
+}
+
+/** Sepolia's chain: no Cobbles on the indexer's definitions, none of the ledger, the packs, the skins or the Vault on chain. */
+function sepoliaChain() {
+  const f = fakeSources();
+  const strip = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "cobbles" && k !== "cobbles_kind"));
+  f.fixture.quests = f.fixture.quests.map(strip);
+  f.fixture.achievements = f.fixture.achievements.map(strip);
+  // The chain's tokens: USDC from the faucet, no PAVED yet.
+  f.economy.setBalance("usdc", PLAYER, 100n * USDC);
+  return f;
+}
+
+/** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */
+function mockImplementation(store = memoryStore()) {
+  const f = sepoliaChain();
+  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+  const chainBalances = { paved: () => f.economy.pavedBalance(PLAYER), usdc: () => f.economy.usdcBalance(PLAYER) };
+  const chainPurchases: Purchases = { purchase: () => Promise.reject(new WriteError("not in this test")), buyPack: () => Promise.reject(new WriteError("no buy_pack on this class")), referrer: async () => null, receipt: async () => "unknown" };
+  const sources: DataSources = {
+    ...f.sources,
+    views: mockGameViews(f.views, ledger),
+    economy: mockEconomyViews(f.economy, ledger),
+    indexer: mockIndexer(f.indexer, ledger),
+    signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
+    purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address, chainBalances),
+    vault: (signer) => mockVaultWrites(ledger, signer.address, chainBalances),
+  };
+  return { sources, ledger, store, chain: f };
+}
+
+const IMPLEMENTATIONS = [
+  ["chain", () => chainImplementation().sources],
+  ["mock", () => mockImplementation().sources],
+] as const;
+
+describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", (_name, make) => {
+  it("a mission's claim adds its Cobbles and marks it claimed; a second claim is refused", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ rewards: useQuestRewards(PLAYER, TODAY), claims: useClaims(PLAYER) }), sources);
+    const rewards = await dataOf({ get current() { return result.current.rewards; } });
+    expect(rewards!.cobbles.find((q) => q.questId === 1)).toEqual({ questId: 1, cobbles: 5, kind: "daily" });
+    expect(rewards!.balance).toBe(0);
+    await act(() => result.current.claims.claim(1, [{ kind: "quest", questId: 1, period: TODAY }]));
+    await waitFor(() => expect(result.current.rewards.data?.balance).toBe(5));
+    expect(result.current.rewards.data!.day.claimed & (1n << 1n)).toBe(1n << 1n);
+    const again = await result.current.claims.claim(1, [{ kind: "quest", questId: 1, period: TODAY }]).catch((e: unknown) => e);
+    expect(again).toBeInstanceOf(ClaimRefusedError);
+    expect((again as ClaimRefusedError).reason).toBe("claimed");
+  });
+
+  it("an achievement's claim adds its Cobbles", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ rewards: useAchievementRewards(PLAYER), claims: useClaims(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.rewards.data).toBeTruthy());
+    await act(() => result.current.claims.claim(2, [{ kind: "achievement", achievementId: 2 }]));
+    await waitFor(() => expect(result.current.rewards.data?.balance).toBe(10));
+    expect(result.current.rewards.data!.claimed & (1n << 2n)).toBe(1n << 2n);
+  });
+
+  it("a pack bought with USDC adds its Cobbles and takes its price", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ packs: usePacks(), buy: useBuyPack(PLAYER), account: useCobbleAccount(PLAYER), usdc: useUsdcBalance(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.packs.data).toEqual(PACKS));
+    await waitFor(() => expect(result.current.usdc.data).toBe(100n * USDC));
+    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(50));
+    await waitFor(() => expect(result.current.usdc.data).toBe(95n * USDC));
+  });
+
+  it("a skin bought with Cobbles is owned, then set active; one beyond the balance is refused", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ skins: useThemeSkins(PLAYER, 1), writes: useSkinWrites(PLAYER), buy: useBuyPack(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.skins.data?.prices).toEqual(SKIN_PRICES));
+    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(result.current.skins.data?.balance).toBe(50));
+    // Plan 13 costs 50 in Forest (the rarity table), plan 1 costs 100.
+    const short = await result.current.writes.buy(1, 1, 100).catch((e: unknown) => e);
+    expect(short).toBeInstanceOf(SkinRefusedError);
+    expect((short as SkinRefusedError).reason).toBe("not-enough-cobbles");
+    await act(() => result.current.writes.buy(1, 13, 50));
+    await waitFor(() => expect(result.current.skins.data?.balance).toBe(0));
+    expect(result.current.skins.data!.owned & (1 << 13)).toBe(1 << 13);
+    await act(() => result.current.writes.save([{ plan: 13, theme: 1 }]));
+    await waitFor(() => expect(result.current.skins.data?.active[12]).toBe(1));
+    expect(result.current.writes.saved).toBe(true);
+  });
+
+  it("a deposit in the Vault turns PAVED into vPAVED; withdraw all gives it back less the exit fee", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ position: useVaultPosition(PLAYER), paved: usePavedBalance(PLAYER), writes: useVaultWrites(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.paved.data).toBe(MOCK_STARTING_PAVED));
+    expect((await dataOf({ get current() { return result.current.position; } }))!.shares).toBe(0n);
+    expect(await act(() => result.current.writes.send({ kind: "deposit", amount: 100n * P }))).toBe(true);
+    const minted = (100n * P * (MOCK_VAULT.supply + 1n)) / (MOCK_VAULT.assets + 1n);
+    await waitFor(() => expect(result.current.position.data?.shares).toBe(minted));
+    await waitFor(() => expect(result.current.paved.data).toBe(MOCK_STARTING_PAVED - 100n * P));
+    const back = result.current.position.data!.maxWithdraw;
+    expect(back).toBeLessThan(100n * P);
+    expect(await act(() => result.current.writes.send({ kind: "withdrawAll", shares: minted, exitFeeBps: 500 }))).toBe(true);
+    await waitFor(() => expect(result.current.position.data?.shares).toBe(0n));
+    await waitFor(() => expect(result.current.paved.data).toBe(MOCK_STARTING_PAVED - 100n * P + back));
+  });
+});
+
+describe("the mock", () => {
+  it("keeps its state on the device: a new ledger on the same store reads the claims, the packs and the Vault", async () => {
+    const first = mockImplementation();
+    const writes = first.ledger.writesFor(PLAYER, { paved: async () => 0n, usdc: async () => 100n * USDC });
+    await writes.buyPack({ packId: 2, confirmedPrice: 9n * USDC, confirmedMinOut: 1n, referrer: null });
+    await writes.deposit(10n * P, { confirmedAmount: 10n * P });
+    expect(first.store.data.has(MOCK_KEY)).toBe(true);
+    const reloaded = new MockLedger({ store: () => first.store, seller: "0x3", latencyMs: 0 });
+    expect((await reloaded.account(PLAYER)).cobbles).toBe(100);
+    expect(await reloaded.usdcBalance(PLAYER, 100n * USDC)).toBe(91n * USDC);
+    expect((await reloaded.vault(PLAYER)).shares).toBeGreaterThan(0n);
+    expect((await reloaded.vault(PLAYER)).totalAssets).toBe(MOCK_VAULT.assets + 10n * P);
+    reloaded.reset();
+    expect((await new MockLedger({ store: () => first.store, seller: "0x3" }).account(PLAYER)).cobbles).toBe(0);
+  });
+
+  it("is deterministic: two fresh ledgers answer the same figures", async () => {
+    const [a, b] = [mockImplementation().ledger, mockImplementation().ledger];
+    for (const read of [(l: MockLedger) => l.vault(PLAYER), (l: MockLedger) => l.skinPrices(1), (l: MockLedger) => l.pack(4), (l: MockLedger) => l.account(PLAYER), (l: MockLedger) => l.split()]) {
+      expect(await read(a)).toEqual(await read(b));
+    }
+  });
+
+  it("refuses a write that the contract would revert, and leaves the ledger as it was", async () => {
+    const { ledger } = mockImplementation();
+    const writes = ledger.writesFor(PLAYER);
+    await expect(writes.deposit(MOCK_STARTING_PAVED + 1n, { confirmedAmount: MOCK_STARTING_PAVED + 1n })).rejects.toThrow(/PAVED/);
+    await expect(writes.setSkins([{ plan: 13, theme: 1 }])).rejects.toMatchObject({ reason: "not-owned" });
+    await expect(writes.buyPack({ packId: 5, confirmedPrice: 1n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/not on sale/);
+    // A batch of claims is atomic: the unknown quest refuses the whole batch, the first claim included.
+    ledger.definitions({ quests: [], achievements: [{ achievementId: 2, startTime: 0, endTime: 0, tasks: [{ taskId: 1, total: 1 }], points: 10, definedAt: 0, retired: false, retiredAt: null, cobbles: 0 }] });
+    await expect(writes.claim([{ kind: "achievement", achievementId: 2 }, { kind: "quest", questId: 99, period: TODAY }])).rejects.toMatchObject({ reason: "no-cobbles" });
+    expect(await ledger.account(PLAYER)).toMatchObject({ cobbles: 0, achievementsClaimed: 0n });
+  });
+
+  it("gives the definitions their Cobbles: the fresh table, else a daily's default; an indexer's own Cobbles stay", async () => {
+    const { sources, chain } = mockImplementation();
+    const definitions = (await sources.indexer.definitions()).data;
+    expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual([[1, 5, "daily"], [2, 10, "daily"], [3, 10, "daily"], [4, 10, "daily"]]);
+    expect(definitions.achievements.find((a) => a.achievementId === 4)?.cobbles).toBe(40);
+    chain.fixture.quests = [{ ...chain.fixture.quests[0], cobbles: 7, cobbles_kind: "daily" }];
+    expect((await sources.indexer.definitions()).data.quests[0]).toMatchObject({ cobbles: 7, cobblesKind: "daily" });
+  });
+
+  it("answers the referrals the indexer has no route for, without a request", async () => {
+    const { sources, chain } = mockImplementation();
+    const { result } = renderData(() => useReferralEarnings(PLAYER), sources);
+    expect(await dataOf(result)).toEqual({ total: 0n, games: { count: 0, total: 0n }, packs: { count: 0, total: 0n } });
+    expect(chain.fixture.requests.some((r) => r.includes("referrals"))).toBe(false);
+    expect(referralKey(PLAYER)[0]).toBe("indexer");
+  });
+
+  it("leaves the games, the entry price and the economy's quote to the chain", async () => {
+    const { sources, chain } = mockImplementation();
+    await sources.views.game({ mode: "challenge", gameId: 1_042 });
+    await sources.views.entryPrice();
+    await sources.economy!.quote(1);
+    expect(chain.views.calls).toEqual(["game challenge:1042", "entry_price"]);
+    expect(chain.economy.calls).toEqual(["quote 1"]);
+    await sources.views.spawnPaused();
+    await sources.economy!.split();
+    expect(chain.views.calls).not.toContain("spawn_paused");
+    expect(chain.economy.calls).not.toContain("split");
+  });
+
+  it("keeps the writer a PavedWriter, its other writes the chain's, and refuses the free spawn in plain words", async () => {
+    const { ledger } = mockImplementation();
+    const writer = Object.create(PavedWriter.prototype) as PavedWriter & { mint: () => Promise<string> };
+    Object.defineProperty(writer, "address", { value: PLAYER });
+    writer.mint = async function (this: unknown) {
+      return this === writer ? "chain" : "wrong this";
+    };
+    const signer = mockSigner(writer as unknown as GameSigner, ledger);
+    expect(signer instanceof PavedWriter).toBe(true);
+    expect(await (signer as unknown as { mint: () => Promise<string> }).mint()).toBe("chain");
+    await expect(signer.spawnFree()).rejects.toThrow(FREE_SPAWN_MOCKED);
+  });
+});
+
+describe("the switch", () => {
+  it("is VITE_DATA_SOURCE when it names one, else the network's default: the mock on Sepolia, the chain elsewhere", () => {
+    expect(dataSourceOf({ network: "sepolia" })).toBe("mock");
+    expect(dataSourceOf({ source: "chain", network: "sepolia" })).toBe("chain");
+    expect(dataSourceOf({ source: " Mock ", network: "devnet" })).toBe("mock");
+    expect(dataSourceOf({ network: "devnet" })).toBe("chain");
+    expect(dataSourceOf({ network: "mainnet" })).toBe("chain");
+    expect(dataSourceOf({ source: "both", network: "mainnet" })).toBe("chain");
+    expect(dataSourceOf({})).toBe("chain");
+  });
+
+  it("marks only pages of the route map", () => {
+    const paths = new Set(PAGES.map((p) => p.path));
+    for (const path of MOCKED_PAGES) expect(paths.has(path), path).toBe(true);
+    expect(MOCKED_PAGES.has("game/:gameId")).toBe(false);
+  });
+});

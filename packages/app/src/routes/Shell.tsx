@@ -1,6 +1,8 @@
 import { Suspense, useEffect } from "react";
 import { Outlet } from "react-router";
 import { AudioProvider } from "../components/containers/audio-provider";
+import { MockMarkProvider } from "../components/containers/mock-mark";
+import { MOCKED, MOCKED_PAGES } from "../data/data-source";
 import { useDeviceSettings } from "../data/settings";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
@@ -37,20 +39,23 @@ export function RootLayout() {
   return (
     // The audio engine is its own chunk and starts on the first gesture; the provider only carries the two volumes.
     <AudioProvider musicVolume={musicVolume} sfxVolume={sfxVolume}>
-      <HistoryTracker>
-        {/* A board shows no balances: it reads none (a board is the heaviest page, and its tests the most timing-bound). */}
-        {onBoard ? (
-          <Suspense fallback={bootScreen}>
-            <Outlet />
-          </Suspense>
-        ) : (
-          <BalancesHost>
+      {/* The "Mock data" mark of the headers of the pages the mock serves (MOCK-FIRST). */}
+      <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
+        <HistoryTracker>
+          {/* A board shows no balances: it reads none (a board is the heaviest page, and its tests the most timing-bound). */}
+          {onBoard ? (
             <Suspense fallback={bootScreen}>
               <Outlet />
             </Suspense>
-          </BalancesHost>
-        )}
-      </HistoryTracker>
+          ) : (
+            <BalancesHost>
+              <Suspense fallback={bootScreen}>
+                <Outlet />
+              </Suspense>
+            </BalancesHost>
+          )}
+        </HistoryTracker>
+      </MockMarkProvider>
     </AudioProvider>
   );
 }
