@@ -79,6 +79,15 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
   - `NODE_OPTIONS=--max-old-space-size=384 bun run test --filter @paved/game-core`
   - `NODE_OPTIONS=--max-old-space-size=448 bun run test --filter @paved/chain`
 
+## Mock data (MOCK-FIRST)
+
+- `VITE_DATA_SOURCE=mock|chain` (`src/data/data-source.ts`) is the one switch; unset, Sepolia is `mock`. `mock` serves only
+  the entry points the network's classes lack, from `MockLedger` (`src/data/mock/ledger.ts`) through the overlays of
+  `src/data/mock/overlay.ts`; everything else stays the chain's. Never add a second switch or a per-page mock.
+- A new read or write the deployed classes lack: add it to `MockedReads` or `MockedWrites`, implement it in `MockLedger`
+  with the contract's checks and receipt events, list it in the overlay, and add its flow to the parity tests of
+  `__tests__/data-mock.test.tsx` (the same hook on `chain` and `mock`).
+
 ## Writes (not in the app yet)
 
 P5, P7 and P10 add them. They go through `@paved/chain`'s writers (`PavedWriter` in `packages/chain/src/writer.ts`,

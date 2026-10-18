@@ -16,7 +16,7 @@ import { useAchievementRewards, useClaims, useCobbleAccount, useQuestRewards } f
 import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/chain";
 import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
 import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger } from "../src/data/mock/ledger";
-import { FREE_SPAWN_MOCKED, mockEconomyViews, mockGameViews, mockIndexer, mockPurchases, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
+import { FREE_SPAWN_MOCKED, mockSigner } from "../src/data/mock/overlay";
 import { useBuyPack, usePacks } from "../src/data/purchase";
 import { referralKey, useReferralEarnings } from "../src/data/referral";
 import { useSkinWrites, useThemeSkins } from "../src/data/skins";
@@ -24,7 +24,8 @@ import { useVaultWrites } from "../src/data/vault";
 import type { Purchases, VaultWrites } from "../src/data/sources";
 import { PACKS, SKIN_PRICES } from "../src/mocks/cobbles";
 import { PAGES } from "../src/routes/pages";
-import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
+import { dataOf, fakeSources, renderData } from "./data-fakes";
+import { mockImplementation } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 
 // The mock data layer (#549, MOCK-FIRST): the same hooks, through the same `DataSources`, on the two implementations of the
@@ -110,35 +111,6 @@ function chainImplementation() {
   const writes = chainWrites(views, economy);
   const sources: DataSources = { ...f.sources, signer, purchases: () => writes.purchases, vault: () => writes.vault };
   return { sources };
-}
-
-/** Sepolia's chain: no Cobbles on the indexer's definitions, none of the ledger, the packs, the skins or the Vault on chain. */
-function sepoliaChain() {
-  const f = fakeSources();
-  const strip = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "cobbles" && k !== "cobbles_kind"));
-  f.fixture.quests = f.fixture.quests.map(strip);
-  f.fixture.achievements = f.fixture.achievements.map(strip);
-  // The chain's tokens: USDC from the faucet, no PAVED yet.
-  f.economy.setBalance("usdc", PLAYER, 100n * USDC);
-  return f;
-}
-
-/** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */
-function mockImplementation(store = memoryStore()) {
-  const f = sepoliaChain();
-  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
-  const chainBalances = { paved: () => f.economy.pavedBalance(PLAYER), usdc: () => f.economy.usdcBalance(PLAYER) };
-  const chainPurchases: Purchases = { purchase: () => Promise.reject(new WriteError("not in this test")), buyPack: () => Promise.reject(new WriteError("no buy_pack on this class")), referrer: async () => null, receipt: async () => "unknown" };
-  const sources: DataSources = {
-    ...f.sources,
-    views: mockGameViews(f.views, ledger),
-    economy: mockEconomyViews(f.economy, ledger),
-    indexer: mockIndexer(f.indexer, ledger),
-    signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
-    purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address, chainBalances),
-    vault: (signer) => mockVaultWrites(ledger, signer.address, chainBalances),
-  };
-  return { sources, ledger, store, chain: f };
 }
 
 const IMPLEMENTATIONS = [
