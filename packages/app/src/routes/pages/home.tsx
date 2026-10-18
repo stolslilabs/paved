@@ -55,8 +55,6 @@ export default function Page() {
         player: { playerId: address, name: wallet.username, created: null },
         stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
         today: null,
-        usdc: 0n,
-        paved: 0n,
       })
     : null;
 

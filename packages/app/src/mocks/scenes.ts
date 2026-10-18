@@ -66,7 +66,7 @@ export const LOADING = {
 
 // Home
 
-export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS, today: VIEWER_TODAY, usdc: BALANCE_RICH, paved: PAVED_BALANCE };
+export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS, today: VIEWER_TODAY };
 
 const activeGame = GAME_PLAYING;
 
@@ -88,7 +88,7 @@ export const HOME = {
   freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 }, free: [LEADERBOARD_TODAY.entries[1].playerId] },
   /** WRAP360: the longest username, the widest balances and scores, a podium of long names and a full address. */
   stress: {
-    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3], usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18 },
+    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3] },
     leaderboard: { ...LEADERBOARD_TODAY, entries: STRESS_ENTRIES.slice(0, 3) },
     activeGame: { ...activeGame, id: BIG_NUMBER, score: BIG_SCORE },
     training: { score: BIG_SCORE, remaining: 99 },

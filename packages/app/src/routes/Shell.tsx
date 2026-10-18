@@ -2,6 +2,7 @@ import { Suspense, useEffect } from "react";
 import { Outlet } from "react-router";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
+import { BalancesHost } from "./balances-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
 
@@ -32,9 +33,11 @@ export function RootLayout() {
   }, [onBoard]);
   return (
     <HistoryTracker>
-      <Suspense fallback={bootScreen}>
-        <Outlet />
-      </Suspense>
+      <BalancesHost>
+        <Suspense fallback={bootScreen}>
+          <Outlet />
+        </Suspense>
+      </BalancesHost>
     </HistoryTracker>
   );
 }

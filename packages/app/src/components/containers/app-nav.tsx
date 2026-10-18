@@ -2,6 +2,7 @@ import * as m from "motion/react-m";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
+import { BalancesSlot } from "./balances-context";
 
 /** The five destinations of section 6.1, Home · Ranks · Quests · Vault · Settings (the route map's `TABS`, with icons). */
 export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
@@ -63,6 +64,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
           </button>
         );
       })}
+      {/* From `desktop`, the three balances close the rail (#538); below it the pages' headers carry the pill. */}
+      <BalancesSlot layout="rail" className="mt-auto" />
     </nav>
   );
 }

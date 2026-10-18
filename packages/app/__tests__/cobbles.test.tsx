@@ -333,9 +333,10 @@ describe("Achievements: Cobbles", () => {
 });
 
 describe("Home, Play and Leaderboard: Cobbles", () => {
-  it("shows the balance on Home", () => {
+  it("keeps the free-game card on Home, with no day or Daily wording", () => {
     render(wrap(<HomeScene {...HOME.cobbles} />));
-    expect(screen.getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
+    expect(screen.queryByText(/^Day \d+/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Daily")).not.toBeInTheDocument();
     expect(screen.queryByText("Free game")).not.toBeInTheDocument();
   });
 

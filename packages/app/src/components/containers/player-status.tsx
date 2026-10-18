@@ -2,7 +2,6 @@ import type { IndexedPlayer, LeaderboardEntry, PlayerStats } from "@paved/chain"
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
-import { Amount } from "../elements/amount";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
@@ -12,10 +11,6 @@ export interface PlayerStatusData {
   stats: PlayerStats;
   /** The viewer's row on today's leaderboard; null before their first finished game of the day. */
   today: LeaderboardEntry | null;
-  /** USDC base units (`balance_of`). */
-  usdc: bigint;
-  /** PAVED base units, shown as PAVED. */
-  paved: bigint;
 }
 
 export interface PlayerStatusProps {
@@ -64,19 +59,12 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
           </span>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         <Figure label="Today's rank">
           <span className="numeric font-semibold">{today ? `#${today.rank}` : "–"}</span>
         </Figure>
         <Figure label="Today's best">
           <span className="numeric font-semibold">{today ? formatPoints(today.bestScore) : "–"}</span>
-        </Figure>
-        {/* Under 360 px a balance takes the whole row: half of a 320 px card is narrower than a large amount (WRAP360). */}
-        <Figure label="USDC" className="col-span-2 mobile:col-span-1">
-          <Amount value={data.usdc} token="usdc" />
-        </Figure>
-        <Figure label="PAVED" className="col-span-2 mobile:col-span-1">
-          <Amount value={data.paved} token="paved" />
         </Figure>
       </div>
     </div>
