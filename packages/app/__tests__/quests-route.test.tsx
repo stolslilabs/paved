@@ -162,7 +162,8 @@ describe("/quests/:day? (P9)", () => {
     s.views.cobblesFail = new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
     open("/quests", s);
     expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByText(NOT_AVAILABLE_MESSAGE)).toBeInTheDocument();
+    expect(await screen.findByText("Rewards unavailable")).toBeInTheDocument();
+    expect((await screen.findAllByText(NOT_AVAILABLE_MESSAGE)).length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
   });
 
