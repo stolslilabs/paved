@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { MockMarkSlot } from "./mock-mark";
 
 export interface TopBarProps {
   title?: ReactNode;
@@ -24,7 +25,10 @@ export function TopBar({ title, onBack, end, className }: TopBarProps) {
           </Button>
         )}
       </span>
-      <h1 className="text-center font-display text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
+      <span className="flex flex-col items-center gap-0.5">
+        <h1 className="text-center font-display text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
+        <MockMarkSlot />
+      </span>
       <span className="flex min-w-12 justify-end">{end}</span>
     </header>
   );
