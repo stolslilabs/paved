@@ -260,13 +260,13 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true, showSkins: true };
+export const PREFERENCES: Preferences = { quality: "high", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
-  connected: { preferences: PREFERENCES, showMusic: true, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "forest", autoQuality: "medium", version: "0.1.0" },
-  guest: { showMusic: true, preferences: { ...PREFERENCES, quality: "auto", sound: false, showSkins: false }, account: null, theme: "forest", version: "0.1.0" },
+  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "forest", autoQuality: "medium", version: "0.1.0" },
+  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, theme: "forest", version: "0.1.0" },
   /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
-  stress: { preferences: PREFERENCES, showMusic: true, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
+  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
 const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: originalTileArt(SOURCE_ASSETS) } as const;

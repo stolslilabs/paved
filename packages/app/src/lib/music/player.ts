@@ -1,9 +1,9 @@
 import { createShuffle, trackTitle } from "./tracks";
 
 // The music player (P-81), without React: a playlist streamed by two `<audio>` elements that crossfade, paused while the tab
-// is hidden, and silent until the first user gesture. Two elements and their `volume`, no Web Audio graph: the fade needs
-// nothing more. (iOS Safari keeps `volume` at 1 on a media element: there the fade is a cut and the volume slider has no
-// effect; a Web Audio graph would fix both and is not worth its weight until that is asked for.)
+// is hidden, and silent until the first user gesture. The levels (the fade, the volume) are written through `route`: by default
+// the element's own `volume`; the audio engine (`lib/audio/engine.ts`) routes each element into a Web Audio `GainNode`, because
+// iOS Safari keeps `volume` at 1 on a media element and a slider would do nothing there.
 
 /** The crossfade between two tracks, in seconds: the next one starts this long before the current one ends. */
 export const CROSSFADE_S = 2;
@@ -38,6 +38,8 @@ export interface MusicOptions {
   random?: () => number;
   doc?: Document;
   createAudio?: () => HTMLAudioElement;
+  /** Takes over an element's level: returns the function that sets it (0 to 1). Default: the element's `volume`. */
+  route?: (a: HTMLAudioElement) => (level: number) => void;
 }
 
 export interface MusicPlayer {
@@ -68,10 +70,18 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
 
   // `preload="none"`, no `src`: nothing is requested until the first gesture says so.
   const elements = [make(), make()] as const;
+  const setters = elements.map((a) => options.route?.(a) ?? ((v: number) => void (a.volume = v)));
+  const levels = [0, 0];
+  const setLevel = (a: HTMLAudioElement, v: number) => {
+    const i = elements.indexOf(a);
+    levels[i] = v;
+    setters[i]!(v);
+  };
+  const levelOf = (a: HTMLAudioElement) => levels[elements.indexOf(a)]!;
   for (const a of elements) {
     a.preload = "none";
     a.loop = false;
-    a.volume = 0;
+    setLevel(a, 0);
   }
 
   let enabled = options.enabled;
@@ -127,7 +137,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
       index = next();
       load(cur(), index);
     }
-    cur().volume = fading ? cur().volume : volume;
+    setLevel(cur(), fading ? levelOf(cur()) : volume);
     play(cur());
     if (fading) play(other());
     tick();
@@ -146,7 +156,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     const i = next();
     const a = other();
     load(a, i);
-    a.volume = 0;
+    setLevel(a, 0);
     fading = true;
     play(a);
     pendingIndex = i;
@@ -161,7 +171,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     index = pendingIndex;
     pendingIndex = null;
     fading = false;
-    cur().volume = volume;
+    setLevel(cur(), volume);
   };
 
   function tick() {
@@ -177,8 +187,8 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
       const t = clamp01(1 - left / CROSSFADE_S);
       if (a.ended || left <= 0) finishFade();
       else {
-        a.volume = volume * (1 - t);
-        other().volume = volume * t;
+        setLevel(a, volume * (1 - t));
+        setLevel(other(), volume * t);
       }
     }
     emit();
@@ -231,7 +241,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     },
     setVolume(v) {
       volume = clamp01(v);
-      if (!fading) cur().volume = volume;
+      if (!fading) setLevel(cur(), volume);
       emit();
     },
     skip() {

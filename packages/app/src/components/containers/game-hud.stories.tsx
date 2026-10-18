@@ -8,7 +8,7 @@ const meta = {
   title: "Containers/GameHud",
   component: GameHud,
   parameters: { layout: "padded" },
-  args: { title: "Challenge #1042", score: 1270, remaining: 12, expiresAt: MOCK_NOW + 19 * 3600, now: MOCK_NOW, onBack: fn() },
+  args: { title: "Challenge #1042", score: 1270, remaining: 12, expiresAt: MOCK_NOW + 19 * 3600, now: MOCK_NOW, onBack: fn(), onSettings: fn() },
   decorators: [(Story) => <div className="max-w-2xl"><Story /></div>],
 } satisfies Meta<typeof GameHud>;
 export default meta;
