@@ -9,7 +9,7 @@
  * an even number of times: an odd count is an inconsistent entry, a column the voxelizer cannot tell inside from outside.
  * A stray vertex (a ramp across the tile) shows as a diagonal run of odd columns; a snap of such a vertex to the nearest grid
  * point does not clear them, the vertex has to go where the mesh around it says (`sfrfrfffr`, fixed in P-78).
- * The sweep reads the 19 base models and the 72 Forest ones, from `asset-sources/` and from the shipped copies in
+ * The sweep reads the 19 base models and the 144 Forest ones, from `asset-sources/` and from the shipped copies in
  * `public/renderer-assets/models/` (decoded: meshopt, quantization, Draco), and exits 1 when any column is inconsistent.
  */
 import { readFileSync, readdirSync } from "node:fs";
