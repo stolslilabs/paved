@@ -1,3 +1,4 @@
+import { DEFAULT_PLACEMENT_SETTINGS } from "../src/core/placement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { Plan, getPlanKey } from "@paved/game-core";
@@ -317,14 +318,20 @@ describe("the ghost while its model loads", () => {
     expect((s.tiles as any).previewKey).toMatch(/-quad$/);
     expect(quad.position.y).toBeCloseTo(PLACEHOLDER_HEIGHT);
     expect(quad.rotation.y).toBeCloseTo(Math.PI / 2);
-    // The plan's own material, shared: the ghost makes none (SLOTS), and nothing lies over it (PLATES: no veil).
+    // The plan's own material, copied once and tinted translucent (pending feedback does not wait for the model); the
+    // copy is the tiles renderer's, one per plan material, and the shared one is untouched.
     const shared = (s.tiles as any).placeholderTypes.get(keyOf(5)).material as THREE.MeshStandardMaterial;
-    expect(quad.material).toBe(shared);
-    expect(ghost(s)!.children).toHaveLength(1);
+    const tinted = quad.material as THREE.MeshStandardMaterial;
+    expect(tinted).not.toBe(shared);
+    expect(tinted.transparent).toBe(true);
+    expect(shared.transparent).toBe(false);
+    expect(tinted.customProgramCacheKey()).toBe("paved-quad-ghost");
+    expect((s.tiles as any).ghostMaterials.hand.get(shared)).toBe(tinted);
 
-    // Placed where the rotation does not fit: its tint turns red (the fallback).
+    // Placed where the rotation does not fit: its tint turns red (the fallback), on the quad too.
     s.setHoveredTile(hover(5, { orientation: 4, valid: false, placed: true }));
     expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "red" });
+    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.redOpacity, 6);
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();

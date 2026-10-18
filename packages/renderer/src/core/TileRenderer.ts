@@ -1066,12 +1066,12 @@ export class TileRenderer {
   /**
    * A tile material as the ghost draws it (FEATURE-HL with SLOTS): the type's own, with its water, but the feature
    * highlight held off (`uFeatureOn` 0), so the tile in hand is neither lit nor dimmed. One copy per type
-   * material, owned here; the same program (`paved-tile`), so no recompile. A material with no tile patch (the
-   * placeholder quad's) is the type's own.
+   * material and role, owned here, tinted and translucent. A material with no tile patch (the placeholder quad's) is
+   * copied and tinted alike, so the feedback does not wait for the model.
    */
   private ghostMaterial(material: THREE.MeshStandardMaterial, role: GhostRole): THREE.MeshStandardMaterial {
-    const patch = material.onBeforeCompile;
-    if (material.customProgramCacheKey() !== "paved-tile") return material;
+    // A tile's material carries the tile patch (water, highlight); the placeholder quad's has none, and is only tinted.
+    const patch = material.customProgramCacheKey() === "paved-tile" ? material.onBeforeCompile : null;
     const cache = this.ghostMaterials[role];
     let ghost = cache.get(material);
     if (!ghost) {
@@ -1087,9 +1087,11 @@ export class TileRenderer {
       }
       // `Material.copy` leaves the shader patch out: the ghost's runs it, then holds the highlight off and tints.
       ghost.onBeforeCompile = (shader, renderer) => {
-        patch.call(material, shader, renderer);
-        shader.uniforms.uFeatureOn = GHOST_FEATURE_OFF;
-        shader.uniforms.uNightOn = GHOST_FEATURE_OFF;
+        if (patch) {
+          patch.call(material, shader, renderer);
+          shader.uniforms.uFeatureOn = GHOST_FEATURE_OFF;
+          shader.uniforms.uNightOn = GHOST_FEATURE_OFF;
+        }
         shader.uniforms.uTintColor = look.color;
         shader.uniforms.uTintMix = look.mix;
         shader.uniforms.uGhostAlpha = look.alpha;
@@ -1098,7 +1100,8 @@ export class TileRenderer {
           "gl_FragColor.rgb = mix(gl_FragColor.rgb, uTintColor, uTintMix);\n  gl_FragColor.a *= uGhostAlpha;\n  #include <tonemapping_fragment>",
         )}`;
       };
-      ghost.customProgramCacheKey = () => "paved-tile-ghost";
+      const programKey = patch ? "paved-tile-ghost" : "paved-quad-ghost";
+      ghost.customProgramCacheKey = () => programKey;
       cache.set(material, ghost);
     }
     return ghost;
@@ -1135,7 +1138,8 @@ export class TileRenderer {
     if (!state) return;
     const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
     const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
-    const model = planModel !== null ? this.ghostModel(state.planIndex, state.orientation, planModel, "confirm") : null;
+    // Its placeholder quad while the model loads, tinted as the model is.
+    const model = this.ghostModel(state.planIndex, state.orientation, planModel, "confirm");
     if (!model) return;
     const container = new THREE.Group();
     container.add(model);

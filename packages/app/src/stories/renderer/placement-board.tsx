@@ -112,6 +112,9 @@ export function placementArgTypes(): Record<string, object> {
         "plates.radius": range(0, 20, 0.5),
     invalidOpacity: range(0, 1, 0.01),
     colorMs: range(0, 1000, 10),
+    hoverMs: range(0, 1000, 10),
+    pendingMs: range(0, 1000, 10),
+    redMs: range(0, 1000, 10),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };

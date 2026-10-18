@@ -72,6 +72,7 @@ export {
   gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
+  tintEaseMs,
   tintForKind,
   tintKindOf,
   plateShapeOf,

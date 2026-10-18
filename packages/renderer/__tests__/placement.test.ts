@@ -12,6 +12,7 @@ import {
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
+  tintEaseMs,
   tintForKind,
   tintKindOf,
   plateShapeOf,
@@ -392,6 +393,23 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.dispose();
   });
 
+  it("eases into each look over its own time: hoverMs, pendingMs, redMs", () => {
+    const placement = new PlacementRenderer();
+    placement.setSettings(resolvePlacementSettings({ tints: { pendingMs: 400, redMs: 40 } }));
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
+    // 200 ms of a 400 ms ease: halfway.
+    expect(placement.ghostTint(1200)[4]).toBeCloseTo(0.7, 6);
+    expect(placement.update(1399).animating).toBe(true);
+    expect(placement.ghostTint(1400)[4]).toBeCloseTo(0.9, 9);
+    placement.setGhost({ x: 1, y: 0, kind: "red" }, 2000);
+    expect(placement.ghostTint(2040)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.redOpacity, 9);
+    // The default eases are the 150 ms of before.
+    expect(DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs).toBe(150);
+    expect(tintEaseMs("hover", DEFAULT_PLACEMENT_SETTINGS.tints)).toBe(150);
+    placement.dispose();
+  });
+
   it("is instant under reduced motion", () => {
     const placement = new PlacementRenderer();
     placement.setReducedMotion(true);
@@ -587,6 +605,15 @@ describe("the tile renderer's ghost", () => {
     expect(spy.mock.calls[1]![0]).toBeNull();
     expect(placementOf(tiles).isConfirming()).toBe(false);
     expect((tiles as any).confirmContainer).toBeNull();
+    tiles.dispose();
+  });
+
+  it("confirms on the placeholder quad while the model is not in: the overlay is tinted too", () => {
+    const assets = { ...fakeAssets(), has: () => false };
+    const tiles = new TileRenderer(assets as any);
+    (tiles as any).modelOf = () => null;
+    tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
+    expect((tiles as any).confirmContainer).not.toBeNull();
     tiles.dispose();
   });
 

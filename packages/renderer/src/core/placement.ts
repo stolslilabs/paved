@@ -26,17 +26,24 @@ export interface PlacementSettings {
     hoverColor: string;
     hoverStrength: number;
     hoverOpacity: number;
+    /** The ease into the hover look, ms (under reduced motion: at once). */
+    hoverMs: number;
     pendingColor: string;
     pendingStrength: number;
     pendingOpacity: number;
+    /** The ease into the pending look, ms. */
+    pendingMs: number;
     /** The confirm: the tint at its start, fading to none; the opacity is the overlay's at its start. */
     confirmColor: string;
     confirmStrength: number;
     confirmOpacity: number;
+    /** (The confirm's ease is its fade: `motion.confirmMs`.) */
     /** The fallback for a rotation that does not fit (to remove with #544). */
     redColor: string;
     redStrength: number;
     redOpacity: number;
+    /** The ease into the red look, ms. */
+    redMs: number;
   };
   grid: {
     enabled: boolean;
@@ -68,7 +75,7 @@ export interface PlacementSettings {
     hideUnderTile: boolean;
   };
   motion: {
-    /** A change of state (a rotation, a slot chosen, a tint to another), ms. */
+    /** A change of a plate's state (a rotation, a slot chosen), ms; the tile's tints have their own (`tints.*Ms`). */
     colorMs: number;
     /** The confirm's green tint fading out, ms. */
     confirmMs: number;
@@ -90,15 +97,18 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     hoverColor: "#4f8dff",
     hoverStrength: 0.45,
     hoverOpacity: 0.5,
+    hoverMs: 150,
     pendingColor: "#f0bf5b",
     pendingStrength: 0.4,
     pendingOpacity: 0.9,
+    pendingMs: 150,
     confirmColor: "#6eca6f",
     confirmStrength: 0.6,
     confirmOpacity: 1,
     redColor: "#f85e4d",
     redStrength: 0.5,
     redOpacity: 0.9,
+    redMs: 150,
   },
   grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
   plates: { enabled: true, gap: 4, radius: 3, opacity: 0.6, invalidOpacity: 0.25, hideUnderTile: true },
@@ -248,6 +258,11 @@ const tintOf = (color: string, strength: number, opacity: number): GhostTint => 
 };
 
 const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
+
+/** The ease into a state's look, ms (`tints.*Ms`). */
+export function tintEaseMs(kind: TintKind, tints: PlacementSettings["tints"]): number {
+  return kind === "hover" ? tints.hoverMs : kind === "pending" ? tints.pendingMs : tints.redMs;
+}
 
 /** The tint of a state, from the settings. */
 export function tintForKind(kind: TintKind, tints: PlacementSettings["tints"]): GhostTint {
@@ -423,7 +438,7 @@ export class PlacementRenderer {
   /** The tile in hand's cell and look; null with no tile drawn on the board. */
   private ghost: { x: number; y: number; kind: TintKind } | null = null;
   /** The tint eases from `from` to `to` (five numbers: rgb, strength, opacity) since `since`. */
-  private tint = { from: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), to: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), since: Number.NEGATIVE_INFINITY };
+  private tint = { from: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), to: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), since: Number.NEGATIVE_INFINITY, ms: DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs };
   private confirm: { x: number; y: number; since: number } | null = null;
   /** The instances must be written again (a change not yet drawn). */
   private dirty = false;
@@ -532,6 +547,8 @@ export class PlacementRenderer {
       this.tint.from = before ? this.ghostTint(now) : to.slice();
       this.tint.to = to;
       this.tint.since = now;
+      // Each look has its own ease: the one it eases into.
+      this.tint.ms = tintEaseMs(ghost.kind, this.settings.tints);
     }
     this.syncPlates(now);
   }
@@ -541,9 +558,13 @@ export class PlacementRenderer {
     return this.ghost;
   }
 
+  private tintProgress(now: number): number {
+    return Number.isFinite(now) ? colorProgress(now - this.tint.since, { ...this.settings.motion, colorMs: this.tint.ms }, this.reduced) : 1;
+  }
+
   /** The tile in hand's tint at `now` (NaN: its target), eased; the last one while no tile is drawn. */
   ghostTint(now: number = performance.now()): number[] {
-    const t = Number.isFinite(now) ? colorProgress(now - this.tint.since, this.settings.motion, this.reduced) : 1;
+    const t = this.tintProgress(now);
     return this.tint.from.map((v, i) => v + (this.tint.to[i]! - v) * t);
   }
 
@@ -713,7 +734,7 @@ export class PlacementRenderer {
         this.dirty = true;
       }
     }
-    if (colorProgress(now - this.tint.since, this.settings.motion, this.reduced) < 1) animating = true;
+    if (this.tintProgress(now) < 1) animating = true;
     if (this.confirm) {
       // One more frame after the end draws it gone.
       animating = true;
