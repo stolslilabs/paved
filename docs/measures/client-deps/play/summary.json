@@ -3,7 +3,6 @@
  "machine": {
   "model": "the Mac",
   "chip": "the Mac's GPU",
-  "cpuCores": 12,
   "memoryGiB": null,
   "macOS": "macOS",
   "chrome": "154.0.8037.98",
