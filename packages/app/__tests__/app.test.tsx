@@ -27,7 +27,8 @@ describe("app", () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(nav.querySelectorAll("button")).toHaveLength(5);
+    // The five tabs are the nav's own buttons; the rail's Balances section (its Connect, its rows) comes after them.
+    expect(nav.querySelectorAll(":scope > button")).toHaveLength(5);
     for (const label of ["Home", "Ranks", "Quests", "Vault", "Settings"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
