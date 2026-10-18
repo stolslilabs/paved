@@ -407,6 +407,17 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.dispose();
   });
 
+  it("a tick past the end of an ease still asks for the frame that draws the final tint", () => {
+    const placement = new PlacementRenderer();
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    placement.update(0);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
+    // The next tick comes late, after the 150 ms ease: one frame follows, then none.
+    expect(placement.update(1000 + motion.colorMs * 10).animating).toBe(true);
+    expect(placement.update(1000 + motion.colorMs * 10 + 16).animating).toBe(false);
+    placement.dispose();
+  });
+
   it("is instant under reduced motion", () => {
     const placement = new PlacementRenderer();
     placement.setReducedMotion(true);

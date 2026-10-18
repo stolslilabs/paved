@@ -341,6 +341,28 @@ describe("the ghost while its model loads", () => {
   });
 });
 
+describe("the confirm while its model loads", () => {
+  it("overlays the quad, then the model once it is in", async () => {
+    const { s, at } = await boardWithOneTile();
+    s.setConfirmedTile(hover(5, { orientation: 4, placed: true, key: 7 }));
+    const tiles = s.tiles as any;
+    expect(tiles.confirmPlaceholder).toBe(true);
+    const before = tiles.confirmContainer;
+    expect(before).not.toBeNull();
+    expect(before.children[0].userData.placeholder ?? quadOf(before.children[0]!)).toBeTruthy();
+
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    // The model arrived: the overlay is rebuilt on it, tinted, with no restart of the fade.
+    expect(tiles.confirmPlaceholder).toBe(false);
+    expect(tiles.confirmContainer).not.toBeNull();
+    expect(tiles.confirmContainer).not.toBe(before);
+    expect(s.tiles.placement ?? tiles.placement).toBeDefined();
+    expect(tiles.placement.isConfirming()).toBe(true);
+    s.dispose();
+  });
+});
+
 describe("a live switch of skins", () => {
   const variants = (plan: number) => [1, 2, 3].map((n) => `models/forest/${keyOf(plan)}_HF_${n}.0123456789.glb`);
   const manifest: AssetManifest = { models: {}, themes: { "1": { [keyOf(9)]: variants(9), [keyOf(5)]: variants(5) } } };

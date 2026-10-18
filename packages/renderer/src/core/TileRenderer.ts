@@ -194,6 +194,9 @@ export class TileRenderer {
   private previewKey: string | null = null;
   /** The confirm's key (`setConfirmed`): the same confirm given again does not start over. */
   private confirmKey: string | null = null;
+  /** The confirm being drawn, and whether its overlay is the placeholder quad (its model not in yet). */
+  private confirmState: (HoverState & { key?: string | number }) | null = null;
+  private confirmPlaceholder = false;
   /** The placement visuals: the grid, the plates (drawn in `emptyGroup`), and the tile in hand's tint states and timing. */
   private placement: PlacementRenderer;
   /** The last hover given: drawn again when its model comes in (`refreshHover`). */
@@ -441,7 +444,17 @@ export class TileRenderer {
   refreshHover(): boolean {
     const before = this.previewKey;
     if (this.hoverState) this.setHover(this.hoverState);
-    return this.previewKey !== before;
+    return this.previewKey !== before || this.refreshConfirm();
+  }
+
+  /** The confirm's overlay, drawn on the placeholder quad, becomes the model's once it is in; true when it did. */
+  private refreshConfirm(): boolean {
+    const state = this.confirmState;
+    if (!state || !this.confirmPlaceholder || !this.placement.isConfirming()) return false;
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    if (this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId) === null) return false;
+    this.buildConfirmOverlay(state, now());
+    return true;
   }
 
   /** The pending (translucent, blue glow) variant of a tile material, one per source material. */
@@ -1131,12 +1144,19 @@ export class TileRenderer {
     const key = state ? `${state.key ?? ""}:${state.x},${state.y}:${state.planIndex}:${state.orientation}` : null;
     if (key === this.confirmKey) return;
     this.confirmKey = key;
+    this.confirmState = state;
     this.clearConfirmOverlay();
     const t = now();
     this.placement.startConfirm(state && { x: state.x, y: state.y }, t);
     if (!state) return;
+    this.buildConfirmOverlay(state, t);
+  }
+
+  private buildConfirmOverlay(state: HoverState & { key?: string | number }, t: number): void {
+    this.clearConfirmOverlay();
     const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
     const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
+    this.confirmPlaceholder = planModel === null;
     // Its placeholder quad while the model loads, tinted as the model is.
     const model = this.ghostModel(state.planIndex, state.orientation, planModel, "confirm");
     if (!model) return;
@@ -1238,6 +1258,7 @@ export class TileRenderer {
     this.previewContainer = null;
     this.previewKey = null;
     this.confirmKey = null;
+    this.confirmState = null;
     this.confirmContainer = null;
     this.hoverState = null;
     this.placement.dispose();

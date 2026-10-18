@@ -426,6 +426,8 @@ export class PlacementRenderer {
   /** The tile in hand's cell and look; null with no tile drawn on the board. */
   private ghost: { x: number; y: number; kind: TintKind } | null = null;
   /** The tint eases from `from` to `to` (five numbers: rgb, strength, opacity) since `since`. */
+  /** The tint's final look has been drawn (a frame follows the tick that reached it). */
+  private tintDrawn = true;
   private tint = { from: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), to: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), since: Number.NEGATIVE_INFINITY, ms: DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs };
   private confirm: { x: number; y: number; since: number } | null = null;
   /** The instances must be written again (a change not yet drawn). */
@@ -535,6 +537,8 @@ export class PlacementRenderer {
       this.tint.from = before ? this.ghostTint(now) : to.slice();
       this.tint.to = to;
       this.tint.since = now;
+      // Instant under reduced motion: drawn with the change itself.
+      this.tintDrawn = this.reduced;
       // Each look has its own ease: the one it eases into.
       this.tint.ms = tintEaseMs(ghost.kind, this.settings.tints);
     }
@@ -722,7 +726,14 @@ export class PlacementRenderer {
         this.dirty = true;
       }
     }
-    if (this.tintProgress(now) < 1) animating = true;
+    if (this.tintProgress(now) < 1) {
+      animating = true;
+      this.tintDrawn = false;
+    } else if (!this.tintDrawn) {
+      // Reached after its end (a late tick): one more frame draws the final tint.
+      animating = true;
+      this.tintDrawn = true;
+    }
     if (this.confirm) {
       // One more frame after the end draws it gone.
       animating = true;
