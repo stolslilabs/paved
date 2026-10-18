@@ -4,7 +4,7 @@ import type { PlayerStatusData } from "../../components/containers/player-status
 import { HomeScene } from "../../components/scenes/home-scene";
 import { useActiveGame, useCurrentDay, useSpawnPaused } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
-import { usePlayFree } from "../../data/play-free";
+import { freeGameMessage, usePlayFree } from "../../data/play-free";
 import { usePlayerStatus, useTopThree } from "../../data/indexer";
 import { useTrainingSave } from "../../data/training-save";
 import { useAccount } from "../../wallet/wallet";
@@ -46,7 +46,7 @@ export default function Page() {
     free
       .spend()
       .then((id) => id !== null && go(`/game/${id}`))
-      .catch((e: unknown) => toastError({ title: "The free game did not start", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }));
+      .catch((e: unknown) => toastError({ title: "The free game did not start", message: freeGameMessage(e), detail: errorDetail(e) }));
   };
 
   // A connected player the indexer has not answered for yet (or cannot) is shown by their address, with zero figures.

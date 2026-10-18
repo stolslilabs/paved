@@ -15,11 +15,11 @@ import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useTabNavigate } from "../ref";
 
-/** `/quests/:day?` with a day number; anything else is today. */
+/** `/missions/:day?` with a day number; anything else is today. */
 const dayParam = (raw: string | undefined): number | null => (raw !== undefined && /^\d{1,12}$/.test(raw) ? Number(raw) : null);
 
 /**
- * `/quests/:day?` (P9): the day's quests from the indexer (`usePlayerQuests`, with each quest's schedule), their Cobbles and
+ * `/missions/:day?` (P9): the day's quests from the indexer (`usePlayerQuests`, with each quest's schedule), their Cobbles and
  * free games from `Setup`'s ledger (`useQuestRewards`), on the indexer's clock (`useIndexerNow`): today is its day. Claim,
  * Claim all (one multicall) and the day's and the week's free game go through the signer; after a receipt the cache follows
  * its events (`useClaims`). A past day's Cobbles stay claimable. The player is the signer's address: without a signer the
@@ -100,11 +100,11 @@ export default function Page() {
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming } : null}
       canClaim={claims.claimer !== null}
       toasts={toasts}
-      onDayChange={(d) => go(d === today ? "/quests" : `/quests/${d}`)}
+      onDayChange={(d) => go(d === today ? "/missions" : `/missions/${d}`)}
       onClaim={claimQuest}
       onClaimAll={claimAll}
       onClaimCredit={claimCredit}
-      onTab={(tab) => go(tab === "achievements" ? "/achievements" : "/quests")}
+      onTab={(tab) => go(tab === "achievements" ? "/missions/lifetime" : "/missions")}
       onConnect={() => go("/welcome")}
       onRetry={retry}
       onNavigate={onNavigate}

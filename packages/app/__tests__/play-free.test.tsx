@@ -14,7 +14,7 @@ import { fakeSources } from "./data-fakes";
 import { errorToastTexts, preloadPages } from "./route-helpers";
 import { FakeFreeSpawner, freeWallet } from "./free-fakes";
 
-// "Play free" on / and /play, and the earlier wallet session on /quests and /achievements (PLAYFREE), on the fakes.
+// "Play free" on / and /play, and the earlier wallet session on /missions and /missions/lifetime (PLAYFREE), on the fakes.
 
 const NEW_GAME = GAME_PLAYING.id + 1;
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
@@ -66,7 +66,7 @@ describe("Play free on /", () => {
   it("a credit: the entry says how many; a tap spends it and opens the new game's board", async () => {
     const { router, spawner } = open("/", { credits: 2 });
     const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
-    expect(card).toHaveTextContent("2 free Challenge games from your quests.");
+    expect(card).toHaveTextContent("2 free Challenge games from your missions.");
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
     expect(spawner.sent).toBe(1);
@@ -103,7 +103,7 @@ describe("Play free on /", () => {
     // The page read one credit; by the time of the tap another tab has spent it.
     views.cobblePlayer(PLAYER_ID).account.credits = 0;
     await userEvent.click(card);
-    await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringContaining("The free game did not start: You have no free game left: earn one on the quests page.")]));
+    await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringContaining("The free game did not start: You have no free game left: earn one on the missions page.")]));
     expect(router.state.location.pathname).toBe("/");
     expect(spawner.sent).toBe(1);
     await waitFor(() => expect(freeCard("Free game")).toBeNull());
@@ -156,7 +156,7 @@ describe("Play free on /play", () => {
   it("a credit: the entry spends it and opens the board", async () => {
     const { router, spawner } = open("/play", { credits: 1 });
     const card = await screen.findByRole("button", { name: /Free Challenge/ }, { timeout: 5000 });
-    expect(card).toHaveTextContent("1 free game from your quests");
+    expect(card).toHaveTextContent("1 free game from your missions");
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
     expect(spawner.sent).toBe(1);
@@ -177,7 +177,7 @@ describe("Play free on /play", () => {
   });
 });
 
-describe("the earlier wallet session on /quests and /achievements", () => {
+describe("the earlier wallet session on /missions and /missions/lifetime", () => {
   /** The fixture's Ada has done quest 1 today; her ledger holds it, and the wallet signs with a claimer. */
   function openClaims(path: string, options: { guest?: boolean } = {}) {
     const f = fakeSources();
@@ -194,24 +194,24 @@ describe("the earlier wallet session on /quests and /achievements", () => {
     return { wallet, claimer };
   }
 
-  it("/quests: a session approved earlier comes back with no visit to Home, and the claim goes through", async () => {
-    const { wallet, claimer } = openClaims("/quests");
+  it("/missions: a session approved earlier comes back with no visit to Home, and the claim goes through", async () => {
+    const { wallet, claimer } = openClaims("/missions");
     expect(await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 })).toBeEnabled();
     expect(wallet.calls).toContain("probe");
-    expect(screen.queryByText("Connect to see your quests")).toBeNull();
+    expect(screen.queryByText("Connect to see your missions")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
     await waitFor(() => expect(claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
     expect((await screen.findAllByRole("img", { name: "245 Cobbles" }, { timeout: 3000 })).length).toBeGreaterThan(0);
   });
 
-  it("/quests: with no earlier session the page is a guest's, and the probe ran once", async () => {
-    const { wallet } = openClaims("/quests", { guest: true });
-    expect(await screen.findByText("Connect to see your quests", {}, { timeout: 5000 })).toBeInTheDocument();
+  it("/missions: with no earlier session the page is a guest's, and the probe ran once", async () => {
+    const { wallet } = openClaims("/missions", { guest: true });
+    expect(await screen.findByText("Connect to see your missions", {}, { timeout: 5000 })).toBeInTheDocument();
     await waitFor(() => expect(wallet.calls.filter((c) => c === "probe")).toHaveLength(1));
   });
 
-  it("/achievements: the same session is found there", async () => {
-    const { wallet } = openClaims("/achievements");
+  it("/missions/lifetime: the same session is found there", async () => {
+    const { wallet } = openClaims("/missions/lifetime");
     expect((await screen.findAllByRole("img", { name: "240 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText(/^Connect to see/)).toBeNull();

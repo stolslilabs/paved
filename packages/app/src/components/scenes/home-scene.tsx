@@ -92,7 +92,7 @@ export function HomeScene(props: HomeSceneProps) {
               <ModeCard
                 icon="ticket"
                 title="Free game"
-                description={`${cobbles.credits} free Challenge ${cobbles.credits === 1 ? "game" : "games"} from your quests.`}
+                description={`${cobbles.credits} free Challenge ${cobbles.credits === 1 ? "game" : "games"} from your missions.`}
                 badge="Free"
                 disabled={spawnPaused}
                 reason="New games are paused"
