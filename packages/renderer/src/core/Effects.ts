@@ -2,11 +2,22 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
+import type { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import type { RenderProfile, EffectsCapabilities } from "./types";
 import { getLightingProfile } from "./render-profiles";
 import { LOOK_PRESETS, resolveLook, type LookSettings, type QualityTier } from "./look";
 import { AoPass, FinishPass, finishDefines } from "./post-shaders";
+
+type SMAAPassClass = typeof SMAAPass;
+
+/** SMAAPass (and its lookup textures, ~34 KB gzip) loads only when a chain asks for it, so MSAA and off paths never ship it. */
+let smaaClass: SMAAPassClass | null = null;
+let smaaLoading: Promise<SMAAPassClass> | null = null;
+
+function loadSmaa(): Promise<SMAAPassClass> {
+  smaaLoading ??= import("three/addons/postprocessing/SMAAPass.js").then((m) => (smaaClass = m.SMAAPass));
+  return smaaLoading;
+}
 
 /** Samples of the multisampled scene target, unless the settings give another count (`RendererSettings.msaaSamples`). */
 export const MSAA_SAMPLES = 4;
@@ -72,6 +83,9 @@ export class Effects {
   private finishPass: FinishPass | null = null;
   private smaaPass: SMAAPass | null = null;
   private passNames: EffectsPassName[] = [];
+  /** The pending load of SMAAPass, if the chain waits for it (`ready`). */
+  private smaaPending: Promise<void> | null = null;
+  private onRebuilt: (() => void) | null = null;
   /** The day and night cycle's backdrop (`setBackdrop`): composited by the finish pass under what the scene left uncovered. */
   private backdrop = false;
   private backdropTop: readonly number[] = [0, 0, 0];
@@ -108,6 +122,16 @@ export class Effects {
     this.antialiasing = antialiasing;
     this.samples = samples;
     this.rebuild();
+  }
+
+  /** Called when the chain is rebuilt after SMAA finished loading, so the owner can draw again. */
+  setOnRebuilt(callback: (() => void) | null): void {
+    this.onRebuilt = callback;
+  }
+
+  /** Resolves once the SMAA pass the chain asks for is in it (at once when nothing is pending). */
+  ready(): Promise<void> {
+    return this.smaaPending ?? Promise.resolve();
   }
 
   getAntialiasing(): FaceAntialiasing {
@@ -267,7 +291,26 @@ export class Effects {
     // SMAA last, where MSAA is not used: it reads the final, display-encoded colour (its edge detection is tuned for
     // it), so it smooths the faces' edges after everything else.
     // Its lookup textures load through `Image`, which React Native does not have: there the faces stay unantialiased.
-    const smaa = this.antialiasing === "smaa" && typeof Image !== "undefined";
+    const wantsSmaa = this.antialiasing === "smaa" && typeof Image !== "undefined";
+    // The module loads on first use: until it has, the chain runs without the pass, and is rebuilt when it arrives.
+    const smaa = wantsSmaa && smaaClass !== null;
+    if (wantsSmaa && !smaaClass && !this.smaaPending) {
+      const pending = loadSmaa().then(
+        () => {
+          if (this.smaaPending !== pending) return;
+          this.smaaPending = null;
+          if (this.antialiasing === "smaa" && this.renderer) {
+            this.rebuild();
+            this.onRebuilt?.();
+          }
+        },
+        (error) => {
+          if (this.smaaPending === pending) this.smaaPending = null;
+          console.warn("[renderer] SMAA failed to load; faces stay unantialiased", error);
+        },
+      );
+      this.smaaPending = pending;
+    }
 
     this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null, this.backdrop);
     this.finishPass.needsSwap = smaa;
@@ -275,7 +318,7 @@ export class Effects {
     names.push("finish");
 
     if (smaa) {
-      this.smaaPass = new SMAAPass();
+      this.smaaPass = new smaaClass!();
       this.composer.addPass(this.smaaPass);
       names.push("smaa");
     }
@@ -301,6 +344,7 @@ export class Effects {
   }
 
   dispose(): void {
+    this.smaaPending = null;
     this.disposePasses();
   }
 

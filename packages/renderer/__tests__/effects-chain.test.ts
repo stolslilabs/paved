@@ -45,13 +45,14 @@ const count = (source: string, text: string) => source.split(text).length - 1;
 describe("the chain's colour: the sRGB transfer happens once", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("on every path: each preset, tier and face antialiasing ends with exactly one transfer, in FinishPass", () => {
+  it("on every path: each preset, tier and face antialiasing ends with exactly one transfer, in FinishPass", async () => {
     vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
     for (const preset of LOOK_PRESET_NAMES) {
       for (const tier of QUALITY_TIERS) {
         for (const antialiasing of ["off", "msaa", "smaa"] as const) {
           const path = `${preset} ${tier} ${antialiasing}`;
           const effects = effectsFor(LOOK_PRESETS[preset], tier, antialiasing);
+          await effects.ready();
           const passes = effects.getComposer()!.passes;
           const transfers = passes.flatMap((pass) =>
             materialsOf(pass).map((m) => ({ pass, calls: count(m.fragmentShader, "sRGBTransferOETF(") + count(m.fragmentShader, "linearToOutputTexel(") })),
@@ -102,9 +103,10 @@ describe("the chain's resources", () => {
     effects.dispose();
   });
 
-  it("disposes the SMAA pass on a rebuild and on dispose", () => {
+  it("disposes the SMAA pass on a rebuild and on dispose", async () => {
     vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
     const effects = effectsFor(LOOK_PRESETS.mockup, "medium", "smaa");
+    await effects.ready();
     const first = effects.getComposer()!.passes.at(-1) as SMAAPass;
     expect(first).toBeInstanceOf(SMAAPass);
     const disposeFirst = vi.spyOn(first, "dispose");
