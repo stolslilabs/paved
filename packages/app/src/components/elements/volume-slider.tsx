@@ -53,25 +53,30 @@ export function VolumeSlider({ label, value, before, onChange, className }: Volu
   const toggle = () => onChange?.(muted ? before : 0);
   const percent = Math.round(value * 100);
   return (
-    <div className={cn("flex min-h-11 items-center gap-2", className)}>
-      <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0" aria-label={`Mute ${label.toLowerCase()}`} aria-pressed={muted} title={muted ? `Unmute ${label.toLowerCase()}` : `Mute ${label.toLowerCase()}`} onClick={toggle}>
-        <Icon name={volumeIcon(value)} fixedWidth />
-      </Button>
-      <Slider
-        className="h-11"
-        aria-label={`${label} volume`}
-        aria-valuetext={muted ? "Muted" : `${percent}%`}
-        min={0}
-        max={100}
-        step={1}
-        value={[Math.round(shown * 100)]}
-        onPointerDown={() => void (dragging.current = true)}
-        onValueCommit={() => void (dragging.current = false)}
-        onValueChange={([v]) => onChange?.((v ?? 0) / 100)}
-      />
-      <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums" aria-hidden>
-        {percent}%
-      </span>
+    <div className={cn("flex flex-col py-1.5", className)}>
+      <div className="flex items-baseline justify-between gap-2 pl-1">
+        <span className="text-sm leading-5">{label}</span>
+        <span className="text-xs text-muted-foreground tabular-nums" aria-hidden>
+          {muted ? "Muted" : `${percent}%`}
+        </span>
+      </div>
+      <div className="flex min-h-11 items-center gap-2">
+        <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0" aria-label={`Mute ${label.toLowerCase()}`} aria-pressed={muted} title={muted ? `Unmute ${label.toLowerCase()}` : `Mute ${label.toLowerCase()}`} onClick={toggle}>
+          <Icon name={volumeIcon(value)} fixedWidth />
+        </Button>
+        <Slider
+          className="h-11"
+          aria-label={`${label} volume`}
+          aria-valuetext={muted ? "Muted" : `${percent}%`}
+          min={0}
+          max={100}
+          step={1}
+          value={[Math.round(shown * 100)]}
+          onPointerDown={() => void (dragging.current = true)}
+          onValueCommit={() => void (dragging.current = false)}
+          onValueChange={([v]) => onChange?.((v ?? 0) / 100)}
+        />
+      </div>
     </div>
   );
 }
