@@ -11,7 +11,7 @@ export const MOCK_MARK_TEXT = "This network's contracts are not up to date yet: 
  */
 export function MockMark({ className }: { className?: string }) {
   return (
-    <Badge variant="outline" title={MOCK_MARK_TEXT} aria-label={`Mock data. ${MOCK_MARK_TEXT}`} className={cn("border-warning/60 text-warning", className)}>
+    <Badge variant="outline" title={MOCK_MARK_TEXT} aria-label={`Mock data. ${MOCK_MARK_TEXT}`} className={cn("border-warning/40 text-warning", className)}>
       Mock data
     </Badge>
   );
