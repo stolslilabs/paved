@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -21,6 +21,16 @@ describe("Balances (#538)", () => {
     expect(screen.getByText("142.35")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "PAVED: Vault" }));
     expect(onAction).toHaveBeenCalledWith("paved");
+  });
+
+  it("pill: Escape closes the sheet and the focus returns to the pill", async () => {
+    render(wrap(<Balances layout="pill" state={READY} />));
+    const pill = screen.getByRole("button", { name: "Balances" });
+    pill.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(pill).toHaveFocus());
   });
 
   it("pill: a guest's tap connects", async () => {

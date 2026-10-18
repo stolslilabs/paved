@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
 import { Cobbles } from "../elements/cobbles";
@@ -127,19 +127,23 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
     );
   }
   const guest = state.status === "disconnected";
+  const pill = (
+    <Button
+      variant="outline"
+      className="h-10 rounded-full px-3"
+      aria-label={guest ? "Connect" : "Balances"}
+      aria-haspopup={guest ? undefined : "dialog"}
+      onClick={guest ? onConnect : undefined}
+      loading={guest ? state.connecting : undefined}
+    >
+      <PillFace state={state} />
+    </Button>
+  );
   return (
     <div className={cn("desktop:hidden", className)}>
-      <Button
-        variant="outline"
-        className="h-10 rounded-full px-3"
-        aria-label={guest ? "Connect" : "Balances"}
-        aria-haspopup={guest ? undefined : "dialog"}
-        onClick={() => (guest ? onConnect?.() : setOpen(true))}
-        loading={guest ? state.connecting : undefined}
-      >
-        <PillFace state={state} />
-      </Button>
       <Sheet open={open} onOpenChange={setOpen}>
+        {/* The pill is the sheet's trigger, so that closing the sheet puts the focus back on it. */}
+        {guest ? pill : <SheetTrigger asChild>{pill}</SheetTrigger>}
         <SheetContent side="bottom">
           <SheetHeader>
             <SheetTitle>Balances</SheetTitle>
