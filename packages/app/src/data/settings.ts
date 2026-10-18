@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { QualityTier, RendererSettingsInput } from "@paved/renderer";
 import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-store";
 
-// The device settings (P11a, section 6.4): graphics quality, the day and night cycle, sound, music, tile preview and
+// The device settings (P11a, section 6.4): graphics quality, the day and night cycle, the music and sound effects volumes, tile preview and
 // placement highlight, kept on this device under one versioned key. The theme choice (`paved.theme.v1`, the viewer's skins opt-out) is `skins.ts`'s.
 
 /**
@@ -30,22 +30,55 @@ export interface DeviceSettings {
   quality: GraphicsQuality;
   /** The board's day and night cycle (DAYNIGHT, P-73): a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
-  /** Stored only: the app plays no sound effects yet. */
-  sound: boolean;
-  /** The music (P-81): on by default. */
-  music: boolean;
-  /** The music volume, 0 to 1. */
+  /** The music volume, 0 to 1; 0 is muted. */
   musicVolume: number;
+  /** The volume the music returns to when it is unmuted (above 0): the last level before the mute. */
+  musicBefore: number;
+  /** The sound effects' volume, 0 to 1; 0 is muted. */
+  sfxVolume: number;
+  /** The volume the sound effects return to when unmuted. */
+  sfxBefore: number;
   /** Show the tile on a slot before it is placed (the board's ghost). */
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
   placementHighlight: boolean;
 }
 
-/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), sound on, music on at 0.4 (the owner's, P-81), preview and highlight on. */
-export const DEFAULT_SETTINGS: DeviceSettings = { quality: "auto", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true };
+/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), music at 0.4 (the owner's, P-81), sound effects at 0.7, preview and highlight on. */
+export const DEFAULT_SETTINGS: DeviceSettings = {
+  quality: "auto",
+  dayNight: true,
+  musicVolume: 0.4,
+  musicBefore: 0.4,
+  sfxVolume: 0.7,
+  sfxBefore: 0.7,
+  tilePreview: true,
+  placementHighlight: true,
+};
 
-/** The stored text as settings: each field that is missing or of the wrong kind takes its default; text that is not an object, all defaults. */
+export type VolumeChannel = "music" | "sfx";
+const FIELDS = { music: { volume: "musicVolume", before: "musicBefore" }, sfx: { volume: "sfxVolume", before: "sfxBefore" } } as const;
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+
+/** A channel's volume set to `v` (0 to 1): above 0 it is also the level to return to; 0 is a mute and keeps the level before it. */
+export function withVolume(s: DeviceSettings, channel: VolumeChannel, v: number): DeviceSettings {
+  const f = FIELDS[channel];
+  const next = Number.isFinite(v) ? clamp01(v) : 0;
+  return { ...s, [f.volume]: next, [f.before]: next > 0 ? next : s[f.before] };
+}
+
+/** The channel muted if it sounds, back to the level before the mute if it is muted. */
+export function withMuteToggled(s: DeviceSettings, channel: VolumeChannel): DeviceSettings {
+  const f = FIELDS[channel];
+  return withVolume(s, channel, s[f.volume] > 0 ? 0 : s[f.before]);
+}
+
+/**
+ * The stored text as settings: each field that is missing or of the wrong kind takes its default; text that is not an object,
+ * all defaults. The first shape (`sound` and `music` switches, `musicVolume`) migrates: a switch that was off is a mute (volume
+ * 0, the level before it kept: `musicVolume` for the music). The new shape never writes the switches, so they only ever read as legacy.
+ */
 export function parseSettings(raw: string): DeviceSettings {
   let json: unknown;
   try {
@@ -55,13 +88,25 @@ export function parseSettings(raw: string): DeviceSettings {
   }
   if (typeof json !== "object" || json === null || Array.isArray(json)) return DEFAULT_SETTINGS;
   const o = json as Record<string, unknown>;
-  const flag = (k: "dayNight" | "sound" | "music" | "tilePreview" | "placementHighlight") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const flag = (k: "dayNight" | "tilePreview" | "placementHighlight") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const num = (k: string): number | null => (typeof o[k] === "number" && Number.isFinite(o[k]) ? clamp01(o[k]) : null);
+  const channel = (volumeKey: string, beforeKey: string, legacyOn: unknown, fallback: number): { volume: number; before: number } => {
+    const volume = num(volumeKey);
+    const before = num(beforeKey);
+    // The level to return to is above 0: a stored 0 or none takes the volume, then the default.
+    const back = before && before > 0 ? before : volume && volume > 0 ? volume : fallback;
+    if (legacyOn === false) return { volume: 0, before: back };
+    return { volume: volume ?? back, before: back };
+  };
+  const music = channel("musicVolume", "musicBefore", o.music, DEFAULT_SETTINGS.musicBefore);
+  const sfx = channel("sfxVolume", "sfxBefore", o.sound, DEFAULT_SETTINGS.sfxBefore);
   return {
     quality: QUALITIES.includes(o.quality as GraphicsQuality) ? (o.quality as GraphicsQuality) : DEFAULT_SETTINGS.quality,
     dayNight: flag("dayNight"),
-    sound: flag("sound"),
-    music: flag("music"),
-    musicVolume: typeof o.musicVolume === "number" && Number.isFinite(o.musicVolume) ? Math.min(1, Math.max(0, o.musicVolume)) : DEFAULT_SETTINGS.musicVolume,
+    musicVolume: music.volume,
+    musicBefore: music.before,
+    sfxVolume: sfx.volume,
+    sfxBefore: sfx.before,
     tilePreview: flag("tilePreview"),
     placementHighlight: flag("placementHighlight"),
   };

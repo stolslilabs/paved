@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { SMALL_SCREEN_PX as RENDERER_SMALL_SCREEN_PX, resolveQuality } from "@paved/renderer";
-import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings } from "../src/data/settings";
+import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings, withMuteToggled, withVolume } from "../src/data/settings";
 import { THEME_KEY, deviceTheme } from "../src/data/skins";
 
 // The device stores (P11a): the settings under one versioned key and the theme's, each with an in-memory twin.
@@ -18,8 +18,8 @@ const off = () => ({
 describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
-  it("starts from the mockups' defaults: quality auto, sound on, music on at 0.4, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: true });
+  it("starts from the defaults: quality auto, music at 0.4, sound effects at 0.7, preview and highlight on", () => {
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
   });
 
@@ -32,9 +32,9 @@ describe("the device settings store", () => {
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", dayNight: false, sound: false, music: true, musicVolume: 0.7, tilePreview: false, placementHighlight: false });
+    a.set({ quality: "high", dayNight: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, sound: false, music: true, musicVolume: 0.7, tilePreview: false, placementHighlight: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 
@@ -43,9 +43,9 @@ describe("the device settings store", () => {
     expect(store.get()).toBe(store.get());
     let calls = 0;
     const stop = store.subscribe(() => calls++);
-    store.set({ ...DEFAULT_SETTINGS, music: true });
+    store.set({ ...DEFAULT_SETTINGS, musicVolume: 0.5 });
     stop();
-    store.set({ ...DEFAULT_SETTINGS, music: false });
+    store.set({ ...DEFAULT_SETTINGS, musicVolume: 0.6 });
     expect(calls).toBe(1);
   });
 
@@ -80,15 +80,53 @@ describe("the device settings store", () => {
 
   it("keeps the choice when there is no storage at all", () => {
     const store = createSettingsStore(() => null);
-    store.set({ ...DEFAULT_SETTINGS, sound: false });
-    expect(store.get().sound).toBe(false);
+    store.set({ ...DEFAULT_SETTINGS, sfxVolume: 0 });
+    expect(store.get().sfxVolume).toBe(0);
   });
 
   it("reads a bad stored value as the defaults, field by field", () => {
     for (const raw of ["", "not json", "null", "[]", "42", '"high"']) expect(parseSettings(raw)).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings(JSON.stringify({ quality: "ultra", sound: "yes", music: true, tilePreview: 0 }))).toEqual({ ...DEFAULT_SETTINGS, music: true });
+    expect(parseSettings(JSON.stringify({ quality: "ultra", sound: "yes", music: "yes", sfxVolume: "loud", tilePreview: 0 }))).toEqual(DEFAULT_SETTINGS);
     localStorage.setItem(SETTINGS_KEY, "{broken");
     expect(createSettingsStore().get()).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("the volumes", () => {
+  it("clamps each volume to 0..1 and reads a value that is not a number as the default", () => {
+    expect(parseSettings(JSON.stringify({ musicVolume: 3, sfxVolume: -1 }))).toMatchObject({ musicVolume: 1, sfxVolume: 0 });
+    expect(parseSettings(JSON.stringify({ musicVolume: "loud", sfxVolume: null }))).toMatchObject({ musicVolume: 0.4, sfxVolume: 0.7 });
+    expect(parseSettings(JSON.stringify({ musicVolume: 0.25 }))).toMatchObject({ musicVolume: 0.25, musicBefore: 0.25 });
+  });
+
+  it("migrates the first shape: a switch that was off is a mute that remembers the level, one that was on changes nothing", () => {
+    expect(parseSettings(JSON.stringify({ sound: false, music: true, musicVolume: 0.8 }))).toMatchObject({ sfxVolume: 0, sfxBefore: 0.7, musicVolume: 0.8, musicBefore: 0.8 });
+    expect(parseSettings(JSON.stringify({ sound: true, music: false, musicVolume: 0.6 }))).toMatchObject({ sfxVolume: 0.7, musicVolume: 0, musicBefore: 0.6 });
+    expect(parseSettings(JSON.stringify({ music: false }))).toMatchObject({ musicVolume: 0, musicBefore: 0.4 });
+    expect(parseSettings(JSON.stringify({ quality: "low", dayNight: false, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: false }))).toEqual({ ...DEFAULT_SETTINGS, quality: "low", dayNight: false, placementHighlight: false });
+  });
+
+  it("writes only the new shape, so a migrated store reads back the same", () => {
+    localStorage.clear();
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ sound: false, music: false, musicVolume: 0.9 }));
+    const store = createSettingsStore();
+    const migrated = store.get();
+    store.set(withVolume(migrated, "music", 0.5));
+    const written = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
+    expect(written).not.toHaveProperty("sound");
+    expect(written).not.toHaveProperty("music");
+    expect(createSettingsStore().get()).toMatchObject({ musicVolume: 0.5, sfxVolume: 0, sfxBefore: 0.7 });
+  });
+
+  it("keeps the level before a mute: dragging to 0 mutes, the toggle brings the level back", () => {
+    let s = withVolume(DEFAULT_SETTINGS, "sfx", 0.3);
+    expect(s).toMatchObject({ sfxVolume: 0.3, sfxBefore: 0.3 });
+    s = withMuteToggled(s, "sfx");
+    expect(s).toMatchObject({ sfxVolume: 0, sfxBefore: 0.3 });
+    expect(withMuteToggled(s, "sfx")).toMatchObject({ sfxVolume: 0.3, sfxBefore: 0.3 });
+    expect(withVolume(s, "sfx", 0)).toMatchObject({ sfxVolume: 0, sfxBefore: 0.3 });
+    expect(withVolume(s, "sfx", 0.8)).toMatchObject({ sfxVolume: 0.8, sfxBefore: 0.8 });
+    expect(withVolume(s, "sfx", Number.NaN)).toMatchObject({ sfxVolume: 0, sfxBefore: 0.3 });
   });
 });
 

@@ -15,11 +15,13 @@ export interface GameHudProps {
   expiresAt?: number | null;
   now: number;
   onBack?: () => void;
+  /** The gear: opens the device settings over the board (#541). */
+  onSettings?: () => void;
   className?: string;
 }
 
-/** The board's header over the scene: Back and the mode, the tiles left, the time left, the score. */
-export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, className }: GameHudProps) {
+/** The board's header over the scene: Back and the mode, the tiles left, the time left, the score, the settings gear. */
+export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, onSettings, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -42,6 +44,11 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
       <div className="border-l border-border pl-3">
         <Score value={score} delta={delta} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>
+      {onSettings && (
+        <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label="Settings" onClick={onSettings}>
+          <Icon name="gear" />
+        </Button>
+      )}
     </header>
   );
 }

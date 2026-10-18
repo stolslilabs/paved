@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
@@ -120,6 +120,15 @@ export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } 
 
 /** The tile placed on a plate its rotation fits: a white rim, Confirm on, the bubble (Rotate when several rotations fit, Close) on its corner. */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
+
+/** The gear opened: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a desktop (1440 px). */
+export const SettingsOpen: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null) },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+  },
+};
 
 type PlatesArgs = BoardSceneProps & { rotation: number; placed: boolean };
 
