@@ -12,6 +12,7 @@ export {
   FOREST_BASE_POINTS,
   WONDER_BASE_POINTS,
   BIG_SIZE,
+  PREPLACED_ID,
 } from "./game";
 export type { EngineConfig, Placement, Scored, MoveResult, PlacedTile, Counters } from "./game";
 export { DECKS } from "./decks";
