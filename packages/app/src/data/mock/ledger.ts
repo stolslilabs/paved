@@ -160,7 +160,36 @@ export interface MockLedgerOptions {
   seller: string;
   /** Before each write's receipt; `MOCK_LATENCY_MS` by default, 0 in the tests. */
   latencyMs?: number;
+  /**
+   * Runs one write's read, change and save alone among every ledger on the same store: `mockLock` (the browser's Web
+   * Locks, which hold across the tabs of the origin) by default. A test gives its own.
+   */
+  lock?: MockLock;
 }
+
+/** Runs `section` while no other holder of the lock runs one; resolves with its result. */
+export type MockLock = <T>(section: () => T) => Promise<T>;
+
+/** What `mockLock` needs of `navigator.locks` (the Web Locks API). */
+interface LockManagerLike {
+  request<T>(name: string, callback: () => T | Promise<T>): Promise<T>;
+}
+
+/** One queue per page for the browsers without Web Locks: the writes of this page stay one at a time. */
+let pageQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * The lock of the mock's writes: the Web Lock named after `MOCK_KEY`, exclusive across every tab and window of the origin
+ * that shares the `localStorage`, so two tabs' writes never interleave between a read of the stored state and its save.
+ * A browser without Web Locks (none of those the app supports) falls back to this page's queue.
+ */
+export const mockLock: MockLock = (section) => {
+  const locks = (globalThis as { navigator?: { locks?: LockManagerLike } }).navigator?.locks;
+  if (locks && typeof locks.request === "function") return locks.request(MOCK_KEY, section);
+  const run = pageQueue.then(section, section);
+  pageQueue = run.catch(() => undefined);
+  return run;
+};
 
 /**
  * The mock ledger: the reads of `MockedReads` (the PAVED and USDC balances take the chain's, which the overlay reads) and,
@@ -174,10 +203,12 @@ export class MockLedger {
   private readonly questRates = new Map<number, QuestCobbles>();
   private readonly achievementRates = new Map<number, AchievementCobbles>();
   private readonly latency: number;
+  private readonly lock: MockLock;
 
   constructor(private readonly options: MockLedgerOptions) {
     this.state = this.load();
     this.latency = options.latencyMs ?? MOCK_LATENCY_MS;
+    this.lock = options.lock ?? mockLock;
   }
 
   // --- The definitions ---------------------------------------------------------------------------------------------
@@ -417,7 +448,7 @@ export class MockLedger {
     if ((await this.usdcBalance(account, usdc)) < pack.price) throw short();
     await sleep(this.latency);
     let bought: PackBought | null = null;
-    const result = this.write(account, (p) => {
+    const result = await this.write(account, (p) => {
       // Checked again at commit: another purchase may have spent the USDC during the wait.
       if (this.adjusted(usdc, p.usdc) < pack.price) throw short();
       p.cobbles += pack.cobbles;
@@ -483,9 +514,11 @@ export class MockLedger {
   }
 
   /** Back to the mock's start: nothing claimed, bought or deposited. */
-  reset(): void {
-    this.state = fresh();
-    this.save();
+  reset(): Promise<void> {
+    return this.lock(() => {
+      this.state = fresh();
+      this.save();
+    });
   }
 
   // --- State ---------------------------------------------------------------------------------------------------------
@@ -529,8 +562,12 @@ export class MockLedger {
    * One write: `change` works on a copy of the player and returns the receipt's events; a throw leaves the ledger as it was
    * (a revert), else the copy is kept and stored.
    */
-  private write(account: string, change: (player: StoredPlayer, hash: string) => DecodedEvent[]): WriteResult {
-    // Synchronous from here to the save: no other write of this tab can interleave, and the base is the stored state.
+  private write(account: string, change: (player: StoredPlayer, hash: string) => DecodedEvent[]): Promise<WriteResult> {
+    return this.lock(() => this.commit(account, change));
+  }
+
+  /** Under the lock, synchronous from the read of the stored state to its save: no other write, of any tab, comes between. */
+  private commit(account: string, change: (player: StoredPlayer, hash: string) => DecodedEvent[]): WriteResult {
     this.sync();
     const key = addressKey(account);
     const player: StoredPlayer = structuredClone(this.state.players[key] ?? newPlayer());

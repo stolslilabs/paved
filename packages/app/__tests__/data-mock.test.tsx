@@ -1,5 +1,5 @@
 import { act, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ClaimRefusedError,
   ViewError,
@@ -16,7 +16,7 @@ import type { DataSources, GameSigner } from "../src/data";
 import { useAchievementRewards, useClaims, useCobbleAccount, useQuestRewards } from "../src/data";
 import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/chain";
 import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
-import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger } from "../src/data/mock/ledger";
+import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger, mockLock } from "../src/data/mock/ledger";
 import { FREE_SPAWN_MOCKED, GAME_FELTS_BEFORE_EXPIRY, initialSeedOf, mockGameViews, mockSigner } from "../src/data/mock/overlay";
 import { poseidon } from "@paved/game-core";
 import { GAME_PLAYING } from "../src/mocks/games";
@@ -202,7 +202,7 @@ describe("the mock", () => {
     expect(await reloaded.usdcBalance(PLAYER, 100n * USDC)).toBe(91n * USDC);
     expect((await reloaded.vault(PLAYER)).shares).toBeGreaterThan(0n);
     expect((await reloaded.vault(PLAYER)).totalAssets).toBe(MOCK_VAULT.assets + 10n * P);
-    reloaded.reset();
+    await reloaded.reset();
     expect((await new MockLedger({ store: () => first.store, seller: "0x3" }).account(PLAYER)).cobbles).toBe(0);
   });
 
@@ -222,6 +222,45 @@ describe("the mock", () => {
     expect(await fresh.pavedBalance(PLAYER)).toBe(MOCK_STARTING_PAVED - 110n * P);
     // And each tab reads the other's writes.
     expect((await a.vault(PLAYER)).shares).toBe(first + second);
+  });
+
+  it("holds a lock across tabs from the read of the stored state to its save: a write waits while another tab writes", async () => {
+    const store = memoryStore();
+    // The other tab holds the lock and writes while this one waits.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let queue: Promise<unknown> = held;
+    const lock = <T,>(section: () => T): Promise<T> => {
+      const run = queue.then(section);
+      queue = run.catch(() => undefined);
+      return run;
+    };
+    const mine = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, lock });
+    const other = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    const pending = mine.writesFor(PLAYER).deposit(10n * P, { confirmedAmount: 10n * P });
+    await other.writesFor(PLAYER).deposit(100n * P, { confirmedAmount: 100n * P });
+    expect(JSON.parse(store.data.get(MOCK_KEY)!).transactions).toBe(1);
+    release();
+    await pending;
+    // The waiting write started from the other tab's state: both deposits are kept.
+    const fresh = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    expect(await fresh.pavedBalance(PLAYER)).toBe(MOCK_STARTING_PAVED - 110n * P);
+    expect(JSON.parse(store.data.get(MOCK_KEY)!).transactions).toBe(2);
+  });
+
+  it("takes the browser's Web Lock named after the mock's key, and runs the write inside it", async () => {
+    const requests: string[] = [];
+    let inside = false;
+    const locks = { request: async <T,>(name: string, callback: () => T) => (requests.push(name), (inside = true), await Promise.resolve(callback()).finally(() => (inside = false))) };
+    vi.stubGlobal("navigator", { ...navigator, locks });
+    try {
+      expect(await mockLock(() => inside)).toBe(true);
+      const ledger = new MockLedger({ store: () => memoryStore(), seller: "0x3", latencyMs: 0 });
+      await ledger.writesFor(PLAYER).deposit(P, { confirmedAmount: P });
+      expect(requests).toEqual([MOCK_KEY, MOCK_KEY]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("overlapping writes are checked again at commit: two deposits of 100 from 142.35 PAVED, one is refused", async () => {
