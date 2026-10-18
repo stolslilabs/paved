@@ -340,13 +340,19 @@ export class WindowCache {
     return this.baked.get(key);
   }
 
-  request(key: string, grid: VoxelGrid, lit?: Uint8Array, options: Partial<LightVolumeOptions> = {}): Promise<BakedWindows> {
+  request(key: string, grid: VoxelGrid, lit?: Uint8Array, options: Partial<LightVolumeOptions> = {}, skip?: () => boolean): Promise<BakedWindows | null> {
     const known = this.baked.get(key);
     if (known) return Promise.resolve(known);
     let pending = this.pending.get(key);
     if (!pending) {
-      const created: Promise<BakedWindows> = new Promise<BakedWindows>((resolve) => {
+      const created: Promise<BakedWindows | null> = new Promise<BakedWindows | null>((resolve) => {
         whenIdle(() => {
+          // A reader that no longer wants the volume (`skip`, asked when the slice runs) builds nothing.
+          if (skip?.()) {
+            if (this.pending.get(key) === created) this.pending.delete(key);
+            resolve(null);
+            return;
+          }
           const baked = bakeWindows(grid, lit, options);
           if (this.pending.get(key) === created) {
             this.pending.delete(key);

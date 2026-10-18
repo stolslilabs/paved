@@ -266,6 +266,8 @@ export class TileRenderer {
   private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; lights: Uint8Array }>();
   /** The geometries whose volume is asked for (asked once each). */
   private windowAsked = new Set<THREE.BufferGeometry>();
+  /** Bumped when the windows' light is no longer wanted: a build asked before it stops at its next step. */
+  private windowEpoch = 0;
   /** The light volumes' textures (one per model type drawn at night), freed by `dispose`. */
   private windowTextures: THREE.Data3DTexture[] = [];
   /** The volume the sampler is bound to until a type's is baked: one dark texel. */
@@ -713,20 +715,29 @@ export class TileRenderer {
    * (`VoxelCache`, `WindowCache`), then its 3D texture bound to the type's geometry and a frame asked for (`labelledListener`).
    */
   private bakeWindowLights(): void {
-    if (!this.nightLights || this.nightSource !== "windows" || this.disposed) return;
+    if (!this.windowLightsWanted()) {
+      // Switched off (or back to the columns) with builds queued: they stop at their next step, and a later "on" asks again.
+      if (this.windowAsked.size) {
+        this.windowEpoch++;
+        this.windowAsked.clear();
+      }
+      return;
+    }
     for (const [geometry, source] of this.windowSources) {
       if (this.windowAsked.has(geometry)) continue;
       this.windowAsked.add(geometry);
+      const epoch = this.windowEpoch;
+      const stale = () => this.windowEpoch !== epoch || !this.windowLightsWanted();
       this.windowsChunk ??= Promise.all([import("./windows"), import("./voxelizer")]).then(([windows, voxelizer]) => ({ windows, voxelizer }));
       void this.windowsChunk
         .then(async ({ windows, voxelizer }) => {
-          if (this.disposed) return;
+          if (stale()) return;
           this.voxelGrids ??= new voxelizer.VoxelCache();
           this.windowBakes ??= new windows.WindowCache();
-          const grid = await this.voxelGrids.request(source.key, { geometry, toModel: source.toModel });
-          if (!grid || this.disposed) return;
-          const baked = await this.windowBakes.request(source.key, grid, source.lights);
-          if (this.disposed) return;
+          const grid = await this.voxelGrids.request(source.key, { geometry, toModel: source.toModel }, stale);
+          if (!grid || stale()) return;
+          const baked = await this.windowBakes.request(source.key, grid, source.lights, {}, stale);
+          if (!baked || stale()) return;
           const { volume } = baked;
           const texture = new THREE.Data3DTexture(volume.data, volume.sizeX, volume.sizeY, volume.layers);
           texture.format = THREE.RGFormat;
@@ -744,6 +755,11 @@ export class TileRenderer {
         })
         .catch((error: unknown) => console.warn("[TileRenderer] the windows' light did not build:", error));
     }
+  }
+
+  /** Whether the windows' light is wanted now: the night lights on, from the windows, the renderer alive. */
+  private windowLightsWanted(): boolean {
+    return this.nightLights && this.nightSource === "windows" && !this.disposed;
   }
 
   /** The number of light volumes baked so far (for tests and the stories' readout). */

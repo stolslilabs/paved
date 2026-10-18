@@ -875,6 +875,29 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.dispose();
     });
 
+    it("stops the builds queued when the lights are switched off, and builds again when they come back", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await tiles.whenLabelled();
+      // Asked, not built: the chunk and the idle slices are still to come.
+      expect((tiles as any).windowAsked.size).toBe(1);
+      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      expect((tiles as any).windowAsked.size).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(tiles.windowVolumeCount).toBe(0);
+      expect((tiles as any).voxelGrids?.size ?? 0).toBe(0);
+      expect((tiles as any).windowBakes?.size ?? 0).toBe(0);
+      // Back on, and back to the columns again before it builds: nothing either.
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(tiles.windowVolumeCount).toBe(0);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      tiles.dispose();
+    });
+
     it("bakes one volume per model type once on, binds it to the type's geometry, and frees it on dispose", async () => {
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ffcfffcff", 1), nightTile("ffcfffcff", 2), nightTile("ccccccccc", 3)] as never);

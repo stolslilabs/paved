@@ -189,6 +189,13 @@ describe("the per-type cache", () => {
     expect(cache.size).toBe(0);
   });
 
+  it("builds nothing for a request whose reader no longer wants it (skip), and builds for the next one", async () => {
+    const cache = new WindowCache();
+    expect(await cache.request("house", grid, undefined, {}, () => true)).toBeNull();
+    expect(cache.size).toBe(0);
+    expect((await cache.request("house", grid))!.windows).toHaveLength(1);
+  });
+
   it("bakeWindows reports its times", () => {
     vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(5);
     const baked = bakeWindows(grid);
