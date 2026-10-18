@@ -25,6 +25,10 @@ game.score; game.over; game.tileCount; game.built; game.discarded; game.counts;
   without an owner. `tileLimit` defaults to the deck's count (38 Simple, 10 Tutorial).
 - Coordinates are relative to the starter tile (the contracts' `CENTER`, exported as `CENTER`); the reseeds
   hash the absolute coordinates, as on chain.
+- Deck `story` (Story mode, `docs/client/story-mode.md`): `EngineGame.start({ deck: "story", seed, sequence })` plays
+  the plans of `sequence` after the starter, in that order, with no withdrawal and no reseed, and ends after the last
+  one (`tileLimit` is `sequence.length + 1`). `engine/solver.ts` (`solve(sequence)`) searches every move for the best
+  final score; it is an offline tool, not exported from the package index.
 - `build(placement?, owner?)`: a Tutorial game takes its scripted placement (`scriptedPlacement()`); a given
   placement must equal it. `owner` sets the tile's owner (D-19).
 - `discard()`, `surrender()`. Illegal moves throw `EngineError` with the contract's revert message
