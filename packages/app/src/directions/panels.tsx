@@ -18,7 +18,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /** The palette (tokens), the notes (assets, navigation, cards, why not Cartridge) and the contrast table of one direction. */
 export function PalettePanel({ id }: { id: DirectionId }) {
   const dir = DIRECTIONS[id];
-  const rows = checks(dir.palette);
+  const rows = checks(dir.palette, id === "c");
   const worst = (state: string) => Math.min(...rows.filter((r) => r.state === state).map((r) => r.ratio));
   return (
     <DirectionRoot id={id}>

@@ -141,12 +141,12 @@ export function DNav(props: NavProps) {
 function Mosaic() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="grid -translate-y-8 scale-125 grid-cols-4 opacity-80 blur-xl desktop:grid-cols-8">
+      <div className="grid -translate-y-8 scale-125 grid-cols-4 opacity-50 blur-xl desktop:grid-cols-8">
         {Array.from({ length: 32 }, (_, i) => (
           <TileArt key={i} index={i * 5} />
         ))}
       </div>
-      <div className="absolute inset-0 bg-linear-to-b from-(--d-bg)/70 via-(--d-bg)/80 to-(--d-bg)" />
+      <div className="absolute inset-0 bg-linear-to-b from-(--d-bg)/85 via-(--d-bg)/90 to-(--d-bg)" />
     </div>
   );
 }

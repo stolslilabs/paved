@@ -43,10 +43,15 @@ export interface Check {
  * item sits on (the page, a card, a raised part) at rest and under each state's white overlay, and the primary button's text
  * on its fill.
  */
-export function checks(p: Palette): Check[] {
+export function checks(p: Palette, glass = false): Check[] {
   const out: Check[] = [];
+  // Glass (C): white 6% (a card) or 10% (the dock, the hand card) over the blurred tile art. The art is bounded from above: a tile
+  // as bright as white at the mosaic's 50% opacity (Mosaic in shells.tsx), under the page-colour veil at its lightest (85%, at the top).
+  const backdrop = mix(mix(p.bg, "#FFFFFF", 0.5), p.bg, 0.85);
+  const glass6 = mix(backdrop, "#FFFFFF", 0.06);
+  const glass10 = mix(backdrop, "#FFFFFF", 0.1);
   const pair = (label: string, state: StateName, fg: string, bg: string) => out.push({ label, state, fg, bg, ratio: contrastHex(fg, bg), min: state === "pressed" ? 3 : 4.5 });
-  for (const [surfaceName, surface] of [["page", p.bg], ["card", p.surface], ["raised", p.raised]] as const) {
+  for (const [surfaceName, surface] of [["page", p.bg], ["card", p.surface], ["raised", p.raised], ...(glass ? ([["glass 6%", glass6], ["glass 10%", glass10]] as const) : [])] as const) {
     for (const state of STATE_NAMES) {
       const bg = underState(surface, state);
       pair(`text on ${surfaceName}`, state, p.text, bg);
@@ -55,9 +60,8 @@ export function checks(p: Palette): Check[] {
       if (surfaceName !== "raised") pair(`primary on ${surfaceName}`, state, p.primary, bg);
     }
   }
-  // The second voices (accent, danger) on the same surfaces, and the glass card of C (white 6% over the page).
-  const glass = mix(p.bg, "#FFFFFF", 0.06);
-  for (const [surfaceName, surface] of [["page", p.bg], ["card", p.surface], ["glass", glass]] as const) {
+  // The second voices (accent, danger) on the same surfaces.
+  for (const [surfaceName, surface] of [["page", p.bg], ["card", p.surface], ...(glass ? ([["glass 6%", glass6], ["glass 10%", glass10]] as const) : [])] as const) {
     for (const state of STATE_NAMES) {
       const bg = underState(surface, state);
       pair(`accent on ${surfaceName}`, state, p.accent, bg);
@@ -65,7 +69,7 @@ export function checks(p: Palette): Check[] {
     }
   }
   // A chip (white 10%) nested on a card under each state: its text colours on the card's overlay plus its own.
-  for (const [surfaceName, surface] of [["card", p.surface], ["glass", glass]] as const) {
+  for (const [surfaceName, surface] of [["card", p.surface], ...(glass ? ([["glass 6%", glass6], ["glass 10%", glass10]] as const) : [])] as const) {
     for (const state of STATE_NAMES) {
       const bg = mix(underState(surface, state), "#FFFFFF", 0.1);
       pair(`chip muted on ${surfaceName}`, state, p.muted, bg);

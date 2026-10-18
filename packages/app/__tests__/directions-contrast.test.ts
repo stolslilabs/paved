@@ -15,7 +15,7 @@ describe("Direction/A, B, C: the white-with-transparency states stay legible (#5
 
   for (const id of DIRECTION_IDS) {
     it(`${id}: every text pair reaches its ratio at rest, hover, active and pressed`, () => {
-      const failing = checks(DIRECTIONS[id].palette).filter((c) => c.ratio < c.min);
+      const failing = checks(DIRECTIONS[id].palette, id === "c").filter((c) => c.ratio < c.min);
       expect(failing.map((c) => `${c.label} (${c.state}): ${c.ratio.toFixed(2)}`)).toEqual([]);
     });
   }
