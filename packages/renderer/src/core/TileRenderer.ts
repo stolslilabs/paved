@@ -7,7 +7,7 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
 import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
-import { PlacementRenderer, type PlacementSettings, type PlacementSlot, type PlacementUpdate } from "./placement";
+import { PlacementRenderer, tintKindOf, type GhostTint, type PlacementSettings, type PlacementSlot, type PlacementUpdate } from "./placement";
 import type { OutlineFadeSettings } from "./outlines";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
 import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
@@ -194,7 +194,7 @@ export class TileRenderer {
   private previewKey: string | null = null;
   /** The confirm's key (`setConfirmed`): the same confirm given again does not start over. */
   private confirmKey: string | null = null;
-  /** The placement visuals: the grid, the plates (drawn in `emptyGroup`), their auras, the placed tile's rim, the confirm. */
+  /** The placement visuals: the grid, the plates (drawn in `emptyGroup`), and the tile in hand's tint states and timing. */
   private placement: PlacementRenderer;
   /** The last hover given: drawn again when its model comes in (`refreshHover`). */
   private hoverState: HoverState | null = null;
@@ -206,8 +206,13 @@ export class TileRenderer {
   private tileTypes: Map<string, THREE.Group> = new Map();
   private pendingMaterials: Map<THREE.Material, THREE.Material> = new Map();
   private pendingFallbackMaterial: THREE.Material | null = null;
-  /** The ghost's copy of each tile material (`ghostMaterial`): the feature highlight held off. */
-  private ghostMaterials: Map<THREE.Material, THREE.MeshStandardMaterial> = new Map();
+  /** The ghost's copy of each tile material, per role (`ghostMaterial`): the feature highlight held off, tinted. */
+  private ghostMaterials: Record<GhostRole, Map<THREE.Material, THREE.MeshStandardMaterial>> = { hand: new Map(), confirm: new Map() };
+  /** The tint uniforms of each role, shared by its materials; `applyLooks` writes them. */
+  private ghostLooks: Record<GhostRole, GhostLook> = { hand: createGhostLook(), confirm: createGhostLook() };
+  /** The confirm's overlay: the tile just confirmed, tinted green over the one the board draws, fading out. */
+  private confirmContainer: THREE.Group | null = null;
+  private depthMaterial: THREE.MeshBasicMaterial | null = null;
   private edgeMaterial = createOutlineMaterial();
   private strategyGeometry: THREE.BoxGeometry | null = null;
   private strategySideMaterial: THREE.Material | null = null;
@@ -973,8 +978,9 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads); `placed` turns its plate's aura into a rim around it, red while `valid` is false (its rotation does not
-   * fit there, `placementTone`). It shares the type's geometry and materials: nothing to dispose.
+   * model loads), tinted on the model itself: blue at half opacity on a hover, yellow at 90 % once `placed`, red while
+   * `valid` is false (its rotation does not fit there; the fallback until #544). It shares the type's geometry: nothing to
+   * dispose.
    */
   setHover(state: HoverState | null): void {
     this.hoverState = state;
@@ -987,6 +993,7 @@ export class TileRenderer {
       this.placement.setGhost(null, now());
       return;
     }
+    const kind = tintKindOf({ placed: !!state.placed, fits: state.valid });
 
     // The ghost draws the variant of the cell it hovers (`HoverState.cell`); without one, the board's centre of game 0 (the
     // hand's), so a skinned plan's base model is not asked for just for a ghost.
@@ -998,7 +1005,7 @@ export class TileRenderer {
     const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}-${placed ? "placed" : "hover"}-${planModel ?? (quad ? "quad" : "none")}`;
     if (this.previewContainer && this.previewKey === key) {
       this.previewContainer.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
-      this.placement.setGhost(placed ? { x: state.x, y: state.y, fits: state.valid } : null, now());
+      this.setGhostTint({ x: state.x, y: state.y, kind });
       return;
     }
 
@@ -1008,9 +1015,9 @@ export class TileRenderer {
     }
     this.previewKey = key;
 
-    const model = this.ghostModel(state.planIndex, state.orientation, planModel);
+    const model = this.ghostModel(state.planIndex, state.orientation, planModel, "hand");
     if (!model) {
-      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`), and no rim left at the last
+      // No model and no image yet: no ghost (drawn when one comes in, `refreshHover`), and no tint left at the last
       // ghost's cell.
       this.placement.setGhost(null, now());
       if (planModel === null && !quad) return;
@@ -1020,7 +1027,7 @@ export class TileRenderer {
     const container = new THREE.Group();
     container.add(model);
     container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
-    this.placement.setGhost(placed ? { x: state.x, y: state.y, fits: state.valid } : null, now());
+    this.setGhostTint({ x: state.x, y: state.y, kind });
     this.previewGroup.add(container);
     this.previewContainer = container;
   }
@@ -1030,14 +1037,29 @@ export class TileRenderer {
    * (the shadow map is the placed tiles'), neither lit nor dimmed by the feature highlight (`ghostMaterial`). Null when
    * neither the model nor the image is in.
    */
-  private ghostModel(plan: number, orientation: number, planModel: string | null): THREE.Object3D | null {
+  private ghostModel(plan: number, orientation: number, planModel: string | null, role: GhostRole): THREE.Object3D | null {
     const model = planModel !== null ? this.placedModel(planModel, orientation) : this.createPlaceholder(plan, orientation);
+    const tinted: THREE.Mesh[] = [];
     model?.traverse((child) => {
       child.castShadow = false;
-      if (child instanceof THREE.Mesh && !isOutline(child) && child.material instanceof THREE.MeshStandardMaterial) {
-        child.material = this.ghostMaterial(child.material);
+      // The tile's edge outlines are opaque lines: on a translucent model they would read as a frame, so the ghost has none.
+      if (isOutline(child)) child.visible = false;
+      else if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+        const ghost = this.ghostMaterial(child.material, role);
+        if (ghost !== child.material) tinted.push(child);
+        child.material = ghost;
       }
     });
+    // A translucent model sorts none of its own faces: a depth-only copy is drawn first, and the colour pass keeps only the
+    // nearest face (depth LessEqual, no depth write), so no inner face shows through.
+    for (const mesh of tinted) {
+      mesh.renderOrder = GHOST_ORDER;
+      const depth = new THREE.Mesh(mesh.geometry, (this.depthMaterial ??= createDepthMaterial()));
+      depth.renderOrder = GHOST_ORDER - 1;
+      depth.castShadow = false;
+      depth.receiveShadow = false;
+      mesh.add(depth);
+    }
     return model;
   }
 
@@ -1047,34 +1069,94 @@ export class TileRenderer {
    * material, owned here; the same program (`paved-tile`), so no recompile. A material with no tile patch (the
    * placeholder quad's) is the type's own.
    */
-  private ghostMaterial(material: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  private ghostMaterial(material: THREE.MeshStandardMaterial, role: GhostRole): THREE.MeshStandardMaterial {
     const patch = material.onBeforeCompile;
     if (material.customProgramCacheKey() !== "paved-tile") return material;
-    let ghost = this.ghostMaterials.get(material);
+    const cache = this.ghostMaterials[role];
+    let ghost = cache.get(material);
     if (!ghost) {
+      const look = this.ghostLooks[role];
       ghost = material.clone();
-      // `Material.copy` leaves the shader patch out: the ghost's runs it, then holds the highlight off.
+      ghost.transparent = true;
+      ghost.depthWrite = false;
+      // The confirm's overlay lies on the very tile the board draws: pulled towards the camera so the two never fight.
+      if (role === "confirm") {
+        ghost.polygonOffset = true;
+        ghost.polygonOffsetFactor = -1;
+        ghost.polygonOffsetUnits = -1;
+      }
+      // `Material.copy` leaves the shader patch out: the ghost's runs it, then holds the highlight off and tints.
       ghost.onBeforeCompile = (shader, renderer) => {
         patch.call(material, shader, renderer);
         shader.uniforms.uFeatureOn = GHOST_FEATURE_OFF;
         shader.uniforms.uNightOn = GHOST_FEATURE_OFF;
+        shader.uniforms.uTintColor = look.color;
+        shader.uniforms.uTintMix = look.mix;
+        shader.uniforms.uGhostAlpha = look.alpha;
+        shader.fragmentShader = `uniform vec3 uTintColor;\nuniform float uTintMix;\nuniform float uGhostAlpha;\n${shader.fragmentShader.replace(
+          "#include <tonemapping_fragment>",
+          "gl_FragColor.rgb = mix(gl_FragColor.rgb, uTintColor, uTintMix);\n  gl_FragColor.a *= uGhostAlpha;\n  #include <tonemapping_fragment>",
+        )}`;
       };
-      ghost.customProgramCacheKey = material.customProgramCacheKey;
-      this.ghostMaterials.set(material, ghost);
+      ghost.customProgramCacheKey = () => "paved-tile-ghost";
+      cache.set(material, ghost);
     }
     return ghost;
   }
 
+  /** Writes a tint (`PlacementRenderer.ghostTint`) to a role's uniforms. */
+  private applyLook(role: GhostRole, tint: GhostTint | number[]): void {
+    const [r, g, b, mix, alpha] = Array.isArray(tint) ? tint : [tint.r, tint.g, tint.b, tint.strength, tint.opacity];
+    const look = this.ghostLooks[role];
+    look.color.value.setRGB(r!, g!, b!);
+    look.mix.value = mix!;
+    look.alpha.value = alpha!;
+  }
+
+  /** The tile in hand's tint now (its ease runs in `update`). */
+  private setGhostTint(ghost: { x: number; y: number; kind: "hover" | "pending" | "red" } | null): void {
+    const t = now();
+    this.placement.setGhost(ghost, t);
+    this.applyLook("hand", this.placement.ghostTint(t));
+  }
+
   /**
-   * The confirm of a placement (SLOTS): the rim at the cell, turning green and fading out around the tile the board now
-   * draws there. The same confirm given again changes nothing; null removes it. `key` tells two confirms apart (a tile's
-   * id).
+   * The confirm of a placement (SLOTS): the tile the board now draws at the cell wears a green tint that fades to none (an
+   * overlay of the same model, translucent, over it). The same confirm given again changes nothing; null removes it. `key`
+   * tells two confirms apart (a tile's id).
    */
   setConfirmed(state: (HoverState & { key?: string | number }) | null): void {
     const key = state ? `${state.key ?? ""}:${state.x},${state.y}:${state.planIndex}:${state.orientation}` : null;
     if (key === this.confirmKey) return;
     this.confirmKey = key;
-    this.placement.startConfirm(state && { x: state.x, y: state.y }, now());
+    this.clearConfirmOverlay();
+    const t = now();
+    this.placement.startConfirm(state && { x: state.x, y: state.y }, t);
+    if (!state) return;
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    const planModel = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
+    const model = planModel !== null ? this.ghostModel(state.planIndex, state.orientation, planModel, "confirm") : null;
+    if (!model) return;
+    const container = new THREE.Group();
+    container.add(model);
+    container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
+    this.previewGroup.add(container);
+    this.confirmContainer = container;
+    this.applyConfirmLook(t);
+  }
+
+  private clearConfirmOverlay(): void {
+    if (this.confirmContainer) this.previewGroup.remove(this.confirmContainer);
+    this.confirmContainer = null;
+  }
+
+  private applyConfirmLook(time: number): void {
+    const confirm = this.placement.confirmTint(time);
+    if (!confirm || confirm.done) {
+      this.clearConfirmOverlay();
+      return;
+    }
+    this.applyLook("confirm", confirm.tint);
   }
 
   /** The slots of the tile in hand, each with its plate's state (`plateStateOf`: valid, possible or invalid). */
@@ -1121,6 +1203,8 @@ export class TileRenderer {
   update(time: number = now()): PlacementUpdate & { shadow: boolean } {
     const drops = this.drops.update(time);
     const placement = this.placement.update(time);
+    this.applyLook("hand", this.placement.ghostTint(time));
+    if (this.confirmContainer) this.applyConfirmLook(time);
     return { animating: placement.animating || drops.animating, shadow: drops.shadow };
   }
 
@@ -1151,6 +1235,7 @@ export class TileRenderer {
     this.previewContainer = null;
     this.previewKey = null;
     this.confirmKey = null;
+    this.confirmContainer = null;
     this.hoverState = null;
     this.placement.dispose();
 
@@ -1165,8 +1250,12 @@ export class TileRenderer {
     this.pendingMaterials.clear();
     this.pendingFallbackMaterial?.dispose();
     this.pendingFallbackMaterial = null;
-    this.ghostMaterials.forEach((material) => material.dispose());
-    this.ghostMaterials.clear();
+    for (const cache of Object.values(this.ghostMaterials)) {
+      cache.forEach((material) => material.dispose());
+      cache.clear();
+    }
+    this.depthMaterial?.dispose();
+    this.depthMaterial = null;
     this.edgeMaterial.dispose();
     this.strategyGeometry?.dispose();
     this.strategyGeometry = null;
@@ -1254,6 +1343,28 @@ function emptyLitMap(): THREE.DataTexture {
 
 /** The ghost's feature switch (`TileRenderer.ghostMaterial`): always off. */
 const GHOST_FEATURE_OFF = { value: 0 };
+
+/** The two ghosts at once: the tile in hand, and the confirm's overlay on the tile just placed. */
+type GhostRole = "hand" | "confirm";
+
+/** A role's tint uniforms: a linear colour, how far the model goes to it, the model's opacity. */
+interface GhostLook {
+  color: { value: THREE.Color };
+  mix: { value: number };
+  alpha: { value: number };
+}
+
+function createGhostLook(): GhostLook {
+  return { color: { value: new THREE.Color() }, mix: { value: 0 }, alpha: { value: 1 } };
+}
+
+/** Over the plates (-1) and the grid (-2); the depth-only copy of a ghost just before it. */
+const GHOST_ORDER = 10;
+
+/** The depth pre-pass of a translucent ghost: writes depth, no colour. */
+function createDepthMaterial(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, transparent: true });
+}
 
 /** The time the placement effects run on, ms. */
 function now(): number {

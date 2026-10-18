@@ -83,12 +83,11 @@ export interface TileRenderData extends TileData {
 export interface HoverState {
   x: number;
   y: number;
-  /** The tile's rotation fits the cell; false: red (`placementTone`). */
+  /** The tile's rotation fits the cell; false: the red tint (a fallback, `tintKindOf`). */
   valid: boolean;
   idle: boolean;
   /**
-   * Placed on the cell, not yet confirmed (SLOTS): its plate's aura becomes a rim around it (PLATES). Unset: a hover
-   * preview, the tile alone.
+   * Placed on the cell, not yet confirmed (SLOTS): its tint turns yellow (pending). Unset: a hover preview, blue.
    */
   placed?: boolean;
   planIndex: number;

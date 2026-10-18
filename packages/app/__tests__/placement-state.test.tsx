@@ -34,13 +34,13 @@ const input = (over: Partial<PlacementInput> = {}): PlacementInput => ({
 });
 
 describe("the plates (PLATES, P-74)", () => {
-  it("are the slots, valid or possible, then every other free cell next to a tile, invalid; none with no slot", () => {
+  it("are the slots, all playable, then every other free cell next to a tile, invalid; none with no slot", () => {
     const tiles = [{ x: 0, y: 0 }, { x: 1, y: 0 }];
     const plates = boardPlates(tiles, [{ x: 2, y: 0, fits: true }, { x: 0, y: 1, fits: false }, { x: 1, y: 1 }]);
     expect(plates).toEqual([
-      { x: 2, y: 0, state: "valid" },
-      { x: 0, y: 1, state: "possible" },
-      { x: 1, y: 1, state: "valid" },
+      { x: 2, y: 0, state: "playable" },
+      { x: 0, y: 1, state: "playable" },
+      { x: 1, y: 1, state: "playable" },
       { x: -1, y: 0, state: "invalid" },
       { x: 0, y: -1, state: "invalid" },
       { x: 1, y: -1, state: "invalid" },
@@ -85,7 +85,7 @@ describe("the placement state (SLOTS, P-68)", () => {
     expect(placementView(input({ hovered: { x: 5, y: 5 } })).ghost).toBeNull();
   });
 
-  it("placed: white while the rotation fits, red while it does not, and Confirm disabled while red", () => {
+  it("placed: yellow while the rotation fits, red while it does not, and Confirm disabled while red", () => {
     const placed = placementView(input({ chosen: { x: 0, y: 1 }, orientation: 1 }));
     expect(placed.phase).toBe("placed");
     expect(placed.ghost).toMatchObject({ placed: true, fits: true });
@@ -144,7 +144,7 @@ afterEach(() => {
 });
 
 describe("the Training board's plan view, placing a tile", () => {
-  it("is red on a rotation that does not fit, with Place disabled, white again on one that does; then flashes green", async () => {
+  it("is red on a rotation that does not fit, with Place disabled, yellow again on one that does; then flashes green", async () => {
     const store = memoryStore();
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
     await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
@@ -161,7 +161,7 @@ describe("the Training board's plan view, placing a tile", () => {
       await userEvent.click(slots()[i]!);
       const label = slots()[i]!.getAttribute("aria-label");
       const chosen = () => screen.getByRole("button", { name: label! });
-      expect(chosen()).toHaveAttribute("data-placed", "aura");
+      expect(chosen()).toHaveAttribute("data-placed", "pending");
       expect(place()).toBeEnabled();
       for (let turn = 0; turn < 4; turn++) {
         await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
@@ -172,10 +172,10 @@ describe("the Training board's plan view, placing a tile", () => {
         }
       }
       if (red) {
-        for (let turn = 0; turn < 4 && chosen().getAttribute("data-placed") !== "aura"; turn++) {
+        for (let turn = 0; turn < 4 && chosen().getAttribute("data-placed") !== "pending"; turn++) {
           await userEvent.click(within(hand()).getByRole("button", { name: "Rotate tile" }));
         }
-        expect(chosen()).toHaveAttribute("data-placed", "aura");
+        expect(chosen()).toHaveAttribute("data-placed", "pending");
         expect(place()).toBeEnabled();
       }
     }

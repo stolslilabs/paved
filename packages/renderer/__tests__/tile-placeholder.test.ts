@@ -322,9 +322,9 @@ describe("the ghost while its model loads", () => {
     expect(quad.material).toBe(shared);
     expect(ghost(s)!.children).toHaveLength(1);
 
-    // Placed where the rotation does not fit: its plate's rim turns red.
+    // Placed where the rotation does not fit: its tint turns red (the fallback).
     s.setHoveredTile(hover(5, { orientation: 4, valid: false, placed: true }));
-    expect((s.tiles as any).placement.getGhost()).toMatchObject({ fits: false });
+    expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "red" });
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
@@ -497,8 +497,8 @@ describe("no leak after many swaps", () => {
       });
     }
     renderer.setHover(null);
-    // The plan's quad material, the model's (one source) and the outline's: the placement draws nothing on the ghost.
-    expect(seen.size).toBeLessThanOrEqual(3);
+    // The plan's quad material, the model's (one source), the outline's, and the model's one tinted copy (kept across swaps).
+    expect(seen.size).toBeLessThanOrEqual(4);
     const spies = [...seen].map((m) => vi.spyOn(m, "dispose"));
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     renderer.dispose();

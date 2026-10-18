@@ -5,7 +5,6 @@ import {
   GRID_RINGS,
   PLATE_GAP_VOXELS,
   PlacementRenderer,
-  auraAt,
   colorProgress,
   confirmProgress,
   createPlateGeometry,
@@ -13,13 +12,15 @@ import {
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
-  placementTone,
+  tintForKind,
+  tintKindOf,
   plateShapeOf,
   plateStateOf,
   resolvePlacementSettings,
   ringField,
   type PlacementSlot,
 } from "../src/core/placement";
+import { GROUND_VOXELS } from "../src/core/feature-codes";
 import { DEFAULT_OUTLINE_SETTINGS, VOXEL_SIZE, outlineFade } from "../src/core/outlines";
 import { resolveRendererSettings } from "../src/core/settings";
 import { TileRenderer } from "../src/core/TileRenderer";
@@ -150,17 +151,20 @@ describe("the grid's ring fade (a setting, off by default since PLATES)", () => 
 });
 
 
-describe("the plates' shape (PLATES)", () => {
-  it("is a low slab inset in its cell, in voxels: the defaults", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, height: 2, radius: 5, bevel: 1, opacity: 0.9, invalidOpacity: 0.45 });
+
+describe("the plates' shape (PLACEMENT-TINTS)", () => {
+  it("is flat, inset in its cell, in voxels: the defaults", () => {
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.6, invalidOpacity: 0.25, hideUnderTile: true });
+    // A smaller corner than the slab's 5 voxels, and more transparent plates (0.9 and 0.45 before).
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates.radius).toBeLessThan(5);
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates.opacity).toBeLessThan(0.9);
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates.invalidOpacity).toBeLessThan(0.45);
     const shape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
     expect(shape.size).toBeCloseTo(TILE_SIZE - 4 * VOXEL_SIZE, 9);
-    expect(shape.height).toBeCloseTo(2 * VOXEL_SIZE, 9);
-    expect(shape.radius).toBeCloseTo(5 * VOXEL_SIZE, 9);
-    expect(shape.bevel).toBeCloseTo(VOXEL_SIZE, 9);
+    expect(shape.radius).toBeCloseTo(3 * VOXEL_SIZE, 9);
     const box = createPlateGeometry(shape).boundingBox!;
     expect(box.min.y).toBe(0);
-    expect(box.max.y).toBeCloseTo(shape.height, 6);
+    expect(box.max.y).toBe(0);
     expect(box.max.x - box.min.x).toBeCloseTo(shape.size, 6);
     expect(box.max.z - box.min.z).toBeCloseTo(shape.size, 6);
   });
@@ -176,13 +180,12 @@ describe("the plates' shape (PLATES)", () => {
       corner = Math.max(corner, Math.min(Math.abs(x), Math.abs(z)));
       side = Math.max(side, Math.abs(x));
     }
-    // The farthest point along the diagonal is the arc's: (half - r) + r cos 45°.
     expect(corner).toBeCloseTo(half - shape.radius + shape.radius * Math.SQRT1_2, 6);
     expect(side).toBeCloseTo(half, 6);
   });
 
-  it("faces outward and up, with smooth normals: every triangle's winding agrees with its vertices' normals", () => {
-    for (const plates of [DEFAULT_PLACEMENT_SETTINGS.plates, { gap: 2, height: 4, radius: 0, bevel: 0 }, { gap: 8, height: 1, radius: 12, bevel: 3 }]) {
+  it("is one face looking up: every triangle's winding agrees with its normals, nothing faces down or sideways", () => {
+    for (const plates of [DEFAULT_PLACEMENT_SETTINGS.plates, { gap: 2, radius: 0 }, { gap: 8, radius: 12 }]) {
       const geometry = createPlateGeometry(plateShapeOf(plates));
       const p = geometry.getAttribute("position");
       const n = geometry.getAttribute("normal");
@@ -193,90 +196,49 @@ describe("the plates' shape (PLATES)", () => {
         const [a, b, c] = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
         const face = v(b).sub(v(a)).cross(v(c).sub(v(a)));
         if (face.lengthSq() < 1e-14) continue;
-        const normal = new THREE.Vector3(n.getX(a) + n.getX(b) + n.getX(c), n.getY(a) + n.getY(b) + n.getY(c), n.getZ(a) + n.getZ(b) + n.getZ(c));
-        expect(face.dot(normal)).toBeGreaterThan(0);
+        expect(face.normalize().y).toBeCloseTo(1, 6);
         faces++;
       }
       expect(faces).toBeGreaterThan(0);
-      // No bottom face: nothing faces down.
-      for (let i = 0; i < n.count; i++) expect(n.getY(i)).toBeGreaterThanOrEqual(-1e-9);
+      for (let i = 0; i < n.count; i++) expect(n.getY(i)).toBe(1);
     }
   });
 
   it("leaves a gap between two neighbouring plates at every setting the controls allow, and beyond them", () => {
     const gaps: number[] = [];
     for (let g = PLATE_GAP_VOXELS.min; g <= PLATE_GAP_VOXELS.max; g += 0.25) gaps.push(g);
-    // Out of the controls' range too: a 0, a negative, a non-number, a huge gap, all bounded.
     gaps.push(0, -4, Number.NaN, 0.1, 1000);
     for (const gap of gaps) {
-      for (const radius of [0, 5, 40]) {
-        for (const height of [0.5, 2, 6]) {
-          const shape = plateShapeOf({ gap, height, radius, bevel: 1 });
-          const box = createPlateGeometry(shape).boundingBox!;
-          // Two plates a cell apart (side by side, and diagonally): the space between them is at least the least gap.
-          for (const [dx, dz] of [[1, 0], [0, 1], [1, 1], [-1, 1]] as const) {
-            const other = box.clone().translate(new THREE.Vector3(dx * TILE_SIZE, 0, dz * TILE_SIZE));
-            expect(box.intersectsBox(other)).toBe(false);
-          }
-          expect(TILE_SIZE - (box.max.x - box.min.x)).toBeGreaterThanOrEqual(PLATE_GAP_VOXELS.min * VOXEL_SIZE - 1e-9);
+      for (const radius of [0, 3, 40]) {
+        const box = createPlateGeometry(plateShapeOf({ gap, radius })).boundingBox!;
+        for (const [dx, dz] of [[1, 0], [0, 1], [1, 1], [-1, 1]] as const) {
+          const other = box.clone().translate(new THREE.Vector3(dx * TILE_SIZE, 0, dz * TILE_SIZE));
+          expect(box.intersectsBox(other)).toBe(false);
         }
+        expect(TILE_SIZE - (box.max.x - box.min.x)).toBeGreaterThanOrEqual(PLATE_GAP_VOXELS.min * VOXEL_SIZE - 1e-9);
       }
     }
     expect(PLATE_GAP_VOXELS.min).toBeGreaterThan(0);
   });
 
-  it("keeps the same inset under the placed tile: the plate under it is the same shape", () => {
+  it("lies at the tiles' ground top", () => {
     const placement = new PlacementRenderer();
-    placement.setSlots([{ x: 0, y: 0 }]);
-    placement.setGhost({ x: 0, y: 0, fits: true }, 0);
-    const box = placement.getPlateMesh()!.geometry.boundingBox!;
-    expect(box.max.x - box.min.x).toBeCloseTo(plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates).size, 6);
+    placement.setSlots([{ x: 2, y: 1 }], 0);
+    expect(instances(placement).plateAt(2, 1)!.height).toBeCloseTo(GROUND_VOXELS * VOXEL_SIZE, 5);
     placement.dispose();
   });
 });
 
-describe("the plates' aura", () => {
-  const shape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
-  const falloff = DEFAULT_PLACEMENT_SETTINGS.aura.falloff * VOXEL_SIZE;
-
-  it("over a plate: full inside, half on its edge, nothing past half the falloff, and no step anywhere", () => {
-    expect(auraAt(0, 0, shape, falloff, 0)).toBe(1);
-    expect(auraAt(shape.size / 2, 0, shape, falloff, 0)).toBeCloseTo(0.5, 6);
-    expect(auraAt(shape.size / 2 + falloff / 2, 0, shape, falloff, 0)).toBe(0);
-    // The default falloff keeps a plate's aura within its own cell.
-    expect(shape.size / 2 + falloff / 2).toBeLessThanOrEqual(TILE_SIZE / 2 + 1e-9);
-    let last = auraAt(0, 0, shape, falloff, 0);
-    for (let x = 0; x <= TILE_SIZE; x += VOXEL_SIZE / 20) {
-      const a = auraAt(x, 0.3 * x, shape, falloff, 0);
-      expect(Math.abs(a - last)).toBeLessThan(0.05);
-      last = a;
-    }
-  });
-
-  it("placed: a rim on the tile's edge, falling off both ways, the tile's middle left alone", () => {
-    const f = DEFAULT_PLACEMENT_SETTINGS.aura.placedFalloff * VOXEL_SIZE;
-    expect(auraAt(TILE_SIZE / 2, 0, shape, f, 1)).toBeCloseTo(1, 6);
-    expect(auraAt(0, 0, shape, f, 1)).toBeLessThan(1e-6);
-    expect(auraAt(TILE_SIZE / 2 + f, 0, shape, f, 1)).toBeLessThan(0.02);
-    expect(auraAt(TILE_SIZE / 2 - f, 0, shape, f, 1)).toBeLessThan(0.02);
-  });
-});
-
-/** The plates' instances: each one's cell, colour, opacity, and its aura (strength, falloff, placed) when it has one. */
 function instances(placement: PlacementRenderer) {
   const plate = placement.getPlateMesh()!;
-  const aura = placement.getAuraMesh()!;
   const m = new THREE.Matrix4();
-  const at = (mesh: THREE.InstancedMesh, i: number) => {
-    mesh.getMatrixAt(i, m);
-    const p = new THREE.Vector3().setFromMatrixPosition(m);
-    return { x: Math.round(p.x / TILE_SIZE), y: Math.round(p.z / TILE_SIZE), height: p.y };
-  };
   const opacity = plate.geometry.getAttribute("aOpacity");
-  const plates = Array.from({ length: plate.count }, (_, i) => ({ ...at(plate, i), color: plate.getColorAt(i, new THREE.Color()), opacity: opacity.getX(i) }));
-  const attr = aura.geometry.getAttribute("aAura");
-  const auras = Array.from({ length: aura.count }, (_, i) => ({ ...at(aura, i), color: aura.getColorAt(i, new THREE.Color()), strength: attr.getX(i), falloff: attr.getY(i), placed: attr.getZ(i) }));
-  return { plates, auras, plateAt: (x: number, y: number) => plates.find((p) => p.x === x && p.y === y), auraAt: (x: number, y: number) => auras.find((a) => a.x === x && a.y === y) };
+  const plates = Array.from({ length: plate.count }, (_, i) => {
+    plate.getMatrixAt(i, m);
+    const p = new THREE.Vector3().setFromMatrixPosition(m);
+    return { x: Math.round(p.x / TILE_SIZE), y: Math.round(p.z / TILE_SIZE), height: p.y, color: plate.getColorAt(i, new THREE.Color()), opacity: opacity.getX(i) };
+  });
+  return { plates, plateAt: (x: number, y: number) => plates.find((p) => p.x === x && p.y === y) };
 }
 
 const close = (a: THREE.Color, hex: string, digits = 5) => {
@@ -284,87 +246,71 @@ const close = (a: THREE.Color, hex: string, digits = 5) => {
   for (const k of ["r", "g", "b"] as const) expect(a[k]).toBeCloseTo(b[k], digits);
 };
 
-const SLOTS: PlacementSlot[] = [
-  { x: 1, y: 0, fits: true },
-  { x: 2, y: 0, fits: false },
-  { x: 3, y: 0, legal: false, fits: false },
-];
+const SLOTS: PlacementSlot[] = [{ x: 1, y: 0 }, { x: 2, y: 0, legal: true }, { x: 3, y: 0, legal: false }];
 
 describe("the plates' states", () => {
-  it("are valid where the current rotation fits, possible where another does, invalid where none does", () => {
-    expect(plateStateOf({})).toBe("valid");
-    expect(plateStateOf({ fits: true })).toBe("valid");
-    expect(plateStateOf({ fits: false })).toBe("possible");
+  it("are playable where some rotation fits and invalid where none does: valid and possible are one", () => {
+    expect(plateStateOf({})).toBe("playable");
+    expect(plateStateOf({ legal: true })).toBe("playable");
     expect(plateStateOf({ legal: false })).toBe("invalid");
-    expect(plateStateOf({ legal: false, fits: true })).toBe("invalid");
   });
 
-  it("draw the base plate, the aura over a valid one, and the greyscale, more transparent invalid one", () => {
+  it("draw one blue, transparent plate for the playable and a grey, more transparent one for the invalid", () => {
     const placement = new PlacementRenderer();
     placement.setReducedMotion(true);
     placement.setSlots(SLOTS, 0);
-    const { colors, plates, aura } = DEFAULT_PLACEMENT_SETTINGS;
-    const { plateAt, auras } = instances(placement);
+    const { colors, plates } = DEFAULT_PLACEMENT_SETTINGS;
+    const { plateAt } = instances(placement);
     close(plateAt(1, 0)!.color, colors.plate);
     close(plateAt(2, 0)!.color, colors.plate);
     close(plateAt(3, 0)!.color, colors.invalid);
     expect(plateAt(1, 0)!.opacity).toBeCloseTo(plates.opacity, 6);
+    expect(plateAt(2, 0)!.opacity).toBeCloseTo(plates.opacity, 6);
     expect(plateAt(3, 0)!.opacity).toBeCloseTo(plates.invalidOpacity, 6);
     expect(plates.invalidOpacity).toBeLessThan(plates.opacity);
-    // One aura, over the valid plate, white and above its top.
-    expect(auras).toHaveLength(1);
-    expect(auras[0]).toMatchObject({ x: 1, y: 0, placed: 0 });
-    expect(auras[0]!.strength).toBeCloseTo(aura.intensity, 6);
-    close(auras[0]!.color, colors.aura);
-    expect(auras[0]!.height).toBeCloseTo((plates.height + aura.height) * VOXEL_SIZE, 6);
     placement.dispose();
   });
 
-  it("are the app's tokens: a pale neutral blue, a grey with no hue, a near white; the red and green of SLOTS", () => {
+  it("are the app's tokens: a pale neutral blue and a grey with no hue", () => {
     const { colors } = DEFAULT_PLACEMENT_SETTINGS;
-    expect(colors).toEqual({ plate: "#b7ccdc", invalid: "#929292", aura: "#f5f9fc", red: "#f85e4d", green: "#6eca6f" });
+    expect(colors).toEqual({ plate: "#b7ccdc", invalid: "#929292" });
     const hsl = new THREE.Color(colors.plate).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace);
     expect(hsl.h * 360).toBeGreaterThan(190);
     expect(hsl.h * 360).toBeLessThan(230);
-    expect(hsl.l).toBeGreaterThan(0.6);
     const grey = new THREE.Color(colors.invalid);
     expect(grey.r).toBe(grey.g);
     expect(grey.g).toBe(grey.b);
   });
 
-  it("is one instanced mesh for the plates and one for the auras, whatever the number of slots", () => {
+  it("is one instanced mesh for the plates, whatever the number of slots, and no aura anywhere", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     for (const count of [1, 12, 80, 200]) {
-      tiles.setAvailableSlots(Array.from({ length: count }, (_, i) => ({ x: i + 1, y: 0, fits: i % 2 === 0, legal: i % 3 !== 0 })));
+      tiles.setAvailableSlots(Array.from({ length: count }, (_, i) => ({ x: i + 1, y: 0, legal: i % 3 !== 0 })));
       const empty = tiles.getGroup().children[1]!;
       expect(empty.children).toHaveLength(1);
       const mesh = empty.children[0] as THREE.InstancedMesh;
       expect(mesh).toBeInstanceOf(THREE.InstancedMesh);
       expect(mesh.count).toBe(count);
-      const auras = (tiles.getGroup().children[3]!.children as THREE.Object3D[]).filter((c) => c.userData.auras);
-      expect(auras).toHaveLength(1);
+      expect((tiles.getGroup().children[3]!.children as THREE.Object3D[]).filter((c) => c.userData.auras)).toHaveLength(0);
     }
     tiles.dispose();
   });
 });
 
 describe("the plates' changes", () => {
-  it("ease over 150 ms as the tile in hand rotates, and ask for frames only while they do", () => {
+  it("ease over 150 ms as a plate changes state, and ask for frames only while they do", () => {
     expect(motion.colorMs).toBe(150);
     const placement = new PlacementRenderer();
     const t0 = 1000;
-    placement.setSlots([{ x: 1, y: 0, fits: true }], t0);
+    placement.setSlots([{ x: 1, y: 0 }], t0);
     expect(placement.update(t0 + motion.colorMs).animating).toBe(true);
     expect(placement.update(t0 + motion.colorMs + 1).animating).toBe(false);
-    // Turned: the plate is possible now, its aura fades out.
     const t1 = t0 + 1000;
-    placement.setSlots([{ x: 1, y: 0, fits: false }], t1);
+    placement.setSlots([{ x: 1, y: 0, legal: false }], t1);
     expect(placement.update(t1 + motion.colorMs / 2).animating).toBe(true);
-    const half = instances(placement).auraAt(1, 0)!.strength;
-    expect(half).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.intensity / 2, 6);
-    // Its end is drawn once more, then nothing moves.
+    const { plates } = DEFAULT_PLACEMENT_SETTINGS;
+    expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo((plates.opacity + plates.invalidOpacity) / 2, 6);
     expect(placement.update(t1 + motion.colorMs).animating).toBe(true);
-    expect(instances(placement).auraAt(1, 0)).toBeUndefined();
     expect(placement.update(t1 + motion.colorMs + 16).animating).toBe(false);
     placement.dispose();
   });
@@ -372,7 +318,7 @@ describe("the plates' changes", () => {
   it("change at once under reduced motion, with no frame asked for", () => {
     const placement = new PlacementRenderer();
     placement.setReducedMotion(true);
-    placement.setSlots([{ x: 1, y: 0, fits: true }], 0);
+    placement.setSlots([{ x: 1, y: 0 }], 0);
     expect(placement.update(0).animating).toBe(false);
     placement.setSlots([{ x: 1, y: 0, legal: false }], 10);
     expect(placement.update(10).animating).toBe(false);
@@ -383,141 +329,155 @@ describe("the plates' changes", () => {
 
   it("fade a new plate in and a gone one out, then drop it: no pop", () => {
     const placement = new PlacementRenderer();
-    const t0 = 0;
-    placement.setSlots([{ x: 1, y: 0, fits: false }], t0);
+    placement.setSlots([{ x: 1, y: 0 }], 0);
     expect(instances(placement).plateAt(1, 0)!.opacity).toBe(0);
-    placement.update(t0 + motion.colorMs / 2);
+    placement.update(motion.colorMs / 2);
     expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.opacity / 2, 6);
-    placement.update(t0 + motion.colorMs);
-    placement.setSlots([], t0 + 500);
-    placement.update(t0 + 500 + motion.colorMs / 2);
+    placement.update(motion.colorMs);
+    placement.setSlots([], 500);
+    placement.update(500 + motion.colorMs / 2);
     expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.opacity / 2, 6);
-    placement.update(t0 + 500 + motion.colorMs);
+    placement.update(500 + motion.colorMs);
     expect(placement.getPlateMesh()!.count).toBe(0);
-    expect(placement.update(t0 + 2000).animating).toBe(false);
+    expect(placement.update(2000).animating).toBe(false);
     placement.dispose();
   });
 
-  it("follow the eased smoothstep, from the value they had when the change came", () => {
+  it("follow the eased smoothstep", () => {
     expect(colorProgress(0, motion, false)).toBe(0);
     expect(colorProgress(motion.colorMs / 2, motion, false)).toBeCloseTo(0.5, 9);
     expect(colorProgress(motion.colorMs, motion, false)).toBe(1);
-    const placement = new PlacementRenderer();
-    placement.setSlots([{ x: 1, y: 0, fits: true }], 0);
-    placement.update(1000);
-    placement.setSlots([{ x: 1, y: 0, fits: false }], 1000);
-    // Turned back before the end: it eases back from where it was, not from the end.
-    placement.update(1000 + motion.colorMs / 2);
-    placement.setSlots([{ x: 1, y: 0, fits: true }], 1000 + motion.colorMs / 2);
-    placement.update(1000 + motion.colorMs / 2);
-    expect(instances(placement).auraAt(1, 0)!.strength).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.intensity / 2, 6);
-    placement.dispose();
   });
 });
 
-describe("the tile placed on a plate", () => {
-  it("is white while its rotation fits, red while it does not: its plate tinted, its aura a rim at the tiles' ground top", () => {
-    expect(placementTone(true)).toBe("aura");
-    expect(placementTone(false)).toBe("red");
+describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
+  const { tints } = DEFAULT_PLACEMENT_SETTINGS;
+
+  it("defaults to the owner's: blue at 50 % on a hover, yellow at 90 % pending, a green confirm, no rim or aura setting left", () => {
+    expect(tints.hoverOpacity).toBe(0.5);
+    expect(tints.pendingOpacity).toBe(0.9);
+    const hue = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace).h * 360;
+    expect(hue(tints.hoverColor)).toBeGreaterThan(200);
+    expect(hue(tints.hoverColor)).toBeLessThan(250);
+    expect(hue(tints.pendingColor)).toBeGreaterThan(40);
+    expect(hue(tints.pendingColor)).toBeLessThan(60);
+    expect(hue(tints.confirmColor)).toBeGreaterThan(100);
+    expect(hue(tints.confirmColor)).toBeLessThan(140);
+    expect(Object.keys(DEFAULT_PLACEMENT_SETTINGS).sort()).toEqual(["colors", "grid", "motion", "plates", "tints"]);
+  });
+
+  it("is red only when the rotation does not fit; placed is pending, else hover", () => {
+    expect(tintKindOf({ placed: false, fits: true })).toBe("hover");
+    expect(tintKindOf({ placed: true, fits: true })).toBe("pending");
+    expect(tintKindOf({ placed: true, fits: false })).toBe("red");
+    expect(tintForKind("hover", tints)).toMatchObject({ opacity: 0.5 });
+    expect(tintForKind("pending", tints)).toMatchObject({ opacity: 0.9 });
+  });
+
+  it("eases between looks over 150 ms from where it was, and a newly drawn tile starts at its look", () => {
     const placement = new PlacementRenderer();
-    placement.setReducedMotion(true);
-    placement.setSlots(SLOTS, 0);
-    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
-    const { colors, aura } = DEFAULT_PLACEMENT_SETTINGS;
-    let rim = instances(placement).auraAt(1, 0)!;
-    expect(rim.placed).toBe(1);
-    expect(rim.strength).toBeCloseTo(aura.placedIntensity, 6);
-    expect(rim.falloff).toBeCloseTo(aura.placedFalloff * VOXEL_SIZE, 6);
-    // Just over a tile's ground (4 voxels): over its own and its neighbours', under their features.
-    expect(rim.height).toBeCloseTo(4.5 * VOXEL_SIZE, 6);
-    close(rim.color, colors.aura);
-    close(instances(placement).plateAt(1, 0)!.color, colors.plate);
-    placement.setGhost({ x: 1, y: 0, fits: false }, 10);
-    rim = instances(placement).auraAt(1, 0)!;
-    close(rim.color, colors.red);
-    close(instances(placement).plateAt(1, 0)!.color, colors.red);
-    // The other plates keep their states.
-    close(instances(placement).plateAt(3, 0)!.color, colors.invalid);
-    placement.setGhost(null, 20);
-    expect(instances(placement).auraAt(1, 0)!.placed).toBe(0);
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    expect(placement.ghostTint(0)[4]).toBeCloseTo(0.5, 9);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
+    expect(placement.ghostTint(1000)[4]).toBeCloseTo(0.5, 9);
+    expect(placement.ghostTint(1000 + motion.colorMs / 2)[4]).toBeCloseTo(0.7, 6);
+    expect(placement.update(1000 + motion.colorMs / 2).animating).toBe(true);
+    expect(placement.ghostTint(1000 + motion.colorMs)[4]).toBeCloseTo(0.9, 9);
+    placement.update(1000 + motion.colorMs);
+    expect(placement.update(1000 + motion.colorMs + 16).animating).toBe(false);
+    // Gone, then drawn again elsewhere: no ease from the old look.
+    placement.setGhost(null, 3000);
+    placement.setGhost({ x: 2, y: 0, kind: "hover" }, 4000);
+    expect(placement.ghostTint(4000)[4]).toBeCloseTo(0.5, 9);
     placement.dispose();
   });
 
-  it("turns red over 150 ms, between the two colours halfway", () => {
+  it("is instant under reduced motion", () => {
     const placement = new PlacementRenderer();
-    placement.setSlots([{ x: 1, y: 0 }], 0);
-    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
-    placement.update(1000);
-    placement.setGhost({ x: 1, y: 0, fits: false }, 1000);
-    placement.update(1000 + motion.colorMs / 2);
-    const mid = instances(placement).auraAt(1, 0)!.color;
-    const [white, red] = [new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.aura), new THREE.Color(DEFAULT_PLACEMENT_SETTINGS.colors.red)];
-    expect(mid.g).toBeCloseTo((white.g + red.g) / 2, 5);
-    placement.update(1000 + motion.colorMs);
-    close(instances(placement).auraAt(1, 0)!.color, DEFAULT_PLACEMENT_SETTINGS.colors.red);
+    placement.setReducedMotion(true);
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 10);
+    expect(placement.ghostTint(10)[4]).toBeCloseTo(0.9, 9);
+    expect(placement.update(10).animating).toBe(false);
     placement.dispose();
+  });
+
+  it("hides the plate under the tile in hand, or keeps it by setting", () => {
+    for (const hide of [true, false]) {
+      const placement = new PlacementRenderer();
+      placement.setSettings(resolvePlacementSettings({ plates: { hideUnderTile: hide } }));
+      placement.setReducedMotion(true);
+      placement.setSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }], 0);
+      placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+      const { plateAt } = instances(placement);
+      expect(plateAt(1, 0)!.opacity).toBeCloseTo(hide ? 0 : DEFAULT_PLACEMENT_SETTINGS.plates.opacity, 6);
+      expect(plateAt(2, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.opacity, 6);
+      placement.dispose();
+    }
   });
 
   it("stands on a plate even where no slot was given", () => {
     const placement = new PlacementRenderer();
-    placement.setReducedMotion(true);
-    placement.setGhost({ x: 5, y: 5, fits: true }, 0);
-    expect(instances(placement).plateAt(5, 5)).toBeDefined();
-    expect(instances(placement).auraAt(5, 5)!.placed).toBe(1);
+    placement.setGhost({ x: 4, y: 4, kind: "pending" }, 0);
+    expect(instances(placement).plateAt(4, 4)).toBeDefined();
     placement.dispose();
   });
 
-  it("on confirm: the rim turns green in the first third and fades out in confirmMs, then goes", () => {
+  it("confirms with a green tint that fades to none in confirmMs, then goes", () => {
     const placement = new PlacementRenderer();
-    placement.setReducedMotion(false);
-    placement.setSlots([{ x: 1, y: 0 }], 0);
-    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
-    placement.update(500);
-    // The move accepted: the slots go, the confirm rim stays at the cell.
-    placement.setGhost(null, 1000);
-    placement.setSlots([], 1000);
-    placement.startConfirm({ x: 1, y: 0 }, 1000);
+    placement.startConfirm({ x: 1, y: 0 }, 0);
     expect(placement.isConfirming()).toBe(true);
-    placement.update(1000 + motion.confirmMs / 3);
-    const rims = instances(placement).auras.filter((a) => a.placed === 1);
-    expect(rims).toHaveLength(1);
-    close(rims[0]!.color, DEFAULT_PLACEMENT_SETTINGS.colors.green);
-    const { opacity } = confirmProgress(motion.confirmMs / 3, motion, false);
-    expect(rims[0]!.strength).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.aura.placedIntensity * opacity, 5);
-    expect(placement.update(1000 + motion.confirmMs).animating).toBe(true);
+    const start = placement.confirmTint(0)!;
+    close(new THREE.Color(start.tint.r, start.tint.g, start.tint.b), DEFAULT_PLACEMENT_SETTINGS.tints.confirmColor);
+    expect(start.tint.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.confirmOpacity, 9);
+    expect(placement.confirmTint(motion.confirmMs / 2)!.tint.opacity).toBeCloseTo(0.5 * DEFAULT_PLACEMENT_SETTINGS.tints.confirmOpacity, 6);
+    expect(placement.update(motion.confirmMs / 2).animating).toBe(true);
+    expect(placement.update(motion.confirmMs).animating).toBe(true);
     expect(placement.isConfirming()).toBe(false);
-    expect(placement.update(1000 + motion.confirmMs + 16).animating).toBe(false);
-    expect(placement.getAuraMesh()!.count).toBe(0);
+    expect(placement.update(motion.confirmMs + 16).animating).toBe(false);
+    expect(confirmProgress(motion.confirmMs, motion, false)).toEqual({ opacity: 0, done: true });
     placement.dispose();
   });
 
-  it("under reduced motion, confirms green at once with a short fade", () => {
-    expect(confirmProgress(0, motion, true).color).toBe(1);
-    expect(confirmProgress(motion.reducedConfirmMs, motion, true).done).toBe(true);
-    expect(confirmProgress(motion.confirmMs / 3, motion, false).color).toBeCloseTo(1, 9);
-    expect(confirmProgress(motion.confirmMs, motion, false)).toEqual({ color: 1, opacity: 0, done: true });
+  it("fades the confirm briefly under reduced motion", () => {
+    const placement = new PlacementRenderer();
+    placement.setReducedMotion(true);
+    placement.startConfirm({ x: 1, y: 0 }, 0);
+    expect(placement.confirmTint(motion.reducedConfirmMs)!.done).toBe(true);
+    expect(confirmProgress(0, motion, true).opacity).toBe(1);
+    placement.dispose();
   });
 });
 
 describe("the settings", () => {
   it("take each group's fields over the defaults, and ride in the renderer's settings", () => {
-    const s = resolvePlacementSettings({ grid: { opacity: 0.5 }, plates: { gap: 6 }, motion: { reducedMotion: true } });
+    const s = resolvePlacementSettings({ grid: { opacity: 0.5 }, plates: { gap: 6 }, tints: { hoverOpacity: 0.3 }, motion: { reducedMotion: true } });
     expect(s.grid.opacity).toBe(0.5);
     expect(s.grid.rings).toEqual(DEFAULT_PLACEMENT_SETTINGS.grid.rings);
     expect(s.plates.gap).toBe(6);
-    expect(s.plates.height).toBe(DEFAULT_PLACEMENT_SETTINGS.plates.height);
+    expect(s.plates.radius).toBe(DEFAULT_PLACEMENT_SETTINGS.plates.radius);
+    expect(s.tints.hoverOpacity).toBe(0.3);
+    expect(s.tints.pendingOpacity).toBe(0.9);
     expect(s.motion.reducedMotion).toBe(true);
-    expect(resolveRendererSettings({ placement: { aura: { intensity: 0.5 } } }).placement.aura.intensity).toBe(0.5);
+    expect(resolveRendererSettings({ placement: { tints: { pendingOpacity: 0.7 } } }).placement.tints.pendingOpacity).toBe(0.7);
     expect(resolveRendererSettings().placement).toEqual(DEFAULT_PLACEMENT_SETTINGS);
   });
 
   it("rebuild the plates at a new shape and colour, at once", () => {
     const placement = new PlacementRenderer();
-    placement.setSlots([{ x: 1, y: 0, fits: false }], 0);
+    placement.setSlots([{ x: 1, y: 0 }], 0);
     placement.setSettings(resolvePlacementSettings({ plates: { gap: 10 }, colors: { plate: "#336699" } }));
     const box = placement.getPlateMesh()!.geometry.boundingBox!;
     expect(box.max.x - box.min.x).toBeCloseTo(TILE_SIZE - 10 * VOXEL_SIZE, 6);
     close(instances(placement).plateAt(1, 0)!.color, "#336699");
+    placement.dispose();
+  });
+
+  it("retarget a drawn tile's tint at once", () => {
+    const placement = new PlacementRenderer();
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    placement.setSettings(resolvePlacementSettings({ tints: { hoverOpacity: 0.2 } }));
+    expect(placement.ghostTint(0)[4]).toBeCloseTo(0.2, 9);
     placement.dispose();
   });
 });
@@ -542,51 +502,99 @@ function fakeAssets() {
   };
 }
 
+
 const ghostAt = (x: number, y: number, extra: Partial<HoverState> = {}): HoverState => ({ x, y, valid: true, idle: true, planIndex: 9, orientation: 1, ...extra });
 const placementOf = (tiles: TileRenderer) => (tiles as any).placement as PlacementRenderer;
 
 describe("the tile renderer's ghost", () => {
-  it("is the tile alone on a hover; placed, its plate's rim; moved, the rim follows; gone, no rim", () => {
+  it("is tinted: hover, then pending once placed, red where it does not fit; moved, the tint follows; gone, none", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.setAvailableSlots([{ x: 1, y: 0, fits: true }, { x: 2, y: 0, fits: false }]);
+    tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
     tiles.setHover(ghostAt(1, 0));
     expect((tiles as any).previewContainer).not.toBeNull();
-    expect(placementOf(tiles).getGhost()).toBeNull();
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, kind: "hover" });
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, fits: true });
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, kind: "pending" });
     tiles.setHover(ghostAt(2, 0, { placed: true, valid: false }));
-    expect(placementOf(tiles).getGhost()).toEqual({ x: 2, y: 0, fits: false });
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 2, y: 0, kind: "red" });
     tiles.setHover(null);
     expect(placementOf(tiles).getGhost()).toBeNull();
     tiles.dispose();
   });
 
-  it("hovering a plan with no model and no image yet drops the last ghost's rim", () => {
+  it("draws the ghost translucent behind a depth pre-pass, with no outline: no inner face shows through", () => {
+    const tiles = new TileRenderer(fakeAssets() as any);
+    // The tile material is patched as a tile's is, so the ghost takes its tint.
+    const patched = (tiles as any).assets.material as THREE.MeshStandardMaterial;
+    patched.onBeforeCompile = () => {};
+    patched.customProgramCacheKey = () => "paved-tile";
+    tiles.setHover(ghostAt(1, 0));
+    const container = (tiles as any).previewContainer as THREE.Group;
+    const meshes: THREE.Mesh[] = [];
+    container.traverse((c) => c instanceof THREE.Mesh && meshes.push(c));
+    // The edge outlines are hidden on a ghost.
+    for (const m of meshes.filter((m) => m.userData.outline)) expect(m.visible).toBe(false);
+    const colour = meshes.filter((m) => !m.userData.outline &&  (m.material as THREE.Material).transparent && (m.material as THREE.Material).depthWrite === false && (m.material as THREE.Material).colorWrite);
+    const depth = meshes.filter((m) => (m.material as THREE.Material).colorWrite === false);
+    expect(colour).toHaveLength(1);
+    expect(depth).toHaveLength(1);
+    expect(depth[0]!.renderOrder).toBeLessThan(colour[0]!.renderOrder);
+    expect(depth[0]!.material).toHaveProperty("depthWrite", true);
+    expect(depth[0]!.geometry).toBe(colour[0]!.geometry);
+    expect((colour[0]!.material as THREE.Material).depthFunc).toBe(THREE.LessEqualDepth);
+    tiles.dispose();
+  });
+
+  it("applies the tint's uniforms to the ghost's shader, and eases them in update", () => {
+    const tiles = new TileRenderer(fakeAssets() as any);
+    const patched = (tiles as any).assets.material as THREE.MeshStandardMaterial;
+    patched.onBeforeCompile = () => {};
+    patched.customProgramCacheKey = () => "paved-tile";
+    tiles.setHover(ghostAt(1, 0));
+    const look = (tiles as any).ghostLooks.hand;
+    expect(look.alpha.value).toBeCloseTo(0.5, 6);
+    expect(look.mix.value).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.hoverStrength, 6);
+    tiles.setHover(ghostAt(1, 0, { placed: true }));
+    tiles.update(performance.now() + 10_000);
+    expect(look.alpha.value).toBeCloseTo(0.9, 6);
+    tiles.dispose();
+  });
+
+  it("hovering a plan with no model and no image yet drops the last ghost's tint", () => {
     const assets = { ...fakeAssets(), has: (key: string) => key !== "missing", peekTexture: () => null };
     const tiles = new TileRenderer(assets as any);
     tiles.setAvailableSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, fits: true });
+    expect(placementOf(tiles).getGhost()).toEqual({ x: 1, y: 0, kind: "pending" });
     (tiles as any).modelOf = () => null;
     tiles.setHover(ghostAt(2, 0, { placed: true, planIndex: 5 }));
     expect((tiles as any).previewContainer).toBeNull();
     expect(placementOf(tiles).getGhost()).toBeNull();
-    // The plates' last change drawn, nothing moves: no frame is asked for.
     tiles.update(performance.now() + 10_000);
     expect(tiles.update(performance.now() + 10_016).animating).toBe(false);
     tiles.dispose();
   });
 
-  it("confirms at a cell: the same confirm again changes nothing, null removes it", () => {
+  it("confirms at a cell: the same confirm again changes nothing, null removes it and its overlay", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     const spy = vi.spyOn(placementOf(tiles), "startConfirm");
     tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
     tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]![0]).toEqual({ x: 1, y: 0 });
+    expect((tiles as any).confirmContainer).not.toBeNull();
     tiles.setConfirmed(null);
     expect(spy.mock.calls[1]![0]).toBeNull();
     expect(placementOf(tiles).isConfirming()).toBe(false);
+    expect((tiles as any).confirmContainer).toBeNull();
+    tiles.dispose();
+  });
+
+  it("removes the confirm's overlay when its fade ends", () => {
+    const tiles = new TileRenderer(fakeAssets() as any);
+    tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
+    tiles.update(performance.now() + 10_000);
+    expect((tiles as any).confirmContainer).toBeNull();
     tiles.dispose();
   });
 });
@@ -597,11 +605,10 @@ describe("the placement's resources", () => {
     placement.setSettings(resolvePlacementSettings({ grid: { enabled: true } }));
     placement.setTileCells([{ x: 0, y: 0 }]);
     placement.setSlots([{ x: 1, y: 0 }], 0);
-    placement.setGhost({ x: 1, y: 0, fits: true }, 0);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
     const plate = placement.getPlateMesh()!;
-    const aura = placement.getAuraMesh()!;
     const grid = placement.group.children.find((c) => c.userData.grid) as THREE.Mesh;
-    const owned = [plate.geometry, plate.material as THREE.Material, aura.geometry, aura.material as THREE.Material, grid.geometry, grid.material as THREE.Material];
+    const owned = [plate.geometry, plate.material as THREE.Material, grid.geometry, grid.material as THREE.Material];
     const spies = owned.map((r) => vi.spyOn(r, "dispose"));
     placement.dispose();
     for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);

@@ -11,15 +11,15 @@ const CENTER = 2_147_483_647;
 export interface BoardMapProps {
   tiles: BoardTile[];
   /**
-   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a plate each, valid
-   * under its aura where the current rotation fits (`fits`, unset: it fits), possible where not. Every other free cell
+   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a blue plate each
+   * (`fits`: the current rotation fits there, unset: it does). Every other free cell
    * next to a tile gets an invalid plate, not a button (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile
    * that fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
-  /** The tile in hand where it would go: placed (a white rim, red while its rotation does not fit) or a preview. */
+  /** The tile in hand where it would go: placed (tinted yellow, red while its rotation does not fit) or a preview. */
   ghost?: BoardGhost | null;
-  /** A move just sent: its rim turns green and fades (`useConfirmFlash`). */
+  /** A move just sent: a green tint fades (`useConfirmFlash`). */
   confirmed?: (BoardGhost & { key: number }) | null;
   onSlotClick?: (slot: { x: number; y: number }) => void;
   /** The plates are drawn. Off (the player's placement highlight setting): the slots stay buttons, drawn plain. */
@@ -46,21 +46,20 @@ const RING_OPACITY = [0, 0.32, 0.13];
  * A plate in its cell, as the board's (`DEFAULT_PLACEMENT_SETTINGS.plates`): inset by half the 4-voxel gap of a 40-voxel
  * tile (5 %) on each side, its corners rounded, each change eased over 150 ms.
  */
-const PLATE = "pointer-events-none absolute inset-[5%] block rounded-sm transition duration-150 ease-out motion-reduce:transition-none";
-/** The three states, on the tokens the renderer's colours are pinned to. */
+const PLATE = "pointer-events-none absolute inset-[5%] block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
+/** The two states, on the tokens the renderer's colours are pinned to: flat, transparent. */
 const PLATE_STATE: Record<PlateState, string> = {
-  valid: "bg-plate/90 shadow-[0_0_8px_var(--color-plate-aura)]",
-  possible: "bg-plate/90",
-  invalid: "bg-plate-off/45",
+  playable: "bg-plate/60",
+  invalid: "bg-plate-off/25",
 };
-/** The placed tile's rim: white while its rotation fits, red while not. */
-const RIM = "pointer-events-none absolute inset-0 block rounded-[2px] ring-2 transition duration-150 ease-out motion-reduce:transition-none";
-const RIM_TONE = {
-  aura: "ring-plate-aura shadow-[0_0_8px_var(--color-plate-aura)]",
-  red: "ring-ember-500 shadow-[0_0_8px_var(--color-ember-500)]",
+/** The placed tile's tint, over the tile: yellow while its rotation fits (gold-300, the renderer's), red while not. */
+const TINT = "pointer-events-none absolute inset-0 block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
+const TINT_TONE = {
+  pending: "bg-gold-300/40",
+  red: "bg-ember-500/50",
 };
 
-/** The cell's rim on confirm: green, fading to nothing over 700 ms (150 ms under reduced motion). */
+/** The cell's green tint on confirm, fading to nothing over 700 ms (150 ms under reduced motion). */
 function ConfirmFlash({ style }: { style: CSSProperties }) {
   const [faded, setFaded] = useState(false);
   useEffect(() => {
@@ -73,7 +72,7 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
       data-confirm
       style={style}
       className={cn(
-        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] ring-2 ring-meadow-400 shadow-[0_0_8px_var(--color-meadow-400)] transition-opacity duration-700 ease-out motion-reduce:duration-150",
+        "pointer-events-none block min-h-0 min-w-0 rounded-[2px] bg-meadow-400/60 transition-opacity duration-700 ease-out motion-reduce:duration-150",
         faded && "opacity-0",
       )}
     />
@@ -161,12 +160,12 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
               style={at(s.x, s.y)}
               data-lit={highlight}
               data-fits={s.fits !== false}
-              data-placed={placed ? (red ? "red" : "aura") : undefined}
+              data-placed={placed ? (red ? "red" : "pending") : undefined}
               className="relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
               {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}
-              {placed && highlight && <span aria-hidden data-rim={red ? "red" : "aura"} className={cn(RIM, RIM_TONE[red ? "red" : "aura"])} />}
+              {placed && highlight && <span aria-hidden data-tint={red ? "red" : "pending"} className={cn(TINT, TINT_TONE[red ? "red" : "pending"])} />}
             </button>
           );
         })}
