@@ -14,6 +14,10 @@ import { paletteOfModel, planKeyOfModel, planLayout } from "./feature-layout";
 // The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
 // does not light anything.
 import type * as Classifier from "./features";
+import type { NightLightSource } from "./daynight-settings";
+// The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are set to "windows".
+import type * as Windows from "./windows";
+import type * as Voxelizer from "./voxelizer";
 
 /** Runs `task` when the main thread is idle (`requestIdleCallback`), or on the next task where there is none. */
 function whenIdle(task: () => void): void {
@@ -103,7 +107,7 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
 // an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
 export const NIGHT_LIGHTS_GLSL = /* glsl */ `
 float nightLit = 0.0;
-if (uNightOn > 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
+if (uNightOn > 0.5 && uNightWindows < 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
 vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
 ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
 if (texelFetch(uLightMap, lightTexel, 0).r > 0.0) {
@@ -113,6 +117,30 @@ h = (h ^ h >> 16) * 0x7feb352du;
 h = (h ^ h >> 15) * 0x846ca68bu;
 float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
 nightLit = smoothstep(at, at + 0.15, uNightLevel) * (normalize(vGridNormal).y > 0.5 ? 0.35 : 1.0);
+}
+}
+`;
+
+// The night lights from the windows (NIGHT-WINDOWS, #513, `dayNight.lights` "windows"): the light volume baked per model type
+// (`windows.ts`, an RG8 3D texture over the model's grid: the light of the air cell, and the window that gives it the most) is
+// read at the air cell in front of the fragment's face, trilinearly. The window's own switch-on level, from the hash of its
+// index and the tile's cell, gates it, so each window lights up with its pool of light as the night comes; the openings' own
+// faces (light 1) are emissive twice over, so the bloom gives them a halo. A model with no volume yet reads the empty one: dark.
+export const NIGHT_WINDOWS_GLSL = /* glsl */ `
+if (uNightOn > 0.5 && uNightWindows > 0.5) {
+vec3 frontCell = vGrid + normalize(vGridNormal) * 0.5;
+ivec3 volumeSize = textureSize(uWindowLight, 0);
+vec3 volumeAt = vec3(frontCell.x, frontCell.z, frontCell.y);
+vec2 volumeTexel = texture(uWindowLight, volumeAt / vec3(volumeSize)).rg;
+ivec3 cellAt = clamp(ivec3(floor(volumeAt)), ivec3(0), volumeSize - 1);
+float owner = floor(texelFetch(uWindowLight, cellAt, 0).g * 255.0 + 0.5);
+if (volumeTexel.r > 0.0) {
+uvec2 c = uvec2(ivec2(vCell) + 4096);
+uint h = (uint(owner) * 2654435761u) ^ c.x * 73856093u ^ c.y * 19349663u;
+h = (h ^ h >> 16) * 0x7feb352du;
+h = (h ^ h >> 15) * 0x846ca68bu;
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
+nightLit = smoothstep(at, at + 0.15, uNightLevel) * volumeTexel.r * (volumeTexel.r > 0.99 ? 2.0 : 1.0);
 }
 }
 `;
@@ -133,6 +161,8 @@ interface LabelUniforms {
   uGridMatrix: { value: THREE.Matrix4 };
   /** The night lights' columns (`lightColumns`): 1 where a column's voxels above the ground are windows. */
   uLightMap: { value: THREE.DataTexture };
+  /** The windows' light volume (`windows.ts`, `NIGHT_WINDOWS_GLSL`): the empty one until the type's is baked. */
+  uWindowLight: { value: THREE.Data3DTexture };
 }
 
 /**
@@ -223,7 +253,23 @@ export class TileRenderer {
     uNightLevel: { value: 0 },
     uNightColor: { value: new THREE.Color() },
     uNightGlow: { value: 0 },
+    // 1 when the night lights come from the windows' light volumes (`dayNight.lights`), 0 from the columns' map.
+    uNightWindows: { value: 0 },
   };
+  /** Where the night lights come from (`setNightLights`). */
+  private nightSource: NightLightSource = "columns";
+  /** The windows' chunk and the voxel grids (`VoxelCache`) and baked windows (`WindowCache`) it builds, per model type. */
+  private windowsChunk: Promise<{ windows: typeof Windows; voxelizer: typeof Voxelizer }> | null = null;
+  private voxelGrids: Voxelizer.VoxelCache | null = null;
+  private windowBakes: Windows.WindowCache | null = null;
+  /** What each labelled geometry needs for its windows: its type's key, its geometry-to-model matrix and its lit columns. */
+  private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; lights: Uint8Array }>();
+  /** The geometries whose volume is asked for (asked once each). */
+  private windowAsked = new Set<THREE.BufferGeometry>();
+  /** The light volumes' textures (one per model type drawn at night), freed by `dispose`. */
+  private windowTextures: THREE.Data3DTexture[] = [];
+  /** The volume the sampler is bound to until a type's is baked: one dark texel. */
+  private emptyWindowLight = emptyWindowLight();
   /** Whether the night lights are on: the models drawn then are labelled, as for a highlight. */
   private nightLights = false;
   /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
@@ -444,7 +490,7 @@ export class TileRenderer {
   private labelUniformsOf(geometry: THREE.BufferGeometry): LabelUniforms {
     let uniforms = this.labelMaps.get(geometry);
     if (!uniforms) {
-      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() }, uLightMap: { value: this.emptyLabelMap } };
+      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() }, uLightMap: { value: this.emptyLabelMap }, uWindowLight: { value: this.emptyWindowLight } };
       this.labelMaps.set(geometry, uniforms);
     }
     return uniforms;
@@ -492,6 +538,7 @@ export class TileRenderer {
           const next = this.labelQueue.shift();
           if (next) {
             this.labelFeatures(classifier, ...next);
+            this.bakeWindowLights();
             this.labelledListener?.();
           }
           this.scheduleLabels();
@@ -525,6 +572,7 @@ export class TileRenderer {
       const { columns, grid, lights } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
       uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
       uniforms.uLightMap.value = labelMapTexture(lights, columns.size);
+      this.windowSources.set(child.geometry, { key, toModel, lights });
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
         .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
@@ -583,13 +631,15 @@ export class TileRenderer {
             "uniform vec3 uNightColor;",
             "uniform float uNightGlow;",
             "uniform sampler2D uLightMap;",
+            "uniform float uNightWindows;",
+            "uniform highp sampler3D uWindowLight;",
             "varying vec3 vGrid;",
             "varying vec3 vGridNormal;",
             "flat varying vec2 vCell;",
             "void main() {",
           ].join("\n"),
         )
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_LIGHTS_GLSL}`)
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_LIGHTS_GLSL}\n${NIGHT_WINDOWS_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
@@ -646,12 +696,59 @@ export class TileRenderer {
    * the roads glow `color` (sRGB hex) at `intensity` as the night's level rises (`setNightLevel`). Turning them on labels
    * the models drawn, and those drawn later, once each, as a highlight does.
    */
-  setNightLights(on: boolean, color: string, intensity: number): void {
+  setNightLights(on: boolean, color: string, intensity: number, source: NightLightSource = "columns"): void {
     this.nightLights = on;
+    this.nightSource = source;
+    this.nightUniforms.uNightWindows.value = source === "windows" ? 1 : 0;
     this.nightUniforms.uNightOn.value = on ? 1 : 0;
     this.nightUniforms.uNightColor.value.set(color);
     this.nightUniforms.uNightGlow.value = intensity;
     this.applyHighlight();
+    this.bakeWindowLights();
+  }
+
+  /**
+   * The windows' light volumes of the labelled model types (NIGHT-WINDOWS, #513): only while the night lights are on and come
+   * from the windows (nothing is built otherwise), each type once, its voxel grid then its windows and volume in idle slices
+   * (`VoxelCache`, `WindowCache`), then its 3D texture bound to the type's geometry and a frame asked for (`labelledListener`).
+   */
+  private bakeWindowLights(): void {
+    if (!this.nightLights || this.nightSource !== "windows" || this.disposed) return;
+    for (const [geometry, source] of this.windowSources) {
+      if (this.windowAsked.has(geometry)) continue;
+      this.windowAsked.add(geometry);
+      this.windowsChunk ??= Promise.all([import("./windows"), import("./voxelizer")]).then(([windows, voxelizer]) => ({ windows, voxelizer }));
+      void this.windowsChunk
+        .then(async ({ windows, voxelizer }) => {
+          if (this.disposed) return;
+          this.voxelGrids ??= new voxelizer.VoxelCache();
+          this.windowBakes ??= new windows.WindowCache();
+          const grid = await this.voxelGrids.request(source.key, { geometry, toModel: source.toModel });
+          if (!grid || this.disposed) return;
+          const baked = await this.windowBakes.request(source.key, grid, source.lights);
+          if (this.disposed) return;
+          const { volume } = baked;
+          const texture = new THREE.Data3DTexture(volume.data, volume.sizeX, volume.sizeY, volume.layers);
+          texture.format = THREE.RGFormat;
+          texture.type = THREE.UnsignedByteType;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.wrapR = texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+          texture.generateMipmaps = false;
+          texture.unpackAlignment = 1;
+          texture.needsUpdate = true;
+          this.windowTextures.push(texture);
+          const uniforms = this.labelMaps.get(geometry);
+          if (uniforms) uniforms.uWindowLight.value = texture;
+          this.labelledListener?.();
+        })
+        .catch((error: unknown) => console.warn("[TileRenderer] the windows' light did not build:", error));
+    }
+  }
+
+  /** The number of light volumes baked so far (for tests and the stories' readout). */
+  get windowVolumeCount(): number {
+    return this.windowTextures.length;
   }
 
   /** The night's level for the night lights, 0 (day: none lit) to 1 (every window lit): a uniform, set each step of the cycle. */
@@ -1026,6 +1123,12 @@ export class TileRenderer {
     }
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();
+    for (const texture of this.windowTextures.splice(0)) texture.dispose();
+    this.emptyWindowLight.dispose();
+    this.windowBakes?.clear();
+    this.voxelGrids?.clear();
+    this.windowSources.clear();
+    this.windowAsked.clear();
     this.labelling = false;
     this.nightLights = false;
     this.disposed = true;
@@ -1053,6 +1156,19 @@ function labelMapTexture(data: Uint8Array, size: number): THREE.DataTexture {
   const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.UnsignedByteType);
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** The light volume with no light: one dark texel (the 3D sampler is always bound). */
+function emptyWindowLight(): THREE.Data3DTexture {
+  const texture = new THREE.Data3DTexture(new Uint8Array(2), 1, 1, 1);
+  texture.format = THREE.RGFormat;
+  texture.type = THREE.UnsignedByteType;
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
   texture.unpackAlignment = 1;
   texture.needsUpdate = true;
