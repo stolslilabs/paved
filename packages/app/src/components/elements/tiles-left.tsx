@@ -4,7 +4,7 @@ import { ValueRow } from "./value-row";
 export interface TilesLeftProps {
   /** Tiles still to draw (`GameView.remainingCount`): a discard spends one like a placement. */
   remaining: number;
-  /** Opens the deck sheet (#540): the figure becomes a button. */
+  /** Opens the deck sheet: the figure becomes a button. */
   onClick?: () => void;
   className?: string;
 }

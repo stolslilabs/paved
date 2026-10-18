@@ -49,7 +49,7 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side 
                 return (
                   <span key={i} data-out={out} className={cn("relative inline-flex", out && "opacity-40")}>
                     <TileChip plan={plan.plan} size="sm" art={tileArt} state={inHand ? "selected" : "default"} />
-                    {out && <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-destructive-text before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />}
+                    {out && <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-foreground before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />}
                   </span>
                 );
               })}
