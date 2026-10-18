@@ -41,7 +41,7 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side 
         </SheetHeader>
         <ul className="flex flex-wrap gap-2" data-testid="deck-plans">
           {counts.plans.map((plan) => (
-            <li key={plan.plan} className="flex gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
+            <li key={plan.plan} className="flex max-w-full flex-wrap gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
               {Array.from({ length: plan.total }, (_, i) => {
                 const placed = i < plan.placed;
                 const discarded = !placed && i < plan.placed + plan.discarded;
