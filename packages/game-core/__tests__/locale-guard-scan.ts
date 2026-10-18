@@ -12,16 +12,29 @@ export interface Violation {
   text: string;
 }
 
-const RULES: { rule: string; pattern: RegExp }[] = [
+const FORMATTER_CALL = /\bformat(?:Number|Integer|Fixed|Compact|Percent|Bps|Units|Points|Date|Boundary|Relative)\s*\(/g;
+const REPLACE_CALL = /^\s*\.replace(?:All)?\s*\(/;
+
+/** A `.replace` right after a formatter call's own closing paren, whatever the depth of the arguments (parens balanced). */
+function replacesFormatterOutput(text: string): boolean {
+  for (const match of text.matchAll(FORMATTER_CALL)) {
+    let depth = 1;
+    let i = match.index + match[0].length;
+    for (; i < text.length && depth > 0; i++) {
+      if (text[i] === "(") depth++;
+      else if (text[i] === ")") depth--;
+    }
+    if (depth === 0 && REPLACE_CALL.test(text.slice(i))) return true;
+  }
+  return false;
+}
+
+const RULES: { rule: string; pattern: RegExp | ((text: string) => boolean) }[] = [
   // `toLocaleString()` with no locale formats by the user's; with one it is a locale named at the call site: both belong to the formatter.
   { rule: "toLocaleString, toLocaleDateString or toLocaleTimeString", pattern: /\.toLocale(?:String|DateString|TimeString)\s*\(/ },
   { rule: "Intl.NumberFormat, Intl.DateTimeFormat or Intl.RelativeTimeFormat", pattern: /\bIntl\s*\.\s*(?:NumberFormat|DateTimeFormat|RelativeTimeFormat)\b/ },
   // A formatter's output is final: a `.replace` on it swaps its separators (the no-break space of "1 270", P-82).
-  {
-    // The arguments stop at the call's own closing paren (two levels of nested parens), so a `.replace` on something else later in the line is not flagged.
-    rule: "replace or replaceAll on a formatter's output",
-    pattern: /\bformat(?:Number|Integer|Fixed|Compact|Percent|Bps|Units|Points|Date|Boundary|Relative)\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\.replace(?:All)?\s*\(/,
-  },
+  { rule: "replace or replaceAll on a formatter's output", pattern: replacesFormatterOutput },
 ];
 
 const EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/;
@@ -38,7 +51,7 @@ export function scanSource(file: string, source: string): Violation[] {
   const found: Violation[] = [];
   lines.forEach((text, index) => {
     for (const { rule, pattern } of RULES) {
-      if (pattern.test(text)) found.push({ file, line: index + 1, rule, text: text.trim() });
+      if (typeof pattern === "function" ? pattern(text) : pattern.test(text)) found.push({ file, line: index + 1, rule, text: text.trim() });
     }
   });
   return found;
