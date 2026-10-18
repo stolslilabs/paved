@@ -30,6 +30,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "vault", title: "Vault", nav: "vault" },
   { path: "referral", title: "Referral", nav: "settings" },
   { path: "settings/theme", title: "Theme", nav: "settings" },
+  { path: "settings/credits", title: "Credits", nav: "settings" },
   { path: "settings", title: "Settings", nav: "settings" },
 ] as const;
 

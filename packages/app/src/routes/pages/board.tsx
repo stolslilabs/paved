@@ -19,7 +19,6 @@ import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { useTutorialClaim, useTutorialClaimed, useTutorialRun } from "../../data/tutorial";
-import { WalletNotice } from "../../wallet/notice";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -136,7 +135,6 @@ function TrainingBoard() {
           />
         ) : undefined
       }
-      footnote={<WalletNotice />}
       onBack={onBack}
       onConfirm={confirm}
       onDiscard={discard}
@@ -254,10 +252,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
           )}
         </main>
-        {/* A board route has no footer (`Shell`): the D-15 notice is here, as on the board. */}
-        <p className="px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground">
-          <WalletNotice />
-        </p>
       </div>
     );
   }
@@ -342,7 +336,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
           />
         ) : undefined
       }
-      footnote={<WalletNotice />}
       onBack={onBack}
       onConfirm={confirm}
       onDiscard={discard}
@@ -505,7 +498,6 @@ function TutorialBoard() {
           />
         ) : undefined
       }
-      footnote={<WalletNotice />}
       onBack={onBack}
       onConfirm={confirm}
       onDiscard={discard}

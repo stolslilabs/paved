@@ -85,8 +85,6 @@ export interface BoardSceneProps {
   readOnly?: boolean;
   /** Lines under the header: "Connect to play", the dev-only prediction notice, the tutorial's stage and its end. */
   notices?: ReactNode;
-  /** A line under the header that stays on screen: the D-15 notice, given by the page (the board routes have no footer). */
-  footnote?: ReactNode;
   /** Opens the Surrender dialog when it turns true: an expired Challenge game closes only by a surrender (P5). */
   promptSurrender?: boolean;
 }
@@ -141,9 +139,6 @@ export function BoardScene(props: BoardSceneProps) {
           </Notice>
         )}
         {props.notices}
-        {props.footnote && (
-          <div className="pointer-events-auto max-w-2xl rounded-md bg-ink-950 px-2 py-0.5 text-center text-xs text-muted-foreground">{props.footnote}</div>
-        )}
         <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
 

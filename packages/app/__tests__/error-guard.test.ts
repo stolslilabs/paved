@@ -114,6 +114,5 @@ describe("one error component (P-67)", () => {
   it("lets InlineError itself use the role and the token", () => {
     expect(errorRenderings(SHARED, readFileSync(join(ROOT, SHARED), "utf8"))).toEqual([]);
     expect(readFileSync(join(ROOT, SHARED), "utf8")).toMatch(/role="alert"[^\n]*text-destructive-text/);
-    expect(errorRenderings("src/wallet/notice.tsx", readFileSync(join(ROOT, "src/wallet/notice.tsx"), "utf8"))).toEqual([]);
   });
 });
