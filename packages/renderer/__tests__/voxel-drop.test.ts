@@ -136,6 +136,14 @@ describe("the order", () => {
     }
   });
 
+  it("caps the fall at 80 % of a short duration, so the last voxel lands at the duration", async () => {
+    const grid = await gridOf("ccccccccc");
+    const plan = planDrop(grid, resolveVoxelDropSettings({ minMs: 100, maxMs: 100, fallMs: 1200 }));
+    expect(plan.durationMs).toBe(100);
+    expect(plan.fallMs).toBeCloseTo(80, 3);
+    expect(Math.max(...plan.delays) + plan.fallMs).toBeLessThanOrEqual(plan.durationMs + 1e-3);
+  });
+
   it("runs the layers into each other with overlap, and stays inside the launch window", async () => {
     const grid = await gridOf("ccccccccc");
     const plan = planDrop(grid, resolveVoxelDropSettings({ overlap: 1, jitter: 1 }));

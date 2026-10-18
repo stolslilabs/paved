@@ -130,7 +130,7 @@ export class VoxelDrop {
     // The grid's corner is (x, height, ground's other axis) in the model's frame.
     this.uniforms = {
       uTime: { value: -1 },
-      uFallMs: { value: settings.fallMs },
+      uFallMs: { value: schedule.fallMs },
       uFallHeight: { value: settings.fallVoxels * grid.step },
       uStep: { value: grid.step },
       uOrigin: { value: new THREE.Vector3(grid.origin[0], grid.origin[1], grid.origin[2]) },

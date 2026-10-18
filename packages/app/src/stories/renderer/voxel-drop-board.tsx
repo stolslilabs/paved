@@ -70,7 +70,7 @@ export type Readout = { plan: string; result: DropResult } | null;
 
 function DropReadout({ rows }: { rows: Array<{ plan: string; result: DropResult }> }) {
   return (
-    <output className="absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2 font-mono text-xs leading-5 text-foreground numeric" aria-live="off">
+    <output className={`pointer-events-none absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2 font-mono text-foreground numeric ${rows.length > 3 ? "text-[10px] leading-4" : "text-xs leading-5"}`} aria-live="off">
       {rows.length === 0 && "waiting for the first drop"}
       {rows.map(({ plan, result }) => (
         <div key={plan} className="whitespace-nowrap">
@@ -197,7 +197,7 @@ export function VoxelDropAllTiles({ stagger, forest, replayMs, force, distance, 
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
-    if (scene) aim(scene, [0, 0, TILE_SIZE * 0.5], distance, 0.3);
+    if (scene) aim(scene, [0, 0, -TILE_SIZE * 0.5], distance, 0.3);
   }, [scene, distance]);
 
   // Every model is in before the first run: the loader brings the rest after the first frame.
@@ -267,15 +267,17 @@ export function VoxelDropInContext({ flash, view, distance, replayMs, force, ...
   const settings = useMemo(() => dropSettings(args, force), [JSON.stringify(args), force]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ready, setReady] = useState(false);
   const [run, replay] = useReplay(replayMs, ready);
-  const pending = useRef(false);
+  const [dropRun, setDropRun] = useState(0);
   const placedTile = WITH_PLACED[WITH_PLACED.length - 1]!;
 
   useEffect(() => {
     if (!scene) return;
     const pose = viewPose(view, BOUNDS, distance);
-    scene.controls.controls.target.set(...pose.target);
-    scene.camera.position.set(...pose.position);
-    scene.camera.lookAt(...pose.target);
+    // Centred on the placed tile (the pose's own target is the board's centre).
+    const [dx, dz] = [PLACED.x * TILE_SIZE - pose.target[0], PLACED.y * TILE_SIZE - pose.target[2]];
+    scene.controls.controls.target.set(pose.target[0] + dx, pose.target[1], pose.target[2] + dz);
+    scene.camera.position.set(pose.position[0] + dx, pose.position[1], pose.position[2] + dz);
+    scene.camera.lookAt(pose.target[0] + dx, pose.target[1], pose.target[2] + dz);
     scene.requestRender();
     // The chunk and the grid of the placed tile's model (the plan is on the board already), so the first drop begins in its call.
     void scene.prepareDrop(BOARD_TILES[1]!).then(() => setReady(true));
@@ -284,19 +286,14 @@ export function VoxelDropInContext({ flash, view, distance, replayMs, force, ...
   // A run: the tile is placed (the first time), then flashes, drops, or both.
   useEffect(() => {
     if (!ready || run === 0) return;
-    pending.current = true;
     setPlaced(true);
+    setDropRun(run);
     if (flash === "flash only" || flash === "drop and flash") setConfirmKey((k) => k + 1);
-    setRows((r) => r);
   }, [ready, run, flash]);
 
   // After the board has been given the placed tile (the canvas's effect runs first).
   useEffect(() => {
-    if (!scene || !placed || !pending.current || flash === "flash only") {
-      pending.current = false;
-      return;
-    }
-    pending.current = false;
+    if (!scene || !placed || dropRun === 0 || flash === "flash only") return;
     let alive = true;
     void dropWhenIn(scene, placedTile, () => alive).then(async (result) => {
       if (!alive || !result) return;
@@ -309,7 +306,7 @@ export function VoxelDropInContext({ flash, view, distance, replayMs, force, ...
     return () => {
       alive = false;
     };
-  }, [scene, placed, run, flash, placedTile]);
+  }, [scene, placed, dropRun, flash, placedTile]);
 
   const confirmed = useMemo(() => (confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [confirmKey]);
   return (

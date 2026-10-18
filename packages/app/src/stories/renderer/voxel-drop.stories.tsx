@@ -41,7 +41,7 @@ export const OneTile: StoryObj<OneTileProps> = {
     plan: { control: "select", options: DROP_PLANS, description: "The plan whose tile drops", table: { category: "board" } },
     distance: { control: { type: "range", min: 8, max: 40, step: 1 }, description: "Camera distance", table: { category: "board" } },
   } as ArgTypes,
-  args: { plan: "ccccccccc", forest: "none", replayMs: 3500, force: "auto", distance: 13 },
+  args: { plan: "ccccccccc", forest: "none", replayMs: 3500, force: "auto", distance: 24 },
 };
 
 /** The 19 plans side by side, dropped together or one after the other. */
@@ -50,9 +50,9 @@ export const EveryTile: StoryObj<AllTilesProps> = {
   argTypes: {
     ...common,
     stagger: { control: { type: "range", min: 0, max: 1500, step: 50 }, description: "0: all at once; else each tile starts this many ms after the one before", table: { category: "replay" } },
-    distance: { control: { type: "range", min: 12, max: 80, step: 1 }, description: "Camera distance", table: { category: "board" } },
+    distance: { control: { type: "range", min: 12, max: 120, step: 1 }, description: "Camera distance", table: { category: "board" } },
   } as ArgTypes,
-  args: { stagger: 0, forest: "none", replayMs: 0, force: "auto", distance: 30 },
+  args: { stagger: 0, forest: "none", replayMs: 0, force: "auto", distance: 88 },
 };
 
 /** A tile placed on a slot of the recorded board, at the game's camera: the drop replaces the green flash, or chains with it. */

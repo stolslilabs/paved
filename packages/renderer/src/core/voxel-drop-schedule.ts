@@ -19,6 +19,8 @@ export interface DropSchedule {
   delays: Float32Array;
   /** The whole drop, ms: the last voxel lands then. */
   durationMs: number;
+  /** One voxel's fall, ms: the setting's, at most 80 % of the duration (the shader reads this one). */
+  fallMs: number;
   /** The last launch, ms: `durationMs` minus one fall. */
   launchMs: number;
   /** Where the ground slab's launches end and the decor's begin, ms. */
@@ -47,7 +49,8 @@ function hash01(x: number, y: number, layer: number): number {
 export function planDrop(grid: ScheduleGrid, s: VoxelDropSettings): DropSchedule {
   const decor = grid.count - grid.slabCount;
   const durationMs = dropDuration(decor, s);
-  const launchMs = Math.max(0, durationMs - Math.min(s.fallMs, durationMs * 0.8));
+  const fallMs = Math.min(s.fallMs, durationMs * 0.8);
+  const launchMs = Math.max(0, durationMs - fallMs);
   const slabEndMs = decor > 0 && grid.slabCount > 0 ? launchMs * s.slabShare : decor > 0 ? 0 : launchMs;
   const delays = new Float32Array(grid.count);
   const { cells } = grid;
@@ -94,5 +97,5 @@ export function planDrop(grid: ScheduleGrid, s: VoxelDropSettings): DropSchedule
   const slabLayers = Math.min(grid.groundTop, grid.layers - 1);
   phase(0, slabLayers, 0, slabEndMs);
   if (slabLayers + 1 < grid.layers) phase(slabLayers + 1, grid.layers - 1, slabEndMs, launchMs);
-  return { delays, durationMs, launchMs, slabEndMs };
+  return { delays, durationMs, fallMs, launchMs, slabEndMs };
 }
