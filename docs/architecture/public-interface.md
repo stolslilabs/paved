@@ -1023,7 +1023,7 @@ The only events are OpenZeppelin's `Transfer` and `Approval`; the faucet has non
 
 ## One constant sets the price of a stake unit
 
-The price of one stake unit has one definition: `CHALLENGE_PRICE`, 2,000,000 (`constants.cairo:13`, a `u128`). Two readers
+The price of one stake unit has one definition: `CHALLENGE_PRICE`, 2,000,000 (`constants.cairo:15`, a `u128`). Two readers
 use it:
 
 - `Mode::price` (`types/mode.cairo:30-35`) returns it as a `felt252`. It is what `Challenge.spawn` pulls from the player
@@ -1033,7 +1033,7 @@ use it:
   and is what `Economy.purchase` checks: it reverts `'Economy: wrong price'` unless `price == stake x BASE_PRICE`.
 
 `BASE_PRICE` is not a second literal, so `Challenge` and `Economy` cannot disagree: the single definition is enforced by the
-compiler (there is no other definition of the price in the Cairo code; `scripts/deploy.sh`'s smoke still writes the literal `2000000` when it mints and approves for a stake-1 spawn, outside the contracts), and `test_economy_entry_price_is_the_stake_unit`
+compiler (there is no other definition of the price in the Cairo code; `scripts/deploy.sh`'s smoke still writes the literal `2000000` in several places, to mint, to approve and to check the amount a stake-1 spawn moved, outside the contracts), and `test_economy_entry_price_is_the_stake_unit`
 (`tests/e2e/economy.cairo:54-58`) pins that the two readers give the same amount. The value, the rules and the storage did not
 change (it was two equal literals before; the old note is #414's audit). `CHALLENGE_PRICE` changed type, `felt252` to `u128`;
 no ABI shows it.

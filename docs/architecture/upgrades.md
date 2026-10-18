@@ -53,7 +53,7 @@ their `Lobby`. What follows is the path as it was.
 `Daily` and `Tutorial` run `spawn`, `claim`, `sponsor`, `discard`, `surrender`, the reports and the quest definitions in
 the `Lobby` class by library call (P-26). P-26 made its class hash, `lobby_class`, immutable. P-42 reverses that:
 
-- **`set_lobby_class(class_hash)`** on `Daily` and on `Tutorial` (interface `ILobbyClass`, `systems/lobby.cairo`): the
+- **`set_lobby_class(class_hash)`** (gone since D-24, see above) on `Daily` and on `Tutorial` (interface `ILobbyClass`, `systems/lobby.cairo`): the
   owner only (`Ownable: caller is not owner`), never zero (`Daily: lobby class is zero`,
   `Tutorial: lobby class is zero`), emits `LobbyClassSet { class_hash }` from the game contract. The next call runs
   the new class.
@@ -327,7 +327,7 @@ open.
   to a probe class, emits OpenZeppelin's `Upgraded` and a value stored before reads back through the probe (for each of
   `Challenge`, `Setup`, `Economy`, `Collection`; `Tutorial` left at D-21, `Account` at D-25 E); after a two-step transfer the new owner upgrades and the old
   one cannot.
-- `set_lobby_class`: owner only, non-zero, emits `LobbyClassSet`, and the next `spawn` of `Daily` and of `Tutorial`
+- `set_lobby_class` (until D-24; no longer in `contracts/src`): owner only, non-zero, emits `LobbyClassSet`, and the next `spawn` of `Daily` and of `Tutorial`
   runs the new class (a probe whose `spawn` returns a mark); after a transfer, the new owner sets it.
 - `PavedToken`: a call to `upgrade` finds no entry point (`ENTRYPOINT_NOT_FOUND`). The `Vault` is in the shared tests
   since P-56, and has its own upgrade test and layout pins (above).

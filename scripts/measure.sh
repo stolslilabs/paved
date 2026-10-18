@@ -163,8 +163,8 @@ shim_guard snforge "${PAVED_SNFORGE_SHIM:-$HOME/.local/bin/snforge}" SNFORGE_BIN
 # Coverage runs (`coverage-split` groups, `coverage`, `all`) peak at 8.4 to 14.6 GB RSS on the Mac (docs/measures/coverage.md,
 # "Peaks": largest group `e2e` 14.64 GB, `tests-draw-mask` 13.99 GB; the unsplit run with default threads reached 18.5 GB and was
 # stopped, hence its --max-threads 2 now). Re-measured on the Mac on 2026-10-14: the unsplit `coverage` with --max-threads 2 does NOT
-# fit 16 GB (stopped at 16.31 GB, about 105 s in), and `coverage-split` fits, its largest group `tests-draw-mask` peaking at 15.89 GB,
-# 0.11 GB under the stop (hence the partition above): `coverage-split` is the mode to use, and their VmPeak is unmeasured on Linux. They run on the Mac (P-33, no cap, `time -l`,
+# fit 16 GB (stopped at 16.31 GB, about 105 s in), and `coverage-split` fit on 2026-10-14 (its largest group `tests-draw-mask` peaking at 15.89 GB,
+# 0.11 GB under the stop, hence the partition above) and crossed the stop on 2026-10-15 (`e2e`, 16.22 GB), so it may not fit: it is still the mode to use, and their VmPeak is unmeasured on Linux. They run on the Mac (P-33, no cap, `time -l`,
 # stopped above 16 GB) or in CI, and are refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum).
 # MEM_CAP_BYTES overrides.
 # A capped run with no progress for 15 minutes is stopped and moved, never left waiting.

@@ -12,7 +12,7 @@
 //! - `test_draw_same_simple_deck_last_card_*`: the 72-card deck with every card but one withdrawn,
 //!   for each of the 72 cards left (the deck's last draw).
 //! - `test_draw_same_whole_games`: whole decks drawn as `Game::draw_plan` draws them (the first
-//!   draw on an empty bitmap, the last on a deck of one card), on 10 to 128 cards.
+//!   draw on an empty bitmap, the last on a deck of one card), on 10 to 72 cards.
 //! - `test_draw_same_big_deck`: 128 cards, the top bit and the whole width of the bitmap.
 //! - `test_draw_cost`: the L2 gas of one draw before and after, on the Simple deck, by count of
 //!   withdrawn cards (printed; `docs/measures/baseline.md`, "After G5").
