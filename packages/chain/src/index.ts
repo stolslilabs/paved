@@ -19,6 +19,7 @@ export {
   gameContract,
   modeFromCode,
   toViewError,
+  NOT_AVAILABLE_MESSAGE,
 } from "./views";
 export type {
   BuilderView,
