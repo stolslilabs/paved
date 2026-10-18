@@ -55,7 +55,8 @@ const rotate = () => userEvent.click(within(hand()).getByRole("button", { name: 
 
 /** Chooses, on the canvas, a lit slot where some rotation does not fit, and turns the tile there until it is red. */
 async function placeRed(): Promise<{ x: number; y: number }> {
-  for (const slot of canvas.props!.availableSlots!) {
+  // The legal plates only: an invalid one (no rotation fits) cannot be chosen.
+  for (const slot of canvas.props!.availableSlots!.filter((s) => s.legal !== false)) {
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
     await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true }));
     for (let turn = 0; turn < 4; turn++) {
@@ -67,7 +68,7 @@ async function placeRed(): Promise<{ x: number; y: number }> {
 }
 
 describe("the 3D board's placement (SLOTS, P-68)", () => {
-  it("hands the canvas a red placement (valid false) with Confirm disabled; yellow again once it fits", async () => {
+  it("hands the canvas a red placement (valid false) with Confirm disabled; white again once it fits", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     await act(async () => {});
@@ -159,14 +160,14 @@ describe("BoardViewport and the tile preview setting", () => {
   const view = (g: typeof ghost & { placed?: boolean; fits?: boolean }) =>
     render(<BoardViewport tiles={[]} slots={[{ x: g.x, y: g.y, fits: false }]} ghost={g} tilePreview={false} />);
 
-  it("off, hides only the hover preview: a placed tile, yellow or red, is always drawn", () => {
+  it("off, hides only the hover preview: a placed tile, white or red, is always drawn", () => {
     view(ghost);
     expect(canvas.props!.hover).toBeNull();
     view({ ...ghost, placed: true, fits: true });
     expect(canvas.props!.hover).toMatchObject({ placed: true, valid: true });
     view({ ...ghost, placed: true, fits: false });
     expect(canvas.props!.hover).toMatchObject({ placed: true, valid: false });
-    // The slot's border still says whether the rotation fits.
+    // The slot's plate still says whether the rotation fits.
     expect(canvas.props!.availableSlots).toEqual([{ x: 1, y: 0, fits: false }]);
   });
 });

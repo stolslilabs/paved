@@ -1,29 +1,26 @@
 import * as THREE from "three";
-import { isOutline, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
-import { NEON_LINE_GLSL, createNeonFrameGeometry, createNeonFrameMaterial, neonFrameMargin, neonLineCoverage, setNeonFrame, type NeonFrameMaterial } from "./neon";
+import { GROUND_VOXELS } from "./feature-codes";
+import { VOXEL_SIZE, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
 import { TILE_SIZE } from "./types";
 
 /**
- * The placement visuals (SLOTS, P-68; SLOTS2, P-72): the grid around the placed tiles, the legal slots of the tile in
- * hand, and the tile placed on a slot before it is confirmed.
+ * The placement visuals (SLOTS, P-68; SLOTS2, P-72; PLATES, P-74): a platform on every slot of the tile in hand, the
+ * tile placed on one before it is confirmed, and the confirm.
  *
- * - The grid: pale hairlines (about one device px, antialiased, the same on screen at every zoom) around the board,
- *   fading by ring distance from the placed tiles (Chebyshev: the 8 cells around a tile are its first ring): a line takes
- *   the farther ring of its two cells, linear along it; ring 1 full, ring 2 half, ring 3 almost gone, nothing beyond.
- * - A legal slot (any rotation): a flat fill and a neon border inscribed in the cell (line and glow clipped to it), dashed
- *   with round caps; solid and brighter where the current rotation fits.
- * - The tile placed, not confirmed: an aura around its cell (a halo on the ground and a curtain up its sides, a wave
- *   running around the cell, `aura.pulse`) and a veil over the tile in the state's colour. Yellow while its rotation
- *   fits, red while it does not (the one place that rule lives: `placementTone`), green on confirm, then a fade to nothing.
- *
- * The slots' lines are a share of a tile wide in world units with a device-px floor, antialiased in their shaders
- * (`neon.ts`), and fade like the outlines on zoom-out (OUT-FADE's curve, `placementFade`). The grid's hairlines do not
- * fade on zoom (`grid.farFade` turns the outlines' curve on, from `grid.farFadeStart`). The waves loop; under reduced
- * motion the aura is still and even, a colour changes at once, and the confirm fade is short.
+ * - The plates (Dorfromantik's): a low slab with rounded corners and a rounded top edge, inset in its cell so two
+ *   neighbouring plates never touch, sized in voxels. Three states (`plateStateOf`): valid (the current rotation fits
+ *   there): the base plate under a slightly white aura; possible (another rotation fits): the base plate, pale neutral
+ *   blue; invalid (no rotation fits): greyscale, more transparent.
+ * - The tile placed, not confirmed: its plate's aura becomes a rim around the tile, at the tiles' ground top, white
+ *   while its rotation fits, red while it does not (the one place that rule lives: `placementTone`); on confirm it turns
+ *   green and fades out.
+ * - Every plate is an instance of one mesh and every aura of another: two draw calls for any number of slots. Each
+ *   state change eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm's fade short.
+ * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
  */
 export interface PlacementSettings {
-  /** The state colours, CSS hex (the app's Tailwind tokens: primary gold-300, ember-500, meadow-400). */
-  colors: { yellow: string; red: string; green: string };
+  /** The colours, CSS hex (the app's tokens: plate, plate-off and plate-aura; ember-500 and meadow-400). */
+  colors: { plate: string; invalid: string; aura: string; red: string; green: string };
   grid: {
     enabled: boolean;
     /** A pale neutral (ink-200). */
@@ -39,65 +36,37 @@ export interface PlacementSettings {
     /** With `farFade`: fully on from this share of the opening tile size S, off at the outlines' `fadeOffFactor`. */
     farFadeStart: number;
   };
-  slots: {
+  /** The plates, in voxels (a tile is `TILE_VOXELS` wide). */
+  plates: {
     enabled: boolean;
-    /** The flat fill's opacity. */
-    fillOpacity: number;
-    /** The border's width, a share of a tile. */
-    width: number;
-    /** The thinnest border, in device px. */
-    minWidthDevicePx: number;
-    /** The border's outer edge this far in from the cell's edge, a share of a tile (the border and glow never leave the cell). */
-    inset: number;
-    /** The border's halo on each side, a share of a tile (clipped to the cell). */
-    glow: number;
-    /** The border's brightness where the current rotation does not fit (dashed). */
-    intensity: number;
-    /** Where it fits (solid): brighter, the neon "more intense". */
-    fitIntensity: number;
-    /** The halo's brightness against the line's. */
-    glowIntensity: number;
-    /** A gap's share of a dash period (long dashes, smaller gaps). */
+    /** The gap between two neighbouring plates (each is inset half of it in its cell), `PLATE_GAP_VOXELS` bounds it. */
     gap: number;
-    /** 2 dashes a side below this tile size (CSS px), 3 above; blended over `dashBlendPx` around it. */
-    dashesAtTilePx: number;
-    dashBlendPx: number;
-    /** The border keeps at least this share when the zoom-out fade takes the grid away: the slots stay findable. */
-    fadeFloor: number;
+    /** The slab's height. */
+    height: number;
+    /** The corners' radius, seen from above. */
+    radius: number;
+    /** The top edge's rounding. */
+    bevel: number;
+    /** The base plate's opacity (possible and valid). */
+    opacity: number;
+    /** An invalid plate's opacity: more transparent. */
+    invalidOpacity: number;
   };
+  /** The aura above a valid plate, and the placed tile's rim, in voxels. */
   aura: {
     enabled: boolean;
-    /**
-     * The pulse: `"rotating"`, a wave running around the cell; `"rotating-noise"`, the same with an interference that
-     * never quite repeats; `"radial"`, SLOTS' waves running outward and up, in step all around.
-     */
-    pulse: PlacementPulse;
-    /** The waves around the cell (rotating pulses). */
-    arcs: number;
-    /** How much the interference changes the rotating wave, 0 to 1 (`"rotating-noise"`). */
-    noise: number;
-    intensity: number;
-    /** The curtain's height, a share of a tile. */
+    /** Above the plate's top. */
     height: number;
-    /** The halo's reach on the ground beyond the cell, a share of a tile. */
-    halo: number;
-    /** Waves along the aura's height (and along the halo, outward), the radial pulse. */
-    waves: number;
-    /** How deep the waves cut, 0 (none) to 1. */
-    waveAmount: number;
-    /** One loop of the waves, ms. */
-    periodMs: number;
-    /** The placed cell's border, solid, at this brightness. */
-    borderIntensity: number;
-  };
-  veil: {
-    /** The veil's opacity over the tile, in the state's own colour (the neon's). */
-    opacity: number;
-    /** How pale: the state colour mixed with white by this share (0: the neon's colour itself). */
-    whiten: number;
+    /** Its soft edge, half inside the plate's edge, half beyond. */
+    falloff: number;
+    /** Its strength, 0 to 1. */
+    intensity: number;
+    /** The placed tile's rim: its reach on each side of the tile's edge. */
+    placedFalloff: number;
+    placedIntensity: number;
   };
   motion: {
-    /** A colour change (yellow to red and back), ms. */
+    /** A change of state (a rotation, a slot chosen, red and back), ms. */
     colorMs: number;
     /** The confirm: to green, then a fade out, ms. */
     confirmMs: number;
@@ -108,33 +77,17 @@ export interface PlacementSettings {
   };
 }
 
-/** The aura's pulse (`PlacementSettings.aura.pulse`). */
-export type PlacementPulse = "rotating" | "rotating-noise" | "radial";
-export const PLACEMENT_PULSES: readonly PlacementPulse[] = ["rotating", "rotating-noise", "radial"];
-
 export type PlacementSettingsInput = { [K in keyof PlacementSettings]?: Partial<PlacementSettings[K]> };
 
+/** The gap between neighbouring plates, voxels: never 0, so they never touch; the story's control spans the same. */
+export const PLATE_GAP_VOXELS = { min: 1, max: 12 } as const;
+
 export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
-  colors: { yellow: "#f0bf5b", red: "#f85e4d", green: "#6eca6f" },
-  grid: { enabled: true, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
-  slots: {
-    enabled: true,
-    fillOpacity: 0.03,
-    width: 0.025,
-    minWidthDevicePx: 1,
-    inset: 0,
-    glow: 0.07,
-    intensity: 1.3,
-    fitIntensity: 2.4,
-    glowIntensity: 0.55,
-    gap: 0.28,
-    dashesAtTilePx: 80,
-    dashBlendPx: 16,
-    fadeFloor: 0.6,
-  },
-  aura: { enabled: true, pulse: "rotating", arcs: 1, noise: 0.6, intensity: 1.6, height: 0.45, halo: 0.2, waves: 2, waveAmount: 0.6, periodMs: 1800, borderIntensity: 2.8 },
-  veil: { opacity: 0.14, whiten: 0 },
-  motion: { colorMs: 220, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
+  colors: { plate: "#b7ccdc", invalid: "#929292", aura: "#f5f9fc", red: "#f85e4d", green: "#6eca6f" },
+  grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
+  plates: { enabled: true, gap: 4, height: 2, radius: 5, bevel: 1, opacity: 0.9, invalidOpacity: 0.45 },
+  aura: { enabled: true, height: 1.5, falloff: 2, intensity: 0.35, placedFalloff: 4, placedIntensity: 0.6 },
+  motion: { colorMs: 150, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 
 /** `input` over `base`, group by group. */
@@ -142,9 +95,8 @@ export function resolvePlacementSettings(input: PlacementSettingsInput = {}, bas
   return {
     colors: { ...base.colors, ...input.colors },
     grid: { ...base.grid, ...input.grid },
-    slots: { ...base.slots, ...input.slots },
+    plates: { ...base.plates, ...input.plates },
     aura: { ...base.aura, ...input.aura },
-    veil: { ...base.veil, ...input.veil },
     motion: { ...base.motion, ...input.motion },
   };
 }
@@ -235,10 +187,10 @@ export function gridLineOpacityAt(field: RingField, x: number, y: number, rings:
 
 /**
  * A grid hairline's coverage of a pixel whose centre is `distPx` device px from the line: `widthDevicePx` wide, the same
- * on screen at every zoom (the shader's `neonLine` with no world width).
+ * on screen at every zoom (the shader's `gridLine`).
  */
 export function gridLineCoverage(distPx: number, widthDevicePx: number = DEFAULT_PLACEMENT_SETTINGS.grid.widthDevicePx): number {
-  return neonLineCoverage(distPx, 0, widthDevicePx);
+  return Math.min(1, Math.max(0, widthDevicePx * 0.5 + 0.5 - distPx));
 }
 
 /**
@@ -259,27 +211,18 @@ export function placementFade(tilePx: number, openingTilePx: number, outlines: O
   return floor + (1 - floor) * fade;
 }
 
-/** The dashes a side: 0 for 2, 1 for 3, linear over `dashBlendPx` centred on `dashesAtTilePx` (no pop on a zoom step). */
-export function slotDashBlend(tilePx: number, slots: Pick<PlacementSettings["slots"], "dashesAtTilePx" | "dashBlendPx"> = DEFAULT_PLACEMENT_SETTINGS.slots): number {
-  const half = Math.max(0, slots.dashBlendPx) / 2;
-  if (half === 0) return tilePx >= slots.dashesAtTilePx ? 1 : 0;
-  return Math.min(1, Math.max(0, (tilePx - (slots.dashesAtTilePx - half)) / (2 * half)));
-}
+/** A plate's state for the tile in hand: its current rotation fits (valid), another does (possible), none does (invalid). */
+export type PlateState = "valid" | "possible" | "invalid";
 
-/** The dashes a side the eye counts at a tile size: 2 or 3. */
-export function slotDashCount(tilePx: number, slots?: Pick<PlacementSettings["slots"], "dashesAtTilePx" | "dashBlendPx">): 2 | 3 {
-  return slotDashBlend(tilePx, slots) >= 0.5 ? 3 : 2;
-}
-
-/** The placed tile's state colour. */
-export type PlacementTone = "yellow" | "red" | "green";
+/** The placed tile's colour: the aura's while its rotation fits, red while it does not, green on confirm. */
+export type PlacementTone = "aura" | "red" | "green";
 
 /**
- * The tone of a tile placed on a slot, not confirmed: yellow while its rotation fits the cell, red while it does not
+ * The tone of a tile placed on a slot, not confirmed: the aura's while its rotation fits the cell, red while it does not
  * (PM ruling on P-68 item 4). The one place that rule lives: red on any rotation would be a change here.
  */
 export function placementTone(fits: boolean): PlacementTone {
-  return fits ? "yellow" : "red";
+  return fits ? "aura" : "red";
 }
 
 /** Whether the device asks for reduced motion (`prefers-reduced-motion: reduce`); false where there is no `matchMedia`. */
@@ -292,7 +235,7 @@ export function prefersReducedMotion(): boolean {
 }
 
 /**
- * The confirm at `elapsed` ms: how far the colour has gone from the placed tone to green (0 to 1), and the effects'
+ * The confirm at `elapsed` ms: how far the colour has gone from the placed tone to green (0 to 1), and the rim's
  * opacity (1 to 0, an ease-out). Under reduced motion the colour is green at once and the fade is short.
  */
 export function confirmProgress(elapsed: number, motion: PlacementSettings["motion"], reduced: boolean): { color: number; opacity: number; done: boolean } {
@@ -305,198 +248,180 @@ export function confirmProgress(elapsed: number, motion: PlacementSettings["moti
   return { color, opacity: t >= 1 ? 0 : opacity, done: t >= 1 };
 }
 
-/** The share of a colour change done at `elapsed` ms (a smoothstep); at once under reduced motion. */
+/** The share of a change of state done at `elapsed` ms (a smoothstep); at once under reduced motion. */
 export function colorProgress(elapsed: number, motion: PlacementSettings["motion"], reduced: boolean): number {
   if (reduced || !(motion.colorMs > 0)) return 1;
   const t = Math.min(1, Math.max(0, elapsed / motion.colorMs));
   return t * t * (3 - 2 * t);
 }
 
-/*
- * In the shader:
- * - Cell units: a tile's centre at whole numbers, the lines between cells at halves.
- */
-const gridVertex = /* glsl */ `
-#include <fog_pars_vertex>
-varying vec2 vCell;
-void main() {
-  vec4 world = modelMatrix * vec4( position, 1.0 );
-  vCell = world.xz / ${TILE_SIZE.toFixed(1)};
-  vec4 mvPosition = viewMatrix * world;
-  gl_Position = projectionMatrix * mvPosition;
-  #include <fog_vertex>
+/** A plate's shape in world units (`plateShapeOf`). */
+export interface PlateShape {
+  /** The side, seen from above: the cell less the gap. */
+  size: number;
+  height: number;
+  radius: number;
+  bevel: number;
 }
-`;
 
-/*
- * In the shader:
- * - The field's first cell (grid coordinates) and its size in cells.
- * - A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
- * - The vertical line between cells line - 1 and line, at y: the smaller of the two (the farther ring), linear between rows.
- * - Distance to the nearest line on each axis, in cell units, and a device px in cell units across each line: the length
- *   of the coordinate's screen gradient (fwidth's sum would widen a line seen at an angle).
- * - A hairline: widthPx device px at every zoom, its coverage of the pixel (gridLineCoverage).
- * - Each line's opacity: the farther ring of its two cells (the smaller opacity), linear along it from one row of cells
- *   to the next (gridLineOpacityAt).
- */
-const gridFragment = /* glsl */ `
-#include <common>
-#include <fog_pars_fragment>
-uniform vec3 color;
-uniform float opacity;
-uniform float widthPx;
-uniform sampler2D rings;
-uniform vec4 field;
-varying vec2 vCell;
-${NEON_LINE_GLSL}
-float cellAt( float x, float y ) {
-  ivec2 size = ivec2( field.zw );
-  ivec2 at = clamp( ivec2( x - field.x, y - field.y ), ivec2( 0 ), size - 1 );
-  return texelFetch( rings, at, 0 ).r;
+/** The plates' settings as world units, each bounded: the gap within `PLATE_GAP_VOXELS`, the radius and bevel within the slab. */
+export function plateShapeOf(plates: Pick<PlacementSettings["plates"], "gap" | "height" | "radius" | "bevel">): PlateShape {
+  const gap = Math.min(PLATE_GAP_VOXELS.max, Math.max(PLATE_GAP_VOXELS.min, Number.isFinite(plates.gap) ? plates.gap : PLATE_GAP_VOXELS.min));
+  const size = TILE_SIZE - gap * VOXEL_SIZE;
+  const height = Math.max(0.25, Number.isFinite(plates.height) ? plates.height : 1) * VOXEL_SIZE;
+  const radius = Math.min(size / 2, Math.max(0, (plates.radius || 0) * VOXEL_SIZE));
+  const bevel = Math.min(radius, height, Math.max(0, (plates.bevel || 0) * VOXEL_SIZE));
+  return { size, height, radius, bevel };
 }
-float verticalLine( float line, float y ) {
-  float j = floor( y );
-  float t = y - j;
-  return mix( min( cellAt( line - 1.0, j ), cellAt( line, j ) ), min( cellAt( line - 1.0, j + 1.0 ), cellAt( line, j + 1.0 ) ), t );
-}
-float horizontalLine( float line, float x ) {
-  float i = floor( x );
-  float t = x - i;
-  return mix( min( cellAt( i, line - 1.0 ), cellAt( i, line ) ), min( cellAt( i + 1.0, line - 1.0 ), cellAt( i + 1.0, line ) ), t );
-}
-void main() {
-  vec2 h = vCell + 0.5;
-  vec2 dist = 0.5 - abs( fract( h ) - 0.5 );
-  vec2 px = max( vec2( length( vec2( dFdx( h.x ), dFdy( h.x ) ) ), length( vec2( dFdx( h.y ), dFdy( h.y ) ) ) ), vec2( 1e-6 ) );
-  float lineX = neonLine( dist.x, 0.0, px.x, widthPx );
-  float lineY = neonLine( dist.y, 0.0, px.y, widthPx );
-  vec2 lines = floor( h + 0.5 );
-  float a = max( verticalLine( lines.x, vCell.y ) * lineX, horizontalLine( lines.y, vCell.x ) * lineY ) * opacity;
-  if ( a <= 0.0 ) discard;
-  gl_FragColor = vec4( color * a, a );
-  #include <fog_fragment>
-}
-`;
 
-/*
- * In the shader:
- * - The geometry is centred on its cell: x and z place the point around it.
- */
-const auraVertex = /* glsl */ `
-attribute float aV;
-attribute float aWall;
-varying float vV;
-varying float vWall;
-varying vec2 vAround;
-varying vec3 vNormalView;
-varying vec3 vViewPosition;
-void main() {
-  vV = aV;
-  vWall = aWall;
-  vAround = position.xz;
-  vNormalView = normalize( normalMatrix * normal );
-  vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-  vViewPosition = mvPosition.xyz;
-  gl_Position = projectionMatrix * mvPosition;
-}
-`;
+/** Points along each of a plate's corners, and along its top edge's rounding. */
+const CORNER_SEGMENTS = 6;
+const BEVEL_SEGMENTS = 3;
 
-/*
- * In the shader:
- * - `pulse`: 0 radial, 1 rotating, 2 rotating with the interference.
- * - Bright at the cell's edge, falling to 0 at the far end: no hard edge to alias.
- * - In step all around: rings running outward and up.
- * - Around the cell, 0 to 1 (a whole number of arcs, so the seam at the turn does not show), the wave running round.
- * - An interference: sines of whole numbers of turns around the cell and of loops over the noise's long period, so it
- *   never jumps, at speeds that share no small period (it does not seem to repeat).
- * - The curtain fades out as it turns edge-on (seen from above it would be a thin, aliased line), and its far side,
- *   which faces away, is not drawn: the aura is drawn over what is in front of it (no depth test), not through the tile.
+/**
+ * A plate's slab, centred on its cell, from the ground (y 0) up: a rounded square seen from above, its top edge rounded
+ * by `bevel` (a quarter circle), smooth normals all round, no bottom face (never seen).
  */
-const auraFragment = /* glsl */ `
-uniform vec3 color;
-uniform float opacity;
-uniform float intensity;
-uniform float phase;
-uniform float waves;
-uniform float waveAmount;
-uniform float pulse;
-uniform float arcs;
-uniform float noise;
-uniform float noisePhase;
-varying float vV;
-varying float vWall;
-varying vec2 vAround;
-varying vec3 vNormalView;
-varying vec3 vViewPosition;
-const float TAU = 6.28318530718;
-void main() {
-  float base = ( 1.0 - vV ) * ( 1.0 - vV );
-  float wave;
-  if ( pulse < 0.5 ) {
-    wave = 0.5 + 0.5 * sin( TAU * ( vV * waves - phase ) );
-  } else {
-    float u = atan( vAround.y, vAround.x ) / TAU;
-    wave = 0.5 + 0.5 * cos( TAU * ( u * arcs - phase ) );
-    if ( pulse > 1.5 ) {
-      float t = noisePhase;
-      float n = 0.5 * sin( TAU * ( 3.0 * u + 7.0 * t ) + 1.3 )
-        + 0.3 * sin( TAU * ( 5.0 * u - 11.0 * t ) + 4.1 )
-        + 0.2 * sin( TAU * ( 2.0 * u + 23.0 * t + 0.7 * vV ) + 2.2 );
-      wave *= mix( 1.0, 0.5 + 0.5 * n, noise );
+export function createPlateGeometry(shape: PlateShape): THREE.BufferGeometry {
+  const half = shape.size / 2;
+  const r = shape.radius;
+  const b = Math.min(shape.bevel, r, shape.height);
+  const h = shape.height;
+  // The outline, counter-clockwise from +x towards +z: each corner's angle and centre.
+  const around: { cos: number; sin: number; cx: number; cz: number }[] = [];
+  for (let k = 0; k < 4; k++) {
+    const mid = k * (Math.PI / 2) + Math.PI / 4;
+    const cx = Math.sign(Math.cos(mid)) * (half - r);
+    const cz = Math.sign(Math.sin(mid)) * (half - r);
+    for (let s = 0; s <= CORNER_SEGMENTS; s++) {
+      const phi = k * (Math.PI / 2) + (s / CORNER_SEGMENTS) * (Math.PI / 2);
+      around.push({ cos: Math.cos(phi), sin: Math.sin(phi), cx, cz });
     }
   }
-  float a = base * mix( 1.0, wave, waveAmount ) * intensity * opacity;
-  float facing = dot( normalize( vNormalView ), normalize( -vViewPosition ) );
-  a *= mix( 1.0, smoothstep( 0.15, 0.5, facing ), vWall );
-  gl_FragColor = vec4( color * a, 0.0 );
+  // The profile from the ground up: the side, then the rounding to the top.
+  const rings: { d: number; y: number; nh: number; nv: number }[] = [{ d: 0, y: 0, nh: 1, nv: 0 }];
+  for (let k = 0; k <= BEVEL_SEGMENTS; k++) {
+    const theta = (k / BEVEL_SEGMENTS) * (Math.PI / 2);
+    rings.push({ d: b * (1 - Math.cos(theta)), y: h - b + b * Math.sin(theta), nh: Math.cos(theta), nv: Math.sin(theta) });
+  }
+  const position: number[] = [];
+  const normal: number[] = [];
+  const index: number[] = [];
+  const n = around.length;
+  const ring = (d: number, y: number, nh: number, nv: number) => {
+    const len = Math.hypot(nh, nv) || 1;
+    for (const p of around) {
+      position.push(p.cx + (r - d) * p.cos, y, p.cz + (r - d) * p.sin);
+      normal.push((nh / len) * p.cos, nv / len, (nh / len) * p.sin);
+    }
+  };
+  for (const { d, y, nh, nv } of rings) ring(d, y, nh, nv);
+  for (let i = 0; i + 1 < rings.length; i++) {
+    for (let j = 0; j < n; j++) {
+      const a = i * n + j;
+      const c = i * n + ((j + 1) % n);
+      const e = (i + 1) * n + ((j + 1) % n);
+      const f = (i + 1) * n + j;
+      index.push(a, e, c, a, f, e);
+    }
+  }
+  // The top: a fan from the centre over the outline, facing up.
+  const capRing = position.length / 3;
+  ring(b, h, 0, 1);
+  const centre = position.length / 3;
+  position.push(0, h, 0);
+  normal.push(0, 1, 0);
+  for (let j = 0; j < n; j++) index.push(centre, capRing + ((j + 1) % n), capRing + j);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normal, 3));
+  geometry.setIndex(index);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+/** A rounded square's signed distance (negative inside): half side `half`, corner radius `radius`. */
+export function roundedSquareDistance(x: number, z: number, half: number, radius: number): number {
+  const r = Math.min(Math.max(radius, 0), half);
+  const qx = Math.abs(x) - (half - r);
+  const qz = Math.abs(z) - (half - r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - r;
+}
+
+/**
+ * The aura's strength at a point of its cell (world units around the cell's centre), the shader in TypeScript: over a
+ * plate, 1 inside it falling smoothly to 0 across `falloff` centred on its edge (no hard edge to alias); placed, a rim on
+ * the tile's edge falling off on both sides (a gaussian of `falloff`), so the tile's middle stays its own colour.
+ */
+export function auraAt(x: number, z: number, shape: PlateShape, falloff: number, placed: number): number {
+  const f = Math.max(falloff, 1e-4);
+  const smooth = (e0: number, e1: number, v: number) => {
+    const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  const wash = 1 - smooth(-f / 2, f / 2, roundedSquareDistance(x, z, shape.size / 2, shape.radius));
+  const sd = roundedSquareDistance(x, z, TILE_SIZE / 2, shape.radius) / f;
+  const rim = Math.exp(-4 * sd * sd);
+  return wash + (rim - wash) * placed;
+}
+
+/*
+ * In the shader:
+ * - The quad lies flat, centred on its cell (world units), moved by its instance to the cell and the aura's height.
+ * - aAura: its strength (x), its falloff in world units (y), and how placed it is (z, 0 a plate's wash, 1 the tile's rim).
+ */
+const auraVertex = /* glsl */ `
+attribute vec3 aAura;
+varying vec2 vLocal;
+varying vec3 vAura;
+varying vec3 vColor;
+void main() {
+  vLocal = position.xz;
+  vAura = aAura;
+  #ifdef USE_INSTANCING_COLOR
+  vColor = instanceColor;
+  #else
+  vColor = vec3( 1.0 );
+  #endif
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4( position, 1.0 );
 }
 `;
 
-type AuraMaterial = THREE.ShaderMaterial & {
-  uniforms: {
-    color: THREE.IUniform<THREE.Color>;
-    opacity: THREE.IUniform<number>;
-    intensity: THREE.IUniform<number>;
-    phase: THREE.IUniform<number>;
-    waves: THREE.IUniform<number>;
-    waveAmount: THREE.IUniform<number>;
-    pulse: THREE.IUniform<number>;
-    arcs: THREE.IUniform<number>;
-    noise: THREE.IUniform<number>;
-    noisePhase: THREE.IUniform<number>;
-  };
-};
+/*
+ * In the shader (`auraAt`):
+ * - The plate's wash: 1 inside, a smoothstep across the falloff centred on its edge.
+ * - The placed tile's rim: a gaussian on the cell's edge, so the tile's middle keeps its own colour.
+ * - Premultiplied, over what is drawn: a tint, not a glow (`ONE, ONE_MINUS_SRC_ALPHA`).
+ */
+const auraFragment = /* glsl */ `
+uniform vec3 plate;
+varying vec2 vLocal;
+varying vec3 vAura;
+varying vec3 vColor;
+float roundedSquare( vec2 p, float h, float r ) {
+  vec2 q = abs( p ) - vec2( h - r );
+  return length( max( q, 0.0 ) ) + min( max( q.x, q.y ), 0.0 ) - r;
+}
+void main() {
+  float f = max( vAura.y, 1e-4 );
+  float wash = 1.0 - smoothstep( -0.5 * f, 0.5 * f, roundedSquare( vLocal, plate.x, plate.y ) );
+  float sd = roundedSquare( vLocal, plate.z, plate.y ) / f;
+  float a = vAura.x * mix( wash, exp( -4.0 * sd * sd ), vAura.z );
+  if ( a <= 0.002 ) discard;
+  gl_FragColor = vec4( vColor * a, a );
+}
+`;
 
-type GridMaterial = THREE.ShaderMaterial & {
-  uniforms: {
-    color: THREE.IUniform<THREE.Color>;
-    opacity: THREE.IUniform<number>;
-    widthPx: THREE.IUniform<number>;
-    rings: THREE.IUniform<THREE.DataTexture | null>;
-    field: THREE.IUniform<THREE.Vector4>;
-  };
-};
+type AuraMaterial = THREE.ShaderMaterial & { uniforms: { plate: THREE.IUniform<THREE.Vector3> } };
 
 function createAuraMaterial(): AuraMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: {
-      color: { value: new THREE.Color() },
-      opacity: { value: 1 },
-      intensity: { value: 1 },
-      phase: { value: 0 },
-      waves: { value: 2 },
-      waveAmount: { value: 0.5 },
-      pulse: { value: 1 },
-      arcs: { value: 1 },
-      noise: { value: 0 },
-      noisePhase: { value: 0 },
-    },
+    uniforms: { plate: { value: new THREE.Vector3() } },
     vertexShader: auraVertex,
     fragmentShader: auraFragment,
     transparent: true,
     depthWrite: false,
-    // A glow over the neighbours' ground: their trees and roofs would cut its halo into pieces.
-    depthTest: false,
     blending: THREE.CustomBlending,
     blendSrc: THREE.OneFactor,
     blendDst: THREE.OneMinusSrcAlphaFactor,
@@ -505,148 +430,61 @@ function createAuraMaterial(): AuraMaterial {
 }
 
 /**
- * The aura around one cell, in world units, centred on it: a halo on the ground from just inside the cell's edge to
- * `halo` beyond it (mitred at the corners), and a curtain up its four sides `height` high. `aV` runs from 0 at the edge
- * to 1 at the far end (outward on the ground, up the curtain); `aWall` is 1 on the curtain.
+ * The plates' material: lit like the tiles (so the day and night cycle and the shadows reach them), coloured and faded
+ * per instance (`instanceColor`, `aOpacity`).
  */
-export function createAuraGeometry(height: number, halo: number): THREE.BufferGeometry {
-  const half = TILE_SIZE / 2;
-  const inner = half * 0.96;
-  const outer = half + Math.max(0, halo) * TILE_SIZE;
-  const wall = half + 0.004 * TILE_SIZE;
-  const top = Math.max(0, height) * TILE_SIZE;
-  const position: number[] = [];
-  const normal: number[] = [];
-  const v: number[] = [];
-  const isWall: number[] = [];
-  const index: number[] = [];
-  const quad = (p: number[][], n: number[], vs: number[], w: number) => {
-    const base = position.length / 3;
-    for (let k = 0; k < 4; k++) {
-      position.push(...p[k]!);
-      normal.push(...n);
-      v.push(vs[k]!);
-      isWall.push(w);
-    }
-    index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+function createPlateMaterial(): THREE.MeshStandardMaterial {
+  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, transparent: true });
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = `attribute float aOpacity;\nvarying float vPlateOpacity;\n${shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n  vPlateOpacity = aOpacity;")}`;
+    shader.fragmentShader = `varying float vPlateOpacity;\n${shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n  diffuseColor.a *= vPlateOpacity;")}`;
   };
-  // The four sides: outward direction (dx, dz) and the side's direction (sx, sz).
-  const sides = [
-    [1, 0, 0, 1],
-    [-1, 0, 0, -1],
-    [0, 1, -1, 0],
-    [0, -1, 1, 0],
-  ];
-  const y = GROUND_TOP + 0.02;
-  for (const [dx, dz, sx, sz] of sides) {
-    // Ground halo: a trapezoid from the inner square to the outer one.
-    quad(
-      [
-        [dx! * inner - sx! * inner, y, dz! * inner - sz! * inner],
-        [dx! * inner + sx! * inner, y, dz! * inner + sz! * inner],
-        [dx! * outer + sx! * outer, y, dz! * outer + sz! * outer],
-        [dx! * outer - sx! * outer, y, dz! * outer - sz! * outer],
-      ],
-      [0, 1, 0],
-      [0, 0, 1, 1],
-      0,
-    );
-    if (top > 0) {
-      quad(
-        [
-          [dx! * wall - sx! * wall, GROUND_TOP, dz! * wall - sz! * wall],
-          [dx! * wall + sx! * wall, GROUND_TOP, dz! * wall + sz! * wall],
-          [dx! * wall + sx! * wall, GROUND_TOP + top, dz! * wall + sz! * wall],
-          [dx! * wall - sx! * wall, GROUND_TOP + top, dz! * wall - sz! * wall],
-        ],
-        [dx!, 0, dz!],
-        [0, 0, 1, 1],
-        1,
-      );
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
-  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normal, 3));
-  geometry.setAttribute("aV", new THREE.Float32BufferAttribute(v, 1));
-  geometry.setAttribute("aWall", new THREE.Float32BufferAttribute(isWall, 1));
-  geometry.setIndex(index);
-  return geometry;
+  material.customProgramCacheKey = () => "paved-plate";
+  return material;
 }
 
-/**
- * A tile's ground top (every base model's ground is 0.4 of its 4 units): the aura's halo and the placed cell's border lie
- * just above it, over the neighbours' ground and the tile's own, not under them.
- */
-const GROUND_TOP = 0.4 * (TILE_SIZE / 4);
-
-/** The aura shader's `pulse` for each setting. */
-const AURA_PULSE_CODES: Record<PlacementPulse, number> = { radial: 0, rotating: 1, "rotating-noise": 2 };
-
-/** The interference's loop (`"rotating-noise"`), in periods of the wave: long enough not to be seen to repeat. */
-const AURA_NOISE_LOOP = 30;
-
-/** The veil's draw order: after the faces, before the outlines (1), so the outlines stay dark on top. */
-const VEIL_ORDER = 0.5;
-/** After every tile and veil: the aura adds light over what is drawn. */
-const AURA_ORDER = 2;
-/** The grid under the slots, the slots under the aura. */
+/** The grid under the plates; the auras over them, after the tiles. */
 const GRID_ORDER = -2;
-const SLOT_ORDER = -1;
+const PLATE_ORDER = -1;
+const AURA_ORDER = 2;
 
-/** The same depth bias as the outlines: the veil lies exactly on the faces it covers. */
-const VEIL_DEPTH_BIAS = { factor: -1, units: -4 } as const;
+/** The placed tile's rim: just over a tile's ground top (its own and its neighbours'), under their features. */
+const PLACED_AURA_Y = (GROUND_VOXELS + 0.5) * VOXEL_SIZE;
 
-function createVeilMaterial(): THREE.MeshBasicMaterial {
-  const material = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, depthFunc: THREE.LessEqualDepth });
-  material.polygonOffset = true;
-  material.polygonOffsetFactor = VEIL_DEPTH_BIAS.factor;
-  material.polygonOffsetUnits = VEIL_DEPTH_BIAS.units;
-  return material;
-}
-
-/**
- * Turns a tile's model (a container of a model clone, which shares the type's geometry) into its veil: every mesh drawn
- * with `material`, its outlines dropped, no shadow. The geometry stays shared: only the clone's own objects change.
- */
-export function veilOf(model: THREE.Object3D, material: THREE.Material): THREE.Object3D {
-  const veil = model.clone();
-  const outlines: THREE.Object3D[] = [];
-  veil.traverse((child) => {
-    if (isOutline(child)) outlines.push(child);
-    else if (child instanceof THREE.Mesh) {
-      child.material = material;
-      child.castShadow = false;
-      child.receiveShadow = false;
-      child.renderOrder = VEIL_ORDER;
-    }
-  });
-  for (const outline of outlines) outline.removeFromParent();
-  veil.userData.veil = true;
-  return veil;
-}
-
-/** The placed cell's border: drawn over the neighbours' features, as the aura is. */
-function overlayFrame(): NeonFrameMaterial {
-  const material = createNeonFrameMaterial();
-  material.depthTest = false;
-  return material;
-}
-
-/** A slot as the board gives it: grid coordinates, and whether the tile in hand fits it at the current rotation. */
+/** A slot as the board gives it: grid coordinates, whether the tile in hand fits it at all, and at the current rotation. */
 export interface PlacementSlot {
   x: number;
   y: number;
-  /** The current rotation fits here (solid border). Unset: it does (the old meaning of a lit slot). */
+  /** The current rotation fits here (valid). Unset: it does. */
   fits?: boolean;
+  /** Some rotation fits here. False: an invalid plate (greyscale, more transparent). Unset: it does. */
+  legal?: boolean;
 }
 
-/** One effect's colour and its change: from `from` to `to`, started at `since`. */
-interface ToneState {
-  from: THREE.Color;
-  to: THREE.Color;
+/** A slot's plate state. */
+export function plateStateOf(slot: Pick<PlacementSlot, "fits" | "legal">): PlateState {
+  if (slot.legal === false) return "invalid";
+  return slot.fits === false ? "possible" : "valid";
+}
+
+/**
+ * One plate's eased values: its colour (linear rgb), its opacity, its aura's colour and strength, and how placed it is
+ * (0 a plate's wash, 1 the placed tile's rim).
+ */
+const VALUES = 9;
+const [OPACITY, AURA_RGB, AURA, PLACED] = [3, 4, 7, 8];
+
+interface PlateEntry {
+  x: number;
+  y: number;
+  state: PlateState;
+  from: Float32Array;
+  to: Float32Array;
   since: number;
-  tone: PlacementTone;
+  /** Gone from the slots: fading out, then removed. */
+  leaving: boolean;
+  /** Last written at its target: no frame needed until it changes. */
+  settled: boolean;
 }
 
 /** What `update` reports: whether the next frame must be drawn (an effect still moves). */
@@ -654,10 +492,11 @@ export interface PlacementUpdate {
   animating: boolean;
 }
 
+const cellKey = (x: number, y: number) => `${x},${y}`;
+
 /**
- * Draws the placement visuals: the grid, the slot cells, the placed tile's aura and veil, and the confirm's fade. It
- * owns its geometries and materials (one of each per kind, shared by every cell): `dispose` frees them. A tile's veil
- * shares the tile's geometry.
+ * Draws the placement visuals: the grid, the plates, their auras, the placed tile's rim and the confirm. It owns its
+ * geometries and materials (one instanced mesh for the plates, one for the auras): `dispose` frees them.
  */
 export class PlacementRenderer {
   readonly group = new THREE.Group();
@@ -671,35 +510,27 @@ export class PlacementRenderer {
   private gridKey = "";
 
   private slotGroup: THREE.Group;
-  private slotGeometry: THREE.BufferGeometry | null = null;
-  private dashedMaterial: NeonFrameMaterial | null = null;
-  private solidMaterial: NeonFrameMaterial | null = null;
-  private slots: PlacementSlot[] = [];
-
+  private shape: PlateShape = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates);
+  private plateGeometry: THREE.BufferGeometry | null = null;
+  private plateMaterial: THREE.MeshStandardMaterial | null = null;
+  private plateMesh: THREE.InstancedMesh | null = null;
   private auraGeometry: THREE.BufferGeometry | null = null;
-  private ghostAura: AuraMaterial | null = null;
-  private ghostVeil: THREE.MeshBasicMaterial | null = null;
-  private ghostBorder: NeonFrameMaterial | null = null;
-  private ghostTone: ToneState | null = null;
-  /** The placed ghost's cell (grid), while it has an aura: its slot's own border is not drawn under it. */
-  private ghostCell: { x: number; y: number } | null = null;
-  private ghostAnimated = false;
+  private auraMaterial: AuraMaterial | null = null;
+  private auraMesh: THREE.InstancedMesh | null = null;
 
-  private confirmGroup: THREE.Group | null = null;
-  private confirmAura: AuraMaterial | null = null;
-  private confirmVeil: THREE.MeshBasicMaterial | null = null;
-  private confirmBorder: NeonFrameMaterial | null = null;
-  private confirmFrom = new THREE.Color();
-  private confirmSince = 0;
+  private slots: PlacementSlot[] = [];
+  private plates = new Map<string, PlateEntry>();
+  /** The placed tile's cell and whether its rotation fits there; null with no tile placed. */
+  private ghost: { x: number; y: number; fits: boolean } | null = null;
+  private confirm: { x: number; y: number; from: THREE.Color; since: number } | null = null;
+  /** The instances must be written again (a change not yet drawn). */
+  private dirty = false;
 
-  /** The zoom the lines were last set for. */
-  private zoomKey = "";
   private fade = 1;
-  private borderFade = 1;
   private outlines: OutlineFadeSettings = { fadeOffFactor: 0.85, fadeFullFactor: 1.5, fadeExponent: 2, fadeEasedEnd: false };
-  private zoom = { tilePx: Number.NaN, openingTilePx: Number.NaN, pixelRatio: 1 };
+  private zoom = { tilePx: Number.NaN, openingTilePx: Number.NaN };
 
-  /** `slotGroup`: where the slot cells go (the tile renderer's group of empty slots); unset, a group of its own. */
+  /** `slotGroup`: where the plates go (the tile renderer's group of empty slots); unset, a group of its own. */
   constructor(slotGroup?: THREE.Group) {
     this.slotGroup = slotGroup ?? new THREE.Group();
     if (!slotGroup) this.group.add(this.slotGroup);
@@ -709,21 +540,27 @@ export class PlacementRenderer {
     return this.settings;
   }
 
-  /** New settings: every material set again, the aura's geometry rebuilt (its height and halo). */
+  /** New settings: the plate and aura geometries rebuilt (their shape), every plate's target set again at once. */
   setSettings(settings: PlacementSettings, outlines?: OutlineFadeSettings): void {
     this.settings = settings;
     if (outlines) this.outlines = { fadeOffFactor: outlines.fadeOffFactor, fadeFullFactor: outlines.fadeFullFactor, fadeExponent: outlines.fadeExponent, fadeEasedEnd: outlines.fadeEasedEnd };
+    this.shape = plateShapeOf(settings.plates);
+    this.plateGeometry?.dispose();
+    this.plateGeometry = null;
     this.auraGeometry?.dispose();
     this.auraGeometry = null;
-    this.slotGeometry?.dispose();
-    this.slotGeometry = null;
+    this.disposeMeshes();
     this.gridKey = "";
-    this.zoomKey = "";
     this.applyZoom();
-    this.rebuildSlots();
+    for (const entry of this.plates.values()) {
+      entry.to = this.targetOf(entry);
+      entry.from = entry.to.slice();
+    }
+    this.dirty = true;
+    this.writeInstances(Number.NaN);
   }
 
-  /** Reduced motion: still aura, instant colours, a short confirm. */
+  /** Reduced motion: instant changes, a short confirm. */
   setReducedMotion(reduced: boolean): void {
     this.reduced = reduced;
   }
@@ -732,7 +569,7 @@ export class PlacementRenderer {
     return this.reduced;
   }
 
-  /** The placed tiles' cells (grid coordinates): the grid is drawn around them. */
+  /** The placed tiles' cells (grid coordinates): the grid, when on, is drawn around them. */
   setTileCells(cells: ReadonlyArray<{ x: number; y: number }>): void {
     const field = this.settings.grid.enabled ? ringField(cells) : null;
     const key = field ? `${field.minX},${field.minY},${field.width},${field.height},${field.rings.join("")}` : "";
@@ -755,7 +592,7 @@ export class PlacementRenderer {
     this.gridTexture.magFilter = THREE.NearestFilter;
     this.gridTexture.minFilter = THREE.NearestFilter;
     this.gridTexture.needsUpdate = true;
-    const material = (this.gridMaterial ??= this.createGridMaterial());
+    const material = (this.gridMaterial ??= createGridMaterial());
     material.uniforms.rings.value = this.gridTexture;
     material.uniforms.field.value.set(field.minX, field.minY, field.width, field.height);
     this.gridGeometry?.dispose();
@@ -772,127 +609,57 @@ export class PlacementRenderer {
     this.applyGrid();
   }
 
-  /** The legal slots of the tile in hand (any rotation), with whether the current rotation fits each. */
-  setSlots(slots: ReadonlyArray<PlacementSlot>): void {
+  /** Every slot of the tile in hand with its state (`plateStateOf`): a plate on each, easing in, out and between states. */
+  setSlots(slots: ReadonlyArray<PlacementSlot>, now: number = performance.now()): void {
     this.slots = slots.slice();
-    this.rebuildSlots();
-  }
-
-  private rebuildSlots(): void {
-    this.slotGroup.clear();
-    if (!this.settings.slots.enabled || this.slots.length === 0) return;
-    const geometry = (this.slotGeometry ??= createNeonFrameGeometry());
-    const dashed = (this.dashedMaterial ??= createNeonFrameMaterial());
-    const solid = (this.solidMaterial ??= createNeonFrameMaterial());
-    this.applySlots();
-    for (const slot of this.slots) {
-      if (this.ghostCell && this.ghostCell.x === slot.x && this.ghostCell.y === slot.y) continue;
-      const mesh = new THREE.Mesh(geometry, slot.fits === false ? dashed : solid);
-      mesh.position.set(slot.x * TILE_SIZE, 0.02, slot.y * TILE_SIZE);
-      mesh.scale.set(TILE_SIZE, 1, TILE_SIZE);
-      mesh.renderOrder = SLOT_ORDER;
-      mesh.userData.slot = { x: slot.x, y: slot.y, fits: slot.fits !== false };
-      this.slotGroup.add(mesh);
-    }
+    this.syncPlates(now);
   }
 
   /**
-   * Dresses a ghost (a container holding the tile's model at its cell): the veil over it, and, when `placed`, the aura
-   * and the cell's solid border. `fits` picks the tone (`placementTone`); a change of tone runs over `motion.colorMs`.
+   * The tile placed on a slot, not confirmed (null: none, or a hover only): its plate's aura becomes its rim, the aura's
+   * colour while `fits`, red while not (`placementTone`), easing over `motion.colorMs`.
    */
-  dressGhost(container: THREE.Object3D, model: THREE.Object3D | null, cell: { x: number; y: number }, placed: boolean, fits: boolean, now: number): void {
-    const tone = placementTone(fits);
-    const target = new THREE.Color(this.settings.colors[tone]);
-    if (!this.ghostTone) this.ghostTone = { from: target.clone(), to: target.clone(), since: now, tone };
-    else if (this.ghostTone.tone !== tone) {
-      this.ghostTone = { from: this.currentGhostColor(now), to: target, since: now, tone };
-    } else this.ghostTone.to.copy(target);
-    const veil = (this.ghostVeil ??= createVeilMaterial());
-    if (model) container.add(veilOf(model, veil));
-    this.ghostAnimated = placed && this.settings.aura.enabled;
-    const before = this.ghostCell;
-    this.ghostCell = placed ? { x: cell.x, y: cell.y } : null;
-    if (placed && this.settings.aura.enabled) {
-      const aura = (this.ghostAura ??= createAuraMaterial());
-      const border = (this.ghostBorder ??= overlayFrame());
-      this.addAura(container, aura, border);
-    }
-    if (before?.x !== this.ghostCell?.x || before?.y !== this.ghostCell?.y) this.rebuildSlots();
-    this.applyGhost(now);
+  setGhost(ghost: { x: number; y: number; fits: boolean } | null, now: number = performance.now()): void {
+    const before = this.ghost;
+    if (before?.x === ghost?.x && before?.y === ghost?.y && before?.fits === ghost?.fits) return;
+    this.ghost = ghost && { x: ghost.x, y: ghost.y, fits: ghost.fits };
+    this.syncPlates(now);
   }
 
-  /** The placed ghost moved to another cell (same tile, same tone): its slot's border is drawn again, the new one's not. */
-  setGhostCell(cell: { x: number; y: number } | null): void {
-    if (this.ghostCell?.x === cell?.x && this.ghostCell?.y === cell?.y) return;
-    this.ghostCell = cell && { x: cell.x, y: cell.y };
-    this.rebuildSlots();
-  }
-
-  /** No ghost: the tone is forgotten, so the next one starts at its own colour. */
-  clearGhost(): void {
-    this.ghostTone = null;
-    this.ghostAnimated = false;
-    if (this.ghostCell) {
-      this.ghostCell = null;
-      this.rebuildSlots();
-    }
+  /** The placed tile's cell, while there is one. */
+  getGhost(): { x: number; y: number; fits: boolean } | null {
+    return this.ghost;
   }
 
   /**
-   * The confirm at a cell: `container` holds the tile's model there (the placed tile is drawn by the board now); its veil
-   * and aura turn green from the ghost's colour and fade out, then go. Null: none.
+   * The confirm at a cell (the placed tile is drawn by the board now): the rim turns green from the placed tile's colour
+   * and fades out. Null: none.
    */
-  startConfirm(container: THREE.Object3D | null, model: THREE.Object3D | null, now: number): void {
-    if (this.confirmGroup) {
-      this.group.remove(this.confirmGroup);
-      this.confirmGroup = null;
+  startConfirm(cell: { x: number; y: number } | null, now: number = performance.now()): void {
+    if (!cell) {
+      this.confirm = null;
+      this.dirty = true;
+      this.writeInstances(now);
+      return;
     }
-    if (!container) return;
-    this.confirmFrom.copy(this.ghostTone ? this.currentGhostColor(now) : new THREE.Color(this.settings.colors.yellow));
-    this.confirmSince = now;
-    const veil = (this.confirmVeil ??= createVeilMaterial());
-    if (model) container.add(veilOf(model, veil));
-    if (this.settings.aura.enabled) this.addAura(container, (this.confirmAura ??= createAuraMaterial()), (this.confirmBorder ??= overlayFrame()));
-    container.userData.confirm = true;
-    this.confirmGroup = new THREE.Group();
-    this.confirmGroup.add(container);
-    this.group.add(this.confirmGroup);
-    this.applyConfirm(now);
+    const entry = this.plates.get(cellKey(cell.x, cell.y));
+    const from = entry ? this.current(entry, now) : null;
+    const color = from && from[PLACED]! > 0.5 ? new THREE.Color(from[AURA_RGB]!, from[AURA_RGB + 1]!, from[AURA_RGB + 2]!) : new THREE.Color(this.settings.colors.aura);
+    this.confirm = { x: cell.x, y: cell.y, from: color, since: now };
+    this.dirty = true;
+    this.writeInstances(now);
   }
 
-  private addAura(container: THREE.Object3D, aura: AuraMaterial, border: NeonFrameMaterial): void {
-    const geometry = (this.auraGeometry ??= createAuraGeometry(this.settings.aura.height, this.settings.aura.halo));
-    const mesh = new THREE.Mesh(geometry, aura);
-    mesh.renderOrder = AURA_ORDER;
-    mesh.userData.aura = true;
-    container.add(mesh);
-    const frame = new THREE.Mesh((this.slotGeometry ??= createNeonFrameGeometry()), border);
-    frame.position.y = GROUND_TOP + 0.025;
-    frame.scale.set(TILE_SIZE, 1, TILE_SIZE);
-    frame.renderOrder = AURA_ORDER;
-    frame.userData.auraBorder = true;
-    container.add(frame);
-  }
-
-  /** The zoom: the lines' fade (OUT-FADE's curve) and the dashes follow the tile's size on screen. */
-  setZoom(tilePx: number, openingTilePx: number, pixelRatio: number): void {
-    this.zoom = { tilePx, openingTilePx, pixelRatio };
+  /** The zoom: the grid's fade, when `grid.farFade` is on. */
+  setZoom(tilePx: number, openingTilePx: number): void {
+    this.zoom = { tilePx, openingTilePx };
     this.applyZoom();
   }
 
   private applyZoom(): void {
-    const { tilePx, openingTilePx, pixelRatio } = this.zoom;
-    const key = `${tilePx},${openingTilePx},${pixelRatio}`;
-    if (key === this.zoomKey) return;
-    this.zoomKey = key;
-    const known = tilePx > 0 && openingTilePx > 0;
-    this.fade = known ? gridFade(tilePx, openingTilePx, this.settings.grid, this.outlines) : 1;
-    this.borderFade = known ? placementFade(tilePx, openingTilePx, this.outlines, this.settings.slots.fadeFloor) : 1;
+    const { tilePx, openingTilePx } = this.zoom;
+    this.fade = tilePx > 0 && openingTilePx > 0 ? gridFade(tilePx, openingTilePx, this.settings.grid, this.outlines) : 1;
     this.applyGrid();
-    this.applySlots();
-    // The placed cell's border and the confirm's: their quad's margin follows the device px even when nothing moves.
-    const margin = neonFrameMargin(tilePx, pixelRatio);
-    for (const border of [this.ghostBorder, this.confirmBorder]) if (border) setNeonFrame(border, { margin });
   }
 
   private applyGrid(): void {
@@ -905,139 +672,232 @@ export class PlacementRenderer {
     if (this.gridMesh) this.gridMesh.visible = grid.enabled && this.fade > 0 && this.gridKey !== "";
   }
 
-  private applySlots(): void {
-    const { slots, colors } = this.settings;
-    const dashBlend = Number.isFinite(this.zoom.tilePx) ? slotDashBlend(this.zoom.tilePx, slots) : 0;
-    const common = {
-      margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
-      color: colors.yellow,
-      opacity: this.borderFade,
-      lineWidth: slots.width,
-      glowWidth: slots.glow,
-      minPx: slots.minWidthDevicePx,
-      inset: slots.inset,
-      glowIntensity: slots.glowIntensity,
-      fillOpacity: slots.fillOpacity,
-      gap: slots.gap,
-      dashBlend,
+  /** The plates of `slots` and the placed tile's cell: new ones ease in, gone ones out, changed ones to their state. */
+  private syncPlates(now: number): void {
+    const wanted = new Map<string, PlateState>();
+    for (const slot of this.slots) wanted.set(cellKey(slot.x, slot.y), plateStateOf(slot));
+    // A tile placed where no slot was given still stands on its plate.
+    if (this.ghost && !wanted.has(cellKey(this.ghost.x, this.ghost.y))) wanted.set(cellKey(this.ghost.x, this.ghost.y), "valid");
+    for (const [key, entry] of this.plates) {
+      if (wanted.has(key) || entry.leaving) continue;
+      entry.from = this.current(entry, now);
+      entry.to = entry.from.slice();
+      entry.to[OPACITY] = 0;
+      entry.to[AURA] = 0;
+      entry.since = now;
+      entry.leaving = true;
+      entry.settled = false;
+    }
+    for (const [key, state] of wanted) {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      const entry = this.plates.get(key);
+      if (!entry) {
+        const fresh: PlateEntry = { x, y, state, from: new Float32Array(VALUES), to: new Float32Array(VALUES), since: now, leaving: false, settled: false };
+        fresh.to = this.targetOf(fresh);
+        // A new plate eases in from nothing, in its own colours.
+        fresh.from = fresh.to.slice();
+        fresh.from[OPACITY] = 0;
+        fresh.from[AURA] = 0;
+        this.plates.set(key, fresh);
+        continue;
+      }
+      entry.state = state;
+      entry.leaving = false;
+      const to = this.targetOf(entry);
+      if (to.every((v, i) => v === entry.to[i])) continue;
+      entry.from = this.current(entry, now);
+      entry.to = to;
+      entry.since = now;
+      entry.settled = false;
+    }
+    this.dirty = true;
+    this.writeInstances(now);
+  }
+
+  /** A plate's values for its state, and for the placed tile when it is its cell. */
+  private targetOf(entry: Pick<PlateEntry, "x" | "y" | "state">): Float32Array {
+    const { colors, plates, aura } = this.settings;
+    const placed = this.ghost !== null && this.ghost.x === entry.x && this.ghost.y === entry.y;
+    const tone = placed ? placementTone(this.ghost!.fits) : null;
+    const plate = new THREE.Color(entry.state === "invalid" ? colors.invalid : tone === "red" ? colors.red : colors.plate);
+    const glow = new THREE.Color(tone ? colors[tone] : colors.aura);
+    const values = new Float32Array(VALUES);
+    values.set([plate.r, plate.g, plate.b], 0);
+    values[OPACITY] = plates.enabled ? (entry.state === "invalid" ? plates.invalidOpacity : plates.opacity) : 0;
+    values.set([glow.r, glow.g, glow.b], AURA_RGB);
+    values[AURA] = !aura.enabled ? 0 : placed ? aura.placedIntensity : entry.state === "valid" ? aura.intensity : 0;
+    values[PLACED] = placed ? 1 : 0;
+    return values;
+  }
+
+  /** How far a plate's change has gone at `now` (NaN: done). */
+  private progress(entry: PlateEntry, now: number): number {
+    return Number.isFinite(now) ? colorProgress(now - entry.since, this.settings.motion, this.reduced) : 1;
+  }
+
+  /** A plate's values at `now`, eased from `from` to `to` over `motion.colorMs`. */
+  private current(entry: PlateEntry, now: number): Float32Array {
+    const t = this.progress(entry, now);
+    const out = new Float32Array(VALUES);
+    for (let i = 0; i < VALUES; i++) out[i] = entry.from[i]! + (entry.to[i]! - entry.from[i]!) * t;
+    return out;
+  }
+
+  private ensureMeshes(plates: number, auras: number): { plate: THREE.InstancedMesh; aura: THREE.InstancedMesh } {
+    const grow = (have: THREE.InstancedMesh | null, need: number) => !have || have.instanceMatrix.count < need;
+    if (grow(this.plateMesh, plates)) {
+      const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(Math.max(1, plates))));
+      this.plateMesh?.removeFromParent();
+      this.plateMesh?.dispose();
+      const geometry = (this.plateGeometry ??= createPlateGeometry(this.shape));
+      geometry.setAttribute("aOpacity", new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1));
+      const mesh = new THREE.InstancedMesh(geometry, (this.plateMaterial ??= createPlateMaterial()), capacity);
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.receiveShadow = true;
+      mesh.castShadow = false;
+      // The instances move over the board: no culling by the first one's bounds.
+      mesh.frustumCulled = false;
+      mesh.renderOrder = PLATE_ORDER;
+      mesh.userData.plates = true;
+      this.plateMesh = mesh;
+      this.slotGroup.add(mesh);
+    }
+    if (grow(this.auraMesh, auras)) {
+      const capacity = Math.max(16, 2 ** Math.ceil(Math.log2(Math.max(1, auras))));
+      this.auraMesh?.removeFromParent();
+      this.auraMesh?.dispose();
+      const geometry = (this.auraGeometry ??= this.createAuraGeometry());
+      geometry.setAttribute("aAura", new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3));
+      const mesh = new THREE.InstancedMesh(geometry, (this.auraMaterial ??= createAuraMaterial()), capacity);
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.renderOrder = AURA_ORDER;
+      mesh.userData.auras = true;
+      this.auraMesh = mesh;
+      this.group.add(mesh);
+    }
+    return { plate: this.plateMesh!, aura: this.auraMesh! };
+  }
+
+  /** The aura's quad: the cell and the farther of the two falloffs around it. */
+  private createAuraGeometry(): THREE.BufferGeometry {
+    const { aura } = this.settings;
+    const reach = TILE_SIZE / 2 + 1.25 * Math.max(aura.falloff, aura.placedFalloff, 0) * VOXEL_SIZE;
+    return new THREE.PlaneGeometry(2 * reach, 2 * reach).rotateX(-Math.PI / 2);
+  }
+
+  /** Writes every plate and aura instance at `now` (NaN: their targets). */
+  private writeInstances(now: number): void {
+    if (!this.dirty) return;
+    this.dirty = false;
+    const entries = [...this.plates.values()];
+    const confirm = this.confirm && this.confirmValues(now);
+    const auraCount = entries.length + (confirm ? 1 : 0);
+    if (entries.length === 0 && !confirm && !this.plateMesh) return;
+    const { plate, aura } = this.ensureMeshes(entries.length, auraCount);
+    const { aura: auraSettings } = this.settings;
+    const matrix = new THREE.Matrix4();
+    const color = new THREE.Color();
+    const opacity = plate.geometry.getAttribute("aOpacity") as THREE.InstancedBufferAttribute;
+    const auraAttr = aura.geometry.getAttribute("aAura") as THREE.InstancedBufferAttribute;
+    const plateTop = this.shape.height + auraSettings.height * VOXEL_SIZE;
+    let a = 0;
+    const pushAura = (x: number, y: number, rgb: ArrayLike<number>, offset: number, strength: number, placed: number) => {
+      if (!(strength > 0.001)) return;
+      matrix.makeTranslation(x * TILE_SIZE, plateTop + (PLACED_AURA_Y - plateTop) * placed, y * TILE_SIZE);
+      aura.setMatrixAt(a, matrix);
+      aura.setColorAt(a, color.setRGB(rgb[offset]!, rgb[offset + 1]!, rgb[offset + 2]!));
+      const falloff = (auraSettings.falloff + (auraSettings.placedFalloff - auraSettings.falloff) * placed) * VOXEL_SIZE;
+      auraAttr.setXYZ(a, strength, falloff, placed);
+      a++;
     };
-    if (this.dashedMaterial) setNeonFrame(this.dashedMaterial, { ...common, intensity: slots.intensity, dashed: true });
-    if (this.solidMaterial) setNeonFrame(this.solidMaterial, { ...common, intensity: slots.fitIntensity, dashed: false });
+    entries.forEach((entry, i) => {
+      const v = this.current(entry, now);
+      entry.settled = this.progress(entry, now) >= 1;
+      matrix.makeTranslation(entry.x * TILE_SIZE, 0, entry.y * TILE_SIZE);
+      plate.setMatrixAt(i, matrix);
+      plate.setColorAt(i, color.setRGB(v[0]!, v[1]!, v[2]!));
+      opacity.setX(i, v[OPACITY]!);
+      pushAura(entry.x, entry.y, v, AURA_RGB, v[AURA]!, v[PLACED]!);
+    });
+    if (confirm) pushAura(confirm.x, confirm.y, confirm.rgb, 0, confirm.strength, 1);
+    plate.count = entries.length;
+    plate.instanceMatrix.needsUpdate = true;
+    if (plate.instanceColor) plate.instanceColor.needsUpdate = true;
+    opacity.needsUpdate = true;
+    aura.count = a;
+    aura.instanceMatrix.needsUpdate = true;
+    if (aura.instanceColor) aura.instanceColor.needsUpdate = true;
+    auraAttr.needsUpdate = true;
+    this.auraMaterial!.uniforms.plate.value.set(this.shape.size / 2, this.shape.radius, TILE_SIZE / 2);
+    plate.visible = plate.count > 0;
+    aura.visible = aura.count > 0;
   }
 
-  private currentGhostColor(now: number): THREE.Color {
-    const tone = this.ghostTone;
-    if (!tone) return new THREE.Color(this.settings.colors.yellow);
-    const t = colorProgress(now - tone.since, this.settings.motion, this.reduced);
-    return tone.from.clone().lerp(tone.to, t);
-  }
-
-  private applyGhost(now: number): void {
-    const color = this.currentGhostColor(now);
-    this.applyEffects(color, 1, now, this.ghostVeil, this.ghostAura, this.ghostBorder);
-  }
-
-  private applyConfirm(now: number): boolean {
-    const { color, opacity, done } = confirmProgress(now - this.confirmSince, this.settings.motion, this.reduced);
-    const green = new THREE.Color(this.settings.colors.green);
-    this.applyEffects(this.confirmFrom.clone().lerp(green, color), opacity, now, this.confirmVeil, this.confirmAura, this.confirmBorder);
-    return done;
-  }
-
-  private applyEffects(color: THREE.Color, opacity: number, now: number, veil: THREE.MeshBasicMaterial | null, aura: AuraMaterial | null, border: NeonFrameMaterial | null): void {
-    const { veil: veilSettings, aura: auraSettings, slots } = this.settings;
-    if (veil) {
-      // The colour is linear (`THREE.Color.set` converts the CSS sRGB); a pale veil is that colour towards white.
-      veil.color.copy(color).lerp(new THREE.Color(1, 1, 1), veilSettings.whiten);
-      veil.opacity = veilSettings.opacity * opacity;
-      veil.visible = veil.opacity > 0;
-    }
-    if (aura) {
-      aura.uniforms.color.value.copy(color);
-      aura.uniforms.opacity.value = opacity;
-      aura.uniforms.intensity.value = auraSettings.intensity;
-      aura.uniforms.waves.value = auraSettings.waves;
-      // Reduced motion: a still aura, even all around (a still wave would leave one side brighter for good).
-      aura.uniforms.waveAmount.value = this.reduced ? 0 : auraSettings.waveAmount;
-      aura.uniforms.pulse.value = AURA_PULSE_CODES[auraSettings.pulse] ?? 1;
-      aura.uniforms.arcs.value = Math.max(1, Math.round(auraSettings.arcs) || 1);
-      aura.uniforms.noise.value = auraSettings.noise;
-      const moving = !this.reduced && auraSettings.periodMs > 0;
-      aura.uniforms.phase.value = moving ? (now % auraSettings.periodMs) / auraSettings.periodMs : 0;
-      const noiseLoop = auraSettings.periodMs * AURA_NOISE_LOOP;
-      aura.uniforms.noisePhase.value = moving ? (now % noiseLoop) / noiseLoop : 0;
-    }
-    if (border) {
-      setNeonFrame(border, {
-        opacity: opacity * this.borderFade,
-        lineWidth: slots.width,
-        glowWidth: slots.glow,
-        minPx: slots.minWidthDevicePx,
-        inset: slots.inset,
-        margin: neonFrameMargin(this.zoom.tilePx, this.zoom.pixelRatio),
-        intensity: auraSettings.borderIntensity,
-        glowIntensity: slots.glowIntensity,
-        fillOpacity: 0,
-        dashed: false,
-      });
-      border.uniforms.color.value.copy(color);
-    }
+  /** The confirm's rim at `now`: from the placed tile's colour to green, fading out. */
+  private confirmValues(now: number): { x: number; y: number; rgb: number[]; strength: number; done: boolean } | null {
+    const confirm = this.confirm;
+    if (!confirm) return null;
+    const elapsed = Number.isFinite(now) ? now - confirm.since : 0;
+    const { color, opacity, done } = confirmProgress(elapsed, this.settings.motion, this.reduced);
+    const rgb = confirm.from.clone().lerp(new THREE.Color(this.settings.colors.green), color);
+    const strength = this.settings.aura.enabled ? this.settings.aura.placedIntensity * opacity : 0;
+    return { x: confirm.x, y: confirm.y, rgb: [rgb.r, rgb.g, rgb.b], strength, done };
   }
 
   /**
-   * Moves the effects to `now` (ms, `performance.now()`): the colour changes, the waves, the confirm's fade. True while
-   * one still moves, so the scene draws the next frame; false when nothing does (render on demand holds).
+   * Moves the effects to `now` (ms, `performance.now()`): the plates' easing, the confirm's fade. True while one still
+   * moves, so the scene draws the next frame; false when nothing does (render on demand holds).
    */
   update(now: number): PlacementUpdate {
     let animating = false;
-    if (this.ghostTone) {
-      this.applyGhost(now);
-      const changing = !this.reduced && now - this.ghostTone.since < this.settings.motion.colorMs;
-      animating ||= changing || (this.ghostAnimated && !this.reduced && this.settings.aura.periodMs > 0);
-    }
-    if (this.confirmGroup) {
-      if (this.applyConfirm(now)) {
-        this.group.remove(this.confirmGroup);
-        this.confirmGroup = null;
+    for (const [key, entry] of this.plates) {
+      const done = this.progress(entry, now) >= 1;
+      if (done && entry.leaving) this.plates.delete(key);
+      // Moving, or at its end but not yet drawn there: one more frame.
+      if (!done || !entry.settled || entry.leaving) {
+        animating = true;
+        this.dirty = true;
       }
+    }
+    if (this.confirm) {
+      this.dirty = true;
       // One more frame after the end draws it gone.
       animating = true;
+      if (this.confirmValues(now)!.done) this.confirm = null;
     }
+    this.writeInstances(now);
     return { animating };
   }
 
-  /** The confirm's effects are on screen. */
+  /** The confirm's rim is on screen. */
   isConfirming(): boolean {
-    return this.confirmGroup !== null;
+    return this.confirm !== null;
   }
 
-  private createGridMaterial(): GridMaterial {
-    return new THREE.ShaderMaterial({
-      uniforms: THREE.UniformsUtils.merge([
-        THREE.UniformsLib.fog,
-        {
-          color: { value: new THREE.Color() },
-          opacity: { value: 1 },
-          widthPx: { value: 1 },
-          rings: { value: null },
-          field: { value: new THREE.Vector4() },
-        },
-      ]),
-      vertexShader: gridVertex,
-      fragmentShader: gridFragment,
-      fog: true,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.OneFactor,
-      blendDst: THREE.OneMinusSrcAlphaFactor,
-    }) as GridMaterial;
+  /** The plates' instanced mesh (null before the first slot), for tests and tools. */
+  getPlateMesh(): THREE.InstancedMesh | null {
+    return this.plateMesh;
+  }
+
+  /** The auras' instanced mesh (null before the first slot). */
+  getAuraMesh(): THREE.InstancedMesh | null {
+    return this.auraMesh;
+  }
+
+  private disposeMeshes(): void {
+    for (const mesh of [this.plateMesh, this.auraMesh]) {
+      mesh?.removeFromParent();
+      mesh?.dispose();
+    }
+    this.plateMesh = this.auraMesh = null;
   }
 
   dispose(): void {
+    this.disposeMeshes();
     this.group.clear();
-    this.slotGroup.clear();
-    this.confirmGroup = null;
     this.gridMesh = null;
     this.gridGeometry?.dispose();
     this.gridGeometry = null;
@@ -1046,16 +906,119 @@ export class PlacementRenderer {
     this.gridTexture?.dispose();
     this.gridTexture = null;
     this.gridKey = "";
-    this.slotGeometry?.dispose();
-    this.slotGeometry = null;
+    this.plateGeometry?.dispose();
+    this.plateGeometry = null;
     this.auraGeometry?.dispose();
     this.auraGeometry = null;
-    for (const material of [this.dashedMaterial, this.solidMaterial, this.ghostAura, this.ghostVeil, this.ghostBorder, this.confirmAura, this.confirmVeil, this.confirmBorder]) material?.dispose();
-    this.dashedMaterial = this.solidMaterial = this.ghostBorder = this.confirmBorder = null;
-    this.ghostAura = this.confirmAura = null;
-    this.ghostVeil = this.confirmVeil = null;
-    this.ghostTone = null;
-    this.ghostCell = null;
+    this.plateMaterial?.dispose();
+    this.plateMaterial = null;
+    this.auraMaterial?.dispose();
+    this.auraMaterial = null;
+    this.plates.clear();
     this.slots = [];
+    this.ghost = null;
+    this.confirm = null;
   }
+}
+
+/*
+ * In the shader:
+ * - Cell units: a tile's centre at whole numbers, the lines between cells at halves.
+ */
+const gridVertex = /* glsl */ `
+#include <fog_pars_vertex>
+varying vec2 vCell;
+void main() {
+  vec4 world = modelMatrix * vec4( position, 1.0 );
+  vCell = world.xz / ${TILE_SIZE.toFixed(1)};
+  vec4 mvPosition = viewMatrix * world;
+  gl_Position = projectionMatrix * mvPosition;
+  #include <fog_vertex>
+}
+`;
+
+/*
+ * In the shader:
+ * - A hairline's coverage of a pixel at `dist` from it, both in the units of `px` (one device px): `widthPx` device px
+ *   at every zoom (gridLineCoverage).
+ * - The field's first cell (grid coordinates) and its size in cells.
+ * - A cell's opacity, by its grid coordinates; the field's margin cells are 0, so the clamp reads 0 outside.
+ * - The vertical line between cells line - 1 and line, at y: the smaller of the two (the farther ring), linear between rows.
+ * - Distance to the nearest line on each axis, in cell units, and a device px in cell units across each line: the length
+ *   of the coordinate's screen gradient (fwidth's sum would widen a line seen at an angle).
+ * - Each line's opacity: the farther ring of its two cells (the smaller opacity), linear along it from one row of cells
+ *   to the next (gridLineOpacityAt).
+ */
+const gridFragment = /* glsl */ `
+#include <common>
+#include <fog_pars_fragment>
+uniform vec3 color;
+uniform float opacity;
+uniform float widthPx;
+uniform sampler2D rings;
+uniform vec4 field;
+varying vec2 vCell;
+float gridLine( float dist, float px, float w ) {
+  return clamp( w * 0.5 + 0.5 - dist / max( px, 1e-6 ), 0.0, 1.0 );
+}
+float cellAt( float x, float y ) {
+  ivec2 size = ivec2( field.zw );
+  ivec2 at = clamp( ivec2( x - field.x, y - field.y ), ivec2( 0 ), size - 1 );
+  return texelFetch( rings, at, 0 ).r;
+}
+float verticalLine( float line, float y ) {
+  float j = floor( y );
+  float t = y - j;
+  return mix( min( cellAt( line - 1.0, j ), cellAt( line, j ) ), min( cellAt( line - 1.0, j + 1.0 ), cellAt( line, j + 1.0 ) ), t );
+}
+float horizontalLine( float line, float x ) {
+  float i = floor( x );
+  float t = x - i;
+  return mix( min( cellAt( i, line - 1.0 ), cellAt( i, line ) ), min( cellAt( i + 1.0, line - 1.0 ), cellAt( i + 1.0, line ) ), t );
+}
+void main() {
+  vec2 h = vCell + 0.5;
+  vec2 dist = 0.5 - abs( fract( h ) - 0.5 );
+  vec2 px = max( vec2( length( vec2( dFdx( h.x ), dFdy( h.x ) ) ), length( vec2( dFdx( h.y ), dFdy( h.y ) ) ) ), vec2( 1e-6 ) );
+  float lineX = gridLine( dist.x, px.x, widthPx );
+  float lineY = gridLine( dist.y, px.y, widthPx );
+  vec2 lines = floor( h + 0.5 );
+  float a = max( verticalLine( lines.x, vCell.y ) * lineX, horizontalLine( lines.y, vCell.x ) * lineY ) * opacity;
+  if ( a <= 0.0 ) discard;
+  gl_FragColor = vec4( color * a, a );
+  #include <fog_fragment>
+}
+`;
+
+type GridMaterial = THREE.ShaderMaterial & {
+  uniforms: {
+    color: THREE.IUniform<THREE.Color>;
+    opacity: THREE.IUniform<number>;
+    widthPx: THREE.IUniform<number>;
+    rings: THREE.IUniform<THREE.DataTexture | null>;
+    field: THREE.IUniform<THREE.Vector4>;
+  };
+};
+
+function createGridMaterial(): GridMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {
+        color: { value: new THREE.Color() },
+        opacity: { value: 1 },
+        widthPx: { value: 1 },
+        rings: { value: null },
+        field: { value: new THREE.Vector4() },
+      },
+    ]),
+    vertexShader: gridVertex,
+    fragmentShader: gridFragment,
+    fog: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+  }) as GridMaterial;
 }

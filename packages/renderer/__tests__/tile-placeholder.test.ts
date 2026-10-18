@@ -310,28 +310,21 @@ describe("a tile image that fails or comes late", () => {
 });
 
 describe("the ghost while its model loads", () => {
-  it("draws the quad under its veil, red where the rotation does not fit, then the model: the shared materials", async () => {
+  it("draws the quad, red on its plate where the rotation does not fit, then the model: the shared materials", async () => {
     const { s, at } = await boardWithOneTile();
     s.setHoveredTile(hover(5, { orientation: 4 }));
     const quad = quadOf(ghost(s)!.children[0]!);
     expect((s.tiles as any).previewKey).toMatch(/-quad$/);
     expect(quad.position.y).toBeCloseTo(PLACEHOLDER_HEIGHT);
     expect(quad.rotation.y).toBeCloseTo(Math.PI / 2);
-    // The plan's own material, shared: the ghost makes none (SLOTS); a pale veil lies over it.
+    // The plan's own material, shared: the ghost makes none (SLOTS), and nothing lies over it (PLATES: no veil).
     const shared = (s.tiles as any).placeholderTypes.get(keyOf(5)).material as THREE.MeshStandardMaterial;
     expect(quad.material).toBe(shared);
-    const veil = ghost(s)!.children.find((c) => c.userData.veil)!;
-    const veilMaterial = meshOf(veil).material as unknown as THREE.MeshBasicMaterial;
-    expect(veilMaterial).not.toBe(shared);
-    expect(veilMaterial.polygonOffset).toBe(true);
-    const yellow = veilMaterial.color.clone();
+    expect(ghost(s)!.children).toHaveLength(1);
 
-    // Red where the rotation does not fit (at once here: no frame has run the change).
-    s.setHoveredTile(hover(5, { orientation: 4, valid: false }));
-    s.tiles.update(performance.now() + 10_000);
-    const red = (meshOf(ghost(s)!.children.find((c) => c.userData.veil)!).material as unknown as THREE.MeshBasicMaterial).color;
-    expect(red.r).toBeGreaterThan(red.g);
-    expect(red.equals(yellow)).toBe(false);
+    // Placed where the rotation does not fit: its plate's rim turns red.
+    s.setHoveredTile(hover(5, { orientation: 4, valid: false, placed: true }));
+    expect((s.tiles as any).placement.getGhost()).toMatchObject({ fits: false });
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
@@ -490,7 +483,7 @@ describe("no leak after many swaps", () => {
     expect(maps.every((spy) => spy.mock.contexts[0] !== assets.image)).toBe(true);
   });
 
-  it("makes no ghost material, quad or model, as the ghost swaps: the shared ones and the veil, each disposed once", () => {
+  it("makes no ghost material, quad or model, as the ghost swaps: the shared ones, each disposed once", () => {
     const assets = fakeAssets();
     const renderer = new TileRenderer(assets as any);
     const seen = new Set<THREE.Material>();
@@ -504,8 +497,8 @@ describe("no leak after many swaps", () => {
       });
     }
     renderer.setHover(null);
-    // The plan's quad material, the model's (one source), the outline's, and the placement's veil, aura and border.
-    expect(seen.size).toBeLessThanOrEqual(6);
+    // The plan's quad material, the model's (one source) and the outline's: the placement draws nothing on the ghost.
+    expect(seen.size).toBeLessThanOrEqual(3);
     const spies = [...seen].map((m) => vi.spyOn(m, "dispose"));
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     renderer.dispose();

@@ -129,10 +129,11 @@ describe("TileRenderer.dispose — resource cleanup", () => {
     const assets = createMockAssetLoader();
     const tr = new TileRenderer(assets as any);
 
-    // Add some available slots
+    // Add some available slots: one instanced mesh of plates (PLATES), an instance each
     tr.setAvailableSlots([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }]);
     const emptyGroup = tr.getGroup().children[1]; // emptyGroup is 2nd child
-    expect(emptyGroup.children.length).toBe(3);
+    expect(emptyGroup.children.length).toBe(1);
+    expect((emptyGroup.children[0] as THREE.InstancedMesh).count).toBe(3);
 
     tr.dispose();
 
