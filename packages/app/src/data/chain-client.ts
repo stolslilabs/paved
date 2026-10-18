@@ -1,8 +1,8 @@
-import { PavedClient, ViewError, createPavedClient, resolveDeployment, type DeploymentFile } from "@paved/chain";
+import { PavedClient, ViewError, createPavedClient, resolveDeployment, toViewError, type DeploymentFile, type GameView } from "@paved/chain";
 import { browserStore } from "@paved/game-core";
 import { DATA_SOURCE } from "./data-source";
 import { MockLedger } from "./mock/ledger";
-import { mockGameViews } from "./mock/overlay";
+import { mockGameViews, type ChallengeAccess } from "./mock/overlay";
 
 // The chain client of the app (P5): `PavedClient` on the deployment the build names. Imported only through a dynamic
 // `import()` (`routes/sources.ts`), so starknet.js is fetched with the first page that reads the chain, never in the
@@ -26,6 +26,29 @@ let ledger: MockLedger | null = null;
  */
 export function mockLedger(): MockLedger {
   return ledgerOf(chainClient());
+}
+
+/** The Challenge of a client, for the game reads an older class answers differently (`mockGameViews`). */
+function challengeAccess(real: PavedClient): ChallengeAccess {
+  const challenge = real.deployment.addresses.Challenge;
+  const codec = real.codecs.Challenge;
+  return {
+    challenge,
+    gameFelts: async (gameId) => {
+      try {
+        return await real.provider.callContract({ contractAddress: challenge, entrypoint: "game", calldata: codec.encodeCall("game", [gameId]) });
+      } catch (error) {
+        throw toViewError(error);
+      }
+    },
+    decodeGame: (felts) => {
+      try {
+        return codec.decodeResult("game", felts) as unknown as GameView;
+      } catch (error) {
+        throw toViewError(error);
+      }
+    },
+  };
 }
 
 function ledgerOf({ deployment }: Pick<PavedClient, "deployment">): MockLedger {
@@ -57,6 +80,6 @@ export function chainClient(): PavedClient {
   const real = createPavedClient(deployment);
   // The data source `mock` (`data-source.ts`): the views the deployed classes lack come from the device's ledger, the games
   // and every write stay the chain's.
-  client = DATA_SOURCE === "mock" ? new PavedClient(real.deployment, real.provider, real.codecs, mockGameViews(real.views, ledgerOf(real))) : real;
+  client = DATA_SOURCE === "mock" ? new PavedClient(real.deployment, real.provider, real.codecs, mockGameViews(real.views, ledgerOf(real), challengeAccess(real))) : real;
   return client;
 }

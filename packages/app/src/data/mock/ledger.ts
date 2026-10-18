@@ -213,15 +213,18 @@ export class MockLedger {
   // --- MockedReads -------------------------------------------------------------------------------------------------
 
   async account(playerId: string): Promise<CobbleAccount> {
+    this.sync();
     const p = this.peek(playerId);
     return { cobbles: p.cobbles, credits: p.credits, games: 0, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: BigInt(p.achievementsClaimed) };
   }
 
   async dayProgress(playerId: string, day: number): Promise<PeriodProgress> {
+    this.sync();
     return this.progress(this.peek(playerId).days[day]);
   }
 
   async weekProgress(playerId: string, week: number): Promise<PeriodProgress> {
+    this.sync();
     return this.progress(this.peek(playerId).weeks[week]);
   }
 
@@ -246,10 +249,12 @@ export class MockLedger {
   }
 
   async ownedSkins(playerId: string, theme: number): Promise<number> {
+    this.sync();
     return this.peek(playerId).owned[theme] ?? 0;
   }
 
   async activeSkins(playerId: string): Promise<number[]> {
+    this.sync();
     return [...this.peek(playerId).active];
   }
 
@@ -270,28 +275,28 @@ export class MockLedger {
   }
 
   async vault(account: string): Promise<VaultPosition> {
-    const shares = BigInt(this.peek(account).shares);
-    const { assets, supply } = this.totals();
-    const value = this.toAssets(shares);
-    return { shares, value, maxWithdraw: value - redeemFee(value, MOCK_VAULT.exitFeeBps), exitFeeBps: MOCK_VAULT.exitFeeBps, totalAssets: assets, totalSupply: supply };
+    this.sync();
+    return this.positionOf(this.peek(account));
   }
 
   async maxRedeem(account: string): Promise<bigint> {
+    this.sync();
     return BigInt(this.peek(account).shares);
   }
 
   // OpenZeppelin's ERC4626 at offset 0 with the Vault's exit fee (`contracts/src/systems/vault.cairo`), as the chain rounds.
   async previewDeposit(assets: bigint): Promise<bigint> {
-    const t = this.totals();
-    return (assets * (t.supply + 1n)) / (t.assets + 1n);
+    this.sync();
+    return this.depositShares(assets);
   }
 
   async previewWithdraw(assets: bigint): Promise<bigint> {
-    const t = this.totals();
-    return ceilDiv((assets + withdrawFee(assets, MOCK_VAULT.exitFeeBps)) * (t.supply + 1n), t.assets + 1n);
+    this.sync();
+    return this.withdrawShares(assets);
   }
 
   async previewRedeem(shares: bigint): Promise<bigint> {
+    this.sync();
     const value = this.toAssets(shares);
     return value - redeemFee(value, MOCK_VAULT.exitFeeBps);
   }
@@ -302,11 +307,13 @@ export class MockLedger {
 
   /** The chain's PAVED (`chain`, read by the overlay) and what the mock moved: the starting PAVED, the deposits and withdraws. */
   async pavedBalance(account: string, chain = 0n): Promise<bigint> {
+    this.sync();
     return this.adjusted(chain, this.peek(account).paved);
   }
 
   /** The chain's USDC (`chain`) less what the mock's packs took. */
   async usdcBalance(account: string, chain = 0n): Promise<bigint> {
+    this.sync();
     return this.adjusted(chain, this.peek(account).usdc);
   }
 
@@ -406,10 +413,13 @@ export class MockLedger {
     const pack = await this.pack(request.packId);
     if (!(pack.active && pack.cobbles > 0 && pack.price > 0n)) throw new PackNotOnSaleError(request.packId);
     if (request.confirmedPrice !== pack.price) throw new PackPriceChangedError(request.confirmedPrice, pack.price);
-    if ((await this.usdcBalance(account, usdc)) < pack.price) throw new WriteError("Not enough USDC for this pack: get test USDC first. Nothing was sent.");
+    const short = () => new WriteError("Not enough USDC for this pack: get test USDC first. Nothing was sent.");
+    if ((await this.usdcBalance(account, usdc)) < pack.price) throw short();
     await sleep(this.latency);
     let bought: PackBought | null = null;
-    const result = await this.write(account, (p) => {
+    const result = this.write(account, (p) => {
+      // Checked again at commit: another purchase may have spent the USDC during the wait.
+      if (this.adjusted(usdc, p.usdc) < pack.price) throw short();
       p.cobbles += pack.cobbles;
       p.usdc = (BigInt(p.usdc) - pack.price).toString();
       bought = { playerId: addressKey(account), packId: pack.packId, cobbles: pack.cobbles, price: pack.price, referrer: "0x0", balance: p.cobbles };
@@ -423,10 +433,14 @@ export class MockLedger {
     this.checkAmount(amount, options.confirmedAmount);
     const balance = await this.pavedBalance(account, paved);
     if (balance < amount) throw new VaultBalanceError(balance);
-    const shares = await this.previewDeposit(amount);
-    if (shares === 0n) throw new VaultZeroSharesError();
+    if ((await this.previewDeposit(amount)) === 0n) throw new VaultZeroSharesError();
     await sleep(this.latency);
     return this.write(account, (p) => {
+      // Checked again at commit, on the stored state: another deposit may have taken the PAVED during the wait, or moved the rate.
+      const now = this.adjusted(paved, p.paved);
+      if (now < amount) throw new VaultBalanceError(now);
+      const shares = this.depositShares(amount);
+      if (shares === 0n) throw new VaultZeroSharesError();
       this.move(p, shares, amount);
       p.paved = (BigInt(p.paved) - amount).toString();
       return [this.event("Deposit", { sender: account, owner: account, assets: amount, shares })];
@@ -439,9 +453,12 @@ export class MockLedger {
     const position = await this.vault(account);
     this.checkFee(options.confirmedExitFeeBps);
     if (amount > position.maxWithdraw) throw new VaultOverMaxWithdrawError(position.maxWithdraw);
-    const shares = await this.previewWithdraw(amount);
     await sleep(this.latency);
     return this.write(account, (p) => {
+      // Checked again at commit: another withdraw may have burned the shares during the wait.
+      const max = this.positionOf(p).maxWithdraw;
+      if (amount > max) throw new VaultOverMaxWithdrawError(max);
+      const shares = this.withdrawShares(amount);
       this.move(p, -shares, -amount);
       p.paved = (BigInt(p.paved) + amount).toString();
       return [this.event("Withdraw", { sender: account, receiver: account, owner: account, assets: amount, shares })];
@@ -455,11 +472,13 @@ export class MockLedger {
     if (position.shares !== options.confirmedShares) throw new VaultAmountChangedError(options.confirmedShares, position.shares);
     this.checkFee(options.confirmedExitFeeBps);
     await sleep(this.latency);
-    const assets = position.maxWithdraw;
     return this.write(account, (p) => {
-      this.move(p, -position.shares, -assets);
-      p.paved = (BigInt(p.paved) + assets).toString();
-      return [this.event("Withdraw", { sender: account, receiver: account, owner: account, assets, shares: position.shares })];
+      // The shares held at commit must still be the ones confirmed.
+      const now = this.positionOf(p);
+      if (now.shares !== options.confirmedShares) throw new VaultAmountChangedError(options.confirmedShares, now.shares);
+      this.move(p, -now.shares, -now.maxWithdraw);
+      p.paved = (BigInt(p.paved) + now.maxWithdraw).toString();
+      return [this.event("Withdraw", { sender: account, receiver: account, owner: account, assets: now.maxWithdraw, shares: now.shares })];
     });
   }
 
@@ -470,6 +489,20 @@ export class MockLedger {
   }
 
   // --- State ---------------------------------------------------------------------------------------------------------
+
+  /**
+   * The state as stored now: another tab (or another ledger on the same store) may have written since this one loaded. Every
+   * read and every write starts from it, so no write stores a stale copy over another's. Without a store the state is this
+   * ledger's own.
+   */
+  private sync(): void {
+    try {
+      const stored = parse(this.options.store()?.getItem(MOCK_KEY) ?? null);
+      if (stored) this.state = stored;
+    } catch {
+      // Storage refused: keep the state of the visit.
+    }
+  }
 
   private load(): StoredState {
     try {
@@ -497,6 +530,8 @@ export class MockLedger {
    * (a revert), else the copy is kept and stored.
    */
   private write(account: string, change: (player: StoredPlayer, hash: string) => DecodedEvent[]): WriteResult {
+    // Synchronous from here to the save: no other write of this tab can interleave, and the base is the stored state.
+    this.sync();
     const key = addressKey(account);
     const player: StoredPlayer = structuredClone(this.state.players[key] ?? newPlayer());
     const vault = { ...this.state.vault };
@@ -525,6 +560,23 @@ export class MockLedger {
 
   private totals(): { assets: bigint; supply: bigint } {
     return { assets: BigInt(this.state.vault.assets), supply: BigInt(this.state.vault.supply) };
+  }
+
+  private positionOf(p: StoredPlayer): VaultPosition {
+    const shares = BigInt(p.shares);
+    const { assets, supply } = this.totals();
+    const value = this.toAssets(shares);
+    return { shares, value, maxWithdraw: value - redeemFee(value, MOCK_VAULT.exitFeeBps), exitFeeBps: MOCK_VAULT.exitFeeBps, totalAssets: assets, totalSupply: supply };
+  }
+
+  private depositShares(assets: bigint): bigint {
+    const t = this.totals();
+    return (assets * (t.supply + 1n)) / (t.assets + 1n);
+  }
+
+  private withdrawShares(assets: bigint): bigint {
+    const t = this.totals();
+    return ceilDiv((assets + withdrawFee(assets, MOCK_VAULT.exitFeeBps)) * (t.supply + 1n), t.assets + 1n);
   }
 
   private toAssets(shares: bigint): bigint {

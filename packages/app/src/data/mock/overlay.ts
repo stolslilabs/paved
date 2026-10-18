@@ -1,4 +1,5 @@
-import { WriteError, type EconomyViews, type GameViews, type IndexerClient } from "@paved/chain";
+import { ViewError, WriteError, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
+import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -54,9 +55,83 @@ function overlay<T extends object>(target: T, keys: readonly string[], own: Reco
 const bound = (ledger: MockLedger, keys: readonly string[]): Record<string, unknown> =>
   Object.fromEntries(keys.map((k) => [k, (ledger as unknown as Record<string, (...a: unknown[]) => unknown>)[k]!.bind(ledger)]));
 
-/** The game views with the Cobbles, packs, skins and pause views of the ledger; the games, tiles and seeds stay the chain's. */
-export function mockGameViews<T extends GameViews>(chain: T, ledger: MockLedger): T & MockedReads {
-  return overlay(chain, MOCKED_GAME_READS, bound(ledger, MOCKED_GAME_READS)) as T & MockedReads;
+/**
+ * What the game views' overlay reads of the chain beside its views, for the two game reads an older Challenge class answers
+ * differently: its address (the seed's), and `game(id)`'s felts undecoded, with the decoder of the client's ABI.
+ */
+export interface ChallengeAccess {
+  challenge: string;
+  gameFelts(gameId: number): Promise<string[]>;
+  decodeGame(felts: string[]): GameView;
+}
+
+/** The felts of `GameView` before `expires_at` was appended (S1): the layout of Sepolia's Challenge class. */
+export const GAME_FELTS_BEFORE_EXPIRY = 16;
+/** `start_time`'s felt in that layout. */
+const START_TIME_FELT = 13;
+/** A Challenge game expires 24 h after it starts (`views.cairo`, `expires_at`). */
+const GAME_VALIDITY_S = 86_400n;
+
+/**
+ * `Challenge.initial_seed(game_id)` as the contract computes it (`views.cairo`, `TokenSeed` of `seed.cairo`): the Poseidon of
+ * the new game's salt 0, the Challenge's address and the id. The same formula seeded every game of Sepolia's class, which
+ * has no view for it: the value is the chain's, not a mock's.
+ */
+export function initialSeedOf(challenge: string, gameId: number): string {
+  return `0x${poseidon(0n, BigInt(challenge), gameId).toString(16)}`;
+}
+
+/**
+ * `game(id)` in the layout before `expires_at` (Sepolia's class): its felts with `expires_at` appended as the contract
+ * derives it, `start_time` + 24 h, then decoded as the client's ABI reads it. Any other length is the chain's mismatch.
+ */
+export function decodeGameBeforeExpiry(felts: readonly string[], decode: (felts: string[]) => GameView): GameView {
+  if (felts.length !== GAME_FELTS_BEFORE_EXPIRY) throw new ViewError("abi-mismatch", `game: ${felts.length} felts, neither layout of GameView`);
+  const expiresAt = BigInt(felts[START_TIME_FELT]!) + GAME_VALIDITY_S;
+  return decode([...felts, `0x${expiresAt.toString(16)}`]);
+}
+
+/** A `ViewError`'s kind, read by shape (as `over.ts`'s `isGameNotFound`): an error of another copy of the chain package counts too. */
+const kindOf = (error: unknown): unknown => (error as { kind?: unknown } | null)?.kind ?? null;
+
+/**
+ * The game views with the Cobbles, packs, skins and pause views of the ledger; the games and their tiles stay the chain's.
+ * With `access`, the two game reads an older Challenge class answers differently are read from the chain another way, each
+ * only once the chain refused it: `initialSeed` (`not-available`) is computed (`initialSeedOf`), and `game` (`abi-mismatch`,
+ * no `expires_at`) is decoded from its felts (`decodeGameBeforeExpiry`). After the first refusal the other way is taken at once.
+ */
+export function mockGameViews<T extends GameViews>(chain: T, ledger: MockLedger, access?: ChallengeAccess): T & MockedReads {
+  if (!access) return overlay(chain, MOCKED_GAME_READS, bound(ledger, MOCKED_GAME_READS)) as T & MockedReads;
+  let seedView = true;
+  let gameLayout = true;
+  const game = async (key: GameKey): Promise<GameView> => {
+    if (key.mode !== "challenge" || gameLayout) {
+      try {
+        return await chain.game(key);
+      } catch (error) {
+        if (key.mode !== "challenge" || kindOf(error) !== "abi-mismatch") throw error;
+        gameLayout = false;
+      }
+    }
+    return decodeGameBeforeExpiry(await access.gameFelts(key.gameId), access.decodeGame);
+  };
+  return overlay(chain, [...MOCKED_GAME_READS, "initialSeed", "game"], {
+    ...bound(ledger, MOCKED_GAME_READS),
+    game,
+    initialSeed: async (key: GameKey) => {
+      if (key.mode !== "challenge" || seedView) {
+        try {
+          return await chain.initialSeed(key);
+        } catch (error) {
+          if (key.mode !== "challenge" || kindOf(error) !== "not-available") throw error;
+          seedView = false;
+        }
+      }
+      // The view refuses an id with no game (`existing_game`): so does the game's read.
+      await game(key);
+      return initialSeedOf(access.challenge, key.gameId);
+    },
+  }) as T & MockedReads;
 }
 
 /** The economy's views with the Vault, the split and the seller of the ledger, and the token balances adjusted by its moves. */

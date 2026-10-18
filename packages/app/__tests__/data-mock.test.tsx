@@ -2,6 +2,7 @@ import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   ClaimRefusedError,
+  ViewError,
   PavedWriter,
   SkinRefusedError,
   WriteError,
@@ -16,7 +17,9 @@ import { useAchievementRewards, useClaims, useCobbleAccount, useQuestRewards } f
 import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/chain";
 import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
 import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger } from "../src/data/mock/ledger";
-import { FREE_SPAWN_MOCKED, mockSigner } from "../src/data/mock/overlay";
+import { FREE_SPAWN_MOCKED, GAME_FELTS_BEFORE_EXPIRY, initialSeedOf, mockGameViews, mockSigner } from "../src/data/mock/overlay";
+import { poseidon } from "@paved/game-core";
+import { GAME_PLAYING } from "../src/mocks/games";
 import { useBuyPack, usePacks } from "../src/data/purchase";
 import { referralKey, useReferralEarnings } from "../src/data/referral";
 import { useSkinWrites, useThemeSkins } from "../src/data/skins";
@@ -24,7 +27,7 @@ import { useVaultWrites } from "../src/data/vault";
 import type { Purchases, VaultWrites } from "../src/data/sources";
 import { PACKS, SKIN_PRICES } from "../src/mocks/cobbles";
 import { PAGES } from "../src/routes/pages";
-import { dataOf, fakeSources, renderData } from "./data-fakes";
+import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
 import { mockImplementation } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 
@@ -201,6 +204,80 @@ describe("the mock", () => {
     expect((await reloaded.vault(PLAYER)).totalAssets).toBe(MOCK_VAULT.assets + 10n * P);
     reloaded.reset();
     expect((await new MockLedger({ store: () => first.store, seller: "0x3" }).account(PLAYER)).cobbles).toBe(0);
+  });
+
+  it("two tabs on one device: a write of one never stores a stale copy over the other's", async () => {
+    const store = memoryStore();
+    const a = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    const b = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    // Both tabs read before either writes.
+    await a.vault(PLAYER);
+    await b.vault(PLAYER);
+    await a.writesFor(PLAYER).deposit(100n * P, { confirmedAmount: 100n * P });
+    await b.writesFor(PLAYER).deposit(10n * P, { confirmedAmount: 10n * P });
+    const fresh = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    const first = (100n * P * (MOCK_VAULT.supply + 1n)) / (MOCK_VAULT.assets + 1n);
+    const second = (10n * P * (MOCK_VAULT.supply + first + 1n)) / (MOCK_VAULT.assets + 100n * P + 1n);
+    expect((await fresh.vault(PLAYER)).shares).toBe(first + second);
+    expect(await fresh.pavedBalance(PLAYER)).toBe(MOCK_STARTING_PAVED - 110n * P);
+    // And each tab reads the other's writes.
+    expect((await a.vault(PLAYER)).shares).toBe(first + second);
+  });
+
+  it("overlapping writes are checked again at commit: two deposits of 100 from 142.35 PAVED, one is refused", async () => {
+    const ledger = new MockLedger({ store: () => memoryStore(), seller: "0x3", latencyMs: 20 });
+    const writes = ledger.writesFor(PLAYER);
+    const results = await Promise.allSettled([writes.deposit(100n * P, { confirmedAmount: 100n * P }), writes.deposit(100n * P, { confirmedAmount: 100n * P })]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason.name).toBe("VaultBalanceError");
+    expect(await ledger.pavedBalance(PLAYER)).toBe(MOCK_STARTING_PAVED - 100n * P);
+    expect((await ledger.vault(PLAYER)).value).toBeLessThanOrEqual(100n * P);
+    // The same for the packs' USDC, the skins' Cobbles and the withdraws.
+    const usdc = { paved: async () => 0n, usdc: async () => 12n * USDC };
+    const packs = await Promise.allSettled([1, 2].map(() => ledger.writesFor(PLAYER, usdc).buyPack({ packId: 2, confirmedPrice: 9n * USDC, confirmedMinOut: 1n, referrer: null })));
+    expect(packs.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(await ledger.usdcBalance(PLAYER, 12n * USDC)).toBe(3n * USDC);
+    const skins = await Promise.allSettled([13, 10].map((plan) => writes.buySkin({ theme: 1, plan, confirmedPrice: SKIN_PRICES[plan - 1]! })));
+    expect(skins.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((await ledger.account(PLAYER)).cobbles).toBeGreaterThanOrEqual(0);
+    const { shares } = await ledger.vault(PLAYER);
+    const all = await Promise.allSettled([writes.withdrawAll({ confirmedShares: shares }), writes.withdrawAll({ confirmedShares: shares })]);
+    expect(all.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((await ledger.vault(PLAYER)).shares).toBe(0n);
+  });
+
+  it("serves Challenge.initial_seed where the class has none: the contract's own Poseidon of 0, the Challenge and the id", async () => {
+    const { chain, ledger } = mockImplementation();
+    const challenge = "0x0619ce35ba96eb0a64af2a01a61a6aa5e18f0650246206c6dd39b4c882eed923";
+    chain.views.initialSeed = async () => {
+      throw new ViewError("not-available", "Not available on this network yet.");
+    };
+    const access = { challenge, gameFelts: async () => [] as string[], decodeGame: () => GAME_PLAYING };
+    const views = mockGameViews(chain.views, ledger, access);
+    const key = { mode: "challenge" as const, gameId: GAME_PLAYING.id };
+    expect(await views.initialSeed(key)).toBe(`0x${poseidon(0n, BigInt(challenge), GAME_PLAYING.id).toString(16)}`);
+    expect(initialSeedOf(challenge, 1)).toBe(`0x${poseidon(0n, BigInt(challenge), 1).toString(16)}`);
+    // An id with no game is refused, as the view refuses it.
+    await expect(views.initialSeed({ mode: "challenge", gameId: 9_999 })).rejects.toMatchObject({ kind: "game-not-found" });
+    // Where the class has the view, the chain answers.
+    const served = mockGameViews(mockImplementation().chain.views, ledger, access);
+    chain.views.calls.length = 0;
+    expect(await served.initialSeed(key)).toBe(GAME_PLAYING.seed);
+  });
+
+  it("reads a game from a class whose GameView predates expires_at: its felts, expires_at = start + 24 h", async () => {
+    const { chain, ledger } = mockImplementation();
+    chain.views.game = async () => {
+      throw new ViewError("abi-mismatch", "game: Not enough felts to decode core::integer::u64");
+    };
+    const felts = Array.from({ length: GAME_FELTS_BEFORE_EXPIRY }, (_, i) => (i === 13 ? "0x6acf1092" : "0x1"));
+    let decoded: string[] = [];
+    const access = { challenge: "0x2", gameFelts: async () => felts, decodeGame: (f: string[]) => ((decoded = f), GAME_PLAYING) };
+    const views = mockGameViews(chain.views, ledger, access);
+    await views.game({ mode: "challenge", gameId: 1 });
+    expect(decoded).toHaveLength(GAME_FELTS_BEFORE_EXPIRY + 1);
+    expect(BigInt(decoded.at(-1)!)).toBe(0x6acf1092n + 86_400n);
+    await expect(mockGameViews(chain.views, ledger, { ...access, gameFelts: async () => felts.slice(1) }).game({ mode: "challenge", gameId: 1 })).rejects.toMatchObject({ kind: "abi-mismatch" });
   });
 
   it("is deterministic: two fresh ledgers answer the same figures", async () => {
