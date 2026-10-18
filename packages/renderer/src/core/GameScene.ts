@@ -665,7 +665,11 @@ export class GameScene {
    */
   async dropTile(tile: { id: number | string; game_id?: number }): Promise<DropResult> {
     const result = await this.tiles.dropTile(`${tile.game_id ?? 1}-${tile.id}`);
-    if (result.status === "started" && !this.disposed) this.requestRender();
+    // The real model is hidden now: the cached shadow map still holds it, so it is drawn again with the next frame.
+    if (result.status === "started" && !this.disposed) {
+      this.requestShadowUpdate();
+      this.requestRender();
+    }
     return result;
   }
 
@@ -937,7 +941,11 @@ export class GameScene {
       const now = performance.now();
       const moved = this.tiles.update(now);
       if (moved.animating) this.needsRender = true;
-      if (moved.shadow) this.requestShadowUpdate();
+      // A drop ended (the model is back) or casts: the shadows and a last frame, which `animating` no longer asks for.
+      if (moved.shadow) {
+        this.requestShadowUpdate();
+        this.needsRender = true;
+      }
       // The day and night cycle moves in steps of `frameMs`: each step draws a frame (`applyDayNight` requests it).
       if (this.dayNightRuns()) {
         const { speed, frameMs } = this.settings.dayNight;

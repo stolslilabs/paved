@@ -67,3 +67,30 @@ describe("GameScene draws what it was given while its models loaded", () => {
     expect(tiles.updateTiles).toHaveBeenCalledWith([]);
   });
 });
+
+describe("GameScene draws the voxel drop's hand-overs", () => {
+  it("marks the shadows stale and draws a frame when a drop starts (the hidden model's cached shadow goes)", async () => {
+    const { scene, tiles } = sceneWithPendingModels();
+    (tiles as any).dropTile = vi.fn(async () => ({ status: "started" }));
+    (scene as any).shadowsDirty = false;
+    (scene as any).needsRender = false;
+    await scene.dropTile({ id: 1, game_id: 1 });
+    expect((scene as any).shadowsDirty).toBe(true);
+    expect((scene as any).needsRender).toBe(true);
+  });
+
+  it("draws a last frame when a drop ends, though nothing is animating any more", () => {
+    const { scene, tiles } = sceneWithPendingModels();
+    (tiles as any).update = vi.fn(() => ({ animating: false, shadow: true }));
+    (scene as any).controls = { update: () => false };
+    const frames = vi.fn();
+    (scene as any).renderFrame = frames;
+    (scene as any).needsRender = false;
+    (scene as any).shadowsDirty = false;
+    vi.stubGlobal("requestAnimationFrame", () => 1);
+    scene.start();
+    vi.unstubAllGlobals();
+    expect(frames).toHaveBeenCalledTimes(1);
+    expect((scene as any).shadowsDirty).toBe(true);
+  });
+});
