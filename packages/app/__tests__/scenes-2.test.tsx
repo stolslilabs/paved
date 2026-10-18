@@ -390,8 +390,8 @@ describe("Quests", () => {
     // Each mission has its own countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
     expect(within(list.getByRole("article", { name: "Public Works" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
     expect(within(list.getByRole("article", { name: "Weekly Forester" })).getByRole("timer", { name: "Weekly mission ends in 105:00:00" })).toBeInTheDocument();
-    // A completed mission has no countdown left to show.
-    expect(within(list.getByRole("article", { name: "Daily Run" })).queryByRole("timer")).not.toBeInTheDocument();
+    // A completed mission still in its window keeps its countdown.
+    expect(within(list.getByRole("article", { name: "Daily Run" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
     expect(list.queryByRole("region", { name: "Daily" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Limited" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("tab", { name: "Lifetime" }));

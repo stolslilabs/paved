@@ -5,7 +5,7 @@ import { toastError, type ErrorToastProps } from "./error-toast";
 
 const CLAIM: ErrorToastProps = {
   title: "The claim did not go through",
-  message: "Not completed yet: play the quest's games first.",
+  message: "Not completed yet: play the mission's games first.",
   detail: { code: "WriteError", txHash: "0x05f16e7f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5", version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) },
 };
 
@@ -37,7 +37,7 @@ export const Shown: Story = {
 export const Stacked: Story = {
   play: async ({ args }) => {
     toastError(args);
-    toastError({ title: "The free game did not start", message: "You have no free game left: earn one on the quests page.", detail: { version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 31) } });
+    toastError({ title: "The free game did not start", message: "You have no free game left: earn one on the missions page.", detail: { version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 31) } });
   },
 };
 /** The wallet's connect failed (`useConnectError`). */

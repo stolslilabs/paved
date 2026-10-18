@@ -92,7 +92,7 @@ export function ProgressCard(props: ProgressCardProps) {
             {reward && <Cobbles value={reward.cobbles} sign="+" size="sm" tone="muted" />}
           </div>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
-          {ends && state !== "complete" && <Countdown expiresAt={ends.at} now={ends.now} label={ends.label} className="mt-1" />}
+          {ends && <Countdown expiresAt={ends.at} now={ends.now} label={ends.label} className="mt-1" />}
         </div>
         <Badge variant={state === "complete" ? "default" : state === "progress" ? "secondary" : "outline"} className="shrink-0">
           {state === "complete" && <Icon name="check" size="xs" />}
