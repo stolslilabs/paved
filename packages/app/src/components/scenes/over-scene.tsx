@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { GameView, ScoredStructure } from "@paved/chain";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -9,6 +10,7 @@ import { Score, formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { useSfx } from "../containers/audio-provider";
 import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
@@ -81,6 +83,11 @@ const duration = (seconds: number) => {
 /** The end of a game (`/game/:id/over`, `/training/over`): the final score, its metrics, every closing, the reward. */
 export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
+  const play = useSfx();
+  useEffect(() => play("gameover"), [play]);
+  useEffect(() => {
+    if (reward.state === "rewarded") play("cobbles");
+  }, [reward.state, play]);
   const best = previousBest != null && game.score > previousBest;
   const byCategory = CLOSING_CATEGORIES.map((category) => {
     const of = closings.filter((c) => c.category === category);

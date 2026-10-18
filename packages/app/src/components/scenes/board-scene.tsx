@@ -12,6 +12,8 @@ import { LazyTileBubble } from "../containers/lazy-tile-bubble";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
 import type { ErrorDetail } from "../elements/inline-error";
+import { useBoardSounds } from "../containers/board-sounds";
+import { useSfx } from "../containers/audio-provider";
 import { HandPanel, type HandState } from "../containers/hand-panel";
 
 export type BoardMode = "challenge" | "training" | "tutorial";
@@ -20,6 +22,8 @@ export type BoardMode = "challenge" | "training" | "tutorial";
 // browser's idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`). The plan view stays: it is
 // the board where the canvas cannot start, and 1.6 KB gzip does not buy a second fetch there.
 const loadSurrenderDialog = () => import("../containers/surrender-dialog");
+// The settings sheet (#541) is its own chunk too: loaded at the first tap on the gear, not with the board.
+const loadSettingsSheet = () => import("../containers/device-settings-sheet");
 const PREFETCH_AFTER_MS = 3000;
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
@@ -94,6 +98,9 @@ export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
   const title = mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode];
   const [surrendering, setSurrendering] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const play = useSfx();
+  useBoardSounds({ ghost: props.ghost, error: hand.error, lastScored: props.lastScored });
   const { promptSurrender } = props;
   useEffect(() => {
     if (promptSurrender) setSurrendering(true);
@@ -113,6 +120,10 @@ export function BoardScene(props: BoardSceneProps) {
     setSurrendering(false);
     toastError({ title: "Surrender", message: "The Surrender dialog could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
+  const settingsSheet = useDeferred(loadSettingsSheet, settingsOpen, (e) => {
+    setSettingsOpen(false);
+    toastError({ title: "Settings", message: "The settings could not load. Check your connection and try again.", detail: errorDetail(e) });
+  });
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
@@ -126,6 +137,10 @@ export function BoardScene(props: BoardSceneProps) {
           expiresAt={mode === "challenge" ? props.expiresAt : null}
           now={now}
           onBack={props.onBack}
+          onSettings={() => {
+            play("tap");
+            setSettingsOpen(true);
+          }}
           className="pointer-events-auto w-full max-w-2xl"
         />
         {props.storageDisabled && (
@@ -158,14 +173,22 @@ export function BoardScene(props: BoardSceneProps) {
             errorDetail={hand.errorDetail}
             tileArt={props.tileArt}
             renderTile={props.renderHandTile}
-            onConfirm={props.onConfirm}
-            onDiscard={props.onDiscard}
+            onConfirm={() => {
+              play("place");
+              props.onConfirm?.();
+            }}
+            onDiscard={() => {
+              play("discard");
+              props.onDiscard?.();
+            }}
             onSurrender={() => setSurrendering(true)}
             canSurrender={mode !== "tutorial"}
             surrenderPending={surrendering && !surrenderDialog}
           />
         </div>
       )}
+
+      {settingsSheet && <settingsSheet.default open={settingsOpen} onOpenChange={setSettingsOpen} />}
 
       {surrenderDialog && (
         <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
