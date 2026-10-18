@@ -105,3 +105,11 @@ export type {
   TileRenderData,
   HoverState,
 } from "./core/types";
+
+// The voxel drop of a placed tile (VOXEL-DROP, #512): its settings and schedule are eager and small; the mesh is a chunk of its own,
+// loaded on the first `GameScene.dropTile`.
+export { DEFAULT_VOXEL_DROP_SETTINGS, DROP_EASES, DROP_LANDINGS, resolveVoxelDropSettings } from "./core/voxel-drop-settings";
+export type { DropEase, DropLanding, VoxelDropSettings, VoxelDropSettingsInput } from "./core/voxel-drop-settings";
+export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
+export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
+export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";

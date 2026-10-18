@@ -5,6 +5,7 @@ export function placementStubs() {
   return {
     setPlacementSettings: vi.fn(),
     setReducedMotion: vi.fn(),
+    setVoxelDropSettings: vi.fn(),
     setPlacementZoom: vi.fn(),
     setConfirmed: vi.fn(),
     update: vi.fn(() => ({ animating: false })),
