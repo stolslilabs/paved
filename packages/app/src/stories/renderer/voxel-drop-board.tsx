@@ -70,7 +70,7 @@ export type Readout = { plan: string; result: DropResult } | null;
 
 function DropReadout({ rows }: { rows: Array<{ plan: string; result: DropResult }> }) {
   return (
-    <output className={`pointer-events-none absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2 font-mono text-foreground numeric ${rows.length > 3 ? "text-[10px] leading-4" : "text-xs leading-5"}`} aria-live="off">
+    <output className={`pointer-events-none absolute top-3 left-3 max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] overflow-auto rounded-md bg-background/80 px-3 py-2 font-mono text-foreground numeric ${rows.length > 3 ? "text-xs leading-4" : "text-xs leading-5"}`} aria-live="off">
       {rows.length === 0 && "waiting for the first drop"}
       {rows.map(({ plan, result }) => (
         <div key={plan} className="whitespace-nowrap">
