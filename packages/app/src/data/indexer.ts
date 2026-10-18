@@ -113,13 +113,12 @@ export function usePlayerAchievements(playerId: string | null): UseQueryResult<P
 }
 
 /**
- * The home scene's `player`: the profile, today's row and the two balances; null for a guest. Mapped here: the
+ * The home scene's `player`: the profile, today's row; null for a guest. Mapped here: the
  * indexer answers `player` and `stats` null for an address it has not seen yet (a new player), and the scene takes
- * both non-null, so a new player is `{ playerId, name: null, created: null }` with zero stats. A balance reads 0 without
- * an economy deployment.
+ * both non-null, so a new player is `{ playerId, name: null, created: null }` with zero stats.
  */
 export function usePlayerStatus(playerId: string | null, day: number | null): { data: PlayerStatusData | null | undefined; isPending: boolean; error: Error | null } {
-  const { indexer, economy } = useDataSources();
+  const { indexer } = useDataSources();
   const id = playerId ?? "0x0";
   const enabled = playerId !== null;
   return useQueries({
@@ -130,14 +129,12 @@ export function usePlayerStatus(playerId: string | null, day: number | null): { 
         queryFn: async () => (await indexer.playerTournament(id, day as number)).data,
         enabled: enabled && day !== null,
       },
-      { queryKey: queryKeys.chain.usdcBalance(id), queryFn: () => (economy ? economy.usdcBalance(id) : null), enabled },
-      { queryKey: queryKeys.chain.pavedBalance(id), queryFn: () => (economy ? economy.pavedBalance(id) : null), enabled },
     ],
-    combine: ([profile, today, usdc, paved]) => {
-      const all = [profile, today, usdc, paved];
+    combine: ([profile, today]) => {
+      const all = [profile, today];
       if (playerId === null) return { data: null, isPending: false, error: null };
       // Without a day there is no row of today to wait for.
-      const ready = [profile, usdc, paved, ...(day === null ? [] : [today])].every((q) => q.data !== undefined);
+      const ready = [profile, ...(day === null ? [] : [today])].every((q) => q.data !== undefined);
       const error = all.find((q) => q.error)?.error ?? null;
       return {
         data: ready
@@ -145,8 +142,6 @@ export function usePlayerStatus(playerId: string | null, day: number | null): { 
               player: profile.data?.player ?? { playerId, name: null, created: null },
               stats: profile.data?.stats ?? NO_STATS,
               today: today.data ?? null,
-              usdc: usdc.data ?? 0n,
-              paved: paved.data ?? 0n,
             }
           : undefined,
         isPending: !ready && !error,

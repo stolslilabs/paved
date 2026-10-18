@@ -65,7 +65,8 @@ function open(path: string, s: ReturnType<typeof setup>) {
   return router;
 }
 
-const balance = (value: number) => screen.findByRole("img", { name: `${value} Cobbles` }, { timeout: 3000 });
+// The pill and the rail both hold the balance in the DOM (the breakpoint shows one).
+const balance = async (value: number) => (await screen.findAllByRole("img", { name: `${value} Cobbles` }, { timeout: 10000 }))[0];
 const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: 3000 });
 
 preloadPages("quests", "achievements");

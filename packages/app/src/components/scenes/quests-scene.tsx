@@ -119,7 +119,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   }, { scope: day, live: open, memory: props.toasts });
 
   return (
-    <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
+    <TabPage tab="quests" title="Quests" onNavigate={props.onNavigate}>
       <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
         <QuestsTabs active="quests" onSelect={props.onTab} />
         <DayPicker day={day} today={today} first={props.firstDay} onChange={props.onDayChange} />
