@@ -42,6 +42,18 @@ describe("/v1/definitions", () => {
     }
     raw({ quests: [], achievements: [{ ...fixture.achievements[0], cobbles: "10" }] });
     expect(await kindOf(client.definitions())).toBe("bad-response");
+    // One field without the other is still a bad answer.
+    const { cobbles_kind: _kind, ...withoutKind } = { ...fixture.quests[0], cobbles: 5, cobbles_kind: "daily" };
+    raw({ quests: [withoutKind], achievements: [] });
+    expect(await kindOf(client.definitions())).toBe("bad-response");
+  });
+
+  test("an indexer that predates cobbles v1 (Sepolia's, #549): no Cobbles fields reads as none", async () => {
+    const strip = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "cobbles" && k !== "cobbles_kind"));
+    raw({ quests: fixture.quests.map(strip), achievements: fixture.achievements.map(strip) });
+    const { data } = await client.definitions();
+    expect(data.quests.map((q) => [q.cobbles, q.cobblesKind])).toEqual(data.quests.map(() => [0, null]));
+    expect(data.achievements.every((a) => a.cobbles === 0)).toBe(true);
   });
 
   test("a retired definition carries its time; retired without a time (or a time without retired) is refused", async () => {

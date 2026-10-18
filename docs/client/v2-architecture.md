@@ -562,6 +562,28 @@ Each hook returns the type its scene's prop takes; where the indexer's type diff
 schedule from the definitions; a new player's null profile as an empty one). A past day's leaderboard and a closed
 economy day have `staleTime: Infinity`. No hook polls; the writes (P5, P7, P10) update these keys from their receipts.
 
+**Mock data (MOCK-FIRST, issue 549).** The reads and writes a network's deployed classes lack are served on the device by a
+mock ledger, behind the same interfaces as the chain path, so the client works end to end before the fresh deployment.
+One switch, `VITE_DATA_SOURCE` (`data/data-source.ts`): `chain` or `mock`; unset, `mock` on Sepolia (`MOCK_BY_DEFAULT`) and
+`chain` everywhere else. Measured on 2026-10-19 against Sepolia's classes: Setup has none of the Cobbles ledger, packs or
+skins; the Vault has none of its ERC4626 views or writes; Challenge has no `spawn_paused`, `guardian`, `spawn_free` or
+`initial_seed`; Economy has no `split_bps` or `seller`; the indexer's definitions carry no Cobbles and it has no referrals
+route.
+
+| Module | What it holds |
+|---|---|
+| `data/mock/ledger.ts` | `MockLedger`: `MockedReads` (`CobbleViews`, `PackViews`, `SkinViews`, `VaultViews`, `spawnPaused`, `guardian`, `split`, `seller`, the balances) and `MockedWrites` (the claims, `buySkin`, `setSkins`, a pack's purchase, deposit, withdraw, withdraw all), with the contracts' checks, their typed refusals and their receipts' events; kept in `localStorage` (`paved.mock.v1`) |
+| `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the account's `PavedWriter`, its purchases and Vault writes) and answers only the missing entry points from the ledger |
+
+Applied where the chain path is built: `chain-client.ts` (the game views), `economy-client.ts` (the economy's views and a
+pack's purchase), `vault-client.ts` (the Vault's writes), `wallet/connector.ts` (the claims and the skin writes) and
+`routes/sources.ts` (the indexer). The games, their tiles, the moves, a game's purchase, the settlement and the token
+balances stay the chain's; the mock adjusts the PAVED and USDC balances by its own moves (a player starts with 142.35 mock
+PAVED to try the Vault). The claims trust the indexer's progress, which the page shows. The free spawn is refused in plain
+words (no game can be mocked). The pages that read mocked data show a "Mock data" mark beside their title
+(`MOCKED_PAGES`). When the fresh deployment lands, `VITE_DATA_SOURCE=chain` in the host's environment restores the chain
+path with no code change; `__tests__/data-mock.test.tsx` runs the same hook flows on both.
+
 **Decided for the owner:** React Router 7 (data mode, lazy routes) rather than TanStack Router: already in
 the repository and in both references. Reversed if typed search params become a pain point.
 
