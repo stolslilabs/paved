@@ -58,6 +58,7 @@ export interface SettingsSceneProps {
   onDisconnect?: () => void;
   onOpenTheme?: () => void;
   onOpenReferral?: () => void;
+  onOpenCredits?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
@@ -175,6 +176,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           <SettingsGroup title="More">
             <SettingsLink label="Theme" icon="palette" value={themeName} onClick={props.onOpenTheme} />
             <SettingsLink label="Referral" hint="Your link and what it earned" icon="user-group" onClick={props.onOpenReferral} />
+            <SettingsLink label="Credits" hint="Licences and third-party notices" icon="circle-info" onClick={props.onOpenCredits} />
           </SettingsGroup>
 
           {props.version && <p className="text-center text-xs text-muted-foreground">Paved v{props.version}</p>}

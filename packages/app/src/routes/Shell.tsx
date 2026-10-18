@@ -1,7 +1,6 @@
 import { Suspense, useEffect } from "react";
 import { Outlet } from "react-router";
 import { LoadingScene } from "../components/scenes/loading-scene";
-import { WalletFooter } from "../wallet/notice";
 import { useRoutePage } from "./handle";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
@@ -9,13 +8,13 @@ import { usePrefetchTabs } from "./prefetch";
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
 
-/** The board routes: the scene fills the viewport (`h-dvh`) and carries the D-15 notice itself (`BoardScene`'s `footnote`). */
+/** The board routes: the scene fills the viewport (`h-dvh`) and the document does not scroll. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "tutorial"]);
 
 /**
- * The root of every route. It draws only the footer (the D-15 notice and the connected account, `WalletFooter`), in
- * normal flow after the page, except on a board route, which would scroll by the footer's height: a tab page brings the sticky navigation (`TabPage`, `AppNav`), a full-screen flow its top
- * bar, so the page scrolls as one document and nothing wraps it in an overflow box. Pages load lazily; `Suspense` shows
+ * The root of every route. It draws nothing of its own (the Cartridge notice lives on the Credits page, D-15): a tab page
+ * brings the sticky navigation (`TabPage`, `AppNav`), a full-screen flow its top bar, and every page is `min-h-dvh`, so a page
+ * that fits does not scroll and a taller one scrolls as one document, nothing wrapping it in an overflow box. Pages load lazily; `Suspense` shows
  * the loading scene while a page's code arrives; once the first render is done the browser fetches the tab pages' code in
  * its idle time (`prefetch.tsx`).
  */
@@ -36,7 +35,6 @@ export function RootLayout() {
       <Suspense fallback={bootScreen}>
         <Outlet />
       </Suspense>
-      {!onBoard && <WalletFooter />}
     </HistoryTracker>
   );
 }

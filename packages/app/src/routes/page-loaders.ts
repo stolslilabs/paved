@@ -33,5 +33,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   vault: () => import("./pages/vault"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
+  "settings/credits": () => import("./pages/credits"),
   settings: () => import("./pages/settings"),
 };
