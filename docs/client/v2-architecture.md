@@ -907,7 +907,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     fetches 52 of the 72. The lazy load bounds it by the board: one file per (plan, variant) a tile shows, at most the
     tiles on the board, and only the plans the player has skinned; the files are content-hashed, so a return visit
     fetches none of them again under the immutable rule below.
-    Drawn, the skinned board costs no frame time (LIGHT-GPU, 5.5; Mac GPU, headless Chrome on ANGLE Metal, outlines on):
+    Drawn, the skinned board costs no frame time (LIGHT-GPU, 5.5; GPU, headless Chrome, outlines on):
     with Forest on all 19 plans against the base models, CPU + GPU p95 at the default Medium tier is 8.74 against 9.03 ms on
     the desktop profile and 6.26 against 5.89 ms on the phone-like one at the opening view; every tier and view is within
     1 ms of the base board, inside the bench's run-to-run noise (about 1 ms, 5.5).
@@ -937,7 +937,7 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     Compressing `model/gltf-binary` too (gzip or brotli) would take the 19 models from 1,089,624 B to 665,212 B (gzip
     level 6) or 618,540 B (brotli), measured on the files; `vite preview` compresses only text and JavaScript, so the
     figures below are the files as they are.
-  - **Measured** (Mac, Chrome headless `--headless=new`, ANGLE Metal; `vite preview` serving `dist`, which sends
+  - **Measured** (Mac, Chrome headless `--headless=new`; `vite preview` serving `dist`, which sends
     `Cache-Control: no-cache`, gzip on JavaScript only; a fresh context per run, no network throttling; 3 runs, median;
     `/training` on a fresh game, 1 tile and the hand, and on a resumed 35-tile game of 18 plans; first frame: the later of
     the board's and the hand's first draw call, from navigation; phone-like: 360 x 780, DPR 3, 4x CPU throttle; Mac: 1440 x
@@ -1057,7 +1057,7 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
   units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
 
-**Frame time** (DPR's and OUT-LOD's method: the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; the
+**Frame time** (DPR's and OUT-LOD's method: the GPU, Chrome in new headless mode, never on screen; the
 "Renderer/Outlines" story Held with `redraw` and the outlines forced on, on the recorded 72-tile board; per frame the
 CPU time of every rAF callback plus the GPU time of `EXT_disjoint_timer_query_webgl2` around each; a fresh context per
 configuration, 120 warm-up and 600 measured frames; nearest-rank percentiles over the pooled frames). Mac profile:
@@ -1102,10 +1102,10 @@ breaks it, keep the faster option as the default; on phones, the phone-like prof
   does (below). So desktops keep the faces unantialiased: `"auto"` is off on a fine pointer and a large screen, and
   the cap stays 1.5 (no change from main: off measures as main does).
 - **Phone-like profile: MSAA passes.** At cap 2, 7.90 and 8.48, under 16.6 ms with room. So `"auto"` turns MSAA on on
-  coarse pointers and small screens. The profile runs on the Mac's GPU, not a phone's (tile-based phone GPUs resolve
+  coarse pointers and small screens. The profile runs on the GPU, not a phone's (tile-based phone GPUs resolve
   MSAA on chip, often cheaper; estimate).
 
-**Zero flicker** (OUT-LOD's checks; headless Chrome on ANGLE Metal; the outline share is 1 minus the luma with the
+**Zero flicker** (OUT-LOD's checks; headless Chrome; the outline share is 1 minus the luma with the
 outlines on over the luma with them off, at the same pose, over the centre crop: 800 x 500 CSS px on the Mac, 300 x 400
 on the phone-like):
 
@@ -1143,7 +1143,7 @@ profile, it held a second cost P4 did not count, and both are cut now:
   below). MSAA is taken only where the context multisamples that many. The "Renderer/Lighting" story has the controls
   (`multisampling`, `msaaSamples`) and a readout of the face antialiasing in effect.
 
-**The method.** Headless Chrome (Chrome for Testing 1217, `--headless=new`, ANGLE Metal on the Mac's GPU, never on screen),
+**The method.** Headless Chrome (Chrome for Testing 1217, `--headless=new`, hardware GPU, never on screen),
 the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the slots and the ghost) on the recorded
 72-tile board, this branch's static Storybook on a plain file server. The phone profile: 360 x 740 and 430 x 932 CSS px
 at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per configuration in a fresh browser:
@@ -1153,16 +1153,16 @@ at DPR 2, cap 2 (buffers of 720 x 1480 and 860 x 1864). Three measures, per conf
   samples, then keeps those attached to a framebuffer (the render targets). Bytes are width x height x bytes per pixel
   x samples, as the API asks for them; it has no error of its own, but it does not see the canvas's buffers nor any
   padding the driver adds.
-- **The GPU process's Metal memory** (real): `footprint` (macOS) of Chrome's GPU process, its category "Owned physical
+- **The GPU process's GPU memory** (real): `footprint` (macOS) of Chrome's GPU process, its category "Owned physical
   footprint (unmapped) (graphics)", read after 3 s of frames. It catches the canvas and the driver's own allocations. Its
-  error: it moves in steps (Metal allocates in heaps), about 10 % low against the ledger's differences (removing the
+  error: it moves in steps (the driver allocates in heaps), about 10 % low against the ledger's differences (removing the
   second target: ledger -61.0 MiB, measured -55.1 at 720 x 1480; -91.7 against -82.1 at 860 x 1864), and it does not
   move for small targets (the AO's, 1.0 MiB, and the bloom's mips, 7.4 MiB, leave it within 0.8 MiB). Two rounds; the
   pairs agree within 0.8 MiB.
 - Chrome exposes no per-context GPU memory to a page (`performance.measureUserAgentSpecificMemory` counts no GPU
   memory), so the browser figure is the GPU process's.
 
-**The reference bench, from now on: Q3-GPU's.** Frame times, memory and flicker on the Mac's GPU are measured with
+**The reference bench, from now on: Q3-GPU's.** Frame times, memory and flicker on the GPU are measured with
 Q3-GPU's bench, whose scripts are kept in Q3-GPU's thread library (`q3gpu-lib.mjs`, `q3gpu-bench.mjs`,
 `q3gpu-summary.mjs`; not in this repository, like LIGHT-GPU's before them, which were not on the Mac). It follows
 DPR's, OUT-LOD's and LIGHT-GPU's method (above), and reads lower than LIGHT-GPU's bench. Tied in 5.5 on **one
@@ -1207,7 +1207,7 @@ At Medium (the phone's tier), MiB, ledger (all render targets) / GPU process gra
 
 Low and High: the ledger moves by the AO's target and the bloom's mips (Low 1.0 / 1.5 MiB less, High 7.4 / 11.2 more), the
 graphics figure stays within 0.8 MiB of Medium's in every variant. So P4's estimate of "about 90 MB" for MSAA was the
-right order: main's MSAA path held 172 MiB of Metal memory at 360 x 740, 101 MiB more than main's off path. This branch's
+right order: main's MSAA path held 172 MiB of GPU memory at 360 x 740, 101 MiB more than main's off path. This branch's
 default holds **83.7 MiB** there (112.4 at 430 x 932): its MSAA now costs 12.7 MiB more than main's off path (71.0).
 
 **Frame time** (LIGHT-GPU's method: per frame the CPU time of every rAF callback plus the GPU time of
@@ -1252,7 +1252,7 @@ or more): the same pattern, and High's bloom as LIGHT-GPU found it (at 240, zoom
 **The rule applied** (the phone profile under 16.6 ms, zero flicker, the least memory when both hold): every variant passes
 the time; zero flicker keeps 4 samples (2 shimmer like no MSAA, so they fail it, as off does). Among the 4-sample variants,
 one target with the canvas off holds the least memory and draws the same frames. So the phone default is **4x MSAA, one
-target, the canvas without multisampling**: 83.7 MiB of Metal memory at 360 x 740 against main's 172.3 (-88.6 MiB,
+target, the canvas without multisampling**: 83.7 MiB of GPU memory at 360 x 740 against main's 172.3 (-88.6 MiB,
 -51 %), 112.4 at 430 x 932 against 243.0. "Off" stays the floor for a device without MSAA (SMAA there, as before): it is
 not a candidate, P4 having ruled that phones antialias the faces. The desktop gains both cuts too (5.5).
 
@@ -1383,8 +1383,8 @@ them off at the same pose): **zoom**, 12 wheel notches of 20 from distance 282 (
 0, 0, 0.11, 0.24, 0.41, 0.62, 0.85, 1.17, 1.48, 1.82, 2.19, 2.56, 3.03 points, rising every step with the largest step
 0.47 point, no jump that is not the opacity ramp (the luma's own largest step is 0.53 on, 0.57 off). **Pan**: the 12-drag
 run did not finish on the loaded VPS (the screenshots timed out under SwiftShader, twice); it is left to the GPU check on
-the Mac, which the coordinator schedules. **Run on the Mac's GPU (SLOTS, 2026-10-16)**: headless Chrome (new headless) on
-ANGLE Metal (the Mac's GPU), the "Renderer/Outlines" story held, outlines forced on, main before OUT-FADE (`2cef09d0`) against
+the Mac, which the coordinator schedules. **Run on the GPU (SLOTS, 2026-10-16)**: headless Chrome (new headless) on
+the GPU, the "Renderer/Outlines" story held, outlines forced on, main before OUT-FADE (`2cef09d0`) against
 OUT-FADE (`ef354596`), each a static Storybook; 12 mouse drags of 2 CSS px with a 1.5 s settle, the mean luma of the centre
 crop (800 x 500 at 1440 x 900, DPR 2, cap 1.5; 300 x 400 at 360 x 780, DPR 3, cap 2) after each; the 1-minute load 2.4 to 5.4.
 Largest step (mean step), before / after:
@@ -1419,8 +1419,8 @@ keeps 0.65 of the light) comes out as the nearest. Written `#1f1f1f` shows as ab
 captures (`outline-colour-before-*` and `-after-*`: the "Renderer/Lighting" Mockup at the default tier, opening view,
 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on software WebGL, `force: "on"`) the outline pixels read about
 `#53524f` before (written `#1f1f1f`) and `#2b2c29` after (written about `#0f0f0f`); those were taken with the green-only
-conversion. **Re-measured after the per-channel conversion (SLOTS, 2026-10-16)**, on the Mac's GPU (headless Chrome on ANGLE
-Metal), the Mockup at distance 200 (above 1.15 S, so the outlines are fully on), outlines on against off at the same pose,
+conversion. **Re-measured after the per-channel conversion (SLOTS, 2026-10-16)**, on the GPU (headless Chrome
+), the Mockup at distance 200 (above 1.15 S, so the outlines are fully on), outlines on against off at the same pose,
 the centre crop, the pixels the stroke darkens most: the darkest read `#2a2a2b` at 1280 x 800, DPR 1, `#2b2a2b` at
 360 x 780, DPR 2, and `#262627` at DPR 1.5 (within two 8-bit steps of `#2a2928`; the median of those pixels, `#323232` to
 `#353435`, is a stroke covering most of a pixel, not all of it). The default writes 15.0, 15.1 and 15.2 of 255 in linear light
@@ -1456,14 +1456,14 @@ setting; DPR replaces that with this rule, set by the PM in advance:
 
 Method:
 
-- Machine: a Mac, Chrome in new headless mode on ANGLE Metal, never on screen. The "Renderer/Outlines" story, Held,
+- Machine: a desktop, Chrome in new headless mode, never on screen. The "Renderer/Outlines" story, Held,
   with `redraw` on, on the recorded 72-tile board.
 - Per frame: the CPU time of every rAF callback of the frame, plus the GPU time from `EXT_disjoint_timer_query_webgl2`
   around them. Each configuration runs in a fresh browser context: 120 warm-up frames, then 600 measured frames.
 - Three rounds, with the caps alternated within each round and the cap order changed between rounds (the phone
   profile in rounds 1 and 2 only). Percentiles are nearest-rank over the pooled frames.
 - **Mac profile**: 1440 x 900 at DPR 2. **Phone-like profile**: 360 x 780 at DPR 3, with Chrome's CPU throttled 4x.
-  The phone-like profile is an approximation: it runs on the Mac's GPU, not on a phone's.
+  The phone-like profile is an approximation: it runs on the GPU, not on a phone's.
 - **Default view**: distance 240, the game's opening view. **Busiest view**: distance 170 on the Mac profile, the
   closest view with all 72 tiles on screen. On the phone-like profile no distance where the outlines still draw (up to
   about 282) holds every tile, so its busiest view is 280, the farthest where the outlines still draw.
@@ -1557,7 +1557,7 @@ What `core/outlines.ts` and `core/edges.ts` do now:
 Load after (Mac profile): 230k to 281k instances a frame (more as the cap or the zoom grows), 0.92M to 1.12M vertices,
 0.46M to 0.56M triangles.
 
-**Zero flicker, no popping.** Headless Chrome on ANGLE Metal, the recorded board, both builds at the same poses.
+**Zero flicker, no popping.** Headless Chrome, the recorded board, both builds at the same poses.
 The outline share of a frame is 1 minus the luma with the outlines on over the luma with them off, at the same pose,
 over the centre crop (800 x 500 CSS px on the Mac, 300 x 400 on the phone):
 
@@ -1572,7 +1572,7 @@ over the centre crop (800 x 500 CSS px on the Mac, 300 x 400 on the phone):
   risers, the merged pieces, and depth ties at the quads' new corners: 0.067 % of the pixels changed with the tighter
   quad alone).
 
-**Frame time** (DPR's method: a Mac, headless Chrome on ANGLE Metal, the "Renderer/Outlines" story Held with
+**Frame time** (DPR's method: a Mac, headless Chrome, the "Renderer/Outlines" story Held with
 `redraw`, 120 warm-up and 600 measured frames per configuration in a fresh context, CPU + GPU per frame, nearest-rank
 percentiles over the pooled frames). Main and this branch were built side by side and alternated within each round,
 with the caps. Mac profile: three rounds, cap orders 1/1.5/2, 2/1.5/1 and 1.5/2/1. Phone-like: two rounds. Load average
@@ -1721,13 +1721,13 @@ effects off whatever the tier. P11a adds the settings row (Low / Medium / High);
 `showcase`, `showcaseCinematic`) now only scale the look's exposure and fog density against `play`'s, and the
 cinematic profile's SSAO gave way to the look's AO.
 
-**As measured (LIGHT-GPU, 2026-10-16).** DPR's and OUT-LOD's method: the Mac's GPU, Chrome in new headless mode on ANGLE Metal,
+**As measured (LIGHT-GPU, 2026-10-16).** DPR's and OUT-LOD's method: the GPU, Chrome in new headless mode,
 never on screen; the "Renderer/Lighting" story (Mockup, held, `redraw` on, outlines forced on, the gold slots and the
 ghost shown) on the recorded 72-tile board; per frame the CPU time of every rAF callback plus the GPU time of
 `EXT_disjoint_timer_query_webgl2` around them; a fresh context per configuration, 120 warm-up and 600 measured frames;
 nearest-rank percentiles over the pooled frames. Desktop profile: 1440 x 900 at DPR 2, cap 1.5 (2160 x 1350), faces
 unantialiased (`"auto"`). Phone-like: 360 x 780 at DPR 3, CPU throttled 4x, cap 2 (720 x 1560), MSAA (`"auto"`): an
-approximation on the Mac's GPU, not a phone's. Views: the opening (240, straight down) and a zoomed one (60, straight
+approximation on the GPU, not a phone's. Views: the opening (240, straight down) and a zoomed one (60, straight
 down, where the AO, the shadows and the water fill the screen). Each effect alone is the Off preset with that one effect
 turned on (quality High, so no tier hides it); the tiers are the Mockup look whole. The variants alternated within a
 round, the order rotated between rounds. Every round started only with the 1-minute load average under 6, and every
@@ -1797,7 +1797,7 @@ threshold"). Captures: `captures/bloom-threshold-1.0-gpu.webp` and `bloom-thresh
 High). The bench's builds had the threshold at 1.0; the bloom pass does the same work at either (its cost does not
 depend on what passes the threshold).
 
-**Zero flicker, outlines on** (LIGHT's check, on the GPU: headless Chrome on ANGLE Metal). Main before LIGHT
+**Zero flicker, outlines on** (LIGHT's check, on the GPU: headless Chrome). Main before LIGHT
 (`fe3d7699^`, the "Renderer/Outlines" story held) against the Mockup look at each tier; 12 mouse drags of 2 CSS px, then
 12 wheel notches of 20, a 1.5 s settle after each; the mean luma (0 to 255) of the centre crop (800 x 500 CSS px on the
 desktop profile at cap 1.5, 300 x 400 on the phone-like at cap 2) after each step. Largest change between two steps
@@ -1851,7 +1851,7 @@ desktop profile at cap 1.5, 300 x 400 on the phone-like at cap 2) after each ste
   the palest at 2.04) stay fully in, and nothing else is caught.
 - The bloom's threshold: above.
 
-**Captures (GPU)** in `packages/app/src/stories/renderer/captures/`, headless Chrome on ANGLE Metal, outlines on, 1280 x
+**Captures (GPU)** in `packages/app/src/stories/renderer/captures/`, headless Chrome, outlines on, 1280 x
 800 at DPR 2 (cap 1.5) and 360 x 780 at DPR 3 (cap 2; the skins' 360 x 740). They replace the software-WebGL ones of
 LIGHT and SKIN-RENDER under the same names: `light-before-*` (main before LIGHT, `fe3d7699^`) and `light-after-*` (this
 branch, `"auto"`), the "Renderer/Outlines" story held at the opening view; `light-after-1280-high` and
@@ -1912,7 +1912,7 @@ High at the opening view: pan 0.61 at 1.5, 0.68 at 1.75; zoom 4.95 and 4.68 (its
 zoomed at 1.75 was the dropped configuration. So 1.75 adds no flicker over 1.5.
 
 **Memory on the desktop** (Medium, opening view, two rounds, loads 4.2 to 6.0, one row dropped): main's chain at cap
-1.5 held 101.5 MiB of render targets (ledger) and 155.3 MiB of Metal memory in the GPU process; this branch at 1.5,
+1.5 held 101.5 MiB of render targets (ledger) and 155.3 MiB of GPU memory in the GPU process; this branch at 1.5,
 68.2 and 50.3 to 51.2; at 1.75, 81.2 and 60.8 to 61.0 (main's chain at 1.75 would hold 126.6 and 200.5).
 
 **The rule applied** (the desktop cap is the highest under 12 ms at both views): 1.25, 1.5 and 1.75 pass at every tier,
@@ -2009,7 +2009,7 @@ main's chain held at 1.5 (61 MiB against 155).
     (the page's `fetch` waits before answering a `.glb`), opens the board without its last 12 tiles, places them once it
     is drawn, and hovers a ghost on a cell whose Forest variant the opening board does not load. Captures
     `captures/skins-placeholder-1280.webp`, `-360.webp` (during the hold) and `-after-1280.webp` (after it), headless
-    Chrome on the Mac's GPU (ANGLE Metal), outlines on (retaken by LIGHT-GPU, 5.5). The story's camera looks straight
+    Chrome on the GPU, outlines on (retaken by LIGHT-GPU, 5.5). The story's camera looks straight
     down, so the quad's height does not show there.
 - **The device's theme** (`paved.theme.v1`, `useDeviceTheme`, "the board's look" at the top of the theme page) is not read
   by the board. The skins are the chain's and belong to a player: a Challenge board shows its player's choice to every
@@ -2017,7 +2017,7 @@ main's chain held at 1.5 (61 MiB against 155).
   ("Default": draw every board in base models on this device), or the theme a guest's Training board shows. Left as is.
 - **Stories:** "Renderer/Skins" (`packages/app/src/stories/renderer/skins.stories.tsx`): the recorded 72-tile board with
   Forest on none, every other plan, or all 19 (a control), and a readout of the variant files fetched. Captures in
-  `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on
+  `captures/skins-*.webp`, 1280 x 800 and 360 x 740, headless Chrome on the GPU, outlines on
   (retaken by LIGHT-GPU). A skinned board has as many shared models as variants shown (up to 52 on the 72-tile board,
   against 19); measured on the GPU in LIGHT-GPU (5.5), it costs no frame time over the base board (within 1 ms, inside the noise).
 
@@ -2095,7 +2095,7 @@ Tutorial its one scripted slot the same way):
 **Stories**: "Renderer/Placement" (`packages/app/src/stories/renderer/placement.stories.tsx`): Idle grid, Slots, Placed
 yellow, Placed red, Confirm green (played again every 1.6 s) and Reduced motion, every setting a control.
 
-**Frame time (measured, 2026-10-16).** The Mac's GPU, Chrome in new headless mode on ANGLE Metal, never
+**Frame time (measured, 2026-10-16).** The GPU, Chrome in new headless mode, never
 on screen; this branch's static Storybook, "Renderer/Placement" on the recorded 72-tile board, `redraw` on, outlines
 forced on, quality and pixel-ratio cap "auto" (Medium; 1.75 on the desktop since Q3-GPU, 2 on the phone-like profile);
 per frame the CPU time of every rAF callback of the frame plus the GPU time (`EXT_disjoint_timer_query_webgl2`) from its
@@ -2155,7 +2155,7 @@ still), at the auto tier (Medium) and at Low. Four measures:
   main's merges (FEATURE-HL's highlight is off by default) changed nothing it sees.
 
 **With FEATURE-HL (#496): a placed tile on a lit board.** The six "… lit" stories of "Renderer/Lighting" (Cities, Roads,
-Forests, Largest city, Longest road, Largest forest) and the Mockup, on the Mac's GPU, 1280 x 800 at DPR 1.75, distance 90,
+Forests, Largest city, Longest road, Largest forest) and the Mockup, on the GPU, 1280 x 800 at DPR 1.75, distance 90,
 the story's ghost placed on its slot (yellow, then red), the aura still (reduced motion), loads under 6:
 - The ghost cell's inner 60 % reads the same mean colour, to the hundredth of a level, in all six lit stories as in the
   Mockup (yellow 147.58, 132.00, 98.90; red 148.94, 122.13, 97.46), while the whole frame's mean luma moves from 72.4
@@ -2168,7 +2168,7 @@ the story's ghost placed on its slot (yellow, then red), the aura still (reduced
 
 **Captures** (`packages/app/src/stories/renderer/captures/slots-<state>-<width>.webp`): each story (idle grid, slots,
 placed yellow, placed red, confirm green caught about 150 ms into its fade, reduced motion) at 1280 x 800, DPR 2, and
-360 x 780, DPR 3, headless Chrome on the Mac's GPU (ANGLE Metal), outlines on, quality and cap "auto".
+360 x 780, DPR 3, headless Chrome on the GPU, outlines on, quality and cap "auto".
 
 **Where this differs from the brief, or decides a gap** (the PM's rulings stand; these are the thread's, reversible):
 - The aura and the placed cell's border are drawn without the depth test (the neighbours' trees cut them otherwise); the
@@ -2220,7 +2220,7 @@ in 5.3: `setPlacementSettings` typed `OutlineFadeSettings`, a non-finite exponen
 the outlines story's "max zoom-in" from its own camera controls.
 
 **Frame time (SLOTS2, measured 2026-10-17).** The same method and configurations as SLOTS above (Chrome new headless on
-ANGLE Metal, never on screen, "Renderer/Placement" on the 72-tile board, redraw on, outlines forced on, quality and cap
+never on screen, "Renderer/Placement" on the 72-tile board, redraw on, outlines forced on, quality and cap
 auto; CPU of every rAF callback of a frame plus the GPU timer query from its first callback to the next frame's; a
 fresh context per configuration, 120 warm-up and 600 measured frames; two rounds, order rotated; every run started at a
 1-minute load under 6), driven by this thread's own script (SLOTS' was not committed), on this branch's static
@@ -2268,13 +2268,13 @@ lower: hundredths of one 8-bit level, far under a visible step. High's bloom, th
 (sub-pixel steps 10 to 30 times the default tiers', zoom steps up to 3.3 levels): the default tiers show no flicker.
 
 **Captures** (`captures/slots2-<point>-<state>-<before|after>-<1280|360>.webp`, before = main `6acb93ad`, after = this
-branch; 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on the Mac's GPU, outlines on, quality and cap auto):
+branch; 1280 x 800 at DPR 2 and 360 x 780 at DPR 3, headless Chrome on the GPU, outlines on, quality and cap auto):
 `p1-grid` (idle, opening view), `p2-grid-zoomed-in` and `p2-grid-zoomed-out`, `p3-neon` (slots, distance 60),
 `p4-veil-yellow`, `-red` (reduced motion) and `-green` (about 150 ms into the confirm), `p5-pulse-a/b/c` (450 ms apart),
 `p5-pulse-noise-a/b/c` (after only), `p5-reduced`, and `p6-board-placing`, `-idle`, `-placed-legal`, `-placed-illegal`
 (Scenes/Board; main had none of the last three, so its before is PendingMove, SlotChosen and RefusedMove, without slots).
 
-**Fix loop 1 (review t-0510).** Measured on the Mac's GPU (headless), the story at the camera's farthest distance (300):
+**Fix loop 1 (review t-0510).** Measured on the GPU (headless), the story at the camera's farthest distance (300):
 the smallest tile is 48.3 CSS px on a 1440 x 900 desktop, 42.9 at 1280 x 800, 41.8 on a 360 x 780 phone; a landscape
 phone (780 x 360) goes down to **19.3** and a 1280 x 500 window to 26.8 (the tile size follows the viewport's height).
 Half a device px is then 0.006 to 0.013 of a cell at the renderer's pixel ratios (1.75 desktop, 2 phone), and 0.019 at
@@ -2348,7 +2348,7 @@ default** (`grid.enabled`).
   (`captures/plates-<state>-<before|after>-<1280|360>-swiftshader.webp`, 1280 x 800 at DPR 1 and 360 x 780 at DPR 2).
   **The GPU gate is deferred** (PM ruling, plan item GPU-BENCH-BACKLOG): the frame-time bench (CPU + GPU p95, under 12 ms
   desktop, 16.6 ms phone-like) and SLOTS2's zero-flicker check (still frames, registered pans, a zoom sweep, High's bloom
-  as the positive control) on the Mac's GPU, desktop and phone-like, this branch against main, remain to run.
+  as the positive control) on the GPU, desktop and phone-like, this branch against main, remain to run.
 
 **Where PLATES decides a gap** (the thread's, reversible): the placed tile's red and green are its plate's aura as a rim
 around the tile, not the plate's tint alone (reverse: lift the ghost onto its plate); the plates stand at the board's
@@ -2583,7 +2583,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, their strength, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
   - "Scenes/Board" has DayNight (×10) and DayNightAtNight.
 
-**Measured** (the Mac's GPU, Chrome in new headless mode on ANGLE Metal, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
+**Measured** (the GPU, Chrome in new headless mode, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
 
 *Frame time*, CPU + GPU per frame, ms.
 - Method: the tick's CPU plus `EXT_disjoint_timer_query_webgl2` around the rendered frame; every frame drawn; 120 warm-up and 600 measured frames; a fresh context per configuration; two rounds, the order rotated. The figure is the mean p50 / mean p95, with the worst round's p95 in brackets.
@@ -2639,14 +2639,14 @@ Every row is under the rules (12 ms desktop, 16.6 ms phone-like); the worst is 1
 
 At a floor of 0.6 the autumn night was 22.2 (0.21), with the forests near black; 0.85 and a stronger moon keep them readable. The slots, the neon, the placed tile's aura and the outlines stay legible at every phase (`daynight-slots-autumn-<phase>-1280.webp`, `daynight-placed-summer-<day|night>-1280.webp`).
 
-**Captures** (`packages/app/src/stories/renderer/captures/`; headless Chrome on the Mac's GPU; outlines on; quality and cap auto):
+**Captures** (`packages/app/src/stories/renderer/captures/`; headless Chrome on the GPU; outlines on; quality and cap auto):
 - `daynight-<season>-<phase>-<1280|360>.webp`: the 16 season × phase moments at 1280 × 800, DPR 2, and 360 × 780, DPR 3, saved at their CSS size.
 - `daynight-strip-x10.webp`: one cycle at ×10, 16 frames 0.75 s apart: a summer day, dusk, night, then autumn's dawn and day.
 - `daynight-forest-skin-night-1280.webp`: the Forest skins at night.
 
 **Fix loop 1 (review t-0517).**
 
-Measured on the Mac's GPU as above, at this branch's head, loads 1.7 to 4.3.
+Measured on the GPU as above, at this branch's head, loads 1.7 to 4.3.
 
 1. **No twin in a still scene.**
    - On the GPU, a moving cycle has 2 shadow-casting lights, and the tile program is compiled with 2 shadow maps (`directionalShadowMap[2]`). The still scene and the cycle off have 1 and 1.
@@ -3598,7 +3598,7 @@ Nothing is prefetched when `navigator.connection.saveData` is set or `effectiveT
 |---|---|---|
 | Q1 | Motion pass on every interaction; reduced motion checked | 1.5 d |
 | Q2 | Accessibility: Storybook a11y tests in CI, keyboard paths, focus | 1.5 d |
-| Q3 | Performance: (a) the bench on the new app against P-7b (the Mac's headless rule); (b) added by the PM: re-measure placement latency on the Mac's GPU, against a 100 ms click-to-shown target; (c) the first paint with the icons (F4's Font Awesome): a subset of the owner's files; (d) a bundle budget and route prefetch. **(c) and (d) done by Q3-BUNDLE** (2026-10-16, section 8 and below); (a) and (b) wait for the Mac with LIGHT-GPU. **Q3-GPU** (2026-10-16), the GPU part of (a) as the PM scoped it, **done**: the phone's MSAA memory measured and cut by half (4x kept, one multisampled target, the canvas without multisampling: 172 to 84 MiB of Metal memory at 360 x 740, 5.2), and the desktop cap re-measured with the tiers (1.5 to **1.75**, 5.5). The board's p95 on the new app is in 5.2 and 5.5; placement latency (b) is not measured yet | 2 d |
+| Q3 | Performance: (a) the bench on the new app against P-7b (the Mac's headless rule); (b) added by the PM: re-measure placement latency on the GPU, against a 100 ms click-to-shown target; (c) the first paint with the icons (F4's Font Awesome): a subset of the owner's files; (d) a bundle budget and route prefetch. **(c) and (d) done by Q3-BUNDLE** (2026-10-16, section 8 and below); (a) and (b) wait for the Mac with LIGHT-GPU. **Q3-GPU** (2026-10-16), the GPU part of (a) as the PM scoped it, **done**: the phone's MSAA memory measured and cut by half (4x kept, one multisampled target, the canvas without multisampling: 172 to 84 MiB of GPU memory at 360 x 740, 5.2), and the desktop cap re-measured with the tiers (1.5 to **1.75**, 5.5). The board's p95 on the new app is in 5.2 and 5.5; placement latency (b) is not measured yet | 2 d |
 | Q4 | The Forest theme from the extended tiles (the renderer picks the variant per tile, as `origin/dev`'s `getVarietyModelPath` did). **Done by SKIN-RENDER** (2026-10-16, 5.6) | 2 d |
 
 Total, an **estimate**: about 12 days for the foundations, 23.5 for the pages (5.5 of scenes, 18 of wiring), 7
