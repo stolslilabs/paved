@@ -444,7 +444,9 @@ export class TileRenderer {
   refreshHover(): boolean {
     const before = this.previewKey;
     if (this.hoverState) this.setHover(this.hoverState);
-    return this.previewKey !== before || this.refreshConfirm();
+    // Both refresh, whichever changed: no short-circuit.
+    const confirm = this.refreshConfirm();
+    return this.previewKey !== before || confirm;
   }
 
   /** The confirm's overlay, drawn on the placeholder quad, becomes the model's once it is in; true when it did. */

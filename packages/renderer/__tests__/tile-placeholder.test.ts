@@ -363,6 +363,26 @@ describe("the confirm while its model loads", () => {
   });
 });
 
+describe("the hover and the confirm of one plan, both on the quad", () => {
+  it("one refresh upgrades both to the model", async () => {
+    const { s, at } = await boardWithOneTile();
+    s.setHoveredTile(hover(5, { orientation: 4 }));
+    s.setConfirmedTile(hover(5, { orientation: 4, placed: true, key: 8 }));
+    const tiles = s.tiles as any;
+    expect(tiles.previewKey).toMatch(/-quad$/);
+    expect(tiles.confirmPlaceholder).toBe(true);
+    const overlay = tiles.confirmContainer;
+
+    release(`${at}/models/${keyOf(5)}.glb`);
+    await settle();
+    // The one asset callback that delivered the model leaves neither on the placeholder.
+    expect(tiles.previewKey).toContain(keyOf(5));
+    expect(tiles.confirmPlaceholder).toBe(false);
+    expect(tiles.confirmContainer).not.toBe(overlay);
+    s.dispose();
+  });
+});
+
 describe("a live switch of skins", () => {
   const variants = (plan: number) => [1, 2, 3].map((n) => `models/forest/${keyOf(plan)}_HF_${n}.0123456789.glb`);
   const manifest: AssetManifest = { models: {}, themes: { "1": { [keyOf(9)]: variants(9), [keyOf(5)]: variants(5) } } };
