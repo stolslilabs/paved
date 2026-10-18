@@ -107,7 +107,7 @@ CLIENT found five figures already matching (`v2-architecture.md` 6.5); each is c
 
 | Row | Paved | Glitchbomb | Same? |
 |---|---|---|---|
-| Base price | 2 USDC per stake unit: `BASE_PRICE = 2_000_000` (`systems/economy.cairo:36`), `CHALLENGE_PRICE` (`constants.cairo:13`) | 2 USDC: `DEFAULT_ENTRY_PRICE = 2_000_000` (`constants.cairo:7`), `entry_price 0x1E8480` (`dojo_mainnet.toml:55`) | **Same** (CLIENT's 1) |
+| Base price | 2 USDC per stake unit: `BASE_PRICE = 2_000_000` (`systems/economy.cairo:36`), `CHALLENGE_PRICE` (`constants.cairo:15`) | 2 USDC: `DEFAULT_ENTRY_PRICE = 2_000_000` (`constants.cairo:7`), `entry_price 0x1E8480` (`dojo_mainnet.toml:55`) | **Same** (CLIENT's 1) |
 | Stake options | 1 to 10, price `stake x 2 USDC` (`economy.cairo:37`, `:601`; `challenge.cairo:475`) | 10 bundles, price `stake x base_price`, stake 1 to 10 (`components/purchase.cairo:29`, `:82-85`) | **Same** (CLIENT's 2) |
 | Burn | 70 % of the price swapped and burned: `burn_bps 7_000` (`economy.cairo:72`, `curve.cairo:36`) | 70 %: `burn_percentage 0x46` (`dojo_mainnet.toml:57`), `price x burn_percentage / 100` (`purchase.cairo:181`) | **Same** (CLIENT's 3) |
 | Referral | 5 % of the price, out of the margin, the burn stays 70 % (`curve.cairo:11`, `:30-37`; P-31) | 5 %: `REFERRAL_PERCENTAGE = 5` (`purchase.cairo:31`, `:72`, `:89`), paid by the bundle before the burn of 70 % of the full price (`:181`) | **Same** (CLIENT's 4) |

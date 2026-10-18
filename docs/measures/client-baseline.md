@@ -1,5 +1,7 @@
 # Client baseline B: frame time at 38 and 72 tiles
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history. Its steps and figures are dated records.
+
 Measured on 2026-10-06, on the owner's Mac, in headed Chrome with the GPU. Track CLIENT, objective 1,
 part B. Observations only: nothing was optimised.
 
