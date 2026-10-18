@@ -22,6 +22,7 @@ const PAGES = {
   quests: () => import("../src/routes/pages/quests"),
   achievements: () => import("../src/routes/pages/achievements"),
   theme: () => import("../src/routes/pages/theme"),
+  credits: () => import("../src/routes/pages/credits"),
   welcome: () => import("../src/routes/pages/welcome"),
 };
 

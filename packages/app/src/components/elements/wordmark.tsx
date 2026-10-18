@@ -18,6 +18,7 @@ export function Wordmark({ size = "lg", tagline, className }: WordmarkProps) {
       <img
         src={banner}
         alt="Paved"
+        draggable={false}
         width={1940}
         height={500}
         className={cn("h-auto max-w-full", size === "lg" ? "w-72 tablet:w-96" : "w-44")}
