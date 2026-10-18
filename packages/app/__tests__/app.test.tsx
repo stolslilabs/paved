@@ -29,7 +29,7 @@ describe("app", () => {
     const nav = screen.getByRole("navigation", { name: "Main" });
     // The five tabs are the nav's own buttons; the rail's Balances section (its Connect, its rows) comes after them.
     expect(nav.querySelectorAll(":scope > button")).toHaveLength(5);
-    for (const label of ["Home", "Ranks", "Quests", "Vault", "Settings"]) {
+    for (const label of ["Home", "Ranks", "Missions", "Vault", "Settings"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
   });
@@ -44,7 +44,7 @@ describe("app", () => {
   // `tutorial-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8,
   // `leaderboard-route.test.tsx`; the purchase: P7b, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
   // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "training", "tutorial", "training/over", "game/:gameId", "game/:gameId/over", "quests/:day?", "achievements", "leaderboard/:day?", "player/:id", "settings", "settings/theme", "settings/credits", "vault", "referral"];
+  const WIRED = ["welcome", "", "play", "play/challenge", "training", "tutorial", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "leaderboard/:day?", "player/:id", "settings", "settings/theme", "settings/credits", "vault", "referral"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

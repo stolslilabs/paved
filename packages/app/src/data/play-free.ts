@@ -6,9 +6,12 @@ import { queryKeys } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
 
 // "Play free" (home, play): `Challenge.spawn_free()` spends one of the free-game credits (`Setup.account(player).credits`,
-// earned on the quests page) and spawns a Challenge game with `GameSpawned.price` 0. The receipt gives the game's id, which
+// earned on the missions page) and spawns a Challenge game with `GameSpawned.price` 0. The receipt gives the game's id, which
 // the pages open as `/game/:id`. Nothing polls: the credits in the cache follow the receipt, then the reads it touched are
 // read again.
+
+/** A refusal's text for the player: the chain package keeps saying "quests page" (its identifiers are unchanged), the screens say missions. */
+export const freeGameMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e)).replace("the quests page", "the missions page");
 
 /** The signer's free spawn, or null: no signer, or one without it (read only). */
 export type FreeSigner = Pick<PavedWriter, "address" | "spawnFree">;

@@ -377,30 +377,31 @@ describe("Quests", () => {
   it("shows the day's rotating dailies and the weeklies with their progress, each with its countdown, and the Achievements tab", async () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
-    const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Public Works", "Deep Woods", "Strong Day"]);
-    expect(daily.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
-    expect(daily.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
-    for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(daily.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
+    const list = within(screen.getByRole("main"));
+    // One list: the open missions first (soonest end first), the completed one last.
+    expect(list.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Weekly Forester", "Weekly Builder", "Weekly Points", "Daily Run"]);
+    expect(list.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
+    expect(list.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
+    for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(list.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
     // Day 20,740 is offset 1 of the 3-day rotation, so Daily Run and one quest of each family are live: Public Works, Deep Woods, Strong Day.
-    expect(daily.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
-    expect(daily.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
-    expect(daily.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
-    // 00:00 UTC is 9 hours after the mocks' 15:00.
-    expect(daily.getByRole("timer", { name: "Daily ends in 9:00:00" })).toBeInTheDocument();
-    const weekly = within(screen.getByRole("region", { name: "Weekly" }));
-    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
-    // The week is the definitions': Monday to Sunday UTC, so it ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
-    expect(weekly.getByRole("timer", { name: "Weekly ends in 105:00:00" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Quests" })).toHaveAttribute("aria-selected", "true");
-    await userEvent.click(screen.getByRole("tab", { name: "Achievements" }));
+    expect(list.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
+    expect(list.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
+    expect(list.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
+    // Each mission has its own countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
+    expect(within(list.getByRole("article", { name: "Public Works" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
+    expect(within(list.getByRole("article", { name: "Weekly Forester" })).getByRole("timer", { name: "Weekly mission ends in 105:00:00" })).toBeInTheDocument();
+    // A completed mission has no countdown left to show.
+    expect(within(list.getByRole("article", { name: "Daily Run" })).queryByRole("timer")).not.toBeInTheDocument();
+    expect(list.queryByRole("region", { name: "Daily" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Limited" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Lifetime" }));
     expect(onTab).toHaveBeenCalledWith("achievements");
   });
 
   it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
-    const daily = within(screen.getByRole("region", { name: "Daily" }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
+    // The weeklies of that week were not all done: they come first, the four dailies (done) last.
+    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label")).slice(-4)).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
     expect(screen.getAllByText("Complete")).toHaveLength(4);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
@@ -409,10 +410,10 @@ describe("Quests", () => {
 
   it("shows a weekly complete, and the daily countdown in its last minutes as a warning", () => {
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.weeklyDone} />));
-    expect(within(screen.getByRole("region", { name: "Weekly" })).getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
+    expect(screen.getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
     unmount();
     render(wrap(<QuestsScene {...QUESTS.endingSoon} />));
-    expect(screen.getByRole("timer", { name: "Daily ends in 0:04:00" })).toHaveAttribute("data-state", "warning");
+    expect(screen.getAllByRole("timer", { name: "Daily mission ends in 0:04:00" })[0]).toHaveAttribute("data-state", "warning");
   });
 
   it("shows a day not played at zero, and a day with no quest", () => {
@@ -420,21 +421,20 @@ describe("Quests", () => {
     expect(screen.getAllByText("To do")).toHaveLength(7); // four dailies and the three weeklies
     unmount();
     render(wrap(<QuestsScene {...QUESTS.none} />));
-    expect(screen.getByText("No quest this day")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Weekly" })).not.toBeInTheDocument();
+    expect(screen.getByText("No mission this day")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous day" })).toBeDisabled();
   });
 
   it("asks a guest to connect, loads, and fails with a retry", async () => {
     const onRetry = vi.fn();
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.guest} />));
-    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your quests");
+    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your missions");
     unmount();
     const loading = render(wrap(<QuestsScene {...QUESTS.loading} />));
-    expect(screen.getByRole("status", { name: "Loading the quests" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
     loading.unmount();
     render(wrap(<QuestsScene {...QUESTS.error} onRetry={onRetry} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the quests");
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the missions");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalled();
   });
@@ -446,17 +446,17 @@ describe("Quests", () => {
     const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
     // Daily Run was already complete at the first read: no toast for it.
     await Promise.resolve();
-    expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mission completed/)).not.toBeInTheDocument();
     rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(await screen.findByText("Quest completed: Public Works")).toBeInTheDocument();
+    expect(await screen.findByText("Mission completed: Public Works")).toBeInTheDocument();
     // A refresh of the same data, and a copy of it, add nothing.
     rerender(scene({ ...QUESTS_TODAY_COMPLETED }));
     rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(screen.getAllByText(/Quest completed/)).toHaveLength(1);
+    expect(screen.getAllByText(/Mission completed/)).toHaveLength(1);
     // Progress that dips and comes back within the interval is not announced a second time.
     rerender(scene(QUESTS_TODAY_ONE_TO_GO));
     rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(screen.getAllByText(/Quest completed/)).toHaveLength(1);
+    expect(screen.getAllByText(/Mission completed/)).toHaveLength(1);
     expect(success).toHaveBeenCalledTimes(1);
     success.mockRestore();
   });
@@ -472,7 +472,7 @@ describe("Quests", () => {
     rerender(scene(QUESTS_ALL_DONE));
     await Promise.resolve();
     expect(success).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Quest completed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mission completed/)).not.toBeInTheDocument();
     success.mockRestore();
   });
 
@@ -494,7 +494,7 @@ describe("Quests", () => {
     const { rerender } = render(scene(ACHIEVEMENTS_MIXED));
     const earned = { ...ACHIEVEMENTS_MIXED, achievements: ACHIEVEMENTS_MIXED.achievements.map((a) => (a.achievementId === 6 ? { ...a, completed: true, completedAt: MOCK_NOW, tasks: a.tasks.map((t) => ({ ...t, count: t.total })) } : a)) };
     rerender(scene(earned));
-    expect(await screen.findByText("Achievement earned: Forester")).toBeInTheDocument();
+    expect(await screen.findByText("Lifetime mission earned: Forester")).toBeInTheDocument();
     expect(screen.getByText("+20 pts")).toBeInTheDocument();
   });
 });
@@ -508,11 +508,11 @@ describe("Achievements", () => {
     expect(screen.getAllByText("Locked")).toHaveLength(6);
     expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("4 of 16 earned");
     expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("60 / 630 pts");
-    // v2a's higher tiers are named, not shown as "Achievement #<id>".
+    // v2a's higher tiers are named, not shown as "Mission #<id>".
     expect(screen.getByRole("article", { name: "Settler V" })).toBeInTheDocument();
-    expect(screen.queryByText(/Achievement #/)).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Achievements" })).toHaveAttribute("aria-selected", "true");
-    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Quests" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText(/Mission #/)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Lifetime" })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Missions" })).toHaveAttribute("aria-current", "page");
   });
 
   it.each([
@@ -525,10 +525,10 @@ describe("Achievements", () => {
 
   it("asks a guest to connect, and loads", () => {
     const { unmount } = render(wrap(<AchievementsScene {...ACHIEVEMENTS.guest} />));
-    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your achievements");
+    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your missions");
     unmount();
     render(wrap(<AchievementsScene {...ACHIEVEMENTS.loading} />));
-    expect(screen.getByRole("status", { name: "Loading the achievements" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading the lifetime missions" })).toBeInTheDocument();
   });
 });
 

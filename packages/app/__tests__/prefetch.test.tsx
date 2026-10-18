@@ -19,7 +19,7 @@ vi.mock("../src/routes/page-loaders", () => {
       training: board,
       tutorial: board,
       "leaderboard/:day?": loader("leaderboard"),
-      "quests/:day?": loader("quests"),
+      "missions/:day?": loader("quests"),
       vault: loader("vault"),
       settings: loader("settings"),
     },

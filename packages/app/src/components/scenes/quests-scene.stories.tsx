@@ -8,10 +8,10 @@ import { Toaster } from "../ui/sonner";
 import { QuestsScene } from "./quests-scene";
 
 /**
- * The quests (`/quests/:day?`): the day's rotating Daily set and the Weekly ones, each with a countdown, a toast when a
+ * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, each with a countdown, a toast when a
  * quest completes, and the day picker. One story per state; the viewport is the toolbar's (VP).
  */
-const meta = { title: "Scenes/Quests", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
+const meta = { title: "Scenes/Missions (Limited)", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
