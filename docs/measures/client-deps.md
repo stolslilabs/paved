@@ -1,5 +1,7 @@
 # Client dependencies to current majors on Node 24 (P-8)
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history. Its steps and figures are dated records.
+
 Measured on 2026-10-06, on the owner's Mac, with the bench of baselines B and C and of the renderer
 step (`docs/measures/client-renderer.md`, PR #194), unchanged: same commands, profiles and run counts.
 "Before" is #194's figures; "after" is this step. Track CLIENT, decision P-8.

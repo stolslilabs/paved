@@ -1,5 +1,7 @@
 # Client track status
 
+> History note: `packages/app-web`, which this document names, was removed in P-70; see git history. Its steps and figures are dated records.
+
 Dated 2026-10-06. Track CLIENT of the programme Paved (the packages-based web client).
 
 Since 2026-10-15, PRs carry their STATUS line in the PR body (a line appended to this file conflicted on every merge); a docs PR collects them here.
