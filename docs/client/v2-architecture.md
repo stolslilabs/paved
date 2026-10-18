@@ -785,16 +785,9 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
 - **Build:** `bun run --filter @paved/app build-storybook`, which runs `storybook build -o
   storybook-static`. **Output:** `packages/app/storybook-static/` (a static site: `index.html`,
   `iframe.html`, assets).
-- **Publish:** the client's existing `deploy/indexer/publish.sh` already takes its root from `WWW_ROOT`,
-  so the Storybook needs no new script:
-  `WWW_ROOT=/var/www/paved-storybook publish.sh packages/app/storybook-static <release-name>`, run as
-  the `claude` user; the release name (`YYYYMMDD-HHMM-<short sha>`) and the whole sequence are in
-  `docs/client/storybook-hosting.md`. It copies to `/var/www/paved-storybook/releases/<release-name>`, swaps `current`
-  atomically and keeps five releases; `switch.sh` rolls back the same way.
-- **Root step, prepared by the PM (P-57 B7):** done once by the owner's root block (web root, Caddy site, first
-  release). The Caddy site is in the repository, `deploy/storybook/paved-storybook.caddy`; the release command
-  sequence, its check and its rollback are in `docs/client/storybook-hosting.md` (F5). The site the block installs
-  has `Cache-Control "no-cache"` on everything, not the `/assets/*` immutable rule this section first proposed.
+- **Publish:** Vercel, from `main` on every merge (project `paved-storybook`); the settings, previews and ignore step are in
+  `docs/client/storybook-hosting.md`. Until 2026-10-17 the VPS served it with `publish.sh` and `switch.sh` (see git history).
+- **History:** the VPS root step (web root, Caddy site) of P-57 B7 is gone with the VPS hosting (P-76).
 
 - Storybook is public, like the client. It holds no secret: fixtures only, no RPC URL beyond the public
   ones, no controller.
@@ -810,10 +803,11 @@ background (`parameters.backgrounds`), and the Storybook UI itself themed dark (
     unsigned 16-bit); then
     `EXT_meshopt_compression` (vertex and index codecs, no lossy filter). The script decodes each copy and checks it
     against its source (largest moves on the grid: position 6.1e-6, normal 0.001 degree, UV 7.6e-6), and a test checks
-    that the renderer's outline builder finds the same segments in every copy as in its original. Every model is on the
-    0.1 voxel grid and a closed solid: `node packages/app/scripts/voxel-parity.ts` (and a test) casts a ray down each of
-    a tile's 40 by 40 columns and finds every one crossed an even number of times, in the sources and in the shipped
-    copies, so a voxelizer needs no tolerance code (P-78 moved `sfrfrfffr`'s one stray vertex, a ramp across the tile,
+    that the renderer's outline builder finds the same segments in every copy as in its original. Every model's
+    vertices are on the 0.1 voxel grid (the quantization above is exact on it), and `node packages/app/scripts/voxel-parity.ts`
+    (and a test) checks closure by parity only: it casts a ray down each of a tile's 40 by 40 columns and finds every one
+    crossed an even number of times, in the sources and in the shipped copies. That is evidence of a closed solid, not a proof
+    (it does not check watertight edges or orientation), but it is what a voxelizer needs, so it needs no tolerance code (P-78 moved `sfrfrfffr`'s one stray vertex, a ramp across the tile,
     to the corner it belongs to). Positions are
     normalized so that the outline builder (`edges.ts`) keys them by number: raw integers up to 40 sent it to its string
     keys, and the 35-tile board's first frame was then no faster than with the originals. Tools, pinned devDependencies
@@ -1312,7 +1306,7 @@ field of view, camera zoom and viewport height), from one settings object, `Rend
 60 px a tile) shows them as the mockups do (PM's ruling, 2026-10-14), then from `minWidthPx` (1) to
 `maxWidthPx` (2) at `maxWidthTilePx` (800). The camera's distance limits (5, 300) and an optional zoom-out
 cap (`capZoomOut`, off, at 150) are settings too. MSAA on the composer's target (5.2, item 1) is the
-`multisampling` setting, off by default: it costs 3 to 4 ms of GPU a frame at 1440x900 on an M2 Max for
+`multisampling` setting, off by default: it costs 3 to 4 ms of GPU a frame at 1440x900 on a laptop GPU for
 little visible gain once the lines are biased. Measures and captures: PR #411 and the stories
 "Renderer/Outlines" and "Renderer/Outlines comparison".
 
@@ -1462,7 +1456,7 @@ setting; DPR replaces that with this rule, set by the PM in advance:
 
 Method:
 
-- Machine: M2 Max, Chrome in new headless mode on ANGLE Metal, never on screen. The "Renderer/Outlines" story, Held,
+- Machine: a Mac, Chrome in new headless mode on ANGLE Metal, never on screen. The "Renderer/Outlines" story, Held,
   with `redraw` on, on the recorded 72-tile board.
 - Per frame: the CPU time of every rAF callback of the frame, plus the GPU time from `EXT_disjoint_timer_query_webgl2`
   around them. Each configuration runs in a fresh browser context: 120 warm-up frames, then 600 measured frames.
@@ -1578,7 +1572,7 @@ over the centre crop (800 x 500 CSS px on the Mac, 300 x 400 on the phone):
   risers, the merged pieces, and depth ties at the quads' new corners: 0.067 % of the pixels changed with the tighter
   quad alone).
 
-**Frame time** (DPR's method: M2 Max, headless Chrome on ANGLE Metal, the "Renderer/Outlines" story Held with
+**Frame time** (DPR's method: a Mac, headless Chrome on ANGLE Metal, the "Renderer/Outlines" story Held with
 `redraw`, 120 warm-up and 600 measured frames per configuration in a fresh context, CPU + GPU per frame, nearest-rank
 percentiles over the pooled frames). Main and this branch were built side by side and alternated within each round,
 with the caps. Mac profile: three rounds, cap orders 1/1.5/2, 2/1.5/1 and 1.5/2/1. Phone-like: two rounds. Load average
@@ -2885,7 +2879,7 @@ place would break every page at once, while app-web must keep shipping the Sepol
 | `@paved/ui` (Tamagui) | dropped with app-web from the web; **`app-native` still depends on it** (dormant, P-2): it stays for app-native until the PM rules on app-native |
 | app-web's `bench/` and `scripts/bench` | the bench moves to the new app's board route (same method) |
 
-**How both live:** both build in CI; `publish.sh` publishes app-web's `dist` until the cut-over, then the
+**How both live:** both build in CI; Vercel published app-web's build until the cut-over (app-web was removed in P-70, see git history), then the
 new app's; the new app can be published meanwhile to a preview path (`/v2/`, a Vite `base`) for the owner.
 **When app-web goes:** one PR, once every page of section 6 exists and the devnet e2e passes on the new
 app, after the owner has played it on Sepolia: it removes `packages/app-web`, its CI steps, and redirects
