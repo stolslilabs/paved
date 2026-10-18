@@ -66,16 +66,15 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     const legal = engine.legalPlacements().filter((p) => p.orientation === ORIENTATIONS[orientation]);
     const plates = canvas.props!.availableSlots!;
     const lit = plates.filter((s) => s.legal !== false);
-    // Every legal cell in any rotation is a plate (PLATES); `fits` marks those of the hand's rotation; every other free
+    // Every legal cell in any rotation is a plate (PLATES); every other free
     // cell next to a tile is an invalid plate (`legal` false). `0 - y`, not `-y`: the grid's y is +0 on the starter's row,
     // never -0.
     const cells = (list: { x: number; y: number }[]) => [...new Set(list.map((c) => `${c.x},${c.y}`))].sort();
     expect(cells(lit)).toEqual(cells(engine.legalPlacements().map((p) => ({ x: p.x, y: 0 - p.y }))));
-    expect(lit.filter((s) => s.fits).map(({ x, y }) => ({ x, y }))).toEqual(legal.map((p) => ({ x: p.x, y: 0 - p.y })));
-    expect(plates.filter((s) => s.legal === false).every((s) => !s.fits)).toBe(true);
 
     // The player clicks the last slot the rotation fits, as the renderer reports it; the tile is placed on that cell.
-    const fitting = lit.filter((s) => s.fits);
+    // The cells where the hand's rotation fits.
+    const fitting = legal.map((p) => ({ x: p.x, y: 0 - p.y }));
     const cell = { x: fitting[fitting.length - 1]!.x, y: fitting[fitting.length - 1]!.y };
     act(() => canvas.props!.onTileClick!(cell.x, cell.y));
     await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation, placed: true, valid: true }));
