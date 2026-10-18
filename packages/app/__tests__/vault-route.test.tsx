@@ -119,8 +119,9 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
     const s = setup({ shares: P });
     s.economy.fail = "node down";
     open(s);
-    const alert = await screen.findByRole("alert", {}, { timeout: 8000 });
-    expect(alert).toHaveTextContent("The Vault cannot be read");
+    // The balances' own inline error (the rail's) comes with the page's.
+    const alerts = await screen.findAllByRole("alert", {}, { timeout: 8000 });
+    expect(alerts.some((a) => /The Vault cannot be read/.test(a.textContent ?? ""))).toBe(true);
     s.economy.fail = null;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await position()).toHaveTextContent("1.00vPAVED");

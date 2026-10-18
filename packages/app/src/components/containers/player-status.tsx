@@ -2,20 +2,15 @@ import type { IndexedPlayer, LeaderboardEntry, PlayerStats } from "@paved/chain"
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
-import { Amount } from "../elements/amount";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
-/** The connected player as the home page reads them: indexer profile, today's row, wallet balances. */
+/** The connected player as the home page reads them: indexer profile (the day belongs to Ranks, #538). */
 export interface PlayerStatusData {
   player: IndexedPlayer;
   stats: PlayerStats;
   /** The viewer's row on today's leaderboard; null before their first finished game of the day. */
   today: LeaderboardEntry | null;
-  /** USDC base units (`balance_of`). */
-  usdc: bigint;
-  /** PAVED base units, shown as PAVED. */
-  paved: bigint;
 }
 
 export interface PlayerStatusProps {
@@ -24,15 +19,6 @@ export interface PlayerStatusProps {
   onConnect?: () => void;
   connecting?: boolean;
   className?: string;
-}
-
-function Figure({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm">{children}</span>
-    </div>
-  );
 }
 
 /** The player's status on Home: who, today's rank and best, the balances; or the connect call for a guest. */
@@ -48,7 +34,7 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
       </div>
     );
   }
-  const { player, stats, today } = data;
+  const { player, stats } = data;
   const initial = (player.name ?? player.playerId.slice(2, 3)).slice(0, 1).toUpperCase();
   return (
     <div data-slot="card" className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-4", className)}>
@@ -63,21 +49,6 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
             {stats.challengeFinished} games · best {formatPoints(stats.bestScore)}
           </span>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
-        <Figure label="Today's rank">
-          <span className="numeric font-semibold">{today ? `#${today.rank}` : "–"}</span>
-        </Figure>
-        <Figure label="Today's best">
-          <span className="numeric font-semibold">{today ? formatPoints(today.bestScore) : "–"}</span>
-        </Figure>
-        {/* Under 360 px a balance takes the whole row: half of a 320 px card is narrower than a large amount (WRAP360). */}
-        <Figure label="USDC" className="col-span-2 mobile:col-span-1">
-          <Amount value={data.usdc} token="usdc" />
-        </Figure>
-        <Figure label="PAVED" className="col-span-2 mobile:col-span-1">
-          <Amount value={data.paved} token="paved" />
-        </Figure>
       </div>
     </div>
   );

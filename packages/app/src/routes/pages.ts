@@ -25,8 +25,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "training/over", title: "Game over", nav: null },
   { path: "leaderboard/:day?", title: "Leaderboard", nav: "ranks" },
   { path: "player/:id", title: "Player", nav: "ranks" },
-  { path: "quests/:day?", title: "Quests", nav: "quests" },
-  { path: "achievements", title: "Achievements", nav: "quests" },
+  // The static `missions/lifetime` first: `prefetch` matches in table order, and `:day?` would take "lifetime".
+  { path: "missions/lifetime", title: "Missions", nav: "quests" },
+  { path: "missions/:day?", title: "Missions", nav: "quests" },
   { path: "vault", title: "Vault", nav: "vault" },
   { path: "referral", title: "Referral", nav: "settings" },
   { path: "settings/theme", title: "Theme", nav: "settings" },
@@ -37,7 +38,7 @@ export const PAGES: readonly PageDef[] = [
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "home", label: "Home", to: "/" },
   { id: "ranks", label: "Ranks", to: "/leaderboard" },
-  { id: "quests", label: "Quests", to: "/quests" },
+  { id: "quests", label: "Missions", to: "/missions" },
   { id: "vault", label: "Vault", to: "/vault" },
   { id: "settings", label: "Settings", to: "/settings" },
 ];

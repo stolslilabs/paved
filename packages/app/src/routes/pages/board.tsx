@@ -529,7 +529,7 @@ function TutorialClaim({ wallet, score }: { wallet: WalletState; score: number }
   if (!wallet.address) {
     body = (
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground">Connect a wallet to claim the achievement First Stone.</span>
+        <span className="text-muted-foreground">Connect a wallet to claim the mission First Stone.</span>
         <Button size="sm" onClick={() => void wallet.connect()} loading={wallet.status === "connecting"}>
           Connect
         </Button>

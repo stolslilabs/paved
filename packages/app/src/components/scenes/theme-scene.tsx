@@ -87,7 +87,7 @@ const SKINNED = THEMES.filter((t) => t.id !== "default");
  */
 export function ThemeScene({ selected, tiles, tileArt, skins, skinsStatus, showSkins, onShowSkins, onSelect, onBack, onNavigate, onConnect, onRetry, ...props }: ThemeSceneProps) {
   return (
-    <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate} end={skins ? <Cobbles value={skins.balance} /> : undefined}>
+    <TabPage tab="settings" title="Theme" subtitle="How the board looks" onBack={onBack} onNavigate={onNavigate}>
       {showSkins !== undefined && (
         <div data-slot="card" className="rounded-xl border border-border bg-card px-4">
           <ShowSkinsSwitch checked={showSkins} onCheckedChange={onShowSkins} />
@@ -213,7 +213,7 @@ function SkinsSection({ skins, tileArt, onBrowse, onBuySkin, onToggleSkin, onSav
                 </Button>
               }
             >
-              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from quests and achievements, or buy a pack.
+              A skin costs <span className="numeric">{cheapest}</span> to <span className="numeric">{Math.max(...skins.prices)}</span> Cobbles. Earn them from missions, or buy a pack.
             </Notice>
           )}
           <InlineError

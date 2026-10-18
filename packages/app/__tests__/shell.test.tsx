@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe("the active tab comes from the route's own entry", () => {
-  const TAB_LABEL = { home: "Home", ranks: "Ranks", quests: "Quests", vault: "Vault", settings: "Settings" } as const;
+  const TAB_LABEL = { home: "Home", ranks: "Ranks", quests: "Missions", vault: "Vault", settings: "Settings" } as const;
 
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
@@ -52,12 +52,12 @@ describe("the active tab comes from the route's own entry", () => {
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });
 
-  it("holds for the nested routes: /player/:id is Ranks, /settings/theme and /referral are Settings, /achievements is Quests", async () => {
+  it("holds for the nested routes: /player/:id is Ranks, /settings/theme and /referral are Settings, /missions/lifetime is Missions", async () => {
     for (const [path, tab] of [
       ["/player/0x1", "Ranks"],
       ["/settings/theme", "Settings"],
       ["/referral", "Settings"],
-      ["/achievements", "Quests"],
+      ["/missions/lifetime", "Missions"],
       ["/leaderboard/20300", "Ranks"],
     ] as const) {
       const { unmount } = render(<App router={createTestRouter(path)} />);
@@ -82,10 +82,10 @@ describe("the active tab comes from the route's own entry", () => {
   it("changes with a tab press and moves the page", async () => {
     const router = open("/");
     await screen.findByRole("heading", { name: "Home" });
-    await userEvent.click(screen.getByRole("button", { name: "Quests" }));
-    await screen.findByRole("heading", { level: 1, name: "Quests" });
-    expect(router.state.location.pathname).toBe("/quests");
-    expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Quests");
+    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
+    await screen.findByRole("heading", { level: 1, name: "Missions" });
+    expect(router.state.location.pathname).toBe("/missions");
+    expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Missions");
   });
 
   it("has no tab on a full-screen flow", async () => {
@@ -250,8 +250,8 @@ describe("the toaster", () => {
     open("/");
     await screen.findByRole("heading", { name: "Home" });
     expect(document.querySelectorAll("[data-sonner-toaster]").length).toBeLessThanOrEqual(1);
-    act(() => void toast("Quest completed: Daily Run"));
-    expect(await screen.findByText("Quest completed: Daily Run")).toBeInTheDocument();
+    act(() => void toast("Mission completed: Daily Run"));
+    expect(await screen.findByText("Mission completed: Daily Run")).toBeInTheDocument();
     expect(document.querySelectorAll("[data-sonner-toaster]")).toHaveLength(1);
   });
 });

@@ -6,6 +6,7 @@ import { Icon } from "../ui/icon";
 import { formatDay, DAY_S } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
 import { TaskProgress } from "../elements/task-progress";
+import { Countdown } from "../elements/countdown";
 import { taskUnit } from "./quest-text";
 
 /**
@@ -34,6 +35,8 @@ export interface ProgressCardProps {
   retired?: boolean;
   /** Its Cobbles (gems-v1.md 3.1) and whether they were claimed; omitted: no Cobbles (before Cobbles, or On the Podium in v1). */
   reward?: ProgressReward;
+  /** A limited mission's countdown: when its window closes and the clock to count from; omitted on a closed day or a lifetime mission. */
+  ends?: { at: number; now: number; label: string };
   onClaim?: () => void;
   className?: string;
 }
@@ -54,7 +57,7 @@ const LABEL = {
 
 /** A quest of the day or an achievement: its icon, title and rule, its tasks' bars, and its state. */
 export function ProgressCard(props: ProgressCardProps) {
-  const { kind, title, description, icon, tasks, completedAt, points, retired, reward, onClaim, className } = props;
+  const { kind, title, description, icon, tasks, completedAt, points, retired, reward, ends, onClaim, className } = props;
   const state = progressState(props);
   const locked = kind === "achievement" && state === "none";
   return (
@@ -89,6 +92,7 @@ export function ProgressCard(props: ProgressCardProps) {
             {reward && <Cobbles value={reward.cobbles} sign="+" size="sm" tone="muted" />}
           </div>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
+          {ends && <Countdown expiresAt={ends.at} now={ends.now} label={ends.label} className="mt-1" />}
         </div>
         <Badge variant={state === "complete" ? "default" : state === "progress" ? "secondary" : "outline"} className="shrink-0">
           {state === "complete" && <Icon name="check" size="xs" />}
