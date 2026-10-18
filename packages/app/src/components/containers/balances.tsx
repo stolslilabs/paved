@@ -94,8 +94,11 @@ function Rows({ state, onAction, onConnect }: Pick<BalancesProps, "state" | "onA
 
 /** The pill's one figure: the Cobbles (the balance a player spends most). */
 function PillFace({ state }: { state: BalancesState }) {
-  if (state.status === "ready" && state.cobbles === undefined) return <Skeleton className="h-4 w-12" />;
-  if (state.status === "ready") return state.cobbles === null ? <span>Balances</span> : <Cobbles value={state.cobbles} size="sm" />;
+  if (state.status === "ready") {
+    const { cobbles } = state;
+    if (cobbles === undefined) return <Skeleton className="h-4 w-12" />;
+    return cobbles === null ? <span>Balances</span> : <Cobbles value={cobbles} size="sm" />;
+  }
   if (state.status === "loading") return <Skeleton className="h-4 w-12" />;
   if (state.status === "error") return <Icon name="triangle-exclamation" size="sm" label="Balances unavailable" className="text-muted-foreground" />;
   return <span>Connect</span>;
