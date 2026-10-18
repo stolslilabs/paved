@@ -29,7 +29,8 @@ screens will be built from; the decks and scores below are computed, not estimat
 | 7 | Crossroads | Junctions and stops: a crossroads ends every road that reaches it. | SFRFRFCFR RFRFRFCFF WFFFFFFFR FFFFCCCFF SFRFRFRFR | **1285** | 900 |
 | 8 | Hearth and field | A road, a city and the forest between them, closed by the same tile. | FFCFFFFFC RFRFFFCFR CCCCCFRFC CCCCCFRFC CCCCCCCCC | **1515** | 1061 |
 | 9 | Patience | Discarding twice to keep the board open for a big finish. | RFFFRFFFR CCCCCFFFC WFFFFFFFF CCCCCFRFC CCCCCFRFC | **971** | 680 |
-| 10 | The first village | Everything together: cities, roads, a junction and the size bonus. | FFFFCCCFF SFRFRFCFR FFCFFFFFC SFRFRFRFR FFCFFFFFC CFFFCFFFC | **1578** | 1105 |
+| 10 | The monastery | Wonders: a wonder scores 900 once all eight tiles around it are placed. | FFCFFFCFF RFRFFFFFR CCCCCFRFC | **900** | 630 |
+| 11 | The first village | Everything together: cities, roads, a junction and the size bonus. | FFFFCCCFF SFRFRFCFR FFCFFFFFC SFRFRFRFR FFCFFFFFC CFFFCFFFC | **1578** | 1105 |
 
 Levels 1 to 4 have 3 to 5 tiles in play, as asked (the starter counts): the first levels are short and
 explain the controls, the next ones add a rule at a time. The decks are in draw order, left to right.
@@ -132,7 +133,19 @@ Best line (971 points; search: 7145 positions):
 4. `CCCCCFRFC` at (1, 0), East
 5. `CCCCCFRFC` at (-1, 0), West: forest of 3 = 321, road of 3 = 321, forest of 4 = 329
 
-### Level 10, The first village
+### Level 10, The monastery
+
+> The monastery stands south of the starter, with most of its neighbours already built. Fill the three empty cells below it, rotating each tile so its edges match, and the wonder scores.
+
+Already on the board when the level starts: `WFFFFFFFF` at (0, -1), North; `RFRFFFFFR` at (-1, 0), East; `RFRFRFCFF` at (1, 0), West; `FFFFCCCFF` at (-1, -1), East; `FFFFCCCFF` at (1, -1), North.
+
+Best line (900 points; search: 1574 positions):
+
+1. `FFCFFFCFF` at (-1, -2), North
+2. `RFRFFFFFR` at (0, -2), South
+3. `CCCCCFRFC` at (1, -2), East: wonder of 0 = 900
+
+### Level 11, The first village
 
 > Six tiles, three cities and a road. Build the village the way you would in a real game, then compare your score with the best there is.
 
@@ -154,26 +167,26 @@ estimated: a score is what `build` and `discard` return, so it is the score a pl
 Pruning, all exact (it never changes the optimum):
 
 - A tile that looks the same in two rotations (a straight road, the full city, a wonder) is tried once per cell.
+- The tiles a level places in advance (level 10) are part of the position; they add no moves.
 - On the last tile a discard is tried only when nothing fits: a build never takes points.
 
 The search visits about 6 positions per extra tile, so it stays practical up to six drawn tiles (the finale: 66 446
-positions, about a second). A deck of eight or more would need a bound on the score still to come, see
-"Decisions to confirm". The test `__tests__/story-solver.test.ts` solves every level, checks the stored best
+positions, about a second). A deck of eight or more would need a bound on the score still to come. The test `__tests__/story-solver.test.ts` solves every level, checks the stored best
 score, replays the best line on the engine, and checks that this page states each level's deck, best score and
 2-star threshold. The run time of each level is printed by that test and is in the pull request.
 
 ## Decisions to confirm
 
-1. **The level list** (10 levels, one rule each, finale last). Reorder, drop or reword freely: only the
+1. **The level list** (11 levels, one rule each, finale last). Reorder, drop or reword freely: only the
    decks and numbers have to be recomputed, and the test will say which.
-2. **In levels 1, 2 and 5 no outcome falls between 70 % and 100 %** (checked over every playable game:
-   level 1 ends on 0, 209 or 321; level 2 on 0, 419 or 643; level 5 on 0, 319, 369, 419 or 740), so 2 stars and
+2. **In levels 1, 2, 5 and 10 no outcome falls between 70 % and 100 %** (checked over every playable game:
+   level 1 ends on 0, 209 or 321; level 2 on 0, 419 or 643; level 5 on 0, 319, 369, 419 or 740; level 10 on 0 or 900), so 2 stars and
    3 stars coincide there. That is acceptable for the first levels; if not, a decoy tile can allow a
    middle score. Levels 3 and 4 do have a 2-star outcome (369, and 738).
-3. **No wonder level yet.** A wonder scores 900 once its eight neighbours are placed, so a level needs at
-   least eight drawn tiles, beyond what the solver searches in seconds. Proposal: a level 11 once the
-   solver has an upper bound (for instance, the best score each remaining tile could still add), or a wonder
-   level whose neighbours are mostly given by the starter. Wonder tiles appear as decoys in levels 3, 6, 7 and 9.
+3. **Wonder level (10) starts with a half-built board.** A wonder scores 900 once its eight neighbours are placed,
+   which is more tiles than the solver can search from an empty board in seconds. So level 10 puts the wonder and
+   four of its neighbours on the board from the start (the starter is the fifth neighbour) and deals the last
+   three. Only 0 or 900 is possible there. Wonder tiles also appear as decoys in levels 3, 6, 7 and 9.
 4. **Starter**: every level uses the usual starter, so the board looks the same in every level and the engine
    needs nothing special. A level with another starter is possible if wanted.
 5. **Showing the whole deck** (#540's deck sheet): the deck is fixed and known, so the sheet can list all of

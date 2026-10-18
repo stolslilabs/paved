@@ -5,7 +5,7 @@
 
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
-import { EngineGame, type Placement } from "./game";
+import { EngineGame, type EngineConfig, type Placement } from "./game";
 import { areaAt } from "./geometry";
 
 export type SolverMove =
@@ -53,6 +53,8 @@ function distinctPlacements(game: EngineGame, plan: PlanType): Placement[] {
 export interface SolveOptions {
   /** Search discards too (default). Off, the optimum is that of a player who never discards. */
   readonly discards?: boolean;
+  /** Tiles on the board before the first draw (a level's `placed`). */
+  readonly placed?: EngineConfig["placed"];
 }
 
 /** Solves a level: `sequence` is the deck after the starter, in draw order. */
@@ -91,7 +93,7 @@ export function solve(sequence: readonly PlanType[], options: SolveOptions = {})
     path.pop();
   };
 
-  visit(EngineGame.start({ deck: "story", seed: 0n, sequence }));
+  visit(EngineGame.start({ deck: "story", seed: 0n, sequence, placed: options.placed }));
   return { optimum: best, moves: bestMoves, nodes };
 }
 

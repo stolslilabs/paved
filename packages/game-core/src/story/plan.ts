@@ -3,6 +3,8 @@
 // this order, so the optimum is well defined (engine deck `story`, solved by `engine/solver.ts`).
 // `docs/client/story-mode.md` describes the levels for the owner; a test keeps both in step.
 
+import type { Placement } from "../engine/game";
+import { OrientationType as O } from "../types/orientation";
 import { PlanType as P } from "../types/plan";
 
 export interface StoryLevel {
@@ -14,6 +16,8 @@ export interface StoryLevel {
   readonly intro: string;
   /** The deck after the starter, in draw order. */
   readonly deck: readonly P[];
+  /** Tiles already on the board when the level starts, besides the starter (default none). */
+  readonly placed?: readonly ({ plan: P } & Placement)[];
   /** The best score: 3 stars. */
   readonly optimum: number;
 }
@@ -107,6 +111,22 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
   },
   {
     id: 10,
+    title: "The monastery",
+    teaches: "Wonders: a wonder scores 900 once all eight tiles around it are placed.",
+    intro:
+      "The monastery stands south of the starter, with most of its neighbours already built. Fill the three empty cells below it, rotating each tile so its edges match, and the wonder scores.",
+    deck: [P.FFCFFFCFF, P.RFRFFFFFR, P.CCCCCFRFC],
+    placed: [
+      { plan: P.WFFFFFFFF, orientation: O.North, x: 0, y: -1 },
+      { plan: P.RFRFFFFFR, orientation: O.East, x: -1, y: 0 },
+      { plan: P.RFRFRFCFF, orientation: O.West, x: 1, y: 0 },
+      { plan: P.FFFFCCCFF, orientation: O.East, x: -1, y: -1 },
+      { plan: P.FFFFCCCFF, orientation: O.North, x: 1, y: -1 },
+    ],
+    optimum: 900,
+  },
+  {
+    id: 11,
     title: "The first village",
     teaches: "Everything together: cities, roads, a junction and the size bonus.",
     intro:

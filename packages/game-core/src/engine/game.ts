@@ -69,7 +69,16 @@ export interface EngineConfig {
    * draw (no withdrawal, no reseed) and plays `sequence.length + 1` tiles, the starter included.
    */
   readonly sequence?: readonly PlanType[];
+  /**
+   * Deck `story` only: tiles already on the board when the level starts (written without a move, as
+   * `write` does, owned by the player, ids from `PREPLACED_ID`). They are not drawn and do not count
+   * against the tile limit.
+   */
+  readonly placed?: readonly ({ plan: PlanType } & Placement)[];
 }
+
+/** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
+export const PREPLACED_ID = 200;
 
 export interface Placement {
   readonly orientation: OrientationType;
@@ -183,6 +192,9 @@ export class EngineGame {
     if (config.deck === "story") {
       if (!config.sequence?.length) throw new EngineError("Game: a story needs a sequence");
       this.sequence = config.sequence;
+      if (config.tileLimit !== undefined && config.tileLimit > config.sequence.length + 1) {
+        throw new EngineError("Game: the tile limit exceeds the sequence");
+      }
     }
     this.tileLimit =
       config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
@@ -209,6 +221,7 @@ export class EngineGame {
     if (game.deck === "simple") {
       game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
     }
+    config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
     game.draw();
     return game;
   }

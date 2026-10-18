@@ -21,6 +21,25 @@ describe("story deck", () => {
     expect(game.over).toBe(true);
   });
 
+  it("refuses a tile limit beyond its sequence", () => {
+    expect(() =>
+      EngineGame.start({ deck: "story", seed: 0n, sequence: [PlanType.WFFFFFFFF], tileLimit: 3 }),
+    ).toThrow("tile limit exceeds the sequence");
+    expect(EngineGame.start({ deck: "story", seed: 0n, sequence: [PlanType.WFFFFFFFF], tileLimit: 2 }).tileLimit).toBe(2);
+  });
+
+  it("starts with the placed tiles on the board, uncounted", () => {
+    const game = EngineGame.start({
+      deck: "story",
+      seed: 0n,
+      sequence: [PlanType.RFFFRFFFR],
+      placed: [{ plan: PlanType.WFFFFFFFF, orientation: "North" as never, x: 0, y: -1 }],
+    });
+    expect(game.placed()).toHaveLength(2);
+    expect(game.tileLimit).toBe(2);
+    expect(game.tileAt(0, -1)?.plan).toBe(PlanType.WFFFFFFFF);
+  });
+
   it("needs a sequence", () => {
     expect(() => EngineGame.start({ deck: "story", seed: 0n })).toThrow("a story needs a sequence");
   });
@@ -56,12 +75,12 @@ describe("story plan", () => {
   for (const level of STORY_LEVELS) {
     it(`level ${level.id} "${level.title}": the solver finds the stored optimum`, () => {
       const started = performance.now();
-      const solution = solve(level.deck);
+      const solution = solve(level.deck, { placed: level.placed });
       const elapsed = Math.round(performance.now() - started);
       console.info(`story level ${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
       expect(solution.optimum).toBe(level.optimum);
       // The moves replay to the same score on the engine
-      const game = EngineGame.start({ deck: "story", seed: 0n, sequence: level.deck });
+      const game = EngineGame.start({ deck: "story", seed: 0n, sequence: level.deck, placed: level.placed });
       for (const move of solution.moves) {
         if (move.action === "discard") game.discard();
         else game.build(move.placement);
