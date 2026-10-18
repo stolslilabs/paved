@@ -187,6 +187,8 @@ export class GameScene {
     // The tiles' labels come in idle slices once a highlight is on: each draws the board again.
     this.tiles.onLabelled(() => this.requestRender());
     this.effects = new Effects();
+    // SMAA loads lazily: draw again once the chain has its pass.
+    this.effects.setOnRebuilt(() => this.requestRender());
 
     this.sceneGroup.add(this.tiles.getGroup());
 

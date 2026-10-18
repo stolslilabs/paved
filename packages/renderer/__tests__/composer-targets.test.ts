@@ -43,11 +43,12 @@ function recordingRenderer() {
   return new Proxy(known, { get: (o, k) => (k in o ? (o as any)[k] : () => {}) }) as unknown as THREE.WebGLRenderer & { bound: typeof bound };
 }
 
-function framesFor(antialiasing: FaceAntialiasing, tier: (typeof QUALITY_TIERS)[number]) {
+async function framesFor(antialiasing: FaceAntialiasing, tier: (typeof QUALITY_TIERS)[number]) {
   const renderer = recordingRenderer();
   const effects = new Effects();
   effects.setLook(LOOK_PRESETS.mockup, tier);
   effects.init(renderer, new THREE.Scene(), new THREE.PerspectiveCamera(), "play", antialiasing);
+  await effects.ready();
   const composer = effects.getComposer()!;
   const { renderTarget1, renderTarget2 } = composer;
   for (let frame = 0; frame < 4; frame++) effects.render();
@@ -59,8 +60,8 @@ describe("the composer's targets (Q3-GPU)", () => {
 
   for (const antialiasing of ["off", "msaa"] as const) {
     for (const tier of QUALITY_TIERS) {
-      it(`binds one of its two targets, never the other, over frames: ${antialiasing}, ${tier}`, () => {
-        const { bound, renderTarget1, renderTarget2, composer } = framesFor(antialiasing, tier);
+      it(`binds one of its two targets, never the other, over frames: ${antialiasing}, ${tier}`, async () => {
+        const { bound, renderTarget1, renderTarget2, composer } = await framesFor(antialiasing, tier);
         // The scene lands in the read buffer every frame; the write buffer is never bound, so never allocated.
         expect(bound).toContain(composer.readBuffer);
         expect(bound.filter((t) => t === renderTarget1 || t === renderTarget2).every((t) => t === composer.readBuffer)).toBe(true);
@@ -70,9 +71,9 @@ describe("the composer's targets (Q3-GPU)", () => {
     }
   }
 
-  it("binds both with SMAA, which reads what the finish pass wrote", () => {
+  it("binds both with SMAA, which reads what the finish pass wrote", async () => {
     vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
-    const { bound, renderTarget1, renderTarget2 } = framesFor("smaa", "medium");
+    const { bound, renderTarget1, renderTarget2 } = await framesFor("smaa", "medium");
     expect(bound).toContain(renderTarget1);
     expect(bound).toContain(renderTarget2);
   });

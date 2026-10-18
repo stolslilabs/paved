@@ -29,9 +29,10 @@ function fakeRenderer(): THREE.WebGLRenderer {
   } as unknown as THREE.WebGLRenderer;
 }
 
-function composerFor(antialiasing: FaceAntialiasing, samples?: number) {
+async function composerFor(antialiasing: FaceAntialiasing, samples?: number) {
   const effects = new Effects();
   effects.init(fakeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera(), "play", antialiasing, samples);
+  await effects.ready();
   return { effects, composer: effects.getComposer()! };
 }
 
@@ -51,8 +52,8 @@ describe("face antialiasing", () => {
     expect(resolveFaceAntialiasing(true, { maxSamples: 2, software: false }, 2)).toBe("msaa");
   });
 
-  it("draws the scene into a multisampled target for MSAA, the same target every frame", () => {
-    const { composer } = composerFor("msaa");
+  it("draws the scene into a multisampled target for MSAA, the same target every frame", async () => {
+    const { composer } = await composerFor("msaa");
     expect(MSAA_SAMPLES).toBe(4);
     expect(composer.readBuffer.samples).toBe(MSAA_SAMPLES);
     expect(composer.passes.some((pass) => pass instanceof SMAAPass)).toBe(false);
@@ -72,8 +73,8 @@ describe("face antialiasing", () => {
     }
   });
 
-  it("takes the samples of the settings, and rebuilds the chain when they change", () => {
-    const { effects, composer } = composerFor("msaa", 2);
+  it("takes the samples of the settings, and rebuilds the chain when they change", async () => {
+    const { effects, composer } = await composerFor("msaa", 2);
     expect(composer.readBuffer.samples).toBe(2);
     effects.setAntialiasing("msaa", 4);
     expect(effects.getComposer()!.readBuffer.samples).toBe(4);
@@ -83,23 +84,24 @@ describe("face antialiasing", () => {
     expect(resolveRendererSettings({ msaaSamples: 3 }).msaaSamples).toBe(MSAA_SAMPLES);
   });
 
-  it("ends the chain with SMAA instead, on a target with no samples", () => {
+  it("ends the chain with SMAA instead, on a target with no samples", async () => {
     vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
-    const { composer } = composerFor("smaa");
+    const { composer } = await composerFor("smaa");
     expect(composer.renderTarget1.samples).toBe(0);
     expect(composer.passes.at(-1)).toBeInstanceOf(SMAAPass);
     // SMAA reads what the finish pass wrote: the finish pass swaps, and SMAA (three's) swaps back, two swaps a frame.
     expect(composer.passes.filter((pass) => pass.needsSwap)).toEqual(composer.passes.slice(-2));
   });
 
-  it("has neither when off, and rebuilds the chain when the mode changes", () => {
+  it("has neither when off, and rebuilds the chain when the mode changes", async () => {
     vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
-    const { effects, composer } = composerFor("off");
+    const { effects, composer } = await composerFor("off");
     expect(composer.renderTarget1.samples).toBe(0);
     expect(composer.passes.some((pass) => pass instanceof SMAAPass)).toBe(false);
     effects.setAntialiasing("msaa");
     expect(effects.getComposer()!.renderTarget1.samples).toBe(MSAA_SAMPLES);
     effects.setAntialiasing("smaa");
+    await effects.ready();
     expect(effects.getComposer()!.passes.at(-1)).toBeInstanceOf(SMAAPass);
     expect(effects.getAntialiasing()).toBe("smaa");
   });
@@ -134,9 +136,25 @@ describe("face antialiasing", () => {
     info.mockRestore();
   });
 
-  it("leaves SMAA out where there is no Image constructor (React Native)", () => {
+  it("builds the chain without SMAA until the lazy module arrives, then rebuilds with it and calls back", async () => {
+    vi.stubGlobal("Image", class { src = ""; onload: (() => void) | null = null; });
+    // A fresh module: the lazy SMAA class is not loaded yet.
+    vi.resetModules();
+    const fresh = await import("../src/core/Effects");
+    const effects = new fresh.Effects();
+    const rebuilt = vi.fn();
+    effects.setOnRebuilt(rebuilt);
+    effects.init(fakeRenderer(), new THREE.Scene(), new THREE.PerspectiveCamera(), "play", "smaa");
+    expect(effects.getPassNames()).not.toContain("smaa");
+    await effects.ready();
+    expect(effects.getComposer()!.passes.at(-1)!.constructor.name).toBe("SMAAPass");
+    expect(effects.getPassNames().at(-1)).toBe("smaa");
+    expect(rebuilt).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves SMAA out where there is no Image constructor (React Native)", async () => {
     vi.stubGlobal("Image", undefined);
-    const { composer } = composerFor("smaa");
+    const { composer } = await composerFor("smaa");
     expect(composer.passes.some((pass) => pass instanceof SMAAPass)).toBe(false);
   });
 });
