@@ -147,6 +147,7 @@ export class LocalSession implements PageSession {
         discardedCount: g.discarded,
       },
       tiles,
+      discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
       lastScored,
       readonly: false,
