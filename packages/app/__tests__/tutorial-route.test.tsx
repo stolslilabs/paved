@@ -102,10 +102,11 @@ describe("/tutorial (P6): the scripted game on the board scene", { timeout: 30_0
     await userEvent.click(await screen.findByRole("button", { name: "Claim First Stone" }));
     expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
 
-    // Disconnect is in the footer, which the board routes do not have: Home, Disconnect, then back to the tutorial.
+    // Disconnect is in Settings (it sends Home): Home, Settings, Disconnect, then back to the tutorial.
     await userEvent.click(within(complete()).getByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }, { timeout: 5000 }));
     await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }, { timeout: 5000 }));
-    await userEvent.click(screen.getByText("Learn the rules, one stage at a time."));
+    await userEvent.click(await screen.findByText("Learn the rules, one stage at a time.", {}, { timeout: 5000 }));
     await screen.findByRole("heading", { name: "Tutorial complete" }, { timeout: 5000 });
     await userEvent.click(within(complete()).getByRole("button", { name: "Connect" }));
     // The second account starts from its own read: offered the claim, not told the first account's.

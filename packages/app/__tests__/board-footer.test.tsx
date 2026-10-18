@@ -13,7 +13,7 @@ function open(path: string) {
   render(<App router={createTestRouter(path)} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
 }
 
-preloadPages("board", "play");
+preloadPages("board", "play", "credits");
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,18 +26,17 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-// jsdom has no layout: what keeps a board page inside the viewport is its structure. The board's root is the viewport's
-// height (`h-dvh`, overflow hidden) and the only element of the page in the flow, so nothing follows it to scroll to; the D-15
-// notice is inside it. The PR's captures measure it in a browser at 360 and 1280 px.
-describe("the board pages do not overflow the viewport (P6 review)", () => {
+// jsdom has no layout: what keeps a page inside the viewport is its structure. The board's root is the viewport's height
+// (`h-dvh`, overflow hidden) and the only element of the page in the flow; no page has a footer, and none mentions Cartridge
+// (the notice is on the Credits page, #536). The PR's captures measure it in a browser at 375 and 1440 px.
+describe("no footer, no Cartridge notice outside the Credits page (#536)", () => {
   // The Challenge board's own case is in `challenge-route.test.tsx`, on a game the fakes can replay.
-  it.each(["/training", "/tutorial"])("%s: no footer after the board, the D-15 notice inside it", async (path) => {
+  it.each(["/training", "/tutorial"])("%s: nothing after the board, no notice", async (path) => {
     open(path);
-    // The board itself, not the Challenge's "Reading the game" screen before it.
-    await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
-    const link = screen.getByRole("link", { name: "Third-party notices" });
+    const board = (await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).closest(".h-dvh");
     expect(screen.queryByRole("contentinfo")).toBeNull();
-    const board = link.closest(".h-dvh");
+    expect(screen.queryByText(/Cartridge/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
     expect(board).not.toBeNull();
     expect(board).toHaveClass("overflow-hidden");
     // After it, only the toaster's region, which is fixed and takes no room in the flow.
@@ -46,16 +45,24 @@ describe("the board pages do not overflow the viewport (P6 review)", () => {
     expect(after.map((e) => e.getAttribute("aria-label") ?? e.tagName)).toEqual(after.length ? [expect.stringMatching(/^Notifications/)] : []);
   });
 
-  it("/game/:id, once its game is read (or cannot be): no footer, the D-15 notice on the screen", async () => {
+  it("/game/:id: no footer, no notice", async () => {
     open(`/game/${GAME_PLAYING.id}`);
     await waitFor(() => expect(screen.queryByText("Reading the game…")).toBeNull(), { timeout: 5000 });
-    expect(await screen.findByRole("link", { name: "Third-party notices" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
     expect(screen.queryByRole("contentinfo")).toBeNull();
   });
 
-  it("a page that scrolls keeps the footer after it", async () => {
+  it("/play: no footer after the page", async () => {
     open("/play");
-    const link = await screen.findByRole("link", { name: "Third-party notices" }, { timeout: 5000 });
-    expect(link.closest("footer")).not.toBeNull();
+    await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByText(/Cartridge/)).toBeNull();
+  });
+
+  it("/settings/credits: the Cartridge notice and the notices link", async () => {
+    open("/settings/credits");
+    expect(await screen.findByRole("heading", { level: 1, name: "Credits" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByText(/Uses Cartridge Controller, © Cartridge Gaming Company/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
   });
 });

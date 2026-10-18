@@ -42,6 +42,7 @@ export default function Page() {
       }}
       onOpenTheme={() => go("/settings/theme")}
       onOpenReferral={() => go("/referral")}
+      onOpenCredits={() => go("/settings/credits")}
       onNavigate={onNavigate}
     />
   );
