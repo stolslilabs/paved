@@ -31,7 +31,7 @@ export interface PlacementBoardProps {
   [arg: string]: unknown;
 }
 
-const tiles = toRenderTiles(BOARD_72.tiles, 1);
+export const tiles = toRenderTiles(BOARD_72.tiles, 1);
 
 function boundsOf(): Bounds {
   const xs = tiles.map((t) => t.worldX * TILE_SIZE);
@@ -41,7 +41,7 @@ function boundsOf(): Bounds {
   const near = xs.map((x, i) => ({ x, z: zs[i], d: (x - cx) ** 2 + (zs[i] - cz) ** 2 })).sort((a, b) => a.d - b.d)[0];
   return { minX, maxX, minZ, maxZ, anchor: [near.x, near.z] };
 }
-const BOUNDS = boundsOf();
+export const BOUNDS = boundsOf();
 
 /**
  * The empty cells next to a tile, as the legal slots of a tile in hand (any rotation): about two in three fit the
@@ -68,7 +68,7 @@ export const PLACED: HoverState = (() => {
 })();
 
 /** The board with the placed tile on its slot: the confirm's board. */
-const WITH_PLACED = [
+export const WITH_PLACED = [
   ...tiles,
   { ...tiles[1]!, id: 10_000, x: tiles[1]!.x + PLACED.x - tiles[1]!.worldX, y: tiles[1]!.y - (PLACED.y - tiles[1]!.worldZ), worldX: PLACED.x, worldZ: PLACED.y },
 ];
