@@ -9,3 +9,5 @@ export const g = new Intl.RelativeTimeFormat("en");
 export const h = Intl.NumberFormat("fr-FR").format(1);
 export const i = formatInteger(1270).replaceAll(",", " ");
 export const j = formatPoints(1270).replace(",", "\u00a0");
+export const k = formatPoints(Math.round(x)).replace(",", " ");
+export const l = formatInteger(clamp(a, 0, max(b, 1))).replaceAll(",", " ");
