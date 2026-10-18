@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { AppNav } from "./app-nav";
 import { BalancesSlot } from "./balances-context";
+import { MockMarkSlot } from "./mock-mark";
 
 export interface TabPageProps {
   /** The tab shown as active (the route map's `nav`). */
@@ -38,7 +39,10 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
               </Button>
             )}
             <div className="flex min-w-0 flex-col wrap-anywhere">
-              <h1 className="font-display text-2xl font-semibold">{title}</h1>
+              <span className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-2xl font-semibold">{title}</h1>
+                <MockMarkSlot />
+              </span>
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>
           </div>
