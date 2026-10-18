@@ -94,9 +94,9 @@ The driver is standalone for its own two packages only. Its in-play mock imports
 
 ## Machine
 
-The Mac (12 cores). Google
-Chrome 154.0.8037.98, WebGL 2 through ANGLE Metal (`ANGLE (Apple, ANGLE Metal Renderer)`),
-so a real GPU. Window 1440 x 900 on the built-in display (3456 x 2234, 1728 x 1117
+The Mac. Google
+Chrome 154.0.8037.98, WebGL 2 through ANGLE Metal,
+so a real GPU. Window 1440 x 900 on the built-in display (1728 x 1117
 at 120 Hz); two 60 Hz external displays were attached. The idle refresh interval measured by the page
 is 8.3 ms: 120 Hz. `devicePixelRatio` is 2, but the renderer clamps its pixel ratio to at most 1, so
 the canvas is 1440 x 813 pixels. The Mac was not otherwise idle (a desktop session with other
@@ -301,7 +301,7 @@ one profile per run (its own output folder), so the two board profiles are two i
 
 ## Machine and load
 
-The same Mac as baseline B: the Mac (12 cores), Chrome
+The same Mac as baseline B: the Mac, Chrome
 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display (two 60 Hz external displays
 attached, not used). A desktop session in normal use. The 1-minute load average, recorded after
 every run (`driver.loadAvg` in each raw file, `machine.json` per folder): 3.5-5.3 for the throttled

@@ -203,7 +203,7 @@ cache:
 
 ## Machine and load
 
-The machine of #194: the Mac (12 cores), Chrome
+The machine of #194: the Mac, Chrome
 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display, a desktop session in normal use.
 The bench ran from a fresh copy of this branch (`git archive`) with its own `node_modules`, so no
 module left over from an older install could be picked up. The 1-minute load average after the runs
