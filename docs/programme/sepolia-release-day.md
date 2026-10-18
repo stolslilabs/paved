@@ -232,7 +232,7 @@ The indexer must be a build that knows G4's events (`GuardianSet`, `SpawnPaused`
 After step 2 is done (a client published first shows "unavailable" for the leaderboard, the player pages and the quests):
 
 1. Build: [Building the client](../client/f-release.md#building-the-client).
-2. Publish and rollback: the same section (`publish.sh`, `switch.sh`).
+2. Publish and rollback: Vercel (the same document, "Vercel").
 3. Smoke in a browser, steps 1 to 9: [Smoke in a browser](../client/f-release.md#smoke-in-a-browser).
 4. Done: [What "done" means](../client/f-release.md#what-done-means).
 
