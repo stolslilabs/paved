@@ -69,7 +69,8 @@ export interface BoardViewportProps {
   /**
    * The legal slots of the tile in hand in any rotation (the contracts' coordinates): `fits` false where the current
    * rotation does not fit (a possible plate), where it does a valid one under its aura (the default). Every other free
-   * cell next to a tile gets an invalid plate (`boardPlates`).
+   * cell next to a tile gets an invalid plate (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile that
+   * fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
@@ -113,7 +114,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   const gridSlots = useMemo(
     () =>
       placementHighlight
-        ? boardPlates(tiles, slots ?? []).map((p) => ({ ...toGridSlot(p.x, p.y), fits: p.state === "valid", ...(p.state === "invalid" ? { legal: false } : {}) }))
+        ? boardPlates(tiles, slots).map((p) => ({ ...toGridSlot(p.x, p.y), fits: p.state === "valid", ...(p.state === "invalid" ? { legal: false } : {}) }))
         : [],
     [tiles, slots, placementHighlight],
   );

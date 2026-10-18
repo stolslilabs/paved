@@ -24,6 +24,14 @@ describe("the plates' colours (PLATES)", () => {
 describe("the plan view's plates", () => {
   const plates = (container: HTMLElement) => Object.fromEntries([...container.querySelectorAll("[data-plate]")].map((p) => [p.closest("[style]")!.getAttribute("style")!, p.getAttribute("data-plate")]));
 
+  it("keeps the invalid plates for a tile in hand that fits nowhere (an empty list), and draws none with no tile (no list)", () => {
+    const nowhere = render(<BoardMap tiles={tiles} slots={[]} />);
+    expect([...nowhere.container.querySelectorAll("[data-plate]")].map((p) => p.getAttribute("data-plate"))).toEqual(["invalid", "invalid", "invalid", "invalid"]);
+    nowhere.unmount();
+    const none = render(<BoardMap tiles={tiles} />);
+    expect(none.container.querySelectorAll("[data-plate]")).toHaveLength(0);
+  });
+
   it("draws the three states: valid under its aura, possible, and every other free neighbour invalid", () => {
     const { container } = render(<BoardMap tiles={tiles} slots={[{ x: 1, y: 0, fits: true }, { x: 0, y: 1, fits: false }]} />);
     const states = [...container.querySelectorAll("[data-plate]")].map((p) => p.getAttribute("data-plate"));

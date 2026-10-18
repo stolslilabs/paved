@@ -393,8 +393,9 @@ function TutorialBoard() {
     () => preset !== null && view.game.canPlace({ orientation: orientationName(orientation), x: preset.x - CENTER, y: preset.y - CENTER }),
     [view, preset?.x, preset?.y, orientation],
   );
-  const slots = useMemo(() => (preset ? [{ ...preset, fits: presetFits }] : []), [preset?.x, preset?.y, presetFits]);
   const hand = board.hand;
+  // No tile in hand: undefined (no plate). A tile with no slot (a burn step): empty, invalid plates all around.
+  const slots = useMemo(() => (!hand ? undefined : preset ? [{ ...preset, fits: presetFits }] : []), [!!hand, preset?.x, preset?.y, presetFits]);
   const [confirmed, flash] = useConfirmFlash();
   const target = chosen ?? (hovered && same(hovered, preset) ? hovered : null);
   const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);

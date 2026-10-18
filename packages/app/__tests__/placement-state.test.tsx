@@ -47,7 +47,11 @@ describe("the plates (PLATES, P-74)", () => {
     ]);
     // A cell is never two plates, never a tile.
     expect(new Set(plates.map((p) => `${p.x},${p.y}`)).size).toBe(plates.length);
-    expect(boardPlates(tiles, [])).toEqual([]);
+    // No tile in hand (no list): no plate. A tile in hand that fits nowhere (an empty list): invalid plates all around.
+    expect(boardPlates(tiles, undefined)).toEqual([]);
+    const none = boardPlates(tiles, []);
+    expect(none.length).toBeGreaterThan(0);
+    expect(none.every((p) => p.state === "invalid")).toBe(true);
   });
 });
 

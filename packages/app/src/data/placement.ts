@@ -33,11 +33,12 @@ const SIDES = [
 
 /**
  * The plates of the tile in hand: every slot given (valid where `fits`, unset meaning it does; possible where not), then
- * every other free cell next to a tile, invalid (no rotation fits there), in reading order. No slot (no tile in hand):
- * no plate. Coordinates are the caller's, the same for the tiles and the slots.
+ * every other free cell next to a tile, invalid (no rotation fits there), in reading order. `slots` undefined (no tile in
+ * hand): no plate. An empty list is a tile in hand that fits nowhere: every free cell next to a tile is an invalid plate.
+ * Coordinates are the caller's, the same for the tiles and the slots.
  */
-export function boardPlates(tiles: ReadonlyArray<Slot>, slots: ReadonlyArray<Slot & { fits?: boolean }>): BoardPlate[] {
-  if (slots.length === 0) return [];
+export function boardPlates(tiles: ReadonlyArray<Slot>, slots: ReadonlyArray<Slot & { fits?: boolean }> | undefined): BoardPlate[] {
+  if (!slots) return [];
   const taken = new Set(tiles.map((t) => `${t.x},${t.y}`));
   const plates = new Map<string, BoardPlate>();
   for (const s of slots) plates.set(`${s.x},${s.y}`, { x: s.x, y: s.y, state: s.fits === false ? "possible" : "valid" });
@@ -186,9 +187,11 @@ export function usePlacement({
   }, [resetKey]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const slots = useMemo(() => (plan === null ? [] : boardSlots(slotsAt, orientation)), [plan, slotsAt, orientation, version]);
+  const handSlots = useMemo(() => (plan === null ? [] : boardSlots(slotsAt, orientation)), [plan, slotsAt, orientation, version]);
+  // Undefined with no tile in hand (no plate); an empty list is a tile that fits nowhere (invalid plates all around).
+  const slots = plan === null ? undefined : handSlots;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const view = useMemo(() => placementView({ plan, slots, chosen, hovered, orientation, orientationsAt }), [plan, slots, chosen, hovered, orientation, orientationsAt, version]);
+  const view = useMemo(() => placementView({ plan, slots: handSlots, chosen, hovered, orientation, orientationsAt }), [plan, handSlots, chosen, hovered, orientation, orientationsAt, version]);
 
   // A cell is chosen in a rotation the tile fits there: the current one, unless it does not fit.
   const choose = useCallback(

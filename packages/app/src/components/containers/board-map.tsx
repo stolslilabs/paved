@@ -13,7 +13,8 @@ export interface BoardMapProps {
   /**
    * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a plate each, valid
    * under its aura where the current rotation fits (`fits`, unset: it fits), possible where not. Every other free cell
-   * next to a tile gets an invalid plate, not a button (`boardPlates`).
+   * next to a tile gets an invalid plate, not a button (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile
+   * that fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
   /** The tile in hand where it would go: placed (a white rim, red while its rotation does not fit) or a preview. */
@@ -84,11 +85,12 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
  * it where the 3D canvas is not given or cannot start: in the render tests (jsdom has no WebGL), without WebGL, and as
  * a plan view. With `slots` it is playable: each legal slot is a button on its plate, the ghost shows the tile in hand.
  */
-export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, className }: BoardMapProps) {
+export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, className }: BoardMapProps) {
+  const slotList = slots ?? [];
   if (tiles.length === 0) return null;
   const plates = highlight ? boardPlates(tiles, slots) : [];
   const invalid = plates.filter((p) => p.state === "invalid");
-  const cells = [...tiles, ...slots, ...invalid];
+  const cells = [...tiles, ...slotList, ...invalid];
   const xs = cells.map((t) => t.x);
   const ys = cells.map((t) => t.y);
   // The grid's rings around the tiles widen the map (drawn or not, the map keeps its frame).
@@ -114,7 +116,7 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
     <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)}>
       <div
         // A picture, unless its slots make it a set of controls.
-        role={slots.length ? "group" : "img"}
+        role={slotList.length ? "group" : "img"}
         aria-label={`Board of ${tiles.length} tiles`}
         className="grid aspect-square w-full max-w-[min(90vw,70vh)] gap-px"
         style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, aspectRatio: `${cols} / ${rows}` }}
@@ -143,7 +145,7 @@ export function BoardMap({ tiles, slots = [], ghost, confirmed, onSlotClick, hig
             <span data-plate="invalid" className={cn(PLATE, PLATE_STATE.invalid)} />
           </span>
         ))}
-        {slots.map((s) => {
+        {slotList.map((s) => {
           const chosen = ghost?.x === s.x && ghost.y === s.y;
           // A ghost given without `placed` is the chosen slot (the plan view has no hover).
           const placed = chosen && ghost?.placed !== false;
