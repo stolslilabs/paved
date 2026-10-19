@@ -256,12 +256,20 @@ describe("/play/challenge: the game's stake", () => {
 
   it("the 24 h expiry is read against the chain's time, not the browser's (UTC-BOUND)", async () => {
     const s = setup();
-    open("/play/challenge", s);
-    await enabledPay();
-    // The browser's clock is days away from the indexer's head: the expiry is the head's plus 24 h, in UTC.
-    const expiry = new Date((FIXTURE_HEAD.timestamp + 86_400) * 1000).toISOString();
-    await waitFor(() => expect(document.querySelector("time")).toHaveAttribute("dateTime", expiry));
-    expect(document.querySelector("time")).toHaveTextContent(/^in 24 h · \w{3}, \w{3} \d+, \d{2}:\d{2} UTC$/);
+    // The browser's clock is days away from the indexer's head, and stands still: the chain's time is the head plus the
+    // seconds since it was read, so a loaded machine that took a second or more to reach the assertion read an expiry
+    // seconds later (6 s, once).
+    vi.useFakeTimers({ toFake: ["Date"], now: (FIXTURE_HEAD.timestamp + 5 * 86_400) * 1000 });
+    try {
+      open("/play/challenge", s);
+      await enabledPay();
+      // The expiry is the head's plus 24 h, in UTC.
+      const expiry = new Date((FIXTURE_HEAD.timestamp + 86_400) * 1000).toISOString();
+      await waitFor(() => expect(document.querySelector("time")).toHaveAttribute("dateTime", expiry));
+      expect(document.querySelector("time")).toHaveTextContent(/^in 24 h · \w{3}, \w{3} \d+, \d{2}:\d{2} UTC$/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sends the referrer of ?ref=, which keeps the 5 % out of the swap", async () => {
