@@ -83,6 +83,7 @@ pub mod systems {
     pub mod economy;
     pub mod faucet;
     pub mod setup;
+    pub mod story;
     pub mod token;
     pub mod vault;
 }
@@ -129,5 +130,6 @@ pub mod tests {
     pub mod owners;
     pub mod seed;
     pub mod setup;
+    pub mod story;
     pub mod walk_cost;
 }

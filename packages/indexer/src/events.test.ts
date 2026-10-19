@@ -618,10 +618,13 @@ describe("Cobbles v1 events (Setup, cobbles-v1.md 6.2)", () => {
     });
     const claim = ev.cobblesClaimed(0x1234, 2, 9, 0, 50, 50);
     expect(decode("setup", claim.keys, claim.data)).toMatchObject({ kind: 2, id: 9, period: 0n });
-    // a kind of neither, a cobbles value wider than u8, a balance above 2^53, a missing member
+    // a star of a Story level: level 1 of campaign 2, its third star
+    const star = ev.cobblesClaimed(0x1234, 3, 0x201, 3, 15, 65);
+    expect(decode("setup", star.keys, star.data)).toMatchObject({ kind: 3, id: 0x201, period: 3n, cobbles: 15 });
+    // a kind of none of them, a cobbles value wider than u8, a balance above 2^53, a missing member
     for (const [kind, cobbles, balance] of [
       [0, 5, 5],
-      [3, 5, 5],
+      [4, 5, 5],
       [1, 256, 256],
       [1, 5, 2 ** 60],
     ] as const) {
