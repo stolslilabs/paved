@@ -34,7 +34,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
       className={cn(
         "z-20 flex items-center border-border bg-background/95 backdrop-blur",
         "sticky inset-x-0 bottom-0 order-last border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
-        "desktop:top-0 desktop:bottom-auto desktop:order-first desktop:gap-6 desktop:border-t-0 desktop:border-b desktop:px-8 desktop:py-3",
+        "desktop:top-0 desktop:bottom-auto desktop:order-first desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
         className,
       )}
     >
@@ -51,7 +51,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
               onClick={() => onNavigate?.(tab.id)}
               className={cn(
                 "state-layer flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                "desktop:flex-none desktop:flex-row desktop:gap-2 desktop:px-3.5 desktop:py-2.5 desktop:text-sm",
+                "desktop:flex-none desktop:flex-row desktop:gap-2 desktop:px-3 desktop:py-2.5 desktop:text-sm wide:px-3.5",
                 isActive ? "text-primary" : "text-foreground",
               )}
             >

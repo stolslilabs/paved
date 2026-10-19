@@ -38,7 +38,7 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
       )}
     >
       {onBack && (
-        <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="size-9 shrink-0 mobile:size-10" aria-label="Back" onClick={onBack}>
           <Icon name="chevron-left" />
         </Button>
       )}

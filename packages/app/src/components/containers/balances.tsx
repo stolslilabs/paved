@@ -45,9 +45,9 @@ const ROWS: readonly { kind: BalanceKind; label: string; icon: string; action: s
   { kind: "cobbles", label: "Cobbles", icon: "cubes-stacked", action: "Cobble shop" },
 ];
 
-function Figure({ kind, state }: { kind: BalanceKind; state: Extract<BalancesState, { status: "ready" }> }) {
+function Figure({ kind, state, compact }: { kind: BalanceKind; state: Extract<BalancesState, { status: "ready" }>; compact?: boolean }) {
   const value = kind === "cobbles" ? state.cobbles : kind === "usdc" ? state.usdc : state.paved;
-  if (value === undefined) return <Skeleton className="mt-1 h-4 w-20" />;
+  if (value === undefined) return <Skeleton className={cn("mt-1 h-4", compact ? "w-14" : "w-20")} />;
   if (kind === "cobbles") return value === null ? <span className="numeric">–</span> : <Cobbles value={value as number} />;
   return value === null ? <span className="numeric">–</span> : <Amount value={value as bigint} token={kind as "usdc" | "paved"} className="text-sm" />;
 }
@@ -68,10 +68,14 @@ function Row({ kind, state, onAction, faucet, minting, compact }: { kind: Balanc
         compact ? "gap-x-2 px-2.5 py-1" : "w-full flex-wrap",
       )}
     >
-      <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
-      <span className={cn("flex min-w-0 flex-col", !compact && "flex-1 basis-40")}>
+      {/* In the header the icon waits for `wide`: from 1024 px the wordmark, the five items and the three figures share one line
+          (a wrapper: Font Awesome's own CSS sets the icon's display). */}
+      <span className={cn("inline-flex", compact && "hidden wide:inline-flex")}>
+        <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
+      </span>
+      <span className={cn("flex min-w-0 flex-col", compact ? "whitespace-nowrap" : "flex-1 basis-40")}>
         <span className="text-xs text-muted-foreground">{row.label}</span>
-        {state.status === "ready" ? <Figure kind={kind} state={state} /> : <Skeleton className="mt-1 h-4 w-20" />}
+        {state.status === "ready" ? <Figure kind={kind} state={state} compact={compact} /> : <Skeleton className={cn("mt-1 h-4", compact ? "w-14" : "w-20")} />}
       </span>
       {/* In the header the action is the row's name only (its `aria-label`); the sheet spells it out. */}
       {!compact && (
@@ -127,7 +131,7 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
   const [open, setOpen] = useState(defaultOpen);
   if (layout === "rail") {
     return (
-      <section aria-label="Balances" className={cn("hidden shrink-0 items-center desktop:flex", className)}>
+      <section aria-label="Balances" className={cn("hidden min-w-0 items-center desktop:flex", className)}>
         <Rows state={state} onAction={onAction} onConnect={onConnect} faucet={faucet} minting={minting} compact />
       </section>
     );
