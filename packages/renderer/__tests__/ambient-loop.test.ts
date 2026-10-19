@@ -101,16 +101,10 @@ describe("the ambient settings: one 'Ambient effects' switch, off on Low and und
   });
 
   it("takes the fields given over the base, and keeps the base's for a value out of range", () => {
-    const s = resolveAmbientSettings({ fps: 240, particles: { water: { size: -1, opacity: 3, color: "#fff" }, boardCap: 10 } });
-    expect(s.fps).toBe(60);
-    expect(s.particles.water.size).toBe(DEFAULT_AMBIENT_SETTINGS.particles.water.size);
-    expect(s.particles.water.opacity).toBe(1);
-    expect(s.particles.water.color).toBe("#fff");
-    expect(s.particles.boardCap).toBe(10);
-    expect(s.particles.wonder).toEqual(DEFAULT_AMBIENT_SETTINGS.particles.wonder);
+    const s = resolveAmbientSettings({ fps: 240, reducedMotion: true });
+    expect(s).toEqual({ enabled: false, fps: 60, reducedMotion: true });
     expect(resolveAmbientSettings({ fps: 0 }).fps).toBe(30);
-    // The cap is never under the floor.
-    expect(resolveAmbientSettings({ particles: { minPixels: 20, maxPixels: 5 } }).particles).toMatchObject({ minPixels: 20, maxPixels: 20 });
+    expect(resolveAmbientSettings({ enabled: "yes" as never, reducedMotion: "no" as never })).toEqual(DEFAULT_AMBIENT_SETTINGS);
   });
 
   it("runs only on, above the Low tier, and without reduced motion", () => {
