@@ -3481,6 +3481,19 @@ sit in `paved.settings.v1`; the Settings "Music" row is a switch with a volume s
 `containers/music-player.tsx` is the player (play or pause, next, volume, the title from the file name, the time). No route or
 shell mounts the provider yet: only the stories do.
 
+*The settings player (#569).* `containers/music-player.tsx` is now a card in the Sound group of the shared settings panel (the
+Settings page and the board's sheet): the track's thumbnail, its title, a thin progress line with the time, and Previous,
+Play or Pause, Next; the Music slider above it is its volume. The titles are the album's (`TRACK_LIST` in `lib/music/tracks.ts`;
+`trackTitle` reads a file name only for a track not listed). The images' originals are sources in
+`packages/app/asset-sources/music/`, never shipped; `scripts/compress-music-art.ts` writes square WebP copies named after the
+tracks, `public/music-art/128/` (the 64 px thumbnail, loaded lazily when the player shows) and `512/` (the lock screen). The
+player keeps a history: `previous()` goes back through it with the crossfade (at its start, to the start of the track) and
+`skip()` forward again before drawing a new track. Pause is the setting, as before: it sets the music volume to 0 (remembered
+after a reload) and resume brings back the level before; while it is off, Previous and Next still change the track. The Media
+Session (`lib/music/media-session.ts`, in the audio engine's chunk) shows the title, the album "Paved" and the artwork, and
+takes play, pause, previous and next from the lock screen and the headphones; a play from the lock screen plays while the
+page is hidden, until the tab is shown or hidden again.
+
 *The viewer's opt-out (PM, 2026-10-16).* `paved.theme.v1` is the switch of the players' skins: `"default"` shows every board
 (Challenge, Training, the tutorial, the hand) on the base models, whoever's game it is, and `useBoardSkins` then returns
 `NO_SKINS` and reads nothing, so the renderer asks for no variant and no skin model is downloaded; any other value
