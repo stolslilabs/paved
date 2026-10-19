@@ -257,12 +257,13 @@ describe("Theme shop", () => {
 describe("My tiles", () => {
   const row = (plan: number) => screen.getByRole("listitem", { name: `Tile ${plan}` });
 
-  it("offers each tile Default and the themes it is owned in, the active one picked", () => {
+  it("offers each owned tile Default and the themes it is owned in, the active one picked; the others on Default, together", () => {
     render(wrap(<MyTilesScene {...MY_TILES.owned} />));
-    expect(within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("listitem")).toHaveLength(19);
+    expect(within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(screen.getByRole("list", { name: "Default only" })).getAllByRole("listitem")).toHaveLength(15);
     expect(within(row(13)).getByRole("radio", { name: "Tile 13: Forest" })).toHaveAttribute("aria-checked", "true");
     expect(within(row(7)).getByRole("radio", { name: "Tile 7: Default" })).toHaveAttribute("aria-checked", "true");
-    expect(within(row(1)).getAllByRole("radio")).toHaveLength(1);
+    expect(within(row(1)).queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 
@@ -296,7 +297,8 @@ describe("My tiles", () => {
   it("with no skin owned, every tile is on Default and the shop is a tap away", async () => {
     const onOpenShop = vi.fn();
     render(wrap(<MyTilesScene {...MY_TILES.none} onOpenShop={onOpenShop} />));
-    expect(screen.getAllByRole("radio")).toHaveLength(19);
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Default only" })).getAllByRole("listitem")).toHaveLength(19);
     await userEvent.click(screen.getByRole("button", { name: "Open the Forest shop" }));
     expect(onOpenShop).toHaveBeenCalledWith("forest");
   });
